@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -271,6 +272,25 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			},
 		},
 		{
+			name: "cron-evm-chain-id",
+			tomlTemplate: func(nameAndExternalJobID string) string {
+				return fmt.Sprintf(testspecs.CronSpecEVMChainIDTemplate, nameAndExternalJobID)
+			},
+			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
+				require.Equal(t, http.StatusOK, r.StatusCode)
+				resource := presenters.JobResource{}
+				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
+				assert.NoError(t, err)
+
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
+				require.NoError(t, err)
+				require.NotNil(t, jb.CronSpec)
+
+				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
+				require.Equal(t, ubig.NewI(42), jb.CronSpec.EVMChainID)
+			},
+		},
+		{
 			name: "directrequest",
 			tomlTemplate: func(nameAndExternalJobID string) string {
 				return testspecs.GetDirectRequestSpecWithUUID(uuid.MustParse(nameAndExternalJobID))
@@ -392,11 +412,9 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		{
 			name: "workflow",
 			tomlTemplate: func(_ string) string {
-				id := "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
-				owner := "00000000000000000000000000000000000000aa"
 				workflow := `
 triggers:
-  - id: "mercury-trigger"
+  - id: "mercury-trigger@1.0.0"
     config:
       feedIds:
         - "0x1111111111111111111100000000000000000000000000000000000000000000"
@@ -404,7 +422,7 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000"
 
 consensus:
-  - id: "offchain_reporting"
+  - id: "offchain_reporting@2.0.0"
     ref: "evm_median"
     inputs:
       observations:
@@ -426,14 +444,14 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - id: "write_polygon-testnet-mumbai"
+  - id: "write_polygon-testnet-mumbai@3.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
       params: ["$(report)"]
       abi: "receive(report bytes)"
-  - id: "write_ethereum-testnet-sepolia"
+  - id: "write_ethereum-testnet-sepolia@4.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -441,14 +459,14 @@ targets:
       params: ["$(report)"]
       abi: "receive(report bytes)"
 `
-				return testspecs.GenerateWorkflowSpec(id, owner, workflow).Toml()
+				return testspecs.GenerateWorkflowJobSpec(t, workflow).Toml()
 			},
 			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				resp := cltest.ParseResponseBody(t, r)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(resp, &resource)
-				require.NoError(t, err)
+				require.NoError(t, err, "failed to parse response body: %s", resp)
 
 				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
@@ -457,6 +475,7 @@ targets:
 				assert.Equal(t, jb.WorkflowSpec.Workflow, resource.WorkflowSpec.Workflow)
 				assert.Equal(t, jb.WorkflowSpec.WorkflowID, resource.WorkflowSpec.WorkflowID)
 				assert.Equal(t, jb.WorkflowSpec.WorkflowOwner, resource.WorkflowSpec.WorkflowOwner)
+				assert.Equal(t, jb.WorkflowSpec.WorkflowName, resource.WorkflowSpec.WorkflowName)
 			},
 		},
 	}
@@ -465,6 +484,7 @@ targets:
 		t.Run(c.name, func(t *testing.T) {
 			nameAndExternalJobID := uuid.New().String()
 			toml := c.tomlTemplate(nameAndExternalJobID)
+			t.Log("Job toml:", toml)
 			body, err := json.Marshal(web.CreateJobRequest{
 				TOML: toml,
 			})

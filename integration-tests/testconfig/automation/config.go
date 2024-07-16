@@ -48,6 +48,7 @@ type General struct {
 	SpecType              *string `toml:"spec_type"`
 	ChainlinkNodeLogLevel *string `toml:"chainlink_node_log_level"`
 	UsePrometheus         *bool   `toml:"use_prometheus"`
+	RemoveNamespace       *bool   `toml:"remove_namespace"`
 }
 
 func (c *General) Validate() error {
@@ -65,6 +66,12 @@ func (c *General) Validate() error {
 	}
 	if c.ChainlinkNodeLogLevel == nil {
 		return errors.New("chainlink_node_log_level must be set")
+	}
+	if c.UsePrometheus == nil {
+		return errors.New("use_prometheus must be set")
+	}
+	if c.RemoveNamespace == nil {
+		return errors.New("remove_namespace must be set")
 	}
 
 	return nil

@@ -33,14 +33,14 @@ func Test_QueryArgs(t *testing.T) {
 		},
 		{
 			name:      "custom argument",
-			queryArgs: newEmptyArgs().withCustomArg("arg", "value"),
+			queryArgs: newEmptyArgs().withField("arg", "value"),
 			want: map[string]interface{}{
 				"arg": "value",
 			},
 		},
 		{
 			name:      "hash converted to bytes",
-			queryArgs: newEmptyArgs().withCustomHashArg("hash", common.Hash{}),
+			queryArgs: newEmptyArgs().withField("hash", common.Hash{}),
 			want: map[string]interface{}{
 				"hash": make([]byte, 32),
 			},

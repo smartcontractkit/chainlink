@@ -59,7 +59,6 @@ var (
 	logEventLookback           int64 = 250
 )
 
-//go:generate mockery --quiet --name Registry --output ./mocks/ --case=underscore
 type Registry interface {
 	GetUpkeep(opts *bind.CallOpts, id *big.Int) (keeper_registry_wrapper2_0.UpkeepInfo, error)
 	GetState(opts *bind.CallOpts) (keeper_registry_wrapper2_0.GetState, error)
@@ -102,10 +101,12 @@ func NewEVMRegistryService(addr common.Address, client legacyevm.Chain, lggr log
 		enc:      EVMAutomationEncoder20{},
 	}
 
-	r.ctx, r.cancel = context.WithCancel(context.Background())
+	r.stopCh = make(chan struct{})
 	r.reInit = time.NewTimer(reInitializationDelay)
 
-	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
+	ctx, cancel := r.stopCh.NewCtx()
+	defer cancel()
+	if err := r.registerEvents(ctx, client.ID().Uint64(), addr); err != nil {
 		return nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
 	}
 
@@ -152,8 +153,7 @@ type EvmRegistry struct {
 	mu            sync.RWMutex
 	txHashes      map[string]bool
 	lastPollBlock int64
-	ctx           context.Context
-	cancel        context.CancelFunc
+	stopCh        services.StopChan
 	active        map[string]activeUpkeep
 	headFunc      func(ocr2keepers.BlockKey)
 	runState      int
@@ -209,62 +209,68 @@ func (r *EvmRegistry) Start(_ context.Context) error {
 		defer r.mu.Unlock()
 		// initialize the upkeep keys; if the reInit timer returns, do it again
 		{
-			go func(cx context.Context, tmr *time.Timer, lggr logger.Logger, f func() error) {
-				err := f()
+			go func(tmr *time.Timer, lggr logger.Logger, f func(context.Context) error) {
+				ctx, cancel := r.stopCh.NewCtx()
+				defer cancel()
+				err := f(ctx)
 				if err != nil {
-					lggr.Errorf("failed to initialize upkeeps", err)
+					lggr.Errorf("failed to initialize upkeeps; error %v", err)
 				}
 
 				for {
 					select {
 					case <-tmr.C:
-						err = f()
+						err = f(ctx)
 						if err != nil {
-							lggr.Errorf("failed to re-initialize upkeeps", err)
+							lggr.Errorf("failed to re-initialize upkeeps; error %v", err)
 						}
 						tmr.Reset(reInitializationDelay)
-					case <-cx.Done():
+					case <-ctx.Done():
 						return
 					}
 				}
-			}(r.ctx, r.reInit, r.lggr, r.initialize)
+			}(r.reInit, r.lggr, r.initialize)
 		}
 
 		// start polling logs on an interval
 		{
-			go func(cx context.Context, lggr logger.Logger, f func() error) {
+			go func(lggr logger.Logger, f func(context.Context) error) {
+				ctx, cancel := r.stopCh.NewCtx()
+				defer cancel()
 				ticker := time.NewTicker(time.Second)
 
 				for {
 					select {
 					case <-ticker.C:
-						err := f()
+						err := f(ctx)
 						if err != nil {
-							lggr.Errorf("failed to poll logs for upkeeps", err)
+							lggr.Errorf("failed to poll logs for upkeeps; error %v", err)
 						}
-					case <-cx.Done():
+					case <-ctx.Done():
 						ticker.Stop()
 						return
 					}
 				}
-			}(r.ctx, r.lggr, r.pollLogs)
+			}(r.lggr, r.pollLogs)
 		}
 
 		// run process to process logs from log channel
 		{
-			go func(cx context.Context, ch chan logpoller.Log, lggr logger.Logger, f func(logpoller.Log) error) {
+			go func(ch chan logpoller.Log, lggr logger.Logger, f func(context.Context, logpoller.Log) error) {
+				ctx, cancel := r.stopCh.NewCtx()
+				defer cancel()
 				for {
 					select {
 					case l := <-ch:
-						err := f(l)
+						err := f(ctx, l)
 						if err != nil {
-							lggr.Errorf("failed to process log for upkeep", err)
+							lggr.Errorf("failed to process log for upkeep; error %v", err)
 						}
-					case <-cx.Done():
+					case <-ctx.Done():
 						return
 					}
 				}
-			}(r.ctx, r.chLog, r.lggr, r.processUpkeepStateLog)
+			}(r.chLog, r.lggr, r.processUpkeepStateLog)
 		}
 
 		r.runState = 1
@@ -276,7 +282,7 @@ func (r *EvmRegistry) Close() error {
 	return r.sync.StopOnce("AutomationRegistry", func() error {
 		r.mu.Lock()
 		defer r.mu.Unlock()
-		r.cancel()
+		close(r.stopCh)
 		r.runState = 0
 		r.runError = nil
 		return nil
@@ -303,8 +309,8 @@ func (r *EvmRegistry) HealthReport() map[string]error {
 	return map[string]error{r.Name(): r.sync.Healthy()}
 }
 
-func (r *EvmRegistry) initialize() error {
-	startupCtx, cancel := context.WithTimeout(r.ctx, reInitializationDelay)
+func (r *EvmRegistry) initialize(ctx context.Context) error {
+	startupCtx, cancel := context.WithTimeout(ctx, reInitializationDelay)
 	defer cancel()
 
 	idMap := make(map[string]activeUpkeep)
@@ -345,12 +351,12 @@ func (r *EvmRegistry) initialize() error {
 	return nil
 }
 
-func (r *EvmRegistry) pollLogs() error {
+func (r *EvmRegistry) pollLogs(ctx context.Context) error {
 	var latest int64
 	var end logpoller.LogPollerBlock
 	var err error
 
-	if end, err = r.poller.LatestBlock(r.ctx); err != nil {
+	if end, err = r.poller.LatestBlock(ctx); err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 
@@ -367,7 +373,7 @@ func (r *EvmRegistry) pollLogs() error {
 	{
 		var logs []logpoller.Log
 		if logs, err = r.poller.LogsWithSigs(
-			r.ctx,
+			ctx,
 			end.BlockNumber-logEventLookback,
 			end.BlockNumber,
 			upkeepStateEvents,
@@ -388,17 +394,17 @@ func UpkeepFilterName(addr common.Address) string {
 	return logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
 }
 
-func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
+func (r *EvmRegistry) registerEvents(ctx context.Context, chainID uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need
-	return r.poller.RegisterFilter(r.ctx, logpoller.Filter{
+	return r.poller.RegisterFilter(ctx, logpoller.Filter{
 		Name:      UpkeepFilterName(addr),
 		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
 		Addresses: []common.Address{addr},
 	})
 }
 
-func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
+func (r *EvmRegistry) processUpkeepStateLog(ctx context.Context, l logpoller.Log) error {
 	hash := l.TxHash.String()
 	if _, ok := r.txHashes[hash]; ok {
 		return nil
@@ -413,23 +419,23 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 
 	switch l := abilog.(type) {
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered:
-		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
-		r.addToActive(l.Id, false)
+		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s in transaction %s", l.Id, hash)
+		r.addToActive(ctx, l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived:
-		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
-		r.addToActive(l.Id, false)
+		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id, hash)
+		r.addToActive(ctx, l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused:
-		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
-		r.addToActive(l.Id, false)
+		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id, hash)
+		r.addToActive(ctx, l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet:
-		r.lggr.Debugf("KeeperRegistryUpkeepGasLimitSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
-		r.addToActive(l.Id, true)
+		r.lggr.Debugf("KeeperRegistryUpkeepGasLimitSet log detected for upkeep ID %s in transaction %s", l.Id, hash)
+		r.addToActive(ctx, l.Id, true)
 	}
 
 	return nil
 }
 
-func (r *EvmRegistry) addToActive(id *big.Int, force bool) {
+func (r *EvmRegistry) addToActive(ctx context.Context, id *big.Int, force bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -438,9 +444,9 @@ func (r *EvmRegistry) addToActive(id *big.Int, force bool) {
 	}
 
 	if _, ok := r.active[id.String()]; !ok || force {
-		actives, err := r.getUpkeepConfigs(r.ctx, []*big.Int{id})
+		actives, err := r.getUpkeepConfigs(ctx, []*big.Int{id})
 		if err != nil {
-			r.lggr.Errorf("failed to get upkeep configs during adding active upkeep: %w", err)
+			r.lggr.Errorf("failed to get upkeep configs during adding active upkeep: %v", err)
 			return
 		}
 
@@ -587,16 +593,21 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			return nil, err
 		}
 
+		args := []interface{}{
+			map[string]interface{}{
+				"to":   r.addr.Hex(),
+				"data": hexutil.Bytes(payload),
+			},
+		}
+
+		if opts.BlockNumber != nil {
+			args = append(args, hexutil.EncodeBig(opts.BlockNumber))
+		}
+
 		var result string
 		checkReqs[i] = rpc.BatchElem{
 			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
-					"to":   r.addr.Hex(),
-					"data": hexutil.Bytes(payload),
-				},
-				hexutil.EncodeBig(opts.BlockNumber),
-			},
+			Args:   args,
 			Result: &result,
 		}
 
@@ -653,16 +664,21 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			return nil, err
 		}
 
+		args := []interface{}{
+			map[string]interface{}{
+				"to":   r.addr.Hex(),
+				"data": hexutil.Bytes(payload),
+			},
+		}
+
+		if opts.BlockNumber != nil {
+			args = append(args, hexutil.EncodeBig(opts.BlockNumber))
+		}
+
 		var result string
 		performReqs = append(performReqs, rpc.BatchElem{
 			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
-					"to":   r.addr.Hex(),
-					"data": hexutil.Bytes(payload),
-				},
-				hexutil.EncodeBig(opts.BlockNumber),
-			},
+			Args:   args,
 			Result: &result,
 		})
 
@@ -719,16 +735,21 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 			return nil, fmt.Errorf("failed to pack id with abi: %s", err)
 		}
 
+		args := []interface{}{
+			map[string]interface{}{
+				"to":   r.addr.Hex(),
+				"data": hexutil.Bytes(payload),
+			},
+		}
+
+		if opts.BlockNumber != nil {
+			args = append(args, hexutil.EncodeBig(opts.BlockNumber))
+		}
+
 		var result string
 		uReqs[i] = rpc.BatchElem{
 			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
-					"to":   r.addr.Hex(),
-					"data": hexutil.Bytes(payload),
-				},
-				hexutil.EncodeBig(opts.BlockNumber),
-			},
+			Args:   args,
 			Result: &result,
 		}
 

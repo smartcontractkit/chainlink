@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -15,12 +16,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	ksmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 )
 
 var nilBigInt *big.Int
@@ -35,11 +37,12 @@ func TestBalanceMonitor_Start(t *testing.T) {
 	t.Parallel()
 
 	t.Run("updates balance from nil for multiple keys", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := ksmocks.NewEth(t)
+		k0Addr := testutils.NewAddress()
+		k1Addr := testutils.NewAddress()
+		ethKeyStore.On("EnabledAddressesForChain", mock.Anything, mock.Anything).
+			Return([]common.Address{k0Addr, k1Addr}, nil)
 		ethClient := newEthClientMock(t)
-		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
-		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.Test(t))
 
@@ -62,11 +65,11 @@ func TestBalanceMonitor_Start(t *testing.T) {
 	})
 
 	t.Run("handles nil head", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := ksmocks.NewEth(t)
+		k0Addr := testutils.NewAddress()
+		ethKeyStore.On("EnabledAddressesForChain", mock.Anything, mock.Anything).
+			Return([]common.Address{k0Addr}, nil)
 		ethClient := newEthClientMock(t)
-
-		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.Test(t))
 		k0bal := big.NewInt(42)
@@ -81,25 +84,25 @@ func TestBalanceMonitor_Start(t *testing.T) {
 	})
 
 	t.Run("cancelled context", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := ksmocks.NewEth(t)
+		k0Addr := testutils.NewAddress()
+		ethKeyStore.On("EnabledAddressesForChain", mock.Anything, mock.Anything).
+			Return([]common.Address{k0Addr}, nil)
 		ethClient := newEthClientMock(t)
 
-		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
-
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.Test(t))
-		ctxCancelledAwaiter := cltest.NewAwaiter()
+		ctxCancelledAwaiter := testutils.NewAwaiter()
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Run(func(args mock.Arguments) {
 			ctx := args.Get(0).(context.Context)
 			select {
-			case <-time.After(testutils.WaitTimeout(t)):
+			case <-time.After(tests.WaitTimeout(t)):
 			case <-ctx.Done():
 				ctxCancelledAwaiter.ItHappened()
 			}
 		}).Return(nil, nil)
 
-		ctx, cancel := context.WithCancel(testutils.Context(t))
+		ctx, cancel := context.WithCancel(tests.Context(t))
 		go func() {
 			<-time.After(time.Second)
 			cancel()
@@ -110,11 +113,11 @@ func TestBalanceMonitor_Start(t *testing.T) {
 	})
 
 	t.Run("recovers on error", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := ksmocks.NewEth(t)
+		k0Addr := testutils.NewAddress()
+		ethKeyStore.On("EnabledAddressesForChain", mock.Anything, mock.Anything).
+			Return([]common.Address{k0Addr}, nil)
 		ethClient := newEthClientMock(t)
-
-		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.Test(t))
 
@@ -134,12 +137,12 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 	t.Parallel()
 
 	t.Run("updates balance for multiple keys", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := ksmocks.NewEth(t)
+		k0Addr := testutils.NewAddress()
+		k1Addr := testutils.NewAddress()
+		ethKeyStore.On("EnabledAddressesForChain", mock.Anything, mock.Anything).
+			Return([]common.Address{k0Addr, k1Addr}, nil)
 		ethClient := newEthClientMock(t)
-
-		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
-		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.Test(t))
 		k0bal := big.NewInt(42)
@@ -147,7 +150,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		k1bal := big.NewInt(0)
 		k1bal.SetString("19223372036854776000", 10)
 
-		head := cltest.Head(0)
+		head := testutils.Head(0)
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal, nil)
 		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal, nil)
@@ -158,7 +161,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal, nil)
 
 		// Do the thing
-		bm.OnNewLongestChain(testutils.Context(t), head)
+		bm.OnNewLongestChain(tests.Context(t), head)
 
 		<-bm.WorkDone()
 		assert.Equal(t, k0bal, bm.GetEthBalance(k0Addr).ToInt())
@@ -168,12 +171,12 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		k0bal2 := big.NewInt(142)
 		k1bal2 := big.NewInt(142)
 
-		head = cltest.Head(1)
+		head = testutils.Head(1)
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal2, nil)
 		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal2, nil)
 
-		bm.OnNewLongestChain(testutils.Context(t), head)
+		bm.OnNewLongestChain(tests.Context(t), head)
 
 		<-bm.WorkDone()
 		assert.Equal(t, k0bal2, bm.GetEthBalance(k0Addr).ToInt())
@@ -184,10 +187,9 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-
-	cltest.MustInsertRandomKey(t, ethKeyStore)
+	ethKeyStore := ksmocks.NewEth(t)
+	ethKeyStore.On("EnabledAddressesForChain", mock.Anything, mock.Anything).
+		Return([]common.Address{testutils.NewAddress()}, nil)
 
 	ethClient := newEthClientMock(t)
 
@@ -197,7 +199,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 		Return(big.NewInt(1), nil)
 	servicetest.RunHealthy(t, bm)
 
-	head := cltest.Head(0)
+	head := testutils.Head(0)
 
 	// Only expect this twice, even though 10 heads will come in
 	mockUnblocker := make(chan time.Time)
@@ -216,11 +218,11 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 
 	// Do the thing multiple times
 	for i := 0; i < 10; i++ {
-		bm.OnNewLongestChain(testutils.Context(t), head)
+		bm.OnNewLongestChain(tests.Context(t), head)
 	}
 
 	// Unblock the first mock
-	cltest.CallbackOrTimeout(t, "FewerRPCCallsWhenBehind unblock BalanceAt", func() {
+	callbackOrTimeout(t, "FewerRPCCallsWhenBehind unblock BalanceAt", func() {
 		mockUnblocker <- time.Time{}
 	})
 
@@ -252,5 +254,23 @@ func Test_ApproximateFloat64(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, test.want, float)
 		})
+	}
+}
+
+func callbackOrTimeout(t testing.TB, msg string, callback func()) {
+	t.Helper()
+
+	duration := 100 * time.Millisecond
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		callback()
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(duration):
+		t.Fatalf("CallbackOrTimeout: %s timed out", msg)
 	}
 }

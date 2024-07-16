@@ -25,23 +25,20 @@ import (
 	"github.com/smartcontractkit/seth"
 	"github.com/smartcontractkit/wasp"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
@@ -207,11 +204,6 @@ func randomWait(minMilliseconds, maxMilliseconds int) {
 	time.Sleep(time.Duration(randomMilliseconds) * time.Millisecond)
 }
 
-type LogEmitterChannel struct {
-	logsEmitted int
-	err         error
-}
-
 // getIntSlice returns a slice of ints of the provided length
 func getIntSlice(length int) []int {
 	result := make([]int, length)
@@ -230,95 +222,6 @@ func getStringSlice(length int) []string {
 	}
 
 	return result
-}
-
-// emitEvents emits events from the provided log emitter concurrently according to the provided config
-func emitEvents(ctx context.Context, l zerolog.Logger, client *seth.Client, logEmitter *contracts.LogEmitter, cfg *lp_config.Config, wg *sync.WaitGroup, results chan LogEmitterChannel) {
-	address := (*logEmitter).Address().String()
-	defer wg.Done()
-
-	var executionGroup sync.WaitGroup
-
-	// Atomic counter is used to keep track of the number of logs emitted
-	var atomicCounter = atomic.Int32{}
-
-	for i := 0; i < *cfg.LoopedConfig.ExecutionCount; i++ {
-		executionGroup.Add(1)
-	}
-
-	var emitAllEvents = func() {
-		defer executionGroup.Done()
-		current := atomicCounter.Add(1)
-
-		for _, event := range cfg.General.EventsToEmit {
-			select {
-			case <-ctx.Done():
-				l.Warn().Str("Emitter address", address).Msg("Context cancelled, not emitting events")
-				return
-			default:
-				l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
-				var err error
-				switch event.Name {
-				case "Log1":
-					_, err = client.Decode((*logEmitter).EmitLogIntsFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
-				case "Log2":
-					_, err = client.Decode((*logEmitter).EmitLogIntsIndexedFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
-				case "Log3":
-					_, err = client.Decode((*logEmitter).EmitLogStringsFromKey(getStringSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
-				case "Log4":
-					_, err = client.Decode((*logEmitter).EmitLogIntMultiIndexedFromKey(1, 1, *cfg.General.EventsPerTx, client.AnySyncedKey()))
-				default:
-					err = fmt.Errorf("unknown event name: %s", event.Name)
-				}
-
-				if err != nil {
-					results <- LogEmitterChannel{
-						err: err,
-					}
-					return
-				}
-				randomWait(*cfg.LoopedConfig.MinEmitWaitTimeMs, *cfg.LoopedConfig.MaxEmitWaitTimeMs)
-			}
-
-			if (current)%10 == 0 {
-				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msgf("Emitted all %d events", len(cfg.General.EventsToEmit))
-			}
-		}
-	}
-
-	clientNumber := int(*client.Cfg.EphemeralAddrs)
-	emissionsPerClient := *cfg.LoopedConfig.ExecutionCount / clientNumber
-	extraEmissions := *cfg.LoopedConfig.ExecutionCount % clientNumber
-
-	l.Debug().Str("Emitter address", address).
-		Int("Total logs to emit", *cfg.LoopedConfig.ExecutionCount*len(cfg.General.EventsToEmit)*(*cfg.General.EventsPerTx)).
-		Int("Total clients", clientNumber).
-		Int("Emissions per client", emissionsPerClient).
-		Int("Extra emissions", extraEmissions).
-		Msg("Starting to emit events")
-
-	for i := 0; i < clientNumber; i++ {
-		go func(key int) {
-			numTasks := emissionsPerClient
-			if key < extraEmissions {
-				numTasks++
-			}
-
-			for idx := 0; idx < numTasks; idx++ {
-				emitAllEvents()
-			}
-		}(i)
-	}
-
-	executionGroup.Wait()
-
-	localCounter := int(atomicCounter.Load()) * *cfg.General.EventsPerTx * len(cfg.General.EventsToEmit)
-	l.Info().Str("Emitter address", address).Int("Total logs emitted", localCounter).Msg("Finished emitting events")
-
-	results <- LogEmitterChannel{
-		logsEmitted: localCounter,
-		err:         nil,
-	}
 }
 
 // LogPollerHasFinalisedEndBlock returns true if all CL nodes have finalised processing the provided end block
@@ -702,7 +605,7 @@ func GetMissingLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmit
 	if int64(len(allLogsInEVMNode)) != expectedTotalLogsEmitted {
 		l.Warn().
 			Str("Actual/Expected", fmt.Sprintf("%d/%d", expectedTotalLogsEmitted, len(allLogsInEVMNode))).
-			Msg("Some of the test logs were not found in EVM node. This is a bug in the test")
+			Msg("Actual number of logs found on EVM nodes differs from expected ones. Most probably this is a bug in the test")
 	}
 
 	return missingLogs, nil
@@ -857,58 +760,89 @@ func runWaspGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*contra
 	return counter.value, nil
 }
 
+type logEmissionTask struct {
+	emitter      *contracts.LogEmitter
+	eventsToEmit []abi.Event
+	eventsPerTx  int
+}
+
+type emittedLogsData struct {
+	count int
+}
+
+func (d emittedLogsData) GetResult() emittedLogsData {
+	return d
+}
+
 // runLoopedGenerator runs the looped generator and returns the total number of logs emitted
 func runLoopedGenerator(t *testing.T, cfg *lp_config.Config, client *seth.Client, logEmitters []*contracts.LogEmitter) (int, error) {
 	l := logging.GetTestLogger(t)
 
-	// Start emitting events in parallel, each contract is emitting events in a separate goroutine
-	// We will stop as soon as we encounter an error
-	wg := &sync.WaitGroup{}
-	emitterCh := make(chan LogEmitterChannel, len(logEmitters))
-
-	ctx, cancelFn := context.WithCancel(context.Background())
-	defer cancelFn()
-
-	for i := 0; i < len(logEmitters); i++ {
-		wg.Add(1)
-		go func(idx int) {
-			emitEvents(ctx, l, client, logEmitters[idx], cfg, wg, emitterCh)
-		}(i)
+	tasks := make([]logEmissionTask, 0)
+	for i := 0; i < *cfg.LoopedConfig.ExecutionCount; i++ {
+		for _, logEmitter := range logEmitters {
+			tasks = append(tasks, logEmissionTask{
+				emitter:      logEmitter,
+				eventsToEmit: cfg.General.EventsToEmit,
+				eventsPerTx:  *cfg.General.EventsPerTx,
+			})
+		}
 	}
 
-	var emitErr error
-	total := 0
+	l.Info().Int("Total tasks", len(tasks)).Msg("Starting to emit events")
 
-	aggrChan := make(chan int, len(logEmitters))
+	var atomicCounter = atomic.Int32{}
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
+	var emitAllEventsFn = func(resultCh chan emittedLogsData, errorCh chan error, _ int, task logEmissionTask) {
+		current := atomicCounter.Add(1)
+
+		address := (*task.emitter).Address().String()
+
+		for _, event := range cfg.General.EventsToEmit {
+			l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
+			var err error
+			switch event.Name {
+			case "Log1":
+				_, err = client.Decode((*task.emitter).EmitLogIntsFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+			case "Log2":
+				_, err = client.Decode((*task.emitter).EmitLogIntsIndexedFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+			case "Log3":
+				_, err = client.Decode((*task.emitter).EmitLogStringsFromKey(getStringSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+			case "Log4":
+				_, err = client.Decode((*task.emitter).EmitLogIntMultiIndexedFromKey(1, 1, *cfg.General.EventsPerTx, client.AnySyncedKey()))
+			default:
+				err = fmt.Errorf("unknown event name: %s", event.Name)
+			}
+
+			if err != nil {
+				errorCh <- err
 				return
-			case emitter := <-emitterCh:
-				if emitter.err != nil {
-					emitErr = emitter.err
-					cancelFn()
-					return
-				}
-				aggrChan <- emitter.logsEmitted
+			}
+			randomWait(*cfg.LoopedConfig.MinEmitWaitTimeMs, *cfg.LoopedConfig.MaxEmitWaitTimeMs)
+
+			if (current)%10 == 0 {
+				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msgf("Emitted all %d events", len(cfg.General.EventsToEmit))
 			}
 		}
-	}()
 
-	wg.Wait()
-	close(emitterCh)
-
-	if emitErr != nil {
-		return 0, emitErr
+		resultCh <- emittedLogsData{
+			*cfg.General.EventsPerTx * len(cfg.General.EventsToEmit),
+		}
 	}
 
-	for i := 0; i < len(logEmitters); i++ {
-		total += <-aggrChan
+	executor := ctf_concurrency.NewConcurrentExecutor[emittedLogsData, emittedLogsData, logEmissionTask](l)
+	r, err := executor.Execute(int(*client.Cfg.EphemeralAddrs), tasks, emitAllEventsFn)
+
+	if err != nil {
+		return 0, err
 	}
 
-	return int(total), nil
+	var total int
+	for _, result := range r {
+		total += result.count
+	}
+
+	return total, nil
 }
 
 // GetExpectedLogCount returns the expected number of logs to be emitted based on the provided config
@@ -985,7 +919,7 @@ type ChaosPauseData struct {
 }
 
 // ExecuteChaosExperiment executes the configured chaos experiment, which consist of pausing CL node or Postgres containers
-func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, testConfig *tc.TestConfig, errorCh chan error) {
+func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, sethClient *seth.Client, testConfig *tc.TestConfig, errorCh chan error) {
 	if testConfig == nil || testConfig.LogPoller.ChaosConfig == nil || *testConfig.LogPoller.ChaosConfig.ExperimentCount == 0 {
 		errorCh <- nil
 		return
@@ -993,12 +927,6 @@ func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv
 
 	chaosChan := make(chan ChaosPauseData, *testConfig.LogPoller.ChaosConfig.ExperimentCount)
 	wg := &sync.WaitGroup{}
-
-	selectedNetwork := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
-	sethClient, err := testEnv.GetSethClient(selectedNetwork.ChainID)
-	if err != nil {
-		errorCh <- err
-	}
 
 	go func() {
 		// if we wanted to have more than 1 container paused, we'd need to make sure we aren't trying to pause an already paused one
@@ -1013,7 +941,7 @@ func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv
 					<-guardChan
 					wg.Done()
 					current := i + 1
-					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", current, testConfig.LogPoller.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
+					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", current, *testConfig.LogPoller.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
 				}()
 				chaosChan <- chaosPauseSyncFn(l, sethClient, testEnv.ClCluster, *testConfig.LogPoller.ChaosConfig.TargetComponent)
 				time.Sleep(10 * time.Second)
@@ -1046,46 +974,17 @@ func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv
 	}()
 }
 
-// GetFinalityDepth returns the finality depth for the provided chain ID
-func GetFinalityDepth(chainId int64) (int64, error) {
-	var finalityDepth int64
-	switch chainId {
-	// Ethereum Sepolia
-	case 11155111:
-		finalityDepth = 50
-	// Polygon Mumbai
-	case 80001:
-		finalityDepth = 500
-	// Simulated network
-	case 1337:
-		finalityDepth = 10
-	default:
-		return 0, fmt.Errorf("no known finality depth for chain %d", chainId)
-	}
-
-	return finalityDepth, nil
-}
-
 // GetEndBlockToWaitFor returns the end block to wait for based on chain id and finality tag provided in config
-func GetEndBlockToWaitFor(endBlock, chainId int64, cfg *lp_config.Config) (int64, error) {
+func GetEndBlockToWaitFor(endBlock int64, network blockchain.EVMNetwork, cfg *lp_config.Config) (int64, error) {
 	if *cfg.General.UseFinalityTag {
 		return endBlock + 1, nil
 	}
 
-	finalityDepth, err := GetFinalityDepth(chainId)
-	if err != nil {
-		return 0, err
-	}
-
-	return endBlock + finalityDepth, nil
+	return endBlock + int64(network.FinalityDepth), nil
 }
 
 const (
-	automationDefaultUpkeepGasLimit  = uint32(2500000)
-	automationDefaultLinkFunds       = int64(9e18)
-	automationDefaultUpkeepsToDeploy = 10
-	automationExpectedData           = "abcdef"
-	defaultAmountOfUpkeeps           = 2
+	defaultAmountOfUpkeeps = 2
 )
 
 var (
@@ -1111,10 +1010,9 @@ func SetupLogPollerTestDocker(
 	registryVersion ethereum.KeeperRegistryVersion,
 	registryConfig contracts.KeeperRegistrySettings,
 	upkeepsNeeded int,
-	lpPollingInterval time.Duration,
-	backupPollingInterval uint64,
 	finalityTagEnabled bool,
 	testConfig *tc.TestConfig,
+	logScannerSettings test_env.ChainlinkNodeLogScannerSettings,
 ) (
 	*seth.Client,
 	[]*client.ChainlinkClient,
@@ -1130,42 +1028,20 @@ func SetupLogPollerTestDocker(
 	registryConfig.RegistryVersion = registryVersion
 	network := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
 
-	finalityDepth, err := GetFinalityDepth(network.ChainID)
-	require.NoError(t, err, "Error getting finality depth")
-
-	// build the node config
-	clNodeConfig := node.NewConfig(node.NewBaseConfig())
-	syncInterval := *commonconfig.MustNewDuration(5 * time.Minute)
-	clNodeConfig.Feature.LogPoller = ptr.Ptr[bool](true)
-	clNodeConfig.OCR2.Enabled = ptr.Ptr[bool](true)
-	clNodeConfig.Keeper.TurnLookBack = ptr.Ptr[int64](int64(0))
-	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
-	clNodeConfig.Keeper.Registry.PerformGasOverhead = ptr.Ptr[uint32](uint32(150000))
-	clNodeConfig.P2P.V2.Enabled = ptr.Ptr[bool](true)
-	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
-	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
-
 	//launch the environment
 	var env *test_env.CLClusterTestEnv
 	chainlinkNodeFunding := 0.5
 	l.Debug().Msgf("Funding amount: %f", chainlinkNodeFunding)
 	clNodesCount := 5
 
-	var logPolllerSettingsFn = func(chain *evmcfg.Chain) *evmcfg.Chain {
-		chain.LogPollInterval = commonconfig.MustNewDuration(lpPollingInterval)
-		chain.FinalityDepth = ptr.Ptr[uint32](uint32(finalityDepth))
-		chain.FinalityTagEnabled = ptr.Ptr[bool](finalityTagEnabled)
-		chain.BackupLogPollerBlockDelay = ptr.Ptr[uint64](backupPollingInterval)
-		return chain
-	}
-
-	var evmNetworkSettingsFn = func(network *blockchain.EVMNetwork) *blockchain.EVMNetwork {
-		network.FinalityDepth = uint64(finalityDepth)
+	var evmNetworkExtraSettingsFn = func(network *blockchain.EVMNetwork) *blockchain.EVMNetwork {
+		// we need it, because by default finality depth is 0 for our simulated network
+		if network.Simulated && !finalityTagEnabled {
+			network.FinalityDepth = 10
+		}
 		network.FinalityTag = finalityTagEnabled
 		return network
 	}
-
-	evmNetworkSettingsFn(&network)
 
 	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, testConfig)
 	require.NoError(t, err, "Error building ethereum network config")
@@ -1175,38 +1051,26 @@ func SetupLogPollerTestDocker(
 		WithTestInstance(t).
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithCLNodes(clNodesCount).
-		WithCLNodeConfig(clNodeConfig).
-		WithFunding(big.NewFloat(chainlinkNodeFunding)).
-		WithChainOptions(logPolllerSettingsFn).
-		EVMNetworkOptions(evmNetworkSettingsFn).
+		WithEVMNetworkOptions(evmNetworkExtraSettingsFn).
+		WithChainlinkNodeLogScanner(logScannerSettings).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 
-	selectedNetwork := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
-	chainClient, err := env.GetSethClient(selectedNetwork.ChainID)
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	chainClient, err := seth_utils.GetChainClient(testConfig, *evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
+
+	err = actions.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(chainlinkNodeFunding))
+	require.NoError(t, err, "Failed to fund the nodes")
 
 	nodeClients := env.ClCluster.NodeAPIs()
 	workerNodes := nodeClients[1:]
 
-	var linkToken contracts.LinkToken
-
-	switch network.ChainID {
-	// Simulated
-	case 1337:
-		linkToken, err = contracts.DeployLinkTokenContract(l, chainClient)
-	// Ethereum Sepolia
-	case 11155111:
-		linkToken, err = env.ContractLoader.LoadLINKToken("0x779877A7B0D9E8603169DdbD7836e478b4624789")
-	// Polygon Mumbai
-	case 80001:
-		linkToken, err = env.ContractLoader.LoadLINKToken("0x326C977E6efc84E512bB9C30f76E30c160eD06FB")
-	default:
-		panic("Not implemented")
-	}
-	require.NoError(t, err, "Error loading/deploying LINK token")
+	linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
+	require.NoError(t, err, "Error deploying LINK token")
 
 	linkBalance, err := linkToken.BalanceOf(context.Background(), chainClient.MustGetRootKeyAddress().Hex())
 	require.NoError(t, err, "Error getting LINK balance")
@@ -1218,7 +1082,7 @@ func SetupLogPollerTestDocker(
 		require.FailNowf(t, "Not enough LINK", "Not enough LINK to run the test. Need at least %s. but has only %s", big.NewInt(0).Div(minLinkBalance, big.NewInt(1e18)).String(), big.NewInt(0).Div(linkBalance, big.NewInt(1e18)).String())
 	}
 
-	registry, registrar := actions_seth.DeployAutoOCRRegistryAndRegistrar(
+	registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
 		t,
 		chainClient,
 		registryVersion,
@@ -1344,6 +1208,7 @@ func FluentlyCheckIfAllNodesHaveLogCount(duration string, startBlock, endBlock i
 		}
 		l.Warn().
 			Msg("At least one CL node did not have expected log count. Retrying...")
+		time.Sleep(10 * time.Second)
 	}
 
 	return allNodesLogCountMatches, nil

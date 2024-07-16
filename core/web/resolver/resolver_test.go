@@ -72,9 +72,6 @@ type gqlTestFramework struct {
 	// The root GQL schema
 	RootSchema *graphql.Schema
 
-	// Contains the context with an injected dataloader
-	Ctx context.Context
-
 	Mocks *mocks
 }
 
@@ -88,7 +85,6 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			schema.MustGetRootSchema(),
 			&Resolver{App: app},
 		)
-		ctx = loader.InjectDataloader(testutils.Context(t), app)
 	)
 
 	// Setup mocks
@@ -128,7 +124,6 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		t:          t,
 		App:        app,
 		RootSchema: rootSchema,
-		Ctx:        ctx,
 		Mocks:      m,
 	}
 
@@ -146,20 +141,18 @@ func (f *gqlTestFramework) Timestamp() time.Time {
 	return time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)
 }
 
-// injectAuthenticatedUser injects a session into the request context
-func (f *gqlTestFramework) injectAuthenticatedUser() {
-	f.t.Helper()
-
+// withAuthenticatedUser injects a session into the request context
+func (f *gqlTestFramework) withAuthenticatedUser(ctx context.Context) context.Context {
 	user := clsessions.User{Email: "gqltester@chain.link", Role: clsessions.UserRoleAdmin}
 
-	f.Ctx = auth.WithGQLAuthenticatedSession(f.Ctx, user, "gqltesterSession")
+	return auth.WithGQLAuthenticatedSession(ctx, user, "gqltesterSession")
 }
 
 // GQLTestCase represents a single GQL request test.
 type GQLTestCase struct {
 	name          string
 	authenticated bool
-	before        func(*gqlTestFramework)
+	before        func(context.Context, *gqlTestFramework)
 	query         string
 	variables     map[string]interface{}
 	result        string
@@ -175,16 +168,15 @@ func RunGQLTests(t *testing.T, testCases []GQLTestCase) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			var (
-				f = setupFramework(t)
-			)
+			f := setupFramework(t)
+			ctx := loader.InjectDataloader(testutils.Context(t), f.App)
 
 			if tc.authenticated {
-				f.injectAuthenticatedUser()
+				ctx = f.withAuthenticatedUser(ctx)
 			}
 
 			if tc.before != nil {
-				tc.before(f)
+				tc.before(ctx, f)
 			}
 
 			// This does not print out the correct stack trace as the `RunTest`
@@ -193,7 +185,7 @@ func RunGQLTests(t *testing.T, testCases []GQLTestCase) {
 			//
 			// This would need to be fixed upstream.
 			gqltesting.RunTest(t, &gqltesting.Test{
-				Context:        f.Ctx,
+				Context:        ctx,
 				Schema:         f.RootSchema,
 				Query:          tc.query,
 				Variables:      tc.variables,

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// solhint-disable-next-line gas-struct-packing
 struct TestStruct {
   int32 Field;
   string DifferentField;
@@ -41,6 +42,7 @@ contract ChainReaderTester {
 
   TestStruct[] private s_seen;
   uint64[] private s_arr;
+  uint64 private s_value;
 
   constructor() {
     // See chain_reader_interface_tests.go in chainlink-relay
@@ -59,6 +61,10 @@ contract ChainReaderTester {
     MidLevelTestStruct calldata nestedStruct
   ) public {
     s_seen.push(TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct));
+  }
+
+  function setAlterablePrimitiveValue(uint64 value) public {
+    s_value = value;
   }
 
   function returnSeen(
@@ -82,6 +88,11 @@ contract ChainReaderTester {
   function getPrimitiveValue() public pure returns (uint64) {
     // See chain_reader_interface_tests.go in chainlink-relay
     return 3;
+  }
+
+  function getAlterablePrimitiveValue() public view returns (uint64) {
+    // See chain_reader_interface_tests.go in chainlink-relay
+    return s_value;
   }
 
   function getDifferentPrimitiveValue() public pure returns (uint64) {

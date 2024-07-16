@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"testing"
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
@@ -52,8 +53,8 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := webauth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := webauth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 
@@ -85,8 +86,8 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 		{
 			name:          "input errors",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := webauth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := webauth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 
@@ -110,8 +111,8 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 		{
 			name:          "failed to find user",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := webauth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := webauth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 
@@ -138,8 +139,8 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 		{
 			name:          "failed to generate token",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := webauth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := webauth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 
@@ -208,8 +209,8 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := webauth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := webauth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 
@@ -239,8 +240,8 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 		{
 			name:          "input errors",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := webauth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := webauth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 
@@ -264,8 +265,8 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 		{
 			name:          "failed to find user",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := webauth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := webauth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 
@@ -292,8 +293,8 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 		{
 			name:          "failed to delete token",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := webauth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := webauth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 

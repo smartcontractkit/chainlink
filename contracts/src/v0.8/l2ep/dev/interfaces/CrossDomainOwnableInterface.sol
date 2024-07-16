@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 /// @title CrossDomainOwnableInterface - A contract with helpers for cross-domain contract ownership
+// solhint-disable-next-line interface-starts-with-i
 interface CrossDomainOwnableInterface {
   event L1OwnershipTransferRequested(address indexed from, address indexed to);
 

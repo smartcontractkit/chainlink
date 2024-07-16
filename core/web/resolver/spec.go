@@ -125,12 +125,31 @@ func (r *SpecResolver) ToWorkflowSpec() (*WorkflowSpecResolver, bool) {
 	return &WorkflowSpecResolver{spec: *r.j.WorkflowSpec}, true
 }
 
+func (r *SpecResolver) ToStandardCapabilitiesSpec() (*StandardCapabilitiesSpecResolver, bool) {
+	if r.j.Type != job.StandardCapabilities {
+		return nil, false
+	}
+
+	return &StandardCapabilitiesSpecResolver{spec: *r.j.StandardCapabilitiesSpec}, true
+}
+
 type CronSpecResolver struct {
 	spec job.CronSpec
 }
 
 func (r *CronSpecResolver) Schedule() string {
 	return r.spec.CronSchedule
+}
+
+// EVMChainID resolves the spec's evm chain id.
+func (r *CronSpecResolver) EVMChainID() *string {
+	if r.spec.EVMChainID == nil {
+		return nil
+	}
+
+	chainID := r.spec.EVMChainID.String()
+
+	return &chainID
 }
 
 // CreatedAt resolves the spec's created at timestamp.
@@ -1005,4 +1024,24 @@ func (r *WorkflowSpecResolver) CreatedAt() graphql.Time {
 
 func (r *WorkflowSpecResolver) UpdatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.UpdatedAt}
+}
+
+type StandardCapabilitiesSpecResolver struct {
+	spec job.StandardCapabilitiesSpec
+}
+
+func (r *StandardCapabilitiesSpecResolver) ID() graphql.ID {
+	return graphql.ID(stringutils.FromInt32(r.spec.ID))
+}
+
+func (r *StandardCapabilitiesSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+func (r *StandardCapabilitiesSpecResolver) Command() string {
+	return r.spec.Command
+}
+
+func (r *StandardCapabilitiesSpecResolver) Config() *string {
+	return &r.spec.Config
 }

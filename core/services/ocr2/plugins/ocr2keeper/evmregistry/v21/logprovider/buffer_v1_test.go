@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -22,12 +23,12 @@ func TestLogEventBufferV1(t *testing.T) {
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0},
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 2},
 	)
-	results, remaining := buf.Dequeue(int64(1), 10, 1, 2, DefaultUpkeepSelector)
+	results, remaining := buf.Dequeue(int64(1), 2, true)
 	require.Equal(t, 2, len(results))
 	require.Equal(t, 2, remaining)
 	require.True(t, results[0].ID.Cmp(results[1].ID) != 0)
-	results, remaining = buf.Dequeue(int64(1), 10, 1, 2, DefaultUpkeepSelector)
-	require.Equal(t, 2, len(results))
+	results, remaining = buf.Dequeue(int64(1), 2, true)
+	require.Equal(t, 0, len(results))
 	require.Equal(t, 0, remaining)
 }
 
@@ -50,6 +51,91 @@ func TestLogEventBufferV1_SyncFilters(t *testing.T) {
 	require.Equal(t, 1, buf.NumOfUpkeeps())
 }
 
+type readableLogger struct {
+	logger.Logger
+	DebugwFn func(msg string, keysAndValues ...interface{})
+	NamedFn  func(name string) logger.Logger
+	WithFn   func(args ...interface{}) logger.Logger
+}
+
+func (l *readableLogger) Debugw(msg string, keysAndValues ...interface{}) {
+	l.DebugwFn(msg, keysAndValues...)
+}
+
+func (l *readableLogger) Named(name string) logger.Logger {
+	return l
+}
+
+func (l *readableLogger) With(args ...interface{}) logger.Logger {
+	return l
+}
+
+func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
+	t.Run("enqueuing logs for a block older than latest seen logs a message", func(t *testing.T) {
+		logReceived := false
+		readableLogger := &readableLogger{
+			DebugwFn: func(msg string, keysAndValues ...interface{}) {
+				if msg == "enqueuing logs from a block older than latest seen block" {
+					logReceived = true
+					assert.Equal(t, "logBlock", keysAndValues[0])
+					assert.Equal(t, int64(1), keysAndValues[1])
+					assert.Equal(t, "lastBlockSeen", keysAndValues[2])
+					assert.Equal(t, int64(2), keysAndValues[3])
+				}
+			},
+		}
+
+		logBufferV1 := NewLogBuffer(readableLogger, 10, 20, 1)
+
+		buf := logBufferV1.(*logBuffer)
+
+		buf.Enqueue(big.NewInt(1),
+			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 1},
+		)
+		buf.Enqueue(big.NewInt(2),
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x2"), LogIndex: 0},
+		)
+
+		assert.True(t, true, logReceived)
+	})
+
+	t.Run("enqueuing logs for the same block over multiple calls logs a message", func(t *testing.T) {
+		logReceived := false
+		readableLogger := &readableLogger{
+			DebugwFn: func(msg string, keysAndValues ...interface{}) {
+				if msg == "enqueuing logs again for a previously seen block" {
+					logReceived = true
+					assert.Equal(t, "blockNumber", keysAndValues[0])
+					assert.Equal(t, int64(3), keysAndValues[1])
+					assert.Equal(t, "numberOfEnqueues", keysAndValues[2])
+					assert.Equal(t, 2, keysAndValues[3])
+				}
+			},
+		}
+
+		logBufferV1 := NewLogBuffer(readableLogger, 10, 20, 1)
+
+		buf := logBufferV1.(*logBuffer)
+
+		buf.Enqueue(big.NewInt(1),
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 1},
+		)
+		buf.Enqueue(big.NewInt(2),
+			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0},
+		)
+		buf.Enqueue(big.NewInt(3),
+			logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3a"), LogIndex: 0},
+		)
+		buf.Enqueue(big.NewInt(3),
+			logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3b"), LogIndex: 0},
+		)
+
+		assert.True(t, true, logReceived)
+	})
+}
+
 func TestLogEventBufferV1_Dequeue(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -62,7 +148,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 		{
 			name:         "empty",
 			logsInBuffer: map[*big.Int][]logpoller.Log{},
-			args:         newDequeueArgs(10, 1, 1, 10, nil),
+			args:         newDequeueArgs(10, 1, 1, 10),
 			lookback:     20,
 			results:      []logpoller.Log{},
 		},
@@ -74,7 +160,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 					{BlockNumber: 14, TxHash: common.HexToHash("0x15"), LogIndex: 1},
 				},
 			},
-			args:     newDequeueArgs(10, 5, 3, 10, nil),
+			args:     newDequeueArgs(10, 5, 3, 10),
 			lookback: 20,
 			results: []logpoller.Log{
 				{}, {},
@@ -100,7 +186,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 					{BlockNumber: 14, TxHash: common.HexToHash("0x14"), LogIndex: 12},
 				},
 			},
-			args:     newDequeueArgs(10, 5, 2, 10, nil),
+			args:     newDequeueArgs(10, 5, 2, 10),
 			lookback: 20,
 			results: []logpoller.Log{
 				{}, {}, {}, {},
@@ -113,24 +199,12 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 				big.NewInt(1): append(createDummyLogSequence(2, 0, 12, common.HexToHash("0x12")), createDummyLogSequence(2, 0, 13, common.HexToHash("0x13"))...),
 				big.NewInt(2): append(createDummyLogSequence(2, 10, 12, common.HexToHash("0x12")), createDummyLogSequence(2, 10, 13, common.HexToHash("0x13"))...),
 			},
-			args:     newDequeueArgs(10, 5, 3, 4, nil),
+			args:     newDequeueArgs(10, 5, 3, 4),
 			lookback: 20,
 			results: []logpoller.Log{
 				{}, {}, {}, {},
 			},
 			remaining: 4,
-		},
-		{
-			name: "with upkeep selector",
-			logsInBuffer: map[*big.Int][]logpoller.Log{
-				big.NewInt(1): {
-					{BlockNumber: 12, TxHash: common.HexToHash("0x12"), LogIndex: 0},
-					{BlockNumber: 14, TxHash: common.HexToHash("0x15"), LogIndex: 1},
-				},
-			},
-			args:     newDequeueArgs(10, 5, 5, 10, func(id *big.Int) bool { return false }),
-			lookback: 20,
-			results:  []logpoller.Log{},
 		},
 	}
 
@@ -141,7 +215,9 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 				added, dropped := buf.Enqueue(id, logs...)
 				require.Equal(t, len(logs), added+dropped)
 			}
-			results, remaining := buf.Dequeue(tc.args.block, tc.args.blockRate, tc.args.upkeepLimit, tc.args.maxResults, tc.args.upkeepSelector)
+			start, _ := getBlockWindow(tc.args.block, tc.args.blockRate)
+
+			results, remaining := buf.Dequeue(start, tc.args.maxResults, true)
 			require.Equal(t, len(tc.results), len(results))
 			require.Equal(t, tc.remaining, remaining)
 		})
@@ -427,25 +503,20 @@ func TestLogEventBufferV1_BlockWindow(t *testing.T) {
 }
 
 type dequeueArgs struct {
-	block          int64
-	blockRate      int
-	upkeepLimit    int
-	maxResults     int
-	upkeepSelector func(id *big.Int) bool
+	block       int64
+	blockRate   int
+	upkeepLimit int
+	maxResults  int
 }
 
-func newDequeueArgs(block int64, blockRate int, upkeepLimit int, maxResults int, upkeepSelector func(id *big.Int) bool) dequeueArgs {
+func newDequeueArgs(block int64, blockRate int, upkeepLimit int, maxResults int) dequeueArgs {
 	args := dequeueArgs{
-		block:          block,
-		blockRate:      blockRate,
-		upkeepLimit:    upkeepLimit,
-		maxResults:     maxResults,
-		upkeepSelector: upkeepSelector,
+		block:       block,
+		blockRate:   blockRate,
+		upkeepLimit: upkeepLimit,
+		maxResults:  maxResults,
 	}
 
-	if upkeepSelector == nil {
-		args.upkeepSelector = DefaultUpkeepSelector
-	}
 	if blockRate == 0 {
 		args.blockRate = 1
 	}

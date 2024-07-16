@@ -78,6 +78,7 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration {
   error InvalidNativeBalance(uint256 transferredValue, uint96 expectedValue);
 
   /// @dev encapsulates data migrated over from previous coordinator
+  // solhint-disable-next-line gas-struct-packing
   struct V1MigrationData {
     uint8 fromVersion;
     uint256 subId;

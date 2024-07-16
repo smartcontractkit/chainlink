@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-//go:generate mockery --quiet --name HttpServer --output ./mocks/ --case=underscore
 type HttpServer interface {
 	job.ServiceCtx
 
@@ -24,7 +23,6 @@ type HttpServer interface {
 	GetPort() int
 }
 
-//go:generate mockery --quiet --name HTTPRequestHandler --output ./mocks/ --case=underscore
 type HTTPRequestHandler interface {
 	ProcessRequest(ctx context.Context, rawRequest []byte) (rawResponse []byte, httpStatusCode int)
 }

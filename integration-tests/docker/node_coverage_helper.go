@@ -136,7 +136,7 @@ func (c *NodeCoverageHelper) copyCoverageFromNodes(ctx context.Context) error {
 				errorsChan <- fmt.Errorf("failed to copy folder from container for node %d: %w", id, err)
 				return
 			}
-			finalDestPath = filepath.Join(finalDestPath, "go-coverage") // Assuming path structure /var/tmp/go-coverage/TestName/node_X/go-coverage
+			finalDestPath = filepath.Join(finalDestPath, "go-coverage") // Assuming path structure /var/tmp/go-coverage/TestRegex/node_X/go-coverage
 			c.NodeCoverageDirs = append(c.NodeCoverageDirs, finalDestPath)
 		}(node, i)
 	}

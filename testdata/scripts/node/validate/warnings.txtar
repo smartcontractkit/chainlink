@@ -257,6 +257,8 @@ Mode = 'unencrypted'
 TLSCertPath = 'something'
 
 [Mercury]
+VerboseLogging = false
+
 [Mercury.Cache]
 LatestReportTTL = '1s'
 MaxStaleAge = '1h0m0s'
@@ -283,6 +285,11 @@ DefaultBootstrappers = []
 DeltaDial = '15s'
 DeltaReconcile = '1m0s'
 ListenAddresses = []
+
+[Capabilities.ExternalRegistry]
+Address = ''
+NetworkID = 'evm'
+ChainID = '1'
 
 # Configuration warning:
 Tracing.TLSCertPath: invalid value (something): must be empty when Tracing.Mode is 'unencrypted'

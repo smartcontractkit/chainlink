@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"testing"
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
@@ -39,7 +40,7 @@ func TestResolver_Nodes(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{
 					Nodes: []types.NodeStatus{
 						{
@@ -78,7 +79,7 @@ func TestResolver_Nodes(t *testing.T) {
 		{
 			name:          "generic error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.relayerChainInterops.NodesErr = gError
 				f.App.On("GetRelayers").Return(f.Mocks.relayerChainInterops)
 			},
@@ -122,7 +123,7 @@ func Test_NodeQuery(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{
 					testutils.MockRelayer{NodeStatuses: []types.NodeStatus{
 						{
@@ -146,7 +147,7 @@ func Test_NodeQuery(t *testing.T) {
 		{
 			name:          "not found error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{}})
 			},
 			query: query,

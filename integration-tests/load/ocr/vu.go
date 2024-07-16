@@ -17,7 +17,6 @@ import (
 	client2 "github.com/smartcontractkit/chainlink-testing-framework/client"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -79,7 +78,7 @@ func (m *VU) Clone(_ *wasp.Generator) wasp.VirtualUser {
 }
 
 func (m *VU) Setup(_ *wasp.Generator) error {
-	ocrInstances, err := actions_seth.DeployOCRv1Contracts(m.l, m.seth, 1, m.lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(m.workerNodes))
+	ocrInstances, err := actions.DeployOCRv1Contracts(m.l, m.seth, 1, m.lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(m.workerNodes))
 	if err != nil {
 		return err
 	}

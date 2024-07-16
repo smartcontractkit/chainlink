@@ -27,12 +27,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-//go:generate mockery --quiet --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
 type LogPoller interface {
 	services.Service
 	Healthy() error
@@ -67,7 +67,8 @@ type LogPoller interface {
 	LogsDataWordGreaterThan(ctx context.Context, eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs evmtypes.Confirmations) ([]Log, error)
 	LogsDataWordBetween(ctx context.Context, eventSig common.Hash, address common.Address, wordIndexMin, wordIndexMax int, wordValue common.Hash, confs evmtypes.Confirmations) ([]Log, error)
 
-	FilteredLogs(filter query.KeyFilter, limitAndSrt query.LimitAndSort) ([]Log, error)
+	// chainlink-common query filtering
+	FilteredLogs(ctx context.Context, filter query.KeyFilter, limitAndSort query.LimitAndSort, queryName string) ([]Log, error)
 }
 
 type LogPollerTest interface {
@@ -87,6 +88,10 @@ type Client interface {
 	ConfiguredChainID() *big.Int
 }
 
+type HeadTracker interface {
+	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error)
+}
+
 var (
 	_                       LogPollerTest = &logPoller{}
 	ErrReplayRequestAborted               = pkgerrors.New("aborted, replay request cancelled")
@@ -99,6 +104,7 @@ type logPoller struct {
 	services.StateMachine
 	ec                       Client
 	orm                      ORM
+	headTracker              HeadTracker
 	lggr                     logger.SugaredLogger
 	pollPeriod               time.Duration // poll period set by block production rate
 	useFinalityTag           bool          // indicates whether logPoller should use chain's finality or pick a fixed depth for finality
@@ -118,8 +124,7 @@ type logPoller struct {
 
 	replayStart    chan int64
 	replayComplete chan error
-	ctx            context.Context
-	cancel         context.CancelFunc
+	stopCh         services.StopChan
 	wg             sync.WaitGroup
 	// This flag is raised whenever the log poller detects that the chain's finality has been violated.
 	// It can happen when reorg is deeper than the latest finalized block that LogPoller saw in a previous PollAndSave tick.
@@ -150,13 +155,12 @@ type Opts struct {
 //
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
-func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, opts Opts) *logPoller {
-	ctx, cancel := context.WithCancel(context.Background())
+func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, headTracker HeadTracker, opts Opts) *logPoller {
 	return &logPoller{
-		ctx:                      ctx,
-		cancel:                   cancel,
+		stopCh:                   make(chan struct{}),
 		ec:                       ec,
 		orm:                      orm,
+		headTracker:              headTracker,
 		lggr:                     logger.Sugared(logger.Named(lggr, "LogPoller")),
 		replayStart:              make(chan int64),
 		replayComplete:           make(chan error),
@@ -464,21 +468,23 @@ func (lp *logPoller) savedFinalizedBlockNumber(ctx context.Context) (int64, erro
 }
 
 func (lp *logPoller) recvReplayComplete() {
+	defer lp.wg.Done()
 	err := <-lp.replayComplete
 	if err != nil {
 		lp.lggr.Error(err)
 	}
-	lp.wg.Done()
 }
 
 // Asynchronous wrapper for Replay()
 func (lp *logPoller) ReplayAsync(fromBlock int64) {
 	lp.wg.Add(1)
 	go func() {
-		if err := lp.Replay(lp.ctx, fromBlock); err != nil {
+		defer lp.wg.Done()
+		ctx, cancel := lp.stopCh.NewCtx()
+		defer cancel()
+		if err := lp.Replay(ctx, fromBlock); err != nil {
 			lp.lggr.Error(err)
 		}
-		lp.wg.Done()
 	}()
 }
 
@@ -497,7 +503,7 @@ func (lp *logPoller) Close() error {
 		case lp.replayComplete <- ErrLogPollerShutdown:
 		default:
 		}
-		lp.cancel()
+		close(lp.stopCh)
 		lp.wg.Wait()
 		return nil
 	})
@@ -534,10 +540,10 @@ func (lp *logPoller) GetReplayFromBlock(ctx context.Context, requested int64) (i
 	return mathutil.Min(requested, lastProcessed.BlockNumber), nil
 }
 
-func (lp *logPoller) loadFilters() error {
+func (lp *logPoller) loadFilters(ctx context.Context) error {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
-	filters, err := lp.orm.LoadFilters(lp.ctx)
+	filters, err := lp.orm.LoadFilters(ctx)
 
 	if err != nil {
 		return pkgerrors.Wrapf(err, "Failed to load initial filters from db, retrying")
@@ -550,21 +556,27 @@ func (lp *logPoller) loadFilters() error {
 
 func (lp *logPoller) run() {
 	defer lp.wg.Done()
-	logPollTick := time.After(0)
+	ctx, cancel := lp.stopCh.NewCtx()
+	defer cancel()
+	logPollTicker := services.NewTicker(lp.pollPeriod)
+	defer logPollTicker.Stop()
 	// stagger these somewhat, so they don't all run back-to-back
-	backupLogPollTick := time.After(100 * time.Millisecond)
+	backupLogPollTicker := services.TickerConfig{
+		Initial:   100 * time.Millisecond,
+		JitterPct: services.DefaultJitter,
+	}.NewTicker(time.Duration(lp.backupPollerBlockDelay) * lp.pollPeriod)
+	defer backupLogPollTicker.Stop()
 	filtersLoaded := false
 
 	for {
 		select {
-		case <-lp.ctx.Done():
+		case <-ctx.Done():
 			return
 		case fromBlockReq := <-lp.replayStart:
-			lp.handleReplayRequest(fromBlockReq, filtersLoaded)
-		case <-logPollTick:
-			logPollTick = time.After(utils.WithJitter(lp.pollPeriod))
+			lp.handleReplayRequest(ctx, fromBlockReq, filtersLoaded)
+		case <-logPollTicker.C:
 			if !filtersLoaded {
-				if err := lp.loadFilters(); err != nil {
+				if err := lp.loadFilters(ctx); err != nil {
 					lp.lggr.Errorw("Failed loading filters in main logpoller loop, retrying later", "err", err)
 					continue
 				}
@@ -573,7 +585,7 @@ func (lp *logPoller) run() {
 
 			// Always start from the latest block in the db.
 			var start int64
-			lastProcessed, err := lp.orm.SelectLatestBlock(lp.ctx)
+			lastProcessed, err := lp.orm.SelectLatestBlock(ctx)
 			if err != nil {
 				if !pkgerrors.Is(err, sql.ErrNoRows) {
 					// Assume transient db reading issue, retry forever.
@@ -582,7 +594,7 @@ func (lp *logPoller) run() {
 				}
 				// Otherwise this is the first poll _ever_ on a new chain.
 				// Only safe thing to do is to start at the first finalized block.
-				latestBlock, latestFinalizedBlockNumber, err := lp.latestBlocks(lp.ctx)
+				latestBlock, latestFinalizedBlockNumber, err := lp.latestBlocks(ctx)
 				if err != nil {
 					lp.lggr.Warnw("Unable to get latest for first poll", "err", err)
 					continue
@@ -599,8 +611,8 @@ func (lp *logPoller) run() {
 			} else {
 				start = lastProcessed.BlockNumber + 1
 			}
-			lp.PollAndSaveLogs(lp.ctx, start)
-		case <-backupLogPollTick:
+			lp.PollAndSaveLogs(ctx, start)
+		case <-backupLogPollTicker.C:
 			if lp.backupPollerBlockDelay == 0 {
 				continue // backup poller is disabled
 			}
@@ -612,18 +624,19 @@ func (lp *logPoller) run() {
 			// frequently than the primary log poller (instead of roughly once per block it runs once roughly once every
 			// lp.backupPollerDelay blocks--with default settings about 100x less frequently).
 
-			backupLogPollTick = time.After(utils.WithJitter(time.Duration(lp.backupPollerBlockDelay) * lp.pollPeriod))
 			if !filtersLoaded {
 				lp.lggr.Warnw("Backup log poller ran before filters loaded, skipping")
 				continue
 			}
-			lp.BackupPollAndSaveLogs(lp.ctx)
+			lp.BackupPollAndSaveLogs(ctx)
 		}
 	}
 }
 
 func (lp *logPoller) backgroundWorkerRun() {
 	defer lp.wg.Done()
+	ctx, cancel := lp.stopCh.NewCtx()
+	defer cancel()
 
 	// Avoid putting too much pressure on the database by staggering the pruning of old blocks and logs.
 	// Usually, node after restart will have some work to boot the plugins and other services.
@@ -633,11 +646,11 @@ func (lp *logPoller) backgroundWorkerRun() {
 
 	for {
 		select {
-		case <-lp.ctx.Done():
+		case <-ctx.Done():
 			return
 		case <-blockPruneTick:
 			blockPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 1000))
-			if allRemoved, err := lp.PruneOldBlocks(lp.ctx); err != nil {
+			if allRemoved, err := lp.PruneOldBlocks(ctx); err != nil {
 				lp.lggr.Errorw("Unable to prune old blocks", "err", err)
 			} else if !allRemoved {
 				// Tick faster when cleanup can't keep up with the pace of new blocks
@@ -645,7 +658,7 @@ func (lp *logPoller) backgroundWorkerRun() {
 			}
 		case <-logPruneTick:
 			logPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 2401)) // = 7^5 avoids common factors with 1000
-			if allRemoved, err := lp.PruneExpiredLogs(lp.ctx); err != nil {
+			if allRemoved, err := lp.PruneExpiredLogs(ctx); err != nil {
 				lp.lggr.Errorw("Unable to prune expired logs", "err", err)
 			} else if !allRemoved {
 				// Tick faster when cleanup can't keep up with the pace of new logs
@@ -655,26 +668,26 @@ func (lp *logPoller) backgroundWorkerRun() {
 	}
 }
 
-func (lp *logPoller) handleReplayRequest(fromBlockReq int64, filtersLoaded bool) {
-	fromBlock, err := lp.GetReplayFromBlock(lp.ctx, fromBlockReq)
+func (lp *logPoller) handleReplayRequest(ctx context.Context, fromBlockReq int64, filtersLoaded bool) {
+	fromBlock, err := lp.GetReplayFromBlock(ctx, fromBlockReq)
 	if err == nil {
 		if !filtersLoaded {
 			lp.lggr.Warnw("Received replayReq before filters loaded", "fromBlock", fromBlock, "requested", fromBlockReq)
-			if err = lp.loadFilters(); err != nil {
+			if err = lp.loadFilters(ctx); err != nil {
 				lp.lggr.Errorw("Failed loading filters during Replay", "err", err, "fromBlock", fromBlock)
 			}
 		}
 		if err == nil {
 			// Serially process replay requests.
 			lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", fromBlockReq)
-			lp.PollAndSaveLogs(lp.ctx, fromBlock)
+			lp.PollAndSaveLogs(ctx, fromBlock)
 			lp.lggr.Infow("Executing replay finished", "fromBlock", fromBlock, "requested", fromBlockReq)
 		}
 	} else {
 		lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
 	}
 	select {
-	case <-lp.ctx.Done():
+	case <-ctx.Done():
 		// We're shutting down, notify client and exit
 		select {
 		case lp.replayComplete <- ErrReplayRequestAborted:
@@ -859,7 +872,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		}
 		// Additional sanity checks, don't necessarily trust the RPC.
 		if currentBlock == nil {
-			lp.lggr.Errorf("Unexpected nil block from RPC", "currentBlockNumber", currentBlockNumber)
+			lp.lggr.Errorw("Unexpected nil block from RPC", "currentBlockNumber", currentBlockNumber)
 			return nil, pkgerrors.Errorf("Got nil block for %d", currentBlockNumber)
 		}
 		if currentBlock.Number != currentBlockNumber {
@@ -1003,33 +1016,15 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	}
 }
 
-// Returns information about latestBlock, latestFinalizedBlockNumber
-// If finality tag is not enabled, latestFinalizedBlockNumber is calculated as latestBlockNumber - lp.finalityDepth (configured param)
-// Otherwise, we return last finalized block number returned from chain
+// Returns information about latestBlock, latestFinalizedBlockNumber provided by HeadTracker
 func (lp *logPoller) latestBlocks(ctx context.Context) (*evmtypes.Head, int64, error) {
-	// If finality is not enabled, we can only fetch the latest block
-	if !lp.useFinalityTag {
-		// Example:
-		// finalityDepth = 2
-		// Blocks: 1->2->3->4->5(latestBlock)
-		// latestFinalizedBlockNumber would be 3
-		latestBlock, err := lp.ec.HeadByNumber(ctx, nil)
-		if err != nil {
-			return nil, 0, err
-		}
-		// If chain has fewer blocks than finalityDepth, return 0
-		return latestBlock, mathutil.Max(latestBlock.Number-lp.finalityDepth, 0), nil
+	latest, finalized, err := lp.headTracker.LatestAndFinalizedBlock(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get latest and latest finalized block from HeadTracker: %w", err)
 	}
 
-	// If finality is enabled, we need to get the latest and finalized blocks.
-	blocks, err := lp.batchFetchBlocks(ctx, []string{rpc.LatestBlockNumber.String(), rpc.FinalizedBlockNumber.String()}, 2)
-	if err != nil {
-		return nil, 0, err
-	}
-	latest := blocks[0]
-	finalized := blocks[1]
-	lp.lggr.Debugw("Latest blocks read from chain", "latest", latest.Number, "finalized", finalized.Number)
-	return latest, finalized.Number, nil
+	lp.lggr.Debugw("Latest blocks read from chain", "latest", latest.Number, "finalized", finalized.BlockNumber())
+	return latest, finalized.BlockNumber(), nil
 }
 
 // Find the first place where our chain and their chain have the same block,
@@ -1522,6 +1517,6 @@ func EvmWord(i uint64) common.Hash {
 	return common.BytesToHash(b)
 }
 
-func (lp *logPoller) FilteredLogs(queryFilter query.KeyFilter, sortAndLimit query.LimitAndSort) ([]Log, error) {
-	return lp.orm.FilteredLogs(queryFilter, sortAndLimit)
+func (lp *logPoller) FilteredLogs(ctx context.Context, queryFilter query.KeyFilter, limitAndSort query.LimitAndSort, queryName string) ([]Log, error) {
+	return lp.orm.FilteredLogs(ctx, queryFilter, limitAndSort, queryName)
 }

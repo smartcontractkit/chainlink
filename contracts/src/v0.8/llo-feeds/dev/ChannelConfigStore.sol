@@ -87,6 +87,7 @@ contract ChannelConfigStore is ConfirmedOwner, IChannelConfigStore, TypeAndVersi
   }
 
   function getChannelDefinitions(uint32 channelId) external view returns (ChannelDefinition memory) {
+    // solhint-disable-next-line avoid-tx-origin
     if (msg.sender != tx.origin) {
       revert OnlyCallableByEOA();
     }

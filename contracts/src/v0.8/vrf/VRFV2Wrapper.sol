@@ -419,6 +419,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   }
 }
 
+// solhint-disable-next-line interface-starts-with-i
 interface ExtendedVRFCoordinatorV2Interface is VRFCoordinatorV2Interface {
   function getConfig()
     external

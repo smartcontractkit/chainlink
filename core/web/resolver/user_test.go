@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"testing"
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
@@ -44,8 +45,8 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := auth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := auth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 
@@ -73,8 +74,8 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 		{
 			name:          "update password match error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := auth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := auth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 
@@ -99,8 +100,8 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 		{
 			name:          "failed to clear session error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := auth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := auth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 
@@ -130,8 +131,8 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 		{
 			name:          "failed to update current user password error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := auth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := auth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 

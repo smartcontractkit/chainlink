@@ -18,7 +18,13 @@ type decoder struct {
 
 var _ commontypes.Decoder = &decoder{}
 
-func (m *decoder) Decode(_ context.Context, raw []byte, into any, itemType string) error {
+func (m *decoder) Decode(_ context.Context, raw []byte, into any, itemType string) (err error) {
+	defer func() {
+		// unexpected, but reflection can panic
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%w: %v", commontypes.ErrInvalidType, r)
+		}
+	}()
 	info, ok := m.Definitions[itemType]
 	if !ok {
 		return fmt.Errorf("%w: cannot find definition for %s", commontypes.ErrInvalidType, itemType)
@@ -87,7 +93,7 @@ func setElements(length int, rDecode reflect.Value, iInto reflect.Value) error {
 
 func mapstructureDecode(src, dest any) error {
 	mDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(evmDecoderHooks...),
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(DecoderHooks...),
 		Result:     dest,
 		Squash:     true,
 	})

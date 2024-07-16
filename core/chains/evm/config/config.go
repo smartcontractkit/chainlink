@@ -2,14 +2,15 @@ package config
 
 import (
 	"math/big"
+	"net/url"
 	"time"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -20,7 +21,7 @@ type EVM interface {
 	GasEstimator() GasEstimator
 	OCR() OCR
 	OCR2() OCR2
-	ChainWriter() ChainWriter
+	Workflow() Workflow
 	NodePool() NodePool
 
 	AutoCreateKey() bool
@@ -28,7 +29,7 @@ type EVM interface {
 	BlockBackfillSkip() bool
 	BlockEmissionIdleWarningThreshold() time.Duration
 	ChainID() *big.Int
-	ChainType() commonconfig.ChainType
+	ChainType() chaintype.ChainType
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
 	FlagsContractAddress() string
@@ -44,6 +45,7 @@ type EVM interface {
 	OperatorFactoryAddress() string
 	RPCDefaultBatchSize() uint32
 	NodeNoNewHeadsThreshold() time.Duration
+	FinalizedBlockOffset() uint32
 
 	IsEnabled() bool
 	TOMLString() (string, error)
@@ -70,6 +72,8 @@ type HeadTracker interface {
 	HistoryDepth() uint32
 	MaxBufferSize() uint32
 	SamplingInterval() time.Duration
+	FinalityTagBypass() bool
+	MaxAllowedFinalityDepth() uint32
 }
 
 type BalanceMonitor interface {
@@ -100,9 +104,16 @@ type Transactions interface {
 	ReaperThreshold() time.Duration
 	MaxInFlight() uint32
 	MaxQueued() uint64
+	AutoPurge() AutoPurgeConfig
 }
 
-//go:generate mockery --quiet --name GasEstimator --output ./mocks/ --case=underscore
+type AutoPurgeConfig interface {
+	Enabled() bool
+	Threshold() uint32
+	MinAttempts() uint32
+	DetectionApiUrl() *url.URL
+}
+
 type GasEstimator interface {
 	BlockHistory() BlockHistory
 	LimitJobType() LimitJobType
@@ -145,7 +156,7 @@ type BlockHistory interface {
 	TransactionPercentile() uint16
 }
 
-type ChainWriter interface {
+type Workflow interface {
 	FromAddress() *types.EIP55Address
 	ForwarderAddress() *types.EIP55Address
 }
@@ -159,11 +170,11 @@ type NodePool interface {
 	NodeIsSyncingEnabled() bool
 	FinalizedBlockPollInterval() time.Duration
 	Errors() ClientErrors
+	EnforceRepeatableRead() bool
+	DeathDeclarationDelay() time.Duration
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?
-//
-//go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
 	EVM() EVM
 }

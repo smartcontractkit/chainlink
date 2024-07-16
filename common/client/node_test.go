@@ -9,7 +9,6 @@ import (
 
 	clientMocks "github.com/smartcontractkit/chainlink/v2/common/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 )
 
 type testNodeConfig struct {
@@ -18,8 +17,9 @@ type testNodeConfig struct {
 	selectionMode              string
 	syncThreshold              uint32
 	nodeIsSyncingEnabled       bool
+	enforceRepeatableRead      bool
 	finalizedBlockPollInterval time.Duration
-	errors                     config.ClientErrors
+	deathDeclarationDelay      time.Duration
 }
 
 func (n testNodeConfig) PollFailureThreshold() uint32 {
@@ -46,8 +46,12 @@ func (n testNodeConfig) FinalizedBlockPollInterval() time.Duration {
 	return n.finalizedBlockPollInterval
 }
 
-func (n testNodeConfig) Errors() config.ClientErrors {
-	return n.errors
+func (n testNodeConfig) EnforceRepeatableRead() bool {
+	return n.enforceRepeatableRead
+}
+
+func (n testNodeConfig) DeathDeclarationDelay() time.Duration {
+	return n.deathDeclarationDelay
 }
 
 type testNode struct {

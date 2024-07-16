@@ -16,8 +16,6 @@ import (
 var _ Checker = (*services.HealthChecker)(nil)
 
 // Checker provides a service which can be probed for system health.
-//
-//go:generate mockery --quiet --name Checker --output ./mocks/ --case=underscore
 type Checker interface {
 	// Register a service for health checks.
 	Register(service services.HealthReporter) error

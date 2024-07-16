@@ -36,8 +36,10 @@ func LogRandomnessRequestedEvent(
 	coordinator contracts.Coordinator,
 	randomWordsRequestedEvent *contracts.CoordinatorRandomWordsRequested,
 	isNativeBilling bool,
+	keyNum int,
 ) {
 	l.Info().
+		Int("KeyNum", keyNum).
 		Str("Coordinator", coordinator.Address()).
 		Bool("Native Billing", isNativeBilling).
 		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
@@ -58,8 +60,10 @@ func LogRandomWordsFulfilledEvent(
 	coordinator contracts.Coordinator,
 	randomWordsFulfilledEvent *contracts.CoordinatorRandomWordsFulfilled,
 	isNativeBilling bool,
+	keyNum int,
 ) {
 	l.Info().
+		Int("KeyNum", keyNum).
 		Bool("Native Billing", isNativeBilling).
 		Str("Coordinator", coordinator.Address()).
 		Str("Total Payment", randomWordsFulfilledEvent.Payment.String()).

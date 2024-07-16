@@ -201,6 +201,11 @@ func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.Keeper
 }
 
 func TestIntegration_KeeperPluginBasic(t *testing.T) {
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/AUTO-11072")
+	runKeeperPluginBasic(t)
+}
+
+func runKeeperPluginBasic(t *testing.T) {
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 
@@ -427,6 +432,7 @@ func setupForwarderForNode(
 	backend *backends.SimulatedBackend,
 	recipient common.Address,
 	linkAddr common.Address) common.Address {
+	ctx := testutils.Context(t)
 	faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(caller, backend, linkAddr, caller.From, recipient, []byte{})
 	require.NoError(t, err)
 
@@ -438,12 +444,12 @@ func setupForwarderForNode(
 	// add forwarder address to be tracked in db
 	forwarderORM := forwarders.NewORM(app.GetDB())
 	chainID := ubig.Big(*backend.Blockchain().Config().ChainID)
-	_, err = forwarderORM.CreateForwarder(testutils.Context(t), faddr, chainID)
+	_, err = forwarderORM.CreateForwarder(ctx, faddr, chainID)
 	require.NoError(t, err)
 
 	chain, err := app.GetRelayers().LegacyEVMChains().Get((*big.Int)(&chainID).String())
 	require.NoError(t, err)
-	fwdr, err := chain.TxManager().GetForwarderForEOA(recipient)
+	fwdr, err := chain.TxManager().GetForwarderForEOA(ctx, recipient)
 	require.NoError(t, err)
 	require.Equal(t, faddr, fwdr)
 

@@ -141,6 +141,7 @@ interface IAutomationV21PlusCommon {
    * @member latestEpoch for which a report was transmitted
    * @member paused freeze on execution scoped to the entire registry
    */
+  // solhint-disable-next-line gas-struct-packing
   struct StateLegacy {
     uint32 nonce;
     uint96 ownerLinkBalance;
@@ -178,6 +179,7 @@ interface IAutomationV21PlusCommon {
    * @member registrars addresses of the registrar contracts
    * @member upkeepPrivilegeManager address which can set privilege for upkeeps
    */
+  // solhint-disable-next-line gas-struct-packing
   struct OnchainConfigLegacy {
     uint32 paymentPremiumPPB;
     uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK

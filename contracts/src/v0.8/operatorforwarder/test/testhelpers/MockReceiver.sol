@@ -9,6 +9,7 @@ contract MockReceiver {
   }
 
   function revertMessage() public pure {
+    // solhint-disable-next-line gas-custom-errors
     revert("test revert message");
   }
 

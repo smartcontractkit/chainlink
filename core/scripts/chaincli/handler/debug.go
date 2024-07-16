@@ -270,6 +270,9 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			message("upkeep reverted with StreamsLookup")
 			message(fmt.Sprintf("StreamsLookup data: {FeedParamKey: %s, Feeds: %v, TimeParamKey: %s, Time: %d, ExtraData: %s}", streamsLookupErr.FeedParamKey, streamsLookupErr.Feeds, streamsLookupErr.TimeParamKey, streamsLookupErr.Time.Uint64(), hexutil.Encode(streamsLookupErr.ExtraData)))
 
+			if blockNum == 0 {
+				failCheckConfig("Data streams requires a valid block number for conditional upkeeps, append a block number to your command", nil)
+			}
 			streamsLookup := &mercury.StreamsLookup{
 				StreamsLookupError: &mercury.StreamsLookupError{
 					FeedParamKey: streamsLookupErr.FeedParamKey,
@@ -293,6 +296,9 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 				if !allowed {
 					resolveIneligible("upkeep reverted with StreamsLookup but is not allowed to access streams")
 				}
+				if k.cfg.DataStreamsLegacyURL == "" {
+					failCheckConfig("Data streams v02 requires Legacy URL, check your DATA_STREAMS settings in .env", nil)
+				}
 			} else if streamsLookup.IsMercuryV03() {
 				// handle v0.3
 				message("using data streams lookup v0.3")
@@ -300,7 +306,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 				resolveIneligible("upkeep reverted with StreamsLookup but the configuration is invalid")
 			}
 
-			if k.cfg.DataStreamsLegacyURL == "" || k.cfg.DataStreamsURL == "" || k.cfg.DataStreamsID == "" || k.cfg.DataStreamsKey == "" {
+			if k.cfg.DataStreamsURL == "" || k.cfg.DataStreamsID == "" || k.cfg.DataStreamsKey == "" {
 				failCheckConfig("Data streams configs not set properly for this network, check your DATA_STREAMS settings in .env", nil)
 			}
 

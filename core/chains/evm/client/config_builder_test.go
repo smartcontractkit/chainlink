@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 )
 
 func TestClientConfigBuilder(t *testing.T) {
@@ -22,6 +23,9 @@ func TestClientConfigBuilder(t *testing.T) {
 	syncThreshold := ptr(uint32(5))
 	nodeIsSyncingEnabled := ptr(false)
 	chainTypeStr := ""
+	finalizedBlockOffset := ptr[uint32](16)
+	enforceRepeatableRead := ptr(true)
+	deathDeclarationDelay := time.Second * 3
 	nodeConfigs := []client.NodeConfig{
 		{
 			Name:    ptr("foo"),
@@ -33,7 +37,8 @@ func TestClientConfigBuilder(t *testing.T) {
 	finalityTagEnabled := ptr(true)
 	noNewHeadsThreshold := time.Second
 	chainCfg, nodePool, nodes, err := client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs,
-		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth, finalityTagEnabled)
+		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth,
+		finalityTagEnabled, finalizedBlockOffset, enforceRepeatableRead, deathDeclarationDelay)
 	require.NoError(t, err)
 
 	// Validate node pool configs
@@ -43,6 +48,8 @@ func TestClientConfigBuilder(t *testing.T) {
 	require.Equal(t, pollInterval, nodePool.PollInterval())
 	require.Equal(t, *syncThreshold, nodePool.SyncThreshold())
 	require.Equal(t, *nodeIsSyncingEnabled, nodePool.NodeIsSyncingEnabled())
+	require.Equal(t, *enforceRepeatableRead, nodePool.EnforceRepeatableRead())
+	require.Equal(t, deathDeclarationDelay, nodePool.DeathDeclarationDelay())
 
 	// Validate node configs
 	require.Equal(t, *nodeConfigs[0].Name, *nodes[0].Name)
@@ -50,13 +57,13 @@ func TestClientConfigBuilder(t *testing.T) {
 	require.Equal(t, *nodeConfigs[0].HTTPURL, (*nodes[0].HTTPURL).String())
 
 	// Validate chain config
-	require.Equal(t, chainTypeStr, string(chainCfg.ChainType()))
 	require.Equal(t, noNewHeadsThreshold, chainCfg.NodeNoNewHeadsThreshold())
 	require.Equal(t, *finalityDepth, chainCfg.FinalityDepth())
 	require.Equal(t, *finalityTagEnabled, chainCfg.FinalityTagEnabled())
+	require.Equal(t, *finalizedBlockOffset, chainCfg.FinalizedBlockOffset())
 
 	// let combiler tell us, when we do not have sufficient data to create evm client
-	_ = client.NewEvmClient(nodePool, chainCfg, nil, logger.Test(t), big.NewInt(10), nodes)
+	_ = client.NewEvmClient(nodePool, chainCfg, nil, logger.Test(t), big.NewInt(10), nodes, chaintype.ChainType(chainTypeStr))
 }
 
 func TestNodeConfigs(t *testing.T) {

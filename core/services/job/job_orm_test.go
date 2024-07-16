@@ -10,12 +10,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
+	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -40,6 +43,7 @@ import (
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -947,7 +951,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test ETH key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = types.NetworkEVM
+		jb.OCR2OracleSpec.Relay = relay.NetworkEVM
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no EVM key matching: \"bad key\"")
 
@@ -958,7 +962,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test Cosmos key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = types.NetworkCosmos
+		jb.OCR2OracleSpec.Relay = relay.NetworkCosmos
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Cosmos key matching: \"bad key\"")
 
@@ -970,7 +974,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test Solana key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = types.NetworkSolana
+		jb.OCR2OracleSpec.Relay = relay.NetworkSolana
 
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Solana key matching: \"bad key\"")
@@ -983,13 +987,25 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test Starknet key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = types.NetworkStarkNet
+		jb.OCR2OracleSpec.Relay = relay.NetworkStarkNet
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Starknet key matching: \"bad key\"")
 
 		starkNetKey, err := keyStore.StarkNet().Create(ctx)
 		require.NoError(t, err)
 		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, starkNetKey.ID())
+		require.NoError(t, err)
+	})
+
+	t.Run(("test Aptos key validation"), func(t *testing.T) {
+		ctx := testutils.Context(t)
+		jb.OCR2OracleSpec.Relay = relay.NetworkAptos
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no Aptos key matching: \"bad key\"")
+
+		aptosKey, err := keyStore.Aptos().Create(ctx)
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, aptosKey.ID())
 		require.NoError(t, err)
 	})
 
@@ -1801,6 +1817,187 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 		require.NoError(t, err2)
 		require.Equal(t, int32(1), count)
 	})
+}
+
+func Test_ORM_FindJobByWorkflow(t *testing.T) {
+	var addr1 = "0x0123456789012345678901234567890123456789"
+	var addr2 = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+	t.Parallel()
+	type fields struct {
+		ds sqlutil.DataSource
+	}
+	type args struct {
+		spec   *job.WorkflowSpec
+		before func(t *testing.T, o job.ORM, s *job.WorkflowSpec) int32
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+
+		{
+			name: "wf not job found",
+			fields: fields{
+				ds: pgtest.NewSqlxDB(t),
+			},
+			args: args{
+				// before is nil, so no job is inserted
+				spec: &job.WorkflowSpec{
+					ID:       1,
+					Workflow: pkgworkflows.WFYamlSpec(t, "workflow00", addr1),
+				},
+			},
+			wantErr: true,
+		},
+
+		{
+			name: "wf job found",
+			fields: fields{
+				ds: pgtest.NewSqlxDB(t),
+			},
+			args: args{
+				spec: &job.WorkflowSpec{
+					ID:       1,
+					Workflow: pkgworkflows.WFYamlSpec(t, "workflow01", addr1),
+				},
+				before: mustInsertWFJob,
+			},
+			wantErr: false,
+		},
+
+		{
+			name: "wf wrong name",
+			fields: fields{
+				ds: pgtest.NewSqlxDB(t),
+			},
+			args: args{
+				spec: &job.WorkflowSpec{
+					ID:       1,
+					Workflow: pkgworkflows.WFYamlSpec(t, "workflow02", addr1),
+				},
+				before: func(t *testing.T, o job.ORM, s *job.WorkflowSpec) int32 {
+					var c job.WorkflowSpec
+					c.ID = s.ID
+					c.Workflow = pkgworkflows.WFYamlSpec(t, "workflow99", addr1) // insert with mismatched name
+					return mustInsertWFJob(t, o, &c)
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "wf wrong owner",
+			fields: fields{
+				ds: pgtest.NewSqlxDB(t),
+			},
+			args: args{
+				spec: &job.WorkflowSpec{
+					ID:       1,
+					Workflow: pkgworkflows.WFYamlSpec(t, "workflow03", addr1),
+				},
+				before: func(t *testing.T, o job.ORM, s *job.WorkflowSpec) int32 {
+					var c job.WorkflowSpec
+					c.ID = s.ID
+					c.Workflow = pkgworkflows.WFYamlSpec(t, "workflow03", addr2) // insert with mismatched owner
+					return mustInsertWFJob(t, o, &c)
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ks := cltest.NewKeyStore(t, tt.fields.ds)
+			pipelineORM := pipeline.NewORM(tt.fields.ds, logger.TestLogger(t), configtest.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns())
+			bridgesORM := bridges.NewORM(tt.fields.ds)
+			o := NewTestORM(t, tt.fields.ds, pipelineORM, bridgesORM, ks)
+			var wantJobID int32
+			if tt.args.before != nil {
+				wantJobID = tt.args.before(t, o, tt.args.spec)
+			}
+			ctx := testutils.Context(t)
+			gotJ, err := o.FindJobIDByWorkflow(ctx, *tt.args.spec)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("orm.FindJobByWorkflow() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil {
+				assert.Equal(t, wantJobID, gotJ, "mismatch job id")
+			}
+		})
+	}
+}
+
+func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
+	var addr1 = "0x012345678901234567890123456789012345ffff"
+	var addr2 = "0xabcdefabcdefabcdefabcdefabcdefabcdef0000"
+	t.Parallel()
+	t.Run("multiple jobs", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		o := NewTestORM(t,
+			db,
+			pipeline.NewORM(db,
+				logger.TestLogger(t),
+				configtest.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns()),
+			bridges.NewORM(db),
+			cltest.NewKeyStore(t, db))
+		ctx := testutils.Context(t)
+
+		wfYaml1 := pkgworkflows.WFYamlSpec(t, "workflow00", addr1)
+		s1 := job.WorkflowSpec{
+			Workflow: wfYaml1,
+		}
+		wantJobID1 := mustInsertWFJob(t, o, &s1)
+
+		wfYaml2 := pkgworkflows.WFYamlSpec(t, "workflow01", addr1)
+		s2 := job.WorkflowSpec{
+			Workflow: wfYaml2,
+		}
+		wantJobID2 := mustInsertWFJob(t, o, &s2)
+
+		wfYaml3 := pkgworkflows.WFYamlSpec(t, "workflow00", addr2)
+		s3 := job.WorkflowSpec{
+			Workflow: wfYaml3,
+		}
+		wantJobID3 := mustInsertWFJob(t, o, &s3)
+
+		expectedIDs := []int32{wantJobID1, wantJobID2, wantJobID3}
+		for i, s := range []job.WorkflowSpec{s1, s2, s3} {
+			gotJ, err := o.FindJobIDByWorkflow(ctx, s)
+			require.NoError(t, err)
+			assert.Equal(t, expectedIDs[i], gotJ, "mismatch job id case %d, spec %v", i, s)
+			j, err := o.FindJob(ctx, expectedIDs[i])
+			require.NoError(t, err)
+			assert.NotNil(t, j)
+			t.Logf("found job %v", j)
+			assert.EqualValues(t, j.WorkflowSpec.Workflow, s.Workflow)
+			assert.EqualValues(t, j.WorkflowSpec.WorkflowID, s.WorkflowID)
+			assert.EqualValues(t, j.WorkflowSpec.WorkflowOwner, s.WorkflowOwner)
+			assert.EqualValues(t, j.WorkflowSpec.WorkflowName, s.WorkflowName)
+		}
+	})
+}
+
+func mustInsertWFJob(t *testing.T, orm job.ORM, s *job.WorkflowSpec) int32 {
+	t.Helper()
+	err := s.Validate()
+	require.NoError(t, err, "failed to validate spec %v", s)
+	ctx := testutils.Context(t)
+	_, err = toml.Marshal(s.Workflow)
+	require.NoError(t, err, "failed to TOML marshal workflow %v", s.Workflow)
+	j := job.Job{
+		Type:          job.Workflow,
+		WorkflowSpec:  s,
+		ExternalJobID: uuid.New(),
+		Name:          null.StringFrom(s.WorkflowOwner + "_" + s.WorkflowName),
+		SchemaVersion: 1,
+	}
+
+	err = orm.CreateJob(ctx, &j)
+	require.NoError(t, err, "failed to insert job with wf spec %v %s", s, s.Workflow)
+	return j.ID
 }
 
 func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.Run {

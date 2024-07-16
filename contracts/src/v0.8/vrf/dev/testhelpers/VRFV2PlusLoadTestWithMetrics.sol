@@ -84,7 +84,7 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
     bool _nativePayment,
     uint32 _numWords,
     uint16 _requestCount
-  ) external onlyOwner {
+  ) external {
     for (uint16 i = 0; i < _requestCount; i++) {
       VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
         keyHash: _keyHash,

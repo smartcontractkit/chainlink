@@ -93,7 +93,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	// In the case of forwarding, the keeper address is the forwarder contract deployed onchain between EOA and Registry.
 	effectiveKeeperAddress := spec.KeeperSpec.FromAddress.Address()
 	if spec.ForwardingAllowed {
-		fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(spec.KeeperSpec.FromAddress.Address())
+		fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(ctx, spec.KeeperSpec.FromAddress.Address())
 		if fwderr == nil {
 			effectiveKeeperAddress = fwdrAddress
 		} else {

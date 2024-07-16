@@ -48,6 +48,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationRegistry2_3/AutomationRegistry2_3.abi ../../contracts/solc/v0.8.19/AutomationRegistry2_3/AutomationRegistry2_3.bin AutomationRegistry automation_registry_wrapper_2_3
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationRegistryLogicA2_3/AutomationRegistryLogicA2_3.abi ../../contracts/solc/v0.8.19/AutomationRegistryLogicA2_3/AutomationRegistryLogicA2_3.bin AutomationRegistryLogicA automation_registry_logic_a_wrapper_2_3
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationRegistryLogicB2_3/AutomationRegistryLogicB2_3.abi ../../contracts/solc/v0.8.19/AutomationRegistryLogicB2_3/AutomationRegistryLogicB2_3.bin AutomationRegistryLogicB automation_registry_logic_b_wrapper_2_3
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationRegistryLogicC2_3/AutomationRegistryLogicC2_3.abi ../../contracts/solc/v0.8.19/AutomationRegistryLogicC2_3/AutomationRegistryLogicC2_3.bin AutomationRegistryLogicC automation_registry_logic_c_wrapper_2_3
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/IAutomationRegistryMaster2_3/IAutomationRegistryMaster2_3.abi ../../contracts/solc/v0.8.19/IAutomationRegistryMaster2_3/IAutomationRegistryMaster2_3.bin IAutomationRegistryMaster2_3 i_automation_registry_master_wrapper_2_3
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationUtils2_3/AutomationUtils2_3.abi ../../contracts/solc/v0.8.19/AutomationUtils2_3/AutomationUtils2_3.bin AutomationUtils automation_utils_2_3
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.abi ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.bin ArbitrumModule arbitrum_module
@@ -56,6 +57,8 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.abi ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.bin ScrollModule scroll_module
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/IChainModule/IChainModule.abi ../../contracts/solc/v0.8.19/IChainModule/IChainModule.bin IChainModule i_chain_module
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/IAutomationV21PlusCommon/IAutomationV21PlusCommon.abi ../../contracts/solc/v0.8.19/IAutomationV21PlusCommon/IAutomationV21PlusCommon.bin IAutomationV21PlusCommon i_automation_v21_plus_common
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/MockETHUSDAggregator/MockETHUSDAggregator.abi ../../contracts/solc/v0.8.19/MockETHUSDAggregator/MockETHUSDAggregator.bin MockETHUSDAggregator mock_ethusd_aggregator_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/WETH9/WETH9.abi ../../contracts/solc/v0.8.19/WETH9/WETH9.bin WETH9 weth9_wrapper
 
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/ILogAutomation/ILogAutomation.abi ../../contracts/solc/v0.8.16/ILogAutomation/ILogAutomation.bin ILogAutomation i_log_automation
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationForwarderLogic/AutomationForwarderLogic.abi ../../contracts/solc/v0.8.16/AutomationForwarderLogic/AutomationForwarderLogic.bin AutomationForwarderLogic automation_forwarder_logic
@@ -80,6 +83,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2LoadTestWithMetrics/VRFV2LoadTestWithMetrics.abi ../../contracts/solc/v0.8.6/VRFV2LoadTestWithMetrics/VRFV2LoadTestWithMetrics.bin VRFV2LoadTestWithMetrics vrf_load_test_with_metrics
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2OwnerTestConsumer/VRFV2OwnerTestConsumer.abi ../../contracts/solc/v0.8.6/VRFV2OwnerTestConsumer/VRFV2OwnerTestConsumer.bin VRFV2OwnerTestConsumer vrf_owner_test_consumer
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFv2Consumer/VRFv2Consumer.abi ../../contracts/solc/v0.8.6/VRFv2Consumer/VRFv2Consumer.bin VRFv2Consumer vrf_v2_consumer_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/Counter/Counter.abi ../../contracts/solc/v0.8.6/Counter/Counter.bin Counter counter
 
 //go:generate go run ./generation/generate_link/wrap_link.go
 
@@ -135,6 +139,10 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/VRFV2PlusWrapperLoadTestConsumer/VRFV2PlusWrapperLoadTestConsumer.abi ../../contracts/solc/v0.8.19/VRFV2PlusWrapperLoadTestConsumer/VRFV2PlusWrapperLoadTestConsumer.bin VRFV2PlusWrapperLoadTestConsumer vrfv2plus_wrapper_load_test_consumer
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/BlockhashStore/BlockhashStore.abi ../../contracts/solc/v0.8.19/BlockhashStore/BlockhashStore.bin BlockhashStore blockhash_store
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/BatchBlockhashStore/BatchBlockhashStore.abi ../../contracts/solc/v0.8.19/BatchBlockhashStore/BatchBlockhashStore.bin BatchBlockhashStore batch_blockhash_store
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/VRFCoordinatorV2_5_Arbitrum/VRFCoordinatorV2_5_Arbitrum.abi ../../contracts/solc/v0.8.19/VRFCoordinatorV2_5_Arbitrum/VRFCoordinatorV2_5_Arbitrum.bin VRFCoordinatorV2_5_Arbitrum vrf_coordinator_v2_5_arbitrum
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/VRFCoordinatorV2_5_Optimism/VRFCoordinatorV2_5_Optimism.abi ../../contracts/solc/v0.8.19/VRFCoordinatorV2_5_Optimism/VRFCoordinatorV2_5_Optimism.bin VRFCoordinatorV2_5_Optimism vrf_coordinator_v2_5_optimism
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/VRFV2PlusWrapper_Arbitrum/VRFV2PlusWrapper_Arbitrum.abi ../../contracts/solc/v0.8.19/VRFV2PlusWrapper_Arbitrum/VRFV2PlusWrapper_Arbitrum.bin VRFV2PlusWrapper_Arbitrum vrfv2plus_wrapper_arbitrum
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/VRFV2PlusWrapper_Optimism/VRFV2PlusWrapper_Optimism.abi ../../contracts/solc/v0.8.19/VRFV2PlusWrapper_Optimism/VRFV2PlusWrapper_Optimism.bin VRFV2PlusWrapper_Optimism vrfv2plus_wrapper_optimism
 
 // Aggregators
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.bin AggregatorV2V3Interface aggregator_v2v3_interface

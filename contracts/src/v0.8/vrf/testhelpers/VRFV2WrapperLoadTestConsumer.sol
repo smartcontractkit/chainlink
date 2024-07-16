@@ -43,7 +43,7 @@ contract VRFV2WrapperLoadTestConsumer is VRFV2WrapperConsumerBase, ConfirmedOwne
     uint16 _requestConfirmations,
     uint32 _numWords,
     uint16 _requestCount
-  ) external onlyOwner {
+  ) external {
     for (uint16 i = 0; i < _requestCount; i++) {
       uint256 requestId = requestRandomness(_callbackGasLimit, _requestConfirmations, _numWords);
       s_lastRequestId = requestId;

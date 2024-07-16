@@ -346,13 +346,13 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			bs := &BlockSubscriber{
 				blocks: tc.blocks,
 			}
 			e := &EvmRegistry{
 				lggr: lggr,
 				bs:   bs,
-				ctx:  testutils.Context(t),
 			}
 
 			if tc.makeEthCall {
@@ -370,7 +370,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 				e.client = client
 			}
 
-			reason, state, retryable := e.verifyLogExists(tc.upkeepId, tc.payload)
+			reason, state, retryable := e.verifyLogExists(ctx, tc.upkeepId, tc.payload)
 			assert.Equal(t, tc.reason, reason)
 			assert.Equal(t, tc.state, state)
 			assert.Equal(t, tc.retryable, retryable)

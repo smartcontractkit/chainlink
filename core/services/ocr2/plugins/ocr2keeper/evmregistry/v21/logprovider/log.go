@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
 
-// LogSorter sorts the logs based on block number, tx hash and log index.
+// LogSorter sorts the logs primarily by block number, then by log index, and finally by tx hash.
 // returns true if b should come before a.
 func LogSorter(a, b logpoller.Log) bool {
 	return LogComparator(a, b) > 0
@@ -55,15 +55,4 @@ func logID(l logpoller.Log) string {
 	copy(ext.TxHash[:], l.TxHash[:])
 	copy(ext.BlockHash[:], l.BlockHash[:])
 	return hex.EncodeToString(ext.LogIdentifier())
-}
-
-// latestBlockNumber returns the latest block number from the given logs
-func latestBlockNumber(logs ...logpoller.Log) int64 {
-	var latest int64
-	for _, l := range logs {
-		if l.BlockNumber > latest {
-			latest = l.BlockNumber
-		}
-	}
-	return latest
 }

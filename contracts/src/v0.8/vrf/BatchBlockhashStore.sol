@@ -80,6 +80,7 @@ contract BatchBlockhashStore {
   }
 }
 
+// solhint-disable-next-line interface-starts-with-i
 interface BlockhashStore {
   function storeVerifyHeader(uint256 n, bytes memory header) external;
 

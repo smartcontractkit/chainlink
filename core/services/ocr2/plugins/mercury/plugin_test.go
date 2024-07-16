@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -73,7 +74,7 @@ var (
 			ID:         7,
 			ContractID: "phony",
 			FeedID:     ptr(common.BytesToHash([]byte{1, 2, 3})),
-			Relay:      commontypes.NetworkEVM,
+			Relay:      relay.NetworkEVM,
 			ChainID:    "1",
 		},
 		PipelineSpec:   &pipeline.Spec{},
@@ -206,7 +207,7 @@ func newServicesTestWrapper(t *testing.T, pluginConfig job.JSONConfig, feedID ut
 type testProvider struct{}
 
 // ChainReader implements types.MercuryProvider.
-func (*testProvider) ChainReader() commontypes.ChainReader { panic("unimplemented") }
+func (*testProvider) ChainReader() commontypes.ContractReader { panic("unimplemented") }
 
 // Close implements types.MercuryProvider.
 func (*testProvider) Close() error { return nil }

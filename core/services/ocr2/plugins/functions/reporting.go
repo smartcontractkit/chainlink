@@ -337,7 +337,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 		}
 
 		// TODO: support per-request aggregation method
-		// https://app.shortcut.com/chainlinklabs/story/57701/per-request-plugin-config
+		// https://smartcontract-it.atlassian.net/browse/FUN-159
 		aggregated, errAgg := Aggregate(defaultAggMethod, observations)
 		if errAgg != nil {
 			r.logger.Error("FunctionsReporting Report: error when aggregating reqId", commontypes.LogFields{

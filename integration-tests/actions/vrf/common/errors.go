@@ -25,6 +25,7 @@ const (
 	ErrLoadingCoordinator      = "error loading coordinator contract"
 	ErrCreatingVRFKey          = "error creating VRF key"
 
-	ErrWaitRandomWordsRequestedEvent = "error waiting for RandomWordsRequested event"
-	ErrWaitRandomWordsFulfilledEvent = "error waiting for RandomWordsFulfilled event"
+	ErrWaitRandomWordsRequestedEvent   = "error waiting for RandomWordsRequested event"
+	ErrWaitRandomWordsFulfilledEvent   = "error waiting for RandomWordsFulfilled event"
+	ErrFilterRandomWordsFulfilledEvent = "error filtering RandomWordsFulfilled event"
 )

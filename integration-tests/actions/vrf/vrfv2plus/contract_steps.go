@@ -6,53 +6,57 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/seth"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
+	vrfv2plusconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 func DeployVRFV2_5Contracts(
-	contractDeployer contracts.ContractDeployer,
-	chainClient blockchain.EVMClient,
+	chainClient *seth.Client,
+	configGeneral *vrfv2plusconfig.General,
 ) (*vrfcommon.VRFContracts, error) {
-	bhs, err := contractDeployer.DeployBlockhashStore()
+	bhs, err := contracts.DeployBlockhashStore(chainClient)
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrDeployBlockHashStore, err)
 	}
-	err = chainClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
-	}
-	batchBHS, err := contractDeployer.DeployBatchBlockhashStore(bhs.Address())
+	batchBHS, err := contracts.DeployBatchBlockhashStore(chainClient, bhs.Address())
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrDeployBatchBlockHashStore, err)
 	}
-	coordinator, err := contractDeployer.DeployVRFCoordinatorV2_5(bhs.Address())
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployCoordinatorV2Plus, err)
+	var coordinator contracts.VRFCoordinatorV2_5
+	if actions.IsOPStackChain(chainClient.ChainID) {
+		opStackCoordinator, err := contracts.DeployVRFCoordinatorV2_5_Optimism(chainClient, bhs.Address())
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployCoordinatorV2Plus, err)
+		}
+		err = opStackCoordinator.SetL1FeeCalculation(configGeneral.L1FeeCalculationMode, configGeneral.L1FeeCoefficient)
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrSetL1FeeCalculation, err)
+		}
+		coordinator, err = contracts.LoadVRFCoordinatorV2_5(chainClient, opStackCoordinator.Address.String())
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrLoadingCoordinator, err)
+		}
+	} else {
+		coordinator, err = contracts.DeployVRFCoordinatorV2_5(chainClient, bhs.Address())
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployCoordinatorV2Plus, err)
+		}
 	}
-	err = chainClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
-	}
-	batchCoordinator, err := contractDeployer.DeployBatchVRFCoordinatorV2Plus(coordinator.Address())
+	batchCoordinator, err := contracts.DeployBatchVRFCoordinatorV2Plus(chainClient, coordinator.Address())
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrDeployBatchCoordinatorV2Plus, err)
-	}
-	err = chainClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 	return &vrfcommon.VRFContracts{
 		CoordinatorV2Plus:      coordinator,
@@ -63,10 +67,10 @@ func DeployVRFV2_5Contracts(
 	}, nil
 }
 
-func DeployVRFV2PlusConsumers(contractDeployer contracts.ContractDeployer, coordinator contracts.VRFCoordinatorV2_5, consumerContractsAmount int) ([]contracts.VRFv2PlusLoadTestConsumer, error) {
+func DeployVRFV2PlusConsumers(client *seth.Client, coordinator contracts.VRFCoordinatorV2_5, consumerContractsAmount int) ([]contracts.VRFv2PlusLoadTestConsumer, error) {
 	var consumers []contracts.VRFv2PlusLoadTestConsumer
 	for i := 1; i <= consumerContractsAmount; i++ {
-		loadTestConsumer, err := contractDeployer.DeployVRFv2PlusLoadTestConsumer(coordinator.Address())
+		loadTestConsumer, err := contracts.DeployVRFv2PlusLoadTestConsumer(client, coordinator.Address())
 		if err != nil {
 			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrAdvancedConsumer, err)
 		}
@@ -113,10 +117,9 @@ func VRFV2PlusUpgradedVersionRegisterProvingKey(
 	return provingKey, nil
 }
 
-func FundVRFCoordinatorV2_5Subscription(
+func FundSubscriptionWithLink(
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
-	chainClient blockchain.EVMClient,
 	subscriptionID *big.Int,
 	linkFundingAmountJuels *big.Int,
 ) error {
@@ -128,27 +131,29 @@ func FundVRFCoordinatorV2_5Subscription(
 	if err != nil {
 		return fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrSendingLinkToken, err)
 	}
-	return chainClient.WaitForEvents()
+	return nil
 }
 
 func CreateFundSubsAndAddConsumers(
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
+	ctx context.Context,
+	sethClient *seth.Client,
 	subscriptionFundingAmountNative *big.Float,
 	subscriptionFundingAmountLink *big.Float,
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	consumers []contracts.VRFv2PlusLoadTestConsumer,
 	numberOfSubToCreate int,
+	subFundingType string,
 ) ([]*big.Int, error) {
 	subIDs, err := CreateSubsAndFund(
-		env,
-		chainID,
+		ctx,
+		sethClient,
 		subscriptionFundingAmountNative,
 		subscriptionFundingAmountLink,
 		linkToken,
 		coordinator,
 		numberOfSubToCreate,
+		subFundingType,
 	)
 	if err != nil {
 		return nil, err
@@ -164,52 +169,31 @@ func CreateFundSubsAndAddConsumers(
 		subToConsumersMap,
 		coordinator,
 	)
-	if err != nil {
-		return nil, err
-	}
 
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return nil, err
-	}
-
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
-	}
-	return subIDs, nil
+	return subIDs, err
 }
 
 func CreateSubsAndFund(
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
+	ctx context.Context,
+	sethClient *seth.Client,
 	subscriptionFundingAmountNative *big.Float,
 	subscriptionFundingAmountLink *big.Float,
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
-	subAmountToCreate int,
+	numberOfSubsToCreate int,
+	subFundingType string,
 ) ([]*big.Int, error) {
-	subs, err := CreateSubs(env, chainID, coordinator, subAmountToCreate)
+	subs, err := CreateSubs(ctx, sethClient, coordinator, numberOfSubsToCreate)
 	if err != nil {
 		return nil, err
-	}
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return nil, err
-	}
-
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 	err = FundSubscriptions(
-		env,
-		chainID,
 		subscriptionFundingAmountNative,
 		subscriptionFundingAmountLink,
 		linkToken,
 		coordinator,
 		subs,
+		subFundingType,
 	)
 	if err != nil {
 		return nil, err
@@ -218,15 +202,15 @@ func CreateSubsAndFund(
 }
 
 func CreateSubs(
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
+	ctx context.Context,
+	sethClient *seth.Client,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subAmountToCreate int,
 ) ([]*big.Int, error) {
 	var subIDArr []*big.Int
 
 	for i := 0; i < subAmountToCreate; i++ {
-		subID, err := CreateSubAndFindSubID(env, chainID, coordinator)
+		subID, err := CreateSubAndFindSubID(ctx, sethClient, coordinator)
 		if err != nil {
 			return nil, err
 		}
@@ -250,21 +234,12 @@ func AddConsumersToSubs(
 	return nil
 }
 
-func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, chainID int64, coordinator contracts.VRFCoordinatorV2_5) (*big.Int, error) {
+func CreateSubAndFindSubID(ctx context.Context, sethClient *seth.Client, coordinator contracts.VRFCoordinatorV2_5) (*big.Int, error) {
 	tx, err := coordinator.CreateSubscription()
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrCreateVRFSubscription, err)
 	}
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return nil, err
-	}
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
-	}
-
-	receipt, err := evmClient.GetTxReceipt(tx.Hash())
+	receipt, err := sethClient.Client.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
@@ -276,39 +251,49 @@ func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, chainID int64, coordi
 }
 
 func FundSubscriptions(
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
 	subscriptionFundingAmountNative *big.Float,
 	subscriptionFundingAmountLink *big.Float,
 	linkAddress contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subIDs []*big.Int,
+	subFundingType string,
 ) error {
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return err
-	}
-
 	for _, subID := range subIDs {
-		//Native Billing
-		amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
-		err := coordinator.FundSubscriptionWithNative(
-			subID,
-			amountWei,
-		)
-		if err != nil {
-			return fmt.Errorf(vrfcommon.ErrGenericFormat, ErrFundSubWithNativeToken, err)
+		switch vrfv2plusconfig.BillingType(subFundingType) {
+		case vrfv2plusconfig.BillingType_Link:
+			amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
+			err := FundSubscriptionWithLink(linkAddress, coordinator, subID, amountJuels)
+			if err != nil {
+				return fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrFundSubWithLinkToken, err)
+			}
+		case vrfv2plusconfig.BillingType_Native:
+			amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
+			err := coordinator.FundSubscriptionWithNative(
+				subID,
+				amountWei,
+			)
+			if err != nil {
+				return fmt.Errorf(vrfcommon.ErrGenericFormat, ErrFundSubWithNativeToken, err)
+			}
+		case vrfv2plusconfig.BillingType_Link_and_Native:
+			//Native Billing
+			amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
+			err := coordinator.FundSubscriptionWithNative(
+				subID,
+				amountWei,
+			)
+			if err != nil {
+				return fmt.Errorf(vrfcommon.ErrGenericFormat, ErrFundSubWithNativeToken, err)
+			}
+			//Link Billing
+			amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
+			err = FundSubscriptionWithLink(linkAddress, coordinator, subID, amountJuels)
+			if err != nil {
+				return fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrFundSubWithLinkToken, err)
+			}
+		default:
+			return fmt.Errorf("invalid billing type: %s", subFundingType)
 		}
-		//Link Billing
-		amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
-		err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, evmClient, subID, amountJuels)
-		if err != nil {
-			return fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrFundSubWithLinkToken, err)
-		}
-	}
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 	return nil
 }
@@ -343,8 +328,9 @@ func RequestRandomness(
 	vrfKeyData *vrfcommon.VRFKeyData,
 	subID *big.Int,
 	isNativeBilling bool,
-	config *vrfv2plus_config.General,
+	config *vrfv2plusconfig.General,
 	l zerolog.Logger,
+	keyNum int,
 ) (*contracts.CoordinatorRandomWordsRequested, error) {
 	LogRandRequest(
 		l,
@@ -354,8 +340,9 @@ func RequestRandomness(
 		isNativeBilling,
 		vrfKeyData.KeyHash,
 		config,
+		keyNum,
 	)
-	randomWordsRequestedEvent, err := consumer.RequestRandomness(
+	randomWordsRequestedEvent, err := consumer.RequestRandomnessFromKey(
 		coordinator,
 		vrfKeyData.KeyHash,
 		subID,
@@ -364,11 +351,12 @@ func RequestRandomness(
 		isNativeBilling,
 		*config.NumberOfWords,
 		*config.RandomnessRequestCountPerRequest,
+		keyNum,
 	)
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrRequestRandomness, err)
 	}
-	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, isNativeBilling)
+	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, isNativeBilling, keyNum)
 
 	return randomWordsRequestedEvent, err
 }
@@ -379,8 +367,9 @@ func RequestRandomnessAndWaitForFulfillment(
 	vrfKeyData *vrfcommon.VRFKeyData,
 	subID *big.Int,
 	isNativeBilling bool,
-	config *vrfv2plus_config.General,
+	config *vrfv2plusconfig.General,
 	l zerolog.Logger,
+	keyNum int,
 ) (*contracts.CoordinatorRandomWordsRequested, *contracts.CoordinatorRandomWordsFulfilled, error) {
 	randomWordsRequestedEvent, err := RequestRandomness(
 		consumer,
@@ -390,6 +379,7 @@ func RequestRandomnessAndWaitForFulfillment(
 		isNativeBilling,
 		config,
 		l,
+		keyNum,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -399,9 +389,11 @@ func RequestRandomnessAndWaitForFulfillment(
 		coordinator,
 		randomWordsRequestedEvent.RequestId,
 		subID,
+		randomWordsRequestedEvent.Raw.BlockNumber,
 		isNativeBilling,
 		config.RandomWordsFulfilledEventTimeout.Duration,
 		l,
+		keyNum,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -411,36 +403,43 @@ func RequestRandomnessAndWaitForFulfillment(
 }
 
 func DeployVRFV2PlusDirectFundingContracts(
-	contractDeployer contracts.ContractDeployer,
-	chainClient blockchain.EVMClient,
+	sethClient *seth.Client,
 	linkTokenAddress string,
 	linkEthFeedAddress string,
 	coordinator contracts.VRFCoordinatorV2_5,
 	consumerContractsAmount int,
 	wrapperSubId *big.Int,
+	configGeneral *vrfv2plusconfig.General,
 ) (*VRFV2PlusWrapperContracts, error) {
-
-	vrfv2PlusWrapper, err := contractDeployer.DeployVRFV2PlusWrapper(linkTokenAddress, linkEthFeedAddress, coordinator.Address(), wrapperSubId)
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployWrapper, err)
+	var vrfv2PlusWrapper contracts.VRFV2PlusWrapper
+	var err error
+	if actions.IsOPStackChain(sethClient.ChainID) {
+		opStackWrapper, err := contracts.DeployVRFV2PlusWrapperOptimism(sethClient, linkTokenAddress, linkEthFeedAddress, coordinator.Address(), wrapperSubId)
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployWrapper, err)
+		}
+		err = opStackWrapper.SetL1FeeCalculation(configGeneral.L1FeeCalculationMode, configGeneral.L1FeeCoefficient)
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrSetL1FeeCalculation, err)
+		}
+		vrfv2PlusWrapper, err = contracts.LoadVRFV2PlusWrapper(sethClient, opStackWrapper.Address.String())
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrLoadingCoordinator, err)
+		}
+	} else {
+		vrfv2PlusWrapper, err = contracts.DeployVRFV2PlusWrapper(sethClient, linkTokenAddress, linkEthFeedAddress, coordinator.Address(), wrapperSubId)
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployWrapper, err)
+		}
 	}
-	err = chainClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
-	}
-
-	consumers, err := DeployVRFV2PlusWrapperConsumers(contractDeployer, vrfv2PlusWrapper, consumerContractsAmount)
+	consumers, err := DeployVRFV2PlusWrapperConsumers(sethClient, vrfv2PlusWrapper, consumerContractsAmount)
 	if err != nil {
 		return nil, err
-	}
-	err = chainClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 	return &VRFV2PlusWrapperContracts{vrfv2PlusWrapper, consumers}, nil
 }
 
-func WrapperRequestRandomness(consumer contracts.VRFv2PlusWrapperLoadTestConsumer, coordinator contracts.Coordinator, vrfKeyData *vrfcommon.VRFKeyData, subID *big.Int, isNativeBilling bool, config *vrfv2plus_config.General, l zerolog.Logger) (*contracts.CoordinatorRandomWordsRequested, string, error) {
+func WrapperRequestRandomness(consumer contracts.VRFv2PlusWrapperLoadTestConsumer, coordinator contracts.Coordinator, vrfKeyData *vrfcommon.VRFKeyData, subID *big.Int, isNativeBilling bool, config *vrfv2plusconfig.General, l zerolog.Logger) (*contracts.CoordinatorRandomWordsRequested, string, error) {
 	LogRandRequest(
 		l,
 		consumer.Address(),
@@ -449,6 +448,7 @@ func WrapperRequestRandomness(consumer contracts.VRFv2PlusWrapperLoadTestConsume
 		isNativeBilling,
 		vrfKeyData.KeyHash,
 		config,
+		0,
 	)
 	var randomWordsRequestedEvent *contracts.CoordinatorRandomWordsRequested
 	var err error
@@ -475,7 +475,7 @@ func WrapperRequestRandomness(consumer contracts.VRFv2PlusWrapperLoadTestConsume
 			return nil, "", fmt.Errorf(vrfcommon.ErrGenericFormat, ErrRequestRandomnessDirectFundingLinkPayment, err)
 		}
 	}
-	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, isNativeBilling)
+	vrfcommon.LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, isNativeBilling, 0)
 	wrapperAddress, err := consumer.GetWrapper(context.Background())
 	if err != nil {
 		return nil, "", fmt.Errorf("error getting wrapper address, err: %w", err)
@@ -489,7 +489,7 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 	vrfKeyData *vrfcommon.VRFKeyData,
 	subID *big.Int,
 	isNativeBilling bool,
-	config *vrfv2plus_config.General,
+	config *vrfv2plusconfig.General,
 	l zerolog.Logger,
 ) (*contracts.CoordinatorRandomWordsFulfilled, error) {
 	randomWordsRequestedEvent, _, err := WrapperRequestRandomness(consumer, coordinator, vrfKeyData, subID,
@@ -501,9 +501,11 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 		coordinator,
 		randomWordsRequestedEvent.RequestId,
 		subID,
+		randomWordsRequestedEvent.Raw.BlockNumber,
 		isNativeBilling,
 		config.RandomWordsFulfilledEventTimeout.Duration,
 		l,
+		0,
 	)
 }
 
@@ -511,9 +513,11 @@ func WaitRandomWordsFulfilledEvent(
 	coordinator contracts.Coordinator,
 	requestId *big.Int,
 	subID *big.Int,
+	randomWordsRequestedEventBlockNumber uint64,
 	isNativeBilling bool,
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
+	keyNum int,
 ) (*contracts.CoordinatorRandomWordsFulfilled, error) {
 	randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
 		contracts.RandomWordsFulfilledEventFilter{
@@ -523,17 +527,28 @@ func WaitRandomWordsFulfilledEvent(
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitRandomWordsFulfilledEvent, err)
+		l.Warn().
+			Str("requestID", requestId.String()).
+			Err(err).Msg("Error waiting for random words fulfilled event, trying to filter for the event")
+		randomWordsFulfilledEvent, err = coordinator.FilterRandomWordsFulfilledEvent(
+			&bind.FilterOpts{
+				Start: randomWordsRequestedEventBlockNumber,
+			},
+			requestId,
+		)
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrFilterRandomWordsFulfilledEvent, err)
+		}
 	}
 
-	vrfcommon.LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, isNativeBilling)
+	vrfcommon.LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, isNativeBilling, keyNum)
 	return randomWordsFulfilledEvent, err
 }
 
-func DeployVRFV2PlusWrapperConsumers(contractDeployer contracts.ContractDeployer, vrfV2PlusWrapper contracts.VRFV2PlusWrapper, consumerContractsAmount int) ([]contracts.VRFv2PlusWrapperLoadTestConsumer, error) {
+func DeployVRFV2PlusWrapperConsumers(client *seth.Client, vrfV2PlusWrapper contracts.VRFV2PlusWrapper, consumerContractsAmount int) ([]contracts.VRFv2PlusWrapperLoadTestConsumer, error) {
 	var consumers []contracts.VRFv2PlusWrapperLoadTestConsumer
 	for i := 1; i <= consumerContractsAmount; i++ {
-		loadTestConsumer, err := contractDeployer.DeployVRFV2PlusWrapperLoadTestConsumer(vrfV2PlusWrapper.Address())
+		loadTestConsumer, err := contracts.DeployVRFV2PlusWrapperLoadTestConsumer(client, vrfV2PlusWrapper.Address())
 		if err != nil {
 			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrAdvancedConsumer, err)
 		}
@@ -543,19 +558,14 @@ func DeployVRFV2PlusWrapperConsumers(contractDeployer contracts.ContractDeployer
 }
 
 func SetupVRFV2PlusContracts(
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
+	sethClient *seth.Client,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.VRFMockETHLINKFeed,
-	configGeneral *vrfv2plus_config.General,
+	configGeneral *vrfv2plusconfig.General,
 	l zerolog.Logger,
 ) (*vrfcommon.VRFContracts, error) {
 	l.Info().Msg("Deploying VRFV2 Plus contracts")
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return nil, err
-	}
-	vrfContracts, err := DeployVRFV2_5Contracts(env.ContractDeployer, evmClient)
+	vrfContracts, err := DeployVRFV2_5Contracts(sethClient, configGeneral)
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployVRFV2_5Contracts, err)
 	}
@@ -583,17 +593,13 @@ func SetupVRFV2PlusContracts(
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrSetLinkNativeLinkFeed, err)
 	}
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
-	}
 
 	return vrfContracts, nil
 }
 
 func SetupNewConsumersAndSubs(
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
+	ctx context.Context,
+	sethClient *seth.Client,
 	coordinator contracts.VRFCoordinatorV2_5,
 	testConfig tc.TestConfig,
 	linkToken contracts.LinkToken,
@@ -601,31 +607,24 @@ func SetupNewConsumersAndSubs(
 	numberOfSubToCreate int,
 	l zerolog.Logger,
 ) ([]contracts.VRFv2PlusLoadTestConsumer, []*big.Int, error) {
-	consumers, err := DeployVRFV2PlusConsumers(env.ContractDeployer, coordinator, consumerContractsAmount)
+	consumers, err := DeployVRFV2PlusConsumers(sethClient, coordinator, consumerContractsAmount)
 	if err != nil {
 		return nil, nil, fmt.Errorf("err: %w", err)
-	}
-	evmClient, err := env.GetEVMClient(chainID)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return nil, nil, fmt.Errorf("%s, err: %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 	l.Info().
 		Str("Coordinator", *testConfig.VRFv2Plus.ExistingEnvConfig.ExistingEnvConfig.CoordinatorAddress).
 		Int("Number of Subs to create", numberOfSubToCreate).
 		Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 	subIDs, err := CreateFundSubsAndAddConsumers(
-		env,
-		chainID,
+		ctx,
+		sethClient,
 		big.NewFloat(*testConfig.VRFv2Plus.General.SubscriptionFundingAmountNative),
 		big.NewFloat(*testConfig.VRFv2Plus.General.SubscriptionFundingAmountLink),
 		linkToken,
 		coordinator,
 		consumers,
 		*testConfig.VRFv2Plus.General.NumberOfSubToCreate,
+		*testConfig.VRFv2Plus.General.SubscriptionBillingType,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("err: %w", err)
@@ -644,7 +643,7 @@ func CancelSubsAndReturnFunds(ctx context.Context, vrfContracts *vrfcommon.VRFCo
 			l.Error().Err(err).Msg("Error checking if pending requests exist")
 		}
 		if !pendingRequestsExist {
-			_, err := vrfContracts.CoordinatorV2Plus.CancelSubscription(subID, common.HexToAddress(eoaWalletAddress))
+			_, _, err := vrfContracts.CoordinatorV2Plus.CancelSubscription(subID, common.HexToAddress(eoaWalletAddress))
 			if err != nil {
 				l.Error().Err(err).Msg("Error canceling subscription")
 			}

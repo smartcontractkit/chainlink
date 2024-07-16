@@ -5,8 +5,11 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
@@ -18,8 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_load_test_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 )
 
 type VRF interface {
@@ -57,28 +58,24 @@ type VRFCoordinatorV2 interface {
 	) error
 	TransferOwnership(to common.Address) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
-	CreateSubscription() (*types.Transaction, error)
+	CreateSubscription() (*types.Receipt, error)
 	AddConsumer(subId uint64, consumerAddress string) error
 	Address() string
 	GetSubscription(ctx context.Context, subID uint64) (Subscription, error)
 	GetOwner(ctx context.Context) (common.Address, error)
 	PendingRequestsExist(ctx context.Context, subID uint64) (bool, error)
-	OwnerCancelSubscription(subID uint64) (*types.Transaction, error)
+	OwnerCancelSubscription(subID uint64) (*seth.DecodedTransaction, *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error)
+	CancelSubscription(subID uint64, to common.Address) (*seth.DecodedTransaction, *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error)
 	ParseSubscriptionCanceled(log types.Log) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error)
 	ParseRandomWordsRequested(log types.Log) (*CoordinatorRandomWordsRequested, error)
 	ParseRandomWordsFulfilled(log types.Log) (*CoordinatorRandomWordsFulfilled, error)
 	ParseLog(log types.Log) (generated.AbigenLog, error)
-	CancelSubscription(subID uint64, to common.Address) (*types.Transaction, error)
 	FindSubscriptionID(subID uint64) (uint64, error)
+	FilterRandomWordsFulfilledEvent(opts *bind.FilterOpts, requestId *big.Int) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForRandomWordsFulfilledEvent(filter RandomWordsFulfilledEventFilter) (*CoordinatorRandomWordsFulfilled, error)
-	WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []uint64, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error)
-	WaitForSubscriptionCanceledEvent(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error)
-	WaitForSubscriptionConsumerAdded(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionConsumerAdded, error)
-	WaitForSubscriptionConsumerRemoved(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionConsumerRemoved, error)
-	WaitForSubscriptionCreatedEvent(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreated, error)
-	WaitForSubscriptionFunded(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionFunded, error)
 	WaitForConfigSetEvent(timeout time.Duration) (*CoordinatorConfigSet, error)
 	OracleWithdraw(recipient common.Address, amount *big.Int) error
+	GetBlockHashStoreAddress(ctx context.Context) (common.Address, error)
 }
 
 type VRFCoordinatorV2_5 interface {
@@ -104,27 +101,26 @@ type VRFCoordinatorV2_5 interface {
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
 	CreateSubscription() (*types.Transaction, error)
 	GetActiveSubscriptionIds(ctx context.Context, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
-	Migrate(subId *big.Int, coordinatorAddress string) error
+	Migrate(subId *big.Int, coordinatorAddress string) (*seth.DecodedTransaction, *vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted, error)
 	RegisterMigratableCoordinator(migratableCoordinatorAddress string) error
 	AddConsumer(subId *big.Int, consumerAddress string) error
 	FundSubscriptionWithNative(subId *big.Int, nativeTokenAmount *big.Int) error
 	Address() string
 	PendingRequestsExist(ctx context.Context, subID *big.Int) (bool, error)
 	GetSubscription(ctx context.Context, subID *big.Int) (Subscription, error)
-	OwnerCancelSubscription(subID *big.Int) (*types.Transaction, error)
-	CancelSubscription(subID *big.Int, to common.Address) (*types.Transaction, error)
+	OwnerCancelSubscription(subID *big.Int) (*seth.DecodedTransaction, *vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled, error)
+	CancelSubscription(subID *big.Int, to common.Address) (*seth.DecodedTransaction, *vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled, error)
 	Withdraw(recipient common.Address) error
 	WithdrawNative(recipient common.Address) error
 	GetNativeTokenTotalBalance(ctx context.Context) (*big.Int, error)
 	GetLinkTotalBalance(ctx context.Context) (*big.Int, error)
 	FindSubscriptionID(subID *big.Int) (*big.Int, error)
-	WaitForSubscriptionCreatedEvent(timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCreated, error)
-	WaitForSubscriptionCanceledEvent(subID *big.Int, timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled, error)
+	FilterRandomWordsFulfilledEvent(opts *bind.FilterOpts, requestId *big.Int) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForRandomWordsFulfilledEvent(filter RandomWordsFulfilledEventFilter) (*CoordinatorRandomWordsFulfilled, error)
-	WaitForMigrationCompletedEvent(timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted, error)
 	ParseRandomWordsRequested(log types.Log) (*CoordinatorRandomWordsRequested, error)
 	ParseRandomWordsFulfilled(log types.Log) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForConfigSetEvent(timeout time.Duration) (*CoordinatorConfigSet, error)
+	GetBlockHashStoreAddress(ctx context.Context) (common.Address, error)
 }
 
 type VRFCoordinatorV2PlusUpgradedVersion interface {
@@ -159,8 +155,8 @@ type VRFCoordinatorV2PlusUpgradedVersion interface {
 	GetSubscription(ctx context.Context, subID *big.Int) (vrf_v2plus_upgraded_version.GetSubscription, error)
 	GetActiveSubscriptionIds(ctx context.Context, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
 	FindSubscriptionID() (*big.Int, error)
+	FilterRandomWordsFulfilledEvent(opts *bind.FilterOpts, requestId *big.Int) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForRandomWordsFulfilledEvent(filter RandomWordsFulfilledEventFilter) (*CoordinatorRandomWordsFulfilled, error)
-	WaitForMigrationCompletedEvent(timeout time.Duration) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionMigrationCompleted, error)
 	ParseRandomWordsRequested(log types.Log) (*CoordinatorRandomWordsRequested, error)
 	ParseRandomWordsFulfilled(log types.Log) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForConfigSetEvent(timeout time.Duration) (*CoordinatorConfigSet, error)
@@ -237,6 +233,16 @@ type VRFv2LoadTestConsumer interface {
 		numWords uint32,
 		requestCount uint16,
 	) (*CoordinatorRandomWordsRequested, error)
+	RequestRandomnessFromKey(
+		coordinator Coordinator,
+		keyHash [32]byte,
+		subID uint64,
+		requestConfirmations uint16,
+		callbackGasLimit uint32,
+		numWords uint32,
+		requestCount uint16,
+		keyNum int,
+	) (*CoordinatorRandomWordsRequested, error)
 	RequestRandomWordsWithForceFulfill(
 		coordinator Coordinator,
 		keyHash [32]byte,
@@ -274,6 +280,16 @@ type VRFv2PlusLoadTestConsumer interface {
 		numWords uint32,
 		requestCount uint16,
 	) (*CoordinatorRandomWordsRequested, error)
+	RequestRandomnessFromKey(
+		coordinator Coordinator,
+		keyHash [32]byte, subID *big.Int,
+		requestConfirmations uint16,
+		callbackGasLimit uint32,
+		nativePayment bool,
+		numWords uint32,
+		requestCount uint16,
+		keyNum int,
+	) (*CoordinatorRandomWordsRequested, error)
 	GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_v2plus_load_test_with_metrics.GetRequestStatus, error)
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
 	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)
@@ -302,47 +318,6 @@ type VRFv2PlusWrapperLoadTestConsumer interface {
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
 	GetWrapper(ctx context.Context) (common.Address, error)
 	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)
-}
-
-type DKG interface {
-	Address() string
-	AddClient(keyID string, clientAddress string) error
-	SetConfig(
-		signerAddresses []common.Address,
-		transmitterAddresses []common.Address,
-		f uint8,
-		onchainConfig []byte,
-		offchainConfigVersion uint64,
-		offchainConfig []byte,
-	) error
-	WaitForConfigSetEvent(timeout time.Duration) (*dkg.DKGConfigSet, error)
-	WaitForTransmittedEvent(timeout time.Duration) (*dkg.DKGTransmitted, error)
-}
-
-type VRFCoordinatorV3 interface {
-	Address() string
-	SetProducer(producerAddress string) error
-	CreateSubscription() error
-	FindSubscriptionID() (*big.Int, error)
-	AddConsumer(subId *big.Int, consumerAddress string) error
-	SetConfig(maxCallbackGasLimit, maxCallbackArgumentsLength uint32) error
-}
-
-type VRFBeacon interface {
-	Address() string
-	SetPayees(transmitterAddresses []common.Address, payeesAddresses []common.Address) error
-	SetConfig(
-		signerAddresses []common.Address,
-		transmitterAddresses []common.Address,
-		f uint8,
-		onchainConfig []byte,
-		offchainConfigVersion uint64,
-		offchainConfig []byte,
-	) error
-	WaitForConfigSetEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconConfigSet, error)
-	WaitForNewTransmissionEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconNewTransmission, error)
-	LatestConfigDigestAndEpoch(ctx context.Context) (vrf_beacon.LatestConfigDigestAndEpoch,
-		error)
 }
 
 type VRFBeaconConsumer interface {

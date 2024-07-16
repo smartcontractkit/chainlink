@@ -186,6 +186,7 @@ func TestPollLogs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			mp := new(mocks.LogPoller)
 
 			if test.LatestBlock != nil {
@@ -205,7 +206,7 @@ func TestPollLogs(t *testing.T) {
 				chLog:         make(chan logpoller.Log, 10),
 			}
 
-			err := rg.pollLogs()
+			err := rg.pollLogs(ctx)
 
 			assert.Equal(t, test.ExpectedLastPoll, rg.lastPollBlock)
 			if test.ExpectedErr != nil {

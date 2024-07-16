@@ -1,7 +1,6 @@
 package bm
 
 import (
-	"crypto/ed25519"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,7 +18,7 @@ import (
 
 func Test_DummyTransmitter(t *testing.T) {
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	tr := NewTransmitter(lggr, ed25519.PublicKey("dummy"))
+	tr := NewTransmitter(lggr, "dummy")
 
 	servicetest.Run(t, tr)
 

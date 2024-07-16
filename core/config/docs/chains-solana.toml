@@ -34,6 +34,8 @@ ComputeUnitPriceMin = 0 # Default
 ComputeUnitPriceDefault = 0 # Default
 # FeeBumpPeriod is the amount of time before a tx is retried with a fee bump
 FeeBumpPeriod = '3s' # Default
+# BlockHistoryPollPeriod is the rate to poll for blocks in the block history fee estimator
+BlockHistoryPollPeriod = '5s' # Default
 
 [[Solana.Nodes]]
 # Name is a unique (per-chain) identifier for this node.

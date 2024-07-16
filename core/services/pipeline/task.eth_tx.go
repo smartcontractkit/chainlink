@@ -140,7 +140,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 	var forwarderAddress common.Address
 	if t.forwardingAllowed {
 		var fwderr error
-		forwarderAddress, fwderr = chain.TxManager().GetForwarderForEOA(fromAddr)
+		forwarderAddress, fwderr = chain.TxManager().GetForwarderForEOA(ctx, fromAddr)
 		if fwderr != nil {
 			lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "err", fwderr)
 		}

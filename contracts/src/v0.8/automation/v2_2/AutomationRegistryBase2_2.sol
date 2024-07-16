@@ -18,6 +18,7 @@ import {IChainModule} from "../interfaces/IChainModule.sol";
  * AutomationRegistry and AutomationRegistryLogic
  * @dev all errors, events, and internal functions should live here
  */
+// solhint-disable-next-line max-states-count
 abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
@@ -207,6 +208,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @member reorgProtectionEnabled if this registry enables re-org protection checks
    * @member chainModule the chain specific module
    */
+  // solhint-disable-next-line gas-struct-packing
   struct OnchainConfig {
     uint32 paymentPremiumPPB;
     uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
@@ -851,6 +853,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @notice only allows a pre-configured address to initiate offchain read
    */
   function _preventExecution() internal view {
+    // solhint-disable-next-line avoid-tx-origin
     if (tx.origin != i_allowedReadOnlyAddress) {
       revert OnlySimulatedBackend();
     }

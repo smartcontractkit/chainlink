@@ -34,6 +34,8 @@ inputs:
     description: Grafana URL
   grafanaDashboardUrl:
     description: Grafana dashboard URL
+  grafanaBearerToken:
+    description: Grafana bearer token
 
 runs:
   using: composite
@@ -56,6 +58,7 @@ runs:
         LOGSTREAM_LOG_TARGETS: ${{ inputs.logstreamLogTargets }}
         GRAFANA_URL: ${{ inputs.grafanaUrl }}
         GRAFANA_DASHBOARD_URL: ${{ inputs.grafanaDashboardUrl }}
+        GRAFANA_BEARER_TOKEN: ${{ inputs.grafanaBearerToken }}
       run: |
         function convert_to_toml_array() {
           local IFS=','
@@ -79,6 +82,11 @@ runs:
         fi
 
         log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")
+
+        grafana_bearer_token=""
+        if [ -n "$GRAFANA_BEARER_TOKEN" ]; then
+          grafana_bearer_token="bearer_token_secret=\"$GRAFANA_BEARER_TOKEN\""
+        fi
 
         cat << EOF > config.toml
         [Network]
@@ -109,6 +117,7 @@ runs:
         [Logging.Grafana]
         base_url="$GRAFANA_URL"
         dashboard_url="$GRAFANA_DASHBOARD_URL"
+        $grafana_bearer_token
         EOF
 
         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)

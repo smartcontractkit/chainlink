@@ -10,9 +10,12 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -23,16 +26,18 @@ type peerWrapper struct {
 	p2pConfig   config.P2P
 	privateKey  ed25519.PrivateKey
 	lggr        logger.Logger
+	ds          sqlutil.DataSource
 }
 
 var _ types.PeerWrapper = &peerWrapper{}
 var _ types.Signer = &peerWrapper{}
 
-func NewExternalPeerWrapper(keystoreP2P keystore.P2P, p2pConfig config.P2P, lggr logger.Logger) *peerWrapper {
+func NewExternalPeerWrapper(keystoreP2P keystore.P2P, p2pConfig config.P2P, ds sqlutil.DataSource, lggr logger.Logger) *peerWrapper {
 	return &peerWrapper{
 		keystoreP2P: keystoreP2P,
 		p2pConfig:   p2pConfig,
 		lggr:        lggr,
+		ds:          ds,
 	}
 }
 
@@ -42,15 +47,14 @@ func (e *peerWrapper) GetPeer() types.Peer {
 
 // convert to "external" P2P PeerConfig, which is independent of OCR
 // this has to be done in Start() because keystore is not unlocked at construction time
-func convertPeerConfig(keystoreP2P keystore.P2P, p2pConfig config.P2P) (p2p.PeerConfig, error) {
-	key, err := keystoreP2P.GetOrFirst(p2pConfig.PeerID())
+func (e *peerWrapper) convertPeerConfig() (p2p.PeerConfig, error) {
+	key, err := e.keystoreP2P.GetOrFirst(e.p2pConfig.PeerID())
 	if err != nil {
 		return p2p.PeerConfig{}, err
 	}
 
-	// TODO(KS-106): use real DB
-	discovererDB := p2p.NewInMemoryDiscovererDatabase()
-	bootstrappers, err := convertBootstrapperLocators(p2pConfig.V2().DefaultBootstrappers())
+	discovererDB := ocrcommon.NewDON2DONDiscovererDatabase(e.ds, key.PeerID().Raw())
+	bootstrappers, err := convertBootstrapperLocators(e.p2pConfig.V2().DefaultBootstrappers())
 	if err != nil {
 		return p2p.PeerConfig{}, err
 	}
@@ -58,12 +62,12 @@ func convertPeerConfig(keystoreP2P keystore.P2P, p2pConfig config.P2P) (p2p.Peer
 	peerConfig := p2p.PeerConfig{
 		PrivateKey: key.PrivKey,
 
-		ListenAddresses:   p2pConfig.V2().ListenAddresses(),
-		AnnounceAddresses: p2pConfig.V2().AnnounceAddresses(),
+		ListenAddresses:   e.p2pConfig.V2().ListenAddresses(),
+		AnnounceAddresses: e.p2pConfig.V2().AnnounceAddresses(),
 		Bootstrappers:     bootstrappers,
 
-		DeltaReconcile:     p2pConfig.V2().DeltaReconcile().Duration(),
-		DeltaDial:          p2pConfig.V2().DeltaDial().Duration(),
+		DeltaReconcile:     e.p2pConfig.V2().DeltaReconcile().Duration(),
+		DeltaDial:          e.p2pConfig.V2().DeltaDial().Duration(),
 		DiscovererDatabase: discovererDB,
 
 		// NOTE: this is equivalent to prometheus.DefaultRegisterer, but we need to use a separate
@@ -95,7 +99,7 @@ func convertBootstrapperLocators(bootstrappers []commontypes.BootstrapperLocator
 }
 
 func (e *peerWrapper) Start(ctx context.Context) error {
-	cfg, err := convertPeerConfig(e.keystoreP2P, e.p2pConfig)
+	cfg, err := e.convertPeerConfig()
 	if err != nil {
 		return err
 	}

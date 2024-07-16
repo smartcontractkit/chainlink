@@ -71,7 +71,7 @@ answer1      [type=median index=0];
 				assert.Equal(t, "median", string(r.PluginType))
 				var pc medianconfig.PluginConfig
 				require.NoError(t, json.Unmarshal(r.PluginConfig.Bytes(), &pc))
-				require.NoError(t, medianconfig.ValidatePluginConfig(pc))
+				require.NoError(t, pc.ValidatePluginConfig())
 				var oss validate.OCR2OnchainSigningStrategy
 				require.NoError(t, json.Unmarshal(r.OnchainSigningStrategy.Bytes(), &oss))
 			},
@@ -430,263 +430,6 @@ chainID = 1337
 			},
 		},
 		{
-			name: "valid DKG pluginConfig",
-			toml: `
-type = "offchainreporting2"
-schemaVersion = 1
-name = "dkg"
-externalJobID = "6d46d85f-d38c-4f4a-9f00-ac29a25b6330"
-maxTaskDuration = "1s"
-contractID = "0x3e54dCc49F16411A3aaa4cDbC41A25bCa9763Cee"
-ocrKeyBundleID = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
-p2pv2Bootstrappers = [
-	"12D3KooWSbPRwXY4gxFRJT7LWCnjgGbR4S839nfCRCDgQUiNenxa@127.0.0.1:8000"
-]
-relay = "evm"
-pluginType = "dkg"
-transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
-
-[relayConfig]
-chainID = 4
-
-[onchainSigningStrategy]
-strategyName = "single-chain"
-[onchainSigningStrategy.config]
-evm = ""
-publicKey = "0x1234567890123456789012345678901234567890"
-
-[pluginConfig]
-EncryptionPublicKey = "0e86e8cf899ae9a1b43e023bbe8825b103659bb8d6d4e54f6a3cfae7b106069c"
-SigningPublicKey    = "eb62dbd2beb7c1524275a8019022f6ce6a7e86c9e65e3099452a2b96fc2432b1"
-KeyID               = "6f3b82406688b8ddb944c6f2e6d808f014c8fa8d568d639c25019568c715fbf0"
-`,
-			assertion: func(t *testing.T, os job.Job, err error) {
-				require.NoError(t, err)
-			},
-		},
-		{
-			name: "DKG encryption key is not hex",
-			toml: `
-type = "offchainreporting2"
-schemaVersion = 1
-name = "dkg"
-externalJobID = "6d46d85f-d38c-4f4a-9f00-ac29a25b6330"
-maxTaskDuration = "1s"
-contractID = "0x3e54dCc49F16411A3aaa4cDbC41A25bCa9763Cee"
-ocrKeyBundleID = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
-p2pv2Bootstrappers = [
-	"12D3KooWSbPRwXY4gxFRJT7LWCnjgGbR4S839nfCRCDgQUiNenxa@127.0.0.1:8000"
-]
-relay = "evm"
-pluginType = "dkg"
-transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
-
-[relayConfig]
-chainID = 4
-
-[onchainSigningStrategy]
-strategyName = "single-chain"
-[onchainSigningStrategy.config]
-evm = ""
-publicKey = "0x1234567890123456789012345678901234567890"
-
-[pluginConfig]
-EncryptionPublicKey = "frog"
-SigningPublicKey    = "eb62dbd2beb7c1524275a8019022f6ce6a7e86c9e65e3099452a2b96fc2432b1"
-KeyID               = "6f3b82406688b8ddb944c6f2e6d808f014c8fa8d568d639c25019568c715fbf0"
-`,
-			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "expected hex string but received frog")
-				require.Contains(t, err.Error(), "validation error for encryptedPublicKey")
-			},
-		},
-		{
-			name: "DKG encryption key is too short",
-			toml: `
-type = "offchainreporting2"
-schemaVersion = 1
-name = "dkg"
-externalJobID = "6d46d85f-d38c-4f4a-9f00-ac29a25b6330"
-maxTaskDuration = "1s"
-contractID = "0x3e54dCc49F16411A3aaa4cDbC41A25bCa9763Cee"
-ocrKeyBundleID = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
-p2pv2Bootstrappers = [
-	"12D3KooWSbPRwXY4gxFRJT7LWCnjgGbR4S839nfCRCDgQUiNenxa@127.0.0.1:8000"
-]
-relay = "evm"
-pluginType = "dkg"
-transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
-
-[relayConfig]
-chainID = 4
-
-[onchainSigningStrategy]
-strategyName = "single-chain"
-[onchainSigningStrategy.config]
-evm = ""
-publicKey = "0x1234567890123456789012345678901234567890"
-
-[pluginConfig]
-EncryptionPublicKey = "0e86e8cf899ae9a1b43e023bbe8825b103659bb8d6d4e54f6a3cfae7b10606"
-SigningPublicKey    = "eb62dbd2beb7c1524275a8019022f6ce6a7e86c9e65e3099452a2b96fc2432b1"
-KeyID               = "6f3b82406688b8ddb944c6f2e6d808f014c8fa8d568d639c25019568c715fbf0"
-`,
-			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "value: 0e86e8cf899ae9a1b43e023bbe8825b103659bb8d6d4e54f6a3cfae7b10606 has unexpected length. Expected 32 bytes")
-				require.Contains(t, err.Error(), "validation error for encryptedPublicKey")
-			},
-		},
-		{
-			name: "DKG signing key is not hex",
-			toml: `
-type = "offchainreporting2"
-schemaVersion = 1
-name = "dkg"
-externalJobID = "6d46d85f-d38c-4f4a-9f00-ac29a25b6330"
-maxTaskDuration = "1s"
-contractID = "0x3e54dCc49F16411A3aaa4cDbC41A25bCa9763Cee"
-ocrKeyBundleID = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
-p2pv2Bootstrappers = [
-	"12D3KooWSbPRwXY4gxFRJT7LWCnjgGbR4S839nfCRCDgQUiNenxa@127.0.0.1:8000"
-]
-relay = "evm"
-pluginType = "dkg"
-transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
-
-[relayConfig]
-chainID = 4
-
-[onchainSigningStrategy]
-strategyName = "single-chain"
-[onchainSigningStrategy.config]
-evm = ""
-publicKey = "0x1234567890123456789012345678901234567890"
-
-[pluginConfig]
-EncryptionPublicKey = "0e86e8cf899ae9a1b43e023bbe8825b103659bb8d6d4e54f6a3cfae7b106069c"
-SigningPublicKey    = "frog"
-KeyID               = "6f3b82406688b8ddb944c6f2e6d808f014c8fa8d568d639c25019568c715fbf0"
-`,
-			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "expected hex string but received frog")
-				require.Contains(t, err.Error(), "validation error for signingPublicKey")
-			},
-		},
-		{
-			name: "DKG signing key is too short",
-			toml: `
-type = "offchainreporting2"
-schemaVersion = 1
-name = "dkg"
-externalJobID = "6d46d85f-d38c-4f4a-9f00-ac29a25b6330"
-maxTaskDuration = "1s"
-contractID = "0x3e54dCc49F16411A3aaa4cDbC41A25bCa9763Cee"
-ocrKeyBundleID = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
-p2pv2Bootstrappers = [
-	"12D3KooWSbPRwXY4gxFRJT7LWCnjgGbR4S839nfCRCDgQUiNenxa@127.0.0.1:8000"
-]
-relay = "evm"
-pluginType = "dkg"
-transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
-
-[relayConfig]
-chainID = 4
-
-[onchainSigningStrategy]
-strategyName = "single-chain"
-[onchainSigningStrategy.config]
-evm = ""
-publicKey = "0x1234567890123456789012345678901234567890"
-
-[pluginConfig]
-EncryptionPublicKey = "0e86e8cf899ae9a1b43e023bbe8825b103659bb8d6d4e54f6a3cfae7b106069c"
-SigningPublicKey    = "eb62dbd2beb7c1524275a8019022f6ce6a7e86c9e65e3099452a2b96fc24"
-KeyID               = "6f3b82406688b8ddb944c6f2e6d808f014c8fa8d568d639c25019568c715fbf0"
-`,
-			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "value: eb62dbd2beb7c1524275a8019022f6ce6a7e86c9e65e3099452a2b96fc24 has unexpected length. Expected 32 bytes")
-				require.Contains(t, err.Error(), "validation error for signingPublicKey")
-			},
-		},
-		{
-			name: "DKG keyID is not hex",
-			toml: `
-type = "offchainreporting2"
-schemaVersion = 1
-name = "dkg"
-externalJobID = "6d46d85f-d38c-4f4a-9f00-ac29a25b6330"
-maxTaskDuration = "1s"
-contractID = "0x3e54dCc49F16411A3aaa4cDbC41A25bCa9763Cee"
-ocrKeyBundleID = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
-p2pv2Bootstrappers = [
-	"12D3KooWSbPRwXY4gxFRJT7LWCnjgGbR4S839nfCRCDgQUiNenxa@127.0.0.1:8000"
-]
-relay = "evm"
-pluginType = "dkg"
-transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
-
-[relayConfig]
-chainID = 4
-
-[onchainSigningStrategy]
-strategyName = "single-chain"
-[onchainSigningStrategy.config]
-evm = ""
-publicKey = "0x1234567890123456789012345678901234567890"
-
-[pluginConfig]
-EncryptionPublicKey = "0e86e8cf899ae9a1b43e023bbe8825b103659bb8d6d4e54f6a3cfae7b106069c"
-SigningPublicKey    = "eb62dbd2beb7c1524275a8019022f6ce6a7e86c9e65e3099452a2b96fc2432b1"
-KeyID               = "frog"
-`,
-			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "expected hex string but received frog")
-				require.Contains(t, err.Error(), "validation error for keyID")
-			},
-		},
-		{
-			name: "DKG keyID is too long",
-			toml: `
-type = "offchainreporting2"
-schemaVersion = 1
-name = "dkg"
-externalJobID = "6d46d85f-d38c-4f4a-9f00-ac29a25b6330"
-maxTaskDuration = "1s"
-contractID = "0x3e54dCc49F16411A3aaa4cDbC41A25bCa9763Cee"
-ocrKeyBundleID = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
-p2pv2Bootstrappers = [
-	"12D3KooWSbPRwXY4gxFRJT7LWCnjgGbR4S839nfCRCDgQUiNenxa@127.0.0.1:8000"
-]
-relay = "evm"
-pluginType = "dkg"
-transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
-
-[relayConfig]
-chainID = 4
-
-[onchainSigningStrategy]
-strategyName = "single-chain"
-[onchainSigningStrategy.config]
-evm = ""
-publicKey = "0x1234567890123456789012345678901234567890"
-
-[pluginConfig]
-EncryptionPublicKey = "0e86e8cf899ae9a1b43e023bbe8825b103659bb8d6d4e54f6a3cfae7b106069c"
-SigningPublicKey    = "eb62dbd2beb7c1524275a8019022f6ce6a7e86c9e65e3099452a2b96fc2432b1"
-KeyID               = "6f3b82406688b8ddb944c6f2e6d808f014c8fa8d568d639c25019568c715fbaaaabc"
-`,
-			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "value: 6f3b82406688b8ddb944c6f2e6d808f014c8fa8d568d639c25019568c715fbaaaabc has unexpected length. Expected 32 bytes")
-				require.Contains(t, err.Error(), "validation error for keyID")
-			},
-		},
-		{
 			name: "Generic public onchain signing strategy with no public key",
 			toml: `
 type               = "offchainreporting2"
@@ -901,7 +644,7 @@ UpdateInterval="1m"
 				assert.Equal(t, "median", string(r.PluginType))
 				var pc medianconfig.PluginConfig
 				require.NoError(t, json.Unmarshal(r.PluginConfig.Bytes(), &pc))
-				require.NoError(t, medianconfig.ValidatePluginConfig(pc))
+				require.NoError(t, pc.ValidatePluginConfig())
 			},
 		},
 	}
@@ -957,4 +700,37 @@ spec = "a spec"
 	assert.Equal(t, validate.PipelineSpec{Name: "default", Spec: "a spec"}, pc.Pipelines[0])
 	assert.Equal(t, "median", pc.PluginName)
 	assert.Equal(t, "median", pc.TelemetryType)
+}
+
+type envelope2 struct {
+	OnchainSigningStrategy *validate.OCR2OnchainSigningStrategy
+}
+
+func TestOCR2OnchainSigningStrategy_Unmarshal(t *testing.T) {
+	payload := `
+[onchainSigningStrategy]
+strategyName = "single-chain"
+[onchainSigningStrategy.config]
+evm = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
+publicKey = "0x1234567890123456789012345678901234567890"
+`
+	oss := &envelope2{}
+	tree, err := toml.Load(payload)
+	require.NoError(t, err)
+	o := map[string]any{}
+	err = tree.Unmarshal(&o)
+	require.NoError(t, err)
+	b, err := json.Marshal(o)
+	require.NoError(t, err)
+	err = json.Unmarshal(b, oss)
+	require.NoError(t, err)
+
+	pk, err := oss.OnchainSigningStrategy.PublicKey()
+	require.NoError(t, err)
+	kbID, err := oss.OnchainSigningStrategy.KeyBundleID("evm")
+	require.NoError(t, err)
+
+	assert.False(t, oss.OnchainSigningStrategy.IsMultiChain())
+	assert.Equal(t, "0x1234567890123456789012345678901234567890", pk)
+	assert.Equal(t, "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17", kbID)
 }
