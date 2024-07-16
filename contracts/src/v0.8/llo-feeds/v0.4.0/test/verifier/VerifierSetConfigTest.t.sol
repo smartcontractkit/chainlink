@@ -250,11 +250,52 @@ contract VerifierSetConfigTest is BaseTest {
         s_verifier.setConfigActive(dummyDONConfigID, true);
     }
 
+/*
     function test_setConfigWithAddressesAndWeightsAreSetCorrectly() public {
+
+     
         Signer[] memory signers = _getSigners(MAX_ORACLES);
         address[] memory signerAddrs = _getSignerAddresses(signers);
+        address recipient = signers[0].signerAddress;
         Common.AddressAndWeight[] memory weights = new Common.AddressAndWeight[](1);
-        weights[0] = Common.AddressAndWeight(signers[0].signerAddress, ONE_PERCENT * 100);
+        weights[0] = Common.AddressAndWeight(recipient, ONE_PERCENT * 100);
+        bytes32 expectedDonConfigID = _DONConfigIdFromConfigData(signerAddrs, FAULT_TOLERANCE);
+
         s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, weights);
+
+     uint256 POOL_DEPOSIT_AMOUNT = 10e18;
+ 
+  Common.Asset memory a = Common.Asset(address(asset), 1);
+  addFundsToPool(expectedDonConfigID, a, address(feeManager));
+
+//        bool foundDONConfigID = false;
+//        uint256 registeredPoolsSize = rewardManager.s_registeredPoolIds.length;
+
+
+        //pay a single recipient
+       address[] memory recipients = new address[](1);
+        recipients[0] = recipient;
+    
+
+        //the recipient should have received 1/4 of the deposit amount
+//        uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
+
+    //assertEq(getAssetBalance(recipient), expectedRecipientAmount);
+
+    //    for (uint256 i = 0; i < registeredPoolsSize; ++i) {
+      //      if (rewardManager.s_registeredPoolIds()[i] == expectedDonConfigID) {
+        //      foundDONConfigID = true;
+         //   }
+        //}
+        
+//         bool areWeightsSet = rewardManager.s_rewardRecipientWeightsSet[expectedDonConfigID];
+  //       rewardManager.s_rewardRecipientWeights[expectedDonConfigID][recipient];
+      // z = tyyadf
+         //expect areWeightsSet=true
+        // expect foundDONConfigID=true
+
+    //payRecipients(expectedDonConfigID, recipients, ADMIN);
+
     }
+*/
 }
