@@ -106,7 +106,7 @@ type chainClient struct {
 		*big.Int,
 		*RpcClient,
 	]
-	txSender     commonclient.TransactionSender[*types.Transaction]
+	txSender     *commonclient.TransactionSender[*types.Transaction, *big.Int, *RpcClient]
 	logger       logger.SugaredLogger
 	chainType    chaintype.ChainType
 	clientErrors evmconfig.ClientErrors
