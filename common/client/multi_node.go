@@ -91,6 +91,8 @@ func (c *MultiNode[CHAIN_ID, RPC]) ChainID() CHAIN_ID {
 }
 
 func (c *MultiNode[CHAIN_ID, RPC]) DoAll(ctx context.Context, do func(ctx context.Context, rpc RPC, isSendOnly bool)) error {
+	ctx, _ = c.chStop.Ctx(ctx)
+
 	callsCompleted := 0
 	for _, n := range c.primaryNodes {
 		if ctx.Err() != nil {

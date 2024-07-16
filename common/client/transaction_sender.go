@@ -99,7 +99,7 @@ func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 	txResultsToReport := make(chan sendTxResult)
 	primaryNodeWg := sync.WaitGroup{}
 
-	ctx, cancel := txSender.multiNode.chStop.CtxCancel(txSender.chStop.Ctx(ctx))
+	ctx, cancel := txSender.chStop.Ctx(ctx)
 	defer cancel()
 
 	healthyNodesNum := 0
