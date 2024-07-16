@@ -268,7 +268,11 @@ func (c *chainClient) ConfiguredChainID() *big.Int {
 }
 
 func (c *chainClient) Dial(ctx context.Context) error {
-	return c.multiNode.Start(ctx)
+	err := c.multiNode.Start(ctx)
+	if err != nil {
+		return err
+	}
+	return c.txSender.Start(ctx)
 }
 
 func (c *chainClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {

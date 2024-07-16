@@ -9,11 +9,13 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
 type TransactionSender[TX any] interface {
 	SendTransaction(ctx context.Context, tx TX) (SendTxReturnCode, error)
+	Start(ctx context.Context) error
 	Close() error
 }
 
@@ -52,10 +54,12 @@ func NewTransactionSender[TX any, CHAIN_ID types.ID, RPC SendTxRPCClient[TX]](
 		multiNode:         multiNode,
 		txErrorClassifier: txErrorClassifier,
 		sendTxSoftTimeout: sendTxSoftTimeout,
+		chStop:            make(services.StopChan),
 	}
 }
 
 type transactionSender[TX any, CHAIN_ID types.ID, RPC SendTxRPCClient[TX]] struct {
+	services.StateMachine
 	chainID           CHAIN_ID
 	chainFamily       string
 	lggr              logger.SugaredLogger
@@ -63,7 +67,8 @@ type transactionSender[TX any, CHAIN_ID types.ID, RPC SendTxRPCClient[TX]] struc
 	txErrorClassifier TxErrorClassifier[TX]
 	sendTxSoftTimeout time.Duration // defines max waiting time from first response til responses evaluation
 
-	reportingWg sync.WaitGroup // waits for all reporting goroutines to finish
+	wg     sync.WaitGroup // waits for all reporting goroutines to finish
+	chStop services.StopChan
 }
 
 // SendTransaction - broadcasts transaction to all the send-only and primary nodes in MultiNode.
@@ -85,16 +90,19 @@ type transactionSender[TX any, CHAIN_ID types.ID, RPC SendTxRPCClient[TX]] struc
 // * If there is both success and terminal error - returns success and reports invariant violation
 // * Otherwise, returns any (effectively random) of the errors.
 func (txSender *transactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx context.Context, tx TX) (SendTxReturnCode, error) {
-	txResults := make(chan sendTxResult, len(txSender.multiNode.primaryNodes))
-	txResultsToReport := make(chan sendTxResult, len(txSender.multiNode.primaryNodes))
-	primaryWg := sync.WaitGroup{}
+	txResults := make(chan sendTxResult)
+	txResultsToReport := make(chan sendTxResult)
+	primaryNodeWg := sync.WaitGroup{}
 
-	ctx, cancel := txSender.multiNode.chStop.Ctx(ctx)
+	ctx, cancel := txSender.multiNode.chStop.CtxCancel(txSender.chStop.Ctx(ctx))
 	defer cancel()
 
+	healthyNodesNum := 0
 	err := txSender.multiNode.DoAll(ctx, func(ctx context.Context, rpc RPC, isSendOnly bool) {
 		if isSendOnly {
+			txSender.wg.Add(1)
 			go func() {
+				defer txSender.wg.Done()
 				// Send-only nodes' results are ignored as they tend to return false-positive responses.
 				// Broadcast to them is necessary to speed up the propagation of TX in the network.
 				_ = txSender.broadcastTxAsync(ctx, rpc, tx)
@@ -103,34 +111,44 @@ func (txSender *transactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 		}
 
 		// Primary Nodes
-		primaryWg.Add(1)
+		healthyNodesNum++
+		primaryNodeWg.Add(1)
 		go func() {
-			defer primaryWg.Done()
+			defer primaryNodeWg.Done()
 			result := txSender.broadcastTxAsync(ctx, rpc, tx)
-			txResultsToReport <- result
-			txResults <- result
+			select {
+			case <-ctx.Done():
+				return
+			case txResults <- result:
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			case txResultsToReport <- result:
+			}
 		}()
 	})
 	if err != nil {
-		primaryWg.Wait()
+		primaryNodeWg.Wait()
 		close(txResultsToReport)
 		close(txResults)
 		return 0, err
 	}
 
 	// This needs to be done in parallel so the reporting knows when it's done (when the channel is closed)
-	txSender.reportingWg.Add(1)
+	txSender.wg.Add(1)
 	go func() {
-		defer txSender.reportingWg.Done()
-		primaryWg.Wait()
+		defer txSender.wg.Done()
+		primaryNodeWg.Wait()
 		close(txResultsToReport)
 		close(txResults)
 	}()
 
-	txSender.reportingWg.Add(1)
+	txSender.wg.Add(1)
 	go txSender.reportSendTxAnomalies(tx, txResultsToReport)
 
-	return txSender.collectTxResults(ctx, tx, len(txSender.multiNode.primaryNodes), txResults)
+	return txSender.collectTxResults(ctx, tx, healthyNodesNum, txResults)
 }
 
 func (txSender *transactionSender[TX, CHAIN_ID, RPC]) broadcastTxAsync(ctx context.Context, rpc RPC, tx TX) sendTxResult {
@@ -144,7 +162,7 @@ func (txSender *transactionSender[TX, CHAIN_ID, RPC]) broadcastTxAsync(ctx conte
 }
 
 func (txSender *transactionSender[TX, CHAIN_ID, RPC]) reportSendTxAnomalies(tx TX, txResults <-chan sendTxResult) {
-	defer txSender.reportingWg.Done()
+	defer txSender.wg.Done()
 	resultsByCode := sendTxErrors{}
 	// txResults eventually will be closed
 	for txResult := range txResults {
@@ -227,9 +245,18 @@ loop:
 	return returnCode, result
 }
 
+func (txSender *transactionSender[TX, CHAIN_ID, RPC]) Start(ctx context.Context) error {
+	return txSender.StartOnce("TransactionSender", func() error {
+		return nil
+	})
+}
+
 func (txSender *transactionSender[TX, CHAIN_ID, RPC]) Close() error {
-	txSender.reportingWg.Wait()
-	return nil
+	return txSender.StopOnce("TransactionSender", func() error {
+		close(txSender.chStop)
+		txSender.wg.Wait()
+		return nil
+	})
 }
 
 // findFirstIn - returns the first existing key and value for the slice of keys

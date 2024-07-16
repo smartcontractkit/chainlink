@@ -31,9 +31,9 @@ func newSendTxRPC(sendTxErr error, sendTxRun func(args mock.Arguments)) *sendTxR
 	return &sendTxRPC{sendTxErr: sendTxErr, sendTxRun: sendTxRun}
 }
 
-func (rpc *sendTxRPC) SendTransaction(_ context.Context, _ any) error {
+func (rpc *sendTxRPC) SendTransaction(ctx context.Context, _ any) error {
 	if rpc.sendTxRun != nil {
-		rpc.sendTxRun(nil)
+		rpc.sendTxRun(mock.Arguments{ctx})
 	}
 	return rpc.sendTxErr
 }
@@ -46,14 +46,24 @@ func newTestTransactionSender(t *testing.T, chainID types.ID, lggr logger.Logger
 		lggr, NodeSelectionModeRoundRobin, 0, nodes, sendOnlyNodes, chainID, "chainFamily", 0)}
 	err := mn.StartOnce("startedTestMultiNode", func() error { return nil })
 	require.NoError(t, err)
+
+	txSender := NewTransactionSender[any, types.ID, SendTxRPCClient[any]](lggr, chainID, mn.chainFamily, mn.MultiNode, classifySendTxError, tests.TestInterval)
+	err = txSender.Start(tests.Context(t))
+	require.NoError(t, err)
+
 	t.Cleanup(func() {
 		err := mn.Close()
 		if err != nil {
 			// Allow MultiNode to be closed early for testing
 			require.EqualError(t, err, "MultiNode has already been stopped: already stopped")
 		}
+		err = txSender.Close()
+		if err != nil {
+			// Allow TransactionSender to be closed early for testing
+			require.EqualError(t, err, "TransactionSender has already been stopped: already stopped")
+		}
 	})
-	return &mn, NewTransactionSender[any, types.ID, SendTxRPCClient[any]](lggr, chainID, mn.chainFamily, mn.MultiNode, classifySendTxError, tests.TestInterval)
+	return &mn, txSender
 }
 
 func classifySendTxError(_ any, err error) SendTxReturnCode {
@@ -177,12 +187,12 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]Node[types.ID, SendTxRPCClient[any]]{fastNode, slowNode},
 			[]SendOnlyNode[types.ID, SendTxRPCClient[any]]{slowSendOnly})
 
-		_, err := txSender.SendTransaction(tests.Context(t), nil)
+		_, err := txSender.SendTransaction(testContext, nil)
 		require.NoError(t, err)
 		testCancel()
 		tests.AssertLogEventually(t, observedLogs, "observed invariant violation on SendTransaction")
 	})
-	t.Run("Fails when closed", func(t *testing.T) {
+	t.Run("Fails when multinode is closed", func(t *testing.T) {
 		chainID := types.RandomID()
 		fastNode := newNode(t, nil, nil)
 		// hold reply from the node till end of the test
@@ -204,6 +214,31 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]SendOnlyNode[types.ID, SendTxRPCClient[any]]{slowSendOnly})
 
 		require.NoError(t, mn.Close())
+		_, err := txSender.SendTransaction(tests.Context(t), nil)
+		require.EqualError(t, err, "context canceled")
+	})
+	t.Run("Fails when closed", func(t *testing.T) {
+		chainID := types.RandomID()
+		fastNode := newNode(t, nil, nil)
+		// hold reply from the node till end of the test
+		testContext, testCancel := context.WithCancel(tests.Context(t))
+		defer testCancel()
+		slowNode := newNode(t, errors.New("transaction failed"), func(_ mock.Arguments) {
+			// block caller til end of the test
+			<-testContext.Done()
+		})
+		slowSendOnly := newNode(t, errors.New("send only failed"), func(_ mock.Arguments) {
+			// block caller til end of the test
+			<-testContext.Done()
+		})
+
+		lggr, _ := logger.TestObserved(t, zap.DebugLevel)
+
+		_, txSender := newTestTransactionSender(t, chainID, lggr,
+			[]Node[types.ID, SendTxRPCClient[any]]{fastNode, slowNode},
+			[]SendOnlyNode[types.ID, SendTxRPCClient[any]]{slowSendOnly})
+
+		require.NoError(t, txSender.Close())
 		_, err := txSender.SendTransaction(tests.Context(t), nil)
 		require.EqualError(t, err, "context canceled")
 	})

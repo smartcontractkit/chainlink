@@ -457,7 +457,6 @@ func (x *sendTxService) ChainId(ctx context.Context) (*hexutil.Big, error) {
 }
 
 func (x *sendTxService) SendRawTransaction(ctx context.Context, signRawTx hexutil.Bytes) error {
-	fmt.Println("HERE!!")
 	x.sentCount.Add(1)
 	return nil
 }
