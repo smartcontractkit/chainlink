@@ -227,9 +227,6 @@ jobs:
             echo
             echo "It was possible to execute Slither on all files."
           fi
-          
-          echo
-          cat slither-results.md
       - name: Print Slither summary
         shell: bash
         run: |
