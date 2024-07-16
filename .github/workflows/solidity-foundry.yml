@@ -248,7 +248,7 @@ jobs:
           
           if [ $slither_errors -ne 0 ]; then
             echo
-            echo "There were $slither_errors Slither execution errors NOT related to formatting. Some files weren't analyzed."
+            echo "There were $slither_errors Slither execution errors NOT related to static analysis. Please check the logs."
             exit 1
           else
             echo "All files passed static analysis check."

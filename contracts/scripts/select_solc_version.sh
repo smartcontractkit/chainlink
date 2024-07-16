@@ -29,14 +29,17 @@ extract_pragma() {
     return 1
   fi
   SOLCVER="$(echo "$SOLCVER" | sed 's/[^0-9\.^]//g')"
+  >&2 echo "Detected Solidity version in pragma: $SOLCVER"
   echo "$SOLCVER"
 }
 
 echo "Detecting Solc version for $FILE"
 
 PRODUCT=$(extract_product "$FILE")
+echo "PRODUCT: $PRODUCT"
 SOLC_IN_PROFILE=$(FOUNDRY_PROFILE=$PRODUCT forge config --json | jq ".solc")
 SOLC_IN_PROFILE=$(echo "$SOLC_IN_PROFILE" | tr -d "'\"")
+echo "SOLC_IN_PROFILE: $SOLC_IN_PROFILE"
 SOLCVER=$(extract_pragma "$FILE")
 
 exit_code=$?
@@ -46,6 +49,7 @@ if [ $exit_code -ne 0 ]; then
 fi
 
 SOLCVER=$(echo "$SOLCVER" | tr -d "'\"")
+echo "SOLCVER after cleanup: $SOLCVER"
 
 if [[ "$SOLC_IN_PROFILE" != "null" && -n "$SOLCVER" ]]; then
   COMPAT_SOLC_VERSION=$(npx semver "$SOLC_IN_PROFILE" -r "$SOLCVER" 2>&1)
@@ -58,7 +62,7 @@ if [[ "$SOLC_IN_PROFILE" != "null" && -n "$SOLCVER" ]]; then
   fi
  elif [[ "$SOLC_IN_PROFILE" != "null" && -z "$SOLCVER" ]]; then
     echo "No version found in the Solidity file. Exiting"
-    exit 1
+    return 1
   elif [[ "$SOLC_IN_PROFILE" == "null" && -n "$SOLCVER" ]]; then
     echo "Using the version from the file: $SOLCVER"
     SOLC_TO_USE="$SOLCVER"
