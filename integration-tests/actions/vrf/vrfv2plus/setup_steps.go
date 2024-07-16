@@ -246,15 +246,28 @@ func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, config *v
 func SetupVRFV2PlusWrapperForExistingEnv(
 	ctx context.Context,
 	sethClient *seth.Client,
-	linkToken contracts.LinkToken,
+	vrfContracts *vrfcommon.VRFContracts,
 	vrfv2PlusTestConfig types.VRFv2PlusTestConfig,
 	consumerContractsAmount int,
 	l zerolog.Logger,
 ) (*VRFV2PlusWrapperContracts, *big.Int, error) {
 	config := *vrfv2PlusTestConfig.GetVRFv2PlusConfig()
-	wrapper, err := contracts.LoadVRFV2PlusWrapper(sethClient, *config.ExistingEnvConfig.WrapperAddress)
-	if err != nil {
-		return nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, "error loading VRFV2PlusWrapper", err)
+	var wrapper contracts.VRFV2PlusWrapper
+	var err error
+	if *config.ExistingEnvConfig.UseExistingWrapper {
+		wrapper, err = contracts.LoadVRFV2PlusWrapper(sethClient, *config.ExistingEnvConfig.WrapperAddress)
+		if err != nil {
+			return nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, "error loading VRFV2PlusWrapper", err)
+		}
+	} else {
+		wrapperSubId, err := CreateSubAndFindSubID(ctx, sethClient, vrfContracts.CoordinatorV2Plus)
+		if err != nil {
+			return nil, nil, err
+		}
+		wrapper, err = contracts.DeployVRFV2PlusWrapper(sethClient, vrfContracts.LinkToken.Address(), vrfContracts.MockETHLINKFeed.Address(), vrfContracts.CoordinatorV2Plus.Address(), wrapperSubId)
+		if err != nil {
+			return nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployWrapper, err)
+		}
 	}
 	wrapperSubID, err := wrapper.GetSubID(ctx)
 	if err != nil {
@@ -269,7 +282,7 @@ func SetupVRFV2PlusWrapperForExistingEnv(
 		err = FundWrapperConsumer(
 			sethClient,
 			*config.General.SubscriptionBillingType,
-			linkToken,
+			vrfContracts.LinkToken,
 			consumer,
 			config.General,
 			l,
@@ -285,24 +298,22 @@ func SetupVRFV2PlusWrapperForNewEnv(
 	ctx context.Context,
 	sethClient *seth.Client,
 	vrfv2PlusTestConfig types.VRFv2PlusTestConfig,
-	linkToken contracts.LinkToken,
-	mockNativeLINKFeed contracts.MockETHLINKFeed,
-	coordinator contracts.VRFCoordinatorV2_5,
+	vrfContracts *vrfcommon.VRFContracts,
 	keyHash [32]byte,
 	wrapperConsumerContractsAmount int,
 	l zerolog.Logger,
 ) (*VRFV2PlusWrapperContracts, *big.Int, error) {
 	// external EOA has to create a subscription for the wrapper first
-	wrapperSubId, err := CreateSubAndFindSubID(ctx, sethClient, coordinator)
+	wrapperSubId, err := CreateSubAndFindSubID(ctx, sethClient, vrfContracts.CoordinatorV2Plus)
 	if err != nil {
 		return nil, nil, err
 	}
 	vrfv2PlusConfig := vrfv2PlusTestConfig.GetVRFv2PlusConfig().General
 	wrapperContracts, err := DeployVRFV2PlusDirectFundingContracts(
 		sethClient,
-		linkToken.Address(),
-		mockNativeLINKFeed.Address(),
-		coordinator,
+		vrfContracts.LinkToken.Address(),
+		vrfContracts.MockETHLINKFeed.Address(),
+		vrfContracts.CoordinatorV2Plus,
 		wrapperConsumerContractsAmount,
 		wrapperSubId,
 		vrfv2PlusConfig,
@@ -311,7 +322,7 @@ func SetupVRFV2PlusWrapperForNewEnv(
 		return nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
 	}
 	// once the wrapper is deployed, wrapper address will become consumer of external EOA subscription
-	err = coordinator.AddConsumer(wrapperSubId, wrapperContracts.VRFV2PlusWrapper.Address())
+	err = vrfContracts.CoordinatorV2Plus.AddConsumer(wrapperSubId, wrapperContracts.VRFV2PlusWrapper.Address())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -340,8 +351,8 @@ func SetupVRFV2PlusWrapperForNewEnv(
 	err = FundSubscriptions(
 		big.NewFloat(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountNative),
 		big.NewFloat(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountLink),
-		linkToken,
-		coordinator,
+		vrfContracts.LinkToken,
+		vrfContracts.CoordinatorV2Plus,
 		[]*big.Int{wrapperSubID},
 		*vrfv2PlusConfig.SubscriptionBillingType,
 	)
@@ -352,7 +363,7 @@ func SetupVRFV2PlusWrapperForNewEnv(
 		err = FundWrapperConsumer(
 			sethClient,
 			*vrfv2PlusConfig.SubscriptionBillingType,
-			linkToken,
+			vrfContracts.LinkToken,
 			consumer,
 			vrfv2PlusConfig,
 			l,
@@ -451,7 +462,11 @@ func SetupVRFV2PlusForExistingEnv(t *testing.T, envConfig vrfcommon.VRFEnvConfig
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading VRFCoordinator2_5", err)
 	}
-	linkToken, err := contracts.LoadLinkTokenContract(l, sethClient, common.HexToAddress(*commonExistingEnvConfig.LinkAddress))
+	linkAddress, err := coordinator.GetLinkAddress(testcontext.Get(t))
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error getting Link address from Coordinator", err)
+	}
+	linkToken, err := contracts.LoadLinkTokenContract(l, sethClient, common.HexToAddress(linkAddress.String()))
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
 	}
@@ -570,7 +585,7 @@ func SetupVRFV2PlusWrapperUniverse(
 		wrapperContracts, wrapperSubID, err = SetupVRFV2PlusWrapperForExistingEnv(
 			ctx,
 			sethClient,
-			vrfContracts.LinkToken,
+			vrfContracts,
 			config,
 			consumerContractsAmount,
 			l,
@@ -583,9 +598,7 @@ func SetupVRFV2PlusWrapperUniverse(
 			ctx,
 			sethClient,
 			config,
-			vrfContracts.LinkToken,
-			vrfContracts.MockETHLINKFeed,
-			vrfContracts.CoordinatorV2Plus,
+			vrfContracts,
 			keyHash,
 			consumerContractsAmount,
 			l,

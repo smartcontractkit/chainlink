@@ -138,11 +138,17 @@ bhf_job_run_timeout = "1h"
 
 [VRFv2Plus.ExistingEnv]
 coordinator_address = ""
-consumer_address = ""
-sub_id = ""
 key_hash = ""
+
+use_existing_wrapper = false
+wrapper_address = ""
 create_fund_subs_and_add_consumers = true
-link_address = ""
+sub_id = ""
+consumer_address = ""
+
+create_fund_add_wrapper_consumers = true
+wrapper_consumer_address = ""
+
 node_sending_key_funding_min = 1
 node_sending_keys = []
 
@@ -272,7 +278,6 @@ key_hash = "0xd360445bacd26df47086ccf255c4f932d297ed8d5c7334b51eed32f61c541601"
 #key_hash = "0x2328cbee29e32d0b6662d6df82ff0fea7be300bd310561c92f515c9ee19464f1"
 #key_hash = "0x25f4e2d0509f42ec77db5380f3433a89fe623fa75f65d5b398d5f498327be4dd"
 create_fund_subs_and_add_consumers = true
-link_address = "0x0Fd9e8d3aF1aaee056EB9e802c3A762a667b1904"
 node_sending_key_funding_min = 10
 node_sending_keys = [
     "0xD96013C241f1741C35a135321969f92Aae02A12F",
@@ -407,7 +412,6 @@ consumer_address = ""
 sub_id = ""
 key_hash = "0xe13aa26fe94bfcd2ae055911f4d3bf1aed54ca6cf77af34e17f918802fd69ba1"
 create_fund_subs_and_add_consumers = true
-link_address = "0xb1D4538B4571d411F07960EF2838Ce337FE1E80E"
 node_sending_key_funding_min = 20
 node_sending_keys = [
     "0xbE21ae371FcA1aC2d8A152e707D21e68d7d99252",
@@ -551,7 +555,6 @@ consumer_address = ""
 sub_id = ""
 key_hash = "0x5b03254a80ea3eb72139ff0423cb88be42612780c3dd25f1d95a5ba7708a4be1"
 create_fund_subs_and_add_consumers = true
-link_address = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
 node_sending_key_funding_min = 50
 node_sending_keys = [
     "0x3D7Da5D6A23CA2240CE576C8638C1798a023920a",
@@ -676,7 +679,6 @@ consumer_address = ""
 sub_id = ""
 key_hash = "0xf5b4a359df0598eef89872ea2170f2afa844dbf74b417e6d44d4bda9420aceb2"
 create_fund_subs_and_add_consumers = true
-link_address = "0x779877A7B0D9E8603169DdbD7836e478b4624789"
 node_sending_key_funding_min = 50
 node_sending_keys = [
     "0x0c0DC7f33A1256f0247c5ea75861d385fa5FED31",
@@ -799,7 +801,6 @@ consumer_address = ""
 sub_id = ""
 key_hash = "0x4d43763d3eff849a89cf578a42787baa32132d7a80032125710e95b3972cd214"
 create_fund_subs_and_add_consumers = true
-link_address = "0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06"
 node_sending_key_funding_min = 150
 node_sending_keys = [
     "0x4EE2Cc6D50E8acb6BaEf673B03559525a6c92fB8",
@@ -878,7 +879,6 @@ consumer_address = ""
 sub_id = ""
 key_hash = "0x7d5692e71807c4c02f5a109627a9ad2b12a361a346790a306983af9a5e3a186f"
 create_fund_subs_and_add_consumers = true
-link_address = "0x92Bd61014c5BDc4A43BBbaAEa63d0694BE43ECDd"
 node_sending_key_funding_min = 30
 node_sending_keys = [
     "0xB97c0C52A2B957b45DA213e652c76090DDd0FEc6",
@@ -965,7 +965,6 @@ consumer_address = ""
 sub_id = ""
 key_hash = "0xdc023892a41e5fe74ec7c4c2e8c0a808b01aea7acaf2b2ae30f4e08df877c48b"
 create_fund_subs_and_add_consumers = true
-link_address = "0xE4DDEDb5A220eC218791dC35b1b4D737ba813EE7"
 node_sending_key_funding_min = 30
 node_sending_keys = [
     "0xF3d9879a75BBD85890056D7c6cB37C555F9b41A3",
@@ -1051,7 +1050,6 @@ consumer_address = ""
 sub_id = ""
 key_hash = "0x0cb2a18e8b762cb4c8f7b17a6cc02ac7b9d2a3346f048cfd2f5d37677f8747d8"
 create_fund_subs_and_add_consumers = true
-link_address = "0xD694472F1CD02E1f3fc3534386bda6802fCFe0f7"
 node_sending_key_funding_min = 30
 node_sending_keys = [
     "0xBFD780Af421e98C35918e10B9d6da7389C3e1D10",
@@ -1138,7 +1136,6 @@ consumer_address = ""
 sub_id = ""
 key_hash = "0xbc9f525e3e1d9e2336f7c77d5f33f5b60aab3765944617fed7f66a6afecac616"
 create_fund_subs_and_add_consumers = true
-link_address = "0x8E3f5E6dFeb4498437149b0d347ef51427dB1DE2"
 node_sending_key_funding_min = 30
 node_sending_keys = [
 ]

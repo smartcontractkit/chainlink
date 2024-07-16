@@ -594,6 +594,30 @@ func (v *EthereumVRFCoordinatorV2) ParseLog(log types.Log) (generated.AbigenLog,
 	return v.coordinator.ParseLog(log)
 }
 
+func (v *EthereumVRFCoordinatorV2) GetLinkAddress(ctx context.Context) (common.Address, error) {
+	opts := &bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}
+	address, err := v.coordinator.LINK(opts)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return address, nil
+}
+
+func (v *EthereumVRFCoordinatorV2) GetLinkNativeFeed(ctx context.Context) (common.Address, error) {
+	opts := &bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}
+	address, err := v.coordinator.LINKETHFEED(opts)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return address, nil
+}
+
 // CancelSubscription cancels subscription by Sub owner,
 // return funds to specified address,
 // checks if pending requests for a sub exist

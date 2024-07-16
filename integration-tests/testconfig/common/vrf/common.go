@@ -71,11 +71,13 @@ func (c *PerformanceConfig) Validate() error {
 
 type ExistingEnvConfig struct {
 	CoordinatorAddress            *string  `toml:"coordinator_address"`
+	UseExistingWrapper            *bool    `toml:"use_existing_wrapper"`
 	WrapperAddress                *string  `toml:"wrapper_address"`
 	ConsumerAddress               *string  `toml:"consumer_address"`
-	LinkAddress                   *string  `toml:"link_address"`
+	WrapperConsumerAddress        *string  `toml:"wrapper_consumer_address"`
 	KeyHash                       *string  `toml:"key_hash"`
 	CreateFundSubsAndAddConsumers *bool    `toml:"create_fund_subs_and_add_consumers"`
+	CreateFundAddWrapperConsumers *bool    `toml:"create_fund_add_wrapper_consumers"`
 	NodeSendingKeys               []string `toml:"node_sending_keys"`
 	Funding
 }
@@ -84,14 +86,22 @@ func (c *ExistingEnvConfig) Validate() error {
 	if c.CreateFundSubsAndAddConsumers == nil {
 		return errors.New("create_fund_subs_and_add_consumers must be set ")
 	}
+	if c.CreateFundAddWrapperConsumers == nil {
+		return errors.New("create_fund_add_wrapper_consumers must be set ")
+	}
 	if c.CoordinatorAddress == nil {
 		return errors.New("coordinator_address must be set when using existing environment")
 	}
 	if !common.IsHexAddress(*c.CoordinatorAddress) {
 		return errors.New("coordinator_address must be a valid hex address")
 	}
-	if !common.IsHexAddress(*c.WrapperAddress) {
-		return errors.New("wrapper_address must be a valid hex address")
+	if c.UseExistingWrapper == nil {
+		return errors.New("use_existing_wrapper must be set ")
+	}
+	if *c.UseExistingWrapper {
+		if !common.IsHexAddress(*c.WrapperAddress) {
+			return errors.New("wrapper_address must be a valid hex address")
+		}
 	}
 	if c.KeyHash == nil {
 		return errors.New("key_hash must be set when using existing environment")
@@ -99,11 +109,7 @@ func (c *ExistingEnvConfig) Validate() error {
 	if *c.KeyHash == "" {
 		return errors.New("key_hash must be a non-empty string")
 	}
-	if *c.CreateFundSubsAndAddConsumers {
-		if err := c.Funding.Validate(); err != nil {
-			return err
-		}
-	} else {
+	if !*c.CreateFundSubsAndAddConsumers {
 		if c.ConsumerAddress == nil || *c.ConsumerAddress == "" {
 			return errors.New("consumer_address must be set when using existing environment")
 		}
@@ -111,7 +117,14 @@ func (c *ExistingEnvConfig) Validate() error {
 			return errors.New("consumer_address must be a valid hex address")
 		}
 	}
-
+	if !*c.CreateFundAddWrapperConsumers {
+		if c.WrapperConsumerAddress == nil || *c.WrapperConsumerAddress == "" {
+			return errors.New("wrapper_consumer_address must be set when using existing environment")
+		}
+		if !common.IsHexAddress(*c.WrapperConsumerAddress) {
+			return errors.New("wrapper_consumer_address must be a valid hex address")
+		}
+	}
 	if c.NodeSendingKeys != nil {
 		for _, key := range c.NodeSendingKeys {
 			if !common.IsHexAddress(key) {
@@ -119,7 +132,6 @@ func (c *ExistingEnvConfig) Validate() error {
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -131,7 +143,6 @@ func (c *Funding) Validate() error {
 	if c.NodeSendingKeyFundingMin != nil && *c.NodeSendingKeyFundingMin <= 0 {
 		return errors.New("when set node_sending_key_funding_min must be a positive value")
 	}
-
 	return nil
 }
 
