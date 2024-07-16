@@ -10,7 +10,7 @@ runner-test-matrix:
   # START: OCR tests
 
   # Example of 1 runner for all tests in integration-tests/smoke/ocr_test.go
-  - id: smoke/ocr_test.go:* 
+  - id: integration-tests/smoke/ocr_test.go:* 
     path: integration-tests/smoke/ocr_test.go
     test_env_type: docker
     runs-on: ubuntu-latest
@@ -21,7 +21,7 @@ runner-test-matrix:
     pyroscope-env: ci-smoke-ocr-evm-simulated-nightly
 
   # Example of 2 separate runners for the same test file but different tests. Can be used if tests if are too heavy to run on the same runner
-  - id: smoke/ocr2_test.go:^TestOCRv2Request$
+  - id: integration-tests/smoke/ocr2_test.go:^TestOCRv2Request$
     path: integration-tests/smoke/ocr2_test.go
     test_env_type: docker
     runs-on: ubuntu-latest
@@ -31,7 +31,7 @@ runner-test-matrix:
     test-cmd: cd integration-tests/ && go test smoke/ocr2_test.go -test.run ^TestOCRv2Request$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
 
-  - id: smoke/ocr2_test.go:^TestOCRv2Basic$
+  - id: integration-tests/smoke/ocr2_test.go:^TestOCRv2Basic$
     path: integration-tests/smoke/ocr2_test.go
     test_env_type: docker
     runs-on: ubuntu-latest
@@ -42,7 +42,7 @@ runner-test-matrix:
     pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
 
   # Example of a configuration for running a single soak test in Kubernetes Remote Runner
-  - id: soak/ocr_test.go:^TestOCRv1Soak$
+  - id: integration-tests/soak/ocr_test.go:^TestOCRv1Soak$
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs-on: ubuntu-latest
@@ -50,7 +50,7 @@ runner-test-matrix:
     test_inputs:
       test_suite: soak
 
-  - id: soak/ocr_test.go:^TestOCRv2Soak$
+  - id: integration-tests/soak/ocr_test.go:^TestOCRv2Soak$
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs-on: ubuntu-latest
@@ -59,6 +59,86 @@ runner-test-matrix:
     test-secrets-required: true
     test_inputs:
       test_suite: soak
+
+  - id: integration-tests/soak/ocr_test.go:^TestForwarderOCRv1Soak$
+    path: integration-tests/soak/ocr_test.go
+    test_env_type: k8s-remote-runner
+    runs-on: ubuntu-latest
+    test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestForwarderOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1
+    test-config-override-required: true
+    test-secrets-required: true
+    test_inputs:
+      test_suite: soak
+
+  - id: integration-tests/soak/ocr_test.go:^TestForwarderOCRv2Soak$
+    path: integration-tests/soak/ocr_test.go
+    test_env_type: k8s-remote-runner
+    runs-on: ubuntu-latest
+    test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestForwarderOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1
+    test-config-override-required: true
+    test-secrets-required: true
+    test_inputs:
+      test_suite: soak
+      
+  - id: integration-tests/soak/ocr_test.go:^TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled$
+    path: integration-tests/soak/ocr_test.go
+    test_env_type: k8s-remote-runner
+    runs-on: ubuntu-latest
+    test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled$ -test.parallel=1 -timeout 30m -count=1
+    test-config-override-required: true
+    test-secrets-required: true
+    test_inputs:
+      test_suite: soak      
+
+  - id: integration-tests/soak/ocr_test.go:^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$
+    path: integration-tests/soak/ocr_test.go
+    test_env_type: k8s-remote-runner
+    runs-on: ubuntu-latest
+    test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$ -test.parallel=1 -timeout 30m -count=1
+    test-config-override-required: true
+    test-secrets-required: true
+    test_inputs:
+      test_suite: soak      
+
+  - id: integration-tests/soak/ocr_test.go:^TestOCRSoak_GasSpike$
+    path: integration-tests/soak/ocr_test.go
+    test_env_type: k8s-remote-runner
+    runs-on: ubuntu-latest
+    test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GasSpike$ -test.parallel=1 -timeout 30m -count=1
+    test-config-override-required: true
+    test-secrets-required: true
+    test_inputs:
+      test_suite: soak      
+
+  - id: integration-tests/soak/ocr_test.go:^TestOCRSoak_ChangeBlockGasLimit$
+    path: integration-tests/soak/ocr_test.go
+    test_env_type: k8s-remote-runner
+    runs-on: ubuntu-latest
+    test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_ChangeBlockGasLimit$ -test.parallel=1 -timeout 30m -count=1
+    test-config-override-required: true
+    test-secrets-required: true
+    test_inputs:
+      test_suite: soak   
+
+  - id: integration-tests/soak/ocr_test.go:^TestOCRSoak_RPCDownForAllCLNodes$
+    path: integration-tests/soak/ocr_test.go
+    test_env_type: k8s-remote-runner
+    runs-on: ubuntu-latest
+    test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_RPCDownForAllCLNodes$ -test.parallel=1 -timeout 30m -count=1
+    test-config-override-required: true
+    test-secrets-required: true
+    test_inputs:
+      test_suite: soak  
+
+  - id: integration-tests/soak/ocr_test.go:^TestOCRSoak_RPCDownForHalfCLNodes$
+    path: integration-tests/soak/ocr_test.go
+    test_env_type: k8s-remote-runner
+    runs-on: ubuntu-latest
+    test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_RPCDownForHalfCLNodes$ -test.parallel=1 -timeout 30m -count=1
+    test-config-override-required: true
+    test-secrets-required: true
+    test_inputs:
+      test_suite: soak                             
 
   # END: OCR tests
 
@@ -78,7 +158,7 @@ runner-test-matrix:
       - Automation Load Test
     pyroscope-env: automation-load-test
 
-  - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
+  - id: integration-tests/smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
     path: integration-tests/smoke/automation_upgrade_test.go
     test_env_type: docker
     runs-on: ubuntu22.04-8cores-32GB
@@ -92,7 +172,7 @@ runner-test-matrix:
       chainlinkUpgradeVersion: develop
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
-  - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
+  - id: integration-tests/smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
     path: integration-tests/smoke/automation_upgrade_test.go
     test_env_type: docker
     runs-on: ubuntu22.04-8cores-32GB
@@ -106,7 +186,7 @@ runner-test-matrix:
       chainlinkUpgradeVersion: develop
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
-  - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
+  - id: integration-tests/smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
     path: integration-tests/smoke/automation_upgrade_test.go
     test_env_type: docker
     runs-on: ubuntu22.04-8cores-32GB
