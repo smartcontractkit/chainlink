@@ -66,7 +66,6 @@ var (
 	logEventLookback int64 = 250
 )
 
-//go:generate mockery --quiet --name Registry --output ./mocks/ --case=underscore
 type Registry interface {
 	GetUpkeep(opts *bind.CallOpts, id *big.Int) (encoding.UpkeepInfo, error)
 	GetState(opts *bind.CallOpts) (ac.GetState, error)
@@ -77,7 +76,6 @@ type Registry interface {
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
 }
 
-//go:generate mockery --quiet --name HttpClient --output ./mocks/ --case=underscore
 type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }

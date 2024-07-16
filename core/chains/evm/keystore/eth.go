@@ -9,8 +9,6 @@ import (
 )
 
 // Eth is the external interface for EthKeyStore
-//
-//go:generate mockery --quiet --name Eth --output mocks/ --case=underscore
 type Eth interface {
 	CheckEnabled(ctx context.Context, address common.Address, chainID *big.Int) error
 	EnabledAddressesForChain(ctx context.Context, chainID *big.Int) (addresses []common.Address, err error)

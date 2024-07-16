@@ -20,6 +20,14 @@ type Runner struct {
 	mock.Mock
 }
 
+type Runner_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *Runner) EXPECT() *Runner_Expecter {
+	return &Runner_Expecter{mock: &_m.Mock}
+}
+
 // Close provides a mock function with given fields:
 func (_m *Runner) Close() error {
 	ret := _m.Called()
@@ -36,6 +44,33 @@ func (_m *Runner) Close() error {
 	}
 
 	return r0
+}
+
+// Runner_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type Runner_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *Runner_Expecter) Close() *Runner_Close_Call {
+	return &Runner_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *Runner_Close_Call) Run(run func()) *Runner_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Runner_Close_Call) Return(_a0 error) *Runner_Close_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Runner_Close_Call) RunAndReturn(run func() error) *Runner_Close_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ExecuteAndInsertFinishedRun provides a mock function with given fields: ctx, spec, vars, l, saveSuccessfulTaskRuns
@@ -73,6 +108,38 @@ func (_m *Runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline
 	}
 
 	return r0, r1, r2
+}
+
+// Runner_ExecuteAndInsertFinishedRun_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ExecuteAndInsertFinishedRun'
+type Runner_ExecuteAndInsertFinishedRun_Call struct {
+	*mock.Call
+}
+
+// ExecuteAndInsertFinishedRun is a helper method to define mock.On call
+//   - ctx context.Context
+//   - spec pipeline.Spec
+//   - vars pipeline.Vars
+//   - l logger.Logger
+//   - saveSuccessfulTaskRuns bool
+func (_e *Runner_Expecter) ExecuteAndInsertFinishedRun(ctx interface{}, spec interface{}, vars interface{}, l interface{}, saveSuccessfulTaskRuns interface{}) *Runner_ExecuteAndInsertFinishedRun_Call {
+	return &Runner_ExecuteAndInsertFinishedRun_Call{Call: _e.mock.On("ExecuteAndInsertFinishedRun", ctx, spec, vars, l, saveSuccessfulTaskRuns)}
+}
+
+func (_c *Runner_ExecuteAndInsertFinishedRun_Call) Run(run func(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger, saveSuccessfulTaskRuns bool)) *Runner_ExecuteAndInsertFinishedRun_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(pipeline.Spec), args[2].(pipeline.Vars), args[3].(logger.Logger), args[4].(bool))
+	})
+	return _c
+}
+
+func (_c *Runner_ExecuteAndInsertFinishedRun_Call) Return(runID int64, results pipeline.TaskRunResults, err error) *Runner_ExecuteAndInsertFinishedRun_Call {
+	_c.Call.Return(runID, results, err)
+	return _c
+}
+
+func (_c *Runner_ExecuteAndInsertFinishedRun_Call) RunAndReturn(run func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) (int64, pipeline.TaskRunResults, error)) *Runner_ExecuteAndInsertFinishedRun_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ExecuteRun provides a mock function with given fields: ctx, spec, vars, l
@@ -114,6 +181,37 @@ func (_m *Runner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipel
 	return r0, r1, r2
 }
 
+// Runner_ExecuteRun_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ExecuteRun'
+type Runner_ExecuteRun_Call struct {
+	*mock.Call
+}
+
+// ExecuteRun is a helper method to define mock.On call
+//   - ctx context.Context
+//   - spec pipeline.Spec
+//   - vars pipeline.Vars
+//   - l logger.Logger
+func (_e *Runner_Expecter) ExecuteRun(ctx interface{}, spec interface{}, vars interface{}, l interface{}) *Runner_ExecuteRun_Call {
+	return &Runner_ExecuteRun_Call{Call: _e.mock.On("ExecuteRun", ctx, spec, vars, l)}
+}
+
+func (_c *Runner_ExecuteRun_Call) Run(run func(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger)) *Runner_ExecuteRun_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(pipeline.Spec), args[2].(pipeline.Vars), args[3].(logger.Logger))
+	})
+	return _c
+}
+
+func (_c *Runner_ExecuteRun_Call) Return(run *pipeline.Run, trrs pipeline.TaskRunResults, err error) *Runner_ExecuteRun_Call {
+	_c.Call.Return(run, trrs, err)
+	return _c
+}
+
+func (_c *Runner_ExecuteRun_Call) RunAndReturn(run func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger) (*pipeline.Run, pipeline.TaskRunResults, error)) *Runner_ExecuteRun_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // HealthReport provides a mock function with given fields:
 func (_m *Runner) HealthReport() map[string]error {
 	ret := _m.Called()
@@ -132,6 +230,33 @@ func (_m *Runner) HealthReport() map[string]error {
 	}
 
 	return r0
+}
+
+// Runner_HealthReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HealthReport'
+type Runner_HealthReport_Call struct {
+	*mock.Call
+}
+
+// HealthReport is a helper method to define mock.On call
+func (_e *Runner_Expecter) HealthReport() *Runner_HealthReport_Call {
+	return &Runner_HealthReport_Call{Call: _e.mock.On("HealthReport")}
+}
+
+func (_c *Runner_HealthReport_Call) Run(run func()) *Runner_HealthReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Runner_HealthReport_Call) Return(_a0 map[string]error) *Runner_HealthReport_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Runner_HealthReport_Call) RunAndReturn(run func() map[string]error) *Runner_HealthReport_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // InitializePipeline provides a mock function with given fields: spec
@@ -164,6 +289,34 @@ func (_m *Runner) InitializePipeline(spec pipeline.Spec) (*pipeline.Pipeline, er
 	return r0, r1
 }
 
+// Runner_InitializePipeline_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InitializePipeline'
+type Runner_InitializePipeline_Call struct {
+	*mock.Call
+}
+
+// InitializePipeline is a helper method to define mock.On call
+//   - spec pipeline.Spec
+func (_e *Runner_Expecter) InitializePipeline(spec interface{}) *Runner_InitializePipeline_Call {
+	return &Runner_InitializePipeline_Call{Call: _e.mock.On("InitializePipeline", spec)}
+}
+
+func (_c *Runner_InitializePipeline_Call) Run(run func(spec pipeline.Spec)) *Runner_InitializePipeline_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(pipeline.Spec))
+	})
+	return _c
+}
+
+func (_c *Runner_InitializePipeline_Call) Return(_a0 *pipeline.Pipeline, _a1 error) *Runner_InitializePipeline_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Runner_InitializePipeline_Call) RunAndReturn(run func(pipeline.Spec) (*pipeline.Pipeline, error)) *Runner_InitializePipeline_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // InsertFinishedRun provides a mock function with given fields: ctx, ds, run, saveSuccessfulTaskRuns
 func (_m *Runner) InsertFinishedRun(ctx context.Context, ds sqlutil.DataSource, run *pipeline.Run, saveSuccessfulTaskRuns bool) error {
 	ret := _m.Called(ctx, ds, run, saveSuccessfulTaskRuns)
@@ -180,6 +333,37 @@ func (_m *Runner) InsertFinishedRun(ctx context.Context, ds sqlutil.DataSource, 
 	}
 
 	return r0
+}
+
+// Runner_InsertFinishedRun_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InsertFinishedRun'
+type Runner_InsertFinishedRun_Call struct {
+	*mock.Call
+}
+
+// InsertFinishedRun is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ds sqlutil.DataSource
+//   - run *pipeline.Run
+//   - saveSuccessfulTaskRuns bool
+func (_e *Runner_Expecter) InsertFinishedRun(ctx interface{}, ds interface{}, run interface{}, saveSuccessfulTaskRuns interface{}) *Runner_InsertFinishedRun_Call {
+	return &Runner_InsertFinishedRun_Call{Call: _e.mock.On("InsertFinishedRun", ctx, ds, run, saveSuccessfulTaskRuns)}
+}
+
+func (_c *Runner_InsertFinishedRun_Call) Run(run func(ctx context.Context, ds sqlutil.DataSource, run *pipeline.Run, saveSuccessfulTaskRuns bool)) *Runner_InsertFinishedRun_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(sqlutil.DataSource), args[2].(*pipeline.Run), args[3].(bool))
+	})
+	return _c
+}
+
+func (_c *Runner_InsertFinishedRun_Call) Return(_a0 error) *Runner_InsertFinishedRun_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Runner_InsertFinishedRun_Call) RunAndReturn(run func(context.Context, sqlutil.DataSource, *pipeline.Run, bool) error) *Runner_InsertFinishedRun_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // InsertFinishedRuns provides a mock function with given fields: ctx, ds, runs, saveSuccessfulTaskRuns
@@ -200,6 +384,37 @@ func (_m *Runner) InsertFinishedRuns(ctx context.Context, ds sqlutil.DataSource,
 	return r0
 }
 
+// Runner_InsertFinishedRuns_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InsertFinishedRuns'
+type Runner_InsertFinishedRuns_Call struct {
+	*mock.Call
+}
+
+// InsertFinishedRuns is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ds sqlutil.DataSource
+//   - runs []*pipeline.Run
+//   - saveSuccessfulTaskRuns bool
+func (_e *Runner_Expecter) InsertFinishedRuns(ctx interface{}, ds interface{}, runs interface{}, saveSuccessfulTaskRuns interface{}) *Runner_InsertFinishedRuns_Call {
+	return &Runner_InsertFinishedRuns_Call{Call: _e.mock.On("InsertFinishedRuns", ctx, ds, runs, saveSuccessfulTaskRuns)}
+}
+
+func (_c *Runner_InsertFinishedRuns_Call) Run(run func(ctx context.Context, ds sqlutil.DataSource, runs []*pipeline.Run, saveSuccessfulTaskRuns bool)) *Runner_InsertFinishedRuns_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(sqlutil.DataSource), args[2].([]*pipeline.Run), args[3].(bool))
+	})
+	return _c
+}
+
+func (_c *Runner_InsertFinishedRuns_Call) Return(_a0 error) *Runner_InsertFinishedRuns_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Runner_InsertFinishedRuns_Call) RunAndReturn(run func(context.Context, sqlutil.DataSource, []*pipeline.Run, bool) error) *Runner_InsertFinishedRuns_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Name provides a mock function with given fields:
 func (_m *Runner) Name() string {
 	ret := _m.Called()
@@ -218,9 +433,64 @@ func (_m *Runner) Name() string {
 	return r0
 }
 
+// Runner_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
+type Runner_Name_Call struct {
+	*mock.Call
+}
+
+// Name is a helper method to define mock.On call
+func (_e *Runner_Expecter) Name() *Runner_Name_Call {
+	return &Runner_Name_Call{Call: _e.mock.On("Name")}
+}
+
+func (_c *Runner_Name_Call) Run(run func()) *Runner_Name_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Runner_Name_Call) Return(_a0 string) *Runner_Name_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Runner_Name_Call) RunAndReturn(run func() string) *Runner_Name_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // OnRunFinished provides a mock function with given fields: _a0
 func (_m *Runner) OnRunFinished(_a0 func(*pipeline.Run)) {
 	_m.Called(_a0)
+}
+
+// Runner_OnRunFinished_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OnRunFinished'
+type Runner_OnRunFinished_Call struct {
+	*mock.Call
+}
+
+// OnRunFinished is a helper method to define mock.On call
+//   - _a0 func(*pipeline.Run)
+func (_e *Runner_Expecter) OnRunFinished(_a0 interface{}) *Runner_OnRunFinished_Call {
+	return &Runner_OnRunFinished_Call{Call: _e.mock.On("OnRunFinished", _a0)}
+}
+
+func (_c *Runner_OnRunFinished_Call) Run(run func(_a0 func(*pipeline.Run))) *Runner_OnRunFinished_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(func(*pipeline.Run)))
+	})
+	return _c
+}
+
+func (_c *Runner_OnRunFinished_Call) Return() *Runner_OnRunFinished_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *Runner_OnRunFinished_Call) RunAndReturn(run func(func(*pipeline.Run))) *Runner_OnRunFinished_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Ready provides a mock function with given fields:
@@ -241,6 +511,33 @@ func (_m *Runner) Ready() error {
 	return r0
 }
 
+// Runner_Ready_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Ready'
+type Runner_Ready_Call struct {
+	*mock.Call
+}
+
+// Ready is a helper method to define mock.On call
+func (_e *Runner_Expecter) Ready() *Runner_Ready_Call {
+	return &Runner_Ready_Call{Call: _e.mock.On("Ready")}
+}
+
+func (_c *Runner_Ready_Call) Run(run func()) *Runner_Ready_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Runner_Ready_Call) Return(_a0 error) *Runner_Ready_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Runner_Ready_Call) RunAndReturn(run func() error) *Runner_Ready_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ResumeRun provides a mock function with given fields: ctx, taskID, value, err
 func (_m *Runner) ResumeRun(ctx context.Context, taskID uuid.UUID, value interface{}, err error) error {
 	ret := _m.Called(ctx, taskID, value, err)
@@ -257,6 +554,37 @@ func (_m *Runner) ResumeRun(ctx context.Context, taskID uuid.UUID, value interfa
 	}
 
 	return r0
+}
+
+// Runner_ResumeRun_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ResumeRun'
+type Runner_ResumeRun_Call struct {
+	*mock.Call
+}
+
+// ResumeRun is a helper method to define mock.On call
+//   - ctx context.Context
+//   - taskID uuid.UUID
+//   - value interface{}
+//   - err error
+func (_e *Runner_Expecter) ResumeRun(ctx interface{}, taskID interface{}, value interface{}, err interface{}) *Runner_ResumeRun_Call {
+	return &Runner_ResumeRun_Call{Call: _e.mock.On("ResumeRun", ctx, taskID, value, err)}
+}
+
+func (_c *Runner_ResumeRun_Call) Run(run func(ctx context.Context, taskID uuid.UUID, value interface{}, err error)) *Runner_ResumeRun_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(interface{}), args[3].(error))
+	})
+	return _c
+}
+
+func (_c *Runner_ResumeRun_Call) Return(_a0 error) *Runner_ResumeRun_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Runner_ResumeRun_Call) RunAndReturn(run func(context.Context, uuid.UUID, interface{}, error) error) *Runner_ResumeRun_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Run provides a mock function with given fields: ctx, run, l, saveSuccessfulTaskRuns, fn
@@ -287,6 +615,38 @@ func (_m *Runner) Run(ctx context.Context, run *pipeline.Run, l logger.Logger, s
 	return r0, r1
 }
 
+// Runner_Run_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Run'
+type Runner_Run_Call struct {
+	*mock.Call
+}
+
+// Run is a helper method to define mock.On call
+//   - ctx context.Context
+//   - run *pipeline.Run
+//   - l logger.Logger
+//   - saveSuccessfulTaskRuns bool
+//   - fn func(sqlutil.DataSource) error
+func (_e *Runner_Expecter) Run(ctx interface{}, run interface{}, l interface{}, saveSuccessfulTaskRuns interface{}, fn interface{}) *Runner_Run_Call {
+	return &Runner_Run_Call{Call: _e.mock.On("Run", ctx, run, l, saveSuccessfulTaskRuns, fn)}
+}
+
+func (_c *Runner_Run_Call) Run(run func(ctx context.Context, run *pipeline.Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(sqlutil.DataSource) error)) *Runner_Run_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*pipeline.Run), args[2].(logger.Logger), args[3].(bool), args[4].(func(sqlutil.DataSource) error))
+	})
+	return _c
+}
+
+func (_c *Runner_Run_Call) Return(incomplete bool, err error) *Runner_Run_Call {
+	_c.Call.Return(incomplete, err)
+	return _c
+}
+
+func (_c *Runner_Run_Call) RunAndReturn(run func(context.Context, *pipeline.Run, logger.Logger, bool, func(sqlutil.DataSource) error) (bool, error)) *Runner_Run_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *Runner) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)
@@ -303,6 +663,34 @@ func (_m *Runner) Start(_a0 context.Context) error {
 	}
 
 	return r0
+}
+
+// Runner_Start_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Start'
+type Runner_Start_Call struct {
+	*mock.Call
+}
+
+// Start is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *Runner_Expecter) Start(_a0 interface{}) *Runner_Start_Call {
+	return &Runner_Start_Call{Call: _e.mock.On("Start", _a0)}
+}
+
+func (_c *Runner_Start_Call) Run(run func(_a0 context.Context)) *Runner_Start_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *Runner_Start_Call) Return(_a0 error) *Runner_Start_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Runner_Start_Call) RunAndReturn(run func(context.Context) error) *Runner_Start_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewRunner creates a new instance of Runner. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
