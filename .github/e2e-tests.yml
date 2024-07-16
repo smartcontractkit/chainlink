@@ -368,7 +368,8 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test smoke/ocr2_test.go -timeout 30m -count=1 -test.parallel=6 -json
     pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
     test_inputs:
-      chainlink_version: '{{ env.GITHUB_SHA_PLUGINS }}' # This is the chainlink version that has the plugins
+      # chainlink_version: '{{ env.GITHUB_SHA_PLUGINS }}' # This is the chainlink version that has the plugins
+      chainlink_version: develop-plugins
 
   - id: integration-tests/smoke/vrf_test.go:*
     path: integration-tests/smoke/vrf_test.go
