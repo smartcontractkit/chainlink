@@ -43,16 +43,25 @@ function updateJiraIssue(
   fixVersionName: string,
   dryRun: boolean
 ) {
-  return client.issues.editIssue({
+  const payload = {
     issueIdOrKey: issueNumber,
     update: {
       labels: tagsToLabels(tags),
       fixVersions: [{ set: [{ name: fixVersionName }] }],
     },
+  };
+
+  core.info(
+    `Updating JIRA issue ${issueNumber} with fix version ${fixVersionName} and labels [${payload.update.labels.join(
+      ", "
+    )}]`
+  );
   if (dryRun) {
     core.info("Dry run enabled, skipping JIRA issue update");
     return;
   }
+
+  return client.issues.editIssue(payload);
 }
 
 function createJiraClient() {
