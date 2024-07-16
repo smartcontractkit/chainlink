@@ -128,7 +128,8 @@ func (s *onchainSubscriptions) queryLoop() {
 	defer ticker.Stop()
 
 	start := uint64(1)
-	lastKnownCount := uint64(0)
+	end := uint64(1)
+	currentSubscriptonsCount := uint64(0)
 
 	queryFunc := func() {
 		ctx, cancel := utils.ContextFromChanWithTimeout(s.stopCh, time.Duration(s.config.UpdateTimeoutSec)*time.Second)
@@ -142,35 +143,50 @@ func (s *onchainSubscriptions) queryLoop() {
 
 		blockNumber := big.NewInt(0).Sub(latestBlockHeight, s.blockConfirmations)
 
-		if lastKnownCount == 0 || start > lastKnownCount {
-			count, err := s.getSubscriptionsCount(ctx, blockNumber)
-			if err != nil {
-				s.lggr.Errorw("Error getting new subscriptions count", "err", err)
-			} else {
-				s.lggr.Infow("Updated subscriptions count", "count", count, "blockNumber", blockNumber.Int64())
-				lastKnownCount = count
-			}
+		updatedSubscriptionsCount, err := s.getSubscriptionsCount(ctx, blockNumber)
+		if err != nil {
+			s.lggr.Errorw("Error getting new subscriptions count", "err", err)
+			return
 		}
+		s.lggr.Infow("Updated subscriptions count", "count", updatedSubscriptionsCount, "blockNumber", blockNumber.Int64())
 
-		if lastKnownCount == 0 {
+		if updatedSubscriptionsCount == 0 {
 			s.lggr.Info("Router has no subscriptions yet")
 			return
 		}
 
-		if start > lastKnownCount {
+		// to cover the case of new subscriptions added while we are already looping,
+		// we check for the count and trigger an extra loop if needed to give priority to the newest subscriptions created
+		if currentSubscriptonsCount != 0 && updatedSubscriptionsCount > currentSubscriptonsCount {
+			if err := s.querySubscriptionsRange(ctx, blockNumber, currentSubscriptonsCount+1, updatedSubscriptionsCount); err != nil {
+				s.lggr.Errorw("Error querying subscriptions", "err", err, "start", start, "end", end)
+				return
+			}
+			currentSubscriptonsCount = updatedSubscriptionsCount
+		}
+
+		// this covers the the first or reset loop
+		if currentSubscriptonsCount == 0 || end <= 1 {
+			currentSubscriptonsCount = updatedSubscriptionsCount
+			end = updatedSubscriptionsCount
+		}
+
+		if end > uint64(s.config.UpdateRangeSize)+1 {
+			start = end - uint64(s.config.UpdateRangeSize) + 1
+		} else {
 			start = 1
 		}
 
-		end := start + uint64(s.config.UpdateRangeSize) - 1
-		if end > lastKnownCount {
-			end = lastKnownCount
-		}
 		if err := s.querySubscriptionsRange(ctx, blockNumber, start, end); err != nil {
 			s.lggr.Errorw("Error querying subscriptions", "err", err, "start", start, "end", end)
 			return
 		}
 
-		start = end + 1
+		if end > uint64(s.config.UpdateRangeSize) {
+			end = end - uint64(s.config.UpdateRangeSize)
+		} else {
+			end = 1
+		}
 	}
 
 	queryFunc()
