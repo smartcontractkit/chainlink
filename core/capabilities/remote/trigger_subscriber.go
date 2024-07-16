@@ -195,9 +195,9 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			nowMs := time.Now().UnixMilli()
 			s.mu.RLock()
 			creationTs := s.messageCache.Insert(key, sender, nowMs, msg.Payload)
-			ready, payloads := s.messageCache.Ready(key, s.config.MinResponsesToAggregate, nowMs-int64(s.config.MessageExpiry.Milliseconds()), true)
+			ready, payloads := s.messageCache.Ready(key, s.config.MinResponsesToAggregate, nowMs-s.config.MessageExpiry.Milliseconds(), true)
 			s.mu.RUnlock()
-			if nowMs-creationTs > int64(s.config.RegistrationExpiry.Milliseconds()) {
+			if nowMs-creationTs > s.config.RegistrationExpiry.Milliseconds() {
 				s.lggr.Warnw("received trigger event for an expired ID", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId, "sender", sender)
 				continue
 			}
@@ -227,7 +227,7 @@ func (s *triggerSubscriber) eventCleanupLoop() {
 			return
 		case <-ticker.C:
 			s.mu.Lock()
-			s.messageCache.DeleteOlderThan(time.Now().UnixMilli() - int64(s.config.MessageExpiry.Milliseconds()))
+			s.messageCache.DeleteOlderThan(time.Now().UnixMilli() - s.config.MessageExpiry.Milliseconds())
 			s.mu.Unlock()
 		}
 	}

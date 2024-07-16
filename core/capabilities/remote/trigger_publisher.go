@@ -144,7 +144,7 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 			p.mu.RLock()
 			for key, req := range p.registrations {
 				callerDon := p.workflowDONs[key.callerDonId]
-				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-int64(p.config.RegistrationExpiry.Milliseconds()), false)
+				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-p.config.RegistrationExpiry.Milliseconds(), false)
 				if !ready {
 					p.lggr.Infow("trigger registration expired", "capabilityId", p.capInfo.ID, "callerDonID", key.callerDonId, "workflowId", key.workflowId)
 					ctx, cancel := p.stopCh.NewCtx()
