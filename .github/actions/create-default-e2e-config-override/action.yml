@@ -27,10 +27,6 @@ inputs:
   private_ethereum_network_custom_docker_image:
     required: false
     description: 'Private Ethereum network custom Docker image for the tests'
-outputs:
-  chainlink_version:
-    value: ${{ steps.build-args.outputs.chainlink_version }}
-    description: 'Chainlink version resolved from the input'
 
 runs:
   using: 'composite'
@@ -51,7 +47,6 @@ runs:
         create_args=()
         if [ -n "${{ inputs.chainlink_version }}" ]; then
           create_args+=(--chainlink-version="${{ inputs.chainlink_version }}")
-          echo "chainlink_version=$(go run main.go envresolve "${{ inputs.chainlink_version }}")" >> $GITHUB_OUTPUT
         fi
         if [ -n "${{ inputs.chainlink_postgres_version }}" ]; then
           create_args+=(--chainlink-postgres-version="${{ inputs.chainlink_postgres_version }}")
