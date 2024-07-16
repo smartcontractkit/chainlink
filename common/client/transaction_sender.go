@@ -8,9 +8,20 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
+)
+
+var (
+	// PromMultiNodeInvariantViolations reports violation of our assumptions
+	PromMultiNodeInvariantViolations = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "multi_node_invariant_violations",
+		Help: "The number of invariant violations",
+	}, []string{"network", "chainId", "invariant"})
 )
 
 // TxErrorClassifier - defines interface of a function that transforms raw RPC error into the SendTxReturnCode enum
@@ -166,6 +177,7 @@ func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) reportSendTxAnomalies(tx T
 	_, _, criticalErr := aggregateTxResults(resultsByCode)
 	if criticalErr != nil {
 		txSender.lggr.Criticalw("observed invariant violation on SendTransaction", "tx", tx, "resultsByCode", resultsByCode, "err", criticalErr)
+		PromMultiNodeInvariantViolations.WithLabelValues(txSender.chainFamily, txSender.chainID.String(), criticalErr.Error()).Inc()
 	}
 }
 

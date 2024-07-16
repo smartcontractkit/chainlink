@@ -167,33 +167,6 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		_, sendErr := txSender.SendTransaction(tests.Context(t), nil)
 		require.EqualError(t, sendErr, expectedError.Error())
 	})
-	/* TODO: Fix flaky test
-	t.Run("Returns success without waiting for the rest of the nodes", func(t *testing.T) {
-		chainID := types.RandomID()
-		fastNode := newNode(t, nil, nil)
-		// hold reply from the node till end of the test
-		testContext, testCancel := context.WithCancel(tests.Context(t))
-		defer testCancel()
-		slowNode := newNode(t, errors.New("transaction failed"), func(_ mock.Arguments) {
-			// block caller til end of the test
-			<-testContext.Done()
-		})
-		slowSendOnly := newNode(t, errors.New("send only failed"), func(_ mock.Arguments) {
-			// block caller til end of the test
-			<-testContext.Done()
-		})
-		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
-
-		_, txSender := newTestTransactionSender(t, chainID, lggr,
-			[]Node[types.ID, SendTxRPCClient[any]]{fastNode, slowNode},
-			[]SendOnlyNode[types.ID, SendTxRPCClient[any]]{slowSendOnly})
-
-		_, err := txSender.SendTransaction(testContext, nil)
-		require.NoError(t, err)
-		testCancel()
-		tests.AssertLogEventually(t, observedLogs, "observed invariant violation on SendTransaction")
-	})
-	*/
 	t.Run("Fails when multinode is closed", func(t *testing.T) {
 		chainID := types.RandomID()
 		fastNode := newNode(t, nil, nil)
