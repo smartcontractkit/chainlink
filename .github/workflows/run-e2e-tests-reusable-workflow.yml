@@ -367,7 +367,7 @@ jobs:
         if: inputs.test_config_override_base64 != ''
         shell: bash
         run: |
-          echo "BASE64_CONFIG_OVERRIDE=${{ inputs.test_config_override_base64 }}"
+          BASE64_CONFIG_OVERRIDE=${{ inputs.test_config_override_base64 }}
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV    
     
@@ -381,12 +381,10 @@ jobs:
           duplicate-authorization-header: "true"
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@d8911f582ad7e337355baa3b23d4ef589e2f9031 # TODO: Create tag and use it here
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@84c33b576bc42e78ec29afbccf29faef92e736e7 # TODO: Create tag and use it here
         env:
           DETACH_RUNNER: true
           TEST_SUITE: ${{ matrix.tests.remoteRunnerTestSuite }}
-          TEST_TYPE: ${{ matrix.tests.remoteRunnerTestSuite }}
-          TEST_TEST_TYPE: ${{ matrix.tests.remoteRunnerTestSuite }}
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -510,7 +508,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV              
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@d8911f582ad7e337355baa3b23d4ef589e2f9031 # TODO: Create tag and use it here24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@84c33b576bc42e78ec29afbccf29faef92e736e7 # TODO: Create tag and use it here24
         env:
           DETACH_RUNNER: true
           TEST_SUITE: ${{ matrix.tests.remoteRunnerTestSuite }}
