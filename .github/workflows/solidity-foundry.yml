@@ -214,7 +214,7 @@ jobs:
               continue
             fi
                                 
-            slither --config .slither.config-pr.json --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$sanitized_file" >> slither-results.md
+            slither --config .slither.config-pr.json --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$sanitized_file" 2>&1 | tee -a slither-results.md
           done
           
           if [ $slither_errors -ne 0 ]; then
