@@ -53,10 +53,12 @@ echo "SOLCVER after cleanup: $SOLCVER"
 
 if [[ "$SOLC_IN_PROFILE" != "null" && -n "$SOLCVER" ]]; then
   echo "Running npx semver with SOLC_IN_PROFILE='$SOLC_IN_PROFILE' and SOLCVER='$SOLCVER'..."
-  npx semver "$SOLC_IN_PROFILE" -r "$SOLCVER"
+  set +e
   COMPAT_SOLC_VERSION=$(npx semver "$SOLC_IN_PROFILE" -r "$SOLCVER")
+  exit_code=$?
+  set -e
   echo "Compatibility result: $COMPAT_SOLC_VERSION"
-  if [ -n "$COMPAT_SOLC_VERSION" ]; then
+  if [[ $exit_code -eq 0 && -n "$COMPAT_SOLC_VERSION" ]]; then
     echo "Version $SOLC_IN_PROFILE satisfies the constraint $SOLCVER"
     SOLC_TO_USE="$SOLC_IN_PROFILE"
   else
