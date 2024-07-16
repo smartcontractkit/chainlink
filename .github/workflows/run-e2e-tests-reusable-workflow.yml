@@ -381,15 +381,15 @@ jobs:
           duplicate-authorization-header: "true"
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@84c33b576bc42e78ec29afbccf29faef92e736e7 # TODO: Create tag and use it here
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@25e7c69bb6aae9781fec32355c6f9c485b12e594 # TODO: Create tag and use it here
         env:
           DETACH_RUNNER: true
-          TEST_SUITE: ${{ matrix.tests.remoteRunnerTestSuite }}
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
           test_type: ${{ matrix.tests.test_inputs.test_type }}
+          test_suite: ${{ matrix.tests.test_inputs.test_suite }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.tests.idSanitized }}-test-logs
           artifacts_location: |
@@ -508,12 +508,9 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV              
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@84c33b576bc42e78ec29afbccf29faef92e736e7 # TODO: Create tag and use it here24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@25e7c69bb6aae9781fec32355c6f9c485b12e594 # TODO: Create tag and use it here24
         env:
           DETACH_RUNNER: true
-          TEST_SUITE: ${{ matrix.tests.remoteRunnerTestSuite }}
-          TEST_TYPE: ${{ matrix.tests.remoteRunnerTestSuite }}
-          TEST_TEST_TYPE: ${{ matrix.tests.remoteRunnerTestSuite }}
           RR_MEM: ${{ matrix.tests.remoteRunnerMemory }}
           TEST_ARGS: -test.timeout 900h -test.memprofile memprofile.out -test.cpuprofile profile.out
           ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}
@@ -527,6 +524,8 @@ jobs:
           test_command_to_run: ${{ matrix.tests.testCmd }}
           test_download_vendor_packages_command: make gomod
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
+          test_type: ${{ matrix.tests.test_inputs.test_type }}
+          test_suite: ${{ matrix.tests.test_inputs.test_suite }}
           token: ${{ secrets.GH_TOKEN }}
           should_cleanup: false
           no_cache: true # Do not restore cache since go was already configured in the previous step

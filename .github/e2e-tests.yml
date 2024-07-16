@@ -88,39 +88,43 @@ runner-test-matrix:
   - id: integration-tests/reorg/automation_reorg_test.go
     path: integration-tests/reorg/automation_reorg_test.go
     test_env_type: k8s-remote-runner
-    remote-runner-test-suite: reorg
     runs-on: ubuntu-latest
     workflows:
       # - Run Automation Product Nightly E2E Tests
     test-cmd: cd integration-tests/reorg && go test -v -test.run ^TestAutomationReorg$ -test.parallel=5 -timeout 60m -count=1
     pyroscope-env: ci-automation-on-demand-reorg
+    test_inputs:
+      test_suite: reorg
 
   - id: integration-tests/chaos/automation_chaos_test.go
     path: integration-tests/chaos/automation_chaos_test.go
     test_env_type: k8s-remote-runner
-    remote-runner-test-suite: chaos
     runs-on: ubuntu-latest
     workflows:
       # - Run Automation Product Nightly E2E Tests
     test-cmd: cd integration-tests/chaos && go test -v -test.run ^TestAutomationChaos$ -test.parallel=15 -timeout 60m -count=1
     pyroscope-env: ci-automation-on-demand-chaos
+    test_inputs:
+      test_suite: chaos
 
   # Example of a configuration for running a single soak test in Kubernetes Remote Runner
   - id: soak/ocr_test.go:^TestOCRv1Soak$
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
-    remote-runner-test-suite: soak
     runs-on: ubuntu-latest
     test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1
+    test_inputs:
+      test_suite: soak
 
   - id: soak/ocr_test.go:^TestOCRv2Soak$
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
-    remote-runner-test-suite: soak
     runs-on: ubuntu-latest
     test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1
     test-config-override-required: true
     test-secrets-required: true
+    test_inputs:
+      test_suite: soak
 
   - id: integration-tests/benchmark/keeper_test.go:^TestAutomationBenchmark$
     path: integration-tests/benchmark/keeper_test.go
@@ -132,6 +136,8 @@ runner-test-matrix:
     #   - Run Nightly E2E Tests
     test-cmd: cd integration-tests/benchmark && go test -v -test.run ^TestAutomationBenchmark$ -test.parallel=1 -timeout 30m -count=1
     pyroscope-env: ci-benchmark-automation-nightly
+    test_inputs:
+      test_suite: benchmark
 
   # START: VRF tests
 
