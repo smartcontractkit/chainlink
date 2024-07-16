@@ -124,12 +124,6 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
             revert ZeroAddress();
         }
 
-        //check it supports the interface
-        // ask how to mock this
-    //    if(!IERC165(verifierProxy).supportsInterface(type(IDestinationVerifierProxy).interfaceId)) {
-      //      revert VerifierProxyInvalid();
-       // }
-
         i_verifierProxy = IDestinationVerifierProxy(verifierProxy);
     }
 

@@ -51,13 +51,6 @@ contract BaseTest is Test {
         vm.startPrank(ADMIN);
 
         s_verifierProxy = new DestinationVerifierProxy();
-        // Ask Michael how to properly mock this
-        //  vm.mockCall(
-        //address(s_verifierProxy),
-        //    MOCK_VERIFIER_ADDRESS,
-        //    abi.encodeWithSelector(IERC165.supportsInterface.selector, IDestinationVerifier.verify.selector),
-        //   abi.encode(true)
-        // );
         s_verifier = new DestinationVerifier(address(s_verifierProxy));
 
         // setting up FeeManager and RewardManager
