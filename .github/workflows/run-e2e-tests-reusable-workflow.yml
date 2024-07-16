@@ -125,7 +125,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: 'smartcontractkit/chainlink-testing-framework'
-          ref: 5595b2d234343f028e048e07131e98effab3fa41
+          ref: 35aa2ea0837aee32466f735a8d2220fb413413c6
           path: 'chainlink-testing-framework'          
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -151,7 +151,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: 'smartcontractkit/chainlink-testing-framework'
-          ref: 5595b2d234343f028e048e07131e98effab3fa41
+          ref: 35aa2ea0837aee32466f735a8d2220fb413413c6
           path: 'chainlink-testing-framework'        
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -161,7 +161,7 @@ jobs:
         id: set-docker-matrix
         run: |
           cd chainlink-testing-framework/tools/citool/
-          MATRIX_JSON=$(go run main.go filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          MATRIX_JSON=$(go run main.go filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "Docker tests:"
           echo "$MATRIX_JSON" | jq
           echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
@@ -169,7 +169,7 @@ jobs:
         id: set-k8s-runner-matrix
         run: |
           cd chainlink-testing-framework/tools/citool/
-          MATRIX_JSON=$(go run main.go filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          MATRIX_JSON=$(go run main.go filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
           echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
@@ -356,10 +356,10 @@ jobs:
         if: inputs.test_config_override_base64 == ''
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.defaultTestInputs.chainlinkVersion || github.sha }}
-          chainlink_upgrade_version: ${{ matrix.tests.defaultTestInputs.chainlinkUpgradeVersion || 'develop' }} # Set default upgrade version
-          chainlink_postgres_version: ${{ matrix.tests.defaultTestInputs.chainlinkPostgresVersion }}
-          selected_networks: ${{ matrix.tests.defaultTestInputs.selectedNetworks || env.SELECTED_NETWORKS}}
+          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.test_inputs.chainlinkVersion || github.sha }}
+          chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlinkUpgradeVersion || 'develop' }} # Set default upgrade version
+          chainlink_postgres_version: ${{ matrix.tests.test_inputs.chainlinkPostgresVersion }}
+          selected_networks: ${{ matrix.tests.test_inputs.selectedNetworks || env.SELECTED_NETWORKS}}
           logging_run_id: ${{ github.run_id }}
           logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
 
@@ -391,7 +391,7 @@ jobs:
           test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
-          test_type: ${{ matrix.tests.defaultTestInputs.testType }}
+          test_type: ${{ matrix.tests.test_inputs.test_type }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.tests.idSanitized }}-test-logs
           artifacts_location: |
@@ -407,8 +407,8 @@ jobs:
           should_tidy: "false"
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
-          DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.defaultTestInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
-          DEFAULT_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.defaultTestInputs.chainlinkUpgradeImage }}
+          DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.test_inputs.chainlinkImage || env.CHAINLINK_IMAGE }}
+          DEFAULT_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.test_inputs.chainlinkUpgradeImage }}
           DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -494,10 +494,10 @@ jobs:
         if: inputs.test_config_override_base64 == ''
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.defaultTestInputs.chainlinkVersion || github.sha }}
-          chainlink_upgrade_version: ${{ matrix.tests.defaultTestInputs.chainlinkUpgradeVersion || 'develop' }} # Set default upgrade version
-          chainlink_postgres_version: ${{ matrix.tests.defaultTestInputs.chainlinkPostgresVersion }}
-          selected_networks: ${{ matrix.tests.defaultTestInputs.selectedNetworks || env.SELECTED_NETWORKS}}
+          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.test_inputs.chainlinkVersion || github.sha }}
+          chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlinkUpgradeVersion || 'develop' }} # Set default upgrade version
+          chainlink_postgres_version: ${{ matrix.tests.test_inputs.chainlinkPostgresVersion }}
+          selected_networks: ${{ matrix.tests.test_inputs.selectedNetworks || env.SELECTED_NETWORKS}}
           logging_run_id: ${{ github.run_id }}
           logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
 
@@ -536,8 +536,8 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }} 
-          DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.defaultTestInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
-          DEFAULT_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.defaultTestInputs.chainlinkUpgradeImage }}
+          DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.test_inputs.chainlinkImage || env.CHAINLINK_IMAGE }}
+          DEFAULT_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.test_inputs.chainlinkUpgradeImage }}
           DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}

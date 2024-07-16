@@ -85,21 +85,21 @@ jobs:
           # Always run upgrade tests 
           cat > test_list.yaml <<EOF
           - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
-            test-inputs:
+            test_inputs:
               chainlinkImage: $CHAINLINK_IMAGE
               chainlinkVersion: $CHAINLINK_VERSION
               chainlinkUpgradeImage: $CHAINLINK_UPGRADE_IMAGE
               chainlinkUpgradeVersion: $CHAINLINK_UPGRADE_VERSION
 
           - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
-            test-inputs:
+            test_inputs:
               chainlinkImage: $CHAINLINK_IMAGE
               chainlinkVersion: $CHAINLINK_VERSION
               chainlinkUpgradeImage: $CHAINLINK_UPGRADE_IMAGE
               chainlinkUpgradeVersion: $CHAINLINK_UPGRADE_VERSION
 
           - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
-            test-inputs:
+            test_inputs:
               chainlinkImage: $CHAINLINK_IMAGE
               chainlinkVersion: $CHAINLINK_VERSION
               chainlinkUpgradeImage: $CHAINLINK_UPGRADE_IMAGE
@@ -110,7 +110,7 @@ jobs:
           if [[ "${{ github.event.inputs.enableReorg }}" == 'true' ]]; then
           cat >> test_list.yaml <<EOF
           - id: integration-tests/reorg/automation_reorg_test.go
-            test-inputs:
+            test_inputs:
               chainlinkImage: $CHAINLINK_IMAGE
               chainlinkVersion: $CHAINLINK_VERSION
           EOF
@@ -120,7 +120,7 @@ jobs:
           if [[ "${{ github.event.inputs.enableChaos }}" == 'true' ]]; then
           cat >> test_list.yaml <<EOF
           - id: integration-tests/chaos/automation_chaos_test.go
-            test-inputs:
+            test_inputs:
               chainlinkImage: $CHAINLINK_IMAGE
               chainlinkVersion: $CHAINLINK_VERSION
           EOF

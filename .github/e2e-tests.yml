@@ -10,7 +10,7 @@ runner-test-matrix:
   # Example of 1 runner for all tests in integration-tests/smoke/ocr_test.go
   - id: smoke/ocr_test.go:* 
     path: integration-tests/smoke/ocr_test.go
-    test-type: docker
+    test_env_type: docker
     runs-on: ubuntu-latest
     workflows:
       - Run PR E2E Tests
@@ -21,7 +21,7 @@ runner-test-matrix:
   # Example of 2 separate runners for the same test file but different tests. Can be used if tests if are too heavy to run on the same runner
   - id: smoke/ocr2_test.go:^TestOCRv2Request$
     path: integration-tests/smoke/ocr2_test.go
-    test-type: docker
+    test_env_type: docker
     runs-on: ubuntu-latest
     workflows:
       - Run PR E2E Tests
@@ -31,7 +31,7 @@ runner-test-matrix:
 
   - id: smoke/ocr2_test.go:^TestOCRv2Basic$
     path: integration-tests/smoke/ocr2_test.go
-    test-type: docker
+    test_env_type: docker
     runs-on: ubuntu-latest
     workflows:
       - Run PR E2E Tests
@@ -43,12 +43,12 @@ runner-test-matrix:
   
   - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
     path: integration-tests/smoke/automation_upgrade_test.go
-    test-type: docker
+    test_env_type: docker
     runs-on: ubuntu22.04-8cores-32GB
     workflows:
       - Run Automation Product Nightly E2E Tests
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_0 -test.parallel=1 -timeout 60m -count=1 -json
-    default-test-inputs:
+    default-test_inputs:
       chainlinkImage: public.ecr.aws/chainlink/chainlink
       chainlinkVersion: latest
       chainlinkUpgradeImage: '{{ env.QA_CHAINLINK_IMAGE }}'
@@ -57,12 +57,12 @@ runner-test-matrix:
 
   - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
     path: integration-tests/smoke/automation_upgrade_test.go
-    test-type: docker
+    test_env_type: docker
     runs-on: ubuntu22.04-8cores-32GB
     workflows:
       - Run Automation Product Nightly E2E Tests    
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_1 -test.parallel=5 -timeout 60m -count=1 -json
-    default-test-inputs:
+    default-test_inputs:
       chainlinkImage: public.ecr.aws/chainlink/chainlink
       chainlinkVersion: latest
       chainlinkUpgradeImage: '{{ env.QA_CHAINLINK_IMAGE }}'
@@ -71,12 +71,12 @@ runner-test-matrix:
 
   - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
     path: integration-tests/smoke/automation_upgrade_test.go
-    test-type: docker
+    test_env_type: docker
     runs-on: ubuntu22.04-8cores-32GB
     workflows:
       - Run Automation Product Nightly E2E Tests
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_2 -test.parallel=5 -timeout 60m -count=1 -json
-    default-test-inputs:
+    default-test_inputs:
       chainlinkImage: public.ecr.aws/chainlink/chainlink
       chainlinkVersion: latest
       chainlinkUpgradeImage: '{{ env.QA_CHAINLINK_IMAGE }}'
@@ -87,7 +87,7 @@ runner-test-matrix:
 
   - id: integration-tests/reorg/automation_reorg_test.go
     path: integration-tests/reorg/automation_reorg_test.go
-    test-type: k8s-remote-runner
+    test_env_type: k8s-remote-runner
     remote-runner-test-suite: reorg
     runs-on: ubuntu-latest
     workflows:
@@ -97,7 +97,7 @@ runner-test-matrix:
 
   - id: integration-tests/chaos/automation_chaos_test.go
     path: integration-tests/chaos/automation_chaos_test.go
-    test-type: k8s-remote-runner
+    test_env_type: k8s-remote-runner
     remote-runner-test-suite: chaos
     runs-on: ubuntu-latest
     workflows:
@@ -108,14 +108,14 @@ runner-test-matrix:
   # Example of a configuration for running a single soak test in Kubernetes Remote Runner
   - id: soak/ocr_test.go:^TestOCRv1Soak$
     path: integration-tests/soak/ocr_test.go
-    test-type: k8s-remote-runner
+    test_env_type: k8s-remote-runner
     remote-runner-test-suite: soak
     runs-on: ubuntu-latest
     test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1
 
   - id: soak/ocr_test.go:^TestOCRv2Soak$
     path: integration-tests/soak/ocr_test.go
-    test-type: k8s-remote-runner
+    test_env_type: k8s-remote-runner
     remote-runner-test-suite: soak
     runs-on: ubuntu-latest
     test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1
@@ -124,7 +124,7 @@ runner-test-matrix:
 
   - id: integration-tests/benchmark/keeper_test.go:^TestAutomationBenchmark$
     path: integration-tests/benchmark/keeper_test.go
-    test-type: k8s-remote-runner
+    test_env_type: k8s-remote-runner
     remote-runner-test-suite: benchmark
     remote-runner-memory: 4Gi
     runs-on: ubuntu-latest
@@ -137,13 +137,13 @@ runner-test-matrix:
 
   - id: integration-tests/load/vrfv2plus/vrfv2plus_test.go:^TestVRFV2PlusPerformance$
     path: integration-tests/load/vrfv2plus/vrfv2plus_test.go
-    test-type: k8s-remote-runner
-    test-type: docker
     runs-on: ubuntu22.04-8cores-32GB
+    test_env_type: docker
     test-cmd: cd integration-tests/load/vrfv2plus && go test -v -test.run ^TestVRFV2PlusPerformance$ -test.parallel=1 -timeout 24h -count=1
     test-config-override-required: true
     test-secrets-required: true
-    default-test-inputs:
-      testType: Smoke
+    test_inputs:
+      test_type: Smoke
+
 
   # END: VRF tests
