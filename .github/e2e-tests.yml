@@ -9,17 +9,6 @@ runner-test-matrix:
 
   # START: OCR tests
 
-  # Example of 1 runner for all tests in integration-tests/smoke/ocr_test.go
-  - id: integration-tests/smoke/ocr_test.go:* 
-    path: integration-tests/smoke/ocr_test.go
-    test_env_type: docker
-    runs-on: ubuntu-latest
-    workflows:
-      - Run PR E2E Tests
-      - Run Nightly E2E Tests
-    test-cmd: cd integration-tests/ && go test smoke/ocr_test.go -timeout 30m -count=1 -json
-    pyroscope-env: ci-smoke-ocr-evm-simulated-nightly
-
   # Example of 2 separate runners for the same test file but different tests. Can be used if tests if are too heavy to run on the same runner
   - id: integration-tests/smoke/ocr2_test.go:^TestOCRv2Request$
     path: integration-tests/smoke/ocr2_test.go
@@ -165,11 +154,11 @@ runner-test-matrix:
     workflows:
       - Run Automation Product Nightly E2E Tests
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_0 -test.parallel=1 -timeout 60m -count=1 -json
-    default-test_inputs:
-      chainlinkImage: public.ecr.aws/chainlink/chainlink
-      chainlinkVersion: latest
-      chainlinkUpgradeImage: '{{ env.QA_CHAINLINK_IMAGE }}'
-      chainlinkUpgradeVersion: develop
+    test_inputs:
+      chainlink_image: public.ecr.aws/chainlink/chainlink
+      chainlink_version: latest
+      chainlink_upgrade_image: '{{ env.QA_CHAINLINK_IMAGE }}'
+      chainlink_upgrade_version: develop
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
   - id: integration-tests/smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
@@ -179,11 +168,11 @@ runner-test-matrix:
     workflows:
       - Run Automation Product Nightly E2E Tests    
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_1 -test.parallel=5 -timeout 60m -count=1 -json
-    default-test_inputs:
-      chainlinkImage: public.ecr.aws/chainlink/chainlink
-      chainlinkVersion: latest
-      chainlinkUpgradeImage: '{{ env.QA_CHAINLINK_IMAGE }}'
-      chainlinkUpgradeVersion: develop
+    test_inputs:
+      chainlink_image: public.ecr.aws/chainlink/chainlink
+      chainlink_version: latest
+      chainlink_upgrade_image: '{{ env.QA_CHAINLINK_IMAGE }}'
+      chainlink_upgrade_version: develop
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
   - id: integration-tests/smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
@@ -193,11 +182,11 @@ runner-test-matrix:
     workflows:
       - Run Automation Product Nightly E2E Tests
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_2 -test.parallel=5 -timeout 60m -count=1 -json
-    default-test_inputs:
-      chainlinkImage: public.ecr.aws/chainlink/chainlink
-      chainlinkVersion: latest
-      chainlinkUpgradeImage: '{{ env.QA_CHAINLINK_IMAGE }}'
-      chainlinkUpgradeVersion: develop
+    test_inputs:
+      chainlink_image: public.ecr.aws/chainlink/chainlink
+      chainlink_version: latest
+      chainlink_upgrade_image: '{{ env.QA_CHAINLINK_IMAGE }}'
+      chainlink_upgrade_version: develop
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
   - id: integration-tests/reorg/automation_reorg_test.go
@@ -307,3 +296,150 @@ runner-test-matrix:
       - On Demand VRFV2Plus Smoke Test (Ethereum clients)
 
   # END: VRF tests
+
+  - id: integration-tests/smoke/runlog_test.go:*
+    path: integration-tests/smoke/runlog_test.go
+    test_env_type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/runlog_test.go -timeout 30m -count=1 -json
+    pyroscope-env: ci-smoke-runlog-evm-simulated
+
+  - id: integration-tests/smoke/cron_test.go:*
+    path: integration-tests/smoke/cron_test.go
+    test_env_type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/cron_test.go -timeout 30m -count=1 -json
+    pyroscope-env: ci-smoke-cron-evm-simulated
+
+  - id: integration-tests/smoke/flux_test.go:*
+    path: integration-tests/smoke/flux_test.go
+    test_env_type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/flux_test.go -timeout 30m -count=1 -json
+    pyroscope-env: ci-smoke-flux-evm-simulated    
+
+  # Example of 1 runner for all tests in integration-tests/smoke/ocr_test.go
+  - id: integration-tests/smoke/ocr_test.go:* 
+    path: integration-tests/smoke/ocr_test.go
+    test_env_type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/ocr_test.go -timeout 30m -count=1 -test.parallel=2 -json
+    pyroscope-env: ci-smoke-ocr-evm-simulated
+
+  - id: integration-tests/smoke/reorg_above_finality.go:*
+    path: integration-tests/smoke/reorg_above_finality.go
+    test_env_type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/reorg_above_finality.go -timeout 30m -count=1 -json
+    pyroscope-env: ci-smoke-reorg-above-finality-evm-simulated
+    
+  - id: integration-tests/smoke/ocr2_test.go:*
+    path: integration-tests/smoke/ocr2_test.go
+    test_env_type: docker
+    runs-on: ubuntu22.04-16cores-64GB
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/ocr2_test.go -timeout 30m -count=1 -test.parallel=6 -json
+    pyroscope-env: ci-smoke-ocr2-evm-simulated
+
+  - id: integration-tests/smoke/ocr2_test.go:*-plugins
+    path: integration-tests/smoke/ocr2_test.go
+    test_env_type: docker
+    runs-on: ubuntu22.04-16cores-64GB
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/ocr2_test.go -timeout 30m -count=1 -test.parallel=6 -json
+    pyroscope-env: ci-smoke-ocr2-plugins-evm-simulated
+    test_inputs:
+      chainlink_version: '{{ env.GITHUB_SHA_PLUGINS }}' # This is the chainlink version that has the plugins
+
+  - id: integration-tests/smoke/vrf_test.go:*
+    path: integration-tests/smoke/vrf_test.go
+    test_env_type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/vrf_test.go -timeout 30m -count=1 -test.parallel=2 -json
+    pyroscope-env: ci-smoke-vrf-evm-simulated
+
+  - id: integration-tests/smoke/vrfv2_test.go:*
+    path: integration-tests/smoke/vrfv2_test.go
+    test_env_type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/vrfv2_test.go -timeout 30m -count=1 -test.parallel=6 -json
+    pyroscope-env: ci-smoke-vrf2-evm-simulated
+
+  - id: integration-tests/smoke/vrfv2plus_test.go:*
+    path: integration-tests/smoke/vrfv2plus_test.go
+    test_env_type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/vrfv2plus_test.go -timeout 30m -count=1 -test.parallel=9 -json
+    pyroscope-env: ci-smoke-vrf2plus-evm-simulated
+
+  - id: integration-tests/smoke/forwarder_ocr_test.go:*
+    path: integration-tests/smoke/forwarder_ocr_test.go
+    test_env_type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/forwarder_ocr_test.go -timeout 30m -count=1 -test.parallel=2 -json
+    pyroscope-env: ci-smoke-forwarder-ocr-evm-simulated
+
+  - id: integration-tests/smoke/forwarders_ocr2.go:*
+    path: integration-tests/smoke/forwarders_ocr2.go
+    test_env_type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/forwarders_ocr2.go -timeout 30m -count=1 -test.parallel=2 -json
+    pyroscope-env: ci-smoke-forwarder-ocr-evm-simulated
+
+  - id: integration-tests/smoke/forwarders_ocr2.go:*
+    path: integration-tests/smoke/forwarders_ocr2.go
+    test_env_type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/forwarders_ocr2.go -timeout 30m -count=1 -test.parallel=2 -json
+    pyroscope-env: ci-smoke-forwarder-ocr-evm-simulated    
+
+  - id: integration-tests/migration/upgrade_version_test.go:*
+    path: integration-tests/migration/upgrade_version_test.go
+    test_env_type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/migration && go test upgrade_version_test.go -timeout 30m -count=1 -test.parallel=2 -json
+    test_inputs:
+      chainlink_image: public.ecr.aws/chainlink/chainlink
+      chainlink_version: '{{ env.LATEST_CHAINLINK_RELEASE_VERSION }}'
+      chainlink_upgrade_image: '{{ env.QA_CHAINLINK_IMAGE }}'
+      chainlink_upgrade_version: develop
