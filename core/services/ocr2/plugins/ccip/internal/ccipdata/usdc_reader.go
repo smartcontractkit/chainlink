@@ -3,15 +3,24 @@ package ccipdata
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+)
+
+var (
+	// shortLivedInMemLogsCacheExpiration is used for the short-lived in meme logs cache.
+	// Value should usually be set to just a few seconds, a larger duration will not increase performance and might
+	// cause performance issues on re-orged logs.
+	shortLivedInMemLogsCacheExpiration = 20 * time.Second
 )
 
 const (
@@ -36,6 +45,10 @@ type USDCReaderImpl struct {
 	filter             logpoller.Filter
 	lggr               logger.Logger
 	transmitterAddress common.Address
+
+	// shortLivedInMemLogs is a short-lived cache (items expire every few seconds)
+	// used to prevent frequent log fetching from the log poller
+	shortLivedInMemLogs *cache.Cache
 }
 
 func (u *USDCReaderImpl) Close() error {
@@ -71,20 +84,38 @@ func parseUSDCMessageSent(logData []byte) ([]byte, error) {
 }
 
 func (u *USDCReaderImpl) GetUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, usdcTokenIndexOffset int, txHash string) ([]byte, error) {
+	var lpLogs []logpoller.Log
+
 	// fetch all the usdc logs for the provided tx hash
-	logs, err := u.lp.IndexedLogsByTxHash(
-		ctx,
-		u.usdcMessageSent,
-		u.transmitterAddress,
-		common.HexToHash(txHash),
-	)
-	if err != nil {
-		return nil, err
+	k := fmt.Sprintf("usdc-%s", txHash) // custom prefix to avoid key collision if someone re-uses the cache
+	if rawLogs, foundInMem := u.shortLivedInMemLogs.Get(k); foundInMem {
+		inMemLogs, ok := rawLogs.([]logpoller.Log)
+		if !ok {
+			return nil, errors.Errorf("unexpected in-mem logs type %T", rawLogs)
+		}
+		u.lggr.Debugw("found logs in memory", "k", k, "len", len(inMemLogs))
+		lpLogs = inMemLogs
+	}
+
+	if len(lpLogs) == 0 {
+		u.lggr.Debugw("fetching logs from lp", "k", k)
+		logs, err := u.lp.IndexedLogsByTxHash(
+			ctx,
+			u.usdcMessageSent,
+			u.transmitterAddress,
+			common.HexToHash(txHash),
+		)
+		if err != nil {
+			return nil, err
+		}
+		lpLogs = logs
+		u.shortLivedInMemLogs.Set(k, logs, cache.DefaultExpiration)
+		u.lggr.Debugw("fetched logs from lp", "logs", len(lpLogs))
 	}
 
 	// collect the logs with log index less than the provided log index
 	allUsdcTokensData := make([][]byte, 0)
-	for _, current := range logs {
+	for _, current := range lpLogs {
 		if current.LogIndex < logIndex {
 			u.lggr.Infow("Found USDC message", "logIndex", current.LogIndex, "txHash", current.TxHash.Hex(), "data", hexutil.Encode(current.Data))
 			allUsdcTokensData = append(allUsdcTokensData, current.Data)
@@ -118,7 +149,8 @@ func NewUSDCReader(lggr logger.Logger, jobID string, transmitter common.Address,
 			Addresses: []common.Address{transmitter},
 			Retention: CommitExecLogsRetention,
 		},
-		transmitterAddress: transmitter,
+		transmitterAddress:  transmitter,
+		shortLivedInMemLogs: cache.New(shortLivedInMemLogsCacheExpiration, 2*shortLivedInMemLogsCacheExpiration),
 	}
 
 	if registerFilters {
