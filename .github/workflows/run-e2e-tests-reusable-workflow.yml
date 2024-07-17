@@ -126,17 +126,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - name: Checkout chainlink-testing-framework to use citool
-        uses: actions/checkout@v3
-        with:
-          repository: 'smartcontractkit/chainlink-testing-framework'
-          ref: 4800d2033f951af46f8829367d6f565f45baaff8
-          path: 'chainlink-testing-framework'          
       - name: Setup Go
         uses: ./.github/actions/setup-go
       - name: Run Check Tests Command
         run: |
-          if ! go run chainlink-testing-framework/tools/citool/main.go check-tests ./integration-tests .github/e2e-tests.yml; then
+          if ! go run integration-tests/citool/main.go check-tests ./integration-tests .github/e2e-tests.yml; then
             echo "::error::Some E2E test configurations have to be added to .github/e2e-tests.yml. This file defines Github CI configuration for each E2E test or set of E2E tests." && exit 1
           fi
 
@@ -172,12 +166,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - name: Checkout chainlink-testing-framework to use citool
-        uses: actions/checkout@v3
-        with:
-          repository: 'smartcontractkit/chainlink-testing-framework'
-          ref: 4800d2033f951af46f8829367d6f565f45baaff8
-          path: 'chainlink-testing-framework'        
       - name: Setup Go
         uses: ./.github/actions/setup-go
       - name: Install jq
@@ -185,16 +173,14 @@ jobs:
       - name: Generate Docker Tests Matrix
         id: set-docker-matrix
         run: |
-          cd chainlink-testing-framework/tools/citool/
-          MATRIX_JSON=$(go run main.go filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          MATRIX_JSON=$(go run integration-tests/citool/main.go filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "Docker tests:"
           echo "$MATRIX_JSON" | jq
           echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
       - name: Generate K8s Tests Matrix
         id: set-k8s-runner-matrix
         run: |
-          cd chainlink-testing-framework/tools/citool/
-          MATRIX_JSON=$(go run main.go filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          MATRIX_JSON=$(go run integration-tests/citool/main.go filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
           echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
