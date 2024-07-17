@@ -433,7 +433,7 @@ func (r *Relayer) NewCCIPCommitProvider(rargs commontypes.RelayArgs, pargs commo
 	subjectID := chainToUUID(configWatcher.chain.ID())
 	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{
 		subjectID: &subjectID,
-	}, OCR2AggregatorTransmissionContractABI, fn, 0)
+	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0))
 	if err != nil {
 		return nil, err
 	}
@@ -506,7 +506,7 @@ func (r *Relayer) NewCCIPExecProvider(rargs commontypes.RelayArgs, pargs commont
 	subjectID := chainToUUID(configWatcher.chain.ID())
 	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{
 		subjectID: &subjectID,
-	}, OCR2AggregatorTransmissionContractABI, fn, 0)
+	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0))
 	if err != nil {
 		return nil, err
 	}
@@ -521,6 +521,7 @@ func (r *Relayer) NewCCIPExecProvider(rargs commontypes.RelayArgs, pargs commont
 		configWatcher,
 		r.chain.GasEstimator(),
 		*r.chain.Config().EVM().GasEstimator().PriceMax().ToInt(),
+		r.chain.TxManager(),
 	)
 }
 

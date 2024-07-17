@@ -13,6 +13,14 @@ type ChainHealthcheck struct {
 	mock.Mock
 }
 
+type ChainHealthcheck_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *ChainHealthcheck) EXPECT() *ChainHealthcheck_Expecter {
+	return &ChainHealthcheck_Expecter{mock: &_m.Mock}
+}
+
 // Close provides a mock function with given fields:
 func (_m *ChainHealthcheck) Close() error {
 	ret := _m.Called()
@@ -29,6 +37,33 @@ func (_m *ChainHealthcheck) Close() error {
 	}
 
 	return r0
+}
+
+// ChainHealthcheck_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type ChainHealthcheck_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *ChainHealthcheck_Expecter) Close() *ChainHealthcheck_Close_Call {
+	return &ChainHealthcheck_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *ChainHealthcheck_Close_Call) Run(run func()) *ChainHealthcheck_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ChainHealthcheck_Close_Call) Return(_a0 error) *ChainHealthcheck_Close_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ChainHealthcheck_Close_Call) RunAndReturn(run func() error) *ChainHealthcheck_Close_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // IsHealthy provides a mock function with given fields: ctx
@@ -59,6 +94,34 @@ func (_m *ChainHealthcheck) IsHealthy(ctx context.Context) (bool, error) {
 	return r0, r1
 }
 
+// ChainHealthcheck_IsHealthy_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsHealthy'
+type ChainHealthcheck_IsHealthy_Call struct {
+	*mock.Call
+}
+
+// IsHealthy is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *ChainHealthcheck_Expecter) IsHealthy(ctx interface{}) *ChainHealthcheck_IsHealthy_Call {
+	return &ChainHealthcheck_IsHealthy_Call{Call: _e.mock.On("IsHealthy", ctx)}
+}
+
+func (_c *ChainHealthcheck_IsHealthy_Call) Run(run func(ctx context.Context)) *ChainHealthcheck_IsHealthy_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *ChainHealthcheck_IsHealthy_Call) Return(_a0 bool, _a1 error) *ChainHealthcheck_IsHealthy_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ChainHealthcheck_IsHealthy_Call) RunAndReturn(run func(context.Context) (bool, error)) *ChainHealthcheck_IsHealthy_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *ChainHealthcheck) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)
@@ -75,6 +138,34 @@ func (_m *ChainHealthcheck) Start(_a0 context.Context) error {
 	}
 
 	return r0
+}
+
+// ChainHealthcheck_Start_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Start'
+type ChainHealthcheck_Start_Call struct {
+	*mock.Call
+}
+
+// Start is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *ChainHealthcheck_Expecter) Start(_a0 interface{}) *ChainHealthcheck_Start_Call {
+	return &ChainHealthcheck_Start_Call{Call: _e.mock.On("Start", _a0)}
+}
+
+func (_c *ChainHealthcheck_Start_Call) Run(run func(_a0 context.Context)) *ChainHealthcheck_Start_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *ChainHealthcheck_Start_Call) Return(_a0 error) *ChainHealthcheck_Start_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ChainHealthcheck_Start_Call) RunAndReturn(run func(context.Context) error) *ChainHealthcheck_Start_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewChainHealthcheck creates a new instance of ChainHealthcheck. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

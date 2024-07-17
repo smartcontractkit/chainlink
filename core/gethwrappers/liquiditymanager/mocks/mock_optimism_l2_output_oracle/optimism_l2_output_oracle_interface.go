@@ -18,6 +18,14 @@ type OptimismL2OutputOracleInterface struct {
 	mock.Mock
 }
 
+type OptimismL2OutputOracleInterface_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *OptimismL2OutputOracleInterface) EXPECT() *OptimismL2OutputOracleInterface_Expecter {
+	return &OptimismL2OutputOracleInterface_Expecter{mock: &_m.Mock}
+}
+
 // Address provides a mock function with given fields:
 func (_m *OptimismL2OutputOracleInterface) Address() common.Address {
 	ret := _m.Called()
@@ -36,6 +44,33 @@ func (_m *OptimismL2OutputOracleInterface) Address() common.Address {
 	}
 
 	return r0
+}
+
+// OptimismL2OutputOracleInterface_Address_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Address'
+type OptimismL2OutputOracleInterface_Address_Call struct {
+	*mock.Call
+}
+
+// Address is a helper method to define mock.On call
+func (_e *OptimismL2OutputOracleInterface_Expecter) Address() *OptimismL2OutputOracleInterface_Address_Call {
+	return &OptimismL2OutputOracleInterface_Address_Call{Call: _e.mock.On("Address")}
+}
+
+func (_c *OptimismL2OutputOracleInterface_Address_Call) Run(run func()) *OptimismL2OutputOracleInterface_Address_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *OptimismL2OutputOracleInterface_Address_Call) Return(_a0 common.Address) *OptimismL2OutputOracleInterface_Address_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *OptimismL2OutputOracleInterface_Address_Call) RunAndReturn(run func() common.Address) *OptimismL2OutputOracleInterface_Address_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetL2Output provides a mock function with given fields: opts, _l2OutputIndex
@@ -66,6 +101,35 @@ func (_m *OptimismL2OutputOracleInterface) GetL2Output(opts *bind.CallOpts, _l2O
 	return r0, r1
 }
 
+// OptimismL2OutputOracleInterface_GetL2Output_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetL2Output'
+type OptimismL2OutputOracleInterface_GetL2Output_Call struct {
+	*mock.Call
+}
+
+// GetL2Output is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - _l2OutputIndex *big.Int
+func (_e *OptimismL2OutputOracleInterface_Expecter) GetL2Output(opts interface{}, _l2OutputIndex interface{}) *OptimismL2OutputOracleInterface_GetL2Output_Call {
+	return &OptimismL2OutputOracleInterface_GetL2Output_Call{Call: _e.mock.On("GetL2Output", opts, _l2OutputIndex)}
+}
+
+func (_c *OptimismL2OutputOracleInterface_GetL2Output_Call) Run(run func(opts *bind.CallOpts, _l2OutputIndex *big.Int)) *OptimismL2OutputOracleInterface_GetL2Output_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *OptimismL2OutputOracleInterface_GetL2Output_Call) Return(_a0 optimism_l2_output_oracle.TypesOutputProposal, _a1 error) *OptimismL2OutputOracleInterface_GetL2Output_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OptimismL2OutputOracleInterface_GetL2Output_Call) RunAndReturn(run func(*bind.CallOpts, *big.Int) (optimism_l2_output_oracle.TypesOutputProposal, error)) *OptimismL2OutputOracleInterface_GetL2Output_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetL2OutputIndexAfter provides a mock function with given fields: opts, _l2BlockNumber
 func (_m *OptimismL2OutputOracleInterface) GetL2OutputIndexAfter(opts *bind.CallOpts, _l2BlockNumber *big.Int) (*big.Int, error) {
 	ret := _m.Called(opts, _l2BlockNumber)
@@ -94,6 +158,35 @@ func (_m *OptimismL2OutputOracleInterface) GetL2OutputIndexAfter(opts *bind.Call
 	}
 
 	return r0, r1
+}
+
+// OptimismL2OutputOracleInterface_GetL2OutputIndexAfter_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetL2OutputIndexAfter'
+type OptimismL2OutputOracleInterface_GetL2OutputIndexAfter_Call struct {
+	*mock.Call
+}
+
+// GetL2OutputIndexAfter is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - _l2BlockNumber *big.Int
+func (_e *OptimismL2OutputOracleInterface_Expecter) GetL2OutputIndexAfter(opts interface{}, _l2BlockNumber interface{}) *OptimismL2OutputOracleInterface_GetL2OutputIndexAfter_Call {
+	return &OptimismL2OutputOracleInterface_GetL2OutputIndexAfter_Call{Call: _e.mock.On("GetL2OutputIndexAfter", opts, _l2BlockNumber)}
+}
+
+func (_c *OptimismL2OutputOracleInterface_GetL2OutputIndexAfter_Call) Run(run func(opts *bind.CallOpts, _l2BlockNumber *big.Int)) *OptimismL2OutputOracleInterface_GetL2OutputIndexAfter_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *OptimismL2OutputOracleInterface_GetL2OutputIndexAfter_Call) Return(_a0 *big.Int, _a1 error) *OptimismL2OutputOracleInterface_GetL2OutputIndexAfter_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OptimismL2OutputOracleInterface_GetL2OutputIndexAfter_Call) RunAndReturn(run func(*bind.CallOpts, *big.Int) (*big.Int, error)) *OptimismL2OutputOracleInterface_GetL2OutputIndexAfter_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewOptimismL2OutputOracleInterface creates a new instance of OptimismL2OutputOracleInterface. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

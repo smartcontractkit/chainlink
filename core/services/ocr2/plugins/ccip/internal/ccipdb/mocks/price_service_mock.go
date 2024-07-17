@@ -20,6 +20,14 @@ type PriceService struct {
 	mock.Mock
 }
 
+type PriceService_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *PriceService) EXPECT() *PriceService_Expecter {
+	return &PriceService_Expecter{mock: &_m.Mock}
+}
+
 // Close provides a mock function with given fields:
 func (_m *PriceService) Close() error {
 	ret := _m.Called()
@@ -36,6 +44,33 @@ func (_m *PriceService) Close() error {
 	}
 
 	return r0
+}
+
+// PriceService_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type PriceService_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *PriceService_Expecter) Close() *PriceService_Close_Call {
+	return &PriceService_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *PriceService_Close_Call) Run(run func()) *PriceService_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *PriceService_Close_Call) Return(_a0 error) *PriceService_Close_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *PriceService_Close_Call) RunAndReturn(run func() error) *PriceService_Close_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetGasAndTokenPrices provides a mock function with given fields: ctx, destChainSelector
@@ -77,6 +112,35 @@ func (_m *PriceService) GetGasAndTokenPrices(ctx context.Context, destChainSelec
 	return r0, r1, r2
 }
 
+// PriceService_GetGasAndTokenPrices_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetGasAndTokenPrices'
+type PriceService_GetGasAndTokenPrices_Call struct {
+	*mock.Call
+}
+
+// GetGasAndTokenPrices is a helper method to define mock.On call
+//   - ctx context.Context
+//   - destChainSelector uint64
+func (_e *PriceService_Expecter) GetGasAndTokenPrices(ctx interface{}, destChainSelector interface{}) *PriceService_GetGasAndTokenPrices_Call {
+	return &PriceService_GetGasAndTokenPrices_Call{Call: _e.mock.On("GetGasAndTokenPrices", ctx, destChainSelector)}
+}
+
+func (_c *PriceService_GetGasAndTokenPrices_Call) Run(run func(ctx context.Context, destChainSelector uint64)) *PriceService_GetGasAndTokenPrices_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uint64))
+	})
+	return _c
+}
+
+func (_c *PriceService_GetGasAndTokenPrices_Call) Return(_a0 map[uint64]*big.Int, _a1 map[ccip.Address]*big.Int, _a2 error) *PriceService_GetGasAndTokenPrices_Call {
+	_c.Call.Return(_a0, _a1, _a2)
+	return _c
+}
+
+func (_c *PriceService_GetGasAndTokenPrices_Call) RunAndReturn(run func(context.Context, uint64) (map[uint64]*big.Int, map[ccip.Address]*big.Int, error)) *PriceService_GetGasAndTokenPrices_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *PriceService) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)
@@ -95,6 +159,34 @@ func (_m *PriceService) Start(_a0 context.Context) error {
 	return r0
 }
 
+// PriceService_Start_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Start'
+type PriceService_Start_Call struct {
+	*mock.Call
+}
+
+// Start is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *PriceService_Expecter) Start(_a0 interface{}) *PriceService_Start_Call {
+	return &PriceService_Start_Call{Call: _e.mock.On("Start", _a0)}
+}
+
+func (_c *PriceService_Start_Call) Run(run func(_a0 context.Context)) *PriceService_Start_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *PriceService_Start_Call) Return(_a0 error) *PriceService_Start_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *PriceService_Start_Call) RunAndReturn(run func(context.Context) error) *PriceService_Start_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateDynamicConfig provides a mock function with given fields: ctx, gasPriceEstimator, destPriceRegistryReader
 func (_m *PriceService) UpdateDynamicConfig(ctx context.Context, gasPriceEstimator prices.GasPriceEstimatorCommit, destPriceRegistryReader ccipdata.PriceRegistryReader) error {
 	ret := _m.Called(ctx, gasPriceEstimator, destPriceRegistryReader)
@@ -111,6 +203,36 @@ func (_m *PriceService) UpdateDynamicConfig(ctx context.Context, gasPriceEstimat
 	}
 
 	return r0
+}
+
+// PriceService_UpdateDynamicConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateDynamicConfig'
+type PriceService_UpdateDynamicConfig_Call struct {
+	*mock.Call
+}
+
+// UpdateDynamicConfig is a helper method to define mock.On call
+//   - ctx context.Context
+//   - gasPriceEstimator prices.GasPriceEstimatorCommit
+//   - destPriceRegistryReader ccipdata.PriceRegistryReader
+func (_e *PriceService_Expecter) UpdateDynamicConfig(ctx interface{}, gasPriceEstimator interface{}, destPriceRegistryReader interface{}) *PriceService_UpdateDynamicConfig_Call {
+	return &PriceService_UpdateDynamicConfig_Call{Call: _e.mock.On("UpdateDynamicConfig", ctx, gasPriceEstimator, destPriceRegistryReader)}
+}
+
+func (_c *PriceService_UpdateDynamicConfig_Call) Run(run func(ctx context.Context, gasPriceEstimator prices.GasPriceEstimatorCommit, destPriceRegistryReader ccipdata.PriceRegistryReader)) *PriceService_UpdateDynamicConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(prices.GasPriceEstimatorCommit), args[2].(ccipdata.PriceRegistryReader))
+	})
+	return _c
+}
+
+func (_c *PriceService_UpdateDynamicConfig_Call) Return(_a0 error) *PriceService_UpdateDynamicConfig_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *PriceService_UpdateDynamicConfig_Call) RunAndReturn(run func(context.Context, prices.GasPriceEstimatorCommit, ccipdata.PriceRegistryReader) error) *PriceService_UpdateDynamicConfig_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewPriceService creates a new instance of PriceService. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

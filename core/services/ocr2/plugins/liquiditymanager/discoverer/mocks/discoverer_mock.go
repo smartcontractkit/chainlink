@@ -15,6 +15,14 @@ type Discoverer struct {
 	mock.Mock
 }
 
+type Discoverer_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *Discoverer) EXPECT() *Discoverer_Expecter {
+	return &Discoverer_Expecter{mock: &_m.Mock}
+}
+
 // Discover provides a mock function with given fields: ctx
 func (_m *Discoverer) Discover(ctx context.Context) (graph.Graph, error) {
 	ret := _m.Called(ctx)
@@ -45,6 +53,34 @@ func (_m *Discoverer) Discover(ctx context.Context) (graph.Graph, error) {
 	return r0, r1
 }
 
+// Discoverer_Discover_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Discover'
+type Discoverer_Discover_Call struct {
+	*mock.Call
+}
+
+// Discover is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *Discoverer_Expecter) Discover(ctx interface{}) *Discoverer_Discover_Call {
+	return &Discoverer_Discover_Call{Call: _e.mock.On("Discover", ctx)}
+}
+
+func (_c *Discoverer_Discover_Call) Run(run func(ctx context.Context)) *Discoverer_Discover_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *Discoverer_Discover_Call) Return(_a0 graph.Graph, _a1 error) *Discoverer_Discover_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Discoverer_Discover_Call) RunAndReturn(run func(context.Context) (graph.Graph, error)) *Discoverer_Discover_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DiscoverBalances provides a mock function with given fields: _a0, _a1
 func (_m *Discoverer) DiscoverBalances(_a0 context.Context, _a1 graph.Graph) error {
 	ret := _m.Called(_a0, _a1)
@@ -61,6 +97,35 @@ func (_m *Discoverer) DiscoverBalances(_a0 context.Context, _a1 graph.Graph) err
 	}
 
 	return r0
+}
+
+// Discoverer_DiscoverBalances_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DiscoverBalances'
+type Discoverer_DiscoverBalances_Call struct {
+	*mock.Call
+}
+
+// DiscoverBalances is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 graph.Graph
+func (_e *Discoverer_Expecter) DiscoverBalances(_a0 interface{}, _a1 interface{}) *Discoverer_DiscoverBalances_Call {
+	return &Discoverer_DiscoverBalances_Call{Call: _e.mock.On("DiscoverBalances", _a0, _a1)}
+}
+
+func (_c *Discoverer_DiscoverBalances_Call) Run(run func(_a0 context.Context, _a1 graph.Graph)) *Discoverer_DiscoverBalances_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(graph.Graph))
+	})
+	return _c
+}
+
+func (_c *Discoverer_DiscoverBalances_Call) Return(_a0 error) *Discoverer_DiscoverBalances_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Discoverer_DiscoverBalances_Call) RunAndReturn(run func(context.Context, graph.Graph) error) *Discoverer_DiscoverBalances_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewDiscoverer creates a new instance of Discoverer. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

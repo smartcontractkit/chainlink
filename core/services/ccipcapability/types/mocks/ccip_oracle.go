@@ -9,6 +9,14 @@ type CCIPOracle struct {
 	mock.Mock
 }
 
+type CCIPOracle_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *CCIPOracle) EXPECT() *CCIPOracle_Expecter {
+	return &CCIPOracle_Expecter{mock: &_m.Mock}
+}
+
 // Close provides a mock function with given fields:
 func (_m *CCIPOracle) Close() error {
 	ret := _m.Called()
@@ -27,6 +35,33 @@ func (_m *CCIPOracle) Close() error {
 	return r0
 }
 
+// CCIPOracle_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type CCIPOracle_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *CCIPOracle_Expecter) Close() *CCIPOracle_Close_Call {
+	return &CCIPOracle_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *CCIPOracle_Close_Call) Run(run func()) *CCIPOracle_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *CCIPOracle_Close_Call) Return(_a0 error) *CCIPOracle_Close_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *CCIPOracle_Close_Call) RunAndReturn(run func() error) *CCIPOracle_Close_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Start provides a mock function with given fields:
 func (_m *CCIPOracle) Start() error {
 	ret := _m.Called()
@@ -43,6 +78,33 @@ func (_m *CCIPOracle) Start() error {
 	}
 
 	return r0
+}
+
+// CCIPOracle_Start_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Start'
+type CCIPOracle_Start_Call struct {
+	*mock.Call
+}
+
+// Start is a helper method to define mock.On call
+func (_e *CCIPOracle_Expecter) Start() *CCIPOracle_Start_Call {
+	return &CCIPOracle_Start_Call{Call: _e.mock.On("Start")}
+}
+
+func (_c *CCIPOracle_Start_Call) Run(run func()) *CCIPOracle_Start_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *CCIPOracle_Start_Call) Return(_a0 error) *CCIPOracle_Start_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *CCIPOracle_Start_Call) RunAndReturn(run func() error) *CCIPOracle_Start_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewCCIPOracle creates a new instance of CCIPOracle. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

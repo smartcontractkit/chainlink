@@ -38,14 +38,13 @@ import (
 
 const chainID = 1337
 
-func NewReader(t *testing.T, logPoller logpoller.LogPoller, client client.Client, address common.Address, chainReaderConfig evmrelaytypes.ChainReaderConfig, contractName string) types.ContractReader {
-	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.TestLogger(t), logPoller, client, chainReaderConfig)
+func NewReader(t *testing.T, logPoller logpoller.LogPoller, headTracker logpoller.HeadTracker, client client.Client, address common.Address, chainReaderConfig evmrelaytypes.ChainReaderConfig, contractName string) types.ContractReader {
+	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.TestLogger(t), logPoller, headTracker, client, chainReaderConfig)
 	require.NoError(t, err)
 	err = cr.Bind(testutils.Context(t), []types.BoundContract{
 		{
 			Address: address.String(),
 			Name:    contractName,
-			Pending: false,
 		},
 	})
 	require.NoError(t, err)
@@ -80,6 +79,7 @@ type TestUniverse struct {
 	CcipCfg         *ccip_config.CCIPConfig
 	TestingT        *testing.T
 	LogPoller       logpoller.LogPoller
+	HeadTracker     logpoller.HeadTracker
 	SimClient       client.Client
 	HomeChainReader ccipreader.HomeChain
 }
@@ -121,7 +121,7 @@ func NewTestUniverse(ctx context.Context, t *testing.T, lggr logger.Logger) Test
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { require.NoError(t, lp.Close()) })
 
-	hcr := NewHomeChainReader(t, lp, cl, ccAddress)
+	hcr := NewHomeChainReader(t, lp, headTracker, cl, ccAddress)
 	return TestUniverse{
 		Transactor:      transactor,
 		Backend:         backend,
@@ -130,6 +130,7 @@ func NewTestUniverse(ctx context.Context, t *testing.T, lggr logger.Logger) Test
 		TestingT:        t,
 		SimClient:       cl,
 		LogPoller:       lp,
+		HeadTracker:     headTracker,
 		HomeChainReader: hcr,
 	}
 }
@@ -138,7 +139,7 @@ func (t TestUniverse) NewContractReader(ctx context.Context, cfg []byte) (types.
 	var config evmrelaytypes.ChainReaderConfig
 	err := json.Unmarshal(cfg, &config)
 	require.NoError(t.TestingT, err)
-	return evm.NewChainReaderService(ctx, logger.TestLogger(t.TestingT), t.LogPoller, t.SimClient, config)
+	return evm.NewChainReaderService(ctx, logger.TestLogger(t.TestingT), t.LogPoller, t.HeadTracker, t.SimClient, config)
 }
 
 func P2pIDsFromInts(ints []int64) [][32]byte {
@@ -218,7 +219,7 @@ func (t *TestUniverse) AddCapability(p2pIDs [][32]byte) {
 	}
 }
 
-func NewHomeChainReader(t *testing.T, logPoller logpoller.LogPoller, client client.Client, ccAddress common.Address) ccipreader.HomeChain {
+func NewHomeChainReader(t *testing.T, logPoller logpoller.LogPoller, headTracker logpoller.HeadTracker, client client.Client, ccAddress common.Address) ccipreader.HomeChain {
 	cfg := evmrelaytypes.ChainReaderConfig{
 		Contracts: map[string]evmrelaytypes.ChainContractReader{
 			"CCIPConfig": {
@@ -235,7 +236,7 @@ func NewHomeChainReader(t *testing.T, logPoller logpoller.LogPoller, client clie
 		},
 	}
 
-	cr := NewReader(t, logPoller, client, ccAddress, cfg, "CCIPConfig")
+	cr := NewReader(t, logPoller, headTracker, client, ccAddress, cfg, "CCIPConfig")
 
 	hcr := ccipreader.NewHomeChainReader(cr, logger.TestLogger(t), 500*time.Millisecond)
 	require.NoError(t, hcr.Start(testutils.Context(t)))

@@ -14,12 +14,25 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+const BootstrapTemplate = `
+type                               = "bootstrap"
+schemaVersion                      = 1
+name                               = "bootstrap-chainID-%d"
+id                                 = "1"
+contractID                         = "%s"
+relay                              = "evm"
+
+[relayConfig]
+chainID                            = %d
+`
 
 type SetupLiquidityManagerNodePayload struct {
 	OnChainPublicKey  string
@@ -295,6 +308,48 @@ func createRebalancerBootstrapperJob(
 
 	// Give a cooldown
 	time.Sleep(time.Second)
+
+	return nil
+}
+
+func setupKeystore(ctx context.Context, cli *Shell, app chainlink.Application, keyStore keystore.Master) error {
+	if err := cli.KeyStoreAuthenticator.authenticate(ctx, keyStore, cli.Config.Password()); err != nil {
+		return errors.Wrap(err, "error authenticating keystore")
+	}
+
+	if cli.Config.EVMEnabled() {
+		chains, err := app.GetRelayers().LegacyEVMChains().List()
+		if err != nil {
+			return fmt.Errorf("failed to get legacy evm chains")
+		}
+		for _, ch := range chains {
+			if err = keyStore.Eth().EnsureKeys(ctx, ch.ID()); err != nil {
+				return errors.Wrap(err, "failed to ensure keystore keys")
+			}
+		}
+	}
+
+	var enabledChains []chaintype.ChainType
+	if cli.Config.EVMEnabled() {
+		enabledChains = append(enabledChains, chaintype.EVM)
+	}
+	if cli.Config.CosmosEnabled() {
+		enabledChains = append(enabledChains, chaintype.Cosmos)
+	}
+	if cli.Config.SolanaEnabled() {
+		enabledChains = append(enabledChains, chaintype.Solana)
+	}
+	if cli.Config.StarkNetEnabled() {
+		enabledChains = append(enabledChains, chaintype.StarkNet)
+	}
+
+	if err := keyStore.OCR2().EnsureKeys(ctx, enabledChains...); err != nil {
+		return errors.Wrap(err, "failed to ensure ocr key")
+	}
+
+	if err := keyStore.P2P().EnsureKey(ctx); err != nil {
+		return errors.Wrap(err, "failed to ensure p2p key")
+	}
 
 	return nil
 }

@@ -17,6 +17,14 @@ type Bridge struct {
 	mock.Mock
 }
 
+type Bridge_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *Bridge) EXPECT() *Bridge_Expecter {
+	return &Bridge_Expecter{mock: &_m.Mock}
+}
+
 // Close provides a mock function with given fields: ctx
 func (_m *Bridge) Close(ctx context.Context) error {
 	ret := _m.Called(ctx)
@@ -33,6 +41,34 @@ func (_m *Bridge) Close(ctx context.Context) error {
 	}
 
 	return r0
+}
+
+// Bridge_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type Bridge_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *Bridge_Expecter) Close(ctx interface{}) *Bridge_Close_Call {
+	return &Bridge_Close_Call{Call: _e.mock.On("Close", ctx)}
+}
+
+func (_c *Bridge_Close_Call) Run(run func(ctx context.Context)) *Bridge_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *Bridge_Close_Call) Return(_a0 error) *Bridge_Close_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Bridge_Close_Call) RunAndReturn(run func(context.Context) error) *Bridge_Close_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetBridgePayloadAndFee provides a mock function with given fields: ctx, transfer
@@ -74,6 +110,35 @@ func (_m *Bridge) GetBridgePayloadAndFee(ctx context.Context, transfer models.Tr
 	return r0, r1, r2
 }
 
+// Bridge_GetBridgePayloadAndFee_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetBridgePayloadAndFee'
+type Bridge_GetBridgePayloadAndFee_Call struct {
+	*mock.Call
+}
+
+// GetBridgePayloadAndFee is a helper method to define mock.On call
+//   - ctx context.Context
+//   - transfer models.Transfer
+func (_e *Bridge_Expecter) GetBridgePayloadAndFee(ctx interface{}, transfer interface{}) *Bridge_GetBridgePayloadAndFee_Call {
+	return &Bridge_GetBridgePayloadAndFee_Call{Call: _e.mock.On("GetBridgePayloadAndFee", ctx, transfer)}
+}
+
+func (_c *Bridge_GetBridgePayloadAndFee_Call) Run(run func(ctx context.Context, transfer models.Transfer)) *Bridge_GetBridgePayloadAndFee_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(models.Transfer))
+	})
+	return _c
+}
+
+func (_c *Bridge_GetBridgePayloadAndFee_Call) Return(_a0 []byte, _a1 *big.Int, _a2 error) *Bridge_GetBridgePayloadAndFee_Call {
+	_c.Call.Return(_a0, _a1, _a2)
+	return _c
+}
+
+func (_c *Bridge_GetBridgePayloadAndFee_Call) RunAndReturn(run func(context.Context, models.Transfer) ([]byte, *big.Int, error)) *Bridge_GetBridgePayloadAndFee_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetTransfers provides a mock function with given fields: ctx, localToken, remoteToken
 func (_m *Bridge) GetTransfers(ctx context.Context, localToken models.Address, remoteToken models.Address) ([]models.PendingTransfer, error) {
 	ret := _m.Called(ctx, localToken, remoteToken)
@@ -104,6 +169,36 @@ func (_m *Bridge) GetTransfers(ctx context.Context, localToken models.Address, r
 	return r0, r1
 }
 
+// Bridge_GetTransfers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTransfers'
+type Bridge_GetTransfers_Call struct {
+	*mock.Call
+}
+
+// GetTransfers is a helper method to define mock.On call
+//   - ctx context.Context
+//   - localToken models.Address
+//   - remoteToken models.Address
+func (_e *Bridge_Expecter) GetTransfers(ctx interface{}, localToken interface{}, remoteToken interface{}) *Bridge_GetTransfers_Call {
+	return &Bridge_GetTransfers_Call{Call: _e.mock.On("GetTransfers", ctx, localToken, remoteToken)}
+}
+
+func (_c *Bridge_GetTransfers_Call) Run(run func(ctx context.Context, localToken models.Address, remoteToken models.Address)) *Bridge_GetTransfers_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(models.Address), args[2].(models.Address))
+	})
+	return _c
+}
+
+func (_c *Bridge_GetTransfers_Call) Return(_a0 []models.PendingTransfer, _a1 error) *Bridge_GetTransfers_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Bridge_GetTransfers_Call) RunAndReturn(run func(context.Context, models.Address, models.Address) ([]models.PendingTransfer, error)) *Bridge_GetTransfers_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // QuorumizedBridgePayload provides a mock function with given fields: payloads, f
 func (_m *Bridge) QuorumizedBridgePayload(payloads [][]byte, f int) ([]byte, error) {
 	ret := _m.Called(payloads, f)
@@ -132,6 +227,35 @@ func (_m *Bridge) QuorumizedBridgePayload(payloads [][]byte, f int) ([]byte, err
 	}
 
 	return r0, r1
+}
+
+// Bridge_QuorumizedBridgePayload_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'QuorumizedBridgePayload'
+type Bridge_QuorumizedBridgePayload_Call struct {
+	*mock.Call
+}
+
+// QuorumizedBridgePayload is a helper method to define mock.On call
+//   - payloads [][]byte
+//   - f int
+func (_e *Bridge_Expecter) QuorumizedBridgePayload(payloads interface{}, f interface{}) *Bridge_QuorumizedBridgePayload_Call {
+	return &Bridge_QuorumizedBridgePayload_Call{Call: _e.mock.On("QuorumizedBridgePayload", payloads, f)}
+}
+
+func (_c *Bridge_QuorumizedBridgePayload_Call) Run(run func(payloads [][]byte, f int)) *Bridge_QuorumizedBridgePayload_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].([][]byte), args[1].(int))
+	})
+	return _c
+}
+
+func (_c *Bridge_QuorumizedBridgePayload_Call) Return(_a0 []byte, _a1 error) *Bridge_QuorumizedBridgePayload_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Bridge_QuorumizedBridgePayload_Call) RunAndReturn(run func([][]byte, int) ([]byte, error)) *Bridge_QuorumizedBridgePayload_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewBridge creates a new instance of Bridge. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

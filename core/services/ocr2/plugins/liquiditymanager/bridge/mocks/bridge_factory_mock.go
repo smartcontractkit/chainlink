@@ -17,6 +17,14 @@ type Factory struct {
 	mock.Mock
 }
 
+type Factory_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *Factory) EXPECT() *Factory_Expecter {
+	return &Factory_Expecter{mock: &_m.Mock}
+}
+
 // GetBridge provides a mock function with given fields: source, dest
 func (_m *Factory) GetBridge(source models.NetworkSelector, dest models.NetworkSelector) (bridge.Bridge, error) {
 	ret := _m.Called(source, dest)
@@ -47,6 +55,35 @@ func (_m *Factory) GetBridge(source models.NetworkSelector, dest models.NetworkS
 	return r0, r1
 }
 
+// Factory_GetBridge_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetBridge'
+type Factory_GetBridge_Call struct {
+	*mock.Call
+}
+
+// GetBridge is a helper method to define mock.On call
+//   - source models.NetworkSelector
+//   - dest models.NetworkSelector
+func (_e *Factory_Expecter) GetBridge(source interface{}, dest interface{}) *Factory_GetBridge_Call {
+	return &Factory_GetBridge_Call{Call: _e.mock.On("GetBridge", source, dest)}
+}
+
+func (_c *Factory_GetBridge_Call) Run(run func(source models.NetworkSelector, dest models.NetworkSelector)) *Factory_GetBridge_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(models.NetworkSelector), args[1].(models.NetworkSelector))
+	})
+	return _c
+}
+
+func (_c *Factory_GetBridge_Call) Return(_a0 bridge.Bridge, _a1 error) *Factory_GetBridge_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Factory_GetBridge_Call) RunAndReturn(run func(models.NetworkSelector, models.NetworkSelector) (bridge.Bridge, error)) *Factory_GetBridge_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewBridge provides a mock function with given fields: ctx, source, dest
 func (_m *Factory) NewBridge(ctx context.Context, source models.NetworkSelector, dest models.NetworkSelector) (bridge.Bridge, error) {
 	ret := _m.Called(ctx, source, dest)
@@ -75,6 +112,36 @@ func (_m *Factory) NewBridge(ctx context.Context, source models.NetworkSelector,
 	}
 
 	return r0, r1
+}
+
+// Factory_NewBridge_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'NewBridge'
+type Factory_NewBridge_Call struct {
+	*mock.Call
+}
+
+// NewBridge is a helper method to define mock.On call
+//   - ctx context.Context
+//   - source models.NetworkSelector
+//   - dest models.NetworkSelector
+func (_e *Factory_Expecter) NewBridge(ctx interface{}, source interface{}, dest interface{}) *Factory_NewBridge_Call {
+	return &Factory_NewBridge_Call{Call: _e.mock.On("NewBridge", ctx, source, dest)}
+}
+
+func (_c *Factory_NewBridge_Call) Run(run func(ctx context.Context, source models.NetworkSelector, dest models.NetworkSelector)) *Factory_NewBridge_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(models.NetworkSelector), args[2].(models.NetworkSelector))
+	})
+	return _c
+}
+
+func (_c *Factory_NewBridge_Call) Return(_a0 bridge.Bridge, _a1 error) *Factory_NewBridge_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Factory_NewBridge_Call) RunAndReturn(run func(context.Context, models.NetworkSelector, models.NetworkSelector) (bridge.Bridge, error)) *Factory_NewBridge_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewFactory creates a new instance of Factory. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

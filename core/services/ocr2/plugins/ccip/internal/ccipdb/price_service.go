@@ -28,8 +28,6 @@ import (
 // In the background, PriceService periodically inserts latest gas and token prices into the DB.
 // During `Observation` phase, Commit plugin calls PriceService to fetch the latest prices from DB.
 // This enables all lanes connected to a chain to feed price data to the leader lane's Commit plugin for that chain.
-//
-//go:generate mockery --quiet --name PriceService --filename price_service_mock.go --case=underscore
 type PriceService interface {
 	job.ServiceCtx
 

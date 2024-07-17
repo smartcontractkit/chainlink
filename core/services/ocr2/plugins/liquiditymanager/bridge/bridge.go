@@ -29,8 +29,6 @@ var (
 // For example, if ethereum is the source, and arbitrum is the destination, the bridge
 // would be able to get pending transfers from ethereum to arbitrum via the standard arbitrum
 // bridge.
-//
-//go:generate mockery --name Bridge --output ./mocks --filename bridge_mock.go --case=underscore
 type Bridge interface {
 	// GetTransfers returns all of the pending transfers from the source chain to the destination chain
 	// for the given local and remote token addresses.
@@ -58,7 +56,6 @@ type Bridge interface {
 	Close(ctx context.Context) error
 }
 
-//go:generate mockery --name Factory --output ./mocks --filename bridge_factory_mock.go --case=underscore
 type Factory interface {
 	NewBridge(ctx context.Context, source, dest models.NetworkSelector) (Bridge, error)
 	GetBridge(source, dest models.NetworkSelector) (Bridge, error)

@@ -16,12 +16,10 @@ var (
 	ErrNotFound = errors.New("not found")
 )
 
-//go:generate mockery --quiet --name Factory --output ./mocks --filename factory_mock.go --case=underscore
 type Factory interface {
 	NewDiscoverer(selector models.NetworkSelector, rebalancerAddress models.Address) (Discoverer, error)
 }
 
-//go:generate mockery --quiet --name Discoverer --output ./mocks --filename discoverer_mock.go --case=underscore
 type Discoverer interface {
 	// Discover fetches the entire graph
 	Discover(ctx context.Context) (graph.Graph, error)

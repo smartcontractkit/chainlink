@@ -21,6 +21,14 @@ type NodeInterfaceInterface struct {
 	mock.Mock
 }
 
+type NodeInterfaceInterface_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *NodeInterfaceInterface) EXPECT() *NodeInterfaceInterface_Expecter {
+	return &NodeInterfaceInterface_Expecter{mock: &_m.Mock}
+}
+
 // Address provides a mock function with given fields:
 func (_m *NodeInterfaceInterface) Address() common.Address {
 	ret := _m.Called()
@@ -39,6 +47,33 @@ func (_m *NodeInterfaceInterface) Address() common.Address {
 	}
 
 	return r0
+}
+
+// NodeInterfaceInterface_Address_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Address'
+type NodeInterfaceInterface_Address_Call struct {
+	*mock.Call
+}
+
+// Address is a helper method to define mock.On call
+func (_e *NodeInterfaceInterface_Expecter) Address() *NodeInterfaceInterface_Address_Call {
+	return &NodeInterfaceInterface_Address_Call{Call: _e.mock.On("Address")}
+}
+
+func (_c *NodeInterfaceInterface_Address_Call) Run(run func()) *NodeInterfaceInterface_Address_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_Address_Call) Return(_a0 common.Address) *NodeInterfaceInterface_Address_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_Address_Call) RunAndReturn(run func() common.Address) *NodeInterfaceInterface_Address_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // BlockL1Num provides a mock function with given fields: opts, l2BlockNum
@@ -69,6 +104,35 @@ func (_m *NodeInterfaceInterface) BlockL1Num(opts *bind.CallOpts, l2BlockNum uin
 	return r0, r1
 }
 
+// NodeInterfaceInterface_BlockL1Num_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BlockL1Num'
+type NodeInterfaceInterface_BlockL1Num_Call struct {
+	*mock.Call
+}
+
+// BlockL1Num is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - l2BlockNum uint64
+func (_e *NodeInterfaceInterface_Expecter) BlockL1Num(opts interface{}, l2BlockNum interface{}) *NodeInterfaceInterface_BlockL1Num_Call {
+	return &NodeInterfaceInterface_BlockL1Num_Call{Call: _e.mock.On("BlockL1Num", opts, l2BlockNum)}
+}
+
+func (_c *NodeInterfaceInterface_BlockL1Num_Call) Run(run func(opts *bind.CallOpts, l2BlockNum uint64)) *NodeInterfaceInterface_BlockL1Num_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(uint64))
+	})
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_BlockL1Num_Call) Return(_a0 uint64, _a1 error) *NodeInterfaceInterface_BlockL1Num_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_BlockL1Num_Call) RunAndReturn(run func(*bind.CallOpts, uint64) (uint64, error)) *NodeInterfaceInterface_BlockL1Num_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ConstructOutboxProof provides a mock function with given fields: opts, size, leaf
 func (_m *NodeInterfaceInterface) ConstructOutboxProof(opts *bind.CallOpts, size uint64, leaf uint64) (arb_node_interface.ConstructOutboxProof, error) {
 	ret := _m.Called(opts, size, leaf)
@@ -95,6 +159,36 @@ func (_m *NodeInterfaceInterface) ConstructOutboxProof(opts *bind.CallOpts, size
 	}
 
 	return r0, r1
+}
+
+// NodeInterfaceInterface_ConstructOutboxProof_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConstructOutboxProof'
+type NodeInterfaceInterface_ConstructOutboxProof_Call struct {
+	*mock.Call
+}
+
+// ConstructOutboxProof is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - size uint64
+//   - leaf uint64
+func (_e *NodeInterfaceInterface_Expecter) ConstructOutboxProof(opts interface{}, size interface{}, leaf interface{}) *NodeInterfaceInterface_ConstructOutboxProof_Call {
+	return &NodeInterfaceInterface_ConstructOutboxProof_Call{Call: _e.mock.On("ConstructOutboxProof", opts, size, leaf)}
+}
+
+func (_c *NodeInterfaceInterface_ConstructOutboxProof_Call) Run(run func(opts *bind.CallOpts, size uint64, leaf uint64)) *NodeInterfaceInterface_ConstructOutboxProof_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(uint64), args[2].(uint64))
+	})
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_ConstructOutboxProof_Call) Return(_a0 arb_node_interface.ConstructOutboxProof, _a1 error) *NodeInterfaceInterface_ConstructOutboxProof_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_ConstructOutboxProof_Call) RunAndReturn(run func(*bind.CallOpts, uint64, uint64) (arb_node_interface.ConstructOutboxProof, error)) *NodeInterfaceInterface_ConstructOutboxProof_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // EstimateRetryableTicket provides a mock function with given fields: opts, sender, deposit, to, l2CallValue, excessFeeRefundAddress, callValueRefundAddress, data
@@ -127,6 +221,41 @@ func (_m *NodeInterfaceInterface) EstimateRetryableTicket(opts *bind.TransactOpt
 	return r0, r1
 }
 
+// NodeInterfaceInterface_EstimateRetryableTicket_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EstimateRetryableTicket'
+type NodeInterfaceInterface_EstimateRetryableTicket_Call struct {
+	*mock.Call
+}
+
+// EstimateRetryableTicket is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - sender common.Address
+//   - deposit *big.Int
+//   - to common.Address
+//   - l2CallValue *big.Int
+//   - excessFeeRefundAddress common.Address
+//   - callValueRefundAddress common.Address
+//   - data []byte
+func (_e *NodeInterfaceInterface_Expecter) EstimateRetryableTicket(opts interface{}, sender interface{}, deposit interface{}, to interface{}, l2CallValue interface{}, excessFeeRefundAddress interface{}, callValueRefundAddress interface{}, data interface{}) *NodeInterfaceInterface_EstimateRetryableTicket_Call {
+	return &NodeInterfaceInterface_EstimateRetryableTicket_Call{Call: _e.mock.On("EstimateRetryableTicket", opts, sender, deposit, to, l2CallValue, excessFeeRefundAddress, callValueRefundAddress, data)}
+}
+
+func (_c *NodeInterfaceInterface_EstimateRetryableTicket_Call) Run(run func(opts *bind.TransactOpts, sender common.Address, deposit *big.Int, to common.Address, l2CallValue *big.Int, excessFeeRefundAddress common.Address, callValueRefundAddress common.Address, data []byte)) *NodeInterfaceInterface_EstimateRetryableTicket_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(*big.Int), args[3].(common.Address), args[4].(*big.Int), args[5].(common.Address), args[6].(common.Address), args[7].([]byte))
+	})
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_EstimateRetryableTicket_Call) Return(_a0 *types.Transaction, _a1 error) *NodeInterfaceInterface_EstimateRetryableTicket_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_EstimateRetryableTicket_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, *big.Int, common.Address, *big.Int, common.Address, common.Address, []byte) (*types.Transaction, error)) *NodeInterfaceInterface_EstimateRetryableTicket_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FindBatchContainingBlock provides a mock function with given fields: opts, blockNum
 func (_m *NodeInterfaceInterface) FindBatchContainingBlock(opts *bind.CallOpts, blockNum uint64) (uint64, error) {
 	ret := _m.Called(opts, blockNum)
@@ -153,6 +282,35 @@ func (_m *NodeInterfaceInterface) FindBatchContainingBlock(opts *bind.CallOpts, 
 	}
 
 	return r0, r1
+}
+
+// NodeInterfaceInterface_FindBatchContainingBlock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindBatchContainingBlock'
+type NodeInterfaceInterface_FindBatchContainingBlock_Call struct {
+	*mock.Call
+}
+
+// FindBatchContainingBlock is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - blockNum uint64
+func (_e *NodeInterfaceInterface_Expecter) FindBatchContainingBlock(opts interface{}, blockNum interface{}) *NodeInterfaceInterface_FindBatchContainingBlock_Call {
+	return &NodeInterfaceInterface_FindBatchContainingBlock_Call{Call: _e.mock.On("FindBatchContainingBlock", opts, blockNum)}
+}
+
+func (_c *NodeInterfaceInterface_FindBatchContainingBlock_Call) Run(run func(opts *bind.CallOpts, blockNum uint64)) *NodeInterfaceInterface_FindBatchContainingBlock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(uint64))
+	})
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_FindBatchContainingBlock_Call) Return(_a0 uint64, _a1 error) *NodeInterfaceInterface_FindBatchContainingBlock_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_FindBatchContainingBlock_Call) RunAndReturn(run func(*bind.CallOpts, uint64) (uint64, error)) *NodeInterfaceInterface_FindBatchContainingBlock_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GasEstimateComponents provides a mock function with given fields: opts, to, contractCreation, data
@@ -185,6 +343,37 @@ func (_m *NodeInterfaceInterface) GasEstimateComponents(opts *bind.TransactOpts,
 	return r0, r1
 }
 
+// NodeInterfaceInterface_GasEstimateComponents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GasEstimateComponents'
+type NodeInterfaceInterface_GasEstimateComponents_Call struct {
+	*mock.Call
+}
+
+// GasEstimateComponents is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - to common.Address
+//   - contractCreation bool
+//   - data []byte
+func (_e *NodeInterfaceInterface_Expecter) GasEstimateComponents(opts interface{}, to interface{}, contractCreation interface{}, data interface{}) *NodeInterfaceInterface_GasEstimateComponents_Call {
+	return &NodeInterfaceInterface_GasEstimateComponents_Call{Call: _e.mock.On("GasEstimateComponents", opts, to, contractCreation, data)}
+}
+
+func (_c *NodeInterfaceInterface_GasEstimateComponents_Call) Run(run func(opts *bind.TransactOpts, to common.Address, contractCreation bool, data []byte)) *NodeInterfaceInterface_GasEstimateComponents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(bool), args[3].([]byte))
+	})
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_GasEstimateComponents_Call) Return(_a0 *types.Transaction, _a1 error) *NodeInterfaceInterface_GasEstimateComponents_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_GasEstimateComponents_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, bool, []byte) (*types.Transaction, error)) *NodeInterfaceInterface_GasEstimateComponents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GasEstimateL1Component provides a mock function with given fields: opts, to, contractCreation, data
 func (_m *NodeInterfaceInterface) GasEstimateL1Component(opts *bind.TransactOpts, to common.Address, contractCreation bool, data []byte) (*types.Transaction, error) {
 	ret := _m.Called(opts, to, contractCreation, data)
@@ -215,6 +404,37 @@ func (_m *NodeInterfaceInterface) GasEstimateL1Component(opts *bind.TransactOpts
 	return r0, r1
 }
 
+// NodeInterfaceInterface_GasEstimateL1Component_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GasEstimateL1Component'
+type NodeInterfaceInterface_GasEstimateL1Component_Call struct {
+	*mock.Call
+}
+
+// GasEstimateL1Component is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - to common.Address
+//   - contractCreation bool
+//   - data []byte
+func (_e *NodeInterfaceInterface_Expecter) GasEstimateL1Component(opts interface{}, to interface{}, contractCreation interface{}, data interface{}) *NodeInterfaceInterface_GasEstimateL1Component_Call {
+	return &NodeInterfaceInterface_GasEstimateL1Component_Call{Call: _e.mock.On("GasEstimateL1Component", opts, to, contractCreation, data)}
+}
+
+func (_c *NodeInterfaceInterface_GasEstimateL1Component_Call) Run(run func(opts *bind.TransactOpts, to common.Address, contractCreation bool, data []byte)) *NodeInterfaceInterface_GasEstimateL1Component_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(bool), args[3].([]byte))
+	})
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_GasEstimateL1Component_Call) Return(_a0 *types.Transaction, _a1 error) *NodeInterfaceInterface_GasEstimateL1Component_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_GasEstimateL1Component_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, bool, []byte) (*types.Transaction, error)) *NodeInterfaceInterface_GasEstimateL1Component_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetL1Confirmations provides a mock function with given fields: opts, blockHash
 func (_m *NodeInterfaceInterface) GetL1Confirmations(opts *bind.CallOpts, blockHash [32]byte) (uint64, error) {
 	ret := _m.Called(opts, blockHash)
@@ -241,6 +461,35 @@ func (_m *NodeInterfaceInterface) GetL1Confirmations(opts *bind.CallOpts, blockH
 	}
 
 	return r0, r1
+}
+
+// NodeInterfaceInterface_GetL1Confirmations_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetL1Confirmations'
+type NodeInterfaceInterface_GetL1Confirmations_Call struct {
+	*mock.Call
+}
+
+// GetL1Confirmations is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - blockHash [32]byte
+func (_e *NodeInterfaceInterface_Expecter) GetL1Confirmations(opts interface{}, blockHash interface{}) *NodeInterfaceInterface_GetL1Confirmations_Call {
+	return &NodeInterfaceInterface_GetL1Confirmations_Call{Call: _e.mock.On("GetL1Confirmations", opts, blockHash)}
+}
+
+func (_c *NodeInterfaceInterface_GetL1Confirmations_Call) Run(run func(opts *bind.CallOpts, blockHash [32]byte)) *NodeInterfaceInterface_GetL1Confirmations_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].([32]byte))
+	})
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_GetL1Confirmations_Call) Return(_a0 uint64, _a1 error) *NodeInterfaceInterface_GetL1Confirmations_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_GetL1Confirmations_Call) RunAndReturn(run func(*bind.CallOpts, [32]byte) (uint64, error)) *NodeInterfaceInterface_GetL1Confirmations_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // L2BlockRangeForL1 provides a mock function with given fields: opts, blockNum
@@ -271,6 +520,35 @@ func (_m *NodeInterfaceInterface) L2BlockRangeForL1(opts *bind.CallOpts, blockNu
 	return r0, r1
 }
 
+// NodeInterfaceInterface_L2BlockRangeForL1_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'L2BlockRangeForL1'
+type NodeInterfaceInterface_L2BlockRangeForL1_Call struct {
+	*mock.Call
+}
+
+// L2BlockRangeForL1 is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - blockNum uint64
+func (_e *NodeInterfaceInterface_Expecter) L2BlockRangeForL1(opts interface{}, blockNum interface{}) *NodeInterfaceInterface_L2BlockRangeForL1_Call {
+	return &NodeInterfaceInterface_L2BlockRangeForL1_Call{Call: _e.mock.On("L2BlockRangeForL1", opts, blockNum)}
+}
+
+func (_c *NodeInterfaceInterface_L2BlockRangeForL1_Call) Run(run func(opts *bind.CallOpts, blockNum uint64)) *NodeInterfaceInterface_L2BlockRangeForL1_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(uint64))
+	})
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_L2BlockRangeForL1_Call) Return(_a0 arb_node_interface.L2BlockRangeForL1, _a1 error) *NodeInterfaceInterface_L2BlockRangeForL1_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_L2BlockRangeForL1_Call) RunAndReturn(run func(*bind.CallOpts, uint64) (arb_node_interface.L2BlockRangeForL1, error)) *NodeInterfaceInterface_L2BlockRangeForL1_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // LegacyLookupMessageBatchProof provides a mock function with given fields: opts, batchNum, index
 func (_m *NodeInterfaceInterface) LegacyLookupMessageBatchProof(opts *bind.CallOpts, batchNum *big.Int, index uint64) (arb_node_interface.LegacyLookupMessageBatchProof, error) {
 	ret := _m.Called(opts, batchNum, index)
@@ -297,6 +575,36 @@ func (_m *NodeInterfaceInterface) LegacyLookupMessageBatchProof(opts *bind.CallO
 	}
 
 	return r0, r1
+}
+
+// NodeInterfaceInterface_LegacyLookupMessageBatchProof_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LegacyLookupMessageBatchProof'
+type NodeInterfaceInterface_LegacyLookupMessageBatchProof_Call struct {
+	*mock.Call
+}
+
+// LegacyLookupMessageBatchProof is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - batchNum *big.Int
+//   - index uint64
+func (_e *NodeInterfaceInterface_Expecter) LegacyLookupMessageBatchProof(opts interface{}, batchNum interface{}, index interface{}) *NodeInterfaceInterface_LegacyLookupMessageBatchProof_Call {
+	return &NodeInterfaceInterface_LegacyLookupMessageBatchProof_Call{Call: _e.mock.On("LegacyLookupMessageBatchProof", opts, batchNum, index)}
+}
+
+func (_c *NodeInterfaceInterface_LegacyLookupMessageBatchProof_Call) Run(run func(opts *bind.CallOpts, batchNum *big.Int, index uint64)) *NodeInterfaceInterface_LegacyLookupMessageBatchProof_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(*big.Int), args[2].(uint64))
+	})
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_LegacyLookupMessageBatchProof_Call) Return(_a0 arb_node_interface.LegacyLookupMessageBatchProof, _a1 error) *NodeInterfaceInterface_LegacyLookupMessageBatchProof_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_LegacyLookupMessageBatchProof_Call) RunAndReturn(run func(*bind.CallOpts, *big.Int, uint64) (arb_node_interface.LegacyLookupMessageBatchProof, error)) *NodeInterfaceInterface_LegacyLookupMessageBatchProof_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NitroGenesisBlock provides a mock function with given fields: opts
@@ -327,6 +635,34 @@ func (_m *NodeInterfaceInterface) NitroGenesisBlock(opts *bind.CallOpts) (*big.I
 	}
 
 	return r0, r1
+}
+
+// NodeInterfaceInterface_NitroGenesisBlock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'NitroGenesisBlock'
+type NodeInterfaceInterface_NitroGenesisBlock_Call struct {
+	*mock.Call
+}
+
+// NitroGenesisBlock is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *NodeInterfaceInterface_Expecter) NitroGenesisBlock(opts interface{}) *NodeInterfaceInterface_NitroGenesisBlock_Call {
+	return &NodeInterfaceInterface_NitroGenesisBlock_Call{Call: _e.mock.On("NitroGenesisBlock", opts)}
+}
+
+func (_c *NodeInterfaceInterface_NitroGenesisBlock_Call) Run(run func(opts *bind.CallOpts)) *NodeInterfaceInterface_NitroGenesisBlock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_NitroGenesisBlock_Call) Return(_a0 *big.Int, _a1 error) *NodeInterfaceInterface_NitroGenesisBlock_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *NodeInterfaceInterface_NitroGenesisBlock_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *NodeInterfaceInterface_NitroGenesisBlock_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewNodeInterfaceInterface creates a new instance of NodeInterfaceInterface. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

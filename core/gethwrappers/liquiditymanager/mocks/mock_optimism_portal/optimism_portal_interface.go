@@ -20,6 +20,14 @@ type OptimismPortalInterface struct {
 	mock.Mock
 }
 
+type OptimismPortalInterface_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *OptimismPortalInterface) EXPECT() *OptimismPortalInterface_Expecter {
+	return &OptimismPortalInterface_Expecter{mock: &_m.Mock}
+}
+
 // Address provides a mock function with given fields:
 func (_m *OptimismPortalInterface) Address() common.Address {
 	ret := _m.Called()
@@ -38,6 +46,33 @@ func (_m *OptimismPortalInterface) Address() common.Address {
 	}
 
 	return r0
+}
+
+// OptimismPortalInterface_Address_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Address'
+type OptimismPortalInterface_Address_Call struct {
+	*mock.Call
+}
+
+// Address is a helper method to define mock.On call
+func (_e *OptimismPortalInterface_Expecter) Address() *OptimismPortalInterface_Address_Call {
+	return &OptimismPortalInterface_Address_Call{Call: _e.mock.On("Address")}
+}
+
+func (_c *OptimismPortalInterface_Address_Call) Run(run func()) *OptimismPortalInterface_Address_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *OptimismPortalInterface_Address_Call) Return(_a0 common.Address) *OptimismPortalInterface_Address_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *OptimismPortalInterface_Address_Call) RunAndReturn(run func() common.Address) *OptimismPortalInterface_Address_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FinalizeWithdrawalTransaction provides a mock function with given fields: opts, _tx
@@ -70,6 +105,35 @@ func (_m *OptimismPortalInterface) FinalizeWithdrawalTransaction(opts *bind.Tran
 	return r0, r1
 }
 
+// OptimismPortalInterface_FinalizeWithdrawalTransaction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FinalizeWithdrawalTransaction'
+type OptimismPortalInterface_FinalizeWithdrawalTransaction_Call struct {
+	*mock.Call
+}
+
+// FinalizeWithdrawalTransaction is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _tx optimism_portal.TypesWithdrawalTransaction
+func (_e *OptimismPortalInterface_Expecter) FinalizeWithdrawalTransaction(opts interface{}, _tx interface{}) *OptimismPortalInterface_FinalizeWithdrawalTransaction_Call {
+	return &OptimismPortalInterface_FinalizeWithdrawalTransaction_Call{Call: _e.mock.On("FinalizeWithdrawalTransaction", opts, _tx)}
+}
+
+func (_c *OptimismPortalInterface_FinalizeWithdrawalTransaction_Call) Run(run func(opts *bind.TransactOpts, _tx optimism_portal.TypesWithdrawalTransaction)) *OptimismPortalInterface_FinalizeWithdrawalTransaction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(optimism_portal.TypesWithdrawalTransaction))
+	})
+	return _c
+}
+
+func (_c *OptimismPortalInterface_FinalizeWithdrawalTransaction_Call) Return(_a0 *types.Transaction, _a1 error) *OptimismPortalInterface_FinalizeWithdrawalTransaction_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OptimismPortalInterface_FinalizeWithdrawalTransaction_Call) RunAndReturn(run func(*bind.TransactOpts, optimism_portal.TypesWithdrawalTransaction) (*types.Transaction, error)) *OptimismPortalInterface_FinalizeWithdrawalTransaction_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ProveWithdrawalTransaction provides a mock function with given fields: opts, _tx, _l2OutputIndex, _outputRootProof, _withdrawalProof
 func (_m *OptimismPortalInterface) ProveWithdrawalTransaction(opts *bind.TransactOpts, _tx optimism_portal.TypesWithdrawalTransaction, _l2OutputIndex *big.Int, _outputRootProof optimism_portal.TypesOutputRootProof, _withdrawalProof [][]byte) (*types.Transaction, error) {
 	ret := _m.Called(opts, _tx, _l2OutputIndex, _outputRootProof, _withdrawalProof)
@@ -100,6 +164,38 @@ func (_m *OptimismPortalInterface) ProveWithdrawalTransaction(opts *bind.Transac
 	return r0, r1
 }
 
+// OptimismPortalInterface_ProveWithdrawalTransaction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ProveWithdrawalTransaction'
+type OptimismPortalInterface_ProveWithdrawalTransaction_Call struct {
+	*mock.Call
+}
+
+// ProveWithdrawalTransaction is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _tx optimism_portal.TypesWithdrawalTransaction
+//   - _l2OutputIndex *big.Int
+//   - _outputRootProof optimism_portal.TypesOutputRootProof
+//   - _withdrawalProof [][]byte
+func (_e *OptimismPortalInterface_Expecter) ProveWithdrawalTransaction(opts interface{}, _tx interface{}, _l2OutputIndex interface{}, _outputRootProof interface{}, _withdrawalProof interface{}) *OptimismPortalInterface_ProveWithdrawalTransaction_Call {
+	return &OptimismPortalInterface_ProveWithdrawalTransaction_Call{Call: _e.mock.On("ProveWithdrawalTransaction", opts, _tx, _l2OutputIndex, _outputRootProof, _withdrawalProof)}
+}
+
+func (_c *OptimismPortalInterface_ProveWithdrawalTransaction_Call) Run(run func(opts *bind.TransactOpts, _tx optimism_portal.TypesWithdrawalTransaction, _l2OutputIndex *big.Int, _outputRootProof optimism_portal.TypesOutputRootProof, _withdrawalProof [][]byte)) *OptimismPortalInterface_ProveWithdrawalTransaction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(optimism_portal.TypesWithdrawalTransaction), args[2].(*big.Int), args[3].(optimism_portal.TypesOutputRootProof), args[4].([][]byte))
+	})
+	return _c
+}
+
+func (_c *OptimismPortalInterface_ProveWithdrawalTransaction_Call) Return(_a0 *types.Transaction, _a1 error) *OptimismPortalInterface_ProveWithdrawalTransaction_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OptimismPortalInterface_ProveWithdrawalTransaction_Call) RunAndReturn(run func(*bind.TransactOpts, optimism_portal.TypesWithdrawalTransaction, *big.Int, optimism_portal.TypesOutputRootProof, [][]byte) (*types.Transaction, error)) *OptimismPortalInterface_ProveWithdrawalTransaction_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Version provides a mock function with given fields: opts
 func (_m *OptimismPortalInterface) Version(opts *bind.CallOpts) (string, error) {
 	ret := _m.Called(opts)
@@ -126,6 +222,34 @@ func (_m *OptimismPortalInterface) Version(opts *bind.CallOpts) (string, error) 
 	}
 
 	return r0, r1
+}
+
+// OptimismPortalInterface_Version_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Version'
+type OptimismPortalInterface_Version_Call struct {
+	*mock.Call
+}
+
+// Version is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *OptimismPortalInterface_Expecter) Version(opts interface{}) *OptimismPortalInterface_Version_Call {
+	return &OptimismPortalInterface_Version_Call{Call: _e.mock.On("Version", opts)}
+}
+
+func (_c *OptimismPortalInterface_Version_Call) Run(run func(opts *bind.CallOpts)) *OptimismPortalInterface_Version_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *OptimismPortalInterface_Version_Call) Return(_a0 string, _a1 error) *OptimismPortalInterface_Version_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OptimismPortalInterface_Version_Call) RunAndReturn(run func(*bind.CallOpts) (string, error)) *OptimismPortalInterface_Version_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewOptimismPortalInterface creates a new instance of OptimismPortalInterface. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

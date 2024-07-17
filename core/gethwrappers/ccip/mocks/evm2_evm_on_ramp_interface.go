@@ -24,6 +24,14 @@ type EVM2EVMOnRampInterface struct {
 	mock.Mock
 }
 
+type EVM2EVMOnRampInterface_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *EVM2EVMOnRampInterface) EXPECT() *EVM2EVMOnRampInterface_Expecter {
+	return &EVM2EVMOnRampInterface_Expecter{mock: &_m.Mock}
+}
+
 // AcceptOwnership provides a mock function with given fields: opts
 func (_m *EVM2EVMOnRampInterface) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
 	ret := _m.Called(opts)
@@ -54,6 +62,34 @@ func (_m *EVM2EVMOnRampInterface) AcceptOwnership(opts *bind.TransactOpts) (*typ
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_AcceptOwnership_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AcceptOwnership'
+type EVM2EVMOnRampInterface_AcceptOwnership_Call struct {
+	*mock.Call
+}
+
+// AcceptOwnership is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) AcceptOwnership(opts interface{}) *EVM2EVMOnRampInterface_AcceptOwnership_Call {
+	return &EVM2EVMOnRampInterface_AcceptOwnership_Call{Call: _e.mock.On("AcceptOwnership", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_AcceptOwnership_Call) Run(run func(opts *bind.TransactOpts)) *EVM2EVMOnRampInterface_AcceptOwnership_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_AcceptOwnership_Call) Return(_a0 *types.Transaction, _a1 error) *EVM2EVMOnRampInterface_AcceptOwnership_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_AcceptOwnership_Call) RunAndReturn(run func(*bind.TransactOpts) (*types.Transaction, error)) *EVM2EVMOnRampInterface_AcceptOwnership_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Address provides a mock function with given fields:
 func (_m *EVM2EVMOnRampInterface) Address() common.Address {
 	ret := _m.Called()
@@ -72,6 +108,33 @@ func (_m *EVM2EVMOnRampInterface) Address() common.Address {
 	}
 
 	return r0
+}
+
+// EVM2EVMOnRampInterface_Address_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Address'
+type EVM2EVMOnRampInterface_Address_Call struct {
+	*mock.Call
+}
+
+// Address is a helper method to define mock.On call
+func (_e *EVM2EVMOnRampInterface_Expecter) Address() *EVM2EVMOnRampInterface_Address_Call {
+	return &EVM2EVMOnRampInterface_Address_Call{Call: _e.mock.On("Address")}
+}
+
+func (_c *EVM2EVMOnRampInterface_Address_Call) Run(run func()) *EVM2EVMOnRampInterface_Address_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_Address_Call) Return(_a0 common.Address) *EVM2EVMOnRampInterface_Address_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_Address_Call) RunAndReturn(run func() common.Address) *EVM2EVMOnRampInterface_Address_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // CurrentRateLimiterState provides a mock function with given fields: opts
@@ -100,6 +163,34 @@ func (_m *EVM2EVMOnRampInterface) CurrentRateLimiterState(opts *bind.CallOpts) (
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_CurrentRateLimiterState_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CurrentRateLimiterState'
+type EVM2EVMOnRampInterface_CurrentRateLimiterState_Call struct {
+	*mock.Call
+}
+
+// CurrentRateLimiterState is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) CurrentRateLimiterState(opts interface{}) *EVM2EVMOnRampInterface_CurrentRateLimiterState_Call {
+	return &EVM2EVMOnRampInterface_CurrentRateLimiterState_Call{Call: _e.mock.On("CurrentRateLimiterState", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_CurrentRateLimiterState_Call) Run(run func(opts *bind.CallOpts)) *EVM2EVMOnRampInterface_CurrentRateLimiterState_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_CurrentRateLimiterState_Call) Return(_a0 evm_2_evm_onramp.RateLimiterTokenBucket, _a1 error) *EVM2EVMOnRampInterface_CurrentRateLimiterState_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_CurrentRateLimiterState_Call) RunAndReturn(run func(*bind.CallOpts) (evm_2_evm_onramp.RateLimiterTokenBucket, error)) *EVM2EVMOnRampInterface_CurrentRateLimiterState_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterAdminSet provides a mock function with given fields: opts
@@ -132,6 +223,34 @@ func (_m *EVM2EVMOnRampInterface) FilterAdminSet(opts *bind.FilterOpts) (*evm_2_
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_FilterAdminSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterAdminSet'
+type EVM2EVMOnRampInterface_FilterAdminSet_Call struct {
+	*mock.Call
+}
+
+// FilterAdminSet is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) FilterAdminSet(opts interface{}) *EVM2EVMOnRampInterface_FilterAdminSet_Call {
+	return &EVM2EVMOnRampInterface_FilterAdminSet_Call{Call: _e.mock.On("FilterAdminSet", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterAdminSet_Call) Run(run func(opts *bind.FilterOpts)) *EVM2EVMOnRampInterface_FilterAdminSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterAdminSet_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampAdminSetIterator, _a1 error) *EVM2EVMOnRampInterface_FilterAdminSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterAdminSet_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampAdminSetIterator, error)) *EVM2EVMOnRampInterface_FilterAdminSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterCCIPSendRequested provides a mock function with given fields: opts
 func (_m *EVM2EVMOnRampInterface) FilterCCIPSendRequested(opts *bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequestedIterator, error) {
 	ret := _m.Called(opts)
@@ -160,6 +279,34 @@ func (_m *EVM2EVMOnRampInterface) FilterCCIPSendRequested(opts *bind.FilterOpts)
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_FilterCCIPSendRequested_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterCCIPSendRequested'
+type EVM2EVMOnRampInterface_FilterCCIPSendRequested_Call struct {
+	*mock.Call
+}
+
+// FilterCCIPSendRequested is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) FilterCCIPSendRequested(opts interface{}) *EVM2EVMOnRampInterface_FilterCCIPSendRequested_Call {
+	return &EVM2EVMOnRampInterface_FilterCCIPSendRequested_Call{Call: _e.mock.On("FilterCCIPSendRequested", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterCCIPSendRequested_Call) Run(run func(opts *bind.FilterOpts)) *EVM2EVMOnRampInterface_FilterCCIPSendRequested_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterCCIPSendRequested_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequestedIterator, _a1 error) *EVM2EVMOnRampInterface_FilterCCIPSendRequested_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterCCIPSendRequested_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequestedIterator, error)) *EVM2EVMOnRampInterface_FilterCCIPSendRequested_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterConfigChanged provides a mock function with given fields: opts
@@ -192,6 +339,34 @@ func (_m *EVM2EVMOnRampInterface) FilterConfigChanged(opts *bind.FilterOpts) (*e
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_FilterConfigChanged_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterConfigChanged'
+type EVM2EVMOnRampInterface_FilterConfigChanged_Call struct {
+	*mock.Call
+}
+
+// FilterConfigChanged is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) FilterConfigChanged(opts interface{}) *EVM2EVMOnRampInterface_FilterConfigChanged_Call {
+	return &EVM2EVMOnRampInterface_FilterConfigChanged_Call{Call: _e.mock.On("FilterConfigChanged", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterConfigChanged_Call) Run(run func(opts *bind.FilterOpts)) *EVM2EVMOnRampInterface_FilterConfigChanged_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterConfigChanged_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampConfigChangedIterator, _a1 error) *EVM2EVMOnRampInterface_FilterConfigChanged_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterConfigChanged_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampConfigChangedIterator, error)) *EVM2EVMOnRampInterface_FilterConfigChanged_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterConfigSet provides a mock function with given fields: opts
 func (_m *EVM2EVMOnRampInterface) FilterConfigSet(opts *bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampConfigSetIterator, error) {
 	ret := _m.Called(opts)
@@ -220,6 +395,34 @@ func (_m *EVM2EVMOnRampInterface) FilterConfigSet(opts *bind.FilterOpts) (*evm_2
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_FilterConfigSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterConfigSet'
+type EVM2EVMOnRampInterface_FilterConfigSet_Call struct {
+	*mock.Call
+}
+
+// FilterConfigSet is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) FilterConfigSet(opts interface{}) *EVM2EVMOnRampInterface_FilterConfigSet_Call {
+	return &EVM2EVMOnRampInterface_FilterConfigSet_Call{Call: _e.mock.On("FilterConfigSet", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterConfigSet_Call) Run(run func(opts *bind.FilterOpts)) *EVM2EVMOnRampInterface_FilterConfigSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterConfigSet_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampConfigSetIterator, _a1 error) *EVM2EVMOnRampInterface_FilterConfigSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterConfigSet_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampConfigSetIterator, error)) *EVM2EVMOnRampInterface_FilterConfigSet_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterFeeConfigSet provides a mock function with given fields: opts
@@ -252,6 +455,34 @@ func (_m *EVM2EVMOnRampInterface) FilterFeeConfigSet(opts *bind.FilterOpts) (*ev
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_FilterFeeConfigSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterFeeConfigSet'
+type EVM2EVMOnRampInterface_FilterFeeConfigSet_Call struct {
+	*mock.Call
+}
+
+// FilterFeeConfigSet is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) FilterFeeConfigSet(opts interface{}) *EVM2EVMOnRampInterface_FilterFeeConfigSet_Call {
+	return &EVM2EVMOnRampInterface_FilterFeeConfigSet_Call{Call: _e.mock.On("FilterFeeConfigSet", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterFeeConfigSet_Call) Run(run func(opts *bind.FilterOpts)) *EVM2EVMOnRampInterface_FilterFeeConfigSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterFeeConfigSet_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampFeeConfigSetIterator, _a1 error) *EVM2EVMOnRampInterface_FilterFeeConfigSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterFeeConfigSet_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampFeeConfigSetIterator, error)) *EVM2EVMOnRampInterface_FilterFeeConfigSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterNopPaid provides a mock function with given fields: opts, nop
 func (_m *EVM2EVMOnRampInterface) FilterNopPaid(opts *bind.FilterOpts, nop []common.Address) (*evm_2_evm_onramp.EVM2EVMOnRampNopPaidIterator, error) {
 	ret := _m.Called(opts, nop)
@@ -280,6 +511,35 @@ func (_m *EVM2EVMOnRampInterface) FilterNopPaid(opts *bind.FilterOpts, nop []com
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_FilterNopPaid_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterNopPaid'
+type EVM2EVMOnRampInterface_FilterNopPaid_Call struct {
+	*mock.Call
+}
+
+// FilterNopPaid is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - nop []common.Address
+func (_e *EVM2EVMOnRampInterface_Expecter) FilterNopPaid(opts interface{}, nop interface{}) *EVM2EVMOnRampInterface_FilterNopPaid_Call {
+	return &EVM2EVMOnRampInterface_FilterNopPaid_Call{Call: _e.mock.On("FilterNopPaid", opts, nop)}
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterNopPaid_Call) Run(run func(opts *bind.FilterOpts, nop []common.Address)) *EVM2EVMOnRampInterface_FilterNopPaid_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterNopPaid_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampNopPaidIterator, _a1 error) *EVM2EVMOnRampInterface_FilterNopPaid_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterNopPaid_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address) (*evm_2_evm_onramp.EVM2EVMOnRampNopPaidIterator, error)) *EVM2EVMOnRampInterface_FilterNopPaid_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterNopsSet provides a mock function with given fields: opts
@@ -312,6 +572,34 @@ func (_m *EVM2EVMOnRampInterface) FilterNopsSet(opts *bind.FilterOpts) (*evm_2_e
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_FilterNopsSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterNopsSet'
+type EVM2EVMOnRampInterface_FilterNopsSet_Call struct {
+	*mock.Call
+}
+
+// FilterNopsSet is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) FilterNopsSet(opts interface{}) *EVM2EVMOnRampInterface_FilterNopsSet_Call {
+	return &EVM2EVMOnRampInterface_FilterNopsSet_Call{Call: _e.mock.On("FilterNopsSet", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterNopsSet_Call) Run(run func(opts *bind.FilterOpts)) *EVM2EVMOnRampInterface_FilterNopsSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterNopsSet_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampNopsSetIterator, _a1 error) *EVM2EVMOnRampInterface_FilterNopsSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterNopsSet_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampNopsSetIterator, error)) *EVM2EVMOnRampInterface_FilterNopsSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterOwnershipTransferRequested provides a mock function with given fields: opts, from, to
 func (_m *EVM2EVMOnRampInterface) FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferRequestedIterator, error) {
 	ret := _m.Called(opts, from, to)
@@ -340,6 +628,36 @@ func (_m *EVM2EVMOnRampInterface) FilterOwnershipTransferRequested(opts *bind.Fi
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_FilterOwnershipTransferRequested_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterOwnershipTransferRequested'
+type EVM2EVMOnRampInterface_FilterOwnershipTransferRequested_Call struct {
+	*mock.Call
+}
+
+// FilterOwnershipTransferRequested is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - from []common.Address
+//   - to []common.Address
+func (_e *EVM2EVMOnRampInterface_Expecter) FilterOwnershipTransferRequested(opts interface{}, from interface{}, to interface{}) *EVM2EVMOnRampInterface_FilterOwnershipTransferRequested_Call {
+	return &EVM2EVMOnRampInterface_FilterOwnershipTransferRequested_Call{Call: _e.mock.On("FilterOwnershipTransferRequested", opts, from, to)}
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterOwnershipTransferRequested_Call) Run(run func(opts *bind.FilterOpts, from []common.Address, to []common.Address)) *EVM2EVMOnRampInterface_FilterOwnershipTransferRequested_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterOwnershipTransferRequested_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferRequestedIterator, _a1 error) *EVM2EVMOnRampInterface_FilterOwnershipTransferRequested_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterOwnershipTransferRequested_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address) (*evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferRequestedIterator, error)) *EVM2EVMOnRampInterface_FilterOwnershipTransferRequested_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterOwnershipTransferred provides a mock function with given fields: opts, from, to
@@ -372,6 +690,36 @@ func (_m *EVM2EVMOnRampInterface) FilterOwnershipTransferred(opts *bind.FilterOp
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_FilterOwnershipTransferred_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterOwnershipTransferred'
+type EVM2EVMOnRampInterface_FilterOwnershipTransferred_Call struct {
+	*mock.Call
+}
+
+// FilterOwnershipTransferred is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - from []common.Address
+//   - to []common.Address
+func (_e *EVM2EVMOnRampInterface_Expecter) FilterOwnershipTransferred(opts interface{}, from interface{}, to interface{}) *EVM2EVMOnRampInterface_FilterOwnershipTransferred_Call {
+	return &EVM2EVMOnRampInterface_FilterOwnershipTransferred_Call{Call: _e.mock.On("FilterOwnershipTransferred", opts, from, to)}
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterOwnershipTransferred_Call) Run(run func(opts *bind.FilterOpts, from []common.Address, to []common.Address)) *EVM2EVMOnRampInterface_FilterOwnershipTransferred_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterOwnershipTransferred_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferredIterator, _a1 error) *EVM2EVMOnRampInterface_FilterOwnershipTransferred_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterOwnershipTransferred_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address) (*evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferredIterator, error)) *EVM2EVMOnRampInterface_FilterOwnershipTransferred_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterTokenTransferFeeConfigDeleted provides a mock function with given fields: opts
 func (_m *EVM2EVMOnRampInterface) FilterTokenTransferFeeConfigDeleted(opts *bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeletedIterator, error) {
 	ret := _m.Called(opts)
@@ -400,6 +748,34 @@ func (_m *EVM2EVMOnRampInterface) FilterTokenTransferFeeConfigDeleted(opts *bind
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigDeleted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterTokenTransferFeeConfigDeleted'
+type EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigDeleted_Call struct {
+	*mock.Call
+}
+
+// FilterTokenTransferFeeConfigDeleted is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) FilterTokenTransferFeeConfigDeleted(opts interface{}) *EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigDeleted_Call {
+	return &EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigDeleted_Call{Call: _e.mock.On("FilterTokenTransferFeeConfigDeleted", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigDeleted_Call) Run(run func(opts *bind.FilterOpts)) *EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigDeleted_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeletedIterator, _a1 error) *EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigDeleted_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeletedIterator, error)) *EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterTokenTransferFeeConfigSet provides a mock function with given fields: opts
@@ -432,6 +808,34 @@ func (_m *EVM2EVMOnRampInterface) FilterTokenTransferFeeConfigSet(opts *bind.Fil
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterTokenTransferFeeConfigSet'
+type EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigSet_Call struct {
+	*mock.Call
+}
+
+// FilterTokenTransferFeeConfigSet is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) FilterTokenTransferFeeConfigSet(opts interface{}) *EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigSet_Call {
+	return &EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigSet_Call{Call: _e.mock.On("FilterTokenTransferFeeConfigSet", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigSet_Call) Run(run func(opts *bind.FilterOpts)) *EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigSet_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigSetIterator, _a1 error) *EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigSet_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigSetIterator, error)) *EVM2EVMOnRampInterface_FilterTokenTransferFeeConfigSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterTokensConsumed provides a mock function with given fields: opts
 func (_m *EVM2EVMOnRampInterface) FilterTokensConsumed(opts *bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampTokensConsumedIterator, error) {
 	ret := _m.Called(opts)
@@ -460,6 +864,34 @@ func (_m *EVM2EVMOnRampInterface) FilterTokensConsumed(opts *bind.FilterOpts) (*
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_FilterTokensConsumed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterTokensConsumed'
+type EVM2EVMOnRampInterface_FilterTokensConsumed_Call struct {
+	*mock.Call
+}
+
+// FilterTokensConsumed is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) FilterTokensConsumed(opts interface{}) *EVM2EVMOnRampInterface_FilterTokensConsumed_Call {
+	return &EVM2EVMOnRampInterface_FilterTokensConsumed_Call{Call: _e.mock.On("FilterTokensConsumed", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterTokensConsumed_Call) Run(run func(opts *bind.FilterOpts)) *EVM2EVMOnRampInterface_FilterTokensConsumed_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterTokensConsumed_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampTokensConsumedIterator, _a1 error) *EVM2EVMOnRampInterface_FilterTokensConsumed_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_FilterTokensConsumed_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampTokensConsumedIterator, error)) *EVM2EVMOnRampInterface_FilterTokensConsumed_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ForwardFromRouter provides a mock function with given fields: opts, destChainSelector, message, feeTokenAmount, originalSender
@@ -492,6 +924,38 @@ func (_m *EVM2EVMOnRampInterface) ForwardFromRouter(opts *bind.TransactOpts, des
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_ForwardFromRouter_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ForwardFromRouter'
+type EVM2EVMOnRampInterface_ForwardFromRouter_Call struct {
+	*mock.Call
+}
+
+// ForwardFromRouter is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - destChainSelector uint64
+//   - message evm_2_evm_onramp.ClientEVM2AnyMessage
+//   - feeTokenAmount *big.Int
+//   - originalSender common.Address
+func (_e *EVM2EVMOnRampInterface_Expecter) ForwardFromRouter(opts interface{}, destChainSelector interface{}, message interface{}, feeTokenAmount interface{}, originalSender interface{}) *EVM2EVMOnRampInterface_ForwardFromRouter_Call {
+	return &EVM2EVMOnRampInterface_ForwardFromRouter_Call{Call: _e.mock.On("ForwardFromRouter", opts, destChainSelector, message, feeTokenAmount, originalSender)}
+}
+
+func (_c *EVM2EVMOnRampInterface_ForwardFromRouter_Call) Run(run func(opts *bind.TransactOpts, destChainSelector uint64, message evm_2_evm_onramp.ClientEVM2AnyMessage, feeTokenAmount *big.Int, originalSender common.Address)) *EVM2EVMOnRampInterface_ForwardFromRouter_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(uint64), args[2].(evm_2_evm_onramp.ClientEVM2AnyMessage), args[3].(*big.Int), args[4].(common.Address))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ForwardFromRouter_Call) Return(_a0 *types.Transaction, _a1 error) *EVM2EVMOnRampInterface_ForwardFromRouter_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ForwardFromRouter_Call) RunAndReturn(run func(*bind.TransactOpts, uint64, evm_2_evm_onramp.ClientEVM2AnyMessage, *big.Int, common.Address) (*types.Transaction, error)) *EVM2EVMOnRampInterface_ForwardFromRouter_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetDynamicConfig provides a mock function with given fields: opts
 func (_m *EVM2EVMOnRampInterface) GetDynamicConfig(opts *bind.CallOpts) (evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, error) {
 	ret := _m.Called(opts)
@@ -520,6 +984,34 @@ func (_m *EVM2EVMOnRampInterface) GetDynamicConfig(opts *bind.CallOpts) (evm_2_e
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_GetDynamicConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetDynamicConfig'
+type EVM2EVMOnRampInterface_GetDynamicConfig_Call struct {
+	*mock.Call
+}
+
+// GetDynamicConfig is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) GetDynamicConfig(opts interface{}) *EVM2EVMOnRampInterface_GetDynamicConfig_Call {
+	return &EVM2EVMOnRampInterface_GetDynamicConfig_Call{Call: _e.mock.On("GetDynamicConfig", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_GetDynamicConfig_Call) Run(run func(opts *bind.CallOpts)) *EVM2EVMOnRampInterface_GetDynamicConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetDynamicConfig_Call) Return(_a0 evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, _a1 error) *EVM2EVMOnRampInterface_GetDynamicConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetDynamicConfig_Call) RunAndReturn(run func(*bind.CallOpts) (evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, error)) *EVM2EVMOnRampInterface_GetDynamicConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetExpectedNextSequenceNumber provides a mock function with given fields: opts
 func (_m *EVM2EVMOnRampInterface) GetExpectedNextSequenceNumber(opts *bind.CallOpts) (uint64, error) {
 	ret := _m.Called(opts)
@@ -546,6 +1038,34 @@ func (_m *EVM2EVMOnRampInterface) GetExpectedNextSequenceNumber(opts *bind.CallO
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_GetExpectedNextSequenceNumber_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetExpectedNextSequenceNumber'
+type EVM2EVMOnRampInterface_GetExpectedNextSequenceNumber_Call struct {
+	*mock.Call
+}
+
+// GetExpectedNextSequenceNumber is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) GetExpectedNextSequenceNumber(opts interface{}) *EVM2EVMOnRampInterface_GetExpectedNextSequenceNumber_Call {
+	return &EVM2EVMOnRampInterface_GetExpectedNextSequenceNumber_Call{Call: _e.mock.On("GetExpectedNextSequenceNumber", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_GetExpectedNextSequenceNumber_Call) Run(run func(opts *bind.CallOpts)) *EVM2EVMOnRampInterface_GetExpectedNextSequenceNumber_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetExpectedNextSequenceNumber_Call) Return(_a0 uint64, _a1 error) *EVM2EVMOnRampInterface_GetExpectedNextSequenceNumber_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetExpectedNextSequenceNumber_Call) RunAndReturn(run func(*bind.CallOpts) (uint64, error)) *EVM2EVMOnRampInterface_GetExpectedNextSequenceNumber_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetFee provides a mock function with given fields: opts, destChainSelector, message
@@ -578,6 +1098,36 @@ func (_m *EVM2EVMOnRampInterface) GetFee(opts *bind.CallOpts, destChainSelector 
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_GetFee_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetFee'
+type EVM2EVMOnRampInterface_GetFee_Call struct {
+	*mock.Call
+}
+
+// GetFee is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - destChainSelector uint64
+//   - message evm_2_evm_onramp.ClientEVM2AnyMessage
+func (_e *EVM2EVMOnRampInterface_Expecter) GetFee(opts interface{}, destChainSelector interface{}, message interface{}) *EVM2EVMOnRampInterface_GetFee_Call {
+	return &EVM2EVMOnRampInterface_GetFee_Call{Call: _e.mock.On("GetFee", opts, destChainSelector, message)}
+}
+
+func (_c *EVM2EVMOnRampInterface_GetFee_Call) Run(run func(opts *bind.CallOpts, destChainSelector uint64, message evm_2_evm_onramp.ClientEVM2AnyMessage)) *EVM2EVMOnRampInterface_GetFee_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(uint64), args[2].(evm_2_evm_onramp.ClientEVM2AnyMessage))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetFee_Call) Return(_a0 *big.Int, _a1 error) *EVM2EVMOnRampInterface_GetFee_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetFee_Call) RunAndReturn(run func(*bind.CallOpts, uint64, evm_2_evm_onramp.ClientEVM2AnyMessage) (*big.Int, error)) *EVM2EVMOnRampInterface_GetFee_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetFeeTokenConfig provides a mock function with given fields: opts, token
 func (_m *EVM2EVMOnRampInterface) GetFeeTokenConfig(opts *bind.CallOpts, token common.Address) (evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig, error) {
 	ret := _m.Called(opts, token)
@@ -604,6 +1154,35 @@ func (_m *EVM2EVMOnRampInterface) GetFeeTokenConfig(opts *bind.CallOpts, token c
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_GetFeeTokenConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetFeeTokenConfig'
+type EVM2EVMOnRampInterface_GetFeeTokenConfig_Call struct {
+	*mock.Call
+}
+
+// GetFeeTokenConfig is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - token common.Address
+func (_e *EVM2EVMOnRampInterface_Expecter) GetFeeTokenConfig(opts interface{}, token interface{}) *EVM2EVMOnRampInterface_GetFeeTokenConfig_Call {
+	return &EVM2EVMOnRampInterface_GetFeeTokenConfig_Call{Call: _e.mock.On("GetFeeTokenConfig", opts, token)}
+}
+
+func (_c *EVM2EVMOnRampInterface_GetFeeTokenConfig_Call) Run(run func(opts *bind.CallOpts, token common.Address)) *EVM2EVMOnRampInterface_GetFeeTokenConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetFeeTokenConfig_Call) Return(_a0 evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig, _a1 error) *EVM2EVMOnRampInterface_GetFeeTokenConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetFeeTokenConfig_Call) RunAndReturn(run func(*bind.CallOpts, common.Address) (evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig, error)) *EVM2EVMOnRampInterface_GetFeeTokenConfig_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetNopFeesJuels provides a mock function with given fields: opts
@@ -636,6 +1215,34 @@ func (_m *EVM2EVMOnRampInterface) GetNopFeesJuels(opts *bind.CallOpts) (*big.Int
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_GetNopFeesJuels_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetNopFeesJuels'
+type EVM2EVMOnRampInterface_GetNopFeesJuels_Call struct {
+	*mock.Call
+}
+
+// GetNopFeesJuels is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) GetNopFeesJuels(opts interface{}) *EVM2EVMOnRampInterface_GetNopFeesJuels_Call {
+	return &EVM2EVMOnRampInterface_GetNopFeesJuels_Call{Call: _e.mock.On("GetNopFeesJuels", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_GetNopFeesJuels_Call) Run(run func(opts *bind.CallOpts)) *EVM2EVMOnRampInterface_GetNopFeesJuels_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetNopFeesJuels_Call) Return(_a0 *big.Int, _a1 error) *EVM2EVMOnRampInterface_GetNopFeesJuels_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetNopFeesJuels_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *EVM2EVMOnRampInterface_GetNopFeesJuels_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetNops provides a mock function with given fields: opts
 func (_m *EVM2EVMOnRampInterface) GetNops(opts *bind.CallOpts) (evm_2_evm_onramp.GetNops, error) {
 	ret := _m.Called(opts)
@@ -662,6 +1269,34 @@ func (_m *EVM2EVMOnRampInterface) GetNops(opts *bind.CallOpts) (evm_2_evm_onramp
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_GetNops_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetNops'
+type EVM2EVMOnRampInterface_GetNops_Call struct {
+	*mock.Call
+}
+
+// GetNops is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) GetNops(opts interface{}) *EVM2EVMOnRampInterface_GetNops_Call {
+	return &EVM2EVMOnRampInterface_GetNops_Call{Call: _e.mock.On("GetNops", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_GetNops_Call) Run(run func(opts *bind.CallOpts)) *EVM2EVMOnRampInterface_GetNops_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetNops_Call) Return(_a0 evm_2_evm_onramp.GetNops, _a1 error) *EVM2EVMOnRampInterface_GetNops_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetNops_Call) RunAndReturn(run func(*bind.CallOpts) (evm_2_evm_onramp.GetNops, error)) *EVM2EVMOnRampInterface_GetNops_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetPoolBySourceToken provides a mock function with given fields: opts, arg0, sourceToken
@@ -694,6 +1329,36 @@ func (_m *EVM2EVMOnRampInterface) GetPoolBySourceToken(opts *bind.CallOpts, arg0
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_GetPoolBySourceToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPoolBySourceToken'
+type EVM2EVMOnRampInterface_GetPoolBySourceToken_Call struct {
+	*mock.Call
+}
+
+// GetPoolBySourceToken is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - arg0 uint64
+//   - sourceToken common.Address
+func (_e *EVM2EVMOnRampInterface_Expecter) GetPoolBySourceToken(opts interface{}, arg0 interface{}, sourceToken interface{}) *EVM2EVMOnRampInterface_GetPoolBySourceToken_Call {
+	return &EVM2EVMOnRampInterface_GetPoolBySourceToken_Call{Call: _e.mock.On("GetPoolBySourceToken", opts, arg0, sourceToken)}
+}
+
+func (_c *EVM2EVMOnRampInterface_GetPoolBySourceToken_Call) Run(run func(opts *bind.CallOpts, arg0 uint64, sourceToken common.Address)) *EVM2EVMOnRampInterface_GetPoolBySourceToken_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(uint64), args[2].(common.Address))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetPoolBySourceToken_Call) Return(_a0 common.Address, _a1 error) *EVM2EVMOnRampInterface_GetPoolBySourceToken_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetPoolBySourceToken_Call) RunAndReturn(run func(*bind.CallOpts, uint64, common.Address) (common.Address, error)) *EVM2EVMOnRampInterface_GetPoolBySourceToken_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetSenderNonce provides a mock function with given fields: opts, sender
 func (_m *EVM2EVMOnRampInterface) GetSenderNonce(opts *bind.CallOpts, sender common.Address) (uint64, error) {
 	ret := _m.Called(opts, sender)
@@ -722,6 +1387,35 @@ func (_m *EVM2EVMOnRampInterface) GetSenderNonce(opts *bind.CallOpts, sender com
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_GetSenderNonce_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSenderNonce'
+type EVM2EVMOnRampInterface_GetSenderNonce_Call struct {
+	*mock.Call
+}
+
+// GetSenderNonce is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - sender common.Address
+func (_e *EVM2EVMOnRampInterface_Expecter) GetSenderNonce(opts interface{}, sender interface{}) *EVM2EVMOnRampInterface_GetSenderNonce_Call {
+	return &EVM2EVMOnRampInterface_GetSenderNonce_Call{Call: _e.mock.On("GetSenderNonce", opts, sender)}
+}
+
+func (_c *EVM2EVMOnRampInterface_GetSenderNonce_Call) Run(run func(opts *bind.CallOpts, sender common.Address)) *EVM2EVMOnRampInterface_GetSenderNonce_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetSenderNonce_Call) Return(_a0 uint64, _a1 error) *EVM2EVMOnRampInterface_GetSenderNonce_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetSenderNonce_Call) RunAndReturn(run func(*bind.CallOpts, common.Address) (uint64, error)) *EVM2EVMOnRampInterface_GetSenderNonce_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetStaticConfig provides a mock function with given fields: opts
 func (_m *EVM2EVMOnRampInterface) GetStaticConfig(opts *bind.CallOpts) (evm_2_evm_onramp.EVM2EVMOnRampStaticConfig, error) {
 	ret := _m.Called(opts)
@@ -748,6 +1442,34 @@ func (_m *EVM2EVMOnRampInterface) GetStaticConfig(opts *bind.CallOpts) (evm_2_ev
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_GetStaticConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetStaticConfig'
+type EVM2EVMOnRampInterface_GetStaticConfig_Call struct {
+	*mock.Call
+}
+
+// GetStaticConfig is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) GetStaticConfig(opts interface{}) *EVM2EVMOnRampInterface_GetStaticConfig_Call {
+	return &EVM2EVMOnRampInterface_GetStaticConfig_Call{Call: _e.mock.On("GetStaticConfig", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_GetStaticConfig_Call) Run(run func(opts *bind.CallOpts)) *EVM2EVMOnRampInterface_GetStaticConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetStaticConfig_Call) Return(_a0 evm_2_evm_onramp.EVM2EVMOnRampStaticConfig, _a1 error) *EVM2EVMOnRampInterface_GetStaticConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetStaticConfig_Call) RunAndReturn(run func(*bind.CallOpts) (evm_2_evm_onramp.EVM2EVMOnRampStaticConfig, error)) *EVM2EVMOnRampInterface_GetStaticConfig_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetSupportedTokens provides a mock function with given fields: opts, arg0
@@ -780,6 +1502,35 @@ func (_m *EVM2EVMOnRampInterface) GetSupportedTokens(opts *bind.CallOpts, arg0 u
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_GetSupportedTokens_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSupportedTokens'
+type EVM2EVMOnRampInterface_GetSupportedTokens_Call struct {
+	*mock.Call
+}
+
+// GetSupportedTokens is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - arg0 uint64
+func (_e *EVM2EVMOnRampInterface_Expecter) GetSupportedTokens(opts interface{}, arg0 interface{}) *EVM2EVMOnRampInterface_GetSupportedTokens_Call {
+	return &EVM2EVMOnRampInterface_GetSupportedTokens_Call{Call: _e.mock.On("GetSupportedTokens", opts, arg0)}
+}
+
+func (_c *EVM2EVMOnRampInterface_GetSupportedTokens_Call) Run(run func(opts *bind.CallOpts, arg0 uint64)) *EVM2EVMOnRampInterface_GetSupportedTokens_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(uint64))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetSupportedTokens_Call) Return(_a0 []common.Address, _a1 error) *EVM2EVMOnRampInterface_GetSupportedTokens_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetSupportedTokens_Call) RunAndReturn(run func(*bind.CallOpts, uint64) ([]common.Address, error)) *EVM2EVMOnRampInterface_GetSupportedTokens_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetTokenLimitAdmin provides a mock function with given fields: opts
 func (_m *EVM2EVMOnRampInterface) GetTokenLimitAdmin(opts *bind.CallOpts) (common.Address, error) {
 	ret := _m.Called(opts)
@@ -810,6 +1561,34 @@ func (_m *EVM2EVMOnRampInterface) GetTokenLimitAdmin(opts *bind.CallOpts) (commo
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_GetTokenLimitAdmin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTokenLimitAdmin'
+type EVM2EVMOnRampInterface_GetTokenLimitAdmin_Call struct {
+	*mock.Call
+}
+
+// GetTokenLimitAdmin is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) GetTokenLimitAdmin(opts interface{}) *EVM2EVMOnRampInterface_GetTokenLimitAdmin_Call {
+	return &EVM2EVMOnRampInterface_GetTokenLimitAdmin_Call{Call: _e.mock.On("GetTokenLimitAdmin", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_GetTokenLimitAdmin_Call) Run(run func(opts *bind.CallOpts)) *EVM2EVMOnRampInterface_GetTokenLimitAdmin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetTokenLimitAdmin_Call) Return(_a0 common.Address, _a1 error) *EVM2EVMOnRampInterface_GetTokenLimitAdmin_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetTokenLimitAdmin_Call) RunAndReturn(run func(*bind.CallOpts) (common.Address, error)) *EVM2EVMOnRampInterface_GetTokenLimitAdmin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetTokenTransferFeeConfig provides a mock function with given fields: opts, token
 func (_m *EVM2EVMOnRampInterface) GetTokenTransferFeeConfig(opts *bind.CallOpts, token common.Address) (evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig, error) {
 	ret := _m.Called(opts, token)
@@ -836,6 +1615,35 @@ func (_m *EVM2EVMOnRampInterface) GetTokenTransferFeeConfig(opts *bind.CallOpts,
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_GetTokenTransferFeeConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTokenTransferFeeConfig'
+type EVM2EVMOnRampInterface_GetTokenTransferFeeConfig_Call struct {
+	*mock.Call
+}
+
+// GetTokenTransferFeeConfig is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - token common.Address
+func (_e *EVM2EVMOnRampInterface_Expecter) GetTokenTransferFeeConfig(opts interface{}, token interface{}) *EVM2EVMOnRampInterface_GetTokenTransferFeeConfig_Call {
+	return &EVM2EVMOnRampInterface_GetTokenTransferFeeConfig_Call{Call: _e.mock.On("GetTokenTransferFeeConfig", opts, token)}
+}
+
+func (_c *EVM2EVMOnRampInterface_GetTokenTransferFeeConfig_Call) Run(run func(opts *bind.CallOpts, token common.Address)) *EVM2EVMOnRampInterface_GetTokenTransferFeeConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetTokenTransferFeeConfig_Call) Return(_a0 evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig, _a1 error) *EVM2EVMOnRampInterface_GetTokenTransferFeeConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_GetTokenTransferFeeConfig_Call) RunAndReturn(run func(*bind.CallOpts, common.Address) (evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig, error)) *EVM2EVMOnRampInterface_GetTokenTransferFeeConfig_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // LinkAvailableForPayment provides a mock function with given fields: opts
@@ -868,6 +1676,34 @@ func (_m *EVM2EVMOnRampInterface) LinkAvailableForPayment(opts *bind.CallOpts) (
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_LinkAvailableForPayment_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LinkAvailableForPayment'
+type EVM2EVMOnRampInterface_LinkAvailableForPayment_Call struct {
+	*mock.Call
+}
+
+// LinkAvailableForPayment is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) LinkAvailableForPayment(opts interface{}) *EVM2EVMOnRampInterface_LinkAvailableForPayment_Call {
+	return &EVM2EVMOnRampInterface_LinkAvailableForPayment_Call{Call: _e.mock.On("LinkAvailableForPayment", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_LinkAvailableForPayment_Call) Run(run func(opts *bind.CallOpts)) *EVM2EVMOnRampInterface_LinkAvailableForPayment_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_LinkAvailableForPayment_Call) Return(_a0 *big.Int, _a1 error) *EVM2EVMOnRampInterface_LinkAvailableForPayment_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_LinkAvailableForPayment_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *EVM2EVMOnRampInterface_LinkAvailableForPayment_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Owner provides a mock function with given fields: opts
 func (_m *EVM2EVMOnRampInterface) Owner(opts *bind.CallOpts) (common.Address, error) {
 	ret := _m.Called(opts)
@@ -896,6 +1732,34 @@ func (_m *EVM2EVMOnRampInterface) Owner(opts *bind.CallOpts) (common.Address, er
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_Owner_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Owner'
+type EVM2EVMOnRampInterface_Owner_Call struct {
+	*mock.Call
+}
+
+// Owner is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) Owner(opts interface{}) *EVM2EVMOnRampInterface_Owner_Call {
+	return &EVM2EVMOnRampInterface_Owner_Call{Call: _e.mock.On("Owner", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_Owner_Call) Run(run func(opts *bind.CallOpts)) *EVM2EVMOnRampInterface_Owner_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_Owner_Call) Return(_a0 common.Address, _a1 error) *EVM2EVMOnRampInterface_Owner_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_Owner_Call) RunAndReturn(run func(*bind.CallOpts) (common.Address, error)) *EVM2EVMOnRampInterface_Owner_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseAdminSet provides a mock function with given fields: log
@@ -928,6 +1792,34 @@ func (_m *EVM2EVMOnRampInterface) ParseAdminSet(log types.Log) (*evm_2_evm_onram
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_ParseAdminSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseAdminSet'
+type EVM2EVMOnRampInterface_ParseAdminSet_Call struct {
+	*mock.Call
+}
+
+// ParseAdminSet is a helper method to define mock.On call
+//   - log types.Log
+func (_e *EVM2EVMOnRampInterface_Expecter) ParseAdminSet(log interface{}) *EVM2EVMOnRampInterface_ParseAdminSet_Call {
+	return &EVM2EVMOnRampInterface_ParseAdminSet_Call{Call: _e.mock.On("ParseAdminSet", log)}
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseAdminSet_Call) Run(run func(log types.Log)) *EVM2EVMOnRampInterface_ParseAdminSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseAdminSet_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampAdminSet, _a1 error) *EVM2EVMOnRampInterface_ParseAdminSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseAdminSet_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampAdminSet, error)) *EVM2EVMOnRampInterface_ParseAdminSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseCCIPSendRequested provides a mock function with given fields: log
 func (_m *EVM2EVMOnRampInterface) ParseCCIPSendRequested(log types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested, error) {
 	ret := _m.Called(log)
@@ -956,6 +1848,34 @@ func (_m *EVM2EVMOnRampInterface) ParseCCIPSendRequested(log types.Log) (*evm_2_
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_ParseCCIPSendRequested_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseCCIPSendRequested'
+type EVM2EVMOnRampInterface_ParseCCIPSendRequested_Call struct {
+	*mock.Call
+}
+
+// ParseCCIPSendRequested is a helper method to define mock.On call
+//   - log types.Log
+func (_e *EVM2EVMOnRampInterface_Expecter) ParseCCIPSendRequested(log interface{}) *EVM2EVMOnRampInterface_ParseCCIPSendRequested_Call {
+	return &EVM2EVMOnRampInterface_ParseCCIPSendRequested_Call{Call: _e.mock.On("ParseCCIPSendRequested", log)}
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseCCIPSendRequested_Call) Run(run func(log types.Log)) *EVM2EVMOnRampInterface_ParseCCIPSendRequested_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseCCIPSendRequested_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested, _a1 error) *EVM2EVMOnRampInterface_ParseCCIPSendRequested_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseCCIPSendRequested_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested, error)) *EVM2EVMOnRampInterface_ParseCCIPSendRequested_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseConfigChanged provides a mock function with given fields: log
@@ -988,6 +1908,34 @@ func (_m *EVM2EVMOnRampInterface) ParseConfigChanged(log types.Log) (*evm_2_evm_
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_ParseConfigChanged_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseConfigChanged'
+type EVM2EVMOnRampInterface_ParseConfigChanged_Call struct {
+	*mock.Call
+}
+
+// ParseConfigChanged is a helper method to define mock.On call
+//   - log types.Log
+func (_e *EVM2EVMOnRampInterface_Expecter) ParseConfigChanged(log interface{}) *EVM2EVMOnRampInterface_ParseConfigChanged_Call {
+	return &EVM2EVMOnRampInterface_ParseConfigChanged_Call{Call: _e.mock.On("ParseConfigChanged", log)}
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseConfigChanged_Call) Run(run func(log types.Log)) *EVM2EVMOnRampInterface_ParseConfigChanged_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseConfigChanged_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampConfigChanged, _a1 error) *EVM2EVMOnRampInterface_ParseConfigChanged_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseConfigChanged_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampConfigChanged, error)) *EVM2EVMOnRampInterface_ParseConfigChanged_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseConfigSet provides a mock function with given fields: log
 func (_m *EVM2EVMOnRampInterface) ParseConfigSet(log types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampConfigSet, error) {
 	ret := _m.Called(log)
@@ -1016,6 +1964,34 @@ func (_m *EVM2EVMOnRampInterface) ParseConfigSet(log types.Log) (*evm_2_evm_onra
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_ParseConfigSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseConfigSet'
+type EVM2EVMOnRampInterface_ParseConfigSet_Call struct {
+	*mock.Call
+}
+
+// ParseConfigSet is a helper method to define mock.On call
+//   - log types.Log
+func (_e *EVM2EVMOnRampInterface_Expecter) ParseConfigSet(log interface{}) *EVM2EVMOnRampInterface_ParseConfigSet_Call {
+	return &EVM2EVMOnRampInterface_ParseConfigSet_Call{Call: _e.mock.On("ParseConfigSet", log)}
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseConfigSet_Call) Run(run func(log types.Log)) *EVM2EVMOnRampInterface_ParseConfigSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseConfigSet_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampConfigSet, _a1 error) *EVM2EVMOnRampInterface_ParseConfigSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseConfigSet_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampConfigSet, error)) *EVM2EVMOnRampInterface_ParseConfigSet_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseFeeConfigSet provides a mock function with given fields: log
@@ -1048,6 +2024,34 @@ func (_m *EVM2EVMOnRampInterface) ParseFeeConfigSet(log types.Log) (*evm_2_evm_o
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_ParseFeeConfigSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseFeeConfigSet'
+type EVM2EVMOnRampInterface_ParseFeeConfigSet_Call struct {
+	*mock.Call
+}
+
+// ParseFeeConfigSet is a helper method to define mock.On call
+//   - log types.Log
+func (_e *EVM2EVMOnRampInterface_Expecter) ParseFeeConfigSet(log interface{}) *EVM2EVMOnRampInterface_ParseFeeConfigSet_Call {
+	return &EVM2EVMOnRampInterface_ParseFeeConfigSet_Call{Call: _e.mock.On("ParseFeeConfigSet", log)}
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseFeeConfigSet_Call) Run(run func(log types.Log)) *EVM2EVMOnRampInterface_ParseFeeConfigSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseFeeConfigSet_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampFeeConfigSet, _a1 error) *EVM2EVMOnRampInterface_ParseFeeConfigSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseFeeConfigSet_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampFeeConfigSet, error)) *EVM2EVMOnRampInterface_ParseFeeConfigSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseLog provides a mock function with given fields: log
 func (_m *EVM2EVMOnRampInterface) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	ret := _m.Called(log)
@@ -1076,6 +2080,34 @@ func (_m *EVM2EVMOnRampInterface) ParseLog(log types.Log) (generated.AbigenLog, 
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_ParseLog_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseLog'
+type EVM2EVMOnRampInterface_ParseLog_Call struct {
+	*mock.Call
+}
+
+// ParseLog is a helper method to define mock.On call
+//   - log types.Log
+func (_e *EVM2EVMOnRampInterface_Expecter) ParseLog(log interface{}) *EVM2EVMOnRampInterface_ParseLog_Call {
+	return &EVM2EVMOnRampInterface_ParseLog_Call{Call: _e.mock.On("ParseLog", log)}
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseLog_Call) Run(run func(log types.Log)) *EVM2EVMOnRampInterface_ParseLog_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseLog_Call) Return(_a0 generated.AbigenLog, _a1 error) *EVM2EVMOnRampInterface_ParseLog_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseLog_Call) RunAndReturn(run func(types.Log) (generated.AbigenLog, error)) *EVM2EVMOnRampInterface_ParseLog_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseNopPaid provides a mock function with given fields: log
@@ -1108,6 +2140,34 @@ func (_m *EVM2EVMOnRampInterface) ParseNopPaid(log types.Log) (*evm_2_evm_onramp
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_ParseNopPaid_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseNopPaid'
+type EVM2EVMOnRampInterface_ParseNopPaid_Call struct {
+	*mock.Call
+}
+
+// ParseNopPaid is a helper method to define mock.On call
+//   - log types.Log
+func (_e *EVM2EVMOnRampInterface_Expecter) ParseNopPaid(log interface{}) *EVM2EVMOnRampInterface_ParseNopPaid_Call {
+	return &EVM2EVMOnRampInterface_ParseNopPaid_Call{Call: _e.mock.On("ParseNopPaid", log)}
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseNopPaid_Call) Run(run func(log types.Log)) *EVM2EVMOnRampInterface_ParseNopPaid_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseNopPaid_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampNopPaid, _a1 error) *EVM2EVMOnRampInterface_ParseNopPaid_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseNopPaid_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampNopPaid, error)) *EVM2EVMOnRampInterface_ParseNopPaid_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseNopsSet provides a mock function with given fields: log
 func (_m *EVM2EVMOnRampInterface) ParseNopsSet(log types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampNopsSet, error) {
 	ret := _m.Called(log)
@@ -1136,6 +2196,34 @@ func (_m *EVM2EVMOnRampInterface) ParseNopsSet(log types.Log) (*evm_2_evm_onramp
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_ParseNopsSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseNopsSet'
+type EVM2EVMOnRampInterface_ParseNopsSet_Call struct {
+	*mock.Call
+}
+
+// ParseNopsSet is a helper method to define mock.On call
+//   - log types.Log
+func (_e *EVM2EVMOnRampInterface_Expecter) ParseNopsSet(log interface{}) *EVM2EVMOnRampInterface_ParseNopsSet_Call {
+	return &EVM2EVMOnRampInterface_ParseNopsSet_Call{Call: _e.mock.On("ParseNopsSet", log)}
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseNopsSet_Call) Run(run func(log types.Log)) *EVM2EVMOnRampInterface_ParseNopsSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseNopsSet_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampNopsSet, _a1 error) *EVM2EVMOnRampInterface_ParseNopsSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseNopsSet_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampNopsSet, error)) *EVM2EVMOnRampInterface_ParseNopsSet_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseOwnershipTransferRequested provides a mock function with given fields: log
@@ -1168,6 +2256,34 @@ func (_m *EVM2EVMOnRampInterface) ParseOwnershipTransferRequested(log types.Log)
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_ParseOwnershipTransferRequested_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseOwnershipTransferRequested'
+type EVM2EVMOnRampInterface_ParseOwnershipTransferRequested_Call struct {
+	*mock.Call
+}
+
+// ParseOwnershipTransferRequested is a helper method to define mock.On call
+//   - log types.Log
+func (_e *EVM2EVMOnRampInterface_Expecter) ParseOwnershipTransferRequested(log interface{}) *EVM2EVMOnRampInterface_ParseOwnershipTransferRequested_Call {
+	return &EVM2EVMOnRampInterface_ParseOwnershipTransferRequested_Call{Call: _e.mock.On("ParseOwnershipTransferRequested", log)}
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseOwnershipTransferRequested_Call) Run(run func(log types.Log)) *EVM2EVMOnRampInterface_ParseOwnershipTransferRequested_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseOwnershipTransferRequested_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferRequested, _a1 error) *EVM2EVMOnRampInterface_ParseOwnershipTransferRequested_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseOwnershipTransferRequested_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferRequested, error)) *EVM2EVMOnRampInterface_ParseOwnershipTransferRequested_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseOwnershipTransferred provides a mock function with given fields: log
 func (_m *EVM2EVMOnRampInterface) ParseOwnershipTransferred(log types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferred, error) {
 	ret := _m.Called(log)
@@ -1196,6 +2312,34 @@ func (_m *EVM2EVMOnRampInterface) ParseOwnershipTransferred(log types.Log) (*evm
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_ParseOwnershipTransferred_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseOwnershipTransferred'
+type EVM2EVMOnRampInterface_ParseOwnershipTransferred_Call struct {
+	*mock.Call
+}
+
+// ParseOwnershipTransferred is a helper method to define mock.On call
+//   - log types.Log
+func (_e *EVM2EVMOnRampInterface_Expecter) ParseOwnershipTransferred(log interface{}) *EVM2EVMOnRampInterface_ParseOwnershipTransferred_Call {
+	return &EVM2EVMOnRampInterface_ParseOwnershipTransferred_Call{Call: _e.mock.On("ParseOwnershipTransferred", log)}
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseOwnershipTransferred_Call) Run(run func(log types.Log)) *EVM2EVMOnRampInterface_ParseOwnershipTransferred_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseOwnershipTransferred_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferred, _a1 error) *EVM2EVMOnRampInterface_ParseOwnershipTransferred_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseOwnershipTransferred_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferred, error)) *EVM2EVMOnRampInterface_ParseOwnershipTransferred_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseTokenTransferFeeConfigDeleted provides a mock function with given fields: log
@@ -1228,6 +2372,34 @@ func (_m *EVM2EVMOnRampInterface) ParseTokenTransferFeeConfigDeleted(log types.L
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigDeleted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseTokenTransferFeeConfigDeleted'
+type EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigDeleted_Call struct {
+	*mock.Call
+}
+
+// ParseTokenTransferFeeConfigDeleted is a helper method to define mock.On call
+//   - log types.Log
+func (_e *EVM2EVMOnRampInterface_Expecter) ParseTokenTransferFeeConfigDeleted(log interface{}) *EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigDeleted_Call {
+	return &EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigDeleted_Call{Call: _e.mock.On("ParseTokenTransferFeeConfigDeleted", log)}
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigDeleted_Call) Run(run func(log types.Log)) *EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigDeleted_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted, _a1 error) *EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigDeleted_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted, error)) *EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseTokenTransferFeeConfigSet provides a mock function with given fields: log
 func (_m *EVM2EVMOnRampInterface) ParseTokenTransferFeeConfigSet(log types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigSet, error) {
 	ret := _m.Called(log)
@@ -1256,6 +2428,34 @@ func (_m *EVM2EVMOnRampInterface) ParseTokenTransferFeeConfigSet(log types.Log) 
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseTokenTransferFeeConfigSet'
+type EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigSet_Call struct {
+	*mock.Call
+}
+
+// ParseTokenTransferFeeConfigSet is a helper method to define mock.On call
+//   - log types.Log
+func (_e *EVM2EVMOnRampInterface_Expecter) ParseTokenTransferFeeConfigSet(log interface{}) *EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigSet_Call {
+	return &EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigSet_Call{Call: _e.mock.On("ParseTokenTransferFeeConfigSet", log)}
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigSet_Call) Run(run func(log types.Log)) *EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigSet_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigSet, _a1 error) *EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigSet_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigSet, error)) *EVM2EVMOnRampInterface_ParseTokenTransferFeeConfigSet_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseTokensConsumed provides a mock function with given fields: log
@@ -1288,6 +2488,34 @@ func (_m *EVM2EVMOnRampInterface) ParseTokensConsumed(log types.Log) (*evm_2_evm
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_ParseTokensConsumed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseTokensConsumed'
+type EVM2EVMOnRampInterface_ParseTokensConsumed_Call struct {
+	*mock.Call
+}
+
+// ParseTokensConsumed is a helper method to define mock.On call
+//   - log types.Log
+func (_e *EVM2EVMOnRampInterface_Expecter) ParseTokensConsumed(log interface{}) *EVM2EVMOnRampInterface_ParseTokensConsumed_Call {
+	return &EVM2EVMOnRampInterface_ParseTokensConsumed_Call{Call: _e.mock.On("ParseTokensConsumed", log)}
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseTokensConsumed_Call) Run(run func(log types.Log)) *EVM2EVMOnRampInterface_ParseTokensConsumed_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseTokensConsumed_Call) Return(_a0 *evm_2_evm_onramp.EVM2EVMOnRampTokensConsumed, _a1 error) *EVM2EVMOnRampInterface_ParseTokensConsumed_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_ParseTokensConsumed_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampTokensConsumed, error)) *EVM2EVMOnRampInterface_ParseTokensConsumed_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PayNops provides a mock function with given fields: opts
 func (_m *EVM2EVMOnRampInterface) PayNops(opts *bind.TransactOpts) (*types.Transaction, error) {
 	ret := _m.Called(opts)
@@ -1316,6 +2544,34 @@ func (_m *EVM2EVMOnRampInterface) PayNops(opts *bind.TransactOpts) (*types.Trans
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_PayNops_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PayNops'
+type EVM2EVMOnRampInterface_PayNops_Call struct {
+	*mock.Call
+}
+
+// PayNops is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) PayNops(opts interface{}) *EVM2EVMOnRampInterface_PayNops_Call {
+	return &EVM2EVMOnRampInterface_PayNops_Call{Call: _e.mock.On("PayNops", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_PayNops_Call) Run(run func(opts *bind.TransactOpts)) *EVM2EVMOnRampInterface_PayNops_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_PayNops_Call) Return(_a0 *types.Transaction, _a1 error) *EVM2EVMOnRampInterface_PayNops_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_PayNops_Call) RunAndReturn(run func(*bind.TransactOpts) (*types.Transaction, error)) *EVM2EVMOnRampInterface_PayNops_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SetAdmin provides a mock function with given fields: opts, newAdmin
@@ -1348,6 +2604,35 @@ func (_m *EVM2EVMOnRampInterface) SetAdmin(opts *bind.TransactOpts, newAdmin com
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_SetAdmin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetAdmin'
+type EVM2EVMOnRampInterface_SetAdmin_Call struct {
+	*mock.Call
+}
+
+// SetAdmin is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - newAdmin common.Address
+func (_e *EVM2EVMOnRampInterface_Expecter) SetAdmin(opts interface{}, newAdmin interface{}) *EVM2EVMOnRampInterface_SetAdmin_Call {
+	return &EVM2EVMOnRampInterface_SetAdmin_Call{Call: _e.mock.On("SetAdmin", opts, newAdmin)}
+}
+
+func (_c *EVM2EVMOnRampInterface_SetAdmin_Call) Run(run func(opts *bind.TransactOpts, newAdmin common.Address)) *EVM2EVMOnRampInterface_SetAdmin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_SetAdmin_Call) Return(_a0 *types.Transaction, _a1 error) *EVM2EVMOnRampInterface_SetAdmin_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_SetAdmin_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address) (*types.Transaction, error)) *EVM2EVMOnRampInterface_SetAdmin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetDynamicConfig provides a mock function with given fields: opts, dynamicConfig
 func (_m *EVM2EVMOnRampInterface) SetDynamicConfig(opts *bind.TransactOpts, dynamicConfig evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig) (*types.Transaction, error) {
 	ret := _m.Called(opts, dynamicConfig)
@@ -1376,6 +2661,35 @@ func (_m *EVM2EVMOnRampInterface) SetDynamicConfig(opts *bind.TransactOpts, dyna
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_SetDynamicConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetDynamicConfig'
+type EVM2EVMOnRampInterface_SetDynamicConfig_Call struct {
+	*mock.Call
+}
+
+// SetDynamicConfig is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - dynamicConfig evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig
+func (_e *EVM2EVMOnRampInterface_Expecter) SetDynamicConfig(opts interface{}, dynamicConfig interface{}) *EVM2EVMOnRampInterface_SetDynamicConfig_Call {
+	return &EVM2EVMOnRampInterface_SetDynamicConfig_Call{Call: _e.mock.On("SetDynamicConfig", opts, dynamicConfig)}
+}
+
+func (_c *EVM2EVMOnRampInterface_SetDynamicConfig_Call) Run(run func(opts *bind.TransactOpts, dynamicConfig evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig)) *EVM2EVMOnRampInterface_SetDynamicConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_SetDynamicConfig_Call) Return(_a0 *types.Transaction, _a1 error) *EVM2EVMOnRampInterface_SetDynamicConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_SetDynamicConfig_Call) RunAndReturn(run func(*bind.TransactOpts, evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig) (*types.Transaction, error)) *EVM2EVMOnRampInterface_SetDynamicConfig_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SetFeeTokenConfig provides a mock function with given fields: opts, feeTokenConfigArgs
@@ -1408,6 +2722,35 @@ func (_m *EVM2EVMOnRampInterface) SetFeeTokenConfig(opts *bind.TransactOpts, fee
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_SetFeeTokenConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetFeeTokenConfig'
+type EVM2EVMOnRampInterface_SetFeeTokenConfig_Call struct {
+	*mock.Call
+}
+
+// SetFeeTokenConfig is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - feeTokenConfigArgs []evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs
+func (_e *EVM2EVMOnRampInterface_Expecter) SetFeeTokenConfig(opts interface{}, feeTokenConfigArgs interface{}) *EVM2EVMOnRampInterface_SetFeeTokenConfig_Call {
+	return &EVM2EVMOnRampInterface_SetFeeTokenConfig_Call{Call: _e.mock.On("SetFeeTokenConfig", opts, feeTokenConfigArgs)}
+}
+
+func (_c *EVM2EVMOnRampInterface_SetFeeTokenConfig_Call) Run(run func(opts *bind.TransactOpts, feeTokenConfigArgs []evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs)) *EVM2EVMOnRampInterface_SetFeeTokenConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].([]evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_SetFeeTokenConfig_Call) Return(_a0 *types.Transaction, _a1 error) *EVM2EVMOnRampInterface_SetFeeTokenConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_SetFeeTokenConfig_Call) RunAndReturn(run func(*bind.TransactOpts, []evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs) (*types.Transaction, error)) *EVM2EVMOnRampInterface_SetFeeTokenConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetNops provides a mock function with given fields: opts, nopsAndWeights
 func (_m *EVM2EVMOnRampInterface) SetNops(opts *bind.TransactOpts, nopsAndWeights []evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight) (*types.Transaction, error) {
 	ret := _m.Called(opts, nopsAndWeights)
@@ -1436,6 +2779,35 @@ func (_m *EVM2EVMOnRampInterface) SetNops(opts *bind.TransactOpts, nopsAndWeight
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_SetNops_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetNops'
+type EVM2EVMOnRampInterface_SetNops_Call struct {
+	*mock.Call
+}
+
+// SetNops is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - nopsAndWeights []evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight
+func (_e *EVM2EVMOnRampInterface_Expecter) SetNops(opts interface{}, nopsAndWeights interface{}) *EVM2EVMOnRampInterface_SetNops_Call {
+	return &EVM2EVMOnRampInterface_SetNops_Call{Call: _e.mock.On("SetNops", opts, nopsAndWeights)}
+}
+
+func (_c *EVM2EVMOnRampInterface_SetNops_Call) Run(run func(opts *bind.TransactOpts, nopsAndWeights []evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight)) *EVM2EVMOnRampInterface_SetNops_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].([]evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_SetNops_Call) Return(_a0 *types.Transaction, _a1 error) *EVM2EVMOnRampInterface_SetNops_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_SetNops_Call) RunAndReturn(run func(*bind.TransactOpts, []evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight) (*types.Transaction, error)) *EVM2EVMOnRampInterface_SetNops_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SetRateLimiterConfig provides a mock function with given fields: opts, config
@@ -1468,6 +2840,35 @@ func (_m *EVM2EVMOnRampInterface) SetRateLimiterConfig(opts *bind.TransactOpts, 
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_SetRateLimiterConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetRateLimiterConfig'
+type EVM2EVMOnRampInterface_SetRateLimiterConfig_Call struct {
+	*mock.Call
+}
+
+// SetRateLimiterConfig is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - config evm_2_evm_onramp.RateLimiterConfig
+func (_e *EVM2EVMOnRampInterface_Expecter) SetRateLimiterConfig(opts interface{}, config interface{}) *EVM2EVMOnRampInterface_SetRateLimiterConfig_Call {
+	return &EVM2EVMOnRampInterface_SetRateLimiterConfig_Call{Call: _e.mock.On("SetRateLimiterConfig", opts, config)}
+}
+
+func (_c *EVM2EVMOnRampInterface_SetRateLimiterConfig_Call) Run(run func(opts *bind.TransactOpts, config evm_2_evm_onramp.RateLimiterConfig)) *EVM2EVMOnRampInterface_SetRateLimiterConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(evm_2_evm_onramp.RateLimiterConfig))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_SetRateLimiterConfig_Call) Return(_a0 *types.Transaction, _a1 error) *EVM2EVMOnRampInterface_SetRateLimiterConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_SetRateLimiterConfig_Call) RunAndReturn(run func(*bind.TransactOpts, evm_2_evm_onramp.RateLimiterConfig) (*types.Transaction, error)) *EVM2EVMOnRampInterface_SetRateLimiterConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetTokenTransferFeeConfig provides a mock function with given fields: opts, tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs
 func (_m *EVM2EVMOnRampInterface) SetTokenTransferFeeConfig(opts *bind.TransactOpts, tokenTransferFeeConfigArgs []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs []common.Address) (*types.Transaction, error) {
 	ret := _m.Called(opts, tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs)
@@ -1496,6 +2897,36 @@ func (_m *EVM2EVMOnRampInterface) SetTokenTransferFeeConfig(opts *bind.TransactO
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_SetTokenTransferFeeConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetTokenTransferFeeConfig'
+type EVM2EVMOnRampInterface_SetTokenTransferFeeConfig_Call struct {
+	*mock.Call
+}
+
+// SetTokenTransferFeeConfig is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - tokenTransferFeeConfigArgs []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs
+//   - tokensToUseDefaultFeeConfigs []common.Address
+func (_e *EVM2EVMOnRampInterface_Expecter) SetTokenTransferFeeConfig(opts interface{}, tokenTransferFeeConfigArgs interface{}, tokensToUseDefaultFeeConfigs interface{}) *EVM2EVMOnRampInterface_SetTokenTransferFeeConfig_Call {
+	return &EVM2EVMOnRampInterface_SetTokenTransferFeeConfig_Call{Call: _e.mock.On("SetTokenTransferFeeConfig", opts, tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs)}
+}
+
+func (_c *EVM2EVMOnRampInterface_SetTokenTransferFeeConfig_Call) Run(run func(opts *bind.TransactOpts, tokenTransferFeeConfigArgs []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs []common.Address)) *EVM2EVMOnRampInterface_SetTokenTransferFeeConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].([]evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_SetTokenTransferFeeConfig_Call) Return(_a0 *types.Transaction, _a1 error) *EVM2EVMOnRampInterface_SetTokenTransferFeeConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_SetTokenTransferFeeConfig_Call) RunAndReturn(run func(*bind.TransactOpts, []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs, []common.Address) (*types.Transaction, error)) *EVM2EVMOnRampInterface_SetTokenTransferFeeConfig_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // TransferOwnership provides a mock function with given fields: opts, to
@@ -1528,6 +2959,35 @@ func (_m *EVM2EVMOnRampInterface) TransferOwnership(opts *bind.TransactOpts, to 
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_TransferOwnership_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TransferOwnership'
+type EVM2EVMOnRampInterface_TransferOwnership_Call struct {
+	*mock.Call
+}
+
+// TransferOwnership is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - to common.Address
+func (_e *EVM2EVMOnRampInterface_Expecter) TransferOwnership(opts interface{}, to interface{}) *EVM2EVMOnRampInterface_TransferOwnership_Call {
+	return &EVM2EVMOnRampInterface_TransferOwnership_Call{Call: _e.mock.On("TransferOwnership", opts, to)}
+}
+
+func (_c *EVM2EVMOnRampInterface_TransferOwnership_Call) Run(run func(opts *bind.TransactOpts, to common.Address)) *EVM2EVMOnRampInterface_TransferOwnership_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_TransferOwnership_Call) Return(_a0 *types.Transaction, _a1 error) *EVM2EVMOnRampInterface_TransferOwnership_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_TransferOwnership_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address) (*types.Transaction, error)) *EVM2EVMOnRampInterface_TransferOwnership_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // TypeAndVersion provides a mock function with given fields: opts
 func (_m *EVM2EVMOnRampInterface) TypeAndVersion(opts *bind.CallOpts) (string, error) {
 	ret := _m.Called(opts)
@@ -1554,6 +3014,34 @@ func (_m *EVM2EVMOnRampInterface) TypeAndVersion(opts *bind.CallOpts) (string, e
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_TypeAndVersion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TypeAndVersion'
+type EVM2EVMOnRampInterface_TypeAndVersion_Call struct {
+	*mock.Call
+}
+
+// TypeAndVersion is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *EVM2EVMOnRampInterface_Expecter) TypeAndVersion(opts interface{}) *EVM2EVMOnRampInterface_TypeAndVersion_Call {
+	return &EVM2EVMOnRampInterface_TypeAndVersion_Call{Call: _e.mock.On("TypeAndVersion", opts)}
+}
+
+func (_c *EVM2EVMOnRampInterface_TypeAndVersion_Call) Run(run func(opts *bind.CallOpts)) *EVM2EVMOnRampInterface_TypeAndVersion_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_TypeAndVersion_Call) Return(_a0 string, _a1 error) *EVM2EVMOnRampInterface_TypeAndVersion_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_TypeAndVersion_Call) RunAndReturn(run func(*bind.CallOpts) (string, error)) *EVM2EVMOnRampInterface_TypeAndVersion_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchAdminSet provides a mock function with given fields: opts, sink
@@ -1586,6 +3074,35 @@ func (_m *EVM2EVMOnRampInterface) WatchAdminSet(opts *bind.WatchOpts, sink chan<
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_WatchAdminSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchAdminSet'
+type EVM2EVMOnRampInterface_WatchAdminSet_Call struct {
+	*mock.Call
+}
+
+// WatchAdminSet is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampAdminSet
+func (_e *EVM2EVMOnRampInterface_Expecter) WatchAdminSet(opts interface{}, sink interface{}) *EVM2EVMOnRampInterface_WatchAdminSet_Call {
+	return &EVM2EVMOnRampInterface_WatchAdminSet_Call{Call: _e.mock.On("WatchAdminSet", opts, sink)}
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchAdminSet_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampAdminSet)) *EVM2EVMOnRampInterface_WatchAdminSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_onramp.EVM2EVMOnRampAdminSet))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchAdminSet_Call) Return(_a0 event.Subscription, _a1 error) *EVM2EVMOnRampInterface_WatchAdminSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchAdminSet_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampAdminSet) (event.Subscription, error)) *EVM2EVMOnRampInterface_WatchAdminSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchCCIPSendRequested provides a mock function with given fields: opts, sink
 func (_m *EVM2EVMOnRampInterface) WatchCCIPSendRequested(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
@@ -1614,6 +3131,35 @@ func (_m *EVM2EVMOnRampInterface) WatchCCIPSendRequested(opts *bind.WatchOpts, s
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_WatchCCIPSendRequested_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchCCIPSendRequested'
+type EVM2EVMOnRampInterface_WatchCCIPSendRequested_Call struct {
+	*mock.Call
+}
+
+// WatchCCIPSendRequested is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested
+func (_e *EVM2EVMOnRampInterface_Expecter) WatchCCIPSendRequested(opts interface{}, sink interface{}) *EVM2EVMOnRampInterface_WatchCCIPSendRequested_Call {
+	return &EVM2EVMOnRampInterface_WatchCCIPSendRequested_Call{Call: _e.mock.On("WatchCCIPSendRequested", opts, sink)}
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchCCIPSendRequested_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested)) *EVM2EVMOnRampInterface_WatchCCIPSendRequested_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchCCIPSendRequested_Call) Return(_a0 event.Subscription, _a1 error) *EVM2EVMOnRampInterface_WatchCCIPSendRequested_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchCCIPSendRequested_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested) (event.Subscription, error)) *EVM2EVMOnRampInterface_WatchCCIPSendRequested_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchConfigChanged provides a mock function with given fields: opts, sink
@@ -1646,6 +3192,35 @@ func (_m *EVM2EVMOnRampInterface) WatchConfigChanged(opts *bind.WatchOpts, sink 
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_WatchConfigChanged_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchConfigChanged'
+type EVM2EVMOnRampInterface_WatchConfigChanged_Call struct {
+	*mock.Call
+}
+
+// WatchConfigChanged is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampConfigChanged
+func (_e *EVM2EVMOnRampInterface_Expecter) WatchConfigChanged(opts interface{}, sink interface{}) *EVM2EVMOnRampInterface_WatchConfigChanged_Call {
+	return &EVM2EVMOnRampInterface_WatchConfigChanged_Call{Call: _e.mock.On("WatchConfigChanged", opts, sink)}
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchConfigChanged_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampConfigChanged)) *EVM2EVMOnRampInterface_WatchConfigChanged_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_onramp.EVM2EVMOnRampConfigChanged))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchConfigChanged_Call) Return(_a0 event.Subscription, _a1 error) *EVM2EVMOnRampInterface_WatchConfigChanged_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchConfigChanged_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampConfigChanged) (event.Subscription, error)) *EVM2EVMOnRampInterface_WatchConfigChanged_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchConfigSet provides a mock function with given fields: opts, sink
 func (_m *EVM2EVMOnRampInterface) WatchConfigSet(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampConfigSet) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
@@ -1674,6 +3249,35 @@ func (_m *EVM2EVMOnRampInterface) WatchConfigSet(opts *bind.WatchOpts, sink chan
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_WatchConfigSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchConfigSet'
+type EVM2EVMOnRampInterface_WatchConfigSet_Call struct {
+	*mock.Call
+}
+
+// WatchConfigSet is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampConfigSet
+func (_e *EVM2EVMOnRampInterface_Expecter) WatchConfigSet(opts interface{}, sink interface{}) *EVM2EVMOnRampInterface_WatchConfigSet_Call {
+	return &EVM2EVMOnRampInterface_WatchConfigSet_Call{Call: _e.mock.On("WatchConfigSet", opts, sink)}
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchConfigSet_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampConfigSet)) *EVM2EVMOnRampInterface_WatchConfigSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_onramp.EVM2EVMOnRampConfigSet))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchConfigSet_Call) Return(_a0 event.Subscription, _a1 error) *EVM2EVMOnRampInterface_WatchConfigSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchConfigSet_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampConfigSet) (event.Subscription, error)) *EVM2EVMOnRampInterface_WatchConfigSet_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchFeeConfigSet provides a mock function with given fields: opts, sink
@@ -1706,6 +3310,35 @@ func (_m *EVM2EVMOnRampInterface) WatchFeeConfigSet(opts *bind.WatchOpts, sink c
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_WatchFeeConfigSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchFeeConfigSet'
+type EVM2EVMOnRampInterface_WatchFeeConfigSet_Call struct {
+	*mock.Call
+}
+
+// WatchFeeConfigSet is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampFeeConfigSet
+func (_e *EVM2EVMOnRampInterface_Expecter) WatchFeeConfigSet(opts interface{}, sink interface{}) *EVM2EVMOnRampInterface_WatchFeeConfigSet_Call {
+	return &EVM2EVMOnRampInterface_WatchFeeConfigSet_Call{Call: _e.mock.On("WatchFeeConfigSet", opts, sink)}
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchFeeConfigSet_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampFeeConfigSet)) *EVM2EVMOnRampInterface_WatchFeeConfigSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_onramp.EVM2EVMOnRampFeeConfigSet))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchFeeConfigSet_Call) Return(_a0 event.Subscription, _a1 error) *EVM2EVMOnRampInterface_WatchFeeConfigSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchFeeConfigSet_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampFeeConfigSet) (event.Subscription, error)) *EVM2EVMOnRampInterface_WatchFeeConfigSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchNopPaid provides a mock function with given fields: opts, sink, nop
 func (_m *EVM2EVMOnRampInterface) WatchNopPaid(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampNopPaid, nop []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, nop)
@@ -1734,6 +3367,36 @@ func (_m *EVM2EVMOnRampInterface) WatchNopPaid(opts *bind.WatchOpts, sink chan<-
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_WatchNopPaid_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchNopPaid'
+type EVM2EVMOnRampInterface_WatchNopPaid_Call struct {
+	*mock.Call
+}
+
+// WatchNopPaid is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampNopPaid
+//   - nop []common.Address
+func (_e *EVM2EVMOnRampInterface_Expecter) WatchNopPaid(opts interface{}, sink interface{}, nop interface{}) *EVM2EVMOnRampInterface_WatchNopPaid_Call {
+	return &EVM2EVMOnRampInterface_WatchNopPaid_Call{Call: _e.mock.On("WatchNopPaid", opts, sink, nop)}
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchNopPaid_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampNopPaid, nop []common.Address)) *EVM2EVMOnRampInterface_WatchNopPaid_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_onramp.EVM2EVMOnRampNopPaid), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchNopPaid_Call) Return(_a0 event.Subscription, _a1 error) *EVM2EVMOnRampInterface_WatchNopPaid_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchNopPaid_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampNopPaid, []common.Address) (event.Subscription, error)) *EVM2EVMOnRampInterface_WatchNopPaid_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchNopsSet provides a mock function with given fields: opts, sink
@@ -1766,6 +3429,35 @@ func (_m *EVM2EVMOnRampInterface) WatchNopsSet(opts *bind.WatchOpts, sink chan<-
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_WatchNopsSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchNopsSet'
+type EVM2EVMOnRampInterface_WatchNopsSet_Call struct {
+	*mock.Call
+}
+
+// WatchNopsSet is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampNopsSet
+func (_e *EVM2EVMOnRampInterface_Expecter) WatchNopsSet(opts interface{}, sink interface{}) *EVM2EVMOnRampInterface_WatchNopsSet_Call {
+	return &EVM2EVMOnRampInterface_WatchNopsSet_Call{Call: _e.mock.On("WatchNopsSet", opts, sink)}
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchNopsSet_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampNopsSet)) *EVM2EVMOnRampInterface_WatchNopsSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_onramp.EVM2EVMOnRampNopsSet))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchNopsSet_Call) Return(_a0 event.Subscription, _a1 error) *EVM2EVMOnRampInterface_WatchNopsSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchNopsSet_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampNopsSet) (event.Subscription, error)) *EVM2EVMOnRampInterface_WatchNopsSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchOwnershipTransferRequested provides a mock function with given fields: opts, sink, from, to
 func (_m *EVM2EVMOnRampInterface) WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, from, to)
@@ -1794,6 +3486,37 @@ func (_m *EVM2EVMOnRampInterface) WatchOwnershipTransferRequested(opts *bind.Wat
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_WatchOwnershipTransferRequested_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchOwnershipTransferRequested'
+type EVM2EVMOnRampInterface_WatchOwnershipTransferRequested_Call struct {
+	*mock.Call
+}
+
+// WatchOwnershipTransferRequested is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferRequested
+//   - from []common.Address
+//   - to []common.Address
+func (_e *EVM2EVMOnRampInterface_Expecter) WatchOwnershipTransferRequested(opts interface{}, sink interface{}, from interface{}, to interface{}) *EVM2EVMOnRampInterface_WatchOwnershipTransferRequested_Call {
+	return &EVM2EVMOnRampInterface_WatchOwnershipTransferRequested_Call{Call: _e.mock.On("WatchOwnershipTransferRequested", opts, sink, from, to)}
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchOwnershipTransferRequested_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferRequested, from []common.Address, to []common.Address)) *EVM2EVMOnRampInterface_WatchOwnershipTransferRequested_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferRequested), args[2].([]common.Address), args[3].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchOwnershipTransferRequested_Call) Return(_a0 event.Subscription, _a1 error) *EVM2EVMOnRampInterface_WatchOwnershipTransferRequested_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchOwnershipTransferRequested_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferRequested, []common.Address, []common.Address) (event.Subscription, error)) *EVM2EVMOnRampInterface_WatchOwnershipTransferRequested_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchOwnershipTransferred provides a mock function with given fields: opts, sink, from, to
@@ -1826,6 +3549,37 @@ func (_m *EVM2EVMOnRampInterface) WatchOwnershipTransferred(opts *bind.WatchOpts
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_WatchOwnershipTransferred_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchOwnershipTransferred'
+type EVM2EVMOnRampInterface_WatchOwnershipTransferred_Call struct {
+	*mock.Call
+}
+
+// WatchOwnershipTransferred is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferred
+//   - from []common.Address
+//   - to []common.Address
+func (_e *EVM2EVMOnRampInterface_Expecter) WatchOwnershipTransferred(opts interface{}, sink interface{}, from interface{}, to interface{}) *EVM2EVMOnRampInterface_WatchOwnershipTransferred_Call {
+	return &EVM2EVMOnRampInterface_WatchOwnershipTransferred_Call{Call: _e.mock.On("WatchOwnershipTransferred", opts, sink, from, to)}
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchOwnershipTransferred_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferred, from []common.Address, to []common.Address)) *EVM2EVMOnRampInterface_WatchOwnershipTransferred_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferred), args[2].([]common.Address), args[3].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchOwnershipTransferred_Call) Return(_a0 event.Subscription, _a1 error) *EVM2EVMOnRampInterface_WatchOwnershipTransferred_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchOwnershipTransferred_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampOwnershipTransferred, []common.Address, []common.Address) (event.Subscription, error)) *EVM2EVMOnRampInterface_WatchOwnershipTransferred_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchTokenTransferFeeConfigDeleted provides a mock function with given fields: opts, sink
 func (_m *EVM2EVMOnRampInterface) WatchTokenTransferFeeConfigDeleted(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
@@ -1854,6 +3608,35 @@ func (_m *EVM2EVMOnRampInterface) WatchTokenTransferFeeConfigDeleted(opts *bind.
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigDeleted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchTokenTransferFeeConfigDeleted'
+type EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigDeleted_Call struct {
+	*mock.Call
+}
+
+// WatchTokenTransferFeeConfigDeleted is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted
+func (_e *EVM2EVMOnRampInterface_Expecter) WatchTokenTransferFeeConfigDeleted(opts interface{}, sink interface{}) *EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigDeleted_Call {
+	return &EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigDeleted_Call{Call: _e.mock.On("WatchTokenTransferFeeConfigDeleted", opts, sink)}
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigDeleted_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted)) *EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigDeleted_Call) Return(_a0 event.Subscription, _a1 error) *EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigDeleted_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigDeleted) (event.Subscription, error)) *EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchTokenTransferFeeConfigSet provides a mock function with given fields: opts, sink
@@ -1886,6 +3669,35 @@ func (_m *EVM2EVMOnRampInterface) WatchTokenTransferFeeConfigSet(opts *bind.Watc
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchTokenTransferFeeConfigSet'
+type EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigSet_Call struct {
+	*mock.Call
+}
+
+// WatchTokenTransferFeeConfigSet is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigSet
+func (_e *EVM2EVMOnRampInterface_Expecter) WatchTokenTransferFeeConfigSet(opts interface{}, sink interface{}) *EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigSet_Call {
+	return &EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigSet_Call{Call: _e.mock.On("WatchTokenTransferFeeConfigSet", opts, sink)}
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigSet_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigSet)) *EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigSet))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigSet_Call) Return(_a0 event.Subscription, _a1 error) *EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigSet_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigSet) (event.Subscription, error)) *EVM2EVMOnRampInterface_WatchTokenTransferFeeConfigSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchTokensConsumed provides a mock function with given fields: opts, sink
 func (_m *EVM2EVMOnRampInterface) WatchTokensConsumed(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokensConsumed) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
@@ -1916,6 +3728,35 @@ func (_m *EVM2EVMOnRampInterface) WatchTokensConsumed(opts *bind.WatchOpts, sink
 	return r0, r1
 }
 
+// EVM2EVMOnRampInterface_WatchTokensConsumed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchTokensConsumed'
+type EVM2EVMOnRampInterface_WatchTokensConsumed_Call struct {
+	*mock.Call
+}
+
+// WatchTokensConsumed is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokensConsumed
+func (_e *EVM2EVMOnRampInterface_Expecter) WatchTokensConsumed(opts interface{}, sink interface{}) *EVM2EVMOnRampInterface_WatchTokensConsumed_Call {
+	return &EVM2EVMOnRampInterface_WatchTokensConsumed_Call{Call: _e.mock.On("WatchTokensConsumed", opts, sink)}
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchTokensConsumed_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokensConsumed)) *EVM2EVMOnRampInterface_WatchTokensConsumed_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokensConsumed))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchTokensConsumed_Call) Return(_a0 event.Subscription, _a1 error) *EVM2EVMOnRampInterface_WatchTokensConsumed_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WatchTokensConsumed_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampTokensConsumed) (event.Subscription, error)) *EVM2EVMOnRampInterface_WatchTokensConsumed_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WithdrawNonLinkFees provides a mock function with given fields: opts, feeToken, to
 func (_m *EVM2EVMOnRampInterface) WithdrawNonLinkFees(opts *bind.TransactOpts, feeToken common.Address, to common.Address) (*types.Transaction, error) {
 	ret := _m.Called(opts, feeToken, to)
@@ -1944,6 +3785,36 @@ func (_m *EVM2EVMOnRampInterface) WithdrawNonLinkFees(opts *bind.TransactOpts, f
 	}
 
 	return r0, r1
+}
+
+// EVM2EVMOnRampInterface_WithdrawNonLinkFees_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WithdrawNonLinkFees'
+type EVM2EVMOnRampInterface_WithdrawNonLinkFees_Call struct {
+	*mock.Call
+}
+
+// WithdrawNonLinkFees is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - feeToken common.Address
+//   - to common.Address
+func (_e *EVM2EVMOnRampInterface_Expecter) WithdrawNonLinkFees(opts interface{}, feeToken interface{}, to interface{}) *EVM2EVMOnRampInterface_WithdrawNonLinkFees_Call {
+	return &EVM2EVMOnRampInterface_WithdrawNonLinkFees_Call{Call: _e.mock.On("WithdrawNonLinkFees", opts, feeToken, to)}
+}
+
+func (_c *EVM2EVMOnRampInterface_WithdrawNonLinkFees_Call) Run(run func(opts *bind.TransactOpts, feeToken common.Address, to common.Address)) *EVM2EVMOnRampInterface_WithdrawNonLinkFees_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(common.Address))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WithdrawNonLinkFees_Call) Return(_a0 *types.Transaction, _a1 error) *EVM2EVMOnRampInterface_WithdrawNonLinkFees_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOnRampInterface_WithdrawNonLinkFees_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, common.Address) (*types.Transaction, error)) *EVM2EVMOnRampInterface_WithdrawNonLinkFees_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewEVM2EVMOnRampInterface creates a new instance of EVM2EVMOnRampInterface. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

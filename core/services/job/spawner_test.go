@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"

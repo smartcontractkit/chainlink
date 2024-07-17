@@ -24,6 +24,14 @@ type L2ArbitrumGatewayInterface struct {
 	mock.Mock
 }
 
+type L2ArbitrumGatewayInterface_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *L2ArbitrumGatewayInterface) EXPECT() *L2ArbitrumGatewayInterface_Expecter {
+	return &L2ArbitrumGatewayInterface_Expecter{mock: &_m.Mock}
+}
+
 // Address provides a mock function with given fields:
 func (_m *L2ArbitrumGatewayInterface) Address() common.Address {
 	ret := _m.Called()
@@ -42,6 +50,33 @@ func (_m *L2ArbitrumGatewayInterface) Address() common.Address {
 	}
 
 	return r0
+}
+
+// L2ArbitrumGatewayInterface_Address_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Address'
+type L2ArbitrumGatewayInterface_Address_Call struct {
+	*mock.Call
+}
+
+// Address is a helper method to define mock.On call
+func (_e *L2ArbitrumGatewayInterface_Expecter) Address() *L2ArbitrumGatewayInterface_Address_Call {
+	return &L2ArbitrumGatewayInterface_Address_Call{Call: _e.mock.On("Address")}
+}
+
+func (_c *L2ArbitrumGatewayInterface_Address_Call) Run(run func()) *L2ArbitrumGatewayInterface_Address_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_Address_Call) Return(_a0 common.Address) *L2ArbitrumGatewayInterface_Address_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_Address_Call) RunAndReturn(run func() common.Address) *L2ArbitrumGatewayInterface_Address_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // CalculateL2TokenAddress provides a mock function with given fields: opts, l1ERC20
@@ -74,6 +109,35 @@ func (_m *L2ArbitrumGatewayInterface) CalculateL2TokenAddress(opts *bind.CallOpt
 	return r0, r1
 }
 
+// L2ArbitrumGatewayInterface_CalculateL2TokenAddress_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CalculateL2TokenAddress'
+type L2ArbitrumGatewayInterface_CalculateL2TokenAddress_Call struct {
+	*mock.Call
+}
+
+// CalculateL2TokenAddress is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - l1ERC20 common.Address
+func (_e *L2ArbitrumGatewayInterface_Expecter) CalculateL2TokenAddress(opts interface{}, l1ERC20 interface{}) *L2ArbitrumGatewayInterface_CalculateL2TokenAddress_Call {
+	return &L2ArbitrumGatewayInterface_CalculateL2TokenAddress_Call{Call: _e.mock.On("CalculateL2TokenAddress", opts, l1ERC20)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_CalculateL2TokenAddress_Call) Run(run func(opts *bind.CallOpts, l1ERC20 common.Address)) *L2ArbitrumGatewayInterface_CalculateL2TokenAddress_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_CalculateL2TokenAddress_Call) Return(_a0 common.Address, _a1 error) *L2ArbitrumGatewayInterface_CalculateL2TokenAddress_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_CalculateL2TokenAddress_Call) RunAndReturn(run func(*bind.CallOpts, common.Address) (common.Address, error)) *L2ArbitrumGatewayInterface_CalculateL2TokenAddress_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CounterpartGateway provides a mock function with given fields: opts
 func (_m *L2ArbitrumGatewayInterface) CounterpartGateway(opts *bind.CallOpts) (common.Address, error) {
 	ret := _m.Called(opts)
@@ -102,6 +166,34 @@ func (_m *L2ArbitrumGatewayInterface) CounterpartGateway(opts *bind.CallOpts) (c
 	}
 
 	return r0, r1
+}
+
+// L2ArbitrumGatewayInterface_CounterpartGateway_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CounterpartGateway'
+type L2ArbitrumGatewayInterface_CounterpartGateway_Call struct {
+	*mock.Call
+}
+
+// CounterpartGateway is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *L2ArbitrumGatewayInterface_Expecter) CounterpartGateway(opts interface{}) *L2ArbitrumGatewayInterface_CounterpartGateway_Call {
+	return &L2ArbitrumGatewayInterface_CounterpartGateway_Call{Call: _e.mock.On("CounterpartGateway", opts)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_CounterpartGateway_Call) Run(run func(opts *bind.CallOpts)) *L2ArbitrumGatewayInterface_CounterpartGateway_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_CounterpartGateway_Call) Return(_a0 common.Address, _a1 error) *L2ArbitrumGatewayInterface_CounterpartGateway_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_CounterpartGateway_Call) RunAndReturn(run func(*bind.CallOpts) (common.Address, error)) *L2ArbitrumGatewayInterface_CounterpartGateway_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ExitNum provides a mock function with given fields: opts
@@ -134,6 +226,34 @@ func (_m *L2ArbitrumGatewayInterface) ExitNum(opts *bind.CallOpts) (*big.Int, er
 	return r0, r1
 }
 
+// L2ArbitrumGatewayInterface_ExitNum_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ExitNum'
+type L2ArbitrumGatewayInterface_ExitNum_Call struct {
+	*mock.Call
+}
+
+// ExitNum is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *L2ArbitrumGatewayInterface_Expecter) ExitNum(opts interface{}) *L2ArbitrumGatewayInterface_ExitNum_Call {
+	return &L2ArbitrumGatewayInterface_ExitNum_Call{Call: _e.mock.On("ExitNum", opts)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_ExitNum_Call) Run(run func(opts *bind.CallOpts)) *L2ArbitrumGatewayInterface_ExitNum_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_ExitNum_Call) Return(_a0 *big.Int, _a1 error) *L2ArbitrumGatewayInterface_ExitNum_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_ExitNum_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *L2ArbitrumGatewayInterface_ExitNum_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterDepositFinalized provides a mock function with given fields: opts, l1Token, _from, _to
 func (_m *L2ArbitrumGatewayInterface) FilterDepositFinalized(opts *bind.FilterOpts, l1Token []common.Address, _from []common.Address, _to []common.Address) (*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalizedIterator, error) {
 	ret := _m.Called(opts, l1Token, _from, _to)
@@ -162,6 +282,37 @@ func (_m *L2ArbitrumGatewayInterface) FilterDepositFinalized(opts *bind.FilterOp
 	}
 
 	return r0, r1
+}
+
+// L2ArbitrumGatewayInterface_FilterDepositFinalized_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterDepositFinalized'
+type L2ArbitrumGatewayInterface_FilterDepositFinalized_Call struct {
+	*mock.Call
+}
+
+// FilterDepositFinalized is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - l1Token []common.Address
+//   - _from []common.Address
+//   - _to []common.Address
+func (_e *L2ArbitrumGatewayInterface_Expecter) FilterDepositFinalized(opts interface{}, l1Token interface{}, _from interface{}, _to interface{}) *L2ArbitrumGatewayInterface_FilterDepositFinalized_Call {
+	return &L2ArbitrumGatewayInterface_FilterDepositFinalized_Call{Call: _e.mock.On("FilterDepositFinalized", opts, l1Token, _from, _to)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_FilterDepositFinalized_Call) Run(run func(opts *bind.FilterOpts, l1Token []common.Address, _from []common.Address, _to []common.Address)) *L2ArbitrumGatewayInterface_FilterDepositFinalized_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]common.Address), args[3].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_FilterDepositFinalized_Call) Return(_a0 *l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalizedIterator, _a1 error) *L2ArbitrumGatewayInterface_FilterDepositFinalized_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_FilterDepositFinalized_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address, []common.Address) (*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalizedIterator, error)) *L2ArbitrumGatewayInterface_FilterDepositFinalized_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterTxToL1 provides a mock function with given fields: opts, _from, _to, _id
@@ -194,6 +345,37 @@ func (_m *L2ArbitrumGatewayInterface) FilterTxToL1(opts *bind.FilterOpts, _from 
 	return r0, r1
 }
 
+// L2ArbitrumGatewayInterface_FilterTxToL1_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterTxToL1'
+type L2ArbitrumGatewayInterface_FilterTxToL1_Call struct {
+	*mock.Call
+}
+
+// FilterTxToL1 is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - _from []common.Address
+//   - _to []common.Address
+//   - _id []*big.Int
+func (_e *L2ArbitrumGatewayInterface_Expecter) FilterTxToL1(opts interface{}, _from interface{}, _to interface{}, _id interface{}) *L2ArbitrumGatewayInterface_FilterTxToL1_Call {
+	return &L2ArbitrumGatewayInterface_FilterTxToL1_Call{Call: _e.mock.On("FilterTxToL1", opts, _from, _to, _id)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_FilterTxToL1_Call) Run(run func(opts *bind.FilterOpts, _from []common.Address, _to []common.Address, _id []*big.Int)) *L2ArbitrumGatewayInterface_FilterTxToL1_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]common.Address), args[3].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_FilterTxToL1_Call) Return(_a0 *l2_arbitrum_gateway.L2ArbitrumGatewayTxToL1Iterator, _a1 error) *L2ArbitrumGatewayInterface_FilterTxToL1_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_FilterTxToL1_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address, []*big.Int) (*l2_arbitrum_gateway.L2ArbitrumGatewayTxToL1Iterator, error)) *L2ArbitrumGatewayInterface_FilterTxToL1_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterWithdrawalInitiated provides a mock function with given fields: opts, _from, _to, _l2ToL1Id
 func (_m *L2ArbitrumGatewayInterface) FilterWithdrawalInitiated(opts *bind.FilterOpts, _from []common.Address, _to []common.Address, _l2ToL1Id []*big.Int) (*l2_arbitrum_gateway.L2ArbitrumGatewayWithdrawalInitiatedIterator, error) {
 	ret := _m.Called(opts, _from, _to, _l2ToL1Id)
@@ -222,6 +404,37 @@ func (_m *L2ArbitrumGatewayInterface) FilterWithdrawalInitiated(opts *bind.Filte
 	}
 
 	return r0, r1
+}
+
+// L2ArbitrumGatewayInterface_FilterWithdrawalInitiated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterWithdrawalInitiated'
+type L2ArbitrumGatewayInterface_FilterWithdrawalInitiated_Call struct {
+	*mock.Call
+}
+
+// FilterWithdrawalInitiated is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - _from []common.Address
+//   - _to []common.Address
+//   - _l2ToL1Id []*big.Int
+func (_e *L2ArbitrumGatewayInterface_Expecter) FilterWithdrawalInitiated(opts interface{}, _from interface{}, _to interface{}, _l2ToL1Id interface{}) *L2ArbitrumGatewayInterface_FilterWithdrawalInitiated_Call {
+	return &L2ArbitrumGatewayInterface_FilterWithdrawalInitiated_Call{Call: _e.mock.On("FilterWithdrawalInitiated", opts, _from, _to, _l2ToL1Id)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_FilterWithdrawalInitiated_Call) Run(run func(opts *bind.FilterOpts, _from []common.Address, _to []common.Address, _l2ToL1Id []*big.Int)) *L2ArbitrumGatewayInterface_FilterWithdrawalInitiated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]common.Address), args[3].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_FilterWithdrawalInitiated_Call) Return(_a0 *l2_arbitrum_gateway.L2ArbitrumGatewayWithdrawalInitiatedIterator, _a1 error) *L2ArbitrumGatewayInterface_FilterWithdrawalInitiated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_FilterWithdrawalInitiated_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address, []*big.Int) (*l2_arbitrum_gateway.L2ArbitrumGatewayWithdrawalInitiatedIterator, error)) *L2ArbitrumGatewayInterface_FilterWithdrawalInitiated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FinalizeInboundTransfer provides a mock function with given fields: opts, _token, _from, _to, _amount, _data
@@ -254,6 +467,39 @@ func (_m *L2ArbitrumGatewayInterface) FinalizeInboundTransfer(opts *bind.Transac
 	return r0, r1
 }
 
+// L2ArbitrumGatewayInterface_FinalizeInboundTransfer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FinalizeInboundTransfer'
+type L2ArbitrumGatewayInterface_FinalizeInboundTransfer_Call struct {
+	*mock.Call
+}
+
+// FinalizeInboundTransfer is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _token common.Address
+//   - _from common.Address
+//   - _to common.Address
+//   - _amount *big.Int
+//   - _data []byte
+func (_e *L2ArbitrumGatewayInterface_Expecter) FinalizeInboundTransfer(opts interface{}, _token interface{}, _from interface{}, _to interface{}, _amount interface{}, _data interface{}) *L2ArbitrumGatewayInterface_FinalizeInboundTransfer_Call {
+	return &L2ArbitrumGatewayInterface_FinalizeInboundTransfer_Call{Call: _e.mock.On("FinalizeInboundTransfer", opts, _token, _from, _to, _amount, _data)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_FinalizeInboundTransfer_Call) Run(run func(opts *bind.TransactOpts, _token common.Address, _from common.Address, _to common.Address, _amount *big.Int, _data []byte)) *L2ArbitrumGatewayInterface_FinalizeInboundTransfer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(common.Address), args[3].(common.Address), args[4].(*big.Int), args[5].([]byte))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_FinalizeInboundTransfer_Call) Return(_a0 *types.Transaction, _a1 error) *L2ArbitrumGatewayInterface_FinalizeInboundTransfer_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_FinalizeInboundTransfer_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, common.Address, common.Address, *big.Int, []byte) (*types.Transaction, error)) *L2ArbitrumGatewayInterface_FinalizeInboundTransfer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetOutboundCalldata provides a mock function with given fields: opts, _token, _from, _to, _amount, _data
 func (_m *L2ArbitrumGatewayInterface) GetOutboundCalldata(opts *bind.CallOpts, _token common.Address, _from common.Address, _to common.Address, _amount *big.Int, _data []byte) ([]byte, error) {
 	ret := _m.Called(opts, _token, _from, _to, _amount, _data)
@@ -282,6 +528,39 @@ func (_m *L2ArbitrumGatewayInterface) GetOutboundCalldata(opts *bind.CallOpts, _
 	}
 
 	return r0, r1
+}
+
+// L2ArbitrumGatewayInterface_GetOutboundCalldata_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetOutboundCalldata'
+type L2ArbitrumGatewayInterface_GetOutboundCalldata_Call struct {
+	*mock.Call
+}
+
+// GetOutboundCalldata is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - _token common.Address
+//   - _from common.Address
+//   - _to common.Address
+//   - _amount *big.Int
+//   - _data []byte
+func (_e *L2ArbitrumGatewayInterface_Expecter) GetOutboundCalldata(opts interface{}, _token interface{}, _from interface{}, _to interface{}, _amount interface{}, _data interface{}) *L2ArbitrumGatewayInterface_GetOutboundCalldata_Call {
+	return &L2ArbitrumGatewayInterface_GetOutboundCalldata_Call{Call: _e.mock.On("GetOutboundCalldata", opts, _token, _from, _to, _amount, _data)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_GetOutboundCalldata_Call) Run(run func(opts *bind.CallOpts, _token common.Address, _from common.Address, _to common.Address, _amount *big.Int, _data []byte)) *L2ArbitrumGatewayInterface_GetOutboundCalldata_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address), args[2].(common.Address), args[3].(common.Address), args[4].(*big.Int), args[5].([]byte))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_GetOutboundCalldata_Call) Return(_a0 []byte, _a1 error) *L2ArbitrumGatewayInterface_GetOutboundCalldata_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_GetOutboundCalldata_Call) RunAndReturn(run func(*bind.CallOpts, common.Address, common.Address, common.Address, *big.Int, []byte) ([]byte, error)) *L2ArbitrumGatewayInterface_GetOutboundCalldata_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // OutboundTransfer provides a mock function with given fields: opts, _l1Token, _to, _amount, _data
@@ -314,6 +593,38 @@ func (_m *L2ArbitrumGatewayInterface) OutboundTransfer(opts *bind.TransactOpts, 
 	return r0, r1
 }
 
+// L2ArbitrumGatewayInterface_OutboundTransfer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OutboundTransfer'
+type L2ArbitrumGatewayInterface_OutboundTransfer_Call struct {
+	*mock.Call
+}
+
+// OutboundTransfer is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _l1Token common.Address
+//   - _to common.Address
+//   - _amount *big.Int
+//   - _data []byte
+func (_e *L2ArbitrumGatewayInterface_Expecter) OutboundTransfer(opts interface{}, _l1Token interface{}, _to interface{}, _amount interface{}, _data interface{}) *L2ArbitrumGatewayInterface_OutboundTransfer_Call {
+	return &L2ArbitrumGatewayInterface_OutboundTransfer_Call{Call: _e.mock.On("OutboundTransfer", opts, _l1Token, _to, _amount, _data)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_OutboundTransfer_Call) Run(run func(opts *bind.TransactOpts, _l1Token common.Address, _to common.Address, _amount *big.Int, _data []byte)) *L2ArbitrumGatewayInterface_OutboundTransfer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(common.Address), args[3].(*big.Int), args[4].([]byte))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_OutboundTransfer_Call) Return(_a0 *types.Transaction, _a1 error) *L2ArbitrumGatewayInterface_OutboundTransfer_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_OutboundTransfer_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, common.Address, *big.Int, []byte) (*types.Transaction, error)) *L2ArbitrumGatewayInterface_OutboundTransfer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // OutboundTransfer0 provides a mock function with given fields: opts, _l1Token, _to, _amount, arg3, arg4, _data
 func (_m *L2ArbitrumGatewayInterface) OutboundTransfer0(opts *bind.TransactOpts, _l1Token common.Address, _to common.Address, _amount *big.Int, arg3 *big.Int, arg4 *big.Int, _data []byte) (*types.Transaction, error) {
 	ret := _m.Called(opts, _l1Token, _to, _amount, arg3, arg4, _data)
@@ -342,6 +653,40 @@ func (_m *L2ArbitrumGatewayInterface) OutboundTransfer0(opts *bind.TransactOpts,
 	}
 
 	return r0, r1
+}
+
+// L2ArbitrumGatewayInterface_OutboundTransfer0_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OutboundTransfer0'
+type L2ArbitrumGatewayInterface_OutboundTransfer0_Call struct {
+	*mock.Call
+}
+
+// OutboundTransfer0 is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _l1Token common.Address
+//   - _to common.Address
+//   - _amount *big.Int
+//   - arg3 *big.Int
+//   - arg4 *big.Int
+//   - _data []byte
+func (_e *L2ArbitrumGatewayInterface_Expecter) OutboundTransfer0(opts interface{}, _l1Token interface{}, _to interface{}, _amount interface{}, arg3 interface{}, arg4 interface{}, _data interface{}) *L2ArbitrumGatewayInterface_OutboundTransfer0_Call {
+	return &L2ArbitrumGatewayInterface_OutboundTransfer0_Call{Call: _e.mock.On("OutboundTransfer0", opts, _l1Token, _to, _amount, arg3, arg4, _data)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_OutboundTransfer0_Call) Run(run func(opts *bind.TransactOpts, _l1Token common.Address, _to common.Address, _amount *big.Int, arg3 *big.Int, arg4 *big.Int, _data []byte)) *L2ArbitrumGatewayInterface_OutboundTransfer0_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(common.Address), args[3].(*big.Int), args[4].(*big.Int), args[5].(*big.Int), args[6].([]byte))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_OutboundTransfer0_Call) Return(_a0 *types.Transaction, _a1 error) *L2ArbitrumGatewayInterface_OutboundTransfer0_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_OutboundTransfer0_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, common.Address, *big.Int, *big.Int, *big.Int, []byte) (*types.Transaction, error)) *L2ArbitrumGatewayInterface_OutboundTransfer0_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseDepositFinalized provides a mock function with given fields: log
@@ -374,6 +719,34 @@ func (_m *L2ArbitrumGatewayInterface) ParseDepositFinalized(log types.Log) (*l2_
 	return r0, r1
 }
 
+// L2ArbitrumGatewayInterface_ParseDepositFinalized_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseDepositFinalized'
+type L2ArbitrumGatewayInterface_ParseDepositFinalized_Call struct {
+	*mock.Call
+}
+
+// ParseDepositFinalized is a helper method to define mock.On call
+//   - log types.Log
+func (_e *L2ArbitrumGatewayInterface_Expecter) ParseDepositFinalized(log interface{}) *L2ArbitrumGatewayInterface_ParseDepositFinalized_Call {
+	return &L2ArbitrumGatewayInterface_ParseDepositFinalized_Call{Call: _e.mock.On("ParseDepositFinalized", log)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_ParseDepositFinalized_Call) Run(run func(log types.Log)) *L2ArbitrumGatewayInterface_ParseDepositFinalized_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_ParseDepositFinalized_Call) Return(_a0 *l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized, _a1 error) *L2ArbitrumGatewayInterface_ParseDepositFinalized_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_ParseDepositFinalized_Call) RunAndReturn(run func(types.Log) (*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized, error)) *L2ArbitrumGatewayInterface_ParseDepositFinalized_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseLog provides a mock function with given fields: log
 func (_m *L2ArbitrumGatewayInterface) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	ret := _m.Called(log)
@@ -402,6 +775,34 @@ func (_m *L2ArbitrumGatewayInterface) ParseLog(log types.Log) (generated.AbigenL
 	}
 
 	return r0, r1
+}
+
+// L2ArbitrumGatewayInterface_ParseLog_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseLog'
+type L2ArbitrumGatewayInterface_ParseLog_Call struct {
+	*mock.Call
+}
+
+// ParseLog is a helper method to define mock.On call
+//   - log types.Log
+func (_e *L2ArbitrumGatewayInterface_Expecter) ParseLog(log interface{}) *L2ArbitrumGatewayInterface_ParseLog_Call {
+	return &L2ArbitrumGatewayInterface_ParseLog_Call{Call: _e.mock.On("ParseLog", log)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_ParseLog_Call) Run(run func(log types.Log)) *L2ArbitrumGatewayInterface_ParseLog_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_ParseLog_Call) Return(_a0 generated.AbigenLog, _a1 error) *L2ArbitrumGatewayInterface_ParseLog_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_ParseLog_Call) RunAndReturn(run func(types.Log) (generated.AbigenLog, error)) *L2ArbitrumGatewayInterface_ParseLog_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseTxToL1 provides a mock function with given fields: log
@@ -434,6 +835,34 @@ func (_m *L2ArbitrumGatewayInterface) ParseTxToL1(log types.Log) (*l2_arbitrum_g
 	return r0, r1
 }
 
+// L2ArbitrumGatewayInterface_ParseTxToL1_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseTxToL1'
+type L2ArbitrumGatewayInterface_ParseTxToL1_Call struct {
+	*mock.Call
+}
+
+// ParseTxToL1 is a helper method to define mock.On call
+//   - log types.Log
+func (_e *L2ArbitrumGatewayInterface_Expecter) ParseTxToL1(log interface{}) *L2ArbitrumGatewayInterface_ParseTxToL1_Call {
+	return &L2ArbitrumGatewayInterface_ParseTxToL1_Call{Call: _e.mock.On("ParseTxToL1", log)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_ParseTxToL1_Call) Run(run func(log types.Log)) *L2ArbitrumGatewayInterface_ParseTxToL1_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_ParseTxToL1_Call) Return(_a0 *l2_arbitrum_gateway.L2ArbitrumGatewayTxToL1, _a1 error) *L2ArbitrumGatewayInterface_ParseTxToL1_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_ParseTxToL1_Call) RunAndReturn(run func(types.Log) (*l2_arbitrum_gateway.L2ArbitrumGatewayTxToL1, error)) *L2ArbitrumGatewayInterface_ParseTxToL1_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseWithdrawalInitiated provides a mock function with given fields: log
 func (_m *L2ArbitrumGatewayInterface) ParseWithdrawalInitiated(log types.Log) (*l2_arbitrum_gateway.L2ArbitrumGatewayWithdrawalInitiated, error) {
 	ret := _m.Called(log)
@@ -462,6 +891,34 @@ func (_m *L2ArbitrumGatewayInterface) ParseWithdrawalInitiated(log types.Log) (*
 	}
 
 	return r0, r1
+}
+
+// L2ArbitrumGatewayInterface_ParseWithdrawalInitiated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseWithdrawalInitiated'
+type L2ArbitrumGatewayInterface_ParseWithdrawalInitiated_Call struct {
+	*mock.Call
+}
+
+// ParseWithdrawalInitiated is a helper method to define mock.On call
+//   - log types.Log
+func (_e *L2ArbitrumGatewayInterface_Expecter) ParseWithdrawalInitiated(log interface{}) *L2ArbitrumGatewayInterface_ParseWithdrawalInitiated_Call {
+	return &L2ArbitrumGatewayInterface_ParseWithdrawalInitiated_Call{Call: _e.mock.On("ParseWithdrawalInitiated", log)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_ParseWithdrawalInitiated_Call) Run(run func(log types.Log)) *L2ArbitrumGatewayInterface_ParseWithdrawalInitiated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_ParseWithdrawalInitiated_Call) Return(_a0 *l2_arbitrum_gateway.L2ArbitrumGatewayWithdrawalInitiated, _a1 error) *L2ArbitrumGatewayInterface_ParseWithdrawalInitiated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_ParseWithdrawalInitiated_Call) RunAndReturn(run func(types.Log) (*l2_arbitrum_gateway.L2ArbitrumGatewayWithdrawalInitiated, error)) *L2ArbitrumGatewayInterface_ParseWithdrawalInitiated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // PostUpgradeInit provides a mock function with given fields: opts
@@ -494,6 +951,34 @@ func (_m *L2ArbitrumGatewayInterface) PostUpgradeInit(opts *bind.TransactOpts) (
 	return r0, r1
 }
 
+// L2ArbitrumGatewayInterface_PostUpgradeInit_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PostUpgradeInit'
+type L2ArbitrumGatewayInterface_PostUpgradeInit_Call struct {
+	*mock.Call
+}
+
+// PostUpgradeInit is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+func (_e *L2ArbitrumGatewayInterface_Expecter) PostUpgradeInit(opts interface{}) *L2ArbitrumGatewayInterface_PostUpgradeInit_Call {
+	return &L2ArbitrumGatewayInterface_PostUpgradeInit_Call{Call: _e.mock.On("PostUpgradeInit", opts)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_PostUpgradeInit_Call) Run(run func(opts *bind.TransactOpts)) *L2ArbitrumGatewayInterface_PostUpgradeInit_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_PostUpgradeInit_Call) Return(_a0 *types.Transaction, _a1 error) *L2ArbitrumGatewayInterface_PostUpgradeInit_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_PostUpgradeInit_Call) RunAndReturn(run func(*bind.TransactOpts) (*types.Transaction, error)) *L2ArbitrumGatewayInterface_PostUpgradeInit_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Router provides a mock function with given fields: opts
 func (_m *L2ArbitrumGatewayInterface) Router(opts *bind.CallOpts) (common.Address, error) {
 	ret := _m.Called(opts)
@@ -522,6 +1007,34 @@ func (_m *L2ArbitrumGatewayInterface) Router(opts *bind.CallOpts) (common.Addres
 	}
 
 	return r0, r1
+}
+
+// L2ArbitrumGatewayInterface_Router_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Router'
+type L2ArbitrumGatewayInterface_Router_Call struct {
+	*mock.Call
+}
+
+// Router is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *L2ArbitrumGatewayInterface_Expecter) Router(opts interface{}) *L2ArbitrumGatewayInterface_Router_Call {
+	return &L2ArbitrumGatewayInterface_Router_Call{Call: _e.mock.On("Router", opts)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_Router_Call) Run(run func(opts *bind.CallOpts)) *L2ArbitrumGatewayInterface_Router_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_Router_Call) Return(_a0 common.Address, _a1 error) *L2ArbitrumGatewayInterface_Router_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_Router_Call) RunAndReturn(run func(*bind.CallOpts) (common.Address, error)) *L2ArbitrumGatewayInterface_Router_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchDepositFinalized provides a mock function with given fields: opts, sink, l1Token, _from, _to
@@ -554,6 +1067,38 @@ func (_m *L2ArbitrumGatewayInterface) WatchDepositFinalized(opts *bind.WatchOpts
 	return r0, r1
 }
 
+// L2ArbitrumGatewayInterface_WatchDepositFinalized_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchDepositFinalized'
+type L2ArbitrumGatewayInterface_WatchDepositFinalized_Call struct {
+	*mock.Call
+}
+
+// WatchDepositFinalized is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized
+//   - l1Token []common.Address
+//   - _from []common.Address
+//   - _to []common.Address
+func (_e *L2ArbitrumGatewayInterface_Expecter) WatchDepositFinalized(opts interface{}, sink interface{}, l1Token interface{}, _from interface{}, _to interface{}) *L2ArbitrumGatewayInterface_WatchDepositFinalized_Call {
+	return &L2ArbitrumGatewayInterface_WatchDepositFinalized_Call{Call: _e.mock.On("WatchDepositFinalized", opts, sink, l1Token, _from, _to)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_WatchDepositFinalized_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized, l1Token []common.Address, _from []common.Address, _to []common.Address)) *L2ArbitrumGatewayInterface_WatchDepositFinalized_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized), args[2].([]common.Address), args[3].([]common.Address), args[4].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_WatchDepositFinalized_Call) Return(_a0 event.Subscription, _a1 error) *L2ArbitrumGatewayInterface_WatchDepositFinalized_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_WatchDepositFinalized_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized, []common.Address, []common.Address, []common.Address) (event.Subscription, error)) *L2ArbitrumGatewayInterface_WatchDepositFinalized_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchTxToL1 provides a mock function with given fields: opts, sink, _from, _to, _id
 func (_m *L2ArbitrumGatewayInterface) WatchTxToL1(opts *bind.WatchOpts, sink chan<- *l2_arbitrum_gateway.L2ArbitrumGatewayTxToL1, _from []common.Address, _to []common.Address, _id []*big.Int) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, _from, _to, _id)
@@ -584,6 +1129,38 @@ func (_m *L2ArbitrumGatewayInterface) WatchTxToL1(opts *bind.WatchOpts, sink cha
 	return r0, r1
 }
 
+// L2ArbitrumGatewayInterface_WatchTxToL1_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchTxToL1'
+type L2ArbitrumGatewayInterface_WatchTxToL1_Call struct {
+	*mock.Call
+}
+
+// WatchTxToL1 is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *l2_arbitrum_gateway.L2ArbitrumGatewayTxToL1
+//   - _from []common.Address
+//   - _to []common.Address
+//   - _id []*big.Int
+func (_e *L2ArbitrumGatewayInterface_Expecter) WatchTxToL1(opts interface{}, sink interface{}, _from interface{}, _to interface{}, _id interface{}) *L2ArbitrumGatewayInterface_WatchTxToL1_Call {
+	return &L2ArbitrumGatewayInterface_WatchTxToL1_Call{Call: _e.mock.On("WatchTxToL1", opts, sink, _from, _to, _id)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_WatchTxToL1_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *l2_arbitrum_gateway.L2ArbitrumGatewayTxToL1, _from []common.Address, _to []common.Address, _id []*big.Int)) *L2ArbitrumGatewayInterface_WatchTxToL1_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *l2_arbitrum_gateway.L2ArbitrumGatewayTxToL1), args[2].([]common.Address), args[3].([]common.Address), args[4].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_WatchTxToL1_Call) Return(_a0 event.Subscription, _a1 error) *L2ArbitrumGatewayInterface_WatchTxToL1_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_WatchTxToL1_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *l2_arbitrum_gateway.L2ArbitrumGatewayTxToL1, []common.Address, []common.Address, []*big.Int) (event.Subscription, error)) *L2ArbitrumGatewayInterface_WatchTxToL1_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchWithdrawalInitiated provides a mock function with given fields: opts, sink, _from, _to, _l2ToL1Id
 func (_m *L2ArbitrumGatewayInterface) WatchWithdrawalInitiated(opts *bind.WatchOpts, sink chan<- *l2_arbitrum_gateway.L2ArbitrumGatewayWithdrawalInitiated, _from []common.Address, _to []common.Address, _l2ToL1Id []*big.Int) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, _from, _to, _l2ToL1Id)
@@ -612,6 +1189,38 @@ func (_m *L2ArbitrumGatewayInterface) WatchWithdrawalInitiated(opts *bind.WatchO
 	}
 
 	return r0, r1
+}
+
+// L2ArbitrumGatewayInterface_WatchWithdrawalInitiated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchWithdrawalInitiated'
+type L2ArbitrumGatewayInterface_WatchWithdrawalInitiated_Call struct {
+	*mock.Call
+}
+
+// WatchWithdrawalInitiated is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *l2_arbitrum_gateway.L2ArbitrumGatewayWithdrawalInitiated
+//   - _from []common.Address
+//   - _to []common.Address
+//   - _l2ToL1Id []*big.Int
+func (_e *L2ArbitrumGatewayInterface_Expecter) WatchWithdrawalInitiated(opts interface{}, sink interface{}, _from interface{}, _to interface{}, _l2ToL1Id interface{}) *L2ArbitrumGatewayInterface_WatchWithdrawalInitiated_Call {
+	return &L2ArbitrumGatewayInterface_WatchWithdrawalInitiated_Call{Call: _e.mock.On("WatchWithdrawalInitiated", opts, sink, _from, _to, _l2ToL1Id)}
+}
+
+func (_c *L2ArbitrumGatewayInterface_WatchWithdrawalInitiated_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *l2_arbitrum_gateway.L2ArbitrumGatewayWithdrawalInitiated, _from []common.Address, _to []common.Address, _l2ToL1Id []*big.Int)) *L2ArbitrumGatewayInterface_WatchWithdrawalInitiated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *l2_arbitrum_gateway.L2ArbitrumGatewayWithdrawalInitiated), args[2].([]common.Address), args[3].([]common.Address), args[4].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_WatchWithdrawalInitiated_Call) Return(_a0 event.Subscription, _a1 error) *L2ArbitrumGatewayInterface_WatchWithdrawalInitiated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *L2ArbitrumGatewayInterface_WatchWithdrawalInitiated_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *l2_arbitrum_gateway.L2ArbitrumGatewayWithdrawalInitiated, []common.Address, []common.Address, []*big.Int) (event.Subscription, error)) *L2ArbitrumGatewayInterface_WatchWithdrawalInitiated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewL2ArbitrumGatewayInterface creates a new instance of L2ArbitrumGatewayInterface. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

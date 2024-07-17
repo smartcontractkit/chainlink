@@ -14,6 +14,14 @@ type OptimismPortal2Interface struct {
 	mock.Mock
 }
 
+type OptimismPortal2Interface_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *OptimismPortal2Interface) EXPECT() *OptimismPortal2Interface_Expecter {
+	return &OptimismPortal2Interface_Expecter{mock: &_m.Mock}
+}
+
 // Address provides a mock function with given fields:
 func (_m *OptimismPortal2Interface) Address() common.Address {
 	ret := _m.Called()
@@ -32,6 +40,33 @@ func (_m *OptimismPortal2Interface) Address() common.Address {
 	}
 
 	return r0
+}
+
+// OptimismPortal2Interface_Address_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Address'
+type OptimismPortal2Interface_Address_Call struct {
+	*mock.Call
+}
+
+// Address is a helper method to define mock.On call
+func (_e *OptimismPortal2Interface_Expecter) Address() *OptimismPortal2Interface_Address_Call {
+	return &OptimismPortal2Interface_Address_Call{Call: _e.mock.On("Address")}
+}
+
+func (_c *OptimismPortal2Interface_Address_Call) Run(run func()) *OptimismPortal2Interface_Address_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *OptimismPortal2Interface_Address_Call) Return(_a0 common.Address) *OptimismPortal2Interface_Address_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *OptimismPortal2Interface_Address_Call) RunAndReturn(run func() common.Address) *OptimismPortal2Interface_Address_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // DisputeGameFactory provides a mock function with given fields: opts
@@ -64,6 +99,34 @@ func (_m *OptimismPortal2Interface) DisputeGameFactory(opts *bind.CallOpts) (com
 	return r0, r1
 }
 
+// OptimismPortal2Interface_DisputeGameFactory_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DisputeGameFactory'
+type OptimismPortal2Interface_DisputeGameFactory_Call struct {
+	*mock.Call
+}
+
+// DisputeGameFactory is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *OptimismPortal2Interface_Expecter) DisputeGameFactory(opts interface{}) *OptimismPortal2Interface_DisputeGameFactory_Call {
+	return &OptimismPortal2Interface_DisputeGameFactory_Call{Call: _e.mock.On("DisputeGameFactory", opts)}
+}
+
+func (_c *OptimismPortal2Interface_DisputeGameFactory_Call) Run(run func(opts *bind.CallOpts)) *OptimismPortal2Interface_DisputeGameFactory_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *OptimismPortal2Interface_DisputeGameFactory_Call) Return(_a0 common.Address, _a1 error) *OptimismPortal2Interface_DisputeGameFactory_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OptimismPortal2Interface_DisputeGameFactory_Call) RunAndReturn(run func(*bind.CallOpts) (common.Address, error)) *OptimismPortal2Interface_DisputeGameFactory_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RespectedGameType provides a mock function with given fields: opts
 func (_m *OptimismPortal2Interface) RespectedGameType(opts *bind.CallOpts) (uint32, error) {
 	ret := _m.Called(opts)
@@ -90,6 +153,34 @@ func (_m *OptimismPortal2Interface) RespectedGameType(opts *bind.CallOpts) (uint
 	}
 
 	return r0, r1
+}
+
+// OptimismPortal2Interface_RespectedGameType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RespectedGameType'
+type OptimismPortal2Interface_RespectedGameType_Call struct {
+	*mock.Call
+}
+
+// RespectedGameType is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *OptimismPortal2Interface_Expecter) RespectedGameType(opts interface{}) *OptimismPortal2Interface_RespectedGameType_Call {
+	return &OptimismPortal2Interface_RespectedGameType_Call{Call: _e.mock.On("RespectedGameType", opts)}
+}
+
+func (_c *OptimismPortal2Interface_RespectedGameType_Call) Run(run func(opts *bind.CallOpts)) *OptimismPortal2Interface_RespectedGameType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *OptimismPortal2Interface_RespectedGameType_Call) Return(_a0 uint32, _a1 error) *OptimismPortal2Interface_RespectedGameType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OptimismPortal2Interface_RespectedGameType_Call) RunAndReturn(run func(*bind.CallOpts) (uint32, error)) *OptimismPortal2Interface_RespectedGameType_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewOptimismPortal2Interface creates a new instance of OptimismPortal2Interface. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
