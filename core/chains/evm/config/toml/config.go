@@ -850,6 +850,8 @@ type NodePool struct {
 	Errors                     ClientErrors `toml:",omitempty"`
 	EnforceRepeatableRead      *bool
 	DeathDeclarationDelay      *commonconfig.Duration
+	LargePayloadRpcTimeout     *commonconfig.Duration
+	RpcTimeout                 *commonconfig.Duration
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -881,6 +883,14 @@ func (p *NodePool) setFrom(f *NodePool) {
 
 	if v := f.DeathDeclarationDelay; v != nil {
 		p.DeathDeclarationDelay = v
+	}
+
+	if v := f.LargePayloadRpcTimeout; v != nil {
+		p.LargePayloadRpcTimeout = v
+	}
+
+	if v := f.RpcTimeout; v != nil {
+		p.RpcTimeout = v
 	}
 	p.Errors.setFrom(&f.Errors)
 }

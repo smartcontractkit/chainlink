@@ -328,6 +328,8 @@ func TestNodePoolConfig(t *testing.T) {
 	require.Equal(t, false, cfg.EVM().NodePool().NodeIsSyncingEnabled())
 	require.Equal(t, false, cfg.EVM().NodePool().EnforceRepeatableRead())
 	require.Equal(t, time.Duration(10000000000), cfg.EVM().NodePool().DeathDeclarationDelay())
+	require.Equal(t, time.Duration(10000000000), cfg.EVM().NodePool().LargePayloadRpcTimeout())
+	require.Equal(t, time.Duration(10000000000), cfg.EVM().NodePool().RpcTimeout())
 }
 
 func TestClientErrorsConfig(t *testing.T) {
