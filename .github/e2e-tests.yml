@@ -133,6 +133,306 @@ runner-test-matrix:
 
   # START: Automation tests
   
+  - id: integration-tests/smoke/automation_test.go:^TestAutomationBasic/registry_2_0|TestAutomationBasic/registry_2_1_conditional|TestAutomationBasic/registry_2_1_logtrigger$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationBasic/registry_2_0|TestAutomationBasic/registry_2_1_conditional|TestAutomationBasic/registry_2_1_logtrigger$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated
+
+  - id: integration-tests/smoke/automation_test.go:^TestAutomationBasic/registry_2_1_with_mercury_v02|TestAutomationBasic/registry_2_1_with_mercury_v03|TestAutomationBasic/registry_2_1_with_logtrigger_and_mercury_v02$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationBasic/registry_2_1_with_mercury_v02|TestAutomationBasic/registry_2_1_with_mercury_v03|TestAutomationBasic/registry_2_1_with_logtrigger_and_mercury_v02$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated
+
+  - id: integration-tests/smoke/automation_test.go:^TestAutomationBasic/registry_2_2_conditional|TestAutomationBasic/registry_2_2_logtrigger|TestAutomationBasic/registry_2_2_with_mercury_v02$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationBasic/registry_2_2_conditional|TestAutomationBasic/registry_2_2_logtrigger|TestAutomationBasic/registry_2_2_with_mercury_v02$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated
+
+  - id: integration-tests/smoke/automation_test.go:^TestAutomationBasic/registry_2_2_with_mercury_v03|TestAutomationBasic/registry_2_2_with_logtrigger_and_mercury_v02$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationBasic/registry_2_2_with_mercury_v03|TestAutomationBasic/registry_2_2_with_logtrigger_and_mercury_v02$ -test.parallel=2 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated
+
+  - id: integration-tests/smoke/automation_test.go:^TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated
+
+  - id: integration-tests/smoke/automation_test.go:^TestAutomationBasic/registry_2_3_logtrigger_native|TestAutomationBasic/registry_2_3_logtrigger_link$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationBasic/registry_2_3_logtrigger_native|TestAutomationBasic/registry_2_3_logtrigger_link$ -test.parallel=2 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated
+
+  - id: integration-tests/smoke/automation_test.go:^TestAutomationBasic/registry_2_3_with_mercury_v03_link|TestAutomationBasic/registry_2_3_with_logtrigger_and_mercury_v02_link$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationBasic/registry_2_3_with_mercury_v03_link|TestAutomationBasic/registry_2_3_with_logtrigger_and_mercury_v02_link$ -test.parallel=2 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated                
+
+  - id: integration-tests/smoke/automation_test.go:^TestSetUpkeepTriggerConfig$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestSetUpkeepTriggerConfig$ -test.parallel=2 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated  
+
+  - id: integration-tests/smoke/automation_test.go:^TestAutomationAddFunds$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationAddFunds$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated  
+
+  - id: integration-tests/smoke/automation_test.go:^TestAutomationPauseUnPause$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationPauseUnPause$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated  
+
+  - id: integration-tests/smoke/automation_test.go:^TestAutomationRegisterUpkeep$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationRegisterUpkeep$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated  
+
+  - id: integration-tests/smoke/automation_test.go:^TestAutomationPauseRegistry$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationPauseRegistry$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated  
+
+  - id: integration-tests/smoke/automation_test.go:^TestAutomationKeeperNodesDown$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationKeeperNodesDown$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated  
+
+  - id: integration-tests/smoke/automation_test.go:^TestAutomationPerformSimulation$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationPerformSimulation$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated  
+
+  - id: integration-tests/smoke/automation_test.go:^TestAutomationCheckPerformGasLimit$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationCheckPerformGasLimit$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated  
+
+  - id: integration-tests/smoke/automation_test.go:^TestUpdateCheckData$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestUpdateCheckData$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated  
+
+  - id: integration-tests/smoke/automation_test.go:^TestSetOffchainConfigWithMaxGasPrice$
+    path: integration-tests/smoke/automation_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestSetOffchainConfigWithMaxGasPrice$ -test.parallel=2 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-automation-evm-simulated  
+
+  - id: integration-tests/smoke/keeper_test.go:^TestKeeperBasicSmoke$
+    path: integration-tests/smoke/keeper_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperBasicSmoke$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-keeper-evm-simulated  
+
+  - id: integration-tests/smoke/keeper_test.go:^TestKeeperBlockCountPerTurn$
+    path: integration-tests/smoke/keeper_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperBlockCountPerTurn$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-keeper-evm-simulated  
+
+  - id: integration-tests/smoke/keeper_test.go:^TestKeeperSimulation$
+    path: integration-tests/smoke/keeper_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperSimulation$ -test.parallel=2 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-keeper-evm-simulated  
+
+  - id: integration-tests/smoke/keeper_test.go:^TestKeeperCheckPerformGasLimit$
+    path: integration-tests/smoke/keeper_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperCheckPerformGasLimit$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-keeper-evm-simulated  
+
+  - id: integration-tests/smoke/keeper_test.go:^TestKeeperRegisterUpkeep$
+    path: integration-tests/smoke/keeper_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperRegisterUpkeep$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-keeper-evm-simulated  
+
+  - id: integration-tests/smoke/keeper_test.go:^TestKeeperAddFunds$
+    path: integration-tests/smoke/keeper_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperAddFunds$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-keeper-evm-simulated  
+
+  - id: integration-tests/smoke/keeper_test.go:^TestKeeperRemove$
+    path: integration-tests/smoke/keeper_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperRemove$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-keeper-evm-simulated     
+    
+  - id: integration-tests/smoke/keeper_test.go:^TestKeeperPauseRegistry$
+    path: integration-tests/smoke/keeper_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperPauseRegistry$ -test.parallel=2 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-keeper-evm-simulated  
+
+  - id: integration-tests/smoke/keeper_test.go:^TestKeeperMigrateRegistry$
+    path: integration-tests/smoke/keeper_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperMigrateRegistry$ -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-keeper-evm-simulated  
+
+  - id: integration-tests/smoke/keeper_test.go:^TestKeeperNodeDown$
+    path: integration-tests/smoke/keeper_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperNodeDown$ -test.parallel=3 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-keeper-evm-simulated  
+
+  - id: integration-tests/smoke/keeper_test.go:^TestKeeperPauseUnPauseUpkeep$
+    path: integration-tests/smoke/keeper_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperPauseUnPauseUpkeep$ -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-keeper-evm-simulated         
+
+  - id: integration-tests/smoke/keeper_test.go:^TestKeeperUpdateCheckData$
+    path: integration-tests/smoke/keeper_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperUpdateCheckData$ -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-keeper-evm-simulated         
+
+  - id: integration-tests/smoke/keeper_test.go:^TestKeeperJobReplacement$
+    path: integration-tests/smoke/keeper_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperJobReplacement$ -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-keeper-evm-simulated                           
+
   - id: integration-tests/load/automationv2_1/automationv2_1_test.go:TestLogTrigger
     path: integration-tests/load/automationv2_1/automationv2_1_test.go
     runs_on: ubuntu-latest
@@ -217,7 +517,7 @@ runner-test-matrix:
     remote_runner_memory: 4Gi
     runs_on: ubuntu-latest
     # workflows:
-    #   - Run Nightly E2E Tests
+      # - Run Nightly E2E Tests
     test_cmd: cd integration-tests/benchmark && go test -v -test.run ^TestAutomationBenchmark$ -test.parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-benchmark-automation-nightly
     test_inputs:
