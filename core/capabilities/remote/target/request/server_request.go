@@ -72,6 +72,9 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
+	e.lggr.Debugw("OnMessage called for request", "msgId", GetMessageID(msg), "calls", len(e.requesters), "hasResponse", e.response != nil,
+		"msg", msg)
+
 	if msg.Sender == nil {
 		return fmt.Errorf("sender missing from message")
 	}
@@ -81,7 +84,6 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 		return fmt.Errorf("failed to add requester to request: %w", err)
 	}
 
-	e.lggr.Debugw("OnMessage called for request", "msgId", GetMessageID(msg), "calls", len(e.requesters), "hasResponse", e.response != nil)
 	if e.minimumRequiredRequestsReceived() && !e.hasResponse() {
 		if err := e.executeRequest(ctx, msg.Payload); err != nil {
 			e.setError(types.Error_INTERNAL_ERROR, err.Error())
@@ -218,7 +220,7 @@ func (e *ServerRequest) sendResponse(requester p2ptypes.PeerID) error {
 		responseMsg.Payload = e.response.response
 	}
 
-	e.lggr.Debugw("Sending response", "receiver", requester, "msgId", e.requestMessageID)
+	e.lggr.Debugw("Sending response", "msgId", e.requestMessageID, "msg", &responseMsg)
 	if err := e.dispatcher.Send(requester, &responseMsg); err != nil {
 		return fmt.Errorf("failed to send response to dispatcher: %w", err)
 	}

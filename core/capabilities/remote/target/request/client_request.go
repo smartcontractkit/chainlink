@@ -86,7 +86,7 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 				lggr.Debugw("context done, not sending request to peer", "execID", req.Metadata.WorkflowExecutionID, "peerID", peerID)
 				return
 			case <-time.After(delay):
-				lggr.Debugw("sending request to peer", "execID", req.Metadata.WorkflowExecutionID, "peerID", peerID)
+				lggr.Debugw("sending message to peer", "execID", req.Metadata.WorkflowExecutionID, "peerID", peerID, "message", message)
 				err := dispatcher.Send(peerID, message)
 				if err != nil {
 					lggr.Errorw("failed to send message", "peerID", peerID, "err", err)
