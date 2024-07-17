@@ -438,6 +438,7 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
       }
 
       _setExecutionState(sourceChainSelector, message.header.sequenceNumber, Internal.MessageExecutionState.IN_PROGRESS);
+
       (Internal.MessageExecutionState newState, bytes memory returnData) = _trialExecute(message, offchainTokenData);
       _setExecutionState(sourceChainSelector, message.header.sequenceNumber, newState);
 
@@ -479,21 +480,9 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   ) internal returns (Internal.MessageExecutionState, bytes memory) {
     try this.executeSingleMessage(message, offchainTokenData) {}
     catch (bytes memory err) {
-      bytes4 errorSelector = bytes4(err);
-      if (
-        ReceiverError.selector == errorSelector || TokenHandlingError.selector == errorSelector
-          || Internal.InvalidEVMAddress.selector == errorSelector || InvalidDataLength.selector == errorSelector
-          || CallWithExactGas.NoContract.selector == errorSelector || NotACompatiblePool.selector == errorSelector
-          || IMessageInterceptor.MessageValidationError.selector == errorSelector
-      ) {
-        // If CCIP receiver execution is not successful, bubble up receiver revert data,
-        // prepended by the 4 bytes of ReceiverError.selector, TokenHandlingError.selector or InvalidPoolAddress.selector.
-        // Max length of revert data is Router.MAX_RET_BYTES, max length of err is 4 + Router.MAX_RET_BYTES
-        return (Internal.MessageExecutionState.FAILURE, err);
-      } else {
-        // If revert is not caused by CCIP receiver, it is unexpected, bubble up the revert.
-        revert ExecutionError(message.header.messageId, err);
-      }
+      // return the message execution state as FAILURE and the revert data
+      // Max length of revert data is Router.MAX_RET_BYTES, max length of err is 4 + Router.MAX_RET_BYTES
+      return (Internal.MessageExecutionState.FAILURE, err);
     }
     // If message execution succeeded, no CCIP receiver return data is expected, return with empty bytes.
     return (Internal.MessageExecutionState.SUCCESS, "");
