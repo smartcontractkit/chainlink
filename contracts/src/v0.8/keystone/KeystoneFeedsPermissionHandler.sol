@@ -30,7 +30,7 @@ abstract contract KeystoneFeedsPermissionHandler {
     function setReportPermissions(
         Permission[] memory permissions
     ) external {
-        for (uint i = 0; i < permissions.length; i++) {
+        for (uint256 i; i < permissions.length; i++) {
             _setReportPermission(permissions[i]);
         }
     }

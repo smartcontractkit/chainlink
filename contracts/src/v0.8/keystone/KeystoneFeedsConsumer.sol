@@ -3,8 +3,8 @@ pragma solidity 0.8.24;
 
 import {IReceiver} from "./interfaces/IReceiver.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
-import "./KeystoneFeedsPermissionHandler.sol";
-import "./lib/KeystoneFeedDefaultMetadataLib.sol";
+import {KeystoneFeedsPermissionHandler} from "./KeystoneFeedsPermissionHandler.sol";
+import {KeystoneFeedDefaultMetadataLib} from "./lib/KeystoneFeedDefaultMetadataLib.sol";
 
 contract KeystoneFeedsConsumer is IReceiver, OwnerIsCreator, KeystoneFeedsPermissionHandler {
   using KeystoneFeedDefaultMetadataLib for bytes;
