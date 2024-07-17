@@ -50,7 +50,6 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
 
   /// @inheritdoc IDestinationVerifierProxy
   function setVerifier(address verifierAddress) external onlyOwner {
-    if(verifierAddress == address(0)) revert ZeroAddress();
 
     //check it supports the functions we need
     if(!IERC165(verifierAddress).supportsInterface(IDestinationVerifier.getAccessController.selector) ||
