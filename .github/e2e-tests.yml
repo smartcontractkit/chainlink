@@ -204,7 +204,7 @@ runner-test-matrix:
     workflows:
       - Run PR E2E Tests
       - Run Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationBasic/registry_2_1_with_mercury_v02|TestAutomationBasic/registry_2_1_with_mercury_v03|TestAutomationBasic/registry_2_1_with_logtrigger_and_mercury_v02$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: cd integration-tests/smoke && go test -test.run '^TestAutomationBasic/registry_2_1_with_mercury_v02|TestAutomationBasic/registry_2_1_with_mercury_v03|TestAutomationBasic/registry_2_1_with_logtrigger_and_mercury_v02$' -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
 
   - id: integration-tests/smoke/automation_test.go:^TestAutomationBasic/registry_2_2_conditional|TestAutomationBasic/registry_2_2_logtrigger|TestAutomationBasic/registry_2_2_with_mercury_v02$
@@ -214,7 +214,7 @@ runner-test-matrix:
     workflows:
       - Run PR E2E Tests
       - Run Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationBasic/registry_2_2_conditional|TestAutomationBasic/registry_2_2_logtrigger|TestAutomationBasic/registry_2_2_with_mercury_v02$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: cd integration-tests/smoke && go test -test.run '^TestAutomationBasic/registry_2_2_conditional|TestAutomationBasic/registry_2_2_logtrigger|TestAutomationBasic/registry_2_2_with_mercury_v02$' -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
 
   - id: integration-tests/smoke/automation_test.go:^TestAutomationBasic/registry_2_2_with_mercury_v03|TestAutomationBasic/registry_2_2_with_logtrigger_and_mercury_v02$
@@ -224,7 +224,7 @@ runner-test-matrix:
     workflows:
       - Run PR E2E Tests
       - Run Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationBasic/registry_2_2_with_mercury_v03|TestAutomationBasic/registry_2_2_with_logtrigger_and_mercury_v02$ -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: cd integration-tests/smoke && go test -test.run '^TestAutomationBasic/registry_2_2_with_mercury_v03|TestAutomationBasic/registry_2_2_with_logtrigger_and_mercury_v02$' -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
 
   - id: integration-tests/smoke/automation_test.go:^TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link$
@@ -234,7 +234,7 @@ runner-test-matrix:
     workflows:
       - Run PR E2E Tests
       - Run Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: cd integration-tests/smoke && go test -test.run '^TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link$' -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
 
   - id: integration-tests/smoke/automation_test.go:^TestAutomationBasic/registry_2_3_logtrigger_native|TestAutomationBasic/registry_2_3_logtrigger_link$
@@ -244,7 +244,7 @@ runner-test-matrix:
     workflows:
       - Run PR E2E Tests
       - Run Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationBasic/registry_2_3_logtrigger_native|TestAutomationBasic/registry_2_3_logtrigger_link$ -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: cd integration-tests/smoke && go test -test.run '^TestAutomationBasic/registry_2_3_logtrigger_native|TestAutomationBasic/registry_2_3_logtrigger_link$' -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
 
   - id: integration-tests/smoke/automation_test.go:^TestAutomationBasic/registry_2_3_with_mercury_v03_link|TestAutomationBasic/registry_2_3_with_logtrigger_and_mercury_v02_link$
@@ -254,7 +254,7 @@ runner-test-matrix:
     workflows:
       - Run PR E2E Tests
       - Run Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationBasic/registry_2_3_with_mercury_v03_link|TestAutomationBasic/registry_2_3_with_logtrigger_and_mercury_v02_link$ -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: cd integration-tests/smoke && go test -test.run '^TestAutomationBasic/registry_2_3_with_mercury_v03_link|TestAutomationBasic/registry_2_3_with_logtrigger_and_mercury_v02_link$' -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated                
 
   - id: integration-tests/smoke/automation_test.go:^TestSetUpkeepTriggerConfig$
@@ -797,14 +797,14 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test smoke/flux_test.go -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-flux-evm-simulated    
 
-  - id: integration-tests/smoke/reorg_above_finality.go:*
-    path: integration-tests/smoke/reorg_above_finality.go
+  - id: integration-tests/smoke/reorg_above_finality_test.go:*
+    path: integration-tests/smoke/reorg_above_finality_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
       - Run PR E2E Tests
       - Run Nightly E2E Tests
-    test_cmd: cd integration-tests/ && go test smoke/reorg_above_finality.go -timeout 30m -count=1 -json
+    test_cmd: cd integration-tests/ && go test smoke/reorg_above_finality_test.go -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-reorg-above-finality-evm-simulated
     
   - id: integration-tests/migration/upgrade_version_test.go:*
