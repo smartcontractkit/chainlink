@@ -21,6 +21,14 @@ type CommitStoreReader struct {
 	mock.Mock
 }
 
+type CommitStoreReader_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *CommitStoreReader) EXPECT() *CommitStoreReader_Expecter {
+	return &CommitStoreReader_Expecter{mock: &_m.Mock}
+}
+
 // ChangeConfig provides a mock function with given fields: ctx, onchainConfig, offchainConfig
 func (_m *CommitStoreReader) ChangeConfig(ctx context.Context, onchainConfig []byte, offchainConfig []byte) (ccip.Address, error) {
 	ret := _m.Called(ctx, onchainConfig, offchainConfig)
@@ -49,6 +57,36 @@ func (_m *CommitStoreReader) ChangeConfig(ctx context.Context, onchainConfig []b
 	return r0, r1
 }
 
+// CommitStoreReader_ChangeConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChangeConfig'
+type CommitStoreReader_ChangeConfig_Call struct {
+	*mock.Call
+}
+
+// ChangeConfig is a helper method to define mock.On call
+//   - ctx context.Context
+//   - onchainConfig []byte
+//   - offchainConfig []byte
+func (_e *CommitStoreReader_Expecter) ChangeConfig(ctx interface{}, onchainConfig interface{}, offchainConfig interface{}) *CommitStoreReader_ChangeConfig_Call {
+	return &CommitStoreReader_ChangeConfig_Call{Call: _e.mock.On("ChangeConfig", ctx, onchainConfig, offchainConfig)}
+}
+
+func (_c *CommitStoreReader_ChangeConfig_Call) Run(run func(ctx context.Context, onchainConfig []byte, offchainConfig []byte)) *CommitStoreReader_ChangeConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]byte), args[2].([]byte))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_ChangeConfig_Call) Return(_a0 ccip.Address, _a1 error) *CommitStoreReader_ChangeConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CommitStoreReader_ChangeConfig_Call) RunAndReturn(run func(context.Context, []byte, []byte) (ccip.Address, error)) *CommitStoreReader_ChangeConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Close provides a mock function with given fields:
 func (_m *CommitStoreReader) Close() error {
 	ret := _m.Called()
@@ -65,6 +103,33 @@ func (_m *CommitStoreReader) Close() error {
 	}
 
 	return r0
+}
+
+// CommitStoreReader_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type CommitStoreReader_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *CommitStoreReader_Expecter) Close() *CommitStoreReader_Close_Call {
+	return &CommitStoreReader_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *CommitStoreReader_Close_Call) Run(run func()) *CommitStoreReader_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_Close_Call) Return(_a0 error) *CommitStoreReader_Close_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *CommitStoreReader_Close_Call) RunAndReturn(run func() error) *CommitStoreReader_Close_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // DecodeCommitReport provides a mock function with given fields: ctx, report
@@ -93,6 +158,35 @@ func (_m *CommitStoreReader) DecodeCommitReport(ctx context.Context, report []by
 	}
 
 	return r0, r1
+}
+
+// CommitStoreReader_DecodeCommitReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DecodeCommitReport'
+type CommitStoreReader_DecodeCommitReport_Call struct {
+	*mock.Call
+}
+
+// DecodeCommitReport is a helper method to define mock.On call
+//   - ctx context.Context
+//   - report []byte
+func (_e *CommitStoreReader_Expecter) DecodeCommitReport(ctx interface{}, report interface{}) *CommitStoreReader_DecodeCommitReport_Call {
+	return &CommitStoreReader_DecodeCommitReport_Call{Call: _e.mock.On("DecodeCommitReport", ctx, report)}
+}
+
+func (_c *CommitStoreReader_DecodeCommitReport_Call) Run(run func(ctx context.Context, report []byte)) *CommitStoreReader_DecodeCommitReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]byte))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_DecodeCommitReport_Call) Return(_a0 ccip.CommitStoreReport, _a1 error) *CommitStoreReader_DecodeCommitReport_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CommitStoreReader_DecodeCommitReport_Call) RunAndReturn(run func(context.Context, []byte) (ccip.CommitStoreReport, error)) *CommitStoreReader_DecodeCommitReport_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // EncodeCommitReport provides a mock function with given fields: ctx, report
@@ -125,6 +219,35 @@ func (_m *CommitStoreReader) EncodeCommitReport(ctx context.Context, report ccip
 	return r0, r1
 }
 
+// CommitStoreReader_EncodeCommitReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EncodeCommitReport'
+type CommitStoreReader_EncodeCommitReport_Call struct {
+	*mock.Call
+}
+
+// EncodeCommitReport is a helper method to define mock.On call
+//   - ctx context.Context
+//   - report ccip.CommitStoreReport
+func (_e *CommitStoreReader_Expecter) EncodeCommitReport(ctx interface{}, report interface{}) *CommitStoreReader_EncodeCommitReport_Call {
+	return &CommitStoreReader_EncodeCommitReport_Call{Call: _e.mock.On("EncodeCommitReport", ctx, report)}
+}
+
+func (_c *CommitStoreReader_EncodeCommitReport_Call) Run(run func(ctx context.Context, report ccip.CommitStoreReport)) *CommitStoreReader_EncodeCommitReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(ccip.CommitStoreReport))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_EncodeCommitReport_Call) Return(_a0 []byte, _a1 error) *CommitStoreReader_EncodeCommitReport_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CommitStoreReader_EncodeCommitReport_Call) RunAndReturn(run func(context.Context, ccip.CommitStoreReport) ([]byte, error)) *CommitStoreReader_EncodeCommitReport_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GasPriceEstimator provides a mock function with given fields: ctx
 func (_m *CommitStoreReader) GasPriceEstimator(ctx context.Context) (ccip.GasPriceEstimatorCommit, error) {
 	ret := _m.Called(ctx)
@@ -153,6 +276,34 @@ func (_m *CommitStoreReader) GasPriceEstimator(ctx context.Context) (ccip.GasPri
 	}
 
 	return r0, r1
+}
+
+// CommitStoreReader_GasPriceEstimator_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GasPriceEstimator'
+type CommitStoreReader_GasPriceEstimator_Call struct {
+	*mock.Call
+}
+
+// GasPriceEstimator is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *CommitStoreReader_Expecter) GasPriceEstimator(ctx interface{}) *CommitStoreReader_GasPriceEstimator_Call {
+	return &CommitStoreReader_GasPriceEstimator_Call{Call: _e.mock.On("GasPriceEstimator", ctx)}
+}
+
+func (_c *CommitStoreReader_GasPriceEstimator_Call) Run(run func(ctx context.Context)) *CommitStoreReader_GasPriceEstimator_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_GasPriceEstimator_Call) Return(_a0 ccip.GasPriceEstimatorCommit, _a1 error) *CommitStoreReader_GasPriceEstimator_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CommitStoreReader_GasPriceEstimator_Call) RunAndReturn(run func(context.Context) (ccip.GasPriceEstimatorCommit, error)) *CommitStoreReader_GasPriceEstimator_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetAcceptedCommitReportsGteTimestamp provides a mock function with given fields: ctx, ts, confirmations
@@ -185,6 +336,36 @@ func (_m *CommitStoreReader) GetAcceptedCommitReportsGteTimestamp(ctx context.Co
 	return r0, r1
 }
 
+// CommitStoreReader_GetAcceptedCommitReportsGteTimestamp_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAcceptedCommitReportsGteTimestamp'
+type CommitStoreReader_GetAcceptedCommitReportsGteTimestamp_Call struct {
+	*mock.Call
+}
+
+// GetAcceptedCommitReportsGteTimestamp is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ts time.Time
+//   - confirmations int
+func (_e *CommitStoreReader_Expecter) GetAcceptedCommitReportsGteTimestamp(ctx interface{}, ts interface{}, confirmations interface{}) *CommitStoreReader_GetAcceptedCommitReportsGteTimestamp_Call {
+	return &CommitStoreReader_GetAcceptedCommitReportsGteTimestamp_Call{Call: _e.mock.On("GetAcceptedCommitReportsGteTimestamp", ctx, ts, confirmations)}
+}
+
+func (_c *CommitStoreReader_GetAcceptedCommitReportsGteTimestamp_Call) Run(run func(ctx context.Context, ts time.Time, confirmations int)) *CommitStoreReader_GetAcceptedCommitReportsGteTimestamp_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(time.Time), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_GetAcceptedCommitReportsGteTimestamp_Call) Return(_a0 []ccip.CommitStoreReportWithTxMeta, _a1 error) *CommitStoreReader_GetAcceptedCommitReportsGteTimestamp_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CommitStoreReader_GetAcceptedCommitReportsGteTimestamp_Call) RunAndReturn(run func(context.Context, time.Time, int) ([]ccip.CommitStoreReportWithTxMeta, error)) *CommitStoreReader_GetAcceptedCommitReportsGteTimestamp_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetCommitReportMatchingSeqNum provides a mock function with given fields: ctx, seqNum, confirmations
 func (_m *CommitStoreReader) GetCommitReportMatchingSeqNum(ctx context.Context, seqNum uint64, confirmations int) ([]ccip.CommitStoreReportWithTxMeta, error) {
 	ret := _m.Called(ctx, seqNum, confirmations)
@@ -215,6 +396,36 @@ func (_m *CommitStoreReader) GetCommitReportMatchingSeqNum(ctx context.Context, 
 	return r0, r1
 }
 
+// CommitStoreReader_GetCommitReportMatchingSeqNum_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetCommitReportMatchingSeqNum'
+type CommitStoreReader_GetCommitReportMatchingSeqNum_Call struct {
+	*mock.Call
+}
+
+// GetCommitReportMatchingSeqNum is a helper method to define mock.On call
+//   - ctx context.Context
+//   - seqNum uint64
+//   - confirmations int
+func (_e *CommitStoreReader_Expecter) GetCommitReportMatchingSeqNum(ctx interface{}, seqNum interface{}, confirmations interface{}) *CommitStoreReader_GetCommitReportMatchingSeqNum_Call {
+	return &CommitStoreReader_GetCommitReportMatchingSeqNum_Call{Call: _e.mock.On("GetCommitReportMatchingSeqNum", ctx, seqNum, confirmations)}
+}
+
+func (_c *CommitStoreReader_GetCommitReportMatchingSeqNum_Call) Run(run func(ctx context.Context, seqNum uint64, confirmations int)) *CommitStoreReader_GetCommitReportMatchingSeqNum_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uint64), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_GetCommitReportMatchingSeqNum_Call) Return(_a0 []ccip.CommitStoreReportWithTxMeta, _a1 error) *CommitStoreReader_GetCommitReportMatchingSeqNum_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CommitStoreReader_GetCommitReportMatchingSeqNum_Call) RunAndReturn(run func(context.Context, uint64, int) ([]ccip.CommitStoreReportWithTxMeta, error)) *CommitStoreReader_GetCommitReportMatchingSeqNum_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetCommitStoreStaticConfig provides a mock function with given fields: ctx
 func (_m *CommitStoreReader) GetCommitStoreStaticConfig(ctx context.Context) (ccip.CommitStoreStaticConfig, error) {
 	ret := _m.Called(ctx)
@@ -241,6 +452,34 @@ func (_m *CommitStoreReader) GetCommitStoreStaticConfig(ctx context.Context) (cc
 	}
 
 	return r0, r1
+}
+
+// CommitStoreReader_GetCommitStoreStaticConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetCommitStoreStaticConfig'
+type CommitStoreReader_GetCommitStoreStaticConfig_Call struct {
+	*mock.Call
+}
+
+// GetCommitStoreStaticConfig is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *CommitStoreReader_Expecter) GetCommitStoreStaticConfig(ctx interface{}) *CommitStoreReader_GetCommitStoreStaticConfig_Call {
+	return &CommitStoreReader_GetCommitStoreStaticConfig_Call{Call: _e.mock.On("GetCommitStoreStaticConfig", ctx)}
+}
+
+func (_c *CommitStoreReader_GetCommitStoreStaticConfig_Call) Run(run func(ctx context.Context)) *CommitStoreReader_GetCommitStoreStaticConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_GetCommitStoreStaticConfig_Call) Return(_a0 ccip.CommitStoreStaticConfig, _a1 error) *CommitStoreReader_GetCommitStoreStaticConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CommitStoreReader_GetCommitStoreStaticConfig_Call) RunAndReturn(run func(context.Context) (ccip.CommitStoreStaticConfig, error)) *CommitStoreReader_GetCommitStoreStaticConfig_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetExpectedNextSequenceNumber provides a mock function with given fields: ctx
@@ -271,6 +510,34 @@ func (_m *CommitStoreReader) GetExpectedNextSequenceNumber(ctx context.Context) 
 	return r0, r1
 }
 
+// CommitStoreReader_GetExpectedNextSequenceNumber_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetExpectedNextSequenceNumber'
+type CommitStoreReader_GetExpectedNextSequenceNumber_Call struct {
+	*mock.Call
+}
+
+// GetExpectedNextSequenceNumber is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *CommitStoreReader_Expecter) GetExpectedNextSequenceNumber(ctx interface{}) *CommitStoreReader_GetExpectedNextSequenceNumber_Call {
+	return &CommitStoreReader_GetExpectedNextSequenceNumber_Call{Call: _e.mock.On("GetExpectedNextSequenceNumber", ctx)}
+}
+
+func (_c *CommitStoreReader_GetExpectedNextSequenceNumber_Call) Run(run func(ctx context.Context)) *CommitStoreReader_GetExpectedNextSequenceNumber_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_GetExpectedNextSequenceNumber_Call) Return(_a0 uint64, _a1 error) *CommitStoreReader_GetExpectedNextSequenceNumber_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CommitStoreReader_GetExpectedNextSequenceNumber_Call) RunAndReturn(run func(context.Context) (uint64, error)) *CommitStoreReader_GetExpectedNextSequenceNumber_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetLatestPriceEpochAndRound provides a mock function with given fields: ctx
 func (_m *CommitStoreReader) GetLatestPriceEpochAndRound(ctx context.Context) (uint64, error) {
 	ret := _m.Called(ctx)
@@ -297,6 +564,34 @@ func (_m *CommitStoreReader) GetLatestPriceEpochAndRound(ctx context.Context) (u
 	}
 
 	return r0, r1
+}
+
+// CommitStoreReader_GetLatestPriceEpochAndRound_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLatestPriceEpochAndRound'
+type CommitStoreReader_GetLatestPriceEpochAndRound_Call struct {
+	*mock.Call
+}
+
+// GetLatestPriceEpochAndRound is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *CommitStoreReader_Expecter) GetLatestPriceEpochAndRound(ctx interface{}) *CommitStoreReader_GetLatestPriceEpochAndRound_Call {
+	return &CommitStoreReader_GetLatestPriceEpochAndRound_Call{Call: _e.mock.On("GetLatestPriceEpochAndRound", ctx)}
+}
+
+func (_c *CommitStoreReader_GetLatestPriceEpochAndRound_Call) Run(run func(ctx context.Context)) *CommitStoreReader_GetLatestPriceEpochAndRound_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_GetLatestPriceEpochAndRound_Call) Return(_a0 uint64, _a1 error) *CommitStoreReader_GetLatestPriceEpochAndRound_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CommitStoreReader_GetLatestPriceEpochAndRound_Call) RunAndReturn(run func(context.Context) (uint64, error)) *CommitStoreReader_GetLatestPriceEpochAndRound_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // IsBlessed provides a mock function with given fields: ctx, root
@@ -327,6 +622,35 @@ func (_m *CommitStoreReader) IsBlessed(ctx context.Context, root [32]byte) (bool
 	return r0, r1
 }
 
+// CommitStoreReader_IsBlessed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsBlessed'
+type CommitStoreReader_IsBlessed_Call struct {
+	*mock.Call
+}
+
+// IsBlessed is a helper method to define mock.On call
+//   - ctx context.Context
+//   - root [32]byte
+func (_e *CommitStoreReader_Expecter) IsBlessed(ctx interface{}, root interface{}) *CommitStoreReader_IsBlessed_Call {
+	return &CommitStoreReader_IsBlessed_Call{Call: _e.mock.On("IsBlessed", ctx, root)}
+}
+
+func (_c *CommitStoreReader_IsBlessed_Call) Run(run func(ctx context.Context, root [32]byte)) *CommitStoreReader_IsBlessed_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([32]byte))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_IsBlessed_Call) Return(_a0 bool, _a1 error) *CommitStoreReader_IsBlessed_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CommitStoreReader_IsBlessed_Call) RunAndReturn(run func(context.Context, [32]byte) (bool, error)) *CommitStoreReader_IsBlessed_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // IsDestChainHealthy provides a mock function with given fields: ctx
 func (_m *CommitStoreReader) IsDestChainHealthy(ctx context.Context) (bool, error) {
 	ret := _m.Called(ctx)
@@ -353,6 +677,34 @@ func (_m *CommitStoreReader) IsDestChainHealthy(ctx context.Context) (bool, erro
 	}
 
 	return r0, r1
+}
+
+// CommitStoreReader_IsDestChainHealthy_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsDestChainHealthy'
+type CommitStoreReader_IsDestChainHealthy_Call struct {
+	*mock.Call
+}
+
+// IsDestChainHealthy is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *CommitStoreReader_Expecter) IsDestChainHealthy(ctx interface{}) *CommitStoreReader_IsDestChainHealthy_Call {
+	return &CommitStoreReader_IsDestChainHealthy_Call{Call: _e.mock.On("IsDestChainHealthy", ctx)}
+}
+
+func (_c *CommitStoreReader_IsDestChainHealthy_Call) Run(run func(ctx context.Context)) *CommitStoreReader_IsDestChainHealthy_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_IsDestChainHealthy_Call) Return(_a0 bool, _a1 error) *CommitStoreReader_IsDestChainHealthy_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CommitStoreReader_IsDestChainHealthy_Call) RunAndReturn(run func(context.Context) (bool, error)) *CommitStoreReader_IsDestChainHealthy_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // IsDown provides a mock function with given fields: ctx
@@ -383,6 +735,34 @@ func (_m *CommitStoreReader) IsDown(ctx context.Context) (bool, error) {
 	return r0, r1
 }
 
+// CommitStoreReader_IsDown_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsDown'
+type CommitStoreReader_IsDown_Call struct {
+	*mock.Call
+}
+
+// IsDown is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *CommitStoreReader_Expecter) IsDown(ctx interface{}) *CommitStoreReader_IsDown_Call {
+	return &CommitStoreReader_IsDown_Call{Call: _e.mock.On("IsDown", ctx)}
+}
+
+func (_c *CommitStoreReader_IsDown_Call) Run(run func(ctx context.Context)) *CommitStoreReader_IsDown_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_IsDown_Call) Return(_a0 bool, _a1 error) *CommitStoreReader_IsDown_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CommitStoreReader_IsDown_Call) RunAndReturn(run func(context.Context) (bool, error)) *CommitStoreReader_IsDown_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // OffchainConfig provides a mock function with given fields: ctx
 func (_m *CommitStoreReader) OffchainConfig(ctx context.Context) (ccip.CommitOffchainConfig, error) {
 	ret := _m.Called(ctx)
@@ -411,6 +791,34 @@ func (_m *CommitStoreReader) OffchainConfig(ctx context.Context) (ccip.CommitOff
 	return r0, r1
 }
 
+// CommitStoreReader_OffchainConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OffchainConfig'
+type CommitStoreReader_OffchainConfig_Call struct {
+	*mock.Call
+}
+
+// OffchainConfig is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *CommitStoreReader_Expecter) OffchainConfig(ctx interface{}) *CommitStoreReader_OffchainConfig_Call {
+	return &CommitStoreReader_OffchainConfig_Call{Call: _e.mock.On("OffchainConfig", ctx)}
+}
+
+func (_c *CommitStoreReader_OffchainConfig_Call) Run(run func(ctx context.Context)) *CommitStoreReader_OffchainConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_OffchainConfig_Call) Return(_a0 ccip.CommitOffchainConfig, _a1 error) *CommitStoreReader_OffchainConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CommitStoreReader_OffchainConfig_Call) RunAndReturn(run func(context.Context) (ccip.CommitOffchainConfig, error)) *CommitStoreReader_OffchainConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetGasEstimator provides a mock function with given fields: ctx, gpe
 func (_m *CommitStoreReader) SetGasEstimator(ctx context.Context, gpe gas.EvmFeeEstimator) error {
 	ret := _m.Called(ctx, gpe)
@@ -429,6 +837,35 @@ func (_m *CommitStoreReader) SetGasEstimator(ctx context.Context, gpe gas.EvmFee
 	return r0
 }
 
+// CommitStoreReader_SetGasEstimator_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetGasEstimator'
+type CommitStoreReader_SetGasEstimator_Call struct {
+	*mock.Call
+}
+
+// SetGasEstimator is a helper method to define mock.On call
+//   - ctx context.Context
+//   - gpe gas.EvmFeeEstimator
+func (_e *CommitStoreReader_Expecter) SetGasEstimator(ctx interface{}, gpe interface{}) *CommitStoreReader_SetGasEstimator_Call {
+	return &CommitStoreReader_SetGasEstimator_Call{Call: _e.mock.On("SetGasEstimator", ctx, gpe)}
+}
+
+func (_c *CommitStoreReader_SetGasEstimator_Call) Run(run func(ctx context.Context, gpe gas.EvmFeeEstimator)) *CommitStoreReader_SetGasEstimator_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(gas.EvmFeeEstimator))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_SetGasEstimator_Call) Return(_a0 error) *CommitStoreReader_SetGasEstimator_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *CommitStoreReader_SetGasEstimator_Call) RunAndReturn(run func(context.Context, gas.EvmFeeEstimator) error) *CommitStoreReader_SetGasEstimator_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetSourceMaxGasPrice provides a mock function with given fields: ctx, sourceMaxGasPrice
 func (_m *CommitStoreReader) SetSourceMaxGasPrice(ctx context.Context, sourceMaxGasPrice *big.Int) error {
 	ret := _m.Called(ctx, sourceMaxGasPrice)
@@ -445,6 +882,35 @@ func (_m *CommitStoreReader) SetSourceMaxGasPrice(ctx context.Context, sourceMax
 	}
 
 	return r0
+}
+
+// CommitStoreReader_SetSourceMaxGasPrice_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetSourceMaxGasPrice'
+type CommitStoreReader_SetSourceMaxGasPrice_Call struct {
+	*mock.Call
+}
+
+// SetSourceMaxGasPrice is a helper method to define mock.On call
+//   - ctx context.Context
+//   - sourceMaxGasPrice *big.Int
+func (_e *CommitStoreReader_Expecter) SetSourceMaxGasPrice(ctx interface{}, sourceMaxGasPrice interface{}) *CommitStoreReader_SetSourceMaxGasPrice_Call {
+	return &CommitStoreReader_SetSourceMaxGasPrice_Call{Call: _e.mock.On("SetSourceMaxGasPrice", ctx, sourceMaxGasPrice)}
+}
+
+func (_c *CommitStoreReader_SetSourceMaxGasPrice_Call) Run(run func(ctx context.Context, sourceMaxGasPrice *big.Int)) *CommitStoreReader_SetSourceMaxGasPrice_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_SetSourceMaxGasPrice_Call) Return(_a0 error) *CommitStoreReader_SetSourceMaxGasPrice_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *CommitStoreReader_SetSourceMaxGasPrice_Call) RunAndReturn(run func(context.Context, *big.Int) error) *CommitStoreReader_SetSourceMaxGasPrice_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // VerifyExecutionReport provides a mock function with given fields: ctx, report
@@ -473,6 +939,35 @@ func (_m *CommitStoreReader) VerifyExecutionReport(ctx context.Context, report c
 	}
 
 	return r0, r1
+}
+
+// CommitStoreReader_VerifyExecutionReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'VerifyExecutionReport'
+type CommitStoreReader_VerifyExecutionReport_Call struct {
+	*mock.Call
+}
+
+// VerifyExecutionReport is a helper method to define mock.On call
+//   - ctx context.Context
+//   - report ccip.ExecReport
+func (_e *CommitStoreReader_Expecter) VerifyExecutionReport(ctx interface{}, report interface{}) *CommitStoreReader_VerifyExecutionReport_Call {
+	return &CommitStoreReader_VerifyExecutionReport_Call{Call: _e.mock.On("VerifyExecutionReport", ctx, report)}
+}
+
+func (_c *CommitStoreReader_VerifyExecutionReport_Call) Run(run func(ctx context.Context, report ccip.ExecReport)) *CommitStoreReader_VerifyExecutionReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(ccip.ExecReport))
+	})
+	return _c
+}
+
+func (_c *CommitStoreReader_VerifyExecutionReport_Call) Return(_a0 bool, _a1 error) *CommitStoreReader_VerifyExecutionReport_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CommitStoreReader_VerifyExecutionReport_Call) RunAndReturn(run func(context.Context, ccip.ExecReport) (bool, error)) *CommitStoreReader_VerifyExecutionReport_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewCommitStoreReader creates a new instance of CommitStoreReader. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

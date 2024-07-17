@@ -9,7 +9,6 @@ const (
 	ExecPluginLabel      = "exec"
 )
 
-//go:generate mockery --quiet --name PriceRegistryReader --filename price_registry_reader_mock.go --case=underscore
 type PriceRegistryReader interface {
 	cciptypes.PriceRegistryReader
 }

@@ -15,6 +15,14 @@ type OffRampReader struct {
 	mock.Mock
 }
 
+type OffRampReader_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *OffRampReader) EXPECT() *OffRampReader_Expecter {
+	return &OffRampReader_Expecter{mock: &_m.Mock}
+}
+
 // Address provides a mock function with given fields: ctx
 func (_m *OffRampReader) Address(ctx context.Context) (ccip.Address, error) {
 	ret := _m.Called(ctx)
@@ -41,6 +49,34 @@ func (_m *OffRampReader) Address(ctx context.Context) (ccip.Address, error) {
 	}
 
 	return r0, r1
+}
+
+// OffRampReader_Address_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Address'
+type OffRampReader_Address_Call struct {
+	*mock.Call
+}
+
+// Address is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *OffRampReader_Expecter) Address(ctx interface{}) *OffRampReader_Address_Call {
+	return &OffRampReader_Address_Call{Call: _e.mock.On("Address", ctx)}
+}
+
+func (_c *OffRampReader_Address_Call) Run(run func(ctx context.Context)) *OffRampReader_Address_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *OffRampReader_Address_Call) Return(_a0 ccip.Address, _a1 error) *OffRampReader_Address_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OffRampReader_Address_Call) RunAndReturn(run func(context.Context) (ccip.Address, error)) *OffRampReader_Address_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ChangeConfig provides a mock function with given fields: ctx, onchainConfig, offchainConfig
@@ -78,6 +114,36 @@ func (_m *OffRampReader) ChangeConfig(ctx context.Context, onchainConfig []byte,
 	return r0, r1, r2
 }
 
+// OffRampReader_ChangeConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChangeConfig'
+type OffRampReader_ChangeConfig_Call struct {
+	*mock.Call
+}
+
+// ChangeConfig is a helper method to define mock.On call
+//   - ctx context.Context
+//   - onchainConfig []byte
+//   - offchainConfig []byte
+func (_e *OffRampReader_Expecter) ChangeConfig(ctx interface{}, onchainConfig interface{}, offchainConfig interface{}) *OffRampReader_ChangeConfig_Call {
+	return &OffRampReader_ChangeConfig_Call{Call: _e.mock.On("ChangeConfig", ctx, onchainConfig, offchainConfig)}
+}
+
+func (_c *OffRampReader_ChangeConfig_Call) Run(run func(ctx context.Context, onchainConfig []byte, offchainConfig []byte)) *OffRampReader_ChangeConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]byte), args[2].([]byte))
+	})
+	return _c
+}
+
+func (_c *OffRampReader_ChangeConfig_Call) Return(_a0 ccip.Address, _a1 ccip.Address, _a2 error) *OffRampReader_ChangeConfig_Call {
+	_c.Call.Return(_a0, _a1, _a2)
+	return _c
+}
+
+func (_c *OffRampReader_ChangeConfig_Call) RunAndReturn(run func(context.Context, []byte, []byte) (ccip.Address, ccip.Address, error)) *OffRampReader_ChangeConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Close provides a mock function with given fields:
 func (_m *OffRampReader) Close() error {
 	ret := _m.Called()
@@ -94,6 +160,33 @@ func (_m *OffRampReader) Close() error {
 	}
 
 	return r0
+}
+
+// OffRampReader_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type OffRampReader_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *OffRampReader_Expecter) Close() *OffRampReader_Close_Call {
+	return &OffRampReader_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *OffRampReader_Close_Call) Run(run func()) *OffRampReader_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *OffRampReader_Close_Call) Return(_a0 error) *OffRampReader_Close_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *OffRampReader_Close_Call) RunAndReturn(run func() error) *OffRampReader_Close_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // CurrentRateLimiterState provides a mock function with given fields: ctx
@@ -124,6 +217,34 @@ func (_m *OffRampReader) CurrentRateLimiterState(ctx context.Context) (ccip.Toke
 	return r0, r1
 }
 
+// OffRampReader_CurrentRateLimiterState_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CurrentRateLimiterState'
+type OffRampReader_CurrentRateLimiterState_Call struct {
+	*mock.Call
+}
+
+// CurrentRateLimiterState is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *OffRampReader_Expecter) CurrentRateLimiterState(ctx interface{}) *OffRampReader_CurrentRateLimiterState_Call {
+	return &OffRampReader_CurrentRateLimiterState_Call{Call: _e.mock.On("CurrentRateLimiterState", ctx)}
+}
+
+func (_c *OffRampReader_CurrentRateLimiterState_Call) Run(run func(ctx context.Context)) *OffRampReader_CurrentRateLimiterState_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *OffRampReader_CurrentRateLimiterState_Call) Return(_a0 ccip.TokenBucketRateLimit, _a1 error) *OffRampReader_CurrentRateLimiterState_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OffRampReader_CurrentRateLimiterState_Call) RunAndReturn(run func(context.Context) (ccip.TokenBucketRateLimit, error)) *OffRampReader_CurrentRateLimiterState_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DecodeExecutionReport provides a mock function with given fields: ctx, report
 func (_m *OffRampReader) DecodeExecutionReport(ctx context.Context, report []byte) (ccip.ExecReport, error) {
 	ret := _m.Called(ctx, report)
@@ -150,6 +271,35 @@ func (_m *OffRampReader) DecodeExecutionReport(ctx context.Context, report []byt
 	}
 
 	return r0, r1
+}
+
+// OffRampReader_DecodeExecutionReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DecodeExecutionReport'
+type OffRampReader_DecodeExecutionReport_Call struct {
+	*mock.Call
+}
+
+// DecodeExecutionReport is a helper method to define mock.On call
+//   - ctx context.Context
+//   - report []byte
+func (_e *OffRampReader_Expecter) DecodeExecutionReport(ctx interface{}, report interface{}) *OffRampReader_DecodeExecutionReport_Call {
+	return &OffRampReader_DecodeExecutionReport_Call{Call: _e.mock.On("DecodeExecutionReport", ctx, report)}
+}
+
+func (_c *OffRampReader_DecodeExecutionReport_Call) Run(run func(ctx context.Context, report []byte)) *OffRampReader_DecodeExecutionReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]byte))
+	})
+	return _c
+}
+
+func (_c *OffRampReader_DecodeExecutionReport_Call) Return(_a0 ccip.ExecReport, _a1 error) *OffRampReader_DecodeExecutionReport_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OffRampReader_DecodeExecutionReport_Call) RunAndReturn(run func(context.Context, []byte) (ccip.ExecReport, error)) *OffRampReader_DecodeExecutionReport_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // EncodeExecutionReport provides a mock function with given fields: ctx, report
@@ -182,6 +332,35 @@ func (_m *OffRampReader) EncodeExecutionReport(ctx context.Context, report ccip.
 	return r0, r1
 }
 
+// OffRampReader_EncodeExecutionReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EncodeExecutionReport'
+type OffRampReader_EncodeExecutionReport_Call struct {
+	*mock.Call
+}
+
+// EncodeExecutionReport is a helper method to define mock.On call
+//   - ctx context.Context
+//   - report ccip.ExecReport
+func (_e *OffRampReader_Expecter) EncodeExecutionReport(ctx interface{}, report interface{}) *OffRampReader_EncodeExecutionReport_Call {
+	return &OffRampReader_EncodeExecutionReport_Call{Call: _e.mock.On("EncodeExecutionReport", ctx, report)}
+}
+
+func (_c *OffRampReader_EncodeExecutionReport_Call) Run(run func(ctx context.Context, report ccip.ExecReport)) *OffRampReader_EncodeExecutionReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(ccip.ExecReport))
+	})
+	return _c
+}
+
+func (_c *OffRampReader_EncodeExecutionReport_Call) Return(_a0 []byte, _a1 error) *OffRampReader_EncodeExecutionReport_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OffRampReader_EncodeExecutionReport_Call) RunAndReturn(run func(context.Context, ccip.ExecReport) ([]byte, error)) *OffRampReader_EncodeExecutionReport_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GasPriceEstimator provides a mock function with given fields: ctx
 func (_m *OffRampReader) GasPriceEstimator(ctx context.Context) (ccip.GasPriceEstimatorExec, error) {
 	ret := _m.Called(ctx)
@@ -212,6 +391,34 @@ func (_m *OffRampReader) GasPriceEstimator(ctx context.Context) (ccip.GasPriceEs
 	return r0, r1
 }
 
+// OffRampReader_GasPriceEstimator_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GasPriceEstimator'
+type OffRampReader_GasPriceEstimator_Call struct {
+	*mock.Call
+}
+
+// GasPriceEstimator is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *OffRampReader_Expecter) GasPriceEstimator(ctx interface{}) *OffRampReader_GasPriceEstimator_Call {
+	return &OffRampReader_GasPriceEstimator_Call{Call: _e.mock.On("GasPriceEstimator", ctx)}
+}
+
+func (_c *OffRampReader_GasPriceEstimator_Call) Run(run func(ctx context.Context)) *OffRampReader_GasPriceEstimator_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *OffRampReader_GasPriceEstimator_Call) Return(_a0 ccip.GasPriceEstimatorExec, _a1 error) *OffRampReader_GasPriceEstimator_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OffRampReader_GasPriceEstimator_Call) RunAndReturn(run func(context.Context) (ccip.GasPriceEstimatorExec, error)) *OffRampReader_GasPriceEstimator_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetExecutionState provides a mock function with given fields: ctx, sequenceNumber
 func (_m *OffRampReader) GetExecutionState(ctx context.Context, sequenceNumber uint64) (uint8, error) {
 	ret := _m.Called(ctx, sequenceNumber)
@@ -238,6 +445,35 @@ func (_m *OffRampReader) GetExecutionState(ctx context.Context, sequenceNumber u
 	}
 
 	return r0, r1
+}
+
+// OffRampReader_GetExecutionState_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetExecutionState'
+type OffRampReader_GetExecutionState_Call struct {
+	*mock.Call
+}
+
+// GetExecutionState is a helper method to define mock.On call
+//   - ctx context.Context
+//   - sequenceNumber uint64
+func (_e *OffRampReader_Expecter) GetExecutionState(ctx interface{}, sequenceNumber interface{}) *OffRampReader_GetExecutionState_Call {
+	return &OffRampReader_GetExecutionState_Call{Call: _e.mock.On("GetExecutionState", ctx, sequenceNumber)}
+}
+
+func (_c *OffRampReader_GetExecutionState_Call) Run(run func(ctx context.Context, sequenceNumber uint64)) *OffRampReader_GetExecutionState_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uint64))
+	})
+	return _c
+}
+
+func (_c *OffRampReader_GetExecutionState_Call) Return(_a0 uint8, _a1 error) *OffRampReader_GetExecutionState_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OffRampReader_GetExecutionState_Call) RunAndReturn(run func(context.Context, uint64) (uint8, error)) *OffRampReader_GetExecutionState_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetExecutionStateChangesBetweenSeqNums provides a mock function with given fields: ctx, seqNumMin, seqNumMax, confirmations
@@ -270,6 +506,37 @@ func (_m *OffRampReader) GetExecutionStateChangesBetweenSeqNums(ctx context.Cont
 	return r0, r1
 }
 
+// OffRampReader_GetExecutionStateChangesBetweenSeqNums_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetExecutionStateChangesBetweenSeqNums'
+type OffRampReader_GetExecutionStateChangesBetweenSeqNums_Call struct {
+	*mock.Call
+}
+
+// GetExecutionStateChangesBetweenSeqNums is a helper method to define mock.On call
+//   - ctx context.Context
+//   - seqNumMin uint64
+//   - seqNumMax uint64
+//   - confirmations int
+func (_e *OffRampReader_Expecter) GetExecutionStateChangesBetweenSeqNums(ctx interface{}, seqNumMin interface{}, seqNumMax interface{}, confirmations interface{}) *OffRampReader_GetExecutionStateChangesBetweenSeqNums_Call {
+	return &OffRampReader_GetExecutionStateChangesBetweenSeqNums_Call{Call: _e.mock.On("GetExecutionStateChangesBetweenSeqNums", ctx, seqNumMin, seqNumMax, confirmations)}
+}
+
+func (_c *OffRampReader_GetExecutionStateChangesBetweenSeqNums_Call) Run(run func(ctx context.Context, seqNumMin uint64, seqNumMax uint64, confirmations int)) *OffRampReader_GetExecutionStateChangesBetweenSeqNums_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uint64), args[2].(uint64), args[3].(int))
+	})
+	return _c
+}
+
+func (_c *OffRampReader_GetExecutionStateChangesBetweenSeqNums_Call) Return(_a0 []ccip.ExecutionStateChangedWithTxMeta, _a1 error) *OffRampReader_GetExecutionStateChangesBetweenSeqNums_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OffRampReader_GetExecutionStateChangesBetweenSeqNums_Call) RunAndReturn(run func(context.Context, uint64, uint64, int) ([]ccip.ExecutionStateChangedWithTxMeta, error)) *OffRampReader_GetExecutionStateChangesBetweenSeqNums_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetRouter provides a mock function with given fields: ctx
 func (_m *OffRampReader) GetRouter(ctx context.Context) (ccip.Address, error) {
 	ret := _m.Called(ctx)
@@ -296,6 +563,34 @@ func (_m *OffRampReader) GetRouter(ctx context.Context) (ccip.Address, error) {
 	}
 
 	return r0, r1
+}
+
+// OffRampReader_GetRouter_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRouter'
+type OffRampReader_GetRouter_Call struct {
+	*mock.Call
+}
+
+// GetRouter is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *OffRampReader_Expecter) GetRouter(ctx interface{}) *OffRampReader_GetRouter_Call {
+	return &OffRampReader_GetRouter_Call{Call: _e.mock.On("GetRouter", ctx)}
+}
+
+func (_c *OffRampReader_GetRouter_Call) Run(run func(ctx context.Context)) *OffRampReader_GetRouter_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *OffRampReader_GetRouter_Call) Return(_a0 ccip.Address, _a1 error) *OffRampReader_GetRouter_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OffRampReader_GetRouter_Call) RunAndReturn(run func(context.Context) (ccip.Address, error)) *OffRampReader_GetRouter_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetSourceToDestTokensMapping provides a mock function with given fields: ctx
@@ -328,6 +623,34 @@ func (_m *OffRampReader) GetSourceToDestTokensMapping(ctx context.Context) (map[
 	return r0, r1
 }
 
+// OffRampReader_GetSourceToDestTokensMapping_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSourceToDestTokensMapping'
+type OffRampReader_GetSourceToDestTokensMapping_Call struct {
+	*mock.Call
+}
+
+// GetSourceToDestTokensMapping is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *OffRampReader_Expecter) GetSourceToDestTokensMapping(ctx interface{}) *OffRampReader_GetSourceToDestTokensMapping_Call {
+	return &OffRampReader_GetSourceToDestTokensMapping_Call{Call: _e.mock.On("GetSourceToDestTokensMapping", ctx)}
+}
+
+func (_c *OffRampReader_GetSourceToDestTokensMapping_Call) Run(run func(ctx context.Context)) *OffRampReader_GetSourceToDestTokensMapping_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *OffRampReader_GetSourceToDestTokensMapping_Call) Return(_a0 map[ccip.Address]ccip.Address, _a1 error) *OffRampReader_GetSourceToDestTokensMapping_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OffRampReader_GetSourceToDestTokensMapping_Call) RunAndReturn(run func(context.Context) (map[ccip.Address]ccip.Address, error)) *OffRampReader_GetSourceToDestTokensMapping_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetStaticConfig provides a mock function with given fields: ctx
 func (_m *OffRampReader) GetStaticConfig(ctx context.Context) (ccip.OffRampStaticConfig, error) {
 	ret := _m.Called(ctx)
@@ -356,6 +679,34 @@ func (_m *OffRampReader) GetStaticConfig(ctx context.Context) (ccip.OffRampStati
 	return r0, r1
 }
 
+// OffRampReader_GetStaticConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetStaticConfig'
+type OffRampReader_GetStaticConfig_Call struct {
+	*mock.Call
+}
+
+// GetStaticConfig is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *OffRampReader_Expecter) GetStaticConfig(ctx interface{}) *OffRampReader_GetStaticConfig_Call {
+	return &OffRampReader_GetStaticConfig_Call{Call: _e.mock.On("GetStaticConfig", ctx)}
+}
+
+func (_c *OffRampReader_GetStaticConfig_Call) Run(run func(ctx context.Context)) *OffRampReader_GetStaticConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *OffRampReader_GetStaticConfig_Call) Return(_a0 ccip.OffRampStaticConfig, _a1 error) *OffRampReader_GetStaticConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OffRampReader_GetStaticConfig_Call) RunAndReturn(run func(context.Context) (ccip.OffRampStaticConfig, error)) *OffRampReader_GetStaticConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetTokens provides a mock function with given fields: ctx
 func (_m *OffRampReader) GetTokens(ctx context.Context) (ccip.OffRampTokens, error) {
 	ret := _m.Called(ctx)
@@ -382,6 +733,34 @@ func (_m *OffRampReader) GetTokens(ctx context.Context) (ccip.OffRampTokens, err
 	}
 
 	return r0, r1
+}
+
+// OffRampReader_GetTokens_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTokens'
+type OffRampReader_GetTokens_Call struct {
+	*mock.Call
+}
+
+// GetTokens is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *OffRampReader_Expecter) GetTokens(ctx interface{}) *OffRampReader_GetTokens_Call {
+	return &OffRampReader_GetTokens_Call{Call: _e.mock.On("GetTokens", ctx)}
+}
+
+func (_c *OffRampReader_GetTokens_Call) Run(run func(ctx context.Context)) *OffRampReader_GetTokens_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *OffRampReader_GetTokens_Call) Return(_a0 ccip.OffRampTokens, _a1 error) *OffRampReader_GetTokens_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OffRampReader_GetTokens_Call) RunAndReturn(run func(context.Context) (ccip.OffRampTokens, error)) *OffRampReader_GetTokens_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ListSenderNonces provides a mock function with given fields: ctx, senders
@@ -414,6 +793,35 @@ func (_m *OffRampReader) ListSenderNonces(ctx context.Context, senders []ccip.Ad
 	return r0, r1
 }
 
+// OffRampReader_ListSenderNonces_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListSenderNonces'
+type OffRampReader_ListSenderNonces_Call struct {
+	*mock.Call
+}
+
+// ListSenderNonces is a helper method to define mock.On call
+//   - ctx context.Context
+//   - senders []ccip.Address
+func (_e *OffRampReader_Expecter) ListSenderNonces(ctx interface{}, senders interface{}) *OffRampReader_ListSenderNonces_Call {
+	return &OffRampReader_ListSenderNonces_Call{Call: _e.mock.On("ListSenderNonces", ctx, senders)}
+}
+
+func (_c *OffRampReader_ListSenderNonces_Call) Run(run func(ctx context.Context, senders []ccip.Address)) *OffRampReader_ListSenderNonces_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]ccip.Address))
+	})
+	return _c
+}
+
+func (_c *OffRampReader_ListSenderNonces_Call) Return(_a0 map[ccip.Address]uint64, _a1 error) *OffRampReader_ListSenderNonces_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OffRampReader_ListSenderNonces_Call) RunAndReturn(run func(context.Context, []ccip.Address) (map[ccip.Address]uint64, error)) *OffRampReader_ListSenderNonces_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // OffchainConfig provides a mock function with given fields: ctx
 func (_m *OffRampReader) OffchainConfig(ctx context.Context) (ccip.ExecOffchainConfig, error) {
 	ret := _m.Called(ctx)
@@ -442,6 +850,34 @@ func (_m *OffRampReader) OffchainConfig(ctx context.Context) (ccip.ExecOffchainC
 	return r0, r1
 }
 
+// OffRampReader_OffchainConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OffchainConfig'
+type OffRampReader_OffchainConfig_Call struct {
+	*mock.Call
+}
+
+// OffchainConfig is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *OffRampReader_Expecter) OffchainConfig(ctx interface{}) *OffRampReader_OffchainConfig_Call {
+	return &OffRampReader_OffchainConfig_Call{Call: _e.mock.On("OffchainConfig", ctx)}
+}
+
+func (_c *OffRampReader_OffchainConfig_Call) Run(run func(ctx context.Context)) *OffRampReader_OffchainConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *OffRampReader_OffchainConfig_Call) Return(_a0 ccip.ExecOffchainConfig, _a1 error) *OffRampReader_OffchainConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OffRampReader_OffchainConfig_Call) RunAndReturn(run func(context.Context) (ccip.ExecOffchainConfig, error)) *OffRampReader_OffchainConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // OnchainConfig provides a mock function with given fields: ctx
 func (_m *OffRampReader) OnchainConfig(ctx context.Context) (ccip.ExecOnchainConfig, error) {
 	ret := _m.Called(ctx)
@@ -468,6 +904,34 @@ func (_m *OffRampReader) OnchainConfig(ctx context.Context) (ccip.ExecOnchainCon
 	}
 
 	return r0, r1
+}
+
+// OffRampReader_OnchainConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OnchainConfig'
+type OffRampReader_OnchainConfig_Call struct {
+	*mock.Call
+}
+
+// OnchainConfig is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *OffRampReader_Expecter) OnchainConfig(ctx interface{}) *OffRampReader_OnchainConfig_Call {
+	return &OffRampReader_OnchainConfig_Call{Call: _e.mock.On("OnchainConfig", ctx)}
+}
+
+func (_c *OffRampReader_OnchainConfig_Call) Run(run func(ctx context.Context)) *OffRampReader_OnchainConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *OffRampReader_OnchainConfig_Call) Return(_a0 ccip.ExecOnchainConfig, _a1 error) *OffRampReader_OnchainConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *OffRampReader_OnchainConfig_Call) RunAndReturn(run func(context.Context) (ccip.ExecOnchainConfig, error)) *OffRampReader_OnchainConfig_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewOffRampReader creates a new instance of OffRampReader. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

@@ -27,22 +27,16 @@ const (
 )
 
 // GasPriceEstimatorCommit provides gasPriceEstimatorCommon + features needed in commit plugin, e.g. price deviation check.
-//
-//go:generate mockery --quiet --name GasPriceEstimatorCommit --output . --filename gas_price_estimator_commit_mock.go --inpackage --case=underscore
 type GasPriceEstimatorCommit interface {
 	cciptypes.GasPriceEstimatorCommit
 }
 
 // GasPriceEstimatorExec provides gasPriceEstimatorCommon + features needed in exec plugin, e.g. message cost estimation.
-//
-//go:generate mockery --quiet --name GasPriceEstimatorExec --output . --filename gas_price_estimator_exec_mock.go --inpackage --case=underscore
 type GasPriceEstimatorExec interface {
 	cciptypes.GasPriceEstimatorExec
 }
 
 // GasPriceEstimator provides complete gas price estimator functions.
-//
-//go:generate mockery --quiet --name GasPriceEstimator --output . --filename gas_price_estimator_mock.go --inpackage --case=underscore
 type GasPriceEstimator interface {
 	cciptypes.GasPriceEstimator
 }

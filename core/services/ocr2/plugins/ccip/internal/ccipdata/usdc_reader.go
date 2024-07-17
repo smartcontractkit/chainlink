@@ -29,7 +29,6 @@ const (
 
 var _ USDCReader = &USDCReaderImpl{}
 
-//go:generate mockery --quiet --name USDCReader --filename usdc_reader_mock.go --case=underscore
 type USDCReader interface {
 	// GetUSDCMessagePriorToLogIndexInTx returns the specified USDC message data.
 	// e.g. if msg contains 3 tokens: [usdc1, wETH, usdc2] ignoring non-usdc tokens

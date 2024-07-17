@@ -17,6 +17,14 @@ type PriceRegistryReader struct {
 	mock.Mock
 }
 
+type PriceRegistryReader_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *PriceRegistryReader) EXPECT() *PriceRegistryReader_Expecter {
+	return &PriceRegistryReader_Expecter{mock: &_m.Mock}
+}
+
 // Address provides a mock function with given fields: ctx
 func (_m *PriceRegistryReader) Address(ctx context.Context) (ccip.Address, error) {
 	ret := _m.Called(ctx)
@@ -45,6 +53,34 @@ func (_m *PriceRegistryReader) Address(ctx context.Context) (ccip.Address, error
 	return r0, r1
 }
 
+// PriceRegistryReader_Address_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Address'
+type PriceRegistryReader_Address_Call struct {
+	*mock.Call
+}
+
+// Address is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *PriceRegistryReader_Expecter) Address(ctx interface{}) *PriceRegistryReader_Address_Call {
+	return &PriceRegistryReader_Address_Call{Call: _e.mock.On("Address", ctx)}
+}
+
+func (_c *PriceRegistryReader_Address_Call) Run(run func(ctx context.Context)) *PriceRegistryReader_Address_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryReader_Address_Call) Return(_a0 ccip.Address, _a1 error) *PriceRegistryReader_Address_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryReader_Address_Call) RunAndReturn(run func(context.Context) (ccip.Address, error)) *PriceRegistryReader_Address_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Close provides a mock function with given fields:
 func (_m *PriceRegistryReader) Close() error {
 	ret := _m.Called()
@@ -61,6 +97,33 @@ func (_m *PriceRegistryReader) Close() error {
 	}
 
 	return r0
+}
+
+// PriceRegistryReader_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type PriceRegistryReader_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *PriceRegistryReader_Expecter) Close() *PriceRegistryReader_Close_Call {
+	return &PriceRegistryReader_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *PriceRegistryReader_Close_Call) Run(run func()) *PriceRegistryReader_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *PriceRegistryReader_Close_Call) Return(_a0 error) *PriceRegistryReader_Close_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *PriceRegistryReader_Close_Call) RunAndReturn(run func() error) *PriceRegistryReader_Close_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetAllGasPriceUpdatesCreatedAfter provides a mock function with given fields: ctx, ts, confirmations
@@ -93,6 +156,36 @@ func (_m *PriceRegistryReader) GetAllGasPriceUpdatesCreatedAfter(ctx context.Con
 	return r0, r1
 }
 
+// PriceRegistryReader_GetAllGasPriceUpdatesCreatedAfter_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllGasPriceUpdatesCreatedAfter'
+type PriceRegistryReader_GetAllGasPriceUpdatesCreatedAfter_Call struct {
+	*mock.Call
+}
+
+// GetAllGasPriceUpdatesCreatedAfter is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ts time.Time
+//   - confirmations int
+func (_e *PriceRegistryReader_Expecter) GetAllGasPriceUpdatesCreatedAfter(ctx interface{}, ts interface{}, confirmations interface{}) *PriceRegistryReader_GetAllGasPriceUpdatesCreatedAfter_Call {
+	return &PriceRegistryReader_GetAllGasPriceUpdatesCreatedAfter_Call{Call: _e.mock.On("GetAllGasPriceUpdatesCreatedAfter", ctx, ts, confirmations)}
+}
+
+func (_c *PriceRegistryReader_GetAllGasPriceUpdatesCreatedAfter_Call) Run(run func(ctx context.Context, ts time.Time, confirmations int)) *PriceRegistryReader_GetAllGasPriceUpdatesCreatedAfter_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(time.Time), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryReader_GetAllGasPriceUpdatesCreatedAfter_Call) Return(_a0 []ccip.GasPriceUpdateWithTxMeta, _a1 error) *PriceRegistryReader_GetAllGasPriceUpdatesCreatedAfter_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryReader_GetAllGasPriceUpdatesCreatedAfter_Call) RunAndReturn(run func(context.Context, time.Time, int) ([]ccip.GasPriceUpdateWithTxMeta, error)) *PriceRegistryReader_GetAllGasPriceUpdatesCreatedAfter_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetFeeTokens provides a mock function with given fields: ctx
 func (_m *PriceRegistryReader) GetFeeTokens(ctx context.Context) ([]ccip.Address, error) {
 	ret := _m.Called(ctx)
@@ -121,6 +214,34 @@ func (_m *PriceRegistryReader) GetFeeTokens(ctx context.Context) ([]ccip.Address
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryReader_GetFeeTokens_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetFeeTokens'
+type PriceRegistryReader_GetFeeTokens_Call struct {
+	*mock.Call
+}
+
+// GetFeeTokens is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *PriceRegistryReader_Expecter) GetFeeTokens(ctx interface{}) *PriceRegistryReader_GetFeeTokens_Call {
+	return &PriceRegistryReader_GetFeeTokens_Call{Call: _e.mock.On("GetFeeTokens", ctx)}
+}
+
+func (_c *PriceRegistryReader_GetFeeTokens_Call) Run(run func(ctx context.Context)) *PriceRegistryReader_GetFeeTokens_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryReader_GetFeeTokens_Call) Return(_a0 []ccip.Address, _a1 error) *PriceRegistryReader_GetFeeTokens_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryReader_GetFeeTokens_Call) RunAndReturn(run func(context.Context) ([]ccip.Address, error)) *PriceRegistryReader_GetFeeTokens_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetGasPriceUpdatesCreatedAfter provides a mock function with given fields: ctx, chainSelector, ts, confirmations
@@ -153,6 +274,37 @@ func (_m *PriceRegistryReader) GetGasPriceUpdatesCreatedAfter(ctx context.Contex
 	return r0, r1
 }
 
+// PriceRegistryReader_GetGasPriceUpdatesCreatedAfter_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetGasPriceUpdatesCreatedAfter'
+type PriceRegistryReader_GetGasPriceUpdatesCreatedAfter_Call struct {
+	*mock.Call
+}
+
+// GetGasPriceUpdatesCreatedAfter is a helper method to define mock.On call
+//   - ctx context.Context
+//   - chainSelector uint64
+//   - ts time.Time
+//   - confirmations int
+func (_e *PriceRegistryReader_Expecter) GetGasPriceUpdatesCreatedAfter(ctx interface{}, chainSelector interface{}, ts interface{}, confirmations interface{}) *PriceRegistryReader_GetGasPriceUpdatesCreatedAfter_Call {
+	return &PriceRegistryReader_GetGasPriceUpdatesCreatedAfter_Call{Call: _e.mock.On("GetGasPriceUpdatesCreatedAfter", ctx, chainSelector, ts, confirmations)}
+}
+
+func (_c *PriceRegistryReader_GetGasPriceUpdatesCreatedAfter_Call) Run(run func(ctx context.Context, chainSelector uint64, ts time.Time, confirmations int)) *PriceRegistryReader_GetGasPriceUpdatesCreatedAfter_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uint64), args[2].(time.Time), args[3].(int))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryReader_GetGasPriceUpdatesCreatedAfter_Call) Return(_a0 []ccip.GasPriceUpdateWithTxMeta, _a1 error) *PriceRegistryReader_GetGasPriceUpdatesCreatedAfter_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryReader_GetGasPriceUpdatesCreatedAfter_Call) RunAndReturn(run func(context.Context, uint64, time.Time, int) ([]ccip.GasPriceUpdateWithTxMeta, error)) *PriceRegistryReader_GetGasPriceUpdatesCreatedAfter_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetTokenPriceUpdatesCreatedAfter provides a mock function with given fields: ctx, ts, confirmations
 func (_m *PriceRegistryReader) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confirmations int) ([]ccip.TokenPriceUpdateWithTxMeta, error) {
 	ret := _m.Called(ctx, ts, confirmations)
@@ -181,6 +333,36 @@ func (_m *PriceRegistryReader) GetTokenPriceUpdatesCreatedAfter(ctx context.Cont
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryReader_GetTokenPriceUpdatesCreatedAfter_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTokenPriceUpdatesCreatedAfter'
+type PriceRegistryReader_GetTokenPriceUpdatesCreatedAfter_Call struct {
+	*mock.Call
+}
+
+// GetTokenPriceUpdatesCreatedAfter is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ts time.Time
+//   - confirmations int
+func (_e *PriceRegistryReader_Expecter) GetTokenPriceUpdatesCreatedAfter(ctx interface{}, ts interface{}, confirmations interface{}) *PriceRegistryReader_GetTokenPriceUpdatesCreatedAfter_Call {
+	return &PriceRegistryReader_GetTokenPriceUpdatesCreatedAfter_Call{Call: _e.mock.On("GetTokenPriceUpdatesCreatedAfter", ctx, ts, confirmations)}
+}
+
+func (_c *PriceRegistryReader_GetTokenPriceUpdatesCreatedAfter_Call) Run(run func(ctx context.Context, ts time.Time, confirmations int)) *PriceRegistryReader_GetTokenPriceUpdatesCreatedAfter_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(time.Time), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryReader_GetTokenPriceUpdatesCreatedAfter_Call) Return(_a0 []ccip.TokenPriceUpdateWithTxMeta, _a1 error) *PriceRegistryReader_GetTokenPriceUpdatesCreatedAfter_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryReader_GetTokenPriceUpdatesCreatedAfter_Call) RunAndReturn(run func(context.Context, time.Time, int) ([]ccip.TokenPriceUpdateWithTxMeta, error)) *PriceRegistryReader_GetTokenPriceUpdatesCreatedAfter_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetTokenPrices provides a mock function with given fields: ctx, wantedTokens
@@ -213,6 +395,35 @@ func (_m *PriceRegistryReader) GetTokenPrices(ctx context.Context, wantedTokens 
 	return r0, r1
 }
 
+// PriceRegistryReader_GetTokenPrices_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTokenPrices'
+type PriceRegistryReader_GetTokenPrices_Call struct {
+	*mock.Call
+}
+
+// GetTokenPrices is a helper method to define mock.On call
+//   - ctx context.Context
+//   - wantedTokens []ccip.Address
+func (_e *PriceRegistryReader_Expecter) GetTokenPrices(ctx interface{}, wantedTokens interface{}) *PriceRegistryReader_GetTokenPrices_Call {
+	return &PriceRegistryReader_GetTokenPrices_Call{Call: _e.mock.On("GetTokenPrices", ctx, wantedTokens)}
+}
+
+func (_c *PriceRegistryReader_GetTokenPrices_Call) Run(run func(ctx context.Context, wantedTokens []ccip.Address)) *PriceRegistryReader_GetTokenPrices_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]ccip.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryReader_GetTokenPrices_Call) Return(_a0 []ccip.TokenPriceUpdate, _a1 error) *PriceRegistryReader_GetTokenPrices_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryReader_GetTokenPrices_Call) RunAndReturn(run func(context.Context, []ccip.Address) ([]ccip.TokenPriceUpdate, error)) *PriceRegistryReader_GetTokenPrices_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetTokensDecimals provides a mock function with given fields: ctx, tokenAddresses
 func (_m *PriceRegistryReader) GetTokensDecimals(ctx context.Context, tokenAddresses []ccip.Address) ([]uint8, error) {
 	ret := _m.Called(ctx, tokenAddresses)
@@ -241,6 +452,35 @@ func (_m *PriceRegistryReader) GetTokensDecimals(ctx context.Context, tokenAddre
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryReader_GetTokensDecimals_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTokensDecimals'
+type PriceRegistryReader_GetTokensDecimals_Call struct {
+	*mock.Call
+}
+
+// GetTokensDecimals is a helper method to define mock.On call
+//   - ctx context.Context
+//   - tokenAddresses []ccip.Address
+func (_e *PriceRegistryReader_Expecter) GetTokensDecimals(ctx interface{}, tokenAddresses interface{}) *PriceRegistryReader_GetTokensDecimals_Call {
+	return &PriceRegistryReader_GetTokensDecimals_Call{Call: _e.mock.On("GetTokensDecimals", ctx, tokenAddresses)}
+}
+
+func (_c *PriceRegistryReader_GetTokensDecimals_Call) Run(run func(ctx context.Context, tokenAddresses []ccip.Address)) *PriceRegistryReader_GetTokensDecimals_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]ccip.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryReader_GetTokensDecimals_Call) Return(_a0 []uint8, _a1 error) *PriceRegistryReader_GetTokensDecimals_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryReader_GetTokensDecimals_Call) RunAndReturn(run func(context.Context, []ccip.Address) ([]uint8, error)) *PriceRegistryReader_GetTokensDecimals_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewPriceRegistryReader creates a new instance of PriceRegistryReader. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
