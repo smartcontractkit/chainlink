@@ -12,12 +12,12 @@ type mockNodeSelector[CHAIN_ID types.ID, RPC interface{}] struct {
 	mock.Mock
 }
 
-type mockNodeSelector_Expecter[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+type mockNodeSelector_Expecter[CHAIN_ID types.ID, RPC interface{}] struct {
 	mock *mock.Mock
 }
 
-func (_m *mockNodeSelector[CHAIN_ID, HEAD, RPC]) EXPECT() *mockNodeSelector_Expecter[CHAIN_ID, HEAD, RPC] {
-	return &mockNodeSelector_Expecter[CHAIN_ID, HEAD, RPC]{mock: &_m.Mock}
+func (_m *mockNodeSelector[CHAIN_ID, RPC]) EXPECT() *mockNodeSelector_Expecter[CHAIN_ID, RPC] {
+	return &mockNodeSelector_Expecter[CHAIN_ID, RPC]{mock: &_m.Mock}
 }
 
 // Name provides a mock function with given fields:
@@ -39,28 +39,28 @@ func (_m *mockNodeSelector[CHAIN_ID, RPC]) Name() string {
 }
 
 // mockNodeSelector_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
-type mockNodeSelector_Name_Call[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+type mockNodeSelector_Name_Call[CHAIN_ID types.ID, RPC interface{}] struct {
 	*mock.Call
 }
 
 // Name is a helper method to define mock.On call
-func (_e *mockNodeSelector_Expecter[CHAIN_ID, HEAD, RPC]) Name() *mockNodeSelector_Name_Call[CHAIN_ID, HEAD, RPC] {
-	return &mockNodeSelector_Name_Call[CHAIN_ID, HEAD, RPC]{Call: _e.mock.On("Name")}
+func (_e *mockNodeSelector_Expecter[CHAIN_ID, RPC]) Name() *mockNodeSelector_Name_Call[CHAIN_ID, RPC] {
+	return &mockNodeSelector_Name_Call[CHAIN_ID, RPC]{Call: _e.mock.On("Name")}
 }
 
-func (_c *mockNodeSelector_Name_Call[CHAIN_ID, HEAD, RPC]) Run(run func()) *mockNodeSelector_Name_Call[CHAIN_ID, HEAD, RPC] {
+func (_c *mockNodeSelector_Name_Call[CHAIN_ID, RPC]) Run(run func()) *mockNodeSelector_Name_Call[CHAIN_ID, RPC] {
 	_c.Call.Run(func(args mock.Arguments) {
 		run()
 	})
 	return _c
 }
 
-func (_c *mockNodeSelector_Name_Call[CHAIN_ID, HEAD, RPC]) Return(_a0 string) *mockNodeSelector_Name_Call[CHAIN_ID, HEAD, RPC] {
+func (_c *mockNodeSelector_Name_Call[CHAIN_ID, RPC]) Return(_a0 string) *mockNodeSelector_Name_Call[CHAIN_ID, RPC] {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *mockNodeSelector_Name_Call[CHAIN_ID, HEAD, RPC]) RunAndReturn(run func() string) *mockNodeSelector_Name_Call[CHAIN_ID, HEAD, RPC] {
+func (_c *mockNodeSelector_Name_Call[CHAIN_ID, RPC]) RunAndReturn(run func() string) *mockNodeSelector_Name_Call[CHAIN_ID, RPC] {
 	_c.Call.Return(run)
 	return _c
 }
@@ -86,28 +86,28 @@ func (_m *mockNodeSelector[CHAIN_ID, RPC]) Select() Node[CHAIN_ID, RPC] {
 }
 
 // mockNodeSelector_Select_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Select'
-type mockNodeSelector_Select_Call[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+type mockNodeSelector_Select_Call[CHAIN_ID types.ID, RPC interface{}] struct {
 	*mock.Call
 }
 
 // Select is a helper method to define mock.On call
-func (_e *mockNodeSelector_Expecter[CHAIN_ID, HEAD, RPC]) Select() *mockNodeSelector_Select_Call[CHAIN_ID, HEAD, RPC] {
-	return &mockNodeSelector_Select_Call[CHAIN_ID, HEAD, RPC]{Call: _e.mock.On("Select")}
+func (_e *mockNodeSelector_Expecter[CHAIN_ID, RPC]) Select() *mockNodeSelector_Select_Call[CHAIN_ID, RPC] {
+	return &mockNodeSelector_Select_Call[CHAIN_ID, RPC]{Call: _e.mock.On("Select")}
 }
 
-func (_c *mockNodeSelector_Select_Call[CHAIN_ID, HEAD, RPC]) Run(run func()) *mockNodeSelector_Select_Call[CHAIN_ID, HEAD, RPC] {
+func (_c *mockNodeSelector_Select_Call[CHAIN_ID, RPC]) Run(run func()) *mockNodeSelector_Select_Call[CHAIN_ID, RPC] {
 	_c.Call.Run(func(args mock.Arguments) {
 		run()
 	})
 	return _c
 }
 
-func (_c *mockNodeSelector_Select_Call[CHAIN_ID, HEAD, RPC]) Return(_a0 Node[CHAIN_ID, HEAD, RPC]) *mockNodeSelector_Select_Call[CHAIN_ID, HEAD, RPC] {
+func (_c *mockNodeSelector_Select_Call[CHAIN_ID, RPC]) Return(_a0 Node[CHAIN_ID, RPC]) *mockNodeSelector_Select_Call[CHAIN_ID, RPC] {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *mockNodeSelector_Select_Call[CHAIN_ID, HEAD, RPC]) RunAndReturn(run func() Node[CHAIN_ID, HEAD, RPC]) *mockNodeSelector_Select_Call[CHAIN_ID, HEAD, RPC] {
+func (_c *mockNodeSelector_Select_Call[CHAIN_ID, RPC]) RunAndReturn(run func() Node[CHAIN_ID, RPC]) *mockNodeSelector_Select_Call[CHAIN_ID, RPC] {
 	_c.Call.Return(run)
 	return _c
 }
