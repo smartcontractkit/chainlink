@@ -16,9 +16,45 @@ type HeadBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct
 	mock.Mock
 }
 
+type HeadBroadcaster_Expecter[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
+	mock *mock.Mock
+}
+
+func (_m *HeadBroadcaster[H, BLOCK_HASH]) EXPECT() *HeadBroadcaster_Expecter[H, BLOCK_HASH] {
+	return &HeadBroadcaster_Expecter[H, BLOCK_HASH]{mock: &_m.Mock}
+}
+
 // BroadcastNewLongestChain provides a mock function with given fields: _a0
 func (_m *HeadBroadcaster[H, BLOCK_HASH]) BroadcastNewLongestChain(_a0 H) {
 	_m.Called(_a0)
+}
+
+// HeadBroadcaster_BroadcastNewLongestChain_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BroadcastNewLongestChain'
+type HeadBroadcaster_BroadcastNewLongestChain_Call[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
+	*mock.Call
+}
+
+// BroadcastNewLongestChain is a helper method to define mock.On call
+//   - _a0 H
+func (_e *HeadBroadcaster_Expecter[H, BLOCK_HASH]) BroadcastNewLongestChain(_a0 interface{}) *HeadBroadcaster_BroadcastNewLongestChain_Call[H, BLOCK_HASH] {
+	return &HeadBroadcaster_BroadcastNewLongestChain_Call[H, BLOCK_HASH]{Call: _e.mock.On("BroadcastNewLongestChain", _a0)}
+}
+
+func (_c *HeadBroadcaster_BroadcastNewLongestChain_Call[H, BLOCK_HASH]) Run(run func(_a0 H)) *HeadBroadcaster_BroadcastNewLongestChain_Call[H, BLOCK_HASH] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(H))
+	})
+	return _c
+}
+
+func (_c *HeadBroadcaster_BroadcastNewLongestChain_Call[H, BLOCK_HASH]) Return() *HeadBroadcaster_BroadcastNewLongestChain_Call[H, BLOCK_HASH] {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *HeadBroadcaster_BroadcastNewLongestChain_Call[H, BLOCK_HASH]) RunAndReturn(run func(H)) *HeadBroadcaster_BroadcastNewLongestChain_Call[H, BLOCK_HASH] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Close provides a mock function with given fields:
@@ -37,6 +73,33 @@ func (_m *HeadBroadcaster[H, BLOCK_HASH]) Close() error {
 	}
 
 	return r0
+}
+
+// HeadBroadcaster_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type HeadBroadcaster_Close_Call[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *HeadBroadcaster_Expecter[H, BLOCK_HASH]) Close() *HeadBroadcaster_Close_Call[H, BLOCK_HASH] {
+	return &HeadBroadcaster_Close_Call[H, BLOCK_HASH]{Call: _e.mock.On("Close")}
+}
+
+func (_c *HeadBroadcaster_Close_Call[H, BLOCK_HASH]) Run(run func()) *HeadBroadcaster_Close_Call[H, BLOCK_HASH] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *HeadBroadcaster_Close_Call[H, BLOCK_HASH]) Return(_a0 error) *HeadBroadcaster_Close_Call[H, BLOCK_HASH] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *HeadBroadcaster_Close_Call[H, BLOCK_HASH]) RunAndReturn(run func() error) *HeadBroadcaster_Close_Call[H, BLOCK_HASH] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // HealthReport provides a mock function with given fields:
@@ -59,6 +122,33 @@ func (_m *HeadBroadcaster[H, BLOCK_HASH]) HealthReport() map[string]error {
 	return r0
 }
 
+// HeadBroadcaster_HealthReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HealthReport'
+type HeadBroadcaster_HealthReport_Call[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
+	*mock.Call
+}
+
+// HealthReport is a helper method to define mock.On call
+func (_e *HeadBroadcaster_Expecter[H, BLOCK_HASH]) HealthReport() *HeadBroadcaster_HealthReport_Call[H, BLOCK_HASH] {
+	return &HeadBroadcaster_HealthReport_Call[H, BLOCK_HASH]{Call: _e.mock.On("HealthReport")}
+}
+
+func (_c *HeadBroadcaster_HealthReport_Call[H, BLOCK_HASH]) Run(run func()) *HeadBroadcaster_HealthReport_Call[H, BLOCK_HASH] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *HeadBroadcaster_HealthReport_Call[H, BLOCK_HASH]) Return(_a0 map[string]error) *HeadBroadcaster_HealthReport_Call[H, BLOCK_HASH] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *HeadBroadcaster_HealthReport_Call[H, BLOCK_HASH]) RunAndReturn(run func() map[string]error) *HeadBroadcaster_HealthReport_Call[H, BLOCK_HASH] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Name provides a mock function with given fields:
 func (_m *HeadBroadcaster[H, BLOCK_HASH]) Name() string {
 	ret := _m.Called()
@@ -75,6 +165,33 @@ func (_m *HeadBroadcaster[H, BLOCK_HASH]) Name() string {
 	}
 
 	return r0
+}
+
+// HeadBroadcaster_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
+type HeadBroadcaster_Name_Call[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
+	*mock.Call
+}
+
+// Name is a helper method to define mock.On call
+func (_e *HeadBroadcaster_Expecter[H, BLOCK_HASH]) Name() *HeadBroadcaster_Name_Call[H, BLOCK_HASH] {
+	return &HeadBroadcaster_Name_Call[H, BLOCK_HASH]{Call: _e.mock.On("Name")}
+}
+
+func (_c *HeadBroadcaster_Name_Call[H, BLOCK_HASH]) Run(run func()) *HeadBroadcaster_Name_Call[H, BLOCK_HASH] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *HeadBroadcaster_Name_Call[H, BLOCK_HASH]) Return(_a0 string) *HeadBroadcaster_Name_Call[H, BLOCK_HASH] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *HeadBroadcaster_Name_Call[H, BLOCK_HASH]) RunAndReturn(run func() string) *HeadBroadcaster_Name_Call[H, BLOCK_HASH] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Ready provides a mock function with given fields:
@@ -95,6 +212,33 @@ func (_m *HeadBroadcaster[H, BLOCK_HASH]) Ready() error {
 	return r0
 }
 
+// HeadBroadcaster_Ready_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Ready'
+type HeadBroadcaster_Ready_Call[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
+	*mock.Call
+}
+
+// Ready is a helper method to define mock.On call
+func (_e *HeadBroadcaster_Expecter[H, BLOCK_HASH]) Ready() *HeadBroadcaster_Ready_Call[H, BLOCK_HASH] {
+	return &HeadBroadcaster_Ready_Call[H, BLOCK_HASH]{Call: _e.mock.On("Ready")}
+}
+
+func (_c *HeadBroadcaster_Ready_Call[H, BLOCK_HASH]) Run(run func()) *HeadBroadcaster_Ready_Call[H, BLOCK_HASH] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *HeadBroadcaster_Ready_Call[H, BLOCK_HASH]) Return(_a0 error) *HeadBroadcaster_Ready_Call[H, BLOCK_HASH] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *HeadBroadcaster_Ready_Call[H, BLOCK_HASH]) RunAndReturn(run func() error) *HeadBroadcaster_Ready_Call[H, BLOCK_HASH] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *HeadBroadcaster[H, BLOCK_HASH]) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)
@@ -111,6 +255,34 @@ func (_m *HeadBroadcaster[H, BLOCK_HASH]) Start(_a0 context.Context) error {
 	}
 
 	return r0
+}
+
+// HeadBroadcaster_Start_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Start'
+type HeadBroadcaster_Start_Call[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
+	*mock.Call
+}
+
+// Start is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *HeadBroadcaster_Expecter[H, BLOCK_HASH]) Start(_a0 interface{}) *HeadBroadcaster_Start_Call[H, BLOCK_HASH] {
+	return &HeadBroadcaster_Start_Call[H, BLOCK_HASH]{Call: _e.mock.On("Start", _a0)}
+}
+
+func (_c *HeadBroadcaster_Start_Call[H, BLOCK_HASH]) Run(run func(_a0 context.Context)) *HeadBroadcaster_Start_Call[H, BLOCK_HASH] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *HeadBroadcaster_Start_Call[H, BLOCK_HASH]) Return(_a0 error) *HeadBroadcaster_Start_Call[H, BLOCK_HASH] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *HeadBroadcaster_Start_Call[H, BLOCK_HASH]) RunAndReturn(run func(context.Context) error) *HeadBroadcaster_Start_Call[H, BLOCK_HASH] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Subscribe provides a mock function with given fields: callback
@@ -141,6 +313,34 @@ func (_m *HeadBroadcaster[H, BLOCK_HASH]) Subscribe(callback headtracker.HeadTra
 	}
 
 	return r0, r1
+}
+
+// HeadBroadcaster_Subscribe_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Subscribe'
+type HeadBroadcaster_Subscribe_Call[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
+	*mock.Call
+}
+
+// Subscribe is a helper method to define mock.On call
+//   - callback headtracker.HeadTrackable[H,BLOCK_HASH]
+func (_e *HeadBroadcaster_Expecter[H, BLOCK_HASH]) Subscribe(callback interface{}) *HeadBroadcaster_Subscribe_Call[H, BLOCK_HASH] {
+	return &HeadBroadcaster_Subscribe_Call[H, BLOCK_HASH]{Call: _e.mock.On("Subscribe", callback)}
+}
+
+func (_c *HeadBroadcaster_Subscribe_Call[H, BLOCK_HASH]) Run(run func(callback headtracker.HeadTrackable[H, BLOCK_HASH])) *HeadBroadcaster_Subscribe_Call[H, BLOCK_HASH] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(headtracker.HeadTrackable[H, BLOCK_HASH]))
+	})
+	return _c
+}
+
+func (_c *HeadBroadcaster_Subscribe_Call[H, BLOCK_HASH]) Return(currentLongestChain H, unsubscribe func()) *HeadBroadcaster_Subscribe_Call[H, BLOCK_HASH] {
+	_c.Call.Return(currentLongestChain, unsubscribe)
+	return _c
+}
+
+func (_c *HeadBroadcaster_Subscribe_Call[H, BLOCK_HASH]) RunAndReturn(run func(headtracker.HeadTrackable[H, BLOCK_HASH]) (H, func())) *HeadBroadcaster_Subscribe_Call[H, BLOCK_HASH] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewHeadBroadcaster creates a new instance of HeadBroadcaster. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

@@ -28,8 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-//go:generate mockery --quiet --name Runner --output ./mocks/ --case=underscore
-
 type Runner interface {
 	services.Service
 

@@ -88,15 +88,22 @@ jobs:
         type:
           - cmd: go_core_tests
             id: core_unit
+            os: ubuntu22.04-32cores-128GB
           - cmd: go_core_race_tests
             id: core_race
+            # use 64cores for overnight runs only due to massive number of runs from PRs
+            os: ${{ github.event_name == 'schedule' && 'ubuntu-latest-64cores-256GB' || 'ubuntu-latest-32cores-128GB' }}
           - cmd: go_core_fuzz
             id: core_fuzz
+            os: ubuntu22.04-8cores-32GB
     name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
     needs: [filter]
-    runs-on: ubuntu-latest-64cores-256GB
+    runs-on: ${{ matrix.type.os }}
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -111,9 +118,10 @@ jobs:
       - name: Setup Go
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-go
-      - name: Run short tests
-        if: ${{ needs.filter.outputs.changes == 'true' && matrix.type.cmd == 'go_core_tests' }}
-        run: go test -short ./...
+      - name: Replace chainlink-evm deps
+        if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
+        shell: bash
+        run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
       - name: Setup Solana
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-solana
@@ -129,10 +137,6 @@ jobs:
       - name: Download Go vendor packages
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go mod download
-      - name: Replace chainlink-evm deps
-        if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
-        shell: bash
-        run: go get github.com/smartcontractkit/chainlink-evm@${{ inputs.evm-ref }}
       - name: Build binary
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go build -o chainlink.test .
@@ -173,7 +177,7 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
         run: ./tools/bin/${{ matrix.type.cmd }} ./...
       - name: Print Filtered Test Results
-        if: ${{ failure() && matrix.type.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true' }}
+        if: ${{ failure() && matrix.type.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true'  && steps.run-tests.conclusion == 'failure' }}
         run: |
           cat output.txt | gotestloghelper -ci
       - name: Print Races
@@ -243,6 +247,9 @@ jobs:
     if: ${{ always() && github.actor != 'dependabot[bot]' }}
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -269,7 +276,7 @@ jobs:
       - name: Replace chainlink-evm deps
         if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
         shell: bash
-        run: go get github.com/smartcontractkit/chainlink-evm@${{ inputs.evm-ref }}
+        run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
       - name: Build binary
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go build -o chainlink.test .
@@ -280,7 +287,14 @@ jobs:
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
         with:
+          name: go_core_tests_logs
           path: ./artifacts
+      - name: Delete go_core_tests_logs/coverage.txt
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        shell: bash
+        run: |
+          # Need to delete coverage.txt so the disk doesn't fill up
+          rm -f ./artifacts/go_core_tests_logs/coverage.txt
       - name: Build flakey test runner
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go build ./tools/flakeytests/cmd/runner
@@ -326,22 +340,50 @@ jobs:
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+
       - name: Set SonarQube Report Paths
         id: sonarqube_report_paths
         shell: bash
         run: |
           echo "sonarqube_tests_report_paths=$(find go_core_tests_logs -name output.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
           echo "sonarqube_coverage_report_paths=$(find go_core_tests_logs -name coverage.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
+          echo "sonarqube_lint_report_paths=$(find golangci-lint-report -name golangci-lint-report.xml | paste -sd "," -)" >> $GITHUB_OUTPUT
+
+      - name: Check SonarQube Report Paths
+        id: check_sonarqube_paths
+        run: |
+          ARGS=""
+
+          if [[ -z "${{ steps.sonarqube_report_paths.outputs.sonarqube_tests_report_paths }}" ]]; then
+            echo "::warning::No test report paths found, will not pass to sonarqube"
+          else
+            ARGS="$ARGS -Dsonar.go.tests.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_tests_report_paths }}"
+          fi
+
+          if [[ -z "${{ steps.sonarqube_report_paths.outputs.sonarqube_coverage_report_paths }}" ]]; then
+            echo "::warning::No coverage report paths found, will not pass to sonarqube"
+          else
+            ARGS="$ARGS -Dsonar.go.coverage.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_coverage_report_paths }}"
+          fi
+
+          if [[ -z "${{ steps.sonarqube_report_paths.outputs.sonarqube_lint_report_paths }}" ]]; then
+            echo "::warning::No lint report paths found, will not pass to sonarqube"
+          else
+            ARGS="$ARGS -Dsonar.go.golangci-lint.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_lint_report_paths }}"
+          fi
+
+          echo "SONARQUBE_ARGS=$ARGS" >> $GITHUB_ENV
+
       - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@69c1a75940dec6249b86dace6b630d3a2ae9d2a7 # v2.0.1
+        if: ${{ env.SONARQUBE_ARGS != '' }}
+        uses: sonarsource/sonarqube-scan-action@aecaf43ae57e412bd97d70ef9ce6076e672fe0a9 # v2.3.0
         with:
-          args: >
-            -Dsonar.go.tests.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_tests_report_paths }}
-            -Dsonar.go.coverage.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_coverage_report_paths }}
-            -Dsonar.go.golangci-lint.reportPaths=golangci-lint-report/golangci-lint-report.xml
+          args: ${{ env.SONARQUBE_ARGS }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
+
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics

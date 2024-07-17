@@ -84,7 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should_run: ${{ steps.should-run.outputs.should_run }}
-      eth_implementations : ${{ steps.should-run.outputs.eth_implementations }}
+      eth_implementations: ${{ steps.should-run.outputs.eth_implementations }}
     env:
       GITHUB_REF_TYPE: ${{ github.ref_type }}
     steps:
@@ -117,7 +117,7 @@ jobs:
       RELEASED_DAYS_AGO: 4
       GITHUB_REF_TYPE: ${{ github.ref_type }}
     outputs:
-      evm_implementations : ${{ steps.select-implementations.outputs.evm_implementations }}
+      evm_implementations: ${{ steps.select-implementations.outputs.evm_implementations }}
       chainlink_version: ${{ steps.select-chainlink-version.outputs.chainlink_version }}
       latest_image_count: ${{ steps.get-image-count.outputs.image_count }}
     steps:
@@ -131,7 +131,7 @@ jobs:
         run: |
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH          
-          
+
           if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             echo "Checking for new releases"
             implementations_arr=()
@@ -179,7 +179,7 @@ jobs:
         run: |
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
-          
+
           if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             echo "Fetching latest Chainlink stable version"
             implementations_arr=()
@@ -206,7 +206,7 @@ jobs:
             echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
             echo "Fetching Chainlink version from tag"
-            chainlink_version="${{ github.ref }}"
+            chainlink_version="${{ github.ref_name }}"
             echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
           else
             echo "Unsupported trigger event. It's probably an issue with the pipeline definition. Please reach out to the Test Tooling team."
@@ -267,7 +267,14 @@ jobs:
           page_size: ${{matrix.mirror.page_size}}
 
   build-chainlink:
-    if: always() && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
+    if: |
+      always() &&
+      needs.should-run.outputs.should_run == 'true' &&
+      github.ref_type != 'tag' &&
+      (
+        needs.select-versions.outputs.evm_implementations != '' ||
+        github.event.inputs.base64TestList != ''
+      )
     environment: integration
     permissions:
       id-token: write
@@ -276,16 +283,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [should-run, select-versions]
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: client-compatablility-build-chainlink
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Build Chainlink Image
-        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
@@ -296,9 +293,19 @@ jobs:
           tag_suffix: ""
           dockerfile: core/chainlink.Dockerfile
           git_commit_sha: ${{ needs.select-versions.outputs.chainlink_version }}
-          check_image_exists: 'true'
+          check_image_exists: "true"
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: client-compatablility-build-chainlink
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
 
   get-latest-available-images:
     name: Get Latest EVM Implementation's Images
@@ -350,20 +357,20 @@ jobs:
             echo "GETH_IMAGES=$geth_images" >> $GITHUB_ENV
             echo "Geth latest images: $geth_images"
           fi
-          
+
           if [[ "$ETH_IMPLEMENTATIONS" == *"nethermind"* ]]; then
             nethermind_images=$(ecrimagefetcher 'nethermind/nethermind' '^[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
             echo "NETHERMIND_IMAGES=$nethermind_images" >> $GITHUB_ENV
             echo "Nethermind latest images: $nethermind_images"
           fi
-          
+
           if [[ "$ETH_IMPLEMENTATIONS" == *"besu"* ]]; then
             # 24.3.3 is ignored as it doesn't support data & input fields in eth_call
             besu_images=$(ecrimagefetcher 'hyperledger/besu' '^[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.LATEST_IMAGE_COUNT }} ">=24.5.1")
             echo "BESU_IMAGES=$besu_images" >> $GITHUB_ENV
             echo "Besu latest images: $besu_images"
           fi
-          
+
           if [[ "$ETH_IMPLEMENTATIONS" == *"erigon"* ]]; then
             # 2.60.0 and 2.60.1 are ignored as they stopped working with CL node
             erigon_images=$(ecrimagefetcher 'thorax/erigon' '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }} "<v2.60.0")
@@ -382,7 +389,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [get-latest-available-images,should-run,select-versions]
+    needs: [get-latest-available-images, should-run, select-versions]
     runs-on: ubuntu-latest
     env:
       ETH_IMPLEMENTATIONS: ${{ needs.select-versions.outputs.evm_implementations }}
@@ -445,7 +452,7 @@ jobs:
           else
             echo "Will not test compatibility with geth"
           fi
-          
+
           if [[ "$ETH_IMPLEMENTATIONS" == *"besu"* ]]; then
             echo "Will test compatibility with besu"
             testlistgenerator -o compatibility_test_list.json -p cron -r TestCronBasic -f './smoke/cron_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
@@ -463,7 +470,7 @@ jobs:
           else
             echo "Will not test compatibility with besu"
           fi
-          
+
           if [[ "$ETH_IMPLEMENTATIONS" == *"erigon"* ]]; then
             echo "Will test compatibility with erigon"
             testlistgenerator -o compatibility_test_list.json -p cron -r TestCronBasic -f './smoke/cron_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
@@ -480,7 +487,7 @@ jobs:
           else
             echo "Will not test compatibility with erigon"
           fi
-          
+
           if [[ "$ETH_IMPLEMENTATIONS" == *"nethermind"* ]]; then
             echo "Will test compatibility with nethermind"
             testlistgenerator -o compatibility_test_list.json -p cron -r TestCronBasic -f './smoke/cron_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
@@ -498,10 +505,10 @@ jobs:
           else
             echo "Will not test compatibility with nethermind"
           fi
-          
+
           jq . compatibility_test_list.json
           JOB_MATRIX_JSON=$(jq -c . compatibility_test_list.json)
-          echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV           
+          echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV
 
   run-client-compatibility-matrix:
     name: ${{ matrix.evm_node.product }} compatibility with ${{ matrix.evm_node.docker_image }}
@@ -512,7 +519,11 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, prepare-compatibility-matrix, should-run, select-versions]
+    needs:
+      - build-chainlink
+      - prepare-compatibility-matrix
+      - should-run
+      - select-versions
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ needs.select-versions.outputs.chainlink_version }}
@@ -520,6 +531,7 @@ jobs:
       TEST_LOG_LEVEL: debug
     strategy:
       fail-fast: false
+      max-parallel: 10
       matrix:
         evm_node: ${{fromJson(needs.prepare-compatibility-matrix.outputs.matrix)}}
     runs-on: ubuntu-latest
@@ -544,20 +556,10 @@ jobs:
           runId: ${{ github.run_id }}
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           selectedNetworks: ${{ env.SELECTED_NETWORKS }}
-          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
           chainlinkVersion: ${{ needs.select-versions.outputs.chainlink_version }}
-          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          lokiBasicAuth:  ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: "http://localhost:8080/primary"
-          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
           ethExecutionClient: ${{ matrix.evm_node.eth_implementation }}
           customEthClientDockerImage: ${{ matrix.evm_node.docker_image }}
-          pyroscopeServer: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          pyroscopeEnvironment: ci-client-compatability-${{ matrix.eth_client }}-testnet
-          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
       - name: Prepare test log name
         run: |
           replace_special_chars() {
@@ -580,8 +582,13 @@ jobs:
             echo "$modified_string"
           }
           echo "TEST_LOG_NAME=$(replace_special_chars "${{ matrix.evm_node.product }}-${{ matrix.evm_node.docker_image }}-test-logs")" >> $GITHUB_ENV
+      #      - name: Collect Workflow Telemetry
+      #        uses: catchpoint/workflow-telemetry-action@v2
+      #        with:
+      #          comment_on_pr: false
+      #          theme: 'dark'
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
         with:
           test_command_to_run: cd ./integration-tests && touch .root_dir && go test -timeout 30m -count=1 -json ${{ matrix.evm_node.run }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -603,9 +610,21 @@ jobs:
           should_tidy: "false"
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
+          DEFAULT_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          DEFAULT_GRAFANA_BASE_URL: "http://localhost:8080/primary"
+          DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          DEFAULT_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          DEFAULT_PYROSCOPE_SERVER_URL: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          DEFAULT_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          DEFAULT_PYROSCOPE_ENVIRONMENT: ci-client-compatability-${{ matrix.eth_client }}-testnet
+          DEFAULT_PYROSCOPE_ENABLED: "true"
+
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
 
   start-slack-thread:
     name: Start Slack Thread
@@ -646,7 +665,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U060CGGPY8H>' || 'All Good!' }}"
+                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@S0536FX9ZDZ>' || 'All Good!' }}"
                       }
                     },
                     {
@@ -676,7 +695,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [run-client-compatibility-matrix,should-run]
+    needs: [run-client-compatibility-matrix, should-run]
     outputs:
       base64_parsed_results: ${{ steps.get-test-results.outputs.base64_parsed_results }}
     steps:
@@ -691,7 +710,7 @@ jobs:
         run: |
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
-          
+
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^automation compatibility with (.*?)$" -namedKey="automation" -outputFile=output.json
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^keeper compatibility with (.*?)$" -namedKey="keeper" -outputFile=output.json
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^log_poller compatibility with (.*?)$" -namedKey="log_poller" -outputFile=output.json
@@ -708,7 +727,7 @@ jobs:
 
   display-test-results:
     name: Aggregated test results
-    if:  always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && needs.parse-test-results.result == 'success'
+    if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && needs.parse-test-results.result == 'success'
     environment: integration
     permissions:
       checks: write
@@ -728,7 +747,7 @@ jobs:
         run: |
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
-          
+
           raw_results="$(echo ${{ needs.parse-test-results.outputs.base64_parsed_results }} | base64 -d)"
           echo $raw_results > input.json
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "automation" --namedKey "automation" 
@@ -742,11 +761,11 @@ jobs:
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "flux" --namedKey "flux"
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "cron" --namedKey "cron"
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "runlog" --namedKey "runlog"
-          
+
           echo
           echo "AGGREGATED RESULTS"
           cat output.txt
-          
+
           echo "## Aggregated EVM Implementations compatibility results summary" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat output.txt >> $GITHUB_STEP_SUMMARY
@@ -766,7 +785,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        product: [automation, keeper, log_poller, ocr, ocr2, vrf, vrfv2, vrfv2plus, cron, flux, runlog]
+        product:
+          - automation
+          - keeper
+          - log_poller
+          - ocr
+          - ocr2
+          - vrf
+          - vrfv2
+          - vrfv2plus
+          - cron
+          - flux
+          - runlog
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2

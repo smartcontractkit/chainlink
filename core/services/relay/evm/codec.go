@@ -18,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
+// DecoderHooks
+//
 // decodeAccountAndAllowArraySliceHook allows:
 //
 //	strings to be converted to [32]byte allowing config to represent them as 0x...
@@ -29,7 +31,7 @@ import (
 // SliceToArrayVerifySizeHook verifies that slices have the correct size when converting to an array
 // sizeVerifyBigIntHook allows our custom types that verify the number fits in the on-chain type to be converted as-if
 // it was a *big.Int
-var evmDecoderHooks = []mapstructure.DecodeHookFunc{
+var DecoderHooks = []mapstructure.DecodeHookFunc{
 	decodeAccountAndAllowArraySliceHook,
 	codec.BigIntHook,
 	codec.SliceToArrayVerifySizeHook,
@@ -45,9 +47,9 @@ var evmDecoderHooks = []mapstructure.DecodeHookFunc{
 // you need to use the Go name instead of the name on-chain.
 // eg: rename FooBar -> Bar, not foo_bar_ to Bar if the name on-chain is foo_bar_
 func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
-	parsed := &parsedTypes{
-		encoderDefs: map[string]types.CodecEntry{},
-		decoderDefs: map[string]types.CodecEntry{},
+	parsed := &ParsedTypes{
+		EncoderDefs: map[string]types.CodecEntry{},
+		DecoderDefs: map[string]types.CodecEntry{},
 	}
 
 	for k, v := range conf.Configs {
@@ -56,7 +58,7 @@ func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
 			return nil, err
 		}
 
-		mod, err := v.ModifierConfigs.ToModifier(evmDecoderHooks...)
+		mod, err := v.ModifierConfigs.ToModifier(DecoderHooks...)
 		if err != nil {
 			return nil, err
 		}
@@ -66,25 +68,25 @@ func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
 			return nil, err
 		}
 
-		parsed.encoderDefs[k] = item
-		parsed.decoderDefs[k] = item
+		parsed.EncoderDefs[k] = item
+		parsed.DecoderDefs[k] = item
 	}
 
-	return parsed.toCodec()
+	return parsed.ToCodec()
 }
 
 type evmCodec struct {
 	*encoder
 	*decoder
-	*parsedTypes
+	*ParsedTypes
 }
 
 func (c *evmCodec) CreateType(itemType string, forEncoding bool) (any, error) {
 	var itemTypes map[string]types.CodecEntry
 	if forEncoding {
-		itemTypes = c.encoderDefs
+		itemTypes = c.EncoderDefs
 	} else {
-		itemTypes = c.decoderDefs
+		itemTypes = c.DecoderDefs
 	}
 
 	def, ok := itemTypes[itemType]
