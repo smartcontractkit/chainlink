@@ -38,8 +38,12 @@ contract VerifierBillingTests is VerifierWithFeeManager {
         _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
         _verify(signedReport, address(link), 0, USER);
         assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE);
+
+        // internal state checks
         assertEq(feeManager.s_linkDeficit(expectedDonConfigID), 0);
         assertEq(rewardManager.s_totalRewardRecipientFees(expectedDonConfigID), DEFAULT_REPORT_LINK_FEE);
+        assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
+       
     }
 
     function test_verifyWithNative() public {
@@ -56,8 +60,7 @@ contract VerifierBillingTests is VerifierWithFeeManager {
         _verify(signedReport, address(native), 0, USER);
         assertEq(native.balanceOf(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE);
 
-       // this fails
-       //  assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
+         assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
     }
 
     function test_verifyWithNativeUnwrapped() public {
@@ -69,6 +72,7 @@ contract VerifierBillingTests is VerifierWithFeeManager {
         s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, weights);
         bytes memory signedReport =
             _generateV3EncodedBlob(s_testReportThree, s_reportContext, _getSigners(FAULT_TOLERANCE + 1));
+        // it seems this _approveNative is not needed for native unwrapped?
         _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
         _verify(signedReport, address(native), DEFAULT_REPORT_NATIVE_FEE, USER);
 
@@ -85,11 +89,12 @@ contract VerifierBillingTests is VerifierWithFeeManager {
         s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, weights);
         bytes memory signedReport =
             _generateV3EncodedBlob(s_testReportThree, s_reportContext, _getSigners(FAULT_TOLERANCE + 1));
-        _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+        // it seems this _approveNative is not needed for native unwrapped?
+        _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * 2, USER);
 
-        _verify(signedReport, address(native), DEFAULT_REPORT_NATIVE_FEE * 3, USER);
+        _verify(signedReport, address(native), DEFAULT_REPORT_NATIVE_FEE * 2, USER);
         // this fails
-        //assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE );
+      //  assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE );
         assertEq(address(feeManager).balance, 0);
     }
 }

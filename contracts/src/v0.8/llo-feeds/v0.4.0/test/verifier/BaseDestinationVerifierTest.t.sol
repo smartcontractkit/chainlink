@@ -250,5 +250,8 @@ contract VerifierWithFeeManager is BaseTest {
         link.mint(USER, DEFAULT_LINK_MINT_QUANTITY);
         native.mint(USER, DEFAULT_NATIVE_MINT_QUANTITY);
         vm.deal(USER, DEFAULT_NATIVE_MINT_QUANTITY);
+
+    //mint some link tokens to the feeManager pool
+    link.mint(address(feeManager), DEFAULT_REPORT_LINK_FEE);
     }
 }
