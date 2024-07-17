@@ -5,7 +5,7 @@ import jira from "jira.js";
  * Given a list of strings, this function will return the first JIRA issue number it finds.
  *
  * @example parseIssueNumberFrom("CORE-123", "CORE-456", "CORE-789") => "CORE-123"
- * @example  parseIssueNumberFrom("2f3df5gf", "chore/test-RE-78-branch", "RE-78 Create new test branches") => "RE-78"
+ * @example parseIssueNumberFrom("2f3df5gf", "chore/test-RE-78-branch", "RE-78 Create new test branches") => "RE-78"
  */
 export function parseIssueNumberFrom(
   ...inputs: (string | undefined)[]

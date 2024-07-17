@@ -3,15 +3,19 @@ import { parseIssueNumberFrom, tagsToLabels } from "./update-jira-issue";
 
 describe("parseIssueNumberFrom", () => {
   it("should return the first JIRA issue number found", () => {
-    const result1 = parseIssueNumberFrom("CORE-123", "CORE-456", "CORE-789");
-    expect(result1).to.equal("CORE-123");
+    let r = parseIssueNumberFrom("CORE-123", "CORE-456", "CORE-789");
+    expect(r).to.equal("CORE-123");
 
-    const result2 = parseIssueNumberFrom(
+    r = parseIssueNumberFrom(
       "2f3df5gf",
       "chore/test-RE-78-branch",
       "RE-78 Create new test branches"
     );
-    expect(result2).to.equal("RE-78");
+    expect(r).to.equal("RE-78");
+
+    // handle lower case
+    r = parseIssueNumberFrom("core-123", "CORE-456", "CORE-789");
+    expect(r).to.equal("CORE-123");
   });
 
   it("should return undefined if no JIRA issue number is found", () => {
