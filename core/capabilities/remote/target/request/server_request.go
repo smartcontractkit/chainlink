@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -62,7 +64,7 @@ func NewServerRequest(capability capabilities.TargetCapability, capabilityID str
 		callingDon:              callingDon,
 		requestMessageID:        requestMessageID,
 		requestTimeout:          requestTimeout,
-		lggr:                    lggr.Named("ServerRequest"),
+		lggr:                    lggr.Named("ServerRequest-" + uuid.New().String()),
 	}
 }
 
@@ -102,6 +104,7 @@ func (e *ServerRequest) Cancel(err types.Error, msg string) error {
 	defer e.mux.Unlock()
 
 	if !e.hasResponse() {
+		e.lggr.Debugw("Request has no response, cancelling request", "error", err, "msg", msg)
 		e.setError(err, msg)
 		if err := e.sendResponses(); err != nil {
 			return fmt.Errorf("failed to send responses: %w", err)

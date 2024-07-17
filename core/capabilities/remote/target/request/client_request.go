@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -41,6 +43,9 @@ type ClientRequest struct {
 func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest, messageID string,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration) (*ClientRequest, error) {
+
+	lggr = lggr.Named("ClientRequest-" + uuid.New().String())
+
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
 		return nil, errors.New("remote capability info missing DON")
@@ -127,15 +132,16 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
+	c.lggr.Debugw("OnMessage called for client request", "messageID", msg.MessageId)
+
 	if c.respSent {
+		c.lggr.Debug("response already sent, ignoring message", "messageID", msg.MessageId)
 		return nil
 	}
 
 	if msg.Sender == nil {
 		return fmt.Errorf("sender missing from message")
 	}
-
-	c.lggr.Debugw("OnMessage called for client request", "messageID", msg.MessageId)
 
 	sender := remote.ToPeerID(msg.Sender)
 
@@ -164,6 +170,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 				c.sendResponse(commoncap.CapabilityResponse{Err: fmt.Errorf("failed to unmarshal capability response: %w", err)})
 			} else {
 				c.sendResponse(commoncap.CapabilityResponse{Value: capabilityResponse.Value})
+				c.lggr.Debugw("sending response", "response", capabilityResponse)
 			}
 		}
 	} else {
