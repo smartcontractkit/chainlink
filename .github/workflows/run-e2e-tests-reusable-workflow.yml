@@ -392,7 +392,7 @@ jobs:
           duplicate-authorization-header: "true"
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@6079d91c48cb08c686ea6dd53a047a36af9151f5 # TODO: Create tag and use it here
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # TODO: Create tag and use it here
         env:
           DETACH_RUNNER: true
         with:
@@ -515,7 +515,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV              
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@6079d91c48cb08c686ea6dd53a047a36af9151f5 # TODO: Create tag and use it here24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # TODO: Create tag and use it here24
         env:
           DETACH_RUNNER: true
           RR_MEM: ${{ matrix.tests.remote_runner_memory }}
