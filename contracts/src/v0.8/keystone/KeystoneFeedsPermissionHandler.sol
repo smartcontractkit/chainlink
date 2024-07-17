@@ -9,9 +9,9 @@ abstract contract KeystoneFeedsPermissionHandler {
     /// @dev Workflow names and report names are stored as bytes to optimize for gas efficiency.
     struct Permission {
         address forwarder;
-        address workflowOwner;
         bytes10 workflowName;
         bytes2 reportName;
+        address workflowOwner;
         bool isAllowed;
     }
 
