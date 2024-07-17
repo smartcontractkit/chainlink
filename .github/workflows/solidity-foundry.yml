@@ -201,25 +201,23 @@ jobs:
           IFS=' ' read -r -a CHANGED_ARRAY <<< "$CHANGED"
           slither_errors=0
           
-          # Copy the foundry.toml file to the root directory so that Slither uses correct contract file path to create working links :shrug:
-          cp contracts/foundry.toml .
+          cd contracts
           for file in "${CHANGED_ARRAY[@]}"; do
+            sanitized_file="${file/contracts\//}"
           
             # Select the correct solc version for the file as it might differ between contracts leading to compilation errors                                
-            source ./contracts/scripts/select_solc_version.sh "$file"
+            source ./scripts/select_solc_version.sh "$sanitized_file"
             exit_code=$?
             if [ $exit_code -ne 0 ]; then
-              echo "Error: Failed to select the correct solc version for $file."
+              echo "Error: Failed to select the correct solc version for $sanitized_file."
               slither_errors=$((slither_errors+1))
               continue
             fi
             
-            output=$(slither --config ./contracts/.slither.config-pr.json --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$file")
+            output=$(slither --config .slither.config-pr.json --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$sanitized_file")
             sanitized_output=$(echo "$output" | sed '/\*\*THIS CHECKLIST IS NOT COMPLETE\*\*. Use `--show-ignored-findings` to show all the results./d'  | sed '/Summary/d')
-            echo "# $file" >> contracts/slither-results.md && echo "$sanitized_output" >> contracts/slither-results.md
+            echo "# $sanitized_file" >> contracts/slither-results.md && echo "$sanitized_output" >> slither-results.md
           done
-          
-          rm foundry.toml
           
           if [ $slither_errors -ne 0 ]; then
             echo
