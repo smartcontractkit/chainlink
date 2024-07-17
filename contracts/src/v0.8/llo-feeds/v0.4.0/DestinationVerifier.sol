@@ -382,13 +382,5 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     function getFeeManager() external view override returns (address) {
         return address(s_feeManager);
     }
-
-    function getDONConfigs() public view returns (DONConfig[] memory) {
-        return s_DONConfigs;
-    }
-
-     function getSignerConfigByAddressAndDONConfigId(bytes32 _id) public view returns (bool) {
-        return s_SignerByAddressAndDONConfigId[_id];
-    }
 }
 
