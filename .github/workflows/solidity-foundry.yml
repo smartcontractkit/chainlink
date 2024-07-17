@@ -214,9 +214,9 @@ jobs:
               continue
             fi
             
-            output=$(slither --config .slither.config-pr.json --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$sanitized_file")
+            output=$(slither --config .slither.config-pr.json --fail-none --checklist "$sanitized_file")
             sanitized_output=$(echo "$output" | sed '/\*\*THIS CHECKLIST IS NOT COMPLETE\*\*. Use `--show-ignored-findings` to show all the results./d'  | sed '/Summary/d')
-            echo "# $sanitized_file" >> contracts/slither-results.md && echo "$sanitized_output" >> slither-results.md
+            echo "# $sanitized_file" >> slither-results.md && echo "$sanitized_output" >> slither-results.md
           done
           
           if [ $slither_errors -ne 0 ]; then
