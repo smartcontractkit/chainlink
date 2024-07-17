@@ -444,6 +444,54 @@ func (_c *EvmTxStore_DeleteInProgressAttempt_Call) RunAndReturn(run func(context
 	return _c
 }
 
+// DeleteUnstartedTxes provides a mock function with given fields: ctx, chainID, subject
+func (_m *EvmTxStore) DeleteUnstartedTxes(ctx context.Context, chainID *big.Int, subject uuid.UUID) error {
+	ret := _m.Called(ctx, chainID, subject)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteUnstartedTxes")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, uuid.UUID) error); ok {
+		r0 = rf(ctx, chainID, subject)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// EvmTxStore_DeleteUnstartedTxes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteUnstartedTxes'
+type EvmTxStore_DeleteUnstartedTxes_Call struct {
+	*mock.Call
+}
+
+// DeleteUnstartedTxes is a helper method to define mock.On call
+//   - ctx context.Context
+//   - chainID *big.Int
+//   - subject uuid.UUID
+func (_e *EvmTxStore_Expecter) DeleteUnstartedTxes(ctx interface{}, chainID interface{}, subject interface{}) *EvmTxStore_DeleteUnstartedTxes_Call {
+	return &EvmTxStore_DeleteUnstartedTxes_Call{Call: _e.mock.On("DeleteUnstartedTxes", ctx, chainID, subject)}
+}
+
+func (_c *EvmTxStore_DeleteUnstartedTxes_Call) Run(run func(ctx context.Context, chainID *big.Int, subject uuid.UUID)) *EvmTxStore_DeleteUnstartedTxes_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*big.Int), args[2].(uuid.UUID))
+	})
+	return _c
+}
+
+func (_c *EvmTxStore_DeleteUnstartedTxes_Call) Return(_a0 error) *EvmTxStore_DeleteUnstartedTxes_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *EvmTxStore_DeleteUnstartedTxes_Call) RunAndReturn(run func(context.Context, *big.Int, uuid.UUID) error) *EvmTxStore_DeleteUnstartedTxes_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FindEarliestUnconfirmedBroadcastTime provides a mock function with given fields: ctx, chainID
 func (_m *EvmTxStore) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID *big.Int) (null.Time, error) {
 	ret := _m.Called(ctx, chainID)
