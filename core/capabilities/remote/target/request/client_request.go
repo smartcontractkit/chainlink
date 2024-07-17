@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -133,10 +132,10 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	c.lggr.Debugw("OnMessage called for client request", "messageID", target.GetMessageID(msg))
+	c.lggr.Debugw("OnMessage called for client request", "messageID", GetMessageID(msg))
 
 	if c.respSent {
-		c.lggr.Debug("response already sent, ignoring message", "messageID", target.GetMessageID(msg))
+		c.lggr.Debug("response already sent, ignoring message", "messageID", GetMessageID(msg))
 		return nil
 	}
 
@@ -188,4 +187,8 @@ func (c *ClientRequest) sendResponse(response commoncap.CapabilityResponse) {
 	c.responseCh <- response
 	close(c.responseCh)
 	c.respSent = true
+}
+
+func GetMessageID(msg *types.MessageBody) string {
+	return string(msg.MessageId)
 }

@@ -118,7 +118,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 
 	// A request is uniquely identified by the message id and the hash of the payload to prevent a malicious
 	// actor from sending a different payload with the same message id
-	messageId := GetMessageID(msg)
+	messageId := request.GetMessageID(msg)
 	hash := sha256.Sum256(msg.Payload)
 	requestID := messageId + hex.EncodeToString(hash[:])
 
@@ -139,10 +139,6 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	if err != nil {
 		r.lggr.Errorw("request failed to OnMessage new message", "request", req, "err", err)
 	}
-}
-
-func GetMessageID(msg *types.MessageBody) string {
-	return string(msg.MessageId)
 }
 
 func (r *server) Ready() error {

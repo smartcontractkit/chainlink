@@ -151,7 +151,7 @@ func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	messageID := GetMessageID(msg)
+	messageID := request.GetMessageID(msg)
 
 	c.lggr.Debugw("Remote client target receiving message", "messageID", messageID)
 
