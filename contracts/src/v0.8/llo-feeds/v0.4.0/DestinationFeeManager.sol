@@ -226,7 +226,7 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
 
     uint256 feesAndRewardsIndex;
     for (uint256 i; i < payloads.length; ++i) {
-      if (poolIds[i] == bytes32(0)) revert InvalidAddress();
+      if (poolIds[i] == emptyBytes) revert InvalidAddress();
 
       (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _calculateFee(
         payloads[i],
