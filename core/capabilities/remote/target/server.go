@@ -110,7 +110,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 
-	r.lggr.Debugw("received request for msg", "msgId", msg.MessageId)
+	r.lggr.Debugw("received request for msg", "msgId", msg.MessageId, "msg", msg)
 	if msg.Method != types.MethodExecute {
 		r.lggr.Errorw("received request for unsupported method type", "method", msg.Method)
 		return

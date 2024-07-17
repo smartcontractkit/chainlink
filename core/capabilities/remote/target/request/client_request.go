@@ -132,7 +132,8 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	c.lggr.Debugw("OnMessage called for client request", "messageID", GetMessageID(msg))
+	c.lggr.Debugw("OnMessage called for client request", "messageID", GetMessageID(msg),
+		"msg", msg)
 
 	if c.respSent {
 		c.lggr.Debug("response already sent, ignoring message", "messageID", GetMessageID(msg))
