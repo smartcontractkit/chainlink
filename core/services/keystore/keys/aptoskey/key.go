@@ -6,8 +6,6 @@ import (
 	crypto_rand "crypto/rand"
 	"fmt"
 	"io"
-
-	"github.com/mr-tron/base58"
 )
 
 // Raw represents the Aptos private key
@@ -77,9 +75,10 @@ func (key Key) GetPublic() ed25519.PublicKey {
 	return key.pubKey
 }
 
-// PublicKeyStr return base58 encoded public key
+// PublicKeyStr returns hex encoded public key
+// https://github.com/aptos-foundation/AIPs/blob/main/aips/aip-40.md#long
 func (key Key) PublicKeyStr() string {
-	return base58.Encode(key.pubKey)
+	return fmt.Sprintf("0x%064x", key.pubKey)
 }
 
 // Raw returns the seed from private key
