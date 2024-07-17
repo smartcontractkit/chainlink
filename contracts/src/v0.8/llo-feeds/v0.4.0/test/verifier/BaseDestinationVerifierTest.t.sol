@@ -225,6 +225,15 @@ contract BaseTest is Test {
         assertEq(bid, testReport.bid);
         assertEq(ask, testReport.ask);
     }
+
+  function _approveNative(address spender, uint256 quantity, address sender) internal {
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    native.approve(spender, quantity);
+    changePrank(originalAddr);
+  }
+
 }
 
 contract VerifierWithFeeManager is BaseTest {
