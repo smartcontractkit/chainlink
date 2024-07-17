@@ -12,7 +12,7 @@ packages:
     interfaces:
       Node:
       NodeSelector:
-      SendOnlyClient:
+      sendOnlyClient:
       SendOnlyNode:
       RPC:
       Head:
@@ -163,6 +163,10 @@ packages:
       ConnectionsManager:
       ORM:
       Service:
+  github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto:
+    config:
+      dir: "{{ .InterfaceDir }}/../mocks"
+    interfaces:
       FeedsManagerClient:
   github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2:
     interfaces:
