@@ -56,6 +56,7 @@ type TxStoreWebApi interface {
 	FindTxAttempt(ctx context.Context, hash common.Hash) (*TxAttempt, error)
 	FindTxWithAttempts(ctx context.Context, etxID int64) (etx Tx, err error)
 	FindTxsByStateAndFromAddresses(ctx context.Context, addresses []common.Address, state txmgrtypes.TxState, chainID *big.Int) (txs []*Tx, err error)
+	DeleteUnstartedTxes(ctx context.Context, chainID *big.Int, subject uuid.UUID) error
 }
 
 type TestEvmTxStore interface {
@@ -1870,6 +1871,39 @@ id < (
 		return err
 	})
 	return
+}
+
+func (o *evmTxStore) DeleteUnstartedTxes(ctx context.Context, chainID *big.Int, subject uuid.UUID) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.stopCh.Ctx(ctx)
+	defer cancel()
+
+	err := o.Transact(ctx, false, func(orm *evmTxStore) error {
+		var err error
+		zeroUUID := uuid.UUID{}
+		if subject == zeroUUID {
+			// without subject deletes all unstarted txes
+			_, err = orm.q.ExecContext(ctx, `
+DELETE FROM evm.txes
+WHERE state = 'unstarted' AND evm_chain_id = $1`, chainID.String())
+		} else {
+			// with subject deletes only those subject unstarted txes
+			_, err = orm.q.ExecContext(ctx, `
+DELETE FROM evm.txes
+WHERE state = 'unstarted' AND evm_chain_id = $1 AND subject = $2`, chainID.String(), subject)
+		}
+
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil
+			}
+			return fmt.Errorf("DeleteUnstartedTxes failed: %w", err)
+		}
+
+		return nil
+	})
+
+	return err
 }
 
 func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {
