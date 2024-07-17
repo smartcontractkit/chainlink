@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/smartcontractkit/chainlink-testing-framework/tools/citool/cmd"
+	"github.com/smartcontractkit/chainlink/integration-tests/citool/cmd"
 )
 
 func main() {
