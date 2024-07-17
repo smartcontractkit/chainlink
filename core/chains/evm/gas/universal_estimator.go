@@ -53,19 +53,20 @@ var (
 )
 
 const (
-	queryTimeout          = 10 * time.Second
-	MinimumBumpPercentage = 10 // based on geth's spec
+	queryTimeout = 10 * time.Second
 
+	MinimumBumpPercentage   = 10 // based on geth's spec
 	ConnectivityPercentile  = 80
 	BaseFeeBufferPercentage = 40
 )
 
 type UniversalEstimatorConfig struct {
-	CacheTimeout time.Duration
 	BumpPercent  uint16
+	CacheTimeout time.Duration
 
 	BlockHistoryRange uint64 // inclusive range
 	RewardPercentile  float64
+	HasMempool        bool
 }
 
 //go:generate mockery --quiet --name universalEstimatorClient --output ./mocks/ --case=underscore --structname UniversalEstimatorClient
@@ -331,21 +332,30 @@ func (u *UniversalEstimator) BumpDynamicFee(ctx context.Context, originalFee Dyn
 	bumpedMaxPriorityFeePerGas := originalFee.TipCap.AddPercentage(u.config.BumpPercent)
 	bumpedMaxFeePerGas := originalFee.FeeCap.AddPercentage(u.config.BumpPercent)
 
-	bumpedMaxPriorityFeePerGas, err = LimitBumpedFee(originalFee.TipCap, currentDynamicPrice.TipCap, bumpedMaxPriorityFeePerGas, maxPrice)
-	if err != nil {
-		return bumped, fmt.Errorf("maxPriorityFeePerGas error: %s", err.Error())
-	}
-	priorityFeeThreshold, err := u.getPriorityFeeThreshold()
-	if err != nil {
-		return
-	}
-	// If either of these two values are 0 it could be that the network has extremely low priority fees or most likely it doesn't have
-	// a mempool and priority fees are not taken into account. Either way, we should skip the connectivity check because we're only
-	// going to be charged for the base fee, which is mandatory.
-	if (priorityFeeThreshold.Cmp(assets.NewWeiI(0)) > 0) && (bumpedMaxPriorityFeePerGas.Cmp(assets.NewWeiI(0)) > 0) &&
-		bumpedMaxPriorityFeePerGas.Cmp(priorityFeeThreshold) > 0 {
-		return bumped, fmt.Errorf("bumpedMaxPriorityFeePergas: %s is above market's %sth percentile: %s, bumping is halted",
-			bumpedMaxPriorityFeePerGas, strconv.Itoa(ConnectivityPercentile), priorityFeeThreshold)
+	if u.config.HasMempool {
+		bumpedMaxPriorityFeePerGas, err = LimitBumpedFee(originalFee.TipCap, currentDynamicPrice.TipCap, bumpedMaxPriorityFeePerGas, maxPrice)
+		if err != nil {
+			return bumped, fmt.Errorf("maxPriorityFeePerGas error: %s", err.Error())
+		}
+
+		priorityFeeThreshold, e := u.getPriorityFeeThreshold()
+		if e != nil {
+			err = e
+			return
+		}
+
+		// If either of these two values are 0 it could be that the network has extremely low priority fees. We should skip the
+		// connectivity check because we're only going to be charged for the base fee, which is mandatory.
+		if (priorityFeeThreshold.Cmp(assets.NewWeiI(0)) > 0) && (bumpedMaxPriorityFeePerGas.Cmp(assets.NewWeiI(0)) > 0) &&
+			bumpedMaxPriorityFeePerGas.Cmp(priorityFeeThreshold) > 0 {
+			return bumped, fmt.Errorf("bumpedMaxPriorityFeePergas: %s is above market's %sth percentile: %s, bumping is halted",
+				bumpedMaxPriorityFeePerGas, strconv.Itoa(ConnectivityPercentile), priorityFeeThreshold)
+		}
+
+	} else {
+		// If the network doesn't have a mempool then transactions are processed in a FCFS manner and maxPriorityFeePerGas value is irrelevant.
+		// We just need to cap the value at maxPrice in case maxFeePerGas also gets capped.
+		bumpedMaxPriorityFeePerGas = assets.WeiMin(bumpedMaxPriorityFeePerGas, maxPrice)
 	}
 
 	bumpedMaxFeePerGas, err = LimitBumpedFee(originalFee.FeeCap, currentDynamicPrice.FeeCap, bumpedMaxFeePerGas, maxPrice)
