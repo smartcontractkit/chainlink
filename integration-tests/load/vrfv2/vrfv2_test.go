@@ -308,11 +308,12 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		latestBlockNumber, err := sethClient.Client.BlockNumber(testcontext.Get(t))
 		require.NoError(t, err)
 		_, err = actions.WaitForBlockNumberToBe(
+			testcontext.Get(t),
 			latestBlockNumber+uint64(257),
 			sethClient,
 			&wgBlockNumberTobe,
+			nil,
 			configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration,
-			t,
 			l,
 		)
 		wgBlockNumberTobe.Wait()

@@ -58,7 +58,7 @@ func NewLauncher(
 	registry core.CapabilitiesRegistry,
 ) *launcher {
 	return &launcher{
-		lggr:        lggr,
+		lggr:        lggr.Named("CapabilitiesLauncher"),
 		peerWrapper: peerWrapper,
 		dispatcher:  dispatcher,
 		registry:    registry,
@@ -134,6 +134,7 @@ func (w *launcher) updateLocalNode(state registrysyncer.State) {
 }
 
 func (w *launcher) Launch(ctx context.Context, state registrysyncer.State) error {
+	w.lggr.Debugw("running capabilities launcher", "state", state)
 	w.updateLocalNode(state)
 
 	// Let's start by updating the list of Peers
@@ -466,7 +467,12 @@ func (w *launcher) addReceiver(ctx context.Context, capability kcr.CapabilitiesR
 
 	w.lggr.Debugw("Enabling external access for capability", "id", fullCapID, "donID", don.Id)
 	err = w.dispatcher.SetReceiver(fullCapID, don.Id, receiver)
-	if err != nil {
+	if errors.Is(err, remote.ErrReceiverExists) {
+		// If a receiver already exists, let's log the error for debug purposes, but
+		// otherwise short-circuit here. We've handled this capability in a previous iteration.
+		w.lggr.Debugf("receiver already exists for cap ID %s and don ID %d: %s", fullCapID, don.Id, err)
+		return nil
+	} else if err != nil {
 		return fmt.Errorf("failed to set receiver: %w", err)
 	}
 

@@ -2,7 +2,6 @@ package validate
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,11 +21,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
-	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
 	liquiditymanagermodels "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
-	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -115,10 +112,6 @@ func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins
 		if spec.Pipeline.Source == "" {
 			return errors.New("no pipeline specified")
 		}
-	case types.DKG:
-		return validateDKGSpec(spec.OCR2OracleSpec.PluginConfig)
-	case types.OCR2VRF:
-		return validateOCR2VRFSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.OCR2Keeper:
 		return validateOCR2KeeperSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.Functions:
@@ -339,68 +332,6 @@ func validateLiquidityManagerSpec(jsonConfig job.JSONConfig) error {
 	}
 	if err := liquiditymanagermodels.ValidateRebalancerConfig(pluginConfig.RebalancerConfig); err != nil {
 		return fmt.Errorf("rebalancer config invalid: %w", err)
-	}
-	return nil
-}
-
-func validateDKGSpec(jsonConfig job.JSONConfig) error {
-	if jsonConfig == nil {
-		return errors.New("pluginConfig is empty")
-	}
-	var pluginConfig dkgconfig.PluginConfig
-	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
-	if err != nil {
-		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
-	}
-	err = validateHexString(pluginConfig.EncryptionPublicKey, 32)
-	if err != nil {
-		return pkgerrors.Wrap(err, "validation error for encryptedPublicKey")
-	}
-	err = validateHexString(pluginConfig.SigningPublicKey, 32)
-	if err != nil {
-		return pkgerrors.Wrap(err, "validation error for signingPublicKey")
-	}
-	err = validateHexString(pluginConfig.KeyID, 32)
-	if err != nil {
-		return pkgerrors.Wrap(err, "validation error for keyID")
-	}
-
-	return nil
-}
-
-func validateHexString(val string, expectedLengthInBytes uint) error {
-	decoded, err := hex.DecodeString(val)
-	if err != nil {
-		return pkgerrors.Wrapf(err, "expected hex string but received %s", val)
-	}
-	if len(decoded) != int(expectedLengthInBytes) {
-		return fmt.Errorf("value: %s has unexpected length. Expected %d bytes", val, expectedLengthInBytes)
-	}
-	return nil
-}
-
-func validateOCR2VRFSpec(jsonConfig job.JSONConfig) error {
-	if jsonConfig == nil {
-		return errors.New("pluginConfig is empty")
-	}
-	var cfg ocr2vrfconfig.PluginConfig
-	err := json.Unmarshal(jsonConfig.Bytes(), &cfg)
-	if err != nil {
-		return pkgerrors.Wrap(err, "json unmarshal plugin config")
-	}
-	err = validateDKGSpec(job.JSONConfig{
-		"encryptionPublicKey": cfg.DKGEncryptionPublicKey,
-		"signingPublicKey":    cfg.DKGSigningPublicKey,
-		"keyID":               cfg.DKGKeyID,
-	})
-	if err != nil {
-		return err
-	}
-	if cfg.LinkEthFeedAddress == "" {
-		return errors.New("linkEthFeedAddress must be provided")
-	}
-	if cfg.DKGContractAddress == "" {
-		return errors.New("dkgContractAddress must be provided")
 	}
 	return nil
 }

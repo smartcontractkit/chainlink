@@ -105,6 +105,30 @@ let config = {
           },
         },
       },
+      'src/v0.8/vrf/dev/VRFCoordinatorV2_5_Arbitrum.sol': {
+        version: '0.8.19',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 500, // see native_solc_compile_all_vrf
+          },
+          metadata: {
+            bytecodeHash: 'none',
+          },
+        },
+      },
+      'src/v0.8/vrf/dev/VRFCoordinatorV2_5_Optimism.sol': {
+        version: '0.8.19',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 500, // see native_solc_compile_all_vrf
+          },
+          metadata: {
+            bytecodeHash: 'none',
+          },
+        },
+      },
       'src/v0.8/automation/AutomationForwarderLogic.sol': {
         version: '0.8.19',
         settings: COMPILER_SETTINGS,

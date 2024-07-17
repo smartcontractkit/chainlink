@@ -1513,6 +1513,15 @@ func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
 		cfg.ChainTypeF = ""
 		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
 	})
+
+	t.Run("returns false if transaction is of type 0x7e only on Scroll", func(t *testing.T) {
+		cfg.ChainTypeF = string(chaintype.ChainScroll)
+		tx := evmtypes.Transaction{Type: 0x7e, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
+
+		cfg.ChainTypeF = ""
+		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
+	})
 }
 
 func TestBlockHistoryEstimator_EffectiveTipCap(t *testing.T) {

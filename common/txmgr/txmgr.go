@@ -33,8 +33,6 @@ type NewErrorClassifier func(err error) txmgrtypes.ErrorClassifier
 
 // TxManager is the main component of the transaction manager.
 // It is also the interface to external callers.
-//
-//go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager[
 	CHAIN_ID types.ID,
 	HEAD types.Head[BLOCK_HASH],

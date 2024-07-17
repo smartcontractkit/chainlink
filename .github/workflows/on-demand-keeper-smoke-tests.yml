@@ -137,21 +137,12 @@ jobs:
           runId: ${{ github.run_id }}
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           selectedNetworks: ${{ env.SELECTED_NETWORKS }}
-          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
           chainlinkVersion: ${{ inputs.evm-ref || github.sha }}
-          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
-          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
-          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: ${{ vars.GRAFANA_URL }}
-          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
 
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -173,6 +164,17 @@ jobs:
           should_tidy: "false"
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
+          DEFAULT_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          DEFAULT_GRAFANA_BASE_URL: ${{ vars.GRAFANA_URL }}
+          DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          DEFAULT_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          DEFAULT_PYROSCOPE_SERVER_URL: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          DEFAULT_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          DEFAULT_PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
+          DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.product.pyroscope_env == '' || !startsWith(github.ref, 'refs/tags/') && 'false' || 'true' }}
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3

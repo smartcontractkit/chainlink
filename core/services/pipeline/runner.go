@@ -26,10 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
-
-//go:generate mockery --quiet --name Runner --output ./mocks/ --case=underscore
 
 type Runner interface {
 	services.Service
@@ -210,7 +207,7 @@ func (r *runner) runReaperLoop() {
 		return
 	}
 
-	runReaperTicker := time.NewTicker(utils.WithJitter(r.config.ReaperInterval()))
+	runReaperTicker := services.NewTicker(r.config.ReaperInterval())
 	defer runReaperTicker.Stop()
 	for {
 		select {
@@ -218,7 +215,7 @@ func (r *runner) runReaperLoop() {
 			return
 		case <-runReaperTicker.C:
 			r.runReaperWorker.WakeUp()
-			runReaperTicker.Reset(utils.WithJitter(r.config.ReaperInterval()))
+			runReaperTicker.Reset()
 		}
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -29,6 +30,8 @@ type WriteTarget struct {
 	forwarderAddress string
 	capabilities.CapabilityInfo
 	lggr logger.Logger
+
+	bound bool
 }
 
 func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string) *WriteTarget {
@@ -46,6 +49,7 @@ func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader
 		forwarderAddress,
 		info,
 		logger,
+		false,
 	}
 }
 
@@ -73,6 +77,21 @@ func success() <-chan capabilities.CapabilityResponse {
 }
 
 func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+	// Bind to the contract address on the write path.
+	// Bind() requires a connection to the node's RPCs and
+	// cannot be run during initialization.
+	if !cap.bound {
+		cap.lggr.Debugw("Binding to forwarder address")
+		err := cap.cr.Bind(ctx, []commontypes.BoundContract{{
+			Address: cap.forwarderAddress,
+			Name:    "forwarder",
+		}})
+		if err != nil {
+			return nil, err
+		}
+		cap.bound = true
+	}
+
 	cap.lggr.Debugw("Execute", "request", request)
 
 	reqConfig, err := parseConfig(request.Config)
@@ -112,7 +131,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		ReportId:            inputs.ID,
 	}
 	var transmitter common.Address
-	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", queryInputs, &transmitter); err != nil {
+	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", primitives.Unconfirmed, queryInputs, &transmitter); err != nil {
 		return nil, err
 	}
 	if transmitter != common.HexToAddress("0x0") {
