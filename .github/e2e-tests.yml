@@ -744,3 +744,18 @@ runner-test-matrix:
       chainlink_version: '{{ env.LATEST_CHAINLINK_RELEASE_VERSION }}'
       chainlink_upgrade_image: '{{ env.QA_CHAINLINK_IMAGE }}'
       chainlink_upgrade_version: develop
+
+  # START: LogPoller tests
+
+  - id: integration-tests/smoke/log_poller_test.go:^TestLogPollerFewFiltersFixedDepth$
+    path: integration-tests/smoke/log_poller_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerFewFiltersFixedDepth$ -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-log_poller-evm-simulated
+
+
+  # END: LogPoller tests
