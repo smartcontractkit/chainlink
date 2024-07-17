@@ -142,7 +142,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	if len(requestIDs) > 1 {
 		// This is a potential attack vector as well as a situation that will occur if the client is sending non-deterministic payloads
 		// so a warning is logged
-		r.lggr.Warnw("received messages with the same id and different payloads", "requestIDToCount", requestIDs)
+		r.lggr.Warnw("received messages with the same id and different payloads", "messageId", messageId, "requestIDToCount", requestIDs)
 	}
 
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
