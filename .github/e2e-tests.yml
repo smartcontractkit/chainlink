@@ -757,5 +757,74 @@ runner-test-matrix:
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerFewFiltersFixedDepth$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-log_poller-evm-simulated
 
+  - id: integration-tests/smoke/log_poller_test.go:^TestLogPollerFewFiltersFinalityTag$
+    path: integration-tests/smoke/log_poller_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerFewFiltersFinalityTag$ -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-log_poller-evm-simulated
+
+  - id: integration-tests/smoke/log_poller_test.go:^TestLogPollerWithChaosFixedDepth$
+    path: integration-tests/smoke/log_poller_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerWithChaosFixedDepth$ -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-log_poller-evm-simulated
+
+  - id: integration-tests/smoke/log_poller_test.go:^TestLogPollerWithChaosFinalityTag$
+    path: integration-tests/smoke/log_poller_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerWithChaosFinalityTag$ -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-log_poller-evm-simulated
+
+  - id: integration-tests/smoke/log_poller_test.go:^TestLogPollerWithChaosPostgresFinalityTag$
+    path: integration-tests/smoke/log_poller_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerWithChaosPostgresFinalityTag$ -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-log_poller-evm-simulated
+
+  - id: integration-tests/smoke/log_poller_test.go:^TestLogPollerWithChaosPostgresFixedDepth$
+    path: integration-tests/smoke/log_poller_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerWithChaosPostgresFixedDepth$ -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-log_poller-evm-simulated
+
+  - id: integration-tests/smoke/log_poller_test.go:^TestLogPollerReplayFixedDepth$
+    path: integration-tests/smoke/log_poller_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerReplayFixedDepth$ -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-log_poller-evm-simulated
+
+  - id: integration-tests/smoke/log_poller_test.go:^TestLogPollerReplayFinalityTag$
+    path: integration-tests/smoke/log_poller_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerReplayFinalityTag$ -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-log_poller-evm-simulated
 
   # END: LogPoller tests
