@@ -85,7 +85,7 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 			return !slices.Contains(addrs, inProgressAddr) &&
 				!slices.Contains(addrs, unstartedAddr) &&
 				slices.Contains(addrs, unconfirmedAddr)
-		}, 10*time.Second, 100*time.Millisecond)
+		}, tests.WaitTimeout(t), 100*time.Millisecond)
 	})
 
 	/* TODO: finalized tx state https://smartcontract-it.atlassian.net/browse/BCI-2920
@@ -140,12 +140,12 @@ func TestEvmTracker_ExceedingTTL(t *testing.T) {
 		require.Eventually(t, func() bool {
 			addrs := tracker.GetAbandonedAddresses()
 			return !slices.Contains(addrs, addr1) && !slices.Contains(addrs, addr2)
-		}, 10*time.Second, 100*time.Millisecond)
+		}, tests.WaitTimeout(t), 100*time.Millisecond)
 
 		require.Eventually(t, func() bool {
 			fatalTxes, err := txStore.GetFatalTransactions(ctx)
 			require.NoError(t, err)
 			return containsID(fatalTxes, tx1.ID) && containsID(fatalTxes, tx2.ID)
-		}, 10*time.Second, 100*time.Millisecond)
+		}, tests.WaitTimeout(t), 100*time.Millisecond)
 	})
 }
