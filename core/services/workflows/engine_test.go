@@ -114,7 +114,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 		GetLocalNode: func(ctx context.Context) (capabilities.Node, error) {
 			return capabilities.Node{
 				WorkflowDON: capabilities.DON{
-					ID: "00010203",
+					ID: 1,
 				},
 				PeerID: &peerID,
 			}, nil
@@ -783,7 +783,7 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 	node := capabilities.Node{
 		PeerID: &peerID,
 		WorkflowDON: capabilities.DON{
-			ID: "1",
+			ID: 1,
 		},
 	}
 	retryCount := 0

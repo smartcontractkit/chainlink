@@ -59,7 +59,7 @@ type request struct {
 }
 
 func (r request) TransmitterID() ocr2types.Account {
-	return ocr2types.Account(r.pk.String())
+	return ocr2types.Account(fmt.Sprintf("%x", r.pk))
 }
 
 type mercuryServer struct {
@@ -114,7 +114,7 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 		t.Fatalf("[MAIN] failed to listen: %v", err)
 	}
 	serverURL = lis.Addr().String()
-	s := wsrpc.NewServer(wsrpc.WithCreds(srv.privKey, pubKeys))
+	s := wsrpc.NewServer(wsrpc.Creds(srv.privKey, pubKeys))
 
 	// Register mercury implementation with the wsrpc server
 	pb.RegisterMercuryServer(s, srv)

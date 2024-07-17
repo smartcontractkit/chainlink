@@ -49,8 +49,6 @@ type OnchainAllowlistConfig struct {
 // Use UpdateFromContract() for a one-time update or set OnchainAllowlistConfig.UpdateFrequencySec
 // for repeated updates.
 // All methods are thread-safe.
-//
-//go:generate mockery --quiet --name OnchainAllowlist --output ./mocks/ --case=underscore
 type OnchainAllowlist interface {
 	job.ServiceCtx
 

@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-//go:generate mockery --quiet --name WebSocketServer --output ./mocks/ --case=underscore
 type WebSocketServer interface {
 	job.ServiceCtx
 

@@ -25,7 +25,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig("Smoke", tc.ForwarderOcr2)
+	config, err := tc.GetConfig([]string{"Smoke"}, tc.ForwarderOcr2)
 	require.NoError(t, err, "Error getting config")
 
 	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)

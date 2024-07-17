@@ -18,36 +18,12 @@ type codec struct {
 
 var _ datastreams.ReportCodec = &codec{}
 
-func (c *codec) UnwrapValid(wrapped values.Value, allowedSigners [][]byte, minRequiredSignatures int) ([]datastreams.FeedReport, error) {
-	signersMap := make(map[common.Address]struct{})
-	for _, signer := range allowedSigners {
-		signersMap[common.BytesToAddress(signer)] = struct{}{}
-	}
-	dest := []datastreams.FeedReport{}
-	err := wrapped.UnwrapTo(&dest)
+func (c *codec) Unwrap(wrapped values.Value) ([]datastreams.FeedReport, error) {
+	dest, err := datastreams.UnwrapFeedReportList(wrapped)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unwrap: %v", err)
 	}
 	for i, report := range dest {
-		// signatures (report and context are signed together)
-		sigData := append(crypto.Keccak256(report.FullReport), report.ReportContext...)
-		fullHash := crypto.Keccak256(sigData)
-		validated := map[common.Address]struct{}{}
-		for _, sig := range report.Signatures {
-			signerPubkey, err2 := crypto.SigToPub(fullHash, sig)
-			if err2 != nil {
-				return nil, fmt.Errorf("malformed signer: %v", err2)
-			}
-			signerAddr := crypto.PubkeyToAddress(*signerPubkey)
-			if _, ok := signersMap[signerAddr]; !ok {
-				c.lggr.Debugw("invalid signer", "signerAddr", signerAddr)
-				continue
-			}
-			validated[signerAddr] = struct{}{}
-		}
-		if len(validated) < minRequiredSignatures {
-			return nil, fmt.Errorf("not enough valid signatures %d, needed %d", len(validated), minRequiredSignatures)
-		}
 		// decoding fields
 		id, err2 := datastreams.NewFeedID(report.FeedID)
 		if err2 != nil {
@@ -66,6 +42,36 @@ func (c *codec) UnwrapValid(wrapped values.Value, allowedSigners [][]byte, minRe
 
 func (c *codec) Wrap(reports []datastreams.FeedReport) (values.Value, error) {
 	return values.Wrap(reports)
+}
+
+func (c *codec) Validate(report datastreams.FeedReport, allowedSigners [][]byte, minRequiredSignatures int) error {
+	signersMap := make(map[common.Address]struct{})
+	for _, signer := range allowedSigners {
+		signersMap[common.BytesToAddress(signer)] = struct{}{}
+	}
+	// signatures (report and context are signed together)
+	sigData := append(crypto.Keccak256(report.FullReport), report.ReportContext...)
+	fullHash := crypto.Keccak256(sigData)
+	validated := map[common.Address]struct{}{}
+	for _, sig := range report.Signatures {
+		signerPubkey, err2 := crypto.SigToPub(fullHash, sig)
+		if err2 != nil {
+			return fmt.Errorf("malformed signer: %v", err2)
+		}
+		signerAddr := crypto.PubkeyToAddress(*signerPubkey)
+		if _, ok := signersMap[signerAddr]; !ok {
+			c.lggr.Debugw("invalid signer", "signerAddr", signerAddr)
+			continue
+		}
+		validated[signerAddr] = struct{}{}
+		if len(validated) >= minRequiredSignatures {
+			break // early exit
+		}
+	}
+	if len(validated) < minRequiredSignatures {
+		return fmt.Errorf("not enough valid signatures %d, needed %d", len(validated), minRequiredSignatures)
+	}
+	return nil
 }
 
 func NewCodec(lggr logger.Logger) *codec {

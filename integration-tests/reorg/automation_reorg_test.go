@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -84,7 +85,7 @@ var (
  * Upkeeps are expected to be performed during the reorg.
  */
 func TestAutomationReorg(t *testing.T) {
-	c, err := tc.GetConfig("Reorg", tc.Automation)
+	c, err := tc.GetConfig([]string{"Reorg"}, tc.Automation)
 	require.NoError(t, err, "Error getting config")
 
 	findIntValue := func(text string, substring string) (int, error) {
@@ -119,6 +120,8 @@ func TestAutomationReorg(t *testing.T) {
 		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
 		"registry_2_2_conditional": ethereum.RegistryVersion_2_2, // Works only on Chainlink Node v2.10.0 or greater
 		"registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2, // Works only on Chainlink Node v2.10.0 or greater
+		"registry_2_3_conditional": ethereum.RegistryVersion_2_3,
+		"registry_2_3_logtrigger":  ethereum.RegistryVersion_2_3,
 	}
 
 	for n, rv := range registryVersions {
@@ -126,7 +129,7 @@ func TestAutomationReorg(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			config, err := tc.GetConfig("Reorg", tc.Automation)
+			config, err := tc.GetConfig([]string{"Reorg"}, tc.Automation)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -192,12 +195,22 @@ func TestAutomationReorg(t *testing.T) {
 			linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
 			require.NoError(t, err, "Error deploying LINK token")
 
+			wethToken, err := contracts.DeployWETHTokenContract(l, chainClient)
+			require.NoError(t, err, "Error deploying weth token contract")
+
+			// This feed is used for both eth/usd and link/usd
+			ethUSDFeed, err := contracts.DeployMockETHUSDFeed(chainClient, defaultOCRRegistryConfig.FallbackLinkPrice)
+			require.NoError(t, err, "Error deploying eth usd feed contract")
+
+			defaultOCRRegistryConfig.RegistryVersion = registryVersion
 			registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
 				t,
 				chainClient,
 				registryVersion,
 				defaultOCRRegistryConfig,
 				linkToken,
+				wethToken,
+				ethUSDFeed,
 			)
 
 			// Fund the registry with LINK
@@ -206,18 +219,18 @@ func TestAutomationReorg(t *testing.T) {
 
 			actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, registryVersion)
 			nodesWithoutBootstrap := chainlinkNodes[1:]
-			defaultOCRRegistryConfig.RegistryVersion = registryVersion
-			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
+
+			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled(), linkToken, wethToken, ethUSDFeed)
 			require.NoError(t, err, "OCR2 config should be built successfully")
 			if registryVersion == ethereum.RegistryVersion_2_0 {
 				err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
 			} else {
 				err = registry.SetConfigTypeSafe(ocrConfig)
 			}
-			require.NoError(t, err, "Registry config should be be set successfully")
+			require.NoError(t, err, "Registry config should be set successfully")
 
 			// Use the name to determine if this is a log trigger or not
-			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_2_logtrigger"
+			isLogTrigger := strings.Contains(name, "logtrigger")
 			consumers, upkeepIDs := actions.DeployConsumers(
 				t,
 				chainClient,
@@ -229,6 +242,8 @@ func TestAutomationReorg(t *testing.T) {
 				defaultUpkeepGasLimit,
 				isLogTrigger,
 				false,
+				false,
+				wethToken,
 			)
 
 			if isLogTrigger {

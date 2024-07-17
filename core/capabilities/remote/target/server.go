@@ -29,7 +29,7 @@ type server struct {
 	underlying   commoncap.TargetCapability
 	capInfo      commoncap.CapabilityInfo
 	localDonInfo commoncap.DON
-	workflowDONs map[string]commoncap.DON
+	workflowDONs map[uint32]commoncap.DON
 	dispatcher   types.Dispatcher
 
 	requestIDToRequest map[string]*request.ServerRequest
@@ -44,7 +44,7 @@ var _ types.Receiver = &server{}
 var _ services.Service = &server{}
 
 func NewServer(peerID p2ptypes.PeerID, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON,
-	workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) *server {
+	workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) *server {
 	return &server{
 		underlying:   underlying,
 		peerID:       peerID,
@@ -56,7 +56,7 @@ func NewServer(peerID p2ptypes.PeerID, underlying commoncap.TargetCapability, ca
 		requestIDToRequest: map[string]*request.ServerRequest{},
 		requestTimeout:     requestTimeout,
 
-		lggr:   lggr,
+		lggr:   lggr.Named("TargetServer"),
 		stopCh: make(services.StopChan),
 	}
 }
@@ -110,6 +110,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 
+	r.lggr.Debugw("received request for msg", "msgId", msg.MessageId)
 	if msg.Method != types.MethodExecute {
 		r.lggr.Errorw("received request for unsupported method type", "method", msg.Method)
 		return

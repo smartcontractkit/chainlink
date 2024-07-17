@@ -16,7 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/internal/eautils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 )
 
 // NOTE: These metrics generate a new label per bridge, this should be safe
@@ -178,6 +178,10 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	}
 
 	if err != nil || statusCode != http.StatusOK {
+		if adapterErr := eautils.BestEffortExtractEAError(responseBytes); adapterErr != nil {
+			err = adapterErr
+		}
+
 		promBridgeErrors.WithLabelValues(t.Name).Inc()
 		if cacheTTL == 0 {
 			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}

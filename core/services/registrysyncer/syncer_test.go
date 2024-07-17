@@ -18,7 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -58,6 +60,7 @@ func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilitiesRegistry, common.
 
 type crFactory struct {
 	lggr      logger.Logger
+	ht        logpoller.HeadTracker
 	logPoller logpoller.LogPoller
 	client    evmclient.Client
 }
@@ -67,7 +70,8 @@ func (c *crFactory) NewContractReader(ctx context.Context, cfg []byte) (types.Co
 	if err := json.Unmarshal(cfg, crCfg); err != nil {
 		return nil, err
 	}
-	svc, err := evm.NewChainReaderService(ctx, c.lggr, c.logPoller, c.client, *crCfg)
+
+	svc, err := evm.NewChainReaderService(ctx, c.lggr, c.logPoller, c.ht, c.client, *crCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -83,13 +87,16 @@ func newContractReaderFactory(t *testing.T, simulatedBackend *backends.Simulated
 		testutils.SimulatedChainID,
 	)
 	db := pgtest.NewSqlxDB(t)
+	const finalityDepth = 2
+	ht := headtracker.NewSimulatedHeadTracker(client, false, finalityDepth)
 	lp := logpoller.NewLogPoller(
 		logpoller.NewORM(testutils.SimulatedChainID, db, lggr),
 		client,
 		lggr,
+		ht,
 		logpoller.Opts{
 			PollPeriod:               100 * time.Millisecond,
-			FinalityDepth:            2,
+			FinalityDepth:            finalityDepth,
 			BackfillBatchSize:        3,
 			RpcBatchSize:             2,
 			KeepFinalizedBlocksDepth: 1000,
@@ -98,6 +105,7 @@ func newContractReaderFactory(t *testing.T, simulatedBackend *backends.Simulated
 	return &crFactory{
 		lggr:      lggr,
 		client:    client,
+		ht:        ht,
 		logPoller: lp,
 	}
 }
@@ -109,6 +117,15 @@ func randomWord() [32]byte {
 		panic(err)
 	}
 	return [32]byte(word)
+}
+
+type launcher struct {
+	localRegistry State
+}
+
+func (l *launcher) Launch(ctx context.Context, localRegistry State) error {
+	l.localRegistry = localRegistry
+	return nil
 }
 
 func TestReader_Integration(t *testing.T) {
@@ -187,10 +204,14 @@ func TestReader_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	factory := newContractReaderFactory(t, sim)
-	reader, err := New(logger.TestLogger(t), factory, regAddress.Hex())
+	syncer, err := New(logger.TestLogger(t), factory, regAddress.Hex())
 	require.NoError(t, err)
 
-	s, err := reader.state(ctx)
+	l := &launcher{}
+	syncer.AddLauncher(l)
+
+	err = syncer.sync(ctx)
+	s := l.localRegistry
 	require.NoError(t, err)
 	assert.Len(t, s.IDsToCapabilities, 1)
 

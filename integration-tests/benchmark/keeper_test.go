@@ -102,7 +102,7 @@ func TestAutomationBenchmark(t *testing.T) {
 	testType, err := tc.GetConfigurationNameFromEnv()
 	require.NoError(t, err, "Error getting test type")
 
-	config, err := tc.GetConfig(testType, tc.Keeper)
+	config, err := tc.GetConfig([]string{testType}, tc.Keeper)
 	require.NoError(t, err, "Error getting test config")
 
 	testEnvironment, benchmarkNetwork := SetupAutomationBenchmarkEnv(t, &config)
@@ -308,7 +308,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 		TTL: time.Hour * 720, // 30 days,
 		NamespacePrefix: fmt.Sprintf(
 			"automation-%s-%s-%s",
-			strings.ToLower(keeperTestConfig.GetConfigurationName()),
+			strings.ToLower(strings.Join(keeperTestConfig.GetConfigurationNames(), "")),
 			strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"),
 			strings.ReplaceAll(strings.ToLower(*keeperTestConfig.GetKeeperConfig().Common.RegistryToTest), "_", "-"),
 		),
@@ -318,7 +318,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 
 	dbResources := performanceDbResources
 	chainlinkResources := performanceChainlinkResources
-	if strings.ToLower(keeperTestConfig.GetConfigurationName()) == "soak" {
+	if strings.Contains(strings.ToLower(strings.Join(keeperTestConfig.GetConfigurationNames(), ",")), "soak") {
 		chainlinkResources = soakChainlinkResources
 		dbResources = soakDbResources
 	}

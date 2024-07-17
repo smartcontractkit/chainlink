@@ -85,6 +85,18 @@ RPCDefaultBatchSize = 250 # Default
 # available from the connected node via RPC, due to race conditions in the code of the remote ETH node. In this case you will get false
 # "zero" blocks that are missing transactions.
 RPCBlockQueryDelay = 1 # Default
+# FinalizedBlockOffset defines the number of blocks by which the latest finalized block will be shifted/delayed.
+# For example, suppose RPC returns block 100 as the latest finalized. In that case, the CL Node will treat block `100 - FinalizedBlockOffset` as the latest finalized block and `latest - FinalityDepth - FinalizedBlockOffset` in case of `FinalityTagEnabled = false.`
+# With `EnforceRepeatableRead = true,` RPC is considered healthy only if its most recent finalized block is larger or equal to the highest finalized block observed by the CL Node minus `FinalizedBlockOffset.`
+# Higher values of `FinalizedBlockOffset` with `EnforceRepeatableRead = true` reduce the number of false `FinalizedBlockOutOfSync` declarations on healthy RPCs that are slightly lagging behind due to network delays.
+# This may increase the number of healthy RPCs and reduce the probability that the CL Node will not have any healthy alternatives to the active RPC.
+# CAUTION: Setting this to values higher than 0 may delay transaction creation in products (e.g., CCIP, Automation) that base their decision on finalized on-chain events.
+# PoS chains with `FinalityTagEnabled=true` and batched (epochs) blocks finalization (e.g., Ethereum Mainnet) must be treated with special care as a minor increase in the `FinalizedBlockOffset` may lead to significant delays.
+# For example, let's say that `FinalizedBlockOffset = 1` and blocks are finalized in batches of 32.
+# The latest finalized block on chain is 64, so block 63 is the latest finalized for CL Node.
+# Block 64 will be treated as finalized by CL Node only when chain's latest finalized block is 65. As chain finalizes blocks in batches of 32,
+# CL Node has to wait for a whole new batch to be finalized to treat block 64 as finalized.
+FinalizedBlockOffset = 0 # Default
 
 [EVM.Transactions]
 # ForwardersEnabled enables or disables sending transactions through forwarder contracts.
@@ -368,7 +380,17 @@ NodeIsSyncingEnabled = false # Default
 #
 # Set to 0 to disable.
 FinalizedBlockPollInterval = '5s' # Default
-
+# EnforceRepeatableRead defines if Core should only use RPCs whose most recently finalized block is greater or equal to
+# `highest finalized block - FinalizedBlockOffset`. In other words, exclude RPCs lagging on latest finalized
+# block.
+#
+# Set false to disable
+EnforceRepeatableRead = false # Default
+# DeathDeclarationDelay defines the minimum duration an RPC must be in unhealthy state before producing an error log message.
+# Larger values might be helpful to reduce the noisiness of health checks like `EnforceRepeatableRead = true', which might be falsely
+# trigger declaration of `FinalizedBlockOutOfSync` due to insignificant network delays in broadcasting of the finalized state among RPCs.
+# RPC will not be picked to handle a request even if this option is set to a nonzero value.
+DeathDeclarationDelay = '10s' # Default
 # **ADVANCED**
 # Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
 [EVM.NodePool.Errors]
