@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
+
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -25,7 +27,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 )
 
 // ETHKeysController manages account keys
@@ -260,7 +261,6 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 
 // Chain updates settings for a given chain for the key
 func (ekc *ETHKeysController) Chain(c *gin.Context) {
-	var err error
 	kst := ekc.app.GetKeyStore().Eth()
 	defer ekc.app.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
 
@@ -277,34 +277,61 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 		return
 	}
 
-	abandon := false
+	// Parse abandon flag
 	if abandonStr := c.Query("abandon"); abandonStr != "" {
-		abandon, err = strconv.ParseBool(abandonStr)
+		abandon, err := strconv.ParseBool(abandonStr)
 		if err != nil {
 			jsonAPIError(c, http.StatusBadRequest, errors.Wrapf(err, "invalid value for abandon: expected boolean, got: %s", abandonStr))
 			return
 		}
-	}
 
-	// Reset the chain
-	if abandon {
-		var resetErr error
-		err = chain.TxManager().Reset(address, abandon)
-		err = multierr.Combine(err, resetErr)
-		if err != nil {
-			if strings.Contains(err.Error(), "key state not found with address") {
-				jsonAPIError(c, http.StatusNotFound, err)
+		// If flag is set, marks as error='abandoned' and state='fatal_error'
+		// txes that were in 'unconfirmed', 'in_progress', 'unstarted' states for given address.
+		if abandon {
+			err = chain.TxManager().Reset(address, abandon)
+			if err != nil {
+				if strings.Contains(err.Error(), "key state not found with address") {
+					jsonAPIError(c, http.StatusNotFound, err)
+					return
+				}
+				jsonAPIError(c, http.StatusInternalServerError, err)
 				return
 			}
-			jsonAPIError(c, http.StatusInternalServerError, err)
+		}
+	}
+
+	// Parse abandonUnstarted flag
+	if abandonUnstartedStr := c.Query("abandonUnstarted"); abandonUnstartedStr != "" {
+		abandonUnstarted, err := strconv.ParseBool(abandonUnstartedStr)
+		if err != nil {
+			jsonAPIError(c, http.StatusBadRequest, errors.Wrapf(err, "invalid value for abandonUnstarted: expected boolean, got: %s", abandonUnstartedStr))
 			return
+		}
+
+		// If flag set, it deletes txes with 'unstarted' state.
+		if abandonUnstarted {
+			// Parse optional subject.
+			subject := uuid.Nil
+			if subjectStr := c.Query("subject"); subjectStr != "" {
+				subject, err = uuid.Parse(subjectStr)
+				if err != nil {
+					jsonAPIError(c, http.StatusBadRequest, errors.Wrapf(err, "invalid value for subject: expected uuid, got: %s", subject))
+					return
+				}
+			}
+
+			// If a subject is given, it will only delete 'unstarted' txes for given subject.
+			// If no subject is provided, it will delete all 'unstarted' txes.
+			if err = ekc.app.TxmStorageService().DeleteUnstartedTxes(c, chain.ID(), subject); err != nil {
+				jsonAPIError(c, http.StatusInternalServerError, err)
+				return
+			}
 		}
 	}
 
 	enabledStr := c.Query("enabled")
 	if enabledStr != "" {
-		var enabled bool
-		enabled, err = strconv.ParseBool(enabledStr)
+		enabled, err := strconv.ParseBool(enabledStr)
 		if err != nil {
 			jsonAPIError(c, http.StatusBadRequest, errors.Wrap(err, "enabled must be bool"))
 			return
