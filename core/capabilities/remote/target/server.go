@@ -32,8 +32,11 @@ type server struct {
 	workflowDONs map[uint32]commoncap.DON
 	dispatcher   types.Dispatcher
 
-	requestIDToRequest map[string]*request.ServerRequest
+	requestIDToRequest map[string]requestAndMsgID
 	requestTimeout     time.Duration
+
+	// Used to detect messages with the same message id but different payloads
+	messageIDToRequestIDsCount map[string]map[string]int
 
 	receiveLock sync.Mutex
 	stopCh      services.StopChan
@@ -42,6 +45,11 @@ type server struct {
 
 var _ types.Receiver = &server{}
 var _ services.Service = &server{}
+
+type requestAndMsgID struct {
+	request   *request.ServerRequest
+	messageID string
+}
 
 func NewServer(peerID p2ptypes.PeerID, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON,
 	workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) *server {
@@ -53,8 +61,9 @@ func NewServer(peerID p2ptypes.PeerID, underlying commoncap.TargetCapability, ca
 		workflowDONs: workflowDONs,
 		dispatcher:   dispatcher,
 
-		requestIDToRequest: map[string]*request.ServerRequest{},
-		requestTimeout:     requestTimeout,
+		requestIDToRequest:         map[string]requestAndMsgID{},
+		messageIDToRequestIDsCount: map[string]map[string]int{},
+		requestTimeout:             requestTimeout,
 
 		lggr:   lggr.Named("TargetServer"),
 		stopCh: make(services.StopChan),
@@ -96,12 +105,13 @@ func (r *server) expireRequests() {
 	defer r.receiveLock.Unlock()
 
 	for requestID, executeReq := range r.requestIDToRequest {
-		if executeReq.Expired() {
-			err := executeReq.Cancel(types.Error_TIMEOUT, "request expired")
+		if executeReq.request.Expired() {
+			err := executeReq.request.Cancel(types.Error_TIMEOUT, "request expired")
 			if err != nil {
 				r.lggr.Errorw("failed to cancel request", "request", executeReq, "err", err)
 			}
 			delete(r.requestIDToRequest, requestID)
+			delete(r.messageIDToRequestIDsCount, executeReq.messageID)
 		}
 	}
 }
@@ -110,7 +120,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 
-	r.lggr.Debugw("received request for msg", "msgId", msg.MessageId, "msg", msg)
+	r.lggr.Debugw("received request for msg", "msgId", msg.MessageId)
 	if msg.Method != types.MethodExecute {
 		r.lggr.Errorw("received request for unsupported method type", "method", msg.Method)
 		return
@@ -118,11 +128,22 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 
 	// A request is uniquely identified by the message id and the hash of the payload to prevent a malicious
 	// actor from sending a different payload with the same message id
-	messageId := request.GetMessageID(msg)
+	messageId := GetMessageID(msg)
 	hash := sha256.Sum256(msg.Payload)
 	requestID := messageId + hex.EncodeToString(hash[:])
 
-	r.lggr.Debugw("received request for request id", "requestId", requestID, "msg", msg)
+	if requestIDs, ok := r.messageIDToRequestIDsCount[messageId]; ok {
+		requestIDs[requestID] = requestIDs[requestID] + 1
+	} else {
+		r.messageIDToRequestIDsCount[messageId] = map[string]int{requestID: 1}
+	}
+
+	requestIDs := r.messageIDToRequestIDsCount[messageId]
+	if len(requestIDs) > 1 {
+		// This is a potential attack vector as well as a situation that will occur if the client is sending non-deterministic payloads
+		// so a warning is logged
+		r.lggr.Warnw("received messages with the same id and different payloads", "requestIDToCount", requestIDs)
+	}
 
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
 		callingDon, ok := r.workflowDONs[msg.CallerDonId]
@@ -131,16 +152,24 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 			return
 		}
 
-		r.requestIDToRequest[requestID] = request.NewServerRequest(r.underlying, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
-			callingDon, messageId, r.dispatcher, r.requestTimeout, r.lggr)
+		r.requestIDToRequest[requestID] = requestAndMsgID{
+			request: request.NewServerRequest(r.underlying, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
+				callingDon, messageId, r.dispatcher, r.requestTimeout, r.lggr),
+			messageID: messageId,
+		}
+
 	}
 
-	req := r.requestIDToRequest[requestID]
+	reqAndMsgID := r.requestIDToRequest[requestID]
 
-	err := req.OnMessage(ctx, msg)
+	err := reqAndMsgID.request.OnMessage(ctx, msg)
 	if err != nil {
-		r.lggr.Errorw("request failed to OnMessage new message", "request", req, "err", err)
+		r.lggr.Errorw("request failed to OnMessage new message", "request", reqAndMsgID, "err", err)
 	}
+}
+
+func GetMessageID(msg *types.MessageBody) string {
+	return string(msg.MessageId)
 }
 
 func (r *server) Ready() error {
