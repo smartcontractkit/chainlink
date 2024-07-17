@@ -122,6 +122,8 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	hash := sha256.Sum256(msg.Payload)
 	requestID := messageId + hex.EncodeToString(hash[:])
 
+	r.lggr.Debugw("received request for request id", "requestId", requestID, "msg", msg)
+
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
 		callingDon, ok := r.workflowDONs[msg.CallerDonId]
 		if !ok {
