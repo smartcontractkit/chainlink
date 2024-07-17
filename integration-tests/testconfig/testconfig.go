@@ -388,7 +388,7 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 	}
 
 	logger.Info().Msg("Reading values from environment variables")
-	err = testConfig.ReadConfigValuesFromEnvVars()
+	err = testConfig.ReadFromEnvVar()
 	if err != nil {
 		return TestConfig{}, errors.Wrapf(err, "error reading test config values from env vars")
 	}

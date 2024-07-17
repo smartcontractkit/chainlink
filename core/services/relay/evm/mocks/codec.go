@@ -13,6 +13,14 @@ type Codec struct {
 	mock.Mock
 }
 
+type Codec_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *Codec) EXPECT() *Codec_Expecter {
+	return &Codec_Expecter{mock: &_m.Mock}
+}
+
 // Decode provides a mock function with given fields: ctx, raw, into, itemType
 func (_m *Codec) Decode(ctx context.Context, raw []byte, into interface{}, itemType string) error {
 	ret := _m.Called(ctx, raw, into, itemType)
@@ -29,6 +37,37 @@ func (_m *Codec) Decode(ctx context.Context, raw []byte, into interface{}, itemT
 	}
 
 	return r0
+}
+
+// Codec_Decode_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Decode'
+type Codec_Decode_Call struct {
+	*mock.Call
+}
+
+// Decode is a helper method to define mock.On call
+//   - ctx context.Context
+//   - raw []byte
+//   - into interface{}
+//   - itemType string
+func (_e *Codec_Expecter) Decode(ctx interface{}, raw interface{}, into interface{}, itemType interface{}) *Codec_Decode_Call {
+	return &Codec_Decode_Call{Call: _e.mock.On("Decode", ctx, raw, into, itemType)}
+}
+
+func (_c *Codec_Decode_Call) Run(run func(ctx context.Context, raw []byte, into interface{}, itemType string)) *Codec_Decode_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]byte), args[2].(interface{}), args[3].(string))
+	})
+	return _c
+}
+
+func (_c *Codec_Decode_Call) Return(_a0 error) *Codec_Decode_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Codec_Decode_Call) RunAndReturn(run func(context.Context, []byte, interface{}, string) error) *Codec_Decode_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Encode provides a mock function with given fields: ctx, item, itemType
@@ -61,6 +100,36 @@ func (_m *Codec) Encode(ctx context.Context, item interface{}, itemType string) 
 	return r0, r1
 }
 
+// Codec_Encode_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Encode'
+type Codec_Encode_Call struct {
+	*mock.Call
+}
+
+// Encode is a helper method to define mock.On call
+//   - ctx context.Context
+//   - item interface{}
+//   - itemType string
+func (_e *Codec_Expecter) Encode(ctx interface{}, item interface{}, itemType interface{}) *Codec_Encode_Call {
+	return &Codec_Encode_Call{Call: _e.mock.On("Encode", ctx, item, itemType)}
+}
+
+func (_c *Codec_Encode_Call) Run(run func(ctx context.Context, item interface{}, itemType string)) *Codec_Encode_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(interface{}), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *Codec_Encode_Call) Return(_a0 []byte, _a1 error) *Codec_Encode_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Codec_Encode_Call) RunAndReturn(run func(context.Context, interface{}, string) ([]byte, error)) *Codec_Encode_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetMaxDecodingSize provides a mock function with given fields: ctx, n, itemType
 func (_m *Codec) GetMaxDecodingSize(ctx context.Context, n int, itemType string) (int, error) {
 	ret := _m.Called(ctx, n, itemType)
@@ -89,6 +158,36 @@ func (_m *Codec) GetMaxDecodingSize(ctx context.Context, n int, itemType string)
 	return r0, r1
 }
 
+// Codec_GetMaxDecodingSize_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetMaxDecodingSize'
+type Codec_GetMaxDecodingSize_Call struct {
+	*mock.Call
+}
+
+// GetMaxDecodingSize is a helper method to define mock.On call
+//   - ctx context.Context
+//   - n int
+//   - itemType string
+func (_e *Codec_Expecter) GetMaxDecodingSize(ctx interface{}, n interface{}, itemType interface{}) *Codec_GetMaxDecodingSize_Call {
+	return &Codec_GetMaxDecodingSize_Call{Call: _e.mock.On("GetMaxDecodingSize", ctx, n, itemType)}
+}
+
+func (_c *Codec_GetMaxDecodingSize_Call) Run(run func(ctx context.Context, n int, itemType string)) *Codec_GetMaxDecodingSize_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *Codec_GetMaxDecodingSize_Call) Return(_a0 int, _a1 error) *Codec_GetMaxDecodingSize_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Codec_GetMaxDecodingSize_Call) RunAndReturn(run func(context.Context, int, string) (int, error)) *Codec_GetMaxDecodingSize_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetMaxEncodingSize provides a mock function with given fields: ctx, n, itemType
 func (_m *Codec) GetMaxEncodingSize(ctx context.Context, n int, itemType string) (int, error) {
 	ret := _m.Called(ctx, n, itemType)
@@ -115,6 +214,36 @@ func (_m *Codec) GetMaxEncodingSize(ctx context.Context, n int, itemType string)
 	}
 
 	return r0, r1
+}
+
+// Codec_GetMaxEncodingSize_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetMaxEncodingSize'
+type Codec_GetMaxEncodingSize_Call struct {
+	*mock.Call
+}
+
+// GetMaxEncodingSize is a helper method to define mock.On call
+//   - ctx context.Context
+//   - n int
+//   - itemType string
+func (_e *Codec_Expecter) GetMaxEncodingSize(ctx interface{}, n interface{}, itemType interface{}) *Codec_GetMaxEncodingSize_Call {
+	return &Codec_GetMaxEncodingSize_Call{Call: _e.mock.On("GetMaxEncodingSize", ctx, n, itemType)}
+}
+
+func (_c *Codec_GetMaxEncodingSize_Call) Run(run func(ctx context.Context, n int, itemType string)) *Codec_GetMaxEncodingSize_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *Codec_GetMaxEncodingSize_Call) Return(_a0 int, _a1 error) *Codec_GetMaxEncodingSize_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Codec_GetMaxEncodingSize_Call) RunAndReturn(run func(context.Context, int, string) (int, error)) *Codec_GetMaxEncodingSize_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewCodec creates a new instance of Codec. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

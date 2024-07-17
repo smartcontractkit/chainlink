@@ -11,8 +11,6 @@ import (
 )
 
 // RPC includes all the necessary methods for a multi-node client to interact directly with any RPC endpoint.
-//
-//go:generate mockery --quiet --name RPC --structname mockRPC --inpackage --filename "mock_rpc_test.go" --case=underscore
 type RPC[
 	CHAIN_ID types.ID,
 	SEQ types.Sequence,
@@ -48,8 +46,6 @@ type RPC[
 }
 
 // Head is the interface required by the NodeClient
-//
-//go:generate mockery --quiet --name Head --structname mockHead --filename "mock_head_test.go" --inpackage --case=underscore
 type Head interface {
 	BlockNumber() int64
 	BlockDifficulty() *big.Int
@@ -57,8 +53,6 @@ type Head interface {
 }
 
 // NodeClient includes all the necessary RPC methods required by a node.
-//
-//go:generate mockery --quiet --name NodeClient --structname mockNodeClient --filename "mock_node_client_test.go" --inpackage --case=underscore
 type NodeClient[
 	CHAIN_ID types.ID,
 	HEAD Head,
@@ -161,8 +155,6 @@ type connection[
 }
 
 // PoolChainInfoProvider - provides aggregation of nodes pool ChainInfo
-//
-//go:generate mockery --quiet --name PoolChainInfoProvider --structname mockPoolChainInfoProvider --filename "mock_pool_chain_info_provider_test.go" --inpackage --case=underscore
 type PoolChainInfoProvider interface {
 	// LatestChainInfo - returns number of live nodes available in the pool, so we can prevent the last alive node in a pool from being
 	// moved to out-of-sync state. It is better to have one out-of-sync node than no nodes at all.
