@@ -167,11 +167,11 @@ func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
 }
 
 func GetMessageIDForRequest(req commoncap.CapabilityRequest) (string, error) {
-	if req.Metadata.WorkflowID == "" || req.Metadata.WorkflowExecutionID == "" {
-		return "", errors.New("workflow ID and workflow execution ID must be set in request metadata")
+	if req.Metadata.WorkflowExecutionID == "" {
+		return "", errors.New("workflow execution ID must be set in request metadata")
 	}
 
-	return req.Metadata.WorkflowID + req.Metadata.WorkflowExecutionID, nil
+	return req.Metadata.WorkflowExecutionID, nil
 }
 
 func (c *client) Ready() error {
