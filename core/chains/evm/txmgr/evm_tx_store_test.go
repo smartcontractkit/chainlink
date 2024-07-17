@@ -1843,6 +1843,98 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 	})
 }
 
+func TestORM_DeleteUnstartedTxes(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	txStore := txmgr.NewTxStore(db, logger.Test(t))
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+
+	toAddress := testutils.NewAddress()
+	gasLimit := uint64(1000)
+	payload := []byte{1, 2, 3}
+
+	txReq := txmgr.TxRequest{
+		FromAddress:    fromAddress,
+		ToAddress:      toAddress,
+		EncodedPayload: payload,
+		FeeLimit:       gasLimit,
+		Meta:           nil,
+		Strategy:       nil,
+		SignalCallback: true,
+	}
+
+	strategyWithoutSubject := txmgrcommon.NewDropOldestStrategy(uuid.UUID{}, uint32(5))
+	randomSubject := uuid.New()
+	strategyWithSubject := txmgrcommon.NewDropOldestStrategy(randomSubject, uint32(5))
+
+	t.Run("no transactions to delete when calling DeleteUnstartedTxes: handled gracefully", func(t *testing.T) {
+		err := txStore.DeleteUnstartedTxes(tests.Context(t), testutils.FixtureChainID, uuid.UUID{})
+		assert.NoError(t, err)
+	})
+
+	t.Run("no subject provided to DeleteUnstartedTxes: deletes all unstarted txs.", func(t *testing.T) {
+		txReq.Strategy = strategyWithoutSubject
+
+		// Create and assert 2 unstarted transactions without subject
+		_, err := txStore.CreateTransaction(tests.Context(t), txReq, testutils.FixtureChainID)
+		assert.NoError(t, err)
+		_, err = txStore.CreateTransaction(tests.Context(t), txReq, testutils.FixtureChainID)
+		assert.NoError(t, err)
+		AssertCountPerSubject(t, txStore, 2, uuid.UUID{})
+
+		// Create and assert 2 unstarted transactions with subject
+		txReq.Strategy = strategyWithSubject
+		_, err = txStore.CreateTransaction(tests.Context(t), txReq, testutils.FixtureChainID)
+		assert.NoError(t, err)
+		_, err = txStore.CreateTransaction(tests.Context(t), txReq, testutils.FixtureChainID)
+		assert.NoError(t, err)
+		AssertCountPerSubject(t, txStore, 2, randomSubject)
+
+		// Deletes all unstarted transactions
+		err = txStore.DeleteUnstartedTxes(tests.Context(t), testutils.FixtureChainID, uuid.UUID{})
+		assert.NoError(t, err)
+
+		// Assert all unstarted transactions have been deleted
+		AssertCountPerSubject(t, txStore, 0, uuid.UUID{})
+	})
+
+	t.Run("subject provided to DeleteUnstartedTxes: deletes only those subject unstarted txs.", func(t *testing.T) {
+		txReq.Strategy = strategyWithoutSubject
+
+		// Create and assert 2 unstarted transactions without subject
+		_, err := txStore.CreateTransaction(tests.Context(t), txReq, testutils.FixtureChainID)
+		assert.NoError(t, err)
+		_, err = txStore.CreateTransaction(tests.Context(t), txReq, testutils.FixtureChainID)
+		assert.NoError(t, err)
+		AssertCountPerSubject(t, txStore, 2, uuid.UUID{})
+
+		// Create and assert 2 unstarted transactions with subject
+		txReq.Strategy = strategyWithSubject
+		_, err = txStore.CreateTransaction(tests.Context(t), txReq, testutils.FixtureChainID)
+		assert.NoError(t, err)
+		_, err = txStore.CreateTransaction(tests.Context(t), txReq, testutils.FixtureChainID)
+		assert.NoError(t, err)
+		AssertCountPerSubject(t, txStore, 2, randomSubject)
+
+		// Deletes only unstarted transactions whose subject is randomSubject
+		err = txStore.DeleteUnstartedTxes(tests.Context(t), testutils.FixtureChainID, randomSubject)
+		assert.NoError(t, err)
+
+		// Get txCount of unstarted transactions with and without subject.
+		txCountWithoutSubject, err := txStore.CountTxesByStateAndSubject(tests.Context(t), txmgrcommon.TxUnstarted, uuid.UUID{})
+		assert.NoError(t, err)
+		txCountWithSubject, err := txStore.CountTxesByStateAndSubject(tests.Context(t), txmgrcommon.TxUnstarted, randomSubject)
+		assert.NoError(t, err)
+
+		// Assert that the only transactions that have been deleted are those whose subject is randomSubject
+		require.Equal(t, txCountWithoutSubject, 2)
+		require.Equal(t, txCountWithSubject, 0)
+	})
+}
+
 func TestORM_FindTxesWithAttemptsAndReceiptsByIdsAndState(t *testing.T) {
 	t.Parallel()
 
@@ -1867,7 +1959,7 @@ func TestORM_FindTxesWithAttemptsAndReceiptsByIdsAndState(t *testing.T) {
 
 func AssertCountPerSubject(t *testing.T, txStore txmgr.TestEvmTxStore, expected int64, subject uuid.UUID) {
 	t.Helper()
-	count, err := txStore.CountTxesByStateAndSubject(tests.Context(t), "unstarted", subject)
+	count, err := txStore.CountTxesByStateAndSubject(tests.Context(t), txmgrcommon.TxUnstarted, subject)
 	require.NoError(t, err)
 	require.Equal(t, int(expected), count)
 }
