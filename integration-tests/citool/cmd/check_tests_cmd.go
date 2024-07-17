@@ -31,7 +31,8 @@ var checkTestsCmd = &cobra.Command{
 	Run: func(_ *cobra.Command, args []string) {
 		directory := args[0]
 		yamlFile := args[1]
-		tests, err := extractTests(directory)
+		excludedDirs := []string{"../../citool"}
+		tests, err := extractTests(directory, excludedDirs)
 		if err != nil {
 			fmt.Println("Error extracting tests:", err)
 			os.Exit(1)
@@ -41,13 +42,35 @@ var checkTestsCmd = &cobra.Command{
 	},
 }
 
-func extractTests(dir string) ([]Test, error) {
+// extractTests scans the given directory and subdirectories (except the excluded ones)
+// for Go test files, extracts test function names, and returns a slice of Test.
+func extractTests(dir string, excludeDirs []string) ([]Test, error) {
 	var tests []Test
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+
+	// Resolve to absolute path
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	// filepath.WalkDir provides more control and is more efficient for skipping directories
+	err = filepath.WalkDir(absDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() && strings.HasSuffix(info.Name(), "_test.go") {
+
+		// Check if the current path is one of the excluded directories
+		for _, exclude := range excludeDirs {
+			absExclude, _ := filepath.Abs(exclude)
+			if strings.HasPrefix(path, absExclude) {
+				if d.IsDir() {
+					return filepath.SkipDir // Skip this directory
+				}
+				return nil // Skip this file
+			}
+		}
+
+		if !d.IsDir() && strings.HasSuffix(d.Name(), "_test.go") {
 			content, err := os.ReadFile(path)
 			if err != nil {
 				return err
@@ -55,15 +78,30 @@ func extractTests(dir string) ([]Test, error) {
 			re := regexp.MustCompile(`func (Test\w+)`)
 			matches := re.FindAllSubmatch(content, -1)
 			for _, match := range matches {
+				funcName := string(match[1])
+				if funcName == "TestMain" { // Skip "TestMain"
+					continue
+				}
 				tests = append(tests, Test{
-					Name: string(match[1]),
-					Path: path,
+					Name: funcName,
+					Path: mustExtractSubpath(path, "integration-tests"),
 				})
 			}
 		}
 		return nil
 	})
+
 	return tests, err
+}
+
+// ExtractSubpath extracts a specific subpath from a given full path.
+// If the subpath is not found, it returns an error.
+func mustExtractSubpath(fullPath, subPath string) string {
+	index := strings.Index(fullPath, subPath)
+	if index == -1 {
+		panic("subpath not found in the provided full path")
+	}
+	return fullPath[index:]
 }
 
 func checkTestsInPipeline(yamlFile string, tests []Test) {
