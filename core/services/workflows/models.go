@@ -3,6 +3,8 @@ package workflows
 import (
 	"errors"
 	"fmt"
+	"sync"
+	"sync/atomic"
 
 	"github.com/dominikbraun/graph"
 
@@ -85,7 +87,9 @@ type step struct {
 type triggerCapability struct {
 	workflows.StepDefinition
 	trigger capabilities.TriggerCapability
-	config  *values.Map
+
+	config atomic.Pointer[values.Map]
+	mu     sync.RWMutex
 }
 
 func Parse(yamlWorkflow string) (*workflow, error) {
