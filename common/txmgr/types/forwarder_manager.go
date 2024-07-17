@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
-//go:generate mockery --quiet --name ForwarderManager --output ./mocks/ --case=underscore
 type ForwarderManager[ADDR types.Hashable] interface {
 	services.Service
 	ForwarderFor(ctx context.Context, addr ADDR) (forwarder ADDR, err error)

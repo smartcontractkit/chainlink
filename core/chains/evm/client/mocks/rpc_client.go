@@ -33,6 +33,14 @@ type RPCClient struct {
 	mock.Mock
 }
 
+type RPCClient_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *RPCClient) EXPECT() *RPCClient_Expecter {
+	return &RPCClient_Expecter{mock: &_m.Mock}
+}
+
 // BalanceAt provides a mock function with given fields: ctx, accountAddress, blockNumber
 func (_m *RPCClient) BalanceAt(ctx context.Context, accountAddress common.Address, blockNumber *big.Int) (*big.Int, error) {
 	ret := _m.Called(ctx, accountAddress, blockNumber)
@@ -63,6 +71,36 @@ func (_m *RPCClient) BalanceAt(ctx context.Context, accountAddress common.Addres
 	return r0, r1
 }
 
+// RPCClient_BalanceAt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BalanceAt'
+type RPCClient_BalanceAt_Call struct {
+	*mock.Call
+}
+
+// BalanceAt is a helper method to define mock.On call
+//   - ctx context.Context
+//   - accountAddress common.Address
+//   - blockNumber *big.Int
+func (_e *RPCClient_Expecter) BalanceAt(ctx interface{}, accountAddress interface{}, blockNumber interface{}) *RPCClient_BalanceAt_Call {
+	return &RPCClient_BalanceAt_Call{Call: _e.mock.On("BalanceAt", ctx, accountAddress, blockNumber)}
+}
+
+func (_c *RPCClient_BalanceAt_Call) Run(run func(ctx context.Context, accountAddress common.Address, blockNumber *big.Int)) *RPCClient_BalanceAt_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Address), args[2].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *RPCClient_BalanceAt_Call) Return(_a0 *big.Int, _a1 error) *RPCClient_BalanceAt_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_BalanceAt_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) (*big.Int, error)) *RPCClient_BalanceAt_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // BatchCallContext provides a mock function with given fields: ctx, b
 func (_m *RPCClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	ret := _m.Called(ctx, b)
@@ -79,6 +117,35 @@ func (_m *RPCClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) er
 	}
 
 	return r0
+}
+
+// RPCClient_BatchCallContext_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BatchCallContext'
+type RPCClient_BatchCallContext_Call struct {
+	*mock.Call
+}
+
+// BatchCallContext is a helper method to define mock.On call
+//   - ctx context.Context
+//   - b []rpc.BatchElem
+func (_e *RPCClient_Expecter) BatchCallContext(ctx interface{}, b interface{}) *RPCClient_BatchCallContext_Call {
+	return &RPCClient_BatchCallContext_Call{Call: _e.mock.On("BatchCallContext", ctx, b)}
+}
+
+func (_c *RPCClient_BatchCallContext_Call) Run(run func(ctx context.Context, b []rpc.BatchElem)) *RPCClient_BatchCallContext_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]rpc.BatchElem))
+	})
+	return _c
+}
+
+func (_c *RPCClient_BatchCallContext_Call) Return(_a0 error) *RPCClient_BatchCallContext_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *RPCClient_BatchCallContext_Call) RunAndReturn(run func(context.Context, []rpc.BatchElem) error) *RPCClient_BatchCallContext_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // BlockByHash provides a mock function with given fields: ctx, hash
@@ -111,6 +178,35 @@ func (_m *RPCClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.
 	return r0, r1
 }
 
+// RPCClient_BlockByHash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BlockByHash'
+type RPCClient_BlockByHash_Call struct {
+	*mock.Call
+}
+
+// BlockByHash is a helper method to define mock.On call
+//   - ctx context.Context
+//   - hash common.Hash
+func (_e *RPCClient_Expecter) BlockByHash(ctx interface{}, hash interface{}) *RPCClient_BlockByHash_Call {
+	return &RPCClient_BlockByHash_Call{Call: _e.mock.On("BlockByHash", ctx, hash)}
+}
+
+func (_c *RPCClient_BlockByHash_Call) Run(run func(ctx context.Context, hash common.Hash)) *RPCClient_BlockByHash_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Hash))
+	})
+	return _c
+}
+
+func (_c *RPCClient_BlockByHash_Call) Return(_a0 *types.Head, _a1 error) *RPCClient_BlockByHash_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_BlockByHash_Call) RunAndReturn(run func(context.Context, common.Hash) (*types.Head, error)) *RPCClient_BlockByHash_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // BlockByHashGeth provides a mock function with given fields: ctx, hash
 func (_m *RPCClient) BlockByHashGeth(ctx context.Context, hash common.Hash) (*coretypes.Block, error) {
 	ret := _m.Called(ctx, hash)
@@ -139,6 +235,35 @@ func (_m *RPCClient) BlockByHashGeth(ctx context.Context, hash common.Hash) (*co
 	}
 
 	return r0, r1
+}
+
+// RPCClient_BlockByHashGeth_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BlockByHashGeth'
+type RPCClient_BlockByHashGeth_Call struct {
+	*mock.Call
+}
+
+// BlockByHashGeth is a helper method to define mock.On call
+//   - ctx context.Context
+//   - hash common.Hash
+func (_e *RPCClient_Expecter) BlockByHashGeth(ctx interface{}, hash interface{}) *RPCClient_BlockByHashGeth_Call {
+	return &RPCClient_BlockByHashGeth_Call{Call: _e.mock.On("BlockByHashGeth", ctx, hash)}
+}
+
+func (_c *RPCClient_BlockByHashGeth_Call) Run(run func(ctx context.Context, hash common.Hash)) *RPCClient_BlockByHashGeth_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Hash))
+	})
+	return _c
+}
+
+func (_c *RPCClient_BlockByHashGeth_Call) Return(b *coretypes.Block, err error) *RPCClient_BlockByHashGeth_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *RPCClient_BlockByHashGeth_Call) RunAndReturn(run func(context.Context, common.Hash) (*coretypes.Block, error)) *RPCClient_BlockByHashGeth_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // BlockByNumber provides a mock function with given fields: ctx, number
@@ -171,6 +296,35 @@ func (_m *RPCClient) BlockByNumber(ctx context.Context, number *big.Int) (*types
 	return r0, r1
 }
 
+// RPCClient_BlockByNumber_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BlockByNumber'
+type RPCClient_BlockByNumber_Call struct {
+	*mock.Call
+}
+
+// BlockByNumber is a helper method to define mock.On call
+//   - ctx context.Context
+//   - number *big.Int
+func (_e *RPCClient_Expecter) BlockByNumber(ctx interface{}, number interface{}) *RPCClient_BlockByNumber_Call {
+	return &RPCClient_BlockByNumber_Call{Call: _e.mock.On("BlockByNumber", ctx, number)}
+}
+
+func (_c *RPCClient_BlockByNumber_Call) Run(run func(ctx context.Context, number *big.Int)) *RPCClient_BlockByNumber_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *RPCClient_BlockByNumber_Call) Return(_a0 *types.Head, _a1 error) *RPCClient_BlockByNumber_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_BlockByNumber_Call) RunAndReturn(run func(context.Context, *big.Int) (*types.Head, error)) *RPCClient_BlockByNumber_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // BlockByNumberGeth provides a mock function with given fields: ctx, number
 func (_m *RPCClient) BlockByNumberGeth(ctx context.Context, number *big.Int) (*coretypes.Block, error) {
 	ret := _m.Called(ctx, number)
@@ -201,6 +355,35 @@ func (_m *RPCClient) BlockByNumberGeth(ctx context.Context, number *big.Int) (*c
 	return r0, r1
 }
 
+// RPCClient_BlockByNumberGeth_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BlockByNumberGeth'
+type RPCClient_BlockByNumberGeth_Call struct {
+	*mock.Call
+}
+
+// BlockByNumberGeth is a helper method to define mock.On call
+//   - ctx context.Context
+//   - number *big.Int
+func (_e *RPCClient_Expecter) BlockByNumberGeth(ctx interface{}, number interface{}) *RPCClient_BlockByNumberGeth_Call {
+	return &RPCClient_BlockByNumberGeth_Call{Call: _e.mock.On("BlockByNumberGeth", ctx, number)}
+}
+
+func (_c *RPCClient_BlockByNumberGeth_Call) Run(run func(ctx context.Context, number *big.Int)) *RPCClient_BlockByNumberGeth_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *RPCClient_BlockByNumberGeth_Call) Return(b *coretypes.Block, err error) *RPCClient_BlockByNumberGeth_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *RPCClient_BlockByNumberGeth_Call) RunAndReturn(run func(context.Context, *big.Int) (*coretypes.Block, error)) *RPCClient_BlockByNumberGeth_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CallContext provides a mock function with given fields: ctx, result, method, args
 func (_m *RPCClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	var _ca []interface{}
@@ -220,6 +403,44 @@ func (_m *RPCClient) CallContext(ctx context.Context, result interface{}, method
 	}
 
 	return r0
+}
+
+// RPCClient_CallContext_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CallContext'
+type RPCClient_CallContext_Call struct {
+	*mock.Call
+}
+
+// CallContext is a helper method to define mock.On call
+//   - ctx context.Context
+//   - result interface{}
+//   - method string
+//   - args ...interface{}
+func (_e *RPCClient_Expecter) CallContext(ctx interface{}, result interface{}, method interface{}, args ...interface{}) *RPCClient_CallContext_Call {
+	return &RPCClient_CallContext_Call{Call: _e.mock.On("CallContext",
+		append([]interface{}{ctx, result, method}, args...)...)}
+}
+
+func (_c *RPCClient_CallContext_Call) Run(run func(ctx context.Context, result interface{}, method string, args ...interface{})) *RPCClient_CallContext_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]interface{}, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(interface{})
+			}
+		}
+		run(args[0].(context.Context), args[1].(interface{}), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *RPCClient_CallContext_Call) Return(_a0 error) *RPCClient_CallContext_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *RPCClient_CallContext_Call) RunAndReturn(run func(context.Context, interface{}, string, ...interface{}) error) *RPCClient_CallContext_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // CallContract provides a mock function with given fields: ctx, msg, blockNumber
@@ -252,6 +473,36 @@ func (_m *RPCClient) CallContract(ctx context.Context, msg interface{}, blockNum
 	return r0, r1
 }
 
+// RPCClient_CallContract_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CallContract'
+type RPCClient_CallContract_Call struct {
+	*mock.Call
+}
+
+// CallContract is a helper method to define mock.On call
+//   - ctx context.Context
+//   - msg interface{}
+//   - blockNumber *big.Int
+func (_e *RPCClient_Expecter) CallContract(ctx interface{}, msg interface{}, blockNumber interface{}) *RPCClient_CallContract_Call {
+	return &RPCClient_CallContract_Call{Call: _e.mock.On("CallContract", ctx, msg, blockNumber)}
+}
+
+func (_c *RPCClient_CallContract_Call) Run(run func(ctx context.Context, msg interface{}, blockNumber *big.Int)) *RPCClient_CallContract_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(interface{}), args[2].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *RPCClient_CallContract_Call) Return(rpcErr []byte, extractErr error) *RPCClient_CallContract_Call {
+	_c.Call.Return(rpcErr, extractErr)
+	return _c
+}
+
+func (_c *RPCClient_CallContract_Call) RunAndReturn(run func(context.Context, interface{}, *big.Int) ([]byte, error)) *RPCClient_CallContract_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ChainID provides a mock function with given fields: ctx
 func (_m *RPCClient) ChainID(ctx context.Context) (*big.Int, error) {
 	ret := _m.Called(ctx)
@@ -282,6 +533,34 @@ func (_m *RPCClient) ChainID(ctx context.Context) (*big.Int, error) {
 	return r0, r1
 }
 
+// RPCClient_ChainID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChainID'
+type RPCClient_ChainID_Call struct {
+	*mock.Call
+}
+
+// ChainID is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *RPCClient_Expecter) ChainID(ctx interface{}) *RPCClient_ChainID_Call {
+	return &RPCClient_ChainID_Call{Call: _e.mock.On("ChainID", ctx)}
+}
+
+func (_c *RPCClient_ChainID_Call) Run(run func(ctx context.Context)) *RPCClient_ChainID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *RPCClient_ChainID_Call) Return(_a0 *big.Int, _a1 error) *RPCClient_ChainID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_ChainID_Call) RunAndReturn(run func(context.Context) (*big.Int, error)) *RPCClient_ChainID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ClientVersion provides a mock function with given fields: _a0
 func (_m *RPCClient) ClientVersion(_a0 context.Context) (string, error) {
 	ret := _m.Called(_a0)
@@ -310,9 +589,64 @@ func (_m *RPCClient) ClientVersion(_a0 context.Context) (string, error) {
 	return r0, r1
 }
 
+// RPCClient_ClientVersion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ClientVersion'
+type RPCClient_ClientVersion_Call struct {
+	*mock.Call
+}
+
+// ClientVersion is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *RPCClient_Expecter) ClientVersion(_a0 interface{}) *RPCClient_ClientVersion_Call {
+	return &RPCClient_ClientVersion_Call{Call: _e.mock.On("ClientVersion", _a0)}
+}
+
+func (_c *RPCClient_ClientVersion_Call) Run(run func(_a0 context.Context)) *RPCClient_ClientVersion_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *RPCClient_ClientVersion_Call) Return(_a0 string, _a1 error) *RPCClient_ClientVersion_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_ClientVersion_Call) RunAndReturn(run func(context.Context) (string, error)) *RPCClient_ClientVersion_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Close provides a mock function with given fields:
 func (_m *RPCClient) Close() {
 	_m.Called()
+}
+
+// RPCClient_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type RPCClient_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *RPCClient_Expecter) Close() *RPCClient_Close_Call {
+	return &RPCClient_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *RPCClient_Close_Call) Run(run func()) *RPCClient_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *RPCClient_Close_Call) Return() *RPCClient_Close_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *RPCClient_Close_Call) RunAndReturn(run func()) *RPCClient_Close_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // CodeAt provides a mock function with given fields: ctx, account, blockNumber
@@ -345,6 +679,36 @@ func (_m *RPCClient) CodeAt(ctx context.Context, account common.Address, blockNu
 	return r0, r1
 }
 
+// RPCClient_CodeAt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CodeAt'
+type RPCClient_CodeAt_Call struct {
+	*mock.Call
+}
+
+// CodeAt is a helper method to define mock.On call
+//   - ctx context.Context
+//   - account common.Address
+//   - blockNumber *big.Int
+func (_e *RPCClient_Expecter) CodeAt(ctx interface{}, account interface{}, blockNumber interface{}) *RPCClient_CodeAt_Call {
+	return &RPCClient_CodeAt_Call{Call: _e.mock.On("CodeAt", ctx, account, blockNumber)}
+}
+
+func (_c *RPCClient_CodeAt_Call) Run(run func(ctx context.Context, account common.Address, blockNumber *big.Int)) *RPCClient_CodeAt_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Address), args[2].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *RPCClient_CodeAt_Call) Return(_a0 []byte, _a1 error) *RPCClient_CodeAt_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_CodeAt_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) ([]byte, error)) *RPCClient_CodeAt_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Dial provides a mock function with given fields: ctx
 func (_m *RPCClient) Dial(ctx context.Context) error {
 	ret := _m.Called(ctx)
@@ -361,6 +725,34 @@ func (_m *RPCClient) Dial(ctx context.Context) error {
 	}
 
 	return r0
+}
+
+// RPCClient_Dial_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Dial'
+type RPCClient_Dial_Call struct {
+	*mock.Call
+}
+
+// Dial is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *RPCClient_Expecter) Dial(ctx interface{}) *RPCClient_Dial_Call {
+	return &RPCClient_Dial_Call{Call: _e.mock.On("Dial", ctx)}
+}
+
+func (_c *RPCClient_Dial_Call) Run(run func(ctx context.Context)) *RPCClient_Dial_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *RPCClient_Dial_Call) Return(_a0 error) *RPCClient_Dial_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *RPCClient_Dial_Call) RunAndReturn(run func(context.Context) error) *RPCClient_Dial_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // DialHTTP provides a mock function with given fields:
@@ -381,9 +773,63 @@ func (_m *RPCClient) DialHTTP() error {
 	return r0
 }
 
+// RPCClient_DialHTTP_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DialHTTP'
+type RPCClient_DialHTTP_Call struct {
+	*mock.Call
+}
+
+// DialHTTP is a helper method to define mock.On call
+func (_e *RPCClient_Expecter) DialHTTP() *RPCClient_DialHTTP_Call {
+	return &RPCClient_DialHTTP_Call{Call: _e.mock.On("DialHTTP")}
+}
+
+func (_c *RPCClient_DialHTTP_Call) Run(run func()) *RPCClient_DialHTTP_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *RPCClient_DialHTTP_Call) Return(_a0 error) *RPCClient_DialHTTP_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *RPCClient_DialHTTP_Call) RunAndReturn(run func() error) *RPCClient_DialHTTP_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DisconnectAll provides a mock function with given fields:
 func (_m *RPCClient) DisconnectAll() {
 	_m.Called()
+}
+
+// RPCClient_DisconnectAll_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DisconnectAll'
+type RPCClient_DisconnectAll_Call struct {
+	*mock.Call
+}
+
+// DisconnectAll is a helper method to define mock.On call
+func (_e *RPCClient_Expecter) DisconnectAll() *RPCClient_DisconnectAll_Call {
+	return &RPCClient_DisconnectAll_Call{Call: _e.mock.On("DisconnectAll")}
+}
+
+func (_c *RPCClient_DisconnectAll_Call) Run(run func()) *RPCClient_DisconnectAll_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *RPCClient_DisconnectAll_Call) Return() *RPCClient_DisconnectAll_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *RPCClient_DisconnectAll_Call) RunAndReturn(run func()) *RPCClient_DisconnectAll_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // EstimateGas provides a mock function with given fields: ctx, call
@@ -412,6 +858,35 @@ func (_m *RPCClient) EstimateGas(ctx context.Context, call interface{}) (uint64,
 	}
 
 	return r0, r1
+}
+
+// RPCClient_EstimateGas_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EstimateGas'
+type RPCClient_EstimateGas_Call struct {
+	*mock.Call
+}
+
+// EstimateGas is a helper method to define mock.On call
+//   - ctx context.Context
+//   - call interface{}
+func (_e *RPCClient_Expecter) EstimateGas(ctx interface{}, call interface{}) *RPCClient_EstimateGas_Call {
+	return &RPCClient_EstimateGas_Call{Call: _e.mock.On("EstimateGas", ctx, call)}
+}
+
+func (_c *RPCClient_EstimateGas_Call) Run(run func(ctx context.Context, call interface{})) *RPCClient_EstimateGas_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(interface{}))
+	})
+	return _c
+}
+
+func (_c *RPCClient_EstimateGas_Call) Return(gas uint64, err error) *RPCClient_EstimateGas_Call {
+	_c.Call.Return(gas, err)
+	return _c
+}
+
+func (_c *RPCClient_EstimateGas_Call) RunAndReturn(run func(context.Context, interface{}) (uint64, error)) *RPCClient_EstimateGas_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterEvents provides a mock function with given fields: ctx, query
@@ -444,6 +919,35 @@ func (_m *RPCClient) FilterEvents(ctx context.Context, query ethereum.FilterQuer
 	return r0, r1
 }
 
+// RPCClient_FilterEvents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterEvents'
+type RPCClient_FilterEvents_Call struct {
+	*mock.Call
+}
+
+// FilterEvents is a helper method to define mock.On call
+//   - ctx context.Context
+//   - query ethereum.FilterQuery
+func (_e *RPCClient_Expecter) FilterEvents(ctx interface{}, query interface{}) *RPCClient_FilterEvents_Call {
+	return &RPCClient_FilterEvents_Call{Call: _e.mock.On("FilterEvents", ctx, query)}
+}
+
+func (_c *RPCClient_FilterEvents_Call) Run(run func(ctx context.Context, query ethereum.FilterQuery)) *RPCClient_FilterEvents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(ethereum.FilterQuery))
+	})
+	return _c
+}
+
+func (_c *RPCClient_FilterEvents_Call) Return(_a0 []coretypes.Log, _a1 error) *RPCClient_FilterEvents_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_FilterEvents_Call) RunAndReturn(run func(context.Context, ethereum.FilterQuery) ([]coretypes.Log, error)) *RPCClient_FilterEvents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetInterceptedChainInfo provides a mock function with given fields:
 func (_m *RPCClient) GetInterceptedChainInfo() (commonclient.ChainInfo, commonclient.ChainInfo) {
 	ret := _m.Called()
@@ -470,6 +974,33 @@ func (_m *RPCClient) GetInterceptedChainInfo() (commonclient.ChainInfo, commoncl
 	}
 
 	return r0, r1
+}
+
+// RPCClient_GetInterceptedChainInfo_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetInterceptedChainInfo'
+type RPCClient_GetInterceptedChainInfo_Call struct {
+	*mock.Call
+}
+
+// GetInterceptedChainInfo is a helper method to define mock.On call
+func (_e *RPCClient_Expecter) GetInterceptedChainInfo() *RPCClient_GetInterceptedChainInfo_Call {
+	return &RPCClient_GetInterceptedChainInfo_Call{Call: _e.mock.On("GetInterceptedChainInfo")}
+}
+
+func (_c *RPCClient_GetInterceptedChainInfo_Call) Run(run func()) *RPCClient_GetInterceptedChainInfo_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *RPCClient_GetInterceptedChainInfo_Call) Return(latest commonclient.ChainInfo, highestUserObservations commonclient.ChainInfo) *RPCClient_GetInterceptedChainInfo_Call {
+	_c.Call.Return(latest, highestUserObservations)
+	return _c
+}
+
+func (_c *RPCClient_GetInterceptedChainInfo_Call) RunAndReturn(run func() (commonclient.ChainInfo, commonclient.ChainInfo)) *RPCClient_GetInterceptedChainInfo_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // HeaderByHash provides a mock function with given fields: ctx, h
@@ -502,6 +1033,35 @@ func (_m *RPCClient) HeaderByHash(ctx context.Context, h common.Hash) (*coretype
 	return r0, r1
 }
 
+// RPCClient_HeaderByHash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HeaderByHash'
+type RPCClient_HeaderByHash_Call struct {
+	*mock.Call
+}
+
+// HeaderByHash is a helper method to define mock.On call
+//   - ctx context.Context
+//   - h common.Hash
+func (_e *RPCClient_Expecter) HeaderByHash(ctx interface{}, h interface{}) *RPCClient_HeaderByHash_Call {
+	return &RPCClient_HeaderByHash_Call{Call: _e.mock.On("HeaderByHash", ctx, h)}
+}
+
+func (_c *RPCClient_HeaderByHash_Call) Run(run func(ctx context.Context, h common.Hash)) *RPCClient_HeaderByHash_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Hash))
+	})
+	return _c
+}
+
+func (_c *RPCClient_HeaderByHash_Call) Return(head *coretypes.Header, err error) *RPCClient_HeaderByHash_Call {
+	_c.Call.Return(head, err)
+	return _c
+}
+
+func (_c *RPCClient_HeaderByHash_Call) RunAndReturn(run func(context.Context, common.Hash) (*coretypes.Header, error)) *RPCClient_HeaderByHash_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // HeaderByNumber provides a mock function with given fields: ctx, n
 func (_m *RPCClient) HeaderByNumber(ctx context.Context, n *big.Int) (*coretypes.Header, error) {
 	ret := _m.Called(ctx, n)
@@ -532,6 +1092,35 @@ func (_m *RPCClient) HeaderByNumber(ctx context.Context, n *big.Int) (*coretypes
 	return r0, r1
 }
 
+// RPCClient_HeaderByNumber_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HeaderByNumber'
+type RPCClient_HeaderByNumber_Call struct {
+	*mock.Call
+}
+
+// HeaderByNumber is a helper method to define mock.On call
+//   - ctx context.Context
+//   - n *big.Int
+func (_e *RPCClient_Expecter) HeaderByNumber(ctx interface{}, n interface{}) *RPCClient_HeaderByNumber_Call {
+	return &RPCClient_HeaderByNumber_Call{Call: _e.mock.On("HeaderByNumber", ctx, n)}
+}
+
+func (_c *RPCClient_HeaderByNumber_Call) Run(run func(ctx context.Context, n *big.Int)) *RPCClient_HeaderByNumber_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *RPCClient_HeaderByNumber_Call) Return(head *coretypes.Header, err error) *RPCClient_HeaderByNumber_Call {
+	_c.Call.Return(head, err)
+	return _c
+}
+
+func (_c *RPCClient_HeaderByNumber_Call) RunAndReturn(run func(context.Context, *big.Int) (*coretypes.Header, error)) *RPCClient_HeaderByNumber_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // IsSyncing provides a mock function with given fields: ctx
 func (_m *RPCClient) IsSyncing(ctx context.Context) (bool, error) {
 	ret := _m.Called(ctx)
@@ -558,6 +1147,34 @@ func (_m *RPCClient) IsSyncing(ctx context.Context) (bool, error) {
 	}
 
 	return r0, r1
+}
+
+// RPCClient_IsSyncing_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsSyncing'
+type RPCClient_IsSyncing_Call struct {
+	*mock.Call
+}
+
+// IsSyncing is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *RPCClient_Expecter) IsSyncing(ctx interface{}) *RPCClient_IsSyncing_Call {
+	return &RPCClient_IsSyncing_Call{Call: _e.mock.On("IsSyncing", ctx)}
+}
+
+func (_c *RPCClient_IsSyncing_Call) Run(run func(ctx context.Context)) *RPCClient_IsSyncing_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *RPCClient_IsSyncing_Call) Return(_a0 bool, _a1 error) *RPCClient_IsSyncing_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_IsSyncing_Call) RunAndReturn(run func(context.Context) (bool, error)) *RPCClient_IsSyncing_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // LINKBalance provides a mock function with given fields: ctx, accountAddress, linkAddress
@@ -590,6 +1207,36 @@ func (_m *RPCClient) LINKBalance(ctx context.Context, accountAddress common.Addr
 	return r0, r1
 }
 
+// RPCClient_LINKBalance_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LINKBalance'
+type RPCClient_LINKBalance_Call struct {
+	*mock.Call
+}
+
+// LINKBalance is a helper method to define mock.On call
+//   - ctx context.Context
+//   - accountAddress common.Address
+//   - linkAddress common.Address
+func (_e *RPCClient_Expecter) LINKBalance(ctx interface{}, accountAddress interface{}, linkAddress interface{}) *RPCClient_LINKBalance_Call {
+	return &RPCClient_LINKBalance_Call{Call: _e.mock.On("LINKBalance", ctx, accountAddress, linkAddress)}
+}
+
+func (_c *RPCClient_LINKBalance_Call) Run(run func(ctx context.Context, accountAddress common.Address, linkAddress common.Address)) *RPCClient_LINKBalance_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Address), args[2].(common.Address))
+	})
+	return _c
+}
+
+func (_c *RPCClient_LINKBalance_Call) Return(_a0 *assets.Link, _a1 error) *RPCClient_LINKBalance_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_LINKBalance_Call) RunAndReturn(run func(context.Context, common.Address, common.Address) (*assets.Link, error)) *RPCClient_LINKBalance_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // LatestBlockHeight provides a mock function with given fields: _a0
 func (_m *RPCClient) LatestBlockHeight(_a0 context.Context) (*big.Int, error) {
 	ret := _m.Called(_a0)
@@ -618,6 +1265,34 @@ func (_m *RPCClient) LatestBlockHeight(_a0 context.Context) (*big.Int, error) {
 	}
 
 	return r0, r1
+}
+
+// RPCClient_LatestBlockHeight_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LatestBlockHeight'
+type RPCClient_LatestBlockHeight_Call struct {
+	*mock.Call
+}
+
+// LatestBlockHeight is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *RPCClient_Expecter) LatestBlockHeight(_a0 interface{}) *RPCClient_LatestBlockHeight_Call {
+	return &RPCClient_LatestBlockHeight_Call{Call: _e.mock.On("LatestBlockHeight", _a0)}
+}
+
+func (_c *RPCClient_LatestBlockHeight_Call) Run(run func(_a0 context.Context)) *RPCClient_LatestBlockHeight_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *RPCClient_LatestBlockHeight_Call) Return(_a0 *big.Int, _a1 error) *RPCClient_LatestBlockHeight_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_LatestBlockHeight_Call) RunAndReturn(run func(context.Context) (*big.Int, error)) *RPCClient_LatestBlockHeight_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // LatestFinalizedBlock provides a mock function with given fields: ctx
@@ -650,6 +1325,34 @@ func (_m *RPCClient) LatestFinalizedBlock(ctx context.Context) (*types.Head, err
 	return r0, r1
 }
 
+// RPCClient_LatestFinalizedBlock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LatestFinalizedBlock'
+type RPCClient_LatestFinalizedBlock_Call struct {
+	*mock.Call
+}
+
+// LatestFinalizedBlock is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *RPCClient_Expecter) LatestFinalizedBlock(ctx interface{}) *RPCClient_LatestFinalizedBlock_Call {
+	return &RPCClient_LatestFinalizedBlock_Call{Call: _e.mock.On("LatestFinalizedBlock", ctx)}
+}
+
+func (_c *RPCClient_LatestFinalizedBlock_Call) Run(run func(ctx context.Context)) *RPCClient_LatestFinalizedBlock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *RPCClient_LatestFinalizedBlock_Call) Return(_a0 *types.Head, _a1 error) *RPCClient_LatestFinalizedBlock_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_LatestFinalizedBlock_Call) RunAndReturn(run func(context.Context) (*types.Head, error)) *RPCClient_LatestFinalizedBlock_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PendingCallContract provides a mock function with given fields: ctx, msg
 func (_m *RPCClient) PendingCallContract(ctx context.Context, msg interface{}) ([]byte, error) {
 	ret := _m.Called(ctx, msg)
@@ -678,6 +1381,35 @@ func (_m *RPCClient) PendingCallContract(ctx context.Context, msg interface{}) (
 	}
 
 	return r0, r1
+}
+
+// RPCClient_PendingCallContract_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PendingCallContract'
+type RPCClient_PendingCallContract_Call struct {
+	*mock.Call
+}
+
+// PendingCallContract is a helper method to define mock.On call
+//   - ctx context.Context
+//   - msg interface{}
+func (_e *RPCClient_Expecter) PendingCallContract(ctx interface{}, msg interface{}) *RPCClient_PendingCallContract_Call {
+	return &RPCClient_PendingCallContract_Call{Call: _e.mock.On("PendingCallContract", ctx, msg)}
+}
+
+func (_c *RPCClient_PendingCallContract_Call) Run(run func(ctx context.Context, msg interface{})) *RPCClient_PendingCallContract_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(interface{}))
+	})
+	return _c
+}
+
+func (_c *RPCClient_PendingCallContract_Call) Return(rpcErr []byte, extractErr error) *RPCClient_PendingCallContract_Call {
+	_c.Call.Return(rpcErr, extractErr)
+	return _c
+}
+
+func (_c *RPCClient_PendingCallContract_Call) RunAndReturn(run func(context.Context, interface{}) ([]byte, error)) *RPCClient_PendingCallContract_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // PendingCodeAt provides a mock function with given fields: ctx, account
@@ -710,6 +1442,35 @@ func (_m *RPCClient) PendingCodeAt(ctx context.Context, account common.Address) 
 	return r0, r1
 }
 
+// RPCClient_PendingCodeAt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PendingCodeAt'
+type RPCClient_PendingCodeAt_Call struct {
+	*mock.Call
+}
+
+// PendingCodeAt is a helper method to define mock.On call
+//   - ctx context.Context
+//   - account common.Address
+func (_e *RPCClient_Expecter) PendingCodeAt(ctx interface{}, account interface{}) *RPCClient_PendingCodeAt_Call {
+	return &RPCClient_PendingCodeAt_Call{Call: _e.mock.On("PendingCodeAt", ctx, account)}
+}
+
+func (_c *RPCClient_PendingCodeAt_Call) Run(run func(ctx context.Context, account common.Address)) *RPCClient_PendingCodeAt_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *RPCClient_PendingCodeAt_Call) Return(b []byte, err error) *RPCClient_PendingCodeAt_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *RPCClient_PendingCodeAt_Call) RunAndReturn(run func(context.Context, common.Address) ([]byte, error)) *RPCClient_PendingCodeAt_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PendingSequenceAt provides a mock function with given fields: ctx, addr
 func (_m *RPCClient) PendingSequenceAt(ctx context.Context, addr common.Address) (types.Nonce, error) {
 	ret := _m.Called(ctx, addr)
@@ -736,6 +1497,35 @@ func (_m *RPCClient) PendingSequenceAt(ctx context.Context, addr common.Address)
 	}
 
 	return r0, r1
+}
+
+// RPCClient_PendingSequenceAt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PendingSequenceAt'
+type RPCClient_PendingSequenceAt_Call struct {
+	*mock.Call
+}
+
+// PendingSequenceAt is a helper method to define mock.On call
+//   - ctx context.Context
+//   - addr common.Address
+func (_e *RPCClient_Expecter) PendingSequenceAt(ctx interface{}, addr interface{}) *RPCClient_PendingSequenceAt_Call {
+	return &RPCClient_PendingSequenceAt_Call{Call: _e.mock.On("PendingSequenceAt", ctx, addr)}
+}
+
+func (_c *RPCClient_PendingSequenceAt_Call) Run(run func(ctx context.Context, addr common.Address)) *RPCClient_PendingSequenceAt_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *RPCClient_PendingSequenceAt_Call) Return(_a0 types.Nonce, _a1 error) *RPCClient_PendingSequenceAt_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_PendingSequenceAt_Call) RunAndReturn(run func(context.Context, common.Address) (types.Nonce, error)) *RPCClient_PendingSequenceAt_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SendEmptyTransaction provides a mock function with given fields: ctx, newTxAttempt, seq, gasLimit, fee, fromAddress
@@ -766,6 +1556,39 @@ func (_m *RPCClient) SendEmptyTransaction(ctx context.Context, newTxAttempt func
 	return r0, r1
 }
 
+// RPCClient_SendEmptyTransaction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendEmptyTransaction'
+type RPCClient_SendEmptyTransaction_Call struct {
+	*mock.Call
+}
+
+// SendEmptyTransaction is a helper method to define mock.On call
+//   - ctx context.Context
+//   - newTxAttempt func(types.Nonce , uint32 , *evmassets.Wei , common.Address)(interface{} , error)
+//   - seq types.Nonce
+//   - gasLimit uint32
+//   - fee *evmassets.Wei
+//   - fromAddress common.Address
+func (_e *RPCClient_Expecter) SendEmptyTransaction(ctx interface{}, newTxAttempt interface{}, seq interface{}, gasLimit interface{}, fee interface{}, fromAddress interface{}) *RPCClient_SendEmptyTransaction_Call {
+	return &RPCClient_SendEmptyTransaction_Call{Call: _e.mock.On("SendEmptyTransaction", ctx, newTxAttempt, seq, gasLimit, fee, fromAddress)}
+}
+
+func (_c *RPCClient_SendEmptyTransaction_Call) Run(run func(ctx context.Context, newTxAttempt func(types.Nonce, uint32, *evmassets.Wei, common.Address) (interface{}, error), seq types.Nonce, gasLimit uint32, fee *evmassets.Wei, fromAddress common.Address)) *RPCClient_SendEmptyTransaction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(func(types.Nonce, uint32, *evmassets.Wei, common.Address) (interface{}, error)), args[2].(types.Nonce), args[3].(uint32), args[4].(*evmassets.Wei), args[5].(common.Address))
+	})
+	return _c
+}
+
+func (_c *RPCClient_SendEmptyTransaction_Call) Return(txhash string, err error) *RPCClient_SendEmptyTransaction_Call {
+	_c.Call.Return(txhash, err)
+	return _c
+}
+
+func (_c *RPCClient_SendEmptyTransaction_Call) RunAndReturn(run func(context.Context, func(types.Nonce, uint32, *evmassets.Wei, common.Address) (interface{}, error), types.Nonce, uint32, *evmassets.Wei, common.Address) (string, error)) *RPCClient_SendEmptyTransaction_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendTransaction provides a mock function with given fields: ctx, tx
 func (_m *RPCClient) SendTransaction(ctx context.Context, tx *coretypes.Transaction) error {
 	ret := _m.Called(ctx, tx)
@@ -782,6 +1605,35 @@ func (_m *RPCClient) SendTransaction(ctx context.Context, tx *coretypes.Transact
 	}
 
 	return r0
+}
+
+// RPCClient_SendTransaction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendTransaction'
+type RPCClient_SendTransaction_Call struct {
+	*mock.Call
+}
+
+// SendTransaction is a helper method to define mock.On call
+//   - ctx context.Context
+//   - tx *coretypes.Transaction
+func (_e *RPCClient_Expecter) SendTransaction(ctx interface{}, tx interface{}) *RPCClient_SendTransaction_Call {
+	return &RPCClient_SendTransaction_Call{Call: _e.mock.On("SendTransaction", ctx, tx)}
+}
+
+func (_c *RPCClient_SendTransaction_Call) Run(run func(ctx context.Context, tx *coretypes.Transaction)) *RPCClient_SendTransaction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*coretypes.Transaction))
+	})
+	return _c
+}
+
+func (_c *RPCClient_SendTransaction_Call) Return(_a0 error) *RPCClient_SendTransaction_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *RPCClient_SendTransaction_Call) RunAndReturn(run func(context.Context, *coretypes.Transaction) error) *RPCClient_SendTransaction_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SequenceAt provides a mock function with given fields: ctx, accountAddress, blockNumber
@@ -812,9 +1664,67 @@ func (_m *RPCClient) SequenceAt(ctx context.Context, accountAddress common.Addre
 	return r0, r1
 }
 
+// RPCClient_SequenceAt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SequenceAt'
+type RPCClient_SequenceAt_Call struct {
+	*mock.Call
+}
+
+// SequenceAt is a helper method to define mock.On call
+//   - ctx context.Context
+//   - accountAddress common.Address
+//   - blockNumber *big.Int
+func (_e *RPCClient_Expecter) SequenceAt(ctx interface{}, accountAddress interface{}, blockNumber interface{}) *RPCClient_SequenceAt_Call {
+	return &RPCClient_SequenceAt_Call{Call: _e.mock.On("SequenceAt", ctx, accountAddress, blockNumber)}
+}
+
+func (_c *RPCClient_SequenceAt_Call) Run(run func(ctx context.Context, accountAddress common.Address, blockNumber *big.Int)) *RPCClient_SequenceAt_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Address), args[2].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *RPCClient_SequenceAt_Call) Return(_a0 types.Nonce, _a1 error) *RPCClient_SequenceAt_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_SequenceAt_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) (types.Nonce, error)) *RPCClient_SequenceAt_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetAliveLoopSub provides a mock function with given fields: _a0
 func (_m *RPCClient) SetAliveLoopSub(_a0 commontypes.Subscription) {
 	_m.Called(_a0)
+}
+
+// RPCClient_SetAliveLoopSub_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetAliveLoopSub'
+type RPCClient_SetAliveLoopSub_Call struct {
+	*mock.Call
+}
+
+// SetAliveLoopSub is a helper method to define mock.On call
+//   - _a0 commontypes.Subscription
+func (_e *RPCClient_Expecter) SetAliveLoopSub(_a0 interface{}) *RPCClient_SetAliveLoopSub_Call {
+	return &RPCClient_SetAliveLoopSub_Call{Call: _e.mock.On("SetAliveLoopSub", _a0)}
+}
+
+func (_c *RPCClient_SetAliveLoopSub_Call) Run(run func(_a0 commontypes.Subscription)) *RPCClient_SetAliveLoopSub_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(commontypes.Subscription))
+	})
+	return _c
+}
+
+func (_c *RPCClient_SetAliveLoopSub_Call) Return() *RPCClient_SetAliveLoopSub_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *RPCClient_SetAliveLoopSub_Call) RunAndReturn(run func(commontypes.Subscription)) *RPCClient_SetAliveLoopSub_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SimulateTransaction provides a mock function with given fields: ctx, tx
@@ -833,6 +1743,35 @@ func (_m *RPCClient) SimulateTransaction(ctx context.Context, tx *coretypes.Tran
 	}
 
 	return r0
+}
+
+// RPCClient_SimulateTransaction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SimulateTransaction'
+type RPCClient_SimulateTransaction_Call struct {
+	*mock.Call
+}
+
+// SimulateTransaction is a helper method to define mock.On call
+//   - ctx context.Context
+//   - tx *coretypes.Transaction
+func (_e *RPCClient_Expecter) SimulateTransaction(ctx interface{}, tx interface{}) *RPCClient_SimulateTransaction_Call {
+	return &RPCClient_SimulateTransaction_Call{Call: _e.mock.On("SimulateTransaction", ctx, tx)}
+}
+
+func (_c *RPCClient_SimulateTransaction_Call) Run(run func(ctx context.Context, tx *coretypes.Transaction)) *RPCClient_SimulateTransaction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*coretypes.Transaction))
+	})
+	return _c
+}
+
+func (_c *RPCClient_SimulateTransaction_Call) Return(_a0 error) *RPCClient_SimulateTransaction_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *RPCClient_SimulateTransaction_Call) RunAndReturn(run func(context.Context, *coretypes.Transaction) error) *RPCClient_SimulateTransaction_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SubscribeFilterLogs provides a mock function with given fields: ctx, q, ch
@@ -865,6 +1804,36 @@ func (_m *RPCClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQ
 	return r0, r1
 }
 
+// RPCClient_SubscribeFilterLogs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeFilterLogs'
+type RPCClient_SubscribeFilterLogs_Call struct {
+	*mock.Call
+}
+
+// SubscribeFilterLogs is a helper method to define mock.On call
+//   - ctx context.Context
+//   - q ethereum.FilterQuery
+//   - ch chan<- coretypes.Log
+func (_e *RPCClient_Expecter) SubscribeFilterLogs(ctx interface{}, q interface{}, ch interface{}) *RPCClient_SubscribeFilterLogs_Call {
+	return &RPCClient_SubscribeFilterLogs_Call{Call: _e.mock.On("SubscribeFilterLogs", ctx, q, ch)}
+}
+
+func (_c *RPCClient_SubscribeFilterLogs_Call) Run(run func(ctx context.Context, q ethereum.FilterQuery, ch chan<- coretypes.Log)) *RPCClient_SubscribeFilterLogs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(ethereum.FilterQuery), args[2].(chan<- coretypes.Log))
+	})
+	return _c
+}
+
+func (_c *RPCClient_SubscribeFilterLogs_Call) Return(s ethereum.Subscription, err error) *RPCClient_SubscribeFilterLogs_Call {
+	_c.Call.Return(s, err)
+	return _c
+}
+
+func (_c *RPCClient_SubscribeFilterLogs_Call) RunAndReturn(run func(context.Context, ethereum.FilterQuery, chan<- coretypes.Log) (ethereum.Subscription, error)) *RPCClient_SubscribeFilterLogs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SubscribeNewHead provides a mock function with given fields: ctx, channel
 func (_m *RPCClient) SubscribeNewHead(ctx context.Context, channel chan<- *types.Head) (commontypes.Subscription, error) {
 	ret := _m.Called(ctx, channel)
@@ -895,6 +1864,35 @@ func (_m *RPCClient) SubscribeNewHead(ctx context.Context, channel chan<- *types
 	return r0, r1
 }
 
+// RPCClient_SubscribeNewHead_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeNewHead'
+type RPCClient_SubscribeNewHead_Call struct {
+	*mock.Call
+}
+
+// SubscribeNewHead is a helper method to define mock.On call
+//   - ctx context.Context
+//   - channel chan<- *types.Head
+func (_e *RPCClient_Expecter) SubscribeNewHead(ctx interface{}, channel interface{}) *RPCClient_SubscribeNewHead_Call {
+	return &RPCClient_SubscribeNewHead_Call{Call: _e.mock.On("SubscribeNewHead", ctx, channel)}
+}
+
+func (_c *RPCClient_SubscribeNewHead_Call) Run(run func(ctx context.Context, channel chan<- *types.Head)) *RPCClient_SubscribeNewHead_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(chan<- *types.Head))
+	})
+	return _c
+}
+
+func (_c *RPCClient_SubscribeNewHead_Call) Return(_a0 commontypes.Subscription, _a1 error) *RPCClient_SubscribeNewHead_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_SubscribeNewHead_Call) RunAndReturn(run func(context.Context, chan<- *types.Head) (commontypes.Subscription, error)) *RPCClient_SubscribeNewHead_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SubscribersCount provides a mock function with given fields:
 func (_m *RPCClient) SubscribersCount() int32 {
 	ret := _m.Called()
@@ -911,6 +1909,33 @@ func (_m *RPCClient) SubscribersCount() int32 {
 	}
 
 	return r0
+}
+
+// RPCClient_SubscribersCount_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribersCount'
+type RPCClient_SubscribersCount_Call struct {
+	*mock.Call
+}
+
+// SubscribersCount is a helper method to define mock.On call
+func (_e *RPCClient_Expecter) SubscribersCount() *RPCClient_SubscribersCount_Call {
+	return &RPCClient_SubscribersCount_Call{Call: _e.mock.On("SubscribersCount")}
+}
+
+func (_c *RPCClient_SubscribersCount_Call) Run(run func()) *RPCClient_SubscribersCount_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *RPCClient_SubscribersCount_Call) Return(_a0 int32) *RPCClient_SubscribersCount_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *RPCClient_SubscribersCount_Call) RunAndReturn(run func() int32) *RPCClient_SubscribersCount_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SuggestGasPrice provides a mock function with given fields: ctx
@@ -943,6 +1968,34 @@ func (_m *RPCClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	return r0, r1
 }
 
+// RPCClient_SuggestGasPrice_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SuggestGasPrice'
+type RPCClient_SuggestGasPrice_Call struct {
+	*mock.Call
+}
+
+// SuggestGasPrice is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *RPCClient_Expecter) SuggestGasPrice(ctx interface{}) *RPCClient_SuggestGasPrice_Call {
+	return &RPCClient_SuggestGasPrice_Call{Call: _e.mock.On("SuggestGasPrice", ctx)}
+}
+
+func (_c *RPCClient_SuggestGasPrice_Call) Run(run func(ctx context.Context)) *RPCClient_SuggestGasPrice_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *RPCClient_SuggestGasPrice_Call) Return(p *big.Int, err error) *RPCClient_SuggestGasPrice_Call {
+	_c.Call.Return(p, err)
+	return _c
+}
+
+func (_c *RPCClient_SuggestGasPrice_Call) RunAndReturn(run func(context.Context) (*big.Int, error)) *RPCClient_SuggestGasPrice_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SuggestGasTipCap provides a mock function with given fields: ctx
 func (_m *RPCClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	ret := _m.Called(ctx)
@@ -971,6 +2024,34 @@ func (_m *RPCClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	}
 
 	return r0, r1
+}
+
+// RPCClient_SuggestGasTipCap_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SuggestGasTipCap'
+type RPCClient_SuggestGasTipCap_Call struct {
+	*mock.Call
+}
+
+// SuggestGasTipCap is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *RPCClient_Expecter) SuggestGasTipCap(ctx interface{}) *RPCClient_SuggestGasTipCap_Call {
+	return &RPCClient_SuggestGasTipCap_Call{Call: _e.mock.On("SuggestGasTipCap", ctx)}
+}
+
+func (_c *RPCClient_SuggestGasTipCap_Call) Run(run func(ctx context.Context)) *RPCClient_SuggestGasTipCap_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *RPCClient_SuggestGasTipCap_Call) Return(t *big.Int, err error) *RPCClient_SuggestGasTipCap_Call {
+	_c.Call.Return(t, err)
+	return _c
+}
+
+func (_c *RPCClient_SuggestGasTipCap_Call) RunAndReturn(run func(context.Context) (*big.Int, error)) *RPCClient_SuggestGasTipCap_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // TokenBalance provides a mock function with given fields: ctx, accountAddress, tokenAddress
@@ -1003,6 +2084,36 @@ func (_m *RPCClient) TokenBalance(ctx context.Context, accountAddress common.Add
 	return r0, r1
 }
 
+// RPCClient_TokenBalance_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TokenBalance'
+type RPCClient_TokenBalance_Call struct {
+	*mock.Call
+}
+
+// TokenBalance is a helper method to define mock.On call
+//   - ctx context.Context
+//   - accountAddress common.Address
+//   - tokenAddress common.Address
+func (_e *RPCClient_Expecter) TokenBalance(ctx interface{}, accountAddress interface{}, tokenAddress interface{}) *RPCClient_TokenBalance_Call {
+	return &RPCClient_TokenBalance_Call{Call: _e.mock.On("TokenBalance", ctx, accountAddress, tokenAddress)}
+}
+
+func (_c *RPCClient_TokenBalance_Call) Run(run func(ctx context.Context, accountAddress common.Address, tokenAddress common.Address)) *RPCClient_TokenBalance_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Address), args[2].(common.Address))
+	})
+	return _c
+}
+
+func (_c *RPCClient_TokenBalance_Call) Return(_a0 *big.Int, _a1 error) *RPCClient_TokenBalance_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_TokenBalance_Call) RunAndReturn(run func(context.Context, common.Address, common.Address) (*big.Int, error)) *RPCClient_TokenBalance_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // TransactionByHash provides a mock function with given fields: ctx, txHash
 func (_m *RPCClient) TransactionByHash(ctx context.Context, txHash common.Hash) (*coretypes.Transaction, error) {
 	ret := _m.Called(ctx, txHash)
@@ -1031,6 +2142,35 @@ func (_m *RPCClient) TransactionByHash(ctx context.Context, txHash common.Hash) 
 	}
 
 	return r0, r1
+}
+
+// RPCClient_TransactionByHash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TransactionByHash'
+type RPCClient_TransactionByHash_Call struct {
+	*mock.Call
+}
+
+// TransactionByHash is a helper method to define mock.On call
+//   - ctx context.Context
+//   - txHash common.Hash
+func (_e *RPCClient_Expecter) TransactionByHash(ctx interface{}, txHash interface{}) *RPCClient_TransactionByHash_Call {
+	return &RPCClient_TransactionByHash_Call{Call: _e.mock.On("TransactionByHash", ctx, txHash)}
+}
+
+func (_c *RPCClient_TransactionByHash_Call) Run(run func(ctx context.Context, txHash common.Hash)) *RPCClient_TransactionByHash_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Hash))
+	})
+	return _c
+}
+
+func (_c *RPCClient_TransactionByHash_Call) Return(_a0 *coretypes.Transaction, _a1 error) *RPCClient_TransactionByHash_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_TransactionByHash_Call) RunAndReturn(run func(context.Context, common.Hash) (*coretypes.Transaction, error)) *RPCClient_TransactionByHash_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // TransactionReceipt provides a mock function with given fields: ctx, txHash
@@ -1063,6 +2203,35 @@ func (_m *RPCClient) TransactionReceipt(ctx context.Context, txHash common.Hash)
 	return r0, r1
 }
 
+// RPCClient_TransactionReceipt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TransactionReceipt'
+type RPCClient_TransactionReceipt_Call struct {
+	*mock.Call
+}
+
+// TransactionReceipt is a helper method to define mock.On call
+//   - ctx context.Context
+//   - txHash common.Hash
+func (_e *RPCClient_Expecter) TransactionReceipt(ctx interface{}, txHash interface{}) *RPCClient_TransactionReceipt_Call {
+	return &RPCClient_TransactionReceipt_Call{Call: _e.mock.On("TransactionReceipt", ctx, txHash)}
+}
+
+func (_c *RPCClient_TransactionReceipt_Call) Run(run func(ctx context.Context, txHash common.Hash)) *RPCClient_TransactionReceipt_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Hash))
+	})
+	return _c
+}
+
+func (_c *RPCClient_TransactionReceipt_Call) Return(_a0 *types.Receipt, _a1 error) *RPCClient_TransactionReceipt_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_TransactionReceipt_Call) RunAndReturn(run func(context.Context, common.Hash) (*types.Receipt, error)) *RPCClient_TransactionReceipt_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // TransactionReceiptGeth provides a mock function with given fields: ctx, txHash
 func (_m *RPCClient) TransactionReceiptGeth(ctx context.Context, txHash common.Hash) (*coretypes.Receipt, error) {
 	ret := _m.Called(ctx, txHash)
@@ -1093,9 +2262,65 @@ func (_m *RPCClient) TransactionReceiptGeth(ctx context.Context, txHash common.H
 	return r0, r1
 }
 
+// RPCClient_TransactionReceiptGeth_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TransactionReceiptGeth'
+type RPCClient_TransactionReceiptGeth_Call struct {
+	*mock.Call
+}
+
+// TransactionReceiptGeth is a helper method to define mock.On call
+//   - ctx context.Context
+//   - txHash common.Hash
+func (_e *RPCClient_Expecter) TransactionReceiptGeth(ctx interface{}, txHash interface{}) *RPCClient_TransactionReceiptGeth_Call {
+	return &RPCClient_TransactionReceiptGeth_Call{Call: _e.mock.On("TransactionReceiptGeth", ctx, txHash)}
+}
+
+func (_c *RPCClient_TransactionReceiptGeth_Call) Run(run func(ctx context.Context, txHash common.Hash)) *RPCClient_TransactionReceiptGeth_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Hash))
+	})
+	return _c
+}
+
+func (_c *RPCClient_TransactionReceiptGeth_Call) Return(r *coretypes.Receipt, err error) *RPCClient_TransactionReceiptGeth_Call {
+	_c.Call.Return(r, err)
+	return _c
+}
+
+func (_c *RPCClient_TransactionReceiptGeth_Call) RunAndReturn(run func(context.Context, common.Hash) (*coretypes.Receipt, error)) *RPCClient_TransactionReceiptGeth_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UnsubscribeAllExceptAliveLoop provides a mock function with given fields:
 func (_m *RPCClient) UnsubscribeAllExceptAliveLoop() {
 	_m.Called()
+}
+
+// RPCClient_UnsubscribeAllExceptAliveLoop_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UnsubscribeAllExceptAliveLoop'
+type RPCClient_UnsubscribeAllExceptAliveLoop_Call struct {
+	*mock.Call
+}
+
+// UnsubscribeAllExceptAliveLoop is a helper method to define mock.On call
+func (_e *RPCClient_Expecter) UnsubscribeAllExceptAliveLoop() *RPCClient_UnsubscribeAllExceptAliveLoop_Call {
+	return &RPCClient_UnsubscribeAllExceptAliveLoop_Call{Call: _e.mock.On("UnsubscribeAllExceptAliveLoop")}
+}
+
+func (_c *RPCClient_UnsubscribeAllExceptAliveLoop_Call) Run(run func()) *RPCClient_UnsubscribeAllExceptAliveLoop_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *RPCClient_UnsubscribeAllExceptAliveLoop_Call) Return() *RPCClient_UnsubscribeAllExceptAliveLoop_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *RPCClient_UnsubscribeAllExceptAliveLoop_Call) RunAndReturn(run func()) *RPCClient_UnsubscribeAllExceptAliveLoop_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewRPCClient creates a new instance of RPCClient. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

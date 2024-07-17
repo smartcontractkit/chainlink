@@ -261,12 +261,21 @@ func TestAutomationChaos(t *testing.T) {
 					linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
 					require.NoError(t, err, "Error deploying LINK token")
 
+					wethToken, err := contracts.DeployWETHTokenContract(l, chainClient)
+					require.NoError(t, err, "Error deploying weth token contract")
+
+					// This feed is used for both eth/usd and link/usd
+					ethUSDFeed, err := contracts.DeployMockETHUSDFeed(chainClient, defaultOCRRegistryConfig.FallbackLinkPrice)
+					require.NoError(t, err, "Error deploying eth usd feed contract")
+
 					registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
 						t,
 						chainClient,
 						rv,
 						defaultOCRRegistryConfig,
 						linkToken,
+						wethToken,
+						ethUSDFeed,
 					)
 
 					// Fund the registry with LINK
@@ -276,7 +285,7 @@ func TestAutomationChaos(t *testing.T) {
 					actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, rv)
 					nodesWithoutBootstrap := chainlinkNodes[1:]
 					defaultOCRRegistryConfig.RegistryVersion = rv
-					ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
+					ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled(), linkToken, wethToken, ethUSDFeed)
 					require.NoError(t, err, "Error building OCR config vars")
 
 					if rv == eth_contracts.RegistryVersion_2_0 {
