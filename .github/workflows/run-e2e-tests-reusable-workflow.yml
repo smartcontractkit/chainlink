@@ -378,10 +378,10 @@ jobs:
         if: inputs.test_config_override_base64 == ''
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.test_inputs.chainlink_version || github.sha }}
+          chainlink_version: ${{ matrix.tests.test_inputs.chainlink_version || inputs.chainlink_version || github.sha }}
           chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlink_upgrade_version }}
-          chainlink_postgres_version: ${{ matrix.tests.test_inputs.chainlinkPostgresVersion }}
-          selected_networks: ${{ matrix.tests.test_inputs.selectedNetworks || env.SELECTED_NETWORKS}}
+          chainlink_postgres_version: ${{ matrix.tests.test_inputs.chainlink_postgres_version }}
+          selected_networks: ${{ matrix.tests.test_inputs.selected_networks || env.SELECTED_NETWORKS}}
           logging_run_id: ${{ github.run_id }}
           logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
 
@@ -510,10 +510,10 @@ jobs:
         if: inputs.test_config_override_base64 == ''
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.test_inputs.chainlink_version || github.sha }}
+          chainlink_version: ${{ matrix.tests.test_inputs.chainlink_version || inputs.chainlink_version || github.sha }}
           chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlink_upgrade_version }}
-          chainlink_postgres_version: ${{ matrix.tests.test_inputs.chainlinkPostgresVersion }}
-          selected_networks: ${{ matrix.tests.test_inputs.selectedNetworks || env.SELECTED_NETWORKS}}
+          chainlink_postgres_version: ${{ matrix.tests.test_inputs.chainlink_postgres_version }}
+          selected_networks: ${{ matrix.tests.test_inputs.selected_networks || env.SELECTED_NETWORKS}}
           logging_run_id: ${{ github.run_id }}
           logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
 
