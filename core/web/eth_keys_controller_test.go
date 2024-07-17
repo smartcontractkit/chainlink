@@ -701,7 +701,6 @@ func TestETHKeysController_ChainSuccess_AbandonUnstarted(t *testing.T) {
 		assertUnstartedTxesCountPerSubject(t, txStore, 2, uuid.UUID{})
 		assertUnstartedTxesCountPerSubject(t, txStore, 0, randomSubject)
 	})
-
 }
 
 func TestETHKeysController_ChainFailure_InvalidEnabled(t *testing.T) {
