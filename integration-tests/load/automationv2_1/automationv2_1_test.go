@@ -570,7 +570,7 @@ Load Config:
 		batchSize = endBlock - startBlock
 	}
 
-	blockWindowCounts := map[int]map[uint64]int{}
+	blockWindowCountsPerformed := map[int]map[uint64]int{}
 
 	for i, consumerContract := range consumerContracts {
 		var (
@@ -579,7 +579,7 @@ Load Config:
 			timeout = 5 * time.Second
 		)
 
-		upkeepMap, ok := blockWindowCounts[i]
+		upkeepMap, ok := blockWindowCountsPerformed[i]
 		if !ok {
 			upkeepMap = make(map[uint64]int)
 		}
@@ -650,16 +650,24 @@ Load Config:
 		}
 
 		if len(upkeepMap) > 0 {
-			blockWindowCounts[i] = upkeepMap
+			blockWindowCountsPerformed[i] = upkeepMap
 		}
 	}
 
-	for _, triggerContract := range triggerContracts {
+	blockWindowCountsEmitted := map[int]map[uint64]int{}
+
+	for i, triggerContract := range triggerContracts {
 		var (
 			logs    []types.Log
 			address = triggerContract.Address()
 			timeout = 5 * time.Second
 		)
+
+		upkeepMap, ok := blockWindowCountsEmitted[i]
+		if !ok {
+			upkeepMap = make(map[uint64]int)
+		}
+
 		for fromBlock := startBlock; fromBlock < endBlock; fromBlock += batchSize + 1 {
 			filterQuery := geth.FilterQuery{
 				Addresses: []common.Address{address},
@@ -674,6 +682,7 @@ Load Config:
 				)
 				ctx2, cancel := context.WithTimeout(ctx, timeout)
 				logsInBatch, err = chainClient.Client.FilterLogs(ctx2, filterQuery)
+
 				cancel()
 				if err != nil {
 					l.Error().Err(err).
@@ -693,12 +702,25 @@ Load Config:
 				logs = append(logs, logsInBatch...)
 			}
 		}
+
 		numberOfEventsEmitted = numberOfEventsEmitted + int64(len(logs))
+
+		for _, log := range logs {
+			if blockCount, ok := upkeepMap[log.BlockNumber]; !ok {
+				upkeepMap[log.BlockNumber] = 1
+			} else {
+				upkeepMap[log.BlockNumber] = blockCount + 1
+			}
+		}
+		if len(upkeepMap) > 0 {
+			blockWindowCountsEmitted[i] = upkeepMap
+		}
 	}
 
-	numUpkeepsWithSomeLogsPerformed := len(blockWindowCounts)
+	numUpkeepsWithSomeLogsPerformed := len(blockWindowCountsPerformed)
 
-	blockWindowCountsJSON, _ := json.Marshal(blockWindowCounts)
+	blockWindowCountsPerformedJSON, _ := json.Marshal(blockWindowCountsPerformed)
+	blockWindowCountsEmittedJSON, _ := json.Marshal(blockWindowCountsEmitted)
 
 	minDequeue := map[int]int{}
 
@@ -706,7 +728,7 @@ Load Config:
 
 	blocks := 0
 
-	for upkeepID, blockCounts := range blockWindowCounts {
+	for upkeepID, blockCounts := range blockWindowCountsPerformed {
 
 		blocks += len(blockCounts)
 
@@ -724,8 +746,8 @@ Load Config:
 	minDequeueJSON, _ := json.Marshal(minDequeue)
 
 	avgBlocks := float64(0)
-	if len(blockWindowCounts) > 0 {
-		avgBlocks = float64(blocks) / float64(len(blockWindowCounts))
+	if len(blockWindowCountsPerformed) > 0 {
+		avgBlocks = float64(blocks) / float64(len(blockWindowCountsPerformed))
 	}
 
 	numUpkeepsWithSomeMinDequeue := len(minDequeue)
@@ -774,7 +796,8 @@ Load Config:
 		Int("Log Limit", int(*logLimit)).
 		Int("Num upkeeps with one or more logs performed", numUpkeepsWithSomeLogsPerformed).
 		Int("Num upkeeps with one or more min dequeue blocks", numUpkeepsWithSomeMinDequeue).
-		Str("Block window counts per upkeep JSON", string(blockWindowCountsJSON)).
+		Str("Block window counts emitted per upkeep JSON", string(blockWindowCountsEmittedJSON)).
+		Str("Block window counts performed per upkeep JSON", string(blockWindowCountsPerformedJSON)).
 		Str("Min dequeue JSON", string(minDequeueJSON)).
 		Msg("Test completed")
 
