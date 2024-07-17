@@ -11,8 +11,6 @@ import (
 )
 
 // RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
-//
-//go:generate mockery --quiet --name RPCClient --structname mockRPCClient --filename "mock_rpc_client_test.go" --inpackage --case=underscore
 type RPCClient[
 	CHAIN_ID types.ID,
 	HEAD Head,

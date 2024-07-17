@@ -15,6 +15,7 @@ packages:
       SendOnlyClient:
       SendOnlyNode:
       RPC:
+      RPCClient:
       Head:
       NodeClient:
       PoolChainInfoProvider:
@@ -50,7 +51,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/client:
     interfaces:
       Client:
-      RPCClient:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/config:
     interfaces:
       GasEstimator:

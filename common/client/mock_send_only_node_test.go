@@ -14,7 +14,7 @@ type mockSendOnlyNode[CHAIN_ID types.ID, RPC interface{}] struct {
 	mock.Mock
 }
 
-type mockSendOnlyNode_Expecter[CHAIN_ID types.ID, RPC sendOnlyClient[CHAIN_ID]] struct {
+type mockSendOnlyNode_Expecter[CHAIN_ID types.ID, RPC interface{}] struct {
 	mock *mock.Mock
 }
 
@@ -41,7 +41,7 @@ func (_m *mockSendOnlyNode[CHAIN_ID, RPC]) Close() error {
 }
 
 // mockSendOnlyNode_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
-type mockSendOnlyNode_Close_Call[CHAIN_ID types.ID, RPC sendOnlyClient[CHAIN_ID]] struct {
+type mockSendOnlyNode_Close_Call[CHAIN_ID types.ID, RPC interface{}] struct {
 	*mock.Call
 }
 
@@ -86,7 +86,7 @@ func (_m *mockSendOnlyNode[CHAIN_ID, RPC]) ConfiguredChainID() CHAIN_ID {
 }
 
 // mockSendOnlyNode_ConfiguredChainID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConfiguredChainID'
-type mockSendOnlyNode_ConfiguredChainID_Call[CHAIN_ID types.ID, RPC sendOnlyClient[CHAIN_ID]] struct {
+type mockSendOnlyNode_ConfiguredChainID_Call[CHAIN_ID types.ID, RPC interface{}] struct {
 	*mock.Call
 }
 
@@ -131,7 +131,7 @@ func (_m *mockSendOnlyNode[CHAIN_ID, RPC]) Name() string {
 }
 
 // mockSendOnlyNode_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
-type mockSendOnlyNode_Name_Call[CHAIN_ID types.ID, RPC sendOnlyClient[CHAIN_ID]] struct {
+type mockSendOnlyNode_Name_Call[CHAIN_ID types.ID, RPC interface{}] struct {
 	*mock.Call
 }
 
@@ -176,7 +176,7 @@ func (_m *mockSendOnlyNode[CHAIN_ID, RPC]) RPC() RPC {
 }
 
 // mockSendOnlyNode_RPC_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RPC'
-type mockSendOnlyNode_RPC_Call[CHAIN_ID types.ID, RPC sendOnlyClient[CHAIN_ID]] struct {
+type mockSendOnlyNode_RPC_Call[CHAIN_ID types.ID, RPC interface{}] struct {
 	*mock.Call
 }
 
@@ -221,7 +221,7 @@ func (_m *mockSendOnlyNode[CHAIN_ID, RPC]) Start(_a0 context.Context) error {
 }
 
 // mockSendOnlyNode_Start_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Start'
-type mockSendOnlyNode_Start_Call[CHAIN_ID types.ID, RPC sendOnlyClient[CHAIN_ID]] struct {
+type mockSendOnlyNode_Start_Call[CHAIN_ID types.ID, RPC interface{}] struct {
 	*mock.Call
 }
 
@@ -267,7 +267,7 @@ func (_m *mockSendOnlyNode[CHAIN_ID, RPC]) State() NodeState {
 }
 
 // mockSendOnlyNode_State_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'State'
-type mockSendOnlyNode_State_Call[CHAIN_ID types.ID, RPC sendOnlyClient[CHAIN_ID]] struct {
+type mockSendOnlyNode_State_Call[CHAIN_ID types.ID, RPC interface{}] struct {
 	*mock.Call
 }
 
@@ -283,12 +283,12 @@ func (_c *mockSendOnlyNode_State_Call[CHAIN_ID, RPC]) Run(run func()) *mockSendO
 	return _c
 }
 
-func (_c *mockSendOnlyNode_State_Call[CHAIN_ID, RPC]) Return(_a0 nodeState) *mockSendOnlyNode_State_Call[CHAIN_ID, RPC] {
+func (_c *mockSendOnlyNode_State_Call[CHAIN_ID, RPC]) Return(_a0 NodeState) *mockSendOnlyNode_State_Call[CHAIN_ID, RPC] {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *mockSendOnlyNode_State_Call[CHAIN_ID, RPC]) RunAndReturn(run func() nodeState) *mockSendOnlyNode_State_Call[CHAIN_ID, RPC] {
+func (_c *mockSendOnlyNode_State_Call[CHAIN_ID, RPC]) RunAndReturn(run func() NodeState) *mockSendOnlyNode_State_Call[CHAIN_ID, RPC] {
 	_c.Call.Return(run)
 	return _c
 }
@@ -312,7 +312,7 @@ func (_m *mockSendOnlyNode[CHAIN_ID, RPC]) String() string {
 }
 
 // mockSendOnlyNode_String_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'String'
-type mockSendOnlyNode_String_Call[CHAIN_ID types.ID, RPC sendOnlyClient[CHAIN_ID]] struct {
+type mockSendOnlyNode_String_Call[CHAIN_ID types.ID, RPC interface{}] struct {
 	*mock.Call
 }
 
