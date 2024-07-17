@@ -64,9 +64,9 @@ type UniversalEstimatorConfig struct {
 	BumpPercent  uint16
 	CacheTimeout time.Duration
 
-	BlockHistoryRange uint64 // inclusive range
-	RewardPercentile  float64
-	HasMempool        bool
+	BlockHistorySize uint64
+	RewardPercentile float64
+	HasMempool       bool
 }
 
 //go:generate mockery --quiet --name universalEstimatorClient --output ./mocks/ --case=underscore --structname UniversalEstimatorClient
@@ -108,7 +108,6 @@ func NewUniversalEstimator(lggr logger.Logger, client universalEstimatorClient, 
 }
 
 func (u *UniversalEstimator) Start(context.Context) error {
-	// This is not an actual start since it's not a service, just a sanity check for configs
 	if u.config.BumpPercent < MinimumBumpPercentage {
 		u.logger.Warnf("BumpPercent: %s is less than minimum allowed percentage: %s. Bumping attempts might result in rejections due to replacement transaction underpriced error!",
 			strconv.FormatUint(uint64(u.config.BumpPercent), 10), strconv.Itoa(MinimumBumpPercentage))
@@ -117,8 +116,8 @@ func (u *UniversalEstimator) Start(context.Context) error {
 		u.logger.Warnf("RewardPercentile: %s is greater than maximum allowed connectivity percentage: %s. Lower reward percentile percentage otherwise connectivity checks will fail!",
 			strconv.FormatUint(uint64(u.config.RewardPercentile), 10), strconv.Itoa(ConnectivityPercentile))
 	}
-	if u.config.BlockHistoryRange == 0 {
-		u.logger.Warn("BlockHistoryRange is set to 0. Using dynamic transactions will result in an error!",
+	if u.config.BlockHistorySize == 0 {
+		u.logger.Warn("BlockHistorySize is set to 0. Using dynamic transactions will result in an error!",
 			strconv.FormatUint(uint64(u.config.RewardPercentile), 10), strconv.Itoa(ConnectivityPercentile))
 	}
 	return nil
@@ -217,11 +216,11 @@ func (u *UniversalEstimator) fetchDynamicPrice(parentCtx context.Context, forceR
 	ctx, cancel := context.WithTimeout(parentCtx, queryTimeout)
 	defer cancel()
 
-	if u.config.BlockHistoryRange == 0 {
-		return fee, fmt.Errorf("BlockHistoryRange cannot be 0")
+	if u.config.BlockHistorySize == 0 {
+		return fee, fmt.Errorf("BlockHistorySize cannot be 0")
 	}
 	// RewardPercentile will be used for maxPriorityFeePerGas estimations and connectivityPercentile to set the highest threshold for bumping.
-	feeHistory, err := u.client.FeeHistory(ctx, u.config.BlockHistoryRange, []float64{u.config.RewardPercentile, ConnectivityPercentile})
+	feeHistory, err := u.client.FeeHistory(ctx, u.config.BlockHistorySize, []float64{u.config.RewardPercentile, ConnectivityPercentile})
 	if err != nil {
 		return fee, fmt.Errorf("failed to fetch dynamic prices: %s", err)
 	}
@@ -240,7 +239,7 @@ func (u *UniversalEstimator) fetchDynamicPrice(parentCtx context.Context, forceR
 	u.priorityFeeThreshold = (*assets.Wei)(priorityFeeThreshold)
 	u.priorityFeeThresholdMu.Unlock()
 
-	maxPriorityFeePerGas := (*assets.Wei)(priorityFee.Div(priorityFee, big.NewInt(int64(u.config.BlockHistoryRange))))
+	maxPriorityFeePerGas := (*assets.Wei)(priorityFee.Div(priorityFee, big.NewInt(int64(u.config.BlockHistorySize))))
 	// baseFeeBufferPercentage is used as a safety to catch fluctuations in the next block.
 	maxFeePerGas := baseFee.AddPercentage(BaseFeeBufferPercentage).Add((maxPriorityFeePerGas))
 
