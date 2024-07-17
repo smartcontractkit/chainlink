@@ -392,7 +392,7 @@ func SetupVRFV2ForExistingEnv(t *testing.T, envConfig vrfcommon.VRFEnvConfig, l 
 	}
 	blockHashStoreAddress, err := coordinator.GetBlockHashStoreAddress(testcontext.Get(t))
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("err: %w", err)
+		return nil, nil, nil, nil, err
 	}
 	blockHashStore, err := contracts.LoadBlockHashStore(sethClient, blockHashStoreAddress.String())
 	if err != nil {
@@ -439,13 +439,13 @@ func SetupSubsAndConsumersForExistingEnv(
 				l,
 			)
 			if err != nil {
-				return nil, nil, fmt.Errorf("err: %w", err)
+				return nil, nil, err
 			}
 		} else {
 			addr := common.HexToAddress(*commonExistingEnvConfig.ConsumerAddress)
 			consumer, err := contracts.LoadVRFv2LoadTestConsumer(sethClient, addr)
 			if err != nil {
-				return nil, nil, fmt.Errorf("err: %w", err)
+				return nil, nil, err
 			}
 			consumers = append(consumers, consumer)
 			subIDs = append(subIDs, *testConfig.VRFv2.ExistingEnvConfig.SubID)
@@ -461,7 +461,7 @@ func SetupSubsAndConsumersForExistingEnv(
 			l,
 		)
 		if err != nil {
-			return nil, nil, fmt.Errorf("err: %w", err)
+			return nil, nil, err
 		}
 	}
 	return subIDs, consumers, nil

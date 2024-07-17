@@ -248,7 +248,7 @@ func SetupVRFV2PlusWrapperForExistingEnv(
 	sethClient *seth.Client,
 	vrfContracts *vrfcommon.VRFContracts,
 	vrfv2PlusTestConfig types.VRFv2PlusTestConfig,
-	consumerContractsAmount int,
+	numberOfConsumerContracts int,
 	l zerolog.Logger,
 ) (*VRFV2PlusWrapperContracts, *big.Int, error) {
 	config := *vrfv2PlusTestConfig.GetVRFv2PlusConfig()
@@ -273,9 +273,18 @@ func SetupVRFV2PlusWrapperForExistingEnv(
 	if err != nil {
 		return nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, "error getting subID", err)
 	}
-	wrapperConsumers, err := DeployVRFV2PlusWrapperConsumers(sethClient, wrapper, consumerContractsAmount)
-	if err != nil {
-		return nil, nil, err
+	var wrapperConsumers []contracts.VRFv2PlusWrapperLoadTestConsumer
+	if *config.ExistingEnvConfig.CreateFundAddWrapperConsumers {
+		wrapperConsumers, err = DeployVRFV2PlusWrapperConsumers(sethClient, wrapper, numberOfConsumerContracts)
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		wrapperConsumer, err := contracts.LoadVRFV2WrapperLoadTestConsumer(sethClient, *config.ExistingEnvConfig.WrapperConsumerAddress)
+		if err != nil {
+			return nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, "error loading VRFV2WrapperLoadTestConsumer", err)
+		}
+		wrapperConsumers = append(wrapperConsumers, wrapperConsumer)
 	}
 	wrapperContracts := &VRFV2PlusWrapperContracts{wrapper, wrapperConsumers}
 	for _, consumer := range wrapperConsumers {
@@ -472,7 +481,7 @@ func SetupVRFV2PlusForExistingEnv(t *testing.T, envConfig vrfcommon.VRFEnvConfig
 	}
 	blockHashStoreAddress, err := coordinator.GetBlockHashStoreAddress(testcontext.Get(t))
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("err: %w", err)
+		return nil, nil, nil, nil, err
 	}
 	blockHashStore, err := contracts.LoadBlockHashStore(sethClient, blockHashStoreAddress.String())
 	if err != nil {
@@ -521,12 +530,12 @@ func SetupSubsAndConsumersForExistingEnv(
 				l,
 			)
 			if err != nil {
-				return nil, nil, fmt.Errorf("err: %w", err)
+				return nil, nil, err
 			}
 		} else {
 			consumer, err := contracts.LoadVRFv2PlusLoadTestConsumer(sethClient, *commonExistingEnvConfig.ConsumerAddress)
 			if err != nil {
-				return nil, nil, fmt.Errorf("err: %w", err)
+				return nil, nil, err
 			}
 			consumers = append(consumers, consumer)
 			var ok bool
@@ -548,7 +557,7 @@ func SetupSubsAndConsumersForExistingEnv(
 			l,
 		)
 		if err != nil {
-			return nil, nil, fmt.Errorf("err: %w", err)
+			return nil, nil, err
 		}
 	}
 	return subIDs, consumers, nil
@@ -573,7 +582,7 @@ func SetupVRFV2PlusWrapperUniverse(
 	vrfContracts *vrfcommon.VRFContracts,
 	config *tc.TestConfig,
 	keyHash [32]byte,
-	consumerContractsAmount int,
+	numberOfConsumerContracts int,
 	l zerolog.Logger,
 ) (*VRFV2PlusWrapperContracts, *big.Int, error) {
 	var (
@@ -587,11 +596,11 @@ func SetupVRFV2PlusWrapperUniverse(
 			sethClient,
 			vrfContracts,
 			config,
-			consumerContractsAmount,
+			numberOfConsumerContracts,
 			l,
 		)
 		if err != nil {
-			return nil, nil, nil
+			return nil, nil, err
 		}
 	} else {
 		wrapperContracts, wrapperSubID, err = SetupVRFV2PlusWrapperForNewEnv(
@@ -600,11 +609,11 @@ func SetupVRFV2PlusWrapperUniverse(
 			config,
 			vrfContracts,
 			keyHash,
-			consumerContractsAmount,
+			numberOfConsumerContracts,
 			l,
 		)
 		if err != nil {
-			return nil, nil, nil
+			return nil, nil, err
 		}
 	}
 	return wrapperContracts, wrapperSubID, nil

@@ -407,7 +407,7 @@ func DeployVRFV2PlusDirectFundingContracts(
 	linkTokenAddress string,
 	linkEthFeedAddress string,
 	coordinator contracts.VRFCoordinatorV2_5,
-	consumerContractsAmount int,
+	numberOfConsumerContracts int,
 	wrapperSubId *big.Int,
 	configGeneral *vrfv2plusconfig.General,
 ) (*VRFV2PlusWrapperContracts, error) {
@@ -432,7 +432,7 @@ func DeployVRFV2PlusDirectFundingContracts(
 			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployWrapper, err)
 		}
 	}
-	consumers, err := DeployVRFV2PlusWrapperConsumers(sethClient, vrfv2PlusWrapper, consumerContractsAmount)
+	consumers, err := DeployVRFV2PlusWrapperConsumers(sethClient, vrfv2PlusWrapper, numberOfConsumerContracts)
 	if err != nil {
 		return nil, err
 	}
@@ -545,9 +545,9 @@ func WaitRandomWordsFulfilledEvent(
 	return randomWordsFulfilledEvent, err
 }
 
-func DeployVRFV2PlusWrapperConsumers(client *seth.Client, vrfV2PlusWrapper contracts.VRFV2PlusWrapper, consumerContractsAmount int) ([]contracts.VRFv2PlusWrapperLoadTestConsumer, error) {
+func DeployVRFV2PlusWrapperConsumers(client *seth.Client, vrfV2PlusWrapper contracts.VRFV2PlusWrapper, numberOfConsumerContracts int) ([]contracts.VRFv2PlusWrapperLoadTestConsumer, error) {
 	var consumers []contracts.VRFv2PlusWrapperLoadTestConsumer
-	for i := 1; i <= consumerContractsAmount; i++ {
+	for i := 1; i <= numberOfConsumerContracts; i++ {
 		loadTestConsumer, err := contracts.DeployVRFV2PlusWrapperLoadTestConsumer(client, vrfV2PlusWrapper.Address())
 		if err != nil {
 			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrAdvancedConsumer, err)
@@ -609,7 +609,7 @@ func SetupNewConsumersAndSubs(
 ) ([]contracts.VRFv2PlusLoadTestConsumer, []*big.Int, error) {
 	consumers, err := DeployVRFV2PlusConsumers(sethClient, coordinator, consumerContractsAmount)
 	if err != nil {
-		return nil, nil, fmt.Errorf("err: %w", err)
+		return nil, nil, err
 	}
 	l.Info().
 		Str("Coordinator", *testConfig.VRFv2Plus.ExistingEnvConfig.ExistingEnvConfig.CoordinatorAddress).
@@ -627,7 +627,7 @@ func SetupNewConsumersAndSubs(
 		*testConfig.VRFv2Plus.General.SubscriptionBillingType,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("err: %w", err)
+		return nil, nil, err
 	}
 	return consumers, subIDs, nil
 }

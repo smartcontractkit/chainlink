@@ -409,7 +409,7 @@ func LoadExistingCLEnvForVRF(
 	}
 	err = FundNodesIfNeeded(testcontext.Get(t), commonExistingEnvConfig, sethClient, l)
 	if err != nil {
-		return nil, nil, fmt.Errorf("err: %w", err)
+		return nil, nil, err
 	}
 	return env, sethClient, nil
 }
