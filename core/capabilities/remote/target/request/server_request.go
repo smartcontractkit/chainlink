@@ -11,6 +11,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -81,7 +82,7 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 		return fmt.Errorf("failed to add requester to request: %w", err)
 	}
 
-	e.lggr.Debugw("OnMessage called for request", "msgId", msg.MessageId, "calls", len(e.requesters), "hasResponse", e.response != nil)
+	e.lggr.Debugw("OnMessage called for request", "msgId", target.GetMessageID(msg), "calls", len(e.requesters), "hasResponse", e.response != nil)
 	if e.minimumRequiredRequestsReceived() && !e.hasResponse() {
 		if err := e.executeRequest(ctx, msg.Payload); err != nil {
 			e.setError(types.Error_INTERNAL_ERROR, err.Error())
