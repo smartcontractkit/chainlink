@@ -112,7 +112,8 @@ type RpcClient struct {
 	latestChainInfo commonclient.ChainInfo
 }
 
-var _ commonclient.RPCClient[*big.Int, *evmtypes.Head] = &RpcClient{}
+var _ commonclient.RPCClient[*big.Int, *evmtypes.Head] = (*RpcClient)(nil)
+var _ commonclient.SendTxRPCClient[*types.Transaction] = (*RpcClient)(nil)
 
 func NewRPCClient(
 	cfg config.NodePool,
@@ -233,14 +234,16 @@ func (r *RpcClient) Dial(callerCtx context.Context) error {
 	}
 	lggr.Debugw("RPC dial: evmclient.Client#dial")
 
-	wsrpc, err := rpc.DialWebsocket(ctx, r.ws.uri.String(), "")
-	if err != nil {
-		promEVMPoolRPCNodeDialsFailed.WithLabelValues(r.chainID.String(), r.name).Inc()
-		return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing websocket: %v", r.ws.uri.Redacted()))
-	}
+	if r.ws.uri != (url.URL{}) {
+		wsrpc, err := rpc.DialWebsocket(ctx, r.ws.uri.String(), "")
+		if err != nil {
+			promEVMPoolRPCNodeDialsFailed.WithLabelValues(r.chainID.String(), r.name).Inc()
+			return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing websocket: %v", r.ws.uri.Redacted()))
+		}
 
-	r.ws.rpc = wsrpc
-	r.ws.geth = ethclient.NewClient(wsrpc)
+		r.ws.rpc = wsrpc
+		r.ws.geth = ethclient.NewClient(wsrpc)
+	}
 
 	if r.http != nil {
 		if err := r.DialHTTP(); err != nil {

@@ -106,6 +106,7 @@ type chainClient struct {
 		*big.Int,
 		*RpcClient,
 	]
+	txSender     *commonclient.TransactionSender[*types.Transaction, *big.Int, *RpcClient]
 	logger       logger.SugaredLogger
 	chainType    chaintype.ChainType
 	clientErrors evmconfig.ClientErrors
@@ -121,19 +122,34 @@ func NewChainClient(
 	clientErrors evmconfig.ClientErrors,
 	deathDeclarationDelay time.Duration,
 ) Client {
-	multiNode := commonclient.NewMultiNode(
+	chainFamily := "EVM"
+	multiNode := commonclient.NewMultiNode[*big.Int, *RpcClient](
 		lggr,
 		selectionMode,
 		leaseDuration,
 		nodes,
 		sendonlys,
 		chainID,
-		"EVM",
+		chainFamily,
 		deathDeclarationDelay,
+	)
+
+	classifySendError := func(tx *types.Transaction, err error) commonclient.SendTxReturnCode {
+		return ClassifySendError(err, clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, false)
+	}
+
+	txSender := commonclient.NewTransactionSender[*types.Transaction, *big.Int, *RpcClient](
+		lggr,
+		chainID,
+		chainFamily,
+		multiNode,
+		classifySendError,
+		0, // use the default value provided by the implementation
 	)
 
 	return &chainClient{
 		multiNode:    multiNode,
+		txSender:     txSender,
 		logger:       logger.Sugared(lggr),
 		clientErrors: clientErrors,
 	}
@@ -236,6 +252,7 @@ func (c *chainClient) PendingCallContract(ctx context.Context, msg ethereum.Call
 
 func (c *chainClient) Close() {
 	_ = c.multiNode.Close()
+	_ = c.txSender.Close()
 }
 
 func (c *chainClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
@@ -251,7 +268,11 @@ func (c *chainClient) ConfiguredChainID() *big.Int {
 }
 
 func (c *chainClient) Dial(ctx context.Context) error {
-	return c.multiNode.Start(ctx)
+	err := c.multiNode.Start(ctx)
+	if err != nil {
+		return err
+	}
+	return c.txSender.Start(ctx)
 }
 
 func (c *chainClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
@@ -344,11 +365,8 @@ func (c *chainClient) PendingNonceAt(ctx context.Context, account common.Address
 }
 
 func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	rpc, err := c.multiNode.SelectRPC()
-	if err != nil {
-		return err
-	}
-	return rpc.SendTransaction(ctx, tx)
+	_, err := c.txSender.SendTransaction(ctx, tx)
+	return err
 }
 
 func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
