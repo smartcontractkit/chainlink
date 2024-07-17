@@ -13,6 +13,9 @@ jobs:
     with:
       chainlink_version: develop
       test_workflow: Run Nightly E2E Tests
+      slack_notification_after_tests: true
+      slack_notification_after_tests_channel_id: "#lf-slack-notification-tests"
+      slack_notification_after_tests_name: Nightly E2E Tests
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -28,3 +31,4 @@ jobs:
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
       AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}    
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}

@@ -42,6 +42,19 @@ on:
         description: 'Check Chainlink plugins versions to be present in QA ECR. If not, build and push the image to QA ECR. Takes comma separated list of Chainlink image versions. Example: "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
         required: false
         type: string
+      slack_notification_after_tests:
+        description: 'Set to "true" to send a slack notification after the tests'
+        required: false
+        type: boolean
+        default: false
+      slack_notification_after_tests_channel_id:
+        description: 'Slack channel ID to send the notification to'
+        required: false
+        type: string
+      slack_notification_after_tests_name:
+        description: 'Name of the slack notification'
+        required: false
+        type: string
     secrets:
       TEST_SECRETS_OVERRIDE_BASE64:
         required: false
@@ -72,7 +85,9 @@ on:
       AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN:
         required: true
       AWS_API_GW_HOST_GRAFANA:
-        required: true        
+        required: true   
+      SLACK_BOT_TOKEN:
+        required: false
                
 env: 
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -334,7 +349,7 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}          
 
   # Run Docker tests
-  docker-tests:
+  run-docker-tests:
     name: Run docker tests (${{ matrix.tests.id }})
     needs: [load-test-configurations, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr, get_latest_chainlink_release_version]
     # Run when none of the needed jobs fail or are cancelled (skipped or successful jobs are ok) 
@@ -552,6 +567,71 @@ jobs:
           DEFAULT_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
           DEFAULT_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
           DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
+
+  after_tests:
+    needs: [run-docker-tests, run-k8s-runner-tests]
+    if: always()
+    name: After tests notifications
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine combined test results
+        id: combine_results
+        run: |
+          docker_result="${{ needs.run-docker-tests.result }}"
+          k8s_result="${{ needs.run-k8s-runner-tests.result }}"
+
+          function map_outcome {
+            case "$1" in
+              success|skipped)
+                echo "success"
+                ;;
+              cancelled)
+                echo "cancelled"
+                ;;
+              *)
+                echo "failure"
+                ;;
+            esac
+          }
+
+          combined_docker_result=$(map_outcome $docker_result)
+          combined_k8s_result=$(map_outcome $k8s_result)
+
+          if [[ $combined_docker_result == "failure" || $combined_k8s_result == "failure" ]]; then
+            echo "result=failure" >> $GITHUB_OUTPUT
+          elif [[ $combined_docker_result == "cancelled" || $combined_k8s_result == "cancelled" ]]; then
+            echo "result=cancelled" >> $GITHUB_OUTPUT
+          else
+            echo "result=success" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        if: ${{ inputs.slack_notification_after_tests }}
+        id: slack
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        with:
+          channel-id: ${{ inputs.slack_notification_after_tests_channel_id }}
+          payload: |
+            {
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "${{ inputs.slack_notification_after_tests_name }} - ${{ steps.combine_results.outputs.result == 'failure' && 'Failed :x:' || steps.combine_results.outputs.result == 'cancelled' && 'Cancelled :warning:' || 'Passed :white_check_mark:' }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Build Details>"
+                  }
+                }
+              ]
+            }
 
   # Run K8s tests using new remote runner
   # remote-runner-k8s-tests:
