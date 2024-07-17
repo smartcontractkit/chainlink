@@ -217,8 +217,6 @@ contract BaseTest is Test {
         rewardManager = new DestinationRewardManager(address(link));
         feeManager =
             new DestinationFeeManager(address(link), address(native), address(s_verifier), address(rewardManager));
-        // s_verifier.setFeeManager(address(feeManager));
-        //rewardManager.setFeeManager(address(feeManager));
 
         for (uint256 i; i < MAX_ORACLES; i++) {
             uint256 mockPK = i + 1;

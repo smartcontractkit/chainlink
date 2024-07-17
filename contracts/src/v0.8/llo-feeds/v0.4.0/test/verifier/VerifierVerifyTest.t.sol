@@ -90,7 +90,7 @@ contract VerifierVerifyTest is BaseTest {
         address[] memory signersAddrSubset1 = _getSignerAddresses(signersSubset1);
         s_verifier.setConfig(signersAddrSubset1, MINIMAL_FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
 
-        // one report whose signer is not in the config
+        // only one signer
         BaseTest.Signer[] memory signersSubset2 = new BaseTest.Signer[](1);
         signersSubset2[0] = signers[4];
 
@@ -115,7 +115,6 @@ contract VerifierVerifyTest is BaseTest {
         address[] memory signersAddrSubset1 = _getSignerAddresses(signersSubset1);
         s_verifier.setConfig(signersAddrSubset1, MINIMAL_FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
 
-        // one report whose signer is not in the config
         BaseTest.Signer[] memory signersSubset2 = new BaseTest.Signer[](0);
 
         bytes memory signedReport = _generateV3EncodedBlob(s_testReportThree, s_reportContext, signersSubset2);
