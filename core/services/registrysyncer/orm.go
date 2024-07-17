@@ -258,34 +258,34 @@ func newORM(ds sqlutil.DataSource, lggr logger.Logger) syncerORM {
 }
 
 func (orm syncerORM) addState(ctx context.Context, state State) error {
-	stateJSON, err := state.MarshalJSON()
-	if err != nil {
-		return err
-	}
-	hash := sha256.Sum256(stateJSON)
 	return sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
-		_, txErr := tx.ExecContext(
+		stateJSON, err := state.MarshalJSON()
+		if err != nil {
+			return err
+		}
+		hash := sha256.Sum256(stateJSON)
+		_, err = tx.ExecContext(
 			ctx,
 			`INSERT INTO registry_syncer_states (data, data_hash) VALUES ($1, $2) ON CONFLICT (data_hash) DO NOTHING`,
 			stateJSON, fmt.Sprintf("%x", hash[:]),
 		)
-		if txErr != nil {
-			return txErr
+		if err != nil {
+			return err
 		}
-		_, txErr = tx.ExecContext(ctx, `DELETE FROM registry_syncer_states
-WHERE created_at NOT IN (
-    SELECT created_at FROM registry_syncer_states
-    ORDER BY created_at DESC
+		_, err = tx.ExecContext(ctx, `DELETE FROM registry_syncer_states
+WHERE data_hash NOT IN (
+    SELECT data_hash FROM registry_syncer_states
+    ORDER BY id DESC
     LIMIT 10
 );`)
-		return txErr
+		return err
 	})
 }
 
 func (orm syncerORM) latestState(ctx context.Context) (*State, error) {
 	var state State
 	var stateJSON string
-	err := orm.ds.GetContext(ctx, &stateJSON, `SELECT data FROM registry_syncer_states ORDER BY created_at DESC LIMIT 1`)
+	err := orm.ds.GetContext(ctx, &stateJSON, `SELECT data FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
 	if err != nil {
 		return nil, err
 	}
