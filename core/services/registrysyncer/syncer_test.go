@@ -372,7 +372,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	err = syncer.sync(ctx, false) // should store the data into the DB
 	require.NoError(t, err)
 	s := l.localRegistry
-	time.Sleep(50 * time.Millisecond) // TODO: figure out another alternative to wait for the state to be stored in the DB
+	time.Sleep(1 * time.Second) // TODO: figure out another alternative to wait for the state to be stored in the DB
 	st, err := syncer.orm.latestState(ctx)
 	require.NoError(t, err)
 
