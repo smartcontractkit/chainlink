@@ -54,7 +54,7 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
     //check it supports the functions we need
     if(!IERC165(verifierAddress).supportsInterface(IDestinationVerifier.getAccessController.selector) ||
        !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.getFeeManager.selector) ||
-       !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.verify.selector)  ||
+       !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.verify.selector) ||
        !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.verifyBulk.selector)
     ) revert VerifierInvalid(verifierAddress);
 
