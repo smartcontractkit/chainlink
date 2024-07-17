@@ -9,6 +9,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -493,6 +495,215 @@ func TestETHKeysController_ChainFailure_InvalidAbandon(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
+func TestETHKeysController_ChainFailure_AbandonUnstarted(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	// enabled key
+	_, addr := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
+
+	require.NoError(t, app.KeyStore.Unlock(ctx, cltest.Password))
+
+	require.NoError(t, app.Start(ctx))
+
+	t.Run("invalid abandonStarted: returns StatusBadRequest", func(t *testing.T) {
+		client := app.NewHTTPClient(nil)
+		chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+		query := chainURL.Query()
+
+		query.Set("address", addr.Hex())
+		query.Set("evmChainID", cltest.FixtureChainID.String())
+		query.Set("abandon", "true")
+		query.Set("abandonUnstarted", "invalid")
+		query.Set("subject", "")
+
+		chainURL.RawQuery = query.Encode()
+		resp, cleanup := client.Post(chainURL.String(), nil)
+		defer cleanup()
+
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	})
+	t.Run("valid abandonStarted with invalid subject: returns StatusBadRequest", func(t *testing.T) {
+		client := app.NewHTTPClient(nil)
+		chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+		query := chainURL.Query()
+
+		query.Set("address", addr.Hex())
+		query.Set("evmChainID", cltest.FixtureChainID.String())
+		query.Set("abandon", "true")
+		query.Set("abandonUnstarted", "true")
+		query.Set("subject", "invalid")
+
+		chainURL.RawQuery = query.Encode()
+		resp, cleanup := client.Post(chainURL.String(), nil)
+		defer cleanup()
+
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	})
+}
+
+func TestETHKeysController_ChainSuccess_AbandonUnstarted(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+	txStore := txmgr.NewTxStore(app.GetDB(), logger.TestLogger(t))
+
+	require.NoError(t, app.KeyStore.Unlock(ctx, cltest.Password))
+
+	// enabled key
+	key, addr := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
+
+	ethClient.On("BalanceAt", mock.Anything, addr, mock.Anything).Return(big.NewInt(1), nil).Times(3)
+	ethClient.On("LINKBalance", mock.Anything, addr, mock.Anything).Return(assets.NewLinkFromJuels(1), nil).Times(3)
+
+	require.NoError(t, app.Start(ctx))
+
+	chain := app.GetRelayers().LegacyEVMChains().Slice()[0]
+
+	client := app.NewHTTPClient(nil)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+	query.Set("address", addr.Hex())
+	query.Set("evmChainID", chain.ID().String())
+	query.Set("abandon", "false")
+	query.Set("abandonUnstarted", "true")
+
+	t.Run("abandonUnstarted with empty subject provided and no txes: handled gracefully", func(t *testing.T) {
+		// Makes the request
+		query.Set("subject", "")
+		chainURL.RawQuery = query.Encode()
+		resp, cleanup := client.Post(chainURL.String(), nil)
+		defer cleanup()
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var updatedKey webpresenters.ETHKeyResource
+		err := cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
+		assert.NoError(t, err)
+
+		assert.Equal(t, cltest.FormatWithPrefixedChainID(chain.ID().String(), key.Address.String()), updatedKey.ID)
+		assert.Equal(t, key.Address.String(), updatedKey.Address)
+		assert.Equal(t, chain.ID().String(), updatedKey.EVMChainID.String())
+		assert.Equal(t, false, updatedKey.Disabled)
+
+		txesCount, err := txStore.CountTransactionsByState(testutils.Context(t), "unstarted", chain.ID())
+		require.NoError(t, err)
+		require.Equal(t, txesCount, uint32(0))
+	})
+
+	toAddress := testutils.NewAddress()
+	gasLimit := uint64(1000)
+	payload := []byte{1, 2, 3}
+
+	txReq := txmgr.TxRequest{
+		FromAddress:    addr,
+		ToAddress:      toAddress,
+		EncodedPayload: payload,
+		FeeLimit:       gasLimit,
+		Meta:           nil,
+		Strategy:       nil,
+		SignalCallback: true,
+	}
+
+	strategyWithoutSubject := txmgrcommon.NewDropOldestStrategy(uuid.UUID{}, uint32(5))
+	randomSubject := uuid.New()
+	strategyWithSubject := txmgrcommon.NewDropOldestStrategy(randomSubject, uint32(5))
+
+	t.Run("abandonUnstarted with empty subject provided and txes with diff subjects: deletes all", func(t *testing.T) {
+		txReq.Strategy = strategyWithoutSubject
+		// Create and assert 2 unstarted transactions without subject
+		_, err := txStore.CreateTransaction(tests.Context(t), txReq, chain.ID())
+		assert.NoError(t, err)
+		_, err = txStore.CreateTransaction(tests.Context(t), txReq, chain.ID())
+		assert.NoError(t, err)
+		assertUnstartedTxesCountPerSubject(t, txStore, 2, uuid.UUID{})
+
+		// Create and assert 2 unstarted transactions with subject
+		txReq.Strategy = strategyWithSubject
+		_, err = txStore.CreateTransaction(tests.Context(t), txReq, chain.ID())
+		assert.NoError(t, err)
+		_, err = txStore.CreateTransaction(tests.Context(t), txReq, chain.ID())
+		assert.NoError(t, err)
+		assertUnstartedTxesCountPerSubject(t, txStore, 2, randomSubject)
+
+		// Makes the request
+		query.Set("subject", "")
+
+		chainURL.RawQuery = query.Encode()
+		resp, cleanup := client.Post(chainURL.String(), nil)
+		defer cleanup()
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var updatedKey webpresenters.ETHKeyResource
+		err = cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
+		assert.NoError(t, err)
+
+		assert.Equal(t, cltest.FormatWithPrefixedChainID(chain.ID().String(), key.Address.String()), updatedKey.ID)
+		assert.Equal(t, key.Address.String(), updatedKey.Address)
+		assert.Equal(t, chain.ID().String(), updatedKey.EVMChainID.String())
+		assert.Equal(t, false, updatedKey.Disabled)
+
+		// Asserts that all have been deleted.
+		txesCount, err := txStore.CountTransactionsByState(testutils.Context(t), "unstarted", chain.ID())
+		require.NoError(t, err)
+		require.Equal(t, txesCount, uint32(0))
+	})
+
+	t.Run("abandonUnstarted with subject provided and txes with diff subjects: deletes only those subject txes", func(t *testing.T) {
+		txReq.Strategy = strategyWithoutSubject
+		// Create and assert 2 unstarted transactions without subject
+		_, err := txStore.CreateTransaction(tests.Context(t), txReq, chain.ID())
+		assert.NoError(t, err)
+		_, err = txStore.CreateTransaction(tests.Context(t), txReq, chain.ID())
+		assert.NoError(t, err)
+		assertUnstartedTxesCountPerSubject(t, txStore, 2, uuid.UUID{})
+
+		// Create and assert 2 unstarted transactions with subject
+		txReq.Strategy = strategyWithSubject
+		_, err = txStore.CreateTransaction(tests.Context(t), txReq, chain.ID())
+		assert.NoError(t, err)
+		_, err = txStore.CreateTransaction(tests.Context(t), txReq, chain.ID())
+		assert.NoError(t, err)
+		assertUnstartedTxesCountPerSubject(t, txStore, 2, randomSubject)
+
+		// Makes the request
+		query.Set("subject", randomSubject.String())
+
+		chainURL.RawQuery = query.Encode()
+		resp, cleanup := client.Post(chainURL.String(), nil)
+		defer cleanup()
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var updatedKey webpresenters.ETHKeyResource
+		err = cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
+		assert.NoError(t, err)
+
+		assert.Equal(t, cltest.FormatWithPrefixedChainID(chain.ID().String(), key.Address.String()), updatedKey.ID)
+		assert.Equal(t, key.Address.String(), updatedKey.Address)
+		assert.Equal(t, chain.ID().String(), updatedKey.EVMChainID.String())
+		assert.Equal(t, false, updatedKey.Disabled)
+
+		// Asserts that only the txes of the provided subject have been deleted.
+		assertUnstartedTxesCountPerSubject(t, txStore, 2, uuid.UUID{})
+		assertUnstartedTxesCountPerSubject(t, txStore, 0, randomSubject)
+	})
+
+}
+
 func TestETHKeysController_ChainFailure_InvalidEnabled(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
@@ -743,4 +954,11 @@ func TestETHKeysController_DeleteFailure_KeyMissing(t *testing.T) {
 	t.Log(resp)
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func assertUnstartedTxesCountPerSubject(t *testing.T, txStore txmgr.TestEvmTxStore, expected int64, subject uuid.UUID) {
+	t.Helper()
+	count, err := txStore.CountTxesByStateAndSubject(tests.Context(t), "unstarted", subject)
+	require.NoError(t, err)
+	require.Equal(t, int(expected), count)
 }
