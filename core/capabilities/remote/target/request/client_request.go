@@ -3,6 +3,7 @@ package request
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
@@ -53,7 +54,10 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 
 	lggr.Debugw("new client request for capability request", "request", req)
 	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
-	lggr.Debugw("new raw request for capability request", "rawRequest", rawRequest)
+
+	hash := sha256.Sum256(rawRequest)
+	requestID := messageID + hex.EncodeToString(hash[:])
+	lggr.Debugw("new raw request for capability request", "request ID", requestID)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
