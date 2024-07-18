@@ -957,7 +957,7 @@ func TestETHKeysController_DeleteFailure_KeyMissing(t *testing.T) {
 
 func assertUnstartedTxesCountPerSubject(t *testing.T, txStore txmgr.TestEvmTxStore, expected int64, subject uuid.UUID) {
 	t.Helper()
-	count, err := txStore.CountTxesByStateAndSubject(tests.Context(t), "unstarted", subject)
+	count, err := txStore.CountTxesByStateAndSubject(tests.Context(t), txmgrcommon.TxUnstarted, subject)
 	require.NoError(t, err)
 	require.Equal(t, int(expected), count)
 }
