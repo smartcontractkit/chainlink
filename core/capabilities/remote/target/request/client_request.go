@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -46,7 +48,8 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 		return nil, errors.New("remote capability info missing DON")
 	}
 
-	rawRequest, err := pb.MarshalCapabilityRequest(req)
+	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
 	}

@@ -375,7 +375,7 @@ func (l *listener) handleOracleRequest(ctx context.Context, request *operator_wr
 		},
 	})
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
-	_, err := l.pipelineRunner.Run(ctx, run, l.logger, true, func(tx sqlutil.DataSource) error {
+	_, err := l.pipelineRunner.Run(ctx, run, true, func(tx sqlutil.DataSource) error {
 		l.markLogConsumed(ctx, tx, lb)
 		return nil
 	})

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -59,6 +60,7 @@ var (
 			},
 		},
 	}
+	mutex                    sync.Mutex
 	defaultOCRRegistryConfig = contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    uint32(200000000),
 		FlatFeeMicroLINK:     uint32(0),
@@ -139,8 +141,10 @@ func TestAutomationReorg(t *testing.T) {
 			tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(&config, network)
 			require.NoError(t, err, "Error building TOML config")
 
+			mutex.Lock()
 			defaultAutomationSettings["replicas"] = nodeCount
 			defaultAutomationSettings["toml"] = tomlConfig
+			mutex.Unlock()
 
 			var overrideFn = func(_ interface{}, target interface{}) {
 				ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
