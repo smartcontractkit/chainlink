@@ -536,7 +536,7 @@ jobs:
           TEST_LOG_LEVEL: debug
           REF_NAME: ${{ github.head_ref || github.ref_name }}
         with:
-          test_command_to_run: ${{ matrix.tests.test_cmd }}
+          test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: make gomod
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
           # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
