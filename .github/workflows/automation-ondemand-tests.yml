@@ -2,22 +2,22 @@ name: Automation On Demand Tests
 on:
   workflow_dispatch:
     inputs:
-      chainlinkVersion:
-        description: Chainlink image version to use
+      chainlinkVersionUpdate:
+        description: Chainlink image version to upgrade to
         required: false
         type: string
-      chainlinkImage:
-        description: Chainlink image repo to use (Leave empty to build from head/ref)
+      chainlinkImageUpdate:
+        description: Chainlink image repo to upgrade to (Leave empty to build from head/ref)
         options:
           - public.ecr.aws/chainlink/chainlink
           - QA_ECR
         type: choice
-      chainlinkVersionUpdate:
+      chainlinkVersion:
         description: Chainlink image version to use initially for upgrade test
         default: latest
         required: true
         type: string
-      chainlinkImageUpdate:
+      chainlinkImage:
         description: Chainlink image repo to use initially for upgrade test
         required: true
         options:
@@ -231,57 +231,21 @@ jobs:
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
           # other inputs
           duplicate-authorization-header: "true"
-      - name: Prepare Base64 TOML config
-        env:
-          SELECTED_NETWORKS: ${{ matrix.tests.network }}
-          OLD_VERSION: ${{ steps.determine-build.outputs.version }}  
-          UPGRADE_VERSION: ${{ steps.determine-build.outputs.upgrade_version }}
-          RUN_ID: ${{ github.run_id }}
-          TEST_LOG_COLLECT: "true"
-          LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-        run: |
-          # load reusable functions
-          source ./.github/scripts/functions.sh
-          
-          selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")          
-
-          if [ -n "$TEST_LOG_COLLECT" ]; then
-          test_log_collect=true
-          else
-          test_log_collect=false
-          fi
-
-          log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")
-
-          cat << EOF > config.toml
-          [Network]
-          selected_networks=$selected_networks
-          
-          [ChainlinkImage]
-          version="$OLD_VERSION"
-
-          [ChainlinkUpgradeImage]
-          version="$UPGRADE_VERSION"
-
-          [Logging]
-          test_log_collect=$test_log_collect
-          run_id="$RUN_ID"
-
-          [Logging.LogStream]
-          log_targets=$log_targets
-          EOF
-
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV               
+                   
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
         if: ${{ matrix.tests.enabled == true }}
         with:
           test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
           test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           test_suite: ${{ matrix.tests.suite }}
+          test_config_chainlink_version: ${{ steps.determine-build.outputs.version }}
+          test_config_chainlink_upgrade_version: ${{ steps.determine-build.outputs.upgrade_version }}
+          test_config_selected_networks: ${{ matrix.tests.network }}
+          test_config_logging_run_id: ${{ github.run_id }}
+          test_config_logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          test_config_test_log_collect: "true"
           cl_repo: ${{ steps.determine-build.outputs.image }}
           cl_image_tag: ${{ steps.determine-build.outputs.version }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
