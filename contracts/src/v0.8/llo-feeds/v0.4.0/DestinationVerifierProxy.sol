@@ -37,7 +37,7 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
     bytes calldata payload,
     bytes calldata parameterPayload
   ) external payable returns (bytes memory) {
-    return s_verifier.verify(payload, parameterPayload, msg.sender);
+    return s_verifier.verify{value: msg.value}(payload, parameterPayload, msg.sender);
   }
 
   /// @inheritdoc IDestinationVerifierProxy
