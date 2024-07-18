@@ -542,6 +542,10 @@ contract VerifierVerifyTest is BaseTest {
 
     function test_verifyFailsWhenReportIsOlderThanConfig() public {
         /*
+          - SetConfig A at time T0
+          - SetConfig B at time T1
+          - tries verifing report issued at blocktimestmap < T0
+          
           this test is failing: ToDo Ask Michael
          */
         Signer[] memory signers = _getSigners(MAX_ORACLES);
