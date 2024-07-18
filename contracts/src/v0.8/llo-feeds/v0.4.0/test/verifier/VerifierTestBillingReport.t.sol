@@ -13,6 +13,7 @@ contract VerifierBillingTests is VerifierWithFeeManager {
 
     function setUp() public virtual override {
         VerifierWithFeeManager.setUp();
+        s_reportContext[0] = bytes32(abi.encode(uint32(5), uint8(1)));
         s_testReportThree = V3Report({
             feedId: FEED_ID_V3,
             observationsTimestamp: OBSERVATIONS_TIMESTAMP,
@@ -29,7 +30,6 @@ contract VerifierBillingTests is VerifierWithFeeManager {
     function test_verifyWithLinkV3Report() public {
         Signer[] memory signers = _getSigners(MAX_ORACLES);
         address[] memory signerAddrs = _getSignerAddresses(signers);
-        s_reportContext[0] = bytes32(abi.encode(uint32(5), uint8(1)));
         Common.AddressAndWeight[] memory weights = new Common.AddressAndWeight[](0);
         s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, weights);
         bytes memory signedReport = _generateV3EncodedBlob(s_testReportThree, s_reportContext, signers);
@@ -48,7 +48,6 @@ contract VerifierBillingTests is VerifierWithFeeManager {
     function test_verifyWithNativeERC20() public {
         Signer[] memory signers = _getSigners(MAX_ORACLES);
         address[] memory signerAddrs = _getSignerAddresses(signers);
-        s_reportContext[0] = bytes32(abi.encode(uint32(5), uint8(1)));
         Common.AddressAndWeight[] memory weights = new Common.AddressAndWeight[](1);
         weights[0] = Common.AddressAndWeight(signerAddrs[0], ONE_PERCENT * 100);
 
@@ -65,7 +64,6 @@ contract VerifierBillingTests is VerifierWithFeeManager {
     function test_verifyWithNativeUnwrapped() public {
         Signer[] memory signers = _getSigners(MAX_ORACLES);
         address[] memory signerAddrs = _getSignerAddresses(signers);
-        s_reportContext[0] = bytes32(abi.encode(uint32(5), uint8(1)));
         Common.AddressAndWeight[] memory weights = new Common.AddressAndWeight[](0);
 
         s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, weights);
@@ -80,7 +78,6 @@ contract VerifierBillingTests is VerifierWithFeeManager {
     function test_verifyWithNativeUnwrappedReturnsChange() public {
         Signer[] memory signers = _getSigners(MAX_ORACLES);
         address[] memory signerAddrs = _getSignerAddresses(signers);
-        s_reportContext[0] = bytes32(abi.encode(uint32(5), uint8(1)));
         Common.AddressAndWeight[] memory weights = new Common.AddressAndWeight[](0);
 
         s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, weights);
@@ -91,4 +88,100 @@ contract VerifierBillingTests is VerifierWithFeeManager {
         assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE);
         assertEq(address(feeManager).balance, 0);
     }
+}
+
+
+
+contract VerifierBulkVerifyBillingReport is VerifierWithFeeManager {
+  uint256 internal constant NUMBERS_OF_REPORTS = 5;
+
+    bytes32[3] internal s_reportContext;
+
+    function setUp() public virtual override {
+        VerifierWithFeeManager.setUp();
+        // setting a DonConfig we can reuse in the rest of tests
+        s_reportContext[0] = bytes32(abi.encode(uint32(5), uint8(1)));
+        Signer[] memory signers = _getSigners(MAX_ORACLES);
+        address[] memory signerAddrs = _getSignerAddresses(signers);
+        Common.AddressAndWeight[] memory weights = new Common.AddressAndWeight[](0);
+        s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, weights);
+    }
+
+  function test_verifyWithBulkLink() public {
+    bytes memory signedReport = _generateV3EncodedBlob(
+      _generateV3Report(),
+      s_reportContext,
+      _getSigners(FAULT_TOLERANCE + 1)
+    );
+
+    bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
+    for (uint256 i = 0; i < NUMBERS_OF_REPORTS; i++) {
+      signedReports[i] = signedReport;
+    }
+
+    _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * NUMBERS_OF_REPORTS, USER);
+
+    _verifyBulk(signedReports, address(link), 0, USER);
+
+    assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * NUMBERS_OF_REPORTS);
+    assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * NUMBERS_OF_REPORTS);
+  }
+
+
+  function test_verifyWithBulkNative() public {
+    bytes memory signedReport = _generateV3EncodedBlob(
+      _generateV3Report(),
+      s_reportContext,
+      _getSigners(FAULT_TOLERANCE + 1)
+    );
+
+    bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
+    for (uint256 i = 0; i < NUMBERS_OF_REPORTS; i++) {
+      signedReports[i] = signedReport;
+    }
+
+    _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS, USER);
+
+    _verifyBulk(signedReports, address(native), 0, USER);
+
+    assertEq(native.balanceOf(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS);
+  }
+
+  function test_verifyWithBulkNativeUnwrapped() public {
+    bytes memory signedReport = _generateV3EncodedBlob(
+      _generateV3Report(),
+      s_reportContext,
+      _getSigners(FAULT_TOLERANCE + 1)
+    );
+
+    bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
+    for (uint256 i; i < NUMBERS_OF_REPORTS; i++) {
+      signedReports[i] = signedReport;
+    }
+
+    _verifyBulk(signedReports, address(native), 200*DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS, USER);
+
+    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 5);
+    assertEq(address(feeManager).balance, 0);
+  }
+
+
+  function test_verifyWithBulkNativeUnwrappedReturnsChange() public {
+    bytes memory signedReport = _generateV3EncodedBlob(
+      _generateV3Report(),
+      s_reportContext,
+      _getSigners(FAULT_TOLERANCE + 1)
+    );
+
+    bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
+    for (uint256 i = 0; i < NUMBERS_OF_REPORTS; i++) {
+      signedReports[i] = signedReport;
+    }
+
+    _verifyBulk(signedReports, address(native), DEFAULT_REPORT_NATIVE_FEE * (NUMBERS_OF_REPORTS * 2), USER);
+
+    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS);
+    assertEq(address(feeManager).balance, 0);
+  }
+
 }

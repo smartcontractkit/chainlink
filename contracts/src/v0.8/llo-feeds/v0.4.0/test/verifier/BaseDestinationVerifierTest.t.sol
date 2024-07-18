@@ -147,6 +147,35 @@ contract BaseTest is Test {
         changePrank(originalAddr);
     }
 
+  function _generateV3Report() internal view returns (V3Report memory) {
+    return
+      V3Report({
+        feedId: FEED_ID_V3,
+        observationsTimestamp: OBSERVATIONS_TIMESTAMP,
+        validFromTimestamp: uint32(block.timestamp),
+        nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
+        linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
+        expiresAt: uint32(block.timestamp),
+        benchmarkPrice: MEDIAN,
+        bid: BID,
+        ask: ASK
+      });
+  }
+
+  function _verifyBulk(
+    bytes[] memory payload,
+    address feeAddress,
+    uint256 wrappedNativeValue,
+    address sender
+  ) internal {
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    s_verifierProxy.verifyBulk{value: wrappedNativeValue}(payload, abi.encode(feeAddress));
+
+    changePrank(originalAddr);
+  }
+
     function _approveLink(address spender, uint256 quantity, address sender) internal {
         address originalAddr = msg.sender;
         changePrank(sender);
