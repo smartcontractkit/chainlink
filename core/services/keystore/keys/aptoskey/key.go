@@ -6,6 +6,8 @@ import (
 	crypto_rand "crypto/rand"
 	"fmt"
 	"io"
+
+	"golang.org/x/crypto/sha3"
 )
 
 // Raw represents the Aptos private key
@@ -35,6 +37,7 @@ var _ fmt.GoStringer = &Key{}
 
 // Key represents Aptos key
 type Key struct {
+	// TODO: store initial Account() derivation to support key rotation
 	privkey ed25519.PrivateKey
 	pubKey  ed25519.PublicKey
 }
@@ -68,6 +71,11 @@ func newFrom(reader io.Reader) (Key, error) {
 // ID gets Key ID
 func (key Key) ID() string {
 	return key.PublicKeyStr()
+}
+
+func (key Key) Account() string {
+	authKey := sha3.Sum256(append([]byte(key.pubKey), 0x00))
+	return fmt.Sprintf("%064x", authKey)
 }
 
 // GetPublic get Key's public key
