@@ -42,7 +42,7 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
 
   /// @inheritdoc IDestinationVerifierProxy
   function verifyBulk(
-    bytes[] calldata payloads,
+    bytes[] calldata payloads, 
     bytes calldata parameterPayload
   ) external payable returns (bytes[] memory verifiedReports) {
     return s_verifier.verifyBulk(payloads, parameterPayload, msg.sender);
@@ -50,13 +50,13 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
 
   /// @inheritdoc IDestinationVerifierProxy
   function setVerifier(address verifierAddress) external onlyOwner {
-    if(verifierAddress == address(0)) revert ZeroAddress();
 
     //check it supports the functions we need
-    if(IERC165(verifierAddress).supportsInterface(IDestinationVerifier.getAccessController.selector) ||
-       IERC165(verifierAddress).supportsInterface(IDestinationVerifier.getFeeManager.selector) ||
-       IERC165(verifierAddress).supportsInterface(IDestinationVerifier.verify.selector) ||
-       IERC165(verifierAddress).supportsInterface(IDestinationVerifier.verifyBulk.selector)) revert VerifierInvalid(verifierAddress);
+    if(!IERC165(verifierAddress).supportsInterface(IDestinationVerifier.getAccessController.selector) ||
+       !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.getFeeManager.selector) ||
+       !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.verify.selector)  ||
+       !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.verifyBulk.selector)
+    ) revert VerifierInvalid(verifierAddress);
 
     s_verifier = IDestinationVerifier(verifierAddress);
   }
