@@ -20,11 +20,11 @@ on:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
         required: false
         type: string
-      # Enable once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1283
-      test_config_override_base64:
-        required: false
-        description: The base64-encoded test config override
-        type: string
+      # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
+      # test_config_override_base64:
+      #   required: false
+      #   description: The base64-encoded test config override
+      #   type: string
       enable_check_test_configurations:
         description: 'Set to "true" to enable check-test-configurations job'
         required: false
@@ -236,10 +236,11 @@ jobs:
         shell: bash
         run: |
           # Check if the test config override is provided and skip the checks if it is non-empty
-          if [ -n "${{ inputs.test_config_override_base64 }}" ]; then
-            echo "Test config override provided. Skipping checks for tests requiring config override."
-            exit 0
-          fi
+          # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
+          # if [ -n "${{ inputs.test_config_override_base64 }}" ]; then
+          #   echo "Test config override provided. Skipping checks for tests requiring config override."
+          #   exit 0
+          # fi
 
           # Parse the JSON to check for test_config_override_required in Docker matrix
           DOCKER_TESTS_REQUIRING_CONFIG_OVERRIDE=$(echo '${{ steps.set-docker-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("test_config_override_required") and .test_config_override_required) | .id else empty end' -r)
@@ -392,7 +393,8 @@ jobs:
 
       - name: Create default test config override (use test inputs from e2e-tests.yml or defaults)
         id: create-default-test-config-override
-        if: inputs.test_config_override_base64 == ''
+        # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
+        # if: inputs.test_config_override_base64 == ''
         uses: ./.github/actions/create-default-e2e-config-override
         with:
           chainlink_version: ${{ matrix.tests.test_inputs.chainlink_version || inputs.chainlink_version || github.sha }}
@@ -402,13 +404,14 @@ jobs:
           logging_run_id: ${{ github.run_id }}
           logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
 
-      - name: Set custom test config override
-        if: inputs.test_config_override_base64 != ''
-        shell: bash
-        run: |
-          BASE64_CONFIG_OVERRIDE=${{ inputs.test_config_override_base64 }}
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV    
+      # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
+      # - name: Set custom test config override
+      #   if: inputs.test_config_override_base64 != ''
+      #   shell: bash
+      #   run: |
+      #     BASE64_CONFIG_OVERRIDE=${{ inputs.test_config_override_base64 }}
+      #     echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+      #     echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV    
     
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
@@ -536,7 +539,8 @@ jobs:
 
       - name: Create default test config override (use test inputs from e2e-tests.yml or defaults)
         id: create-default-test-config-override
-        if: inputs.test_config_override_base64 == ''
+        # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
+        # if: inputs.test_config_override_base64 == ''
         uses: ./.github/actions/create-default-e2e-config-override
         with:
           chainlink_version: ${{ matrix.tests.test_inputs.chainlink_version || inputs.chainlink_version || github.sha }}
@@ -546,13 +550,14 @@ jobs:
           logging_run_id: ${{ github.run_id }}
           logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
 
-      - name: Set custom test config override
-        if: inputs.test_config_override_base64 != ''
-        shell: bash
-        run: |
-          BASE64_CONFIG_OVERRIDE=${{ inputs.test_config_override_base64 }}
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV              
+      # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
+      # - name: Set custom test config override
+      #   if: inputs.test_config_override_base64 != ''
+      #   shell: bash
+      #   run: |
+      #     BASE64_CONFIG_OVERRIDE=${{ inputs.test_config_override_base64 }}
+      #     echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+      #     echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV              
 
       - name: Run tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
