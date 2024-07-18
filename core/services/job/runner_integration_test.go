@@ -127,10 +127,10 @@ func TestRunner(t *testing.T) {
 
 		m, err := bridges.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
 		require.NoError(t, err)
-		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]interface{}{"jobRun": map[string]interface{}{"meta": m}}), logger.TestLogger(t), true)
+		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]interface{}{"jobRun": map[string]interface{}{"meta": m}}), true)
 		require.NoError(t, err)
 
-		results := taskResults.FinalResult(logger.TestLogger(t))
+		results := taskResults.FinalResult()
 		require.Len(t, results.Values, 2)
 		require.GreaterOrEqual(t, len(results.FatalErrors), 2)
 		assert.Nil(t, results.FatalErrors[0])
@@ -318,10 +318,10 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(ctx, jb)
 		require.NoError(t, err)
 
-		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
 
-		results := taskResults.FinalResult(logger.TestLogger(t))
+		results := taskResults.FinalResult()
 		assert.Len(t, results.FatalErrors, 1)
 		assert.Len(t, results.Values, 1)
 		assert.Contains(t, results.FatalErrors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
@@ -364,10 +364,10 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(testutils.Context(t), jb)
 		require.NoError(t, err)
 
-		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
 
-		results := taskResults.FinalResult(logger.TestLogger(t))
+		results := taskResults.FinalResult()
 		assert.Len(t, results.Values, 1)
 		assert.Len(t, results.FatalErrors, 1)
 		assert.Contains(t, results.FatalErrors[0].Error(), pipeline.ErrTooManyErrors.Error())
@@ -409,10 +409,10 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(testutils.Context(t), jb)
 		require.NoError(t, err)
 
-		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
 
-		results := taskResults.FinalResult(logger.TestLogger(t))
+		results := taskResults.FinalResult()
 		assert.Len(t, results.Values, 1)
 		assert.Contains(t, results.FatalErrors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
 		assert.Nil(t, results.Values[0])
@@ -697,9 +697,9 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(ctx, jb)
 		require.NoError(t, err)
 
-		_, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		_, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
-		results := taskResults.FinalResult(logger.TestLogger(t))
+		results := taskResults.FinalResult()
 		assert.Nil(t, results.Values[0])
 
 		// No task timeout should succeed.
@@ -707,9 +707,9 @@ answer1      [type=median index=0];
 		jb.Name = null.NewString("a job 2", true)
 		err = jobORM.CreateJob(ctx, jb)
 		require.NoError(t, err)
-		_, taskResults, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		_, taskResults, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
-		results = taskResults.FinalResult(logger.TestLogger(t))
+		results = taskResults.FinalResult()
 		assert.Equal(t, 10.1, results.Values[0])
 		assert.Nil(t, results.FatalErrors[0])
 
@@ -720,9 +720,9 @@ answer1      [type=median index=0];
 		err = jobORM.CreateJob(ctx, jb)
 		require.NoError(t, err)
 
-		_, taskResults, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		_, taskResults, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
-		resultsNoFatalErrs := taskResults.FinalResult(logger.TestLogger(t))
+		resultsNoFatalErrs := taskResults.FinalResult()
 		assert.NotNil(t, resultsNoFatalErrs.FatalErrors[0])
 	})
 
@@ -740,9 +740,9 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(ctx, jb)
 		require.NoError(t, err)
 
-		_, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		_, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
-		results := taskResults.FinalResult(logger.TestLogger(t))
+		results := taskResults.FinalResult()
 		assert.Len(t, results.Values, 1)
 		assert.Nil(t, results.FatalErrors[0])
 		assert.Equal(t, "4242", results.Values[0].(decimal.Decimal).String())
@@ -752,7 +752,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 
 		// Create another run, it should fail
-		_, _, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.TestLogger(t), true)
+		_, _, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.Error(t, err)
 	})
 }
