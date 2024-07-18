@@ -198,7 +198,7 @@ func (p *logEventProvider) Close() error {
 		bufV1 := p.buffer.(*logBuffer)
 		availableLogsJSON, _ := json.Marshal(bufV1.availableLogs)
 		dequeuedLogsJSON, _ := json.Marshal(bufV1.dequeuedLogs)
-		p.lggr.Debugw("shutting down LogProvider", "availableLogsJSON", availableLogsJSON, "dequeuedLogsJSON", dequeuedLogsJSON)
+		p.lggr.Debugw("shutting down LogProvider", "availableLogsJSON", string(availableLogsJSON), "dequeuedLogsJSON", string(dequeuedLogsJSON))
 		return nil
 	})
 
