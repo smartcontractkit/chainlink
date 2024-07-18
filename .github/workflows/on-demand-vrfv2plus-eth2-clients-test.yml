@@ -5,7 +5,11 @@ on:
       base64Config:
         description: base64-ed config
         required: true
-        type: string       
+        type: string  
+      test_secrets_override_key:
+        description: 'Key to run tests with custom test secrets'
+        required: false
+        type: string              
 
 jobs:
   vrfv2plus_smoke_test:
@@ -46,10 +50,11 @@ jobs:
           echo "### Execution client used" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.ETH2_EL_CLIENT }}\`" >>$GITHUB_STEP_SUMMARY              
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -run ^TestVRFv2Plus$/^Link_Billing$ ./smoke/vrfv2plus_test.go 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_secrets_override_base64: ${{ secrets[inputs.test_secrets_override_key] }}
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
