@@ -10,23 +10,10 @@ import {Common} from "../../../libraries/Common.sol";
 contract VerifierVerifyBulkTest is BaseTest {
     bytes32[3] internal s_reportContext;
     V3Report internal s_testReportThree;
-    V1Report internal s_testReportOne;
 
     function setUp() public virtual override {
         BaseTest.setUp();
         s_reportContext[0] = bytes32(abi.encode(uint32(5), uint8(1)));
-
-        s_testReportOne = V1Report({
-            feedId: FEED_ID,
-            observationsTimestamp: OBSERVATIONS_TIMESTAMP,
-            median: MEDIAN,
-            bid: BID,
-            ask: ASK,
-            blocknumberUpperBound: BLOCKNUMBER_UPPER_BOUND,
-            upperBlockhash: blockhash(BLOCKNUMBER_UPPER_BOUND),
-            blocknumberLowerBound: BLOCKNUMBER_LOWER_BOUND,
-            currentBlockTimestamp: uint32(block.timestamp)
-        });
 
         s_testReportThree = V3Report({
             feedId: FEED_ID_V3,

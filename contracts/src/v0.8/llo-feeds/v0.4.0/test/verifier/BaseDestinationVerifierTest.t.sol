@@ -49,27 +49,6 @@ contract BaseTest is Test {
     bytes32[] internal s_offchaintransmitters;
     bool private s_baseTestInitialized;
 
-    struct V1Report {
-        // The feed ID the report has data for
-        bytes32 feedId;
-        // The time the median value was observed on
-        uint32 observationsTimestamp;
-        // The median value agreed in an OCR round
-        int192 median;
-        // The best bid value agreed in an OCR round
-        int192 bid;
-        // The best ask value agreed in an OCR round
-        int192 ask;
-        // The upper bound of the block range the median value was observed within
-        uint64 blocknumberUpperBound;
-        // The blockhash for the upper bound of block range (ensures correct blockchain)
-        bytes32 upperBlockhash;
-        // The lower bound of the block range the median value was observed within
-        uint64 blocknumberLowerBound;
-        // The current block timestamp
-        uint256 currentBlockTimestamp;
-    }
-
     struct V3Report {
         // The feed ID the report has data for
         bytes32 feedId;
@@ -112,19 +91,6 @@ contract BaseTest is Test {
     //version 3 feeds
     bytes32 internal constant FEED_ID_V3 = (keccak256("ETH-USD") & V_MASK) | V3_BITMASK;
 
-    function _encodeReport(V1Report memory report) internal pure returns (bytes memory) {
-        return abi.encode(
-            report.feedId,
-            report.observationsTimestamp,
-            report.median,
-            report.bid,
-            report.ask,
-            report.blocknumberUpperBound,
-            report.upperBlockhash,
-            report.blocknumberLowerBound,
-            report.currentBlockTimestamp
-        );
-    }
 
     function _encodeReport(V3Report memory report) internal pure returns (bytes memory) {
         return abi.encode(
@@ -158,18 +124,6 @@ contract BaseTest is Test {
             vs[i] = bytes1(v - 27);
         }
         return (rs, ss, bytes32(vs));
-    }
-
-    function _generateV1EncodedBlob(V1Report memory report, bytes32[3] memory reportContext, Signer[] memory signers)
-        internal
-        pure
-        returns (bytes memory)
-    {
-        bytes memory reportBytes = _encodeReport(report);
-        (bytes32[] memory rs, bytes32[] memory ss, bytes32 rawVs) =
-            _generateSignerSignatures(reportBytes, reportContext, signers);
-
-        return abi.encode(reportContext, reportBytes, rs, ss, rawVs);
     }
 
 
@@ -249,27 +203,6 @@ contract BaseTest is Test {
         Common._quickSort(signers, 0, int256(signers.length - 1));
         bytes24 DONConfigID = bytes24(keccak256(abi.encodePacked(signers, f)));
         return DONConfigID;
-    }
-
-    function assertReportsEqual(bytes memory response, V1Report memory testReport) public {
-        (
-            bytes32 feedId,
-            uint32 timestamp,
-            int192 median,
-            int192 bid,
-            int192 ask,
-            uint64 blockNumUB,
-            bytes32 upperBlockhash,
-            uint64 blockNumLB
-        ) = abi.decode(response, (bytes32, uint32, int192, int192, int192, uint64, bytes32, uint64));
-        assertEq(feedId, testReport.feedId);
-        assertEq(timestamp, testReport.observationsTimestamp);
-        assertEq(median, testReport.median);
-        assertEq(bid, testReport.bid);
-        assertEq(ask, testReport.ask);
-        assertEq(blockNumLB, testReport.blocknumberLowerBound);
-        assertEq(blockNumUB, testReport.blocknumberUpperBound);
-        assertEq(upperBlockhash, testReport.upperBlockhash);
     }
 
     function assertReportsEqual(bytes memory response, V3Report memory testReport) public {
