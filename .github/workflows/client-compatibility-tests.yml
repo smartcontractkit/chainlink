@@ -550,16 +550,6 @@ jobs:
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
           # other inputs
           duplicate-authorization-header: "true"
-      - name: Prepare Base64 TOML override
-        uses: ./.github/actions/setup-create-base64-config
-        with:
-          runId: ${{ github.run_id }}
-          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
-          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
-          chainlinkVersion: ${{ needs.select-versions.outputs.chainlink_version }}
-          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          ethExecutionClient: ${{ matrix.evm_node.eth_implementation }}
-          customEthClientDockerImage: ${{ matrix.evm_node.docker_image }}
       - name: Prepare test log name
         run: |
           replace_special_chars() {
@@ -588,10 +578,17 @@ jobs:
       #          comment_on_pr: false
       #          theme: 'dark'
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
         with:
           test_command_to_run: cd ./integration-tests && touch .root_dir && go test -timeout 30m -count=1 -json ${{ matrix.evm_node.run }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_config_chainlink_version: ${{ needs.select-versions.outputs.chainlink_version }}
+          test_config_selected_networks: ${{ env.SELECTED_NETWORKS}}
+          test_config_logging_run_id: ${{ github.run_id }}
+          test_config_test_log_collect: ${{ vars.TEST_LOG_COLLECT }}
+          test_config_logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          test_config_private_ethereum_network_execution_layer: ${{ matrix.evm_node.eth_implementation || 'geth' }}
+          test_config_private_ethereum_network_custom_docker_image: ${{ matrix.evm_node.docker_image }}
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ needs.select-versions.outputs.chainlink_version }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
