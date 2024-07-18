@@ -453,7 +453,7 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: e2e_tests_${{ matrix.tests.id_sanitized }}
+          this-job-name: Run docker tests (${{ matrix.tests.id }})
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
 
@@ -590,7 +590,7 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: e2e_tests_${{ matrix.tests.id_sanitized }}
+          this-job-name: Run k8s tests (${{ matrix.tests.id }})
         continue-on-error: true
           
   after_tests:
