@@ -47,7 +47,6 @@ var (
 	OCRContractLatestRoundRequested = getEventTopic("RoundRequested")
 )
 
-//go:generate mockery --quiet --name OCRContractTrackerDB --output ./mocks/ --case=underscore
 type (
 	// OCRContractTracker complies with ContractConfigTracker interface and
 	// handles log events related to the contract more generally
