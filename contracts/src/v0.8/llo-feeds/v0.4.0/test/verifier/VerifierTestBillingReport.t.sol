@@ -43,7 +43,6 @@ contract VerifierBillingTests is VerifierWithFeeManager {
         assertEq(feeManager.s_linkDeficit(expectedDonConfigID), 0);
         assertEq(rewardManager.s_totalRewardRecipientFees(expectedDonConfigID), DEFAULT_REPORT_LINK_FEE);
         assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
-       
     }
 
     function test_verifyWithNativeERC20() public {
@@ -60,7 +59,7 @@ contract VerifierBillingTests is VerifierWithFeeManager {
         _verify(signedReport, address(native), 0, USER);
         assertEq(native.balanceOf(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE);
 
-         assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
+        assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
     }
 
     function test_verifyWithNativeUnwrapped() public {
@@ -68,7 +67,7 @@ contract VerifierBillingTests is VerifierWithFeeManager {
         address[] memory signerAddrs = _getSignerAddresses(signers);
         s_reportContext[0] = bytes32(abi.encode(uint32(5), uint8(1)));
         Common.AddressAndWeight[] memory weights = new Common.AddressAndWeight[](0);
-    
+
         s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, weights);
         bytes memory signedReport =
             _generateV3EncodedBlob(s_testReportThree, s_reportContext, _getSigners(FAULT_TOLERANCE + 1));
@@ -83,14 +82,13 @@ contract VerifierBillingTests is VerifierWithFeeManager {
         address[] memory signerAddrs = _getSignerAddresses(signers);
         s_reportContext[0] = bytes32(abi.encode(uint32(5), uint8(1)));
         Common.AddressAndWeight[] memory weights = new Common.AddressAndWeight[](0);
-   
+
         s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, weights);
         bytes memory signedReport =
             _generateV3EncodedBlob(s_testReportThree, s_reportContext, _getSigners(FAULT_TOLERANCE + 1));
 
         _verify(signedReport, address(native), DEFAULT_REPORT_NATIVE_FEE * 2, USER);
-        assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE );
+        assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE);
         assertEq(address(feeManager).balance, 0);
     }
 }
-
