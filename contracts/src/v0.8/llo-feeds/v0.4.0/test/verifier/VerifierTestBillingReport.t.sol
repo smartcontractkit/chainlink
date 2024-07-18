@@ -141,9 +141,7 @@ contract VerifierBulkVerifyBillingReport is VerifierWithFeeManager {
     }
 
     _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS, USER);
-
     _verifyBulk(signedReports, address(native), 0, USER);
-
     assertEq(native.balanceOf(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS);
   }
 
