@@ -33,7 +33,6 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/guregu/null.v4"
 
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
@@ -41,6 +40,9 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	commontest "github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -205,11 +207,11 @@ observationSource   = """
     submit [type=bridge name="substrate-adapter1" requestData=<{ "value": $(parse) }>]
     parse -> submit
 """
-    `, jobUUID, eiName, cltest.MustJSONMarshal(t, eiSpec))
+    `, jobUUID, eiName, commontest.MustJSONMarshal(t, eiSpec))
 
 		_, err := webhook.ValidatedWebhookSpec(ctx, tomlSpec, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
-		job := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
+		job := cltest.CreateJobViaWeb(t, app, []byte(commontest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		jobID = job.ID
 		t.Log("JOB created", job.WebhookSpecID)
 
@@ -218,7 +220,7 @@ observationSource   = """
 
 	t.Run("calling webhook_spec with non-matching external_initiator_id returns unauthorized", func(t *testing.T) {
 		eiaWrong := auth.NewToken()
-		body := cltest.MustJSONMarshal(t, eiRequest)
+		body := commontest.MustJSONMarshal(t, eiRequest)
 		headers := make(map[string]string)
 		headers[static.ExternalInitiatorAccessKeyHeader] = eiaWrong.AccessKey
 		headers[static.ExternalInitiatorSecretHeader] = eiaWrong.Secret
@@ -236,7 +238,7 @@ observationSource   = """
 		// Simulate request from EI -> Core node
 		cltest.AwaitJobActive(t, app.JobSpawner(), jobID, 3*time.Second)
 
-		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
+		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, commontest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetDB(), logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM := bridges.NewORM(app.GetDB())
@@ -402,7 +404,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			nameAndExternalJobID := uuid.New()
 			addr := operatorContracts.operatorAddress.Hex()
 			spec := fmt.Sprintf(multiWordSpecTemplate, nameAndExternalJobID, addr, nameAndExternalJobID, addr)
-			j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: spec})))
+			j := cltest.CreateJobViaWeb(t, app, []byte(commontest.MustJSONMarshal(t, web.CreateJobRequest{TOML: spec})))
 			cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, 5*time.Second)
 
 			var jobID [32]byte
@@ -439,7 +441,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 			nameAndExternalJobID = uuid.New()
 			singleWordSpec := fmt.Sprintf(singleWordSpecTemplate, nameAndExternalJobID, addr, nameAndExternalJobID, addr)
-			jobSingleWord := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: singleWordSpec})))
+			jobSingleWord := cltest.CreateJobViaWeb(t, app, []byte(commontest.MustJSONMarshal(t, web.CreateJobRequest{TOML: singleWordSpec})))
 			cltest.AwaitJobActive(t, app.JobSpawner(), jobSingleWord.ID, 5*time.Second)
 
 			var jobIDSingleWord [32]byte
@@ -523,7 +525,7 @@ observationSource   = """
 		// This succeeds for whatever reason
 		revertingData := "0xdeadbeef"
 		tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, testutils.SimulatedChainID.String(), sendingAddr)
-		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
+		j := cltest.CreateJobViaWeb(t, app, []byte(commontest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
 		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
@@ -569,7 +571,7 @@ observationSource   = """
 		// This data is a call to link token's `transfer` function and will revert due to insufficient LINK on the sender address
 		revertingData := "0xa9059cbb000000000000000000000000526485b5abdd8ae9c6a63548e0215a83e7135e6100000000000000000000000000000000000000000000000db069932ea4fe1400"
 		tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, testutils.SimulatedChainID.String(), sendingAddr)
-		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
+		j := cltest.CreateJobViaWeb(t, app, []byte(commontest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
 		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
@@ -607,7 +609,7 @@ observationSource   = """
 		// This data is a call to link token's `transfer` function and will revert due to insufficient LINK on the sender address
 		revertingData := "0xa9059cbb000000000000000000000000526485b5abdd8ae9c6a63548e0215a83e7135e6100000000000000000000000000000000000000000000000db069932ea4fe1400"
 		tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, testutils.SimulatedChainID.String(), sendingAddr)
-		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
+		j := cltest.CreateJobViaWeb(t, app, []byte(commontest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
 		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")

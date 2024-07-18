@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+	commontest "github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -883,11 +884,11 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 			
 				parse->ds1->ds1_parse->ds1_multiply;
 			"""
-    `, jobUUID, eiName, cltest.MustJSONMarshal(t, eiSpec), bridgeName)
+    `, jobUUID, eiName, commontest.MustJSONMarshal(t, eiSpec), bridgeName)
 
 		_, err := webhook.ValidatedWebhookSpec(testutils.Context(t), tomlSpec, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
-		job := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
+		job := cltest.CreateJobViaWeb(t, app, []byte(commontest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		jobID = job.ID
 
 		require.Eventually(t, func() bool { return eiNotifiedOfCreate }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of new job")
@@ -895,7 +896,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 	t.Run("simulate request from EI -> Core node with successful callback", func(t *testing.T) {
 		cltest.AwaitJobActive(t, app.JobSpawner(), jobID, 3*time.Second)
 
-		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
+		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, commontest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetDB(), logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgesORM := bridges.NewORM(app.GetDB())
@@ -1062,18 +1063,18 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 			
 				parse->ds1->ds1_parse->ds1_multiply;
 			"""
-    `, jobUUID, eiName, cltest.MustJSONMarshal(t, eiSpec), bridgeName)
+    `, jobUUID, eiName, commontest.MustJSONMarshal(t, eiSpec), bridgeName)
 
 		_, err := webhook.ValidatedWebhookSpec(testutils.Context(t), tomlSpec, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
-		job := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
+		job := cltest.CreateJobViaWeb(t, app, []byte(commontest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		jobID = job.ID
 
 		require.Eventually(t, func() bool { return eiNotifiedOfCreate }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of new job")
 	}
 
 	t.Run("simulate request from EI -> Core node with erroring callback", func(t *testing.T) {
-		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
+		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, commontest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetDB(), logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgesORM := bridges.NewORM(app.GetDB())
