@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -33,17 +32,17 @@ func TestUniversalEstimatorLifecycle(t *testing.T) {
 
 		u := gas.NewUniversalEstimator(logger.Test(t), nil, cfg, chainID, nil)
 		_, _, err := u.GetLegacyGas(tests.Context(t), nil, gasLimit, maxPrice)
-		assert.Error(t, err)
+		assert.ErrorContains(t, err, "gas price not set")
 	})
 
-	t.Run("fails if BumpPercent is lower than the minimum cap", func(t *testing.T) {
+	t.Run("fails to start if BumpPercent is lower  than the minimum cap", func(t *testing.T) {
 		cfg := gas.UniversalEstimatorConfig{BumpPercent: 9}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), nil, cfg, chainID, nil)
-		assert.Error(t, u.Start(tests.Context(t)))
+		assert.ErrorContains(t, u.Start(tests.Context(t)), "BumpPercent")
 	})
 
-	t.Run("fails if RewardPercentile is lower than ConnectivityPercentile in EIP-1559", func(t *testing.T) {
+	t.Run("fails to start if RewardPercentile is lower than ConnectivityPercentile in EIP-1559", func(t *testing.T) {
 		cfg := gas.UniversalEstimatorConfig{
 			BumpPercent:      20,
 			RewardPercentile: 99,
@@ -51,10 +50,10 @@ func TestUniversalEstimatorLifecycle(t *testing.T) {
 		}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), nil, cfg, chainID, nil)
-		assert.Error(t, u.Start(tests.Context(t)))
+		assert.ErrorContains(t, u.Start(tests.Context(t)), "RewardPercentile")
 	})
 
-	t.Run("fails if BlockHistorySize is 0 in EIP-1559", func(t *testing.T) {
+	t.Run("fails to start if BlockHistorySize is 0 in EIP-1559", func(t *testing.T) {
 		cfg := gas.UniversalEstimatorConfig{
 			BumpPercent:      20,
 			RewardPercentile: 10,
@@ -63,7 +62,7 @@ func TestUniversalEstimatorLifecycle(t *testing.T) {
 		}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), nil, cfg, chainID, nil)
-		assert.Error(t, u.Start(tests.Context(t)))
+		assert.ErrorContains(t, u.Start(tests.Context(t)), "BlockHistorySize")
 	})
 
 	t.Run("starts if configs are correct", func(t *testing.T) {
@@ -77,7 +76,10 @@ func TestUniversalEstimatorLifecycle(t *testing.T) {
 		}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), nil, cfg, chainID, nil)
-		servicetest.RunHealthy(t, u)
+		err := u.Start(tests.Context(t))
+		assert.NoError(t, err)
+		err = u.Close()
+		assert.NoError(t, err)
 	})
 }
 
