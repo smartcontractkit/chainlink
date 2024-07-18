@@ -119,7 +119,7 @@ library CCIPEnumerableMap {
   function tryGet(Bytes32ToBytesMap storage map, bytes32 key) internal view returns (bool, bytes memory) {
     bytes memory value = map._values[key];
     if (value.length == 0) {
-      return (_contains(map, key), bytes(""));
+      return (contains(map, key), bytes(""));
     } else {
       return (true, value);
     }
@@ -135,7 +135,7 @@ library CCIPEnumerableMap {
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function get(Bytes32ToBytesMap storage map, bytes32 key) internal view returns (bytes memory) {
     bytes memory value = map._values[key];
-    if (value.length == 0 && !_contains(map, key)) {
+    if (value.length == 0 && !contains(map, key)) {
       revert NonexistentKeyError();
     }
     return value;
