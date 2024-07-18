@@ -74,6 +74,7 @@ func (t *transmitter) Transmit(
 			"report.Report.Values", r.Values,
 			"report.Report.Specimen", r.Specimen,
 		)
+	default:
 	}
 	transmitSuccessCount.Inc()
 	lggr.Infow("Transmit (dummy)", "digest", digest, "seqNr", seqNr, "report.Report", report.Report, "report.Info", report.Info, "sigs", sigs)
