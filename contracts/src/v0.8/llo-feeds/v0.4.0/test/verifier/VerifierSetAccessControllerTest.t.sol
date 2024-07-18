@@ -2,7 +2,6 @@
 pragma solidity 0.8.19;
 
 import {BaseTest} from "./BaseDestinationVerifierTest.t.sol";
-import {AccessControllerInterface} from "../../../../shared/interfaces/AccessControllerInterface.sol";
 
 contract VerifierSetAccessControllerTest is BaseTest {
   event AccessControllerSet(address oldAccessController, address newAccessController);
