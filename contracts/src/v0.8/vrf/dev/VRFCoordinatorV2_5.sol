@@ -27,7 +27,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   // upper bound limit for premium percentages to make sure fee calculations don't overflow
   uint8 private constant PREMIUM_PERCENTAGE_MAX = 155;
   error InvalidRequestConfirmations(uint16 have, uint16 min, uint16 max);
-  error GasLimitTooBig(uint32 have, uint32 want);
+  error GasLimitTooBig(uint32 have, uint32 dummy);
   error NumWordsTooBig(uint32 have, uint32 want);
   error MsgDataTooBig(uint256 have, uint32 max);
   error ProvingKeyAlreadyRegistered(bytes32 keyHash);
