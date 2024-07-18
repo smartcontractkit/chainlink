@@ -8,6 +8,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/google/uuid"
+
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -52,6 +54,7 @@ type ServerRequest struct {
 func NewServerRequest(capability capabilities.TargetCapability, capabilityID string, capabilityDonID uint32, capabilityPeerId p2ptypes.PeerID,
 	callingDon commoncap.DON, requestMessageID string,
 	dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) *ServerRequest {
+	lggr = lggr.Named("ServerRequest-" + uuid.New().String())
 	return &ServerRequest{
 		capability:              capability,
 		createdTime:             time.Now(),
