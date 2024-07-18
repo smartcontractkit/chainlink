@@ -125,7 +125,7 @@ func (c *ClientRequest) Cancel(err error) {
 	}
 }
 
-// TODO OnMessage assumes that only one response is received from each peer, if streaming responses need to be supported this will need to be updated
+// TODO OnMessage assumes that only one response is received from each peer,  if streaming responses need to be supported this will need to be updated
 func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) error {
 	c.mux.Lock()
 	defer c.mux.Unlock()
