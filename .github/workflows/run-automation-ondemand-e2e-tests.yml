@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       chainlinkVersionUpdate:
-        description: Chainlink image version to upgrade to
+        description: Chainlink image version to upgrade to  (Leave empty to build from head/ref)
         required: false
         type: string
       chainlinkImageUpdate:
-        description: Chainlink image repo to upgrade to (Leave empty to build from head/ref)
+        description: Chainlink image repo to upgrade to
         options:
           - QA_ECR
           - public.ecr.aws/chainlink/chainlink
@@ -36,7 +36,7 @@ on:
         default: false
         required: true
       with_existing_remote_runner_version:
-        description: 'Use the existing remote runner version for k8s tests. Example: "d3bf5044af33e08be788a2df31c4a745cf69d787"'
+        description: 'Tag of the existing remote runner version to use (Leave empty to build from head/ref)' 
         required: false
         type: string                 
 
