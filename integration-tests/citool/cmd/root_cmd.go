@@ -29,5 +29,4 @@ func init() {
 	rootCmd.AddCommand(csvExportCmd)
 	rootCmd.AddCommand(testConfigCmd)
 	testConfigCmd.AddCommand(createTestConfigCmd)
-	testConfigCmd.AddCommand(overrideTestConfigCmd)
 }
