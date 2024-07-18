@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-fix starknet signature bug
+fix starknet signature bug #bugfix
