@@ -69,7 +69,6 @@ type UniversalEstimatorConfig struct {
 	HasMempool       bool
 }
 
-//go:generate mockery --quiet --name universalEstimatorClient --output ./mocks/ --case=underscore --structname UniversalEstimatorClient
 type universalEstimatorClient interface {
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
