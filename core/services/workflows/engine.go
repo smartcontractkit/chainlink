@@ -712,7 +712,7 @@ func configForStep(ctx context.Context, reg core.CapabilitiesRegistry, localNode
 		return nil, err
 	}
 
-	return merge(capConfig.ExecuteConfig, step.config), nil
+	return merge(capConfig.DefaultConfig, step.config), nil
 }
 
 // executeStep executes the referenced capability within a step and returns the result.

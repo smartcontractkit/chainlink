@@ -203,7 +203,7 @@ func TestReader_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &capabilitiespb.CapabilityConfig{
-		ExecuteConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
 		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
 			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
 				RegistrationRefresh: durationpb.New(20 * time.Second),
@@ -273,7 +273,7 @@ func TestReader_Integration(t *testing.T) {
 		},
 		CapabilityConfigurations: map[CapabilityID]capabilities.CapabilityConfiguration{
 			cid: {
-				ExecuteConfig:       values.EmptyMap(),
+				DefaultConfig:       values.EmptyMap(),
 				RemoteTriggerConfig: rtc,
 			},
 		},

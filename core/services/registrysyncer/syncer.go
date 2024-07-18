@@ -171,7 +171,7 @@ func unmarshalCapabilityConfig(data []byte) (capabilities.CapabilityConfiguratio
 	}
 
 	return capabilities.CapabilityConfiguration{
-		ExecuteConfig:       values.FromMapValueProto(cconf.ExecuteConfig),
+		DefaultConfig:       values.FromMapValueProto(cconf.DefaultConfig),
 		RemoteTriggerConfig: rtc,
 	}, nil
 }

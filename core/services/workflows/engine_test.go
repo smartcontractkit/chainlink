@@ -123,7 +123,7 @@ func (t testConfigProvider) ConfigForCapability(ctx context.Context, capabilityI
 		return t.configForCapability(ctx, capabilityID, donID)
 	}
 
-	return capabilities.CapabilityConfiguration{ExecuteConfig: values.EmptyMap()}, nil
+	return capabilities.CapabilityConfiguration{DefaultConfig: values.EmptyMap()}, nil
 }
 
 // newTestEngine creates a new engine with some test defaults.
@@ -1031,7 +1031,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
 			if capabilityID != writeID {
 				return capabilities.CapabilityConfiguration{
-					ExecuteConfig: values.EmptyMap(),
+					DefaultConfig: values.EmptyMap(),
 				}, nil
 			}
 
@@ -1044,7 +1044,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 			}
 
 			return capabilities.CapabilityConfiguration{
-				ExecuteConfig: cm,
+				DefaultConfig: cm,
 			}, nil
 		},
 	})
