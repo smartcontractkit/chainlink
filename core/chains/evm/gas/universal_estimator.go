@@ -161,7 +161,6 @@ func (u *UniversalEstimator) run() {
 			}
 		}
 	}
-
 }
 
 // GetLegacyGas will fetch the cached gas price value.
@@ -361,7 +360,6 @@ func (u *UniversalEstimator) BumpDynamicFee(ctx context.Context, originalFee Dyn
 			return bumped, fmt.Errorf("bumpedMaxPriorityFeePergas: %s is above market's %sth percentile: %s, bumping is halted",
 				bumpedMaxPriorityFeePerGas, strconv.Itoa(ConnectivityPercentile), priorityFeeThreshold)
 		}
-
 	} else {
 		// If the network doesn't have a mempool then transactions are processed in a FCFS manner and maxPriorityFeePerGas value is irrelevant.
 		// We just need to cap the value at maxPrice in case maxFeePerGas also gets capped.

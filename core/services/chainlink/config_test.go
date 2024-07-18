@@ -544,7 +544,7 @@ func TestConfig_Marshal(t *testing.T) {
 					},
 					Universal: evmcfg.UniversalEstimator{
 						CacheTimeout: &second,
-						HasMempool: ptr(true),
+						HasMempool:   ptr(true),
 					},
 				},
 
