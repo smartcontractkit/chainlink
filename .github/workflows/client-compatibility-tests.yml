@@ -665,7 +665,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@S0536FX9ZDZ>' || 'All Good!' }}"
+                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && format('Some tests failed, notifying <{0}>', secrets.COMPAT_SLACK_NOTIFICATION_HANDLE) || 'All Good!' }}"
                       }
                     },
                     {
