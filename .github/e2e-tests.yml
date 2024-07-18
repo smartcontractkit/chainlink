@@ -551,7 +551,7 @@ runner-test-matrix:
       test_suite: reorg
     workflows:
       # - Run Automation Product Nightly E2E Tests
-    test_cmd: cd integration-tests/reorg && go test -v -test.run ^TestAutomationReorg$ -test.parallel=5 -timeout 60m -count=1
+    test_cmd: cd integration-tests/reorg && go test -v -test.run ^TestAutomationReorg$ -test.parallel=7 -timeout 60m -count=1
     pyroscope_env: ci-automation-on-demand-reorg
 
   - id: integration-tests/chaos/automation_chaos_test.go

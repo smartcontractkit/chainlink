@@ -3,31 +3,28 @@ name: Run Automation On Demand Tests (TEST WORKFLOW)
 on:
   workflow_dispatch:
     inputs:
-      chainlinkImage:
-        description: Chainlink image repo to use to upgrade Chainlink Nodes from
+      chainlinkVersionUpdate:
+        description: Chainlink image version to upgrade to
+        required: false
+        type: string
+      chainlinkImageUpdate:
+        description: Chainlink image repo to upgrade to (Leave empty to build from head/ref)
         options:
           - QA_ECR
           - public.ecr.aws/chainlink/chainlink
-        default: QA_ECR
         type: choice
       chainlinkVersion:
-        description: Chainlink image version to use to upgrade Chainlink Nodes from
-        required: false
-        default: develop
-        type: string        
-      chainlinkImageUpdate:
-        description: Chainlink image repo to use to upgrade Chainlink Nodes to
-        required: true
-        options:
-          - QA_ECR
-          - public.ecr.aws/chainlink/chainlink
-        default: QA_ECR
-        type: choice
-      chainlinkVersionUpdate:
-        description: Chainlink image version to use to upgrade Chainlink Nodes to
-        default: develop
+        description: Chainlink image version to use initially for upgrade test
+        default: latest
         required: true
         type: string
+      chainlinkImage:
+        description: Chainlink image repo to use initially for upgrade test
+        required: true
+        options:
+          - public.ecr.aws/chainlink/chainlink
+          - QA_ECR
+        type: choice
       enableChaos:
         description: Check to enable chaos tests
         type: boolean
@@ -43,10 +40,6 @@ on:
         required: false
         type: string                 
 
-env:
-  CHAINLINK_VERSION: ${{ inputs.chainlinkVersion || github.sha }}
-  CHAINLINK_UPGRADE_VERSION: ${{ inputs.chainlinkVersionUpdate }}
-
 jobs:
   # Set tests to run based on the workflow inputs
   set-tests-to-run:
@@ -54,56 +47,70 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       test_list: ${{ steps.set-tests.outputs.test_list }}
-      require_chainlink_image_versions_in_qa_ecr: ${{ steps.set-tests.outputs.require_chainlink_image_versions_in_qa_ecr }}
-      require_chainlink_plugin_versions_in_qa_ecr: ${{ steps.set-tests.outputs.require_chainlink_plugin_versions_in_qa_ecr }}
+      require_chainlink_image_versions_in_qa_ecr: ${{ steps.determine-chainlink-image-check.outputs.require_chainlink_image_versions_in_qa_ecr }}
     steps:
+      - name: Determine build to use
+        id: determine-build
+        shell: bash
+        run: |
+          if [[ "${{ inputs.chainlinkImage }}" == "QA_ECR" ]]; then
+            echo "image='{{ env.QA_CHAINLINK_IMAGE }}'" >>$GITHUB_OUTPUT
+          else 
+            echo "image=${{ inputs.chainlinkImage }}" >>$GITHUB_OUTPUT
+          fi
+          if [[ "${{ inputs.chainlinkImageUpdate }}" == "QA_ECR" ]]; then
+            echo "upgrade_image='{{ env.QA_CHAINLINK_IMAGE }}'" >>$GITHUB_OUTPUT
+          else
+            echo "upgrade_image=${{ inputs.chainlinkImageUpdate }}" >>$GITHUB_OUTPUT
+          fi
+          if [[ -z "${{ inputs.chainlinkVersion }}" ]] && [[ "${{ inputs.chainlinkImage }}" == "QA_ECR" ]]; then
+            echo "version=${{ github.sha }}" >>$GITHUB_OUTPUT
+          else 
+            echo "version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
+          fi
+          if [[ -z "${{ inputs.chainlinkVersionUpdate }}" ]] && [[ "${{ inputs.chainlinkImageUpdate }}" == "QA_ECR" ]]; then
+            echo "upgrade_version=${{ github.sha }}" >>$GITHUB_OUTPUT
+          else
+            echo "upgrade_version=${{ inputs.chainlinkVersionUpdate }}" >>$GITHUB_OUTPUT
+          fi
+      - name: Check if chainlink image check required
+        id: determine-chainlink-image-check
+        shell: bash
+        run: |          
+          chainlink_image_versions=""
+          if [ "${{ github.event.inputs.chainlinkImage }}" = "QA_ECR" ]; then
+            chainlink_image_versions+="${{ steps.determine-build.outputs.version }},"
+          fi
+          if [ "${{ github.event.inputs.chainlinkImageUpdate }}" = "QA_ECR" ]; then
+            chainlink_image_versions+="${{ steps.determine-build.outputs.upgrade_version }}"
+          fi
+          echo "require_chainlink_image_versions_in_qa_ecr=$chainlink_image_versions" >> $GITHUB_OUTPUT          
       - name: Set tests to run
         id: set-tests
         run: |
-          if [[ "${{ github.event.inputs.chainlinkImage }}" == 'QA_ECR' ]]; then
-            # Instead of passing chainlink image as plain text input, {{ env.QA_CHAINLINK_IMAGE }} will be securely resolved in the E2E tests reusable workflow
-            CHAINLINK_IMAGE="'{{ env.QA_CHAINLINK_IMAGE }}'"
-          elif [[ "${{ github.event.inputs.chainlinkImage }}" == 'public.ecr.aws/chainlink/chainlink' ]]; then
-            CHAINLINK_IMAGE=public.ecr.aws/chainlink/chainlink
-          else
-            echo "Error: Not supported image source '${{ github.event.inputs.chainlinkImage }}'"
-            exit 1
-          fi  
-          
-          if [[ "${{ github.event.inputs.chainlinkImageUpdate }}" == 'QA_ECR' ]]; then
-            CHAINLINK_UPGRADE_IMAGE="'{{ env.QA_CHAINLINK_IMAGE }}'"
-          elif [[ "${{ github.event.inputs.chainlinkImageUpdate }}" == 'public.ecr.aws/chainlink/chainlink' ]]; then
-            CHAINLINK_UPGRADE_IMAGE=public.ecr.aws/chainlink/chainlink
-          else
-            echo "Error: Not supported image source '${{ github.event.inputs.chainlinkImageUpdate }}'"
-            exit 1
-          fi            
-
-          CHAINLINK_VERSION="${{ env.CHAINLINK_VERSION }}"
-          CHAINLINK_UPGRADE_VERSION="${{ env.CHAINLINK_UPGRADE_VERSION }}"
 
           # Always run upgrade tests 
           cat > test_list.yaml <<EOF
           - id: integration-tests/smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
             test_inputs:
-              chainlink_image: $CHAINLINK_IMAGE
-              chainlink_version: $CHAINLINK_VERSION
-              chainlink_upgrade_image: $CHAINLINK_UPGRADE_IMAGE
-              chainlink_upgrade_version: $CHAINLINK_UPGRADE_VERSION
+              chainlink_image: ${{ steps.determine-build.outputs.image }}
+              chainlink_version: ${{ steps.determine-build.outputs.version }}
+              chainlink_upgrade_image: ${{ steps.determine-build.outputs.upgrade_image }}
+              chainlink_upgrade_version: ${{ steps.determine-build.outputs.upgrade_version }}
 
           - id: integration-tests/smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
             test_inputs:
-              chainlink_image: $CHAINLINK_IMAGE
-              chainlink_version: $CHAINLINK_VERSION
-              chainlink_upgrade_image: $CHAINLINK_UPGRADE_IMAGE
-              chainlink_upgrade_version: $CHAINLINK_UPGRADE_VERSION
+              chainlink_image: ${{ steps.determine-build.outputs.image }}
+              chainlink_version: ${{ steps.determine-build.outputs.version }}
+              chainlink_upgrade_image: ${{ steps.determine-build.outputs.upgrade_image }}
+              chainlink_upgrade_version: ${{ steps.determine-build.outputs.upgrade_version }}
 
           - id: integration-tests/smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
             test_inputs:
-              chainlink_image: $CHAINLINK_IMAGE
-              chainlink_version: $CHAINLINK_VERSION
-              chainlink_upgrade_image: $CHAINLINK_UPGRADE_IMAGE
-              chainlink_upgrade_version: $CHAINLINK_UPGRADE_VERSION              
+              chainlink_image: ${{ steps.determine-build.outputs.image }}
+              chainlink_version: ${{ steps.determine-build.outputs.version }}
+              chainlink_upgrade_image: ${{ steps.determine-build.outputs.upgrade_image }}
+              chainlink_upgrade_version: ${{ steps.determine-build.outputs.upgrade_version }}              
           EOF
 
           # Run reorg tests if enabled
@@ -111,8 +118,8 @@ jobs:
           cat >> test_list.yaml <<EOF
           - id: integration-tests/reorg/automation_reorg_test.go
             test_inputs:
-              chainlink_image: $CHAINLINK_IMAGE
-              chainlink_version: $CHAINLINK_VERSION
+              chainlink_image: ${{ steps.determine-build.outputs.image }}
+              chainlink_version: ${{ steps.determine-build.outputs.version }}
           EOF
           fi
 
@@ -121,21 +128,12 @@ jobs:
           cat >> test_list.yaml <<EOF
           - id: integration-tests/chaos/automation_chaos_test.go
             test_inputs:
-              chainlink_image: $CHAINLINK_IMAGE
-              chainlink_version: $CHAINLINK_VERSION
+              chainlink_image: ${{ steps.determine-build.outputs.image }}
+              chainlink_version: ${{ steps.determine-build.outputs.version }}
           EOF
           fi
 
           echo "test_list=$(cat test_list.yaml | base64 -w 0)" >> $GITHUB_OUTPUT
-
-          chainlink_image_versions=""
-          if [ "${{ github.event.inputs.chainlinkImage }}" = "QA_ECR" ]; then
-            chainlink_image_versions+="${{ env.CHAINLINK_VERSION }},"
-          fi
-          if [ "${{ github.event.inputs.chainlinkImageUpdate }}" = "QA_ECR" ]; then
-            chainlink_image_versions+="${{ env.CHAINLINK_UPGRADE_VERSION }}"
-          fi
-          echo "require_chainlink_image_versions_in_qa_ecr=$chainlink_image_versions" >> $GITHUB_OUTPUT
 
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
@@ -144,7 +142,6 @@ jobs:
     with:
       test_list: ${{ needs.set-tests-to-run.outputs.test_list }}
       require_chainlink_image_versions_in_qa_ecr: ${{ needs.set-tests-to-run.outputs.require_chainlink_image_versions_in_qa_ecr }}
-      require_chainlink_plugin_versions_in_qa_ecr: ${{ needs.set-tests-to-run.outputs.require_chainlink_image_versions_in_qa_ecr }}
       with_existing_remote_runner_version: ${{ github.event.inputs.with_existing_remote_runner_version }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
