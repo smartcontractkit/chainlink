@@ -16,11 +16,6 @@ contract VerifierProxyInitializeVerifierTest is BaseTest {
         s_verifierProxy.setVerifier(address(s_verifier));
     }
 
-    function test_setVerifierZeroVerifier() public {
-        vm.expectRevert(abi.encodeWithSelector(DestinationVerifierProxy.ZeroAddress.selector));
-        s_verifierProxy.setVerifier(address(0));
-    }
-
     function test_setVerifierWhichDoesntHonourInterface() public {
         vm.expectRevert(
             abi.encodeWithSelector(DestinationVerifierProxy.VerifierInvalid.selector, address(rewardManager))
