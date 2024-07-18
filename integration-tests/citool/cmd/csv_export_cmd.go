@@ -24,7 +24,7 @@ var csvExportCmd = &cobra.Command{
 
 func init() {
 	csvExportCmd.Flags().StringP("file", "f", "", "Path to YML file")
-	err := csvExportCmd.MarkFlagRequired("config")
+	err := csvExportCmd.MarkFlagRequired("file")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
