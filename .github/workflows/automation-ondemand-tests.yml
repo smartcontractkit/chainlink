@@ -204,23 +204,23 @@ jobs:
         run: |
           if [[ "${{ inputs.chainlinkImage }}" == "QA_ECR" ]]; then
             echo "image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
-            echo "version=${{ github.sha }}" >>$GITHUB_OUTPUT
-            echo "upgrade_version=${{ github.sha }}" >>$GITHUB_OUTPUT
-            echo "upgrade_image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
-          elif [[ "${{ inputs.chainlinkImage }}" == "public.ecr.aws/chainlink/chainlink" ]]; then
-            READ_CL_IMAGE="public.ecr.aws/chainlink/chainlink"
-            echo "image=$READ_CL_IMAGE" >>$GITHUB_OUTPUT
-            echo "version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
-            echo "upgrade_version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
-            echo "upgrade_image=$READ_CL_IMAGE" >>$GITHUB_OUTPUT
+          else 
+            echo "image=${{ inputs.chainlinkImage }}" >>$GITHUB_OUTPUT
           fi
-          if [[ "${{ matrix.tests.type }}" == "upgrade" ]]; then
-            if [[ "${{ inputs.chainlinkImageUpdate }}" == "QA_ECR" ]]; then
-              echo "image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
-            elif [[ "${{ inputs.chainlinkImageUpdate }}" == "public.ecr.aws/chainlink/chainlink" ]]; then
-              echo "image=public.ecr.aws/chainlink/chainlink" >>$GITHUB_OUTPUT
-            fi
-            echo "version=${{ inputs.chainlinkVersionUpdate }}" >>$GITHUB_OUTPUT
+          if [[ "${{ inputs.chainlinkImageUpdate }}" == "QA_ECR" ]]; then
+            echo "upgrade_image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
+          else
+            echo "upgrade_image=${{ inputs.chainlinkImageUpdate }}" >>$GITHUB_OUTPUT
+          fi
+          if [[ -z "${{ inputs.chainlinkVersion }}" ]] && [[ "${{ inputs.chainlinkImage }}" == "QA_ECR" ]]; then
+            echo "version=${{ github.sha }}" >>$GITHUB_OUTPUT
+          else 
+            echo "version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
+          fi
+          if [[ -z "${{ inputs.chainlinkVersionUpdate }}" ]] && [[ "${{ inputs.chainlinkImageUpdate }}" == "QA_ECR" ]]; then
+            echo "upgrade_version=${{ github.sha }}" >>$GITHUB_OUTPUT
+          else
+            echo "upgrade_version=${{ inputs.chainlinkVersionUpdate }}" >>$GITHUB_OUTPUT
           fi
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
