@@ -167,7 +167,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 
 	// Special treatment for local targets - wrap into a transmission capability
 	// If the DON is nil, this is a local target.
-	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.DON == nil {
+	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.IsLocal {
 		l := e.logger.With("capabilityID", step.ID)
 		l.Debug("wrapping capability in local transmission protocol")
 		cp = transmission.NewLocalTargetCapability(
@@ -701,7 +701,7 @@ func configForStep(ctx context.Context, reg core.CapabilitiesRegistry, localNode
 	// If the capability info is missing a DON, then
 	// the capability is local, and we should use the localNode's DON ID.
 	var donID uint32
-	if step.info.DON != nil && step.info.DON.ID > 0 {
+	if step.info.IsLocal {
 		donID = step.info.DON.ID
 	} else {
 		donID = localNode.WorkflowDON.ID
