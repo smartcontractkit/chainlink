@@ -73,8 +73,8 @@ type logBuffer struct {
 	queues        map[string]*upkeepLogQueue
 	queueIDs      []string
 	blockHashes   map[int64]string
-	availableLogs map[string]map[int64]int
-	dequeuedLogs  map[string]map[int64]int
+	availableLogs map[string]map[int64][]int
+	dequeuedLogs  map[string]map[int64][]int
 
 	lock sync.RWMutex
 }
@@ -87,8 +87,8 @@ func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogB
 		queueIDs:      []string{},
 		blockHashes:   map[int64]string{},
 		queues:        make(map[string]*upkeepLogQueue),
-		availableLogs: map[string]map[int64]int{},
-		dequeuedLogs:  map[string]map[int64]int{},
+		availableLogs: map[string]map[int64][]int{},
+		dequeuedLogs:  map[string]map[int64][]int{},
 	}
 }
 
@@ -208,13 +208,17 @@ func (b *logBuffer) dequeue(start int64, capacity int, minimumDequeue bool) ([]B
 
 		upkeepAvailableLogs, ok := b.availableLogs[qid]
 		if !ok {
-			upkeepAvailableLogs = map[int64]int{}
+			upkeepAvailableLogs = map[int64][]int{}
 		}
 
-		_, ok2 := upkeepAvailableLogs[start]
-		if !ok2 {
-			upkeepAvailableLogs[start] = logsInRange
+		series2, ok3 := upkeepAvailableLogs[start]
+		if !ok3 {
+			series2 = []int{logsInRange}
+		} else {
+			series2 = append(series2, logsInRange)
 		}
+
+		upkeepAvailableLogs[start] = series2
 
 		b.availableLogs[qid] = upkeepAvailableLogs
 
@@ -245,15 +249,17 @@ func (b *logBuffer) dequeue(start int64, capacity int, minimumDequeue bool) ([]B
 
 		dequeuedLogs, ok := b.dequeuedLogs[qid]
 		if !ok {
-			dequeuedLogs = map[int64]int{}
+			dequeuedLogs = map[int64][]int{}
 		}
 
-		_, ok3 := dequeuedLogs[start]
+		series, ok3 := dequeuedLogs[start]
 		if !ok3 {
-			dequeuedLogs[start] = len(logs)
+			series = []int{len(logs)}
 		} else {
-			dequeuedLogs[start] += len(logs)
+			series = append(series, len(logs))
 		}
+
+		dequeuedLogs[start] = series
 
 		b.dequeuedLogs[qid] = dequeuedLogs
 	}
