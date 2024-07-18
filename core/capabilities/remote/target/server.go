@@ -157,7 +157,6 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 				callingDon, messageId, r.dispatcher, r.requestTimeout, r.lggr),
 			messageID: messageId,
 		}
-
 	}
 
 	reqAndMsgID := r.requestIDToRequest[requestID]
