@@ -84,26 +84,26 @@ jobs:
 
           # Always run upgrade tests 
           cat > test_list.yaml <<EOF
-          - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
+          - id: integration-tests/smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
             test_inputs:
-              chainlinkImage: $CHAINLINK_IMAGE
-              chainlinkVersion: $CHAINLINK_VERSION
-              chainlinkUpgradeImage: $CHAINLINK_UPGRADE_IMAGE
+              chainlink_image: $CHAINLINK_IMAGE
+              chainlink_version: $CHAINLINK_VERSION
+              chainlink_upgrade_image: $CHAINLINK_UPGRADE_IMAGE
               chainlinkUpgradeVersion: $CHAINLINK_UPGRADE_VERSION
 
-          - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
+          - id: integration-tests/smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
             test_inputs:
-              chainlinkImage: $CHAINLINK_IMAGE
-              chainlinkVersion: $CHAINLINK_VERSION
-              chainlinkUpgradeImage: $CHAINLINK_UPGRADE_IMAGE
-              chainlinkUpgradeVersion: $CHAINLINK_UPGRADE_VERSION
+              chainlink_image: $CHAINLINK_IMAGE
+              chainlink_version: $CHAINLINK_VERSION
+              chainlink_upgrade_image: $CHAINLINK_UPGRADE_IMAGE
+              chainlink_upgrade_version: $CHAINLINK_UPGRADE_VERSION
 
-          - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
+          - id: integration-tests/smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
             test_inputs:
-              chainlinkImage: $CHAINLINK_IMAGE
-              chainlinkVersion: $CHAINLINK_VERSION
-              chainlinkUpgradeImage: $CHAINLINK_UPGRADE_IMAGE
-              chainlinkUpgradeVersion: $CHAINLINK_UPGRADE_VERSION              
+              chainlink_image: $CHAINLINK_IMAGE
+              chainlink_version: $CHAINLINK_VERSION
+              chainlink_upgrade_image: $CHAINLINK_UPGRADE_IMAGE
+              chainlink_upgrade_version: $CHAINLINK_UPGRADE_VERSION              
           EOF
 
           # Run reorg tests if enabled
@@ -111,8 +111,8 @@ jobs:
           cat >> test_list.yaml <<EOF
           - id: integration-tests/reorg/automation_reorg_test.go
             test_inputs:
-              chainlinkImage: $CHAINLINK_IMAGE
-              chainlinkVersion: $CHAINLINK_VERSION
+              chainlink_image: $CHAINLINK_IMAGE
+              chainlink_version: $CHAINLINK_VERSION
           EOF
           fi
 
@@ -121,8 +121,8 @@ jobs:
           cat >> test_list.yaml <<EOF
           - id: integration-tests/chaos/automation_chaos_test.go
             test_inputs:
-              chainlinkImage: $CHAINLINK_IMAGE
-              chainlinkVersion: $CHAINLINK_VERSION
+              chainlink_image: $CHAINLINK_IMAGE
+              chainlink_version: $CHAINLINK_VERSION
           EOF
           fi
 
