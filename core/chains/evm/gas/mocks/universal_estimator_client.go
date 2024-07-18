@@ -16,6 +16,14 @@ type UniversalEstimatorClient struct {
 	mock.Mock
 }
 
+type UniversalEstimatorClient_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *UniversalEstimatorClient) EXPECT() *UniversalEstimatorClient_Expecter {
+	return &UniversalEstimatorClient_Expecter{mock: &_m.Mock}
+}
+
 // FeeHistory provides a mock function with given fields: ctx, blockCount, rewardPercentiles
 func (_m *UniversalEstimatorClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (*ethereum.FeeHistory, error) {
 	ret := _m.Called(ctx, blockCount, rewardPercentiles)
@@ -46,6 +54,36 @@ func (_m *UniversalEstimatorClient) FeeHistory(ctx context.Context, blockCount u
 	return r0, r1
 }
 
+// UniversalEstimatorClient_FeeHistory_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FeeHistory'
+type UniversalEstimatorClient_FeeHistory_Call struct {
+	*mock.Call
+}
+
+// FeeHistory is a helper method to define mock.On call
+//   - ctx context.Context
+//   - blockCount uint64
+//   - rewardPercentiles []float64
+func (_e *UniversalEstimatorClient_Expecter) FeeHistory(ctx interface{}, blockCount interface{}, rewardPercentiles interface{}) *UniversalEstimatorClient_FeeHistory_Call {
+	return &UniversalEstimatorClient_FeeHistory_Call{Call: _e.mock.On("FeeHistory", ctx, blockCount, rewardPercentiles)}
+}
+
+func (_c *UniversalEstimatorClient_FeeHistory_Call) Run(run func(ctx context.Context, blockCount uint64, rewardPercentiles []float64)) *UniversalEstimatorClient_FeeHistory_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uint64), args[2].([]float64))
+	})
+	return _c
+}
+
+func (_c *UniversalEstimatorClient_FeeHistory_Call) Return(feeHistory *ethereum.FeeHistory, err error) *UniversalEstimatorClient_FeeHistory_Call {
+	_c.Call.Return(feeHistory, err)
+	return _c
+}
+
+func (_c *UniversalEstimatorClient_FeeHistory_Call) RunAndReturn(run func(context.Context, uint64, []float64) (*ethereum.FeeHistory, error)) *UniversalEstimatorClient_FeeHistory_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SuggestGasPrice provides a mock function with given fields: ctx
 func (_m *UniversalEstimatorClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	ret := _m.Called(ctx)
@@ -74,6 +112,34 @@ func (_m *UniversalEstimatorClient) SuggestGasPrice(ctx context.Context) (*big.I
 	}
 
 	return r0, r1
+}
+
+// UniversalEstimatorClient_SuggestGasPrice_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SuggestGasPrice'
+type UniversalEstimatorClient_SuggestGasPrice_Call struct {
+	*mock.Call
+}
+
+// SuggestGasPrice is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *UniversalEstimatorClient_Expecter) SuggestGasPrice(ctx interface{}) *UniversalEstimatorClient_SuggestGasPrice_Call {
+	return &UniversalEstimatorClient_SuggestGasPrice_Call{Call: _e.mock.On("SuggestGasPrice", ctx)}
+}
+
+func (_c *UniversalEstimatorClient_SuggestGasPrice_Call) Run(run func(ctx context.Context)) *UniversalEstimatorClient_SuggestGasPrice_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *UniversalEstimatorClient_SuggestGasPrice_Call) Return(_a0 *big.Int, _a1 error) *UniversalEstimatorClient_SuggestGasPrice_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *UniversalEstimatorClient_SuggestGasPrice_Call) RunAndReturn(run func(context.Context) (*big.Int, error)) *UniversalEstimatorClient_SuggestGasPrice_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewUniversalEstimatorClient creates a new instance of UniversalEstimatorClient. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
