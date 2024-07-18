@@ -67,6 +67,9 @@ func TestUniversalEstimatorLifecycle(t *testing.T) {
 	})
 
 	t.Run("starts if configs are correct", func(t *testing.T) {
+		client := mocks.NewUniversalEstimatorClient(t)
+		client.On("SuggestGasPrice", mock.Anything).Return(big.NewInt(10), nil).Maybe()
+
 		cfg := gas.UniversalEstimatorConfig{
 			BumpPercent:      20,
 			RewardPercentile: 10,

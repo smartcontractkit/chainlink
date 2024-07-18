@@ -1049,7 +1049,7 @@ CheckInclusionPercentile = 19
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
-[GasEstimator.Universal]
+[EVM.GasEstimator.Universal]
 CacheTimeout = '1s'
 HasMempool = true
 
