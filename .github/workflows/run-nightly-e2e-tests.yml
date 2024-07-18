@@ -14,7 +14,7 @@ jobs:
       chainlink_version: develop
       test_workflow: Run Nightly E2E Tests
       slack_notification_after_tests: true
-      slack_notification_after_tests_channel_id: "#lf-slack-notification-tests"
+      slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
       slack_notification_after_tests_name: Nightly E2E Tests
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
