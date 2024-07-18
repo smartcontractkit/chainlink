@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
+
 /// @title Keystone Feeds Permission Handler
 /// @notice This contract is designed to manage and validate permissions for accessing specific reports within a decentralized system.
 /// @dev The contract uses mappings to keep track of report permissions associated with a unique report ID.
-abstract contract KeystoneFeedsPermissionHandler {
+abstract contract KeystoneFeedsPermissionHandler is OwnerIsCreator {
   /// @notice Holds the details for permissions of a report
   /// @dev Workflow names and report names are stored as bytes to optimize for gas efficiency.
   struct Permission {
@@ -27,7 +29,7 @@ abstract contract KeystoneFeedsPermissionHandler {
   /// @notice Sets permissions for multiple reports
   /// @param permissions An array of Permission structs for which to set permissions
   /// @dev Emits a ReportPermissionSet event for each permission set
-  function setReportPermissions(Permission[] memory permissions) external {
+  function setReportPermissions(Permission[] memory permissions) external onlyOwner {
     for (uint256 i; i < permissions.length; i++) {
       _setReportPermission(permissions[i]);
     }
@@ -37,9 +39,7 @@ abstract contract KeystoneFeedsPermissionHandler {
   /// @param permission The Permission struct containing details about the permission to set
   /// @dev Emits a ReportPermissionSet event
   function _setReportPermission(Permission memory permission) internal {
-    bytes32 reportId = keccak256(
-      abi.encode(permission.forwarder, permission.workflowOwner, permission.workflowName, permission.reportName)
-    );
+    bytes32 reportId = _createReportId(permission.forwarder, permission.workflowOwner, permission.workflowName, permission.reportName);
     s_allowedReports[reportId] = permission.isAllowed;
     emit ReportPermissionSet(reportId, permission);
   }
@@ -56,9 +56,20 @@ abstract contract KeystoneFeedsPermissionHandler {
     bytes10 workflowName,
     bytes2 reportName
   ) internal view {
-    bytes32 reportId = keccak256(abi.encode(forwarder, workflowOwner, workflowName, reportName));
+    bytes32 reportId = _createReportId(forwarder, workflowOwner, workflowName, reportName);
     if (!s_allowedReports[reportId]) {
       revert Unauthorized(forwarder, workflowOwner, workflowName, reportName);
     }
+  }
+
+  function _createReportId(address forwarder, address workflowOwner, bytes10 workflowName, bytes2 reportName) internal pure returns (bytes32){
+    return keccak256(
+      abi.encode(
+        forwarder,
+        workflowOwner,
+        workflowName,
+        reportName
+      )
+    );
   }
 }
