@@ -143,6 +143,8 @@ jobs:
       test_list: ${{ needs.set-tests-to-run.outputs.test_list }}
       require_chainlink_image_versions_in_qa_ecr: ${{ needs.set-tests-to-run.outputs.require_chainlink_image_versions_in_qa_ecr }}
       with_existing_remote_runner_version: ${{ github.event.inputs.with_existing_remote_runner_version }}
+      test_log_upload_on_failure: true
+      test_log_upload_retention_days: 7
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

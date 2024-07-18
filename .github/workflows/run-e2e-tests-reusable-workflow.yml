@@ -55,6 +55,16 @@ on:
         description: 'Name of the slack notification'
         required: false
         type: string
+      test_log_upload_on_failure:
+        description: 'Set to "true" to upload the test log on failure as Github artifact'
+        required: false
+        type: boolean
+        default: false
+      test_log_upload_retention_days:
+        description: 'Number of days to retain the test log. Default is 3 days'
+        required: false
+        type: number
+        default: 3  
     secrets:
       TEST_SECRETS_OVERRIDE_BASE64:
         required: false
@@ -445,6 +455,15 @@ jobs:
           DEFAULT_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
           DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
 
+      - name: Upload test log
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        if: inputs.test_log_upload_on_failure && failure()
+        with:
+          name: test_log_${{ matrix.tests.id_sanitized }}
+          path: /tmp/gotest.log
+          retention-days: ${{ inputs.test_log_upload_retention_days }}
+        continue-on-error: true  
+
   # Run K8s tests using old remote runner
 
   prepare-remote-runner-test-image:
@@ -568,7 +587,16 @@ jobs:
           DEFAULT_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
           DEFAULT_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
           DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
-          
+      
+      - name: Upload test log
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        if: inputs.test_log_upload_on_failure && failure()
+        with:
+          name: test_log_${{ matrix.tests.id_sanitized }}
+          path: /tmp/gotest.log
+          retention-days: ${{ inputs.test_log_upload_retention_days }}
+        continue-on-error: true          
+
   after_tests:
     needs: [run-docker-tests, run-k8s-runner-tests]
     if: always()

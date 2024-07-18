@@ -46,7 +46,7 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1 -json
     test_inputs:
       test_suite: soak
 
@@ -54,7 +54,7 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     test_inputs:
@@ -64,7 +64,7 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestForwarderOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestForwarderOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     test_inputs:
@@ -74,7 +74,7 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestForwarderOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestForwarderOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     test_inputs:
@@ -84,7 +84,7 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled$ -test.parallel=1 -timeout 30m -count=1
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     test_inputs:
@@ -94,7 +94,7 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$ -test.parallel=1 -timeout 30m -count=1
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     test_inputs:
@@ -104,7 +104,7 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GasSpike$ -test.parallel=1 -timeout 30m -count=1
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GasSpike$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     test_inputs:
@@ -114,7 +114,7 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_ChangeBlockGasLimit$ -test.parallel=1 -timeout 30m -count=1
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_ChangeBlockGasLimit$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     test_inputs:
@@ -124,7 +124,7 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_RPCDownForAllCLNodes$ -test.parallel=1 -timeout 30m -count=1
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_RPCDownForAllCLNodes$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     test_inputs:
@@ -134,7 +134,7 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_RPCDownForHalfCLNodes$ -test.parallel=1 -timeout 30m -count=1
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_RPCDownForHalfCLNodes$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     test_inputs:
@@ -550,8 +550,8 @@ runner-test-matrix:
     test_inputs:
       test_suite: reorg
     workflows:
-      # - Run Automation Product Nightly E2E Tests
-    test_cmd: cd integration-tests/reorg && go test -v -test.run ^TestAutomationReorg$ -test.parallel=7 -timeout 60m -count=1
+      - Run Automation On Demand Tests (TEST WORKFLOW)
+    test_cmd: cd integration-tests/reorg && go test -v -test.run ^TestAutomationReorg$ -test.parallel=7 -timeout 60m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
 
   - id: integration-tests/chaos/automation_chaos_test.go
@@ -559,8 +559,8 @@ runner-test-matrix:
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
     workflows:
-      # - Run Automation Product Nightly E2E Tests
-    test_cmd: cd integration-tests/chaos && go test -v -test.run ^TestAutomationChaos$ -test.parallel=15 -timeout 60m -count=1
+      - Run Automation On Demand Tests (TEST WORKFLOW)
+    test_cmd: cd integration-tests/chaos && go test -v -test.run ^TestAutomationChaos$ -test.parallel=15 -timeout 60m -count=1 -json
     pyroscope_env: ci-automation-on-demand-chaos
     test_inputs:
       test_suite: chaos
@@ -572,7 +572,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     # workflows:
       # - Run Nightly E2E Tests
-    test_cmd: cd integration-tests/benchmark && go test -v -test.run ^TestAutomationBenchmark$ -test.parallel=1 -timeout 30m -count=1
+    test_cmd: cd integration-tests/benchmark && go test -v -test.run ^TestAutomationBenchmark$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-benchmark-automation-nightly
     test_inputs:
       test_suite: benchmark
@@ -585,7 +585,7 @@ runner-test-matrix:
     path: integration-tests/smoke/vrfv2_test.go
     runs_on: ubuntu22.04-8cores-32GB
     test_env_type: docker
-    test_cmd: cd integration-tests/smoke && go test -v -test.run TestVRFv2Basic -test.parallel=1 -timeout 30m -count=1
+    test_cmd: cd integration-tests/smoke && go test -v -test.run TestVRFv2Basic -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     workflows:
@@ -595,7 +595,7 @@ runner-test-matrix:
     path: integration-tests/load/vrfv2plus/vrfv2plus_test.go
     runs_on: ubuntu22.04-8cores-32GB
     test_env_type: docker
-    test_cmd: cd integration-tests/load/vrfv2plus && go test -v -test.run ^TestVRFV2PlusPerformance$ -test.parallel=1 -timeout 24h -count=1
+    test_cmd: cd integration-tests/load/vrfv2plus && go test -v -test.run ^TestVRFV2PlusPerformance$ -test.parallel=1 -timeout 24h -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     test_inputs:
@@ -607,7 +607,7 @@ runner-test-matrix:
     path: integration-tests/load/vrfv2plus/vrfv2plus_test.go
     runs_on: ubuntu22.04-8cores-32GB
     test_env_type: docker
-    test_cmd: cd integration-tests/load/vrfv2plus && go test -v -test.run ^TestVRFV2PlusBHSPerformance$ -test.parallel=1 -timeout 24h -count=1
+    test_cmd: cd integration-tests/load/vrfv2plus && go test -v -test.run ^TestVRFV2PlusBHSPerformance$ -test.parallel=1 -timeout 24h -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     test_inputs:
@@ -619,7 +619,7 @@ runner-test-matrix:
     path: integration-tests/load/vrfv2/vrfv2_test.go
     runs_on: ubuntu22.04-8cores-32GB
     test_env_type: docker
-    test_cmd: cd integration-tests/load/vrfv2 && go test -v -test.run ^TestVRFV2Performance$ -test.parallel=1 -timeout 24h -count=1
+    test_cmd: cd integration-tests/load/vrfv2 && go test -v -test.run ^TestVRFV2Performance$ -test.parallel=1 -timeout 24h -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     test_inputs:
@@ -631,7 +631,7 @@ runner-test-matrix:
     path: integration-tests/load/vrfv2/vrfv2_test.go
     runs_on: ubuntu22.04-8cores-32GB
     test_env_type: docker
-    test_cmd: cd integration-tests/load/vrfv2 && go test -v -test.run ^TestVRFV2PlusBHSPerformance$ -test.parallel=1 -timeout 24h -count=1
+    test_cmd: cd integration-tests/load/vrfv2 && go test -v -test.run ^TestVRFV2PlusBHSPerformance$ -test.parallel=1 -timeout 24h -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     test_inputs:
@@ -643,7 +643,7 @@ runner-test-matrix:
     path: integration-tests/smoke/vrfv2plus_test.go
     runs_on: ubuntu22.04-8cores-32GB
     test_env_type: docker
-    test_cmd: cd integration-tests && go test -v -test.run ^TestVRFv2Plus$/^Link_Billing$ smoke/vrfv2plus_test.go -test.parallel=1 -timeout 30m -count=1
+    test_cmd: cd integration-tests && go test -v -test.run ^TestVRFv2Plus$/^Link_Billing$ smoke/vrfv2plus_test.go -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     workflows:
