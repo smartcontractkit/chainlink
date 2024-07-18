@@ -252,6 +252,8 @@ func (u *UniversalEstimator) FetchDynamicPrice(parentCtx context.Context) (fee D
 
 	// Latest base fee
 	baseFee := (*assets.Wei)(feeHistory.BaseFee[len(feeHistory.BaseFee)-1])
+	latestBlock := big.NewInt(0).Add(feeHistory.OldestBlock, big.NewInt(int64(u.config.BlockHistorySize)))
+
 	priorityFee := big.NewInt(0)
 	priorityFeeThreshold := big.NewInt(0)
 	for _, fee := range feeHistory.Reward {
@@ -272,8 +274,8 @@ func (u *UniversalEstimator) FetchDynamicPrice(parentCtx context.Context) (fee D
 	promUniversalEstimatorMaxPriorityFeePerGas.WithLabelValues(u.chainID.String()).Set(float64(maxPriorityFeePerGas.Int64()))
 	promUniversalEstimatorMaxFeePerGas.WithLabelValues(u.chainID.String()).Set(float64(maxFeePerGas.Int64()))
 
-	u.logger.Debugf("fetched new dynamic prices, maxFeePerGas: %v - maxPriorityFeePerGas: %v - maxPriorityFeeThreshold: %v",
-		maxFeePerGas, maxPriorityFeePerGas, (*assets.Wei)(priorityFeeThreshold))
+	u.logger.Debugf("Fetched new dynamic prices, block#: %v - maxFeePerGas: %v - maxPriorityFeePerGas: %v - maxPriorityFeeThreshold: %v",
+		latestBlock, maxFeePerGas, maxPriorityFeePerGas, (*assets.Wei)(priorityFeeThreshold))
 
 	u.dynamicPriceMu.Lock()
 	defer u.dynamicPriceMu.Unlock()

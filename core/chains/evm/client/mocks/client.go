@@ -359,6 +359,36 @@ func (_m *Client) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint6
 	return r0, r1
 }
 
+// FeeHistory provides a mock function with given fields: ctx, blockCount, rewardPercentiles
+func (_m *Client) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (*ethereum.FeeHistory, error) {
+	ret := _m.Called(ctx, blockCount, rewardPercentiles)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FeeHistory")
+	}
+
+	var r0 *ethereum.FeeHistory
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, []float64) (*ethereum.FeeHistory, error)); ok {
+		return rf(ctx, blockCount, rewardPercentiles)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, []float64) *ethereum.FeeHistory); ok {
+		r0 = rf(ctx, blockCount, rewardPercentiles)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*ethereum.FeeHistory)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uint64, []float64) error); ok {
+		r1 = rf(ctx, blockCount, rewardPercentiles)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FilterLogs provides a mock function with given fields: ctx, q
 func (_m *Client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
 	ret := _m.Called(ctx, q)
