@@ -198,7 +198,16 @@ func (p *logEventProvider) Close() error {
 		bufV1 := p.buffer.(*logBuffer)
 		availableLogsJSON, _ := json.Marshal(bufV1.availableLogs)
 		dequeuedLogsJSON, _ := json.Marshal(bufV1.dequeuedLogs)
-		p.lggr.Debugw("shutting down LogProvider", "availableLogsJSON", string(availableLogsJSON), "dequeuedLogsJSON", string(dequeuedLogsJSON))
+
+		unavailableLogsJSON, _ := json.Marshal(bufV1.unavailableLogs)
+
+		allCleanedUpLogs := map[string]map[int64][]int{}
+		for qid, q := range bufV1.queues {
+			allCleanedUpLogs[qid] = q.cleanedUpLogs
+		}
+		cleanedUpLogsJSON, _ := json.Marshal(allCleanedUpLogs)
+
+		p.lggr.Debugw("shutting down LogProvider", "availableLogsJSON", string(availableLogsJSON), "dequeuedLogsJSON", string(dequeuedLogsJSON), "cleanedUpLogsJSON", string(cleanedUpLogsJSON), "unavailableLogsJSON", string(unavailableLogsJSON))
 		return nil
 	})
 
