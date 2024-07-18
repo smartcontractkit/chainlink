@@ -194,8 +194,14 @@ func (p *logEventProvider) Start(context.Context) error {
 func (p *logEventProvider) Close() error {
 	return p.StopOnce(LogProviderServiceName, func() error {
 		p.threadCtrl.Close()
+
+		bufV1 := p.buffer.(*logBuffer)
+		availableLogsJSON, _ := json.Marshal(bufV1.availableLogs)
+		dequeuedLogsJSON, _ := json.Marshal(bufV1.dequeuedLogs)
+		p.lggr.Debugw("shutting down LogProvider", "availableLogsJSON", availableLogsJSON, "dequeuedLogsJSON", dequeuedLogsJSON)
 		return nil
 	})
+
 }
 
 func (p *logEventProvider) HealthReport() map[string]error {
