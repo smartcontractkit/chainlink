@@ -278,6 +278,7 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240717202359-0bcfc8ee468d // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240621143432-85370a54b141 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240702144807-761f63e7b527 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240522213638-159fb2d99917 // indirect

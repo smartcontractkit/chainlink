@@ -16,6 +16,7 @@ import (
 	capcfg "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/plugins/ccip_integration_tests/integrationhelpers"
 
 	"github.com/stretchr/testify/require"
 )
@@ -23,19 +24,19 @@ import (
 func TestHomeChainReader(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
-	uni := NewTestUniverse(ctx, t, lggr)
+	uni := integrationhelpers.NewTestUniverse(ctx, t, lggr)
 	// We need 3*f + 1 p2pIDs to have enough nodes to bootstrap
 	var arr []int64
-	n := int(FChainA*3 + 1)
+	n := int(integrationhelpers.FChainA*3 + 1)
 	for i := 0; i <= n; i++ {
 		arr = append(arr, int64(i))
 	}
-	p2pIDs := P2pIDsFromInts(arr)
+	p2pIDs := integrationhelpers.P2pIDsFromInts(arr)
 	uni.AddCapability(p2pIDs)
 	//==============================Apply configs to Capability Contract=================================
-	chainAConf := SetupConfigInfo(ChainA, p2pIDs, FChainA, []byte("ChainA"))
-	chainBConf := SetupConfigInfo(ChainB, p2pIDs[1:], FChainB, []byte("ChainB"))
-	chainCConf := SetupConfigInfo(ChainC, p2pIDs[2:], FChainC, []byte("ChainC"))
+	chainAConf := integrationhelpers.SetupConfigInfo(integrationhelpers.ChainA, p2pIDs, integrationhelpers.FChainA, []byte("ChainA"))
+	chainBConf := integrationhelpers.SetupConfigInfo(integrationhelpers.ChainB, p2pIDs[1:], integrationhelpers.FChainB, []byte("ChainB"))
+	chainCConf := integrationhelpers.SetupConfigInfo(integrationhelpers.ChainC, p2pIDs[2:], integrationhelpers.FChainC, []byte("ChainC"))
 	inputConfig := []capcfg.CCIPConfigTypesChainConfigInfo{
 		chainAConf,
 		chainBConf,
@@ -67,18 +68,14 @@ func TestHomeChainReader(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expectedChainConfigs, configs)
 	//=================================Remove ChainC from OnChainConfig=========================================
-	_, err = uni.CcipCfg.ApplyChainConfigUpdates(uni.Transactor, []uint64{ChainC}, nil)
+	_, err = uni.CcipCfg.ApplyChainConfigUpdates(uni.Transactor, []uint64{integrationhelpers.ChainC}, nil)
 	require.NoError(t, err)
 	uni.Backend.Commit()
 	time.Sleep(pollDuration * 5) // Wait for the chain reader to update
 	configs, err = homeChain.GetAllChainConfigs()
 	require.NoError(t, err)
-	delete(expectedChainConfigs, cciptypes.ChainSelector(ChainC))
+	delete(expectedChainConfigs, cciptypes.ChainSelector(integrationhelpers.ChainC))
 	require.Equal(t, expectedChainConfigs, configs)
-	//================================Close HomeChain Reader===============================
-	//require.NoError(t, homeChain.Close())
-	//require.NoError(t, uni.LogPoller.Close())
-	t.Logf("homchain reader successfully closed")
 }
 
 func toPeerIDs(readers [][32]byte) mapset.Set[libocrtypes.PeerID] {

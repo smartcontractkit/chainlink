@@ -15,7 +15,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jmoiron/sqlx"
-	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccipcapability/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -27,6 +30,7 @@ import (
 	v2toml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -39,7 +43,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/libocr/commontypes"
+
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 )
 
 type ocr3Node struct {
@@ -55,7 +61,6 @@ type ocr3Node struct {
 func setupNodeOCR3(
 	t *testing.T,
 	port int,
-	capabilitiesPort int,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	universes map[uint64]onchainUniverse,
 	homeChainUniverse homeChain,
@@ -76,9 +81,6 @@ func setupNodeOCR3(
 		}
 
 		// Enable Capabilities, This is a pre-requisite for registrySyncer to work.
-		// Same values as P2P.V2 except for the listen address.
-		c.Capabilities.Peering.V2 = c.P2P.V2
-		c.Capabilities.Peering.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", capabilitiesPort)}
 		c.Capabilities.ExternalRegistry.NetworkID = ptr(relay.NetworkEVM)
 		c.Capabilities.ExternalRegistry.ChainID = ptr(strconv.FormatUint(homeChainUniverse.chainID, 10))
 		c.Capabilities.ExternalRegistry.Address = ptr(homeChainUniverse.capabilityRegistry.Address().String())
@@ -88,6 +90,8 @@ func setupNodeOCR3(
 		c.OCR.DefaultTransactionQueueDepth = ptr(uint32(200))
 		c.OCR2.Enabled = ptr(true)
 		c.OCR2.ContractPollInterval = config.MustNewDuration(5 * time.Second)
+
+		c.Log.Level = ptr(configv2.LogLevel(zapcore.InfoLevel))
 
 		var chains v2toml.EVMConfigs
 		for chainID := range universes {
@@ -291,4 +295,26 @@ func commitBlocksBackground(t *testing.T, universes map[uint64]onchainUniverse, 
 		tickCancel()
 		wg.Wait()
 	})
+}
+
+// p2pKeyID: nodes p2p id
+// ocrKeyBundleID: nodes ocr key bundle id
+func mustGetJobSpec(t *testing.T, bootstrapP2PID p2pkey.PeerID, bootstrapPort int, p2pKeyID string, ocrKeyBundleID string) job.Job {
+	specArgs := validate.SpecArgs{
+		P2PV2Bootstrappers: []string{
+			fmt.Sprintf("%s@127.0.0.1:%d", bootstrapP2PID.Raw(), bootstrapPort),
+		},
+		CapabilityVersion:      CapabilityVersion,
+		CapabilityLabelledName: CapabilityLabelledName,
+		OCRKeyBundleIDs: map[string]string{
+			relay.NetworkEVM: ocrKeyBundleID,
+		},
+		P2PKeyID:     p2pKeyID,
+		PluginConfig: map[string]any{},
+	}
+	specToml, err := validate.NewCCIPSpecToml(specArgs)
+	require.NoError(t, err)
+	jb, err := validate.ValidatedCCIPSpec(specToml)
+	require.NoError(t, err)
+	return jb
 }

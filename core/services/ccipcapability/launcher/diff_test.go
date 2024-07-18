@@ -1,22 +1,25 @@
 package launcher
 
 import (
+	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	capcommon "github.com/smartcontractkit/chainlink/v2/core/services/ccipcapability/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+)
+
+const (
+	ccipCapVersion    = "v1.0.0"
+	ccipCapNewVersion = "v1.1.0"
+	ccipCapName       = "ccip"
 )
 
 func Test_diff(t *testing.T) {
@@ -35,13 +38,13 @@ func Test_diff(t *testing.T) {
 		{
 			"no diff",
 			args{
-				capabilityVersion:      "v1.0.0",
-				capabilityLabelledName: "ccip",
+				capabilityVersion:      ccipCapVersion,
+				capabilityLabelledName: ccipCapName,
 				oldState: registrysyncer.State{
 					IDsToCapabilities: map[registrysyncer.HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{
-						mustHashedCapabilityId("ccip", "v1.0.0"): {
-							LabelledName: "ccip",
-							Version:      "v1.0.0",
+						mustHashedCapabilityID(ccipCapName, ccipCapVersion): {
+							LabelledName: ccipCapName,
+							Version:      ccipCapVersion,
 						},
 					},
 					IDsToDONs: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{
@@ -49,7 +52,7 @@ func Test_diff(t *testing.T) {
 							Id: 1,
 							CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
 								{
-									CapabilityId: mustHashedCapabilityId("ccip", "v1.0.0"),
+									CapabilityId: mustHashedCapabilityID(ccipCapName, ccipCapVersion),
 								},
 							},
 						},
@@ -58,9 +61,9 @@ func Test_diff(t *testing.T) {
 				},
 				newState: registrysyncer.State{
 					IDsToCapabilities: map[registrysyncer.HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{
-						mustHashedCapabilityId("ccip", "v1.0.0"): {
-							LabelledName: "ccip",
-							Version:      "v1.0.0",
+						mustHashedCapabilityID(ccipCapName, ccipCapVersion): {
+							LabelledName: ccipCapName,
+							Version:      ccipCapVersion,
 						},
 					},
 					IDsToDONs: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{
@@ -68,7 +71,7 @@ func Test_diff(t *testing.T) {
 							Id: 1,
 							CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
 								{
-									CapabilityId: mustHashedCapabilityId("ccip", "v1.0.0"),
+									CapabilityId: mustHashedCapabilityID(ccipCapName, ccipCapVersion),
 								},
 							},
 						},
@@ -86,21 +89,21 @@ func Test_diff(t *testing.T) {
 		{
 			"capability not present",
 			args{
-				capabilityVersion:      "v1.0.0",
-				capabilityLabelledName: "ccip",
+				capabilityVersion:      ccipCapVersion,
+				capabilityLabelledName: ccipCapName,
 				oldState: registrysyncer.State{
 					IDsToCapabilities: map[registrysyncer.HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{
-						mustHashedCapabilityId("ccip", "v1.1.0"): {
-							LabelledName: "ccip",
-							Version:      "v1.1.0",
+						mustHashedCapabilityID(ccipCapName, ccipCapNewVersion): {
+							LabelledName: ccipCapName,
+							Version:      ccipCapNewVersion,
 						},
 					},
 				},
 				newState: registrysyncer.State{
 					IDsToCapabilities: map[registrysyncer.HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{
-						mustHashedCapabilityId("ccip", "v1.1.0"): {
-							LabelledName: "ccip",
-							Version:      "v1.1.0",
+						mustHashedCapabilityID(ccipCapName, ccipCapNewVersion): {
+							LabelledName: ccipCapName,
+							Version:      ccipCapNewVersion,
 						},
 					},
 				},
@@ -111,22 +114,22 @@ func Test_diff(t *testing.T) {
 		{
 			"diff present, new don",
 			args{
-				capabilityVersion:      "v1.0.0",
-				capabilityLabelledName: "ccip",
+				capabilityVersion:      ccipCapVersion,
+				capabilityLabelledName: ccipCapName,
 				oldState: registrysyncer.State{
 					IDsToCapabilities: map[registrysyncer.HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{
-						mustHashedCapabilityId("ccip", "v1.0.0"): {
-							LabelledName: "ccip",
-							Version:      "v1.0.0",
+						mustHashedCapabilityID(ccipCapName, ccipCapVersion): {
+							LabelledName: ccipCapName,
+							Version:      ccipCapVersion,
 						},
 					},
 					IDsToDONs: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{},
 				},
 				newState: registrysyncer.State{
 					IDsToCapabilities: map[registrysyncer.HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{
-						mustHashedCapabilityId("ccip", "v1.0.0"): {
-							LabelledName: "ccip",
-							Version:      "v1.0.0",
+						mustHashedCapabilityID(ccipCapName, ccipCapVersion): {
+							LabelledName: ccipCapName,
+							Version:      ccipCapVersion,
 						},
 					},
 					IDsToDONs: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{
@@ -134,7 +137,7 @@ func Test_diff(t *testing.T) {
 							Id: 1,
 							CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
 								{
-									CapabilityId: mustHashedCapabilityId("ccip", "v1.0.0"),
+									CapabilityId: mustHashedCapabilityID(ccipCapName, ccipCapVersion),
 								},
 							},
 						},
@@ -147,7 +150,7 @@ func Test_diff(t *testing.T) {
 						Id: 1,
 						CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
 							{
-								CapabilityId: mustHashedCapabilityId("ccip", "v1.0.0"),
+								CapabilityId: mustHashedCapabilityID(ccipCapName, ccipCapVersion),
 							},
 						},
 					},
@@ -279,8 +282,8 @@ func Test_filterCCIPDONs(t *testing.T) {
 			"one ccip don",
 			args{
 				ccipCapability: kcr.CapabilitiesRegistryCapabilityInfo{
-					LabelledName: "ccip",
-					Version:      "v1.0.0",
+					LabelledName: ccipCapName,
+					Version:      ccipCapVersion,
 				},
 				state: registrysyncer.State{
 					IDsToDONs: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{
@@ -288,7 +291,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 							Id: 1,
 							CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
 								{
-									CapabilityId: mustHashedCapabilityId("ccip", "v1.0.0"),
+									CapabilityId: mustHashedCapabilityID(ccipCapName, ccipCapVersion),
 								},
 							},
 						},
@@ -300,7 +303,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 					Id: 1,
 					CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
 						{
-							CapabilityId: mustHashedCapabilityId("ccip", "v1.0.0"),
+							CapabilityId: mustHashedCapabilityID(ccipCapName, ccipCapVersion),
 						},
 					},
 				},
@@ -311,8 +314,8 @@ func Test_filterCCIPDONs(t *testing.T) {
 			"no ccip dons",
 			args{
 				ccipCapability: kcr.CapabilitiesRegistryCapabilityInfo{
-					LabelledName: "ccip",
-					Version:      "v1.0.0",
+					LabelledName: ccipCapName,
+					Version:      ccipCapVersion,
 				},
 				state: registrysyncer.State{
 					IDsToDONs: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{
@@ -320,7 +323,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 							Id: 1,
 							CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
 								{
-									CapabilityId: mustHashedCapabilityId("ccip", "v1.1.0"),
+									CapabilityId: mustHashedCapabilityID(ccipCapName, ccipCapNewVersion),
 								},
 							},
 						},
@@ -334,8 +337,8 @@ func Test_filterCCIPDONs(t *testing.T) {
 			"don with multiple capabilities, one of them ccip",
 			args{
 				ccipCapability: kcr.CapabilitiesRegistryCapabilityInfo{
-					LabelledName: "ccip",
-					Version:      "v1.0.0",
+					LabelledName: ccipCapName,
+					Version:      ccipCapVersion,
 				},
 				state: registrysyncer.State{
 					IDsToDONs: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{
@@ -343,10 +346,10 @@ func Test_filterCCIPDONs(t *testing.T) {
 							Id: 1,
 							CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
 								{
-									CapabilityId: mustHashedCapabilityId("ccip", "v1.0.0"),
+									CapabilityId: mustHashedCapabilityID(ccipCapName, ccipCapVersion),
 								},
 								{
-									CapabilityId: mustHashedCapabilityId("ccip", "v1.1.0"),
+									CapabilityId: mustHashedCapabilityID(ccipCapName, ccipCapNewVersion),
 								},
 							},
 						},
@@ -358,10 +361,10 @@ func Test_filterCCIPDONs(t *testing.T) {
 					Id: 1,
 					CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
 						{
-							CapabilityId: mustHashedCapabilityId("ccip", "v1.0.0"),
+							CapabilityId: mustHashedCapabilityID(ccipCapName, ccipCapVersion),
 						},
 						{
-							CapabilityId: mustHashedCapabilityId("ccip", "v1.1.0"),
+							CapabilityId: mustHashedCapabilityID(ccipCapName, ccipCapNewVersion),
 						},
 					},
 				},
@@ -397,37 +400,37 @@ func Test_checkCapabilityPresence(t *testing.T) {
 		{
 			"in registry state",
 			args{
-				capabilityVersion:      "v1.0.0",
-				capabilityLabelledName: "ccip",
+				capabilityVersion:      ccipCapVersion,
+				capabilityLabelledName: ccipCapName,
 				state: registrysyncer.State{
 					IDsToCapabilities: map[registrysyncer.HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{
-						mustHashedCapabilityId("ccip", "v1.0.0"): {
-							LabelledName: "ccip",
-							Version:      "v1.0.0",
+						mustHashedCapabilityID(ccipCapName, ccipCapVersion): {
+							LabelledName: ccipCapName,
+							Version:      ccipCapVersion,
 						},
-						mustHashedCapabilityId("ccip", "v1.1.0"): {
-							LabelledName: "ccip",
-							Version:      "v1.1.0",
+						mustHashedCapabilityID(ccipCapName, ccipCapNewVersion): {
+							LabelledName: ccipCapName,
+							Version:      ccipCapNewVersion,
 						},
 					},
 				},
 			},
 			kcr.CapabilitiesRegistryCapabilityInfo{
-				LabelledName: "ccip",
-				Version:      "v1.0.0",
+				LabelledName: ccipCapName,
+				Version:      ccipCapVersion,
 			},
 			false,
 		},
 		{
 			"not in registry state",
 			args{
-				capabilityVersion:      "v1.0.0",
-				capabilityLabelledName: "ccip",
+				capabilityVersion:      ccipCapVersion,
+				capabilityLabelledName: ccipCapName,
 				state: registrysyncer.State{
 					IDsToCapabilities: map[registrysyncer.HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{
-						mustHashedCapabilityId("ccip", "v1.1.0"): {
-							LabelledName: "ccip",
-							Version:      "v1.1.0",
+						mustHashedCapabilityID(ccipCapName, ccipCapNewVersion): {
+							LabelledName: ccipCapName,
+							Version:      ccipCapNewVersion,
 						},
 					},
 				},
@@ -450,41 +453,6 @@ func Test_checkCapabilityPresence(t *testing.T) {
 	}
 }
 
-func Test_hashedCapabilityId(t *testing.T) {
-	transactor := testutils.MustNewSimTransactor(t)
-	sb := backends.NewSimulatedBackend(core.GenesisAlloc{
-		transactor.From: {Balance: assets.Ether(1000).ToInt()},
-	}, 30e6)
-
-	crAddress, _, _, err := kcr.DeployCapabilitiesRegistry(transactor, sb)
-	require.NoError(t, err)
-	sb.Commit()
-
-	cr, err := kcr.NewCapabilitiesRegistry(crAddress, sb)
-	require.NoError(t, err)
-
-	// add a capability, ignore cap config for simplicity.
-	_, err = cr.AddCapabilities(transactor, []kcr.CapabilitiesRegistryCapability{
-		{
-			LabelledName:          "ccip",
-			Version:               "v1.0.0",
-			CapabilityType:        0,
-			ResponseType:          0,
-			ConfigurationContract: common.Address{},
-		},
-	})
-	require.NoError(t, err)
-	sb.Commit()
-
-	hidExpected, err := cr.GetHashedCapabilityId(nil, "ccip", "v1.0.0")
-	require.NoError(t, err)
-
-	hid, err := hashedCapabilityId("ccip", "v1.0.0")
-	require.NoError(t, err)
-
-	require.Equal(t, hidExpected, hid)
-}
-
 func Test_isMemberOfDON(t *testing.T) {
 	var p2pIDs [][32]byte
 	for i := range [4]struct{}{} {
@@ -505,4 +473,12 @@ func Test_isMemberOfBootstrapSubcommittee(t *testing.T) {
 	}
 	require.True(t, isMemberOfBootstrapSubcommittee(bootstrapKeys, ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID())))
 	require.False(t, isMemberOfBootstrapSubcommittee(bootstrapKeys, ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(5)).PeerID())))
+}
+
+func mustHashedCapabilityID(capabilityLabelledName, capabilityVersion string) [32]byte {
+	r, err := capcommon.HashedCapabilityID(capabilityLabelledName, capabilityVersion)
+	if err != nil {
+		panic(fmt.Errorf("failed to hash capability id (labelled name: %s, version: %s): %w", capabilityLabelledName, capabilityVersion, err))
+	}
+	return r
 }
