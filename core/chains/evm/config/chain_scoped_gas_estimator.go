@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -34,6 +36,10 @@ func (g *gasEstimatorConfig) PriceMaxKey(addr gethcommon.Address) *assets.Wei {
 
 func (g *gasEstimatorConfig) BlockHistory() BlockHistory {
 	return &blockHistoryConfig{c: g.c.BlockHistory, blockDelay: g.blockDelay, bumpThreshold: g.c.BumpThreshold}
+}
+
+func (g *gasEstimatorConfig) Universal() Universal {
+	return &universalConfig{c: g.c.Universal}
 }
 
 func (g *gasEstimatorConfig) EIP1559DynamicFees() bool {
@@ -171,4 +177,16 @@ func (b *blockHistoryConfig) TransactionPercentile() uint16 {
 
 func (b *blockHistoryConfig) BlockDelay() uint16 {
 	return *b.blockDelay
+}
+
+type universalConfig struct {
+	c toml.UniversalEstimator
+}
+
+func (u *universalConfig) CacheTimeout() time.Duration {
+	return u.c.CacheTimeout.Duration()
+}
+
+func (u *universalConfig) HasMempool() bool {
+	return *u.c.HasMempool
 }

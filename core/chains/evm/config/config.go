@@ -117,6 +117,7 @@ type AutoPurgeConfig interface {
 //go:generate mockery --quiet --name GasEstimator --output ./mocks/ --case=underscore
 type GasEstimator interface {
 	BlockHistory() BlockHistory
+	Universal() Universal
 	LimitJobType() LimitJobType
 
 	EIP1559DynamicFees() bool
@@ -155,6 +156,11 @@ type BlockHistory interface {
 	CheckInclusionPercentile() uint16
 	EIP1559FeeCapBufferBlocks() uint16
 	TransactionPercentile() uint16
+}
+
+type Universal interface {
+	CacheTimeout() time.Duration
+	HasMempool() bool
 }
 
 type Workflow interface {

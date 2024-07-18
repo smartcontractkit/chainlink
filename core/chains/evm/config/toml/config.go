@@ -558,6 +558,7 @@ type GasEstimator struct {
 	TipCapMin     *assets.Wei
 
 	BlockHistory BlockHistoryEstimator `toml:",omitempty"`
+	Universal    UniversalEstimator    `toml:",omitempty"`
 }
 
 func (e *GasEstimator) ValidateConfig() (err error) {
@@ -649,6 +650,7 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	}
 	e.LimitJobType.setFrom(&f.LimitJobType)
 	e.BlockHistory.setFrom(&f.BlockHistory)
+	e.Universal.setFrom(&f.Universal)
 }
 
 type GasLimitJobType struct {
@@ -708,6 +710,20 @@ func (e *BlockHistoryEstimator) setFrom(f *BlockHistoryEstimator) {
 	}
 	if v := f.TransactionPercentile; v != nil {
 		e.TransactionPercentile = v
+	}
+}
+
+type UniversalEstimator struct {
+	CacheTimeout *commonconfig.Duration
+	HasMempool   *bool
+}
+
+func (u *UniversalEstimator) setFrom(f *UniversalEstimator) {
+	if v := f.CacheTimeout; v != nil {
+		u.CacheTimeout = v
+	}
+	if v := f.HasMempool; v != nil {
+		u.HasMempool = v
 	}
 }
 

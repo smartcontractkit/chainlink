@@ -220,6 +220,14 @@ func TestChainScopedConfig_BlockHistory(t *testing.T) {
 	assert.Equal(t, uint16(1), bh.BlockDelay())
 	assert.Equal(t, uint16(4), bh.EIP1559FeeCapBufferBlocks())
 }
+func TestChainScopedConfig_Universal(t *testing.T) {
+	t.Parallel()
+	cfg := testutils.NewTestChainScopedConfig(t, nil)
+
+	u := cfg.EVM().GasEstimator().Universal()
+	assert.Equal(t, 10*time.Second, u.CacheTimeout())
+	assert.Equal(t, true, u.HasMempool())
+}
 
 func TestChainScopedConfig_GasEstimator(t *testing.T) {
 	t.Parallel()

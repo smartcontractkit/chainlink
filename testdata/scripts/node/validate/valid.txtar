@@ -369,6 +369,10 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
+[EVM.GasEstimator.Universal]
+CacheTimeout = '10s'
+HasMempool = true
+
 [EVM.HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
