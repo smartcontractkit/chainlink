@@ -155,7 +155,7 @@ jobs:
           - name: reorg
             id: reorg
             suite: reorg
-            nodes: 5
+            nodes: 7
             os: ubuntu-latest
             enabled: ${{ inputs.enableReorg }}
             pyroscope_env: ci-automation-on-demand-reorg
