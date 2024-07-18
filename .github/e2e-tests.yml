@@ -551,7 +551,7 @@ runner-test-matrix:
       test_suite: reorg
     workflows:
       - Run Automation On Demand Tests (TEST WORKFLOW)
-    test_cmd: cd integration-tests/reorg && go test -v -test.run ^TestAutomationReorg$ -test.parallel=7 -timeout 60m -count=1 -json
+    test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg$ -test.parallel=7 -timeout 60m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
 
   - id: integration-tests/chaos/automation_chaos_test.go
@@ -560,7 +560,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     workflows:
       - Run Automation On Demand Tests (TEST WORKFLOW)
-    test_cmd: cd integration-tests/chaos && go test -v -test.run ^TestAutomationChaos$ -test.parallel=15 -timeout 60m -count=1 -json
+    test_cmd: cd integration-tests/chaos && DETACH_RUNNER=false go test -v -test.run ^TestAutomationChaos$ -test.parallel=15 -timeout 60m -count=1 -json
     pyroscope_env: ci-automation-on-demand-chaos
     test_inputs:
       test_suite: chaos
