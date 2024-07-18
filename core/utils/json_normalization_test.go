@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	testcommon "github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -34,12 +36,12 @@ func TestNormalizedJSON(t *testing.T) {
 			false,
 		},
 		{"reordering",
-			cltest.JSONFromString(t, `{"a": "!", "A": "1"}`),
+			testcommon.JSONFromString(t, `{"a": "!", "A": "1"}`),
 			`{"A":"1","a":"!"}`,
 			false,
 		},
 		{"more key reordering",
-			cltest.JSONFromString(t, `{"a": "!", "A": "1", "B": "@", "b":"?", "c":"..."}`),
+			testcommon.JSONFromString(t, `{"a": "!", "A": "1", "B": "@", "b":"?", "c":"..."}`),
 			`{"A":"1","B":"@","a":"!","b":"?","c":"..."}`,
 			false,
 		},

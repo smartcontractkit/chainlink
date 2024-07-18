@@ -5,8 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAddressCollection_ToStrings(t *testing.T) {
@@ -15,7 +14,7 @@ func TestAddressCollection_ToStrings(t *testing.T) {
 	hex1 := "0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa"
 	hex2 := "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"
 
-	ac := models.AddressCollection{
+	ac := AddressCollection{
 		common.HexToAddress(hex1),
 		common.HexToAddress(hex2),
 	}
@@ -29,7 +28,7 @@ func TestAddressCollection_ToStrings(t *testing.T) {
 func TestAddressCollection_Scan_Value(t *testing.T) {
 	t.Parallel()
 
-	ac := models.AddressCollection{
+	ac := AddressCollection{
 		common.HexToAddress(strings.Repeat("AA", 20)),
 		common.HexToAddress(strings.Repeat("BB", 20)),
 	}
@@ -37,7 +36,7 @@ func TestAddressCollection_Scan_Value(t *testing.T) {
 	val, err := ac.Value()
 	require.NoError(t, err)
 
-	var acNew models.AddressCollection
+	var acNew AddressCollection
 	err = acNew.Scan(val)
 	require.NoError(t, err)
 

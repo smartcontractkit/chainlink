@@ -15,9 +15,13 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/models"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+
+	evmmodels "github.com/smartcontractkit/chainlink/v2/core/store/models/evm"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -28,7 +32,6 @@ import (
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
 )
@@ -478,14 +481,14 @@ func (w *WebhookSpec) SetID(value string) error {
 }
 
 type DirectRequestSpec struct {
-	ID                       int32                    `toml:"-"`
-	ContractAddress          evmtypes.EIP55Address    `toml:"contractAddress"`
-	MinIncomingConfirmations clnull.Uint32            `toml:"minIncomingConfirmations"`
-	Requesters               models.AddressCollection `toml:"requesters"`
-	MinContractPayment       *commonassets.Link       `toml:"minContractPaymentLinkJuels"`
-	EVMChainID               *big.Big                 `toml:"evmChainID"`
-	CreatedAt                time.Time                `toml:"-"`
-	UpdatedAt                time.Time                `toml:"-"`
+	ID                       int32                       `toml:"-"`
+	ContractAddress          evmtypes.EIP55Address       `toml:"contractAddress"`
+	MinIncomingConfirmations clnull.Uint32               `toml:"minIncomingConfirmations"`
+	Requesters               evmmodels.AddressCollection `toml:"requesters"`
+	MinContractPayment       *commonassets.Link          `toml:"minContractPaymentLinkJuels"`
+	EVMChainID               *big.Big                    `toml:"evmChainID"`
+	CreatedAt                time.Time                   `toml:"-"`
+	UpdatedAt                time.Time                   `toml:"-"`
 }
 
 type CronSpec struct {

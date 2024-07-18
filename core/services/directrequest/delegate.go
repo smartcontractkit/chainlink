@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
+	modelsevm "github.com/smartcontractkit/chainlink/v2/core/store/models/evm"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -21,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type (
@@ -134,7 +135,7 @@ type listener struct {
 	mbOracleRequests         *mailbox.Mailbox[log.Broadcast]
 	mbOracleCancelRequests   *mailbox.Mailbox[log.Broadcast]
 	minIncomingConfirmations uint32
-	requesters               models.AddressCollection
+	requesters               modelsevm.AddressCollection
 	minContractPayment       *assets.Link
 	chStop                   services.StopChan
 }

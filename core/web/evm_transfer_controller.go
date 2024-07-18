@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	evmmodels "github.com/smartcontractkit/chainlink/v2/core/store/models/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
@@ -32,7 +32,7 @@ type EVMTransfersController struct {
 //
 // Example: "<application>/withdrawals"
 func (tc *EVMTransfersController) Create(c *gin.Context) {
-	var tr models.SendEtherRequest
+	var tr evmmodels.SendEtherRequest
 	if err := c.ShouldBindJSON(&tr); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return

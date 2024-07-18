@@ -4,8 +4,9 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/models"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func (g *generalConfig) AppID() uuid.UUID {

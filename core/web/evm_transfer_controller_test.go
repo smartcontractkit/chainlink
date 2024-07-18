@@ -12,6 +12,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -22,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	evmmodels "github.com/smartcontractkit/chainlink/v2/core/store/models/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
@@ -53,7 +54,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
 
-	request := models.SendEtherRequest{
+	request := evmmodels.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		FromAddress:        key.Address,
 		Amount:             amount,
@@ -94,7 +95,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 
 	amount := assets.NewEthValue(1000000000000000000)
 
-	request := models.SendEtherRequest{
+	request := evmmodels.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		FromAddress:        key.Address,
 		Amount:             amount,
@@ -140,7 +141,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
 
-	request := models.SendEtherRequest{
+	request := evmmodels.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		FromAddress:        key.Address,
 		Amount:             amount,
@@ -171,7 +172,7 @@ func TestTransfersController_TransferZeroAddressError(t *testing.T) {
 	require.NoError(t, err)
 
 	client := app.NewHTTPClient(nil)
-	request := models.SendEtherRequest{
+	request := evmmodels.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
 		Amount:             amount,
@@ -205,7 +206,7 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
 
-	request := models.SendEtherRequest{
+	request := evmmodels.SendEtherRequest{
 		FromAddress:        key.Address,
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		Amount:             amount,
@@ -243,7 +244,7 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
 
-	request := models.SendEtherRequest{
+	request := evmmodels.SendEtherRequest{
 		FromAddress:        key.Address,
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		Amount:             amount,
@@ -306,7 +307,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 	require.NoError(t, err)
 
 	timeout := 5 * time.Second
-	request := models.SendEtherRequest{
+	request := evmmodels.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		FromAddress:        key.Address,
 		Amount:             amount,

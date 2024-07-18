@@ -5,19 +5,21 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+
+	modelsevm "github.com/smartcontractkit/chainlink/v2/core/store/models/evm"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type DirectRequestToml struct {
-	ContractAddress          types.EIP55Address       `toml:"contractAddress"`
-	Requesters               models.AddressCollection `toml:"requesters"`
-	MinContractPayment       *assets.Link             `toml:"minContractPaymentLinkJuels"`
-	EVMChainID               *big.Big                 `toml:"evmChainID"`
-	MinIncomingConfirmations null.Uint32              `toml:"minIncomingConfirmations"`
+	ContractAddress          types.EIP55Address          `toml:"contractAddress"`
+	Requesters               modelsevm.AddressCollection `toml:"requesters"`
+	MinContractPayment       *assets.Link                `toml:"minContractPaymentLinkJuels"`
+	EVMChainID               *big.Big                    `toml:"evmChainID"`
+	MinIncomingConfirmations null.Uint32                 `toml:"minIncomingConfirmations"`
 }
 
 func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {

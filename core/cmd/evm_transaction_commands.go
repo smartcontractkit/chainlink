@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	evmmodels "github.com/smartcontractkit/chainlink/v2/core/store/models/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -183,7 +183,7 @@ func (s *Shell) SendEther(c *cli.Context) (err error) {
 		}
 	}
 
-	request := models.SendEtherRequest{
+	request := evmmodels.SendEtherRequest{
 		DestinationAddress: destinationAddress,
 		FromAddress:        fromAddress,
 		Amount:             amount,

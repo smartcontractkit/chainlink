@@ -9,6 +9,8 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/models"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -16,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	evmmodels "github.com/smartcontractkit/chainlink/v2/core/store/models/evm"
 )
 
 // JobSpecType defines the spec type of the job
@@ -44,14 +46,14 @@ const (
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
 type DirectRequestSpec struct {
-	ContractAddress          types.EIP55Address       `json:"contractAddress"`
-	MinIncomingConfirmations clnull.Uint32            `json:"minIncomingConfirmations"`
-	MinContractPayment       *commonassets.Link       `json:"minContractPaymentLinkJuels"`
-	Requesters               models.AddressCollection `json:"requesters"`
-	Initiator                string                   `json:"initiator"`
-	CreatedAt                time.Time                `json:"createdAt"`
-	UpdatedAt                time.Time                `json:"updatedAt"`
-	EVMChainID               *big.Big                 `json:"evmChainID"`
+	ContractAddress          types.EIP55Address          `json:"contractAddress"`
+	MinIncomingConfirmations clnull.Uint32               `json:"minIncomingConfirmations"`
+	MinContractPayment       *commonassets.Link          `json:"minContractPaymentLinkJuels"`
+	Requesters               evmmodels.AddressCollection `json:"requesters"`
+	Initiator                string                      `json:"initiator"`
+	CreatedAt                time.Time                   `json:"createdAt"`
+	UpdatedAt                time.Time                   `json:"updatedAt"`
+	EVMChainID               *big.Big                    `json:"evmChainID"`
 }
 
 // NewDirectRequestSpec initializes a new DirectRequestSpec from a

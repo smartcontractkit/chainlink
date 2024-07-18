@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/models"
+	testcommon "github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
@@ -13,7 +14,7 @@ import (
 
 // JSONFromFixture create models.JSON from file path
 func JSONFromFixture(t *testing.T, path string) models.JSON {
-	return JSONFromBytes(t, MustReadFile(t, path))
+	return testcommon.JSONFromBytes(t, MustReadFile(t, path))
 }
 
 // LogFromFixture create ethtypes.log from file path
