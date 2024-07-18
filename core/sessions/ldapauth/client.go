@@ -12,14 +12,10 @@ type ldapClient struct {
 	config config.LDAP
 }
 
-//go:generate mockery --quiet --name LDAPClient --output ./mocks/ --case=underscore
-
 // Wrapper for creating a handle to a *ldap.Conn/LDAPConn interface
 type LDAPClient interface {
 	CreateEphemeralConnection() (LDAPConn, error)
 }
-
-//go:generate mockery --quiet --name LDAPConn --output ./mocks/ --case=underscore
 
 // Wrapper for ldap connection and mock testing, implemented by *ldap.Conn
 type LDAPConn interface {

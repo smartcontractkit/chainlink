@@ -7,9 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-//go:generate mockery --quiet --name Handler --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name DON --output ./mocks/ --case=underscore
-
 // UserCallbackPayload is a response to user request sent to HandleUserMessage().
 // Each message needs to receive at most one response on the provided channel.
 type UserCallbackPayload struct {

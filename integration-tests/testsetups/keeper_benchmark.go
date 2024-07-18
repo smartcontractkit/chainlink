@@ -240,8 +240,9 @@ func (k *KeeperBenchmarkTest) Run() {
 			txKeyId = 0
 		}
 		kr := k.keeperRegistries[rIndex]
+		// TODO: need to add the LINK, WETH and WETH/USD feed to support v23
 		ocrConfig, err := actions.BuildAutoOCR2ConfigVarsWithKeyIndex(
-			k.t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, kr.Address(), k.Inputs.DeltaStage, txKeyId, common.Address{}, kr.ChainModuleAddress(), kr.ReorgProtectionEnabled(),
+			k.t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, kr.Address(), k.Inputs.DeltaStage, txKeyId, common.Address{}, kr.ChainModuleAddress(), kr.ReorgProtectionEnabled(), nil, nil, nil,
 		)
 		require.NoError(k.t, err, "Building OCR config shouldn't fail")
 
@@ -730,13 +731,13 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 		require.NoError(k.t, err, "Funding keeper registrar contract shouldn't fail")
 	} else { // OCR automation - v2.X
 		registry, registrar = actions.DeployAutoOCRRegistryAndRegistrar(
-			k.t, k.chainClient, registryVersion, *k.Inputs.KeeperRegistrySettings, k.linkToken,
+			k.t, k.chainClient, registryVersion, *k.Inputs.KeeperRegistrySettings, k.linkToken, nil, nil,
 		)
 
 		// Fund the registry with LINK
 		err := k.linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(k.Inputs.Upkeeps.NumberOfUpkeeps))))
 		require.NoError(k.t, err, "Funding keeper registry contract shouldn't fail")
-		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(k.t, k.chainlinkNodes[1:], *k.Inputs.KeeperRegistrySettings, registrar.Address(), k.Inputs.DeltaStage, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
+		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(k.t, k.chainlinkNodes[1:], *k.Inputs.KeeperRegistrySettings, registrar.Address(), k.Inputs.DeltaStage, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled(), nil, nil, nil)
 		require.NoError(k.t, err, "Building OCR config shouldn't fail")
 		k.log.Debug().Interface("KeeperRegistrySettings", *k.Inputs.KeeperRegistrySettings).Interface("OCRConfig", ocrConfig).Msg("Config")
 		require.NoError(k.t, err, "Error building OCR config vars")
