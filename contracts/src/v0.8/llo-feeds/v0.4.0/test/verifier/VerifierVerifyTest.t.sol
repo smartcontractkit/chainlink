@@ -540,5 +540,38 @@ contract VerifierVerifyTest is BaseTest {
     }
 
 
+    function test_verifyFailsWhenReportIsOlderThanConfig() public {
+        /*
+          this test is failing: ToDo Ask Michael
+         */
+        Signer[] memory signers = _getSigners(MAX_ORACLES);
+        address[] memory signerAddrs = _getSignerAddresses(signers);
+        s_reportContext[0] = bytes32(abi.encode(uint32(5), uint8(1)));
+
+        vm.warp(block.timestamp + 100); 
+
+        V3Report memory reportAtTMinus100 = V3Report({
+            feedId: FEED_ID_V3,
+            observationsTimestamp: OBSERVATIONS_TIMESTAMP,
+            validFromTimestamp: uint32(block.timestamp),
+            nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
+            linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
+            expiresAt: uint32(block.timestamp - 100),
+            benchmarkPrice: MEDIAN,
+            bid: BID,
+            ask: ASK
+        });
+
+        s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
+        vm.warp(block.timestamp + 100); 
+        s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE-1, new Common.AddressAndWeight[](0));
+        
+        bytes memory signedReport = _generateV3EncodedBlob(reportAtTMinus100, s_reportContext, signers);
+        // uncomment this later, this call shoudl fail
+        //vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.BadVerification.selector));
+        s_verifierProxy.verify(signedReport, abi.encode(native));
+    }
+
+
 
 }
