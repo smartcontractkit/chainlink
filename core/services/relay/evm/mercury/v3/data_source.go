@@ -123,44 +123,40 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	var isLink, isNative bool
 	if ds.feedID == ds.linkFeedID {
 		isLink = true
-	} else {
+	} else if !triggerCapabilityEnabled {
 		// If the triggerCapability is enabled, we don't need to fetch the price
-		if !triggerCapabilityEnabled {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				obs.LinkPrice.Val, obs.LinkPrice.Err = ds.fetcher.LatestPrice(ctx, ds.linkFeedID)
-				if obs.LinkPrice.Val == nil && obs.LinkPrice.Err == nil {
-					mercurytypes.PriceFeedMissingCount.WithLabelValues(ds.linkFeedID.String()).Inc()
-					ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing LINK feed, using sentinel value of %s", v3.MissingPrice), "linkFeedID", ds.linkFeedID)
-					obs.LinkPrice.Val = v3.MissingPrice
-				} else if obs.LinkPrice.Err != nil {
-					mercurytypes.PriceFeedErrorCount.WithLabelValues(ds.linkFeedID.String()).Inc()
-					ds.lggr.Errorw("Mercury server returned error querying LINK price feed", "err", obs.LinkPrice.Err, "linkFeedID", ds.linkFeedID)
-				}
-			}()
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			obs.LinkPrice.Val, obs.LinkPrice.Err = ds.fetcher.LatestPrice(ctx, ds.linkFeedID)
+			if obs.LinkPrice.Val == nil && obs.LinkPrice.Err == nil {
+				mercurytypes.PriceFeedMissingCount.WithLabelValues(ds.linkFeedID.String()).Inc()
+				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing LINK feed, using sentinel value of %s", v3.MissingPrice), "linkFeedID", ds.linkFeedID)
+				obs.LinkPrice.Val = v3.MissingPrice
+			} else if obs.LinkPrice.Err != nil {
+				mercurytypes.PriceFeedErrorCount.WithLabelValues(ds.linkFeedID.String()).Inc()
+				ds.lggr.Errorw("Mercury server returned error querying LINK price feed", "err", obs.LinkPrice.Err, "linkFeedID", ds.linkFeedID)
+			}
+		}()
 	}
 
 	if ds.feedID == ds.nativeFeedID {
 		isNative = true
-	} else {
+	} else if !triggerCapabilityEnabled {
 		// If the triggerCapability is enabled, we don't need to fetch the price
-		if !triggerCapabilityEnabled {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				obs.NativePrice.Val, obs.NativePrice.Err = ds.fetcher.LatestPrice(ctx, ds.nativeFeedID)
-				if obs.NativePrice.Val == nil && obs.NativePrice.Err == nil {
-					mercurytypes.PriceFeedMissingCount.WithLabelValues(ds.nativeFeedID.String()).Inc()
-					ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing native feed, using sentinel value of %s", v3.MissingPrice), "nativeFeedID", ds.nativeFeedID)
-					obs.NativePrice.Val = v3.MissingPrice
-				} else if obs.NativePrice.Err != nil {
-					mercurytypes.PriceFeedErrorCount.WithLabelValues(ds.nativeFeedID.String()).Inc()
-					ds.lggr.Errorw("Mercury server returned error querying native price feed", "err", obs.NativePrice.Err, "nativeFeedID", ds.nativeFeedID)
-				}
-			}()
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			obs.NativePrice.Val, obs.NativePrice.Err = ds.fetcher.LatestPrice(ctx, ds.nativeFeedID)
+			if obs.NativePrice.Val == nil && obs.NativePrice.Err == nil {
+				mercurytypes.PriceFeedMissingCount.WithLabelValues(ds.nativeFeedID.String()).Inc()
+				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing native feed, using sentinel value of %s", v3.MissingPrice), "nativeFeedID", ds.nativeFeedID)
+				obs.NativePrice.Val = v3.MissingPrice
+			} else if obs.NativePrice.Err != nil {
+				mercurytypes.PriceFeedErrorCount.WithLabelValues(ds.nativeFeedID.String()).Inc()
+				ds.lggr.Errorw("Mercury server returned error querying native price feed", "err", obs.NativePrice.Err, "nativeFeedID", ds.nativeFeedID)
+			}
+		}()
 	}
 
 	wg.Wait()
