@@ -234,8 +234,8 @@ jobs:
       - name: Prepare Base64 TOML config
         env:
           SELECTED_NETWORKS: ${{ matrix.tests.network }}
+          OLD_VERSION: ${{ steps.determine-build.outputs.version }}  
           UPGRADE_VERSION: ${{ steps.determine-build.outputs.upgrade_version }}
-          UPGRADE_IMAGE: ${{ steps.determine-build.outputs.upgrade_image }}
           RUN_ID: ${{ github.run_id }}
           TEST_LOG_COLLECT: "true"
           LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
