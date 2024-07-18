@@ -25,5 +25,20 @@ contract VerifierProxyInitializeVerifierTest is BaseTest {
 
     function test_setVerifierOk() public {
         s_verifierProxy.setVerifier(address(s_verifier));
+        assertEq(s_verifierProxy.s_feeManager(), s_verifier.getFeeManager());
+        assertEq(s_verifierProxy.s_accessController(), s_verifier.getAccessController());
     }
+
+   function test_correctlySetsTheOwner() public {
+     DestinationVerifierProxy proxy = new DestinationVerifierProxy();
+     assertEq(proxy.owner(), ADMIN);
+   }
+
+  function test_correctlySetsVersion() public {
+    string memory version = s_verifierProxy.typeAndVersion();
+    assertEq(version, "DestinationVerifierProxy 1.0.0");
+  }
+  
+  
+    
 }
