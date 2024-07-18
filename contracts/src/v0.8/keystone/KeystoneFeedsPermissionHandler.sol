@@ -39,7 +39,12 @@ abstract contract KeystoneFeedsPermissionHandler is OwnerIsCreator {
   /// @param permission The Permission struct containing details about the permission to set
   /// @dev Emits a ReportPermissionSet event
   function _setReportPermission(Permission memory permission) internal {
-    bytes32 reportId = _createReportId(permission.forwarder, permission.workflowOwner, permission.workflowName, permission.reportName);
+    bytes32 reportId = _createReportId(
+      permission.forwarder,
+      permission.workflowOwner,
+      permission.workflowName,
+      permission.reportName
+    );
     s_allowedReports[reportId] = permission.isAllowed;
     emit ReportPermissionSet(reportId, permission);
   }
@@ -62,14 +67,12 @@ abstract contract KeystoneFeedsPermissionHandler is OwnerIsCreator {
     }
   }
 
-  function _createReportId(address forwarder, address workflowOwner, bytes10 workflowName, bytes2 reportName) internal pure returns (bytes32){
-    return keccak256(
-      abi.encode(
-        forwarder,
-        workflowOwner,
-        workflowName,
-        reportName
-      )
-    );
+  function _createReportId(
+    address forwarder,
+    address workflowOwner,
+    bytes10 workflowName,
+    bytes2 reportName
+  ) internal pure returns (bytes32) {
+    return keccak256(abi.encode(forwarder, workflowOwner, workflowName, reportName));
   }
 }
