@@ -89,7 +89,7 @@ jobs:
               chainlink_image: $CHAINLINK_IMAGE
               chainlink_version: $CHAINLINK_VERSION
               chainlink_upgrade_image: $CHAINLINK_UPGRADE_IMAGE
-              chainlinkUpgradeVersion: $CHAINLINK_UPGRADE_VERSION
+              chainlink_upgrade_version: $CHAINLINK_UPGRADE_VERSION
 
           - id: integration-tests/smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
             test_inputs:
