@@ -13,7 +13,7 @@ import (
 var csvExportCmd = &cobra.Command{
 	Use:   "csvexport",
 	Short: "Export tests to CSV format",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		configFile, _ := cmd.Flags().GetString("file")
 		if err := exportConfigToCSV(configFile); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -24,7 +24,11 @@ var csvExportCmd = &cobra.Command{
 
 func init() {
 	csvExportCmd.Flags().StringP("file", "f", "", "Path to YML file")
-	csvExportCmd.MarkFlagRequired("config")
+	err := csvExportCmd.MarkFlagRequired("config")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func exportConfigToCSV(configFile string) error {

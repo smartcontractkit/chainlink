@@ -3,8 +3,9 @@ package cmd
 import (
 	"strings"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/spf13/cobra"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 )
 
 var testConfigCmd = &cobra.Command{
