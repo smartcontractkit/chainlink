@@ -362,4 +362,183 @@ contract VerifierVerifyTest is BaseTest {
         s_verifierProxy.verify(signedReport, abi.encode(native));
     }
 
+    function test_rollingOutConfiguration() public {
+        /*
+          This test is checking that we can roll out to a new DON without downtime using a transition configuration
+          - DonConfigA has signers {A, B, C} is set at time T1
+          - DonConfigB (transition config) has signers {A, B, C, D, E, F} is set at time T2
+          - DonConfigC has signers {D, E, F} is set at time T3
+          
+          - checks we can verify a report with {A, B, C} signers (via DonConfigA) at time between T1 and T2
+          - checks we can verify a report with {A, B, C} signers (via DonConfigB) at time between T2 and T3
+          - checks we can verify a report with {D, E, F} signers (via DonConfigB) at time between T2 and T3
+          - checks we can verify a report with {D, E, F} signers (via DonConfigC) at time > T3
+          - checks we can't verify a report with {A, B, C} signers (via DonConfigC) and timestamp >T3 at time > T3
+          - checks we can verify a report with {A, B, C} signers (via DonConfigC) and timestamp between T2 and T3  at time > T3 (historical check)
+
+         */
+
+        Signer[] memory signers = _getSigners(MAX_ORACLES);
+
+        uint8 MINIMAL_FAULT_TOLERANCE = 2;
+        BaseTest.Signer[] memory signersSubset1 = new BaseTest.Signer[](7);
+        signersSubset1[0] = signers[0];
+        signersSubset1[1] = signers[1];
+        signersSubset1[2] = signers[2];
+        signersSubset1[3] = signers[3];
+        signersSubset1[4] = signers[4];
+        signersSubset1[5] = signers[5];
+        signersSubset1[6] = signers[6];
+
+        // ConfigA
+        address[] memory signersAddrSubset1 = _getSignerAddresses(signersSubset1);
+        s_verifier.setConfig(signersAddrSubset1, MINIMAL_FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
+
+        V3Report memory reportT1 = V3Report({
+            feedId: FEED_ID_V3,
+            observationsTimestamp: OBSERVATIONS_TIMESTAMP,
+            validFromTimestamp: uint32(block.timestamp),
+            nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
+            linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
+            expiresAt: uint32(block.timestamp),
+            benchmarkPrice: MEDIAN,
+            bid: BID,
+            ask: ASK
+        });
+
+        BaseTest.Signer[] memory reportSignersConfigA = new BaseTest.Signer[](3);
+        reportSignersConfigA[0] = signers[0];
+        reportSignersConfigA[1] = signers[1];
+        reportSignersConfigA[2] = signers[2];
+
+        // just testing ConfigA
+        bytes memory signedReport = _generateV3EncodedBlob(reportT1, s_reportContext, reportSignersConfigA);
+        s_verifierProxy.verify(signedReport, abi.encode(native));
+
+        vm.warp(block.timestamp + 100);
+
+        BaseTest.Signer[] memory signersSuperset = new BaseTest.Signer[](14);
+        // signers in ConfigA
+        signersSuperset[0] = signers[0];
+        signersSuperset[1] = signers[1];
+        signersSuperset[2] = signers[2];
+        signersSuperset[3] = signers[3];
+        signersSuperset[4] = signers[4];
+        signersSuperset[5] = signers[5];
+        signersSuperset[6] = signers[6];
+        // new signers
+        signersSuperset[7] = signers[7];
+        signersSuperset[8] = signers[8];
+        signersSuperset[9] = signers[9];
+        signersSuperset[10] = signers[10];
+        signersSuperset[11] = signers[11];
+        signersSuperset[12] = signers[12];
+        signersSuperset[13] = signers[13];
+
+        BaseTest.Signer[] memory reportSignersConfigC = new BaseTest.Signer[](3);
+        reportSignersConfigC[0] = signers[7];
+        reportSignersConfigC[1] = signers[8];
+        reportSignersConfigC[2] = signers[9];
+
+        // ConfigB (transition Config)
+        address[] memory signersAddrsSuperset = _getSignerAddresses(signersSuperset);
+        s_verifier.setConfig(signersAddrsSuperset, MINIMAL_FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
+
+
+        V3Report memory reportT2 = V3Report({
+            feedId: FEED_ID_V3,
+            observationsTimestamp: OBSERVATIONS_TIMESTAMP,
+            validFromTimestamp: uint32(block.timestamp),
+            nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
+            linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
+            expiresAt: uint32(block.timestamp),
+            benchmarkPrice: MEDIAN,
+            bid: BID,
+            ask: ASK
+        });
+
+        // testing we can verify a fresh (block timestamp) report with ConfigA signers. This should use ConfigB
+        signedReport = _generateV3EncodedBlob(reportT2, s_reportContext, reportSignersConfigA);
+        s_verifierProxy.verify(signedReport, abi.encode(native));
+
+        
+        // testing we can verify an old ( non fresh block timestamp) report with ConfigA signers. This should use ConfigA
+        signedReport = _generateV3EncodedBlob(reportT1, s_reportContext, reportSignersConfigA);
+        s_verifierProxy.verify(signedReport, abi.encode(native));
+        // deactivating to make sure we are really verifiying via ConfigA
+        s_verifier.setConfigActive(0, false);
+        vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.BadVerification.selector));
+        s_verifierProxy.verify(signedReport, abi.encode(native));
+        s_verifier.setConfigActive(0, true);
+
+        // testing we can verify a fresh  (block timestamp) report with the new signers.  This should use ConfigB
+         signedReport = _generateV3EncodedBlob(reportT2, s_reportContext, reportSignersConfigC);
+         s_verifierProxy.verify(signedReport, abi.encode(native));
+
+        vm.warp(block.timestamp + 100);        
+
+       // Adding ConfigC
+        BaseTest.Signer[] memory signersSubset2 = new BaseTest.Signer[](7);
+        signersSubset2[0] = signers[7];
+        signersSubset2[1] = signers[8];
+        signersSubset2[2] = signers[9];
+        signersSubset2[3] = signers[10];
+        signersSubset2[4] = signers[11];
+        signersSubset2[5] = signers[12];
+        signersSubset2[6] = signers[13];
+        address[] memory signersAddrsSubset2 = _getSignerAddresses(signersSubset2);
+        s_verifier.setConfig(signersAddrsSubset2, MINIMAL_FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
+
+         V3Report memory reportT3 = V3Report({
+            feedId: FEED_ID_V3,
+            observationsTimestamp: OBSERVATIONS_TIMESTAMP,
+            validFromTimestamp: uint32(block.timestamp),
+            nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
+            linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
+            expiresAt: uint32(block.timestamp),
+            benchmarkPrice: MEDIAN,
+            bid: BID,
+            ask: ASK
+        });
+
+         // testing we can verify reports with ConfigC signers
+         signedReport = _generateV3EncodedBlob(reportT3, s_reportContext, reportSignersConfigC);
+         s_verifierProxy.verify(signedReport, abi.encode(native));
+
+         //  testing an old report (block timestamp) with ConfigC signers should  verify via ConfigB
+         signedReport = _generateV3EncodedBlob(reportT2, s_reportContext, reportSignersConfigC);
+         s_verifierProxy.verify(signedReport, abi.encode(native));
+         // deactivating to make sure we are really verifiying via ConfigB
+         s_verifier.setConfigActive(1, false);
+         vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.BadVerification.selector));
+         s_verifierProxy.verify(signedReport, abi.encode(native));
+         s_verifier.setConfigActive(1, true);
+
+         // testing a recent report with ConfigA signers should not verify
+         signedReport = _generateV3EncodedBlob(reportT3, s_reportContext, reportSignersConfigA);
+         vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.BadVerification.selector));
+         s_verifierProxy.verify(signedReport, abi.encode(native));
+
+         // testing an old report (block timestamp) with ConfigA signers should  verify via ConfigB
+         signedReport = _generateV3EncodedBlob(reportT2, s_reportContext, reportSignersConfigA);
+         s_verifierProxy.verify(signedReport, abi.encode(native));
+         // deactivating to make sure we are really verifiying via ConfigB
+         s_verifier.setConfigActive(1, false);
+         vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.BadVerification.selector));
+         s_verifierProxy.verify(signedReport, abi.encode(native));
+         s_verifier.setConfigActive(1, true);
+
+         // testing an old report (block timestamp) with ConfigA signers should  verify via ConfigA
+         signedReport = _generateV3EncodedBlob(reportT1, s_reportContext, reportSignersConfigA);
+         s_verifierProxy.verify(signedReport, abi.encode(native));
+         // deactivating to make sure we are really verifiying via ConfigB
+         s_verifier.setConfigActive(0, false);
+         vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.BadVerification.selector));
+         s_verifierProxy.verify(signedReport, abi.encode(native));
+         s_verifier.setConfigActive(0, true);
+
+    }
+
+
+
 }
