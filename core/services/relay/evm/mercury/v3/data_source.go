@@ -140,7 +140,6 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 				}
 			}()
 		}
-
 	}
 
 	if ds.feedID == ds.nativeFeedID {
