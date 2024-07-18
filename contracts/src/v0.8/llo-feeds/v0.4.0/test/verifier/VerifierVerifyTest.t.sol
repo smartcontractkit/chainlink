@@ -29,6 +29,7 @@ contract VerifierVerifyTest is BaseTest {
 
 
     function test_verifyReport() public {
+        // Simple use case just setting a config and verifying a report
         Signer[] memory signers = _getSigners(MAX_ORACLES);
         address[] memory signerAddrs = _getSignerAddresses(signers);
         s_reportContext[0] = bytes32(abi.encode(uint32(5), uint8(1)));
@@ -42,11 +43,13 @@ contract VerifierVerifyTest is BaseTest {
     }
 
     function test_verifyTooglingActiveFlagsDONConfigs() public {
+        // sets config
         Signer[] memory signers = _getSigners(MAX_ORACLES);
         address[] memory signerAddrs = _getSignerAddresses(signers);
         s_reportContext[0] = bytes32(abi.encode(uint32(5), uint8(1)));
         bytes memory signedReport = _generateV3EncodedBlob(s_testReportThree, s_reportContext, signers);
         s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
+        // verifies report
         bytes memory verifierResponse = s_verifierProxy.verify(signedReport, abi.encode(native));
         assertReportsEqual(verifierResponse, s_testReportThree);
 
@@ -76,12 +79,11 @@ contract VerifierVerifyTest is BaseTest {
         address[] memory signersAddrSubset1 = _getSignerAddresses(signersSubset1);
         s_verifier.setConfig(signersAddrSubset1, MINIMAL_FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
 
-        // only one signer
+        // only one signer, signers < MINIMAL_FAULT_TOLERANCE
         BaseTest.Signer[] memory signersSubset2 = new BaseTest.Signer[](1);
         signersSubset2[0] = signers[4];
 
         bytes memory signedReport = _generateV3EncodedBlob(s_testReportThree, s_reportContext, signersSubset2);
-
         vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.BadVerification.selector));
         s_verifierProxy.verify(signedReport, abi.encode(native));
     }
@@ -100,9 +102,9 @@ contract VerifierVerifyTest is BaseTest {
         signersSubset1[6] = signers[6];
         address[] memory signersAddrSubset1 = _getSignerAddresses(signersSubset1);
         s_verifier.setConfig(signersAddrSubset1, MINIMAL_FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
-
+        
+        // No signers for this report
         BaseTest.Signer[] memory signersSubset2 = new BaseTest.Signer[](0);
-
         bytes memory signedReport = _generateV3EncodedBlob(s_testReportThree, s_reportContext, signersSubset2);
 
         vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.NoSigners.selector));
@@ -127,6 +129,7 @@ contract VerifierVerifyTest is BaseTest {
         BaseTest.Signer[] memory signersSubset2 = new BaseTest.Signer[](4);
         signersSubset2[0] = signers[0];
         signersSubset2[1] = signers[1];
+        // repeated signers
         signersSubset2[2] = signers[2];
         signersSubset2[3] = signers[2];
 
@@ -153,9 +156,11 @@ contract VerifierVerifyTest is BaseTest {
 
         // one report whose signer is not in the config
         BaseTest.Signer[] memory reportSigners = new BaseTest.Signer[](4);
+        // these signers are part ofm the config
         reportSigners[0] = signers[4];
         reportSigners[1] = signers[5];
         reportSigners[2] = signers[6];
+        // this single signer is not in the config
         reportSigners[3] = signers[7];
 
         bytes memory signedReport = _generateV3EncodedBlob(s_testReportThree, s_reportContext, reportSigners);
@@ -165,6 +170,16 @@ contract VerifierVerifyTest is BaseTest {
     }
 
     function test_canVerifyOlderV3ReportsWithOlderConfigs() public {
+        /*
+          This test is checking we can use historical Configs to verify reports:
+          - DonConfigA has signers {A, B, C, E} is set at time T1
+          - DonConfigB has signers {A, B, C, D} is set at time T2
+          - checks we can verify a report with {B, C, D} signers (via DonConfigB)
+          - checks we can verify a report with {B, C, E} signers and timestamp below T2 (via DonConfigA historical config)
+          - checks we can't verify a report with {B, C, E} signers and timestamp above T2 (it gets verivied via DonConfigB)
+          - sets DonConfigA as deactivated
+          - checks we can't verify a report with {B, C, E} signers and timestamp below T2 (via DonConfigA)
+         */
         Signer[] memory signers = _getSigners(MAX_ORACLES);
 
         uint8 MINIMAL_FAULT_TOLERANCE = 2;
@@ -276,6 +291,13 @@ contract VerifierVerifyTest is BaseTest {
     }
 
     function test_canVerifyNewerReportsWithNewerConfigs() public {
+        /*
+          This test is checking that we use prefer verifiying via newer configs instead of old ones.
+          - DonConfigA has signers {A, B, C, E} is set at time T1
+          - DonConfigB has signers {F, G, H, I} is set at time T2
+          - DonConfigC has signers {J, K, L, M } is set at time T3
+          - checks we can verify a report with {K, L, M} signers (via DonConfigC)
+         */
         Signer[] memory signers = _getSigners(MAX_ORACLES);
 
         uint8 MINIMAL_FAULT_TOLERANCE = 2;
