@@ -9,6 +9,7 @@ contract UpkeepCounter {
     uint256 previousBlock,
     uint256 counter
   );
+  event CallerIs(address caller);
 
   uint256 public testRange;
   uint256 public interval;
@@ -31,6 +32,7 @@ contract UpkeepCounter {
   }
 
   function performUpkeep(bytes calldata performData) external {
+    emit CallerIs(msg.sender);
     if (initialTimestamp == 0) {
       initialTimestamp = block.timestamp;
     }

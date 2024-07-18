@@ -20,6 +20,7 @@ contract ZKSyncHashTester {
   uint32 public iterations;
   bytes public data;
   bytes32 public storedHash;
+  bool public trickSimulation = false;
 
   constructor() {
     testRange = 10000;
@@ -44,6 +45,10 @@ contract ZKSyncHashTester {
     iterations = _i;
   }
 
+  function setTrickSimulation(bool _trickSimulation) external {
+    trickSimulation = _trickSimulation;
+  }
+
   function setData(bytes calldata _data) external {
     data = _data;
   }
@@ -53,6 +58,10 @@ contract ZKSyncHashTester {
   }
 
   function performUpkeep(bytes calldata performData) external {
+    if (trickSimulation && tx.origin == address(0)) {
+      return;
+    }
+
     if (initialTimestamp == 0) {
       initialTimestamp = block.timestamp;
     }
