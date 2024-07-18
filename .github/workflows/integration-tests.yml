@@ -38,7 +38,7 @@ env:
   TEST_SUITE: smoke
   TEST_ARGS: -test.timeout 12m
   INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
-  MOD_CACHE_VERSION: 2
+  MOD_CACHE_VERSION: 1
   COLLECTION_ID: chainlink-e2e-tests
 
 jobs:
