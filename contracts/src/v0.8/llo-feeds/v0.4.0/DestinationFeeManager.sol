@@ -225,7 +225,6 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     uint256 numberOfNativeFees;
 
     uint256 feesAndRewardsIndex;
-    //bytes32 emptyBytes = bytes32(0);
     for (uint256 i; i < payloads.length; ++i) {
       if (poolIds[i] == bytes32(0)) revert InvalidAddress();
 
