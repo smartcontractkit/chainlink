@@ -108,6 +108,7 @@ contract EnumerableMapAddresses_contains is EnumerableMapAddressesTest {
 contract EnumerableMapAddresses_length is EnumerableMapAddressesTest {
   using EnumerableMapAddresses for EnumerableMapAddresses.AddressToBytes32Map;
   using EnumerableMapAddresses for EnumerableMapAddresses.AddressToAddressMap;
+  using EnumerableMapAddresses for EnumerableMapAddresses.AddressToBytesMap;
 
   function testLengthSuccess() public {
     assertTrue(s_addressToAddressMap.length() == 0);
@@ -243,9 +244,6 @@ contract EnumerableMapAddresses_get_errorMessage is EnumerableMapAddressesTest {
     assertTrue(!s_addressToBytesMap.contains(address(this)));
     assertTrue(s_addressToBytesMap.set(address(this), MOCK_BYTES_VALUE));
     assertTrue(s_addressToBytesMap.contains(address(this)));
-    assertTrue(
-      keccak256(s_addressToBytesMap.get(address(this), "EnumerableMapAddresses: nonexistent key")) ==
-        keccak256(MOCK_BYTES_VALUE)
-    );
+    assertTrue(keccak256(s_addressToBytesMap.get(address(this))) == keccak256(MOCK_BYTES_VALUE));
   }
 }

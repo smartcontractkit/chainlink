@@ -17,10 +17,10 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts
  * ```
  * contract Example {
  *     // Add the library methods
- *     using CCIPEnumerableMap for CCIPEnumerableMap.Bytes32ToBytesMap;
+ *     using EnumerableMapBytes32 for EnumerableMapBytes32.Bytes32ToBytesMap;
  *
  *     // Declare a set state variable
- *     CCIPEnumerableMap.Bytes32ToBytesMap private myMap;
+ *     EnumerableMapBytes32.Bytes32ToBytesMap private myMap;
  * }
  * ```
  *
@@ -34,22 +34,15 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts
  * unusable.
  * See https://github.com/ethereum/solidity/pull/11843[ethereum/solidity#11843] for more info.
  *
- * In order to clean an CCIPEnumerableMap, you can either remove all elements one by one or create a fresh instance using an
- * array of CCIPEnumerableMap.
+ * In order to clean up an EnumerableMapBytes32, you should remove all elements one by one.
  * ====
  */
-library CCIPEnumerableMap {
+// solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
+library EnumerableMapBytes32 {
   using EnumerableSet for EnumerableSet.Bytes32Set;
 
-  // Define a custom error
   error NonexistentKeyError();
 
-  // To implement this library for multiple types with as little code
-  // repetition as possible, we write it in terms of a generic Map type with
-  // bytes32 keys and values.
-  // The Map implementation uses private functions, and user-facing
-  // implementations (such as Bytes32ToBytesMap) are just wrappers around
-  // the underlying Map.
   struct Bytes32ToBytesMap {
     EnumerableSet.Bytes32Set _keys;
     mapping(bytes32 => bytes) _values;
@@ -62,7 +55,6 @@ library CCIPEnumerableMap {
    * Returns true if the key was added to the map, that is if it was not
    * already present.
    */
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function set(Bytes32ToBytesMap storage map, bytes32 key, bytes memory value) internal returns (bool) {
     map._values[key] = value;
     return map._keys.add(key);
@@ -73,7 +65,6 @@ library CCIPEnumerableMap {
    *
    * Returns true if the key was removed from the map, that is if it was present.
    */
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function remove(Bytes32ToBytesMap storage map, bytes32 key) internal returns (bool) {
     delete map._values[key];
     return map._keys.remove(key);
@@ -82,7 +73,6 @@ library CCIPEnumerableMap {
   /**
    * @dev Returns true if the key is in the map. O(1).
    */
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function contains(Bytes32ToBytesMap storage map, bytes32 key) internal view returns (bool) {
     return map._keys.contains(key);
   }
@@ -90,7 +80,6 @@ library CCIPEnumerableMap {
   /**
    * @dev Returns the number of key-value pairs in the map. O(1).
    */
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function length(Bytes32ToBytesMap storage map) internal view returns (uint256) {
     return map._keys.length();
   }
@@ -105,7 +94,6 @@ library CCIPEnumerableMap {
    *
    * - `index` must be strictly less than {length}.
    */
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function at(Bytes32ToBytesMap storage map, uint256 index) internal view returns (bytes32, bytes memory) {
     bytes32 key = map._keys.at(index);
     return (key, map._values[key]);
@@ -115,7 +103,6 @@ library CCIPEnumerableMap {
    * @dev Tries to returns the value associated with `key`. O(1).
    * Does not revert if `key` is not in the map.
    */
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function tryGet(Bytes32ToBytesMap storage map, bytes32 key) internal view returns (bool, bytes memory) {
     bytes memory value = map._values[key];
     if (value.length == 0) {
@@ -132,7 +119,6 @@ library CCIPEnumerableMap {
    *
    * - `key` must be in the map.
    */
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function get(Bytes32ToBytesMap storage map, bytes32 key) internal view returns (bytes memory) {
     bytes memory value = map._values[key];
     if (value.length == 0 && !contains(map, key)) {
