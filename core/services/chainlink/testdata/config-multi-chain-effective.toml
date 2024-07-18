@@ -333,8 +333,6 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = false
 DeathDeclarationDelay = '10s'
-LargePayloadRpcTimeout = '10s'
-RpcTimeout = '10s'
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -434,8 +432,6 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = false
 DeathDeclarationDelay = '10s'
-LargePayloadRpcTimeout = '10s'
-RpcTimeout = '10s'
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -529,8 +525,6 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = false
 DeathDeclarationDelay = '10s'
-LargePayloadRpcTimeout = '10s'
-RpcTimeout = '10s'
 
 [EVM.OCR]
 ContractConfirmations = 4

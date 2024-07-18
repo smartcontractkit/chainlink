@@ -41,8 +41,6 @@ func NewClientConfigs(
 	finalizedBlockOffset *uint32,
 	enforceRepeatableRead *bool,
 	deathDeclarationDelay time.Duration,
-	largePayloadRpcTimeout time.Duration,
-	rpcTimeout time.Duration,
 
 ) (commonclient.ChainConfig, evmconfig.NodePool, []*toml.Node, error) {
 	nodes, err := parseNodeConfigs(nodeCfgs)
@@ -50,16 +48,14 @@ func NewClientConfigs(
 		return nil, nil, nil, err
 	}
 	nodePool := toml.NodePool{
-		SelectionMode:          selectionMode,
-		LeaseDuration:          commonconfig.MustNewDuration(leaseDuration),
-		PollFailureThreshold:   pollFailureThreshold,
-		PollInterval:           commonconfig.MustNewDuration(pollInterval),
-		SyncThreshold:          syncThreshold,
-		NodeIsSyncingEnabled:   nodeIsSyncingEnabled,
-		EnforceRepeatableRead:  enforceRepeatableRead,
-		DeathDeclarationDelay:  commonconfig.MustNewDuration(deathDeclarationDelay),
-		LargePayloadRpcTimeout: commonconfig.MustNewDuration(largePayloadRpcTimeout),
-		RpcTimeout:             commonconfig.MustNewDuration(rpcTimeout),
+		SelectionMode:         selectionMode,
+		LeaseDuration:         commonconfig.MustNewDuration(leaseDuration),
+		PollFailureThreshold:  pollFailureThreshold,
+		PollInterval:          commonconfig.MustNewDuration(pollInterval),
+		SyncThreshold:         syncThreshold,
+		NodeIsSyncingEnabled:  nodeIsSyncingEnabled,
+		EnforceRepeatableRead: enforceRepeatableRead,
+		DeathDeclarationDelay: commonconfig.MustNewDuration(deathDeclarationDelay),
 	}
 	nodePoolCfg := &evmconfig.NodePoolConfig{C: nodePool}
 	chainConfig := &evmconfig.EVMConfig{

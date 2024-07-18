@@ -172,8 +172,6 @@ type NodePool interface {
 	Errors() ClientErrors
 	EnforceRepeatableRead() bool
 	DeathDeclarationDelay() time.Duration
-	LargePayloadRpcTimeout() time.Duration
-	RpcTimeout() time.Duration
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?

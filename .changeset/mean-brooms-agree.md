@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Added NodePool config options to define LargePayloadRpcTimeout and RpcTimeout #internal
+Custom (30s) timeout for Hedera RPC requests with large payloads (SendTransaction, CallContext, etc.) #internal

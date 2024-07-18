@@ -362,8 +362,6 @@ NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
-LargePayloadRpcTimeout = '1m0s'
-RpcTimeout = '1m0s'
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'

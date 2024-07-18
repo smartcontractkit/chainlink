@@ -47,11 +47,3 @@ func (n *NodePoolConfig) EnforceRepeatableRead() bool {
 func (n *NodePoolConfig) DeathDeclarationDelay() time.Duration {
 	return n.C.DeathDeclarationDelay.Duration()
 }
-
-func (n *NodePoolConfig) LargePayloadRpcTimeout() time.Duration {
-	return n.C.LargePayloadRpcTimeout.Duration()
-}
-
-func (n *NodePoolConfig) RpcTimeout() time.Duration {
-	return n.C.RpcTimeout.Duration()
-}

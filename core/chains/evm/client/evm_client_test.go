@@ -38,7 +38,7 @@ func TestNewEvmClient(t *testing.T) {
 	finalityTagEnabled := ptr(true)
 	chainCfg, nodePool, nodes, err := client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs,
 		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth,
-		finalityTagEnabled, finalizedBlockOffset, enforceRepeatableRead, deathDeclarationDelay, time.Second*10, time.Second*10)
+		finalityTagEnabled, finalizedBlockOffset, enforceRepeatableRead, deathDeclarationDelay)
 	require.NoError(t, err)
 
 	client := client.NewEvmClient(nodePool, chainCfg, nil, logger.Test(t), testutils.FixtureChainID, nodes, chaintype.ChainType(chainTypeStr))
