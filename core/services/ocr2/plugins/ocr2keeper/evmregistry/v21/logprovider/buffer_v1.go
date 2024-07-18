@@ -206,22 +206,6 @@ func (b *logBuffer) dequeue(start int64, capacity int, minimumDequeue bool) ([]B
 		}
 		queuesInRange++
 
-		upkeepAvailableLogs, ok := b.availableLogs[qid]
-		if !ok {
-			upkeepAvailableLogs = map[int64][]int{}
-		}
-
-		series2, ok3 := upkeepAvailableLogs[start]
-		if !ok3 {
-			series2 = []int{logsInRange}
-		} else {
-			series2 = append(series2, logsInRange)
-		}
-
-		upkeepAvailableLogs[start] = series2
-
-		b.availableLogs[qid] = upkeepAvailableLogs
-
 		if capacity == 0 {
 			// if there is no more capacity for results, just count the remaining logs
 			remainingLogs += logsInRange
@@ -246,6 +230,22 @@ func (b *logBuffer) dequeue(start int64, capacity int, minimumDequeue bool) ([]B
 
 		// update the buffer with how many logs we have dequeued for this window
 		q.dequeued[start] += len(logs)
+
+		upkeepAvailableLogs, ok := b.availableLogs[qid]
+		if !ok {
+			upkeepAvailableLogs = map[int64][]int{}
+		}
+
+		series2, ok3 := upkeepAvailableLogs[start]
+		if !ok3 {
+			series2 = []int{logsInRange}
+		} else {
+			series2 = append(series2, logsInRange)
+		}
+
+		upkeepAvailableLogs[start] = series2
+
+		b.availableLogs[qid] = upkeepAvailableLogs
 
 		dequeuedLogs, ok := b.dequeuedLogs[qid]
 		if !ok {
