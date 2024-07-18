@@ -23,6 +23,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -32,7 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/internal/eautils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -1088,12 +1089,6 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
-	// Insert entry 1m in the past, stale value, should not be used in case of EA failure.
-	_, err = db.ExecContext(ctx, `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
-	VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
-	DO UPDATE SET value = $3, finished_at = $4;`, task.DotID(), specID, big.NewInt(9700).Bytes(), time.Now())
-	require.NoError(t, err)
-
 	vars := pipeline.NewVarsFrom(
 		map[string]interface{}{
 			"jobRun": map[string]interface{}{
@@ -1104,9 +1099,27 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 		},
 	)
 
+	testAdapterResponse.SetStatusCode(http.StatusInternalServerError)
+	testAdapterResponse.Error = map[string]interface{}{
+		"name":    "AdapterLWBAError",
+		"message": "bid ask violation detected",
+	}
+	result, runInfo := task.Run(ctx, logger.TestLogger(t), vars, nil)
+
+	require.ErrorContains(t, result.Error, "AdapterLWBAError: bid ask violation detected")
+	require.Nil(t, result.Value)
+	require.True(t, runInfo.IsRetryable)
+	require.False(t, runInfo.IsPending)
+
+	// Insert entry 1m in the past, stale value, should not be used in case of EA failure.
+	_, err = db.ExecContext(ctx, `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
+	VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
+	DO UPDATE SET value = $3, finished_at = $4;`, task.DotID(), specID, big.NewInt(9700).Bytes(), time.Now())
+	require.NoError(t, err)
+
 	// expect all external adapter response status failures to be served from the cache
 	testAdapterResponse.SetStatusCode(http.StatusBadRequest)
-	result, runInfo := task.Run(ctx, logger.TestLogger(t), vars, nil)
+	result, runInfo = task.Run(ctx, logger.TestLogger(t), vars, nil)
 
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
@@ -1210,4 +1223,48 @@ func TestBridgeTask_AdapterTimeout(t *testing.T) {
 		require.False(t, runInfo.IsRetryable)
 		require.False(t, runInfo.IsPending)
 	})
+}
+
+func TestBridgeTask_PipelineAdapterLWBAError(t *testing.T) {
+	t.Parallel()
+
+	dag := `
+ds [type=bridge name="adapter-error-bridge" timeout="50ms" requestData="{\"data\":{\"from\":\"ETH\",\"to\":\"USD\"}}"];
+`
+
+	ctx := testutils.Context(t)
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	orm := bridges.NewORM(db)
+	r, _ := newRunner(t, db, orm, cfg)
+
+	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		b, herr := io.ReadAll(req.Body)
+		require.NoError(t, herr)
+		require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
+
+		res.WriteHeader(http.StatusInternalServerError)
+		resp := `{"error": {"name":"AdapterLWBAError", "message": "bid ask violation detected"}}`
+		_, herr = res.Write([]byte(resp))
+		require.NoError(t, herr)
+	}))
+	t.Cleanup(bridge.Close)
+	u, _ := url.Parse(bridge.URL)
+	require.NoError(t, orm.CreateBridgeType(ctx, &bridges.BridgeType{
+		Name: "adapter-error-bridge",
+		URL:  models.WebURL(*u),
+	}))
+
+	spec := pipeline.Spec{DotDagSource: dag}
+	vars := pipeline.NewVarsFrom(nil)
+
+	_, trrs, err := r.ExecuteRun(ctx, spec, vars)
+
+	require.NoError(t, err)
+	require.Len(t, trrs, 1)
+
+	finalResult := trrs[0]
+
+	require.ErrorContains(t, finalResult.Result.Error, "AdapterLWBAError: bid ask violation detected")
+	require.Nil(t, finalResult.Result.Value)
 }

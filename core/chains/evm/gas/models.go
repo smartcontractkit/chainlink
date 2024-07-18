@@ -27,8 +27,6 @@ import (
 )
 
 // EvmFeeEstimator provides a unified interface that wraps EvmEstimator and can determine if legacy or dynamic fee estimation should be used
-//
-//go:generate mockery --quiet --name EvmFeeEstimator --output ./mocks/ --case=underscore
 type EvmFeeEstimator interface {
 	services.Service
 	headtracker.HeadTrackable[*evmtypes.Head, common.Hash]
@@ -42,7 +40,6 @@ type EvmFeeEstimator interface {
 	GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (*big.Int, error)
 }
 
-//go:generate mockery --quiet --name feeEstimatorClient --output ./mocks/ --case=underscore --structname FeeEstimatorClient
 type feeEstimatorClient interface {
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -52,7 +49,7 @@ type feeEstimatorClient interface {
 }
 
 // NewEstimator returns the estimator for a given config
-func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, geCfg evmconfig.GasEstimator) EvmFeeEstimator {
+func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, geCfg evmconfig.GasEstimator) (EvmFeeEstimator, error) {
 	bh := geCfg.BlockHistory()
 	s := geCfg.Mode()
 	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),
@@ -79,13 +76,21 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 	// create l1Oracle only if it is supported for the chain
 	var l1Oracle rollups.L1Oracle
 	if rollups.IsRollupWithL1Support(cfg.ChainType()) {
-		l1Oracle = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())
+		var err error
+		l1Oracle, err = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize L1 oracle: %w", err)
+		}
 	}
 	var newEstimator func(logger.Logger) EvmEstimator
 	switch s {
 	case "Arbitrum":
+		arbOracle, err := rollups.NewArbitrumL1GasOracle(lggr, ethClient)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize Arbitrum L1 oracle: %w", err)
+		}
 		newEstimator = func(l logger.Logger) EvmEstimator {
-			return NewArbitrumEstimator(lggr, geCfg, ethClient, rollups.NewArbitrumL1GasOracle(lggr, ethClient))
+			return NewArbitrumEstimator(lggr, geCfg, ethClient, arbOracle)
 		}
 	case "BlockHistory":
 		newEstimator = func(l logger.Logger) EvmEstimator {
@@ -105,7 +110,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 			return NewFixedPriceEstimator(geCfg, ethClient, bh, lggr, l1Oracle)
 		}
 	}
-	return NewEvmFeeEstimator(lggr, newEstimator, df, geCfg)
+	return NewEvmFeeEstimator(lggr, newEstimator, df, geCfg), nil
 }
 
 // DynamicFee encompasses both FeeCap and TipCap for EIP1559 transactions
@@ -124,8 +129,6 @@ type EvmPriorAttempt struct {
 }
 
 // Estimator provides an interface for estimating gas price and limit
-//
-//go:generate mockery --quiet --name EvmEstimator --output ./mocks/ --case=underscore
 type EvmEstimator interface {
 	headtracker.HeadTrackable[*evmtypes.Head, common.Hash]
 	services.Service
@@ -335,8 +338,6 @@ func (e *evmFeeEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLi
 }
 
 // Config defines an interface for configuration in the gas package
-//
-//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	ChainType() chaintype.ChainType
 	FinalityDepth() uint32

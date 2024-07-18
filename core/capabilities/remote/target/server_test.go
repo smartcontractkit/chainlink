@@ -112,7 +112,7 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 	}
 
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      1,
 		Members: capabilityPeers,
 		F:       capabilityDonF,
 	}
@@ -131,7 +131,7 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 
 	workflowDonInfo := commoncap.DON{
 		Members: workflowPeers,
-		ID:      "workflow-don",
+		ID:      2,
 		F:       workflowDonF,
 	}
 
@@ -141,7 +141,7 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 	require.NoError(t, err)
 	srvcs = append(srvcs, broker)
 
-	workflowDONs := map[string]commoncap.DON{
+	workflowDONs := map[uint32]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
 	}
 
@@ -219,8 +219,8 @@ func (r *serverTestClient) Execute(ctx context.Context, req commoncap.Capability
 	for _, node := range r.capabilityDonInfo.Members {
 		message := &remotetypes.MessageBody{
 			CapabilityId:    "capability-id",
-			CapabilityDonId: "capability-don",
-			CallerDonId:     "workflow-don",
+			CapabilityDonId: 1,
+			CallerDonId:     2,
 			Method:          remotetypes.MethodExecute,
 			Payload:         rawRequest,
 			MessageId:       []byte(messageID),

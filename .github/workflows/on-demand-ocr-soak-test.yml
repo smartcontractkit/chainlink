@@ -8,7 +8,10 @@ on:
         default: TestOCRSoak
         type: choice
         options:
-          - TestOCRSoak
+          - TestOCRv1Soak
+          - TestOCRv2Soak
+          - TestForwarderOCRv1Soak
+          - TestForwarderOCRv2Soak
           - TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled
           - TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled
           - TestOCRSoak_GasSpike
@@ -18,13 +21,17 @@ on:
       base64Config:
         description: base64-ed config
         required: true
-        type: string      
+        type: string
       slackMemberID:
         description: Slack Member ID (Not your @)
         required: true
         default: U01A2B2C3D4
         type: string
-
+      test_secrets_override_key:
+        description: 'Key to run tests with custom test secrets'
+        required: false
+        type: string 
+        
 jobs:
   ocr_soak_test:
     name: OCR Soak Test
@@ -78,7 +85,7 @@ jobs:
           echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
           echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY          
+          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY
       - name: Build Image
         uses: ./.github/actions/build-test-image
         with:
@@ -86,7 +93,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
         env:
           DETACH_RUNNER: true
           TEST_SUITE: soak
@@ -98,6 +105,7 @@ jobs:
         with:
           test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^${{ github.event.inputs.testToRun }}$ ./soak
           test_download_vendor_packages_command: make gomod
+          test_secrets_override_base64: ${{ secrets[inputs.test_secrets_override_key] }}
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           token: ${{ secrets.GITHUB_TOKEN }}

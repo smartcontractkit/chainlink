@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -27,6 +29,7 @@ type ClientRequest struct {
 	responseIDCount  map[[32]byte]int
 	errorCount       map[string]int
 	responseReceived map[p2ptypes.PeerID]bool
+	lggr             logger.Logger
 
 	requiredIdenticalResponses int
 
@@ -45,7 +48,8 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 		return nil, errors.New("remote capability info missing DON")
 	}
 
-	rawRequest, err := pb.MarshalCapabilityRequest(req)
+	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
 	}
@@ -99,6 +103,7 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 		responseReceived:           responseReceived,
 		responseCh:                 make(chan commoncap.CapabilityResponse, 1),
 		wg:                         wg,
+		lggr:                       lggr,
 	}, nil
 }
 
@@ -125,9 +130,15 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
+	if c.respSent {
+		return nil
+	}
+
 	if msg.Sender == nil {
 		return fmt.Errorf("sender missing from message")
 	}
+
+	c.lggr.Debugw("OnMessage called for client request", "messageID", msg.MessageId)
 
 	sender := remote.ToPeerID(msg.Sender)
 
@@ -146,6 +157,10 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		responseID := sha256.Sum256(msg.Payload)
 		c.responseIDCount[responseID]++
 
+		if len(c.responseIDCount) > 1 {
+			c.lggr.Warn("received multiple different responses for the same request, number of different responses received: %d", len(c.responseIDCount))
+		}
+
 		if c.responseIDCount[responseID] == c.requiredIdenticalResponses {
 			capabilityResponse, err := pb.UnmarshalCapabilityResponse(msg.Payload)
 			if err != nil {
@@ -155,6 +170,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			}
 		}
 	} else {
+		c.lggr.Warnw("received error response", "error", msg.ErrorMsg)
 		c.errorCount[msg.ErrorMsg]++
 		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {
 			c.sendResponse(commoncap.CapabilityResponse{Err: errors.New(msg.ErrorMsg)})

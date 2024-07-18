@@ -42,8 +42,6 @@ var (
 	ErrNoSuchPublicKey      = errors.New("no such public key exists")
 )
 
-//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
-
 type ORM interface {
 	InsertWebhookSpec(ctx context.Context, webhookSpec *WebhookSpec) error
 	InsertJob(ctx context.Context, job *Job) error
@@ -502,8 +500,8 @@ func (o *orm) insertKeeperSpec(ctx context.Context, spec *KeeperSpec) (specID in
 }
 
 func (o *orm) insertCronSpec(ctx context.Context, spec *CronSpec) (specID int32, err error) {
-	return o.prepareQuerySpecID(ctx, `INSERT INTO cron_specs (cron_schedule, created_at, updated_at)
-			VALUES (:cron_schedule, NOW(), NOW())
+	return o.prepareQuerySpecID(ctx, `INSERT INTO cron_specs (cron_schedule, evm_chain_id, created_at, updated_at)
+			VALUES (:cron_schedule, :evm_chain_id, NOW(), NOW())
 			RETURNING id;`, spec)
 }
 
@@ -602,8 +600,10 @@ func validateKeyStoreMatchForRelay(ctx context.Context, network string, keyStore
 			return errors.Errorf("no Starknet key matching: %q", key)
 		}
 	case relay.NetworkAptos:
-		// TODO BCI-2953
-		return nil
+		_, err := keyStore.Aptos().Get(key)
+		if err != nil {
+			return errors.Errorf("no Aptos key matching: %q", key)
+		}
 	}
 	return nil
 }

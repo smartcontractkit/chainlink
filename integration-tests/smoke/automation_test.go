@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -98,18 +99,25 @@ func TestAutomationBasic(t *testing.T) {
 func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 	t.Parallel()
 
+	// native, mercury_v02, mercury_v03 and logtrigger are reserved keywords, use them with caution
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0":                                 ethereum.RegistryVersion_2_0,
-		"registry_2_1_conditional":                     ethereum.RegistryVersion_2_1,
-		"registry_2_1_logtrigger":                      ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_mercury_v02":                ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_mercury_v03":                ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_1,
-		"registry_2_2_conditional":                     ethereum.RegistryVersion_2_2,
-		"registry_2_2_logtrigger":                      ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_mercury_v02":                ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_mercury_v03":                ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_2,
+		"registry_2_0":                                      ethereum.RegistryVersion_2_0,
+		"registry_2_1_conditional":                          ethereum.RegistryVersion_2_1,
+		"registry_2_1_logtrigger":                           ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_mercury_v02":                     ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_mercury_v03":                     ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_logtrigger_and_mercury_v02":      ethereum.RegistryVersion_2_1,
+		"registry_2_2_conditional":                          ethereum.RegistryVersion_2_2,
+		"registry_2_2_logtrigger":                           ethereum.RegistryVersion_2_2,
+		"registry_2_2_with_mercury_v02":                     ethereum.RegistryVersion_2_2,
+		"registry_2_2_with_mercury_v03":                     ethereum.RegistryVersion_2_2,
+		"registry_2_2_with_logtrigger_and_mercury_v02":      ethereum.RegistryVersion_2_2,
+		"registry_2_3_conditional_native":                   ethereum.RegistryVersion_2_3,
+		"registry_2_3_conditional_link":                     ethereum.RegistryVersion_2_3,
+		"registry_2_3_logtrigger_native":                    ethereum.RegistryVersion_2_3,
+		"registry_2_3_logtrigger_link":                      ethereum.RegistryVersion_2_3,
+		"registry_2_3_with_mercury_v03_link":                ethereum.RegistryVersion_2_3,
+		"registry_2_3_with_logtrigger_and_mercury_v02_link": ethereum.RegistryVersion_2_3,
 	}
 
 	for n, rv := range registryVersions {
@@ -119,7 +127,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 
-			cfg, err := tc.GetConfig("Smoke", tc.Automation)
+			cfg, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			if nodeUpgrade {
@@ -128,10 +136,11 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				}
 			}
 
-			// Use the name to determine if this is a log trigger or mercury
-			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_1_with_logtrigger_and_mercury_v02" || name == "registry_2_2_logtrigger" || name == "registry_2_2_with_logtrigger_and_mercury_v02"
-			isMercuryV02 := name == "registry_2_1_with_mercury_v02" || name == "registry_2_1_with_logtrigger_and_mercury_v02" || name == "registry_2_2_with_mercury_v02" || name == "registry_2_2_with_logtrigger_and_mercury_v02"
-			isMercuryV03 := name == "registry_2_1_with_mercury_v03" || name == "registry_2_2_with_mercury_v03"
+			// Use the name to determine if this is a log trigger or mercury or billing token is native
+			isBillingTokenNative := strings.Contains(name, "native")
+			isLogTrigger := strings.Contains(name, "logtrigger")
+			isMercuryV02 := strings.Contains(name, "mercury_v02")
+			isMercuryV03 := strings.Contains(name, "mercury_v03")
 			isMercury := isMercuryV02 || isMercuryV03
 
 			a := setupAutomationTestDocker(
@@ -152,6 +161,8 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				automationDefaultUpkeepGasLimit,
 				isLogTrigger,
 				isMercury,
+				isBillingTokenNative,
+				a.WETHToken,
 			)
 
 			// Do it in two separate loops, so we don't end up setting up one upkeep, but starting the consumer for another one
@@ -188,8 +199,6 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
-			// TODO Tune this timeout window after stress testing
-			l.Info().Msg("Waiting 10m for all upkeeps to perform at least 1 upkeep")
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters
 				for i := 0; i < len(upkeepIDs); i++ {
@@ -270,7 +279,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
@@ -291,6 +300,8 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 				automationDefaultUpkeepGasLimit,
 				true,
 				false,
+				false,
+				nil,
 			)
 
 			// Start log trigger based upkeeps for all consumers
@@ -452,7 +463,7 @@ func TestAutomationAddFunds(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
@@ -472,6 +483,8 @@ func TestAutomationAddFunds(t *testing.T) {
 				automationDefaultUpkeepGasLimit,
 				false,
 				false,
+				false,
+				nil,
 			)
 
 			t.Cleanup(func() {
@@ -529,7 +542,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
@@ -550,6 +563,8 @@ func TestAutomationPauseUnPause(t *testing.T) {
 				automationDefaultUpkeepGasLimit,
 				false,
 				false,
+				false,
+				nil,
 			)
 
 			t.Cleanup(func() {
@@ -628,7 +643,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
@@ -649,6 +664,8 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 				automationDefaultUpkeepGasLimit,
 				false,
 				false,
+				false,
+				nil,
 			)
 
 			t.Cleanup(func() {
@@ -722,7 +739,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
@@ -743,6 +760,8 @@ func TestAutomationPauseRegistry(t *testing.T) {
 				automationDefaultUpkeepGasLimit,
 				false,
 				false,
+				false,
+				nil,
 			)
 
 			t.Cleanup(func() {
@@ -800,7 +819,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
@@ -821,6 +840,8 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 				automationDefaultUpkeepGasLimit,
 				false,
 				false,
+				false,
+				nil,
 			)
 
 			t.Cleanup(func() {
@@ -906,7 +927,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
@@ -978,7 +999,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
@@ -1132,7 +1153,7 @@ func TestUpdateCheckData(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
@@ -1212,7 +1233,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1234,6 +1255,8 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 				automationDefaultUpkeepGasLimit,
 				false,
 				false,
+				false,
+				nil,
 			)
 
 			t.Cleanup(func() {

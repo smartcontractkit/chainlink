@@ -75,6 +75,14 @@ func WithNodeEnvVars(ev map[string]string) ClNodeOption {
 	}
 }
 
+func WithStartupTimeout(timeout time.Duration) ClNodeOption {
+	return func(n *ClNode) {
+		if timeout != 0 {
+			n.StartupTimeout = timeout
+		}
+	}
+}
+
 // Sets custom node container name if name is not empty
 func WithNodeContainerName(name string) ClNodeOption {
 	return func(c *ClNode) {
@@ -130,6 +138,7 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 			ContainerVersion: imageVersion,
 			Networks:         networks,
 			LogStream:        logStream,
+			StartupTimeout:   3 * time.Minute,
 		},
 		UserEmail:    "local@local.com",
 		UserPassword: "localdevpassword",
@@ -330,8 +339,6 @@ func (n *ClNode) containerStartOrRestart(restartDb bool) error {
 		Str("userEmail", n.UserEmail).
 		Str("userPassword", n.UserPassword).
 		Msg("Started Chainlink Node container")
-	nodeConfig, _ := n.GetNodeConfigStr()
-	n.l.Info().Str("containerName", n.ContainerName).Msgf("Chainlink Node config:\n%s", nodeConfig)
 	clClient, err := client.NewChainlinkClient(&client.ChainlinkConfig{
 		URL:        clEndpoint,
 		Email:      n.UserEmail,
@@ -449,9 +456,9 @@ func (n *ClNode) getContainerRequest(secrets string) (
 			"-a", apiCredsPath,
 		},
 		Networks: append(n.Networks, "tracing"),
-		WaitingFor: tcwait.ForHTTP("/health").
+		WaitingFor: tcwait.ForHTTP("/readyz").
 			WithPort("6688/tcp").
-			WithStartupTimeout(90 * time.Second).
+			WithStartupTimeout(n.StartupTimeout).
 			WithPollInterval(1 * time.Second),
 		Files: []tc.ContainerFile{
 			{

@@ -20,7 +20,6 @@ const (
 	OCR2S4            TelemetryType = "ocr2-s4"
 	OCR2Median        TelemetryType = "ocr2-median"
 	OCR3Mercury       TelemetryType = "ocr3-mercury"
-	OCR2VRF           TelemetryType = "ocr2-vrf"
 	AutomationCustom  TelemetryType = "automation-custom"
 	OCR3Automation    TelemetryType = "ocr3-automation"
 )
@@ -33,8 +32,6 @@ type TelemPayload struct {
 
 // TelemetryService encapsulates all the functionality needed to
 // send telemetry to the ingress server using wsrpc
-//
-//go:generate mockery --quiet --name TelemetryService --output ./mocks --case=underscore
 type TelemetryService interface {
 	services.ServiceCtx
 	Send(ctx context.Context, telemetry []byte, contractID string, telemType TelemetryType)

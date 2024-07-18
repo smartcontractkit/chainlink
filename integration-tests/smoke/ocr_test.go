@@ -80,10 +80,8 @@ func TestOCRJobReplacement(t *testing.T) {
 }
 
 func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult int64) (*test_env.CLClusterTestEnv, []contracts.OffchainAggregator, *seth.Client) {
-	config, err := tc.GetConfig("Smoke", tc.OCR)
-	if err != nil {
-		t.Fatal(err)
-	}
+	config, err := tc.GetConfig([]string{"Smoke"}, tc.OCR)
+	require.NoError(t, err, "Error getting config")
 
 	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")

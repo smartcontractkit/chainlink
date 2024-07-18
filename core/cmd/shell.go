@@ -184,7 +184,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 	// evm always enabled for backward compatibility
 	// TODO BCF-2510 this needs to change in order to clear the path for EVM extraction
-	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(ctx, relayerFactory, evmFactoryCfg)}
+	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitDummy(ctx, relayerFactory), chainlink.InitEVM(ctx, relayerFactory, evmFactoryCfg)}
 
 	if cfg.CosmosEnabled() {
 		cosmosCfg := chainlink.CosmosFactoryConfig{
@@ -248,6 +248,9 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 	var err error
 	// Set up the versioning Configs
 	verORM := versioning.NewORM(db, appLggr)
+	ibhr := services.NewStartUpHealthReport(healthReportPort, appLggr)
+	ibhr.Start()
+	defer ibhr.Stop()
 
 	if static.Version != static.Unset {
 		var appv, dbv *semver.Version
@@ -312,9 +315,6 @@ func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbacku
 
 	//Because backups can take a long time we must start a "fake" health report to prevent
 	//node shutdown because of healthcheck fail/timeout
-	ibhr := services.NewInBackupHealthReport(healthReportPort, lggr)
-	ibhr.Start()
-	defer ibhr.Stop()
 	err = databaseBackup.RunBackup(appv.String())
 	return err
 }

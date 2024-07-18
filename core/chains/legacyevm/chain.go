@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-//go:generate mockery --quiet --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
 	types.ChainService
 
@@ -64,8 +63,6 @@ type LegacyChains struct {
 }
 
 // LegacyChainContainer is container for EVM chains.
-//
-//go:generate mockery --quiet --name LegacyChainContainer --output ./mocks/ --case=underscore
 type LegacyChainContainer interface {
 	Get(id string) (Chain, error)
 	Len() int
@@ -245,7 +242,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 				LogPrunePageSize:         int64(cfg.EVM().LogPrunePageSize()),
 				BackupPollerBlockDelay:   int64(cfg.EVM().BackupLogPollerBlockDelay()),
 			}
-			logPoller = logpoller.NewLogPoller(logpoller.NewObservedORM(chainID, opts.DS, l), client, l, lpOpts)
+			logPoller = logpoller.NewLogPoller(logpoller.NewObservedORM(chainID, opts.DS, l), client, l, headTracker, lpOpts)
 		}
 	}
 

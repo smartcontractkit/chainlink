@@ -134,7 +134,7 @@ func TestAutomationChaos(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			config, err := tc.GetConfig("Chaos", tc.Automation)
+			config, err := tc.GetConfig([]string{"Chaos"}, tc.Automation)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -261,12 +261,21 @@ func TestAutomationChaos(t *testing.T) {
 					linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
 					require.NoError(t, err, "Error deploying LINK token")
 
+					wethToken, err := contracts.DeployWETHTokenContract(l, chainClient)
+					require.NoError(t, err, "Error deploying weth token contract")
+
+					// This feed is used for both eth/usd and link/usd
+					ethUSDFeed, err := contracts.DeployMockETHUSDFeed(chainClient, defaultOCRRegistryConfig.FallbackLinkPrice)
+					require.NoError(t, err, "Error deploying eth usd feed contract")
+
 					registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
 						t,
 						chainClient,
 						rv,
 						defaultOCRRegistryConfig,
 						linkToken,
+						wethToken,
+						ethUSDFeed,
 					)
 
 					// Fund the registry with LINK
@@ -276,7 +285,7 @@ func TestAutomationChaos(t *testing.T) {
 					actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, rv)
 					nodesWithoutBootstrap := chainlinkNodes[1:]
 					defaultOCRRegistryConfig.RegistryVersion = rv
-					ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
+					ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled(), linkToken, wethToken, ethUSDFeed)
 					require.NoError(t, err, "Error building OCR config vars")
 
 					if rv == eth_contracts.RegistryVersion_2_0 {
@@ -286,8 +295,8 @@ func TestAutomationChaos(t *testing.T) {
 					}
 					require.NoError(t, err, "Error setting OCR config")
 
-					consumersConditional, upkeepidsConditional := actions.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false)
-					consumersLogtrigger, upkeepidsLogtrigger := actions.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false)
+					consumersConditional, upkeepidsConditional := actions.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false, false, nil)
+					consumersLogtrigger, upkeepidsLogtrigger := actions.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false, false, nil)
 
 					consumers := append(consumersConditional, consumersLogtrigger...)
 					upkeepIDs := append(upkeepidsConditional, upkeepidsLogtrigger...)

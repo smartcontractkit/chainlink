@@ -7,7 +7,6 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
@@ -46,13 +45,6 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	if err != nil {
 		return nil, err
 	}
-	err = cr.Bind(ctx, []commontypes.BoundContract{{
-		Address: config.ForwarderAddress().String(),
-		Name:    "forwarder",
-	}})
-	if err != nil {
-		return nil, err
-	}
 
 	chainWriterConfig := relayevmtypes.ChainWriterConfig{
 		Contracts: map[string]*relayevmtypes.ContractConfig{
@@ -69,9 +61,14 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 			},
 		},
 	}
-
 	chainWriterConfig.MaxGasPrice = chain.Config().EVM().GasEstimator().PriceMax()
-	cw, err := NewChainWriterService(lggr.Named("ChainWriter"), chain.Client(), chain.TxManager(), chain.GasEstimator(), chainWriterConfig)
+
+	encodedWriterConfig, err := json.Marshal(chainWriterConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal chainwriter config: %w", err)
+	}
+
+	cw, err := relayer.NewChainWriter(ctx, encodedWriterConfig)
 	if err != nil {
 		return nil, err
 	}

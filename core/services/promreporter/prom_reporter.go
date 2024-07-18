@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-//go:generate mockery --quiet --name PrometheusBackend --output ../../internal/mocks/ --case=underscore
 type (
 	promReporter struct {
 		services.StateMachine
