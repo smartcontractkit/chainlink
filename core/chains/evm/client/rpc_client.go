@@ -75,8 +75,6 @@ var (
 )
 
 // RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
-//
-//go:generate mockery --quiet --name RPCClient --output ./mocks --case=underscore
 type RPCClient interface {
 	commonclient.RPC[
 		*big.Int,

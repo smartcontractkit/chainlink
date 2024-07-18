@@ -19,9 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-//go:generate mockery --quiet --name ChainWriter --srcpkg=github.com/smartcontractkit/chainlink-common/pkg/types --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name ChainReader --srcpkg=github.com/smartcontractkit/chainlink-common/pkg/types --output ./mocks/ --case=underscore
-
 func TestWriteTarget(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := context.Background()

@@ -32,7 +32,6 @@ type TokenPriceUpdate struct {
 	TokenPrice *assets.Wei
 }
 
-//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 type ORM interface {
 	GetGasPricesByDestChain(ctx context.Context, destChainSelector uint64) ([]GasPrice, error)
 	GetTokenPricesByDestChain(ctx context.Context, destChainSelector uint64) ([]TokenPrice, error)

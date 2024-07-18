@@ -25,8 +25,6 @@ const BALANCE_OF_ADDRESS_FUNCTION_SELECTOR = "0x70a08231"
 
 var _ Client = (*chainClient)(nil)
 
-//go:generate mockery --quiet --name Client --output ./mocks/ --case=underscore
-
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
 	Dial(ctx context.Context) error

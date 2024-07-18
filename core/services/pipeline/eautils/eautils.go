@@ -2,6 +2,7 @@ package eautils
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -36,4 +37,29 @@ func BestEffortExtractEAStatus(responseBytes []byte) (code int, ok bool) {
 	}
 
 	return *status.StatusCode, true
+}
+
+type adapterErrorResponse struct {
+	Error *AdapterError `json:"error"`
+}
+
+type AdapterError struct {
+	Name    string `json:"name"`
+	Message string `json:"message"`
+}
+
+func (err *AdapterError) Error() string {
+	return fmt.Sprintf("%s: %s", err.Name, err.Message)
+}
+
+func BestEffortExtractEAError(responseBytes []byte) error {
+	var errorResponse adapterErrorResponse
+	err := json.Unmarshal(responseBytes, &errorResponse)
+	if err != nil {
+		return nil
+	}
+	if errorResponse.Error != nil {
+		return errorResponse.Error
+	}
+	return nil
 }
