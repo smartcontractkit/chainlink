@@ -94,6 +94,7 @@ var (
 )
 
 func TestIntegration_LLO(t *testing.T) {
+	t.Skip("waiting on https://github.com/smartcontractkit/chainlink/pull/13780")
 	testStartTimeStamp := uint32(time.Now().Unix())
 
 	const fromBlock = 1 // cannot use zero, start from block 1

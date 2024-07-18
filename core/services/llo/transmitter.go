@@ -104,8 +104,6 @@ func (t *transmitter) Transmit(
 	switch report.Info.ReportFormat {
 	case llotypes.ReportFormatJSON:
 		fallthrough
-	case llotypes.ReportFormatEVM:
-		payload, err = encodeEVM(digest, seqNr, report.Report, sigs)
 	default:
 		return fmt.Errorf("Transmit failed; unsupported report format: %q", report.Info.ReportFormat)
 	}
