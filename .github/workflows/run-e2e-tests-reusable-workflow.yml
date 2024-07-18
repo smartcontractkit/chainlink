@@ -390,29 +390,6 @@ jobs:
         run: echo '${{ toJson(matrix.tests) }}' | jq .
       - name: Setup Go
         uses: ./.github/actions/setup-go
-
-      - name: Create default test config override (use test inputs from e2e-tests.yml or defaults)
-        id: create-default-test-config-override
-        # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
-        # if: inputs.test_config_override_base64 == ''
-        uses: ./.github/actions/create-default-e2e-config-override
-        with:
-          chainlink_version: ${{ matrix.tests.test_inputs.chainlink_version || inputs.chainlink_version || github.sha }}
-          chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlink_upgrade_version }}
-          chainlink_postgres_version: ${{ matrix.tests.test_inputs.chainlink_postgres_version }}
-          selected_networks: ${{ matrix.tests.test_inputs.selected_networks || env.SELECTED_NETWORKS}}
-          logging_run_id: ${{ github.run_id }}
-          logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-
-      # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
-      # - name: Set custom test config override
-      #   if: inputs.test_config_override_base64 != ''
-      #   shell: bash
-      #   run: |
-      #     BASE64_CONFIG_OVERRIDE=${{ inputs.test_config_override_base64 }}
-      #     echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-      #     echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV    
-    
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
         id: setup-gap
@@ -423,13 +400,21 @@ jobs:
           duplicate-authorization-header: "true"
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
         env:
           DETACH_RUNNER: true
         with:
           test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
+          # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
+          # test_config_override_base64: ${{ inputs.test_config_override_base64 }}
+          test_config_chainlink_version: ${{ matrix.tests.test_inputs.chainlink_version || inputs.chainlink_version || github.sha }}
+          test_config_chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlink_upgrade_version }}
+          test_config_chainlink_postgres_version: ${{ matrix.tests.test_inputs.chainlink_postgres_version }}
+          test_config_selected_networks: ${{ matrix.tests.test_inputs.selected_networks || env.SELECTED_NETWORKS}}
+          test_config_logging_run_id: ${{ github.run_id }}
+          test_config_logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           test_type: ${{ matrix.tests.test_inputs.test_type }}
           test_suite: ${{ matrix.tests.test_inputs.test_suite }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
@@ -537,30 +522,8 @@ jobs:
         run: |
           echo "Remote Runner Version: ${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}"
 
-      - name: Create default test config override (use test inputs from e2e-tests.yml or defaults)
-        id: create-default-test-config-override
-        # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
-        # if: inputs.test_config_override_base64 == ''
-        uses: ./.github/actions/create-default-e2e-config-override
-        with:
-          chainlink_version: ${{ matrix.tests.test_inputs.chainlink_version || inputs.chainlink_version || github.sha }}
-          chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlink_upgrade_version }}
-          chainlink_postgres_version: ${{ matrix.tests.test_inputs.chainlink_postgres_version }}
-          selected_networks: ${{ matrix.tests.test_inputs.selected_networks || env.SELECTED_NETWORKS}}
-          logging_run_id: ${{ github.run_id }}
-          logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-
-      # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
-      # - name: Set custom test config override
-      #   if: inputs.test_config_override_base64 != ''
-      #   shell: bash
-      #   run: |
-      #     BASE64_CONFIG_OVERRIDE=${{ inputs.test_config_override_base64 }}
-      #     echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-      #     echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV              
-
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
         env:
           DETACH_RUNNER: true
           RR_MEM: ${{ matrix.tests.remote_runner_memory }}
@@ -576,6 +539,14 @@ jobs:
           test_command_to_run: ${{ matrix.tests.test_cmd }}
           test_download_vendor_packages_command: make gomod
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
+          # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
+          # test_config_override_base64: ${{ inputs.test_config_override_base64 }}
+          test_config_chainlink_version: ${{ matrix.tests.test_inputs.chainlink_version || inputs.chainlink_version || github.sha }}
+          test_config_chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlink_upgrade_version }}
+          test_config_chainlink_postgres_version: ${{ matrix.tests.test_inputs.chainlink_postgres_version }}
+          test_config_selected_networks: ${{ matrix.tests.test_inputs.selected_networks || env.SELECTED_NETWORKS}}
+          test_config_logging_run_id: ${{ github.run_id }}
+          test_config_logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           test_type: ${{ matrix.tests.test_inputs.test_type }}
           test_suite: ${{ matrix.tests.test_inputs.test_suite }}
           token: ${{ secrets.GH_TOKEN }}
