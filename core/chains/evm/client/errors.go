@@ -71,7 +71,7 @@ func (e *ClientErrors) ErrIs(err error, errorTypes ...int) bool {
 		return false
 	}
 
-	cause := pkgerrors.Cause(err).Error()
+	cause := errors.Unwrap(err).Error()
 	for _, errorType := range errorTypes {
 		if _, ok := (*e)[errorType]; !ok {
 			return false
