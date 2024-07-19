@@ -744,7 +744,7 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		return nil, nil, err
 	}
 
-	config, err := e.configForStep(ctx, step)
+	config, err := e.configForStep(ctx, msg.state.ExecutionID, step)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -151,7 +151,7 @@ func TestReader_Integration(t *testing.T) {
 	require.NoError(t, err, "AddCapability failed for %s", writeChainCapability.LabelledName)
 	sim.Commit()
 
-	cid := CapabilityID(fmt.Sprintf("%s@%s", writeChainCapability.LabelledName, writeChainCapability.Version))
+	cid := fmt.Sprintf("%s@%s", writeChainCapability.LabelledName, writeChainCapability.Version)
 
 	hid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, writeChainCapability.LabelledName, writeChainCapability.Version)
 	require.NoError(t, err)
@@ -271,7 +271,7 @@ func TestReader_Integration(t *testing.T) {
 			F:                1,
 			Members:          toPeerIDs(nodeSet),
 		},
-		CapabilityConfigurations: map[CapabilityID]capabilities.CapabilityConfiguration{
+		CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
 			cid: {
 				DefaultConfig:       values.EmptyMap(),
 				RemoteTriggerConfig: rtc,

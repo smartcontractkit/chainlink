@@ -121,18 +121,18 @@ func TestLauncher_WiresUpExternalCapabilities(t *testing.T) {
 					AcceptsWorkflows: true,
 					Members:          nodes,
 				},
-				CapabilityConfigurations: map[registrysyncer.CapabilityID]capabilities.CapabilityConfiguration{
-					registrysyncer.CapabilityID(fullTriggerCapID): {},
-					registrysyncer.CapabilityID(fullTargetID):     {},
+				CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
+					fullTriggerCapID: {},
+					fullTargetID:     {},
 				},
 			},
 		},
-		IDsToCapabilities: map[registrysyncer.CapabilityID]registrysyncer.Capability{
-			registrysyncer.CapabilityID(fullTriggerCapID): {
+		IDsToCapabilities: map[string]registrysyncer.Capability{
+			fullTriggerCapID: {
 				ID:             "streams-trigger@1.0.0",
 				CapabilityType: capabilities.CapabilityTypeTrigger,
 			},
-			registrysyncer.CapabilityID(fullTargetID): {
+			fullTargetID: {
 				ID:             "write-chain_evm_1@1.0.0",
 				CapabilityType: capabilities.CapabilityTypeTarget,
 			},
@@ -203,9 +203,9 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 	}
 
 	dID := uint32(1)
-	triggerID := registrysyncer.CapabilityID("streams-trigger@1.0.0")
+	triggerID := "streams-trigger@1.0.0"
 	hashedTriggerID := randomWord()
-	targetID := registrysyncer.CapabilityID("write-chain_evm_1@1.0.0")
+	targetID := "write-chain_evm_1@1.0.0"
 	hashedTargetID := randomWord()
 
 	// The below state describes a Workflow DON (AcceptsWorkflows = true),
@@ -223,13 +223,13 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 					AcceptsWorkflows: true,
 					Members:          nodes,
 				},
-				CapabilityConfigurations: map[registrysyncer.CapabilityID]capabilities.CapabilityConfiguration{
+				CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
 					triggerID: {},
 					targetID:  {},
 				},
 			},
 		},
-		IDsToCapabilities: map[registrysyncer.CapabilityID]registrysyncer.Capability{
+		IDsToCapabilities: map[string]registrysyncer.Capability{
 			triggerID: {
 				ID:             triggerID,
 				CapabilityType: capabilities.CapabilityTypeTrigger,
@@ -314,8 +314,8 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 		randomWord(),
 	}
 
-	fullTriggerCapID := registrysyncer.CapabilityID("streams-trigger@1.0.0")
-	fullTargetID := registrysyncer.CapabilityID("write-chain_evm_1@1.0.0")
+	fullTriggerCapID := "streams-trigger@1.0.0"
+	fullTargetID := "write-chain_evm_1@1.0.0"
 	triggerCapID := randomWord()
 	targetCapID := randomWord()
 	dID := uint32(1)
@@ -347,7 +347,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 					AcceptsWorkflows: false,
 					Members:          capabilityDonNodes,
 				},
-				CapabilityConfigurations: map[registrysyncer.CapabilityID]capabilities.CapabilityConfiguration{
+				CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
 					fullTriggerCapID: {
 						RemoteTriggerConfig: rtc,
 					},
@@ -357,7 +357,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 				},
 			},
 		},
-		IDsToCapabilities: map[registrysyncer.CapabilityID]registrysyncer.Capability{
+		IDsToCapabilities: map[string]registrysyncer.Capability{
 			fullTriggerCapID: {
 				ID:             fullTriggerCapID,
 				CapabilityType: capabilities.CapabilityTypeTrigger,
@@ -465,8 +465,8 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 		randomWord(),
 	}
 
-	fullTriggerCapID := registrysyncer.CapabilityID("streams-trigger@1.0.0")
-	fullTargetID := registrysyncer.CapabilityID("write-chain_evm_1@1.0.0")
+	fullTriggerCapID := "streams-trigger@1.0.0"
+	fullTargetID := "write-chain_evm_1@1.0.0"
 	triggerCapID := randomWord()
 	targetCapID := randomWord()
 	dID := uint32(1)
@@ -496,7 +496,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 					AcceptsWorkflows: false,
 					Members:          capabilityDonNodes,
 				},
-				CapabilityConfigurations: map[registrysyncer.CapabilityID]capabilities.CapabilityConfiguration{
+				CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
 					fullTriggerCapID: {},
 				},
 			},
@@ -509,12 +509,12 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 					AcceptsWorkflows: false,
 					Members:          capabilityDonNodes,
 				},
-				CapabilityConfigurations: map[registrysyncer.CapabilityID]capabilities.CapabilityConfiguration{
+				CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
 					fullTargetID: {},
 				},
 			},
 		},
-		IDsToCapabilities: map[registrysyncer.CapabilityID]registrysyncer.Capability{
+		IDsToCapabilities: map[string]registrysyncer.Capability{
 			fullTriggerCapID: {
 				ID:             fullTriggerCapID,
 				CapabilityType: capabilities.CapabilityTypeTrigger,
@@ -653,14 +653,14 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 					AcceptsWorkflows: false,
 					Members:          capabilityDonNodes,
 				},
-				CapabilityConfigurations: map[registrysyncer.CapabilityID]capabilities.CapabilityConfiguration{
-					registrysyncer.CapabilityID(fullTriggerCapID): {},
+				CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
+					fullTriggerCapID: {},
 				},
 			},
 		},
-		IDsToCapabilities: map[registrysyncer.CapabilityID]registrysyncer.Capability{
-			registrysyncer.CapabilityID(fullTriggerCapID): {
-				ID:             registrysyncer.CapabilityID(fullTriggerCapID),
+		IDsToCapabilities: map[string]registrysyncer.Capability{
+			fullTriggerCapID: {
+				ID:             fullTriggerCapID,
 				CapabilityType: capabilities.CapabilityTypeTrigger,
 			},
 		},

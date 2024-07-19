@@ -183,10 +183,10 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 		return nil, err
 	}
 
-	idsToCapabilities := map[CapabilityID]Capability{}
-	hashedIDsToCapabilityIDs := map[[32]byte]CapabilityID{}
+	idsToCapabilities := map[string]Capability{}
+	hashedIDsToCapabilityIDs := map[[32]byte]string{}
 	for _, c := range caps {
-		cid := CapabilityID(fmt.Sprintf("%s@%s", c.LabelledName, c.Version))
+		cid := fmt.Sprintf("%s@%s", c.LabelledName, c.Version)
 		idsToCapabilities[cid] = Capability{
 			ID:             cid,
 			CapabilityType: toCapabilityType(c.CapabilityType),
@@ -203,7 +203,7 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 
 	idsToDONs := map[DonID]DON{}
 	for _, d := range dons {
-		cc := map[CapabilityID]capabilities.CapabilityConfiguration{}
+		cc := map[string]capabilities.CapabilityConfiguration{}
 		for _, dc := range d.CapabilityConfigurations {
 			cid, ok := hashedIDsToCapabilityIDs[dc.CapabilityId]
 			if !ok {
