@@ -141,7 +141,8 @@ jobs:
           cd contracts          
           find "." -name "*.info" -exec lcov --add-tracefile {} --ignore-errors inconsistent --output-file "merged.lcov" \;
           
-          genhtml merged.lcov --function-coverage --branch-coverage --output-directory html --ignore-errors inconsistent
+          genhtml merged.lcov --function-coverage --branch-coverage --output-directory html
+          genhtml --help
 
       - name: Run Forge doc for
         run: |
