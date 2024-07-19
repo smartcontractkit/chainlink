@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 
@@ -113,7 +114,7 @@ func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSi
 		err := capabilityRegistry.Add(ctx, trigger)
 		require.NoError(t, err)
 
-		triggerNode := startNewNode(ctx, t, lggr, nodeInfo, simulatedEthBlockchain, capRegistryAddr, triggerPeerDispatcher,
+		triggerNode := startNewNode(ctx, t, lggr.Named("Trigger-"+strconv.Itoa(i)), nodeInfo, simulatedEthBlockchain, capRegistryAddr, triggerPeerDispatcher,
 			testPeerWrapper{peer: testPeer{triggerPeer}}, capabilityRegistry, nil, transactor,
 			triggerDon.keys[i])
 
@@ -130,7 +131,7 @@ func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSi
 
 		capabilityRegistry := capabilities.NewRegistry(lggr)
 
-		targetNode := startNewNode(ctx, t, lggr, nodeInfo, simulatedEthBlockchain, capRegistryAddr, targetPeerDispatcher,
+		targetNode := startNewNode(ctx, t, lggr.Named("Target-"+strconv.Itoa(i)), nodeInfo, simulatedEthBlockchain, capRegistryAddr, targetPeerDispatcher,
 			testPeerWrapper{peer: testPeer{targetPeer}}, capabilityRegistry, &forwarderAddr, transactor,
 			targetDon.keys[i])
 
@@ -175,7 +176,7 @@ func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSi
 			CapabilityDONs: []commoncap.DON{triggerDon.DON, targetDon.DON},
 		}
 
-		workflowNode := startNewNode(ctx, t, lggr, nodeInfo, simulatedEthBlockchain, capRegistryAddr, workflowPeerDispatcher,
+		workflowNode := startNewNode(ctx, t, lggr.Named("Workflow-"+strconv.Itoa(i)), nodeInfo, simulatedEthBlockchain, capRegistryAddr, workflowPeerDispatcher,
 			testPeerWrapper{peer: testPeer{workflowPeer}}, capabilityRegistry, nil, transactor,
 			workflowDon.keys[i])
 
