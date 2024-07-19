@@ -2,12 +2,14 @@ package chaos
 
 import (
 	"fmt"
-	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"math/big"
 	"testing"
 	"time"
+
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+
+	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 
 	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
@@ -79,22 +81,6 @@ ListenAddresses = ["0.0.0.0:6690"]`
 				"blocktime": "1",
 			},
 		},
-	}
-
-	defaultOCRRegistryConfig = contracts.KeeperRegistrySettings{
-		PaymentPremiumPPB:    uint32(200000000),
-		FlatFeeMicroLINK:     uint32(0),
-		BlockCountPerTurn:    big.NewInt(10),
-		CheckGasLimit:        uint32(2500000),
-		StalenessSeconds:     big.NewInt(90000),
-		GasCeilingMultiplier: uint16(1),
-		MinUpkeepSpend:       big.NewInt(0),
-		MaxPerformGas:        uint32(5000000),
-		FallbackGasPrice:     big.NewInt(2e11),
-		FallbackLinkPrice:    big.NewInt(2e18),
-		MaxCheckDataSize:     uint32(5000),
-		MaxPerformDataSize:   uint32(5000),
-		MaxRevertDataSize:    uint32(5000),
 	}
 )
 
