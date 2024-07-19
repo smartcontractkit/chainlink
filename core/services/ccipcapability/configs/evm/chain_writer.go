@@ -61,7 +61,7 @@ func ChainWriterConfigRaw(fromAddress common.Address, maxGasPrice *assets.Wei) e
 func mustGetMethodName(name string, tabi abi.ABI) (methodName string) {
 	m, ok := tabi.Methods[name]
 	if !ok {
-		panic(fmt.Sprintf("missing method %s in offrampABI", name))
+		panic(fmt.Sprintf("missing method %s in the abi", name))
 	}
 	return m.Name
 }

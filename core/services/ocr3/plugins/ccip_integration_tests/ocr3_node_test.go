@@ -141,9 +141,9 @@ func TestIntegration_OCR3Nodes(t *testing.T) {
 		for otherChain, pingPong := range pingPongs[chainID] {
 			t.Log("PingPong From: ", chainID, " To: ", otherChain)
 
-			dcc, err1 := uni.onramp.GetDestChainConfig(&bind.CallOpts{}, getSelector(otherChain))
+			expNextSeqNr, err1 := uni.onramp.GetExpectedNextSequenceNumber(&bind.CallOpts{}, getSelector(otherChain))
 			require.NoError(t, err1)
-			prevSeqNr := dcc.SequenceNumber
+			require.Equal(t, uint64(1), expNextSeqNr, "expected next sequence number should be 1")
 
 			uni.backend.Commit()
 
@@ -173,10 +173,12 @@ func TestIntegration_OCR3Nodes(t *testing.T) {
 			paddedAddr := common.LeftPadBytes(chainPingPongAddr, len(log.Message.Receiver))
 			require.Equal(t, paddedAddr, log.Message.Receiver)
 
-			// check that sequence number is bumped in the onramp.
-			dcc, err = uni.onramp.GetDestChainConfig(&bind.CallOpts{}, log.DestChainSelector)
+			// check that sequence number is equal to the expected next sequence number.
+			// and that the sequence number is bumped in the onramp.
+			require.Equalf(t, log.Message.Header.SequenceNumber, expNextSeqNr, "incorrect sequence number in CCIPSendRequested event on chain %d", log.DestChainSelector)
+			newExpNextSeqNr, err := uni.onramp.GetExpectedNextSequenceNumber(&bind.CallOpts{}, getSelector(otherChain))
 			require.NoError(t, err)
-			require.Equalf(t, dcc.SequenceNumber, prevSeqNr+1, "sequence number not bumped for dest chain selector %d", log.DestChainSelector)
+			require.Equal(t, expNextSeqNr+1, newExpNextSeqNr, "expected next sequence number should be bumped by 1")
 
 			_, ok := messageIDs[chainID]
 			if !ok {

@@ -25,7 +25,7 @@ contract BaseTest is Test {
   // Message info
   uint64 internal constant SOURCE_CHAIN_SELECTOR = 1;
   uint64 internal constant DEST_CHAIN_SELECTOR = 2;
-  uint64 internal constant GAS_LIMIT = 200_000;
+  uint32 internal constant GAS_LIMIT = 200_000;
 
   // Timing
   uint256 internal constant BLOCK_TIME = 1234567890;

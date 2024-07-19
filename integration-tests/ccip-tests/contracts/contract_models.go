@@ -102,7 +102,7 @@ var (
 	LatestPoolVersion = V1_5_0_dev
 	Latest            = V1_5_0_dev
 	VersionMap        = map[Name]Version{
-		PriceRegistryContract: Latest,
+		PriceRegistryContract: V1_2_0,
 		OffRampContract:       Latest,
 		OnRampContract:        Latest,
 		CommitStoreContract:   Latest,

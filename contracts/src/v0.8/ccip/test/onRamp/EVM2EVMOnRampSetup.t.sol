@@ -18,9 +18,6 @@ import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
-  address internal constant CUSTOM_TOKEN = address(12345);
-  uint224 internal constant CUSTOM_TOKEN_PRICE = 1e17; // $0.1 CUSTOM
-
   uint256 internal immutable i_tokenAmount0 = 9;
   uint256 internal immutable i_tokenAmount1 = 7;
 

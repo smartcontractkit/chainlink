@@ -26,7 +26,7 @@ contract MockCCIPRouter is IRouter, IRouterClient {
   event MsgExecuted(bool success, bytes retData, uint256 gasUsed);
 
   uint16 public constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
-  uint64 public constant DEFAULT_GAS_LIMIT = 200_000;
+  uint32 public constant DEFAULT_GAS_LIMIT = 200_000;
 
   uint256 internal s_mockFeeTokenAmount; //use setFee() to change to non-zero to test fees
 

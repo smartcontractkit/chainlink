@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -20,6 +21,7 @@ var (
 	onrampABI               = evmtypes.MustGetABI(evm_2_evm_multi_onramp.EVM2EVMMultiOnRampABI)
 	capabilitiesRegsitryABI = evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
 	ccipConfigABI           = evmtypes.MustGetABI(ccip_config.CCIPConfigABI)
+	priceRegistryABI        = evmtypes.MustGetABI(price_registry.PriceRegistryABI)
 )
 
 // MustSourceReaderConfig returns a ChainReaderConfig that can be used to read from the onramp.
@@ -127,18 +129,6 @@ func SourceReaderConfig() evmrelaytypes.ChainReaderConfig {
 						ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
 						ReadType:          evmrelaytypes.Method,
 					},
-					consts.MethodNameGetDestChainConfig: {
-						ChainSpecificName: mustGetMethodName("getDestChainConfig", onrampABI),
-						ReadType:          evmrelaytypes.Method,
-					},
-					consts.MethodNameGetPremiumMultiplierWeiPerEth: {
-						ChainSpecificName: mustGetMethodName("getPremiumMultiplierWeiPerEth", onrampABI),
-						ReadType:          evmrelaytypes.Method,
-					},
-					consts.MethodNameGetTokenTransferFeeConfig: {
-						ChainSpecificName: mustGetMethodName("getTokenTransferFeeConfig", onrampABI),
-						ReadType:          evmrelaytypes.Method,
-					},
 					consts.EventNameCCIPSendRequested: {
 						ChainSpecificName: mustGetEventName(consts.EventNameCCIPSendRequested, onrampABI),
 						ReadType:          evmrelaytypes.Event,
@@ -147,6 +137,45 @@ func SourceReaderConfig() evmrelaytypes.ChainReaderConfig {
 								consts.EventAttributeSequenceNumber: 5,
 							},
 						},
+					},
+				},
+			},
+			consts.ContractNamePriceRegistry: {
+				ContractABI: price_registry.PriceRegistryABI,
+				Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+					// TODO: update with the consts from https://github.com/smartcontractkit/chainlink-ccip/pull/39
+					// in a followup.
+					"GetStaticConfig": {
+						ChainSpecificName: mustGetMethodName("getStaticConfig", priceRegistryABI),
+						ReadType:          evmrelaytypes.Method,
+					},
+					"GetDestChainConfig": {
+						ChainSpecificName: mustGetMethodName("getDestChainConfig", priceRegistryABI),
+						ReadType:          evmrelaytypes.Method,
+					},
+					"GetPremiumMultiplierWeiPerEth": {
+						ChainSpecificName: mustGetMethodName("getPremiumMultiplierWeiPerEth", priceRegistryABI),
+						ReadType:          evmrelaytypes.Method,
+					},
+					"GetTokenTransferFeeConfig": {
+						ChainSpecificName: mustGetMethodName("getTokenTransferFeeConfig", priceRegistryABI),
+						ReadType:          evmrelaytypes.Method,
+					},
+					"ProcessMessageArgs": {
+						ChainSpecificName: mustGetMethodName("processMessageArgs", priceRegistryABI),
+						ReadType:          evmrelaytypes.Method,
+					},
+					"ValidatePoolReturnData": {
+						ChainSpecificName: mustGetMethodName("validatePoolReturnData", priceRegistryABI),
+						ReadType:          evmrelaytypes.Method,
+					},
+					"GetValidatedTokenPrice": {
+						ChainSpecificName: mustGetMethodName("getValidatedTokenPrice", priceRegistryABI),
+						ReadType:          evmrelaytypes.Method,
+					},
+					"GetFeeTokens": {
+						ChainSpecificName: mustGetMethodName("getFeeTokens", priceRegistryABI),
+						ReadType:          evmrelaytypes.Method,
 					},
 				},
 			},

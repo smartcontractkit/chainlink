@@ -104,6 +104,36 @@ func (_m *PriceRegistryInterface) ApplyAuthorizedCallerUpdates(opts *bind.Transa
 	return r0, r1
 }
 
+// ApplyDestChainConfigUpdates provides a mock function with given fields: opts, destChainConfigArgs
+func (_m *PriceRegistryInterface) ApplyDestChainConfigUpdates(opts *bind.TransactOpts, destChainConfigArgs []price_registry.PriceRegistryDestChainConfigArgs) (*types.Transaction, error) {
+	ret := _m.Called(opts, destChainConfigArgs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ApplyDestChainConfigUpdates")
+	}
+
+	var r0 *types.Transaction
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []price_registry.PriceRegistryDestChainConfigArgs) (*types.Transaction, error)); ok {
+		return rf(opts, destChainConfigArgs)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []price_registry.PriceRegistryDestChainConfigArgs) *types.Transaction); ok {
+		r0 = rf(opts, destChainConfigArgs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Transaction)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, []price_registry.PriceRegistryDestChainConfigArgs) error); ok {
+		r1 = rf(opts, destChainConfigArgs)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ApplyFeeTokensUpdates provides a mock function with given fields: opts, feeTokensToAdd, feeTokensToRemove
 func (_m *PriceRegistryInterface) ApplyFeeTokensUpdates(opts *bind.TransactOpts, feeTokensToAdd []common.Address, feeTokensToRemove []common.Address) (*types.Transaction, error) {
 	ret := _m.Called(opts, feeTokensToAdd, feeTokensToRemove)
@@ -127,6 +157,66 @@ func (_m *PriceRegistryInterface) ApplyFeeTokensUpdates(opts *bind.TransactOpts,
 
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, []common.Address, []common.Address) error); ok {
 		r1 = rf(opts, feeTokensToAdd, feeTokensToRemove)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ApplyPremiumMultiplierWeiPerEthUpdates provides a mock function with given fields: opts, premiumMultiplierWeiPerEthArgs
+func (_m *PriceRegistryInterface) ApplyPremiumMultiplierWeiPerEthUpdates(opts *bind.TransactOpts, premiumMultiplierWeiPerEthArgs []price_registry.PriceRegistryPremiumMultiplierWeiPerEthArgs) (*types.Transaction, error) {
+	ret := _m.Called(opts, premiumMultiplierWeiPerEthArgs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ApplyPremiumMultiplierWeiPerEthUpdates")
+	}
+
+	var r0 *types.Transaction
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []price_registry.PriceRegistryPremiumMultiplierWeiPerEthArgs) (*types.Transaction, error)); ok {
+		return rf(opts, premiumMultiplierWeiPerEthArgs)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []price_registry.PriceRegistryPremiumMultiplierWeiPerEthArgs) *types.Transaction); ok {
+		r0 = rf(opts, premiumMultiplierWeiPerEthArgs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Transaction)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, []price_registry.PriceRegistryPremiumMultiplierWeiPerEthArgs) error); ok {
+		r1 = rf(opts, premiumMultiplierWeiPerEthArgs)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ApplyTokenTransferFeeConfigUpdates provides a mock function with given fields: opts, tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs
+func (_m *PriceRegistryInterface) ApplyTokenTransferFeeConfigUpdates(opts *bind.TransactOpts, tokenTransferFeeConfigArgs []price_registry.PriceRegistryTokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs []price_registry.PriceRegistryTokenTransferFeeConfigRemoveArgs) (*types.Transaction, error) {
+	ret := _m.Called(opts, tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ApplyTokenTransferFeeConfigUpdates")
+	}
+
+	var r0 *types.Transaction
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []price_registry.PriceRegistryTokenTransferFeeConfigArgs, []price_registry.PriceRegistryTokenTransferFeeConfigRemoveArgs) (*types.Transaction, error)); ok {
+		return rf(opts, tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []price_registry.PriceRegistryTokenTransferFeeConfigArgs, []price_registry.PriceRegistryTokenTransferFeeConfigRemoveArgs) *types.Transaction); ok {
+		r0 = rf(opts, tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Transaction)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, []price_registry.PriceRegistryTokenTransferFeeConfigArgs, []price_registry.PriceRegistryTokenTransferFeeConfigRemoveArgs) error); ok {
+		r1 = rf(opts, tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -217,6 +307,66 @@ func (_m *PriceRegistryInterface) FilterAuthorizedCallerRemoved(opts *bind.Filte
 
 	if rf, ok := ret.Get(1).(func(*bind.FilterOpts) error); ok {
 		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FilterDestChainAdded provides a mock function with given fields: opts, destChainSelector
+func (_m *PriceRegistryInterface) FilterDestChainAdded(opts *bind.FilterOpts, destChainSelector []uint64) (*price_registry.PriceRegistryDestChainAddedIterator, error) {
+	ret := _m.Called(opts, destChainSelector)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FilterDestChainAdded")
+	}
+
+	var r0 *price_registry.PriceRegistryDestChainAddedIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64) (*price_registry.PriceRegistryDestChainAddedIterator, error)); ok {
+		return rf(opts, destChainSelector)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64) *price_registry.PriceRegistryDestChainAddedIterator); ok {
+		r0 = rf(opts, destChainSelector)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*price_registry.PriceRegistryDestChainAddedIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []uint64) error); ok {
+		r1 = rf(opts, destChainSelector)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FilterDestChainConfigUpdated provides a mock function with given fields: opts, destChainSelector
+func (_m *PriceRegistryInterface) FilterDestChainConfigUpdated(opts *bind.FilterOpts, destChainSelector []uint64) (*price_registry.PriceRegistryDestChainConfigUpdatedIterator, error) {
+	ret := _m.Called(opts, destChainSelector)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FilterDestChainConfigUpdated")
+	}
+
+	var r0 *price_registry.PriceRegistryDestChainConfigUpdatedIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64) (*price_registry.PriceRegistryDestChainConfigUpdatedIterator, error)); ok {
+		return rf(opts, destChainSelector)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64) *price_registry.PriceRegistryDestChainConfigUpdatedIterator); ok {
+		r0 = rf(opts, destChainSelector)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*price_registry.PriceRegistryDestChainConfigUpdatedIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []uint64) error); ok {
+		r1 = rf(opts, destChainSelector)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -344,6 +494,36 @@ func (_m *PriceRegistryInterface) FilterOwnershipTransferred(opts *bind.FilterOp
 	return r0, r1
 }
 
+// FilterPremiumMultiplierWeiPerEthUpdated provides a mock function with given fields: opts, token
+func (_m *PriceRegistryInterface) FilterPremiumMultiplierWeiPerEthUpdated(opts *bind.FilterOpts, token []common.Address) (*price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdatedIterator, error) {
+	ret := _m.Called(opts, token)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FilterPremiumMultiplierWeiPerEthUpdated")
+	}
+
+	var r0 *price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdatedIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []common.Address) (*price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdatedIterator, error)); ok {
+		return rf(opts, token)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []common.Address) *price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdatedIterator); ok {
+		r0 = rf(opts, token)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdatedIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []common.Address) error); ok {
+		r1 = rf(opts, token)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FilterPriceFeedPerTokenUpdated provides a mock function with given fields: opts, token
 func (_m *PriceRegistryInterface) FilterPriceFeedPerTokenUpdated(opts *bind.FilterOpts, token []common.Address) (*price_registry.PriceRegistryPriceFeedPerTokenUpdatedIterator, error) {
 	ret := _m.Called(opts, token)
@@ -427,6 +607,66 @@ func (_m *PriceRegistryInterface) FilterPriceUpdaterSet(opts *bind.FilterOpts, p
 
 	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []common.Address) error); ok {
 		r1 = rf(opts, priceUpdater)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FilterTokenTransferFeeConfigDeleted provides a mock function with given fields: opts, destChainSelector, token
+func (_m *PriceRegistryInterface) FilterTokenTransferFeeConfigDeleted(opts *bind.FilterOpts, destChainSelector []uint64, token []common.Address) (*price_registry.PriceRegistryTokenTransferFeeConfigDeletedIterator, error) {
+	ret := _m.Called(opts, destChainSelector, token)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FilterTokenTransferFeeConfigDeleted")
+	}
+
+	var r0 *price_registry.PriceRegistryTokenTransferFeeConfigDeletedIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, []common.Address) (*price_registry.PriceRegistryTokenTransferFeeConfigDeletedIterator, error)); ok {
+		return rf(opts, destChainSelector, token)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, []common.Address) *price_registry.PriceRegistryTokenTransferFeeConfigDeletedIterator); ok {
+		r0 = rf(opts, destChainSelector, token)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*price_registry.PriceRegistryTokenTransferFeeConfigDeletedIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []uint64, []common.Address) error); ok {
+		r1 = rf(opts, destChainSelector, token)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FilterTokenTransferFeeConfigUpdated provides a mock function with given fields: opts, destChainSelector, token
+func (_m *PriceRegistryInterface) FilterTokenTransferFeeConfigUpdated(opts *bind.FilterOpts, destChainSelector []uint64, token []common.Address) (*price_registry.PriceRegistryTokenTransferFeeConfigUpdatedIterator, error) {
+	ret := _m.Called(opts, destChainSelector, token)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FilterTokenTransferFeeConfigUpdated")
+	}
+
+	var r0 *price_registry.PriceRegistryTokenTransferFeeConfigUpdatedIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, []common.Address) (*price_registry.PriceRegistryTokenTransferFeeConfigUpdatedIterator, error)); ok {
+		return rf(opts, destChainSelector, token)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, []common.Address) *price_registry.PriceRegistryTokenTransferFeeConfigUpdatedIterator); ok {
+		r0 = rf(opts, destChainSelector, token)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*price_registry.PriceRegistryTokenTransferFeeConfigUpdatedIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts, []uint64, []common.Address) error); ok {
+		r1 = rf(opts, destChainSelector, token)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -524,6 +764,34 @@ func (_m *PriceRegistryInterface) GetAllAuthorizedCallers(opts *bind.CallOpts) (
 	return r0, r1
 }
 
+// GetDestChainConfig provides a mock function with given fields: opts, destChainSelector
+func (_m *PriceRegistryInterface) GetDestChainConfig(opts *bind.CallOpts, destChainSelector uint64) (price_registry.PriceRegistryDestChainConfig, error) {
+	ret := _m.Called(opts, destChainSelector)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetDestChainConfig")
+	}
+
+	var r0 price_registry.PriceRegistryDestChainConfig
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64) (price_registry.PriceRegistryDestChainConfig, error)); ok {
+		return rf(opts, destChainSelector)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64) price_registry.PriceRegistryDestChainConfig); ok {
+		r0 = rf(opts, destChainSelector)
+	} else {
+		r0 = ret.Get(0).(price_registry.PriceRegistryDestChainConfig)
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, uint64) error); ok {
+		r1 = rf(opts, destChainSelector)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetDestinationChainGasPrice provides a mock function with given fields: opts, destChainSelector
 func (_m *PriceRegistryInterface) GetDestinationChainGasPrice(opts *bind.CallOpts, destChainSelector uint64) (price_registry.InternalTimestampedPackedUint224, error) {
 	ret := _m.Called(opts, destChainSelector)
@@ -582,25 +850,51 @@ func (_m *PriceRegistryInterface) GetFeeTokens(opts *bind.CallOpts) ([]common.Ad
 	return r0, r1
 }
 
-// GetStalenessThreshold provides a mock function with given fields: opts
-func (_m *PriceRegistryInterface) GetStalenessThreshold(opts *bind.CallOpts) (*big.Int, error) {
+// GetPremiumMultiplierWeiPerEth provides a mock function with given fields: opts, token
+func (_m *PriceRegistryInterface) GetPremiumMultiplierWeiPerEth(opts *bind.CallOpts, token common.Address) (uint64, error) {
+	ret := _m.Called(opts, token)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetPremiumMultiplierWeiPerEth")
+	}
+
+	var r0 uint64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, common.Address) (uint64, error)); ok {
+		return rf(opts, token)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, common.Address) uint64); ok {
+		r0 = rf(opts, token)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, common.Address) error); ok {
+		r1 = rf(opts, token)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetStaticConfig provides a mock function with given fields: opts
+func (_m *PriceRegistryInterface) GetStaticConfig(opts *bind.CallOpts) (price_registry.PriceRegistryStaticConfig, error) {
 	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetStalenessThreshold")
+		panic("no return value specified for GetStaticConfig")
 	}
 
-	var r0 *big.Int
+	var r0 price_registry.PriceRegistryStaticConfig
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (*big.Int, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (price_registry.PriceRegistryStaticConfig, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) *big.Int); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) price_registry.PriceRegistryStaticConfig); ok {
 		r0 = rf(opts)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
+		r0 = ret.Get(0).(price_registry.PriceRegistryStaticConfig)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
@@ -726,6 +1020,64 @@ func (_m *PriceRegistryInterface) GetTokenPrices(opts *bind.CallOpts, tokens []c
 	return r0, r1
 }
 
+// GetTokenTransferFeeConfig provides a mock function with given fields: opts, destChainSelector, token
+func (_m *PriceRegistryInterface) GetTokenTransferFeeConfig(opts *bind.CallOpts, destChainSelector uint64, token common.Address) (price_registry.PriceRegistryTokenTransferFeeConfig, error) {
+	ret := _m.Called(opts, destChainSelector, token)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTokenTransferFeeConfig")
+	}
+
+	var r0 price_registry.PriceRegistryTokenTransferFeeConfig
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64, common.Address) (price_registry.PriceRegistryTokenTransferFeeConfig, error)); ok {
+		return rf(opts, destChainSelector, token)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64, common.Address) price_registry.PriceRegistryTokenTransferFeeConfig); ok {
+		r0 = rf(opts, destChainSelector, token)
+	} else {
+		r0 = ret.Get(0).(price_registry.PriceRegistryTokenTransferFeeConfig)
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, uint64, common.Address) error); ok {
+		r1 = rf(opts, destChainSelector, token)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetValidatedFee provides a mock function with given fields: opts, destChainSelector, message
+func (_m *PriceRegistryInterface) GetValidatedFee(opts *bind.CallOpts, destChainSelector uint64, message price_registry.ClientEVM2AnyMessage) (*big.Int, error) {
+	ret := _m.Called(opts, destChainSelector, message)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetValidatedFee")
+	}
+
+	var r0 *big.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64, price_registry.ClientEVM2AnyMessage) (*big.Int, error)); ok {
+		return rf(opts, destChainSelector, message)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64, price_registry.ClientEVM2AnyMessage) *big.Int); ok {
+		r0 = rf(opts, destChainSelector, message)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, uint64, price_registry.ClientEVM2AnyMessage) error); ok {
+		r1 = rf(opts, destChainSelector, message)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetValidatedTokenPrice provides a mock function with given fields: opts, token
 func (_m *PriceRegistryInterface) GetValidatedTokenPrice(opts *bind.CallOpts, token common.Address) (*big.Int, error) {
 	ret := _m.Called(opts, token)
@@ -834,6 +1186,66 @@ func (_m *PriceRegistryInterface) ParseAuthorizedCallerRemoved(log types.Log) (*
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*price_registry.PriceRegistryAuthorizedCallerRemoved)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ParseDestChainAdded provides a mock function with given fields: log
+func (_m *PriceRegistryInterface) ParseDestChainAdded(log types.Log) (*price_registry.PriceRegistryDestChainAdded, error) {
+	ret := _m.Called(log)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ParseDestChainAdded")
+	}
+
+	var r0 *price_registry.PriceRegistryDestChainAdded
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*price_registry.PriceRegistryDestChainAdded, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *price_registry.PriceRegistryDestChainAdded); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*price_registry.PriceRegistryDestChainAdded)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ParseDestChainConfigUpdated provides a mock function with given fields: log
+func (_m *PriceRegistryInterface) ParseDestChainConfigUpdated(log types.Log) (*price_registry.PriceRegistryDestChainConfigUpdated, error) {
+	ret := _m.Called(log)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ParseDestChainConfigUpdated")
+	}
+
+	var r0 *price_registry.PriceRegistryDestChainConfigUpdated
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*price_registry.PriceRegistryDestChainConfigUpdated, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *price_registry.PriceRegistryDestChainConfigUpdated); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*price_registry.PriceRegistryDestChainConfigUpdated)
 		}
 	}
 
@@ -996,6 +1408,36 @@ func (_m *PriceRegistryInterface) ParseOwnershipTransferred(log types.Log) (*pri
 	return r0, r1
 }
 
+// ParsePremiumMultiplierWeiPerEthUpdated provides a mock function with given fields: log
+func (_m *PriceRegistryInterface) ParsePremiumMultiplierWeiPerEthUpdated(log types.Log) (*price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdated, error) {
+	ret := _m.Called(log)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ParsePremiumMultiplierWeiPerEthUpdated")
+	}
+
+	var r0 *price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdated
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdated, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdated); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdated)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ParsePriceFeedPerTokenUpdated provides a mock function with given fields: log
 func (_m *PriceRegistryInterface) ParsePriceFeedPerTokenUpdated(log types.Log) (*price_registry.PriceRegistryPriceFeedPerTokenUpdated, error) {
 	ret := _m.Called(log)
@@ -1086,6 +1528,66 @@ func (_m *PriceRegistryInterface) ParsePriceUpdaterSet(log types.Log) (*price_re
 	return r0, r1
 }
 
+// ParseTokenTransferFeeConfigDeleted provides a mock function with given fields: log
+func (_m *PriceRegistryInterface) ParseTokenTransferFeeConfigDeleted(log types.Log) (*price_registry.PriceRegistryTokenTransferFeeConfigDeleted, error) {
+	ret := _m.Called(log)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ParseTokenTransferFeeConfigDeleted")
+	}
+
+	var r0 *price_registry.PriceRegistryTokenTransferFeeConfigDeleted
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*price_registry.PriceRegistryTokenTransferFeeConfigDeleted, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *price_registry.PriceRegistryTokenTransferFeeConfigDeleted); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*price_registry.PriceRegistryTokenTransferFeeConfigDeleted)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ParseTokenTransferFeeConfigUpdated provides a mock function with given fields: log
+func (_m *PriceRegistryInterface) ParseTokenTransferFeeConfigUpdated(log types.Log) (*price_registry.PriceRegistryTokenTransferFeeConfigUpdated, error) {
+	ret := _m.Called(log)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ParseTokenTransferFeeConfigUpdated")
+	}
+
+	var r0 *price_registry.PriceRegistryTokenTransferFeeConfigUpdated
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*price_registry.PriceRegistryTokenTransferFeeConfigUpdated, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *price_registry.PriceRegistryTokenTransferFeeConfigUpdated); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*price_registry.PriceRegistryTokenTransferFeeConfigUpdated)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ParseUsdPerTokenUpdated provides a mock function with given fields: log
 func (_m *PriceRegistryInterface) ParseUsdPerTokenUpdated(log types.Log) (*price_registry.PriceRegistryUsdPerTokenUpdated, error) {
 	ret := _m.Called(log)
@@ -1139,6 +1641,34 @@ func (_m *PriceRegistryInterface) ParseUsdPerUnitGasUpdated(log types.Log) (*pri
 
 	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
 		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ProcessMessageArgs provides a mock function with given fields: opts, destChainSelector, feeToken, feeTokenAmount, extraArgs
+func (_m *PriceRegistryInterface) ProcessMessageArgs(opts *bind.CallOpts, destChainSelector uint64, feeToken common.Address, feeTokenAmount *big.Int, extraArgs []byte) (price_registry.ProcessMessageArgs, error) {
+	ret := _m.Called(opts, destChainSelector, feeToken, feeTokenAmount, extraArgs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ProcessMessageArgs")
+	}
+
+	var r0 price_registry.ProcessMessageArgs
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64, common.Address, *big.Int, []byte) (price_registry.ProcessMessageArgs, error)); ok {
+		return rf(opts, destChainSelector, feeToken, feeTokenAmount, extraArgs)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64, common.Address, *big.Int, []byte) price_registry.ProcessMessageArgs); ok {
+		r0 = rf(opts, destChainSelector, feeToken, feeTokenAmount, extraArgs)
+	} else {
+		r0 = ret.Get(0).(price_registry.ProcessMessageArgs)
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, uint64, common.Address, *big.Int, []byte) error); ok {
+		r1 = rf(opts, destChainSelector, feeToken, feeTokenAmount, extraArgs)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1264,6 +1794,24 @@ func (_m *PriceRegistryInterface) UpdateTokenPriceFeeds(opts *bind.TransactOpts,
 	return r0, r1
 }
 
+// ValidatePoolReturnData provides a mock function with given fields: opts, destChainSelector, rampTokenAmounts, sourceTokenAmounts
+func (_m *PriceRegistryInterface) ValidatePoolReturnData(opts *bind.CallOpts, destChainSelector uint64, rampTokenAmounts []price_registry.InternalRampTokenAmount, sourceTokenAmounts []price_registry.ClientEVMTokenAmount) error {
+	ret := _m.Called(opts, destChainSelector, rampTokenAmounts, sourceTokenAmounts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ValidatePoolReturnData")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64, []price_registry.InternalRampTokenAmount, []price_registry.ClientEVMTokenAmount) error); ok {
+		r0 = rf(opts, destChainSelector, rampTokenAmounts, sourceTokenAmounts)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // WatchAuthorizedCallerAdded provides a mock function with given fields: opts, sink
 func (_m *PriceRegistryInterface) WatchAuthorizedCallerAdded(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryAuthorizedCallerAdded) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
@@ -1317,6 +1865,66 @@ func (_m *PriceRegistryInterface) WatchAuthorizedCallerRemoved(opts *bind.WatchO
 
 	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryAuthorizedCallerRemoved) error); ok {
 		r1 = rf(opts, sink)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// WatchDestChainAdded provides a mock function with given fields: opts, sink, destChainSelector
+func (_m *PriceRegistryInterface) WatchDestChainAdded(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryDestChainAdded, destChainSelector []uint64) (event.Subscription, error) {
+	ret := _m.Called(opts, sink, destChainSelector)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WatchDestChainAdded")
+	}
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryDestChainAdded, []uint64) (event.Subscription, error)); ok {
+		return rf(opts, sink, destChainSelector)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryDestChainAdded, []uint64) event.Subscription); ok {
+		r0 = rf(opts, sink, destChainSelector)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryDestChainAdded, []uint64) error); ok {
+		r1 = rf(opts, sink, destChainSelector)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// WatchDestChainConfigUpdated provides a mock function with given fields: opts, sink, destChainSelector
+func (_m *PriceRegistryInterface) WatchDestChainConfigUpdated(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryDestChainConfigUpdated, destChainSelector []uint64) (event.Subscription, error) {
+	ret := _m.Called(opts, sink, destChainSelector)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WatchDestChainConfigUpdated")
+	}
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryDestChainConfigUpdated, []uint64) (event.Subscription, error)); ok {
+		return rf(opts, sink, destChainSelector)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryDestChainConfigUpdated, []uint64) event.Subscription); ok {
+		r0 = rf(opts, sink, destChainSelector)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryDestChainConfigUpdated, []uint64) error); ok {
+		r1 = rf(opts, sink, destChainSelector)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1444,6 +2052,36 @@ func (_m *PriceRegistryInterface) WatchOwnershipTransferred(opts *bind.WatchOpts
 	return r0, r1
 }
 
+// WatchPremiumMultiplierWeiPerEthUpdated provides a mock function with given fields: opts, sink, token
+func (_m *PriceRegistryInterface) WatchPremiumMultiplierWeiPerEthUpdated(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdated, token []common.Address) (event.Subscription, error) {
+	ret := _m.Called(opts, sink, token)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WatchPremiumMultiplierWeiPerEthUpdated")
+	}
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdated, []common.Address) (event.Subscription, error)); ok {
+		return rf(opts, sink, token)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdated, []common.Address) event.Subscription); ok {
+		r0 = rf(opts, sink, token)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdated, []common.Address) error); ok {
+		r1 = rf(opts, sink, token)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // WatchPriceFeedPerTokenUpdated provides a mock function with given fields: opts, sink, token
 func (_m *PriceRegistryInterface) WatchPriceFeedPerTokenUpdated(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryPriceFeedPerTokenUpdated, token []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, token)
@@ -1527,6 +2165,66 @@ func (_m *PriceRegistryInterface) WatchPriceUpdaterSet(opts *bind.WatchOpts, sin
 
 	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryPriceUpdaterSet, []common.Address) error); ok {
 		r1 = rf(opts, sink, priceUpdater)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// WatchTokenTransferFeeConfigDeleted provides a mock function with given fields: opts, sink, destChainSelector, token
+func (_m *PriceRegistryInterface) WatchTokenTransferFeeConfigDeleted(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryTokenTransferFeeConfigDeleted, destChainSelector []uint64, token []common.Address) (event.Subscription, error) {
+	ret := _m.Called(opts, sink, destChainSelector, token)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WatchTokenTransferFeeConfigDeleted")
+	}
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryTokenTransferFeeConfigDeleted, []uint64, []common.Address) (event.Subscription, error)); ok {
+		return rf(opts, sink, destChainSelector, token)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryTokenTransferFeeConfigDeleted, []uint64, []common.Address) event.Subscription); ok {
+		r0 = rf(opts, sink, destChainSelector, token)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryTokenTransferFeeConfigDeleted, []uint64, []common.Address) error); ok {
+		r1 = rf(opts, sink, destChainSelector, token)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// WatchTokenTransferFeeConfigUpdated provides a mock function with given fields: opts, sink, destChainSelector, token
+func (_m *PriceRegistryInterface) WatchTokenTransferFeeConfigUpdated(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryTokenTransferFeeConfigUpdated, destChainSelector []uint64, token []common.Address) (event.Subscription, error) {
+	ret := _m.Called(opts, sink, destChainSelector, token)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WatchTokenTransferFeeConfigUpdated")
+	}
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryTokenTransferFeeConfigUpdated, []uint64, []common.Address) (event.Subscription, error)); ok {
+		return rf(opts, sink, destChainSelector, token)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryTokenTransferFeeConfigUpdated, []uint64, []common.Address) event.Subscription); ok {
+		r0 = rf(opts, sink, destChainSelector, token)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryTokenTransferFeeConfigUpdated, []uint64, []common.Address) error); ok {
+		r1 = rf(opts, sink, destChainSelector, token)
 	} else {
 		r1 = ret.Error(1)
 	}

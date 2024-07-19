@@ -115,7 +115,7 @@ func createUniverses(
 		rmnProxy := deployARMProxyContract(t, owner, backend, rmn.Address(), chainID)
 		weth := deployWETHContract(t, owner, backend, chainID)
 		rout := deployRouter(t, owner, backend, weth.Address(), rmnProxy.Address(), chainID)
-		priceRegistry := deployPriceRegistry(t, owner, backend, linkToken.Address(), weth.Address(), chainID)
+		priceRegistry := deployPriceRegistry(t, owner, backend, linkToken.Address(), weth.Address(), big.NewInt(1e18), chainID)
 		tokenAdminRegistry := deployTokenAdminRegistry(t, owner, backend, chainID)
 		nonceManager := deployNonceManager(t, owner, backend, chainID)
 
@@ -126,10 +126,8 @@ func createUniverses(
 			owner,
 			backend,
 			evm_2_evm_multi_onramp.EVM2EVMMultiOnRampStaticConfig{
-				LinkToken:          linkToken.Address(),
 				ChainSelector:      getSelector(chainID),
 				RmnProxy:           rmnProxy.Address(),
-				MaxFeeJuelsPerMsg:  big.NewInt(1e18),
 				NonceManager:       nonceManager.Address(),
 				TokenAdminRegistry: tokenAdminRegistry.Address(),
 			},
@@ -140,21 +138,6 @@ func createUniverses(
 				// so we can set this to any address
 				FeeAggregator: testutils.NewAddress(),
 			},
-			// Destination chain configs will be set up later once we have all chains
-			[]evm_2_evm_multi_onramp.EVM2EVMMultiOnRampDestChainConfigArgs{},
-			// PremiumMultiplier is always needed if the onramp is enabled
-			[]evm_2_evm_multi_onramp.EVM2EVMMultiOnRampPremiumMultiplierWeiPerEthArgs{
-				{
-					PremiumMultiplierWeiPerEth: 9e17, //0.9 ETH
-					Token:                      linkToken.Address(),
-				},
-				{
-					PremiumMultiplierWeiPerEth: 1e18,
-					Token:                      weth.Address(),
-				},
-			},
-			//TODO: We'll need to have TransferFeeConfigArgs when we start testing with sending tokens
-			[]evm_2_evm_multi_onramp.EVM2EVMMultiOnRampTokenTransferFeeConfigArgs{},
 		)
 		require.NoErrorf(t, err, "failed to deploy onramp on chain id %d", chainID)
 		backend.Commit()
@@ -512,7 +495,7 @@ func connectUniverses(
 ) {
 	for _, uni := range universes {
 		wireRouter(t, uni, universes)
-		wireOnRamp(t, uni, universes)
+		wirePriceRegistry(t, uni, universes)
 		wireOffRamp(t, uni, universes)
 		initRemoteChainsGasPrices(t, uni, universes)
 	}
@@ -555,7 +538,7 @@ func setupUniverseBasics(t *testing.T, uni onchainUniverse) {
 	_, err = uni.priceRegistry.UpdatePrices(owner, price_registry.InternalPriceUpdates{
 		TokenPriceUpdates: tokenPriceUpdates,
 	})
-	require.NoErrorf(t, err, "failed to apply price registry updates on chain id %d", uni.chainID)
+	require.NoErrorf(t, err, "failed to update prices in price registry on chain id %d", uni.chainID)
 	uni.backend.Commit()
 
 	_, err = uni.priceRegistry.ApplyAuthorizedCallerUpdates(owner, price_registry.AuthorizedCallersAuthorizedCallerArgs{
@@ -609,20 +592,20 @@ func wireRouter(t *testing.T, uni onchainUniverse, universes map[uint64]onchainU
 }
 
 // Setting OnRampDestChainConfigs
-func wireOnRamp(t *testing.T, uni onchainUniverse, universes map[uint64]onchainUniverse) {
+func wirePriceRegistry(t *testing.T, uni onchainUniverse, universes map[uint64]onchainUniverse) {
 	owner := uni.owner
-	var onrampDestChainConfigArgs []evm_2_evm_multi_onramp.EVM2EVMMultiOnRampDestChainConfigArgs
+	var priceRegistryDestChainConfigArgs []price_registry.PriceRegistryDestChainConfigArgs
 	for remoteChainID := range universes {
 		if remoteChainID == uni.chainID {
 			continue
 		}
-		onrampDestChainConfigArgs = append(onrampDestChainConfigArgs, evm_2_evm_multi_onramp.EVM2EVMMultiOnRampDestChainConfigArgs{
+		priceRegistryDestChainConfigArgs = append(priceRegistryDestChainConfigArgs, price_registry.PriceRegistryDestChainConfigArgs{
 			DestChainSelector: getSelector(remoteChainID),
-			DynamicConfig:     defaultOnRampDynamicConfig(t),
+			DestChainConfig:   defaultPriceRegistryDestChainConfig(t),
 		})
 	}
-	_, err := uni.onramp.ApplyDestChainConfigUpdates(owner, onrampDestChainConfigArgs)
-	require.NoErrorf(t, err, "failed to apply dest chain config updates on onramp on chain id %d", uni.chainID)
+	_, err := uni.priceRegistry.ApplyDestChainConfigUpdates(owner, priceRegistryDestChainConfigArgs)
+	require.NoErrorf(t, err, "failed to apply dest chain config updates on price registry on chain id %d", uni.chainID)
 	uni.backend.Commit()
 }
 
@@ -673,7 +656,7 @@ func initRemoteChainsGasPrices(t *testing.T, uni onchainUniverse, universes map[
 	require.NoError(t, err)
 }
 
-func defaultOnRampDynamicConfig(t *testing.T) evm_2_evm_multi_onramp.EVM2EVMMultiOnRampDestChainDynamicConfig {
+func defaultPriceRegistryDestChainConfig(t *testing.T) price_registry.PriceRegistryDestChainConfig {
 	// https://github.com/smartcontractkit/ccip/blob/c4856b64bd766f1ddbaf5d13b42d3c4b12efde3a/contracts/src/v0.8/ccip/libraries/Internal.sol#L337-L337
 	/*
 		```Solidity
@@ -683,7 +666,7 @@ func defaultOnRampDynamicConfig(t *testing.T) evm_2_evm_multi_onramp.EVM2EVMMult
 	*/
 	evmFamilySelector, err := hex.DecodeString("2812d52c")
 	require.NoError(t, err)
-	return evm_2_evm_multi_onramp.EVM2EVMMultiOnRampDestChainDynamicConfig{
+	return price_registry.PriceRegistryDestChainConfig{
 		IsEnabled:                         true,
 		MaxNumberOfTokensPerMsg:           10,
 		MaxDataBytes:                      256,
@@ -748,8 +731,44 @@ func deployRouter(t *testing.T, owner *bind.TransactOpts, backend *backends.Simu
 	return rout
 }
 
-func deployPriceRegistry(t *testing.T, owner *bind.TransactOpts, backend *backends.SimulatedBackend, linkAddr, wethAddr common.Address, chainID uint64) *price_registry.PriceRegistry {
-	priceRegistryAddr, _, _, err := price_registry.DeployPriceRegistry(owner, backend, []common.Address{}, []common.Address{linkAddr, wethAddr}, 24*60*60, []price_registry.PriceRegistryTokenPriceFeedUpdate{})
+func deployPriceRegistry(
+	t *testing.T,
+	owner *bind.TransactOpts,
+	backend *backends.SimulatedBackend,
+	linkAddr,
+	wethAddr common.Address,
+	maxFeeJuelsPerMsg *big.Int,
+	chainID uint64,
+) *price_registry.PriceRegistry {
+	priceRegistryAddr, _, _, err := price_registry.DeployPriceRegistry(
+		owner,
+		backend,
+		price_registry.PriceRegistryStaticConfig{
+			MaxFeeJuelsPerMsg:  maxFeeJuelsPerMsg,
+			LinkToken:          linkAddr,
+			StalenessThreshold: 24 * 60 * 60, // 24 hours
+		},
+		[]common.Address{
+			owner.From, // owner can update prices in this test
+		}, // price updaters, will be set to offramp later
+		[]common.Address{linkAddr, wethAddr}, // fee tokens
+		// empty for now, need to fill in when testing token transfers
+		[]price_registry.PriceRegistryTokenPriceFeedUpdate{},
+		// empty for now, need to fill in when testing token transfers
+		[]price_registry.PriceRegistryTokenTransferFeeConfigArgs{},
+		[]price_registry.PriceRegistryPremiumMultiplierWeiPerEthArgs{
+			{
+				PremiumMultiplierWeiPerEth: 9e17, //0.9 ETH
+				Token:                      linkAddr,
+			},
+			{
+				PremiumMultiplierWeiPerEth: 1e18,
+				Token:                      wethAddr,
+			},
+		},
+		// Destination chain configs will be set up later once we have all chains
+		[]price_registry.PriceRegistryDestChainConfigArgs{},
+	)
 	require.NoErrorf(t, err, "failed to deploy price registry on chain id %d", chainID)
 	backend.Commit()
 	priceRegistry, err := price_registry.NewPriceRegistry(priceRegistryAddr, backend)
