@@ -53,6 +53,7 @@ jobs:
               - 'contracts/src/v0.8/**/shared/**/*.sol'        
 
   # some of the artifacts can only be generated on product level, and we cannot scope them to single contracts
+  # some product-level modifications might also require shared contracts changes, so if these happened we need to generate artifacts for shared contracts as well
   coverage-and-book:
     if: ${{ needs.changes.outputs.changes == 'true' }}
     name: Foundry Tests ${{ inputs.product }}
@@ -63,7 +64,6 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
-          ref: ${{ inputs.base_ref || github.base_ref }} #TODO remove github.base_ref after testing
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -71,22 +71,9 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
-          # Has to match the `make foundry` version.
-          version: nightly-de33b6af53005037b463318d2628b5cfcaf39916
+          version: ${{ env.FOUNDRY_VERSION }}
 
-      - name: Check if shared contracts were modified
-        id: check_shared
-        shell: bash
-        run: |          
-          if [[ echo "${{ needs.changes.outputs.files }}" | grep -q "shared" ]]; then
-              echo "Shared contracts were modified"
-              echo "shared_changed=true" >> $GITHUB_OUTPUT
-          else
-              echo "Shared contracts were not modified"
-              echo "shared_changed=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Run Forge build
+      - name: Run Forge build for ${{ inputs.product }}
         run: |
           forge --version
           forge build
@@ -95,7 +82,7 @@ jobs:
         env:
           FOUNDRY_PROFILE: ${{ inputs.product }}
 
-      - name: Run Forge build
+      - name: Run Forge build for shared contracts
         if: ${{ needs.changes.outputs.shared_changed == 'true' }}
         run: |
           forge --version
@@ -105,14 +92,14 @@ jobs:
         env:
           FOUNDRY_PROFILE: "shared"
 
-      - name: Run coverage
+      - name: Run coverage for ${{ inputs.product }}
         if: ${{ !contains(fromJson('["vrf"]'), inputs.product) && !contains(fromJson('["automation"]'), inputs.product) && !contains(fromJson('["functions"]'), inputs.product) && needs.changes.outputs.changes == 'true' }}
         working-directory: contracts
         run: forge coverage --report lcov -report-file lcov-${{ inputs.product }}.info
         env:
           FOUNDRY_PROFILE: ${{ inputs.product }}
 
-      - name: Run coverage
+      - name: Run coverage for shared contracts
         if: ${{ needs.changes.outputs.shared_changed == 'true' }}
         working-directory: contracts
         run: forge coverage --report lcov --report-file lcov-shared.info
