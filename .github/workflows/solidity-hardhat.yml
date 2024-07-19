@@ -124,7 +124,6 @@ jobs:
         with:
           coverage-files: ./contracts/lcov-${{ env.PRODUCT }}.info
           minimum-coverage: 0
-          artifact-name: code-coverage-report-${{ env.PRODUCT }}
           working-directory: ./contracts
 
       - name: Report code coverage for shared contracts
@@ -140,8 +139,9 @@ jobs:
         run: |
           cd contracts
           mkdir lcov && cp *.info lcov && cd lcov
+          ls -al .
           find "." -name "*.info" -exec lcov --add-tracefile {} --ignore-errors inconsistent --output-file "merged.lcov" \;
-          cd .. && cp lcov/merged.lcov .
+          cd .. && mv lcov/merged.lcov merged.lcov
           genhtml merged.lcov --function-coverage --branch-coverage --output-directory html
 
       - name: Run Forge doc for
@@ -189,7 +189,7 @@ jobs:
           name: code-coverage-artifacts
           path: |
             contracts/html
-            contracts/merged_coverage.lcov
+            contracts/lcov/merged.lcov
           retention-days: 7
 
   # Generates UML diagrams and Slither reports for modified contracts
