@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	gethlog "github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -280,6 +282,7 @@ func setupBlockchain(t *testing.T, initialEth int) (*ethBackend, *bind.TransactO
 	transactOpts := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := core.GenesisAlloc{transactOpts.From: {Balance: assets.Ether(initialEth).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
+	gethlog.SetDefault(gethlog.NewLogger(gethlog.NewTerminalHandlerWithLevel(os.Stderr, gethlog.LevelWarn, true)))
 	backend.Commit()
 
 	return &ethBackend{backend}, transactOpts

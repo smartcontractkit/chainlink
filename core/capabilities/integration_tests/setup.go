@@ -31,7 +31,6 @@ import (
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -59,6 +58,11 @@ type donInfo struct {
 
 func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, workflowDonInfo donInfo, triggerDonInfo donInfo, targetDonInfo donInfo,
 	feedCount int, deltaStage string, schedule string) (*feeds_consumer.KeystoneFeedsConsumer, []string, *reportsSink) {
+
+	lggr := logger.TestLogger(t)
+	// As a default set the logging to info otherwise 50+MB of logs are created on each test run
+	lggr.SetLogLevel(zapcore.InfoLevel)
+
 	ethBlockchain, transactor := setupBlockchain(t, 1000)
 	capabilitiesRegistryAddr := setupCapabilitiesRegistryContract(ctx, t, workflowDonInfo.peerIDs, triggerDonInfo.peerIDs, targetDonInfo.peerIDs, transactor, ethBlockchain)
 	forwarderAddr, _ := setupForwarderContract(t, workflowDonInfo.peerIDs, workflowDonInfo.ID, 1, workflowDonInfo.F, transactor, ethBlockchain)
@@ -72,7 +76,7 @@ func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, 
 	sink := &reportsSink{}
 
 	libocr := newMockLibOCR(workflowDonInfo.F)
-	workflowDonNodes, _, _ := createDons(ctx, t, sink,
+	workflowDonNodes, _, _ := createDons(ctx, t, lggr, sink,
 		workflowDonInfo, triggerDonInfo, targetDonInfo,
 		ethBlockchain, capabilitiesRegistryAddr, forwarderAddr,
 		workflowDonInfo.keyBundles, transactor, libocr)
@@ -85,7 +89,7 @@ func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, 
 	return consumer, feedIDs, sink
 }
 
-func createDons(ctx context.Context, t *testing.T, reportsSink *reportsSink,
+func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSink *reportsSink,
 	workflowDon donInfo,
 	triggerDon donInfo,
 	targetDon donInfo,
@@ -96,7 +100,6 @@ func createDons(ctx context.Context, t *testing.T, reportsSink *reportsSink,
 	transactor *bind.TransactOpts,
 	libocr *mockLibOCR,
 ) ([]*cltest.TestApplication, []*cltest.TestApplication, []*cltest.TestApplication) {
-	lggr := logger.TestLogger(t)
 
 	broker := newTestAsyncMessageBroker(t, 1000)
 
@@ -112,7 +115,7 @@ func createDons(ctx context.Context, t *testing.T, reportsSink *reportsSink,
 		err := capabilityRegistry.Add(ctx, trigger)
 		require.NoError(t, err)
 
-		triggerNode := startNewNode(ctx, t, nodeInfo, simulatedEthBlockchain, capRegistryAddr, triggerPeerDispatcher,
+		triggerNode := startNewNode(ctx, t, lggr, nodeInfo, simulatedEthBlockchain, capRegistryAddr, triggerPeerDispatcher,
 			testPeerWrapper{peer: testPeer{triggerPeer}}, capabilityRegistry, nil, transactor,
 			triggerDon.keys[i])
 
@@ -129,7 +132,7 @@ func createDons(ctx context.Context, t *testing.T, reportsSink *reportsSink,
 
 		capabilityRegistry := capabilities.NewRegistry(lggr)
 
-		targetNode := startNewNode(ctx, t, nodeInfo, simulatedEthBlockchain, capRegistryAddr, targetPeerDispatcher,
+		targetNode := startNewNode(ctx, t, lggr, nodeInfo, simulatedEthBlockchain, capRegistryAddr, targetPeerDispatcher,
 			testPeerWrapper{peer: testPeer{targetPeer}}, capabilityRegistry, &forwarderAddr, transactor,
 			targetDon.keys[i])
 
@@ -174,7 +177,7 @@ func createDons(ctx context.Context, t *testing.T, reportsSink *reportsSink,
 			CapabilityDONs: []commoncap.DON{triggerDon.DON, targetDon.DON},
 		}
 
-		workflowNode := startNewNode(ctx, t, nodeInfo, simulatedEthBlockchain, capRegistryAddr, workflowPeerDispatcher,
+		workflowNode := startNewNode(ctx, t, lggr, nodeInfo, simulatedEthBlockchain, capRegistryAddr, workflowPeerDispatcher,
 			testPeerWrapper{peer: testPeer{workflowPeer}}, capabilityRegistry, nil, transactor,
 			workflowDon.keys[i])
 
@@ -188,7 +191,7 @@ func createDons(ctx context.Context, t *testing.T, reportsSink *reportsSink,
 }
 
 func startNewNode(ctx context.Context,
-	t *testing.T, nodeInfo commoncap.Node,
+	t *testing.T, lggr logger.Logger, nodeInfo commoncap.Node,
 	backend *ethBackend, capRegistryAddr common.Address,
 	dispatcher remotetypes.Dispatcher,
 	peerWrapper p2ptypes.PeerWrapper,
@@ -201,8 +204,6 @@ func startNewNode(ctx context.Context,
 		c.Capabilities.ExternalRegistry.ChainID = ptr(fmt.Sprintf("%d", testutils.SimulatedChainID))
 		c.Capabilities.ExternalRegistry.Address = ptr(capRegistryAddr.String())
 		c.Capabilities.Peering.V2.Enabled = ptr(true)
-
-		c.Log.Level = ptr(toml.LogLevel(zapcore.WarnLevel))
 
 		if forwarderAddress != nil {
 			eip55Address := types.EIP55AddressFromAddress(*forwarderAddress)
@@ -229,7 +230,7 @@ func startNewNode(ctx context.Context,
 	backend.Commit()
 
 	return cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.SimulatedBackend, nodeInfo,
-		dispatcher, peerWrapper, localCapabilities, keyV2)
+		dispatcher, peerWrapper, localCapabilities, keyV2, lggr)
 }
 
 type don struct {
