@@ -92,8 +92,8 @@ jobs:
       # required for code coverage report generation
       - name: Setup LCOV
         run: |
-          apt-get update
-          apt-get install -y lcov
+          sudo apt-get update
+          sudo apt-get install -y lcov
 
       - name: Run coverage for
         if: ${{ !contains(fromJson('["vrf"]'), env.PRODUCT) && !contains(fromJson('["automation"]'), env.PRODUCT) && !contains(fromJson('["functions"]'), env.PRODUCT) && needs.changes.outputs.changes == 'true' }}
