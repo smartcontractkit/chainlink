@@ -217,7 +217,7 @@ contract EnumerableMapAddresses_get is EnumerableMapAddressesTest {
     assertTrue(!s_addressToBytes32Map.contains(address(this)));
     assertTrue(s_addressToBytes32Map.set(address(this), MOCK_BYTES32_VALUE));
     assertTrue(s_addressToBytes32Map.contains(address(this)));
-    assertEq(s_addressToBytes32Map.get(address(this)) , MOCK_BYTES32_VALUE);
+    assertEq(s_addressToBytes32Map.get(address(this)), MOCK_BYTES32_VALUE);
   }
 
   function testBytesGetSuccess() public {

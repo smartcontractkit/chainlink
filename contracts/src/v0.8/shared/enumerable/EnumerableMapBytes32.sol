@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+/* solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore */
 pragma solidity ^0.8.0;
 
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
@@ -37,7 +38,6 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts
  * In order to clean up an EnumerableMapBytes32, you should remove all elements one by one.
  * ====
  */
-// solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
 library EnumerableMapBytes32 {
   using EnumerableSet for EnumerableSet.Bytes32Set;
 
