@@ -184,13 +184,14 @@ jobs:
           path: |
             contracts/docs/shared
           retention-days: 7
+
       - name: Upload code coverage Artifacts
         if: ${{ needs.changes.outputs.shared_changes == 'true' }}
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         timeout-minutes: 2
         continue-on-error: true
         with:
-          name: shared-artifacts
+          name: code-coverage-artifacts
           path: |
             contracts/html
             contracts/merged_coverage.lcov
@@ -300,16 +301,10 @@ jobs:
         with:
           name: ${{ env.PRODUCT }}-artifacts
           path: review_artifacts/
-      - name: Download product artifacts
+      - name: Download code coverage artifacts
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
-          name: code-coverage-report-${{ env.PRODUCT }}
-          path: review_artifacts/
-      - name: Download shared artifacts
-        if: ${{ needs.changes.outputs.shared_changes == 'true' }}
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-        with:
-          name: code-coverage-report-shared
+          name: code-coverage-artifacts
           path: review_artifacts/
       - name: Download shared artifacts
         if: ${{ needs.changes.outputs.shared_changes == 'true' }}
@@ -331,12 +326,7 @@ jobs:
       - name: Remove product code coverage artifacts
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
         with:
-          name: code-coverage-report-${{ env.PRODUCT }}
-      - name: Remove shared code coverage artifacts
-        if: ${{ needs.changes.outputs.shared_changes == 'true' }}
-        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
-        with:
-          name: code-coverage-report-shared
+          name: code-coverage-artifacts
       - name: Remove product artifacts
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
         with:
