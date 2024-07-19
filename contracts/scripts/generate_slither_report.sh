@@ -30,6 +30,8 @@ run_slither() {
     echo "Using $PRODUCT Foundry profile"
 
     output=$(FOUNDRY_PROFILE=$PRODUCT slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL" --fail-none | sed '/\*\*THIS CHECKLIST IS NOT COMPLETE\*\*. Use `--show-ignored-findings` to show all the results./d'  | sed '/Summary/d')
+    echo "----------------------------"
+    echo $output
     echo "# Summary for $FILE" > "$SLITHER_OUTPUT_FILE"
     echo "$output" >> "$SLITHER_OUTPUT_FILE"
 
