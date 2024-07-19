@@ -22,32 +22,17 @@ run_slither() {
     local FILE=$1
     local TARGET_DIR=$2
 
-    echo "Detecting Solc version for $FILE"
-
-    if [[ -f "$FILE" ]]; then
-        SOLCVER="$(grep --no-filename '^pragma solidity' "$FILE" | cut -d' ' -f3)"
-    else
-        echo "Target is not a file"
-        exit 1
-    fi
-    SOLCVER="$(echo "$SOLCVER" | sed 's/[^0-9\.]//g')"
-
-    if [[ -z "$SOLCVER" ]]; then
-        # Fallback to latest version if the above fails.
-        SOLCVER="$(solc-select install | tail -1)"
-    fi
-
-    echo "Guessed $SOLCVER."
-
-    solc-select install "$SOLCVER"
-    solc-select use "$SOLCVER"
+    ./scripts/select_solc_version.sh "$FILE"
 
     SLITHER_OUTPUT_FILE="$TARGET_DIR/$(basename "${FILE%.sol}")-slither-report.md"
     PRODUCT=$(extract_product "$FILE")
 
     echo "Using $PRODUCT Foundry profile"
 
-    FOUNDRY_PROFILE=$PRODUCT slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL" --fail-none > "$SLITHER_OUTPUT_FILE"
+    output=$(FOUNDRY_PROFILE=$PRODUCT slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL" --fail-none | sed '/\*\*THIS CHECKLIST IS NOT COMPLETE\*\*. Use `--show-ignored-findings` to show all the results./d'  | sed '/Summary/d')
+    echo "# Summary for $FILE" > "$SLITHER_OUTPUT_FILE"
+    echo "$output" >> "$SLITHER_OUTPUT_FILE"
+
     if [ $? -ne 0 ]; then
         echo "Slither failed for $FILE"
         exit 1
@@ -62,10 +47,11 @@ process_files() {
     mkdir -p "$TARGET_DIR"
 
     for FILE in "${FILES[@]}"; do
+      FILE=${FILE//\"/}
       run_slither "$SOURCE_DIR/$FILE" "$TARGET_DIR"
     done
 }
 
 process_files "$SOURCE_DIR" "$TARGET_DIR" "${FILES[@]}"
 
-echo "UML diagrams and Slither reports saved in $TARGET_DIR folder"
+echo "Slither reports saved in $TARGET_DIR folder"

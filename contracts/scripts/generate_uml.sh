@@ -45,6 +45,7 @@ process_files() {
     mkdir -p "$TARGET_DIR"
 
     for FILE in "${FILES[@]}"; do
+        FILE=${FILE//\"/}
         MATCHES=($(find "$SOURCE_DIR" -type f -path "*/$FILE"))
 
         if [ ${#MATCHES[@]} -gt 1 ]; then
@@ -57,7 +58,7 @@ process_files() {
             echo "File found: ${MATCHES[0]}"
             flatten_and_generate_uml "${MATCHES[0]}" "$TARGET_DIR"
         else
-            echo "File $FILE does not exist within the source directory."
+            echo "File $FILE does not exist within the source directory $SOURCE_DIR."
         fi
     done
 }

@@ -44,7 +44,7 @@ jobs:
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
-          list-files: 'shell'
+          list-files: 'csv'
           base: ${{ inputs.base_ref || github.base_ref }}
           filters: |
             sol:
@@ -220,38 +220,34 @@ jobs:
           python -m pip install --upgrade pip
           pip install slither-analyzer
 
+      - name: Save basic info
+        shell: bash
+        run: |
+          cd contracts
+          
+          echo "Commit SHA used to generate artifacts: ${{ github.sha }}" > commit_sha.txt
+          contract_list="${{ needs.changes.outputs.files }}"
+          new_line_list=$(tr ',' '\n' < "$contract_list" | sed 's/,$//')
+          echo $new_line_list > modified_contracts.txt
+          
+          cat modified_contracts.txt
+
       - name: Generate UML
         shell: bash
-        run: |                   
-          echo "Commit SHA used to generate artifacts: ${{ github.sha }}" > commit_sha.txt
-          
-          cd contracts
+        run: |
           contract_list="${{ needs.changes.outputs.files }}"
-          contract_dir="./"          
-          comma_separated_list=$(tr ' ' ',' < "$contract_list" | sed 's/,$//')
-          
-          new_line_list=$(tr ' ' '\n' < "$contract_list" | sed 's/,$//')
-          echo $new_line_list > modified_contracts.txt
-        
-          echo "Found contracts: $comma_separated_list"
-          
-          ./scripts/selected_uml.sh "$contract_dir" "uml" "$comma_separated_list"
+          ./contracts/scripts/generate_uml.sh "./" "contracts/uml" "$contract_list"
 
       - name: Generate Slither Markdown reports
         run: |
-          contract_list="modified_contracts.txt"
-          contract_dir="./"     
+          contract_list="${{ needs.changes.outputs.files }}"
           
           cd contracts
-          if [[ -f "$contract_list" ]]; then
-            comma_separated_list=$(tr '\n' ',' < "$contract_list" | sed 's/,$//')
+          cleaned_list=$(echo "$comma_separated_list" | sed 's|contract/||g')
           
-            echo "Found contracts: $comma_separated_list"
-          
-            ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$contract_dir" "$comma_separated_list" "slither-reports"
-          else
-            echo "File $contract_list with contract list does not exist"
-          fi
+          echo "Processing contracts: $cleaned_list"
+          ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "." "$cleaned_list" "slither-reports"
+
       - name: Upload UMLs and Slither reports
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         timeout-minutes: 10
