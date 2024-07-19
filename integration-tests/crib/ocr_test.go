@@ -2,13 +2,15 @@ package crib
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/havoc/k8schaos"
-	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/havoc/k8schaos"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 )

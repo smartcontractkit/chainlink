@@ -2,14 +2,15 @@ package actions
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/seth"
 	"math/big"
 	"math/rand"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/seth"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
