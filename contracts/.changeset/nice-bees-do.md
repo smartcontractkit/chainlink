@@ -2,4 +2,4 @@
 '@chainlink/contracts': minor
 ---
 
-EnumerableMap Library needed for mapping Address as Bytes32 Key and Value as Bytes
+EnumerableMap Library for an Address to Bytes mapping
