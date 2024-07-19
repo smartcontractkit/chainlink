@@ -685,8 +685,14 @@ func FundWrapperConsumer(
 	switch vrfv2plusconfig.BillingType(subFundingType) {
 	case vrfv2plusconfig.BillingType_Link:
 		err = fundConsumerWithLink()
+		if err != nil {
+			return err
+		}
 	case vrfv2plusconfig.BillingType_Native:
 		err = fundConsumerWithNative()
+		if err != nil {
+			return err
+		}
 	case vrfv2plusconfig.BillingType_Link_and_Native:
 		err = fundConsumerWithLink()
 		if err != nil {
