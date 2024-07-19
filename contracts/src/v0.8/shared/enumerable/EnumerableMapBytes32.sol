@@ -55,6 +55,7 @@ library EnumerableMapBytes32 {
    * Returns true if the key was added to the map, that is if it was not
    * already present.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function set(Bytes32ToBytesMap storage map, bytes32 key, bytes memory value) internal returns (bool) {
     map._values[key] = value;
     return map._keys.add(key);
@@ -65,6 +66,7 @@ library EnumerableMapBytes32 {
    *
    * Returns true if the key was removed from the map, that is if it was present.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function remove(Bytes32ToBytesMap storage map, bytes32 key) internal returns (bool) {
     delete map._values[key];
     return map._keys.remove(key);
@@ -73,6 +75,7 @@ library EnumerableMapBytes32 {
   /**
    * @dev Returns true if the key is in the map. O(1).
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function contains(Bytes32ToBytesMap storage map, bytes32 key) internal view returns (bool) {
     return map._keys.contains(key);
   }
@@ -80,6 +83,7 @@ library EnumerableMapBytes32 {
   /**
    * @dev Returns the number of key-value pairs in the map. O(1).
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function length(Bytes32ToBytesMap storage map) internal view returns (uint256) {
     return map._keys.length();
   }
@@ -94,6 +98,7 @@ library EnumerableMapBytes32 {
    *
    * - `index` must be strictly less than {length}.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function at(Bytes32ToBytesMap storage map, uint256 index) internal view returns (bytes32, bytes memory) {
     bytes32 key = map._keys.at(index);
     return (key, map._values[key]);
@@ -103,6 +108,7 @@ library EnumerableMapBytes32 {
    * @dev Tries to returns the value associated with `key`. O(1).
    * Does not revert if `key` is not in the map.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function tryGet(Bytes32ToBytesMap storage map, bytes32 key) internal view returns (bool, bytes memory) {
     bytes memory value = map._values[key];
     if (value.length == 0) {
@@ -119,6 +125,7 @@ library EnumerableMapBytes32 {
    *
    * - `key` must be in the map.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function get(Bytes32ToBytesMap storage map, bytes32 key) internal view returns (bytes memory) {
     bytes memory value = map._values[key];
     if (value.length == 0 && !contains(map, key)) {
