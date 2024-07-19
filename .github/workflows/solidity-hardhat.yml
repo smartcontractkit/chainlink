@@ -140,12 +140,11 @@ jobs:
         run: |
           cd contracts
           merged_lcov="merged_coverage.info"
-          echo "TN:" > "$merged_lcov"
         
           find "." -name "*.lcov" -print0 | while IFS= read -r -d '' file; do
             if [ -e "$file" ]; then
               echo "Processing $file"          
-              cat "$file" >> "$merged_lcov"
+              lcov --add-tracefile "$file" --output-file "$merged_lcov"
             fi
           done
           genhtml $merged_lcov --function-coverage --branch-coverage --output-directory html          
