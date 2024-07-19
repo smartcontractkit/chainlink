@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import {EnumerableMap} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableMap.sol";
 import {EnumerableMapBytes32} from "./EnumerableMapBytes32.sol";
-import "hardhat/console.sol";
 
 // TODO: the lib can be replaced with OZ v5.1 post-upgrade, which has AddressToAddressMap and AddressToBytes32Map
 // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
@@ -58,7 +57,6 @@ library EnumerableMapAddresses {
     address key,
     string memory errorMessage
   ) internal view returns (address) {
-    console.log("AddressToAddressMap - key", key);
     return map._inner.get(uint256(uint160(key)), errorMessage);
   }
 
@@ -139,7 +137,6 @@ library EnumerableMapAddresses {
    * - `key` must be in the map.
    */
   function get(AddressToBytes32Map storage map, address key) internal view returns (bytes32) {
-    console.log("AddressToBytes32Map - key", key);
     return map._inner.get(bytes32(uint256(uint160(key))));
   }
 
@@ -217,7 +214,6 @@ library EnumerableMapAddresses {
    * @return bytes The value associated with the key
    */
   function get(AddressToBytesMap storage map, address key) internal view returns (bytes memory) {
-    console.log("AddressToBytesMap - key", key);
     return map._inner.get(bytes32(uint256(uint160(key))));
   }
 }

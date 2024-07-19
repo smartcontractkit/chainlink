@@ -111,27 +111,27 @@ contract EnumerableMapAddresses_length is EnumerableMapAddressesTest {
   using EnumerableMapAddresses for EnumerableMapAddresses.AddressToBytesMap;
 
   function testLengthSuccess() public {
-    assertTrue(s_addressToAddressMap.length() == 0);
+    assertEq(s_addressToAddressMap.length(), 0);
     assertTrue(s_addressToAddressMap.set(address(this), address(this)));
-    assertTrue(s_addressToAddressMap.length() == 1);
+    assertEq(s_addressToAddressMap.length(), 1);
     assertTrue(s_addressToAddressMap.remove(address(this)));
-    assertTrue(s_addressToAddressMap.length() == 0);
+    assertEq(s_addressToAddressMap.length(), 0);
   }
 
   function testBytes32LengthSuccess() public {
-    assertTrue(s_addressToBytes32Map.length() == 0);
+    assertEq(s_addressToBytes32Map.length(), 0);
     assertTrue(s_addressToBytes32Map.set(address(this), MOCK_BYTES32_VALUE));
-    assertTrue(s_addressToBytes32Map.length() == 1);
+    assertEq(s_addressToBytes32Map.length(), 1);
     assertTrue(s_addressToBytes32Map.remove(address(this)));
-    assertTrue(s_addressToBytes32Map.length() == 0);
+    assertEq(s_addressToBytes32Map.length(), 0);
   }
 
   function testBytesLengthSuccess() public {
-    assertTrue(s_addressToBytesMap.length() == 0);
+    assertEq(s_addressToBytesMap.length(), 0);
     assertTrue(s_addressToBytesMap.set(address(this), MOCK_BYTES_VALUE));
-    assertTrue(s_addressToBytesMap.length() == 1);
+    assertEq(s_addressToBytesMap.length(), 1);
     assertTrue(s_addressToBytesMap.remove(address(this)));
-    assertTrue(s_addressToBytesMap.length() == 0);
+    assertEq(s_addressToBytesMap.length(), 0);
   }
 }
 
@@ -141,30 +141,30 @@ contract EnumerableMapAddresses_at is EnumerableMapAddressesTest {
   using EnumerableMapAddresses for EnumerableMapAddresses.AddressToBytesMap;
 
   function testAtSuccess() public {
-    assertTrue(s_addressToAddressMap.length() == 0);
+    assertEq(s_addressToAddressMap.length(), 0);
     assertTrue(s_addressToAddressMap.set(address(this), address(this)));
-    assertTrue(s_addressToAddressMap.length() == 1);
+    assertEq(s_addressToAddressMap.length(), 1);
     (address key, address value) = s_addressToAddressMap.at(0);
-    assertTrue(key == address(this));
-    assertTrue(value == address(this));
+    assertEq(key, address(this));
+    assertEq(value, address(this));
   }
 
   function testBytes32AtSuccess() public {
-    assertTrue(s_addressToBytes32Map.length() == 0);
+    assertEq(s_addressToBytes32Map.length(), 0);
     assertTrue(s_addressToBytes32Map.set(address(this), MOCK_BYTES32_VALUE));
-    assertTrue(s_addressToBytes32Map.length() == 1);
+    assertEq(s_addressToBytes32Map.length(), 1);
     (address key, bytes32 value) = s_addressToBytes32Map.at(0);
-    assertTrue(key == address(this));
-    assertTrue(value == MOCK_BYTES32_VALUE);
+    assertEq(key, address(this));
+    assertEq(value, MOCK_BYTES32_VALUE);
   }
 
   function testBytesAtSuccess() public {
-    assertTrue(s_addressToBytesMap.length() == 0);
+    assertEq(s_addressToBytesMap.length(), 0);
     assertTrue(s_addressToBytesMap.set(address(this), MOCK_BYTES_VALUE));
-    assertTrue(s_addressToBytesMap.length() == 1);
+    assertEq(s_addressToBytesMap.length(), 1);
     (address key, bytes memory value) = s_addressToBytesMap.at(0);
-    assertTrue(key == address(this));
-    assertTrue(keccak256(value) == keccak256(MOCK_BYTES_VALUE));
+    assertEq(key, address(this));
+    assertEq(keccak256(value), keccak256(MOCK_BYTES_VALUE));
   }
 }
 
@@ -179,7 +179,7 @@ contract EnumerableMapAddresses_tryGet is EnumerableMapAddressesTest {
     assertTrue(s_addressToAddressMap.contains(address(this)));
     (bool success, address value) = s_addressToAddressMap.tryGet(address(this));
     assertTrue(success);
-    assertTrue(value == address(this));
+    assertEq(value, address(this));
   }
 
   function testBytes32TryGetSuccess() public {
@@ -188,7 +188,7 @@ contract EnumerableMapAddresses_tryGet is EnumerableMapAddressesTest {
     assertTrue(s_addressToBytes32Map.contains(address(this)));
     (bool success, bytes32 value) = s_addressToBytes32Map.tryGet(address(this));
     assertTrue(success);
-    assertTrue(value == MOCK_BYTES32_VALUE);
+    assertEq(value, MOCK_BYTES32_VALUE);
   }
 
   function testBytesTryGetSuccess() public {
@@ -197,7 +197,7 @@ contract EnumerableMapAddresses_tryGet is EnumerableMapAddressesTest {
     assertTrue(s_addressToBytesMap.contains(address(this)));
     (bool success, bytes memory value) = s_addressToBytesMap.tryGet(address(this));
     assertTrue(success);
-    assertTrue(keccak256(value) == keccak256(MOCK_BYTES_VALUE));
+    assertEq(keccak256(value), keccak256(MOCK_BYTES_VALUE));
   }
 }
 
@@ -210,21 +210,21 @@ contract EnumerableMapAddresses_get is EnumerableMapAddressesTest {
     assertTrue(!s_addressToAddressMap.contains(address(this)));
     assertTrue(s_addressToAddressMap.set(address(this), address(this)));
     assertTrue(s_addressToAddressMap.contains(address(this)));
-    assertTrue(s_addressToAddressMap.get(address(this)) == address(this));
+    assertEq(s_addressToAddressMap.get(address(this)), address(this));
   }
 
   function testBytes32GetSuccess() public {
     assertTrue(!s_addressToBytes32Map.contains(address(this)));
     assertTrue(s_addressToBytes32Map.set(address(this), MOCK_BYTES32_VALUE));
     assertTrue(s_addressToBytes32Map.contains(address(this)));
-    assertTrue(s_addressToBytes32Map.get(address(this)) == MOCK_BYTES32_VALUE);
+    assertEq(s_addressToBytes32Map.get(address(this)) , MOCK_BYTES32_VALUE);
   }
 
   function testBytesGetSuccess() public {
     assertTrue(!s_addressToBytesMap.contains(address(this)));
     assertTrue(s_addressToBytesMap.set(address(this), MOCK_BYTES_VALUE));
     assertTrue(s_addressToBytesMap.contains(address(this)));
-    assertTrue(keccak256(s_addressToBytesMap.get(address(this))) == keccak256(MOCK_BYTES_VALUE));
+    assertEq(keccak256(s_addressToBytesMap.get(address(this))), keccak256(MOCK_BYTES_VALUE));
   }
 }
 
@@ -237,13 +237,13 @@ contract EnumerableMapAddresses_get_errorMessage is EnumerableMapAddressesTest {
     assertTrue(!s_addressToAddressMap.contains(address(this)));
     assertTrue(s_addressToAddressMap.set(address(this), address(this)));
     assertTrue(s_addressToAddressMap.contains(address(this)));
-    assertTrue(s_addressToAddressMap.get(address(this), "EnumerableMapAddresses: nonexistent key") == address(this));
+    assertEq(s_addressToAddressMap.get(address(this), "EnumerableMapAddresses: nonexistent key"), address(this));
   }
 
   function testBytesGetErrorMessageSuccess() public {
     assertTrue(!s_addressToBytesMap.contains(address(this)));
     assertTrue(s_addressToBytesMap.set(address(this), MOCK_BYTES_VALUE));
     assertTrue(s_addressToBytesMap.contains(address(this)));
-    assertTrue(keccak256(s_addressToBytesMap.get(address(this))) == keccak256(MOCK_BYTES_VALUE));
+    assertEq(keccak256(s_addressToBytesMap.get(address(this))), keccak256(MOCK_BYTES_VALUE));
   }
 }
