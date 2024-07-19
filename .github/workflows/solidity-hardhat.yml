@@ -55,7 +55,7 @@ jobs:
   # some product-level modifications might also require shared contracts changes, so if these happened we need to generate artifacts for shared contracts as well
   coverage-and-book:
     if: ${{ needs.changes.outputs.changes == 'true' }}
-    name: Foundry Tests
+    name: Generate coverage and documentation artifacts
     runs-on: ubuntu-22.04
     needs: [changes]
     steps:
@@ -147,7 +147,11 @@ jobs:
               lcov --add-tracefile "$file" --output-file "$merged_lcov"
             fi
           done
-          genhtml $merged_lcov --function-coverage --branch-coverage --output-directory html          
+          
+          ls -al
+          cat $merged_lcov
+          
+          genhtml $merged_lcov --function-coverage --branch-coverage --output-directory html
 
       - name: Run Forge doc for
         run: |
