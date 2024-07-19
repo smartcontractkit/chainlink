@@ -127,6 +127,7 @@ func TestAutomationChaos(t *testing.T) {
 		"registry_2_0": eth_contracts.RegistryVersion_2_0,
 		"registry_2_1": eth_contracts.RegistryVersion_2_1,
 		"registry_2_2": eth_contracts.RegistryVersion_2_2,
+		"registry_2_3": eth_contracts.RegistryVersion_2_3,
 	}
 
 	for name, registryVersion := range registryVersions {
@@ -279,7 +280,7 @@ func TestAutomationChaos(t *testing.T) {
 					)
 
 					// Fund the registry with LINK
-					err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfUpkeeps))))
+					err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfUpkeeps)*2)))
 					require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
 					actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, rv)
@@ -296,14 +297,18 @@ func TestAutomationChaos(t *testing.T) {
 					require.NoError(t, err, "Error setting OCR config")
 
 					consumersConditional, upkeepidsConditional := actions.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false, false, nil)
-					consumersLogtrigger, upkeepidsLogtrigger := actions.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false, false, nil)
+					consumers := consumersConditional
+					upkeepIDs := upkeepidsConditional
+					if rv >= eth_contracts.RegistryVersion_2_1 {
+						consumersLogtrigger, upkeepidsLogtrigger := actions.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false, false, nil)
 
-					consumers := append(consumersConditional, consumersLogtrigger...)
-					upkeepIDs := append(upkeepidsConditional, upkeepidsLogtrigger...)
+						consumers = append(consumersConditional, consumersLogtrigger...)
+						upkeepIDs = append(upkeepidsConditional, upkeepidsLogtrigger...)
 
-					for _, c := range consumersLogtrigger {
-						err = c.Start()
-						require.NoError(t, err, "Error starting consumer")
+						for _, c := range consumersLogtrigger {
+							err = c.Start()
+							require.NoError(t, err, "Error starting consumer")
+						}
 					}
 
 					l.Info().Msg("Waiting for all upkeeps to be performed")
@@ -334,7 +339,7 @@ func TestAutomationChaos(t *testing.T) {
 							g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 								"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 						}
-					}, "3m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+					}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 				})
 			}
 
