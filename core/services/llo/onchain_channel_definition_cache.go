@@ -215,9 +215,7 @@ func (c *channelDefinitionCache) applyNewChannelDefinition(log *channel_config_s
 	c.definitionsMu.Lock()
 	defer c.definitionsMu.Unlock()
 	c.definitions[log.ChannelId] = llotypes.ChannelDefinition{
-		ReportFormat:  llotypes.ReportFormat(log.ChannelDefinition.ReportFormat),
-		ChainSelector: log.ChannelDefinition.ChainSelector,
-		StreamIDs:     streamIDs,
+		ReportFormat: llotypes.ReportFormat(log.ChannelDefinition.ReportFormat),
 	}
 }
 
