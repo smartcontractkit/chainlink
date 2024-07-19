@@ -298,16 +298,18 @@ func TestAutomationChaos(t *testing.T) {
 					err = actions.FundChainlinkNodesFromRootAddress(l, a.ChainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes[1:]), big.NewFloat(*config.Common.ChainlinkNodeFunding))
 					require.NoError(t, err, "Error funding Chainlink nodes")
 
-					consumersConditional, upkeepidsConditional := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false, false, nil)
+					var consumersLogTrigger, consumersConditional []contracts.KeeperConsumer
+					var upkeepidsConditional, upkeepidsLogTrigger []*big.Int
+					consumersConditional, upkeepidsConditional = actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false, false, nil)
 					consumers := consumersConditional
 					upkeepIDs := upkeepidsConditional
 					if rv >= eth_contracts.RegistryVersion_2_1 {
-						consumersLogtrigger, upkeepidsLogtrigger := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false, false, nil)
+						consumersLogTrigger, upkeepidsLogTrigger = actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false, false, nil)
 
-						consumers = append(consumersConditional, consumersLogtrigger...)
-						upkeepIDs = append(upkeepidsConditional, upkeepidsLogtrigger...)
+						consumers = append(consumersConditional, consumersLogTrigger...)
+						upkeepIDs = append(upkeepidsConditional, upkeepidsLogTrigger...)
 
-						for _, c := range consumersLogtrigger {
+						for _, c := range consumersLogTrigger {
 							err = c.Start()
 							require.NoError(t, err, "Error starting consumer")
 						}
@@ -330,6 +332,13 @@ func TestAutomationChaos(t *testing.T) {
 
 					_, err = testEnvironment.Chaos.Run(testCase.chaosFunc(testEnvironment.Cfg.Namespace, testCase.chaosProps))
 					require.NoError(t, err)
+
+					if rv >= eth_contracts.RegistryVersion_2_1 {
+						for _, c := range consumersLogTrigger {
+							err = c.Start()
+							require.NoError(t, err, "Error starting consumer")
+						}
+					}
 
 					gom.Eventually(func(g gomega.Gomega) {
 						// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
