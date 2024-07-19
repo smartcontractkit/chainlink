@@ -749,12 +749,12 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	})
 
 	// Call the v2 pipeline to execute a new job run
-	run, results, err := fm.runner.ExecuteRun(ctx, fm.spec, vars, fm.logger)
+	run, results, err := fm.runner.ExecuteRun(ctx, fm.spec, vars)
 	if err != nil {
 		newRoundLogger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return
 	}
-	result, err := results.FinalResult(newRoundLogger).SingularResult()
+	result, err := results.FinalResult().SingularResult()
 	if err != nil || result.Error != nil {
 		newRoundLogger.Errorw("can't fetch answer", "err", err, "result", result)
 		fm.jobORM.TryRecordError(ctx, fm.spec.JobID, "Error polling")
@@ -956,13 +956,13 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		},
 	})
 
-	run, results, err := fm.runner.ExecuteRun(ctx, fm.spec, vars, fm.logger)
+	run, results, err := fm.runner.ExecuteRun(ctx, fm.spec, vars)
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
 		fm.jobORM.TryRecordError(ctx, fm.spec.JobID, "Error polling")
 		return
 	}
-	result, err := results.FinalResult(l).SingularResult()
+	result, err := results.FinalResult().SingularResult()
 	if err != nil || result.Error != nil {
 		l.Errorw("can't fetch answer", "err", err, "result", result)
 		fm.jobORM.TryRecordError(ctx, fm.spec.JobID, "Error polling")

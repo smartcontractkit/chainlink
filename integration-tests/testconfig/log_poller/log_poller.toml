@@ -81,8 +81,8 @@ use_finality_tag = true
 
 [LogPoller.Looped]
 execution_count = 100
-min_emit_wait_time_ms = 200
-max_emit_wait_time_ms = 500
+min_emit_wait_time_ms = 400
+max_emit_wait_time_ms = 600
 
 # test-specific
 [TestLogPollerFewFiltersFixedDepth.NodeConfig]

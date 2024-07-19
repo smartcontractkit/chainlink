@@ -24,8 +24,9 @@ batch_vrf_coordinator_v2: ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2/Batc
 batch_vrf_coordinator_v2plus: ../../contracts/solc/v0.8.19/BatchVRFCoordinatorV2Plus/BatchVRFCoordinatorV2Plus.abi ../../contracts/solc/v0.8.19/BatchVRFCoordinatorV2Plus/BatchVRFCoordinatorV2Plus.bin f13715b38b5b9084b08bffa571fb1c8ef686001535902e1255052f074b31ad4e
 blockhash_store: ../../contracts/solc/v0.8.19/BlockhashStore/BlockhashStore.abi ../../contracts/solc/v0.8.19/BlockhashStore/BlockhashStore.bin 31b118f9577240c8834c35f8b5a1440e82a6ca8aea702970de2601824b6ab0e1
 chain_module_base: ../../contracts/solc/v0.8.19/ChainModuleBase/ChainModuleBase.abi ../../contracts/solc/v0.8.19/ChainModuleBase/ChainModuleBase.bin 39dfce79330e921e5c169051b11c6e5ea15cd4db5a7b09c06aabbe9658148915
-chain_reader_tester: ../../contracts/solc/v0.8.19/ChainReaderTester/ChainReaderTester.abi ../../contracts/solc/v0.8.19/ChainReaderTester/ChainReaderTester.bin de88c7e68de36b96aa2bec844bdc96fcd7c9017b38e25062b3b9f9cec42c814f
+chain_reader_tester: ../../contracts/solc/v0.8.19/ChainReaderTester/ChainReaderTester.abi ../../contracts/solc/v0.8.19/ChainReaderTester/ChainReaderTester.bin b3718dad488f54de97d124221d96b867c81e11210084a1fad379cb8385d37ffe
 chain_specific_util_helper: ../../contracts/solc/v0.8.6/ChainSpecificUtilHelper/ChainSpecificUtilHelper.abi ../../contracts/solc/v0.8.6/ChainSpecificUtilHelper/ChainSpecificUtilHelper.bin 66eb30b0717fefe05672df5ec863c0b9a5a654623c4757307a2726d8f31e26b1
+counter: ../../contracts/solc/v0.8.6/Counter/Counter.abi ../../contracts/solc/v0.8.6/Counter/Counter.bin 6ca06e000e8423573ffa0bdfda749d88236ab3da2a4cbb4a868c706da90488c9
 cron_upkeep_factory_wrapper: ../../contracts/solc/v0.8.6/CronUpkeepFactory/CronUpkeepFactory.abi - dacb0f8cdf54ae9d2781c5e720fc314b32ed5e58eddccff512c75d6067292cd7
 cron_upkeep_wrapper: ../../contracts/solc/v0.8.6/CronUpkeepFactory/CronUpkeep.abi - 362fcfcf30a6ab3acff83095ea4b2b9056dd5e9dcb94bc5411aae58995d22709
 dummy_protocol_wrapper: ../../contracts/solc/v0.8.16/DummyProtocol/DummyProtocol.abi ../../contracts/solc/v0.8.16/DummyProtocol/DummyProtocol.bin 583a448170b13abf7ed64e406e8177d78c9e55ab44efd141eee60de23a71ee3b

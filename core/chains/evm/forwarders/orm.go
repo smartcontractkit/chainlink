@@ -13,8 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
-
 type ORM interface {
 	CreateForwarder(ctx context.Context, addr common.Address, evmChainId big.Big) (fwd Forwarder, err error)
 	FindForwarders(ctx context.Context, offset, limit int) ([]Forwarder, int, error)

@@ -132,7 +132,6 @@ var (
 	)
 )
 
-//go:generate mockery --quiet --name PrometheusBackend --output ./mocks/ --case=underscore
 type (
 	// Contains interface for logging OCR telemetry.
 	PrometheusBackend interface {

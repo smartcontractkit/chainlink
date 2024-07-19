@@ -25,8 +25,6 @@ import (
 //
 // Both endpoints share the same response format.
 // All methods are thread-safe.
-//
-//go:generate mockery --quiet --name ExternalAdapterClient --output ./mocks/ --case=underscore
 type ExternalAdapterClient interface {
 	RunComputation(
 		ctx context.Context,
@@ -51,7 +49,6 @@ type externalAdapterClient struct {
 
 var _ ExternalAdapterClient = (*externalAdapterClient)(nil)
 
-//go:generate mockery --quiet --name BridgeAccessor --output ./mocks/ --case=underscore
 type BridgeAccessor interface {
 	NewExternalAdapterClient(context.Context) (ExternalAdapterClient, error)
 }
