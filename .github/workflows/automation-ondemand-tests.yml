@@ -146,7 +146,7 @@ jobs:
           - name: chaos
             id: chaos
             suite: chaos
-            nodes: 15
+            nodes: 20
             os: ubuntu-latest
             enabled: ${{ inputs.enableChaos }}
             pyroscope_env: ci-automation-on-demand-chaos
