@@ -164,7 +164,7 @@ contract EnumerableMapAddresses_at is EnumerableMapAddressesTest {
     assertEq(s_addressToBytesMap.length(), 1);
     (address key, bytes memory value) = s_addressToBytesMap.at(0);
     assertEq(key, address(this));
-    assertEq(keccak256(value), keccak256(MOCK_BYTES_VALUE));
+    assertEq(value, MOCK_BYTES_VALUE);
   }
 }
 
@@ -197,7 +197,7 @@ contract EnumerableMapAddresses_tryGet is EnumerableMapAddressesTest {
     assertTrue(s_addressToBytesMap.contains(address(this)));
     (bool success, bytes memory value) = s_addressToBytesMap.tryGet(address(this));
     assertTrue(success);
-    assertEq(keccak256(value), keccak256(MOCK_BYTES_VALUE));
+    assertEq(value, MOCK_BYTES_VALUE);
   }
 }
 
@@ -224,7 +224,7 @@ contract EnumerableMapAddresses_get is EnumerableMapAddressesTest {
     assertTrue(!s_addressToBytesMap.contains(address(this)));
     assertTrue(s_addressToBytesMap.set(address(this), MOCK_BYTES_VALUE));
     assertTrue(s_addressToBytesMap.contains(address(this)));
-    assertEq(keccak256(s_addressToBytesMap.get(address(this))), keccak256(MOCK_BYTES_VALUE));
+    assertEq(s_addressToBytesMap.get(address(this)), MOCK_BYTES_VALUE);
   }
 }
 
@@ -244,6 +244,6 @@ contract EnumerableMapAddresses_get_errorMessage is EnumerableMapAddressesTest {
     assertTrue(!s_addressToBytesMap.contains(address(this)));
     assertTrue(s_addressToBytesMap.set(address(this), MOCK_BYTES_VALUE));
     assertTrue(s_addressToBytesMap.contains(address(this)));
-    assertEq(keccak256(s_addressToBytesMap.get(address(this))), keccak256(MOCK_BYTES_VALUE));
+    assertEq(s_addressToBytesMap.get(address(this)), MOCK_BYTES_VALUE);
   }
 }
