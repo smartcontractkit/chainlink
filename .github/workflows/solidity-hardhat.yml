@@ -138,8 +138,10 @@ jobs:
       - name: Generate HTML report
         shell: bash
         run: |
-          cd contracts          
-          find "." --maxdepth 1 -name "*.info" -exec lcov --add-tracefile {} --ignore-errors inconsistent --output-file "merged.lcov" \;        
+          cd contracts
+          mkdir lcov && cp *.info lcov && cd lcov
+          find "." -name "*.info" -exec lcov --add-tracefile {} --ignore-errors inconsistent --output-file "merged.lcov" \;
+          cd .. && cp lcov/merged.lcov .
           genhtml merged.lcov --function-coverage --branch-coverage --output-directory html
 
       - name: Run Forge doc for
