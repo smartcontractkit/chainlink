@@ -30,7 +30,7 @@ jobs:
     steps:
       - name: Check for commas or spaces in product input
         run: |
-          product="${{ env.PRODUCT }}
+          product="${{ env.PRODUCT }}"
           if [[ "$product" =~ [,\ ] ]]; then
             echo "Error: 'inputs.product' contains commas or spaces: \"${{ env.PRODUCT }}\". Please provide just a single valid product name."
             exit 1
