@@ -60,9 +60,6 @@ func ConnectRemote() (
 		return nil, nil, nil, nil, errors.New("CRIB_NETWORK must be set to connect, only 'geth' is supported for now")
 	}
 	cribNodes := os.Getenv("CRIB_NODES")
-	if cribNodes == "" {
-		return nil, nil, nil, nil, errors.New("CRIB_NODES must be set to connect")
-	}
 	nodes, err := strconv.Atoi(cribNodes)
 	if err != nil {
 		return nil, nil, nil, nil, errors.New("CRIB_NODES must be a number, 5-19 nodes")
