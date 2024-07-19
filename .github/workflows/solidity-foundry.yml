@@ -200,7 +200,7 @@ jobs:
           CHANGED="${{ needs.changes.outputs.sol_files }}"
           IFS=','; CHANGED_ARRAY="${CHANGED[*]}"; unset IFS
           
-          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/.slither.config-artifacts.json "." "$CHANGED" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
+          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/.slither.config-artifacts.json "." "$CHANGED_ARRAY" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
       - name: Print Slither summary
         shell: bash
         run: |
