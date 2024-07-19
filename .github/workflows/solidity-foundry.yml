@@ -198,40 +198,18 @@ jobs:
         shell: bash
         run: |
           CHANGED="${{ needs.changes.outputs.sol_files }}"
-          IFS=' ' read -r -a CHANGED_ARRAY <<< "$CHANGED"
-          slither_errors=0
+          IFS=','; CHANGED_ARRAY="${CHANGED[*]}"; unset IFS
           
-          cd contracts
-          for file in "${CHANGED_ARRAY[@]}"; do
-            sanitized_file="${file/contracts\//}"
-          
-            # Select the correct solc version for the file as it might differ between contracts leading to compilation errors                                
-            source ./scripts/select_solc_version.sh "$sanitized_file"
-            exit_code=$?
-            if [ $exit_code -ne 0 ]; then
-              echo "Error: Failed to select the correct solc version for $sanitized_file."
-              slither_errors=$((slither_errors+1))
-              continue
-            fi
-            
-            output=$(slither --config .slither.config-pr.json --fail-none --checklist "$sanitized_file")
-            sanitized_output=$(echo "$output" | sed '/\*\*THIS CHECKLIST IS NOT COMPLETE\*\*. Use `--show-ignored-findings` to show all the results./d'  | sed '/Summary/d')
-            echo "# $sanitized_file" >> slither-results.md && echo "$sanitized_output" >> slither-results.md
-          done
-          
-          if [ $slither_errors -ne 0 ]; then
-            echo
-            echo "There were $slither_errors Slither execution errors NOT related to static analysis. Please check the logs."
-            exit 1
-          else
-            echo
-            echo "It was possible to execute Slither on all files."
-          fi
+          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/.slither.config-artifacts.json "." "$CHANGED" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
       - name: Print Slither summary
         shell: bash
         run: |
           echo "# Static analysis results " >> $GITHUB_STEP_SUMMARY
-          cat contracts/slither-results.md >> $GITHUB_STEP_SUMMARY
+          for file in "contracts/slither-reports"/*.md; do
+            if [ -e "$file" ]; then
+              cat "$file" >> $GITHUB_STEP_SUMMARY
+            fi
+          done          
 
       - name: Upload Slither report
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4

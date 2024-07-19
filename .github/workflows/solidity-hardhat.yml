@@ -282,7 +282,17 @@ jobs:
         with:
           name: ${{ env.PRODUCT }}-artifacts
           path: review_artifacts/
-
+      - name: Download product artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: code-coverage-report-${{ env.PRODUCT }}
+          path: review_artifacts/
+      - name: Download shared artifacts
+        if: ${{ needs.changes.outputs.shared_changes == 'true' }}
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: code-coverage-report-shared
+          path: review_artifacts/
       - name: Download shared artifacts
         if: ${{ needs.changes.outputs.shared_changes == 'true' }}
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
@@ -300,6 +310,15 @@ jobs:
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
         with:
           name: contracts-artifacts
+      - name: Remove product code coverage artifacts
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: code-coverage-report-${{ env.PRODUCT }}
+      - name: Remove shared code coverage artifacts
+        if: ${{ needs.changes.outputs.shared_changes == 'true' }}
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: code-coverage-report-shared
       - name: Remove product artifacts
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
         with:
