@@ -422,17 +422,17 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 		registry,
 	)
 
-	dispatcher.On("SetReceiver", string(fullTriggerCapID), capDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
-	dispatcher.On("SetReceiver", string(fullTargetID), capDonID, mock.AnythingOfType("*target.client")).Return(nil)
+	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
+	dispatcher.On("SetReceiver", fullTargetID, capDonID, mock.AnythingOfType("*target.client")).Return(nil)
 
 	err = launcher.Launch(ctx, state)
 	require.NoError(t, err)
 	defer launcher.Close()
 
-	_, err = registry.Get(ctx, string(fullTriggerCapID))
+	_, err = registry.Get(ctx, fullTriggerCapID)
 	require.NoError(t, err)
 
-	_, err = registry.Get(ctx, string(fullTargetID))
+	_, err = registry.Get(ctx, fullTargetID)
 	require.NoError(t, err)
 }
 
@@ -579,13 +579,13 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 		registry,
 	)
 
-	dispatcher.On("SetReceiver", string(fullTriggerCapID), triggerCapDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
+	dispatcher.On("SetReceiver", fullTriggerCapID, triggerCapDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
 
 	err = launcher.Launch(ctx, state)
 	require.NoError(t, err)
 	defer launcher.Close()
 
-	_, err = registry.Get(ctx, string(fullTriggerCapID))
+	_, err = registry.Get(ctx, fullTriggerCapID)
 	require.NoError(t, err)
 }
 
