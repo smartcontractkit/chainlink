@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccipcapability/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -431,6 +432,39 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
+	t.Run("it creates and deletes records for ccip jobs", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		p2pKey, err := keyStore.P2P().Create(ctx)
+		require.NoError(t, err)
+		specArgs := validate.SpecArgs{
+			P2PV2Bootstrappers: []string{
+				fmt.Sprintf("%s@somechainlinknode.com:%d", p2pKey.ID(), 8080),
+			},
+			CapabilityVersion:      "v1.0.0",
+			CapabilityLabelledName: "ccip",
+			OCRKeyBundleIDs: map[string]string{
+				relay.NetworkEVM: cltest.DefaultOCRKey.ID(),
+			},
+			P2PKeyID: p2pKey.ID(),
+			PluginConfig: map[string]any{
+				"pricesPipeline": ".... the pipeline ....",
+			},
+		}
+		specToml, err := validate.NewCCIPSpecToml(specArgs)
+		require.NoError(t, err)
+		jb, err := validate.ValidatedCCIPSpec(specToml)
+		require.NoError(t, err)
+
+		err = jobORM.CreateJob(ctx, &jb)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "ccip_specs", 1)
+		cltest.AssertCount(t, db, "jobs", 1)
+		err = jobORM.DeleteJob(ctx, jb.ID)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "ccip_specs", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
+	})
+
 	t.Run("it deletes records for webhook jobs", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		ei := cltest.MustInsertExternalInitiator(t, bridges.NewORM(db))
@@ -629,6 +663,89 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 	require.NoError(t, jobORM.DeleteJob(ctx, jb.ID))
 	cltest.AssertCount(t, db, "vrf_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
+}
+
+func TestORM_CreateJob_CCIP(t *testing.T) {
+	ctx := testutils.Context(t)
+	config := configtest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
+	require.NoError(t, keyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
+
+	p2pKey, err := keyStore.P2P().Create(ctx)
+	require.NoError(t, err)
+
+	lggr := logger.TestLogger(t)
+	pipelineORM := pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
+	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
+
+	specArgs := validate.SpecArgs{
+		P2PV2Bootstrappers: []string{
+			fmt.Sprintf("%s@somechainlinknode.com:%d", p2pKey.ID(), 8080),
+		},
+		CapabilityVersion:      "v1.0.0",
+		CapabilityLabelledName: "ccip",
+		OCRKeyBundleIDs: map[string]string{
+			relay.NetworkEVM: cltest.DefaultOCRKey.ID(),
+		},
+		P2PKeyID: p2pKey.ID(),
+		RelayConfigs: map[string]any{
+			"hello": "world",
+		},
+		PluginConfig: map[string]any{
+			"pricesPipeline": ".... the pipeline ....",
+		},
+	}
+	specToml, err := validate.NewCCIPSpecToml(specArgs)
+	require.NoError(t, err)
+	jb, err := validate.ValidatedCCIPSpec(specToml)
+	require.NoError(t, err)
+
+	require.NoError(t, jobORM.CreateJob(ctx, &jb))
+	cltest.AssertCount(t, db, "ccip_specs", 1)
+	cltest.AssertCount(t, db, "jobs", 1)
+
+	var capabilityVersion string
+	require.NoError(t, db.Get(&capabilityVersion, `SELECT capability_version FROM ccip_specs LIMIT 1`))
+	require.Equal(t, specArgs.CapabilityVersion, capabilityVersion)
+
+	var capabilityLabelledName string
+	require.NoError(t, db.Get(&capabilityLabelledName, `SELECT capability_labelled_name FROM ccip_specs LIMIT 1`))
+	require.Equal(t, specArgs.CapabilityLabelledName, capabilityLabelledName)
+
+	var ocrKeyBundleIDs job.JSONConfig
+	require.NoError(t, db.Get(&ocrKeyBundleIDs, `SELECT ocr_key_bundle_ids FROM ccip_specs LIMIT 1`))
+	actual, ok := ocrKeyBundleIDs[relay.NetworkEVM]
+	require.True(t, ok)
+	actualStr, ok := actual.(string)
+	require.True(t, ok)
+	require.Equal(t, specArgs.OCRKeyBundleIDs[relay.NetworkEVM], actualStr)
+
+	var p2pV2Bootstrappers pq.StringArray
+	require.NoError(t, db.Get(&p2pV2Bootstrappers, `SELECT p2pv2_bootstrappers FROM ccip_specs LIMIT 1`))
+	require.Len(t, p2pV2Bootstrappers, len(specArgs.P2PV2Bootstrappers))
+	require.Equal(t, specArgs.P2PV2Bootstrappers[0], p2pV2Bootstrappers[0])
+
+	var p2pKeyID string
+	require.NoError(t, db.Get(&p2pKeyID, `SELECT p2p_key_id FROM ccip_specs LIMIT 1`))
+	require.Equal(t, p2pKey.ID(), p2pKeyID)
+
+	var relayConfigs job.JSONConfig
+	require.NoError(t, db.Get(&relayConfigs, `SELECT relay_configs FROM ccip_specs LIMIT 1`))
+	actual, ok = relayConfigs["hello"]
+	require.True(t, ok)
+	actualStr, ok = actual.(string)
+	require.True(t, ok)
+	require.Equal(t, specArgs.RelayConfigs["hello"], actualStr)
+
+	var pluginConfig job.JSONConfig
+	require.NoError(t, db.Get(&pluginConfig, `SELECT plugin_config FROM ccip_specs LIMIT 1`))
+	actual, ok = pluginConfig["pricesPipeline"]
+	require.True(t, ok)
+	actualStr, ok = actual.(string)
+	require.True(t, ok)
+	require.Equal(t, specArgs.PluginConfig["pricesPipeline"], actualStr)
 }
 
 func TestORM_CreateJob_OCRBootstrap(t *testing.T) {

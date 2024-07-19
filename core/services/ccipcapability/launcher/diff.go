@@ -3,12 +3,10 @@ package launcher
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/crypto"
-
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccipcapability/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
@@ -98,7 +96,7 @@ func filterCCIPDONs(
 	ccipDONs := make(map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo)
 	for _, don := range state.IDsToDONs {
 		for _, donCapabilities := range don.CapabilityConfigurations {
-			hid, err := hashedCapabilityId(ccipCapability.LabelledName, ccipCapability.Version)
+			hid, err := common.HashedCapabilityID(ccipCapability.LabelledName, ccipCapability.Version)
 			if err != nil {
 				return nil, fmt.Errorf("failed to hash capability id: %w", err)
 			}
@@ -119,7 +117,7 @@ func checkCapabilityPresence(
 	state registrysyncer.State,
 ) (kcr.CapabilitiesRegistryCapabilityInfo, error) {
 	// Sanity check to make sure the capability registry has the capability we are looking for.
-	hid, err := hashedCapabilityId(capabilityLabelledName, capabilityVersion)
+	hid, err := common.HashedCapabilityID(capabilityLabelledName, capabilityVersion)
 	if err != nil {
 		return kcr.CapabilitiesRegistryCapabilityInfo{}, fmt.Errorf("failed to hash capability id: %w", err)
 	}
@@ -131,29 +129,6 @@ func checkCapabilityPresence(
 	}
 
 	return ccipCapability, nil
-}
-
-// hashedCapabilityId returns the hashed capability id in a manner equivalent to the capability registry.
-func hashedCapabilityId(capabilityLabelledName, capabilityVersion string) (r [32]byte, err error) {
-	tabi := `[{"type": "string"}, {"type": "string"}]`
-	abiEncoded, err := utils.ABIEncode(tabi, capabilityLabelledName, capabilityVersion)
-	if err != nil {
-		return r, fmt.Errorf("failed to ABI encode capability version and labelled name: %w", err)
-	}
-
-	h := crypto.Keccak256(abiEncoded)
-	copy(r[:], h)
-	return r, nil
-}
-
-// mustHashedCapabilityId is a helper function that panics if the hashedCapabilityId function returns an error.
-// should only use in tests.
-func mustHashedCapabilityId(capabilityLabelledName, capabilityVersion string) [32]byte {
-	r, err := hashedCapabilityId(capabilityLabelledName, capabilityVersion)
-	if err != nil {
-		panic(err)
-	}
-	return r
 }
 
 // isMemberOfDON returns true if and only if the given p2pID is a member of the given DON.

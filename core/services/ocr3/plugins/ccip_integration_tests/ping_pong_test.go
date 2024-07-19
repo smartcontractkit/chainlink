@@ -37,7 +37,7 @@ func TestPingPong(t *testing.T) {
 			for logIter.Next() {
 			}
 			log := logIter.Event
-			require.Equal(t, otherChain, log.DestChainSelector)
+			require.Equal(t, getSelector(otherChain), log.DestChainSelector)
 			require.Equal(t, pingPong.Address(), log.Message.Sender)
 			chainPingPongAddr := pingPongs[otherChain][chainID].Address().Bytes()
 			// With chain agnostic addresses we need to pad the address to the correct length if the receiver is zero prefixed
@@ -83,7 +83,7 @@ func initializePingPongContracts(
 		for chainToConnect, pingPong := range pingPongs[chainID] {
 			_, err := pingPong.SetCounterpart(
 				universe.owner,
-				chainUniverses[chainToConnect].chainID,
+				getSelector(chainUniverses[chainToConnect].chainID),
 				// This is the address of the ping pong contract on the other chain
 				pingPongs[chainToConnect][chainID].Address(),
 			)

@@ -909,12 +909,13 @@ contract EVM2EVMMultiOffRamp_executeSingleReport is EVM2EVMMultiOffRampSetup {
     Internal.ExecutionReportSingleChain memory executionReport =
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        EVM2EVMMultiOffRamp.ExecutionError.selector,
-        messages[0].header.messageId,
-        abi.encodeWithSelector(CallWithExactGas.NotEnoughGasForCall.selector)
-      )
+    vm.expectEmit();
+    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
+      messages[0].header.sourceChainSelector,
+      messages[0].header.sequenceNumber,
+      messages[0].header.messageId,
+      Internal.MessageExecutionState.FAILURE,
+      abi.encodeWithSelector(CallWithExactGas.NotEnoughGasForCall.selector)
     );
     s_offRamp.executeSingleReport(executionReport, new uint256[](0));
   }

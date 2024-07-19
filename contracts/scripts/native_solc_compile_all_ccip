@@ -36,7 +36,7 @@ compileContract () {
     echo "MultiOffRamp uses $OPTIMIZE_RUNS_MULTI_OFFRAMP optimizer runs."
       optimize_runs=$OPTIMIZE_RUNS_MULTI_OFFRAMP
       ;;
-    "ccip/onRamp/EVM2EVMMultiOnRamp.sol" | "ccip/onRamp/EVM2EVMOnRamp.sol")
+    "ccip/onRamp/EVM2EVMOnRamp.sol")
     echo "OnRamp uses $OPTIMIZE_RUNS_ONRAMP optimizer runs."
       optimize_runs=$OPTIMIZE_RUNS_ONRAMP
       ;;
@@ -85,6 +85,7 @@ compileContract ccip/test/helpers/CommitStoreHelper.sol
 compileContract ccip/test/helpers/MessageHasher.sol
 compileContract ccip/test/helpers/ReportCodec.sol
 compileContract ccip/test/helpers/receivers/MaybeRevertMessageReceiver.sol
+compileContract ccip/test/helpers/MultiOCR3Helper.sol
 compileContract ccip/test/mocks/MockRMN1_0.sol
 compileContract ccip/test/mocks/MockE2EUSDCTokenMessenger.sol
 compileContract ccip/test/mocks/MockE2EUSDCTransmitter.sol

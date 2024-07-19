@@ -244,8 +244,6 @@ contract NonceManager_OnRampUpgrade is EVM2EVMMultiOnRampSetup {
       NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(address(s_prevOnRamp), address(0)));
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
 
-    EVM2EVMMultiOnRamp.DestChainConfigArgs[] memory destChainConfigArgs = _generateDestChainConfigArgs();
-
     (s_onRamp, s_metadataHash) = _deployOnRamp(
       SOURCE_CHAIN_SELECTOR, address(s_sourceRouter), address(s_outboundNonceManager), address(s_tokenAdminRegistry)
     );

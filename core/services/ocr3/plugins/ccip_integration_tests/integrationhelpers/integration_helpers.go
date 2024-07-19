@@ -1,4 +1,4 @@
-package ccip_integration_tests
+package integrationhelpers
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
@@ -21,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configsevm "github.com/smartcontractkit/chainlink/v2/core/services/ccipcapability/configs/evm"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/services/ccipcapability/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
@@ -38,13 +40,20 @@ import (
 
 const chainID = 1337
 
-func NewReader(t *testing.T, logPoller logpoller.LogPoller, headTracker logpoller.HeadTracker, client client.Client, address common.Address, chainReaderConfig evmrelaytypes.ChainReaderConfig, contractName string) types.ContractReader {
+func NewReader(
+	t *testing.T,
+	logPoller logpoller.LogPoller,
+	headTracker logpoller.HeadTracker,
+	client client.Client,
+	address common.Address,
+	chainReaderConfig evmrelaytypes.ChainReaderConfig,
+) types.ContractReader {
 	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.TestLogger(t), logPoller, headTracker, client, chainReaderConfig)
 	require.NoError(t, err)
 	err = cr.Bind(testutils.Context(t), []types.BoundContract{
 		{
 			Address: address.String(),
-			Name:    contractName,
+			Name:    consts.ContractNameCCIPConfig,
 		},
 	})
 	require.NoError(t, err)
@@ -220,23 +229,7 @@ func (t *TestUniverse) AddCapability(p2pIDs [][32]byte) {
 }
 
 func NewHomeChainReader(t *testing.T, logPoller logpoller.LogPoller, headTracker logpoller.HeadTracker, client client.Client, ccAddress common.Address) ccipreader.HomeChain {
-	cfg := evmrelaytypes.ChainReaderConfig{
-		Contracts: map[string]evmrelaytypes.ChainContractReader{
-			"CCIPConfig": {
-				ContractABI: ccip_config.CCIPConfigMetaData.ABI,
-				Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
-					"getAllChainConfigs": {
-						ChainSpecificName: "getAllChainConfigs",
-					},
-					"getOCRConfig": {
-						ChainSpecificName: "getOCRConfig",
-					},
-				},
-			},
-		},
-	}
-
-	cr := NewReader(t, logPoller, headTracker, client, ccAddress, cfg, "CCIPConfig")
+	cr := NewReader(t, logPoller, headTracker, client, ccAddress, configsevm.HomeChainReaderConfigRaw())
 
 	hcr := ccipreader.NewHomeChainReader(cr, logger.TestLogger(t), 500*time.Millisecond)
 	require.NoError(t, hcr.Start(testutils.Context(t)))
@@ -294,4 +287,15 @@ func (t *TestUniverse) AddDONToRegistry(
 	}, false, false, f)
 	require.NoError(t.TestingT, err)
 	t.Backend.Commit()
+}
+
+func SetupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg []byte) ccip_config.CCIPConfigTypesChainConfigInfo {
+	return ccip_config.CCIPConfigTypesChainConfigInfo{
+		ChainSelector: chainSelector,
+		ChainConfig: ccip_config.CCIPConfigTypesChainConfig{
+			Readers: readers,
+			FChain:  fChain,
+			Config:  cfg,
+		},
+	}
 }
