@@ -58,7 +58,6 @@ type donInfo struct {
 
 func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, workflowDonInfo donInfo, triggerDonInfo donInfo, targetDonInfo donInfo,
 	feedCount int, deltaStage string, schedule string) (*feeds_consumer.KeystoneFeedsConsumer, []string, *reportsSink) {
-
 	lggr := logger.TestLogger(t)
 	// As a default set the logging to info otherwise 50+MB of logs are created on each test run
 	lggr.SetLogLevel(zapcore.InfoLevel)
@@ -100,7 +99,6 @@ func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSi
 	transactor *bind.TransactOpts,
 	libocr *mockLibOCR,
 ) ([]*cltest.TestApplication, []*cltest.TestApplication, []*cltest.TestApplication) {
-
 	broker := newTestAsyncMessageBroker(t, 1000)
 
 	var triggerNodes []*cltest.TestApplication
