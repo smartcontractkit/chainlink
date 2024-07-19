@@ -14,7 +14,7 @@ env:
   FOUNDRY_PROFILE: ci
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
-  # PRODUCT: ${{ github.event.inputs.product }}
+  # PRODUCT: ${{ github.event.env.PRODUCT }}
   PRODUCT: "automation"
 
 #TODO remove label trigger after testing
@@ -28,14 +28,14 @@ jobs:
       shared_changes: ${{ steps.changes.outputs.shared }}
       files: ${{ steps.changes.outputs.sol_files }}
     steps:
-      - name: Check for commas or spaces in product input
+      - name: Validate product input
         run: |
           product="${{ env.PRODUCT }}"
           if [[ "$product" =~ [,\ ] ]]; then
-            echo "Error: 'inputs.product' contains commas or spaces: \"${{ env.PRODUCT }}\". Please provide just a single valid product name."
+            echo "Error: 'env.PRODUCT' contains commas or spaces: \"${{ env.PRODUCT }}\". Please provide just a single valid product name."
             exit 1
           else
-            echo "Product name is valid: $product"
+            echo "Product is valid: $product"
           fi
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -90,7 +90,7 @@ jobs:
           FOUNDRY_PROFILE: "shared"
 
       - name: Run coverage for
-        if: ${{ !contains(fromJson('["vrf"]'), inputs.product) && !contains(fromJson('["automation"]'), inputs.product) && !contains(fromJson('["functions"]'), inputs.product) && needs.changes.outputs.changes == 'true' }}
+        if: ${{ !contains(fromJson('["vrf"]'), env.PRODUCT) && !contains(fromJson('["automation"]'), env.PRODUCT) && !contains(fromJson('["functions"]'), env.PRODUCT) && needs.changes.outputs.changes == 'true' }}
         working-directory: contracts
         run: forge coverage --report lcov --report-file lcov-${{ env.PRODUCT }}.info
         env:
@@ -115,7 +115,7 @@ jobs:
       # We could gather coverage for all products
 
       - name: Report code coverage for
-        if: ${{ !contains(fromJson('["vrf"]'), inputs.product) && !contains(fromJson('["automation"]'), inputs.name) && !contains(fromJson('["functions"]'), inputs.name) && needs.changes.outputs.changes == 'true' }}
+        if: ${{ !contains(fromJson('["vrf"]'), env.PRODUCT) && !contains(fromJson('["automation"]'), inputs.name) && !contains(fromJson('["functions"]'), inputs.name) && needs.changes.outputs.changes == 'true' }}
         uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
         with:
           update-comment: true
