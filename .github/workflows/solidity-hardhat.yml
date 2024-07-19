@@ -15,6 +15,8 @@ env:
   FOUNDRY_PROFILE: ci
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
+  # PRODUCT: ${{ github.event.inputs.product }}
+  PRODUCT: "automation"
 
 #TODO remove label trigger after testing
 
@@ -31,9 +33,9 @@ jobs:
       - name: Check for commas or spaces in product input
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
-          product="${{ inputs.product }}"
+          product="${{ env.PRODUCT }}
           if [[ "$product" =~ [,\ ] ]]; then
-            echo "Error: 'inputs.product' contains commas or spaces: \"${{ inputs.product }}\". Please provide just a single valid product name."
+            echo "Error: 'inputs.product' contains commas or spaces: \"${{ env.PRODUCT }}\". Please provide just a single valid product name."
             exit 1
           else
             echo "Product name is valid: $product"
@@ -56,7 +58,7 @@ jobs:
   # some product-level modifications might also require shared contracts changes, so if these happened we need to generate artifacts for shared contracts as well
   coverage-and-book:
     if: ${{ needs.changes.outputs.changes == 'true' }}
-    name: Foundry Tests ${{ inputs.product }}
+    name: Foundry Tests ${{ env.PRODUCT }}
     runs-on: ubuntu-22.04
     needs: [changes]
     steps:
@@ -73,13 +75,13 @@ jobs:
         with:
           version: ${{ env.FOUNDRY_VERSION }}
 
-      - name: Run Forge build for ${{ inputs.product }}
+      - name: Run Forge build for ${{ env.PRODUCT }}
         run: |
           forge --version
           forge build
         working-directory: contracts
         env:
-          FOUNDRY_PROFILE: ${{ inputs.product }}
+          FOUNDRY_PROFILE: ${{ env.PRODUCT }}
 
       - name: Run Forge build for shared contracts
         if: ${{ needs.changes.outputs.shared_changed == 'true' }}
@@ -90,12 +92,12 @@ jobs:
         env:
           FOUNDRY_PROFILE: "shared"
 
-      - name: Run coverage for ${{ inputs.product }}
+      - name: Run coverage for ${{ env.PRODUCT }}
         if: ${{ !contains(fromJson('["vrf"]'), inputs.product) && !contains(fromJson('["automation"]'), inputs.product) && !contains(fromJson('["functions"]'), inputs.product) && needs.changes.outputs.changes == 'true' }}
         working-directory: contracts
-        run: forge coverage --report lcov -report-file lcov-${{ inputs.product }}.info
+        run: forge coverage --report lcov -report-file lcov-${{ env.PRODUCT }}.info
         env:
-          FOUNDRY_PROFILE: ${{ inputs.product }}
+          FOUNDRY_PROFILE: ${{ env.PRODUCT }}
 
       - name: Run coverage for shared contracts
         if: ${{ needs.changes.outputs.shared_changed == 'true' }}
@@ -115,14 +117,14 @@ jobs:
 
       # We could gather coverage for all products
 
-      - name: Report code coverage for ${{ inputs.product }}
+      - name: Report code coverage for ${{ env.PRODUCT }}
         if: ${{ !contains(fromJson('["vrf"]'), inputs.product) && !contains(fromJson('["automation"]'), inputs.name) && !contains(fromJson('["functions"]'), inputs.name) && needs.changes.outputs.changes == 'true' }}
         uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
         with:
           update-comment: true
-          coverage-files: ./contracts/lcov-${{ inputs.product }}.info
+          coverage-files: ./contracts/lcov-${{ env.PRODUCT }}.info
           minimum-coverage: 0
-          artifact-name: code-coverage-report-${{ inputs.product }}
+          artifact-name: code-coverage-report-${{ env.PRODUCT }}
           working-directory: ./contracts
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -137,12 +139,12 @@ jobs:
           working-directory: ./contracts
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run Forge doc for ${{ inputs.product }}
+      - name: Run Forge doc for ${{ env.PRODUCT }}
         run: |
-          forge doc --build -o docs/${{ inputs.product }}
+          forge doc --build -o docs/${{ env.PRODUCT }}
         working-directory: contracts
         env:
-          FOUNDRY_PROFILE: ${{ inputs.product }}
+          FOUNDRY_PROFILE: ${{ env.PRODUCT }}
 
       - name: Run Forge doc for shared contracts
         if: ${{ needs.changes.outputs.shared_changed == 'true' }}
@@ -152,15 +154,15 @@ jobs:
         env:
           FOUNDRY_PROFILE: "shared"
 
-      - name: Upload Artifacts for ${{ inputs.product }}
+      - name: Upload Artifacts for ${{ env.PRODUCT }}
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         timeout-minutes: 2
         continue-on-error: true
         with:
-          name: ${{ inputs.product }}-artifacts
+          name: ${{ env.PRODUCT }}-artifacts
           path: |
-            contracts/docs/${{ inputs.product }}
-            contracts/${{ inputs.product }}-lcov.info
+            contracts/docs/${{ env.PRODUCT }}
+            contracts/${{ env.PRODUCT }}-lcov.info
           retention-days: 7
 
       - name: Upload Artifacts for shared contracts
@@ -272,10 +274,10 @@ jobs:
         with:
           name: contracts-artifacts
           path: review_artifacts/
-      - name: Download ${{ inputs.product }} artifacts
+      - name: Download ${{ env.PRODUCT }} artifacts
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
-          name: ${{ inputs.product }}-artifacts
+          name: ${{ env.PRODUCT }}-artifacts
           path: review_artifacts/
 
       - name: Download shared artifacts
@@ -295,10 +297,10 @@ jobs:
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
         with:
           name: contracts-artifacts
-      - name: Remove ${{ inputs.product }} artifacts
+      - name: Remove ${{ env.PRODUCT }} artifacts
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
         with:
-          name: ${{ inputs.product }}-artifacts
+          name: ${{ env.PRODUCT }}-artifacts
       - name: Remove shared artifacts
         if: ${{ needs.changes.outputs.shared_changed == 'true' }}
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0

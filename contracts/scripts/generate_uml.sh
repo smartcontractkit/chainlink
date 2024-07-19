@@ -19,9 +19,12 @@ flatten_and_generate_uml() {
     forge flatten "$FILE" -o "$FLATTENED_FILE" &> /dev/null
 
     OUTPUT_FILE=${FLATTENED_FILE//"flattened_"/""}
-    OUTPUT_FILE="${OUTPUT_FILE%.sol}.svg"
-    echo "Generating UML for $FLATTENED_FILE to $OUTPUT_FILE"
-    sol2uml "$FLATTENED_FILE" -o "$OUTPUT_FILE"
+    OUTPUT_FILE_SVG="${OUTPUT_FILE%.sol}.svg"
+    echo "Generating svg UML for $FLATTENED_FILE to $OUTPUT_FILE_SVG"
+    sol2uml "$FLATTENED_FILE" -o "$OUTPUT_FILE_SVG"
+    OUTPUT_FILE_DOT="${OUTPUT_FILE%.sol}.dot"
+    echo "Generating dot UML for $FLATTENED_FILE to $OUTPUT_FILE_DOT"
+    sol2uml "$FLATTENED_FILE" -o "$OUTPUT_FILE_DOT" -f dot
 
     rm "$FLATTENED_FILE"
 }
