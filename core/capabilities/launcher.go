@@ -271,7 +271,7 @@ type capabilityService interface {
 }
 
 func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability registrysyncer.Capability, don registrysyncer.DON, newCapFn func(info capabilities.CapabilityInfo) (capabilityService, error)) error {
-	capabilityID := string(capability.ID)
+	capabilityID := capability.ID
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capabilityID,
 		capability.CapabilityType,
@@ -386,7 +386,7 @@ type receiverService interface {
 }
 
 func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Capability, don registrysyncer.DON, newReceiverFn func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (receiverService, error)) error {
-	capID := string(capability.ID)
+	capID := capability.ID
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capID,
 		capability.CapabilityType,
@@ -396,7 +396,7 @@ func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Ca
 	if err != nil {
 		return fmt.Errorf("failed to instantiate remote capability for receiver: %w", err)
 	}
-	underlying, err := w.registry.Get(ctx, string(capability.ID))
+	underlying, err := w.registry.Get(ctx, capability.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get capability from registry: %w", err)
 	}
