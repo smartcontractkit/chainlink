@@ -222,7 +222,7 @@ func (u *UniversalEstimator) GetDynamicFee(ctx context.Context, maxPrice *assets
 			fee.FeeCap, maxPrice)
 		fee.FeeCap = maxPrice
 		if fee.TipCap.Cmp(maxPrice) > 0 {
-			u.logger.Warnf("estimated maxPriorityFeePerGas: %v is greater than the maximum price configured: %v, returning the maximum price instead. There won't be any room for base fee!",
+			u.logger.Warnf("estimated maxPriorityFeePerGas: %v is greater than the maximum price configured: %v, returning the maximum price instead.",
 				fee.TipCap, maxPrice)
 			fee.TipCap = maxPrice
 		}
