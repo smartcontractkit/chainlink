@@ -142,7 +142,9 @@ jobs:
           ls -al .
           find "." -name "*.info" -exec lcov --add-tracefile {} --ignore-errors inconsistent --output-file "merged.lcov" \;
           cd .. && mv lcov/merged.lcov merged.lcov
-          genhtml merged.lcov --function-coverage --branch-coverage --output-directory html
+          genhtml --help
+          genhtml --version
+          genhtml merged.lcov --branch-coverage --output-directory html
 
       - name: Run Forge doc for
         run: |
@@ -314,23 +316,23 @@ jobs:
           name: review-artifacts
           path: review_artifacts/
 
-      - name: Remove UML & Slither artifact
-        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
-        with:
-          name: contracts-artifacts
-      - name: Remove product code coverage artifacts
-        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
-        with:
-          name: code-coverage-artifacts
-      - name: Remove product artifacts
-        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
-        with:
-          name: ${{ env.PRODUCT }}-artifacts
-      - name: Remove shared artifacts
-        if: ${{ needs.changes.outputs.shared_changes == 'true' }}
-        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
-        with:
-          name: shared-artifacts
+#      - name: Remove UML & Slither artifact
+#        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+#        with:
+#          name: contracts-artifacts
+#      - name: Remove product code coverage artifacts
+#        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+#        with:
+#          name: code-coverage-artifacts
+#      - name: Remove product artifacts
+#        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+#        with:
+#          name: ${{ env.PRODUCT }}-artifacts
+#      - name: Remove shared artifacts
+#        if: ${{ needs.changes.outputs.shared_changes == 'true' }}
+#        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+#        with:
+#          name: shared-artifacts
 
       - name: Print Artifact URL
         run: |
@@ -356,7 +358,7 @@ jobs:
       # TODO remove ELSE branch after testing
       - name: Print Artifact URL in job summary
         run: |
-          echo "#Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
+          echo "# Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "Base Ref used: ${{ inputs.base_ref }}" >> $GITHUB_STEP_SUMMARY
           else
