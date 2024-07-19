@@ -139,14 +139,8 @@ jobs:
         shell: bash
         run: |
           cd contracts          
-          find "." -name "*.info" -exec lcov --add-tracefile {} --ignore-errors inconsistent --output-file "merged.lcov" \;
-          
-          genhtml --help
-          
-          mkdir lcov
-          cp merged.lcov lcov/merged_coverage.lcov
-          cd lcov          
-          genhtml merged.lcov --function-coverage --branch-coverage --output-directory ../html
+          find "." --maxdepth 1 -name "*.info" -exec lcov --add-tracefile {} --ignore-errors inconsistent --output-file "merged.lcov" \;        
+          genhtml merged.lcov --function-coverage --branch-coverage --output-directory html
 
       - name: Run Forge doc for
         run: |
