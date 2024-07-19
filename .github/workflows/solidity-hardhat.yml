@@ -77,7 +77,6 @@ jobs:
         run: |
           forge --version
           forge build
-        id: build
         working-directory: contracts
         env:
           FOUNDRY_PROFILE: ${{ inputs.product }}
@@ -87,7 +86,6 @@ jobs:
         run: |
           forge --version
           forge build
-        id: build
         working-directory: contracts
         env:
           FOUNDRY_PROFILE: "shared"
@@ -142,7 +140,6 @@ jobs:
       - name: Run Forge doc for ${{ inputs.product }}
         run: |
           forge doc --build -o docs/${{ inputs.product }}
-        id: doc
         working-directory: contracts
         env:
           FOUNDRY_PROFILE: ${{ inputs.product }}
@@ -151,7 +148,6 @@ jobs:
         if: ${{ needs.changes.outputs.shared_changed == 'true' }}
         run: |
           forge doc --build -o docs/shared
-        id: doc
         working-directory: contracts
         env:
           FOUNDRY_PROFILE: "shared"
