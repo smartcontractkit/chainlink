@@ -1,5 +1,19 @@
 #!/bin/bash
 
+function check_chainlink_dir() {
+  local param_dir="chainlink"
+  current_dir=$(pwd)
+
+  current_base=$(basename "$current_dir")
+
+  if [ "$current_base" != "$param_dir" ]; then
+    echo "The script must be run from the root of $param_dir directory"
+    exit 1
+  fi
+}
+
+check_chainlink_dir
+
 if [ "$#" -lt 2 ]; then
     echo "Generates UML diagrams for all contracts in a directory after flattening them to avoid call stack overflows."
     echo "Usage: $0 <path to contracts> <path to target directory> [comma-separated list of files]"
@@ -16,7 +30,7 @@ flatten_and_generate_uml() {
 
     FLATTENED_FILE="$TARGET_DIR/flattened_$(basename "$FILE")"
     echo "Flattening $FILE to $FLATTENED_FILE"
-    forge flatten "$FILE" -o "$FLATTENED_FILE"
+    forge flatten "$FILE" -o "$FLATTENED_FILE" --root contracts
     if [ $? -ne 0 ]; then
         echo "Error: Failed to flatten $FILE"
         exit 1
@@ -89,4 +103,5 @@ if [ $? -ne 0 ]; then
     echo "Error: Failed to generate UML diagrams."
     exit 1
 fi
+
 echo "UML diagrams saved in $TARGET_DIR folder"

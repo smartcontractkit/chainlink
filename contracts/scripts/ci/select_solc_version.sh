@@ -1,5 +1,19 @@
 #!/bin/bash
 
+function check_chainlink_dir() {
+  local param_dir="chainlink"
+  current_dir=$(pwd)
+
+  current_base=$(basename "$current_dir")
+
+  if [ "$current_base" != "$param_dir" ]; then
+    echo "The script must be run from the root of $param_dir directory"
+    exit 1
+  fi
+}
+
+check_chainlink_dir
+
 FILE="$1"
 
 if [ "$#" -lt 1 ]; then
@@ -38,7 +52,7 @@ extract_pragma() {
 echo "Detecting Solc version for $FILE"
 
 PRODUCT=$(extract_product "$FILE")
-SOLC_IN_PROFILE=$(FOUNDRY_PROFILE=$PRODUCT forge config --json | jq ".solc")
+SOLC_IN_PROFILE=$(FOUNDRY_PROFILE=$PRODUCT forge config --json --root contracts | jq ".solc")
 SOLC_IN_PROFILE=$(echo "$SOLC_IN_PROFILE" | tr -d "'\"")
 echo "Detected Solidity version in profile: $SOLC_IN_PROFILE"
 

@@ -1,5 +1,19 @@
 #!/bin/bash
 
+function check_chainlink_dir() {
+  local param_dir="chainlink"
+  current_dir=$(pwd)
+
+  current_base=$(basename "$current_dir")
+
+  if [ "$current_base" != "$param_dir" ]; then
+    echo "The script must be run from the root of $param_dir directory"
+    exit 1
+  fi
+}
+
+check_chainlink_dir
+
 if [ "$#" -lt 5 ]; then
 echo "Generates Markdown Slither reports and saves them to a target directory."
 echo "Usage: $0 <https://github.com/ORG/REPO/blob/COMMIT/> <config-file> <root-directory-with–contracts> <comma-separated list of contracts> <where-to-save-reports> [slither extra params]"
@@ -26,11 +40,8 @@ run_slither() {
     ./contracts/scripts/select_solc_version.sh "$FILE"
 
     SLITHER_OUTPUT_FILE="$TARGET_DIR/$(basename "${FILE%.sol}")-slither-report.md"
-    PRODUCT=$(extract_product "$FILE")
 
-    echo "Using $PRODUCT Foundry profile"
-
-    output=$(FOUNDRY_PROFILE=$PRODUCT slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL" --fail-none $SLITHER_EXTRA_PARAMS)
+    output=$(slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL" --fail-none $SLITHER_EXTRA_PARAMS)
     if [ $? -ne 0 ]; then
         echo "Slither failed for $FILE"
         exit 1
@@ -55,5 +66,10 @@ process_files() {
 }
 
 process_files "$SOURCE_DIR" "$TARGET_DIR" "${FILES[@]}"
+
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to generate Slither reports"
+    exit 1
+fi
 
 echo "Slither reports saved in $TARGET_DIR folder"
