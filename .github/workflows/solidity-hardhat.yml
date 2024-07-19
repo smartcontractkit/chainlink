@@ -138,20 +138,10 @@ jobs:
       - name: Generate HTML report
         shell: bash
         run: |
-          cd contracts
-          merged_lcov="merged_coverage.info"
-        
-          find "." -name "*.lcov" -print0 | while IFS= read -r -d '' file; do
-            if [ -e "$file" ]; then
-              echo "Processing $file"          
-              lcov --add-tracefile "$file" --output-file "$merged_lcov"
-            fi
-          done
+          cd contracts          
+          find "." -name "*.info" -exec lcov --add-tracefile {} --ignore-errors inconsistent --output-file "merged.lcov" \;
           
-          ls -al
-          cat $merged_lcov
-          
-          genhtml $merged_lcov --function-coverage --branch-coverage --output-directory html
+          genhtml merged.lcov --function-coverage --branch-coverage --output-directory html --ignore-errors inconsistent
 
       - name: Run Forge doc for
         run: |
