@@ -13,17 +13,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
+	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/wasp"
+
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
-	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog"
 	"github.com/scylladb/go-reflectx"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/seth"
-	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
@@ -31,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -1072,6 +1071,13 @@ func SetupLogPollerTestDocker(
 	linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
 	require.NoError(t, err, "Error deploying LINK token")
 
+	wethToken, err := contracts.DeployWETHTokenContract(l, chainClient)
+	require.NoError(t, err, "Error deploying weth token contract")
+
+	// This feed is used for both eth/usd and link/usd
+	ethUSDFeed, err := contracts.DeployMockETHUSDFeed(chainClient, registryConfig.FallbackLinkPrice)
+	require.NoError(t, err, "Error deploying eth usd feed contract")
+
 	linkBalance, err := linkToken.BalanceOf(context.Background(), chainClient.MustGetRootKeyAddress().Hex())
 	require.NoError(t, err, "Error getting LINK balance")
 
@@ -1088,6 +1094,8 @@ func SetupLogPollerTestDocker(
 		registryVersion,
 		registryConfig,
 		linkToken,
+		wethToken,
+		ethUSDFeed,
 	)
 
 	// Fund the registry with LINK

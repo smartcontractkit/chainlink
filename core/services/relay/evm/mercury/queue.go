@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
-//go:generate mockery --quiet --name asyncDeleter --output ./mocks/ --case=underscore --structname=AsyncDeleter
 type asyncDeleter interface {
 	AsyncDelete(req *pb.TransmitRequest)
 }
