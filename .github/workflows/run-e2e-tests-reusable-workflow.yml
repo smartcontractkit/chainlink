@@ -55,6 +55,16 @@ on:
         description: 'Name of the slack notification'
         required: false
         type: string
+      test_log_upload_on_failure:
+        description: 'Set to "true" to upload the test log on failure as Github artifact'
+        required: false
+        type: boolean
+        default: false
+      test_log_upload_retention_days:
+        description: 'Number of days to retain the test log. Default is 3 days'
+        required: false
+        type: number
+        default: 3  
     secrets:
       TEST_SECRETS_OVERRIDE_BASE64:
         required: false
@@ -351,7 +361,7 @@ jobs:
 
   # Run Docker tests
   run-docker-tests:
-    name: Run docker tests (${{ matrix.tests.id }})
+    name: Run ${{ matrix.tests.id }}
     needs: [load-test-configurations, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr, get_latest_chainlink_release_version]
     # Run when none of the needed jobs fail or are cancelled (skipped or successful jobs are ok) 
     if: ${{ needs.load-test-configurations.outputs.run-docker-tests == 'true' && always() && !failure() && !cancelled() }} 
@@ -378,7 +388,7 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Run E2E Tests / Run docker tests (${{ matrix.tests.id }})
+          this-job-name: Run E2E Tests / Run ${{ matrix.tests.id }}
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
 
@@ -445,6 +455,15 @@ jobs:
           DEFAULT_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
           DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
 
+      - name: Upload test log as Github artifact
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        if: inputs.test_log_upload_on_failure && failure()
+        with:
+          name: test_log_${{ matrix.tests.id_sanitized }}
+          path: /tmp/gotest.log
+          retention-days: ${{ inputs.test_log_upload_retention_days }}
+        continue-on-error: true  
+
   # Run K8s tests using old remote runner
 
   prepare-remote-runner-test-image:
@@ -485,7 +504,7 @@ jobs:
   run-k8s-runner-tests:
     needs: [load-test-configurations, prepare-remote-runner-test-image, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr, get_latest_chainlink_release_version]
     if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }} 
-    name: Run k8s tests (${{ matrix.tests.id }})
+    name: Run ${{ matrix.tests.id }}
     runs-on: ${{ matrix.tests.runs_on }}
     strategy:
       fail-fast: false
@@ -509,7 +528,7 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Run E2E Tests / Run k8s tests (${{ matrix.tests.id }})
+          this-job-name: Run E2E Tests / Run ${{ matrix.tests.id }}
         continue-on-error: true
 
       - name: Checkout repository
@@ -536,7 +555,7 @@ jobs:
           TEST_LOG_LEVEL: debug
           REF_NAME: ${{ github.head_ref || github.ref_name }}
         with:
-          test_command_to_run: ${{ matrix.tests.test_cmd }}
+          test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: make gomod
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
           # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
@@ -568,7 +587,16 @@ jobs:
           DEFAULT_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
           DEFAULT_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
           DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
-          
+      
+      - name: Upload test log as Github artifact
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        if: inputs.test_log_upload_on_failure && failure()
+        with:
+          name: test_log_${{ matrix.tests.id_sanitized }}
+          path: /tmp/gotest.log
+          retention-days: ${{ inputs.test_log_upload_retention_days }}
+        continue-on-error: true          
+
   after_tests:
     needs: [run-docker-tests, run-k8s-runner-tests]
     if: always()
