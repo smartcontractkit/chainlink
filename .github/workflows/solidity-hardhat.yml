@@ -58,7 +58,7 @@ jobs:
   # some product-level modifications might also require shared contracts changes, so if these happened we need to generate artifacts for shared contracts as well
   coverage-and-book:
     if: ${{ needs.changes.outputs.changes == 'true' }}
-    name: Foundry Tests ${{ env.PRODUCT }}
+    name: Foundry Tests
     runs-on: ubuntu-22.04
     needs: [changes]
     steps:
@@ -75,7 +75,7 @@ jobs:
         with:
           version: ${{ env.FOUNDRY_VERSION }}
 
-      - name: Run Forge build for ${{ env.PRODUCT }}
+      - name: Run Forge build for
         run: |
           forge --version
           forge build
@@ -92,7 +92,7 @@ jobs:
         env:
           FOUNDRY_PROFILE: "shared"
 
-      - name: Run coverage for ${{ env.PRODUCT }}
+      - name: Run coverage for
         if: ${{ !contains(fromJson('["vrf"]'), inputs.product) && !contains(fromJson('["automation"]'), inputs.product) && !contains(fromJson('["functions"]'), inputs.product) && needs.changes.outputs.changes == 'true' }}
         working-directory: contracts
         run: forge coverage --report lcov -report-file lcov-${{ env.PRODUCT }}.info
@@ -117,7 +117,7 @@ jobs:
 
       # We could gather coverage for all products
 
-      - name: Report code coverage for ${{ env.PRODUCT }}
+      - name: Report code coverage for
         if: ${{ !contains(fromJson('["vrf"]'), inputs.product) && !contains(fromJson('["automation"]'), inputs.name) && !contains(fromJson('["functions"]'), inputs.name) && needs.changes.outputs.changes == 'true' }}
         uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
         with:
@@ -139,7 +139,7 @@ jobs:
           working-directory: ./contracts
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run Forge doc for ${{ env.PRODUCT }}
+      - name: Run Forge doc for
         run: |
           forge doc --build -o docs/${{ env.PRODUCT }}
         working-directory: contracts
@@ -154,7 +154,7 @@ jobs:
         env:
           FOUNDRY_PROFILE: "shared"
 
-      - name: Upload Artifacts for ${{ env.PRODUCT }}
+      - name: Upload Artifacts for
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         timeout-minutes: 2
         continue-on-error: true
