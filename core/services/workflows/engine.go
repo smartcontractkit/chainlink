@@ -701,7 +701,7 @@ func (e *Engine) configForStep(ctx context.Context, executionID string, step *st
 	// If the capability info is missing a DON, then
 	// the capability is local, and we should use the localNode's DON ID.
 	var donID uint32
-	if step.info.IsLocal {
+	if !step.info.IsLocal {
 		donID = step.info.DON.ID
 	} else {
 		donID = e.localNode.WorkflowDON.ID
