@@ -147,6 +147,35 @@ contract BaseTest is Test {
         changePrank(originalAddr);
     }
 
+  function _generateV3Report() internal view returns (V3Report memory) {
+    return
+      V3Report({
+        feedId: FEED_ID_V3,
+        observationsTimestamp: OBSERVATIONS_TIMESTAMP,
+        validFromTimestamp: uint32(block.timestamp),
+        nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
+        linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
+        expiresAt: uint32(block.timestamp),
+        benchmarkPrice: MEDIAN,
+        bid: BID,
+        ask: ASK
+      });
+  }
+
+  function _verifyBulk(
+    bytes[] memory payload,
+    address feeAddress,
+    uint256 wrappedNativeValue,
+    address sender
+  ) internal {
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    s_verifierProxy.verifyBulk{value: wrappedNativeValue}(payload, abi.encode(feeAddress));
+
+    changePrank(originalAddr);
+  }
+
     function _approveLink(address spender, uint256 quantity, address sender) internal {
         address originalAddr = msg.sender;
         changePrank(sender);
@@ -225,6 +254,15 @@ contract BaseTest is Test {
         assertEq(bid, testReport.bid);
         assertEq(ask, testReport.ask);
     }
+
+  function _approveNative(address spender, uint256 quantity, address sender) internal {
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    native.approve(spender, quantity);
+    changePrank(originalAddr);
+  }
+
 }
 
 contract VerifierWithFeeManager is BaseTest {
@@ -241,5 +279,8 @@ contract VerifierWithFeeManager is BaseTest {
         link.mint(USER, DEFAULT_LINK_MINT_QUANTITY);
         native.mint(USER, DEFAULT_NATIVE_MINT_QUANTITY);
         vm.deal(USER, DEFAULT_NATIVE_MINT_QUANTITY);
+
+        //mint some link tokens to the feeManager pool
+        link.mint(address(feeManager), DEFAULT_REPORT_LINK_FEE);
     }
 }
