@@ -2,6 +2,7 @@ package integration_tests
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -14,30 +15,47 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type receiverKey struct {
-	capabilityId string
-	donId        uint32
-}
-
 // testAsyncMessageBroker backs the dispatchers created for each node in the test and effectively
 // acts as the rageP2P network layer.
 type testAsyncMessageBroker struct {
 	services.StateMachine
 	t *testing.T
 
-	nodes map[p2ptypes.PeerID]*dispatcherNode
-
-	sendCh chan *remotetypes.MessageBody
-
 	chanBufferSize int
+	stopCh         services.StopChan
+	wg             sync.WaitGroup
 
-	stopCh services.StopChan
-	wg     sync.WaitGroup
+	peerIDToBrokerNode map[p2ptypes.PeerID]*brokerNode
+
+	mux sync.Mutex
+}
+
+func newTestAsyncMessageBroker(t *testing.T, chanBufferSize int) *testAsyncMessageBroker {
+	return &testAsyncMessageBroker{
+		t:                  t,
+		stopCh:             make(services.StopChan),
+		chanBufferSize:     chanBufferSize,
+		peerIDToBrokerNode: make(map[p2ptypes.PeerID]*brokerNode),
+	}
+}
+
+func (a *testAsyncMessageBroker) Start(ctx context.Context) error {
+	return a.StartOnce("testAsyncMessageBroker", func() error {
+		return nil
+	})
+}
+
+func (a *testAsyncMessageBroker) Close() error {
+	return a.StopOnce("testAsyncMessageBroker", func() error {
+		close(a.stopCh)
+		a.wg.Wait()
+		return nil
+	})
 }
 
 // NewDispatcherForNode creates a new dispatcher for a node with the given peer ID.
 func (a *testAsyncMessageBroker) NewDispatcherForNode(nodePeerID p2ptypes.PeerID) remotetypes.Dispatcher {
-	return &nodeDispatcher{
+	return &brokerDispatcher{
 		callerPeerID: nodePeerID,
 		broker:       a,
 	}
@@ -51,100 +69,82 @@ func (a *testAsyncMessageBroker) Name() string {
 	return "testAsyncMessageBroker"
 }
 
-func newTestAsyncMessageBroker(t *testing.T, chanBufferSize int) *testAsyncMessageBroker {
-	return &testAsyncMessageBroker{
-		t:              t,
-		nodes:          make(map[p2ptypes.PeerID]*dispatcherNode),
-		stopCh:         make(services.StopChan),
-		sendCh:         make(chan *remotetypes.MessageBody, chanBufferSize),
-		chanBufferSize: chanBufferSize,
-	}
-}
-
-func (a *testAsyncMessageBroker) Start(ctx context.Context) error {
-	return a.StartOnce("testAsyncMessageBroker", func() error {
-		a.wg.Add(1)
-		go func() {
-			defer a.wg.Done()
-
-			for {
-				select {
-				case <-a.stopCh:
-					return
-				case msg := <-a.sendCh:
-					peerID := toPeerID(msg.Receiver)
-					node, ok := a.nodes[peerID]
-					if !ok {
-						panic("node not found for peer id")
-					}
-
-					node.receiveCh <- msg
-				}
-			}
-		}()
-		return nil
-	})
-}
-
-func (a *testAsyncMessageBroker) Close() error {
-	return a.StopOnce("testAsyncMessageBroker", func() error {
-		close(a.stopCh)
-
-		a.wg.Wait()
-		return nil
-	})
-}
-
-type dispatcherNode struct {
-	receivers map[receiverKey]remotetypes.Receiver
-	receiveCh chan *remotetypes.MessageBody
-}
-
 func (a *testAsyncMessageBroker) registerReceiverNode(nodePeerID p2ptypes.PeerID, capabilityId string, capabilityDonID uint32, receiver remotetypes.Receiver) {
-	key := receiverKey{
-		capabilityId: capabilityId,
-		donId:        capabilityDonID,
+	a.mux.Lock()
+	defer a.mux.Unlock()
+
+	node, ok := a.peerIDToBrokerNode[nodePeerID]
+	if !ok {
+		node = a.newNode()
+		a.peerIDToBrokerNode[nodePeerID] = node
 	}
 
-	node, nodeExists := a.nodes[nodePeerID]
-	if !nodeExists {
-		node = &dispatcherNode{
-			receivers: make(map[receiverKey]remotetypes.Receiver),
-			receiveCh: make(chan *remotetypes.MessageBody, a.chanBufferSize),
-		}
-
-		a.wg.Add(1)
-		go func() {
-			defer a.wg.Done()
-
-			for {
-				select {
-				case <-a.stopCh:
-					return
-				case msg := <-node.receiveCh:
-					k := receiverKey{
-						capabilityId: msg.CapabilityId,
-						donId:        msg.CapabilityDonId,
-					}
-
-					r, ok := node.receivers[k]
-					if !ok {
-						panic("receiver not found for key")
-					}
-
-					r.Receive(tests.Context(a.t), msg)
-				}
-			}
-		}()
-
-		a.nodes[nodePeerID] = node
+	node.registerReceiverCh <- &registerReceiverRequest{
+		receiverKey: receiverKey{
+			capabilityId: capabilityId,
+			donId:        capabilityDonID,
+		},
+		receiver: receiver,
 	}
-
-	node.receivers[key] = receiver
 }
 
 func (a *testAsyncMessageBroker) Send(msg *remotetypes.MessageBody) {
-	a.sendCh <- msg
+	peerID := toPeerID(msg.Receiver)
+	node, ok := a.peerIDToBrokerNode[peerID]
+	if !ok {
+		panic(fmt.Sprintf("node not found for peer ID %v", peerID))
+	}
+
+	node.receiveCh <- msg
+}
+
+type brokerNode struct {
+	registerReceiverCh chan *registerReceiverRequest
+	receiveCh          chan *remotetypes.MessageBody
+}
+
+type receiverKey struct {
+	capabilityId string
+	donId        uint32
+}
+
+type registerReceiverRequest struct {
+	receiverKey
+	receiver remotetypes.Receiver
+}
+
+func (a *testAsyncMessageBroker) newNode() *brokerNode {
+	result := &brokerNode{
+		receiveCh:          make(chan *remotetypes.MessageBody, a.chanBufferSize),
+		registerReceiverCh: make(chan *registerReceiverRequest, a.chanBufferSize),
+	}
+
+	a.wg.Add(1)
+	go func() {
+		defer a.wg.Done()
+		receivers := make(map[receiverKey]remotetypes.Receiver)
+		for {
+			select {
+			case <-a.stopCh:
+				return
+			case msg := <-result.receiveCh:
+				k := receiverKey{
+					capabilityId: msg.CapabilityId,
+					donId:        msg.CapabilityDonId,
+				}
+
+				r, ok := receivers[k]
+				if !ok {
+					panic(fmt.Sprintf("receiver not found for key %+v", k))
+				}
+
+				r.Receive(tests.Context(a.t), msg)
+			case reg := <-result.registerReceiverCh:
+				receivers[reg.receiverKey] = reg.receiver
+			}
+		}
+	}()
+	return result
 }
 
 func toPeerID(id []byte) p2ptypes.PeerID {
@@ -155,12 +155,12 @@ type broker interface {
 	Send(msg *remotetypes.MessageBody)
 }
 
-type nodeDispatcher struct {
+type brokerDispatcher struct {
 	callerPeerID p2ptypes.PeerID
 	broker       broker
 }
 
-func (t *nodeDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
+func (t *brokerDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
 	clonedMsg := proto.Clone(msgBody).(*remotetypes.MessageBody)
 	clonedMsg.Version = 1
 	clonedMsg.Sender = t.callerPeerID[:]
@@ -170,8 +170,8 @@ func (t *nodeDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.Messa
 	return nil
 }
 
-func (t *nodeDispatcher) SetReceiver(capabilityId string, donId uint32, receiver remotetypes.Receiver) error {
+func (t *brokerDispatcher) SetReceiver(capabilityId string, donId uint32, receiver remotetypes.Receiver) error {
 	t.broker.(*testAsyncMessageBroker).registerReceiverNode(t.callerPeerID, capabilityId, donId, receiver)
 	return nil
 }
-func (t *nodeDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
+func (t *brokerDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}

@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
-type node struct {
+type libocrNode struct {
 	ocr3types.ReportingPlugin[[]byte]
 	*ocr3.ContractTransmitter
 	key ocr2key.KeyBundle
@@ -27,7 +27,7 @@ type node struct {
 // mockLibOCR is a mock libocr implementation for testing purposes that simulates libocr protocol rounds without having
 // to setup the libocr network
 type mockLibOCR struct {
-	nodes []*node
+	nodes []*libocrNode
 	f     uint8
 }
 
@@ -55,7 +55,7 @@ func (m *mockLibOCR) Start(ctx context.Context, t *testing.T, protocolRoundInter
 }
 
 func (m *mockLibOCR) AddNode(plugin ocr3types.ReportingPlugin[[]byte], transmitter *ocr3.ContractTransmitter, key ocr2key.KeyBundle) {
-	m.nodes = append(m.nodes, &node{plugin, transmitter, key})
+	m.nodes = append(m.nodes, &libocrNode{plugin, transmitter, key})
 }
 
 func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
