@@ -119,7 +119,7 @@ jobs:
       # We could gather coverage for all products
 
       - name: Report code coverage for
-        if: ${{ !contains(fromJson('["vrf"]'), env.PRODUCT) && !contains(fromJson('["automation"]'), inputs.name) && !contains(fromJson('["functions"]'), inputs.name) && needs.changes.outputs.changes == 'true' }}
+        if: ${{ !contains(fromJson('["vrf"]'), env.PRODUCT) && !contains(fromJson('["automation"]'), env.PRODUCT) && !contains(fromJson('["functions"]'), env.PRODUCT) && needs.changes.outputs.changes == 'true' }}
         uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
         with:
           update-comment: true
