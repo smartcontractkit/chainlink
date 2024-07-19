@@ -484,7 +484,7 @@ func (lsn *Listener) ProcessRequest(ctx context.Context, req request) bool {
 
 	run := pipeline.NewRun(*lsn.Job.PipelineSpec, vars)
 	// The VRF pipeline has no async tasks, so we don't need to check for `incomplete`
-	if _, err = lsn.PipelineRunner.Run(ctx, run, lggr, true, func(tx sqlutil.DataSource) error {
+	if _, err = lsn.PipelineRunner.Run(ctx, run, true, func(tx sqlutil.DataSource) error {
 		// Always mark consumed regardless of whether the proof failed or not.
 		if err = lsn.Chain.LogBroadcaster().MarkConsumed(ctx, tx, req.lb); err != nil {
 			lggr.Errorw("Failed mark consumed", "err", err)
