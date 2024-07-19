@@ -5,10 +5,8 @@ package mocks
 import (
 	context "context"
 
-	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
-	mock "github.com/stretchr/testify/mock"
-
 	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	mock "github.com/stretchr/testify/mock"
 
 	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
@@ -73,9 +71,9 @@ func (_c *Runner_Close_Call) RunAndReturn(run func() error) *Runner_Close_Call {
 	return _c
 }
 
-// ExecuteAndInsertFinishedRun provides a mock function with given fields: ctx, spec, vars, l, saveSuccessfulTaskRuns
-func (_m *Runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (int64, pipeline.TaskRunResults, error) {
-	ret := _m.Called(ctx, spec, vars, l, saveSuccessfulTaskRuns)
+// ExecuteAndInsertFinishedRun provides a mock function with given fields: ctx, spec, vars, saveSuccessfulTaskRuns
+func (_m *Runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, saveSuccessfulTaskRuns bool) (int64, pipeline.TaskRunResults, error) {
+	ret := _m.Called(ctx, spec, vars, saveSuccessfulTaskRuns)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ExecuteAndInsertFinishedRun")
@@ -84,25 +82,25 @@ func (_m *Runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline
 	var r0 int64
 	var r1 pipeline.TaskRunResults
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) (int64, pipeline.TaskRunResults, error)); ok {
-		return rf(ctx, spec, vars, l, saveSuccessfulTaskRuns)
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars, bool) (int64, pipeline.TaskRunResults, error)); ok {
+		return rf(ctx, spec, vars, saveSuccessfulTaskRuns)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) int64); ok {
-		r0 = rf(ctx, spec, vars, l, saveSuccessfulTaskRuns)
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars, bool) int64); ok {
+		r0 = rf(ctx, spec, vars, saveSuccessfulTaskRuns)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) pipeline.TaskRunResults); ok {
-		r1 = rf(ctx, spec, vars, l, saveSuccessfulTaskRuns)
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Spec, pipeline.Vars, bool) pipeline.TaskRunResults); ok {
+		r1 = rf(ctx, spec, vars, saveSuccessfulTaskRuns)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).(pipeline.TaskRunResults)
 		}
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) error); ok {
-		r2 = rf(ctx, spec, vars, l, saveSuccessfulTaskRuns)
+	if rf, ok := ret.Get(2).(func(context.Context, pipeline.Spec, pipeline.Vars, bool) error); ok {
+		r2 = rf(ctx, spec, vars, saveSuccessfulTaskRuns)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -119,15 +117,14 @@ type Runner_ExecuteAndInsertFinishedRun_Call struct {
 //   - ctx context.Context
 //   - spec pipeline.Spec
 //   - vars pipeline.Vars
-//   - l logger.Logger
 //   - saveSuccessfulTaskRuns bool
-func (_e *Runner_Expecter) ExecuteAndInsertFinishedRun(ctx interface{}, spec interface{}, vars interface{}, l interface{}, saveSuccessfulTaskRuns interface{}) *Runner_ExecuteAndInsertFinishedRun_Call {
-	return &Runner_ExecuteAndInsertFinishedRun_Call{Call: _e.mock.On("ExecuteAndInsertFinishedRun", ctx, spec, vars, l, saveSuccessfulTaskRuns)}
+func (_e *Runner_Expecter) ExecuteAndInsertFinishedRun(ctx interface{}, spec interface{}, vars interface{}, saveSuccessfulTaskRuns interface{}) *Runner_ExecuteAndInsertFinishedRun_Call {
+	return &Runner_ExecuteAndInsertFinishedRun_Call{Call: _e.mock.On("ExecuteAndInsertFinishedRun", ctx, spec, vars, saveSuccessfulTaskRuns)}
 }
 
-func (_c *Runner_ExecuteAndInsertFinishedRun_Call) Run(run func(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger, saveSuccessfulTaskRuns bool)) *Runner_ExecuteAndInsertFinishedRun_Call {
+func (_c *Runner_ExecuteAndInsertFinishedRun_Call) Run(run func(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, saveSuccessfulTaskRuns bool)) *Runner_ExecuteAndInsertFinishedRun_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(pipeline.Spec), args[2].(pipeline.Vars), args[3].(logger.Logger), args[4].(bool))
+		run(args[0].(context.Context), args[1].(pipeline.Spec), args[2].(pipeline.Vars), args[3].(bool))
 	})
 	return _c
 }
@@ -137,14 +134,14 @@ func (_c *Runner_ExecuteAndInsertFinishedRun_Call) Return(runID int64, results p
 	return _c
 }
 
-func (_c *Runner_ExecuteAndInsertFinishedRun_Call) RunAndReturn(run func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) (int64, pipeline.TaskRunResults, error)) *Runner_ExecuteAndInsertFinishedRun_Call {
+func (_c *Runner_ExecuteAndInsertFinishedRun_Call) RunAndReturn(run func(context.Context, pipeline.Spec, pipeline.Vars, bool) (int64, pipeline.TaskRunResults, error)) *Runner_ExecuteAndInsertFinishedRun_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// ExecuteRun provides a mock function with given fields: ctx, spec, vars, l
-func (_m *Runner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (*pipeline.Run, pipeline.TaskRunResults, error) {
-	ret := _m.Called(ctx, spec, vars, l)
+// ExecuteRun provides a mock function with given fields: ctx, spec, vars
+func (_m *Runner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars) (*pipeline.Run, pipeline.TaskRunResults, error) {
+	ret := _m.Called(ctx, spec, vars)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ExecuteRun")
@@ -153,27 +150,27 @@ func (_m *Runner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipel
 	var r0 *pipeline.Run
 	var r1 pipeline.TaskRunResults
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger) (*pipeline.Run, pipeline.TaskRunResults, error)); ok {
-		return rf(ctx, spec, vars, l)
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars) (*pipeline.Run, pipeline.TaskRunResults, error)); ok {
+		return rf(ctx, spec, vars)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger) *pipeline.Run); ok {
-		r0 = rf(ctx, spec, vars, l)
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars) *pipeline.Run); ok {
+		r0 = rf(ctx, spec, vars)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*pipeline.Run)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger) pipeline.TaskRunResults); ok {
-		r1 = rf(ctx, spec, vars, l)
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Spec, pipeline.Vars) pipeline.TaskRunResults); ok {
+		r1 = rf(ctx, spec, vars)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).(pipeline.TaskRunResults)
 		}
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger) error); ok {
-		r2 = rf(ctx, spec, vars, l)
+	if rf, ok := ret.Get(2).(func(context.Context, pipeline.Spec, pipeline.Vars) error); ok {
+		r2 = rf(ctx, spec, vars)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -190,14 +187,13 @@ type Runner_ExecuteRun_Call struct {
 //   - ctx context.Context
 //   - spec pipeline.Spec
 //   - vars pipeline.Vars
-//   - l logger.Logger
-func (_e *Runner_Expecter) ExecuteRun(ctx interface{}, spec interface{}, vars interface{}, l interface{}) *Runner_ExecuteRun_Call {
-	return &Runner_ExecuteRun_Call{Call: _e.mock.On("ExecuteRun", ctx, spec, vars, l)}
+func (_e *Runner_Expecter) ExecuteRun(ctx interface{}, spec interface{}, vars interface{}) *Runner_ExecuteRun_Call {
+	return &Runner_ExecuteRun_Call{Call: _e.mock.On("ExecuteRun", ctx, spec, vars)}
 }
 
-func (_c *Runner_ExecuteRun_Call) Run(run func(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger)) *Runner_ExecuteRun_Call {
+func (_c *Runner_ExecuteRun_Call) Run(run func(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars)) *Runner_ExecuteRun_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(pipeline.Spec), args[2].(pipeline.Vars), args[3].(logger.Logger))
+		run(args[0].(context.Context), args[1].(pipeline.Spec), args[2].(pipeline.Vars))
 	})
 	return _c
 }
@@ -207,7 +203,7 @@ func (_c *Runner_ExecuteRun_Call) Return(run *pipeline.Run, trrs pipeline.TaskRu
 	return _c
 }
 
-func (_c *Runner_ExecuteRun_Call) RunAndReturn(run func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger) (*pipeline.Run, pipeline.TaskRunResults, error)) *Runner_ExecuteRun_Call {
+func (_c *Runner_ExecuteRun_Call) RunAndReturn(run func(context.Context, pipeline.Spec, pipeline.Vars) (*pipeline.Run, pipeline.TaskRunResults, error)) *Runner_ExecuteRun_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -587,9 +583,9 @@ func (_c *Runner_ResumeRun_Call) RunAndReturn(run func(context.Context, uuid.UUI
 	return _c
 }
 
-// Run provides a mock function with given fields: ctx, run, l, saveSuccessfulTaskRuns, fn
-func (_m *Runner) Run(ctx context.Context, run *pipeline.Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(sqlutil.DataSource) error) (bool, error) {
-	ret := _m.Called(ctx, run, l, saveSuccessfulTaskRuns, fn)
+// Run provides a mock function with given fields: ctx, run, saveSuccessfulTaskRuns, fn
+func (_m *Runner) Run(ctx context.Context, run *pipeline.Run, saveSuccessfulTaskRuns bool, fn func(sqlutil.DataSource) error) (bool, error) {
+	ret := _m.Called(ctx, run, saveSuccessfulTaskRuns, fn)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Run")
@@ -597,17 +593,17 @@ func (_m *Runner) Run(ctx context.Context, run *pipeline.Run, l logger.Logger, s
 
 	var r0 bool
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *pipeline.Run, logger.Logger, bool, func(sqlutil.DataSource) error) (bool, error)); ok {
-		return rf(ctx, run, l, saveSuccessfulTaskRuns, fn)
+	if rf, ok := ret.Get(0).(func(context.Context, *pipeline.Run, bool, func(sqlutil.DataSource) error) (bool, error)); ok {
+		return rf(ctx, run, saveSuccessfulTaskRuns, fn)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *pipeline.Run, logger.Logger, bool, func(sqlutil.DataSource) error) bool); ok {
-		r0 = rf(ctx, run, l, saveSuccessfulTaskRuns, fn)
+	if rf, ok := ret.Get(0).(func(context.Context, *pipeline.Run, bool, func(sqlutil.DataSource) error) bool); ok {
+		r0 = rf(ctx, run, saveSuccessfulTaskRuns, fn)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, *pipeline.Run, logger.Logger, bool, func(sqlutil.DataSource) error) error); ok {
-		r1 = rf(ctx, run, l, saveSuccessfulTaskRuns, fn)
+	if rf, ok := ret.Get(1).(func(context.Context, *pipeline.Run, bool, func(sqlutil.DataSource) error) error); ok {
+		r1 = rf(ctx, run, saveSuccessfulTaskRuns, fn)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -623,16 +619,15 @@ type Runner_Run_Call struct {
 // Run is a helper method to define mock.On call
 //   - ctx context.Context
 //   - run *pipeline.Run
-//   - l logger.Logger
 //   - saveSuccessfulTaskRuns bool
 //   - fn func(sqlutil.DataSource) error
-func (_e *Runner_Expecter) Run(ctx interface{}, run interface{}, l interface{}, saveSuccessfulTaskRuns interface{}, fn interface{}) *Runner_Run_Call {
-	return &Runner_Run_Call{Call: _e.mock.On("Run", ctx, run, l, saveSuccessfulTaskRuns, fn)}
+func (_e *Runner_Expecter) Run(ctx interface{}, run interface{}, saveSuccessfulTaskRuns interface{}, fn interface{}) *Runner_Run_Call {
+	return &Runner_Run_Call{Call: _e.mock.On("Run", ctx, run, saveSuccessfulTaskRuns, fn)}
 }
 
-func (_c *Runner_Run_Call) Run(run func(ctx context.Context, run *pipeline.Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(sqlutil.DataSource) error)) *Runner_Run_Call {
+func (_c *Runner_Run_Call) Run(run func(ctx context.Context, run *pipeline.Run, saveSuccessfulTaskRuns bool, fn func(sqlutil.DataSource) error)) *Runner_Run_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*pipeline.Run), args[2].(logger.Logger), args[3].(bool), args[4].(func(sqlutil.DataSource) error))
+		run(args[0].(context.Context), args[1].(*pipeline.Run), args[2].(bool), args[3].(func(sqlutil.DataSource) error))
 	})
 	return _c
 }
@@ -642,7 +637,7 @@ func (_c *Runner_Run_Call) Return(incomplete bool, err error) *Runner_Run_Call {
 	return _c
 }
 
-func (_c *Runner_Run_Call) RunAndReturn(run func(context.Context, *pipeline.Run, logger.Logger, bool, func(sqlutil.DataSource) error) (bool, error)) *Runner_Run_Call {
+func (_c *Runner_Run_Call) RunAndReturn(run func(context.Context, *pipeline.Run, bool, func(sqlutil.DataSource) error) (bool, error)) *Runner_Run_Call {
 	_c.Call.Return(run)
 	return _c
 }
