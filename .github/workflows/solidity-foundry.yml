@@ -211,14 +211,14 @@ jobs:
             fi
           done          
 
-      - name: Upload Slither report
+      - name: Upload Slither reports
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         timeout-minutes: 10
         continue-on-error: true
         with:
           name: slither-report
           path: |
-            contracts/slither-results.md
+            contracts/slither-results
           retention-days: 7
 
       - name: Collect Metrics
