@@ -241,6 +241,7 @@ jobs:
         run: |          
           contract_list="${{ needs.changes.outputs.files }}"
           ./contracts/scripts/modify_remappings.sh contracts contracts/remappings.txt
+          mv remappings_modified.txt remappings.txt
                     
           ./contracts/scripts/generate_uml.sh "./" "contracts/uml" "$contract_list"
 
