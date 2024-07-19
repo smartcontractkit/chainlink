@@ -1,8 +1,9 @@
 package ocr
 
 import (
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 
 	"github.com/stretchr/testify/require"
 
