@@ -20,6 +20,8 @@ interface IGasBoundCaller {
  * want to programmatically interact with the registry (ie top up funds) can do so.
  */
 contract ZKSyncAutomationForwarder {
+  error InvalidCaller(address);
+
   ISystemContext public constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b));
   address public constant GAS_BOUND_CALLER = address(0xc706EC7dfA5D4Dc87f29f859094165E8290530f5);
 
@@ -58,7 +60,7 @@ contract ZKSyncAutomationForwarder {
     uint256 gasAmount,
     bytes memory data
   ) external returns (bool success, uint256 gasUsed, uint256 l1GasUsed) {
-    if (msg.sender != address(s_registry)) revert();
+    if (msg.sender != address(s_registry)) revert InvalidCaller(msg.sender);
     address target = i_target;
     uint256 g1 = gasleft();
     //        uint256 p1 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
@@ -109,7 +111,7 @@ contract ZKSyncAutomationForwarder {
     return i_target;
   }
 
-  fallback() external {
+  fallback() payable external {
     // copy to memory for assembly access
     address logic = i_logic;
     // copied directly from OZ's Proxy contract
