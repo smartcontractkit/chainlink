@@ -97,7 +97,7 @@ func TestUniversalEstimatorGetLegacyGas(t *testing.T) {
 		cfg := gas.UniversalEstimatorConfig{}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.FetchGasPrice(tests.Context(t))
+		_, err := u.FetchGasPrice()
 		assert.NoError(t, err)
 		gasPrice, _, err := u.GetLegacyGas(tests.Context(t), nil, gasLimit, maxPrice)
 		assert.NoError(t, err)
@@ -112,7 +112,7 @@ func TestUniversalEstimatorGetLegacyGas(t *testing.T) {
 
 		maxPrice := assets.NewWeiI(1)
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.FetchGasPrice(tests.Context(t))
+		_, err := u.FetchGasPrice()
 		assert.NoError(t, err)
 		gas1, _, err := u.GetLegacyGas(tests.Context(t), nil, gasLimit, maxPrice)
 		assert.NoError(t, err)
@@ -145,7 +145,7 @@ func TestUniversalEstimatorBumpLegacyGas(t *testing.T) {
 		cfg := gas.UniversalEstimatorConfig{BumpPercent: 50}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.FetchGasPrice(tests.Context(t))
+		_, err := u.FetchGasPrice()
 		assert.NoError(t, err)
 		gasPrice, _, err := u.BumpLegacyGas(tests.Context(t), originalGasPrice, gasLimit, maxPrice, nil)
 		assert.NoError(t, err)
@@ -186,7 +186,7 @@ func TestUniversalEstimatorBumpLegacyGas(t *testing.T) {
 		cfg := gas.UniversalEstimatorConfig{}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.FetchGasPrice(tests.Context(t))
+		_, err := u.FetchGasPrice()
 		assert.NoError(t, err)
 		gas, _, err := u.BumpLegacyGas(tests.Context(t), originalGasPrice, gasLimit, maxPrice, nil)
 		assert.NoError(t, err)
@@ -202,7 +202,7 @@ func TestUniversalEstimatorBumpLegacyGas(t *testing.T) {
 
 		maxPrice := assets.NewWeiI(14)
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.FetchGasPrice(tests.Context(t))
+		_, err := u.FetchGasPrice()
 		assert.NoError(t, err)
 		gas, _, err := u.BumpLegacyGas(tests.Context(t), originalGasPrice, gasLimit, maxPrice, nil)
 		assert.NoError(t, err)
@@ -218,7 +218,7 @@ func TestUniversalEstimatorBumpLegacyGas(t *testing.T) {
 
 		maxPrice := assets.NewWeiI(14)
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.FetchGasPrice(tests.Context(t))
+		_, err := u.FetchGasPrice()
 		assert.NoError(t, err)
 		gas, _, err := u.BumpLegacyGas(tests.Context(t), originalGasPrice, gasLimit, maxPrice, nil)
 		assert.NoError(t, err)
@@ -235,7 +235,7 @@ func TestUniversalEstimatorBumpLegacyGas(t *testing.T) {
 		// Price will be capped by the max price
 		maxPrice := assets.NewWeiI(101)
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.FetchGasPrice(tests.Context(t))
+		_, err := u.FetchGasPrice()
 		assert.NoError(t, err)
 		_, _, err = u.BumpLegacyGas(tests.Context(t), originalGasPrice, gasLimit, maxPrice, nil)
 		assert.Error(t, err)
@@ -269,7 +269,7 @@ func TestUniversalEstimatorGetDynamicFee(t *testing.T) {
 		maxFee := (*assets.Wei)(baseFee).AddPercentage(gas.BaseFeeBufferPercentage).Add((*assets.Wei)(avrgPriorityFee))
 
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.FetchDynamicPrice(tests.Context(t))
+		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		dynamicFee, err := u.GetDynamicFee(tests.Context(t), maxPrice)
 		assert.NoError(t, err)
@@ -314,7 +314,7 @@ func TestUniversalEstimatorGetDynamicFee(t *testing.T) {
 		cfg := gas.UniversalEstimatorConfig{BlockHistorySize: 1}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.FetchDynamicPrice(tests.Context(t))
+		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		dynamicFee, err := u.GetDynamicFee(tests.Context(t), maxPrice)
 		assert.NoError(t, err)
@@ -355,7 +355,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		expectedTipCap := originalFee.TipCap.AddPercentage(cfg.BumpPercent)
 
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.FetchDynamicPrice(tests.Context(t))
+		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		dynamicFee, err := u.BumpDynamicFee(tests.Context(t), originalFee, globalMaxPrice, nil)
 		assert.NoError(t, err)
@@ -418,7 +418,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.FetchDynamicPrice(tests.Context(t))
+		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		bumpedFee, err := u.BumpDynamicFee(tests.Context(t), originalFee, globalMaxPrice, nil)
 		assert.NoError(t, err)
@@ -451,7 +451,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.FetchDynamicPrice(tests.Context(t))
+		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		_, err = u.BumpDynamicFee(tests.Context(t), originalFee, globalMaxPrice, nil)
 		assert.Error(t, err)
@@ -483,7 +483,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.FetchDynamicPrice(tests.Context(t))
+		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		bumpedFee, err := u.BumpDynamicFee(tests.Context(t), originalFee, maxPrice, nil)
 		assert.NoError(t, err)
@@ -516,7 +516,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.FetchDynamicPrice(tests.Context(t))
+		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		_, err = u.BumpDynamicFee(tests.Context(t), originalFee, maxPrice, nil)
 		assert.Error(t, err)
@@ -547,7 +547,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.FetchDynamicPrice(tests.Context(t))
+		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		bumpedFee, err := u.BumpDynamicFee(tests.Context(t), originalFee, globalMaxPrice, nil)
 		assert.NoError(t, err)

@@ -19,6 +19,7 @@ import (
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -52,8 +53,6 @@ var (
 )
 
 const (
-	queryTimeout = 10 * time.Second
-
 	MinimumBumpPercentage   = 10 // based on geth's spec
 	ConnectivityPercentile  = 80
 	BaseFeeBufferPercentage = 40
@@ -140,22 +139,18 @@ func (u *UniversalEstimator) Close() error {
 func (u *UniversalEstimator) run() {
 	defer u.wg.Done()
 
-	ctx, cancel := u.stopCh.NewCtx()
-	defer cancel()
-
 	t := services.NewTicker(u.config.CacheTimeout)
-
 	for {
 		select {
-		case <-ctx.Done():
+		case <-u.stopCh:
 			return
 		case <-t.C:
 			if u.config.EIP1559 {
-				if _, err := u.FetchDynamicPrice(ctx); err != nil {
+				if _, err := u.FetchDynamicPrice(); err != nil {
 					u.logger.Error(err)
 				}
 			} else {
-				if _, err := u.FetchGasPrice(ctx); err != nil {
+				if _, err := u.FetchGasPrice(); err != nil {
 					u.logger.Error(err)
 				}
 			}
@@ -178,8 +173,8 @@ func (u *UniversalEstimator) GetLegacyGas(ctx context.Context, _ []byte, gasLimi
 }
 
 // FetchGasPrice will use eth_gasPrice to fetch and cache the latest gas price from the RPC.
-func (u *UniversalEstimator) FetchGasPrice(parentCtx context.Context) (*assets.Wei, error) {
-	ctx, cancel := context.WithTimeout(parentCtx, queryTimeout)
+func (u *UniversalEstimator) FetchGasPrice() (*assets.Wei, error) {
+	ctx, cancel := u.stopCh.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
 	gasPrice, err := u.client.SuggestGasPrice(ctx)
@@ -235,8 +230,8 @@ func (u *UniversalEstimator) GetDynamicFee(ctx context.Context, maxPrice *assets
 // of the past X blocks. It also fetches the highest Zth maxPriorityFeePerGas percentile of the past X blocks. Z is configurable
 // and it represents the highest percentile we're willing to pay.
 // A buffer is added on top of the latest basFee to catch fluctuations in the next blocks. On Ethereum the increase is baseFee*1.125 per block.
-func (u *UniversalEstimator) FetchDynamicPrice(parentCtx context.Context) (fee DynamicFee, err error) {
-	ctx, cancel := context.WithTimeout(parentCtx, queryTimeout)
+func (u *UniversalEstimator) FetchDynamicPrice() (fee DynamicFee, err error) {
+	ctx, cancel := u.stopCh.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
 	if u.config.BlockHistorySize == 0 {
