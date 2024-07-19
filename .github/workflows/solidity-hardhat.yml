@@ -1,7 +1,6 @@
 name: Solidity-Hardhat
 on:
-  pull_request:
-    types: [labeled]
+  push:
   workflow_dispatch:
     inputs:
       product:
@@ -23,7 +22,6 @@ env:
 jobs:
   changes:
     name: Detect changes
-    if: github.event.label.name == 'generate_review_artifact' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     outputs:
       changes: ${{ steps.changes.outputs.sol }}
@@ -31,7 +29,6 @@ jobs:
       files: ${{ steps.changes.outputs.sol_files }}
     steps:
       - name: Check for commas or spaces in product input
-        if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           product="${{ env.PRODUCT }}
           if [[ "$product" =~ [,\ ] ]]; then
@@ -47,7 +44,7 @@ jobs:
         id: changes
         with:
           list-files: 'csv'
-          base: ${{ inputs.base_ref || github.base_ref }}
+          base: ${{ inputs.base_ref || github.base_ref }} #TODO remove after testing
           filters: |
             sol:
               - 'contracts/src/v0.8/**/*.sol'
@@ -264,7 +261,6 @@ jobs:
           retention-days: 7
 
   gather-all-artifacts:
-    if: github.event.label.name == 'generate_review_artifact' || github.event_name == 'workflow_dispatch'
     name: Gather all artifacts
     runs-on: ubuntu-latest
     needs: [coverage-and-book, uml-static-analysis, changes]
@@ -339,23 +335,6 @@ jobs:
           fi
           echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.get_artifact_id.outputs.artifact_id }})" >> $GITHUB_STEP_SUMMARY        
 
-      # TODO remove after testing
-      - name: Print Artifact URL in PR comment
-        uses: actions/github-script@v7
-        if: github.event.label.name == 'generate_review_artifact'
-        with:
-          script: |
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              body: `# Solidity Review Artifact Generated
-            ## Commit SHA
-            ${{ github.sha }}
-            ## Artifact URL
-            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.get_artifact_id.outputs.artifact_id }}`
-            });
-
   notify-no-changes:
     if: ${{ needs.changes.outputs.changes == 'false' }}
     needs: [changes]
@@ -363,8 +342,6 @@ jobs:
     steps:
       - name: Print warning in job summary
         shell: bash
-        #TODO remove that and the else branch in shell after testing
-        if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           echo "#Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
              if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
