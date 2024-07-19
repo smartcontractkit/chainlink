@@ -227,7 +227,7 @@ jobs:
           
           echo "Commit SHA used to generate artifacts: ${{ github.sha }}" > commit_sha.txt
           contract_list="${{ needs.changes.outputs.files }}"
-          new_line_list=$(tr ',' '\n' < "$contract_list" | sed 's/,$//')
+          new_line_list=$(echo "$contract_list" | tr ',' '\n' | sed 's/,$//')
           echo $new_line_list > modified_contracts.txt
           
           cat modified_contracts.txt
