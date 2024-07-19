@@ -661,49 +661,38 @@ func FundWrapperConsumer(
 	vrfv2PlusConfig *vrfv2plusconfig.General,
 	l zerolog.Logger,
 ) error {
-	switch vrfv2plusconfig.BillingType(subFundingType) {
-	case vrfv2plusconfig.BillingType_Link:
+	fundConsumerWithLink := func() error {
 		//fund consumer with Link
 		linkAmount := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(*vrfv2PlusConfig.WrapperConsumerFundingAmountLink))
 		l.Info().
 			Str("Link Amount", linkAmount.String()).
 			Str("WrapperConsumerAddress", wrapperConsumer.Address()).Msg("Funding WrapperConsumer with Link")
-		err := linkToken.Transfer(
+		return linkToken.Transfer(
 			wrapperConsumer.Address(),
 			linkAmount,
 		)
-		if err != nil {
-			return err
-		}
-	case vrfv2plusconfig.BillingType_Native:
+	}
+	fundConsumerWithNative := func() error {
 		//fund consumer with Eth (native token)
 		_, err := actions.SendFunds(l, sethClient, actions.FundsToSendPayload{
 			ToAddress:  common.HexToAddress(wrapperConsumer.Address()),
 			Amount:     conversions.EtherToWei(big.NewFloat(*vrfv2PlusConfig.WrapperConsumerFundingAmountNativeToken)),
 			PrivateKey: sethClient.PrivateKeys[0],
 		})
-		if err != nil {
-			return err
-		}
+		return err
+	}
+	var err error
+	switch vrfv2plusconfig.BillingType(subFundingType) {
+	case vrfv2plusconfig.BillingType_Link:
+		err = fundConsumerWithLink()
+	case vrfv2plusconfig.BillingType_Native:
+		err = fundConsumerWithNative()
 	case vrfv2plusconfig.BillingType_Link_and_Native:
-		//fund consumer with Link
-		linkAmount := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(*vrfv2PlusConfig.WrapperConsumerFundingAmountLink))
-		l.Info().
-			Str("Link Amount", linkAmount.String()).
-			Str("WrapperConsumerAddress", wrapperConsumer.Address()).Msg("Funding WrapperConsumer with Link")
-		err := linkToken.Transfer(
-			wrapperConsumer.Address(),
-			linkAmount,
-		)
+		err = fundConsumerWithLink()
 		if err != nil {
 			return err
 		}
-		//fund consumer with Eth (native token)
-		_, err = actions.SendFunds(l, sethClient, actions.FundsToSendPayload{
-			ToAddress:  common.HexToAddress(wrapperConsumer.Address()),
-			Amount:     conversions.EtherToWei(big.NewFloat(*vrfv2PlusConfig.WrapperConsumerFundingAmountNativeToken)),
-			PrivateKey: sethClient.PrivateKeys[0],
-		})
+		err = fundConsumerWithNative()
 		if err != nil {
 			return err
 		}

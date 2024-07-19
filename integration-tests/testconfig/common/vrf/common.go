@@ -99,6 +99,9 @@ func (c *ExistingEnvConfig) Validate() error {
 		return errors.New("use_existing_wrapper must be set ")
 	}
 	if *c.UseExistingWrapper {
+		if c.WrapperAddress == nil {
+			return errors.New("wrapper_address must be set when using `use_existing_wrapper=true`")
+		}
 		if !common.IsHexAddress(*c.WrapperAddress) {
 			return errors.New("wrapper_address must be a valid hex address")
 		}

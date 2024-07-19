@@ -247,6 +247,7 @@ func SetupVRFV2PlusWrapperForExistingEnv(
 	ctx context.Context,
 	sethClient *seth.Client,
 	vrfContracts *vrfcommon.VRFContracts,
+	keyHash [32]byte,
 	vrfv2PlusTestConfig types.VRFv2PlusTestConfig,
 	numberOfConsumerContracts int,
 	l zerolog.Logger,
@@ -264,9 +265,41 @@ func SetupVRFV2PlusWrapperForExistingEnv(
 		if err != nil {
 			return nil, nil, err
 		}
-		wrapper, err = contracts.DeployVRFV2PlusWrapper(sethClient, vrfContracts.LinkToken.Address(), vrfContracts.MockETHLINKFeed.Address(), vrfContracts.CoordinatorV2Plus.Address(), wrapperSubId)
+		wrapper, err = contracts.DeployVRFV2PlusWrapper(sethClient, vrfContracts.LinkToken.Address(), vrfContracts.LinkNativeFeedAddress, vrfContracts.CoordinatorV2Plus.Address(), wrapperSubId)
 		if err != nil {
 			return nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployWrapper, err)
+		}
+		err = FundSubscriptions(
+			big.NewFloat(*config.General.SubscriptionFundingAmountNative),
+			big.NewFloat(*config.General.SubscriptionFundingAmountLink),
+			vrfContracts.LinkToken,
+			vrfContracts.CoordinatorV2Plus,
+			[]*big.Int{wrapperSubId},
+			*config.General.SubscriptionBillingType,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+		err = vrfContracts.CoordinatorV2Plus.AddConsumer(wrapperSubId, wrapper.Address())
+		if err != nil {
+			return nil, nil, err
+		}
+		err = wrapper.SetConfig(
+			*config.General.WrapperGasOverhead,
+			*config.General.CoordinatorGasOverheadNative,
+			*config.General.CoordinatorGasOverheadLink,
+			*config.General.CoordinatorGasOverheadPerWord,
+			*config.General.CoordinatorNativePremiumPercentage,
+			*config.General.CoordinatorLinkPremiumPercentage,
+			keyHash,
+			*config.General.WrapperMaxNumberOfWords,
+			*config.General.StalenessSeconds,
+			decimal.RequireFromString(*config.General.FallbackWeiPerUnitLink).BigInt(),
+			*config.General.FulfillmentFlatFeeNativePPM,
+			*config.General.FulfillmentFlatFeeLinkDiscountPPM,
+		)
+		if err != nil {
+			return nil, nil, err
 		}
 	}
 	wrapperSubID, err := wrapper.GetSubID(ctx)
@@ -479,6 +512,14 @@ func SetupVRFV2PlusForExistingEnv(t *testing.T, envConfig vrfcommon.VRFEnvConfig
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
 	}
+	linkNativeFeedAddress, err := coordinator.GetLinkNativeFeed(testcontext.Get(t))
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error getting Link address from Coordinator", err)
+	}
+	//linkNativeFeed, err := contracts.LoadVRFMockETHLINKFeed(sethClient, common.HexToAddress(linkNativeFeedAddress.String()))
+	//if err != nil {
+	//	return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading VRFMockETHLINKFeed", err)
+	//}
 	blockHashStoreAddress, err := coordinator.GetBlockHashStoreAddress(testcontext.Get(t))
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -488,10 +529,11 @@ func SetupVRFV2PlusForExistingEnv(t *testing.T, envConfig vrfcommon.VRFEnvConfig
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading BlockHashStore", err)
 	}
 	vrfContracts := &vrfcommon.VRFContracts{
-		CoordinatorV2Plus: coordinator,
-		VRFV2PlusConsumer: nil,
-		LinkToken:         linkToken,
-		BHS:               blockHashStore,
+		CoordinatorV2Plus:     coordinator,
+		VRFV2PlusConsumer:     nil,
+		LinkToken:             linkToken,
+		BHS:                   blockHashStore,
+		LinkNativeFeedAddress: linkNativeFeedAddress.String(),
 	}
 	vrfKey := &vrfcommon.VRFKeyData{
 		VRFKey:            nil,
@@ -595,6 +637,7 @@ func SetupVRFV2PlusWrapperUniverse(
 			ctx,
 			sethClient,
 			vrfContracts,
+			keyHash,
 			config,
 			numberOfConsumerContracts,
 			l,
