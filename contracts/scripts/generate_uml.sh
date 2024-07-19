@@ -16,15 +16,27 @@ flatten_and_generate_uml() {
 
     FLATTENED_FILE="$TARGET_DIR/flattened_$(basename "$FILE")"
     echo "Flattening $FILE to $FLATTENED_FILE"
-    forge flatten "$FILE" -o "$FLATTENED_FILE" &> /dev/null
+    forge flatten "$FILE" -o "$FLATTENED_FILE"
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to flatten $FILE"
+        exit 1
+    fi
 
     OUTPUT_FILE=${FLATTENED_FILE//"flattened_"/""}
     OUTPUT_FILE_SVG="${OUTPUT_FILE%.sol}.svg"
-    echo "Generating svg UML for $FLATTENED_FILE to $OUTPUT_FILE_SVG"
+    echo "Generating SVG UML for $FLATTENED_FILE to $OUTPUT_FILE_SVG"
     sol2uml "$FLATTENED_FILE" -o "$OUTPUT_FILE_SVG"
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to generate UML diagram in SVG format for $FILE"
+        exit 1
+    fi
     OUTPUT_FILE_DOT="${OUTPUT_FILE%.sol}.dot"
-    echo "Generating dot UML for $FLATTENED_FILE to $OUTPUT_FILE_DOT"
+    echo "Generating DOT UML for $FLATTENED_FILE to $OUTPUT_FILE_DOT"
     sol2uml "$FLATTENED_FILE" -o "$OUTPUT_FILE_DOT" -f dot
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to generate UML diagram in DOT format for $FILE"
+        exit 1
+    fi
 
     rm "$FLATTENED_FILE"
 }
