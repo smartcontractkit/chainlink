@@ -111,7 +111,7 @@ contract ZKSyncAutomationForwarder {
     return i_target;
   }
 
-  fallback() payable external {
+  fallback() external payable {
     // copy to memory for assembly access
     address logic = i_logic;
     // copied directly from OZ's Proxy contract
