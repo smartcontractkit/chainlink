@@ -22,7 +22,14 @@ contract BaseTest is Test {
     uint256 internal constant MAX_ORACLES = 31;
     address internal constant ADMIN = address(1);
     address internal constant USER = address(2);
+
     address internal constant MOCK_VERIFIER_ADDRESS = address(100);
+    address internal constant ACCESS_CONTROLLER_ADDRESS = address(300);
+
+    uint256 internal constant DEFAULT_REPORT_LINK_FEE = 1e10;
+    uint256 internal constant DEFAULT_REPORT_NATIVE_FEE = 1e12;
+
+    uint64 internal constant VERIFIER_VERSION = 1;
 
     uint8 internal constant FAULT_TOLERANCE = 10;
 
@@ -39,10 +46,114 @@ contract BaseTest is Test {
     }
 
     Signer[MAX_ORACLES] internal s_signers;
+    bytes32[] internal s_offchaintransmitters;
     bool private s_baseTestInitialized;
 
-    // reward manager events
-    event RewardRecipientsUpdated(bytes32 indexed poolId, Common.AddressAndWeight[] newRewardRecipients);
+    struct V3Report {
+        // The feed ID the report has data for
+        bytes32 feedId;
+        // The time the median value was observed on
+        uint32 observationsTimestamp;
+        // The timestamp the report is valid from
+        uint32 validFromTimestamp;
+        // The link fee
+        uint192 linkFee;
+        // The native fee
+        uint192 nativeFee;
+        // The expiry of the report
+        uint32 expiresAt;
+        // The median value agreed in an OCR round
+        int192 benchmarkPrice;
+        // The best bid value agreed in an OCR round
+        int192 bid;
+        // The best ask value agreed in an OCR round
+        int192 ask;
+    }
+
+    bytes32 internal constant V_MASK = 0x0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+    bytes32 internal constant V1_BITMASK = 0x0001000000000000000000000000000000000000000000000000000000000000;
+    bytes32 internal constant V2_BITMASK = 0x0002000000000000000000000000000000000000000000000000000000000000;
+    bytes32 internal constant V3_BITMASK = 0x0003000000000000000000000000000000000000000000000000000000000000;
+
+    bytes32 internal constant INVALID_FEED = keccak256("INVALID");
+    uint32 internal constant OBSERVATIONS_TIMESTAMP = 1000;
+    uint64 internal constant BLOCKNUMBER_LOWER_BOUND = 1000;
+    uint64 internal constant BLOCKNUMBER_UPPER_BOUND = BLOCKNUMBER_LOWER_BOUND + 5;
+    int192 internal constant MEDIAN = 1 ether;
+    int192 internal constant BID = 500000000 gwei;
+    int192 internal constant ASK = 2 ether;
+
+    //version 0 feeds
+    bytes32 internal constant FEED_ID = (keccak256("ETH-USD") & V_MASK) | V1_BITMASK;
+    bytes32 internal constant FEED_ID_2 = (keccak256("LINK-USD") & V_MASK) | V1_BITMASK;
+    bytes32 internal constant FEED_ID_3 = (keccak256("BTC-USD") & V_MASK) | V1_BITMASK;
+
+    //version 3 feeds
+    bytes32 internal constant FEED_ID_V3 = (keccak256("ETH-USD") & V_MASK) | V3_BITMASK;
+
+
+    function _encodeReport(V3Report memory report) internal pure returns (bytes memory) {
+        return abi.encode(
+            report.feedId,
+            report.observationsTimestamp,
+            report.validFromTimestamp,
+            report.nativeFee,
+            report.linkFee,
+            report.expiresAt,
+            report.benchmarkPrice,
+            report.bid,
+            report.ask
+        );
+    }
+
+    function _generateSignerSignatures(bytes memory report, bytes32[3] memory reportContext, Signer[] memory signers)
+        internal
+        pure
+        returns (bytes32[] memory rawRs, bytes32[] memory rawSs, bytes32 rawVs)
+    {
+        bytes32[] memory rs = new bytes32[](signers.length);
+        bytes32[] memory ss = new bytes32[](signers.length);
+        bytes memory vs = new bytes(signers.length);
+
+        bytes32 hash = keccak256(abi.encodePacked(keccak256(report), reportContext));
+
+        for (uint256 i = 0; i < signers.length; i++) {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(signers[i].mockPrivateKey, hash);
+            rs[i] = r;
+            ss[i] = s;
+            vs[i] = bytes1(v - 27);
+        }
+        return (rs, ss, bytes32(vs));
+    }
+
+
+    function _generateV3EncodedBlob(V3Report memory report, bytes32[3] memory reportContext, Signer[] memory signers)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        bytes memory reportBytes = _encodeReport(report);
+        (bytes32[] memory rs, bytes32[] memory ss, bytes32 rawVs) =
+            _generateSignerSignatures(reportBytes, reportContext, signers);
+        return abi.encode(reportContext, reportBytes, rs, ss, rawVs);
+    }
+
+    function _verify(bytes memory payload, address feeAddress, uint256 wrappedNativeValue, address sender) internal {
+        address originalAddr = msg.sender;
+        changePrank(sender);
+
+        s_verifierProxy.verify{value: wrappedNativeValue}(payload, abi.encode(feeAddress));
+
+        changePrank(originalAddr);
+    }
+
+    function _approveLink(address spender, uint256 quantity, address sender) internal {
+        address originalAddr = msg.sender;
+        changePrank(sender);
+
+        link.approve(spender, quantity);
+        changePrank(originalAddr);
+    }
 
     function setUp() public virtual {
         // BaseTest.setUp is often called multiple times from tests' setUp due to inheritance.
@@ -52,6 +163,7 @@ contract BaseTest is Test {
 
         s_verifierProxy = new DestinationVerifierProxy();
         s_verifier = new DestinationVerifier(address(s_verifierProxy));
+        s_verifierProxy.setVerifier(address(s_verifier));
 
         // setting up FeeManager and RewardManager
         native = new WERC20Mock();
@@ -59,8 +171,6 @@ contract BaseTest is Test {
         rewardManager = new DestinationRewardManager(address(link));
         feeManager =
             new DestinationFeeManager(address(link), address(native), address(s_verifier), address(rewardManager));
-        s_verifier.setFeeManager(address(feeManager));
-        rewardManager.setFeeManager(address(feeManager));
 
         for (uint256 i; i < MAX_ORACLES; i++) {
             uint256 mockPK = i + 1;
@@ -80,7 +190,7 @@ contract BaseTest is Test {
     function _getSignerAddresses(Signer[] memory signers) internal view returns (address[] memory) {
         address[] memory signerAddrs = new address[](signers.length);
         for (uint256 i = 0; i < signerAddrs.length; i++) {
-            signerAddrs[i] = s_signers[i].signerAddress;
+            signerAddrs[i] = signers[i].signerAddress;
         }
         return signerAddrs;
     }
@@ -93,5 +203,43 @@ contract BaseTest is Test {
         Common._quickSort(signers, 0, int256(signers.length - 1));
         bytes24 DONConfigID = bytes24(keccak256(abi.encodePacked(signers, f)));
         return DONConfigID;
+    }
+
+    function assertReportsEqual(bytes memory response, V3Report memory testReport) public {
+        (
+            bytes32 feedId,
+            uint32 observationsTimestamp,
+            uint32 validFromTimestamp,
+            uint192 linkFee,
+            uint192 nativeFee,
+            uint32 expiresAt,
+            int192 benchmarkPrice,
+            int192 bid,
+            int192 ask
+        ) = abi.decode(response, (bytes32, uint32, uint32, uint192, uint192, uint32, int192, int192, int192));
+        assertEq(feedId, testReport.feedId);
+        assertEq(observationsTimestamp, testReport.observationsTimestamp);
+        assertEq(validFromTimestamp, testReport.validFromTimestamp);
+        assertEq(expiresAt, testReport.expiresAt);
+        assertEq(benchmarkPrice, testReport.benchmarkPrice);
+        assertEq(bid, testReport.bid);
+        assertEq(ask, testReport.ask);
+    }
+}
+
+contract VerifierWithFeeManager is BaseTest {
+    uint256 internal constant DEFAULT_LINK_MINT_QUANTITY = 100 ether;
+    uint256 internal constant DEFAULT_NATIVE_MINT_QUANTITY = 100 ether;
+
+    function setUp() public virtual override {
+        BaseTest.setUp();
+
+        s_verifier.setFeeManager(address(feeManager));
+        rewardManager.setFeeManager(address(feeManager));
+
+        //mint some tokens to the user
+        link.mint(USER, DEFAULT_LINK_MINT_QUANTITY);
+        native.mint(USER, DEFAULT_NATIVE_MINT_QUANTITY);
+        vm.deal(USER, DEFAULT_NATIVE_MINT_QUANTITY);
     }
 }
