@@ -2,6 +2,9 @@ package chaos
 
 import (
 	"fmt"
+	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"math/big"
 	"testing"
 	"time"
@@ -254,53 +257,66 @@ func TestAutomationChaos(t *testing.T) {
 						require.NoError(t, err, "Error tearing down environment")
 					})
 
-					txCost, err := actions.EstimateCostForChainlinkOperations(l, chainClient, network, 1000)
-					require.NoError(t, err, "Error estimating cost for Chainlink Operations")
-					err = actions.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), txCost)
+					a := automationv2.NewAutomationTestK8s(l, chainClient, chainlinkNodes)
+					a.SetMercuryCredentialName("cred1")
+					conf := config.Automation.AutomationConfig
+					a.RegistrySettings = contracts.KeeperRegistrySettings{
+						PaymentPremiumPPB:    *conf.RegistrySettings.PaymentPremiumPPB,
+						FlatFeeMicroLINK:     *conf.RegistrySettings.FlatFeeMicroLINK,
+						CheckGasLimit:        *conf.RegistrySettings.CheckGasLimit,
+						StalenessSeconds:     conf.RegistrySettings.StalenessSeconds,
+						GasCeilingMultiplier: *conf.RegistrySettings.GasCeilingMultiplier,
+						MaxPerformGas:        *conf.RegistrySettings.MaxPerformGas,
+						MinUpkeepSpend:       conf.RegistrySettings.MinUpkeepSpend,
+						FallbackGasPrice:     conf.RegistrySettings.FallbackGasPrice,
+						FallbackLinkPrice:    conf.RegistrySettings.FallbackLinkPrice,
+						MaxCheckDataSize:     *conf.RegistrySettings.MaxCheckDataSize,
+						MaxPerformDataSize:   *conf.RegistrySettings.MaxPerformDataSize,
+						MaxRevertDataSize:    *conf.RegistrySettings.MaxRevertDataSize,
+						RegistryVersion:      rv,
+					}
+					a.RegistrarSettings = contracts.KeeperRegistrarSettings{
+						AutoApproveConfigType: uint8(2),
+						AutoApproveMaxAllowed: 1000,
+						MinLinkJuels:          big.NewInt(0),
+					}
+					plCfg := config.GetAutomationConfig().AutomationConfig.PluginConfig
+					a.PluginConfig = ocr2keepers30config.OffchainConfig{
+						TargetProbability:    *plCfg.TargetProbability,
+						TargetInRounds:       *plCfg.TargetInRounds,
+						PerformLockoutWindow: *plCfg.PerformLockoutWindow,
+						GasLimitPerReport:    *plCfg.GasLimitPerReport,
+						GasOverheadPerUpkeep: *plCfg.GasOverheadPerUpkeep,
+						MinConfirmations:     *plCfg.MinConfirmations,
+						MaxUpkeepBatchSize:   *plCfg.MaxUpkeepBatchSize,
+					}
+					pubCfg := config.GetAutomationConfig().AutomationConfig.PublicConfig
+					a.PublicConfig = ocr3.PublicConfig{
+						DeltaProgress:                           *pubCfg.DeltaProgress,
+						DeltaResend:                             *pubCfg.DeltaResend,
+						DeltaInitial:                            *pubCfg.DeltaInitial,
+						DeltaRound:                              *pubCfg.DeltaRound,
+						DeltaGrace:                              *pubCfg.DeltaGrace,
+						DeltaCertifiedCommitRequest:             *pubCfg.DeltaCertifiedCommitRequest,
+						DeltaStage:                              *pubCfg.DeltaStage,
+						RMax:                                    *pubCfg.RMax,
+						MaxDurationQuery:                        *pubCfg.MaxDurationQuery,
+						MaxDurationObservation:                  *pubCfg.MaxDurationObservation,
+						MaxDurationShouldAcceptAttestedReport:   *pubCfg.MaxDurationShouldAcceptAttestedReport,
+						MaxDurationShouldTransmitAcceptedReport: *pubCfg.MaxDurationShouldTransmitAcceptedReport,
+						F:                                       *pubCfg.F,
+					}
+
+					a.SetupAutomationDeployment(t)
+
+					err = actions.FundChainlinkNodesFromRootAddress(l, a.ChainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes[1:]), big.NewFloat(*config.Common.ChainlinkNodeFunding))
 					require.NoError(t, err, "Error funding Chainlink nodes")
 
-					linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
-					require.NoError(t, err, "Error deploying LINK token")
-
-					wethToken, err := contracts.DeployWETHTokenContract(l, chainClient)
-					require.NoError(t, err, "Error deploying weth token contract")
-
-					// This feed is used for both eth/usd and link/usd
-					ethUSDFeed, err := contracts.DeployMockETHUSDFeed(chainClient, defaultOCRRegistryConfig.FallbackLinkPrice)
-					require.NoError(t, err, "Error deploying eth usd feed contract")
-
-					registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
-						t,
-						chainClient,
-						rv,
-						defaultOCRRegistryConfig,
-						linkToken,
-						wethToken,
-						ethUSDFeed,
-					)
-
-					// Fund the registry with LINK
-					err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfUpkeeps)*2)))
-					require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
-
-					actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, rv)
-					nodesWithoutBootstrap := chainlinkNodes[1:]
-					defaultOCRRegistryConfig.RegistryVersion = rv
-					ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled(), linkToken, wethToken, ethUSDFeed)
-					require.NoError(t, err, "Error building OCR config vars")
-
-					if rv == eth_contracts.RegistryVersion_2_0 {
-						err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
-					} else {
-						err = registry.SetConfigTypeSafe(ocrConfig)
-					}
-					require.NoError(t, err, "Error setting OCR config")
-
-					consumersConditional, upkeepidsConditional := actions.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false, false, nil)
+					consumersConditional, upkeepidsConditional := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false, false, nil)
 					consumers := consumersConditional
 					upkeepIDs := upkeepidsConditional
 					if rv >= eth_contracts.RegistryVersion_2_1 {
-						consumersLogtrigger, upkeepidsLogtrigger := actions.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false, false, nil)
+						consumersLogtrigger, upkeepidsLogtrigger := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false, false, nil)
 
 						consumers = append(consumersConditional, consumersLogtrigger...)
 						upkeepIDs = append(upkeepidsConditional, upkeepidsLogtrigger...)
