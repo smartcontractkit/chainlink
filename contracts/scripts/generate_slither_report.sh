@@ -2,7 +2,7 @@
 
 if [ "$#" -lt 5 ]; then
 echo "Generates Markdown Slither reports and saves them to a target directory."
-echo "Usage: $0 <https://github.com/ORG/REPO/blob/COMMIT/> <config-file> <root-directory-with–contracts> <comma-separated list of contracts> <where-to-save-reports>"
+echo "Usage: $0 <https://github.com/ORG/REPO/blob/COMMIT/> <config-file> <root-directory-with–contracts> <comma-separated list of contracts> <where-to-save-reports> [slither extra params]"
 exit 1
 fi
 
@@ -11,6 +11,7 @@ CONFIG_FILE=$2
 SOURCE_DIR=$3
 FILES=${4// /}  # Remove any spaces from the list of files
 TARGET_DIR=$5
+SLITHER_EXTRA_PARAMS=$6
 
 extract_product() {
     local path=$1
@@ -22,14 +23,14 @@ run_slither() {
     local FILE=$1
     local TARGET_DIR=$2
 
-    ./scripts/select_solc_version.sh "$FILE"
+    ./contracts/scripts/select_solc_version.sh "$FILE"
 
     SLITHER_OUTPUT_FILE="$TARGET_DIR/$(basename "${FILE%.sol}")-slither-report.md"
     PRODUCT=$(extract_product "$FILE")
 
     echo "Using $PRODUCT Foundry profile"
 
-    output=$(FOUNDRY_PROFILE=$PRODUCT slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL" --fail-none)
+    output=$(FOUNDRY_PROFILE=$PRODUCT slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL" --fail-none $SLITHER_EXTRA_PARAMS)
     if [ $? -ne 0 ]; then
         echo "Slither failed for $FILE"
         exit 1

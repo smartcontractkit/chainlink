@@ -40,6 +40,8 @@ echo "Detecting Solc version for $FILE"
 PRODUCT=$(extract_product "$FILE")
 SOLC_IN_PROFILE=$(FOUNDRY_PROFILE=$PRODUCT forge config --json | jq ".solc")
 SOLC_IN_PROFILE=$(echo "$SOLC_IN_PROFILE" | tr -d "'\"")
+echo "Detected Solidity version in profile: $SOLC_IN_PROFILE"
+
 SOLCVER=$(extract_pragma "$FILE")
 
 exit_code=$?
