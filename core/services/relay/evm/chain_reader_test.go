@@ -153,16 +153,31 @@ func TestChainReaderEventsInitValidation(t *testing.T) {
 func TestChainReader(t *testing.T) {
 	t.Parallel()
 	it := &EVMChainReaderInterfaceTester[*testing.T]{Helper: &helper{}}
+	it.Helper.Init(t)
 	// add new subtests here so that it can be run on real chains too
 	RunChainReaderEvmTests(t, it)
 	RunChainReaderInterfaceTests[*testing.T](t, commontestutils.WrapChainReaderTesterForLoop(it))
 }
 
 type helper struct {
-	sim  *backends.SimulatedBackend
-	auth *bind.TransactOpts
-	pKey *ecdsa.PrivateKey
-	txm  evmtxmgr.TxManager
+	sim    *backends.SimulatedBackend
+	auth   *bind.TransactOpts
+	pKey   *ecdsa.PrivateKey
+	txm    evmtxmgr.TxManager
+	client client.Client
+}
+
+func (h *helper) Init(t *testing.T) {
+	privateKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	h.pKey = privateKey
+
+	h.auth, err = bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(1337))
+	require.NoError(t, err)
+
+	h.Backend()
+	h.txm = h.TXM(t)
+	h.Commit()
 }
 
 func (h *helper) MustGenerateRandomKey(t *testing.T) ethkey.KeyV2 {
@@ -174,15 +189,6 @@ func (h *helper) GasPriceBufferPercent() int64 {
 }
 
 func (h *helper) SetupAuth(t *testing.T) *bind.TransactOpts {
-	privateKey, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	h.pKey = privateKey
-
-	h.auth, err = bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(1337))
-	require.NoError(t, err)
-
-	h.Backend()
-	h.Commit()
 	return h.auth
 }
 
@@ -201,6 +207,9 @@ func (h *helper) Commit() {
 }
 
 func (h *helper) Client(t *testing.T) client.Client {
+	if h.client != nil {
+		return h.client
+	}
 	return client.NewSimulatedBackendClient(t, h.sim, big.NewInt(1337))
 }
 
@@ -236,11 +245,12 @@ func (h *helper) MaxWaitTimeForEvents() time.Duration {
 }
 
 func (h *helper) TXM(t *testing.T) evmtxmgr.TxManager {
-	client := h.Client(t)
-	db := h.NewSqlxDB(t)
 	if h.txm != nil {
 		return h.txm
 	}
+
+	client := h.Client(t)
+	db := h.NewSqlxDB(t)
 
 	clconfig := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)

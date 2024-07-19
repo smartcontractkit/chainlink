@@ -44,6 +44,7 @@ const (
 
 type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 	SetupAuth(t T) *bind.TransactOpts
+	Init(t T)
 	Client(t T) client.Client
 	Commit()
 	Backend() bind.ContractBackend
@@ -310,7 +311,6 @@ func (it *EVMChainReaderInterfaceTester[T]) TriggerEvent(t T, testStruct *TestSt
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) SetTestStructLatestValue(t T, testStruct *TestStruct) {
-	fmt.Printf("%+v\n", testStruct)
 	txID := uuid.New().String()
 	err := it.GetChainWriter(t).SubmitTransaction(
 		it.Helper.Context(t),
