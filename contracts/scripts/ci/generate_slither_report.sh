@@ -37,7 +37,7 @@ run_slither() {
     local FILE=$1
     local TARGET_DIR=$2
 
-    ./contracts/scripts/select_solc_version.sh "$FILE"
+    ./contracts/scripts/ci/select_solc_version.sh "$FILE"
 
     SLITHER_OUTPUT_FILE="$TARGET_DIR/$(basename "${FILE%.sol}")-slither-report.md"
 
