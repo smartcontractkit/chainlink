@@ -74,6 +74,7 @@ process_files() {
             flatten_and_generate_uml "${MATCHES[0]}" "$TARGET_DIR"
         else
             echo "File $FILE does not exist within the source directory $SOURCE_DIR."
+            return 1
         fi
     done
 }
@@ -84,4 +85,8 @@ else
     process_files "$SOURCE_DIR" "$TARGET_DIR" "$FILES"
 fi
 
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to generate UML diagrams."
+    exit 1
+fi
 echo "UML diagrams saved in $TARGET_DIR folder"

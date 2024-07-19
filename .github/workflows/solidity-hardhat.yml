@@ -238,9 +238,13 @@ jobs:
 
       - name: Generate UML
         shell: bash
-        run: |
+        run: |          
           contract_list="${{ needs.changes.outputs.files }}"
-          ./contracts/scripts/generate_uml.sh "./" "contracts/uml" "$contract_list"
+          cleaned_list=$(echo "$contract_list" | sed 's/contracts\///g')
+          
+          cd contracts
+          
+          ./scripts/generate_uml.sh "./" "contracts/uml" "$cleaned_list"
 
       - name: Generate Slither Markdown reports
         run: |
