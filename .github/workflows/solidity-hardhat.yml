@@ -136,9 +136,12 @@ jobs:
           update-comment: true
           coverage-files: ./contracts/lcov-shared.info
           minimum-coverage: 0
-          artifact-name: code-coverage-report-shared
           working-directory: ./contracts
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ls dir
+        run: |
+          ls -la ./contracts
 
       - name: Run Forge doc for
         run: |
