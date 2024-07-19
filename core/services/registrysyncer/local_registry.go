@@ -33,7 +33,7 @@ type LocalRegistry struct {
 	IDsToCapabilities map[CapabilityID]Capability
 }
 
-func (l *LocalRegistry) GetLocalNode(ctx context.Context) (capabilities.Node, error) {
+func (l *LocalRegistry) LocalNode(ctx context.Context) (capabilities.Node, error) {
 	if l.peerWrapper.GetPeer() == nil {
 		return capabilities.Node{}, errors.New("unable to get local node: peerWrapper hasn't started yet")
 	}

@@ -15,7 +15,7 @@ var (
 )
 
 type metadataRegistry interface {
-	GetLocalNode(ctx context.Context) (capabilities.Node, error)
+	LocalNode(ctx context.Context) (capabilities.Node, error)
 	ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error)
 }
 
@@ -28,12 +28,12 @@ type Registry struct {
 	mu               sync.RWMutex
 }
 
-func (r *Registry) GetLocalNode(ctx context.Context) (capabilities.Node, error) {
+func (r *Registry) LocalNode(ctx context.Context) (capabilities.Node, error) {
 	if r.metadataRegistry == nil {
 		return capabilities.Node{}, errors.New("metadataRegistry information not available")
 	}
 
-	return r.metadataRegistry.GetLocalNode(ctx)
+	return r.metadataRegistry.LocalNode(ctx)
 }
 
 func (r *Registry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
@@ -44,6 +44,8 @@ func (r *Registry) ConfigForCapability(ctx context.Context, capabilityID string,
 	return r.metadataRegistry.ConfigForCapability(ctx, capabilityID, donID)
 }
 
+// SetLocalRegistry sets a local copy of the offchain registry for the registry to use.
+// This is only public for testing purposes; the only production use should be from the CapabilitiesLauncher.
 func (r *Registry) SetLocalRegistry(lr metadataRegistry) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

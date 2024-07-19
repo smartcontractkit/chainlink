@@ -383,7 +383,7 @@ func TestSyncer_LocalNode(t *testing.T) {
 		},
 	}
 
-	node, err := localRegistry.GetLocalNode(ctx)
+	node, err := localRegistry.LocalNode(ctx)
 	require.NoError(t, err)
 
 	don := capabilities.DON{

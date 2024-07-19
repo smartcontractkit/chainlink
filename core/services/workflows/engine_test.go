@@ -104,7 +104,7 @@ type testConfigProvider struct {
 	configForCapability func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error)
 }
 
-func (t testConfigProvider) GetLocalNode(ctx context.Context) (capabilities.Node, error) {
+func (t testConfigProvider) LocalNode(ctx context.Context) (capabilities.Node, error) {
 	if t.localNode != nil {
 		return t.localNode(ctx)
 	}

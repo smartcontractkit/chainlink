@@ -223,7 +223,7 @@ func (e *Engine) init(ctx context.Context) {
 	retryErr := retryable(ctx, e.logger, e.retryMs, e.maxRetries, func() error {
 		// first wait for localDON to return a non-error response; this depends
 		// on the underlying peerWrapper returning the PeerID.
-		node, err := e.registry.GetLocalNode(ctx)
+		node, err := e.registry.LocalNode(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get donInfo: %w", err)
 		}
@@ -695,7 +695,7 @@ func merge(baseConfig *values.Map, overrideConfig *values.Map) *values.Map {
 	return m
 }
 
-func configForStep(ctx context.Context, reg core.CapabilitiesRegistry, localNode capabilities.Node, step *step) (*values.Map, error) {
+func (e *Engine) configForStep(ctx context.Context, executionID string, step *step) (*values.Map, error) {
 	ID := step.info.ID
 
 	// If the capability info is missing a DON, then
@@ -704,14 +704,19 @@ func configForStep(ctx context.Context, reg core.CapabilitiesRegistry, localNode
 	if step.info.IsLocal {
 		donID = step.info.DON.ID
 	} else {
-		donID = localNode.WorkflowDON.ID
+		donID = e.localNode.WorkflowDON.ID
 	}
 
-	capConfig, err := reg.ConfigForCapability(ctx, ID, donID)
+	capConfig, err := e.registry.ConfigForCapability(ctx, ID, donID)
 	if err != nil {
-		return nil, err
+		e.logger.Warnw(fmt.Sprintf("could not retrieve config from remote registry: %s", err), "executionID", executionID, "capabilityID", ID)
+		return step.config, nil
 	}
 
+	// Merge the configs for now; note that this means that a workflow can override
+	// all of the config set by the capability. This is probably not desirable in
+	// the long-term, but we don't know much about those use cases so stick to a simpler
+	// implementation for now.
 	return merge(capConfig.DefaultConfig, step.config), nil
 }
 
@@ -739,7 +744,7 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		return nil, nil, err
 	}
 
-	config, err := configForStep(ctx, e.registry, e.localNode, step)
+	config, err := e.configForStep(ctx, step)
 	if err != nil {
 		return nil, nil, err
 	}
