@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"fmt"
 )
 
@@ -74,3 +75,41 @@ func (n NodeTier) String() string {
 		return fmt.Sprintf("NodeTier(%d)", n)
 	}
 }
+
+type syncIssue int
+
+func (s syncIssue) String() string {
+	if s == 0 {
+		return "synced"
+	}
+	var result bytes.Buffer
+	for i := syncIssueNotInSyncWithPool; i < syncIssueLen; i = i << 1 {
+		if i&s == 0 {
+			continue
+		}
+		result.WriteString(i.string())
+		result.WriteString(",")
+	}
+	result.Truncate(result.Len() - 1)
+	return result.String()
+}
+
+func (s syncIssue) string() string {
+	switch s {
+	case syncIssueNotInSyncWithPool:
+		return "NotInSyncWithRPCPool"
+	case syncIssueHeadIsNotIncreasing:
+		return "HeadIsNotIncreasing"
+	case syncIssueFinalizedHeadIsNotIncreasing:
+		return "FinalizedHeadIsNotIncreasing"
+	default:
+		return fmt.Sprintf("syncIssue(%d)", s)
+	}
+}
+
+const (
+	syncIssueNotInSyncWithPool syncIssue = 1 << iota
+	syncIssueHeadIsNotIncreasing
+	syncIssueFinalizedHeadIsNotIncreasing
+	syncIssueLen
+)

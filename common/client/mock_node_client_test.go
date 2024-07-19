@@ -400,62 +400,6 @@ func (_c *mockNodeClient_IsSyncing_Call[CHAIN_ID, HEAD]) RunAndReturn(run func(c
 	return _c
 }
 
-// LatestFinalizedBlock provides a mock function with given fields: ctx
-func (_m *mockNodeClient[CHAIN_ID, HEAD]) LatestFinalizedBlock(ctx context.Context) (HEAD, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for LatestFinalizedBlock")
-	}
-
-	var r0 HEAD
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (HEAD, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) HEAD); ok {
-		r0 = rf(ctx)
-	} else {
-		r0 = ret.Get(0).(HEAD)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// mockNodeClient_LatestFinalizedBlock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LatestFinalizedBlock'
-type mockNodeClient_LatestFinalizedBlock_Call[CHAIN_ID types.ID, HEAD Head] struct {
-	*mock.Call
-}
-
-// LatestFinalizedBlock is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *mockNodeClient_Expecter[CHAIN_ID, HEAD]) LatestFinalizedBlock(ctx interface{}) *mockNodeClient_LatestFinalizedBlock_Call[CHAIN_ID, HEAD] {
-	return &mockNodeClient_LatestFinalizedBlock_Call[CHAIN_ID, HEAD]{Call: _e.mock.On("LatestFinalizedBlock", ctx)}
-}
-
-func (_c *mockNodeClient_LatestFinalizedBlock_Call[CHAIN_ID, HEAD]) Run(run func(ctx context.Context)) *mockNodeClient_LatestFinalizedBlock_Call[CHAIN_ID, HEAD] {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *mockNodeClient_LatestFinalizedBlock_Call[CHAIN_ID, HEAD]) Return(_a0 HEAD, _a1 error) *mockNodeClient_LatestFinalizedBlock_Call[CHAIN_ID, HEAD] {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *mockNodeClient_LatestFinalizedBlock_Call[CHAIN_ID, HEAD]) RunAndReturn(run func(context.Context) (HEAD, error)) *mockNodeClient_LatestFinalizedBlock_Call[CHAIN_ID, HEAD] {
-	_c.Call.Return(run)
-	return _c
-}
-
 // SetAliveLoopSub provides a mock function with given fields: _a0
 func (_m *mockNodeClient[CHAIN_ID, HEAD]) SetAliveLoopSub(_a0 types.Subscription) {
 	_m.Called(_a0)
@@ -538,12 +482,146 @@ func (_c *mockNodeClient_SubscribeNewHead_Call[CHAIN_ID, HEAD]) Run(run func(ctx
 	return _c
 }
 
-func (_c *mockNodeClient_SubscribeNewHead_Call[CHAIN_ID, HEAD]) Return(_a0 types.Subscription, _a1 error) *mockNodeClient_SubscribeNewHead_Call[CHAIN_ID, HEAD] {
-	_c.Call.Return(_a0, _a1)
+func (_c *mockNodeClient_SubscribeNewHead_Call[CHAIN_ID, HEAD]) Return(s types.Subscription, err error) *mockNodeClient_SubscribeNewHead_Call[CHAIN_ID, HEAD] {
+	_c.Call.Return(s, err)
 	return _c
 }
 
 func (_c *mockNodeClient_SubscribeNewHead_Call[CHAIN_ID, HEAD]) RunAndReturn(run func(context.Context, chan<- HEAD) (types.Subscription, error)) *mockNodeClient_SubscribeNewHead_Call[CHAIN_ID, HEAD] {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SubscribeToFinalizedHeads provides a mock function with given fields: _a0
+func (_m *mockNodeClient[CHAIN_ID, HEAD]) SubscribeToFinalizedHeads(_a0 context.Context) (<-chan HEAD, types.Subscription, error) {
+	ret := _m.Called(_a0)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SubscribeToFinalizedHeads")
+	}
+
+	var r0 <-chan HEAD
+	var r1 types.Subscription
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context) (<-chan HEAD, types.Subscription, error)); ok {
+		return rf(_a0)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) <-chan HEAD); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(<-chan HEAD)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) types.Subscription); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(types.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(_a0)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// mockNodeClient_SubscribeToFinalizedHeads_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeToFinalizedHeads'
+type mockNodeClient_SubscribeToFinalizedHeads_Call[CHAIN_ID types.ID, HEAD Head] struct {
+	*mock.Call
+}
+
+// SubscribeToFinalizedHeads is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *mockNodeClient_Expecter[CHAIN_ID, HEAD]) SubscribeToFinalizedHeads(_a0 interface{}) *mockNodeClient_SubscribeToFinalizedHeads_Call[CHAIN_ID, HEAD] {
+	return &mockNodeClient_SubscribeToFinalizedHeads_Call[CHAIN_ID, HEAD]{Call: _e.mock.On("SubscribeToFinalizedHeads", _a0)}
+}
+
+func (_c *mockNodeClient_SubscribeToFinalizedHeads_Call[CHAIN_ID, HEAD]) Run(run func(_a0 context.Context)) *mockNodeClient_SubscribeToFinalizedHeads_Call[CHAIN_ID, HEAD] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *mockNodeClient_SubscribeToFinalizedHeads_Call[CHAIN_ID, HEAD]) Return(_a0 <-chan HEAD, _a1 types.Subscription, _a2 error) *mockNodeClient_SubscribeToFinalizedHeads_Call[CHAIN_ID, HEAD] {
+	_c.Call.Return(_a0, _a1, _a2)
+	return _c
+}
+
+func (_c *mockNodeClient_SubscribeToFinalizedHeads_Call[CHAIN_ID, HEAD]) RunAndReturn(run func(context.Context) (<-chan HEAD, types.Subscription, error)) *mockNodeClient_SubscribeToFinalizedHeads_Call[CHAIN_ID, HEAD] {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SubscribeToHeads provides a mock function with given fields: ctx
+func (_m *mockNodeClient[CHAIN_ID, HEAD]) SubscribeToHeads(ctx context.Context) (<-chan HEAD, types.Subscription, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SubscribeToHeads")
+	}
+
+	var r0 <-chan HEAD
+	var r1 types.Subscription
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context) (<-chan HEAD, types.Subscription, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) <-chan HEAD); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(<-chan HEAD)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) types.Subscription); ok {
+		r1 = rf(ctx)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(types.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(ctx)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// mockNodeClient_SubscribeToHeads_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeToHeads'
+type mockNodeClient_SubscribeToHeads_Call[CHAIN_ID types.ID, HEAD Head] struct {
+	*mock.Call
+}
+
+// SubscribeToHeads is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *mockNodeClient_Expecter[CHAIN_ID, HEAD]) SubscribeToHeads(ctx interface{}) *mockNodeClient_SubscribeToHeads_Call[CHAIN_ID, HEAD] {
+	return &mockNodeClient_SubscribeToHeads_Call[CHAIN_ID, HEAD]{Call: _e.mock.On("SubscribeToHeads", ctx)}
+}
+
+func (_c *mockNodeClient_SubscribeToHeads_Call[CHAIN_ID, HEAD]) Run(run func(ctx context.Context)) *mockNodeClient_SubscribeToHeads_Call[CHAIN_ID, HEAD] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *mockNodeClient_SubscribeToHeads_Call[CHAIN_ID, HEAD]) Return(ch <-chan HEAD, sub types.Subscription, err error) *mockNodeClient_SubscribeToHeads_Call[CHAIN_ID, HEAD] {
+	_c.Call.Return(ch, sub, err)
+	return _c
+}
+
+func (_c *mockNodeClient_SubscribeToHeads_Call[CHAIN_ID, HEAD]) RunAndReturn(run func(context.Context) (<-chan HEAD, types.Subscription, error)) *mockNodeClient_SubscribeToHeads_Call[CHAIN_ID, HEAD] {
 	_c.Call.Return(run)
 	return _c
 }
