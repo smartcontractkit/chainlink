@@ -34,6 +34,9 @@ type LocalRegistry struct {
 }
 
 func (l *LocalRegistry) LocalNode(ctx context.Context) (capabilities.Node, error) {
+	// Load the current nodes PeerWrapper, this gets us the current node's
+	// PeerID, allowing us to contextualize registry information in terms of DON ownership
+	// (eg. get my current DON configuration, etc).
 	if l.peerWrapper.GetPeer() == nil {
 		return capabilities.Node{}, errors.New("unable to get local node: peerWrapper hasn't started yet")
 	}
@@ -46,6 +49,8 @@ func (l *LocalRegistry) LocalNode(ctx context.Context) (capabilities.Node, error
 		for _, p := range d.Members {
 			if p == pid {
 				if d.AcceptsWorkflows {
+					// The CapabilitiesRegistry enforces that the DON ID is strictly
+					// greater than 0, so if the ID is 0, it means we've not set `workflowDON` initialized above yet.
 					if workflowDON.ID == 0 {
 						workflowDON = d.DON
 						l.lggr.Debug("Workflow DON identified: %+v", workflowDON)
@@ -74,7 +79,7 @@ func (l *LocalRegistry) ConfigForCapability(ctx context.Context, capabilityID st
 
 	cc, ok := d.CapabilityConfigurations[CapabilityID(capabilityID)]
 	if !ok {
-		return capabilities.CapabilityConfiguration{}, fmt.Errorf("could not find capability configuration for capability: %s", capabilityID)
+		return capabilities.CapabilityConfiguration{}, fmt.Errorf("could not find capability configuration for capability %s and donID %d", capabilityID, donID)
 	}
 
 	return cc, nil
