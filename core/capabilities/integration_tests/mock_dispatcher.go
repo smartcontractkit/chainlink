@@ -114,7 +114,7 @@ type registerReceiverRequest struct {
 }
 
 func (a *testAsyncMessageBroker) newNode() *brokerNode {
-	result := &brokerNode{
+	n := &brokerNode{
 		receiveCh:          make(chan *remotetypes.MessageBody, a.chanBufferSize),
 		registerReceiverCh: make(chan *registerReceiverRequest, a.chanBufferSize),
 	}
@@ -127,7 +127,7 @@ func (a *testAsyncMessageBroker) newNode() *brokerNode {
 			select {
 			case <-a.stopCh:
 				return
-			case msg := <-result.receiveCh:
+			case msg := <-n.receiveCh:
 				k := receiverKey{
 					capabilityId: msg.CapabilityId,
 					donId:        msg.CapabilityDonId,
@@ -139,12 +139,12 @@ func (a *testAsyncMessageBroker) newNode() *brokerNode {
 				}
 
 				r.Receive(tests.Context(a.t), msg)
-			case reg := <-result.registerReceiverCh:
+			case reg := <-n.registerReceiverCh:
 				receivers[reg.receiverKey] = reg.receiver
 			}
 		}
 	}()
-	return result
+	return n
 }
 
 func toPeerID(id []byte) p2ptypes.PeerID {
