@@ -60,8 +60,6 @@ library EnumerableMapAddresses {
     return map._inner.get(uint256(uint160(key)), errorMessage);
   }
 
-  // AddressToBytes32Map
-
   struct AddressToBytes32Map {
     EnumerableMap.Bytes32ToBytes32Map _inner;
   }
