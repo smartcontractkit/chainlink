@@ -313,6 +313,7 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 	//  an inconsistent state.  This assumes UnregisterFilter will return nil if the filter wasn't found
 	//  at all (no rows deleted).
 	spec := jb.OCR2OracleSpec
+	transmitterID := spec.TransmitterID.String
 	chain, err := d.legacyChains.Get(relayID.ChainID)
 	if err != nil {
 		d.lggr.Errorw("cleanupEVM: failed to get chain id", "chainId", relayID.ChainID, "err", err)
@@ -340,15 +341,48 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 		}
 		filters = append(filters, filters21...)
 	case types.CCIPCommit:
-		err = ccipcommit.UnregisterCommitPluginLpFilters(context.Background(), d.lggr, jb, d.legacyChains)
+		// Write PluginConfig bytes to send source/dest relayer provider + info outside of top level rargs/pargs over the wire
+		var pluginJobSpecConfig ccipconfig.CommitPluginJobSpecConfig
+		err = json.Unmarshal(spec.PluginConfig.Bytes(), &pluginJobSpecConfig)
 		if err != nil {
-			d.lggr.Errorw("failed to unregister ccip commit plugin filters", "err", err, "spec", spec)
+			return err
+		}
+
+		dstProvider, err2 := d.ccipCommitGetDstProvider(ctx, jb, pluginJobSpecConfig, transmitterID)
+		if err2 != nil {
+			return err2
+		}
+
+		srcProvider, _, err2 := d.ccipCommitGetSrcProvider(ctx, jb, pluginJobSpecConfig, transmitterID, dstProvider)
+		if err2 != nil {
+			return err2
+		}
+		err2 = ccipcommit.UnregisterCommitPluginLpFilters(srcProvider, dstProvider)
+		if err != nil {
+			d.lggr.Errorw("failed to unregister ccip commit plugin filters", "err", err2, "spec", spec)
 		}
 		return nil
 	case types.CCIPExecution:
-		err = ccipexec.UnregisterExecPluginLpFilters(context.Background(), d.lggr, jb, d.legacyChains)
+		// PROVIDER BASED ARG CONSTRUCTION
+		// Write PluginConfig bytes to send source/dest relayer provider + info outside of top level rargs/pargs over the wire
+		var pluginJobSpecConfig ccipconfig.ExecPluginJobSpecConfig
+		err = json.Unmarshal(spec.PluginConfig.Bytes(), &pluginJobSpecConfig)
 		if err != nil {
-			d.lggr.Errorw("failed to unregister ccip exec plugin filters", "err", err, "spec", spec)
+			return err
+		}
+
+		dstProvider, err2 := d.ccipExecGetDstProvider(ctx, jb, pluginJobSpecConfig, transmitterID)
+		if err2 != nil {
+			return err2
+		}
+
+		srcProvider, _, err2 := d.ccipExecGetSrcProvider(ctx, jb, pluginJobSpecConfig, transmitterID, dstProvider)
+		if err2 != nil {
+			return err2
+		}
+		err2 = ccipexec.UnregisterExecPluginLpFilters(srcProvider, dstProvider)
+		if err2 != nil {
+			d.lggr.Errorw("failed to unregister ccip exec plugin filters", "err", err2, "spec", spec)
 		}
 		return nil
 	default:
