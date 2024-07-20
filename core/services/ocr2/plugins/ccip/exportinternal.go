@@ -41,8 +41,16 @@ func NewCommitStoreReader(lggr logger.Logger, versionFinder VersionFinder, addre
 	return factory.NewCommitStoreReader(lggr, versionFinder, address, ec, lp)
 }
 
+func CloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinder, address ccip.Address, ec client.Client, lp logpoller.LogPoller) error {
+	return factory.CloseCommitStoreReader(lggr, versionFinder, address, ec, lp)
+}
+
 func NewOffRampReader(lggr logger.Logger, versionFinder VersionFinder, addr ccip.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, registerFilters bool) (ccipdata.OffRampReader, error) {
 	return factory.NewOffRampReader(lggr, versionFinder, addr, destClient, lp, estimator, destMaxGasPrice, registerFilters)
+}
+
+func CloseOffRampReader(lggr logger.Logger, versionFinder VersionFinder, addr ccip.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int) error {
+	return factory.CloseOffRampReader(lggr, versionFinder, addr, destClient, lp, estimator, destMaxGasPrice)
 }
 
 func NewEvmVersionFinder() factory.EvmVersionFinder {
@@ -51,6 +59,10 @@ func NewEvmVersionFinder() factory.EvmVersionFinder {
 
 func NewOnRampReader(lggr logger.Logger, versionFinder VersionFinder, sourceSelector, destSelector uint64, onRampAddress ccip.Address, sourceLP logpoller.LogPoller, source client.Client) (ccipdata.OnRampReader, error) {
 	return factory.NewOnRampReader(lggr, versionFinder, sourceSelector, destSelector, onRampAddress, sourceLP, source)
+}
+
+func CloseOnRampReader(lggr logger.Logger, versionFinder VersionFinder, sourceSelector, destSelector uint64, onRampAddress ccip.Address, sourceLP logpoller.LogPoller, source client.Client) error {
+	return factory.CloseOnRampReader(lggr, versionFinder, sourceSelector, destSelector, onRampAddress, sourceLP, source)
 }
 
 type OffRampReader = ccipdata.OffRampReader
@@ -75,6 +87,10 @@ func NewDynamicLimitedBatchCaller(
 
 func NewUSDCReader(lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller, registerFilters bool) (*ccipdata.USDCReaderImpl, error) {
 	return ccipdata.NewUSDCReader(lggr, jobID, transmitter, lp, registerFilters)
+}
+
+func CloseUSDCReader(lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller) error {
+	return ccipdata.CloseUSDCReader(lggr, jobID, transmitter, lp)
 }
 
 type USDCReaderImpl = ccipdata.USDCReaderImpl
