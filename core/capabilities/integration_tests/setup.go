@@ -60,7 +60,7 @@ type donInfo struct {
 func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, workflowDonInfo donInfo, triggerDonInfo donInfo, targetDonInfo donInfo,
 	feedCount int, deltaStage string, schedule string) (*feeds_consumer.KeystoneFeedsConsumer, []string, *reportsSink) {
 	lggr := logger.TestLogger(t)
-	// As a default set the logging to info otherwise 50+MB of logs are created on each test run
+	// As a  default set the logging to info otherwise 50+MB of logs are created on each test run
 	lggr.SetLogLevel(zapcore.DebugLevel)
 
 	ethBlockchain, transactor := setupBlockchain(t, 1000)
