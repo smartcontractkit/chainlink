@@ -97,11 +97,11 @@ RPCBlockQueryDelay = 1 # Default
 # Block 64 will be treated as finalized by CL Node only when chain's latest finalized block is 65. As chain finalizes blocks in batches of 32,
 # CL Node has to wait for a whole new batch to be finalized to treat block 64 as finalized.
 FinalizedBlockOffset = 0 # Default
-# NoNewFinalizedHeadsThreshold controls how long to wait after receiving no new finalized blocks before `NodePool` marks rpc endpoints as
-# finalized-block-out-of-sync
+# NoNewFinalizedHeadsThreshold controls how long to wait for new finalized block before `NodePool` marks rpc endpoints as
+# out-of-sync. Only applicable if `FinalityTagEnabled=true`
 #
-# Set to zero to disable time-based finalized-block-out-of-sync checking.
-NoNewFinalizedHeadsThreshold = '15m' # Default
+# Set to zero to disable.
+NoNewFinalizedHeadsThreshold = '0' # Default
 
 [EVM.Transactions]
 # ForwardersEnabled enables or disables sending transactions through forwarder contracts.
