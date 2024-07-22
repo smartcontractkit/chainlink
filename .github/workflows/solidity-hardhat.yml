@@ -123,7 +123,7 @@ jobs:
         uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
         with:
           coverage-files: ./contracts/lcov-${{ env.PRODUCT }}.info
-          artifact-name: code-coverage-report-${{ env.PRODUCT }}
+          artifact-name: tmp-code-coverage-report-${{ env.PRODUCT }}
           minimum-coverage: 0
           working-directory: ./contracts
 
@@ -132,7 +132,7 @@ jobs:
         uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
         with:
           coverage-files: ./contracts/lcov-shared.info
-          artifact-name: code-coverage-report-shared
+          artifact-name: tmp-code-coverage-report-shared
           minimum-coverage: 0
           working-directory: ./contracts
 
@@ -156,7 +156,7 @@ jobs:
         timeout-minutes: 2
         continue-on-error: true
         with:
-          name: ${{ env.PRODUCT }}-artifacts
+          name: tmp-${{ env.PRODUCT }}-artifacts
           path: |
             contracts/docs/${{ env.PRODUCT }}
             contracts/lcov-${{ env.PRODUCT }}.info
@@ -168,7 +168,7 @@ jobs:
         timeout-minutes: 2
         continue-on-error: true
         with:
-          name: shared-artifacts
+          name: tmp-shared-artifacts
           path: |
             contracts/docs/shared
             contracts/shared-lcov.info
@@ -255,7 +255,7 @@ jobs:
         timeout-minutes: 10
         continue-on-error: true
         with:
-          name: contracts-artifacts
+          name: tmp-contracts-artifacts
           path: |
             contracts/uml
             contracts/slither-reports
@@ -273,6 +273,7 @@ jobs:
         with:
           path: review_artifacts
           merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: View downloaded
         run: |
           ls -la review_artifacts
@@ -310,28 +311,32 @@ jobs:
           name: review-artifacts
           path: review_artifacts/
 
-      - name: Remove UML & Slither artifact
+      - name: Remove temporary artifacts
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
         with:
-          name: contracts-artifacts
-      - name: Remove product code coverage artifacts
-        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
-        with:
-          name: code-coverage-report-${{ env.PRODUCT }}
-      - name: Remove shared code coverage artifacts
-        if: ${{ needs.changes.outputs.shared_changes == 'true' }}
-        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
-        with:
-          name: code-coverage-report-shared
-      - name: Remove product artifacts
-        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
-        with:
-          name: ${{ env.PRODUCT }}-artifacts
-      - name: Remove shared artifacts
-        if: ${{ needs.changes.outputs.shared_changes == 'true' }}
-        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
-        with:
-          name: shared-artifacts
+          name: tmp-*
+#      - name: Remove UML & Slither artifact
+#        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+#        with:
+#          name: contracts-artifacts
+#      - name: Remove product code coverage artifacts
+#        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+#        with:
+#          name: code-coverage-report-${{ env.PRODUCT }}
+#      - name: Remove shared code coverage artifacts
+#        if: ${{ needs.changes.outputs.shared_changes == 'true' }}
+#        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+#        with:
+#          name: code-coverage-report-shared
+#      - name: Remove product artifacts
+#        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+#        with:
+#          name: ${{ env.PRODUCT }}-artifacts
+#      - name: Remove shared artifacts
+#        if: ${{ needs.changes.outputs.shared_changes == 'true' }}
+#        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+#        with:
+#          name: shared-artifacts
 
       - name: Print Artifact URL
         run: |
