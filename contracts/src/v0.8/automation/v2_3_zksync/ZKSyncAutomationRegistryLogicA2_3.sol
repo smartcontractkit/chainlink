@@ -37,7 +37,6 @@ contract ZKSyncAutomationRegistryLogicA2_3 is ZKSyncAutomationRegistryBase2_3, C
       ZKSyncAutomationRegistryLogicC2_3(address(logicB)).getNativeUSDFeedAddress(),
       ZKSyncAutomationRegistryLogicC2_3(address(logicB)).getFastGasFeedAddress(),
       ZKSyncAutomationRegistryLogicC2_3(address(logicB)).getAutomationForwarderLogic(),
-      ZKSyncAutomationRegistryLogicC2_3(address(logicB)).getAllowedReadOnlyAddress(),//
       ZKSyncAutomationRegistryLogicC2_3(address(logicB)).getPayoutMode(),
       ZKSyncAutomationRegistryLogicC2_3(address(logicB)).getWrappedNativeTokenAddress()
     )

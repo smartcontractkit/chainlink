@@ -59,7 +59,6 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
       ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getNativeUSDFeedAddress(),
       ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getFastGasFeedAddress(),
       ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getAutomationForwarderLogic(),
-      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getAllowedReadOnlyAddress(), //
       ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getPayoutMode(),
       ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getWrappedNativeTokenAddress()
     )
@@ -135,7 +134,6 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
     });
 
     uint256 blocknumber = hotVars.chainModule.blockNumber();
-    uint256 l1Fee = hotVars.chainModule.getCurrentL1Fee();
 
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];

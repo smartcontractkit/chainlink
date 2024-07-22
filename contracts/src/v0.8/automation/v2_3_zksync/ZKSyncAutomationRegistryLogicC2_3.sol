@@ -23,7 +23,6 @@ contract ZKSyncAutomationRegistryLogicC2_3 is ZKSyncAutomationRegistryBase2_3 {
     address nativeUSDFeed,
     address fastGasFeed,
     address automationForwarderLogic,
-    address allowedReadOnlyAddress,//
     PayoutMode payoutMode,
     address wrappedNativeTokenAddress
   )
@@ -33,7 +32,6 @@ contract ZKSyncAutomationRegistryLogicC2_3 is ZKSyncAutomationRegistryBase2_3 {
       nativeUSDFeed,
       fastGasFeed,
       automationForwarderLogic,
-      allowedReadOnlyAddress,//
       payoutMode,
       wrappedNativeTokenAddress
     )
@@ -260,10 +258,6 @@ contract ZKSyncAutomationRegistryLogicC2_3 is ZKSyncAutomationRegistryBase2_3 {
 
   function getAutomationForwarderLogic() external view returns (address) {
     return i_automationForwarderLogic;
-  }
-
-  function getAllowedReadOnlyAddress() external view returns (address) { //
-    return i_allowedReadOnlyAddress;
   }
 
   function getWrappedNativeTokenAddress() external view returns (address) {

@@ -2,13 +2,7 @@
 pragma solidity 0.8.19;
 
 import {ChainModuleBase} from "./ChainModuleBase.sol";
-
-ISystemContext constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b));
-
-interface ISystemContext {
-  function gasPrice() external view returns (uint256);
-  function gasPerPubdataByte() external view returns (uint256 gasPerPubdataByte);
-}
+import {SYSTEM_CONTEXT_CONTRACT} from "../interfaces/zksync/ISystemContext.sol";
 
 contract ZKSyncModule is ChainModuleBase {
   uint256 private constant FIXED_GAS_OVERHEAD = 5_000;
@@ -19,7 +13,7 @@ contract ZKSyncModule is ChainModuleBase {
 
   function getGasOverhead()
     external
-    view
+    pure
     override
     returns (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead)
   {

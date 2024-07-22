@@ -28,7 +28,6 @@ contract ZKSyncAutomationRegistryLogicB2_3 is ZKSyncAutomationRegistryBase2_3, C
       logicC.getNativeUSDFeedAddress(),
       logicC.getFastGasFeedAddress(),
       logicC.getAutomationForwarderLogic(),
-      logicC.getAllowedReadOnlyAddress(), //
       logicC.getPayoutMode(),
       logicC.getWrappedNativeTokenAddress()
     )

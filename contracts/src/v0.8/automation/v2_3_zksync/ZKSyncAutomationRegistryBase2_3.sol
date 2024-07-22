@@ -67,7 +67,6 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
   AggregatorV3Interface internal immutable i_nativeUSDFeed;
   AggregatorV3Interface internal immutable i_fastGasFeed;
   address internal immutable i_automationForwarderLogic;
-  address internal immutable i_allowedReadOnlyAddress;
   IWrappedNative internal immutable i_wrappedNativeToken;
 
   /**
@@ -519,7 +518,6 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
    * @param nativeUSDFeed address of the Native/USD price feed
    * @param fastGasFeed address of the Fast Gas price feed
    * @param automationForwarderLogic the address of automation forwarder logic
-   * @param allowedReadOnlyAddress the address of the allowed read only address //
    * @param payoutMode the payout mode
    */
   constructor(
@@ -528,7 +526,6 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
     address nativeUSDFeed,
     address fastGasFeed,
     address automationForwarderLogic,
-    address allowedReadOnlyAddress, //
     PayoutMode payoutMode,
     address wrappedNativeTokenAddress
   ) ConfirmedOwner(msg.sender) {
@@ -537,7 +534,6 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
     i_nativeUSDFeed = AggregatorV3Interface(nativeUSDFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
     i_automationForwarderLogic = automationForwarderLogic;
-    i_allowedReadOnlyAddress = allowedReadOnlyAddress; //
     s_payoutMode = payoutMode;
     i_wrappedNativeToken = IWrappedNative(wrappedNativeTokenAddress);
     if (i_linkUSDFeed.decimals() != i_nativeUSDFeed.decimals()) {
@@ -1101,7 +1097,7 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
    */
   function _preventExecution() internal view {
     // solhint-disable-next-line avoid-tx-origin
-    if (tx.origin != i_allowedReadOnlyAddress) { //
+    if (tx.origin != address(0)) {
       revert OnlySimulatedBackend();
     }
   }
