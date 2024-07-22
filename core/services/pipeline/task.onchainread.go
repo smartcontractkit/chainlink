@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -23,7 +22,7 @@ type OnChainRead struct {
 	RelayConfig     map[string]interface{} `json:"config"`
 	Relay           string                 `json:"relay"`
 
-	relayers map[types.RelayID]loop.Relayer
+	csrm contractStateReaderManager
 }
 
 var _ Task = (*OnChainRead)(nil)
@@ -63,15 +62,8 @@ func (t *OnChainRead) Run(ctx context.Context, _ logger.Logger, vars Vars, input
 	if !ok {
 		return Result{Error: fmt.Errorf("cannot get chainID,expected string but got %T", c)}, runInfo
 	}
-	//Create relayID
+
 	relayID := types.NewRelayID(t.Relay, chainID)
-
-	r, ok := t.relayers[relayID]
-
-	if !ok {
-		return Result{Error: fmt.Errorf("relayer not found for network %q and chainID: %q ", t.Relay, chainID)}, runInfo
-	}
-
 	crc, ok := t.RelayConfig["chainReader"]
 	if !ok {
 		return Result{Error: fmt.Errorf("cannot find chainReader config")}, runInfo
@@ -82,17 +74,18 @@ func (t *OnChainRead) Run(ctx context.Context, _ logger.Logger, vars Vars, input
 		return Result{Error: fmt.Errorf("cannot marshal chainReader config")}, runInfo
 	}
 
-	csr, err := r.NewContractStateReader(ctx, crcb)
-	if err != nil {
-		return Result{Error: err}, runInfo
-	}
-
-	err = csr.Bind(ctx, []types.BoundContract{{
-		Address: contractAddress.String(),
-		Name:    contractName.String(),
-		Pending: false,
-	}})
-	if err != nil {
+	csr, err := t.csrm.Get(relayID, contractAddress.String(), methodName.String())
+	if errors.Is(err, CSRNotFoundErr) {
+		csr, err = t.csrm.Create(relayID, contractAddress.String(), methodName.String(), crcb)
+		err = csr.Bind(ctx, []types.BoundContract{{
+			Address: contractAddress.String(),
+			Name:    contractName.String(),
+			Pending: false,
+		}})
+		if err != nil {
+			return Result{Error: err}, runInfo
+		}
+	} else {
 		return Result{Error: err}, runInfo
 	}
 

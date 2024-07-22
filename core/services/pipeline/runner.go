@@ -79,7 +79,7 @@ type runner struct {
 	chStop services.StopChan
 	wgDone sync.WaitGroup
 
-	relayers map[types.RelayID]loop.Relayer
+	csrm contractStateReaderManager
 }
 
 var (
@@ -126,6 +126,8 @@ func NewRunner(
 ) *runner {
 	lggr = lggr.Named("PipelineRunner")
 
+	chStop := make(chan struct{})
+	ctx, _ := services.StopChan.NewCtx(chStop)
 	r := &runner{
 		orm:                    orm,
 		btORM:                  bridges.NewCache(btORM, lggr, bridges.DefaultUpsertInterval),
@@ -134,13 +136,13 @@ func NewRunner(
 		legacyEVMChains:        legacyChains,
 		ethKeyStore:            ethks,
 		vrfKeyStore:            vrfks,
-		chStop:                 make(chan struct{}),
+		chStop:                 chStop,
 		wgDone:                 sync.WaitGroup{},
 		runFinished:            func(*Run) {},
 		lggr:                   lggr,
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
-		relayers:               relayers,
+		csrm:                   newContractStateReaderManager(ctx, relayers, lggr),
 	}
 
 	r.runReaperWorker = commonutils.NewSleeperTask(
@@ -382,7 +384,7 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			task.(*ETHTxTask).jobType = spec.JobType
 			task.(*ETHTxTask).forwardingAllowed = spec.ForwardingAllowed
 		case TaskTypeOnchainRead:
-			task.(*OnChainRead).relayers = r.relayers
+			task.(*OnChainRead).csrm = r.csrm
 			task.(*OnChainRead).RelayConfig = spec.RelayConfig
 			task.(*OnChainRead).Relay = spec.Relay
 		default:
