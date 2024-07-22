@@ -1,132 +1,46 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {ZKSyncAutomationRegistryBase2_2} from "./ZKSyncAutomationRegistryBase2_2.sol";
+import {ZKSyncAutomationRegistryBase2_3} from "./ZKSyncAutomationRegistryBase2_3.sol";
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import {UpkeepFormat} from "../interfaces/UpkeepTranscoderInterface.sol";
 import {IZKSyncAutomationForwarder} from "../interfaces/zksync/IZKSyncAutomationForwarder.sol";
 import {IChainModule} from "../interfaces/IChainModule.sol";
+import {IERC20Metadata as IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IAutomationV21PlusCommon} from "../interfaces/IAutomationV21PlusCommon.sol";
 
-contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
+contract ZKSyncAutomationRegistryLogicC2_3 is ZKSyncAutomationRegistryBase2_3 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
 
   /**
-   * @dev see ZKSyncAutomationRegistry master contract for constructor description
+   * @dev see AutomationRegistry master contract for constructor description
    */
   constructor(
     address link,
-    address linkNativeFeed,
+    address linkUSDFeed,
+    address nativeUSDFeed,
     address fastGasFeed,
-    address automationForwarderLogic
-  ) ZKSyncAutomationRegistryBase2_2(link, linkNativeFeed, fastGasFeed, automationForwarderLogic) {}
+    address automationForwarderLogic,
+    address allowedReadOnlyAddress,//
+    PayoutMode payoutMode,
+    address wrappedNativeTokenAddress
+  )
+    ZKSyncAutomationRegistryBase2_3(
+      link,
+      linkUSDFeed,
+      nativeUSDFeed,
+      fastGasFeed,
+      automationForwarderLogic,
+      allowedReadOnlyAddress,//
+      payoutMode,
+      wrappedNativeTokenAddress
+    )
+  {}
 
   // ================================================================
-  // |                      UPKEEP MANAGEMENT                       |
-  // ================================================================
-
-  /**
-   * @notice transfers the address of an admin for an upkeep
-   */
-  function transferUpkeepAdmin(uint256 id, address proposed) external {
-    _requireAdminAndNotCancelled(id);
-    if (proposed == msg.sender) revert ValueNotChanged();
-
-    if (s_proposedAdmin[id] != proposed) {
-      s_proposedAdmin[id] = proposed;
-      emit UpkeepAdminTransferRequested(id, msg.sender, proposed);
-    }
-  }
-
-  /**
-   * @notice accepts the transfer of an upkeep admin
-   */
-  function acceptUpkeepAdmin(uint256 id) external {
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-    if (s_proposedAdmin[id] != msg.sender) revert OnlyCallableByProposedAdmin();
-    address past = s_upkeepAdmin[id];
-    s_upkeepAdmin[id] = msg.sender;
-    s_proposedAdmin[id] = ZERO_ADDRESS;
-
-    emit UpkeepAdminTransferred(id, past, msg.sender);
-  }
-
-  /**
-   * @notice pauses an upkeep - an upkeep will be neither checked nor performed while paused
-   */
-  function pauseUpkeep(uint256 id) external {
-    _requireAdminAndNotCancelled(id);
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.paused) revert OnlyUnpausedUpkeep();
-    s_upkeep[id].paused = true;
-    s_upkeepIDs.remove(id);
-    emit UpkeepPaused(id);
-  }
-
-  /**
-   * @notice unpauses an upkeep
-   */
-  function unpauseUpkeep(uint256 id) external {
-    _requireAdminAndNotCancelled(id);
-    Upkeep memory upkeep = s_upkeep[id];
-    if (!upkeep.paused) revert OnlyPausedUpkeep();
-    s_upkeep[id].paused = false;
-    s_upkeepIDs.add(id);
-    emit UpkeepUnpaused(id);
-  }
-
-  /**
-   * @notice updates the checkData for an upkeep
-   */
-  function setUpkeepCheckData(uint256 id, bytes calldata newCheckData) external {
-    _requireAdminAndNotCancelled(id);
-    if (newCheckData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
-    s_checkData[id] = newCheckData;
-    emit UpkeepCheckDataSet(id, newCheckData);
-  }
-
-  /**
-   * @notice updates the gas limit for an upkeep
-   */
-  function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external {
-    if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
-    _requireAdminAndNotCancelled(id);
-    s_upkeep[id].performGas = gasLimit;
-
-    emit UpkeepGasLimitSet(id, gasLimit);
-  }
-
-  /**
-   * @notice updates the offchain config for an upkeep
-   */
-  function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external {
-    _requireAdminAndNotCancelled(id);
-    s_upkeepOffchainConfig[id] = config;
-    emit UpkeepOffchainConfigSet(id, config);
-  }
-
-  /**
-   * @notice withdraws LINK funds from an upkeep
-   * @dev note that an upkeep must be cancelled first!!
-   */
-  function withdrawFunds(uint256 id, address to) external nonReentrant {
-    if (to == ZERO_ADDRESS) revert InvalidRecipient();
-    Upkeep memory upkeep = s_upkeep[id];
-    if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
-    if (upkeep.maxValidBlocknumber > s_hotVars.chainModule.blockNumber()) revert UpkeepNotCanceled();
-    uint96 amountToWithdraw = s_upkeep[id].balance;
-    s_expectedLinkBalance = s_expectedLinkBalance - amountToWithdraw;
-    s_upkeep[id].balance = 0;
-    i_link.transfer(to, amountToWithdraw);
-    emit FundsWithdrawn(id, amountToWithdraw, to);
-  }
-
-  // ================================================================
-  // |                       NODE MANAGEMENT                        |
+  // |                         NODE ACTIONS                         |
   // ================================================================
 
   /**
@@ -155,15 +69,19 @@ contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
   }
 
   /**
-   * @notice withdraws LINK received as payment for work performed
+   * @notice this is for NOPs to withdraw LINK received as payment for work performed
    */
   function withdrawPayment(address from, address to) external {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
+    if (s_payoutMode == PayoutMode.OFF_CHAIN) revert MustSettleOffchain();
     if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
     uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
     s_transmitters[from].balance = 0;
-    s_expectedLinkBalance = s_expectedLinkBalance - balance;
-    i_link.transfer(to, balance);
+    s_reserveAmounts[IERC20(address(i_link))] = s_reserveAmounts[IERC20(address(i_link))] - balance;
+    bool transferStatus = i_link.transfer(to, balance);
+    if (!transferStatus) {
+      revert TransferFailed();
+    }
     emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
 
@@ -175,34 +93,14 @@ contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
    * @notice sets the privilege config for an upkeep
    */
   function setUpkeepPrivilegeConfig(uint256 upkeepId, bytes calldata newPrivilegeConfig) external {
-    if (msg.sender != s_storage.upkeepPrivilegeManager) {
-      revert OnlyCallableByUpkeepPrivilegeManager();
-    }
+    _onlyPrivilegeManagerAllowed();
     s_upkeepPrivilegeConfig[upkeepId] = newPrivilegeConfig;
     emit UpkeepPrivilegeConfigSet(upkeepId, newPrivilegeConfig);
   }
 
   /**
-   * @notice withdraws the owner's LINK balance
-   */
-  function withdrawOwnerFunds() external onlyOwner {
-    uint96 amount = s_storage.ownerLinkBalance;
-    s_expectedLinkBalance = s_expectedLinkBalance - amount;
-    s_storage.ownerLinkBalance = 0;
-    emit OwnerFundsWithdrawn(amount);
-    i_link.transfer(msg.sender, amount);
-  }
-
-  /**
-   * @notice allows the owner to withdraw any LINK accidentally sent to the contract
-   */
-  function recoverFunds() external onlyOwner {
-    uint256 total = i_link.balanceOf(address(this));
-    i_link.transfer(msg.sender, total - s_expectedLinkBalance);
-  }
-
-  /**
-   * @notice sets the payees for the transmitters
+   * @notice this is used by the owner to set the initial payees for newly added transmitters. The owner is not allowed to change payees for existing transmitters.
+   * @dev the IGNORE_ADDRESS is a "helper" that makes it easier to construct a list of payees when you only care about setting the payee for a small number of transmitters.
    */
   function setPayees(address[] calldata payees) external onlyOwner {
     if (s_transmittersList.length != payees.length) revert ParameterLengthError();
@@ -210,9 +108,13 @@ contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
       address transmitter = s_transmittersList[i];
       address oldPayee = s_transmitterPayees[transmitter];
       address newPayee = payees[i];
+
       if (
         (newPayee == ZERO_ADDRESS) || (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS)
-      ) revert InvalidPayee();
+      ) {
+        revert InvalidPayee();
+      }
+
       if (newPayee != IGNORE_ADDRESS) {
         s_transmitterPayees[transmitter] = newPayee;
       }
@@ -250,11 +152,62 @@ contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
    * @param newPrivilegeConfig the privileges that this admin has
    */
   function setAdminPrivilegeConfig(address admin, bytes calldata newPrivilegeConfig) external {
-    if (msg.sender != s_storage.upkeepPrivilegeManager) {
-      revert OnlyCallableByUpkeepPrivilegeManager();
-    }
+    _onlyPrivilegeManagerAllowed();
     s_adminPrivilegeConfig[admin] = newPrivilegeConfig;
     emit AdminPrivilegeConfigSet(admin, newPrivilegeConfig);
+  }
+
+  /**
+   * @notice settles NOPs' LINK payment offchain
+   */
+  function settleNOPsOffchain() external {
+    _onlyFinanceAdminAllowed();
+    if (s_payoutMode == PayoutMode.ON_CHAIN) revert MustSettleOnchain();
+
+    uint96 totalPremium = s_hotVars.totalPremium;
+    uint256 activeTransmittersLength = s_transmittersList.length;
+    uint256 deactivatedTransmittersLength = s_deactivatedTransmitters.length();
+    uint256 length = activeTransmittersLength + deactivatedTransmittersLength;
+    uint256[] memory payments = new uint256[](length);
+    address[] memory payees = new address[](length);
+
+    for (uint256 i = 0; i < activeTransmittersLength; i++) {
+      address transmitterAddr = s_transmittersList[i];
+      uint96 balance = _updateTransmitterBalanceFromPool(
+        transmitterAddr,
+        totalPremium,
+        uint96(activeTransmittersLength)
+      );
+
+      payments[i] = balance;
+      payees[i] = s_transmitterPayees[transmitterAddr];
+      s_transmitters[transmitterAddr].balance = 0;
+    }
+
+    for (uint256 i = 0; i < deactivatedTransmittersLength; i++) {
+      address deactivatedAddr = s_deactivatedTransmitters.at(i);
+      Transmitter memory transmitter = s_transmitters[deactivatedAddr];
+
+      payees[i + activeTransmittersLength] = s_transmitterPayees[deactivatedAddr];
+      payments[i + activeTransmittersLength] = transmitter.balance;
+      s_transmitters[deactivatedAddr].balance = 0;
+    }
+
+    // reserve amount of LINK is reset to 0 since no user deposits of LINK are expected in offchain mode
+    s_reserveAmounts[IERC20(address(i_link))] = 0;
+
+    for (uint256 idx = s_deactivatedTransmitters.length(); idx > 0; idx--) {
+      s_deactivatedTransmitters.remove(s_deactivatedTransmitters.at(idx - 1));
+    }
+
+    emit NOPsSettledOffchain(payees, payments);
+  }
+
+  /**
+   * @notice disables offchain payment for NOPs
+   */
+  function disableOffchainPayments() external onlyOwner {
+    s_payoutMode = PayoutMode.ON_CHAIN;
   }
 
   // ================================================================
@@ -293,8 +246,12 @@ contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
     return address(i_link);
   }
 
-  function getLinkNativeFeedAddress() external view returns (address) {
-    return address(i_linkNativeFeed);
+  function getLinkUSDFeedAddress() external view returns (address) {
+    return address(i_linkUSDFeed);
+  }
+
+  function getNativeUSDFeedAddress() external view returns (address) {
+    return address(i_nativeUSDFeed);
   }
 
   function getFastGasFeedAddress() external view returns (address) {
@@ -305,12 +262,47 @@ contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
     return i_automationForwarderLogic;
   }
 
-  function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {
-    return UPKEEP_TRANSCODER_VERSION_BASE;
+  function getAllowedReadOnlyAddress() external view returns (address) { //
+    return i_allowedReadOnlyAddress;
+  }
+
+  function getWrappedNativeTokenAddress() external view returns (address) {
+    return address(i_wrappedNativeToken);
+  }
+
+  function getBillingToken(uint256 upkeepID) external view returns (IERC20) {
+    return s_upkeep[upkeepID].billingToken;
+  }
+
+  function getBillingTokens() external view returns (IERC20[] memory) {
+    return s_billingTokens;
+  }
+
+  function supportsBillingToken(IERC20 token) external view returns (bool) {
+    return address(s_billingConfigs[token].priceFeed) != address(0);
+  }
+
+  function getBillingTokenConfig(IERC20 token) external view returns (BillingConfig memory) {
+    return s_billingConfigs[token];
+  }
+
+  function getBillingOverridesEnabled(uint256 upkeepID) external view returns (bool) {
+    return s_upkeep[upkeepID].overridesEnabled;
+  }
+
+  function getPayoutMode() external view returns (PayoutMode) {
+    return s_payoutMode;
   }
 
   function upkeepVersion() public pure returns (uint8) {
     return UPKEEP_VERSION_BASE;
+  }
+
+  /**
+   * @notice gets the number of upkeeps on the registry
+   */
+  function getNumUpkeeps() external view returns (uint256) {
+    return s_upkeepIDs.length();
   }
 
   /**
@@ -329,7 +321,7 @@ contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
       admin: s_upkeepAdmin[id],
       maxValidBlocknumber: reg.maxValidBlocknumber,
       lastPerformedBlockNumber: reg.lastPerformedBlockNumber,
-      amountSpent: reg.amountSpent,
+      amountSpent: uint96(reg.amountSpent), // force casting to uint96 for backwards compatibility. Not an issue if it overflows.
       paused: reg.paused,
       offchainConfig: s_upkeepOffchainConfig[id]
     });
@@ -401,6 +393,33 @@ contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
   }
 
   /**
+   * @notice read the current on-chain config of the registry
+   * @dev this function will change between versions, it should never be used where
+   * backwards compatibility matters!
+   */
+  function getConfig() external view returns (OnchainConfig memory) {
+    return
+      OnchainConfig({
+        checkGasLimit: s_storage.checkGasLimit,
+        stalenessSeconds: s_hotVars.stalenessSeconds,
+        gasCeilingMultiplier: s_hotVars.gasCeilingMultiplier,
+        maxPerformGas: s_storage.maxPerformGas,
+        maxCheckDataSize: s_storage.maxCheckDataSize,
+        maxPerformDataSize: s_storage.maxPerformDataSize,
+        maxRevertDataSize: s_storage.maxRevertDataSize,
+        fallbackGasPrice: s_fallbackGasPrice,
+        fallbackLinkPrice: s_fallbackLinkPrice,
+        fallbackNativePrice: s_fallbackNativePrice,
+        transcoder: s_storage.transcoder,
+        registrars: s_registrars.values(),
+        upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager,
+        chainModule: s_hotVars.chainModule,
+        reorgProtectionEnabled: s_hotVars.reorgProtectionEnabled,
+        financeAdmin: s_storage.financeAdmin
+      });
+  }
+
+  /**
    * @notice read the current state of the registry
    * @dev this function is deprecated
    */
@@ -417,8 +436,8 @@ contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
   {
     state = IAutomationV21PlusCommon.StateLegacy({
       nonce: s_storage.nonce,
-      ownerLinkBalance: s_storage.ownerLinkBalance,
-      expectedLinkBalance: s_expectedLinkBalance,
+      ownerLinkBalance: 0, // deprecated
+      expectedLinkBalance: 0, // deprecated
       totalPremium: s_hotVars.totalPremium,
       numUpkeeps: s_upkeepIDs.length(),
       configCount: s_storage.configCount,
@@ -429,12 +448,12 @@ contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
     });
 
     config = IAutomationV21PlusCommon.OnchainConfigLegacy({
-      paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
-      flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
+      paymentPremiumPPB: 0, // deprecated
+      flatFeeMicroLink: 0, // deprecated
       checkGasLimit: s_storage.checkGasLimit,
       stalenessSeconds: s_hotVars.stalenessSeconds,
       gasCeilingMultiplier: s_hotVars.gasCeilingMultiplier,
-      minUpkeepSpend: s_storage.minUpkeepSpend,
+      minUpkeepSpend: 0, // deprecated
       maxPerformGas: s_storage.maxPerformGas,
       maxCheckDataSize: s_storage.maxCheckDataSize,
       maxPerformDataSize: s_storage.maxPerformDataSize,
@@ -447,6 +466,24 @@ contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);
+  }
+
+  /**
+   * @notice read the Storage data
+   * @dev this function signature will change with each version of automation
+   * this should not be treated as a stable function
+   */
+  function getStorage() external view returns (Storage memory) {
+    return s_storage;
+  }
+
+  /**
+   * @notice read the HotVars data
+   * @dev this function signature will change with each version of automation
+   * this should not be treated as a stable function
+   */
+  function getHotVars() external view returns (HotVars memory) {
+    return s_hotVars;
   }
 
   /**
@@ -485,17 +522,23 @@ contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
    * @dev this will be deprecated in a future version in favor of getMinBalance
    */
   function getMinBalanceForUpkeep(uint256 id) public view returns (uint96 minBalance) {
-    return getMaxPaymentForGas(_getTriggerType(id), s_upkeep[id].performGas);
+    Upkeep memory upkeep = s_upkeep[id];
+    return getMaxPaymentForGas(id, _getTriggerType(id), upkeep.performGas, upkeep.billingToken);
   }
 
   /**
    * @notice calculates the maximum payment for a given gas limit
    * @param gasLimit the gas to calculate payment for
    */
-  function getMaxPaymentForGas(Trigger triggerType, uint32 gasLimit) public view returns (uint96 maxPayment) {
+  function getMaxPaymentForGas(
+    uint256 id,
+    Trigger triggerType,
+    uint32 gasLimit,
+    IERC20 billingToken
+  ) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
-    (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    return _getMaxLinkPayment(hotVars, triggerType, gasLimit, fastGasWei, linkNative);
+    (uint256 fastGasWei, uint256 linkUSD, uint256 nativeUSD) = _getFeedData(hotVars);
+    return _getMaxPayment(id, hotVars, triggerType, gasLimit, fastGasWei, linkUSD, nativeUSD, billingToken);
   }
 
   /**
@@ -513,7 +556,7 @@ contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
   }
 
   /**
-   * @notice returns the upkeep privilege config
+   * @notice returns the admin's privilege config
    */
   function getAdminPrivilegeConfig(address admin) external view returns (bytes memory) {
     return s_adminPrivilegeConfig[admin];
@@ -527,9 +570,69 @@ contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
   }
 
   /**
-   * @notice returns the upkeep's forwarder contract
+   * @notice returns if the dedupKey exists or not
    */
   function hasDedupKey(bytes32 dedupKey) external view returns (bool) {
     return s_dedupKeys[dedupKey];
+  }
+
+  /**
+   * @notice returns the fallback native price
+   */
+  function getFallbackNativePrice() external view returns (uint256) {
+    return s_fallbackNativePrice;
+  }
+
+  /**
+   * @notice returns the amount of a particular token that is reserved as
+   * user deposits / NOP payments
+   */
+  function getReserveAmount(IERC20 billingToken) external view returns (uint256) {
+    return s_reserveAmounts[billingToken];
+  }
+
+  /**
+   * @notice returns the amount of a particular token that is withdraw-able by finance admin
+   */
+  function getAvailableERC20ForPayment(IERC20 billingToken) external view returns (uint256) {
+    return billingToken.balanceOf(address(this)) - s_reserveAmounts[IERC20(address(billingToken))];
+  }
+
+  /**
+   * @notice returns the size of the LINK liquidity pool
+   */
+  function linkAvailableForPayment() public view returns (int256) {
+    return _linkAvailableForPayment();
+  }
+
+  /**
+   * @notice returns the BillingOverrides config for a given upkeep
+   */
+  function getBillingOverrides(uint256 upkeepID) external view returns (BillingOverrides memory) {
+    return s_billingOverrides[upkeepID];
+  }
+
+  /**
+   * @notice returns the BillingConfig for a given billing token, this includes decimals and price feed etc
+   */
+  function getBillingConfig(IERC20 billingToken) external view returns (BillingConfig memory) {
+    return s_billingConfigs[billingToken];
+  }
+
+  /**
+   * @notice returns all active transmitters with their associated payees
+   */
+  function getTransmittersWithPayees() external view returns (TransmitterPayeeInfo[] memory) {
+    uint256 transmitterCount = s_transmittersList.length;
+    TransmitterPayeeInfo[] memory transmitters = new TransmitterPayeeInfo[](transmitterCount);
+
+    for (uint256 i = 0; i < transmitterCount; i++) {
+      address transmitterAddress = s_transmittersList[i];
+      address payeeAddress = s_transmitterPayees[transmitterAddress];
+
+      transmitters[i] = TransmitterPayeeInfo(transmitterAddress, payeeAddress);
+    }
+
+    return transmitters;
   }
 }

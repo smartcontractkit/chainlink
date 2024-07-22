@@ -7,7 +7,7 @@ import {ZKSyncAutomationRegistryBase2_2} from "./ZKSyncAutomationRegistryBase2_2
 import {ZKSyncAutomationRegistryLogicB2_2} from "./ZKSyncAutomationRegistryLogicB2_2.sol";
 import {Chainable} from "../Chainable.sol";
 import {ZKSyncAutomationForwarder} from "../ZKSyncAutomationForwarder.sol";
-import {IZKSyncAutomationForwarder} from "../interfaces/IZKSyncAutomationForwarder.sol";
+import {IZKSyncAutomationForwarder} from "../interfaces/zksync/IZKSyncAutomationForwarder.sol";
 import {UpkeepTranscoderInterfaceV2} from "../interfaces/UpkeepTranscoderInterfaceV2.sol";
 import {MigratableKeeperRegistryInterfaceV2} from "../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
 

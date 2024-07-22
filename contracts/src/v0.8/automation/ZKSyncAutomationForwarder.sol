@@ -2,16 +2,10 @@
 pragma solidity ^0.8.16;
 
 import {IAutomationRegistryConsumer} from "./interfaces/IAutomationRegistryConsumer.sol";
+import {SYSTEM_CONTEXT_CONTRACT} from "./interfaces/zksync/ISystemContext.sol";
+import {GAS_BOUND_CALLER, IGasBoundCaller} from "./interfaces/zksync/IGasBoundCaller.sol";
 
 uint256 constant PERFORM_GAS_CUSHION = 5_000;
-interface ISystemContext {
-  function gasPerPubdataByte() external view returns (uint256 gasPerPubdataByte);
-  function getCurrentPubdataSpent() external view returns (uint256 currentPubdataSpent);
-}
-
-interface IGasBoundCaller {
-  function gasBoundCall(address _to, uint256 _maxTotalGas, bytes calldata _data) external payable;
-}
 
 /**
  * @title ZKSyncAutomationForwarder is a relayer that sits between the registry and the customer's target contract
@@ -21,9 +15,6 @@ interface IGasBoundCaller {
  */
 contract ZKSyncAutomationForwarder {
   error InvalidCaller(address);
-
-  ISystemContext public constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b));
-  address public constant GAS_BOUND_CALLER = address(0xc706EC7dfA5D4Dc87f29f859094165E8290530f5);
 
   /// @notice the user's target contract address
   //    address private immutable i_target;

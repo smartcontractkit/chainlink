@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {IAutomationRegistryConsumer} from "./IAutomationRegistryConsumer.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
+import {IAutomationRegistryConsumer} from "./../IAutomationRegistryConsumer.sol";
 
 interface IZKSyncAutomationForwarder is ITypeAndVersion {
   function forward(
