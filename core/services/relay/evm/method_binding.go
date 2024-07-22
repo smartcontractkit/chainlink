@@ -115,7 +115,7 @@ func (m *methodBinding) blockNumberFromConfidence(ctx context.Context, confidenc
 		return nil, err
 	}
 
-	latest, finalized, err := m.ht.LatestAndFinalizedBlock(ctx)
+	_, finalized, err := m.ht.LatestAndFinalizedBlock(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func (m *methodBinding) blockNumberFromConfidence(ctx context.Context, confidenc
 	if confirmations == evmtypes.Finalized {
 		return big.NewInt(finalized.Number), nil
 	} else if confirmations == evmtypes.Unconfirmed {
-		return big.NewInt(latest.BlockNumber()), nil
+		return nil, nil
 	}
 
 	return nil, fmt.Errorf("unknown evm confirmations: %v for contract: %s, method: %s", confirmations, m.contractName, m.method)

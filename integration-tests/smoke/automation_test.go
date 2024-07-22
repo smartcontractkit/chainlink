@@ -62,24 +62,6 @@ func upgradeChainlinkNodeVersionsLocal(
 	return nil
 }
 
-func automationDefaultRegistryConfig(c tc.AutomationTestConfig) contracts.KeeperRegistrySettings {
-	registrySettings := c.GetAutomationConfig().AutomationConfig.RegistrySettings
-	return contracts.KeeperRegistrySettings{
-		PaymentPremiumPPB:    *registrySettings.PaymentPremiumPPB,
-		FlatFeeMicroLINK:     *registrySettings.FlatFeeMicroLINK,
-		CheckGasLimit:        *registrySettings.CheckGasLimit,
-		StalenessSeconds:     registrySettings.StalenessSeconds,
-		GasCeilingMultiplier: *registrySettings.GasCeilingMultiplier,
-		MinUpkeepSpend:       registrySettings.MinUpkeepSpend,
-		MaxPerformGas:        *registrySettings.MaxPerformGas,
-		FallbackGasPrice:     registrySettings.FallbackGasPrice,
-		FallbackLinkPrice:    registrySettings.FallbackLinkPrice,
-		MaxCheckDataSize:     *registrySettings.MaxCheckDataSize,
-		MaxPerformDataSize:   *registrySettings.MaxPerformDataSize,
-		MaxRevertDataSize:    *registrySettings.MaxRevertDataSize,
-	}
-}
-
 func TestMain(m *testing.M) {
 	logging.Init()
 	// config, err := tc.GetConfig(tc.NoTest, tc.Smoke, tc.Automation)
@@ -144,7 +126,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			isMercury := isMercuryV02 || isMercuryV03
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(cfg), isMercuryV02, isMercuryV03, &cfg,
+				t, registryVersion, actions.AutomationDefaultRegistryConfig(cfg), isMercuryV02, isMercuryV03, &cfg,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -283,7 +265,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -466,7 +448,7 @@ func TestAutomationAddFunds(t *testing.T) {
 			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -546,7 +528,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -647,7 +629,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -743,7 +725,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -823,7 +805,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -931,7 +913,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -1002,7 +984,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -1109,7 +1091,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			}
 
 			// Now increase checkGasLimit on registry
-			highCheckGasLimit := automationDefaultRegistryConfig(config)
+			highCheckGasLimit := actions.AutomationDefaultRegistryConfig(config)
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
 			highCheckGasLimit.RegistryVersion = registryVersion
 
@@ -1157,7 +1139,7 @@ func TestUpdateCheckData(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -1238,7 +1220,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 				t.Fatal(err)
 			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())

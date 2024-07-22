@@ -120,6 +120,7 @@ jobs:
       evm_implementations: ${{ steps.select-implementations.outputs.evm_implementations }}
       chainlink_version: ${{ steps.select-chainlink-version.outputs.chainlink_version }}
       latest_image_count: ${{ steps.get-image-count.outputs.image_count }}
+      chainlink_ref_path:  ${{ steps.select-chainlink-version.outputs.cl_ref_path }}
     steps:
       # ghlatestreleasechecker is a tool to check if new release is available for a given repo
       - name: Set Up ghlatestreleasechecker
@@ -186,28 +187,39 @@ jobs:
             # we use 100 days since we really want the latest one, and it's highly improbable there won't be a release in last 100 days
             chainlink_version=$(ghlatestreleasechecker "smartcontractkit/chainlink" 100) 
             echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+            cl_ref_path="release"
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             echo "Fetching Chainlink version from input"
             if [ -n "${{ github.event.inputs.chainlinkVersion }}" ]; then
               echo "Chainlink version provided in input"
               chainlink_version="${{ github.event.inputs.chainlinkVersion }}"
+              if [[ "$chainlink_version" =~ ^[0-9a-f]{40}$ ]]; then
+                cl_ref_path="commit"
+              else
+                cl_ref_path="release"
+              fi
             else
               echo "Chainlink version not provided in input. Using latest commit SHA."
               chainlink_version=${{ github.sha }}
+              cl_ref_path="commit"
             fi
             echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+            echo "cl_ref_path=$cl_ref_path" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             echo "Fetching Chainlink version from PR's head commit"
             chainlink_version="${{ github.event.pull_request.head.sha }}"
             echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+            echo "cl_ref_path=commit" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "merge_queue" ]; then
             echo "Fetching Chainlink version from merge queue's head commit"
             chainlink_version="${{ github.event.merge_group.head_sha }}"
             echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+            echo "cl_ref_path=commit" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
             echo "Fetching Chainlink version from tag"
             chainlink_version="${{ github.ref_name }}"
             echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+            echo "cl_ref_path=release" >> $GITHUB_OUTPUT
           else
             echo "Unsupported trigger event. It's probably an issue with the pipeline definition. Please reach out to the Test Tooling team."
             exit 1
@@ -223,7 +235,7 @@ jobs:
             else
               image_count="${{ github.event.inputs.latestVersionsNumber }}"
               echo "image_count=$image_count" >> $GITHUB_OUTPUT
-            fi            
+            fi
           else
             echo "Fetching default latest image count"
             image_count=3
@@ -512,7 +524,7 @@ jobs:
 
   run-client-compatibility-matrix:
     name: ${{ matrix.evm_node.product }} compatibility with ${{ matrix.evm_node.docker_image }}
-    if: always() && needs.should-run.outputs.should_run == 'true' && needs.build-chainlink.result == 'success' && needs.prepare-compatibility-matrix.outputs.matrix != ''
+    if: always() && needs.should-run.outputs.should_run == 'true' && (needs.build-chainlink.result == 'success' || needs.build-chainlink.result == 'skipped') && needs.prepare-compatibility-matrix.outputs.matrix != ''
     environment: integration
     permissions:
       checks: write
@@ -672,7 +684,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}> | <${{ github.server_url }}/${{ github.repository }}/commit/${{ needs.select-versions.outputs.chainlink_version }}|${{ needs.select-versions.outputs.chainlink_version }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
+                        "text": "<${{ github.server_url }}/${{ github.repository }}/${{ needs.select-versions.outputs.chainlink_ref_path }}/${{ needs.select-versions.outputs.chainlink_version }}|${{ needs.select-versions.outputs.chainlink_version }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
                       }
                     }
                   ]
