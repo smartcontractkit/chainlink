@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"reflect"
 	"sort"
@@ -42,8 +43,6 @@ const (
 	WorkflowJobType                string = "workflow"
 	StandardCapabilitiesJobType    string = "standardcapabilities"
 )
-
-//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 
 type (
 	Task interface {
@@ -231,7 +230,7 @@ func (trrs TaskRunResults) GetTaskRunResultsFinishedAt() time.Time {
 
 // FinalResult pulls the FinalResult for the pipeline_run from the task runs
 // It needs to respect the output index of each task
-func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
+func (trrs TaskRunResults) FinalResult() FinalResult {
 	var found bool
 	var fr FinalResult
 	sort.Slice(trrs, func(i, j int) bool {
@@ -247,7 +246,7 @@ func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
 	}
 
 	if !found {
-		l.Panicw("Expected at least one task to be final", "tasks", trrs)
+		panic(fmt.Sprintf("expected at least one task to be final: %v", trrs))
 	}
 	return fr
 }

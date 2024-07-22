@@ -35,6 +35,10 @@ func NewRelayer(lggr logger.Logger, chainID string) loop.Relayer {
 	return &relayer{lggr, chainID}
 }
 
+func (r *relayer) NewChainWriter(ctx context.Context, chainWriterConfig []byte) (types.ChainWriter, error) {
+	return nil, nil
+}
+
 func (r *relayer) NewContractReader(ctx context.Context, contractReaderConfig []byte) (types.ContractReader, error) {
 	return nil, nil
 }

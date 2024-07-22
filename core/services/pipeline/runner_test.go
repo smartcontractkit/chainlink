@@ -109,12 +109,11 @@ ds5 [type=http method="GET" url="%s" index=2]
 	spec := pipeline.Spec{DotDagSource: s}
 	vars := pipeline.NewVarsFrom(nil)
 
-	lggr := logger.TestLogger(t)
-	_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
+	_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars)
 	require.NoError(t, err)
 	require.Len(t, trrs, len(d.Tasks))
 
-	finalResults := trrs.FinalResult(lggr)
+	finalResults := trrs.FinalResult()
 	require.Len(t, finalResults.Values, 3)
 	require.Len(t, finalResults.AllErrors, 12)
 	require.Len(t, finalResults.FatalErrors, 3)
@@ -285,7 +284,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			spec := pipeline.Spec{
 				DotDagSource: specStr,
 			}
-			_, taskRunResults, err := runner.ExecuteRun(testutils.Context(t), spec, pipeline.NewVarsFrom(test.vars), logger.TestLogger(t))
+			_, taskRunResults, err := runner.ExecuteRun(testutils.Context(t), spec, pipeline.NewVarsFrom(test.vars))
 			require.NoError(t, err)
 			require.Len(t, taskRunResults, len(p.Tasks))
 
@@ -370,12 +369,11 @@ func Test_PipelineRunner_CBORParse(t *testing.T) {
 		}
 		vars := pipeline.NewVarsFrom(global)
 
-		lggr := logger.TestLogger(t)
-		_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
+		_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars)
 		require.NoError(t, err)
 		require.Len(t, trrs, len(d.Tasks))
 
-		finalResults := trrs.FinalResult(lggr)
+		finalResults := trrs.FinalResult()
 		require.Len(t, finalResults.Values, 1)
 		assert.Equal(t, make(map[string]interface{}), finalResults.Values[0])
 		require.Len(t, finalResults.FatalErrors, 1)
@@ -398,12 +396,11 @@ func Test_PipelineRunner_CBORParse(t *testing.T) {
 		}
 		vars := pipeline.NewVarsFrom(global)
 
-		lggr := logger.TestLogger(t)
-		_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
+		_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars)
 		require.NoError(t, err)
 		require.Len(t, trrs, len(d.Tasks))
 
-		finalResults := trrs.FinalResult(lggr)
+		finalResults := trrs.FinalResult()
 		require.Len(t, finalResults.Values, 1)
 		assert.Equal(t, "foo", finalResults.Values[0])
 		require.Len(t, finalResults.FatalErrors, 1)
@@ -453,7 +450,7 @@ answer1 [type=median                      index=0];
 	spec := pipeline.Spec{DotDagSource: s}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(ctx, spec, vars, logger.TestLogger(t))
+	_, trrs, err := r.ExecuteRun(ctx, spec, vars)
 	require.NoError(t, err)
 	for _, trr := range trrs {
 		if trr.IsTerminal() {
@@ -494,8 +491,8 @@ succeed2 -> final;
 `}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, taskResults, err := r.ExecuteAndInsertFinishedRun(testutils.Context(t), spec, vars, lggr, false)
-	finalResult := taskResults.FinalResult(lggr)
+	_, taskResults, err := r.ExecuteAndInsertFinishedRun(testutils.Context(t), spec, vars, false)
+	finalResult := taskResults.FinalResult()
 	require.NoError(t, err)
 	assert.True(t, finalResult.HasErrors())
 	assert.False(t, finalResult.HasFatalErrors())
@@ -534,8 +531,8 @@ succeed2 -> final;
 `}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, taskResults, err := r.ExecuteAndInsertFinishedRun(testutils.Context(t), spec, vars, lggr, false)
-	finalResult := taskResults.FinalResult(lggr)
+	_, taskResults, err := r.ExecuteAndInsertFinishedRun(testutils.Context(t), spec, vars, false)
+	finalResult := taskResults.FinalResult()
 	require.NoError(t, err)
 	assert.True(t, finalResult.HasErrors())
 	assert.False(t, finalResult.HasFatalErrors())
@@ -549,7 +546,6 @@ func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
 	btORM := bridgesMocks.NewORM(t)
 	r, _ := newRunner(t, db, btORM, cfg)
 	input := map[string]interface{}{"val": 2}
-	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
 a [type=multiply input="$(val)" times=2]
@@ -558,16 +554,16 @@ b2 [type=multiply input="$(a)" times=3]
 c [type=median values=<[ $(b1), $(b2) ]> index=0]
 a->b1->c;
 a->b2->c;`,
-	}, pipeline.NewVarsFrom(input), lggr)
+	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult(lggr).HasFatalErrors())
+	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
 
 	// a = 4
 	// (b1 = 8) + (b2 = 12)
 	// c = 20 / 2
 
-	result, err := trrs.FinalResult(lggr).SingularResult()
+	result, err := trrs.FinalResult().SingularResult()
 	require.NoError(t, err)
 	assert.Equal(t, mustDecimal(t, "10").String(), result.Value.(decimal.Decimal).String())
 }
@@ -577,7 +573,6 @@ func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
 	btORM := bridgesMocks.NewORM(t)
 	r, _ := newRunner(t, pgtest.NewSqlxDB(t), btORM, cfg)
 	input := map[string]interface{}{"val": 2}
-	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
 a [type=multiply input="$(val)" times=2]
@@ -585,10 +580,10 @@ b1 [type=multiply input="$(a)" times=2 index=0]
 b2 [type=multiply input="$(a)" times=3 index=1]
 a->b1;
 a->b2;`,
-	}, pipeline.NewVarsFrom(input), lggr)
+	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
 	require.Equal(t, 3, len(trrs))
-	result := trrs.FinalResult(lggr)
+	result := trrs.FinalResult()
 	assert.Equal(t, false, result.HasFatalErrors())
 
 	assert.Equal(t, mustDecimal(t, "8").String(), result.Values[0].(decimal.Decimal).String())
@@ -677,8 +672,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 		run.ID = 1 // give it a valid "id"
 	}).Once()
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
-	lggr := logger.TestLogger(t)
-	incomplete, err := r.Run(testutils.Context(t), run, lggr, false, nil)
+	incomplete, err := r.Run(testutils.Context(t), run, false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 9) // 3 tasks are suspended: ds1_parse, ds1_multiply, median. ds1 is present, but contains ErrPending
 	require.Equal(t, true, incomplete)      // still incomplete
@@ -687,7 +681,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 	// Trigger run resumption with no new data
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
-	incomplete, err = r.Run(testutils.Context(t), run, lggr, false, nil)
+	incomplete, err = r.Run(testutils.Context(t), run, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, true, incomplete) // still incomplete
 
@@ -700,7 +694,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}
 	// Trigger run resumption
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
-	incomplete, err = r.Run(testutils.Context(t), run, lggr, false, nil)
+	incomplete, err = r.Run(testutils.Context(t), run, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, false, incomplete) // done
 	require.Len(t, run.PipelineTaskRuns, 12)
@@ -820,7 +814,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}).Once()
 	// StoreRun is called again to store the final result
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
-	incomplete, err := r.Run(testutils.Context(t), run, logger.TestLogger(t), false, nil)
+	incomplete, err := r.Run(testutils.Context(t), run, false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 12)
 	require.Equal(t, false, incomplete) // run is complete
@@ -854,17 +848,16 @@ func Test_PipelineRunner_LowercaseOutputs(t *testing.T) {
 		"first":  "camelCase",
 		"second": "UPPERCASE",
 	}
-	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
 a [type=lowercase input="$(first)"]
 `,
-	}, pipeline.NewVarsFrom(input), lggr)
+	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
 	require.Equal(t, 1, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult(lggr).HasFatalErrors())
+	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
 
-	result, err := trrs.FinalResult(lggr).SingularResult()
+	result, err := trrs.FinalResult().SingularResult()
 	require.NoError(t, err)
 	assert.Equal(t, "camelcase", result.Value.(string))
 }
@@ -877,17 +870,16 @@ func Test_PipelineRunner_UppercaseOutputs(t *testing.T) {
 	input := map[string]interface{}{
 		"first": "somerAnDomTEST",
 	}
-	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
 a [type=uppercase input="$(first)"]
 `,
-	}, pipeline.NewVarsFrom(input), lggr)
+	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
 	require.Equal(t, 1, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult(lggr).HasFatalErrors())
+	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
 
-	result, err := trrs.FinalResult(lggr).SingularResult()
+	result, err := trrs.FinalResult().SingularResult()
 	require.NoError(t, err)
 	assert.Equal(t, "SOMERANDOMTEST", result.Value.(string))
 }
@@ -900,17 +892,16 @@ func Test_PipelineRunner_HexDecodeOutputs(t *testing.T) {
 	input := map[string]interface{}{
 		"astring": "0x12345678",
 	}
-	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
 a [type=hexdecode input="$(astring)"]
 `,
-	}, pipeline.NewVarsFrom(input), lggr)
+	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
 	require.Equal(t, 1, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult(lggr).HasFatalErrors())
+	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
 
-	result, err := trrs.FinalResult(lggr).SingularResult()
+	result, err := trrs.FinalResult().SingularResult()
 	require.NoError(t, err)
 	assert.Equal(t, []byte{0x12, 0x34, 0x56, 0x78}, result.Value)
 }
@@ -924,19 +915,18 @@ func Test_PipelineRunner_HexEncodeAndDecode(t *testing.T) {
 	input := map[string]interface{}{
 		"input_val": inputBytes,
 	}
-	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
 en [type=hexencode input="$(input_val)"]
 de [type=hexdecode]
 en->de
 `,
-	}, pipeline.NewVarsFrom(input), lggr)
+	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
 	require.Equal(t, 2, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult(lggr).HasFatalErrors())
+	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
 
-	result, err := trrs.FinalResult(lggr).SingularResult()
+	result, err := trrs.FinalResult().SingularResult()
 	require.NoError(t, err)
 	assert.Equal(t, inputBytes, result.Value)
 }
@@ -949,17 +939,16 @@ func Test_PipelineRunner_Base64DecodeOutputs(t *testing.T) {
 	input := map[string]interface{}{
 		"astring": "SGVsbG8sIHBsYXlncm91bmQ=",
 	}
-	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
 a [type=base64decode input="$(astring)"]
 `,
-	}, pipeline.NewVarsFrom(input), lggr)
+	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
 	require.Equal(t, 1, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult(lggr).HasFatalErrors())
+	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
 
-	result, err := trrs.FinalResult(lggr).SingularResult()
+	result, err := trrs.FinalResult().SingularResult()
 	require.NoError(t, err)
 	assert.Equal(t, []byte("Hello, playground"), result.Value)
 }
@@ -973,19 +962,18 @@ func Test_PipelineRunner_Base64EncodeAndDecode(t *testing.T) {
 	input := map[string]interface{}{
 		"input_val": inputBytes,
 	}
-	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
 en [type=base64encode input="$(input_val)"]
 de [type=base64decode]
 en->de
 `,
-	}, pipeline.NewVarsFrom(input), lggr)
+	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
 	require.Equal(t, 2, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult(lggr).HasFatalErrors())
+	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
 
-	result, err := trrs.FinalResult(lggr).SingularResult()
+	result, err := trrs.FinalResult().SingularResult()
 	require.NoError(t, err)
 	assert.Equal(t, inputBytes, result.Value)
 }
@@ -1009,7 +997,7 @@ succeed;
 		spec := pipeline.Spec{DotDagSource: fmt.Sprintf(template, 1)}
 		vars := pipeline.NewVarsFrom(nil)
 
-		_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
+		_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars)
 		require.NoError(t, err)
 		require.Len(t, trrs, 1)
 		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())
@@ -1024,7 +1012,7 @@ succeed;
 		// even though this is set to 2, it should use the cached version
 		spec.DotDagSource = fmt.Sprintf(template, 2)
 
-		_, trrs, err = r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
+		_, trrs, err = r.ExecuteRun(testutils.Context(t), spec, vars)
 		require.NoError(t, err)
 		require.Len(t, trrs, 1)
 		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())

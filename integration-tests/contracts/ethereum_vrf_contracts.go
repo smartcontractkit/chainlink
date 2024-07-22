@@ -6,12 +6,14 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog/log"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_optimism"
 
 	"github.com/smartcontractkit/seth"
 
@@ -365,6 +367,15 @@ func (v *EthereumBlockhashStore) GetBlockHash(ctx context.Context, blockNumber *
 	return blockHash, nil
 }
 
+func (v *EthereumBlockhashStore) StoreVerifyHeader(blockNumber *big.Int, blockHeader []byte) error {
+	_, err := v.client.Decode(v.blockHashStore.StoreVerifyHeader(
+		v.client.NewTXOpts(),
+		blockNumber,
+		blockHeader,
+	))
+	return err
+}
+
 func (v *EthereumVRFCoordinator) Address() string {
 	return v.address.Hex()
 }
@@ -495,5 +506,43 @@ func LoadVRFv2PlusLoadTestConsumer(seth *seth.Client, addr string) (VRFv2PlusLoa
 		client:   seth,
 		address:  address,
 		consumer: contract,
+	}, nil
+}
+
+func LoadVRFV2PlusWrapper(seth *seth.Client, addr string) (VRFV2PlusWrapper, error) {
+	address := common.HexToAddress(addr)
+	abi, err := vrfv2plus_wrapper.VRFV2PlusWrapperMetaData.GetAbi()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get VRFV2PlusWrapper ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("VRFV2PlusWrapper", *abi)
+	seth.ContractStore.AddBIN("VRFV2PlusWrapper", common.FromHex(vrfv2plus_wrapper.VRFV2PlusWrapperMetaData.Bin))
+	contract, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate VRFV2PlusWrapper instance: %w", err)
+	}
+	return &EthereumVRFV2PlusWrapper{
+		client:  seth,
+		address: address,
+		wrapper: contract,
+	}, nil
+}
+
+func LoadVRFV2PlusWrapperOptimism(seth *seth.Client, addr string) (*EthereumVRFV2PlusWrapperOptimism, error) {
+	address := common.HexToAddress(addr)
+	abi, err := vrfv2plus_wrapper_optimism.VRFV2PlusWrapperOptimismMetaData.GetAbi()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get VRFV2PlusWrapper_Optimism ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("VRFV2PlusWrapper_Optimism", *abi)
+	seth.ContractStore.AddBIN("VRFV2PlusWrapper_Optimism", common.FromHex(vrfv2plus_wrapper_optimism.VRFV2PlusWrapperOptimismMetaData.Bin))
+	contract, err := vrfv2plus_wrapper_optimism.NewVRFV2PlusWrapperOptimism(address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate VRFV2PlusWrapper_Optimism instance: %w", err)
+	}
+	return &EthereumVRFV2PlusWrapperOptimism{
+		client:  seth,
+		Address: address,
+		wrapper: contract,
 	}, nil
 }

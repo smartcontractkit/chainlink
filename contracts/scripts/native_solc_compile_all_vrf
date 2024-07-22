@@ -82,6 +82,7 @@ compileContract vrf/testhelpers/VRFV2LoadTestWithMetrics.sol
 compileContract vrf/testhelpers/VRFV2OwnerTestConsumer.sol
 compileContractAltOpts vrf/testhelpers/VRFCoordinatorTestV2.sol 10000
 compileContract vrf/testhelpers/VRFMockETHLINKAggregator.sol
+compileContract vrf/testhelpers/Counter.sol
 
 # Helper contracts
 compileContract vrf/interfaces/IAuthorizedReceiver.sol

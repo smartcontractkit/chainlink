@@ -368,10 +368,6 @@ Load Config:
 		a.SetMercuryCredentialName("cred1")
 	}
 
-	if *conf.UseLogBufferV1 {
-		a.SetUseLogBufferV1(true)
-	}
-
 	startTimeTestSetup := time.Now()
 	l.Info().Str("START_TIME", startTimeTestSetup.String()).Msg("Test setup started")
 
