@@ -516,10 +516,6 @@ func SetupVRFV2PlusForExistingEnv(t *testing.T, envConfig vrfcommon.VRFEnvConfig
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error getting Link address from Coordinator", err)
 	}
-	//linkNativeFeed, err := contracts.LoadVRFMockETHLINKFeed(sethClient, common.HexToAddress(linkNativeFeedAddress.String()))
-	//if err != nil {
-	//	return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading VRFMockETHLINKFeed", err)
-	//}
 	blockHashStoreAddress, err := coordinator.GetBlockHashStoreAddress(testcontext.Get(t))
 	if err != nil {
 		return nil, nil, nil, nil, err
