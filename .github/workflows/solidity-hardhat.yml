@@ -269,11 +269,10 @@ jobs:
     needs: [coverage-and-book, uml-static-analysis, changes]
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
         with:
           path: review_artifacts
           merge-multiple: true
-          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: View downloaded
         run: |
           ls -la review_artifacts
