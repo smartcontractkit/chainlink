@@ -13,7 +13,6 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"go.uber.org/multierr"
 
@@ -22,8 +21,6 @@ import (
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-
 	cciporm "github.com/smartcontractkit/chainlink/v2/core/services/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
@@ -31,7 +28,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
@@ -225,22 +221,13 @@ func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (f
 // https://github.com/smartcontractkit/ccip/blob/68e2197472fb017dd4e5630d21e7878d58bc2a44/core/services/feeds/service.go#L716
 // TODO once that transaction is broken up, we should be able to simply rely on oracle.Close() to cleanup the filters.
 // Until then we have to deterministically reload the readers from the spec (and thus their filters) and close them.
-func UnregisterCommitPluginLpFilters(_ context.Context, lggr logger.Logger, jb job.Job, chainSet legacyevm.LegacyChainContainer) error {
-	params, err := extractJobSpecParams(jb, chainSet)
-	if err != nil {
-		return err
-	}
-	versionFinder := factory.NewEvmVersionFinder()
-	// TODO CCIP-2498 Use provider to close
+func UnregisterCommitPluginLpFilters(srcProvider commontypes.CCIPCommitProvider, dstProvider commontypes.CCIPCommitProvider) error {
 	unregisterFuncs := []func() error{
 		func() error {
-			return factory.CloseCommitStoreReader(lggr, versionFinder, params.commitStoreAddress, params.destChain.Client(), params.destChain.LogPoller())
+			return srcProvider.Close()
 		},
 		func() error {
-			return factory.CloseOnRampReader(lggr, versionFinder, params.commitStoreStaticCfg.SourceChainSelector, params.commitStoreStaticCfg.ChainSelector, cciptypes.Address(params.commitStoreStaticCfg.OnRamp.String()), params.sourceChain.LogPoller(), params.sourceChain.Client())
-		},
-		func() error {
-			return factory.CloseOffRampReader(lggr, versionFinder, params.pluginConfig.OffRamp, params.destChain.Client(), params.destChain.LogPoller(), params.destChain.GasEstimator(), params.destChain.Config().EVM().GasEstimator().PriceMax().ToInt())
+			return dstProvider.Close()
 		},
 	}
 
@@ -251,51 +238,4 @@ func UnregisterCommitPluginLpFilters(_ context.Context, lggr logger.Logger, jb j
 		}
 	}
 	return multiErr
-}
-
-type jobSpecParams struct {
-	pluginConfig         ccipconfig.CommitPluginJobSpecConfig
-	commitStoreAddress   cciptypes.Address
-	commitStoreStaticCfg commit_store.CommitStoreStaticConfig
-	sourceChain          legacyevm.Chain
-	destChain            legacyevm.Chain
-}
-
-func extractJobSpecParams(jb job.Job, chainSet legacyevm.LegacyChainContainer) (*jobSpecParams, error) {
-	if jb.OCR2OracleSpec == nil {
-		return nil, errors.New("spec is nil")
-	}
-	spec := jb.OCR2OracleSpec
-
-	var pluginConfig ccipconfig.CommitPluginJobSpecConfig
-	err := json.Unmarshal(spec.PluginConfig.Bytes(), &pluginConfig)
-	if err != nil {
-		return nil, err
-	}
-	// ensure addresses are formatted properly - (lowercase to eip55 for evm)
-	pluginConfig.OffRamp = ccipcalc.HexToAddress(string(pluginConfig.OffRamp))
-
-	destChain, _, err := ccipconfig.GetChainFromSpec(spec, chainSet)
-	if err != nil {
-		return nil, err
-	}
-
-	commitStoreAddress := common.HexToAddress(spec.ContractID)
-	staticConfig, err := ccipdata.FetchCommitStoreStaticConfig(commitStoreAddress, destChain.Client())
-	if err != nil {
-		return nil, fmt.Errorf("get commit store static config: %w", err)
-	}
-
-	sourceChain, _, err := ccipconfig.GetChainByChainSelector(chainSet, staticConfig.SourceChainSelector)
-	if err != nil {
-		return nil, err
-	}
-
-	return &jobSpecParams{
-		pluginConfig:         pluginConfig,
-		commitStoreAddress:   ccipcalc.EvmAddrToGeneric(commitStoreAddress),
-		commitStoreStaticCfg: staticConfig,
-		sourceChain:          sourceChain,
-		destChain:            destChain,
-	}, nil
 }
