@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
@@ -522,6 +524,7 @@ func (r *Relayer) NewCCIPExecProvider(rargs commontypes.RelayArgs, pargs commont
 		r.chain.GasEstimator(),
 		*r.chain.Config().EVM().GasEstimator().PriceMax().ToInt(),
 		r.chain.TxManager(),
+		cciptypes.Address(rargs.ContractID),
 	)
 }
 
