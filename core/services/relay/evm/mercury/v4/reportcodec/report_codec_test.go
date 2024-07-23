@@ -62,22 +62,22 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 		require.NoError(t, err)
 		assert.LessOrEqual(t, len(report), max)
 
-		// t.Run("Decode decodes the report", func(t *testing.T) {
-		// 	decoded, err := r.Decode(report)
-		// 	require.NoError(t, err)
-		//
-		// 	require.NotNil(t, decoded)
-		//
-		// 	assert.Equal(t, uint32(242), decoded.ObservationsTimestamp)
-		// 	assert.Equal(t, big.NewInt(243), decoded.BenchmarkPrice)
-		// 	assert.Equal(t, big.NewInt(244), decoded.Bid)
-		// 	assert.Equal(t, big.NewInt(245), decoded.Ask)
-		// 	assert.Equal(t, uint32(123), decoded.ValidFromTimestamp)
-		// 	assert.Equal(t, uint32(20), decoded.ExpiresAt)
-		// 	assert.Equal(t, big.NewInt(456), decoded.LinkFee)
-		// 	assert.Equal(t, big.NewInt(457), decoded.NativeFee)
-		// 	assert.Equal(t, uint32(1), decoded.MarketStatus)
-		// })
+		t.Run("Decode decodes the report", func(t *testing.T) {
+			decoded, err := r.Decode(report)
+			require.NoError(t, err)
+
+			require.NotNil(t, decoded)
+
+			assert.Equal(t, uint32(242), decoded.ObservationsTimestamp)
+			assert.Equal(t, big.NewInt(243), decoded.BenchmarkPrice)
+			assert.Equal(t, big.NewInt(244), decoded.Bid)
+			assert.Equal(t, big.NewInt(245), decoded.Ask)
+			assert.Equal(t, uint32(123), decoded.ValidFromTimestamp)
+			assert.Equal(t, uint32(20), decoded.ExpiresAt)
+			assert.Equal(t, big.NewInt(456), decoded.LinkFee)
+			assert.Equal(t, big.NewInt(457), decoded.NativeFee)
+			assert.Equal(t, uint32(1), decoded.MarketStatus)
+		})
 	})
 
 	t.Run("errors on negative fee", func(t *testing.T) {
