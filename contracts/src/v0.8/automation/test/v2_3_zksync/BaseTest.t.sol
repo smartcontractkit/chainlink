@@ -9,11 +9,11 @@ import {ERC20Mock6Decimals} from "../../mocks/ERC20Mock6Decimals.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
 import {UpkeepTranscoder5_0 as Transcoder} from "../../v2_3/UpkeepTranscoder5_0.sol";
-import {AutomationRegistry2_3} from "../../v2_3/AutomationRegistry2_3.sol";
-import {AutomationRegistryBase2_3 as AutoBase} from "../../v2_3/AutomationRegistryBase2_3.sol";
-import {AutomationRegistryLogicA2_3} from "../../v2_3/AutomationRegistryLogicA2_3.sol";
-import {AutomationRegistryLogicB2_3} from "../../v2_3/AutomationRegistryLogicB2_3.sol";
-import {AutomationRegistryLogicC2_3} from "../../v2_3/AutomationRegistryLogicC2_3.sol";
+import {ZKSyncAutomationRegistry2_3} from "../../v2_3_zksync/ZKSyncAutomationRegistry2_3.sol";
+import {ZKSyncAutomationRegistryLogicA2_3} from "../../v2_3_zksync/ZKSyncAutomationRegistryLogicA2_3.sol";
+import {ZKSyncAutomationRegistryLogicB2_3} from "../../v2_3_zksync/ZKSyncAutomationRegistryLogicB2_3.sol";
+import {ZKSyncAutomationRegistryLogicC2_3} from "../../v2_3_zksync/ZKSyncAutomationRegistryLogicC2_3.sol";
+import {ZKSyncAutomationRegistryBase2_3 as ZKSyncAutoBase} from "../../v2_3_zksync/ZKSyncAutomationRegistryBase2_3.sol";
 import {IAutomationRegistryMaster2_3 as Registry, AutomationRegistryBase2_3} from "../../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {AutomationRegistrar2_3} from "../../v2_3/AutomationRegistrar2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
@@ -146,28 +146,27 @@ contract BaseTest is Test {
   }
 
   /// @notice deploys the component parts of a registry, but nothing more
-  function deployRegistry(AutoBase.PayoutMode payoutMode) internal returns (Registry) {
+  function deployZKSyncRegistry(ZKSyncAutoBase.PayoutMode payoutMode) internal returns (Registry) {
     AutomationForwarderLogic forwarderLogic = new AutomationForwarderLogic();
-    AutomationRegistryLogicC2_3 logicC2_3 = new AutomationRegistryLogicC2_3(
+    ZKSyncAutomationRegistryLogicC2_3 logicC2_3 = new ZKSyncAutomationRegistryLogicC2_3(
       address(linkToken),
       address(LINK_USD_FEED),
       address(NATIVE_USD_FEED),
       address(FAST_GAS_FEED),
       address(forwarderLogic),
-      ZERO_ADDRESS,
       payoutMode,
       address(weth)
     );
-    AutomationRegistryLogicB2_3 logicB2_3 = new AutomationRegistryLogicB2_3(logicC2_3);
-    AutomationRegistryLogicA2_3 logicA2_3 = new AutomationRegistryLogicA2_3(logicB2_3);
-    return Registry(payable(address(new AutomationRegistry2_3(logicA2_3))));
+    ZKSyncAutomationRegistryLogicB2_3 logicB2_3 = new ZKSyncAutomationRegistryLogicB2_3(logicC2_3);
+    ZKSyncAutomationRegistryLogicA2_3 logicA2_3 = new ZKSyncAutomationRegistryLogicA2_3(logicB2_3);
+    return Registry(payable(address(new ZKSyncAutomationRegistry2_3(logicA2_3))));
   }
 
   /// @notice deploys and configures a registry, registrar, and everything needed for most tests
-  function deployAndConfigureRegistryAndRegistrar(
-    AutoBase.PayoutMode payoutMode
+  function deployAndConfigureZKSyncRegistryAndRegistrar(
+    ZKSyncAutoBase.PayoutMode payoutMode
   ) internal returns (Registry, AutomationRegistrar2_3) {
-    Registry registry = deployRegistry(payoutMode);
+    Registry registry = deployZKSyncRegistry(payoutMode);
 
     IERC20[] memory billingTokens = new IERC20[](4);
     billingTokens[0] = IERC20(address(usdToken18));
@@ -184,7 +183,7 @@ contract BaseTest is Test {
       billingTokenAddresses[i] = address(billingTokens[i]);
     }
     AutomationRegistryBase2_3.BillingConfig[]
-      memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
+    memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
     billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: DEFAULT_GAS_FEE_PPB, // 15%
       flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
@@ -218,7 +217,7 @@ contract BaseTest is Test {
       decimals: 6
     });
 
-    if (payoutMode == AutoBase.PayoutMode.OFF_CHAIN) {
+    if (payoutMode == ZKSyncAutoBase.PayoutMode.OFF_CHAIN) {
       // remove LINK as a payment method if we are settling offchain
       assembly {
         mstore(billingTokens, 2)
@@ -230,7 +229,7 @@ contract BaseTest is Test {
 
     // deploy registrar
     AutomationRegistrar2_3.InitialTriggerConfig[]
-      memory triggerConfigs = new AutomationRegistrar2_3.InitialTriggerConfig[](2);
+    memory triggerConfigs = new AutomationRegistrar2_3.InitialTriggerConfig[](2);
     triggerConfigs[0] = AutomationRegistrar2_3.InitialTriggerConfig({
       triggerType: 0, // condition
       autoApproveType: AutomationRegistrar2_3.AutoApproveType.DISABLED,
@@ -374,13 +373,13 @@ contract BaseTest is Test {
       uint8 triggerType = registry.getTriggerType(ids[i]);
       if (triggerType == 0) {
         triggers[i] = _encodeConditionalTrigger(
-          AutoBase.ConditionalTrigger(uint32(block.number - 1), blockhash(block.number - 1))
+          ZKSyncAutoBase.ConditionalTrigger(uint32(block.number - 1), blockhash(block.number - 1))
         );
       } else {
         revert("not implemented");
       }
     }
-    AutoBase.Report memory report = AutoBase.Report(
+    ZKSyncAutoBase.Report memory report = ZKSyncAutoBase.Report(
       uint256(1000000000),
       uint256(2000000000),
       upkeepIds,
@@ -430,12 +429,12 @@ contract BaseTest is Test {
     return (rs, ss, bytes32(vs));
   }
 
-  function _encodeReport(AutoBase.Report memory report) internal pure returns (bytes memory reportBytes) {
+  function _encodeReport(ZKSyncAutoBase.Report memory report) internal pure returns (bytes memory reportBytes) {
     return abi.encode(report);
   }
 
   function _encodeConditionalTrigger(
-    AutoBase.ConditionalTrigger memory trigger
+    ZKSyncAutoBase.ConditionalTrigger memory trigger
   ) internal pure returns (bytes memory triggerBytes) {
     return abi.encode(trigger.blockNum, trigger.blockHash);
   }
