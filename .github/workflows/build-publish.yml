@@ -86,6 +86,15 @@ jobs:
           slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }} # Releng Bot
           git-ref: ${{ github.ref_name }}
           git-ref-type: ${{ github.ref_type }}
+          changelog-url: >-
+            ${{
+              github.ref_type == 'tag' &&
+              format(
+                'https://github.com/{0}/blob/{1}/CHANGELOG.md',
+                github.repository,
+                github.ref_name,
+              ) || ''
+            }}
           docker-image-name: >-
             ${{ 
               github.ref_type == 'tag' && 
