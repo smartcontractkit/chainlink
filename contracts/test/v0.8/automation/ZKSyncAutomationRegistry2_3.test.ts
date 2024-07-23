@@ -2255,8 +2255,7 @@ describe('AutomationRegistry2_3', () => {
                 // exactly 1 Upkeep Performed should be emitted
                 assert.equal(upkeepPerformedLogs.length, 1)
                 const upkeepPerformedLog = upkeepPerformedLogs[0]
-                const chainModuleOverheads =
-                  await chainModuleBase.getGasOverhead()
+                const chainModuleOverheads = await zksyncModule.getGasOverhead()
 
                 const upkeepGasUsed = upkeepPerformedLog.args.gasUsed
                 const chargedGasOverhead = upkeepPerformedLog.args.gasOverhead
