@@ -2,6 +2,12 @@
 pragma solidity 0.8.19;
 
 contract MockGasBoundCaller {
+  //  bool public revertCall;
+  //
+  //  function setRevertCall(bool _revertCall) external {
+  //    revertCall = _revertCall;
+  //  }
+
   function gasBoundCall(address target, uint256 gasAmount, bytes memory data) external payable {
     //    uint256 gasUsed = gasleft();
     bool success;
@@ -9,6 +15,8 @@ contract MockGasBoundCaller {
       success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
     }
     //    gasUsed = gasUsed - gasleft();
+
+    //    require(!revertCall, "Not enough gas for pubdata");
 
     uint256 pubdataGas = 500000;
     bytes memory returnData = abi.encode(address(0), pubdataGas);

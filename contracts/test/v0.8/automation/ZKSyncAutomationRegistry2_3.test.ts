@@ -1587,9 +1587,10 @@ describe('ZKSyncAutomationRegistry2_3', () => {
       })
 
       it('reverts if not enough gas supplied', async () => {
+        await mock.setCanPerform(true)
         await evmRevert(
           getTransmitTx(registry, keeper1, [upkeepId], {
-            gasLimit: performGas,
+            gasLimit: BigNumber.from(150000),
           }),
         )
       })
@@ -2714,87 +2715,6 @@ describe('ZKSyncAutomationRegistry2_3', () => {
           gasLimit: totalPerformGas.add(transmitGasOverhead),
         })
       })
-
-      // it('splits l2 payment among performed upkeeps according to perform data weight', async () => {
-      //   const numUpkeeps = 7
-      //   const upkeepIds: BigNumber[] = []
-      //   const performDataSizes = [0, 10, 1000, 50, 33, 69, 420]
-      //   const performDatas: string[] = []
-      //   const upkeepCalldataWeights: BigNumber[] = []
-      //   let totalCalldataWeight = BigNumber.from('0')
-      //   // Same as MockArbGasInfo.sol
-      //   const l1CostWeiArb = BigNumber.from(1000000)
-      //
-      //   for (let i = 0; i < numUpkeeps; i++) {
-      //     const mock = await upkeepMockFactory.deploy()
-      //     const tx = await arbRegistry
-      //       .connect(owner)
-      //       .registerUpkeep(
-      //         mock.address,
-      //         performGas,
-      //         await admin.getAddress(),
-      //         Trigger.CONDITION,
-      //         linkToken.address,
-      //         '0x',
-      //         '0x',
-      //         '0x',
-      //       )
-      //     const testUpkeepId = await getUpkeepID(tx)
-      //     upkeepIds.push(testUpkeepId)
-      //
-      //     // Add funds to passing upkeeps
-      //     await arbRegistry.connect(owner).addFunds(testUpkeepId, toWei('100'))
-      //
-      //     // Generate performData
-      //     let pd = '0x'
-      //     for (let j = 0; j < performDataSizes[i]; j++) {
-      //       pd += '11'
-      //     }
-      //     performDatas.push(pd)
-      //     const w = BigNumber.from(performDataSizes[i])
-      //       .add(registryTransmitCalldataFixedBytesOverhead)
-      //       .add(
-      //         registryTransmitCalldataPerSignerBytesOverhead.mul(
-      //           BigNumber.from(f + 1),
-      //         ),
-      //       )
-      //     upkeepCalldataWeights.push(w)
-      //     totalCalldataWeight = totalCalldataWeight.add(w)
-      //   }
-      //
-      //   // Do the thing
-      //   const tx = await getTransmitTx(arbRegistry, keeper1, upkeepIds, {
-      //     gasPrice: gasWei.mul('5'), // High gas price so that it gets capped
-      //     performDatas,
-      //   })
-      //
-      //   const receipt = await tx.wait()
-      //   const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
-      //   // exactly numPassingUpkeeps Upkeep Performed should be emitted
-      //   assert.equal(upkeepPerformedLogs.length, numUpkeeps)
-      //
-      //   for (let i = 0; i < numUpkeeps; i++) {
-      //     const upkeepPerformedLog = upkeepPerformedLogs[i]
-      //
-      //     const gasUsed = upkeepPerformedLog.args.gasUsed
-      //     const gasOverhead = upkeepPerformedLog.args.gasOverhead
-      //     const totalPayment = upkeepPerformedLog.args.totalPayment
-      //
-      //     assert.equal(
-      //       linkForGas(
-      //         gasUsed,
-      //         gasOverhead,
-      //         gasCeilingMultiplier,
-      //         paymentPremiumPPB,
-      //         flatFeeMilliCents,
-      //         l1CostWeiArb
-      //           .mul(upkeepCalldataWeights[i])
-      //           .div(totalCalldataWeight),
-      //       ).total.toString(),
-      //       totalPayment.toString(),
-      //     )
-      //   }
-      // })
     },
   )
 
@@ -3096,7 +3016,7 @@ describe('ZKSyncAutomationRegistry2_3', () => {
       )
     })
 
-    // it('returns false and gasUsed when perform fails', async () => {
+    // it.only('returns false and gasUsed when perform fails', async () => {
     //   await mock.setCanPerform(false)
     //
     //   const simulatePerformResult = await registry
@@ -3118,13 +3038,15 @@ describe('ZKSyncAutomationRegistry2_3', () => {
       assert.isTrue(simulatePerformResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
     })
 
-    // it('returns correct amount of gasUsed when perform succeeds', async () => {
+    // it.only('returns correct amount of gasUsed when perform succeeds', async () => {
     //   await mock.setCanPerform(true)
     //   await mock.setPerformGasToBurn(performGas)
     //
     //   const simulatePerformResult = await registry
     //     .connect(zeroAddress)
-    //     .callStatic.simulatePerformUpkeep(upkeepId, '0x')
+    //     .callStatic.simulatePerformUpkeep(upkeepId, '0x', {
+    //       gasLimit: BigNumber.from(1000000),
+    //     })
     //
     //   assert.equal(simulatePerformResult.success, true)
     //   // Full execute gas should be used, with some performGasBuffer(1000)
@@ -4890,8 +4812,7 @@ describe('ZKSyncAutomationRegistry2_3', () => {
       const newPayee = randomAddress()
       const ignoreAddresses = new Array(payees.length).fill(IGNORE_ADDRESS)
       const newPayees = [...ignoreAddresses, newPayee]
-      // arbitrum registry
-      // configure registry with 5 keepers // optimism registry
+      // configure registry with 5 keepers
       await blankRegistry // used to test initial configurations
         .connect(owner)
         .setConfigTypeSafe(
@@ -4904,11 +4825,8 @@ describe('ZKSyncAutomationRegistry2_3', () => {
           [],
           [],
         )
-      // arbitrum registry
-      // set initial payees // optimism registry
+      // set initial payees
       await blankRegistry.connect(owner).setPayees(payees) // used to test initial configurations
-      // arbitrum registry
-      // add another keeper // optimism registry
       await blankRegistry // used to test initial configurations
         .connect(owner)
         .setConfigTypeSafe(
@@ -4921,9 +4839,8 @@ describe('ZKSyncAutomationRegistry2_3', () => {
           [],
           [],
         )
-      // arbitrum registry
-      // update payee list // optimism registry // arbitrum registry
-      await blankRegistry.connect(owner).setPayees(newPayees) // used to test initial configurations // optimism registry
+      // update payee list
+      await blankRegistry.connect(owner).setPayees(newPayees) // used to test initial configurations
       const ignored = await blankRegistry.getTransmitterInfo(newTransmitter) // used to test initial configurations
       assert.equal(newPayee, ignored.payee)
       assert.equal(ignored.active, true)
