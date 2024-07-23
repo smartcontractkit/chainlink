@@ -71,8 +71,9 @@ jobs:
           this-job-name: build-sign-publish-chainlink
         continue-on-error: true
 
-  # Notify Slack channel for new git tags or new release branches.
+  # Notify Slack channel for new git tags.
   slack-notify:
+    if: github.ref_type == 'tag'
     needs: [build-sign-publish-chainlink]
     runs-on: ubuntu-24.04
     environment: build-publish
