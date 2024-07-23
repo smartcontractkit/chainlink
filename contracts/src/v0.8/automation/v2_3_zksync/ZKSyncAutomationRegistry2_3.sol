@@ -9,7 +9,7 @@ import {ZKSyncAutomationRegistryLogicC2_3} from "./ZKSyncAutomationRegistryLogic
 import {Chainable} from "../Chainable.sol";
 import {OCR2Abstract} from "../../shared/ocr2/OCR2Abstract.sol";
 import {IERC20Metadata as IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {SYSTEM_CONTEXT_CONTRACT} from "../interfaces/zksync/ISystemContext.sol";
+//import {SYSTEM_CONTEXT_CONTRACT} from "../interfaces/zksync/ISystemContext.sol";
 
 /**
  * @notice Registry for adding work for Chainlink nodes to perform on client

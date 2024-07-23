@@ -21,7 +21,7 @@ import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/fac
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
 import { MockZKSyncSystemContext__factory as MockZKSyncSystemContextFactory } from '../../../typechain/factories/MockZKSyncSystemContext__factory'
 import { ZKSyncModule__factory as ZKSyncModuleFactory } from '../../../typechain/factories/ZKSyncModule__factory'
-import { MockGasBoundCaller__factory as MockGasBoundCallerFactory } from '../../../typechain/MockGasBoundCaller__factory'
+import { MockGasBoundCaller__factory as MockGasBoundCallerFactory } from '../../../typechain/factories/MockGasBoundCaller__factory'
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
 import { AutomationCompatibleUtils } from '../../../typechain/AutomationCompatibleUtils'
 import { StreamsLookupUpkeep } from '../../../typechain/StreamsLookupUpkeep'
@@ -112,6 +112,7 @@ const emptyBytes = '0x'
 const emptyBytes32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000'
 
+const pubdataGas = BigNumber.from(500000)
 const transmitGasOverhead = 1_040_000
 const checkGasOverhead = 600_000
 
@@ -366,7 +367,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
   return parsedLogs
 }
 
-describe('AutomationRegistry2_3', () => {
+describe('ZKSyncAutomationRegistry2_3', () => {
   let owner: Signer
   let keeper1: Signer
   let keeper2: Signer
@@ -890,22 +891,6 @@ describe('AutomationRegistry2_3', () => {
       gasBoundCallerCode,
     ])
 
-    // const arbOracleCode = await ethers.provider.send('eth_getCode', [
-    //   mockArbGasInfo.address,
-    // ])
-    // await ethers.provider.send('hardhat_setCode', [
-    //   '0x000000000000000000000000000000000000006C',
-    //   arbOracleCode,
-    // ])
-    //
-    // const mockArbSys = await new MockArbSysFactory(owner).deploy()
-    // const arbSysCode = await ethers.provider.send('eth_getCode', [
-    //   mockArbSys.address,
-    // ])
-    // await ethers.provider.send('hardhat_setCode', [
-    //   '0x0000000000000000000000000000000000000064',
-    //   arbSysCode,
-    // ])
     const financeAdminAddress = await financeAdmin.getAddress()
 
     config = {
@@ -1133,7 +1118,7 @@ describe('AutomationRegistry2_3', () => {
     await loadFixture(setup)
   })
 
-  describe.only('#transmit', () => {
+  describe('#transmit', () => {
     const fArray = [1, 5, 10]
 
     it('reverts when registry is paused', async () => {
@@ -1653,8 +1638,8 @@ describe('AutomationRegistry2_3', () => {
         assert.equal(upkeepPerformedLogs.length, 1)
         const upkeepPerformedLog = upkeepPerformedLogs[0]
 
-        const gasUsed = upkeepPerformedLog.args.gasUsed
-        const gasOverhead = upkeepPerformedLog.args.gasOverhead
+        const gasUsed = upkeepPerformedLog.args.gasUsed // 14657 gasUsed
+        const gasOverhead = upkeepPerformedLog.args.gasOverhead // 137230 gasOverhead
         const totalPayment = upkeepPerformedLog.args.totalPayment
 
         assert.equal(
@@ -1664,6 +1649,7 @@ describe('AutomationRegistry2_3', () => {
             BigNumber.from('1'), // Not the config multiplier, but the actual gas used
             paymentPremiumPPB,
             flatFeeMilliCents,
+            pubdataGas.mul(gasPrice),
           ).total.toString(),
           totalPayment.toString(),
         )
@@ -1675,6 +1661,7 @@ describe('AutomationRegistry2_3', () => {
             BigNumber.from('1'), // Not the config multiplier, but the actual gas used
             paymentPremiumPPB,
             flatFeeMilliCents,
+            pubdataGas.mul(gasPrice),
           ).premium.toString(),
           premium.toString(),
         )
@@ -1705,61 +1692,11 @@ describe('AutomationRegistry2_3', () => {
             gasCeilingMultiplier, // Should be same with exisitng multiplier
             paymentPremiumPPB,
             flatFeeMilliCents,
+            pubdataGas.mul(gasPrice),
           ).total.toString(),
           totalPayment.toString(),
         )
       })
-
-      // it('correctly accounts for l payment', async () => {
-      //   await mock.setCanPerform(true)
-      //   // Same as MockArbGasInfo.sol
-      //   const l1CostWeiArb = BigNumber.from(1000000)
-      //
-      //   let tx = await arbRegistry
-      //     .connect(owner)
-      //     .registerUpkeep(
-      //       mock.address,
-      //       performGas,
-      //       await admin.getAddress(),
-      //       Trigger.CONDITION,
-      //       linkToken.address,
-      //       '0x',
-      //       '0x',
-      //       '0x',
-      //     )
-      //   const testUpkeepId = await getUpkeepID(tx)
-      //   await arbRegistry.connect(owner).addFunds(testUpkeepId, toWei('100'))
-      //
-      //   // Do the thing
-      //   tx = await getTransmitTx(
-      //     arbRegistry,
-      //     keeper1,
-      //     [testUpkeepId],
-      //
-      //     { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
-      //   )
-      //   const receipt = await tx.wait()
-      //   const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
-      //   // exactly 1 Upkeep Performed should be emitted
-      //   assert.equal(upkeepPerformedLogs.length, 1)
-      //   const upkeepPerformedLog = upkeepPerformedLogs[0]
-      //
-      //   const gasUsed = upkeepPerformedLog.args.gasUsed
-      //   const gasOverhead = upkeepPerformedLog.args.gasOverhead
-      //   const totalPayment = upkeepPerformedLog.args.totalPayment
-      //
-      //   assert.equal(
-      //     linkForGas(
-      //       gasUsed,
-      //       gasOverhead,
-      //       gasCeilingMultiplier,
-      //       paymentPremiumPPB,
-      //       flatFeeMilliCents,
-      //       l1CostWeiArb,
-      //     ).total.toString(),
-      //     totalPayment.toString(),
-      //   )
-      // })
 
       itMaybe('can self fund', async () => {
         const maxPayment = await registry.getMaxPaymentForGas(
@@ -3495,7 +3432,6 @@ describe('AutomationRegistry2_3', () => {
     let maxl1CostWeiZKSyncWithoutMultiplier: BigNumber
 
     beforeEach(async () => {
-      // const arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
       const gasPrice = await mockZKSyncSystemContext.gasPrice()
       const gasPerPubdataPerByte =
         await mockZKSyncSystemContext.gasPerPubdataByte()
