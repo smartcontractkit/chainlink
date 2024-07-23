@@ -53,11 +53,6 @@ func (okr *onchainKeyring) MaxSignatureLength() (n int) {
 
 func (okr *onchainKeyring) Sign(digest types.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[llotypes.ReportInfo]) (signature []byte, err error) {
 	rf := r.Info.ReportFormat
-	// HACK: sign/verify JSON payloads with EVM keys for now, this makes
-	// debugging and testing easier
-	if rf == llotypes.ReportFormatJSON {
-		rf = llotypes.ReportFormatEVM
-	}
 	if key, exists := okr.keys[rf]; exists {
 		return key.Sign3(digest, seqNr, r.Report)
 	}
@@ -66,11 +61,6 @@ func (okr *onchainKeyring) Sign(digest types.ConfigDigest, seqNr uint64, r ocr3t
 
 func (okr *onchainKeyring) Verify(key types.OnchainPublicKey, digest types.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[llotypes.ReportInfo], signature []byte) bool {
 	rf := r.Info.ReportFormat
-	// HACK: sign/verify JSON payloads with EVM keys for now, this makes
-	// debugging and testing easier
-	if rf == llotypes.ReportFormatJSON {
-		rf = llotypes.ReportFormatEVM
-	}
 	if verifier, exists := okr.keys[rf]; exists {
 		return verifier.Verify3(key, digest, seqNr, r.Report, signature)
 	}
