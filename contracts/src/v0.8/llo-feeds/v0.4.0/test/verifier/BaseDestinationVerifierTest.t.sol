@@ -91,7 +91,6 @@ contract BaseTest is Test {
     //version 3 feeds
     bytes32 internal constant FEED_ID_V3 = (keccak256("ETH-USD") & V_MASK) | V3_BITMASK;
 
-
     function _encodeReport(V3Report memory report) internal pure returns (bytes memory) {
         return abi.encode(
             report.feedId,
@@ -126,7 +125,6 @@ contract BaseTest is Test {
         return (rs, ss, bytes32(vs));
     }
 
-
     function _generateV3EncodedBlob(V3Report memory report, bytes32[3] memory reportContext, Signer[] memory signers)
         internal
         pure
@@ -147,34 +145,30 @@ contract BaseTest is Test {
         changePrank(originalAddr);
     }
 
-  function _generateV3Report() internal view returns (V3Report memory) {
-    return
-      V3Report({
-        feedId: FEED_ID_V3,
-        observationsTimestamp: OBSERVATIONS_TIMESTAMP,
-        validFromTimestamp: uint32(block.timestamp),
-        nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
-        linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
-        expiresAt: uint32(block.timestamp),
-        benchmarkPrice: MEDIAN,
-        bid: BID,
-        ask: ASK
-      });
-  }
+    function _generateV3Report() internal view returns (V3Report memory) {
+        return V3Report({
+            feedId: FEED_ID_V3,
+            observationsTimestamp: OBSERVATIONS_TIMESTAMP,
+            validFromTimestamp: uint32(block.timestamp),
+            nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
+            linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
+            expiresAt: uint32(block.timestamp),
+            benchmarkPrice: MEDIAN,
+            bid: BID,
+            ask: ASK
+        });
+    }
 
-  function _verifyBulk(
-    bytes[] memory payload,
-    address feeAddress,
-    uint256 wrappedNativeValue,
-    address sender
-  ) internal {
-    address originalAddr = msg.sender;
-    changePrank(sender);
+    function _verifyBulk(bytes[] memory payload, address feeAddress, uint256 wrappedNativeValue, address sender)
+        internal
+    {
+        address originalAddr = msg.sender;
+        changePrank(sender);
 
-    s_verifierProxy.verifyBulk{value: wrappedNativeValue}(payload, abi.encode(feeAddress));
+        s_verifierProxy.verifyBulk{value: wrappedNativeValue}(payload, abi.encode(feeAddress));
 
-    changePrank(originalAddr);
-  }
+        changePrank(originalAddr);
+    }
 
     function _approveLink(address spender, uint256 quantity, address sender) internal {
         address originalAddr = msg.sender;
@@ -255,14 +249,13 @@ contract BaseTest is Test {
         assertEq(ask, testReport.ask);
     }
 
-  function _approveNative(address spender, uint256 quantity, address sender) internal {
-    address originalAddr = msg.sender;
-    changePrank(sender);
+    function _approveNative(address spender, uint256 quantity, address sender) internal {
+        address originalAddr = msg.sender;
+        changePrank(sender);
 
-    native.approve(spender, quantity);
-    changePrank(originalAddr);
-  }
-
+        native.approve(spender, quantity);
+        changePrank(originalAddr);
+    }
 }
 
 contract VerifierWithFeeManager is BaseTest {

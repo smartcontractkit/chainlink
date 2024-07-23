@@ -118,5 +118,4 @@ contract VerifierSetConfigTest is BaseTest {
         vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.DONConfigDoesNotExist.selector));
         s_verifier.setConfigActive(3, true);
     }
-
 }

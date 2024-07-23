@@ -8,7 +8,6 @@ import {DestinationFeeManager} from "../../../v0.4.0/DestinationFeeManager.sol";
 import {IERC165} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 
 contract VerifierProxyInitializeVerifierTest is BaseTest {
-
     function test_setVerifierCalledByNoOwner() public {
         address STRANGER = address(999);
         changePrank(STRANGER);
@@ -29,16 +28,13 @@ contract VerifierProxyInitializeVerifierTest is BaseTest {
         assertEq(s_verifierProxy.s_accessController(), s_verifier.getAccessController());
     }
 
-   function test_correctlySetsTheOwner() public {
-     DestinationVerifierProxy proxy = new DestinationVerifierProxy();
-     assertEq(proxy.owner(), ADMIN);
-   }
+    function test_correctlySetsTheOwner() public {
+        DestinationVerifierProxy proxy = new DestinationVerifierProxy();
+        assertEq(proxy.owner(), ADMIN);
+    }
 
-  function test_correctlySetsVersion() public {
-    string memory version = s_verifierProxy.typeAndVersion();
-    assertEq(version, "DestinationVerifierProxy 1.0.0");
-  }
-  
-  
-    
+    function test_correctlySetsVersion() public {
+        string memory version = s_verifierProxy.typeAndVersion();
+        assertEq(version, "DestinationVerifierProxy 1.0.0");
+    }
 }

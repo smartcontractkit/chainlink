@@ -201,8 +201,8 @@ contract VerifierBillingTests is VerifierWithFeeManager {
         }
 
         uint256 expected_pool_amount = DEFAULT_REPORT_LINK_FEE * number_of_reports_verified;
-        assertEq(rewardManager.s_totalRewardRecipientFees(expectedDonConfigIDA),  expected_pool_amount);
-        assertEq(rewardManager.s_totalRewardRecipientFees(expectedDonConfigIDB),  expected_pool_amount);
+        assertEq(rewardManager.s_totalRewardRecipientFees(expectedDonConfigIDA), expected_pool_amount);
+        assertEq(rewardManager.s_totalRewardRecipientFees(expectedDonConfigIDB), expected_pool_amount);
 
         // check the recipients are paid according to weights
         payRecipients(expectedDonConfigIDA, recipients, ADMIN);

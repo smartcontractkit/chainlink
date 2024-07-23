@@ -90,10 +90,8 @@ contract VerifierBillingTests is VerifierWithFeeManager {
     }
 }
 
-
-
 contract VerifierBulkVerifyBillingReport is VerifierWithFeeManager {
-  uint256 internal constant NUMBERS_OF_REPORTS = 5;
+    uint256 internal constant NUMBERS_OF_REPORTS = 5;
 
     bytes32[3] internal s_reportContext;
 
@@ -107,79 +105,64 @@ contract VerifierBulkVerifyBillingReport is VerifierWithFeeManager {
         s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, weights);
     }
 
-  function test_verifyWithBulkLink() public {
-    bytes memory signedReport = _generateV3EncodedBlob(
-      _generateV3Report(),
-      s_reportContext,
-      _getSigners(FAULT_TOLERANCE + 1)
-    );
+    function test_verifyWithBulkLink() public {
+        bytes memory signedReport =
+            _generateV3EncodedBlob(_generateV3Report(), s_reportContext, _getSigners(FAULT_TOLERANCE + 1));
 
-    bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
-    for (uint256 i = 0; i < NUMBERS_OF_REPORTS; i++) {
-      signedReports[i] = signedReport;
+        bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
+        for (uint256 i = 0; i < NUMBERS_OF_REPORTS; i++) {
+            signedReports[i] = signedReport;
+        }
+
+        _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * NUMBERS_OF_REPORTS, USER);
+
+        _verifyBulk(signedReports, address(link), 0, USER);
+
+        assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * NUMBERS_OF_REPORTS);
+        assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * NUMBERS_OF_REPORTS);
     }
 
-    _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * NUMBERS_OF_REPORTS, USER);
+    function test_verifyWithBulkNative() public {
+        bytes memory signedReport =
+            _generateV3EncodedBlob(_generateV3Report(), s_reportContext, _getSigners(FAULT_TOLERANCE + 1));
 
-    _verifyBulk(signedReports, address(link), 0, USER);
+        bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
+        for (uint256 i = 0; i < NUMBERS_OF_REPORTS; i++) {
+            signedReports[i] = signedReport;
+        }
 
-    assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * NUMBERS_OF_REPORTS);
-    assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * NUMBERS_OF_REPORTS);
-  }
-
-
-  function test_verifyWithBulkNative() public {
-    bytes memory signedReport = _generateV3EncodedBlob(
-      _generateV3Report(),
-      s_reportContext,
-      _getSigners(FAULT_TOLERANCE + 1)
-    );
-
-    bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
-    for (uint256 i = 0; i < NUMBERS_OF_REPORTS; i++) {
-      signedReports[i] = signedReport;
+        _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS, USER);
+        _verifyBulk(signedReports, address(native), 0, USER);
+        assertEq(native.balanceOf(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS);
     }
 
-    _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS, USER);
-    _verifyBulk(signedReports, address(native), 0, USER);
-    assertEq(native.balanceOf(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS);
-  }
+    function test_verifyWithBulkNativeUnwrapped() public {
+        bytes memory signedReport =
+            _generateV3EncodedBlob(_generateV3Report(), s_reportContext, _getSigners(FAULT_TOLERANCE + 1));
 
-  function test_verifyWithBulkNativeUnwrapped() public {
-    bytes memory signedReport = _generateV3EncodedBlob(
-      _generateV3Report(),
-      s_reportContext,
-      _getSigners(FAULT_TOLERANCE + 1)
-    );
+        bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
+        for (uint256 i; i < NUMBERS_OF_REPORTS; i++) {
+            signedReports[i] = signedReport;
+        }
 
-    bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
-    for (uint256 i; i < NUMBERS_OF_REPORTS; i++) {
-      signedReports[i] = signedReport;
+        _verifyBulk(signedReports, address(native), 200 * DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS, USER);
+
+        assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 5);
+        assertEq(address(feeManager).balance, 0);
     }
 
-    _verifyBulk(signedReports, address(native), 200*DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS, USER);
+    function test_verifyWithBulkNativeUnwrappedReturnsChange() public {
+        bytes memory signedReport =
+            _generateV3EncodedBlob(_generateV3Report(), s_reportContext, _getSigners(FAULT_TOLERANCE + 1));
 
-    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 5);
-    assertEq(address(feeManager).balance, 0);
-  }
+        bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
+        for (uint256 i = 0; i < NUMBERS_OF_REPORTS; i++) {
+            signedReports[i] = signedReport;
+        }
 
+        _verifyBulk(signedReports, address(native), DEFAULT_REPORT_NATIVE_FEE * (NUMBERS_OF_REPORTS * 2), USER);
 
-  function test_verifyWithBulkNativeUnwrappedReturnsChange() public {
-    bytes memory signedReport = _generateV3EncodedBlob(
-      _generateV3Report(),
-      s_reportContext,
-      _getSigners(FAULT_TOLERANCE + 1)
-    );
-
-    bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
-    for (uint256 i = 0; i < NUMBERS_OF_REPORTS; i++) {
-      signedReports[i] = signedReport;
+        assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS);
+        assertEq(address(feeManager).balance, 0);
     }
-
-    _verifyBulk(signedReports, address(native), DEFAULT_REPORT_NATIVE_FEE * (NUMBERS_OF_REPORTS * 2), USER);
-
-    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS);
-    assertEq(address(feeManager).balance, 0);
-  }
-
 }

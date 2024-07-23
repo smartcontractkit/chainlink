@@ -28,7 +28,6 @@ contract VerifierVerifyBulkTest is BaseTest {
         });
     }
 
-
     function test_revertsVerifyBulkIfNoAccess() public {
         vm.mockCall(
             ACCESS_CONTROLLER_ADDRESS,
@@ -135,5 +134,4 @@ contract VerifierVerifyBulkTest is BaseTest {
         vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.BadVerification.selector));
         s_verifierProxy.verifyBulk(signedReports, abi.encode(native));
     }
-
 }
