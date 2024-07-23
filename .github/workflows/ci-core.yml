@@ -109,7 +109,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup node
         if: ${{ needs.filter.outputs.changes == 'true' }}
-        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
       - name: Setup NodeJS
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
@@ -255,7 +255,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup node
         if: ${{ needs.filter.outputs.changes == 'true' }}
-        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
       - name: Setup NodeJS
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
