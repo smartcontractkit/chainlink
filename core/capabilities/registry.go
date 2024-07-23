@@ -22,8 +22,12 @@ type Registry struct {
 	mu   sync.RWMutex
 }
 
-func (r *Registry) GetLocalNode(_ context.Context) (capabilities.Node, error) {
+func (r *Registry) LocalNode(_ context.Context) (capabilities.Node, error) {
 	return capabilities.Node{}, nil
+}
+
+func (r *Registry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+	return capabilities.CapabilityConfiguration{}, nil
 }
 
 // Get gets a capability from the registry.
