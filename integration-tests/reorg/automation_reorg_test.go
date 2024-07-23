@@ -2,30 +2,31 @@ package reorg
 
 //revive:disable:dot-imports
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
-	"time"
 
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	"go.uber.org/zap/zapcore"
+
+	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	sethUtils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
-	geth_helm "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -35,45 +36,18 @@ var (
 	reorgBlockCount       = 10 // Number of blocks to reorg (should be less than finalityDepth)
 	upkeepCount           = 2
 	nodeCount             = 6
-	nodeFundsAmount       = new(big.Float).SetFloat64(2) // Each node will have 2 ETH
 	defaultUpkeepGasLimit = uint32(2500000)
 	defaultLinkFunds      = int64(9e18)
 	finalityDepth         int
 	historyDepth          int
-
-	defaultAutomationSettings = map[string]interface{}{
-		"toml": "",
-		"db": map[string]interface{}{
-			"stateful": false,
-			"capacity": "1Gi",
-			"resources": map[string]interface{}{
-				"requests": map[string]interface{}{
-					"cpu":    "250m",
-					"memory": "256Mi",
-				},
-				"limits": map[string]interface{}{
-					"cpu":    "250m",
-					"memory": "256Mi",
-				},
-			},
-		},
-	}
-	defaultOCRRegistryConfig = contracts.KeeperRegistrySettings{
-		PaymentPremiumPPB:    uint32(200000000),
-		FlatFeeMicroLINK:     uint32(0),
-		BlockCountPerTurn:    big.NewInt(10),
-		CheckGasLimit:        uint32(2500000),
-		StalenessSeconds:     big.NewInt(90000),
-		GasCeilingMultiplier: uint16(1),
-		MinUpkeepSpend:       big.NewInt(0),
-		MaxPerformGas:        uint32(5000000),
-		FallbackGasPrice:     big.NewInt(2e11),
-		FallbackLinkPrice:    big.NewInt(2e18),
-		MaxCheckDataSize:     uint32(5000),
-		MaxPerformDataSize:   uint32(5000),
-		MaxRevertDataSize:    uint32(5000),
-	}
 )
+
+var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(testreporters.NewAllowedLogMessage(
+	"Got very old block with number",
+	"It is expected, because we are causing reorgs",
+	zapcore.DPanicLevel,
+	testreporters.WarnAboutAllowedMsgs_No,
+))
 
 /*
  * This test verifies that conditional upkeeps automatically recover from chain reorgs.
@@ -102,10 +76,10 @@ func TestAutomationReorg(t *testing.T) {
 		return 0, fmt.Errorf("no match found for %s", substring)
 	}
 
-	finalityDepth, err = findIntValue(c.NodeConfig.CommonChainConfigTOML, "FinalityDepth")
+	finalityDepth, err = findIntValue(c.NodeConfig.ChainConfigTOMLByChainID["1337"], "FinalityDepth")
 	require.NoError(t, err, "Error getting finality depth")
 
-	historyDepth, err = findIntValue(c.NodeConfig.CommonChainConfigTOML, "HistoryDepth")
+	historyDepth, err = findIntValue(c.NodeConfig.ChainConfigTOMLByChainID["1337"], "HistoryDepth")
 	require.NoError(t, err, "Error getting history depth")
 
 	require.Less(t, reorgBlockCount, finalityDepth, "Reorg block count should be less than finality depth")
@@ -119,6 +93,8 @@ func TestAutomationReorg(t *testing.T) {
 		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
 		"registry_2_2_conditional": ethereum.RegistryVersion_2_2, // Works only on Chainlink Node v2.10.0 or greater
 		"registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2, // Works only on Chainlink Node v2.10.0 or greater
+		"registry_2_3_conditional": ethereum.RegistryVersion_2_3,
+		"registry_2_3_logtrigger":  ethereum.RegistryVersion_2_3,
 	}
 
 	for n, rv := range registryVersions {
@@ -131,106 +107,96 @@ func TestAutomationReorg(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
+			privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+			require.NoError(t, err, "Error building ethereum network config")
 
-			tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(&config, network)
-			require.NoError(t, err, "Error building TOML config")
+			env, err := test_env.NewCLTestEnvBuilder().
+				WithTestInstance(t).
+				WithTestConfig(&config).
+				WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
+				WithMockAdapter().
+				WithCLNodes(nodeCount).
+				WithStandardCleanup().
+				WithChainlinkNodeLogScanner(logScannerSettings).
+				Build()
+			require.NoError(t, err, "Error deploying test environment")
 
-			defaultAutomationSettings["replicas"] = nodeCount
-			defaultAutomationSettings["toml"] = tomlConfig
+			nodeClients := env.ClCluster.NodeAPIs()
 
-			var overrideFn = func(_ interface{}, target interface{}) {
-				ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
-				ctf_config.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
+			evmNetwork, err := env.GetFirstEvmNetwork()
+			require.NoError(t, err, "Error getting first evm network")
+
+			sethClient, err := sethUtils.GetChainClient(&config, *evmNetwork)
+			require.NoError(t, err, "Error getting seth client")
+
+			err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*config.GetCommonConfig().ChainlinkNodeFunding))
+			require.NoError(t, err, "Failed to fund the nodes")
+
+			gethRPCClient := ctfClient.NewRPCClient(evmNetwork.HTTPURLs[0])
+
+			registryConfig := actions.AutomationDefaultRegistryConfig(config)
+			registryConfig.RegistryVersion = registryVersion
+
+			a := automationv2.NewAutomationTestDocker(l, sethClient, nodeClients)
+			a.SetMercuryCredentialName("cred1")
+			a.RegistrySettings = registryConfig
+			a.RegistrarSettings = contracts.KeeperRegistrarSettings{
+				AutoApproveConfigType: uint8(2),
+				AutoApproveMaxAllowed: 1000,
+				MinLinkJuels:          big.NewInt(0),
+			}
+			plCfg := config.GetAutomationConfig().AutomationConfig.PluginConfig
+			a.PluginConfig = ocr2keepers30config.OffchainConfig{
+				TargetProbability:    *plCfg.TargetProbability,
+				TargetInRounds:       *plCfg.TargetInRounds,
+				PerformLockoutWindow: *plCfg.PerformLockoutWindow,
+				GasLimitPerReport:    *plCfg.GasLimitPerReport,
+				GasOverheadPerUpkeep: *plCfg.GasOverheadPerUpkeep,
+				MinConfirmations:     *plCfg.MinConfirmations,
+				MaxUpkeepBatchSize:   *plCfg.MaxUpkeepBatchSize,
+			}
+			pubCfg := config.GetAutomationConfig().AutomationConfig.PublicConfig
+			a.PublicConfig = ocr3.PublicConfig{
+				DeltaProgress:                           *pubCfg.DeltaProgress,
+				DeltaResend:                             *pubCfg.DeltaResend,
+				DeltaInitial:                            *pubCfg.DeltaInitial,
+				DeltaRound:                              *pubCfg.DeltaRound,
+				DeltaGrace:                              *pubCfg.DeltaGrace,
+				DeltaCertifiedCommitRequest:             *pubCfg.DeltaCertifiedCommitRequest,
+				DeltaStage:                              *pubCfg.DeltaStage,
+				RMax:                                    *pubCfg.RMax,
+				MaxDurationQuery:                        *pubCfg.MaxDurationQuery,
+				MaxDurationObservation:                  *pubCfg.MaxDurationObservation,
+				MaxDurationShouldAcceptAttestedReport:   *pubCfg.MaxDurationShouldAcceptAttestedReport,
+				MaxDurationShouldTransmitAcceptedReport: *pubCfg.MaxDurationShouldTransmitAcceptedReport,
+				F:                                       *pubCfg.F,
 			}
 
-			cd := chainlink.NewWithOverride(0, defaultAutomationSettings, config.ChainlinkImage, overrideFn)
+			a.SetupAutomationDeployment(t)
+			a.SetDockerEnv(env)
 
-			testEnvironment := environment.
-				New(&environment.Config{
-					NamespacePrefix: fmt.Sprintf("automation-reorg-%d", reorgBlockCount),
-					TTL:             time.Hour * 1,
-					Test:            t}).
-				// Use Geth blockchain to simulate reorgs
-				AddHelm(geth_helm.New(&geth_helm.Props{
-					NetworkName: network.Name,
-					Simulated:   true,
-					WsURLs:      network.URLs,
-				})).
-				AddHelm(cd)
-			err = testEnvironment.Run()
-			require.NoError(t, err, "Error setting up test environment")
+			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
+			require.NoError(t, err, "Failed to get start block")
 
-			if testEnvironment.WillUseRemoteRunner() {
-				return
-			}
-			if !testEnvironment.Cfg.InsideK8s {
-				// Test is running locally, set forwarded URL of Geth blockchain node
-				wsURLs := testEnvironment.URLs[network.Name+"_internal"]
-				httpURLs := testEnvironment.URLs[network.Name+"_internal_http"]
-				require.NotEmpty(t, wsURLs, "Forwarded Geth URLs should not be empty")
-				require.NotEmpty(t, httpURLs, "Forwarded Geth URLs should not be empty")
-				network.URLs = wsURLs
-				network.HTTPURLs = httpURLs
-			}
-
-			gethRPCClient := ctf_client.NewRPCClient(network.HTTPURLs[0])
-			chainClient, err := seth_utils.GetChainClient(config, network)
-			require.NoError(t, err, "Error connecting to blockchain")
-			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
-			require.NoError(t, err, "Error connecting to Chainlink nodes")
-
-			// Register cleanup for any test
 			t.Cleanup(func() {
-				err := actions.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config)
-				require.NoError(t, err, "Error tearing down environment")
+				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
-			err = actions.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), nodeFundsAmount)
-			require.NoError(t, err, "Error funding Chainlink nodes")
-
-			linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
-			require.NoError(t, err, "Error deploying LINK token")
-
-			registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
-				t,
-				chainClient,
-				registryVersion,
-				defaultOCRRegistryConfig,
-				linkToken,
-			)
-
-			// Fund the registry with LINK
-			err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(upkeepCount))))
-			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
-
-			actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, registryVersion)
-			nodesWithoutBootstrap := chainlinkNodes[1:]
-			defaultOCRRegistryConfig.RegistryVersion = registryVersion
-			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
-			require.NoError(t, err, "OCR2 config should be built successfully")
-			if registryVersion == ethereum.RegistryVersion_2_0 {
-				err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
-			} else {
-				err = registry.SetConfigTypeSafe(ocrConfig)
-			}
-			require.NoError(t, err, "Registry config should be be set successfully")
-
 			// Use the name to determine if this is a log trigger or not
-			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_2_logtrigger"
+			isLogTrigger := strings.Contains(name, "logtrigger")
 			consumers, upkeepIDs := actions.DeployConsumers(
 				t,
-				chainClient,
-				registry,
-				registrar,
-				linkToken,
+				sethClient,
+				a.Registry,
+				a.Registrar,
+				a.LinkToken,
 				upkeepCount,
 				big.NewInt(defaultLinkFunds),
 				defaultUpkeepGasLimit,
 				isLogTrigger,
 				false,
 				false,
-				nil,
+				a.WETHToken,
 			)
 
 			if isLogTrigger {

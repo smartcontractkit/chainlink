@@ -85,15 +85,8 @@ type TestConfig struct {
 	VRF        *vrf_config.Config       `toml:"VRF"`
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
-	CRIB       *CRIB                    `toml:"CRIB"`
 
 	ConfigurationNames []string `toml:"-"`
-}
-
-type CRIB struct {
-	Namespace   string `toml:"namespace"`
-	NetworkName string `toml:"network_name"`
-	CLNodesNum  int    `toml:"nodes"`
 }
 
 var embeddedConfigs embed.FS

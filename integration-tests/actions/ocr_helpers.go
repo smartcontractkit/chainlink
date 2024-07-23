@@ -2,8 +2,15 @@ package actions
 
 import (
 	"fmt"
+	"math/big"
+	"math/rand"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/seth"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -216,4 +223,56 @@ func BuildNodeContractPairID(node contracts.ChainlinkNodeWithKeysAndAddress, ocr
 	shortNodeAddr := nodeAddress[2:12]
 	shortOCRAddr := ocrInstance.Address()[2:12]
 	return strings.ToLower(fmt.Sprintf("node_%s_contract_%s", shortNodeAddr, shortOCRAddr)), nil
+}
+
+func SetupOCRv1Cluster(
+	l zerolog.Logger,
+	seth *seth.Client,
+	workerNodes []*client.ChainlinkK8sClient,
+) (common.Address, error) {
+	err := FundChainlinkNodesFromRootAddress(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(3))
+	if err != nil {
+		return common.Address{}, err
+	}
+	linkContract, err := contracts.DeployLinkTokenContract(l, seth)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return common.HexToAddress(linkContract.Address()), nil
+}
+
+func SetupOCRv1Feed(
+	l zerolog.Logger,
+	seth *seth.Client,
+	lta common.Address,
+	msClient *ctfClient.MockserverClient,
+	bootstrapNode *client.ChainlinkK8sClient,
+	workerNodes []*client.ChainlinkK8sClient,
+) ([]contracts.OffchainAggregator, error) {
+	ocrInstances, err := DeployOCRv1Contracts(l, seth, 1, lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
+	if err != nil {
+		return nil, err
+	}
+	err = CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, msClient, fmt.Sprint(seth.ChainID))
+	if err != nil {
+		return nil, err
+	}
+	return ocrInstances, nil
+}
+
+func SimulateOCRv1EAActivity(
+	l zerolog.Logger,
+	eaChangeInterval time.Duration,
+	ocrInstances []contracts.OffchainAggregator,
+	workerNodes []*client.ChainlinkK8sClient,
+	msClient *ctfClient.MockserverClient,
+) {
+	go func() {
+		for {
+			time.Sleep(eaChangeInterval)
+			if err := SetAllAdapterResponsesToTheSameValue(rand.Intn(1000), ocrInstances, workerNodes, msClient); err != nil {
+				l.Error().Err(err).Msg("failed to update mockserver responses")
+			}
+		}
+	}()
 }
