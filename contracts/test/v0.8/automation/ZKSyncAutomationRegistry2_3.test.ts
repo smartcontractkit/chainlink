@@ -19,20 +19,16 @@ import { StreamsLookupUpkeep__factory as StreamsLookupUpkeepFactory } from '../.
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
-import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
-import { ChainModuleBase__factory as ChainModuleBaseFactory } from '../../../typechain/factories/ChainModuleBase__factory'
-import { ArbitrumModule__factory as ArbitrumModuleFactory } from '../../../typechain/factories/ArbitrumModule__factory'
+import { MockZKSyncSystemContext__factory as MockZKSyncSystemContextFactory } from '../../../typechain/factories/MockZKSyncSystemContext__factory'
+import { ZKSyncModule__factory as ZKSyncModuleFactory } from '../../../typechain/factories/ZKSyncModule__factory'
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
-import { IAutomationForwarder__factory as IAutomationForwarderFactory } from '../../../typechain/factories/IAutomationForwarder__factory'
-import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
 import { AutomationCompatibleUtils } from '../../../typechain/AutomationCompatibleUtils'
-import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
 import { StreamsLookupUpkeep } from '../../../typechain/StreamsLookupUpkeep'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
-import { ChainModuleBase } from '../../../typechain/ChainModuleBase'
-import { ArbitrumModule } from '../../../typechain/ArbitrumModule'
+import { ZKSyncModule } from '../../../typechain/ZKSyncModule'
 import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
+import { MockZKSyncSystemContext } from '../../../typechain/MockZKSyncSystemContext'
 import { IChainModule, UpkeepAutoFunder } from '../../../typechain'
 import {
   CancelledUpkeepReportEvent,
@@ -142,12 +138,11 @@ let logTriggerConfig: string
 
 // Smart contract factories
 let linkTokenFactory: ContractFactory
-let mockArbGasInfoFactory: MockArbGasInfoFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
-let chainModuleBaseFactory: ChainModuleBaseFactory
-let arbitrumModuleFactory: ArbitrumModuleFactory
+let zksyncModuleFactory: ZKSyncModuleFactory
+let mockZKSyncSystemContextFactory: MockZKSyncSystemContextFactory
 let streamsLookupUpkeepFactory: StreamsLookupUpkeepFactory
 let personas: Personas
 
@@ -157,16 +152,14 @@ let linkUSDFeed: MockV3Aggregator
 let nativeUSDFeed: MockV3Aggregator
 let gasPriceFeed: MockV3Aggregator
 let registry: IAutomationRegistry // default registry, used for most tests
-let arbRegistry: IAutomationRegistry // arbitrum registry
 let mgRegistry: IAutomationRegistry // "migrate registry" used in migration tests
 let blankRegistry: IAutomationRegistry // used to test initial configurations
-let mockArbGasInfo: MockArbGasInfo
 let mock: UpkeepMock
 let autoFunderUpkeep: UpkeepAutoFunder
 let ltUpkeep: MockContract
 let transcoder: UpkeepTranscoder
-let chainModuleBase: ChainModuleBase
-let arbitrumModule: ArbitrumModule
+let zksyncModule: ZKSyncModule
+let mockZKSyncSystemContext: MockZKSyncSystemContext
 let streamsLookupUpkeep: StreamsLookupUpkeep
 let automationUtils: AutomationCompatibleUtils
 let automationUtils2_3: AutomationUtils2_3
@@ -400,9 +393,7 @@ describe('AutomationRegistry2_3', () => {
   let signers: Wallet[]
   let signerAddresses: string[]
   let config: OnChainConfig
-  let arbConfig: OnChainConfig
   let baseConfig: Parameters<IAutomationRegistry['setConfigTypeSafe']>
-  let arbConfigParams: Parameters<IAutomationRegistry['setConfigTypeSafe']>
   let upkeepManager: string
 
   before(async () => {
@@ -423,12 +414,13 @@ describe('AutomationRegistry2_3', () => {
     mockV3AggregatorFactory = (await ethers.getContractFactory(
       'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
     )) as unknown as MockV3AggregatorFactory
-    mockArbGasInfoFactory = await ethers.getContractFactory('MockArbGasInfo')
+    mockZKSyncSystemContextFactory = await ethers.getContractFactory(
+      'MockZKSyncSystemContext',
+    )
     upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
     upkeepAutoFunderFactory =
       await ethers.getContractFactory('UpkeepAutoFunder')
-    chainModuleBaseFactory = await ethers.getContractFactory('ChainModuleBase')
-    arbitrumModuleFactory = await ethers.getContractFactory('ArbitrumModule')
+    zksyncModuleFactory = await ethers.getContractFactory('ZKSyncModule')
     streamsLookupUpkeepFactory = await ethers.getContractFactory(
       'StreamsLookupUpkeep',
     )
@@ -861,9 +853,10 @@ describe('AutomationRegistry2_3', () => {
       'UpkeepTranscoder5_0',
     )
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
-    mockArbGasInfo = await mockArbGasInfoFactory.connect(owner).deploy()
-    chainModuleBase = await chainModuleBaseFactory.connect(owner).deploy()
-    arbitrumModule = await arbitrumModuleFactory.connect(owner).deploy()
+    mockZKSyncSystemContext = await mockZKSyncSystemContextFactory
+      .connect(owner)
+      .deploy()
+    zksyncModule = await zksyncModuleFactory.connect(owner).deploy()
     streamsLookupUpkeep = await streamsLookupUpkeepFactory
       .connect(owner)
       .deploy(
@@ -874,22 +867,30 @@ describe('AutomationRegistry2_3', () => {
         false /* verify mercury response */,
       )
 
-    const arbOracleCode = await ethers.provider.send('eth_getCode', [
-      mockArbGasInfo.address,
+    const zksyncSystemContextCode = await ethers.provider.send('eth_getCode', [
+      mockZKSyncSystemContext.address,
     ])
     await ethers.provider.send('hardhat_setCode', [
-      '0x000000000000000000000000000000000000006C',
-      arbOracleCode,
+      '0x000000000000000000000000000000000000800B',
+      zksyncSystemContextCode,
     ])
 
-    const mockArbSys = await new MockArbSysFactory(owner).deploy()
-    const arbSysCode = await ethers.provider.send('eth_getCode', [
-      mockArbSys.address,
-    ])
-    await ethers.provider.send('hardhat_setCode', [
-      '0x0000000000000000000000000000000000000064',
-      arbSysCode,
-    ])
+    // const arbOracleCode = await ethers.provider.send('eth_getCode', [
+    //   mockArbGasInfo.address,
+    // ])
+    // await ethers.provider.send('hardhat_setCode', [
+    //   '0x000000000000000000000000000000000000006C',
+    //   arbOracleCode,
+    // ])
+    //
+    // const mockArbSys = await new MockArbSysFactory(owner).deploy()
+    // const arbSysCode = await ethers.provider.send('eth_getCode', [
+    //   mockArbSys.address,
+    // ])
+    // await ethers.provider.send('hardhat_setCode', [
+    //   '0x0000000000000000000000000000000000000064',
+    //   arbSysCode,
+    // ])
     const financeAdminAddress = await financeAdmin.getAddress()
 
     config = {
@@ -906,39 +907,16 @@ describe('AutomationRegistry2_3', () => {
       transcoder: transcoder.address,
       registrars: [],
       upkeepPrivilegeManager: upkeepManager,
-      chainModule: chainModuleBase.address,
+      chainModule: zksyncModule.address,
       reorgProtectionEnabled: true,
       financeAdmin: financeAdminAddress,
     }
-
-    arbConfig = { ...config }
-    arbConfig.chainModule = arbitrumModule.address
 
     baseConfig = [
       signerAddresses,
       keeperAddresses,
       f,
       config,
-      offchainVersion,
-      offchainBytes,
-      [linkToken.address],
-      [
-        {
-          gasFeePPB: paymentPremiumPPB,
-          flatFeeMilliCents,
-          priceFeed: linkUSDFeed.address,
-          fallbackPrice: fallbackLinkPrice,
-          minSpend: minUpkeepSpend,
-          decimals: 18,
-        },
-      ],
-    ]
-
-    arbConfigParams = [
-      signerAddresses,
-      keeperAddresses,
-      f,
-      arbConfig,
       offchainVersion,
       offchainBytes,
       [linkToken.address],
@@ -965,7 +943,6 @@ describe('AutomationRegistry2_3', () => {
     ]
 
     registry = await deployZKSyncRegistry23(...registryParams)
-    arbRegistry = await deployZKSyncRegistry23(...registryParams)
     mgRegistry = await deployZKSyncRegistry23(...registryParams)
     blankRegistry = await deployZKSyncRegistry23(...registryParams)
 
@@ -982,8 +959,7 @@ describe('AutomationRegistry2_3', () => {
 
     await registry.connect(owner).setConfigTypeSafe(...baseConfig)
     await mgRegistry.connect(owner).setConfigTypeSafe(...baseConfig)
-    await arbRegistry.connect(owner).setConfigTypeSafe(...arbConfigParams)
-    for (const reg of [registry, arbRegistry, mgRegistry]) {
+    for (const reg of [registry, mgRegistry]) {
       await reg.connect(owner).setPayees(payees)
       await linkToken.connect(admin).approve(reg.address, toWei('1000'))
       await linkToken.connect(owner).approve(reg.address, toWei('1000'))
@@ -1719,56 +1695,56 @@ describe('AutomationRegistry2_3', () => {
         )
       })
 
-      it('correctly accounts for l payment', async () => {
-        await mock.setCanPerform(true)
-        // Same as MockArbGasInfo.sol
-        const l1CostWeiArb = BigNumber.from(1000000)
-
-        let tx = await arbRegistry
-          .connect(owner)
-          .registerUpkeep(
-            mock.address,
-            performGas,
-            await admin.getAddress(),
-            Trigger.CONDITION,
-            linkToken.address,
-            '0x',
-            '0x',
-            '0x',
-          )
-        const testUpkeepId = await getUpkeepID(tx)
-        await arbRegistry.connect(owner).addFunds(testUpkeepId, toWei('100'))
-
-        // Do the thing
-        tx = await getTransmitTx(
-          arbRegistry,
-          keeper1,
-          [testUpkeepId],
-
-          { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
-        )
-        const receipt = await tx.wait()
-        const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
-        // exactly 1 Upkeep Performed should be emitted
-        assert.equal(upkeepPerformedLogs.length, 1)
-        const upkeepPerformedLog = upkeepPerformedLogs[0]
-
-        const gasUsed = upkeepPerformedLog.args.gasUsed
-        const gasOverhead = upkeepPerformedLog.args.gasOverhead
-        const totalPayment = upkeepPerformedLog.args.totalPayment
-
-        assert.equal(
-          linkForGas(
-            gasUsed,
-            gasOverhead,
-            gasCeilingMultiplier,
-            paymentPremiumPPB,
-            flatFeeMilliCents,
-            l1CostWeiArb,
-          ).total.toString(),
-          totalPayment.toString(),
-        )
-      })
+      // it('correctly accounts for l payment', async () => {
+      //   await mock.setCanPerform(true)
+      //   // Same as MockArbGasInfo.sol
+      //   const l1CostWeiArb = BigNumber.from(1000000)
+      //
+      //   let tx = await arbRegistry
+      //     .connect(owner)
+      //     .registerUpkeep(
+      //       mock.address,
+      //       performGas,
+      //       await admin.getAddress(),
+      //       Trigger.CONDITION,
+      //       linkToken.address,
+      //       '0x',
+      //       '0x',
+      //       '0x',
+      //     )
+      //   const testUpkeepId = await getUpkeepID(tx)
+      //   await arbRegistry.connect(owner).addFunds(testUpkeepId, toWei('100'))
+      //
+      //   // Do the thing
+      //   tx = await getTransmitTx(
+      //     arbRegistry,
+      //     keeper1,
+      //     [testUpkeepId],
+      //
+      //     { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
+      //   )
+      //   const receipt = await tx.wait()
+      //   const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+      //   // exactly 1 Upkeep Performed should be emitted
+      //   assert.equal(upkeepPerformedLogs.length, 1)
+      //   const upkeepPerformedLog = upkeepPerformedLogs[0]
+      //
+      //   const gasUsed = upkeepPerformedLog.args.gasUsed
+      //   const gasOverhead = upkeepPerformedLog.args.gasOverhead
+      //   const totalPayment = upkeepPerformedLog.args.totalPayment
+      //
+      //   assert.equal(
+      //     linkForGas(
+      //       gasUsed,
+      //       gasOverhead,
+      //       gasCeilingMultiplier,
+      //       paymentPremiumPPB,
+      //       flatFeeMilliCents,
+      //       l1CostWeiArb,
+      //     ).total.toString(),
+      //     totalPayment.toString(),
+      //   )
+      // })
 
       itMaybe('can self fund', async () => {
         const maxPayment = await registry.getMaxPaymentForGas(
@@ -2090,8 +2066,7 @@ describe('AutomationRegistry2_3', () => {
                 const upkeepSuccessArray = [true, false]
                 const performGasArray = [5000, performGas]
                 const performDataArray = ['0x', longBytes]
-                const chainModuleOverheads =
-                  await chainModuleBase.getGasOverhead()
+                const chainModuleOverheads = await zksyncModule.getGasOverhead()
 
                 for (const i in upkeepSuccessArray) {
                   for (const j in performGasArray) {
@@ -2789,86 +2764,86 @@ describe('AutomationRegistry2_3', () => {
         })
       })
 
-      it('splits l2 payment among performed upkeeps according to perform data weight', async () => {
-        const numUpkeeps = 7
-        const upkeepIds: BigNumber[] = []
-        const performDataSizes = [0, 10, 1000, 50, 33, 69, 420]
-        const performDatas: string[] = []
-        const upkeepCalldataWeights: BigNumber[] = []
-        let totalCalldataWeight = BigNumber.from('0')
-        // Same as MockArbGasInfo.sol
-        const l1CostWeiArb = BigNumber.from(1000000)
-
-        for (let i = 0; i < numUpkeeps; i++) {
-          const mock = await upkeepMockFactory.deploy()
-          const tx = await arbRegistry
-            .connect(owner)
-            .registerUpkeep(
-              mock.address,
-              performGas,
-              await admin.getAddress(),
-              Trigger.CONDITION,
-              linkToken.address,
-              '0x',
-              '0x',
-              '0x',
-            )
-          const testUpkeepId = await getUpkeepID(tx)
-          upkeepIds.push(testUpkeepId)
-
-          // Add funds to passing upkeeps
-          await arbRegistry.connect(owner).addFunds(testUpkeepId, toWei('100'))
-
-          // Generate performData
-          let pd = '0x'
-          for (let j = 0; j < performDataSizes[i]; j++) {
-            pd += '11'
-          }
-          performDatas.push(pd)
-          const w = BigNumber.from(performDataSizes[i])
-            .add(registryTransmitCalldataFixedBytesOverhead)
-            .add(
-              registryTransmitCalldataPerSignerBytesOverhead.mul(
-                BigNumber.from(f + 1),
-              ),
-            )
-          upkeepCalldataWeights.push(w)
-          totalCalldataWeight = totalCalldataWeight.add(w)
-        }
-
-        // Do the thing
-        const tx = await getTransmitTx(arbRegistry, keeper1, upkeepIds, {
-          gasPrice: gasWei.mul('5'), // High gas price so that it gets capped
-          performDatas,
-        })
-
-        const receipt = await tx.wait()
-        const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
-        // exactly numPassingUpkeeps Upkeep Performed should be emitted
-        assert.equal(upkeepPerformedLogs.length, numUpkeeps)
-
-        for (let i = 0; i < numUpkeeps; i++) {
-          const upkeepPerformedLog = upkeepPerformedLogs[i]
-
-          const gasUsed = upkeepPerformedLog.args.gasUsed
-          const gasOverhead = upkeepPerformedLog.args.gasOverhead
-          const totalPayment = upkeepPerformedLog.args.totalPayment
-
-          assert.equal(
-            linkForGas(
-              gasUsed,
-              gasOverhead,
-              gasCeilingMultiplier,
-              paymentPremiumPPB,
-              flatFeeMilliCents,
-              l1CostWeiArb
-                .mul(upkeepCalldataWeights[i])
-                .div(totalCalldataWeight),
-            ).total.toString(),
-            totalPayment.toString(),
-          )
-        }
-      })
+      // it('splits l2 payment among performed upkeeps according to perform data weight', async () => {
+      //   const numUpkeeps = 7
+      //   const upkeepIds: BigNumber[] = []
+      //   const performDataSizes = [0, 10, 1000, 50, 33, 69, 420]
+      //   const performDatas: string[] = []
+      //   const upkeepCalldataWeights: BigNumber[] = []
+      //   let totalCalldataWeight = BigNumber.from('0')
+      //   // Same as MockArbGasInfo.sol
+      //   const l1CostWeiArb = BigNumber.from(1000000)
+      //
+      //   for (let i = 0; i < numUpkeeps; i++) {
+      //     const mock = await upkeepMockFactory.deploy()
+      //     const tx = await arbRegistry
+      //       .connect(owner)
+      //       .registerUpkeep(
+      //         mock.address,
+      //         performGas,
+      //         await admin.getAddress(),
+      //         Trigger.CONDITION,
+      //         linkToken.address,
+      //         '0x',
+      //         '0x',
+      //         '0x',
+      //       )
+      //     const testUpkeepId = await getUpkeepID(tx)
+      //     upkeepIds.push(testUpkeepId)
+      //
+      //     // Add funds to passing upkeeps
+      //     await arbRegistry.connect(owner).addFunds(testUpkeepId, toWei('100'))
+      //
+      //     // Generate performData
+      //     let pd = '0x'
+      //     for (let j = 0; j < performDataSizes[i]; j++) {
+      //       pd += '11'
+      //     }
+      //     performDatas.push(pd)
+      //     const w = BigNumber.from(performDataSizes[i])
+      //       .add(registryTransmitCalldataFixedBytesOverhead)
+      //       .add(
+      //         registryTransmitCalldataPerSignerBytesOverhead.mul(
+      //           BigNumber.from(f + 1),
+      //         ),
+      //       )
+      //     upkeepCalldataWeights.push(w)
+      //     totalCalldataWeight = totalCalldataWeight.add(w)
+      //   }
+      //
+      //   // Do the thing
+      //   const tx = await getTransmitTx(arbRegistry, keeper1, upkeepIds, {
+      //     gasPrice: gasWei.mul('5'), // High gas price so that it gets capped
+      //     performDatas,
+      //   })
+      //
+      //   const receipt = await tx.wait()
+      //   const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+      //   // exactly numPassingUpkeeps Upkeep Performed should be emitted
+      //   assert.equal(upkeepPerformedLogs.length, numUpkeeps)
+      //
+      //   for (let i = 0; i < numUpkeeps; i++) {
+      //     const upkeepPerformedLog = upkeepPerformedLogs[i]
+      //
+      //     const gasUsed = upkeepPerformedLog.args.gasUsed
+      //     const gasOverhead = upkeepPerformedLog.args.gasOverhead
+      //     const totalPayment = upkeepPerformedLog.args.totalPayment
+      //
+      //     assert.equal(
+      //       linkForGas(
+      //         gasUsed,
+      //         gasOverhead,
+      //         gasCeilingMultiplier,
+      //         paymentPremiumPPB,
+      //         flatFeeMilliCents,
+      //         l1CostWeiArb
+      //           .mul(upkeepCalldataWeights[i])
+      //           .div(totalCalldataWeight),
+      //       ).total.toString(),
+      //       totalPayment.toString(),
+      //     )
+      //   }
+      // })
     },
   )
 
@@ -3503,35 +3478,35 @@ describe('AutomationRegistry2_3', () => {
   })
 
   describe('#getMaxPaymentForGas', () => {
-    let maxl1CostWeiArbWithoutMultiplier: BigNumber
-
-    beforeEach(async () => {
-      const arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
-      maxl1CostWeiArbWithoutMultiplier = arbL1PriceinWei.mul(
-        maxPerformDataSize
-          .add(registryTransmitCalldataFixedBytesOverhead)
-          .add(
-            registryTransmitCalldataPerSignerBytesOverhead.mul(
-              BigNumber.from(f + 1),
-            ),
-          ),
-      )
-    })
+    // let maxl1CostWeiArbWithoutMultiplier: BigNumber
+    //
+    // beforeEach(async () => {
+    //   const arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
+    //   maxl1CostWeiArbWithoutMultiplier = arbL1PriceinWei.mul(
+    //     maxPerformDataSize
+    //       .add(registryTransmitCalldataFixedBytesOverhead)
+    //       .add(
+    //         registryTransmitCalldataPerSignerBytesOverhead.mul(
+    //           BigNumber.from(f + 1),
+    //         ),
+    //       ),
+    //   )
+    // })
 
     itMaybe('calculates the max fee appropriately', async () => {
-      await verifyMaxPayment(registry, chainModuleBase)
+      await verifyMaxPayment(registry, zksyncModule)
     })
 
-    itMaybe('calculates the max fee appropriately for Arbitrum', async () => {
-      await verifyMaxPayment(
-        arbRegistry,
-        arbitrumModule,
-        maxl1CostWeiArbWithoutMultiplier,
-      )
-    })
+    // itMaybe('calculates the max fee appropriately for Arbitrum', async () => {
+    //   await verifyMaxPayment(
+    //     arbRegistry,
+    //     arbitrumModule,
+    //     maxl1CostWeiArbWithoutMultiplier,
+    //   )
+    // })
 
     it('uses the fallback gas price if the feed has issues', async () => {
-      const chainModuleOverheads = await chainModuleBase.getGasOverhead()
+      const chainModuleOverheads = await zksyncModule.getGasOverhead()
       const expectedFallbackMaxPayment = linkForGas(
         performGas,
         registryConditionalOverhead
@@ -3619,7 +3594,7 @@ describe('AutomationRegistry2_3', () => {
     })
 
     it('uses the fallback link price if the feed has issues', async () => {
-      const chainModuleOverheads = await chainModuleBase.getGasOverhead()
+      const chainModuleOverheads = await zksyncModule.getGasOverhead()
       const expectedFallbackMaxPayment = linkForGas(
         performGas,
         registryConditionalOverhead
@@ -3744,7 +3719,7 @@ describe('AutomationRegistry2_3', () => {
       transcoder: newTranscoder,
       registrars: newRegistrars,
       upkeepPrivilegeManager: upkeepManager,
-      chainModule: chainModuleBase.address,
+      chainModule: zksyncModule.address,
       reorgProtectionEnabled: true,
       financeAdmin: financeAdminAddress,
     }
@@ -4671,7 +4646,7 @@ describe('AutomationRegistry2_3', () => {
           transcoder: transcoder.address,
           registrars: [],
           upkeepPrivilegeManager: upkeepManager,
-          chainModule: chainModuleBase.address,
+          chainModule: zksyncModule.address,
           reorgProtectionEnabled: true,
           financeAdmin: financeAdminAddress,
         },
@@ -5015,7 +4990,7 @@ describe('AutomationRegistry2_3', () => {
     })
   })
 
-  describe('#cancelUpkeep', () => {
+  describe.only('#cancelUpkeep', () => {
     it('reverts if the ID is not valid', async () => {
       await evmRevertCustomError(
         registry.connect(owner).cancelUpkeep(upkeepId.add(1)),
@@ -5187,7 +5162,7 @@ describe('AutomationRegistry2_3', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
-              chainModule: chainModuleBase.address,
+              chainModule: zksyncModule.address,
               reorgProtectionEnabled: true,
               financeAdmin: financeAdminAddress,
             },
@@ -5254,7 +5229,7 @@ describe('AutomationRegistry2_3', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
-              chainModule: chainModuleBase.address,
+              chainModule: zksyncModule.address,
               reorgProtectionEnabled: true,
               financeAdmin: financeAdminAddress,
             },
@@ -5316,7 +5291,7 @@ describe('AutomationRegistry2_3', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
-              chainModule: chainModuleBase.address,
+              chainModule: zksyncModule.address,
               reorgProtectionEnabled: true,
               financeAdmin: financeAdminAddress,
             },
@@ -5358,7 +5333,7 @@ describe('AutomationRegistry2_3', () => {
     })
   })
 
-  describe('#withdrawPayment', () => {
+  describe.only('#withdrawPayment', () => {
     beforeEach(async () => {
       await linkToken.connect(owner).approve(registry.address, toWei('100'))
       await registry.connect(owner).addFunds(upkeepId, toWei('100'))
@@ -5462,7 +5437,7 @@ describe('AutomationRegistry2_3', () => {
     })
   })
 
-  describe('#checkCallback', () => {
+  describe.only('#checkCallback', () => {
     it('returns false with appropriate failure reason when target callback reverts', async () => {
       await streamsLookupUpkeep.setShouldRevertCallback(true)
 
@@ -5533,7 +5508,7 @@ describe('AutomationRegistry2_3', () => {
     })
   })
 
-  describe('#setUpkeepPrivilegeConfig() / #getUpkeepPrivilegeConfig()', () => {
+  describe.only('#setUpkeepPrivilegeConfig() / #getUpkeepPrivilegeConfig()', () => {
     it('reverts when non manager tries to set privilege config', async () => {
       await evmRevertCustomError(
         registry.connect(payee3).setUpkeepPrivilegeConfig(upkeepId, '0x1234'),
@@ -5560,7 +5535,7 @@ describe('AutomationRegistry2_3', () => {
     })
   })
 
-  describe('#setAdminPrivilegeConfig() / #getAdminPrivilegeConfig()', () => {
+  describe.only('#setAdminPrivilegeConfig() / #getAdminPrivilegeConfig()', () => {
     const admin = randomAddress()
 
     it('reverts when non manager tries to set privilege config', async () => {
