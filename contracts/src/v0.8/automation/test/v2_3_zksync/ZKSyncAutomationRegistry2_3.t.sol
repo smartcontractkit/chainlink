@@ -1070,7 +1070,9 @@ contract NOPsSettlement is SetUp {
 
   function testSettleNOPsOffchainForDeactivatedTransmittersSuccess() public {
     // deploy and configure a registry with OFF_CHAIN payout
-    (Registry registry, Registrar registrar) = deployAndConfigureZKSyncRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
+    (Registry registry, Registrar registrar) = deployAndConfigureZKSyncRegistryAndRegistrar(
+      AutoBase.PayoutMode.OFF_CHAIN
+    );
 
     // register an upkeep and add funds
     uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken18), "", "", "");

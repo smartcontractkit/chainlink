@@ -183,7 +183,7 @@ contract BaseTest is Test {
       billingTokenAddresses[i] = address(billingTokens[i]);
     }
     AutomationRegistryBase2_3.BillingConfig[]
-    memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
+      memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
     billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: DEFAULT_GAS_FEE_PPB, // 15%
       flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
@@ -229,7 +229,7 @@ contract BaseTest is Test {
 
     // deploy registrar
     AutomationRegistrar2_3.InitialTriggerConfig[]
-    memory triggerConfigs = new AutomationRegistrar2_3.InitialTriggerConfig[](2);
+      memory triggerConfigs = new AutomationRegistrar2_3.InitialTriggerConfig[](2);
     triggerConfigs[0] = AutomationRegistrar2_3.InitialTriggerConfig({
       triggerType: 0, // condition
       autoApproveType: AutomationRegistrar2_3.AutoApproveType.DISABLED,
