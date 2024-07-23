@@ -71,7 +71,7 @@ jobs:
           echo "should-enforce=$SHOULD_ENFORCE" >> $GITHUB_OUTPUT
       - name: Enforce CTF Version
         if: steps.condition-check.outputs.should-enforce == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
         with:
           go-project-path: ./integration-tests
           module-name: github.com/smartcontractkit/chainlink-testing-framework
@@ -152,7 +152,7 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
       - name: Setup Go
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
         with:
           test_download_vendor_packages_command: cd ${{ matrix.project.path }} && go mod download
           go_mod_path: ${{ matrix.project.path }}/go.mod
@@ -394,7 +394,7 @@ jobs:
 
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
 
   eth-smoke-tests-matrix-log-poller:
     if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') || inputs.distinct_run_name != '' }}
@@ -507,7 +507,7 @@ jobs:
 
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
 
 
   eth-smoke-tests-matrix:
@@ -745,7 +745,7 @@ jobs:
       # Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           go_mod_path: ./integration-tests/go.mod
@@ -775,7 +775,7 @@ jobs:
 
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
         with:
           test_directory: ./integration-tests/smoke/
 
@@ -873,7 +873,7 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Run Setup
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
         with:
           test_download_vendor_packages_command: |
             cd ./integration-tests
@@ -1077,7 +1077,7 @@ jobs:
     steps:
       - name: Check if image exists
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
         with:
           repository: chainlink-solana-tests
           tag: ${{ needs.get_solana_sha.outputs.sha }}
@@ -1216,7 +1216,7 @@ jobs:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Run Setup
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
         with:
           go_mod_path: ./integration-tests/go.mod
           cache_restore_only: true
