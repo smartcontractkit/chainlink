@@ -499,18 +499,18 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
   event Unpaused(address account);
 
   // for testing, remove later
-  event UpkeepPerformedDetails(
-    uint96 indexed totalPayment,
-    uint256 indexed gasUsed,
-    uint256 indexed gasOverhead,
-    uint256 l1GasUsed
-  );
-  event GasDetails(
-    uint256 indexed pubdataUsed,
-    uint256 indexed gasPerPubdataByte,
-    uint256 indexed executionGasUsed,
-    uint256 gasprice
-  );
+  //  event UpkeepPerformedDetails(
+  //    uint96 indexed totalPayment,
+  //    uint256 indexed gasUsed,
+  //    uint256 indexed gasOverhead,
+  //    uint256 l1GasUsed
+  //  );
+  //  event GasDetails(
+  //    uint256 indexed pubdataUsed,
+  //    uint256 indexed gasPerPubdataByte,
+  //    uint256 indexed executionGasUsed,
+  //    uint256 gasprice
+  //  );
 
   /**
    * @param link address of the LINK Token

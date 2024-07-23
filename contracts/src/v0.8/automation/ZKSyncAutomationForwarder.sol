@@ -24,12 +24,12 @@ contract ZKSyncAutomationForwarder {
   IAutomationRegistryConsumer private s_registry;
 
   // for testing purpose, remove later
-  event GasDetails(
-    uint256 indexed pubdataUsed,
-    uint256 indexed gasPerPubdataByte,
-    uint256 indexed executionGasUsed,
-    uint256 gasprice
-  );
+  //  event GasDetails(
+  //    uint256 indexed pubdataUsed,
+  //    uint256 indexed gasPerPubdataByte,
+  //    uint256 indexed executionGasUsed,
+  //    uint256 gasprice
+  //  );
 
   constructor(address target, address registry, address logic) {
     s_registry = IAutomationRegistryConsumer(registry);

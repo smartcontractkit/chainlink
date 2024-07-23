@@ -10,6 +10,7 @@ contract ZKSyncHashTester {
     uint256 counter
   );
   error InvalidCaller(address caller, address forwarder);
+  error SimulationFailed();
 
   uint256 public testRange;
   uint256 public interval;
@@ -22,6 +23,7 @@ contract ZKSyncHashTester {
   bytes public data;
   bytes32 public storedHash;
   bool public trickSimulation = false;
+  bool public failSimulation = false;
   address public forwarder;
 
   constructor() {
@@ -55,6 +57,10 @@ contract ZKSyncHashTester {
     trickSimulation = _trickSimulation;
   }
 
+  function setFailSimulation(bool _failSimulation) external {
+    failSimulation = _failSimulation;
+  }
+
   function setData(bytes calldata _data) external {
     data = _data;
   }
@@ -64,6 +70,10 @@ contract ZKSyncHashTester {
   }
 
   function performUpkeep(bytes calldata performData) external {
+    if (failSimulation && tx.origin == address(0)) {
+      revert SimulationFailed();
+    }
+
     if (trickSimulation && tx.origin == address(0)) {
       return;
     }

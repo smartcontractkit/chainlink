@@ -21,6 +21,8 @@ import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4
 import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
 import {IWrappedNative} from "../../interfaces/v2_3/IWrappedNative.sol";
 import {WETH9} from "./WETH9.sol";
+import {MockGasBoundCaller} from "../../../tests/MockGasBoundCaller.sol";
+import {MockZKSyncSystemContext} from "../../../tests/MockZKSyncSystemContext.sol";
 
 /**
  * @title BaseTest provides basic test setup procedures and dependencies for use by other
@@ -52,6 +54,8 @@ contract BaseTest is Test {
   MockUpkeep internal TARGET1;
   MockUpkeep internal TARGET2;
   Transcoder internal TRANSCODER;
+  MockGasBoundCaller internal GAS_BOUND_CALLER;
+  MockZKSyncSystemContext internal SYSTEM_CONTEXT;
 
   // roles
   address internal constant OWNER = address(uint160(uint256(keccak256("OWNER"))));
@@ -90,6 +94,14 @@ contract BaseTest is Test {
     TARGET2 = new MockUpkeep();
 
     TRANSCODER = new Transcoder();
+    GAS_BOUND_CALLER = new MockGasBoundCaller();
+    SYSTEM_CONTEXT = new MockZKSyncSystemContext();
+
+    bytes memory callerCode = address(GAS_BOUND_CALLER).code;
+    vm.etch(0xc706EC7dfA5D4Dc87f29f859094165E8290530f5, callerCode);
+
+    bytes memory contextCode = address(SYSTEM_CONTEXT).code;
+    vm.etch(0x000000000000000000000000000000000000800B, contextCode);
 
     SIGNERS[0] = vm.addr(SIGNING_KEY0); //0xc110458BE52CaA6bB68E66969C3218A4D9Db0211
     SIGNERS[1] = vm.addr(SIGNING_KEY1); //0xc110a19c08f1da7F5FfB281dc93630923F8E3719

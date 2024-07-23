@@ -161,8 +161,8 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
       ) = _performUpkeep(upkeepTransmitInfo[i].upkeep.forwarder, report.gasLimits[i], report.performDatas[i]);
 
       // for testing purpose, remove later
-      uint256 gasPerPubdataByte = SYSTEM_CONTEXT_CONTRACT.gasPerPubdataByte();
-      emit GasDetails(upkeepTransmitInfo[i].l1GasUsed, gasPerPubdataByte, upkeepTransmitInfo[i].gasUsed, tx.gasprice);
+      //      uint256 gasPerPubdataByte = SYSTEM_CONTEXT_CONTRACT.gasPerPubdataByte();
+      //      emit GasDetails(upkeepTransmitInfo[i].l1GasUsed, gasPerPubdataByte, upkeepTransmitInfo[i].gasUsed, tx.gasprice);
 
       // Deduct that gasUsed by upkeep from our running counter
       gasOverhead -= upkeepTransmitInfo[i].gasUsed;
@@ -217,12 +217,12 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
           );
 
           // for testing purpose, remove later
-          emit UpkeepPerformedDetails(
-            receipt.gasChargeInBillingToken + receipt.premiumInBillingToken,
-            upkeepTransmitInfo[i].gasUsed,
-            gasOverhead,
-            upkeepTransmitInfo[i].l1GasUsed
-          );
+          //          emit UpkeepPerformedDetails(
+          //            receipt.gasChargeInBillingToken + receipt.premiumInBillingToken,
+          //            upkeepTransmitInfo[i].gasUsed,
+          //            gasOverhead,
+          //            upkeepTransmitInfo[i].l1GasUsed
+          //          );
         }
       }
     }
