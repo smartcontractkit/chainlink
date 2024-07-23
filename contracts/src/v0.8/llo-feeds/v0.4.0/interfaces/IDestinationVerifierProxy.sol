@@ -5,7 +5,6 @@ import {Common} from "../../libraries/Common.sol";
 import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
 
 interface IDestinationVerifierProxy {
-
   /**
    * @notice Verifies that the data encoded has been signed
    * correctly by routing to the correct verifier, and bills the user if applicable.

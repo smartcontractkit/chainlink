@@ -60,13 +60,18 @@ interface IDestinationFeeManager is IERC165 {
   function setVerifier(address verifier) external;
 
   /**
-  * @notice Handles fees for a report from the subscriber and manages rewards
+   * @notice Handles fees for a report from the subscriber and manages rewards
    * @param poolId pool id of the pool to pay into
    * @param payload report to process the fee for
    * @param parameterPayload fee payload
    * @param subscriber address of the fee will be applied
    */
-  function processFee(bytes32 poolId, bytes calldata payload, bytes calldata parameterPayload, address subscriber) external payable;
+  function processFee(
+    bytes32 poolId,
+    bytes calldata payload,
+    bytes calldata parameterPayload,
+    address subscriber
+  ) external payable;
 
   /**
    * @notice Processes the fees for each report in the payload, billing the subscriber and paying the reward manager
