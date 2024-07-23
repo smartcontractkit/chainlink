@@ -35,22 +35,11 @@ type LogTriggersOptions struct {
 	// Finality depth is the number of blocks to wait before considering a block final.
 	FinalityDepth int64
 
-	// TODO: (AUTO-9355) remove once we have a single version
-	BufferVersion BufferVersion
 	// LogLimit is the minimum number of logs to process in a single block window.
 	LogLimit uint32
 	// BlockRate determines the block window for log processing.
 	BlockRate uint32
 }
-
-// BufferVersion is the version of the log buffer.
-// TODO: (AUTO-9355) remove once we have a single version
-type BufferVersion string
-
-const (
-	BufferVersionDefault BufferVersion = ""
-	BufferVersionV1      BufferVersion = "v1"
-)
 
 func NewOptions(finalityDepth int64, chainID *big.Int) LogTriggersOptions {
 	opts := new(LogTriggersOptions)
