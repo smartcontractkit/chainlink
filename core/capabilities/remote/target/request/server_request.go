@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -129,7 +131,8 @@ func (e *ServerRequest) executeRequest(ctx context.Context, payload []byte) erro
 
 	// NOTE working on the assumption that the capability will only ever return one response from its channel
 	capResponse := <-capResponseCh
-	responsePayload, err := pb.MarshalCapabilityResponse(capResponse)
+
+	responsePayload, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityResponseToProto(capResponse))
 	if err != nil {
 		return fmt.Errorf("failed to marshal capability response: %w", err)
 	}
