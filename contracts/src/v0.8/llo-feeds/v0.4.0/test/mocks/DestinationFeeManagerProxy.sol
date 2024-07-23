@@ -10,7 +10,11 @@ contract DestinationFeeManagerProxy {
     i_feeManager.processFee{value: msg.value}(poolId, payload, parameterPayload, msg.sender);
   }
 
-  function processFeeBulk(bytes32[] memory poolIds, bytes[] calldata payloads, bytes calldata parameterPayload) public payable {
+  function processFeeBulk(
+    bytes32[] memory poolIds,
+    bytes[] calldata payloads,
+    bytes calldata parameterPayload
+  ) public payable {
     i_feeManager.processFeeBulk{value: msg.value}(poolIds, payloads, parameterPayload, msg.sender);
   }
 

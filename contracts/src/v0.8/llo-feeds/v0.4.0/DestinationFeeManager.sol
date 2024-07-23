@@ -218,7 +218,9 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     //poolIDs are mapped to payloads, so they should be the same length
     if (poolIds.length != payloads.length) revert PoolIdMismatch();
 
-    IDestinationFeeManager.FeeAndReward[] memory feesAndRewards = new IDestinationFeeManager.FeeAndReward[](payloads.length);
+    IDestinationFeeManager.FeeAndReward[] memory feesAndRewards = new IDestinationFeeManager.FeeAndReward[](
+      payloads.length
+    );
 
     //keep track of the number of fees to prevent over initialising the FeePayment array within _convertToLinkAndNativeFees
     uint256 numberOfLinkFees;
@@ -418,8 +420,12 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     uint256 numberOfLinkFees,
     uint256 numberOfNativeFees
   ) internal {
-    IDestinationRewardManager.FeePayment[] memory linkRewards = new IDestinationRewardManager.FeePayment[](numberOfLinkFees);
-    IDestinationRewardManager.FeePayment[] memory nativeFeeLinkRewards = new IDestinationRewardManager.FeePayment[](numberOfNativeFees);
+    IDestinationRewardManager.FeePayment[] memory linkRewards = new IDestinationRewardManager.FeePayment[](
+      numberOfLinkFees
+    );
+    IDestinationRewardManager.FeePayment[] memory nativeFeeLinkRewards = new IDestinationRewardManager.FeePayment[](
+      numberOfNativeFees
+    );
 
     uint256 totalNativeFee;
     uint256 totalNativeFeeLinkValue;

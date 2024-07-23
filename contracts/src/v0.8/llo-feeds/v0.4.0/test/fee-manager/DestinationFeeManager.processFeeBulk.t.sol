@@ -77,12 +77,10 @@ contract FeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
       payloads[i] = payload;
     }
 
-
     bytes32[] memory poolIds = new bytes32[](NUMBER_OF_REPORTS);
     for (uint256 i = 0; i < NUMBER_OF_REPORTS; ++i) {
       poolIds[i] = DEFAULT_CONFIG_DIGEST;
     }
-
 
     processFee(poolIds, payloads, USER, address(native), DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS * 2);
 
@@ -214,7 +212,7 @@ contract FeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
 
     vm.expectEmit();
 
-   bytes32[] memory poolIds = new bytes32[](5);
+    bytes32[] memory poolIds = new bytes32[](5);
     for (uint256 i = 0; i < 5; ++i) {
       poolIds[i] = payments[i].poolId;
     }
@@ -227,7 +225,6 @@ contract FeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
     assertEq(getNativeBalance(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 5);
     assertEq(getLinkBalance(USER), DEFAULT_LINK_MINT_QUANTITY);
   }
-
 
   function test_processPoolIdsPassedMismatched() public {
     mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS + 1);
@@ -245,14 +242,11 @@ contract FeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
       poolIds[i] = DEFAULT_CONFIG_DIGEST;
     }
 
-
     vm.expectRevert(POOLID_MISMATCH_ERROR);
     processFee(poolIds, payloads, USER, address(native), DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS * 2);
-
   }
 
-
-function test_poolIdsCannotBeZeroAddress()public {
+  function test_poolIdsCannotBeZeroAddress() public {
     mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS + 1);
 
     bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
@@ -262,7 +256,6 @@ function test_poolIdsCannotBeZeroAddress()public {
       payloads[i] = payload;
     }
 
-
     bytes32[] memory poolIds = new bytes32[](NUMBER_OF_REPORTS);
     for (uint256 i = 0; i < NUMBER_OF_REPORTS; ++i) {
       poolIds[i] = DEFAULT_CONFIG_DIGEST;
@@ -271,9 +264,9 @@ function test_poolIdsCannotBeZeroAddress()public {
     poolIds[2] = 0x000;
     vm.expectRevert(INVALID_ADDRESS_ERROR);
     processFee(poolIds, payloads, USER, address(native), DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS * 2);
-}
+  }
 
-function test_rewardsAreCorrectlySentToEachAssociatedPoolWhenVerifyingInBulk() public {
+  function test_rewardsAreCorrectlySentToEachAssociatedPoolWhenVerifyingInBulk() public {
     bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     bytes[] memory payloads = new bytes[](NUMBER_OF_REPORTS);
@@ -282,10 +275,10 @@ function test_rewardsAreCorrectlySentToEachAssociatedPoolWhenVerifyingInBulk() p
     }
 
     bytes32[] memory poolIds = new bytes32[](NUMBER_OF_REPORTS);
-    for (uint256 i = 0; i < NUMBER_OF_REPORTS -1 ; ++i) {
+    for (uint256 i = 0; i < NUMBER_OF_REPORTS - 1; ++i) {
       poolIds[i] = DEFAULT_CONFIG_DIGEST;
     }
-    poolIds[NUMBER_OF_REPORTS-1] = DEFAULT_CONFIG_DIGEST2;
+    poolIds[NUMBER_OF_REPORTS - 1] = DEFAULT_CONFIG_DIGEST2;
 
     approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS, USER);
 
@@ -305,17 +298,13 @@ function test_rewardsAreCorrectlySentToEachAssociatedPoolWhenVerifyingInBulk() p
     assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY);
     assertEq(PROXY.balance, DEFAULT_NATIVE_MINT_QUANTITY);
 
-     // Checking each pool got the correct rewards
-      uint256 expectedRewards = DEFAULT_REPORT_LINK_FEE * (NUMBER_OF_REPORTS - 1);
-      uint256 poolRewards = rewardManager.s_totalRewardRecipientFees(DEFAULT_CONFIG_DIGEST);
-      assertEq(poolRewards, expectedRewards);
+    // Checking each pool got the correct rewards
+    uint256 expectedRewards = DEFAULT_REPORT_LINK_FEE * (NUMBER_OF_REPORTS - 1);
+    uint256 poolRewards = rewardManager.s_totalRewardRecipientFees(DEFAULT_CONFIG_DIGEST);
+    assertEq(poolRewards, expectedRewards);
 
-      expectedRewards = DEFAULT_REPORT_LINK_FEE;
-      poolRewards = rewardManager.s_totalRewardRecipientFees(DEFAULT_CONFIG_DIGEST2);
-      assertEq(poolRewards, expectedRewards);
-    
-}
-
-
- 
+    expectedRewards = DEFAULT_REPORT_LINK_FEE;
+    poolRewards = rewardManager.s_totalRewardRecipientFees(DEFAULT_CONFIG_DIGEST2);
+    assertEq(poolRewards, expectedRewards);
+  }
 }

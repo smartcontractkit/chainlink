@@ -100,7 +100,12 @@ contract BaseDestinationFeeManagerTest is Test {
 
     feeManagerProxy = new DestinationFeeManagerProxy();
     rewardManager = new DestinationRewardManager(address(link));
-    feeManager = new DestinationFeeManager(address(link), address(native), address(feeManagerProxy), address(rewardManager));
+    feeManager = new DestinationFeeManager(
+      address(link),
+      address(native),
+      address(feeManagerProxy),
+      address(rewardManager)
+    );
 
     //link the feeManager to the proxy
     feeManagerProxy.setDestinationFeeManager(feeManager);
@@ -307,7 +312,13 @@ contract BaseDestinationFeeManagerTest is Test {
     changePrank(originalAddr);
   }
 
-  function processFee(bytes32 poolId, bytes memory payload, address subscriber, address feeAddress, uint256 wrappedNativeValue) public {
+  function processFee(
+    bytes32 poolId,
+    bytes memory payload,
+    address subscriber,
+    address feeAddress,
+    uint256 wrappedNativeValue
+  ) public {
     //record the current address and switch to the recipient
     address originalAddr = msg.sender;
     changePrank(subscriber);

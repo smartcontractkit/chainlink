@@ -5,7 +5,6 @@ import {BaseTest} from "./BaseDestinationVerifierTest.t.sol";
 import {DestinationVerifier} from "../../../v0.4.0/DestinationVerifier.sol";
 
 contract VerifierSetAccessControllerTest is BaseTest {
-
   event FeeManagerSet(address oldFeeManager, address newFeeManager);
 
   function test_revertsIfCalledByNonOwner() public {
@@ -23,9 +22,7 @@ contract VerifierSetAccessControllerTest is BaseTest {
   }
 
   function test_setFeeManagerWhichDoesntHonourInterface() public {
- vm.expectRevert(
-            abi.encodeWithSelector(DestinationVerifier.FeeManagerInvalid.selector));
+    vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.FeeManagerInvalid.selector));
     s_verifier.setFeeManager(address(rewardManager));
   }
-
 }

@@ -4,8 +4,7 @@ pragma solidity 0.8.19;
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {Common} from "../../libraries/Common.sol";
 
-interface IDestinationVerifier{
-
+interface IDestinationVerifier {
   /**
    * @notice Verifies that the data encoded has been signed correctly using the signatures included within the payload.
    * @param signedReport The encoded data to be verified.
@@ -14,7 +13,11 @@ interface IDestinationVerifier{
    * @dev Verification is typically only done through the proxy contract so we can't just use msg.sender.
    * @return verifierResponse The encoded verified response.
    */
-  function verify(bytes calldata signedReport, bytes calldata parameterPayload, address sender) external payable returns (bytes memory verifierResponse);
+  function verify(
+    bytes calldata signedReport,
+    bytes calldata parameterPayload,
+    address sender
+  ) external payable returns (bytes memory verifierResponse);
 
   /**
    * @notice Bulk verifies that the data encoded has been signed correctly using the signatures included within the payload.
@@ -24,7 +27,11 @@ interface IDestinationVerifier{
    * @dev Verification is typically only done through the proxy contract so we can't just use msg.sender.
    * @return verifiedReports The encoded verified responses.
    */
-  function verifyBulk(bytes[] calldata signedReports, bytes calldata parameterPayload, address sender) external payable returns (bytes[] memory verifiedReports);
+  function verifyBulk(
+    bytes[] calldata signedReports,
+    bytes calldata parameterPayload,
+    address sender
+  ) external payable returns (bytes[] memory verifiedReports);
 
   /**
    * @notice Returns the current access controller
@@ -33,9 +40,9 @@ interface IDestinationVerifier{
   function getAccessController() external view returns (address);
 
   /**
-    * @notice Returns the current fee manager
-    * @return The address of the fee manager
-    */
+   * @notice Returns the current fee manager
+   * @return The address of the fee manager
+   */
   function getFeeManager() external view returns (address);
 
   /**
@@ -51,21 +58,21 @@ interface IDestinationVerifier{
   ) external;
 
   /**
-    * @notice Sets the fee manager address
-    * @param _feeManager The address of the fee manager
-    */
+   * @notice Sets the fee manager address
+   * @param _feeManager The address of the fee manager
+   */
   function setFeeManager(address _feeManager) external;
 
   /**
-    * @notice Sets the access controller address
-    * @param _accessController The address of the access controller
-    */
+   * @notice Sets the access controller address
+   * @param _accessController The address of the access controller
+   */
   function setAccessController(address _accessController) external;
 
   /**
-    * @notice Updates the config active status
-    * @param DONConfigID The ID of the config to update
-    * @param isActive The new config active status
-    */
+   * @notice Updates the config active status
+   * @param DONConfigID The ID of the config to update
+   * @param isActive The new config active status
+   */
   function setConfigActive(uint256 DONConfigID, bool isActive) external;
 }
