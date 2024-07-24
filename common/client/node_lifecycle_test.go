@@ -997,7 +997,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		})
 	})
 
-	// creates RPC mock with all cals necessary to create heads subscription that won't produce any events
+	// creates RPC mock with all calls necessary to create heads subscription that won't produce any events
 	newRPCWithNoOpHeads := func(t *testing.T, chainID types.ID) *mockNodeClient[types.ID, Head] {
 		rpc := newMockNodeClient[types.ID, Head](t)
 		rpc.On("Dial", mock.Anything).Return(nil).Once()
