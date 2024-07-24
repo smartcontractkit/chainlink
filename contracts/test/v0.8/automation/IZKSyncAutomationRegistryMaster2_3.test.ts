@@ -39,11 +39,11 @@ describe('IZKSyncAutomationRegistryMaster2_3', () => {
         'src/v0.8/automation/interfaces/v2_3/IZKSyncAutomationRegistryMaster2_3.sol',
       )
       .toString()
-      .slice(17, 83) // checksum located at top of file
+      .slice(36, 102) // checksum located at the second line of the file
     assert.equal(
       checksum,
       knownChecksum,
-      'master interface is out of date - regenerate using "pnpm ts-node ./scripts/generate-zksync-automation-master-interface2_3.ts"',
+      'master interface is out of date - regenerate using "pnpm ts-node ./scripts/generate-zksync-automation-master-interface-2_3.ts"',
     )
   })
 
