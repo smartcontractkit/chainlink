@@ -203,7 +203,7 @@ func Test_LogsAreProperlyMarkedAsFinalized(t *testing.T) {
 			assert.Len(t, logs, len(inputLogs))
 
 			for _, log := range logs {
-				assert.Equal(t, slices.Contains(tt.expectedFinalizedSequenceNr, log.SequenceNumber), log.Finalized)
+				assert.Equal(t, slices.Contains(tt.expectedFinalizedSequenceNr, log.SequenceNumber), log.IsFinalized())
 			}
 		})
 	}

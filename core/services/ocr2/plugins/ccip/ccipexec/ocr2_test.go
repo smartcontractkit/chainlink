@@ -943,10 +943,13 @@ func TestExecutionReportingPlugin_getReportsWithSendRequests(t *testing.T) {
 				Return(tc.onchainEvents, nil).Maybe()
 			p.onRampReader = sourceReader
 
-			finalized := make(map[uint64]bool)
+			finalized := make(map[uint64]cciptypes.FinalizedStatus)
 			for _, r := range tc.expReports {
 				for _, s := range r.sendRequestsWithMeta {
-					finalized[s.SequenceNumber] = s.Finalized
+					finalized[s.SequenceNumber] = cciptypes.FinalizedStatusNotFinalized
+					if s.Finalized {
+						finalized[s.SequenceNumber] = cciptypes.FinalizedStatusFinalized
+					}
 				}
 			}
 
@@ -955,7 +958,9 @@ func TestExecutionReportingPlugin_getReportsWithSendRequests(t *testing.T) {
 				executedEvents = append(executedEvents, cciptypes.ExecutionStateChangedWithTxMeta{
 					ExecutionStateChanged: cciptypes.ExecutionStateChanged{
 						SequenceNumber: executedSeqNum,
-						Finalized:      finalized[executedSeqNum],
+					},
+					TxMeta: cciptypes.TxMeta{
+						Finalized: finalized[executedSeqNum],
 					},
 				})
 			}

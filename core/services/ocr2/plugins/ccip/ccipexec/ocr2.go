@@ -247,7 +247,7 @@ func (r *ExecutionReportingPlugin) getExecutedSeqNrsInRange(ctx context.Context,
 	}
 	executedMp := make(map[uint64]bool, len(stateChanges))
 	for _, stateChange := range stateChanges {
-		executedMp[stateChange.SequenceNumber] = stateChange.Finalized
+		executedMp[stateChange.SequenceNumber] = stateChange.TxMeta.IsFinalized()
 	}
 	return executedMp, nil
 }
