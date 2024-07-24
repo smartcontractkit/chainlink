@@ -555,7 +555,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			return node.State() == nodeStateUnreachable
 		})
 	})
-	t.Run("when no new heads received for threshold but we are the last live node, forcibly stays alive", func(t *testing.T) {
+	t.Run("when no new finalized heads received for threshold but we are the last live node, forcibly stays alive", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
@@ -997,7 +997,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		})
 	})
 
-	// creates RPC mock with all cals necessary to create heads subscription that won't produce any events
+	// creates RPC mock with all calls necessary to create heads subscription that won't produce any events
 	newRPCWithNoOpHeads := func(t *testing.T, chainID types.ID) *mockNodeClient[types.ID, Head] {
 		rpc := newMockNodeClient[types.ID, Head](t)
 		rpc.On("Dial", mock.Anything).Return(nil).Once()
