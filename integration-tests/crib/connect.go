@@ -38,6 +38,42 @@ func setSethConfig(cfg tc.TestConfig, netWSURL string, netHTTPURL string) {
 	cfg.Seth.EphemeralAddrs = ptr.Ptr(int64(0))
 }
 
+type ConnectionVars struct {
+	IngressSuffix string
+	Namespace     string
+	Network       string
+	Nodes         int
+}
+
+func ReadCRIBVars() (*ConnectionVars, error) {
+	ingressSuffix := os.Getenv("K8S_STAGING_INGRESS_SUFFIX")
+	if ingressSuffix == "" {
+		return nil, errors.New("K8S_STAGING_INGRESS_SUFFIX must be set to connect to k8s ingresses")
+	}
+	cribNamespace := os.Getenv("CRIB_NAMESPACE")
+	if cribNamespace == "" {
+		return nil, errors.New("CRIB_NAMESPACE must be set to connect")
+	}
+	cribNetwork := os.Getenv("CRIB_NETWORK")
+	if cribNetwork == "" {
+		return nil, errors.New("CRIB_NETWORK must be set to connect, only 'geth' is supported for now")
+	}
+	cribNodes := os.Getenv("CRIB_NODES")
+	nodes, err := strconv.Atoi(cribNodes)
+	if err != nil {
+		return nil, errors.New("CRIB_NODES must be a number, 5-19 nodes")
+	}
+	if nodes < 2 {
+		return nil, fmt.Errorf("not enough chainlink nodes, need at least 2")
+	}
+	return &ConnectionVars{
+		IngressSuffix: ingressSuffix,
+		Namespace:     cribNamespace,
+		Network:       cribNetwork,
+		Nodes:         nodes,
+	}, nil
+}
+
 // ConnectRemote connects to a local environment, see https://github.com/smartcontractkit/crib/tree/main/core
 // connects to default CRIB network if simulated = true
 func ConnectRemote() (
@@ -47,39 +83,26 @@ func ConnectRemote() (
 	[]*client.ChainlinkK8sClient,
 	error,
 ) {
-	ingressSuffix := os.Getenv("K8S_STAGING_INGRESS_SUFFIX")
-	if ingressSuffix == "" {
-		return nil, nil, nil, nil, errors.New("K8S_STAGING_INGRESS_SUFFIX must be set to connect to k8s ingresses")
-	}
-	cribNamespace := os.Getenv("CRIB_NAMESPACE")
-	if cribNamespace == "" {
-		return nil, nil, nil, nil, errors.New("CRIB_NAMESPACE must be set to connect")
-	}
-	cribNetwork := os.Getenv("CRIB_NETWORK")
-	if cribNetwork == "" {
-		return nil, nil, nil, nil, errors.New("CRIB_NETWORK must be set to connect, only 'geth' is supported for now")
-	}
-	cribNodes := os.Getenv("CRIB_NODES")
-	nodes, err := strconv.Atoi(cribNodes)
+	vars, err := ReadCRIBVars()
 	if err != nil {
-		return nil, nil, nil, nil, errors.New("CRIB_NODES must be a number, 5-19 nodes")
+		return nil, nil, nil, nil, err
 	}
 	config, err := tc.GetConfig([]string{"CRIB"}, tc.OCR)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	if nodes < 2 {
-		return nil, nil, nil, nil, fmt.Errorf("not enough chainlink nodes, need at least 2, TOML key: [CRIB.nodes]")
+	if vars.Nodes < 2 {
+		return nil, nil, nil, nil, fmt.Errorf("not enough chainlink nodes, need at least 2")
 	}
-	mockserverURL := fmt.Sprintf(mockserverCRIBTemplate, cribNamespace, ingressSuffix)
+	mockserverURL := fmt.Sprintf(mockserverCRIBTemplate, vars.Namespace, vars.IngressSuffix)
 	var sethClient *seth.Client
-	switch cribNetwork {
+	switch vars.Network {
 	case "geth":
-		netWSURL := fmt.Sprintf(ingressNetworkWSURLTemplate, cribNamespace, ingressSuffix)
-		netHTTPURL := fmt.Sprintf(ingressNetworkHTTPURLTemplate, cribNamespace, ingressSuffix)
+		netWSURL := fmt.Sprintf(ingressNetworkWSURLTemplate, vars.Namespace, vars.IngressSuffix)
+		netHTTPURL := fmt.Sprintf(ingressNetworkHTTPURLTemplate, vars.Namespace, vars.IngressSuffix)
 		setSethConfig(config, netWSURL, netHTTPURL)
 		net := blockchain.EVMNetwork{
-			Name:                 cribNetwork,
+			Name:                 vars.Network,
 			Simulated:            true,
 			SupportsEIP1559:      true,
 			ClientImplementation: blockchain.EthereumClientImplementation,
@@ -104,23 +127,23 @@ func ConnectRemote() (
 	// bootstrap node
 	clClients := make([]*client.ChainlinkK8sClient, 0)
 	c, err := client.NewChainlinkK8sClient(&client.ChainlinkConfig{
-		URL:        fmt.Sprintf("https://%s-node%d%s", cribNamespace, 1, ingressSuffix),
+		URL:        fmt.Sprintf("https://%s-node%d%s", vars.Namespace, 1, vars.IngressSuffix),
 		Email:      client.CLNodeTestEmail,
 		InternalIP: fmt.Sprintf(internalNodeDNSTemplate, 1),
 		Password:   client.CLNodeTestPassword,
-	}, fmt.Sprintf(internalNodeDNSTemplate, 1), cribNamespace)
+	}, fmt.Sprintf(internalNodeDNSTemplate, 1), vars.Namespace)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 	clClients = append(clClients, c)
 	// all the other nodes, indices of nodes in CRIB starts with 1
-	for i := 2; i <= nodes; i++ {
+	for i := 2; i <= vars.Nodes; i++ {
 		cl, err := client.NewChainlinkK8sClient(&client.ChainlinkConfig{
-			URL:        fmt.Sprintf("https://%s-node%d%s", cribNamespace, i, ingressSuffix),
+			URL:        fmt.Sprintf("https://%s-node%d%s", vars.Namespace, i, vars.IngressSuffix),
 			Email:      client.CLNodeTestEmail,
 			InternalIP: fmt.Sprintf(internalNodeDNSTemplate, i),
 			Password:   client.CLNodeTestPassword,
-		}, fmt.Sprintf(internalNodeDNSTemplate, i), cribNamespace)
+		}, fmt.Sprintf(internalNodeDNSTemplate, i), vars.Namespace)
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
