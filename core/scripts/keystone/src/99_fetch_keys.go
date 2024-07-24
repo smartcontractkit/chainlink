@@ -14,6 +14,7 @@ import (
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -118,6 +119,19 @@ func mustFetchNodesKeys(chainID int64, nodes []*node) (nca []NodeKeys) {
 		helpers.PanicErr(err)
 		output.Reset()
 
+		keysClient := cmd.NewAptosKeysClient(client)
+		err = keysClient.ListKeys(&cli.Context{
+			App: app,
+		})
+		helpers.PanicErr(err)
+		var aptosKeys []presenters.AptosKeyResource
+		helpers.PanicErr(json.Unmarshal(output.Bytes(), &aptosKeys))
+		if len(aptosKeys) != 1 {
+			helpers.PanicErr(errors.New("node must have single aptos key"))
+		}
+		aptosAccount := aptosKeys[0].Account
+		output.Reset()
+
 		err = client.ListP2PKeys(&cli.Context{
 			App: app,
 		})
@@ -130,18 +144,20 @@ func mustFetchNodesKeys(chainID int64, nodes []*node) (nca []NodeKeys) {
 		peerID := strings.TrimPrefix(p2pKeys[0].PeerID, "p2p_")
 		output.Reset()
 
+		chainType := "evm"
+
 		var ocr2Bundles []ocr2Bundle
 		err = client.ListOCR2KeyBundles(&cli.Context{
 			App: app,
 		})
 		helpers.PanicErr(err)
 		helpers.PanicErr(json.Unmarshal(output.Bytes(), &ocr2Bundles))
-		ocr2BundleIndex := findEvmOCR2Bundle(ocr2Bundles)
+		ocr2BundleIndex := findOCR2Bundle(ocr2Bundles, chainType)
 		output.Reset()
 		if ocr2BundleIndex == -1 {
 			fmt.Println("WARN: node does not have EVM OCR2 bundle, creating one")
 			fs := flag.NewFlagSet("test", flag.ContinueOnError)
-			err = fs.Parse([]string{"evm"})
+			err = fs.Parse([]string{chainType})
 			helpers.PanicErr(err)
 			ocr2CreateBundleCtx := cli.NewContext(app, fs, nil)
 			err = client.CreateOCR2KeyBundle(ocr2CreateBundleCtx)
@@ -153,11 +169,34 @@ func mustFetchNodesKeys(chainID int64, nodes []*node) (nca []NodeKeys) {
 			})
 			helpers.PanicErr(err)
 			helpers.PanicErr(json.Unmarshal(output.Bytes(), &ocr2Bundles))
-			ocr2BundleIndex = findEvmOCR2Bundle(ocr2Bundles)
+			ocr2BundleIndex = findOCR2Bundle(ocr2Bundles, chainType)
 			output.Reset()
 		}
 
 		ocr2Bndl := ocr2Bundles[ocr2BundleIndex]
+
+		aptosBundleIndex := findOCR2Bundle(ocr2Bundles, "aptos")
+		if aptosBundleIndex == -1 {
+			chainType2 := "aptos"
+			fmt.Println("WARN: node does not have Aptos OCR2 bundle, creating one")
+			fs := flag.NewFlagSet("test", flag.ContinueOnError)
+			err = fs.Parse([]string{chainType2})
+			helpers.PanicErr(err)
+			ocr2CreateBundleCtx := cli.NewContext(app, fs, nil)
+			err = client.CreateOCR2KeyBundle(ocr2CreateBundleCtx)
+			helpers.PanicErr(err)
+			output.Reset()
+
+			err = client.ListOCR2KeyBundles(&cli.Context{
+				App: app,
+			})
+			helpers.PanicErr(err)
+			helpers.PanicErr(json.Unmarshal(output.Bytes(), &ocr2Bundles))
+			aptosBundleIndex = findOCR2Bundle(ocr2Bundles, chainType2)
+			output.Reset()
+		}
+
+		aptosBundle := ocr2Bundles[aptosBundleIndex]
 
 		err = client.ListCSAKeys(&cli.Context{
 			App: app,
@@ -171,11 +210,13 @@ func mustFetchNodesKeys(chainID int64, nodes []*node) (nca []NodeKeys) {
 
 		nc := NodeKeys{
 			EthAddress:            ethAddress,
+			AptosAccount:          aptosAccount,
 			P2PPeerID:             peerID,
+			AptosBundleID:         aptosBundle.ID,
 			OCR2BundleID:          ocr2Bndl.ID,
-			OCR2ConfigPublicKey:   strings.TrimPrefix(ocr2Bndl.ConfigPublicKey, "ocr2cfg_evm_"),
-			OCR2OnchainPublicKey:  strings.TrimPrefix(ocr2Bndl.OnchainPublicKey, "ocr2on_evm_"),
-			OCR2OffchainPublicKey: strings.TrimPrefix(ocr2Bndl.OffchainPublicKey, "ocr2off_evm_"),
+			OCR2ConfigPublicKey:   strings.TrimPrefix(ocr2Bndl.ConfigPublicKey, fmt.Sprintf("ocr2cfg_%s_", chainType)),
+			OCR2OnchainPublicKey:  strings.TrimPrefix(ocr2Bndl.OnchainPublicKey, fmt.Sprintf("ocr2on_%s_", chainType)),
+			OCR2OffchainPublicKey: strings.TrimPrefix(ocr2Bndl.OffchainPublicKey, fmt.Sprintf("ocr2off_%s_", chainType)),
 			CSAPublicKey:          csaPubKey,
 		}
 
@@ -191,9 +232,9 @@ func findFirstCSAPublicKey(csaKeyResources []presenters.CSAKeyResource) (string,
 	return "", errors.New("did not find any CSA Key Resources")
 }
 
-func findEvmOCR2Bundle(ocr2Bundles []ocr2Bundle) int {
+func findOCR2Bundle(ocr2Bundles []ocr2Bundle, chainType string) int {
 	for i, b := range ocr2Bundles {
-		if b.ChainType == "evm" {
+		if b.ChainType == chainType {
 			return i
 		}
 	}
