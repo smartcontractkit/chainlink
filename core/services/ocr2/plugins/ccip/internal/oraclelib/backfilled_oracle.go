@@ -141,7 +141,12 @@ type ChainAgnosticBackFilledOracle struct {
 }
 
 func (r *ChainAgnosticBackFilledOracle) Start(ctx context.Context) error {
-	ctx, cancelFn := context.WithCancel(context.Background())
+	go r.run(ctx)
+	return nil
+}
+
+func (r *ChainAgnosticBackFilledOracle) run(ctx context.Context) {
+	ctx, cancelFn := context.WithCancel(ctx)
 	r.cancelFn = cancelFn
 	var err error
 	var errMu sync.Mutex
@@ -175,7 +180,6 @@ func (r *ChainAgnosticBackFilledOracle) Start(ctx context.Context) error {
 	}
 	if err := ctx.Err(); err != nil {
 		r.lggr.Errorw("context already cancelled", "err", err)
-		return nil
 	}
 	// Start oracle with all logs present from dstStartBlock on dst and
 	// all logs from srcStartBlock on src.
@@ -185,7 +189,6 @@ func (r *ChainAgnosticBackFilledOracle) Start(ctx context.Context) error {
 	} else {
 		r.oracleStarted.Store(true)
 	}
-	return nil
 }
 
 func (r *ChainAgnosticBackFilledOracle) Close() error {
