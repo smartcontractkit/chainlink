@@ -429,7 +429,7 @@ type RPCRawClient struct {
 }
 
 func NewRPCRawClient(url string) *RPCRawClient {
-	isDebug := os.Getenv("DEBUG_RESTY") == "true"
+	isDebug := os.Getenv("RESTY_DEBUG") == "true"
 	restyClient := resty.New().SetDebug(isDebug).SetBaseURL(url)
 	return &RPCRawClient{
 		resty: restyClient,

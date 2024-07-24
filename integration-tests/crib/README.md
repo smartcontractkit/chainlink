@@ -12,8 +12,11 @@ devspace deploy --debug --profile local-dev-simulated-core-ocr1
 
 ## Run the tests
 ```shell
-CRIB_NAMESPACE=crib-oh-my-crib
-CRIB_NETWORK=geth # only "geth" is supported for now
-CRIB_NODES=5 # min 5 nodes
+export CRIB_NAMESPACE=crib-oh-my-crib
+export CRIB_NETWORK=geth # only "geth" is supported for now
+export CRIB_NODES=5 # min 5 nodes
+#export SETH_LOG_LEVEL=info # these two can be enabled to debug connection issues
+#export RESTY_DEBUG=true
+export GAP_URL=https://localhost:8080/primary # only applicable in CI
 go test -v -run TestCRIB
 ```
