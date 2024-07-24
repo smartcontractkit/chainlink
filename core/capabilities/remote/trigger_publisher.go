@@ -21,7 +21,7 @@ import (
 //
 // TriggerPublisher communicates with corresponding TriggerSubscribers on remote nodes.
 type triggerPublisher struct {
-	config        *types.RemoteTriggerConfig
+	config        capabilities.RemoteTriggerConfig
 	underlying    commoncap.TriggerCapability
 	capInfo       commoncap.CapabilityInfo
 	capDonInfo    commoncap.DON
@@ -48,7 +48,7 @@ type pubRegState struct {
 var _ types.Receiver = &triggerPublisher{}
 var _ services.Service = &triggerPublisher{}
 
-func NewTriggerPublisher(config *types.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
+func NewTriggerPublisher(config capabilities.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
 	config.ApplyDefaults()
 	return &triggerPublisher{
 		config:        config,
@@ -97,7 +97,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		}
 		// NOTE: require 2F+1 by default, introduce different strategies later (KS-76)
 		minRequired := uint32(2*callerDon.F + 1)
-		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-int64(p.config.RegistrationExpiryMs), false)
+		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-p.config.RegistrationExpiry.Milliseconds(), false)
 		if !ready {
 			p.lggr.Debugw("not ready to aggregate yet", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "minRequired", minRequired)
 			return
@@ -133,7 +133,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 
 func (p *triggerPublisher) registrationCleanupLoop() {
 	defer p.wg.Done()
-	ticker := time.NewTicker(time.Duration(p.config.RegistrationExpiryMs) * time.Millisecond)
+	ticker := time.NewTicker(p.config.RegistrationExpiry)
 	defer ticker.Stop()
 	for {
 		select {
@@ -144,7 +144,7 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 			p.mu.RLock()
 			for key, req := range p.registrations {
 				callerDon := p.workflowDONs[key.callerDonId]
-				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-int64(p.config.RegistrationExpiryMs), false)
+				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-p.config.RegistrationExpiry.Milliseconds(), false)
 				if !ready {
 					p.lggr.Infow("trigger registration expired", "capabilityId", p.capInfo.ID, "callerDonID", key.callerDonId, "workflowId", key.workflowId)
 					ctx, cancel := p.stopCh.NewCtx()
