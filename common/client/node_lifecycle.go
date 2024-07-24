@@ -478,7 +478,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncIssue) {
 		case <-time.After(zombieNodeCheckInterval(noNewHeadsTimeoutThreshold)):
 			if n.poolInfoProvider != nil {
 				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 1 {
-					lggr.Critical("RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state", "syncIssues", syncIssues)
+					lggr.Criticalw("RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state", "syncIssues", syncIssues)
 					n.declareInSync()
 					return
 				}
