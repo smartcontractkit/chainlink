@@ -206,6 +206,7 @@ jobs:
             ./output.txt
             ./output-short.txt
             ./race.*
+            ./race_coverage.txt
             ./coverage.txt
             ./postgres_logs.txt
       - name: Notify Slack
@@ -346,7 +347,7 @@ jobs:
         shell: bash
         run: |
           echo "sonarqube_tests_report_paths=$(find go_core_tests_logs -name output.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
-          echo "sonarqube_coverage_report_paths=$(find go_core_tests_logs -name coverage.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
+          echo "sonarqube_coverage_report_paths=$(find go_*_logs -name *coverage.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
           echo "sonarqube_lint_report_paths=$(find golangci-lint-report -name golangci-lint-report.xml | paste -sd "," -)" >> $GITHUB_OUTPUT
 
       - name: Check SonarQube Report Paths
