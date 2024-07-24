@@ -274,6 +274,11 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
             revert NonUniqueSignatures();
         }
 
+        //activation time cannot be in the future
+        if(activationTime > block.timestamp) {
+            revert BadVerification();
+        }
+
         // Sort signers to ensure DONConfigID is deterministic
         Common._quickSort(signers, 0, int256(signers.length - 1));
 
