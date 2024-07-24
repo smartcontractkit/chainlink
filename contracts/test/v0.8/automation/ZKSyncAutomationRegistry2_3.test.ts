@@ -3016,16 +3016,16 @@ describe('ZKSyncAutomationRegistry2_3', () => {
       )
     })
 
-    // it.only('returns false and gasUsed when perform fails', async () => {
-    //   await mock.setCanPerform(false)
-    //
-    //   const simulatePerformResult = await registry
-    //     .connect(zeroAddress)
-    //     .callStatic.simulatePerformUpkeep(upkeepId, '0x')
-    //
-    //   assert.equal(simulatePerformResult.success, false)
-    //   assert.isTrue(simulatePerformResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
-    // })
+    it('returns false and gasUsed when perform fails', async () => {
+      await mock.setCanPerform(false)
+
+      const simulatePerformResult = await registry
+        .connect(zeroAddress)
+        .callStatic.simulatePerformUpkeep(upkeepId, '0x')
+
+      assert.equal(simulatePerformResult.success, false)
+      assert.isTrue(simulatePerformResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+    })
 
     it('returns true, gasUsed, and performGas when perform succeeds', async () => {
       await mock.setCanPerform(true)
