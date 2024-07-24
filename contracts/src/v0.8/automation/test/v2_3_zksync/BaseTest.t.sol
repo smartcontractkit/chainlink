@@ -20,7 +20,7 @@ import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
 import {IWrappedNative} from "../../interfaces/v2_3/IWrappedNative.sol";
-import {WETH9} from "./WETH9.sol";
+import {WETH9} from "../WETH9.sol";
 import {MockGasBoundCaller} from "../../../tests/MockGasBoundCaller.sol";
 import {MockZKSyncSystemContext} from "../../../tests/MockZKSyncSystemContext.sol";
 
