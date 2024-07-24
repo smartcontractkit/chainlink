@@ -34,7 +34,7 @@ func (g *deployWorkflows) Run(args []string) {
 	fmt.Println("Deploying workflows")
 
 	// use a separate list
-	nodes := downloadNodeAPICredentials(".cache/NodeList.local.txt")
+	nodes := downloadNodeAPICredentialsDefault()
 
 	if _, err = os.Stat(*workflowFile); err != nil {
 		PanicErr(errors.New("toml file does not exist"))
