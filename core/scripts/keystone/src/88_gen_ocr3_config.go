@@ -47,6 +47,8 @@ type OracleConfigSource struct {
 
 type NodeKeys struct {
 	EthAddress            string
+	AptosAccount          string
+	AptosBundleID         string
 	P2PPeerID             string // p2p_<key>
 	OCR2BundleID          string // used only in job spec
 	OCR2OnchainPublicKey  string // ocr2on_evm_<key>
