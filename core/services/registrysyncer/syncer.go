@@ -32,6 +32,7 @@ type Syncer interface {
 }
 
 type registrySyncer struct {
+	services.StateMachine
 	stopCh          services.StopChan
 	launchers       []Launcher
 	reader          types.ContractReader
@@ -117,12 +118,14 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer contractReaderFa
 }
 
 func (s *registrySyncer) Start(ctx context.Context) error {
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-		s.syncLoop()
-	}()
-	return nil
+	return s.StartOnce("testAsyncMessageBroker", func() error {
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
+			s.syncLoop()
+		}()
+		return nil
+	})
 }
 
 func (s *registrySyncer) syncLoop() {
@@ -315,9 +318,11 @@ func (s *registrySyncer) AddLauncher(launchers ...Launcher) {
 }
 
 func (s *registrySyncer) Close() error {
-	close(s.stopCh)
-	s.wg.Wait()
-	return nil
+	return s.StopOnce("testAsyncMessageBroker", func() error {
+		close(s.stopCh)
+		s.wg.Wait()
+		return nil
+	})
 }
 
 func (s *registrySyncer) Ready() error {

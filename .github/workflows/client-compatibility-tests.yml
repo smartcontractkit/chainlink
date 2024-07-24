@@ -54,6 +54,12 @@ jobs:
       - name: Check for go.mod changes
         id: changes
         run: |
+          if [ -z "${{ github.base_ref }}" ]; then
+            echo "No base branch found, this should not happen in a PR or MQ. Please reach out to the Test Tooling team."
+            echo "Github even that triggered the workflow: $GITHUB_EVENT_NAME"
+            echo "Github ref that triggered the workflow: $GITHUB_REF"
+            exit 1
+          fi
           git fetch origin ${{ github.base_ref }}
           # if no match is found then grep exits with code 1, but if there is a match it exits with code 0
           # this will return a match if there are any changes on that corresponding line, for example if spacing was changed
