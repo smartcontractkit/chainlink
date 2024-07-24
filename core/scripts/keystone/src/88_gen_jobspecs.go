@@ -82,6 +82,7 @@ func replacePlaceholders(
 		l = strings.Replace(l, "{{ ocr_config_contract_address }}", contractAddress, 1)
 		l = strings.Replace(l, "{{ transmitter_id }}", node.EthAddress, 1)
 		l = strings.Replace(l, "{{ ocr_key_bundle_id }}", node.OCR2BundleID, 1)
+		l = strings.Replace(l, "{{ aptos_key_bundle_id }}", node.AptosBundleID, 1)
 		l = strings.Replace(l, "{{ bootstrapper_p2p_id }}", bootstrapper, 1)
 		output = append(output, l)
 	}
