@@ -140,13 +140,13 @@ type ChainAgnosticBackFilledOracle struct {
 	cancelFn      context.CancelFunc
 }
 
-func (r *ChainAgnosticBackFilledOracle) Start(ctx context.Context) error {
-	go r.run(ctx)
+func (r *ChainAgnosticBackFilledOracle) Start(_ context.Context) error {
+	go r.run()
 	return nil
 }
 
-func (r *ChainAgnosticBackFilledOracle) run(ctx context.Context) {
-	ctx, cancelFn := context.WithCancel(ctx)
+func (r *ChainAgnosticBackFilledOracle) run() {
+	ctx, cancelFn := context.WithCancel(context.Background())
 	r.cancelFn = cancelFn
 	var err error
 	var errMu sync.Mutex
