@@ -39,7 +39,6 @@ telemetryType = "plugin"
 [onchainSigningStrategy]
 strategyName = 'single-chain'
 [onchainSigningStrategy.config]
-publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
 
 --------------------------------
 Oracle 1:
@@ -69,7 +68,6 @@ telemetryType = "plugin"
 [onchainSigningStrategy]
 strategyName = 'single-chain'
 [onchainSigningStrategy.config]
-publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
 
 --------------------------------
 Oracle 2:
@@ -99,7 +97,6 @@ telemetryType = "plugin"
 [onchainSigningStrategy]
 strategyName = 'single-chain'
 [onchainSigningStrategy.config]
-publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
 
 --------------------------------
 Oracle 3:
@@ -129,7 +126,6 @@ telemetryType = "plugin"
 [onchainSigningStrategy]
 strategyName = 'single-chain'
 [onchainSigningStrategy.config]
-publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
 
 
 ---
