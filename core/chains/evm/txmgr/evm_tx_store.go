@@ -44,6 +44,10 @@ type EvmTxStore interface {
 	// redeclare TxStore for mockery
 	txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
 	TxStoreWebApi
+
+	// methods used solely in EVM components
+	FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []Receipt, err error)
+	UpdateTxesFinalized(ctx context.Context, etxIDs []int64, chainId *big.Int) error
 }
 
 // TxStoreWebApi encapsulates the methods that are not used by the txmgr and only used by the various web controllers, readers, or evm specific components
@@ -1933,7 +1937,7 @@ AND evm_chain_id = $3`, limit, timeThreshold, chainID.String())
 			return count, pkgerrors.Wrap(err, "ReapTxes failed to get rows affected")
 		}
 		if rowsAffected > 0 {
-			o.logger.Criticalf("%d confirmed transactions were reaped before being marked as finalized. This should never happen unless the threshold is set too low or the transactions were lost track of", rowsAffected)
+			o.logger.Errorf("%d confirmed transactions were reaped before being marked as finalized. This should never happen unless the threshold is set too low or the transactions were lost track of", rowsAffected)
 		}
 		return uint(rowsAffected), err
 	}, batchSize)
@@ -2070,39 +2074,37 @@ func (o *evmTxStore) UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context,
 }
 
 // Returns all confirmed transactions with receipt block nums older than or equal to the finalized block number
-func (o *evmTxStore) FindTxesToMarkFinalized(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (txes []*Tx, err error) {
+func (o *evmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []Receipt, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
-		sql := `SELECT evm.txes.* FROM evm.txes
-		INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
-		INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
+		sql := `SELECT evm.receipts.* FROM evm.receipts
+		INNER JOIN evm.tx_attempts ON evm.tx_attempts.hash = evm.receipts.tx_hash
+		INNER JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id
 		WHERE evm.txes.state = 'confirmed' AND evm.receipts.block_number <= $1 AND evm.txes.evm_chain_id = $2`
-		var dbEtxs []DbEthTx
-		err = o.q.SelectContext(ctx, &dbEtxs, sql, finalizedBlockNum, chainID.String())
-		if len(dbEtxs) == 0 {
+		var dbReceipts []dbReceipt
+		err = o.q.SelectContext(ctx, &dbReceipts, sql, finalizedBlockNum, chainID.String())
+		if len(dbReceipts) == 0 {
 			return nil
 		}
-		txes = make([]*Tx, len(dbEtxs))
-		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
-		if err = orm.LoadTxesAttempts(ctx, txes); err != nil {
-			return pkgerrors.Wrapf(err, "failed to load evm.tx_attempts for evm.tx")
-		}
-		if err = orm.loadEthTxesAttemptsReceipts(ctx, txes); err != nil {
-			return pkgerrors.Wrapf(err, "failed to load evm.receipts for evm.tx")
-		}
+		receipts = dbReceipts
 		return nil
 	})
-	return txes, err
+	return receipts, err
 }
 
-// Mark transactions provided as finalized
-func (o *evmTxStore) UpdateTxesFinalized(ctx context.Context, etxIDs []int64, chainId *big.Int) error {
+// Mark transactions corresponding to receipt IDs as finalized
+func (o *evmTxStore) UpdateTxesFinalized(ctx context.Context, receiptIDs []int64, chainId *big.Int) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
-	sql := "UPDATE evm.txes SET state = 'finalized' WHERE id = ANY($1) AND evm_chain_id = $2"
-	_, err := o.q.ExecContext(ctx, sql, pq.Array(etxIDs), chainId.String())
+	sql := `
+UPDATE evm.txes SET state = 'finalized' WHERE evm.txes.evm_chain_id = $1 AND evm.txes.id IN (SELECT evm.txes.id FROM evm.txes
+	INNER JOIN evm.tx_attempts ON evm.tx_attempts.eth_tx_id = evm.txes.id
+	INNER JOIN evm.receipts ON evm.receipts.tx_hash = evm.tx_attempts.hash
+	WHERE evm.receipts.id = ANY($2))
+`
+	_, err := o.q.ExecContext(ctx, sql, chainId.String(), pq.Array(receiptIDs))
 	return err
 }

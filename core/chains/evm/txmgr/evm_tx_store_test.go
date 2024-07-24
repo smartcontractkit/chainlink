@@ -1866,9 +1866,9 @@ func TestORM_FindTransactionsByState(t *testing.T) {
 	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 4, finalizedBlockNum)
 	mustInsertFatalErrorEthTx(t, txStore, fromAddress)
 
-	txs, err := txStore.FindTxesToMarkFinalized(ctx, finalizedBlockNum, testutils.FixtureChainID)
+	receipts, err := txStore.FindConfirmedTxesReceipts(ctx, finalizedBlockNum, testutils.FixtureChainID)
 	require.NoError(t, err)
-	require.Len(t, txs, 1)
+	require.Len(t, receipts, 1)
 }
 
 func TestORM_UpdateTxesFinalized(t *testing.T) {
@@ -1893,7 +1893,11 @@ func TestORM_UpdateTxesFinalized(t *testing.T) {
 		}
 		err := txStore.InsertTx(ctx, tx)
 		require.NoError(t, err)
-		err = txStore.UpdateTxesFinalized(ctx, []int64{tx.ID}, testutils.FixtureChainID)
+		attempt := newBroadcastLegacyEthTxAttempt(t, tx.ID)
+		err = txStore.InsertTxAttempt(ctx, &attempt)
+		require.NoError(t, err)
+		receipt := mustInsertEthReceipt(t, txStore, 100, testutils.NewHash(), attempt.Hash)
+		err = txStore.UpdateTxesFinalized(ctx, []int64{receipt.ID}, testutils.FixtureChainID)
 		require.NoError(t, err)
 		etx, err := txStore.FindTxWithAttempts(ctx, tx.ID)
 		require.NoError(t, err)

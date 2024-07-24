@@ -338,17 +338,6 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetChecker() (Transm
 	return t, nil
 }
 
-// Returns the transaction's receipt if one exists, otherwise returns nil
-func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetReceipt() ChainReceipt[TX_HASH, BLOCK_HASH] {
-	for _, attempt := range e.TxAttempts {
-		if len(attempt.Receipts) > 0 {
-			// Transaction will only have one receipt
-			return attempt.Receipts[0]
-		}
-	}
-	return nil
-}
-
 // Provides error classification to external components in a chain agnostic way
 // Only exposes the error types that could be set in the transaction error field
 type ErrorClassifier interface {
