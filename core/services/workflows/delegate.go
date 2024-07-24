@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -15,10 +14,9 @@ import (
 )
 
 type Delegate struct {
-	registry     core.CapabilitiesRegistry
-	logger       logger.Logger
-	getLocalNode func(ctx context.Context) (capabilities.Node, error)
-	store        store.Store
+	registry core.CapabilitiesRegistry
+	logger   logger.Logger
+	store    store.Store
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -44,7 +42,6 @@ func (d *Delegate) ServicesForSpec(_ context.Context, spec job.Job) ([]job.Servi
 		WorkflowOwner: spec.WorkflowSpec.WorkflowOwner,
 		WorkflowName:  spec.WorkflowSpec.WorkflowName,
 		Registry:      d.registry,
-		GetLocalNode:  d.getLocalNode,
 		Store:         d.store,
 	}
 	engine, err := NewEngine(cfg)
@@ -58,9 +55,8 @@ func NewDelegate(
 	logger logger.Logger,
 	registry core.CapabilitiesRegistry,
 	store store.Store,
-	getLocalNode func(ctx context.Context) (capabilities.Node, error),
 ) *Delegate {
-	return &Delegate{logger: logger, registry: registry, store: store, getLocalNode: getLocalNode}
+	return &Delegate{logger: logger, registry: registry, store: store}
 }
 
 func ValidatedWorkflowJobSpec(tomlString string) (job.Job, error) {

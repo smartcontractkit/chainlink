@@ -2,10 +2,12 @@ package remote_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -61,11 +63,11 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	})
 
 	// register trigger
-	config := &remotetypes.RemoteTriggerConfig{
-		RegistrationRefreshMs:   100,
-		RegistrationExpiryMs:    100,
+	config := capabilities.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
-		MessageExpiryMs:         100_000,
+		MessageExpiry:           100 * time.Second,
 	}
 	subscriber := remote.NewTriggerSubscriber(config, capInfo, capDonInfo, workflowDonInfo, dispatcher, nil, lggr)
 	require.NoError(t, subscriber.Start(ctx))

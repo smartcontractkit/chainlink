@@ -79,6 +79,7 @@ func (w *workflow) dependents(start string) ([]*step, error) {
 type step struct {
 	workflows.Vertex
 	capability capabilities.CallbackCapability
+	info       capabilities.CapabilityInfo
 	config     *values.Map
 }
 
