@@ -98,10 +98,10 @@ func (s syncIssue) string() string {
 	switch s {
 	case syncIssueNotInSyncWithPool:
 		return "NotInSyncWithRPCPool"
-	case syncIssueHeadIsNotIncreasing:
-		return "HeadIsNotIncreasing"
-	case syncIssueFinalizedHeadIsNotIncreasing:
-		return "FinalizedHeadIsNotIncreasing"
+	case syncIssueNoNewHead:
+		return "NoNewHead"
+	case syncIssueNoNewFinalizedHead:
+		return "NoNewFinalizedHead"
 	default:
 		return fmt.Sprintf("syncIssue(%d)", s)
 	}
@@ -109,7 +109,7 @@ func (s syncIssue) string() string {
 
 const (
 	syncIssueNotInSyncWithPool syncIssue = 1 << iota
-	syncIssueHeadIsNotIncreasing
-	syncIssueFinalizedHeadIsNotIncreasing
+	syncIssueNoNewHead
+	syncIssueNoNewFinalizedHead
 	syncIssueLen
 )

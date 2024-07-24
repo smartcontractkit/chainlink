@@ -33,12 +33,12 @@ func TestSyncIssue(t *testing.T) {
 				ExpectedStr: "synced",
 			},
 			{
-				Mask:        syncIssueNotInSyncWithPool | syncIssueHeadIsNotIncreasing,
-				ExpectedStr: "NotInSyncWithRPCPool,HeadIsNotIncreasing",
+				Mask:        syncIssueNotInSyncWithPool | syncIssueNoNewHead,
+				ExpectedStr: "NotInSyncWithRPCPool,NoNewHead",
 			},
 			{
-				Mask:        syncIssueNotInSyncWithPool | syncIssueHeadIsNotIncreasing | syncIssueFinalizedHeadIsNotIncreasing,
-				ExpectedStr: "NotInSyncWithRPCPool,HeadIsNotIncreasing,FinalizedHeadIsNotIncreasing",
+				Mask:        syncIssueNotInSyncWithPool | syncIssueNoNewHead | syncIssueNoNewFinalizedHead,
+				ExpectedStr: "NotInSyncWithRPCPool,NoNewHead,NoNewFinalizedHead",
 			},
 		}
 		for _, testCase := range testCases {

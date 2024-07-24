@@ -215,7 +215,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 					continue
 				}
 			}
-			n.declareOutOfSync(syncIssueHeadIsNotIncreasing)
+			n.declareOutOfSync(syncIssueNoNewHead)
 			return
 		case latestFinalized, open := <-finalizedHeadsSub.Heads:
 			if !open {
@@ -241,7 +241,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 					continue
 				}
 			}
-			n.declareOutOfSync(syncIssueFinalizedHeadIsNotIncreasing)
+			n.declareOutOfSync(syncIssueNoNewFinalizedHead)
 			return
 		case <-finalizedHeadsSub.Errors:
 			lggr.Errorw("Finalized heads subscription was terminated", "err", err)
@@ -463,7 +463,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncIssue) {
 				continue
 			}
 
-			syncIssues &= ^syncIssueHeadIsNotIncreasing
+			syncIssues &= ^syncIssueNoNewHead
 			if outOfSync, _ := n.isOutOfSyncWithPool(localHighestChainInfo); !outOfSync {
 				syncIssues &= ^syncIssueNotInSyncWithPool
 			} else {
@@ -488,8 +488,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncIssue) {
 			n.declareUnreachable()
 			return
 		case <-headsSub.NoNewHeads:
-			// we are not resetting the timer, as there is no need to add syncIssueHeadIsNotIncreasing until it's removed on new head.
-			syncIssues |= syncIssueHeadIsNotIncreasing
+			// we are not resetting the timer, as there is no need to add syncIssueNoNewHead until it's removed on new head.
+			syncIssues |= syncIssueNoNewHead
 			lggr.Debugw(fmt.Sprintf("No new heads received for %s. Node stays out-of-sync due to sync issues: %s", noNewHeadsTimeoutThreshold, syncIssues))
 		case latestFinalized, open := <-finalizedHeadsSub.Heads:
 			if !open {
@@ -507,7 +507,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncIssue) {
 				continue
 			}
 
-			syncIssues &= ^syncIssueFinalizedHeadIsNotIncreasing
+			syncIssues &= ^syncIssueNoNewFinalizedHead
 			if noNewFinalizedBlocksTimeoutThreshold > 0 {
 				finalizedHeadsSub.ResetTimer(noNewFinalizedBlocksTimeoutThreshold)
 			}
@@ -518,8 +518,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncIssue) {
 			n.declareUnreachable()
 			return
 		case <-finalizedHeadsSub.NoNewHeads:
-			// we are not resetting the timer, as there is no need to add syncIssueFinalizedHeadIsNotIncreasing until it's removed on new finalized head.
-			syncIssues |= syncIssueFinalizedHeadIsNotIncreasing
+			// we are not resetting the timer, as there is no need to add syncIssueNoNewFinalizedHead until it's removed on new finalized head.
+			syncIssues |= syncIssueNoNewFinalizedHead
 			lggr.Debugw(fmt.Sprintf("No new finalized heads received for %s. Node stays out-of-sync due to sync issues: %s", noNewFinalizedBlocksTimeoutThreshold, syncIssues))
 		}
 	}
