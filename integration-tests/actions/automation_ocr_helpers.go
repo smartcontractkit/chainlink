@@ -12,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/seth"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
@@ -41,8 +43,12 @@ func BuildAutoOCR2ConfigVars(
 	deltaStage time.Duration,
 	chainModuleAddress common.Address,
 	reorgProtectionEnabled bool,
+	linkToken contracts.LinkToken,
+	wethToken contracts.WETHToken,
+	ethUSDFeed contracts.MockETHUSDFeed,
+
 ) (contracts.OCRv2Config, error) {
-	return BuildAutoOCR2ConfigVarsWithKeyIndex(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0, common.Address{}, chainModuleAddress, reorgProtectionEnabled)
+	return BuildAutoOCR2ConfigVarsWithKeyIndex(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0, common.Address{}, chainModuleAddress, reorgProtectionEnabled, linkToken, wethToken, ethUSDFeed)
 }
 
 func BuildAutoOCR2ConfigVarsWithKeyIndex(
@@ -55,6 +61,9 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	registryOwnerAddress common.Address,
 	chainModuleAddress common.Address,
 	reorgProtectionEnabled bool,
+	linkToken contracts.LinkToken,
+	wethToken contracts.WETHToken,
+	ethUSDFeed contracts.MockETHUSDFeed,
 ) (contracts.OCRv2Config, error) {
 	l := logging.GetTestLogger(t)
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndex(chainlinkNodes, keyIndex)
@@ -69,7 +78,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	var offchainConfigVersion uint64
 	var offchainConfig []byte
 
-	if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_1 || registryConfig.RegistryVersion == ethereum.RegistryVersion_2_2 {
+	if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_1 || registryConfig.RegistryVersion == ethereum.RegistryVersion_2_2 || registryConfig.RegistryVersion == ethereum.RegistryVersion_2_3 {
 		offC, err = json.Marshal(ocr2keepers30config.OffchainConfig{
 			TargetProbability:    "0.999",
 			TargetInRounds:       1,
@@ -169,6 +178,31 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 		ocrConfig.TypedOnchainConfig21 = registryConfig.Create21OnchainConfig(registrar, registryOwnerAddress)
 	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_2 {
 		ocrConfig.TypedOnchainConfig22 = registryConfig.Create22OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
+	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_3 {
+		ocrConfig.TypedOnchainConfig23 = registryConfig.Create23OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
+		ocrConfig.BillingTokens = []common.Address{
+			common.HexToAddress(linkToken.Address()),
+			common.HexToAddress(wethToken.Address()),
+		}
+
+		ocrConfig.BillingConfigs = []i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23BillingConfig{
+			{
+				GasFeePPB:         100,
+				FlatFeeMilliCents: big.NewInt(500),
+				PriceFeed:         common.HexToAddress(ethUSDFeed.Address()), // ETH/USD feed and LINK/USD feed are the same
+				Decimals:          18,
+				FallbackPrice:     big.NewInt(1000),
+				MinSpend:          big.NewInt(200),
+			},
+			{
+				GasFeePPB:         100,
+				FlatFeeMilliCents: big.NewInt(500),
+				PriceFeed:         common.HexToAddress(ethUSDFeed.Address()), // ETH/USD feed and LINK/USD feed are the same
+				Decimals:          18,
+				FallbackPrice:     big.NewInt(1000),
+				MinSpend:          big.NewInt(200),
+			},
+		}
 	}
 
 	l.Info().Msg("Done building OCR config")
@@ -191,14 +225,14 @@ func CreateOCRKeeperJobs(
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 
 	var contractVersion string
-	if registryVersion == ethereum.RegistryVersion_2_2 {
+	if registryVersion == ethereum.RegistryVersion_2_2 || registryVersion == ethereum.RegistryVersion_2_3 {
 		contractVersion = "v2.1+"
 	} else if registryVersion == ethereum.RegistryVersion_2_1 {
 		contractVersion = "v2.1"
 	} else if registryVersion == ethereum.RegistryVersion_2_0 {
 		contractVersion = "v2.0"
 	} else {
-		require.FailNow(t, fmt.Sprintf("v2.0, v2.1, and v2.2 are the only supported versions, but got something else: %v (iota)", registryVersion))
+		require.FailNow(t, fmt.Sprintf("v2.0, v2.1, v2.2 and v2.3 are the only supported versions, but got something else: %v (iota)", registryVersion))
 	}
 
 	bootstrapSpec := &client.OCR2TaskJobSpec{
@@ -265,9 +299,11 @@ func DeployAutoOCRRegistryAndRegistrar(
 	registryVersion ethereum.KeeperRegistryVersion,
 	registrySettings contracts.KeeperRegistrySettings,
 	linkToken contracts.LinkToken,
+	wethToken contracts.WETHToken,
+	ethUSDFeed contracts.MockETHUSDFeed,
 ) (contracts.KeeperRegistry, contracts.KeeperRegistrar) {
-	registry := deployRegistry(t, client, registryVersion, registrySettings, linkToken)
-	registrar := deployRegistrar(t, client, registryVersion, registry, linkToken)
+	registry := deployRegistry(t, client, registryVersion, registrySettings, linkToken, wethToken, ethUSDFeed)
+	registrar := deployRegistrar(t, client, registryVersion, registry, linkToken, wethToken)
 
 	return registry, registrar
 }
@@ -379,12 +415,14 @@ func deployRegistrar(
 	registryVersion ethereum.KeeperRegistryVersion,
 	registry contracts.KeeperRegistry,
 	linkToken contracts.LinkToken,
+	wethToken contracts.WETHToken,
 ) contracts.KeeperRegistrar {
 	registrarSettings := contracts.KeeperRegistrarSettings{
 		AutoApproveConfigType: 2,
 		AutoApproveMaxAllowed: math.MaxUint16,
 		RegistryAddr:          registry.Address(),
 		MinLinkJuels:          big.NewInt(0),
+		WETHTokenAddr:         wethToken.Address(),
 	}
 	registrar, err := contracts.DeployKeeperRegistrar(client, registryVersion, linkToken.Address(), registrarSettings)
 	require.NoError(t, err, "Deploying KeeperRegistrar contract shouldn't fail")
@@ -397,6 +435,8 @@ func deployRegistry(
 	registryVersion ethereum.KeeperRegistryVersion,
 	registrySettings contracts.KeeperRegistrySettings,
 	linkToken contracts.LinkToken,
+	wethToken contracts.WETHToken,
+	ethUSDFeed contracts.MockETHUSDFeed,
 ) contracts.KeeperRegistry {
 	ef, err := contracts.DeployMockETHLINKFeed(client, big.NewInt(2e18))
 	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
@@ -410,13 +450,16 @@ func deployRegistry(
 	registry, err := contracts.DeployKeeperRegistry(
 		client,
 		&contracts.KeeperRegistryOpts{
-			RegistryVersion: registryVersion,
-			LinkAddr:        linkToken.Address(),
-			ETHFeedAddr:     ef.Address(),
-			GasFeedAddr:     gf.Address(),
-			TranscoderAddr:  transcoder.Address(),
-			RegistrarAddr:   ZeroAddress.Hex(),
-			Settings:        registrySettings,
+			RegistryVersion:   registryVersion,
+			LinkAddr:          linkToken.Address(),
+			ETHFeedAddr:       ef.Address(),
+			GasFeedAddr:       gf.Address(),
+			TranscoderAddr:    transcoder.Address(),
+			RegistrarAddr:     ZeroAddress.Hex(),
+			Settings:          registrySettings,
+			LinkUSDFeedAddr:   ethUSDFeed.Address(),
+			NativeUSDFeedAddr: ethUSDFeed.Address(),
+			WrappedNativeAddr: wethToken.Address(),
 		},
 	)
 	require.NoError(t, err, "Deploying KeeperRegistry contract shouldn't fail")

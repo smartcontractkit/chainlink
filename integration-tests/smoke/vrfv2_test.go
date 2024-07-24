@@ -900,22 +900,25 @@ func TestVRFV2WithBHS(t *testing.T) {
 		wg.Add(1)
 		//Wait at least 256 blocks
 		_, err = actions.WaitForBlockNumberToBe(
+			testcontext.Get(t),
 			randRequestBlockNumber+uint64(257),
 			sethClient,
 			&wg,
+			nil,
 			configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration,
-			t,
 			l,
 		)
 		wg.Wait()
 		require.NoError(t, err)
 		err = vrfv2.FundSubscriptions(big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink), vrfContracts.LinkToken, vrfContracts.CoordinatorV2, subIDsForBHS)
 		require.NoError(t, err, "error funding subscriptions")
-		randomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2.WaitForRandomWordsFulfilledEvent(
-			contracts.RandomWordsFulfilledEventFilter{
-				RequestIds: []*big.Int{randomWordsRequestedEvent.RequestId},
-				Timeout:    configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
-			},
+
+		randomWordsFulfilledEvent, err := vrfv2.WaitRandomWordsFulfilledEvent(
+			vrfContracts.CoordinatorV2,
+			randomWordsRequestedEvent.RequestId,
+			randomWordsRequestedEvent.Raw.BlockNumber,
+			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
+			l,
 		)
 		require.NoError(t, err, "error waiting for randomness fulfilled event")
 		vrfcommon.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2, randomWordsFulfilledEvent, false, 0)
@@ -970,11 +973,12 @@ func TestVRFV2WithBHS(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		_, err = actions.WaitForBlockNumberToBe(
+			testcontext.Get(t),
 			randRequestBlockNumber+uint64(*configCopy.VRFv2.General.BHSJobWaitBlocks),
 			sethClient,
 			&wg,
+			nil,
 			time.Minute*1,
-			t,
 			l,
 		)
 		wg.Wait()
@@ -1187,11 +1191,12 @@ func TestVRFV2NodeReorg(t *testing.T) {
 		// For context - when performing debug_setHead on geth simulated chain and therefore rewinding chain to a previous block,
 		//then tx that was mined after reorg will not appear in canonical chain contrary to real world scenario
 		//Hence, we only verify that VRF node will not generate fulfillment for the reorged fork request
-		_, err = vrfContracts.CoordinatorV2.WaitForRandomWordsFulfilledEvent(
-			contracts.RandomWordsFulfilledEventFilter{
-				RequestIds: []*big.Int{randomWordsRequestedEvent.RequestId},
-				Timeout:    time.Second * 10,
-			},
+		_, err = vrfv2.WaitRandomWordsFulfilledEvent(
+			vrfContracts.CoordinatorV2,
+			randomWordsRequestedEvent.RequestId,
+			randomWordsRequestedEvent.Raw.BlockNumber,
+			time.Second*10,
+			l,
 		)
 		require.Error(t, err, "fulfillment should not be generated for the request which was made on reorged fork on Simulated Chain")
 	})

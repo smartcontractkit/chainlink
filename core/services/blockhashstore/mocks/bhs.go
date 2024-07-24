@@ -15,6 +15,14 @@ type BHS struct {
 	mock.Mock
 }
 
+type BHS_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *BHS) EXPECT() *BHS_Expecter {
+	return &BHS_Expecter{mock: &_m.Mock}
+}
+
 // IsStored provides a mock function with given fields: ctx, blockNum
 func (_m *BHS) IsStored(ctx context.Context, blockNum uint64) (bool, error) {
 	ret := _m.Called(ctx, blockNum)
@@ -43,6 +51,35 @@ func (_m *BHS) IsStored(ctx context.Context, blockNum uint64) (bool, error) {
 	return r0, r1
 }
 
+// BHS_IsStored_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsStored'
+type BHS_IsStored_Call struct {
+	*mock.Call
+}
+
+// IsStored is a helper method to define mock.On call
+//   - ctx context.Context
+//   - blockNum uint64
+func (_e *BHS_Expecter) IsStored(ctx interface{}, blockNum interface{}) *BHS_IsStored_Call {
+	return &BHS_IsStored_Call{Call: _e.mock.On("IsStored", ctx, blockNum)}
+}
+
+func (_c *BHS_IsStored_Call) Run(run func(ctx context.Context, blockNum uint64)) *BHS_IsStored_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uint64))
+	})
+	return _c
+}
+
+func (_c *BHS_IsStored_Call) Return(_a0 bool, _a1 error) *BHS_IsStored_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *BHS_IsStored_Call) RunAndReturn(run func(context.Context, uint64) (bool, error)) *BHS_IsStored_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // IsTrusted provides a mock function with given fields:
 func (_m *BHS) IsTrusted() bool {
 	ret := _m.Called()
@@ -59,6 +96,33 @@ func (_m *BHS) IsTrusted() bool {
 	}
 
 	return r0
+}
+
+// BHS_IsTrusted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsTrusted'
+type BHS_IsTrusted_Call struct {
+	*mock.Call
+}
+
+// IsTrusted is a helper method to define mock.On call
+func (_e *BHS_Expecter) IsTrusted() *BHS_IsTrusted_Call {
+	return &BHS_IsTrusted_Call{Call: _e.mock.On("IsTrusted")}
+}
+
+func (_c *BHS_IsTrusted_Call) Run(run func()) *BHS_IsTrusted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *BHS_IsTrusted_Call) Return(_a0 bool) *BHS_IsTrusted_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *BHS_IsTrusted_Call) RunAndReturn(run func() bool) *BHS_IsTrusted_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Store provides a mock function with given fields: ctx, blockNum
@@ -79,6 +143,35 @@ func (_m *BHS) Store(ctx context.Context, blockNum uint64) error {
 	return r0
 }
 
+// BHS_Store_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Store'
+type BHS_Store_Call struct {
+	*mock.Call
+}
+
+// Store is a helper method to define mock.On call
+//   - ctx context.Context
+//   - blockNum uint64
+func (_e *BHS_Expecter) Store(ctx interface{}, blockNum interface{}) *BHS_Store_Call {
+	return &BHS_Store_Call{Call: _e.mock.On("Store", ctx, blockNum)}
+}
+
+func (_c *BHS_Store_Call) Run(run func(ctx context.Context, blockNum uint64)) *BHS_Store_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uint64))
+	})
+	return _c
+}
+
+func (_c *BHS_Store_Call) Return(_a0 error) *BHS_Store_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *BHS_Store_Call) RunAndReturn(run func(context.Context, uint64) error) *BHS_Store_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // StoreEarliest provides a mock function with given fields: ctx
 func (_m *BHS) StoreEarliest(ctx context.Context) error {
 	ret := _m.Called(ctx)
@@ -97,6 +190,34 @@ func (_m *BHS) StoreEarliest(ctx context.Context) error {
 	return r0
 }
 
+// BHS_StoreEarliest_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StoreEarliest'
+type BHS_StoreEarliest_Call struct {
+	*mock.Call
+}
+
+// StoreEarliest is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *BHS_Expecter) StoreEarliest(ctx interface{}) *BHS_StoreEarliest_Call {
+	return &BHS_StoreEarliest_Call{Call: _e.mock.On("StoreEarliest", ctx)}
+}
+
+func (_c *BHS_StoreEarliest_Call) Run(run func(ctx context.Context)) *BHS_StoreEarliest_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *BHS_StoreEarliest_Call) Return(_a0 error) *BHS_StoreEarliest_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *BHS_StoreEarliest_Call) RunAndReturn(run func(context.Context) error) *BHS_StoreEarliest_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // StoreTrusted provides a mock function with given fields: ctx, blockNums, blockhashes, recentBlock, recentBlockhash
 func (_m *BHS) StoreTrusted(ctx context.Context, blockNums []uint64, blockhashes []common.Hash, recentBlock uint64, recentBlockhash common.Hash) error {
 	ret := _m.Called(ctx, blockNums, blockhashes, recentBlock, recentBlockhash)
@@ -113,6 +234,38 @@ func (_m *BHS) StoreTrusted(ctx context.Context, blockNums []uint64, blockhashes
 	}
 
 	return r0
+}
+
+// BHS_StoreTrusted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StoreTrusted'
+type BHS_StoreTrusted_Call struct {
+	*mock.Call
+}
+
+// StoreTrusted is a helper method to define mock.On call
+//   - ctx context.Context
+//   - blockNums []uint64
+//   - blockhashes []common.Hash
+//   - recentBlock uint64
+//   - recentBlockhash common.Hash
+func (_e *BHS_Expecter) StoreTrusted(ctx interface{}, blockNums interface{}, blockhashes interface{}, recentBlock interface{}, recentBlockhash interface{}) *BHS_StoreTrusted_Call {
+	return &BHS_StoreTrusted_Call{Call: _e.mock.On("StoreTrusted", ctx, blockNums, blockhashes, recentBlock, recentBlockhash)}
+}
+
+func (_c *BHS_StoreTrusted_Call) Run(run func(ctx context.Context, blockNums []uint64, blockhashes []common.Hash, recentBlock uint64, recentBlockhash common.Hash)) *BHS_StoreTrusted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]uint64), args[2].([]common.Hash), args[3].(uint64), args[4].(common.Hash))
+	})
+	return _c
+}
+
+func (_c *BHS_StoreTrusted_Call) Return(_a0 error) *BHS_StoreTrusted_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *BHS_StoreTrusted_Call) RunAndReturn(run func(context.Context, []uint64, []common.Hash, uint64, common.Hash) error) *BHS_StoreTrusted_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewBHS creates a new instance of BHS. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

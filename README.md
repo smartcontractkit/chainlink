@@ -32,7 +32,7 @@ regarding Chainlink social accounts, news, and networking.
 
 ## Build Chainlink
 
-1. [Install Go 1.21](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.22](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
 2. Install [NodeJS v20](https://nodejs.org/en/download/package-manager/) & [pnpm v9 via npm](https://pnpm.io/installation#using-npm).
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
@@ -158,7 +158,7 @@ popd
 4. Generate and compile static assets:
 
 ```bash
-go generate ./...
+make generate
 ```
 
 5. Prepare your development environment:

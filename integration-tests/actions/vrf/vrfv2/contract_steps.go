@@ -320,7 +320,7 @@ func FundSubscriptions(
 	for _, subID := range subIDs {
 		//Link Billing
 		amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
-		err := FundVRFCoordinatorV2Subscription(linkAddress, coordinator, subID, amountJuels)
+		err := FundSubscriptionWithLink(linkAddress, coordinator, subID, amountJuels)
 		if err != nil {
 			return fmt.Errorf("%s, err %w", vrfcommon.ErrFundSubWithLinkToken, err)
 		}
@@ -328,7 +328,7 @@ func FundSubscriptions(
 	return nil
 }
 
-func FundVRFCoordinatorV2Subscription(
+func FundSubscriptionWithLink(
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2,
 	subscriptionID uint64,

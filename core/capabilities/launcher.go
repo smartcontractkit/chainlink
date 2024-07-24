@@ -7,12 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -21,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
@@ -46,8 +42,7 @@ type launcher struct {
 	lggr        logger.Logger
 	peerWrapper p2ptypes.PeerWrapper
 	dispatcher  remotetypes.Dispatcher
-	registry    core.CapabilitiesRegistry
-	localNode   capabilities.Node
+	registry    *Registry
 	subServices []services.Service
 }
 
@@ -55,10 +50,10 @@ func NewLauncher(
 	lggr logger.Logger,
 	peerWrapper p2ptypes.PeerWrapper,
 	dispatcher remotetypes.Dispatcher,
-	registry core.CapabilitiesRegistry,
+	registry *Registry,
 ) *launcher {
 	return &launcher{
-		lggr:        lggr,
+		lggr:        lggr.Named("CapabilitiesLauncher"),
 		peerWrapper: peerWrapper,
 		dispatcher:  dispatcher,
 		registry:    registry,
@@ -92,49 +87,8 @@ func (w *launcher) Name() string {
 	return "CapabilitiesLauncher"
 }
 
-func (w *launcher) LocalNode(ctx context.Context) (capabilities.Node, error) {
-	if w.peerWrapper.GetPeer() == nil {
-		return w.localNode, errors.New("unable to get local node: peerWrapper hasn't started yet")
-	}
-
-	if w.localNode.WorkflowDON.ID == 0 {
-		return w.localNode, errors.New("unable to get local node: waiting for initial call from syncer")
-	}
-
-	return w.localNode, nil
-}
-
-func (w *launcher) updateLocalNode(state registrysyncer.State) {
-	pid := w.peerWrapper.GetPeer().ID()
-
-	var workflowDON capabilities.DON
-	capabilityDONs := []capabilities.DON{}
-	for _, d := range state.IDsToDONs {
-		for _, p := range d.NodeP2PIds {
-			if p == pid {
-				if d.AcceptsWorkflows {
-					if workflowDON.ID == 0 {
-						workflowDON = *toDONInfo(d)
-						w.lggr.Debug("Workflow DON identified: %+v", workflowDON)
-					} else {
-						w.lggr.Errorf("Configuration error: node %s belongs to more than one workflowDON", pid)
-					}
-				}
-
-				capabilityDONs = append(capabilityDONs, *toDONInfo(d))
-			}
-		}
-	}
-
-	w.localNode = capabilities.Node{
-		PeerID:         &pid,
-		WorkflowDON:    workflowDON,
-		CapabilityDONs: capabilityDONs,
-	}
-}
-
-func (w *launcher) Launch(ctx context.Context, state registrysyncer.State) error {
-	w.updateLocalNode(state)
+func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegistry) error {
+	w.registry.SetLocalRegistry(state)
 
 	// Let's start by updating the list of Peers
 	// We do this by creating a new entry for each node belonging
@@ -142,15 +96,15 @@ func (w *launcher) Launch(ctx context.Context, state registrysyncer.State) error
 	// We also add the hardcoded peers determined by the NetworkSetup.
 	allPeers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
 
-	publicDONs := []kcr.CapabilitiesRegistryDONInfo{}
+	publicDONs := []registrysyncer.DON{}
 	for _, d := range state.IDsToDONs {
-		if !d.IsPublic {
+		if !d.DON.IsPublic {
 			continue
 		}
 
 		publicDONs = append(publicDONs, d)
 
-		for _, nid := range d.NodeP2PIds {
+		for _, nid := range d.DON.Members {
 			allPeers[nid] = defaultStreamConfig
 		}
 	}
@@ -170,18 +124,18 @@ func (w *launcher) Launch(ctx context.Context, state registrysyncer.State) error
 	// We'll also construct a set to record what DONs the current node is a part of,
 	// regardless of any modifiers (public/acceptsWorkflows etc).
 	myID := w.peerWrapper.GetPeer().ID()
-	myWorkflowDONs := []kcr.CapabilitiesRegistryDONInfo{}
-	remoteWorkflowDONs := []kcr.CapabilitiesRegistryDONInfo{}
+	myWorkflowDONs := []registrysyncer.DON{}
+	remoteWorkflowDONs := []registrysyncer.DON{}
 	myDONs := map[uint32]bool{}
 	for _, d := range state.IDsToDONs {
-		for _, peerID := range d.NodeP2PIds {
+		for _, peerID := range d.Members {
 			if peerID == myID {
-				myDONs[d.Id] = true
+				myDONs[d.ID] = true
 			}
 		}
 
 		if d.AcceptsWorkflows {
-			if myDONs[d.Id] {
+			if myDONs[d.ID] {
 				myWorkflowDONs = append(myWorkflowDONs, d)
 			} else {
 				remoteWorkflowDONs = append(remoteWorkflowDONs, d)
@@ -191,11 +145,11 @@ func (w *launcher) Launch(ctx context.Context, state registrysyncer.State) error
 
 	// - remote capability DONs (with IsPublic = true) the current node is a part of.
 	// These need server-side shims.
-	myCapabilityDONs := []kcr.CapabilitiesRegistryDONInfo{}
-	remoteCapabilityDONs := []kcr.CapabilitiesRegistryDONInfo{}
+	myCapabilityDONs := []registrysyncer.DON{}
+	remoteCapabilityDONs := []registrysyncer.DON{}
 	for _, d := range publicDONs {
 		if len(d.CapabilityConfigurations) > 0 {
-			if myDONs[d.Id] {
+			if myDONs[d.ID] {
 				myCapabilityDONs = append(myCapabilityDONs, d)
 			} else {
 				remoteCapabilityDONs = append(remoteCapabilityDONs, d)
@@ -235,14 +189,14 @@ func (w *launcher) Launch(ctx context.Context, state registrysyncer.State) error
 	return nil
 }
 
-func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON kcr.CapabilitiesRegistryDONInfo, remoteDON kcr.CapabilitiesRegistryDONInfo, state registrysyncer.State) error {
-	for _, c := range remoteDON.CapabilityConfigurations {
-		capability, ok := state.IDsToCapabilities[c.CapabilityId]
+func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysyncer.DON, remoteDON registrysyncer.DON, state *registrysyncer.LocalRegistry) error {
+	for cid, c := range remoteDON.CapabilityConfigurations {
+		capability, ok := state.IDsToCapabilities[cid]
 		if !ok {
-			return fmt.Errorf("could not find capability matching id %s", c.CapabilityId)
+			return fmt.Errorf("could not find capability matching id %s", cid)
 		}
 
-		switch toCapabilityType(capability.CapabilityType) {
+		switch capability.CapabilityType {
 		case capabilities.CapabilityTypeTrigger:
 			newTriggerFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
 				if !strings.HasPrefix(info.ID, "streams-trigger") {
@@ -262,12 +216,6 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON kcr.Capabili
 					int(remoteDON.F+1),
 					w.lggr,
 				)
-				cfg := &remotetypes.RemoteTriggerConfig{}
-				cfg.ApplyDefaults()
-				err = proto.Unmarshal(c.Config, cfg)
-				if err != nil {
-					return nil, err
-				}
 				// TODO: We need to implement a custom, Mercury-specific
 				// aggregator here, because there is no guarantee that
 				// all trigger events in the workflow will have the same
@@ -275,10 +223,10 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON kcr.Capabili
 				// When this is solved, we can move to a generic aggregator
 				// and remove this.
 				triggerCap := remote.NewTriggerSubscriber(
-					cfg,
+					c.RemoteTriggerConfig,
 					info,
-					*toDONInfo(remoteDON),
-					*toDONInfo(myDON),
+					remoteDON.DON,
+					myDON.DON,
 					w.dispatcher,
 					aggregator,
 					w.lggr,
@@ -297,7 +245,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON kcr.Capabili
 			newTargetFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
 				client := target.NewClient(
 					info,
-					*toDONInfo(myDON),
+					myDON.DON,
 					w.dispatcher,
 					defaultTargetRequestTimeout,
 					w.lggr,
@@ -322,24 +270,24 @@ type capabilityService interface {
 	services.Service
 }
 
-func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capabilityInfo kcr.CapabilitiesRegistryCapabilityInfo, don kcr.CapabilitiesRegistryDONInfo, newCapFn func(info capabilities.CapabilityInfo) (capabilityService, error)) error {
-	fullCapID := fmt.Sprintf("%s@%s", capabilityInfo.LabelledName, capabilityInfo.Version)
+func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability registrysyncer.Capability, don registrysyncer.DON, newCapFn func(info capabilities.CapabilityInfo) (capabilityService, error)) error {
+	capabilityID := capability.ID
 	info, err := capabilities.NewRemoteCapabilityInfo(
-		fullCapID,
-		toCapabilityType(capabilityInfo.CapabilityType),
-		fmt.Sprintf("Remote Capability for %s", fullCapID),
-		toDONInfo(don),
+		capabilityID,
+		capability.CapabilityType,
+		fmt.Sprintf("Remote Capability for %s", capabilityID),
+		&don.DON,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create remote capability info: %w", err)
 	}
 	w.lggr.Debugw("Adding remote capability to registry", "id", info.ID, "don", info.DON)
-	capability, err := newCapFn(info)
+	cp, err := newCapFn(info)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate capability: %w", err)
 	}
 
-	err = w.registry.Add(ctx, capability)
+	err = w.registry.Add(ctx, cp)
 	if err != nil {
 		// If the capability already exists, then it's either local
 		// or we've handled this in a previous syncer iteration,
@@ -352,19 +300,19 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 	}
 
 	err = w.dispatcher.SetReceiver(
-		fullCapID,
-		don.Id,
-		capability,
+		capabilityID,
+		don.ID,
+		cp,
 	)
 	if err != nil {
 		return err
 	}
-	w.lggr.Debugw("Setting receiver for capability", "id", fullCapID, "donID", don.Id)
-	err = capability.Start(ctx)
+	w.lggr.Debugw("Setting receiver for capability", "id", capabilityID, "donID", don.ID)
+	err = cp.Start(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to start capability: %w", err)
 	}
-	w.subServices = append(w.subServices, capability)
+	w.subServices = append(w.subServices, cp)
 	return nil
 }
 
@@ -372,32 +320,26 @@ var (
 	defaultTargetRequestTimeout = time.Minute
 )
 
-func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don kcr.CapabilitiesRegistryDONInfo, state registrysyncer.State, remoteWorkflowDONs []kcr.CapabilitiesRegistryDONInfo) error {
+func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registrysyncer.DON, state *registrysyncer.LocalRegistry, remoteWorkflowDONs []registrysyncer.DON) error {
 	idsToDONs := map[uint32]capabilities.DON{}
 	for _, d := range remoteWorkflowDONs {
-		idsToDONs[d.Id] = *toDONInfo(d)
+		idsToDONs[d.ID] = d.DON
 	}
 
-	for _, c := range don.CapabilityConfigurations {
-		capability, ok := state.IDsToCapabilities[c.CapabilityId]
+	for cid, c := range don.CapabilityConfigurations {
+		capability, ok := state.IDsToCapabilities[cid]
 		if !ok {
-			return fmt.Errorf("could not find capability matching id %s", c.CapabilityId)
+			return fmt.Errorf("could not find capability matching id %s", cid)
 		}
 
-		switch toCapabilityType(capability.CapabilityType) {
+		switch capability.CapabilityType {
 		case capabilities.CapabilityTypeTrigger:
 			newTriggerPublisher := func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (receiverService, error) {
-				cfg := &remotetypes.RemoteTriggerConfig{}
-				cfg.ApplyDefaults()
-				err := proto.Unmarshal(c.Config, cfg)
-				if err != nil {
-					return nil, err
-				}
 				publisher := remote.NewTriggerPublisher(
-					cfg,
+					c.RemoteTriggerConfig,
 					capability.(capabilities.TriggerCapability),
 					info,
-					*toDONInfo(don),
+					don.DON,
 					idsToDONs,
 					w.dispatcher,
 					w.lggr,
@@ -419,7 +361,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 					myPeerID,
 					capability.(capabilities.TargetCapability),
 					info,
-					*toDONInfo(don),
+					don.DON,
 					idsToDONs,
 					w.dispatcher,
 					defaultTargetRequestTimeout,
@@ -443,18 +385,18 @@ type receiverService interface {
 	remotetypes.Receiver
 }
 
-func (w *launcher) addReceiver(ctx context.Context, capability kcr.CapabilitiesRegistryCapabilityInfo, don kcr.CapabilitiesRegistryDONInfo, newReceiverFn func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (receiverService, error)) error {
-	fullCapID := fmt.Sprintf("%s@%s", capability.LabelledName, capability.Version)
+func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Capability, don registrysyncer.DON, newReceiverFn func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (receiverService, error)) error {
+	capID := capability.ID
 	info, err := capabilities.NewRemoteCapabilityInfo(
-		fullCapID,
-		toCapabilityType(capability.CapabilityType),
-		fmt.Sprintf("Remote Capability for %s", fullCapID),
-		toDONInfo(don),
+		capID,
+		capability.CapabilityType,
+		fmt.Sprintf("Remote Capability for %s", capability.ID),
+		&don.DON,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate remote capability for receiver: %w", err)
 	}
-	underlying, err := w.registry.Get(ctx, fullCapID)
+	underlying, err := w.registry.Get(ctx, capability.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get capability from registry: %w", err)
 	}
@@ -464,9 +406,14 @@ func (w *launcher) addReceiver(ctx context.Context, capability kcr.CapabilitiesR
 		return fmt.Errorf("failed to instantiate receiver: %w", err)
 	}
 
-	w.lggr.Debugw("Enabling external access for capability", "id", fullCapID, "donID", don.Id)
-	err = w.dispatcher.SetReceiver(fullCapID, don.Id, receiver)
-	if err != nil {
+	w.lggr.Debugw("Enabling external access for capability", "id", capID, "donID", don.ID)
+	err = w.dispatcher.SetReceiver(capID, don.ID, receiver)
+	if errors.Is(err, remote.ErrReceiverExists) {
+		// If a receiver already exists, let's log the error for debug purposes, but
+		// otherwise short-circuit here. We've handled this capability in a previous iteration.
+		w.lggr.Debugf("receiver already exists for cap ID %s and don ID %d: %s", capID, don.ID, err)
+		return nil
+	} else if err != nil {
 		return fmt.Errorf("failed to set receiver: %w", err)
 	}
 
@@ -479,9 +426,9 @@ func (w *launcher) addReceiver(ctx context.Context, capability kcr.CapabilitiesR
 	return nil
 }
 
-func signersFor(don kcr.CapabilitiesRegistryDONInfo, state registrysyncer.State) ([][]byte, error) {
+func signersFor(don registrysyncer.DON, state *registrysyncer.LocalRegistry) ([][]byte, error) {
 	s := [][]byte{}
-	for _, nodeID := range don.NodeP2PIds {
+	for _, nodeID := range don.Members {
 		node, ok := state.IDsToNodes[nodeID]
 		if !ok {
 			return nil, fmt.Errorf("could not find node for id %s", nodeID)
@@ -493,34 +440,4 @@ func signersFor(don kcr.CapabilitiesRegistryDONInfo, state registrysyncer.State)
 	}
 
 	return s, nil
-}
-
-func toDONInfo(don kcr.CapabilitiesRegistryDONInfo) *capabilities.DON {
-	peerIDs := []p2ptypes.PeerID{}
-	for _, p := range don.NodeP2PIds {
-		peerIDs = append(peerIDs, p)
-	}
-
-	return &capabilities.DON{
-		ID:            don.Id,
-		ConfigVersion: don.ConfigCount,
-		Members:       peerIDs,
-		F:             don.F,
-	}
-}
-
-func toCapabilityType(capabilityType uint8) capabilities.CapabilityType {
-	switch capabilityType {
-	case 0:
-		return capabilities.CapabilityTypeTrigger
-	case 1:
-		return capabilities.CapabilityTypeAction
-	case 2:
-		return capabilities.CapabilityTypeConsensus
-	case 3:
-		return capabilities.CapabilityTypeTarget
-	default:
-		// Not found
-		return capabilities.CapabilityType(-1)
-	}
 }

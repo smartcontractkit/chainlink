@@ -18,6 +18,14 @@ type Eth struct {
 	mock.Mock
 }
 
+type Eth_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *Eth) EXPECT() *Eth_Expecter {
+	return &Eth_Expecter{mock: &_m.Mock}
+}
+
 // CheckEnabled provides a mock function with given fields: ctx, address, chainID
 func (_m *Eth) CheckEnabled(ctx context.Context, address common.Address, chainID *big.Int) error {
 	ret := _m.Called(ctx, address, chainID)
@@ -34,6 +42,36 @@ func (_m *Eth) CheckEnabled(ctx context.Context, address common.Address, chainID
 	}
 
 	return r0
+}
+
+// Eth_CheckEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CheckEnabled'
+type Eth_CheckEnabled_Call struct {
+	*mock.Call
+}
+
+// CheckEnabled is a helper method to define mock.On call
+//   - ctx context.Context
+//   - address common.Address
+//   - chainID *big.Int
+func (_e *Eth_Expecter) CheckEnabled(ctx interface{}, address interface{}, chainID interface{}) *Eth_CheckEnabled_Call {
+	return &Eth_CheckEnabled_Call{Call: _e.mock.On("CheckEnabled", ctx, address, chainID)}
+}
+
+func (_c *Eth_CheckEnabled_Call) Run(run func(ctx context.Context, address common.Address, chainID *big.Int)) *Eth_CheckEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Address), args[2].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *Eth_CheckEnabled_Call) Return(_a0 error) *Eth_CheckEnabled_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Eth_CheckEnabled_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) error) *Eth_CheckEnabled_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // EnabledAddressesForChain provides a mock function with given fields: ctx, chainID
@@ -66,6 +104,35 @@ func (_m *Eth) EnabledAddressesForChain(ctx context.Context, chainID *big.Int) (
 	return r0, r1
 }
 
+// Eth_EnabledAddressesForChain_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EnabledAddressesForChain'
+type Eth_EnabledAddressesForChain_Call struct {
+	*mock.Call
+}
+
+// EnabledAddressesForChain is a helper method to define mock.On call
+//   - ctx context.Context
+//   - chainID *big.Int
+func (_e *Eth_Expecter) EnabledAddressesForChain(ctx interface{}, chainID interface{}) *Eth_EnabledAddressesForChain_Call {
+	return &Eth_EnabledAddressesForChain_Call{Call: _e.mock.On("EnabledAddressesForChain", ctx, chainID)}
+}
+
+func (_c *Eth_EnabledAddressesForChain_Call) Run(run func(ctx context.Context, chainID *big.Int)) *Eth_EnabledAddressesForChain_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *Eth_EnabledAddressesForChain_Call) Return(addresses []common.Address, err error) *Eth_EnabledAddressesForChain_Call {
+	_c.Call.Return(addresses, err)
+	return _c
+}
+
+func (_c *Eth_EnabledAddressesForChain_Call) RunAndReturn(run func(context.Context, *big.Int) ([]common.Address, error)) *Eth_EnabledAddressesForChain_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SignTx provides a mock function with given fields: ctx, fromAddress, tx, chainID
 func (_m *Eth) SignTx(ctx context.Context, fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
 	ret := _m.Called(ctx, fromAddress, tx, chainID)
@@ -94,6 +161,37 @@ func (_m *Eth) SignTx(ctx context.Context, fromAddress common.Address, tx *types
 	}
 
 	return r0, r1
+}
+
+// Eth_SignTx_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SignTx'
+type Eth_SignTx_Call struct {
+	*mock.Call
+}
+
+// SignTx is a helper method to define mock.On call
+//   - ctx context.Context
+//   - fromAddress common.Address
+//   - tx *types.Transaction
+//   - chainID *big.Int
+func (_e *Eth_Expecter) SignTx(ctx interface{}, fromAddress interface{}, tx interface{}, chainID interface{}) *Eth_SignTx_Call {
+	return &Eth_SignTx_Call{Call: _e.mock.On("SignTx", ctx, fromAddress, tx, chainID)}
+}
+
+func (_c *Eth_SignTx_Call) Run(run func(ctx context.Context, fromAddress common.Address, tx *types.Transaction, chainID *big.Int)) *Eth_SignTx_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Address), args[2].(*types.Transaction), args[3].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *Eth_SignTx_Call) Return(_a0 *types.Transaction, _a1 error) *Eth_SignTx_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Eth_SignTx_Call) RunAndReturn(run func(context.Context, common.Address, *types.Transaction, *big.Int) (*types.Transaction, error)) *Eth_SignTx_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SubscribeToKeyChanges provides a mock function with given fields: ctx
@@ -126,6 +224,34 @@ func (_m *Eth) SubscribeToKeyChanges(ctx context.Context) (chan struct{}, func()
 	}
 
 	return r0, r1
+}
+
+// Eth_SubscribeToKeyChanges_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeToKeyChanges'
+type Eth_SubscribeToKeyChanges_Call struct {
+	*mock.Call
+}
+
+// SubscribeToKeyChanges is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *Eth_Expecter) SubscribeToKeyChanges(ctx interface{}) *Eth_SubscribeToKeyChanges_Call {
+	return &Eth_SubscribeToKeyChanges_Call{Call: _e.mock.On("SubscribeToKeyChanges", ctx)}
+}
+
+func (_c *Eth_SubscribeToKeyChanges_Call) Run(run func(ctx context.Context)) *Eth_SubscribeToKeyChanges_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *Eth_SubscribeToKeyChanges_Call) Return(ch chan struct{}, unsub func()) *Eth_SubscribeToKeyChanges_Call {
+	_c.Call.Return(ch, unsub)
+	return _c
+}
+
+func (_c *Eth_SubscribeToKeyChanges_Call) RunAndReturn(run func(context.Context) (chan struct{}, func())) *Eth_SubscribeToKeyChanges_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewEth creates a new instance of Eth. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

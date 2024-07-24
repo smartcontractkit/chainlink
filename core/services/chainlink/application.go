@@ -17,11 +17,9 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	pkgcapabilities "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -75,8 +73,6 @@ import (
 )
 
 // Application implements the common functions used in the core node.
-//
-//go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
 type Application interface {
 	Start(ctx context.Context) error
 	Stop() error
@@ -182,7 +178,7 @@ type ApplicationOpts struct {
 	LoopRegistry               *plugins.LoopRegistry
 	GRPCOpts                   loop.GRPCOpts
 	MercuryPool                wsrpc.Pool
-	CapabilitiesRegistry       coretypes.CapabilitiesRegistry
+	CapabilitiesRegistry       *capabilities.Registry
 }
 
 // NewApplication initializes a new store if one is not already
@@ -207,7 +203,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
-	var getLocalNode func(ctx context.Context) (pkgcapabilities.Node, error)
 	if cfg.Capabilities().Peering().Enabled() {
 		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), opts.DS, globalLogger)
 		signer := externalPeer
@@ -226,6 +221,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		registrySyncer, err := registrysyncer.New(
 			globalLogger,
+			externalPeerWrapper,
 			relayer,
 			registryAddress,
 		)
@@ -241,7 +237,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		)
 		registrySyncer.AddLauncher(wfLauncher)
 
-		getLocalNode = wfLauncher.LocalNode
 		srvcs = append(srvcs, dispatcher, wfLauncher, registrySyncer)
 	}
 
@@ -433,7 +428,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger,
 		opts.CapabilitiesRegistry,
 		workflowORM,
-		getLocalNode,
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
@@ -867,7 +861,7 @@ func (app *ChainlinkApplication) RunJobV2(
 				},
 			}
 		}
-		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), app.logger, saveTasks)
+		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), saveTasks)
 	}
 	return runID, err
 }
