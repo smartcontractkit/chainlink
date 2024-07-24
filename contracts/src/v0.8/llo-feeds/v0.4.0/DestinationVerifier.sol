@@ -311,7 +311,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
         }
 
         // push the DONConfig
-        s_DONConfigs.push(DONConfig(DONConfigID, f, true, uint32(block.timestamp)));
+        s_DONConfigs.push(DONConfig(DONConfigID, f, true, activationTime));
 
         emit ConfigSet(DONConfigID, signers, f, recipientAddressesAndWeights);
     }
