@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/smartcontractkit/libocr/commontypes"
 
@@ -309,28 +308,6 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainWriter(t T) clcommontypes.Ch
 
 func (it *EVMChainReaderInterfaceTester[T]) TriggerEvent(t T, testStruct *TestStruct) {
 	it.sendTxWithTestStruct(t, it.address, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).TriggerEvent)
-}
-
-func (it *EVMChainReaderInterfaceTester[T]) SetTestStructLatestValue(t T, testStruct *TestStruct) {
-	txID := uuid.New().String()
-	err := it.GetChainWriter(t).SubmitTransaction(
-		it.Helper.Context(t),
-		AnyContractName,
-		"addTestStruct",
-		testStruct,
-		txID,
-		it.address,
-		nil,
-		nil,
-	)
-
-	require.NoError(t, err)
-
-	it.Helper.Commit()
-	it.IncNonce()
-	it.dirtyContracts = true
-
-	require.NoError(t, err)
 }
 
 // GenerateBlocksTillConfidenceLevel is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state
