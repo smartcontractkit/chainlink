@@ -3038,24 +3038,27 @@ describe('ZKSyncAutomationRegistry2_3', () => {
       assert.isTrue(simulatePerformResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
     })
 
-    // it.only('returns correct amount of gasUsed when perform succeeds', async () => {
-    //   await mock.setCanPerform(true)
-    //   await mock.setPerformGasToBurn(performGas)
-    //
-    //   const simulatePerformResult = await registry
-    //     .connect(zeroAddress)
-    //     .callStatic.simulatePerformUpkeep(upkeepId, '0x', {
-    //       gasLimit: BigNumber.from(1000000),
-    //     })
-    //
-    //   assert.equal(simulatePerformResult.success, true)
-    //   // Full execute gas should be used, with some performGasBuffer(1000)
-    //   assert.isTrue(
-    //     simulatePerformResult.gasUsed.gt(
-    //       performGas.sub(BigNumber.from('1000')),
-    //     ),
-    //   )
-    // })
+    it('returns correct amount of gasUsed when perform succeeds', async () => {
+      await mock.setCanPerform(true)
+      await mock.setPerformGasToBurn(performGas) // 1,000,000
+
+      // increase upkeep gas limit because the mock gas bound caller will always return 500,000 as the L1 gas used
+      // that brings the total gas used to about 1M + 0.5M = 1.5M
+      await registry
+        .connect(admin)
+        .setUpkeepGasLimit(upkeepId, BigNumber.from(2000000))
+
+      const simulatePerformResult = await registry
+        .connect(zeroAddress)
+        .callStatic.simulatePerformUpkeep(upkeepId, '0x')
+
+      // Full execute gas should be used, with some performGasBuffer(1000)
+      assert.isTrue(
+        simulatePerformResult.gasUsed.gt(
+          performGas.add(pubdataGas).sub(BigNumber.from('1000')),
+        ),
+      )
+    })
   })
 
   describe('#checkUpkeep', () => {

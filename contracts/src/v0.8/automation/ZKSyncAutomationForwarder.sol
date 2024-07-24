@@ -52,6 +52,7 @@ contract ZKSyncAutomationForwarder {
 
     uint256 g1 = gasleft();
     bytes memory returnData;
+    // solhint-disable-next-line avoid-low-level-calls
     (success, returnData) = GAS_BOUND_CALLER.delegatecall{gas: gasAmount}(
       abi.encodeWithSelector(IGasBoundCaller.gasBoundCall.selector, target, gasAmount, data)
     );
@@ -68,6 +69,7 @@ contract ZKSyncAutomationForwarder {
     return i_target;
   }
 
+  // solhint-disable-next-line no-complex-fallback
   fallback() external payable {
     // copy to memory for assembly access
     address logic = i_logic;
