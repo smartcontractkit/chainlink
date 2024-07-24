@@ -23,7 +23,7 @@ func (g *deleteWorkflows) Name() string {
 }
 
 func (g *deleteWorkflows) Run(args []string) {
-	nodes := downloadNodeAPICredentials(".cache/NodeList.txt")
+	nodes := downloadNodeAPICredentialsDefault()
 
 	for _, node := range nodes {
 		output := &bytes.Buffer{}
