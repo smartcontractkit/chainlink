@@ -50,7 +50,8 @@ type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 	Backend() bind.ContractBackend
 	ChainID() *big.Int
 	Context(t T) context.Context
-	NewSqlxDB(t T) *sqlx.DB
+	GetDB(t T) *sqlx.DB
+	IncNonce()
 	MaxWaitTimeForEvents() time.Duration
 	GasPriceBufferPercent() int64
 	FromAddress() common.Address
@@ -232,7 +233,7 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	}
 
 	lggr := logger.NullLogger
-	db := it.Helper.NewSqlxDB(t)
+	db := it.Helper.GetDB(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            finalityDepth,

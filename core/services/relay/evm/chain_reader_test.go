@@ -165,6 +165,7 @@ type helper struct {
 	pKey   *ecdsa.PrivateKey
 	txm    evmtxmgr.TxManager
 	client client.Client
+	db     *sqlx.DB
 }
 
 func (h *helper) Init(t *testing.T) {
@@ -175,7 +176,11 @@ func (h *helper) Init(t *testing.T) {
 	h.auth, err = bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(1337))
 	require.NoError(t, err)
 
+	h.db = pgtest.NewSqlxDB(t)
+
 	h.Backend()
+	h.client = h.Client(t)
+
 	h.txm = h.TXM(t)
 	h.Commit()
 }
@@ -217,8 +222,16 @@ func (h *helper) ChainID() *big.Int {
 	return testutils.SimulatedChainID
 }
 
-func (h *helper) NewSqlxDB(t *testing.T) *sqlx.DB {
-	return pgtest.NewSqlxDB(t)
+func (h *helper) GetDB(t *testing.T) *sqlx.DB {
+	return h.db
+}
+
+func (h *helper) IncNonce() {
+	if h.auth.Nonce == nil {
+		h.auth.Nonce = big.NewInt(1)
+	} else {
+		h.auth.Nonce = h.auth.Nonce.Add(h.auth.Nonce, big.NewInt(1))
+	}
 }
 
 func (h *helper) Context(t *testing.T) context.Context {
@@ -250,7 +263,7 @@ func (h *helper) TXM(t *testing.T) evmtxmgr.TxManager {
 	}
 
 	client := h.Client(t)
-	db := h.NewSqlxDB(t)
+	db := h.db
 
 	clconfig := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
