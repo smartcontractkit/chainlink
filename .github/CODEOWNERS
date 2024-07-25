@@ -3,7 +3,7 @@
 # Please define less specific codeowner paths before more specific codeowner paths in order for the more specific rule to have priority
 
 # Root
-* @smartcontractkit/foundations
+* @smartcontractkit/ccip
 
 # Chains
 /common @smartcontractkit/bix-framework
@@ -50,9 +50,6 @@ core/services/relay/evm/functions @smartcontractkit/functions
 core/scripts/functions @smartcontractkit/functions
 core/scripts/gateway @smartcontractkit/functions
 
-# Contracts
-/contracts/ @RensR
-
 # First we match on project names to catch files like the compilation scripts,
 # gas snapshots and other files not places in the project directories.
 # This could give some false positives, so afterwards we match on the project directories
@@ -61,6 +58,11 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/**/*keeper* @smartcontractkit/keepers
 /contracts/**/*upkeep* @smartcontractkit/keepers
 /contracts/**/*automation* @smartcontractkit/keepers
+/contracts/gas-snapshots/automation.gas-snapshot @smartcontractkit/keepers
+/contracts/**/ccip/ @smartcontractkit/ccip-onchain @makramkd
+/contracts/**/*Functions* @smartcontractkit/functions
+
+/contracts/src/v0.8/functions @smartcontractkit/functions
 /contracts/**/*functions* @smartcontractkit/functions
 /contracts/**/*llo-feeds* @smartcontrackit/mercury-team
 /contracts/**/*vrf* @smartcontractkit/vrf-team
@@ -81,7 +83,6 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/src/v0.8/vrf @smartcontractkit/vrf-team
 
 
-
 # At the end, match any files missed by the patterns above
 /contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/functions
 # Remove changeset files from the codeowners
@@ -89,13 +90,19 @@ core/scripts/gateway @smartcontractkit/functions
 
 
 # Tests
-/integration-tests/ @smartcontractkit/test-tooling-team
+/integration-tests/**/*ccip* @smartcontractkit/test-tooling-team @jasonmci @smartcontractkit/ccip
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
+/integration-tests/**/*lm_* @smartcontractkit/liquidity-manager
 
 # CI/CD
-/.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team
-/.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
+/.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team @jasonmci @smartcontractkit/ccip
+/.github/workflows/integration-tests.yml @smartcontractkit/test-tooling-team @jasonmci
+/.github/workflows/**-tests.yml @smartcontractkit/test-tooling-team @jasonmci
+/.github/workflows/integration-chaos-tests.yml @smartcontractkit/test-tooling-team @jasonmci
+/.github/workflows/integration-tests-publish.yml @smartcontractkit/test-tooling-team @jasonmci
+/.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team @jasonmci
+
 /.github/workflows/automation-ondemand-tests.yml @smartcontractkit/keepers
 /.github/workflows/automation-benchmark-tests.yml @smartcontractkit/keepers
 /.github/workflows/automation-load-tests.yml @smartcontractkit/keepers
@@ -117,5 +124,35 @@ flake.nix @smartcontractkit/prodsec-public
 flake.lock @smartcontractkit/prodsec-public
 
 # Config
+./core/config @samsondav @jmank88
+
+# LOOP Plugins
+/plugins @jmank88 @krehermann
+
+# Config
 ./docs/CONFIG.md @smartcontractkit/foundations @smartcontractkit/devrel
 ./internal/config/docs.toml @smartcontractkit/foundations @smartcontractkit/devrel
+
+
+# CCIP override
+/core/ @smartcontractkit/ccip
+/contracts/ @smartcontractkit/ccip-onchain @makramkd @elatoskinas @RayXpub
+go.mod @smartcontractkit/ccip @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
+go.sum @smartcontractkit/ccip @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
+integration-tests/go.mod @smartcontractkit/ccip @smartcontractkit/prodsec-public
+integration-tests/go.sum @smartcontractkit/ccip @smartcontractkit/prodsec-public
+
+# leave snapshots & changeset as ownerless
+/contracts/gas-snapshots/
+/contracts/.changeset/
+
+# CCIP LM
+/core/**/liquiditymanager/ @smartcontractkit/liquidity-manager
+/core/services/relay/evm/liquidity_manager.go @smartcontractkit/liquidity-manager
+/contracts/**/liquiditymanager/ @smartcontractkit/liquidity-manager
+
+# CCIP RMN
+/contracts/src/v0.8/ccip/RMN.sol @smartcontractkit/rmn
+/contracts/src/v0.8/ccip/ARMProxy.sol @smartcontractkit/rmn
+/contracts/src/v0.8/ccip/interfaces/IRMN.sol @smartcontractkit/rmn
+/contracts/src/v0.8/ccip/test/arm @smartcontractkit/rmn

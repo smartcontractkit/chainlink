@@ -39,7 +39,7 @@ runs:
       if: steps.check-image.outputs.exists != 'true'
       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
       with:
-        cl_repo: smartcontractkit/chainlink
+        cl_repo: smartcontractkit/ccip
         cl_ref: ${{ inputs.git_commit_sha }}
         cl_dockerfile: ${{ inputs.dockerfile }}
         push_tag: ${{ env.CHAINLINK_IMAGE }}:${{ inputs.git_commit_sha }}${{ inputs.tag_suffix }}

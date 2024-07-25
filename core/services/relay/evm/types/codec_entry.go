@@ -199,8 +199,14 @@ func getNativeAndCheckedTypesForArg(arg *abi.Argument) (reflect.Type, reflect.Ty
 			if arg.Type.Elem.GetType() == u8.native {
 				return reflect.TypeOf(common.Hash{}), reflect.TypeOf(common.Hash{}), nil
 			}
+			return nil, nil, fmt.Errorf("%w: unsupported array type: %v", commontypes.ErrInvalidConfig, arg.Type)
+		case abi.FixedBytesTy:
+			typ, ok := GetAbiEncodingType(fmt.Sprintf("bytes%d", arg.Type.Size))
+			if ok {
+				return typ.native, typ.checked, nil
+			}
 			fallthrough
-		case abi.SliceTy, abi.TupleTy, abi.FixedBytesTy, abi.FixedPointTy, abi.FunctionTy:
+		case abi.SliceTy, abi.TupleTy, abi.FixedPointTy, abi.FunctionTy:
 			// https://github.com/ethereum/go-ethereum/blob/release/1.12/accounts/abi/topics.go#L78
 			return nil, nil, fmt.Errorf("%w: unsupported indexed type: %v", commontypes.ErrInvalidConfig, arg.Type)
 		default:

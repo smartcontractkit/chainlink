@@ -169,6 +169,9 @@ package gethwrappers
 // Shared
 //go:generate go generate ./shared
 
+// CCIP
+//go:generate go generate ./ccip
+
 // Mocks that contain only events and functions to emit them
 // These contracts are used in testing Atlas flows. The contracts contain no logic, only events, structures, and functions to emit them.
 // The flow is as follows:

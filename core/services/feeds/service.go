@@ -107,6 +107,8 @@ type Service interface {
 	ListSpecsByJobProposalIDs(ctx context.Context, ids []int64) ([]JobProposalSpec, error)
 	RejectSpec(ctx context.Context, id int64) error
 	UpdateSpecDefinition(ctx context.Context, id int64, spec string) error
+
+	Unsafe_SetConnectionsManager(ConnectionsManager)
 }
 
 type service struct {
@@ -1128,6 +1130,16 @@ func findExistingJobForOCR2(ctx context.Context, j *job.Job, tx job.ORM) (int32,
 	return tx.FindOCR2JobIDByAddress(ctx, contractID, feedID)
 }
 
+// Unsafe_SetConnectionsManager sets the ConnectionsManager on the service.
+//
+// We need to be able to inject a mock for the client to facilitate integration
+// tests.
+//
+// ONLY TO BE USED FOR TESTING.
+func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
+	s.connMgr = connMgr
+}
+
 // findExistingJobForOCRFlux looks for existing job for OCR or flux
 func findExistingJobForOCRFlux(ctx context.Context, j *job.Job, tx job.ORM) (int32, error) {
 	var address types.EIP55Address
@@ -1291,7 +1303,7 @@ func (s *service) newOCR2ConfigMsg(cfg OCR2ConfigModel) (*pb.OCR2Config, error) 
 			Execute:    cfg.Plugins.Execute,
 			Median:     cfg.Plugins.Median,
 			Mercury:    cfg.Plugins.Mercury,
-			Rebalancer: cfg.Plugins.Rebalancer,
+			Rebalancer: cfg.Plugins.LiquidityManager,
 		},
 	}
 
@@ -1339,30 +1351,24 @@ func (s *service) validateProposeJobArgs(ctx context.Context, args ProposeJobArg
 	if err != nil {
 		return errors.Wrap(err, "failed to generate a job based on spec")
 	}
-
-	// Validate bootstrap multiaddrs which are only allowed for OCR jobs
+	// Validate bootstrap multiaddrs which are only allowed for OCR jobs.
 	if len(args.Multiaddrs) > 0 && j.Type != job.OffchainReporting && j.Type != job.OffchainReporting2 {
 		return errors.New("only OCR job type supports multiaddr")
 	}
-
 	return nil
 }
 
 func (s *service) restartConnection(ctx context.Context, mgr FeedsManager) error {
 	s.lggr.Infof("Restarting connection")
-
 	if err := s.connMgr.Disconnect(mgr.ID); err != nil {
 		s.lggr.Info("Feeds Manager not connected, attempting to connect")
 	}
-
 	// Establish a new connection
 	privkey, err := s.getCSAPrivateKey()
 	if err != nil {
 		return err
 	}
-
 	s.connectFeedManager(ctx, mgr, privkey)
-
 	return nil
 }
 
@@ -1501,5 +1507,6 @@ func (ns NullService) IsJobManaged(ctx context.Context, jobID int64) (bool, erro
 func (ns NullService) UpdateSpecDefinition(ctx context.Context, id int64, spec string) error {
 	return ErrFeedsManagerDisabled
 }
+func (ns NullService) Unsafe_SetConnectionsManager(_ ConnectionsManager) {}
 
 //revive:enable

@@ -21,6 +21,7 @@ solc
 LinkToken.json
 typechain
 **/vendor
+src/v0.8/ccip/**
 
 # Ignore TS definition and map files
 **/**.d.ts
@@ -36,3 +37,4 @@ venv/
 
 src/v0.8/mocks/FunctionsOracleEventsMock.sol
 src/v0.8/mocks/FunctionsBillingRegistryEventsMock.sol
+

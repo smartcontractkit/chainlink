@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 
@@ -147,7 +148,7 @@ func TestVRFv2Plus(t *testing.T) {
 	t.Run("Native Billing", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		testConfig := configCopy.VRFv2Plus.General
-		var isNativeBilling = true
+		isNativeBilling := true
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
@@ -203,7 +204,7 @@ func TestVRFv2Plus(t *testing.T) {
 	t.Run("VRF Node waits block confirmation number specified by the consumer before sending fulfilment on-chain", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		testConfig := configCopy.VRFv2Plus.General
-		var isNativeBilling = true
+		isNativeBilling := true
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
@@ -305,7 +306,7 @@ func TestVRFv2Plus(t *testing.T) {
 		t.Run("Link Billing", func(t *testing.T) {
 			configCopy := config.MustCopy().(tc.TestConfig)
 			testConfig := configCopy.VRFv2Plus.General
-			var isNativeBilling = false
+			isNativeBilling := false
 
 			wrapperConsumerJuelsBalanceBeforeRequest, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), wrapperContracts.LoadTestConsumers[0].Address())
 			require.NoError(t, err, "error getting wrapper consumer balance")
@@ -341,8 +342,8 @@ func TestVRFv2Plus(t *testing.T) {
 			require.NoError(t, err, "error getting wrapper consumer balance")
 			require.Equal(t, expectedWrapperConsumerJuelsBalance, wrapperConsumerJuelsBalanceAfterRequest)
 
-			//todo: uncomment when VRF-651 will be fixed
-			//require.Equal(t, 1, consumerStatus.Paid.Cmp(randomWordsFulfilledEvent.Payment), "Expected Consumer contract pay more than the Coordinator Sub")
+			// todo: uncomment when VRF-651 will be fixed
+			// require.Equal(t, 1, consumerStatus.Paid.Cmp(randomWordsFulfilledEvent.Payment), "Expected Consumer contract pay more than the Coordinator Sub")
 			vrfcommon.LogFulfillmentDetailsLinkBilling(l, wrapperConsumerJuelsBalanceBeforeRequest, wrapperConsumerJuelsBalanceAfterRequest, consumerStatus, randomWordsFulfilledEvent)
 
 			require.Equal(t, *testConfig.NumberOfWords, uint32(len(consumerStatus.RandomWords)))
@@ -354,7 +355,7 @@ func TestVRFv2Plus(t *testing.T) {
 		t.Run("Native Billing", func(t *testing.T) {
 			configCopy := config.MustCopy().(tc.TestConfig)
 			testConfig := configCopy.VRFv2Plus.General
-			var isNativeBilling = true
+			isNativeBilling := true
 
 			wrapperConsumerBalanceBeforeRequestWei, err := sethClient.Client.BalanceAt(testcontext.Get(t), common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()), nil)
 			require.NoError(t, err, "error getting wrapper consumer balance")
@@ -390,8 +391,8 @@ func TestVRFv2Plus(t *testing.T) {
 			require.NoError(t, err, "error getting wrapper consumer balance")
 			require.Equal(t, expectedWrapperConsumerWeiBalance, wrapperConsumerBalanceAfterRequestWei)
 
-			//todo: uncomment when VRF-651 will be fixed
-			//require.Equal(t, 1, consumerStatus.Paid.Cmp(randomWordsFulfilledEvent.Payment), "Expected Consumer contract pay more than the Coordinator Sub")
+			// todo: uncomment when VRF-651 will be fixed
+			// require.Equal(t, 1, consumerStatus.Paid.Cmp(randomWordsFulfilledEvent.Payment), "Expected Consumer contract pay more than the Coordinator Sub")
 			vrfcommon.LogFulfillmentDetailsNativeBilling(l, wrapperConsumerBalanceBeforeRequestWei, wrapperConsumerBalanceAfterRequestWei, consumerStatus, randomWordsFulfilledEvent)
 
 			require.Equal(t, *testConfig.NumberOfWords, uint32(len(consumerStatus.RandomWords)))
@@ -474,7 +475,7 @@ func TestVRFv2Plus(t *testing.T) {
 		testWalletBalanceLinkAfterSubCancelling, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), testWalletAddress.String())
 		require.NoError(t, err)
 
-		//Verify that sub was deleted from Coordinator
+		// Verify that sub was deleted from Coordinator
 		_, err = vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
 		require.Error(t, err, "error not occurred when trying to get deleted subscription from old Coordinator after sub migration")
 
@@ -493,17 +494,16 @@ func TestVRFv2Plus(t *testing.T) {
 			Str("Sub Balance - Link", subBalanceLink.String()).
 			Msg("Sub funds returned")
 
-		//todo - this fails on SIMULATED env as tx cost is calculated different as for testnets and it's not receipt.EffectiveGasPrice*receipt.GasUsed
-		//require.Equal(t, subFundsReturnedNativeExpected, subFundsReturnedNativeActual, "Returned funds are not equal to sub balance that was cancelled")
+		// todo - this fails on SIMULATED env as tx cost is calculated different as for testnets and it's not receipt.EffectiveGasPrice*receipt.GasUsed
+		// require.Equal(t, subFundsReturnedNativeExpected, subFundsReturnedNativeActual, "Returned funds are not equal to sub balance that was cancelled")
 		require.Equal(t, 1, testWalletBalanceNativeAfterSubCancelling.Cmp(testWalletBalanceNativeBeforeSubCancelling), "Native funds were not returned after sub cancellation")
 		require.Equal(t, 0, subBalanceLink.Cmp(subFundsReturnedLinkActual), "Returned LINK funds are not equal to sub balance that was cancelled")
-
 	})
 	t.Run("Owner Canceling Sub And Returning Funds While Having Pending Requests", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		testConfig := configCopy.VRFv2Plus.General
 
-		//underfund subs in order rand fulfillments to fail
+		// underfund subs in order rand fulfillments to fail
 		testConfig.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
 		testConfig.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 
@@ -613,7 +613,7 @@ func TestVRFv2Plus(t *testing.T) {
 		walletBalanceLinkAfterSubCancelling, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), sethClient.MustGetRootKeyAddress().Hex())
 		require.NoError(t, err)
 
-		//Verify that sub was deleted from Coordinator
+		// Verify that sub was deleted from Coordinator
 		_, err = vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
 		require.Error(t, err, "error not occurred when trying to get deleted subscription from old Coordinator after sub migration")
 
@@ -634,12 +634,12 @@ func TestVRFv2Plus(t *testing.T) {
 			Str("walletBalanceNativeAfterSubCancelling", walletBalanceNativeAfterSubCancelling.String()).
 			Msg("Sub funds returned")
 
-		//todo - need to use different wallet for each test to verify exact amount of Native/LINK returned
-		//todo - as defaultWallet is used in other tests in parallel which might affect the balance - TT-684
-		//require.Equal(t, 1, walletBalanceNativeAfterSubCancelling.Cmp(walletBalanceNativeBeforeSubCancelling), "Native funds were not returned after sub cancellation")
+		// todo - need to use different wallet for each test to verify exact amount of Native/LINK returned
+		// todo - as defaultWallet is used in other tests in parallel which might affect the balance - TT-684
+		// require.Equal(t, 1, walletBalanceNativeAfterSubCancelling.Cmp(walletBalanceNativeBeforeSubCancelling), "Native funds were not returned after sub cancellation")
 
-		//todo - this fails on SIMULATED env as tx cost is calculated different as for testnets and it's not receipt.EffectiveGasPrice*receipt.GasUsed
-		//require.Equal(t, subFundsReturnedNativeExpected, subFundsReturnedNativeActual, "Returned funds are not equal to sub balance that was cancelled")
+		// todo - this fails on SIMULATED env as tx cost is calculated different as for testnets and it's not receipt.EffectiveGasPrice*receipt.GasUsed
+		// require.Equal(t, subFundsReturnedNativeExpected, subFundsReturnedNativeActual, "Returned funds are not equal to sub balance that was cancelled")
 		require.Equal(t, 0, subBalanceLink.Cmp(subFundsReturnedLinkActual), "Returned LINK funds are not equal to sub balance that was cancelled")
 
 		activeSubscriptionIdsAfterSubCancellation, err := vrfContracts.CoordinatorV2Plus.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
@@ -729,7 +729,7 @@ func TestVRFv2Plus(t *testing.T) {
 		defaultWalletBalanceLinkAfterWithdraw, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), sethClient.MustGetRootKeyAddress().Hex())
 		require.NoError(t, err)
 
-		//not possible to verify exact amount of Native/LINK returned as defaultWallet is used in other tests in parallel which might affect the balance
+		// not possible to verify exact amount of Native/LINK returned as defaultWallet is used in other tests in parallel which might affect the balance
 		require.Equal(t, 1, defaultWalletBalanceNativeAfterWithdraw.Cmp(defaultWalletBalanceNativeBeforeWithdraw), "Native funds were not returned after oracle withdraw native")
 		require.Equal(t, 1, defaultWalletBalanceLinkAfterWithdraw.Cmp(defaultWalletBalanceLinkBeforeWithdraw), "LINK funds were not returned after oracle withdraw")
 	})
@@ -786,7 +786,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 
 	t.Run("Request Randomness with multiple sending keys", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
-		var isNativeBilling = true
+		isNativeBilling := true
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
@@ -989,7 +989,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 		vrfv2plus.LogSubDetailsAfterMigration(l, newCoordinator, subID, migratedSubscription)
 
-		//Verify that Coordinators were updated in Consumers
+		// Verify that Coordinators were updated in Consumers
 		for _, consumer := range consumers {
 			coordinatorAddressInConsumerAfterMigration, err := consumer.GetCoordinator(testcontext.Get(t))
 			require.NoError(t, err, "error getting Coordinator from Consumer contract")
@@ -1000,13 +1000,13 @@ func TestVRFv2PlusMigration(t *testing.T) {
 				Msg("Coordinator Address in Consumer After Migration")
 		}
 
-		//Verify old and migrated subs
+		// Verify old and migrated subs
 		require.Equal(t, oldSubscriptionBeforeMigration.NativeBalance, migratedSubscription.NativeBalance)
 		require.Equal(t, oldSubscriptionBeforeMigration.Balance, migratedSubscription.Balance)
 		require.Equal(t, oldSubscriptionBeforeMigration.SubOwner, migratedSubscription.SubOwner)
 		require.Equal(t, oldSubscriptionBeforeMigration.Consumers, migratedSubscription.Consumers)
 
-		//Verify that old sub was deleted from old Coordinator
+		// Verify that old sub was deleted from old Coordinator
 		_, err = vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
 		require.Error(t, err, "error not occurred when trying to get deleted subscription from old Coordinator after sub migration")
 
@@ -1019,7 +1019,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		require.Len(t, activeSubIdsMigratedCoordinator, 1, "Active Sub Ids length is not equal to 1 for Migrated Coordinator after migration")
 		require.Equal(t, subID, activeSubIdsMigratedCoordinator[0])
 
-		//Verify that total balances changed for Link and Eth for new and old coordinator
+		// Verify that total balances changed for Link and Eth for new and old coordinator
 		expectedLinkTotalBalanceForMigratedCoordinator := new(big.Int).Add(oldSubscriptionBeforeMigration.Balance, migratedCoordinatorLinkTotalBalanceBeforeMigration)
 		expectedEthTotalBalanceForMigratedCoordinator := new(big.Int).Add(oldSubscriptionBeforeMigration.NativeBalance, migratedCoordinatorEthTotalBalanceBeforeMigration)
 
@@ -1030,7 +1030,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		require.Equal(t, 0, expectedLinkTotalBalanceForOldCoordinator.Cmp(oldCoordinatorLinkTotalBalanceAfterMigration))
 		require.Equal(t, 0, expectedEthTotalBalanceForOldCoordinator.Cmp(oldCoordinatorEthTotalBalanceAfterMigration))
 
-		//Verify rand requests fulfills with Link Token billing
+		// Verify rand requests fulfills with Link Token billing
 		_, _, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[0],
 			newCoordinator,
@@ -1043,7 +1043,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
-		//Verify rand requests fulfills with Native Token billing
+		// Verify rand requests fulfills with Native Token billing
 		_, _, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[1],
 			newCoordinator,
@@ -1170,13 +1170,13 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			Str("Coordinator", coordinatorAddressInConsumerAfterMigration.String()).
 			Msg("Coordinator Address in VRFV2PlusWrapper After Migration")
 
-		//Verify old and migrated subs
+		// Verify old and migrated subs
 		require.Equal(t, oldSubscriptionBeforeMigration.NativeBalance, migratedSubscription.NativeBalance)
 		require.Equal(t, oldSubscriptionBeforeMigration.Balance, migratedSubscription.Balance)
 		require.Equal(t, oldSubscriptionBeforeMigration.SubOwner, migratedSubscription.SubOwner)
 		require.Equal(t, oldSubscriptionBeforeMigration.Consumers, migratedSubscription.Consumers)
 
-		//Verify that old sub was deleted from old Coordinator
+		// Verify that old sub was deleted from old Coordinator
 		_, err = vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
 		require.Error(t, err, "error not occurred when trying to get deleted subscription from old Coordinator after sub migration")
 
@@ -1189,7 +1189,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		require.Len(t, activeSubIdsMigratedCoordinator, 1, "Active Sub Ids length is not equal to 1 for Migrated Coordinator after migration")
 		require.Equal(t, subID, activeSubIdsMigratedCoordinator[0])
 
-		//Verify that total balances changed for Link and Eth for new and old coordinator
+		// Verify that total balances changed for Link and Eth for new and old coordinator
 		expectedLinkTotalBalanceForMigratedCoordinator := new(big.Int).Add(oldSubscriptionBeforeMigration.Balance, migratedCoordinatorLinkTotalBalanceBeforeMigration)
 		expectedEthTotalBalanceForMigratedCoordinator := new(big.Int).Add(oldSubscriptionBeforeMigration.NativeBalance, migratedCoordinatorEthTotalBalanceBeforeMigration)
 
@@ -1269,7 +1269,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		}
 	}
 
-	//decrease default span for checking blockhashes for unfulfilled requests
+	// decrease default span for checking blockhashes for unfulfilled requests
 	vrfv2PlusConfig.General.BHSJobWaitBlocks = ptr.Ptr(2)
 	vrfv2PlusConfig.General.BHSJobLookBackBlocks = ptr.Ptr(20)
 	vrfEnvConfig := vrfcommon.VRFEnvConfig{
@@ -1293,7 +1293,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			t.Skip("Skipped due to long execution time. Should be run on-demand on live testnet with TEST_UNSKIP=\"true\".")
 		}
 		configCopy := config.MustCopy().(tc.TestConfig)
-		//Underfund Subscription
+		// Underfund Subscription
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
 
@@ -1395,7 +1395,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 
 	t.Run("BHS Job should fill in blockhashes into BHS contract for unfulfilled requests", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
-		//Underfund Subscription
+		// Underfund Subscription
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
 
@@ -1416,7 +1416,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
 
-		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
+		// BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
 		randomWordsRequestedEvent, err := vrfv2plus.RequestRandomness(
 			consumers[0],
 			vrfContracts.CoordinatorV2Plus,
@@ -1705,7 +1705,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 
 	t.Run("Timed out request fulfilled after node restart with replay", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
-		var isNativeBilling = false
+		isNativeBilling := false
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
@@ -1892,7 +1892,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 	vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
 	subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
 
-	var isNativeBilling = true
+	isNativeBilling := true
 
 	l.Info().Uint16("minimumConfirmationDelay", *config.VRFv2Plus.General.MinimumConfirmations).Msg("Minimum Confirmation Delay")
 
@@ -1942,7 +1942,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
-				//cancel subs and return funds to sub owner
+				// cancel subs and return funds to sub owner
 				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
 			}
 		}
@@ -2001,7 +2001,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		configCopy.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](10)
 
-		//1. request randomness and wait for fulfillment for blockhash from Reorged Fork
+		// 1. request randomness and wait for fulfillment for blockhash from Reorged Fork
 		randomWordsRequestedEvent, randomWordsFulfilledEventOnReorgedFork, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			consumers[0],
 			vrfContracts.CoordinatorV2Plus,
@@ -2024,13 +2024,13 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 		latestBlockNumberAfterReorg, err := vrfcommon.RewindSimulatedChainToBlockNumber(testcontext.Get(t), sethClient, rpcUrl, rewindChainToBlock, l)
 		require.NoError(t, err, fmt.Sprintf("error rewinding chain to block number %d", rewindChainToBlock))
 
-		//3.1 ensure that chain is reorged and latest block number is greater than the block number when request was made
+		// 3.1 ensure that chain is reorged and latest block number is greater than the block number when request was made
 		require.Greater(t, latestBlockNumberAfterReorg, randomWordsRequestedEvent.Raw.BlockNumber)
 
-		//3.2 ensure that chain is reorged and latest block number is less than the block number when fulfilment was performed
+		// 3.2 ensure that chain is reorged and latest block number is less than the block number when fulfilment was performed
 		require.Less(t, latestBlockNumberAfterReorg, randomWordsFulfilledEventOnReorgedFork.Raw.BlockNumber)
 
-		//4. wait for the fulfillment which VRF Node will generate for Canonical chain
+		// 4. wait for the fulfillment which VRF Node will generate for Canonical chain
 		_, err = vrfv2plus.WaitRandomWordsFulfilledEvent(
 			vrfContracts.CoordinatorV2Plus,
 			randomWordsRequestedEvent.RequestId,
@@ -2046,10 +2046,10 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 
 	t.Run("Reorg on rand request", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
-		//1. set minimum confirmations to higher value so that we can be sure that request won't be fulfilled before reorg
+		// 1. set minimum confirmations to higher value so that we can be sure that request won't be fulfilled before reorg
 		configCopy.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](6)
 
-		//2. request randomness
+		// 2. request randomness
 		randomWordsRequestedEvent, err := vrfv2plus.RequestRandomness(
 			consumers[0],
 			vrfContracts.CoordinatorV2Plus,
@@ -2072,10 +2072,10 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 		latestBlockNumberAfterReorg, err := vrfcommon.RewindSimulatedChainToBlockNumber(testcontext.Get(t), sethClient, rpcUrl, rewindChainToBlockNumber, l)
 		require.NoError(t, err, fmt.Sprintf("error rewinding chain to block number %d", rewindChainToBlockNumber))
 
-		//4. ensure that chain is reorged and latest block number is less than the block number when request was made
+		// 4. ensure that chain is reorged and latest block number is less than the block number when request was made
 		require.Less(t, latestBlockNumberAfterReorg, randomWordsRequestedEvent.Raw.BlockNumber)
 
-		//5. ensure that rand request is not fulfilled for the request which was made on reorged fork
+		// 5. ensure that rand request is not fulfilled for the request which was made on reorged fork
 		// For context - when performing debug_setHead on geth simulated chain and therefore rewinding chain to a previous block,
 		//then tx that was mined after reorg will not appear in canonical chain contrary to real world scenario
 		//Hence, we only verify that VRF node will not generate fulfillment for the reorged fork request
@@ -2091,7 +2091,6 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 		)
 		require.Error(t, err, "fulfillment should not be generated for the request which was made on reorged fork on Simulated Chain")
 	})
-
 }
 
 func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {

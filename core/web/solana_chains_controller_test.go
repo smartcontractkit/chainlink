@@ -13,7 +13,7 @@ import (
 
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -80,9 +80,9 @@ Nodes = []
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := setupSolanaChainsControllerTestV2(t, &config.TOMLConfig{
+			controller := setupSolanaChainsControllerTestV2(t, &solcfg.TOMLConfig{
 				ChainID: ptr(validId),
-				Chain: config.Chain{
+				Chain: solcfg.Chain{
 					SkipPreflight: ptr(false),
 					TxTimeout:     commoncfg.MustNewDuration(time.Hour),
 				},
@@ -111,15 +111,16 @@ Nodes = []
 func Test_SolanaChainsController_Index(t *testing.T) {
 	t.Parallel()
 
-	chainA := &config.TOMLConfig{
+	chainA := &solcfg.TOMLConfig{
 		ChainID: ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999))),
-		Chain: config.Chain{
+		Chain: solcfg.Chain{
 			TxTimeout: commoncfg.MustNewDuration(time.Hour),
 		},
 	}
-	chainB := &config.TOMLConfig{
+
+	chainB := &solcfg.TOMLConfig{
 		ChainID: ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999))),
-		Chain: config.Chain{
+		Chain: solcfg.Chain{
 			SkipPreflight: ptr(false),
 		},
 	}
@@ -175,7 +176,7 @@ type TestSolanaChainsController struct {
 	client cltest.HTTPClientCleaner
 }
 
-func setupSolanaChainsControllerTestV2(t *testing.T, cfgs ...*config.TOMLConfig) *TestSolanaChainsController {
+func setupSolanaChainsControllerTestV2(t *testing.T, cfgs ...*solcfg.TOMLConfig) *TestSolanaChainsController {
 	for i := range cfgs {
 		cfgs[i].SetDefaults()
 	}

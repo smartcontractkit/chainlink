@@ -3,7 +3,7 @@ name: "Push develop to private ECR"
 on:
   push:
     branches:
-      - develop
+      - ccip-develop
   workflow_dispatch:
     inputs:
       git_ref:
@@ -13,7 +13,7 @@ env:
   GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
 
 jobs:
-  push-chainlink-develop:
+  push-ccip-develop:
     runs-on: ubuntu-20.04
     environment: build-develop
     permissions:
@@ -28,7 +28,7 @@ jobs:
           - name: (plugins)
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
-    name: push-chainlink-develop ${{ matrix.image.name }}
+    name: push-ccip-develop ${{ matrix.image.name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -41,7 +41,7 @@ jobs:
         if: github.event.inputs.git_ref
         id: git-ref
         run: echo "checked-out=$(git rev-parse HEAD)" | tee -a "${GITHUB_OUTPUT}"
-      - name: Build, sign and publish chainlink image
+      - name: Build, sign and publish ccip image
         uses: ./.github/actions/build-sign-publish-chainlink
         with:
           publish: true
@@ -49,11 +49,11 @@ jobs:
           aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
           ecr-hostname: ${{ secrets.AWS_DEVELOP_ECR_HOSTNAME }}
-          ecr-image-name: chainlink
+          ecr-image-name: ccip-develop
           ecr-tag-suffix: ${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          dockerhub_username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
           git-commit-sha: ${{ steps.git-ref.outputs.checked-out || github.sha }}
 
       - name: Collect Metrics
@@ -61,9 +61,8 @@ jobs:
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
-          id: build-chainlink-develop
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: push-chainlink-develop ${{ matrix.image.name }}
+          this-job-name: push-ccip-develop ${{ matrix.image.name }}
         continue-on-error: true

@@ -25,9 +25,6 @@ inputs:
   slack_thread_ts:
     description: "The Slack thread timestamp to post the message to, handy for keeping multiple related results in a single thread"
     required: false
-  base64_parsed_results:
-    description: "Base64 encoded parsed results to use"
-    required: false
 
 runs:
   using: composite
@@ -67,9 +64,9 @@ runs:
               break
           done
           echo "Success: $ALL_SUCCESS"
-  
+        
           echo all_success=$ALL_SUCCESS >> $GITHUB_OUTPUT
-  
+        
           FORMATTED_RESULTS=$(echo $PARSED_RESULTS | jq -s '[.[]
           | {
             conclusion: .conclusion,
@@ -83,7 +80,7 @@ runs:
           echo "Nothing to post, no results found"
           exit 0
         fi
-      
+        
         echo "Formatted Results:"
         echo $FORMATTED_RESULTS
 

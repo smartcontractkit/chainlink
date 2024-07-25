@@ -195,6 +195,10 @@ type RelayConfig struct {
 	// Mercury-specific
 	FeedID                  *common.Hash `json:"feedID"`
 	EnableTriggerCapability bool         `json:"enableTriggerCapability"`
+
+	// Rebalancer specific
+	// FromBlocks specifies the block numbers to replay from for each chain.
+	FromBlocks map[string]int64 `json:"fromBlocks"`
 }
 
 var ErrBadRelayConfig = errors.New("bad relay config")

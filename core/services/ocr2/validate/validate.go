@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
@@ -19,20 +20,23 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	liquiditymanagermodels "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
 func ValidatedOracleSpecToml(ctx context.Context, config OCR2Config, insConf InsecureConfig, tomlString string, rc plugins.RegistrarConfig) (job.Job, error) {
-	var jb = job.Job{}
+	jb := job.Job{}
 	var spec job.OCR2OracleSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
-		return jb, pkgerrors.Wrap(err, "toml error on load")
+		return jb, pkgerrors.Wrapf(err, "toml error on load %v", tomlString)
 	}
 	// Note this validates all the fields which implement an UnmarshalText
 	// i.e. TransmitterAddress, PeerID...
@@ -115,10 +119,16 @@ func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins
 		return nil
 	case types.Mercury:
 		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig, *spec.OCR2OracleSpec.FeedID)
+	case types.CCIPExecution:
+		return validateOCR2CCIPExecutionSpec(spec.OCR2OracleSpec.PluginConfig)
+	case types.CCIPCommit:
+		return validateOCR2CCIPCommitSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.LLO:
 		return validateOCR2LLOSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.GenericPlugin:
 		return validateGenericPluginSpec(ctx, spec.OCR2OracleSpec, rc)
+	case "liquiditymanager":
+		return validateLiquidityManagerSpec(spec.OCR2OracleSpec.PluginConfig)
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -280,9 +290,9 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 	}
 
 	loopID := fmt.Sprintf("%s-%s-%s", p.PluginName, spec.ContractID, spec.GetID())
-	//Starting and stopping a LOOPP isn't efficient; ideally, we'd initiate the LOOPP once and then reference
-	//it later to conserve resources. This code will be revisited once BCF-3126 is implemented, and we have
-	//the ability to reference the LOOPP for future use.
+	// Starting and stopping a LOOPP isn't efficient; ideally, we'd initiate the LOOPP once and then reference
+	// it later to conserve resources. This code will be revisited once BCF-3126 is implemented, and we have
+	// the ability to reference the LOOPP for future use.
 	cmdFn, grpcOpts, err := rc.RegisterLOOP(plugins.CmdConfig{
 		ID:  loopID,
 		Cmd: command,
@@ -305,6 +315,27 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 	return plugin.ValidateConfig(ctx, spec.PluginConfig)
 }
 
+func validateLiquidityManagerSpec(jsonConfig job.JSONConfig) error {
+	if jsonConfig == nil {
+		return errors.New("pluginConfig is empty")
+	}
+	var pluginConfig liquiditymanagermodels.PluginConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
+	if err != nil {
+		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
+	}
+	if pluginConfig.LiquidityManagerNetwork == 0 {
+		return errors.New("liquidityManagerNetwork must be provided")
+	}
+	if pluginConfig.ClosePluginTimeoutSec <= 0 {
+		return errors.New("closePluginTimeoutSec must be positive")
+	}
+	if err := liquiditymanagermodels.ValidateRebalancerConfig(pluginConfig.RebalancerConfig); err != nil {
+		return fmt.Errorf("rebalancer config invalid: %w", err)
+	}
+	return nil
+}
+
 func validateOCR2KeeperSpec(jsonConfig job.JSONConfig) error {
 	return nil
 }
@@ -313,9 +344,59 @@ func validateOCR2MercurySpec(jsonConfig job.JSONConfig, feedId [32]byte) error {
 	var pluginConfig mercuryconfig.PluginConfig
 	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
 	if err != nil {
-		return pkgerrors.Wrap(err, "error while unmarshaling plugin config")
+		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
 	}
 	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig, feedId), "Mercury PluginConfig is invalid")
+}
+
+func validateOCR2CCIPExecutionSpec(jsonConfig job.JSONConfig) error {
+	if jsonConfig == nil {
+		return errors.New("pluginConfig is empty")
+	}
+	var cfg config.ExecPluginJobSpecConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &cfg)
+	if err != nil {
+		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
+	}
+	if cfg.USDCConfig != (config.USDCConfig{}) {
+		return cfg.USDCConfig.ValidateUSDCConfig()
+	}
+	return nil
+}
+
+func validateOCR2CCIPCommitSpec(jsonConfig job.JSONConfig) error {
+	if jsonConfig == nil {
+		return errors.New("pluginConfig is empty")
+	}
+	var cfg config.CommitPluginJobSpecConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &cfg)
+	if err != nil {
+		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
+	}
+
+	// Ensure that either the tokenPricesUSDPipeline or the priceGetterConfig is set, but not both.
+	emptyPipeline := strings.Trim(cfg.TokenPricesUSDPipeline, "\n\t ") == ""
+	emptyPriceGetter := cfg.PriceGetterConfig == nil
+	if emptyPipeline && emptyPriceGetter {
+		return fmt.Errorf("either tokenPricesUSDPipeline or priceGetterConfig must be set")
+	}
+	if !emptyPipeline && !emptyPriceGetter {
+		return fmt.Errorf("only one of tokenPricesUSDPipeline or priceGetterConfig must be set: %s and %v", cfg.TokenPricesUSDPipeline, cfg.PriceGetterConfig)
+	}
+
+	if !emptyPipeline {
+		_, err = pipeline.Parse(cfg.TokenPricesUSDPipeline)
+		if err != nil {
+			return pkgerrors.Wrap(err, "invalid token prices pipeline")
+		}
+	} else {
+		// Validate prices config (like it was done for the pipeline).
+		if emptyPriceGetter {
+			return pkgerrors.New("priceGetterConfig is empty")
+		}
+	}
+
+	return nil
 }
 
 func validateOCR2LLOSpec(jsonConfig job.JSONConfig) error {
