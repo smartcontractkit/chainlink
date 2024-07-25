@@ -3,12 +3,15 @@ package ccip_integration_tests
 import (
 	"fmt"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/hashicorp/consul/sdk/freeport"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ping_pong_demo"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -23,8 +26,6 @@ import (
 )
 
 func TestIntegration_OCR3Nodes(t *testing.T) {
-	t.Skip("Currently failing, will fix in follow-ups")
-
 	numChains := 3
 	homeChainUni, universes := createUniverses(t, numChains)
 	numNodes := 4
@@ -136,6 +137,58 @@ func TestIntegration_OCR3Nodes(t *testing.T) {
 	// map[uint64] chainID, blocks
 	var replayBlocks = make(map[uint64]uint64)
 	pingPongs := initializePingPongContracts(t, universes)
+
+	sendPingPong(t, universes, pingPongs, messageIDs, replayBlocks, 1)
+	// HACK: wait for the oracles to come up.
+	// Need some data driven way to do this.
+	time.Sleep(30 * time.Second)
+
+	// replay the log poller on all the chains so that the logs are in the db.
+	// otherwise the plugins won't pick them up.
+	// TODO: this is happening too early, we need to wait for the chain readers to get their config
+	// and register the LP filters before this has any effect.
+	for _, node := range nodes {
+		for chainID, replayBlock := range replayBlocks {
+			t.Logf("Replaying logs for chain %d from block %d", chainID, replayBlock)
+			require.NoError(t, node.app.ReplayFromBlock(big.NewInt(int64(chainID)), replayBlock, false), "failed to replay logs")
+		}
+	}
+
+	numUnis := len(universes)
+	var wg sync.WaitGroup
+	for _, uni := range universes {
+		wg.Add(1)
+		go func(uni onchainUniverse) {
+			defer wg.Done()
+			waitForCommit(t, uni, numUnis, nil)
+		}(uni)
+	}
+
+	t.Log("waiting for commit reports")
+	wg.Wait()
+
+	var preRequestBlocks = make(map[uint64]uint64)
+	for _, uni := range universes {
+		preRequestBlocks[uni.chainID] = uni.backend.Blockchain().CurrentBlock().Number.Uint64()
+	}
+
+	t.Log("PingPong AGAIN")
+	sendPingPong(t, universes, pingPongs, messageIDs, replayBlocks, 2)
+
+	for _, uni := range universes {
+		startBlock := preRequestBlocks[uni.chainID]
+		wg.Add(1)
+		go func(uni onchainUniverse, startBlock *uint64) {
+			defer wg.Done()
+			waitForCommit(t, uni, numUnis, startBlock)
+		}(uni, &startBlock)
+	}
+
+	t.Log("waiting for second batch of commit reports")
+	wg.Wait()
+}
+
+func sendPingPong(t *testing.T, universes map[uint64]onchainUniverse, pingPongs map[uint64]map[uint64]*ping_pong_demo.PingPongDemo, messageIDs map[uint64]map[uint64][32]byte, replayBlocks map[uint64]uint64, expectedSeqNum uint64) {
 	for chainID, uni := range universes {
 		var replayBlock uint64
 		for otherChain, pingPong := range pingPongs[chainID] {
@@ -143,7 +196,7 @@ func TestIntegration_OCR3Nodes(t *testing.T) {
 
 			expNextSeqNr, err1 := uni.onramp.GetExpectedNextSequenceNumber(&bind.CallOpts{}, getSelector(otherChain))
 			require.NoError(t, err1)
-			require.Equal(t, uint64(1), expNextSeqNr, "expected next sequence number should be 1")
+			require.Equal(t, expectedSeqNum, expNextSeqNr, "expected next sequence number should be 1")
 
 			uni.backend.Commit()
 
@@ -193,30 +246,14 @@ func TestIntegration_OCR3Nodes(t *testing.T) {
 		}
 		replayBlocks[chainID] = replayBlock
 	}
-
-	// HACK: wait for the oracles to come up.
-	// Need some data driven way to do this.
-	time.Sleep(30 * time.Second)
-
-	// replay the log poller on all the chains so that the logs are in the db.
-	// otherwise the plugins won't pick them up.
-	// TODO: this is happening too early, we need to wait for the chain readers to get their config
-	// and register the LP filters before this has any effect.
-	for _, node := range nodes {
-		for chainID, replayBlock := range replayBlocks {
-			t.Logf("Replaying logs for chain %d from block %d", chainID, replayBlock)
-			require.NoError(t, node.app.ReplayFromBlock(big.NewInt(int64(chainID)), replayBlock, false), "failed to replay logs")
-		}
-	}
-
-	for _, uni := range universes {
-		waitForCommit(t, uni)
-	}
 }
 
-func waitForCommit(t *testing.T, uni onchainUniverse) {
+func waitForCommit(t *testing.T, uni onchainUniverse, numUnis int, startBlock *uint64) {
 	sink := make(chan *evm_2_evm_multi_offramp.EVM2EVMMultiOffRampCommitReportAccepted)
-	subscipriton, err := uni.offramp.WatchCommitReportAccepted(&bind.WatchOpts{}, sink)
+	subscipriton, err := uni.offramp.WatchCommitReportAccepted(&bind.WatchOpts{
+		Start:   startBlock,
+		Context: testutils.Context(t),
+	}, sink)
 	require.NoError(t, err)
 
 	for {
@@ -227,11 +264,15 @@ func waitForCommit(t *testing.T, uni onchainUniverse) {
 			t.Fatalf("Subscription error: %+v", subErr)
 		case report := <-sink:
 			if len(report.Report.MerkleRoots) > 0 {
-				t.Logf("Received commit report with merkle roots: %+v", report)
+				if len(report.Report.MerkleRoots) == numUnis-1 {
+					t.Logf("Received commit report with %d merkle roots on chain id %d (selector %d): %+v",
+						len(report.Report.MerkleRoots), uni.chainID, getSelector(uni.chainID), report)
+					return
+				}
+				t.Fatalf("Received commit report with %d merkle roots, expected %d", len(report.Report.MerkleRoots), numUnis)
 			} else {
-				t.Logf("Received commit report without merkle roots: %+v", report)
+				t.Logf("Received commit report without merkle roots on chain id %d (selector %d): %+v", uni.chainID, getSelector(uni.chainID), report)
 			}
-			return
 		}
 	}
 }

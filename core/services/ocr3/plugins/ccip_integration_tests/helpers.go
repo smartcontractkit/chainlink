@@ -626,6 +626,15 @@ func wireOffRamp(t *testing.T, uni onchainUniverse, universes map[uint64]onchain
 	_, err := uni.offramp.ApplySourceChainConfigUpdates(owner, offrampSourceChainConfigArgs)
 	require.NoErrorf(t, err, "failed to apply source chain config updates on offramp on chain id %d", uni.chainID)
 	uni.backend.Commit()
+	for remoteChainID, remoteUniverse := range universes {
+		if remoteChainID == uni.chainID {
+			continue
+		}
+		sourceCfg, err2 := uni.offramp.GetSourceChainConfig(&bind.CallOpts{}, getSelector(remoteChainID))
+		require.NoError(t, err2)
+		require.True(t, sourceCfg.IsEnabled, "source chain config should be enabled")
+		require.Equal(t, remoteUniverse.onramp.Address(), common.BytesToAddress(sourceCfg.OnRamp), "source chain config onRamp address mismatch")
+	}
 }
 
 func getSelector(chainID uint64) uint64 {
