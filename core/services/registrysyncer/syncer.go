@@ -118,7 +118,7 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer contractReaderFa
 }
 
 func (s *registrySyncer) Start(ctx context.Context) error {
-	return s.StartOnce("testAsyncMessageBroker", func() error {
+	return s.StartOnce("RegistrySyncer", func() error {
 		s.wg.Add(1)
 		go func() {
 			defer s.wg.Done()
@@ -304,10 +304,12 @@ func toDONInfo(don kcr.CapabilitiesRegistryDONInfo) *capabilities.DON {
 	}
 
 	return &capabilities.DON{
-		ID:            don.Id,
-		ConfigVersion: don.ConfigCount,
-		Members:       peerIDs,
-		F:             don.F,
+		ID:               don.Id,
+		ConfigVersion:    don.ConfigCount,
+		Members:          peerIDs,
+		F:                don.F,
+		IsPublic:         don.IsPublic,
+		AcceptsWorkflows: don.AcceptsWorkflows,
 	}
 }
 
@@ -318,7 +320,7 @@ func (s *registrySyncer) AddLauncher(launchers ...Launcher) {
 }
 
 func (s *registrySyncer) Close() error {
-	return s.StopOnce("testAsyncMessageBroker", func() error {
+	return s.StopOnce("RegistrySyncer", func() error {
 		close(s.stopCh)
 		s.wg.Wait()
 		return nil
