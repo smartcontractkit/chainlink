@@ -498,7 +498,7 @@ func file_core_capabilities_remote_types_messages_proto_rawDescGZIP() []byte {
 }
 
 var file_core_capabilities_remote_types_messages_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_core_capabilities_remote_types_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_core_capabilities_remote_types_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_core_capabilities_remote_types_messages_proto_goTypes = []any{
 	(Error)(0),                          // 0: remote.Error
 	(*Message)(nil),                     // 1: remote.Message
@@ -561,18 +561,6 @@ func file_core_capabilities_remote_types_messages_proto_init() {
 		}
 		file_core_capabilities_remote_types_messages_proto_msgTypes[3].Exporter = func(v any, i int) any {
 			switch v := v.(*TriggerEventMetadata); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_core_capabilities_remote_types_messages_proto_msgTypes[4].Exporter = func(v any, i int) any {
-			switch v := v.(*RemoteTriggerConfig); i {
 			case 0:
 				return &v.state
 			case 1:
