@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {Common} from "../../libraries/Common.sol";
-import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
-
 interface IDestinationVerifierProxy {
   /**
    * @notice Verifies that the data encoded has been signed
