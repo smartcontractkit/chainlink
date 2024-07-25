@@ -14,8 +14,6 @@ var (
 )
 
 // Reader is an interface for fetching offchain token data
-//
-//go:generate mockery --quiet --name Reader --output . --filename reader_mock.go --inpackage --case=underscore
 type Reader interface {
 	cciptypes.TokenDataReader
 }

@@ -16,6 +16,14 @@ type MockPriceGetter struct {
 	mock.Mock
 }
 
+type MockPriceGetter_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *MockPriceGetter) EXPECT() *MockPriceGetter_Expecter {
+	return &MockPriceGetter_Expecter{mock: &_m.Mock}
+}
+
 // Close provides a mock function with given fields:
 func (_m *MockPriceGetter) Close() error {
 	ret := _m.Called()
@@ -32,6 +40,33 @@ func (_m *MockPriceGetter) Close() error {
 	}
 
 	return r0
+}
+
+// MockPriceGetter_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type MockPriceGetter_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *MockPriceGetter_Expecter) Close() *MockPriceGetter_Close_Call {
+	return &MockPriceGetter_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *MockPriceGetter_Close_Call) Run(run func()) *MockPriceGetter_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockPriceGetter_Close_Call) Return(_a0 error) *MockPriceGetter_Close_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockPriceGetter_Close_Call) RunAndReturn(run func() error) *MockPriceGetter_Close_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterConfiguredTokens provides a mock function with given fields: ctx, tokens
@@ -73,6 +108,35 @@ func (_m *MockPriceGetter) FilterConfiguredTokens(ctx context.Context, tokens []
 	return r0, r1, r2
 }
 
+// MockPriceGetter_FilterConfiguredTokens_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterConfiguredTokens'
+type MockPriceGetter_FilterConfiguredTokens_Call struct {
+	*mock.Call
+}
+
+// FilterConfiguredTokens is a helper method to define mock.On call
+//   - ctx context.Context
+//   - tokens []ccip.Address
+func (_e *MockPriceGetter_Expecter) FilterConfiguredTokens(ctx interface{}, tokens interface{}) *MockPriceGetter_FilterConfiguredTokens_Call {
+	return &MockPriceGetter_FilterConfiguredTokens_Call{Call: _e.mock.On("FilterConfiguredTokens", ctx, tokens)}
+}
+
+func (_c *MockPriceGetter_FilterConfiguredTokens_Call) Run(run func(ctx context.Context, tokens []ccip.Address)) *MockPriceGetter_FilterConfiguredTokens_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]ccip.Address))
+	})
+	return _c
+}
+
+func (_c *MockPriceGetter_FilterConfiguredTokens_Call) Return(configured []ccip.Address, unconfigured []ccip.Address, err error) *MockPriceGetter_FilterConfiguredTokens_Call {
+	_c.Call.Return(configured, unconfigured, err)
+	return _c
+}
+
+func (_c *MockPriceGetter_FilterConfiguredTokens_Call) RunAndReturn(run func(context.Context, []ccip.Address) ([]ccip.Address, []ccip.Address, error)) *MockPriceGetter_FilterConfiguredTokens_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // TokenPricesUSD provides a mock function with given fields: ctx, tokens
 func (_m *MockPriceGetter) TokenPricesUSD(ctx context.Context, tokens []ccip.Address) (map[ccip.Address]*big.Int, error) {
 	ret := _m.Called(ctx, tokens)
@@ -101,6 +165,35 @@ func (_m *MockPriceGetter) TokenPricesUSD(ctx context.Context, tokens []ccip.Add
 	}
 
 	return r0, r1
+}
+
+// MockPriceGetter_TokenPricesUSD_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TokenPricesUSD'
+type MockPriceGetter_TokenPricesUSD_Call struct {
+	*mock.Call
+}
+
+// TokenPricesUSD is a helper method to define mock.On call
+//   - ctx context.Context
+//   - tokens []ccip.Address
+func (_e *MockPriceGetter_Expecter) TokenPricesUSD(ctx interface{}, tokens interface{}) *MockPriceGetter_TokenPricesUSD_Call {
+	return &MockPriceGetter_TokenPricesUSD_Call{Call: _e.mock.On("TokenPricesUSD", ctx, tokens)}
+}
+
+func (_c *MockPriceGetter_TokenPricesUSD_Call) Run(run func(ctx context.Context, tokens []ccip.Address)) *MockPriceGetter_TokenPricesUSD_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]ccip.Address))
+	})
+	return _c
+}
+
+func (_c *MockPriceGetter_TokenPricesUSD_Call) Return(_a0 map[ccip.Address]*big.Int, _a1 error) *MockPriceGetter_TokenPricesUSD_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockPriceGetter_TokenPricesUSD_Call) RunAndReturn(run func(context.Context, []ccip.Address) (map[ccip.Address]*big.Int, error)) *MockPriceGetter_TokenPricesUSD_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewMockPriceGetter creates a new instance of MockPriceGetter. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

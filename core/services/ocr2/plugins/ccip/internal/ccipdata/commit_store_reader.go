@@ -57,7 +57,6 @@ func NewCommitOffchainConfig(
 	}
 }
 
-//go:generate mockery --quiet --name CommitStoreReader --filename commit_store_reader_mock.go --case=underscore
 type CommitStoreReader interface {
 	cciptypes.CommitStoreReader
 	SetGasEstimator(ctx context.Context, gpe gas.EvmFeeEstimator) error

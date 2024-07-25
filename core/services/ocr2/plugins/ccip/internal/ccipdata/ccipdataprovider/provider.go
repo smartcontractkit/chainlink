@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/observability"
 )
 
-//go:generate mockery --quiet --name PriceRegistry --filename price_registry_mock.go --case=underscore
 type PriceRegistry interface {
 	NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (cciptypes.PriceRegistryReader, error)
 }
