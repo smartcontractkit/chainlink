@@ -266,8 +266,8 @@ func TestReader_Integration(t *testing.T) {
 		DON: capabilities.DON{
 			ID:               1,
 			ConfigVersion:    1,
-			IsPublic:         false,
-			AcceptsWorkflows: false,
+			IsPublic:         true,
+			AcceptsWorkflows: true,
 			F:                1,
 			Members:          toPeerIDs(nodeSet),
 		},
