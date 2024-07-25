@@ -112,4 +112,48 @@ contract VerifierSetConfigTest is BaseTest {
     vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.DONConfigDoesNotExist.selector));
     s_verifier.setConfigActive(3, true);
   }
+
+  function test_setConfigWithActivationTime() public {
+    // simple case setting a config with specific activation time
+    Signer[] memory signers = _getSigners(MAX_ORACLES);
+    address[] memory signerAddrs = _getSignerAddresses(signers);
+    uint32 activationTime = 10;
+    s_verifier.setConfigWithActivationTime(
+      signerAddrs,
+      FAULT_TOLERANCE,
+      new Common.AddressAndWeight[](0),
+      activationTime
+    );
+  }
+
+  function test_setConfigWithActivationTimeNoFutureTimeShouldFail() public {
+    // calling setConfigWithActivationTime with a future timestamp should fail
+    Signer[] memory signers = _getSigners(MAX_ORACLES);
+    address[] memory signerAddrs = _getSignerAddresses(signers);
+    uint32 activationTime = uint32(block.timestamp) + 100;
+    vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.BadActivationTime.selector));
+    s_verifier.setConfigWithActivationTime(
+      signerAddrs,
+      FAULT_TOLERANCE,
+      new Common.AddressAndWeight[](0),
+      activationTime
+    );
+  }
+
+  function test_setConfigWithActivationTimeEarlierThanLatestConfigShouldFail() public {
+    // setting a config older than the latest current config should fail
+    Signer[] memory signers = _getSigners(MAX_ORACLES);
+    address[] memory signerAddrs = _getSignerAddresses(signers);
+    uint32 oldActivationTime = uint32(block.timestamp) - 1;
+    // sets a config with timestamp = block.timestamp
+    s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
+    // setting a config with ealier timestamp retuls in failure
+    vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.BadActivationTime.selector));
+    s_verifier.setConfigWithActivationTime(
+      signerAddrs,
+      FAULT_TOLERANCE - 1,
+      new Common.AddressAndWeight[](0),
+      oldActivationTime
+    );
+  }
 }

@@ -571,4 +571,142 @@ contract VerifierVerifyTest is BaseTest {
     vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.BadVerification.selector));
     s_verifierProxy.verify(signedReport, abi.encode(native));
   }
+
+  function test_scenarioRollingNewChainWithHistoricConfigs() public {
+    /*
+       This test is checking that we can roll out in a new network and set historic configurations :
+       - Stars with a chain at blocktimestamp 1000
+       - SetConfigA with teimstamp 100 
+       - SetConfigB with timesmtap 200
+       - SetConfigC with timestamp current 
+       - tries verifying reports for all the configs
+    */
+
+    vm.warp(block.timestamp + 1000);
+
+    Signer[] memory signers = _getSigners(MAX_ORACLES);
+    address[] memory signerAddrs = _getSignerAddresses(signers);
+
+    uint8 MINIMAL_FAULT_TOLERANCE = 2;
+    BaseTest.Signer[] memory signersA = new BaseTest.Signer[](7);
+    signersA[0] = signers[0];
+    signersA[1] = signers[1];
+    signersA[2] = signers[2];
+    signersA[3] = signers[3];
+    signersA[4] = signers[4];
+    signersA[5] = signers[5];
+    signersA[6] = signers[6];
+
+    // ConfigA (historical config)
+    uint32 configATimestmap = 100;
+    address[] memory signersAddrA = _getSignerAddresses(signersA);
+    s_verifier.setConfigWithActivationTime(
+      signersAddrA,
+      MINIMAL_FAULT_TOLERANCE,
+      new Common.AddressAndWeight[](0),
+      configATimestmap
+    );
+
+    // ConfigB (historical config)
+    uint32 configBTimestmap = 200;
+    // Config B
+    BaseTest.Signer[] memory signersB = new BaseTest.Signer[](7);
+    // signers in ConfigA
+    signersB[0] = signers[8];
+    signersB[1] = signers[9];
+    signersB[2] = signers[10];
+    signersB[3] = signers[11];
+    signersB[4] = signers[12];
+    signersB[5] = signers[13];
+    signersB[6] = signers[14];
+    address[] memory signersAddrsB = _getSignerAddresses(signersB);
+    s_verifier.setConfigWithActivationTime(
+      signersAddrsB,
+      MINIMAL_FAULT_TOLERANCE,
+      new Common.AddressAndWeight[](0),
+      configBTimestmap
+    );
+
+    // ConfigC (config at current timestamp)
+    //    BaseTest.Signer[] memory signersC = new BaseTest.Signer[](7);
+    // signers in ConfigA
+    signersB[6] = signers[15];
+    address[] memory signersAddrsC = _getSignerAddresses(signersB);
+    s_verifier.setConfig(signersAddrsC, MINIMAL_FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
+
+    vm.warp(block.timestamp + 10);
+
+    // historical report
+    V3Report memory s_testReportA = V3Report({
+      feedId: FEED_ID_V3,
+      observationsTimestamp: OBSERVATIONS_TIMESTAMP,
+      validFromTimestamp: uint32(101),
+      nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
+      linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
+      expiresAt: uint32(block.timestamp + 1000),
+      benchmarkPrice: MEDIAN,
+      bid: BID,
+      ask: ASK
+    });
+
+    // historical report
+    V3Report memory s_testReportB = V3Report({
+      feedId: FEED_ID_V3,
+      observationsTimestamp: OBSERVATIONS_TIMESTAMP,
+      validFromTimestamp: uint32(201),
+      nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
+      linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
+      expiresAt: uint32(block.timestamp + 1000),
+      benchmarkPrice: MEDIAN,
+      bid: BID,
+      ask: ASK
+    });
+
+    // report at recent timestamp
+    V3Report memory s_testReportC = V3Report({
+      feedId: FEED_ID_V3,
+      observationsTimestamp: OBSERVATIONS_TIMESTAMP,
+      validFromTimestamp: uint32(block.timestamp),
+      nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
+      linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
+      expiresAt: uint32(block.timestamp + 1000),
+      benchmarkPrice: MEDIAN,
+      bid: BID,
+      ask: ASK
+    });
+
+    BaseTest.Signer[] memory reportSignersA = new BaseTest.Signer[](3);
+    reportSignersA[0] = signers[0];
+    reportSignersA[1] = signers[1];
+    reportSignersA[2] = signers[2];
+
+    BaseTest.Signer[] memory reportSignersB = new BaseTest.Signer[](3);
+    reportSignersB[0] = signers[8];
+    reportSignersB[1] = signers[9];
+    reportSignersB[2] = signers[14];
+
+    BaseTest.Signer[] memory reportSignersC = new BaseTest.Signer[](3);
+    reportSignersC[0] = signers[15];
+    reportSignersC[1] = signers[13];
+    reportSignersC[2] = signers[12];
+
+    bytes memory signedReportA = _generateV3EncodedBlob(s_testReportA, s_reportContext, reportSignersA);
+    bytes memory signedReportB = _generateV3EncodedBlob(s_testReportB, s_reportContext, reportSignersB);
+    bytes memory signedReportC = _generateV3EncodedBlob(s_testReportC, s_reportContext, reportSignersC);
+
+    // verifying historical reports
+    s_verifierProxy.verify(signedReportA, abi.encode(native));
+    s_verifierProxy.verify(signedReportB, abi.encode(native));
+    // verifiying a current report
+    s_verifierProxy.verify(signedReportC, abi.encode(native));
+
+    // current report verified by historical report fails
+    bytes memory signedNewReportWithOldSignatures = _generateV3EncodedBlob(
+      s_testReportC,
+      s_reportContext,
+      reportSignersA
+    );
+    vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.BadVerification.selector));
+    s_verifierProxy.verify(signedNewReportWithOldSignatures, abi.encode(native));
+  }
 }
