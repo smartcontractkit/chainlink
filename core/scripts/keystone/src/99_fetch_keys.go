@@ -213,6 +213,7 @@ func mustFetchNodesKeys(chainID int64, nodes []*node) (nca []NodeKeys) {
 			AptosAccount:          aptosAccount,
 			P2PPeerID:             peerID,
 			AptosBundleID:         aptosBundle.ID,
+			AptosOnchainPublicKey: strings.TrimPrefix(aptosBundle.OnchainPublicKey, fmt.Sprintf("ocr2on_%s_", "aptos")),
 			OCR2BundleID:          ocr2Bndl.ID,
 			OCR2ConfigPublicKey:   strings.TrimPrefix(ocr2Bndl.ConfigPublicKey, fmt.Sprintf("ocr2cfg_%s_", chainType)),
 			OCR2OnchainPublicKey:  strings.TrimPrefix(ocr2Bndl.OnchainPublicKey, fmt.Sprintf("ocr2on_%s_", chainType)),
