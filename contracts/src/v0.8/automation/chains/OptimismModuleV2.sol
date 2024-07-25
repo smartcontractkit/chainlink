@@ -21,8 +21,8 @@ contract OptimismModuleV2 is ChainModuleBase, ConfirmedOwner {
 
   /// @dev L1 fee coefficient can be applied to reduce possibly inflated gas price
   uint8 public s_l1FeeCoefficient = 100;
-  uint256 private constant FIXED_GAS_OVERHEAD = 60_000;
-  uint256 private constant PER_CALLDATA_BYTE_GAS_OVERHEAD = 270;
+  uint256 private constant FIXED_GAS_OVERHEAD = 5_000;
+  uint256 private constant PER_CALLDATA_BYTE_GAS_OVERHEAD = 0;
 
   /// @dev This is the padding size for unsigned RLP-encoded transaction without the signature data
   /// @dev The padding size was estimated based on hypothetical max RLP-encoded transaction size
