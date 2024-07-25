@@ -218,7 +218,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 						DS:        db,
 					},
 					CSAETHKeystore: keyStore,
-				}),
+				}, nil),
 			},
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,
@@ -292,7 +292,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 						DS:      db,
 					},
 					CSAETHKeystore: keyStore,
-				}),
+				}, nil),
 				chainlink.InitStarknet(testctx, factory, chainlink.StarkNetFactoryConfig{
 					Keystore:    keyStore.StarkNet(),
 					TOMLConfigs: cfg.StarknetConfigs()}),
@@ -351,9 +351,14 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				assert.Equal(t, cnt, len(allChainsStats))
 				assert.Len(t, cr.Slice(), expectedChainCnt)
 
-				// should be one relayer per chain and one service per relayer
+				// should be one relayer per chain
 				assert.Len(t, cr.Slice(), expectedChainCnt)
-				assert.Len(t, cr.Services(), expectedChainCnt)
+				// if we have evm chain, then we have head_reporter as extra service
+				if tt.expectedEVMChainCnt > 0 {
+					assert.Len(t, cr.Services(), expectedChainCnt+1)
+				} else {
+					assert.Len(t, cr.Services(), expectedChainCnt)
+				}
 
 				expectedNodeCnt := tt.expectedEVMNodeCnt + tt.expectedCosmosNodeCnt + tt.expectedSolanaNodeCnt + tt.expectedStarknetNodeCnt
 				allNodeStats, cnt, err := cr.NodeStatuses(testctx, 0, 0)

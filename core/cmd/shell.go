@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+
 	"github.com/Depado/ginprom"
 	"github.com/Masterminds/semver/v3"
 	"github.com/getsentry/sentry-go"
@@ -182,9 +184,14 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		ChainOpts:          legacyevm.ChainOpts{AppConfig: cfg, MailMon: mailMon, DS: ds},
 		MercuryTransmitter: cfg.Mercury().Transmitter(),
 	}
+
+	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), keyStore.CSA(), appLggr)
 	// evm always enabled for backward compatibility
 	// TODO BCF-2510 this needs to change in order to clear the path for EVM extraction
-	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitDummy(ctx, relayerFactory), chainlink.InitEVM(ctx, relayerFactory, evmFactoryCfg)}
+	initOps := []chainlink.CoreRelayerChainInitFunc{
+		chainlink.InitDummy(ctx, relayerFactory),
+		chainlink.InitEVM(ctx, relayerFactory, evmFactoryCfg, telemetryManager),
+	}
 
 	if cfg.CosmosEnabled() {
 		cosmosCfg := chainlink.CosmosFactoryConfig{
@@ -240,6 +247,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		GRPCOpts:                   grpcOpts,
 		MercuryPool:                mercuryPool,
 		CapabilitiesRegistry:       capabilitiesRegistry,
+		TelemetryManager:           telemetryManager,
 	})
 }
 

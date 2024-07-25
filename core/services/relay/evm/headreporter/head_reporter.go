@@ -26,14 +26,15 @@ type (
 
 	HeadReporterService struct {
 		services.StateMachine
-		ds           sqlutil.DataSource
-		chains       legacyevm.LegacyChainContainer
-		lggr         logger.Logger
-		newHeads     *mailbox.Mailbox[*evmtypes.Head]
-		chStop       services.StopChan
-		wgDone       sync.WaitGroup
-		reportPeriod time.Duration
-		reporters    []HeadReporter
+		ds             sqlutil.DataSource
+		chains         legacyevm.LegacyChainContainer
+		lggr           logger.Logger
+		newHeads       *mailbox.Mailbox[*evmtypes.Head]
+		chStop         services.StopChan
+		wgDone         sync.WaitGroup
+		reportPeriod   time.Duration
+		reporters      []HeadReporter
+		unsubscribeFns []func()
 	}
 )
 
@@ -58,20 +59,30 @@ func NewHeadReporterServiceWithReporters(ds sqlutil.DataSource, chainContainer l
 	}
 	chStop := make(chan struct{})
 	return &HeadReporterService{
-		ds:           ds,
-		chains:       chainContainer,
-		lggr:         lggr.Named("HeadReporterService"),
-		newHeads:     mailbox.NewSingle[*evmtypes.Head](),
-		chStop:       chStop,
-		wgDone:       sync.WaitGroup{},
-		reportPeriod: reportPeriod,
-		reporters:    reporters,
+		ds:             ds,
+		chains:         chainContainer,
+		lggr:           lggr.Named("HeadReporterService"),
+		newHeads:       mailbox.NewSingle[*evmtypes.Head](),
+		chStop:         chStop,
+		wgDone:         sync.WaitGroup{},
+		reportPeriod:   reportPeriod,
+		reporters:      reporters,
+		unsubscribeFns: nil,
+	}
+}
+
+func (hrd *HeadReporterService) subscribe() {
+	hrd.unsubscribeFns = make([]func(), 0, hrd.chains.Len())
+	for _, chain := range hrd.chains.Slice() {
+		_, unsubscribe := chain.HeadBroadcaster().Subscribe(hrd)
+		hrd.unsubscribeFns = append(hrd.unsubscribeFns, unsubscribe)
 	}
 }
 
 func (hrd *HeadReporterService) Start(context.Context) error {
 	return hrd.StartOnce(hrd.Name(), func() error {
 		hrd.wgDone.Add(1)
+		hrd.subscribe()
 		go hrd.eventLoop()
 		return nil
 	})
