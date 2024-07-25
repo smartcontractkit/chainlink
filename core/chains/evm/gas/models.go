@@ -27,8 +27,6 @@ import (
 )
 
 // EvmFeeEstimator provides a unified interface that wraps EvmEstimator and can determine if legacy or dynamic fee estimation should be used
-//
-//go:generate mockery --quiet --name EvmFeeEstimator --output ./mocks/ --case=underscore
 type EvmFeeEstimator interface {
 	services.Service
 	headtracker.HeadTrackable[*evmtypes.Head, common.Hash]
@@ -42,7 +40,6 @@ type EvmFeeEstimator interface {
 	GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (*big.Int, error)
 }
 
-//go:generate mockery --quiet --name feeEstimatorClient --output ./mocks/ --case=underscore --structname FeeEstimatorClient
 type feeEstimatorClient interface {
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -133,8 +130,6 @@ type EvmPriorAttempt struct {
 }
 
 // Estimator provides an interface for estimating gas price and limit
-//
-//go:generate mockery --quiet --name EvmEstimator --output ./mocks/ --case=underscore
 type EvmEstimator interface {
 	headtracker.HeadTrackable[*evmtypes.Head, common.Hash]
 	services.Service
@@ -344,8 +339,6 @@ func (e *evmFeeEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLi
 }
 
 // Config defines an interface for configuration in the gas package
-//
-//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	ChainType() chaintype.ChainType
 	FinalityDepth() uint32

@@ -55,6 +55,10 @@ type General struct {
 	CoordinatorGasOverheadLink         *uint32 `toml:"coordinator_gas_overhead_link"`
 	CoordinatorNativePremiumPercentage *uint8  `toml:"coordinator_native_premium_percentage"`
 	CoordinatorLinkPremiumPercentage   *uint8  `toml:"coordinator_link_premium_percentage"`
+
+	//OP Stack chains settings
+	L1FeeCalculationMode uint8 `toml:"l1_fee_calculation_mode"`
+	L1FeeCoefficient     uint8 `toml:"l1_fee_coefficient"`
 }
 
 func (c *General) Validate() error {

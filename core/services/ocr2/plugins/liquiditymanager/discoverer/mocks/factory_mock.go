@@ -14,6 +14,14 @@ type Factory struct {
 	mock.Mock
 }
 
+type Factory_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *Factory) EXPECT() *Factory_Expecter {
+	return &Factory_Expecter{mock: &_m.Mock}
+}
+
 // NewDiscoverer provides a mock function with given fields: selector, rebalancerAddress
 func (_m *Factory) NewDiscoverer(selector models.NetworkSelector, rebalancerAddress models.Address) (discoverer.Discoverer, error) {
 	ret := _m.Called(selector, rebalancerAddress)
@@ -42,6 +50,35 @@ func (_m *Factory) NewDiscoverer(selector models.NetworkSelector, rebalancerAddr
 	}
 
 	return r0, r1
+}
+
+// Factory_NewDiscoverer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'NewDiscoverer'
+type Factory_NewDiscoverer_Call struct {
+	*mock.Call
+}
+
+// NewDiscoverer is a helper method to define mock.On call
+//   - selector models.NetworkSelector
+//   - rebalancerAddress models.Address
+func (_e *Factory_Expecter) NewDiscoverer(selector interface{}, rebalancerAddress interface{}) *Factory_NewDiscoverer_Call {
+	return &Factory_NewDiscoverer_Call{Call: _e.mock.On("NewDiscoverer", selector, rebalancerAddress)}
+}
+
+func (_c *Factory_NewDiscoverer_Call) Run(run func(selector models.NetworkSelector, rebalancerAddress models.Address)) *Factory_NewDiscoverer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(models.NetworkSelector), args[1].(models.Address))
+	})
+	return _c
+}
+
+func (_c *Factory_NewDiscoverer_Call) Return(_a0 discoverer.Discoverer, _a1 error) *Factory_NewDiscoverer_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Factory_NewDiscoverer_Call) RunAndReturn(run func(models.NetworkSelector, models.Address) (discoverer.Discoverer, error)) *Factory_NewDiscoverer_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewFactory creates a new instance of Factory. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

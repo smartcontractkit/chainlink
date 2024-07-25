@@ -68,11 +68,11 @@ func (d *PipelineGetter) TokenPricesUSD(ctx context.Context, tokens []cciptypes.
 		JobID:        d.jobID,
 		JobName:      d.name,
 		JobType:      "",
-	}, pipeline.NewVarsFrom(map[string]interface{}{}), d.lggr)
+	}, pipeline.NewVarsFrom(map[string]interface{}{}))
 	if err != nil {
 		return nil, err
 	}
-	finalResult := trrs.FinalResult(d.lggr)
+	finalResult := trrs.FinalResult()
 	if finalResult.HasErrors() {
 		return nil, errors.Errorf("error getting prices %v", finalResult.AllErrors)
 	}

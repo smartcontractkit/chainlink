@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ChannelDefinitionCacheORM interface {
@@ -114,7 +113,8 @@ const pollInterval = 1 * time.Second
 func (c *channelDefinitionCache) poll() {
 	defer c.wg.Done()
 
-	pollT := time.NewTicker(utils.WithJitter(pollInterval))
+	pollT := services.NewTicker(pollInterval)
+	defer pollT.Stop()
 
 	for {
 		select {
@@ -215,9 +215,7 @@ func (c *channelDefinitionCache) applyNewChannelDefinition(log *channel_config_s
 	c.definitionsMu.Lock()
 	defer c.definitionsMu.Unlock()
 	c.definitions[log.ChannelId] = llotypes.ChannelDefinition{
-		ReportFormat:  llotypes.ReportFormat(log.ChannelDefinition.ReportFormat),
-		ChainSelector: log.ChannelDefinition.ChainSelector,
-		StreamIDs:     streamIDs,
+		ReportFormat: llotypes.ReportFormat(log.ChannelDefinition.ReportFormat),
 	}
 }
 

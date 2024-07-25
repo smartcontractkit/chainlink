@@ -25,6 +25,14 @@ type ArbSysInterface struct {
 	mock.Mock
 }
 
+type ArbSysInterface_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *ArbSysInterface) EXPECT() *ArbSysInterface_Expecter {
+	return &ArbSysInterface_Expecter{mock: &_m.Mock}
+}
+
 // Address provides a mock function with given fields:
 func (_m *ArbSysInterface) Address() common.Address {
 	ret := _m.Called()
@@ -43,6 +51,33 @@ func (_m *ArbSysInterface) Address() common.Address {
 	}
 
 	return r0
+}
+
+// ArbSysInterface_Address_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Address'
+type ArbSysInterface_Address_Call struct {
+	*mock.Call
+}
+
+// Address is a helper method to define mock.On call
+func (_e *ArbSysInterface_Expecter) Address() *ArbSysInterface_Address_Call {
+	return &ArbSysInterface_Address_Call{Call: _e.mock.On("Address")}
+}
+
+func (_c *ArbSysInterface_Address_Call) Run(run func()) *ArbSysInterface_Address_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_Address_Call) Return(_a0 common.Address) *ArbSysInterface_Address_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ArbSysInterface_Address_Call) RunAndReturn(run func() common.Address) *ArbSysInterface_Address_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ArbBlockHash provides a mock function with given fields: opts, arbBlockNum
@@ -75,6 +110,35 @@ func (_m *ArbSysInterface) ArbBlockHash(opts *bind.CallOpts, arbBlockNum *big.In
 	return r0, r1
 }
 
+// ArbSysInterface_ArbBlockHash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ArbBlockHash'
+type ArbSysInterface_ArbBlockHash_Call struct {
+	*mock.Call
+}
+
+// ArbBlockHash is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - arbBlockNum *big.Int
+func (_e *ArbSysInterface_Expecter) ArbBlockHash(opts interface{}, arbBlockNum interface{}) *ArbSysInterface_ArbBlockHash_Call {
+	return &ArbSysInterface_ArbBlockHash_Call{Call: _e.mock.On("ArbBlockHash", opts, arbBlockNum)}
+}
+
+func (_c *ArbSysInterface_ArbBlockHash_Call) Run(run func(opts *bind.CallOpts, arbBlockNum *big.Int)) *ArbSysInterface_ArbBlockHash_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_ArbBlockHash_Call) Return(_a0 [32]byte, _a1 error) *ArbSysInterface_ArbBlockHash_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_ArbBlockHash_Call) RunAndReturn(run func(*bind.CallOpts, *big.Int) ([32]byte, error)) *ArbSysInterface_ArbBlockHash_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ArbBlockNumber provides a mock function with given fields: opts
 func (_m *ArbSysInterface) ArbBlockNumber(opts *bind.CallOpts) (*big.Int, error) {
 	ret := _m.Called(opts)
@@ -103,6 +167,34 @@ func (_m *ArbSysInterface) ArbBlockNumber(opts *bind.CallOpts) (*big.Int, error)
 	}
 
 	return r0, r1
+}
+
+// ArbSysInterface_ArbBlockNumber_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ArbBlockNumber'
+type ArbSysInterface_ArbBlockNumber_Call struct {
+	*mock.Call
+}
+
+// ArbBlockNumber is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *ArbSysInterface_Expecter) ArbBlockNumber(opts interface{}) *ArbSysInterface_ArbBlockNumber_Call {
+	return &ArbSysInterface_ArbBlockNumber_Call{Call: _e.mock.On("ArbBlockNumber", opts)}
+}
+
+func (_c *ArbSysInterface_ArbBlockNumber_Call) Run(run func(opts *bind.CallOpts)) *ArbSysInterface_ArbBlockNumber_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_ArbBlockNumber_Call) Return(_a0 *big.Int, _a1 error) *ArbSysInterface_ArbBlockNumber_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_ArbBlockNumber_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *ArbSysInterface_ArbBlockNumber_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ArbChainID provides a mock function with given fields: opts
@@ -135,6 +227,34 @@ func (_m *ArbSysInterface) ArbChainID(opts *bind.CallOpts) (*big.Int, error) {
 	return r0, r1
 }
 
+// ArbSysInterface_ArbChainID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ArbChainID'
+type ArbSysInterface_ArbChainID_Call struct {
+	*mock.Call
+}
+
+// ArbChainID is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *ArbSysInterface_Expecter) ArbChainID(opts interface{}) *ArbSysInterface_ArbChainID_Call {
+	return &ArbSysInterface_ArbChainID_Call{Call: _e.mock.On("ArbChainID", opts)}
+}
+
+func (_c *ArbSysInterface_ArbChainID_Call) Run(run func(opts *bind.CallOpts)) *ArbSysInterface_ArbChainID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_ArbChainID_Call) Return(_a0 *big.Int, _a1 error) *ArbSysInterface_ArbChainID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_ArbChainID_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *ArbSysInterface_ArbChainID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ArbOSVersion provides a mock function with given fields: opts
 func (_m *ArbSysInterface) ArbOSVersion(opts *bind.CallOpts) (*big.Int, error) {
 	ret := _m.Called(opts)
@@ -163,6 +283,34 @@ func (_m *ArbSysInterface) ArbOSVersion(opts *bind.CallOpts) (*big.Int, error) {
 	}
 
 	return r0, r1
+}
+
+// ArbSysInterface_ArbOSVersion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ArbOSVersion'
+type ArbSysInterface_ArbOSVersion_Call struct {
+	*mock.Call
+}
+
+// ArbOSVersion is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *ArbSysInterface_Expecter) ArbOSVersion(opts interface{}) *ArbSysInterface_ArbOSVersion_Call {
+	return &ArbSysInterface_ArbOSVersion_Call{Call: _e.mock.On("ArbOSVersion", opts)}
+}
+
+func (_c *ArbSysInterface_ArbOSVersion_Call) Run(run func(opts *bind.CallOpts)) *ArbSysInterface_ArbOSVersion_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_ArbOSVersion_Call) Return(_a0 *big.Int, _a1 error) *ArbSysInterface_ArbOSVersion_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_ArbOSVersion_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *ArbSysInterface_ArbOSVersion_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterL2ToL1Transaction provides a mock function with given fields: opts, destination, uniqueId, batchNumber
@@ -195,6 +343,37 @@ func (_m *ArbSysInterface) FilterL2ToL1Transaction(opts *bind.FilterOpts, destin
 	return r0, r1
 }
 
+// ArbSysInterface_FilterL2ToL1Transaction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterL2ToL1Transaction'
+type ArbSysInterface_FilterL2ToL1Transaction_Call struct {
+	*mock.Call
+}
+
+// FilterL2ToL1Transaction is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - destination []common.Address
+//   - uniqueId []*big.Int
+//   - batchNumber []*big.Int
+func (_e *ArbSysInterface_Expecter) FilterL2ToL1Transaction(opts interface{}, destination interface{}, uniqueId interface{}, batchNumber interface{}) *ArbSysInterface_FilterL2ToL1Transaction_Call {
+	return &ArbSysInterface_FilterL2ToL1Transaction_Call{Call: _e.mock.On("FilterL2ToL1Transaction", opts, destination, uniqueId, batchNumber)}
+}
+
+func (_c *ArbSysInterface_FilterL2ToL1Transaction_Call) Run(run func(opts *bind.FilterOpts, destination []common.Address, uniqueId []*big.Int, batchNumber []*big.Int)) *ArbSysInterface_FilterL2ToL1Transaction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]*big.Int), args[3].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_FilterL2ToL1Transaction_Call) Return(_a0 *arbsys.ArbSysL2ToL1TransactionIterator, _a1 error) *ArbSysInterface_FilterL2ToL1Transaction_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_FilterL2ToL1Transaction_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []*big.Int, []*big.Int) (*arbsys.ArbSysL2ToL1TransactionIterator, error)) *ArbSysInterface_FilterL2ToL1Transaction_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterL2ToL1Tx provides a mock function with given fields: opts, destination, hash, position
 func (_m *ArbSysInterface) FilterL2ToL1Tx(opts *bind.FilterOpts, destination []common.Address, hash []*big.Int, position []*big.Int) (*arbsys.ArbSysL2ToL1TxIterator, error) {
 	ret := _m.Called(opts, destination, hash, position)
@@ -223,6 +402,37 @@ func (_m *ArbSysInterface) FilterL2ToL1Tx(opts *bind.FilterOpts, destination []c
 	}
 
 	return r0, r1
+}
+
+// ArbSysInterface_FilterL2ToL1Tx_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterL2ToL1Tx'
+type ArbSysInterface_FilterL2ToL1Tx_Call struct {
+	*mock.Call
+}
+
+// FilterL2ToL1Tx is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - destination []common.Address
+//   - hash []*big.Int
+//   - position []*big.Int
+func (_e *ArbSysInterface_Expecter) FilterL2ToL1Tx(opts interface{}, destination interface{}, hash interface{}, position interface{}) *ArbSysInterface_FilterL2ToL1Tx_Call {
+	return &ArbSysInterface_FilterL2ToL1Tx_Call{Call: _e.mock.On("FilterL2ToL1Tx", opts, destination, hash, position)}
+}
+
+func (_c *ArbSysInterface_FilterL2ToL1Tx_Call) Run(run func(opts *bind.FilterOpts, destination []common.Address, hash []*big.Int, position []*big.Int)) *ArbSysInterface_FilterL2ToL1Tx_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]*big.Int), args[3].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_FilterL2ToL1Tx_Call) Return(_a0 *arbsys.ArbSysL2ToL1TxIterator, _a1 error) *ArbSysInterface_FilterL2ToL1Tx_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_FilterL2ToL1Tx_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []*big.Int, []*big.Int) (*arbsys.ArbSysL2ToL1TxIterator, error)) *ArbSysInterface_FilterL2ToL1Tx_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterSendMerkleUpdate provides a mock function with given fields: opts, reserved, hash, position
@@ -255,6 +465,37 @@ func (_m *ArbSysInterface) FilterSendMerkleUpdate(opts *bind.FilterOpts, reserve
 	return r0, r1
 }
 
+// ArbSysInterface_FilterSendMerkleUpdate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterSendMerkleUpdate'
+type ArbSysInterface_FilterSendMerkleUpdate_Call struct {
+	*mock.Call
+}
+
+// FilterSendMerkleUpdate is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - reserved []*big.Int
+//   - hash [][32]byte
+//   - position []*big.Int
+func (_e *ArbSysInterface_Expecter) FilterSendMerkleUpdate(opts interface{}, reserved interface{}, hash interface{}, position interface{}) *ArbSysInterface_FilterSendMerkleUpdate_Call {
+	return &ArbSysInterface_FilterSendMerkleUpdate_Call{Call: _e.mock.On("FilterSendMerkleUpdate", opts, reserved, hash, position)}
+}
+
+func (_c *ArbSysInterface_FilterSendMerkleUpdate_Call) Run(run func(opts *bind.FilterOpts, reserved []*big.Int, hash [][32]byte, position []*big.Int)) *ArbSysInterface_FilterSendMerkleUpdate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]*big.Int), args[2].([][32]byte), args[3].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_FilterSendMerkleUpdate_Call) Return(_a0 *arbsys.ArbSysSendMerkleUpdateIterator, _a1 error) *ArbSysInterface_FilterSendMerkleUpdate_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_FilterSendMerkleUpdate_Call) RunAndReturn(run func(*bind.FilterOpts, []*big.Int, [][32]byte, []*big.Int) (*arbsys.ArbSysSendMerkleUpdateIterator, error)) *ArbSysInterface_FilterSendMerkleUpdate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetStorageGasAvailable provides a mock function with given fields: opts
 func (_m *ArbSysInterface) GetStorageGasAvailable(opts *bind.CallOpts) (*big.Int, error) {
 	ret := _m.Called(opts)
@@ -285,6 +526,34 @@ func (_m *ArbSysInterface) GetStorageGasAvailable(opts *bind.CallOpts) (*big.Int
 	return r0, r1
 }
 
+// ArbSysInterface_GetStorageGasAvailable_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetStorageGasAvailable'
+type ArbSysInterface_GetStorageGasAvailable_Call struct {
+	*mock.Call
+}
+
+// GetStorageGasAvailable is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *ArbSysInterface_Expecter) GetStorageGasAvailable(opts interface{}) *ArbSysInterface_GetStorageGasAvailable_Call {
+	return &ArbSysInterface_GetStorageGasAvailable_Call{Call: _e.mock.On("GetStorageGasAvailable", opts)}
+}
+
+func (_c *ArbSysInterface_GetStorageGasAvailable_Call) Run(run func(opts *bind.CallOpts)) *ArbSysInterface_GetStorageGasAvailable_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_GetStorageGasAvailable_Call) Return(_a0 *big.Int, _a1 error) *ArbSysInterface_GetStorageGasAvailable_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_GetStorageGasAvailable_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *ArbSysInterface_GetStorageGasAvailable_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // IsTopLevelCall provides a mock function with given fields: opts
 func (_m *ArbSysInterface) IsTopLevelCall(opts *bind.CallOpts) (bool, error) {
 	ret := _m.Called(opts)
@@ -311,6 +580,34 @@ func (_m *ArbSysInterface) IsTopLevelCall(opts *bind.CallOpts) (bool, error) {
 	}
 
 	return r0, r1
+}
+
+// ArbSysInterface_IsTopLevelCall_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsTopLevelCall'
+type ArbSysInterface_IsTopLevelCall_Call struct {
+	*mock.Call
+}
+
+// IsTopLevelCall is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *ArbSysInterface_Expecter) IsTopLevelCall(opts interface{}) *ArbSysInterface_IsTopLevelCall_Call {
+	return &ArbSysInterface_IsTopLevelCall_Call{Call: _e.mock.On("IsTopLevelCall", opts)}
+}
+
+func (_c *ArbSysInterface_IsTopLevelCall_Call) Run(run func(opts *bind.CallOpts)) *ArbSysInterface_IsTopLevelCall_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_IsTopLevelCall_Call) Return(_a0 bool, _a1 error) *ArbSysInterface_IsTopLevelCall_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_IsTopLevelCall_Call) RunAndReturn(run func(*bind.CallOpts) (bool, error)) *ArbSysInterface_IsTopLevelCall_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // MapL1SenderContractAddressToL2Alias provides a mock function with given fields: opts, sender, unused
@@ -343,6 +640,36 @@ func (_m *ArbSysInterface) MapL1SenderContractAddressToL2Alias(opts *bind.CallOp
 	return r0, r1
 }
 
+// ArbSysInterface_MapL1SenderContractAddressToL2Alias_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MapL1SenderContractAddressToL2Alias'
+type ArbSysInterface_MapL1SenderContractAddressToL2Alias_Call struct {
+	*mock.Call
+}
+
+// MapL1SenderContractAddressToL2Alias is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - sender common.Address
+//   - unused common.Address
+func (_e *ArbSysInterface_Expecter) MapL1SenderContractAddressToL2Alias(opts interface{}, sender interface{}, unused interface{}) *ArbSysInterface_MapL1SenderContractAddressToL2Alias_Call {
+	return &ArbSysInterface_MapL1SenderContractAddressToL2Alias_Call{Call: _e.mock.On("MapL1SenderContractAddressToL2Alias", opts, sender, unused)}
+}
+
+func (_c *ArbSysInterface_MapL1SenderContractAddressToL2Alias_Call) Run(run func(opts *bind.CallOpts, sender common.Address, unused common.Address)) *ArbSysInterface_MapL1SenderContractAddressToL2Alias_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address), args[2].(common.Address))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_MapL1SenderContractAddressToL2Alias_Call) Return(_a0 common.Address, _a1 error) *ArbSysInterface_MapL1SenderContractAddressToL2Alias_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_MapL1SenderContractAddressToL2Alias_Call) RunAndReturn(run func(*bind.CallOpts, common.Address, common.Address) (common.Address, error)) *ArbSysInterface_MapL1SenderContractAddressToL2Alias_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // MyCallersAddressWithoutAliasing provides a mock function with given fields: opts
 func (_m *ArbSysInterface) MyCallersAddressWithoutAliasing(opts *bind.CallOpts) (common.Address, error) {
 	ret := _m.Called(opts)
@@ -371,6 +698,34 @@ func (_m *ArbSysInterface) MyCallersAddressWithoutAliasing(opts *bind.CallOpts) 
 	}
 
 	return r0, r1
+}
+
+// ArbSysInterface_MyCallersAddressWithoutAliasing_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MyCallersAddressWithoutAliasing'
+type ArbSysInterface_MyCallersAddressWithoutAliasing_Call struct {
+	*mock.Call
+}
+
+// MyCallersAddressWithoutAliasing is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *ArbSysInterface_Expecter) MyCallersAddressWithoutAliasing(opts interface{}) *ArbSysInterface_MyCallersAddressWithoutAliasing_Call {
+	return &ArbSysInterface_MyCallersAddressWithoutAliasing_Call{Call: _e.mock.On("MyCallersAddressWithoutAliasing", opts)}
+}
+
+func (_c *ArbSysInterface_MyCallersAddressWithoutAliasing_Call) Run(run func(opts *bind.CallOpts)) *ArbSysInterface_MyCallersAddressWithoutAliasing_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_MyCallersAddressWithoutAliasing_Call) Return(_a0 common.Address, _a1 error) *ArbSysInterface_MyCallersAddressWithoutAliasing_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_MyCallersAddressWithoutAliasing_Call) RunAndReturn(run func(*bind.CallOpts) (common.Address, error)) *ArbSysInterface_MyCallersAddressWithoutAliasing_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseL2ToL1Transaction provides a mock function with given fields: log
@@ -403,6 +758,34 @@ func (_m *ArbSysInterface) ParseL2ToL1Transaction(log types.Log) (*arbsys.ArbSys
 	return r0, r1
 }
 
+// ArbSysInterface_ParseL2ToL1Transaction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseL2ToL1Transaction'
+type ArbSysInterface_ParseL2ToL1Transaction_Call struct {
+	*mock.Call
+}
+
+// ParseL2ToL1Transaction is a helper method to define mock.On call
+//   - log types.Log
+func (_e *ArbSysInterface_Expecter) ParseL2ToL1Transaction(log interface{}) *ArbSysInterface_ParseL2ToL1Transaction_Call {
+	return &ArbSysInterface_ParseL2ToL1Transaction_Call{Call: _e.mock.On("ParseL2ToL1Transaction", log)}
+}
+
+func (_c *ArbSysInterface_ParseL2ToL1Transaction_Call) Run(run func(log types.Log)) *ArbSysInterface_ParseL2ToL1Transaction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_ParseL2ToL1Transaction_Call) Return(_a0 *arbsys.ArbSysL2ToL1Transaction, _a1 error) *ArbSysInterface_ParseL2ToL1Transaction_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_ParseL2ToL1Transaction_Call) RunAndReturn(run func(types.Log) (*arbsys.ArbSysL2ToL1Transaction, error)) *ArbSysInterface_ParseL2ToL1Transaction_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseL2ToL1Tx provides a mock function with given fields: log
 func (_m *ArbSysInterface) ParseL2ToL1Tx(log types.Log) (*arbsys.ArbSysL2ToL1Tx, error) {
 	ret := _m.Called(log)
@@ -431,6 +814,34 @@ func (_m *ArbSysInterface) ParseL2ToL1Tx(log types.Log) (*arbsys.ArbSysL2ToL1Tx,
 	}
 
 	return r0, r1
+}
+
+// ArbSysInterface_ParseL2ToL1Tx_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseL2ToL1Tx'
+type ArbSysInterface_ParseL2ToL1Tx_Call struct {
+	*mock.Call
+}
+
+// ParseL2ToL1Tx is a helper method to define mock.On call
+//   - log types.Log
+func (_e *ArbSysInterface_Expecter) ParseL2ToL1Tx(log interface{}) *ArbSysInterface_ParseL2ToL1Tx_Call {
+	return &ArbSysInterface_ParseL2ToL1Tx_Call{Call: _e.mock.On("ParseL2ToL1Tx", log)}
+}
+
+func (_c *ArbSysInterface_ParseL2ToL1Tx_Call) Run(run func(log types.Log)) *ArbSysInterface_ParseL2ToL1Tx_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_ParseL2ToL1Tx_Call) Return(_a0 *arbsys.ArbSysL2ToL1Tx, _a1 error) *ArbSysInterface_ParseL2ToL1Tx_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_ParseL2ToL1Tx_Call) RunAndReturn(run func(types.Log) (*arbsys.ArbSysL2ToL1Tx, error)) *ArbSysInterface_ParseL2ToL1Tx_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseLog provides a mock function with given fields: log
@@ -463,6 +874,34 @@ func (_m *ArbSysInterface) ParseLog(log types.Log) (generated.AbigenLog, error) 
 	return r0, r1
 }
 
+// ArbSysInterface_ParseLog_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseLog'
+type ArbSysInterface_ParseLog_Call struct {
+	*mock.Call
+}
+
+// ParseLog is a helper method to define mock.On call
+//   - log types.Log
+func (_e *ArbSysInterface_Expecter) ParseLog(log interface{}) *ArbSysInterface_ParseLog_Call {
+	return &ArbSysInterface_ParseLog_Call{Call: _e.mock.On("ParseLog", log)}
+}
+
+func (_c *ArbSysInterface_ParseLog_Call) Run(run func(log types.Log)) *ArbSysInterface_ParseLog_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_ParseLog_Call) Return(_a0 generated.AbigenLog, _a1 error) *ArbSysInterface_ParseLog_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_ParseLog_Call) RunAndReturn(run func(types.Log) (generated.AbigenLog, error)) *ArbSysInterface_ParseLog_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseSendMerkleUpdate provides a mock function with given fields: log
 func (_m *ArbSysInterface) ParseSendMerkleUpdate(log types.Log) (*arbsys.ArbSysSendMerkleUpdate, error) {
 	ret := _m.Called(log)
@@ -493,6 +932,34 @@ func (_m *ArbSysInterface) ParseSendMerkleUpdate(log types.Log) (*arbsys.ArbSysS
 	return r0, r1
 }
 
+// ArbSysInterface_ParseSendMerkleUpdate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseSendMerkleUpdate'
+type ArbSysInterface_ParseSendMerkleUpdate_Call struct {
+	*mock.Call
+}
+
+// ParseSendMerkleUpdate is a helper method to define mock.On call
+//   - log types.Log
+func (_e *ArbSysInterface_Expecter) ParseSendMerkleUpdate(log interface{}) *ArbSysInterface_ParseSendMerkleUpdate_Call {
+	return &ArbSysInterface_ParseSendMerkleUpdate_Call{Call: _e.mock.On("ParseSendMerkleUpdate", log)}
+}
+
+func (_c *ArbSysInterface_ParseSendMerkleUpdate_Call) Run(run func(log types.Log)) *ArbSysInterface_ParseSendMerkleUpdate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_ParseSendMerkleUpdate_Call) Return(_a0 *arbsys.ArbSysSendMerkleUpdate, _a1 error) *ArbSysInterface_ParseSendMerkleUpdate_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_ParseSendMerkleUpdate_Call) RunAndReturn(run func(types.Log) (*arbsys.ArbSysSendMerkleUpdate, error)) *ArbSysInterface_ParseSendMerkleUpdate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendMerkleTreeState provides a mock function with given fields: opts
 func (_m *ArbSysInterface) SendMerkleTreeState(opts *bind.CallOpts) (arbsys.SendMerkleTreeState, error) {
 	ret := _m.Called(opts)
@@ -519,6 +986,34 @@ func (_m *ArbSysInterface) SendMerkleTreeState(opts *bind.CallOpts) (arbsys.Send
 	}
 
 	return r0, r1
+}
+
+// ArbSysInterface_SendMerkleTreeState_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendMerkleTreeState'
+type ArbSysInterface_SendMerkleTreeState_Call struct {
+	*mock.Call
+}
+
+// SendMerkleTreeState is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *ArbSysInterface_Expecter) SendMerkleTreeState(opts interface{}) *ArbSysInterface_SendMerkleTreeState_Call {
+	return &ArbSysInterface_SendMerkleTreeState_Call{Call: _e.mock.On("SendMerkleTreeState", opts)}
+}
+
+func (_c *ArbSysInterface_SendMerkleTreeState_Call) Run(run func(opts *bind.CallOpts)) *ArbSysInterface_SendMerkleTreeState_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_SendMerkleTreeState_Call) Return(_a0 arbsys.SendMerkleTreeState, _a1 error) *ArbSysInterface_SendMerkleTreeState_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_SendMerkleTreeState_Call) RunAndReturn(run func(*bind.CallOpts) (arbsys.SendMerkleTreeState, error)) *ArbSysInterface_SendMerkleTreeState_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SendTxToL1 provides a mock function with given fields: opts, destination, data
@@ -551,6 +1046,36 @@ func (_m *ArbSysInterface) SendTxToL1(opts *bind.TransactOpts, destination commo
 	return r0, r1
 }
 
+// ArbSysInterface_SendTxToL1_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendTxToL1'
+type ArbSysInterface_SendTxToL1_Call struct {
+	*mock.Call
+}
+
+// SendTxToL1 is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - destination common.Address
+//   - data []byte
+func (_e *ArbSysInterface_Expecter) SendTxToL1(opts interface{}, destination interface{}, data interface{}) *ArbSysInterface_SendTxToL1_Call {
+	return &ArbSysInterface_SendTxToL1_Call{Call: _e.mock.On("SendTxToL1", opts, destination, data)}
+}
+
+func (_c *ArbSysInterface_SendTxToL1_Call) Run(run func(opts *bind.TransactOpts, destination common.Address, data []byte)) *ArbSysInterface_SendTxToL1_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].([]byte))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_SendTxToL1_Call) Return(_a0 *types.Transaction, _a1 error) *ArbSysInterface_SendTxToL1_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_SendTxToL1_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, []byte) (*types.Transaction, error)) *ArbSysInterface_SendTxToL1_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WasMyCallersAddressAliased provides a mock function with given fields: opts
 func (_m *ArbSysInterface) WasMyCallersAddressAliased(opts *bind.CallOpts) (bool, error) {
 	ret := _m.Called(opts)
@@ -577,6 +1102,34 @@ func (_m *ArbSysInterface) WasMyCallersAddressAliased(opts *bind.CallOpts) (bool
 	}
 
 	return r0, r1
+}
+
+// ArbSysInterface_WasMyCallersAddressAliased_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WasMyCallersAddressAliased'
+type ArbSysInterface_WasMyCallersAddressAliased_Call struct {
+	*mock.Call
+}
+
+// WasMyCallersAddressAliased is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *ArbSysInterface_Expecter) WasMyCallersAddressAliased(opts interface{}) *ArbSysInterface_WasMyCallersAddressAliased_Call {
+	return &ArbSysInterface_WasMyCallersAddressAliased_Call{Call: _e.mock.On("WasMyCallersAddressAliased", opts)}
+}
+
+func (_c *ArbSysInterface_WasMyCallersAddressAliased_Call) Run(run func(opts *bind.CallOpts)) *ArbSysInterface_WasMyCallersAddressAliased_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_WasMyCallersAddressAliased_Call) Return(_a0 bool, _a1 error) *ArbSysInterface_WasMyCallersAddressAliased_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_WasMyCallersAddressAliased_Call) RunAndReturn(run func(*bind.CallOpts) (bool, error)) *ArbSysInterface_WasMyCallersAddressAliased_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchL2ToL1Transaction provides a mock function with given fields: opts, sink, destination, uniqueId, batchNumber
@@ -609,6 +1162,38 @@ func (_m *ArbSysInterface) WatchL2ToL1Transaction(opts *bind.WatchOpts, sink cha
 	return r0, r1
 }
 
+// ArbSysInterface_WatchL2ToL1Transaction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchL2ToL1Transaction'
+type ArbSysInterface_WatchL2ToL1Transaction_Call struct {
+	*mock.Call
+}
+
+// WatchL2ToL1Transaction is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *arbsys.ArbSysL2ToL1Transaction
+//   - destination []common.Address
+//   - uniqueId []*big.Int
+//   - batchNumber []*big.Int
+func (_e *ArbSysInterface_Expecter) WatchL2ToL1Transaction(opts interface{}, sink interface{}, destination interface{}, uniqueId interface{}, batchNumber interface{}) *ArbSysInterface_WatchL2ToL1Transaction_Call {
+	return &ArbSysInterface_WatchL2ToL1Transaction_Call{Call: _e.mock.On("WatchL2ToL1Transaction", opts, sink, destination, uniqueId, batchNumber)}
+}
+
+func (_c *ArbSysInterface_WatchL2ToL1Transaction_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *arbsys.ArbSysL2ToL1Transaction, destination []common.Address, uniqueId []*big.Int, batchNumber []*big.Int)) *ArbSysInterface_WatchL2ToL1Transaction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *arbsys.ArbSysL2ToL1Transaction), args[2].([]common.Address), args[3].([]*big.Int), args[4].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_WatchL2ToL1Transaction_Call) Return(_a0 event.Subscription, _a1 error) *ArbSysInterface_WatchL2ToL1Transaction_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_WatchL2ToL1Transaction_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *arbsys.ArbSysL2ToL1Transaction, []common.Address, []*big.Int, []*big.Int) (event.Subscription, error)) *ArbSysInterface_WatchL2ToL1Transaction_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchL2ToL1Tx provides a mock function with given fields: opts, sink, destination, hash, position
 func (_m *ArbSysInterface) WatchL2ToL1Tx(opts *bind.WatchOpts, sink chan<- *arbsys.ArbSysL2ToL1Tx, destination []common.Address, hash []*big.Int, position []*big.Int) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, destination, hash, position)
@@ -637,6 +1222,38 @@ func (_m *ArbSysInterface) WatchL2ToL1Tx(opts *bind.WatchOpts, sink chan<- *arbs
 	}
 
 	return r0, r1
+}
+
+// ArbSysInterface_WatchL2ToL1Tx_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchL2ToL1Tx'
+type ArbSysInterface_WatchL2ToL1Tx_Call struct {
+	*mock.Call
+}
+
+// WatchL2ToL1Tx is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *arbsys.ArbSysL2ToL1Tx
+//   - destination []common.Address
+//   - hash []*big.Int
+//   - position []*big.Int
+func (_e *ArbSysInterface_Expecter) WatchL2ToL1Tx(opts interface{}, sink interface{}, destination interface{}, hash interface{}, position interface{}) *ArbSysInterface_WatchL2ToL1Tx_Call {
+	return &ArbSysInterface_WatchL2ToL1Tx_Call{Call: _e.mock.On("WatchL2ToL1Tx", opts, sink, destination, hash, position)}
+}
+
+func (_c *ArbSysInterface_WatchL2ToL1Tx_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *arbsys.ArbSysL2ToL1Tx, destination []common.Address, hash []*big.Int, position []*big.Int)) *ArbSysInterface_WatchL2ToL1Tx_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *arbsys.ArbSysL2ToL1Tx), args[2].([]common.Address), args[3].([]*big.Int), args[4].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_WatchL2ToL1Tx_Call) Return(_a0 event.Subscription, _a1 error) *ArbSysInterface_WatchL2ToL1Tx_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_WatchL2ToL1Tx_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *arbsys.ArbSysL2ToL1Tx, []common.Address, []*big.Int, []*big.Int) (event.Subscription, error)) *ArbSysInterface_WatchL2ToL1Tx_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchSendMerkleUpdate provides a mock function with given fields: opts, sink, reserved, hash, position
@@ -669,6 +1286,38 @@ func (_m *ArbSysInterface) WatchSendMerkleUpdate(opts *bind.WatchOpts, sink chan
 	return r0, r1
 }
 
+// ArbSysInterface_WatchSendMerkleUpdate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchSendMerkleUpdate'
+type ArbSysInterface_WatchSendMerkleUpdate_Call struct {
+	*mock.Call
+}
+
+// WatchSendMerkleUpdate is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *arbsys.ArbSysSendMerkleUpdate
+//   - reserved []*big.Int
+//   - hash [][32]byte
+//   - position []*big.Int
+func (_e *ArbSysInterface_Expecter) WatchSendMerkleUpdate(opts interface{}, sink interface{}, reserved interface{}, hash interface{}, position interface{}) *ArbSysInterface_WatchSendMerkleUpdate_Call {
+	return &ArbSysInterface_WatchSendMerkleUpdate_Call{Call: _e.mock.On("WatchSendMerkleUpdate", opts, sink, reserved, hash, position)}
+}
+
+func (_c *ArbSysInterface_WatchSendMerkleUpdate_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *arbsys.ArbSysSendMerkleUpdate, reserved []*big.Int, hash [][32]byte, position []*big.Int)) *ArbSysInterface_WatchSendMerkleUpdate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *arbsys.ArbSysSendMerkleUpdate), args[2].([]*big.Int), args[3].([][32]byte), args[4].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_WatchSendMerkleUpdate_Call) Return(_a0 event.Subscription, _a1 error) *ArbSysInterface_WatchSendMerkleUpdate_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_WatchSendMerkleUpdate_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *arbsys.ArbSysSendMerkleUpdate, []*big.Int, [][32]byte, []*big.Int) (event.Subscription, error)) *ArbSysInterface_WatchSendMerkleUpdate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WithdrawEth provides a mock function with given fields: opts, destination
 func (_m *ArbSysInterface) WithdrawEth(opts *bind.TransactOpts, destination common.Address) (*types.Transaction, error) {
 	ret := _m.Called(opts, destination)
@@ -697,6 +1346,35 @@ func (_m *ArbSysInterface) WithdrawEth(opts *bind.TransactOpts, destination comm
 	}
 
 	return r0, r1
+}
+
+// ArbSysInterface_WithdrawEth_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WithdrawEth'
+type ArbSysInterface_WithdrawEth_Call struct {
+	*mock.Call
+}
+
+// WithdrawEth is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - destination common.Address
+func (_e *ArbSysInterface_Expecter) WithdrawEth(opts interface{}, destination interface{}) *ArbSysInterface_WithdrawEth_Call {
+	return &ArbSysInterface_WithdrawEth_Call{Call: _e.mock.On("WithdrawEth", opts, destination)}
+}
+
+func (_c *ArbSysInterface_WithdrawEth_Call) Run(run func(opts *bind.TransactOpts, destination common.Address)) *ArbSysInterface_WithdrawEth_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *ArbSysInterface_WithdrawEth_Call) Return(_a0 *types.Transaction, _a1 error) *ArbSysInterface_WithdrawEth_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbSysInterface_WithdrawEth_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address) (*types.Transaction, error)) *ArbSysInterface_WithdrawEth_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewArbSysInterface creates a new instance of ArbSysInterface. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

@@ -35,8 +35,6 @@ var (
 const HeadsBufferSize = 10
 
 // HeadTracker holds and stores the block experienced by a particular node in a thread safe manner.
-//
-//go:generate mockery --quiet --name HeadTracker --output ./mocks/ --case=underscore
 type HeadTracker[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
 	services.Service
 	// Backfill given a head will fill in any missing heads up to latestFinalized

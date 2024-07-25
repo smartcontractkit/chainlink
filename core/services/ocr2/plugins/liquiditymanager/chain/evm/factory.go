@@ -17,8 +17,6 @@ var (
 )
 
 // Factory initializes a new liquidity manager instance.
-//
-//go:generate mockery --quiet --name Factory --output ../../mocks --filename lm_factory_mock.go --case=underscore
 type Factory interface {
 	// NewLiquidityManager will initialize a new rebalancer instance based on the provided params.
 	NewLiquidityManager(networkID models.NetworkSelector, address models.Address) (LiquidityManager, error)

@@ -11,8 +11,6 @@ import (
 
 // LiquidityManager is an abstraction of the rebalancer contract.
 // TODO: extract the common interface which is chain dependent.
-//
-//go:generate mockery --quiet --name LiquidityManager --output ./mocks --filename liquidity_manager_mock.go --case=underscore
 type LiquidityManager interface {
 	// GetRebalancers returns a mapping that contains the rebalancers for each destination chain.
 	GetRebalancers(ctx context.Context) (map[models.NetworkSelector]models.Address, error)

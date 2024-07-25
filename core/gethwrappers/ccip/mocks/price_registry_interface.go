@@ -24,6 +24,14 @@ type PriceRegistryInterface struct {
 	mock.Mock
 }
 
+type PriceRegistryInterface_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *PriceRegistryInterface) EXPECT() *PriceRegistryInterface_Expecter {
+	return &PriceRegistryInterface_Expecter{mock: &_m.Mock}
+}
+
 // AcceptOwnership provides a mock function with given fields: opts
 func (_m *PriceRegistryInterface) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
 	ret := _m.Called(opts)
@@ -54,6 +62,34 @@ func (_m *PriceRegistryInterface) AcceptOwnership(opts *bind.TransactOpts) (*typ
 	return r0, r1
 }
 
+// PriceRegistryInterface_AcceptOwnership_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AcceptOwnership'
+type PriceRegistryInterface_AcceptOwnership_Call struct {
+	*mock.Call
+}
+
+// AcceptOwnership is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+func (_e *PriceRegistryInterface_Expecter) AcceptOwnership(opts interface{}) *PriceRegistryInterface_AcceptOwnership_Call {
+	return &PriceRegistryInterface_AcceptOwnership_Call{Call: _e.mock.On("AcceptOwnership", opts)}
+}
+
+func (_c *PriceRegistryInterface_AcceptOwnership_Call) Run(run func(opts *bind.TransactOpts)) *PriceRegistryInterface_AcceptOwnership_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_AcceptOwnership_Call) Return(_a0 *types.Transaction, _a1 error) *PriceRegistryInterface_AcceptOwnership_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_AcceptOwnership_Call) RunAndReturn(run func(*bind.TransactOpts) (*types.Transaction, error)) *PriceRegistryInterface_AcceptOwnership_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Address provides a mock function with given fields:
 func (_m *PriceRegistryInterface) Address() common.Address {
 	ret := _m.Called()
@@ -72,6 +108,33 @@ func (_m *PriceRegistryInterface) Address() common.Address {
 	}
 
 	return r0
+}
+
+// PriceRegistryInterface_Address_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Address'
+type PriceRegistryInterface_Address_Call struct {
+	*mock.Call
+}
+
+// Address is a helper method to define mock.On call
+func (_e *PriceRegistryInterface_Expecter) Address() *PriceRegistryInterface_Address_Call {
+	return &PriceRegistryInterface_Address_Call{Call: _e.mock.On("Address")}
+}
+
+func (_c *PriceRegistryInterface_Address_Call) Run(run func()) *PriceRegistryInterface_Address_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_Address_Call) Return(_a0 common.Address) *PriceRegistryInterface_Address_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_Address_Call) RunAndReturn(run func() common.Address) *PriceRegistryInterface_Address_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ApplyAuthorizedCallerUpdates provides a mock function with given fields: opts, authorizedCallerArgs
@@ -104,6 +167,35 @@ func (_m *PriceRegistryInterface) ApplyAuthorizedCallerUpdates(opts *bind.Transa
 	return r0, r1
 }
 
+// PriceRegistryInterface_ApplyAuthorizedCallerUpdates_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ApplyAuthorizedCallerUpdates'
+type PriceRegistryInterface_ApplyAuthorizedCallerUpdates_Call struct {
+	*mock.Call
+}
+
+// ApplyAuthorizedCallerUpdates is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - authorizedCallerArgs price_registry.AuthorizedCallersAuthorizedCallerArgs
+func (_e *PriceRegistryInterface_Expecter) ApplyAuthorizedCallerUpdates(opts interface{}, authorizedCallerArgs interface{}) *PriceRegistryInterface_ApplyAuthorizedCallerUpdates_Call {
+	return &PriceRegistryInterface_ApplyAuthorizedCallerUpdates_Call{Call: _e.mock.On("ApplyAuthorizedCallerUpdates", opts, authorizedCallerArgs)}
+}
+
+func (_c *PriceRegistryInterface_ApplyAuthorizedCallerUpdates_Call) Run(run func(opts *bind.TransactOpts, authorizedCallerArgs price_registry.AuthorizedCallersAuthorizedCallerArgs)) *PriceRegistryInterface_ApplyAuthorizedCallerUpdates_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(price_registry.AuthorizedCallersAuthorizedCallerArgs))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ApplyAuthorizedCallerUpdates_Call) Return(_a0 *types.Transaction, _a1 error) *PriceRegistryInterface_ApplyAuthorizedCallerUpdates_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ApplyAuthorizedCallerUpdates_Call) RunAndReturn(run func(*bind.TransactOpts, price_registry.AuthorizedCallersAuthorizedCallerArgs) (*types.Transaction, error)) *PriceRegistryInterface_ApplyAuthorizedCallerUpdates_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ApplyDestChainConfigUpdates provides a mock function with given fields: opts, destChainConfigArgs
 func (_m *PriceRegistryInterface) ApplyDestChainConfigUpdates(opts *bind.TransactOpts, destChainConfigArgs []price_registry.PriceRegistryDestChainConfigArgs) (*types.Transaction, error) {
 	ret := _m.Called(opts, destChainConfigArgs)
@@ -132,6 +224,35 @@ func (_m *PriceRegistryInterface) ApplyDestChainConfigUpdates(opts *bind.Transac
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_ApplyDestChainConfigUpdates_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ApplyDestChainConfigUpdates'
+type PriceRegistryInterface_ApplyDestChainConfigUpdates_Call struct {
+	*mock.Call
+}
+
+// ApplyDestChainConfigUpdates is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - destChainConfigArgs []price_registry.PriceRegistryDestChainConfigArgs
+func (_e *PriceRegistryInterface_Expecter) ApplyDestChainConfigUpdates(opts interface{}, destChainConfigArgs interface{}) *PriceRegistryInterface_ApplyDestChainConfigUpdates_Call {
+	return &PriceRegistryInterface_ApplyDestChainConfigUpdates_Call{Call: _e.mock.On("ApplyDestChainConfigUpdates", opts, destChainConfigArgs)}
+}
+
+func (_c *PriceRegistryInterface_ApplyDestChainConfigUpdates_Call) Run(run func(opts *bind.TransactOpts, destChainConfigArgs []price_registry.PriceRegistryDestChainConfigArgs)) *PriceRegistryInterface_ApplyDestChainConfigUpdates_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].([]price_registry.PriceRegistryDestChainConfigArgs))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ApplyDestChainConfigUpdates_Call) Return(_a0 *types.Transaction, _a1 error) *PriceRegistryInterface_ApplyDestChainConfigUpdates_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ApplyDestChainConfigUpdates_Call) RunAndReturn(run func(*bind.TransactOpts, []price_registry.PriceRegistryDestChainConfigArgs) (*types.Transaction, error)) *PriceRegistryInterface_ApplyDestChainConfigUpdates_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ApplyFeeTokensUpdates provides a mock function with given fields: opts, feeTokensToAdd, feeTokensToRemove
@@ -164,6 +285,36 @@ func (_m *PriceRegistryInterface) ApplyFeeTokensUpdates(opts *bind.TransactOpts,
 	return r0, r1
 }
 
+// PriceRegistryInterface_ApplyFeeTokensUpdates_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ApplyFeeTokensUpdates'
+type PriceRegistryInterface_ApplyFeeTokensUpdates_Call struct {
+	*mock.Call
+}
+
+// ApplyFeeTokensUpdates is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - feeTokensToAdd []common.Address
+//   - feeTokensToRemove []common.Address
+func (_e *PriceRegistryInterface_Expecter) ApplyFeeTokensUpdates(opts interface{}, feeTokensToAdd interface{}, feeTokensToRemove interface{}) *PriceRegistryInterface_ApplyFeeTokensUpdates_Call {
+	return &PriceRegistryInterface_ApplyFeeTokensUpdates_Call{Call: _e.mock.On("ApplyFeeTokensUpdates", opts, feeTokensToAdd, feeTokensToRemove)}
+}
+
+func (_c *PriceRegistryInterface_ApplyFeeTokensUpdates_Call) Run(run func(opts *bind.TransactOpts, feeTokensToAdd []common.Address, feeTokensToRemove []common.Address)) *PriceRegistryInterface_ApplyFeeTokensUpdates_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].([]common.Address), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ApplyFeeTokensUpdates_Call) Return(_a0 *types.Transaction, _a1 error) *PriceRegistryInterface_ApplyFeeTokensUpdates_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ApplyFeeTokensUpdates_Call) RunAndReturn(run func(*bind.TransactOpts, []common.Address, []common.Address) (*types.Transaction, error)) *PriceRegistryInterface_ApplyFeeTokensUpdates_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ApplyPremiumMultiplierWeiPerEthUpdates provides a mock function with given fields: opts, premiumMultiplierWeiPerEthArgs
 func (_m *PriceRegistryInterface) ApplyPremiumMultiplierWeiPerEthUpdates(opts *bind.TransactOpts, premiumMultiplierWeiPerEthArgs []price_registry.PriceRegistryPremiumMultiplierWeiPerEthArgs) (*types.Transaction, error) {
 	ret := _m.Called(opts, premiumMultiplierWeiPerEthArgs)
@@ -192,6 +343,35 @@ func (_m *PriceRegistryInterface) ApplyPremiumMultiplierWeiPerEthUpdates(opts *b
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_ApplyPremiumMultiplierWeiPerEthUpdates_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ApplyPremiumMultiplierWeiPerEthUpdates'
+type PriceRegistryInterface_ApplyPremiumMultiplierWeiPerEthUpdates_Call struct {
+	*mock.Call
+}
+
+// ApplyPremiumMultiplierWeiPerEthUpdates is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - premiumMultiplierWeiPerEthArgs []price_registry.PriceRegistryPremiumMultiplierWeiPerEthArgs
+func (_e *PriceRegistryInterface_Expecter) ApplyPremiumMultiplierWeiPerEthUpdates(opts interface{}, premiumMultiplierWeiPerEthArgs interface{}) *PriceRegistryInterface_ApplyPremiumMultiplierWeiPerEthUpdates_Call {
+	return &PriceRegistryInterface_ApplyPremiumMultiplierWeiPerEthUpdates_Call{Call: _e.mock.On("ApplyPremiumMultiplierWeiPerEthUpdates", opts, premiumMultiplierWeiPerEthArgs)}
+}
+
+func (_c *PriceRegistryInterface_ApplyPremiumMultiplierWeiPerEthUpdates_Call) Run(run func(opts *bind.TransactOpts, premiumMultiplierWeiPerEthArgs []price_registry.PriceRegistryPremiumMultiplierWeiPerEthArgs)) *PriceRegistryInterface_ApplyPremiumMultiplierWeiPerEthUpdates_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].([]price_registry.PriceRegistryPremiumMultiplierWeiPerEthArgs))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ApplyPremiumMultiplierWeiPerEthUpdates_Call) Return(_a0 *types.Transaction, _a1 error) *PriceRegistryInterface_ApplyPremiumMultiplierWeiPerEthUpdates_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ApplyPremiumMultiplierWeiPerEthUpdates_Call) RunAndReturn(run func(*bind.TransactOpts, []price_registry.PriceRegistryPremiumMultiplierWeiPerEthArgs) (*types.Transaction, error)) *PriceRegistryInterface_ApplyPremiumMultiplierWeiPerEthUpdates_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ApplyTokenTransferFeeConfigUpdates provides a mock function with given fields: opts, tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs
@@ -224,6 +404,36 @@ func (_m *PriceRegistryInterface) ApplyTokenTransferFeeConfigUpdates(opts *bind.
 	return r0, r1
 }
 
+// PriceRegistryInterface_ApplyTokenTransferFeeConfigUpdates_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ApplyTokenTransferFeeConfigUpdates'
+type PriceRegistryInterface_ApplyTokenTransferFeeConfigUpdates_Call struct {
+	*mock.Call
+}
+
+// ApplyTokenTransferFeeConfigUpdates is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - tokenTransferFeeConfigArgs []price_registry.PriceRegistryTokenTransferFeeConfigArgs
+//   - tokensToUseDefaultFeeConfigs []price_registry.PriceRegistryTokenTransferFeeConfigRemoveArgs
+func (_e *PriceRegistryInterface_Expecter) ApplyTokenTransferFeeConfigUpdates(opts interface{}, tokenTransferFeeConfigArgs interface{}, tokensToUseDefaultFeeConfigs interface{}) *PriceRegistryInterface_ApplyTokenTransferFeeConfigUpdates_Call {
+	return &PriceRegistryInterface_ApplyTokenTransferFeeConfigUpdates_Call{Call: _e.mock.On("ApplyTokenTransferFeeConfigUpdates", opts, tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs)}
+}
+
+func (_c *PriceRegistryInterface_ApplyTokenTransferFeeConfigUpdates_Call) Run(run func(opts *bind.TransactOpts, tokenTransferFeeConfigArgs []price_registry.PriceRegistryTokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs []price_registry.PriceRegistryTokenTransferFeeConfigRemoveArgs)) *PriceRegistryInterface_ApplyTokenTransferFeeConfigUpdates_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].([]price_registry.PriceRegistryTokenTransferFeeConfigArgs), args[2].([]price_registry.PriceRegistryTokenTransferFeeConfigRemoveArgs))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ApplyTokenTransferFeeConfigUpdates_Call) Return(_a0 *types.Transaction, _a1 error) *PriceRegistryInterface_ApplyTokenTransferFeeConfigUpdates_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ApplyTokenTransferFeeConfigUpdates_Call) RunAndReturn(run func(*bind.TransactOpts, []price_registry.PriceRegistryTokenTransferFeeConfigArgs, []price_registry.PriceRegistryTokenTransferFeeConfigRemoveArgs) (*types.Transaction, error)) *PriceRegistryInterface_ApplyTokenTransferFeeConfigUpdates_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ConvertTokenAmount provides a mock function with given fields: opts, fromToken, fromTokenAmount, toToken
 func (_m *PriceRegistryInterface) ConvertTokenAmount(opts *bind.CallOpts, fromToken common.Address, fromTokenAmount *big.Int, toToken common.Address) (*big.Int, error) {
 	ret := _m.Called(opts, fromToken, fromTokenAmount, toToken)
@@ -252,6 +462,37 @@ func (_m *PriceRegistryInterface) ConvertTokenAmount(opts *bind.CallOpts, fromTo
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_ConvertTokenAmount_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConvertTokenAmount'
+type PriceRegistryInterface_ConvertTokenAmount_Call struct {
+	*mock.Call
+}
+
+// ConvertTokenAmount is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - fromToken common.Address
+//   - fromTokenAmount *big.Int
+//   - toToken common.Address
+func (_e *PriceRegistryInterface_Expecter) ConvertTokenAmount(opts interface{}, fromToken interface{}, fromTokenAmount interface{}, toToken interface{}) *PriceRegistryInterface_ConvertTokenAmount_Call {
+	return &PriceRegistryInterface_ConvertTokenAmount_Call{Call: _e.mock.On("ConvertTokenAmount", opts, fromToken, fromTokenAmount, toToken)}
+}
+
+func (_c *PriceRegistryInterface_ConvertTokenAmount_Call) Run(run func(opts *bind.CallOpts, fromToken common.Address, fromTokenAmount *big.Int, toToken common.Address)) *PriceRegistryInterface_ConvertTokenAmount_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address), args[2].(*big.Int), args[3].(common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ConvertTokenAmount_Call) Return(_a0 *big.Int, _a1 error) *PriceRegistryInterface_ConvertTokenAmount_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ConvertTokenAmount_Call) RunAndReturn(run func(*bind.CallOpts, common.Address, *big.Int, common.Address) (*big.Int, error)) *PriceRegistryInterface_ConvertTokenAmount_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterAuthorizedCallerAdded provides a mock function with given fields: opts
@@ -284,6 +525,34 @@ func (_m *PriceRegistryInterface) FilterAuthorizedCallerAdded(opts *bind.FilterO
 	return r0, r1
 }
 
+// PriceRegistryInterface_FilterAuthorizedCallerAdded_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterAuthorizedCallerAdded'
+type PriceRegistryInterface_FilterAuthorizedCallerAdded_Call struct {
+	*mock.Call
+}
+
+// FilterAuthorizedCallerAdded is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+func (_e *PriceRegistryInterface_Expecter) FilterAuthorizedCallerAdded(opts interface{}) *PriceRegistryInterface_FilterAuthorizedCallerAdded_Call {
+	return &PriceRegistryInterface_FilterAuthorizedCallerAdded_Call{Call: _e.mock.On("FilterAuthorizedCallerAdded", opts)}
+}
+
+func (_c *PriceRegistryInterface_FilterAuthorizedCallerAdded_Call) Run(run func(opts *bind.FilterOpts)) *PriceRegistryInterface_FilterAuthorizedCallerAdded_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterAuthorizedCallerAdded_Call) Return(_a0 *price_registry.PriceRegistryAuthorizedCallerAddedIterator, _a1 error) *PriceRegistryInterface_FilterAuthorizedCallerAdded_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterAuthorizedCallerAdded_Call) RunAndReturn(run func(*bind.FilterOpts) (*price_registry.PriceRegistryAuthorizedCallerAddedIterator, error)) *PriceRegistryInterface_FilterAuthorizedCallerAdded_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterAuthorizedCallerRemoved provides a mock function with given fields: opts
 func (_m *PriceRegistryInterface) FilterAuthorizedCallerRemoved(opts *bind.FilterOpts) (*price_registry.PriceRegistryAuthorizedCallerRemovedIterator, error) {
 	ret := _m.Called(opts)
@@ -312,6 +581,34 @@ func (_m *PriceRegistryInterface) FilterAuthorizedCallerRemoved(opts *bind.Filte
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_FilterAuthorizedCallerRemoved_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterAuthorizedCallerRemoved'
+type PriceRegistryInterface_FilterAuthorizedCallerRemoved_Call struct {
+	*mock.Call
+}
+
+// FilterAuthorizedCallerRemoved is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+func (_e *PriceRegistryInterface_Expecter) FilterAuthorizedCallerRemoved(opts interface{}) *PriceRegistryInterface_FilterAuthorizedCallerRemoved_Call {
+	return &PriceRegistryInterface_FilterAuthorizedCallerRemoved_Call{Call: _e.mock.On("FilterAuthorizedCallerRemoved", opts)}
+}
+
+func (_c *PriceRegistryInterface_FilterAuthorizedCallerRemoved_Call) Run(run func(opts *bind.FilterOpts)) *PriceRegistryInterface_FilterAuthorizedCallerRemoved_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterAuthorizedCallerRemoved_Call) Return(_a0 *price_registry.PriceRegistryAuthorizedCallerRemovedIterator, _a1 error) *PriceRegistryInterface_FilterAuthorizedCallerRemoved_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterAuthorizedCallerRemoved_Call) RunAndReturn(run func(*bind.FilterOpts) (*price_registry.PriceRegistryAuthorizedCallerRemovedIterator, error)) *PriceRegistryInterface_FilterAuthorizedCallerRemoved_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterDestChainAdded provides a mock function with given fields: opts, destChainSelector
@@ -344,6 +641,35 @@ func (_m *PriceRegistryInterface) FilterDestChainAdded(opts *bind.FilterOpts, de
 	return r0, r1
 }
 
+// PriceRegistryInterface_FilterDestChainAdded_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterDestChainAdded'
+type PriceRegistryInterface_FilterDestChainAdded_Call struct {
+	*mock.Call
+}
+
+// FilterDestChainAdded is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - destChainSelector []uint64
+func (_e *PriceRegistryInterface_Expecter) FilterDestChainAdded(opts interface{}, destChainSelector interface{}) *PriceRegistryInterface_FilterDestChainAdded_Call {
+	return &PriceRegistryInterface_FilterDestChainAdded_Call{Call: _e.mock.On("FilterDestChainAdded", opts, destChainSelector)}
+}
+
+func (_c *PriceRegistryInterface_FilterDestChainAdded_Call) Run(run func(opts *bind.FilterOpts, destChainSelector []uint64)) *PriceRegistryInterface_FilterDestChainAdded_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]uint64))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterDestChainAdded_Call) Return(_a0 *price_registry.PriceRegistryDestChainAddedIterator, _a1 error) *PriceRegistryInterface_FilterDestChainAdded_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterDestChainAdded_Call) RunAndReturn(run func(*bind.FilterOpts, []uint64) (*price_registry.PriceRegistryDestChainAddedIterator, error)) *PriceRegistryInterface_FilterDestChainAdded_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterDestChainConfigUpdated provides a mock function with given fields: opts, destChainSelector
 func (_m *PriceRegistryInterface) FilterDestChainConfigUpdated(opts *bind.FilterOpts, destChainSelector []uint64) (*price_registry.PriceRegistryDestChainConfigUpdatedIterator, error) {
 	ret := _m.Called(opts, destChainSelector)
@@ -372,6 +698,35 @@ func (_m *PriceRegistryInterface) FilterDestChainConfigUpdated(opts *bind.Filter
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_FilterDestChainConfigUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterDestChainConfigUpdated'
+type PriceRegistryInterface_FilterDestChainConfigUpdated_Call struct {
+	*mock.Call
+}
+
+// FilterDestChainConfigUpdated is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - destChainSelector []uint64
+func (_e *PriceRegistryInterface_Expecter) FilterDestChainConfigUpdated(opts interface{}, destChainSelector interface{}) *PriceRegistryInterface_FilterDestChainConfigUpdated_Call {
+	return &PriceRegistryInterface_FilterDestChainConfigUpdated_Call{Call: _e.mock.On("FilterDestChainConfigUpdated", opts, destChainSelector)}
+}
+
+func (_c *PriceRegistryInterface_FilterDestChainConfigUpdated_Call) Run(run func(opts *bind.FilterOpts, destChainSelector []uint64)) *PriceRegistryInterface_FilterDestChainConfigUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]uint64))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterDestChainConfigUpdated_Call) Return(_a0 *price_registry.PriceRegistryDestChainConfigUpdatedIterator, _a1 error) *PriceRegistryInterface_FilterDestChainConfigUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterDestChainConfigUpdated_Call) RunAndReturn(run func(*bind.FilterOpts, []uint64) (*price_registry.PriceRegistryDestChainConfigUpdatedIterator, error)) *PriceRegistryInterface_FilterDestChainConfigUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterFeeTokenAdded provides a mock function with given fields: opts, feeToken
@@ -404,6 +759,35 @@ func (_m *PriceRegistryInterface) FilterFeeTokenAdded(opts *bind.FilterOpts, fee
 	return r0, r1
 }
 
+// PriceRegistryInterface_FilterFeeTokenAdded_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterFeeTokenAdded'
+type PriceRegistryInterface_FilterFeeTokenAdded_Call struct {
+	*mock.Call
+}
+
+// FilterFeeTokenAdded is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - feeToken []common.Address
+func (_e *PriceRegistryInterface_Expecter) FilterFeeTokenAdded(opts interface{}, feeToken interface{}) *PriceRegistryInterface_FilterFeeTokenAdded_Call {
+	return &PriceRegistryInterface_FilterFeeTokenAdded_Call{Call: _e.mock.On("FilterFeeTokenAdded", opts, feeToken)}
+}
+
+func (_c *PriceRegistryInterface_FilterFeeTokenAdded_Call) Run(run func(opts *bind.FilterOpts, feeToken []common.Address)) *PriceRegistryInterface_FilterFeeTokenAdded_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterFeeTokenAdded_Call) Return(_a0 *price_registry.PriceRegistryFeeTokenAddedIterator, _a1 error) *PriceRegistryInterface_FilterFeeTokenAdded_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterFeeTokenAdded_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address) (*price_registry.PriceRegistryFeeTokenAddedIterator, error)) *PriceRegistryInterface_FilterFeeTokenAdded_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterFeeTokenRemoved provides a mock function with given fields: opts, feeToken
 func (_m *PriceRegistryInterface) FilterFeeTokenRemoved(opts *bind.FilterOpts, feeToken []common.Address) (*price_registry.PriceRegistryFeeTokenRemovedIterator, error) {
 	ret := _m.Called(opts, feeToken)
@@ -432,6 +816,35 @@ func (_m *PriceRegistryInterface) FilterFeeTokenRemoved(opts *bind.FilterOpts, f
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_FilterFeeTokenRemoved_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterFeeTokenRemoved'
+type PriceRegistryInterface_FilterFeeTokenRemoved_Call struct {
+	*mock.Call
+}
+
+// FilterFeeTokenRemoved is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - feeToken []common.Address
+func (_e *PriceRegistryInterface_Expecter) FilterFeeTokenRemoved(opts interface{}, feeToken interface{}) *PriceRegistryInterface_FilterFeeTokenRemoved_Call {
+	return &PriceRegistryInterface_FilterFeeTokenRemoved_Call{Call: _e.mock.On("FilterFeeTokenRemoved", opts, feeToken)}
+}
+
+func (_c *PriceRegistryInterface_FilterFeeTokenRemoved_Call) Run(run func(opts *bind.FilterOpts, feeToken []common.Address)) *PriceRegistryInterface_FilterFeeTokenRemoved_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterFeeTokenRemoved_Call) Return(_a0 *price_registry.PriceRegistryFeeTokenRemovedIterator, _a1 error) *PriceRegistryInterface_FilterFeeTokenRemoved_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterFeeTokenRemoved_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address) (*price_registry.PriceRegistryFeeTokenRemovedIterator, error)) *PriceRegistryInterface_FilterFeeTokenRemoved_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterOwnershipTransferRequested provides a mock function with given fields: opts, from, to
@@ -464,6 +877,36 @@ func (_m *PriceRegistryInterface) FilterOwnershipTransferRequested(opts *bind.Fi
 	return r0, r1
 }
 
+// PriceRegistryInterface_FilterOwnershipTransferRequested_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterOwnershipTransferRequested'
+type PriceRegistryInterface_FilterOwnershipTransferRequested_Call struct {
+	*mock.Call
+}
+
+// FilterOwnershipTransferRequested is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - from []common.Address
+//   - to []common.Address
+func (_e *PriceRegistryInterface_Expecter) FilterOwnershipTransferRequested(opts interface{}, from interface{}, to interface{}) *PriceRegistryInterface_FilterOwnershipTransferRequested_Call {
+	return &PriceRegistryInterface_FilterOwnershipTransferRequested_Call{Call: _e.mock.On("FilterOwnershipTransferRequested", opts, from, to)}
+}
+
+func (_c *PriceRegistryInterface_FilterOwnershipTransferRequested_Call) Run(run func(opts *bind.FilterOpts, from []common.Address, to []common.Address)) *PriceRegistryInterface_FilterOwnershipTransferRequested_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterOwnershipTransferRequested_Call) Return(_a0 *price_registry.PriceRegistryOwnershipTransferRequestedIterator, _a1 error) *PriceRegistryInterface_FilterOwnershipTransferRequested_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterOwnershipTransferRequested_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address) (*price_registry.PriceRegistryOwnershipTransferRequestedIterator, error)) *PriceRegistryInterface_FilterOwnershipTransferRequested_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterOwnershipTransferred provides a mock function with given fields: opts, from, to
 func (_m *PriceRegistryInterface) FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*price_registry.PriceRegistryOwnershipTransferredIterator, error) {
 	ret := _m.Called(opts, from, to)
@@ -492,6 +935,36 @@ func (_m *PriceRegistryInterface) FilterOwnershipTransferred(opts *bind.FilterOp
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_FilterOwnershipTransferred_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterOwnershipTransferred'
+type PriceRegistryInterface_FilterOwnershipTransferred_Call struct {
+	*mock.Call
+}
+
+// FilterOwnershipTransferred is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - from []common.Address
+//   - to []common.Address
+func (_e *PriceRegistryInterface_Expecter) FilterOwnershipTransferred(opts interface{}, from interface{}, to interface{}) *PriceRegistryInterface_FilterOwnershipTransferred_Call {
+	return &PriceRegistryInterface_FilterOwnershipTransferred_Call{Call: _e.mock.On("FilterOwnershipTransferred", opts, from, to)}
+}
+
+func (_c *PriceRegistryInterface_FilterOwnershipTransferred_Call) Run(run func(opts *bind.FilterOpts, from []common.Address, to []common.Address)) *PriceRegistryInterface_FilterOwnershipTransferred_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterOwnershipTransferred_Call) Return(_a0 *price_registry.PriceRegistryOwnershipTransferredIterator, _a1 error) *PriceRegistryInterface_FilterOwnershipTransferred_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterOwnershipTransferred_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address) (*price_registry.PriceRegistryOwnershipTransferredIterator, error)) *PriceRegistryInterface_FilterOwnershipTransferred_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterPremiumMultiplierWeiPerEthUpdated provides a mock function with given fields: opts, token
@@ -524,6 +997,35 @@ func (_m *PriceRegistryInterface) FilterPremiumMultiplierWeiPerEthUpdated(opts *
 	return r0, r1
 }
 
+// PriceRegistryInterface_FilterPremiumMultiplierWeiPerEthUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterPremiumMultiplierWeiPerEthUpdated'
+type PriceRegistryInterface_FilterPremiumMultiplierWeiPerEthUpdated_Call struct {
+	*mock.Call
+}
+
+// FilterPremiumMultiplierWeiPerEthUpdated is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - token []common.Address
+func (_e *PriceRegistryInterface_Expecter) FilterPremiumMultiplierWeiPerEthUpdated(opts interface{}, token interface{}) *PriceRegistryInterface_FilterPremiumMultiplierWeiPerEthUpdated_Call {
+	return &PriceRegistryInterface_FilterPremiumMultiplierWeiPerEthUpdated_Call{Call: _e.mock.On("FilterPremiumMultiplierWeiPerEthUpdated", opts, token)}
+}
+
+func (_c *PriceRegistryInterface_FilterPremiumMultiplierWeiPerEthUpdated_Call) Run(run func(opts *bind.FilterOpts, token []common.Address)) *PriceRegistryInterface_FilterPremiumMultiplierWeiPerEthUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterPremiumMultiplierWeiPerEthUpdated_Call) Return(_a0 *price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdatedIterator, _a1 error) *PriceRegistryInterface_FilterPremiumMultiplierWeiPerEthUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterPremiumMultiplierWeiPerEthUpdated_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address) (*price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdatedIterator, error)) *PriceRegistryInterface_FilterPremiumMultiplierWeiPerEthUpdated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterPriceFeedPerTokenUpdated provides a mock function with given fields: opts, token
 func (_m *PriceRegistryInterface) FilterPriceFeedPerTokenUpdated(opts *bind.FilterOpts, token []common.Address) (*price_registry.PriceRegistryPriceFeedPerTokenUpdatedIterator, error) {
 	ret := _m.Called(opts, token)
@@ -552,6 +1054,35 @@ func (_m *PriceRegistryInterface) FilterPriceFeedPerTokenUpdated(opts *bind.Filt
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_FilterPriceFeedPerTokenUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterPriceFeedPerTokenUpdated'
+type PriceRegistryInterface_FilterPriceFeedPerTokenUpdated_Call struct {
+	*mock.Call
+}
+
+// FilterPriceFeedPerTokenUpdated is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - token []common.Address
+func (_e *PriceRegistryInterface_Expecter) FilterPriceFeedPerTokenUpdated(opts interface{}, token interface{}) *PriceRegistryInterface_FilterPriceFeedPerTokenUpdated_Call {
+	return &PriceRegistryInterface_FilterPriceFeedPerTokenUpdated_Call{Call: _e.mock.On("FilterPriceFeedPerTokenUpdated", opts, token)}
+}
+
+func (_c *PriceRegistryInterface_FilterPriceFeedPerTokenUpdated_Call) Run(run func(opts *bind.FilterOpts, token []common.Address)) *PriceRegistryInterface_FilterPriceFeedPerTokenUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterPriceFeedPerTokenUpdated_Call) Return(_a0 *price_registry.PriceRegistryPriceFeedPerTokenUpdatedIterator, _a1 error) *PriceRegistryInterface_FilterPriceFeedPerTokenUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterPriceFeedPerTokenUpdated_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address) (*price_registry.PriceRegistryPriceFeedPerTokenUpdatedIterator, error)) *PriceRegistryInterface_FilterPriceFeedPerTokenUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterPriceUpdaterRemoved provides a mock function with given fields: opts, priceUpdater
@@ -584,6 +1115,35 @@ func (_m *PriceRegistryInterface) FilterPriceUpdaterRemoved(opts *bind.FilterOpt
 	return r0, r1
 }
 
+// PriceRegistryInterface_FilterPriceUpdaterRemoved_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterPriceUpdaterRemoved'
+type PriceRegistryInterface_FilterPriceUpdaterRemoved_Call struct {
+	*mock.Call
+}
+
+// FilterPriceUpdaterRemoved is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - priceUpdater []common.Address
+func (_e *PriceRegistryInterface_Expecter) FilterPriceUpdaterRemoved(opts interface{}, priceUpdater interface{}) *PriceRegistryInterface_FilterPriceUpdaterRemoved_Call {
+	return &PriceRegistryInterface_FilterPriceUpdaterRemoved_Call{Call: _e.mock.On("FilterPriceUpdaterRemoved", opts, priceUpdater)}
+}
+
+func (_c *PriceRegistryInterface_FilterPriceUpdaterRemoved_Call) Run(run func(opts *bind.FilterOpts, priceUpdater []common.Address)) *PriceRegistryInterface_FilterPriceUpdaterRemoved_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterPriceUpdaterRemoved_Call) Return(_a0 *price_registry.PriceRegistryPriceUpdaterRemovedIterator, _a1 error) *PriceRegistryInterface_FilterPriceUpdaterRemoved_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterPriceUpdaterRemoved_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address) (*price_registry.PriceRegistryPriceUpdaterRemovedIterator, error)) *PriceRegistryInterface_FilterPriceUpdaterRemoved_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterPriceUpdaterSet provides a mock function with given fields: opts, priceUpdater
 func (_m *PriceRegistryInterface) FilterPriceUpdaterSet(opts *bind.FilterOpts, priceUpdater []common.Address) (*price_registry.PriceRegistryPriceUpdaterSetIterator, error) {
 	ret := _m.Called(opts, priceUpdater)
@@ -612,6 +1172,35 @@ func (_m *PriceRegistryInterface) FilterPriceUpdaterSet(opts *bind.FilterOpts, p
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_FilterPriceUpdaterSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterPriceUpdaterSet'
+type PriceRegistryInterface_FilterPriceUpdaterSet_Call struct {
+	*mock.Call
+}
+
+// FilterPriceUpdaterSet is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - priceUpdater []common.Address
+func (_e *PriceRegistryInterface_Expecter) FilterPriceUpdaterSet(opts interface{}, priceUpdater interface{}) *PriceRegistryInterface_FilterPriceUpdaterSet_Call {
+	return &PriceRegistryInterface_FilterPriceUpdaterSet_Call{Call: _e.mock.On("FilterPriceUpdaterSet", opts, priceUpdater)}
+}
+
+func (_c *PriceRegistryInterface_FilterPriceUpdaterSet_Call) Run(run func(opts *bind.FilterOpts, priceUpdater []common.Address)) *PriceRegistryInterface_FilterPriceUpdaterSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterPriceUpdaterSet_Call) Return(_a0 *price_registry.PriceRegistryPriceUpdaterSetIterator, _a1 error) *PriceRegistryInterface_FilterPriceUpdaterSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterPriceUpdaterSet_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address) (*price_registry.PriceRegistryPriceUpdaterSetIterator, error)) *PriceRegistryInterface_FilterPriceUpdaterSet_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterTokenTransferFeeConfigDeleted provides a mock function with given fields: opts, destChainSelector, token
@@ -644,6 +1233,36 @@ func (_m *PriceRegistryInterface) FilterTokenTransferFeeConfigDeleted(opts *bind
 	return r0, r1
 }
 
+// PriceRegistryInterface_FilterTokenTransferFeeConfigDeleted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterTokenTransferFeeConfigDeleted'
+type PriceRegistryInterface_FilterTokenTransferFeeConfigDeleted_Call struct {
+	*mock.Call
+}
+
+// FilterTokenTransferFeeConfigDeleted is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - destChainSelector []uint64
+//   - token []common.Address
+func (_e *PriceRegistryInterface_Expecter) FilterTokenTransferFeeConfigDeleted(opts interface{}, destChainSelector interface{}, token interface{}) *PriceRegistryInterface_FilterTokenTransferFeeConfigDeleted_Call {
+	return &PriceRegistryInterface_FilterTokenTransferFeeConfigDeleted_Call{Call: _e.mock.On("FilterTokenTransferFeeConfigDeleted", opts, destChainSelector, token)}
+}
+
+func (_c *PriceRegistryInterface_FilterTokenTransferFeeConfigDeleted_Call) Run(run func(opts *bind.FilterOpts, destChainSelector []uint64, token []common.Address)) *PriceRegistryInterface_FilterTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]uint64), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterTokenTransferFeeConfigDeleted_Call) Return(_a0 *price_registry.PriceRegistryTokenTransferFeeConfigDeletedIterator, _a1 error) *PriceRegistryInterface_FilterTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterTokenTransferFeeConfigDeleted_Call) RunAndReturn(run func(*bind.FilterOpts, []uint64, []common.Address) (*price_registry.PriceRegistryTokenTransferFeeConfigDeletedIterator, error)) *PriceRegistryInterface_FilterTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterTokenTransferFeeConfigUpdated provides a mock function with given fields: opts, destChainSelector, token
 func (_m *PriceRegistryInterface) FilterTokenTransferFeeConfigUpdated(opts *bind.FilterOpts, destChainSelector []uint64, token []common.Address) (*price_registry.PriceRegistryTokenTransferFeeConfigUpdatedIterator, error) {
 	ret := _m.Called(opts, destChainSelector, token)
@@ -672,6 +1291,36 @@ func (_m *PriceRegistryInterface) FilterTokenTransferFeeConfigUpdated(opts *bind
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_FilterTokenTransferFeeConfigUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterTokenTransferFeeConfigUpdated'
+type PriceRegistryInterface_FilterTokenTransferFeeConfigUpdated_Call struct {
+	*mock.Call
+}
+
+// FilterTokenTransferFeeConfigUpdated is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - destChainSelector []uint64
+//   - token []common.Address
+func (_e *PriceRegistryInterface_Expecter) FilterTokenTransferFeeConfigUpdated(opts interface{}, destChainSelector interface{}, token interface{}) *PriceRegistryInterface_FilterTokenTransferFeeConfigUpdated_Call {
+	return &PriceRegistryInterface_FilterTokenTransferFeeConfigUpdated_Call{Call: _e.mock.On("FilterTokenTransferFeeConfigUpdated", opts, destChainSelector, token)}
+}
+
+func (_c *PriceRegistryInterface_FilterTokenTransferFeeConfigUpdated_Call) Run(run func(opts *bind.FilterOpts, destChainSelector []uint64, token []common.Address)) *PriceRegistryInterface_FilterTokenTransferFeeConfigUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]uint64), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterTokenTransferFeeConfigUpdated_Call) Return(_a0 *price_registry.PriceRegistryTokenTransferFeeConfigUpdatedIterator, _a1 error) *PriceRegistryInterface_FilterTokenTransferFeeConfigUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterTokenTransferFeeConfigUpdated_Call) RunAndReturn(run func(*bind.FilterOpts, []uint64, []common.Address) (*price_registry.PriceRegistryTokenTransferFeeConfigUpdatedIterator, error)) *PriceRegistryInterface_FilterTokenTransferFeeConfigUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterUsdPerTokenUpdated provides a mock function with given fields: opts, token
@@ -704,6 +1353,35 @@ func (_m *PriceRegistryInterface) FilterUsdPerTokenUpdated(opts *bind.FilterOpts
 	return r0, r1
 }
 
+// PriceRegistryInterface_FilterUsdPerTokenUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterUsdPerTokenUpdated'
+type PriceRegistryInterface_FilterUsdPerTokenUpdated_Call struct {
+	*mock.Call
+}
+
+// FilterUsdPerTokenUpdated is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - token []common.Address
+func (_e *PriceRegistryInterface_Expecter) FilterUsdPerTokenUpdated(opts interface{}, token interface{}) *PriceRegistryInterface_FilterUsdPerTokenUpdated_Call {
+	return &PriceRegistryInterface_FilterUsdPerTokenUpdated_Call{Call: _e.mock.On("FilterUsdPerTokenUpdated", opts, token)}
+}
+
+func (_c *PriceRegistryInterface_FilterUsdPerTokenUpdated_Call) Run(run func(opts *bind.FilterOpts, token []common.Address)) *PriceRegistryInterface_FilterUsdPerTokenUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterUsdPerTokenUpdated_Call) Return(_a0 *price_registry.PriceRegistryUsdPerTokenUpdatedIterator, _a1 error) *PriceRegistryInterface_FilterUsdPerTokenUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterUsdPerTokenUpdated_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address) (*price_registry.PriceRegistryUsdPerTokenUpdatedIterator, error)) *PriceRegistryInterface_FilterUsdPerTokenUpdated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterUsdPerUnitGasUpdated provides a mock function with given fields: opts, destChain
 func (_m *PriceRegistryInterface) FilterUsdPerUnitGasUpdated(opts *bind.FilterOpts, destChain []uint64) (*price_registry.PriceRegistryUsdPerUnitGasUpdatedIterator, error) {
 	ret := _m.Called(opts, destChain)
@@ -732,6 +1410,35 @@ func (_m *PriceRegistryInterface) FilterUsdPerUnitGasUpdated(opts *bind.FilterOp
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_FilterUsdPerUnitGasUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterUsdPerUnitGasUpdated'
+type PriceRegistryInterface_FilterUsdPerUnitGasUpdated_Call struct {
+	*mock.Call
+}
+
+// FilterUsdPerUnitGasUpdated is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - destChain []uint64
+func (_e *PriceRegistryInterface_Expecter) FilterUsdPerUnitGasUpdated(opts interface{}, destChain interface{}) *PriceRegistryInterface_FilterUsdPerUnitGasUpdated_Call {
+	return &PriceRegistryInterface_FilterUsdPerUnitGasUpdated_Call{Call: _e.mock.On("FilterUsdPerUnitGasUpdated", opts, destChain)}
+}
+
+func (_c *PriceRegistryInterface_FilterUsdPerUnitGasUpdated_Call) Run(run func(opts *bind.FilterOpts, destChain []uint64)) *PriceRegistryInterface_FilterUsdPerUnitGasUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]uint64))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterUsdPerUnitGasUpdated_Call) Return(_a0 *price_registry.PriceRegistryUsdPerUnitGasUpdatedIterator, _a1 error) *PriceRegistryInterface_FilterUsdPerUnitGasUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_FilterUsdPerUnitGasUpdated_Call) RunAndReturn(run func(*bind.FilterOpts, []uint64) (*price_registry.PriceRegistryUsdPerUnitGasUpdatedIterator, error)) *PriceRegistryInterface_FilterUsdPerUnitGasUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetAllAuthorizedCallers provides a mock function with given fields: opts
@@ -764,6 +1471,34 @@ func (_m *PriceRegistryInterface) GetAllAuthorizedCallers(opts *bind.CallOpts) (
 	return r0, r1
 }
 
+// PriceRegistryInterface_GetAllAuthorizedCallers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllAuthorizedCallers'
+type PriceRegistryInterface_GetAllAuthorizedCallers_Call struct {
+	*mock.Call
+}
+
+// GetAllAuthorizedCallers is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *PriceRegistryInterface_Expecter) GetAllAuthorizedCallers(opts interface{}) *PriceRegistryInterface_GetAllAuthorizedCallers_Call {
+	return &PriceRegistryInterface_GetAllAuthorizedCallers_Call{Call: _e.mock.On("GetAllAuthorizedCallers", opts)}
+}
+
+func (_c *PriceRegistryInterface_GetAllAuthorizedCallers_Call) Run(run func(opts *bind.CallOpts)) *PriceRegistryInterface_GetAllAuthorizedCallers_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetAllAuthorizedCallers_Call) Return(_a0 []common.Address, _a1 error) *PriceRegistryInterface_GetAllAuthorizedCallers_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetAllAuthorizedCallers_Call) RunAndReturn(run func(*bind.CallOpts) ([]common.Address, error)) *PriceRegistryInterface_GetAllAuthorizedCallers_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetDestChainConfig provides a mock function with given fields: opts, destChainSelector
 func (_m *PriceRegistryInterface) GetDestChainConfig(opts *bind.CallOpts, destChainSelector uint64) (price_registry.PriceRegistryDestChainConfig, error) {
 	ret := _m.Called(opts, destChainSelector)
@@ -792,6 +1527,35 @@ func (_m *PriceRegistryInterface) GetDestChainConfig(opts *bind.CallOpts, destCh
 	return r0, r1
 }
 
+// PriceRegistryInterface_GetDestChainConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetDestChainConfig'
+type PriceRegistryInterface_GetDestChainConfig_Call struct {
+	*mock.Call
+}
+
+// GetDestChainConfig is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - destChainSelector uint64
+func (_e *PriceRegistryInterface_Expecter) GetDestChainConfig(opts interface{}, destChainSelector interface{}) *PriceRegistryInterface_GetDestChainConfig_Call {
+	return &PriceRegistryInterface_GetDestChainConfig_Call{Call: _e.mock.On("GetDestChainConfig", opts, destChainSelector)}
+}
+
+func (_c *PriceRegistryInterface_GetDestChainConfig_Call) Run(run func(opts *bind.CallOpts, destChainSelector uint64)) *PriceRegistryInterface_GetDestChainConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(uint64))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetDestChainConfig_Call) Return(_a0 price_registry.PriceRegistryDestChainConfig, _a1 error) *PriceRegistryInterface_GetDestChainConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetDestChainConfig_Call) RunAndReturn(run func(*bind.CallOpts, uint64) (price_registry.PriceRegistryDestChainConfig, error)) *PriceRegistryInterface_GetDestChainConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetDestinationChainGasPrice provides a mock function with given fields: opts, destChainSelector
 func (_m *PriceRegistryInterface) GetDestinationChainGasPrice(opts *bind.CallOpts, destChainSelector uint64) (price_registry.InternalTimestampedPackedUint224, error) {
 	ret := _m.Called(opts, destChainSelector)
@@ -818,6 +1582,35 @@ func (_m *PriceRegistryInterface) GetDestinationChainGasPrice(opts *bind.CallOpt
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_GetDestinationChainGasPrice_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetDestinationChainGasPrice'
+type PriceRegistryInterface_GetDestinationChainGasPrice_Call struct {
+	*mock.Call
+}
+
+// GetDestinationChainGasPrice is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - destChainSelector uint64
+func (_e *PriceRegistryInterface_Expecter) GetDestinationChainGasPrice(opts interface{}, destChainSelector interface{}) *PriceRegistryInterface_GetDestinationChainGasPrice_Call {
+	return &PriceRegistryInterface_GetDestinationChainGasPrice_Call{Call: _e.mock.On("GetDestinationChainGasPrice", opts, destChainSelector)}
+}
+
+func (_c *PriceRegistryInterface_GetDestinationChainGasPrice_Call) Run(run func(opts *bind.CallOpts, destChainSelector uint64)) *PriceRegistryInterface_GetDestinationChainGasPrice_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(uint64))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetDestinationChainGasPrice_Call) Return(_a0 price_registry.InternalTimestampedPackedUint224, _a1 error) *PriceRegistryInterface_GetDestinationChainGasPrice_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetDestinationChainGasPrice_Call) RunAndReturn(run func(*bind.CallOpts, uint64) (price_registry.InternalTimestampedPackedUint224, error)) *PriceRegistryInterface_GetDestinationChainGasPrice_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetFeeTokens provides a mock function with given fields: opts
@@ -850,6 +1643,34 @@ func (_m *PriceRegistryInterface) GetFeeTokens(opts *bind.CallOpts) ([]common.Ad
 	return r0, r1
 }
 
+// PriceRegistryInterface_GetFeeTokens_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetFeeTokens'
+type PriceRegistryInterface_GetFeeTokens_Call struct {
+	*mock.Call
+}
+
+// GetFeeTokens is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *PriceRegistryInterface_Expecter) GetFeeTokens(opts interface{}) *PriceRegistryInterface_GetFeeTokens_Call {
+	return &PriceRegistryInterface_GetFeeTokens_Call{Call: _e.mock.On("GetFeeTokens", opts)}
+}
+
+func (_c *PriceRegistryInterface_GetFeeTokens_Call) Run(run func(opts *bind.CallOpts)) *PriceRegistryInterface_GetFeeTokens_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetFeeTokens_Call) Return(_a0 []common.Address, _a1 error) *PriceRegistryInterface_GetFeeTokens_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetFeeTokens_Call) RunAndReturn(run func(*bind.CallOpts) ([]common.Address, error)) *PriceRegistryInterface_GetFeeTokens_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetPremiumMultiplierWeiPerEth provides a mock function with given fields: opts, token
 func (_m *PriceRegistryInterface) GetPremiumMultiplierWeiPerEth(opts *bind.CallOpts, token common.Address) (uint64, error) {
 	ret := _m.Called(opts, token)
@@ -876,6 +1697,35 @@ func (_m *PriceRegistryInterface) GetPremiumMultiplierWeiPerEth(opts *bind.CallO
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_GetPremiumMultiplierWeiPerEth_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPremiumMultiplierWeiPerEth'
+type PriceRegistryInterface_GetPremiumMultiplierWeiPerEth_Call struct {
+	*mock.Call
+}
+
+// GetPremiumMultiplierWeiPerEth is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - token common.Address
+func (_e *PriceRegistryInterface_Expecter) GetPremiumMultiplierWeiPerEth(opts interface{}, token interface{}) *PriceRegistryInterface_GetPremiumMultiplierWeiPerEth_Call {
+	return &PriceRegistryInterface_GetPremiumMultiplierWeiPerEth_Call{Call: _e.mock.On("GetPremiumMultiplierWeiPerEth", opts, token)}
+}
+
+func (_c *PriceRegistryInterface_GetPremiumMultiplierWeiPerEth_Call) Run(run func(opts *bind.CallOpts, token common.Address)) *PriceRegistryInterface_GetPremiumMultiplierWeiPerEth_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetPremiumMultiplierWeiPerEth_Call) Return(_a0 uint64, _a1 error) *PriceRegistryInterface_GetPremiumMultiplierWeiPerEth_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetPremiumMultiplierWeiPerEth_Call) RunAndReturn(run func(*bind.CallOpts, common.Address) (uint64, error)) *PriceRegistryInterface_GetPremiumMultiplierWeiPerEth_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetStaticConfig provides a mock function with given fields: opts
@@ -906,6 +1756,34 @@ func (_m *PriceRegistryInterface) GetStaticConfig(opts *bind.CallOpts) (price_re
 	return r0, r1
 }
 
+// PriceRegistryInterface_GetStaticConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetStaticConfig'
+type PriceRegistryInterface_GetStaticConfig_Call struct {
+	*mock.Call
+}
+
+// GetStaticConfig is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *PriceRegistryInterface_Expecter) GetStaticConfig(opts interface{}) *PriceRegistryInterface_GetStaticConfig_Call {
+	return &PriceRegistryInterface_GetStaticConfig_Call{Call: _e.mock.On("GetStaticConfig", opts)}
+}
+
+func (_c *PriceRegistryInterface_GetStaticConfig_Call) Run(run func(opts *bind.CallOpts)) *PriceRegistryInterface_GetStaticConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetStaticConfig_Call) Return(_a0 price_registry.PriceRegistryStaticConfig, _a1 error) *PriceRegistryInterface_GetStaticConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetStaticConfig_Call) RunAndReturn(run func(*bind.CallOpts) (price_registry.PriceRegistryStaticConfig, error)) *PriceRegistryInterface_GetStaticConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetTokenAndGasPrices provides a mock function with given fields: opts, token, destChainSelector
 func (_m *PriceRegistryInterface) GetTokenAndGasPrices(opts *bind.CallOpts, token common.Address, destChainSelector uint64) (price_registry.GetTokenAndGasPrices, error) {
 	ret := _m.Called(opts, token, destChainSelector)
@@ -932,6 +1810,36 @@ func (_m *PriceRegistryInterface) GetTokenAndGasPrices(opts *bind.CallOpts, toke
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_GetTokenAndGasPrices_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTokenAndGasPrices'
+type PriceRegistryInterface_GetTokenAndGasPrices_Call struct {
+	*mock.Call
+}
+
+// GetTokenAndGasPrices is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - token common.Address
+//   - destChainSelector uint64
+func (_e *PriceRegistryInterface_Expecter) GetTokenAndGasPrices(opts interface{}, token interface{}, destChainSelector interface{}) *PriceRegistryInterface_GetTokenAndGasPrices_Call {
+	return &PriceRegistryInterface_GetTokenAndGasPrices_Call{Call: _e.mock.On("GetTokenAndGasPrices", opts, token, destChainSelector)}
+}
+
+func (_c *PriceRegistryInterface_GetTokenAndGasPrices_Call) Run(run func(opts *bind.CallOpts, token common.Address, destChainSelector uint64)) *PriceRegistryInterface_GetTokenAndGasPrices_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address), args[2].(uint64))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetTokenAndGasPrices_Call) Return(_a0 price_registry.GetTokenAndGasPrices, _a1 error) *PriceRegistryInterface_GetTokenAndGasPrices_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetTokenAndGasPrices_Call) RunAndReturn(run func(*bind.CallOpts, common.Address, uint64) (price_registry.GetTokenAndGasPrices, error)) *PriceRegistryInterface_GetTokenAndGasPrices_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetTokenPrice provides a mock function with given fields: opts, token
@@ -962,6 +1870,35 @@ func (_m *PriceRegistryInterface) GetTokenPrice(opts *bind.CallOpts, token commo
 	return r0, r1
 }
 
+// PriceRegistryInterface_GetTokenPrice_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTokenPrice'
+type PriceRegistryInterface_GetTokenPrice_Call struct {
+	*mock.Call
+}
+
+// GetTokenPrice is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - token common.Address
+func (_e *PriceRegistryInterface_Expecter) GetTokenPrice(opts interface{}, token interface{}) *PriceRegistryInterface_GetTokenPrice_Call {
+	return &PriceRegistryInterface_GetTokenPrice_Call{Call: _e.mock.On("GetTokenPrice", opts, token)}
+}
+
+func (_c *PriceRegistryInterface_GetTokenPrice_Call) Run(run func(opts *bind.CallOpts, token common.Address)) *PriceRegistryInterface_GetTokenPrice_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetTokenPrice_Call) Return(_a0 price_registry.InternalTimestampedPackedUint224, _a1 error) *PriceRegistryInterface_GetTokenPrice_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetTokenPrice_Call) RunAndReturn(run func(*bind.CallOpts, common.Address) (price_registry.InternalTimestampedPackedUint224, error)) *PriceRegistryInterface_GetTokenPrice_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetTokenPriceFeedConfig provides a mock function with given fields: opts, token
 func (_m *PriceRegistryInterface) GetTokenPriceFeedConfig(opts *bind.CallOpts, token common.Address) (price_registry.IPriceRegistryTokenPriceFeedConfig, error) {
 	ret := _m.Called(opts, token)
@@ -988,6 +1925,35 @@ func (_m *PriceRegistryInterface) GetTokenPriceFeedConfig(opts *bind.CallOpts, t
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_GetTokenPriceFeedConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTokenPriceFeedConfig'
+type PriceRegistryInterface_GetTokenPriceFeedConfig_Call struct {
+	*mock.Call
+}
+
+// GetTokenPriceFeedConfig is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - token common.Address
+func (_e *PriceRegistryInterface_Expecter) GetTokenPriceFeedConfig(opts interface{}, token interface{}) *PriceRegistryInterface_GetTokenPriceFeedConfig_Call {
+	return &PriceRegistryInterface_GetTokenPriceFeedConfig_Call{Call: _e.mock.On("GetTokenPriceFeedConfig", opts, token)}
+}
+
+func (_c *PriceRegistryInterface_GetTokenPriceFeedConfig_Call) Run(run func(opts *bind.CallOpts, token common.Address)) *PriceRegistryInterface_GetTokenPriceFeedConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetTokenPriceFeedConfig_Call) Return(_a0 price_registry.IPriceRegistryTokenPriceFeedConfig, _a1 error) *PriceRegistryInterface_GetTokenPriceFeedConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetTokenPriceFeedConfig_Call) RunAndReturn(run func(*bind.CallOpts, common.Address) (price_registry.IPriceRegistryTokenPriceFeedConfig, error)) *PriceRegistryInterface_GetTokenPriceFeedConfig_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetTokenPrices provides a mock function with given fields: opts, tokens
@@ -1020,6 +1986,35 @@ func (_m *PriceRegistryInterface) GetTokenPrices(opts *bind.CallOpts, tokens []c
 	return r0, r1
 }
 
+// PriceRegistryInterface_GetTokenPrices_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTokenPrices'
+type PriceRegistryInterface_GetTokenPrices_Call struct {
+	*mock.Call
+}
+
+// GetTokenPrices is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - tokens []common.Address
+func (_e *PriceRegistryInterface_Expecter) GetTokenPrices(opts interface{}, tokens interface{}) *PriceRegistryInterface_GetTokenPrices_Call {
+	return &PriceRegistryInterface_GetTokenPrices_Call{Call: _e.mock.On("GetTokenPrices", opts, tokens)}
+}
+
+func (_c *PriceRegistryInterface_GetTokenPrices_Call) Run(run func(opts *bind.CallOpts, tokens []common.Address)) *PriceRegistryInterface_GetTokenPrices_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetTokenPrices_Call) Return(_a0 []price_registry.InternalTimestampedPackedUint224, _a1 error) *PriceRegistryInterface_GetTokenPrices_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetTokenPrices_Call) RunAndReturn(run func(*bind.CallOpts, []common.Address) ([]price_registry.InternalTimestampedPackedUint224, error)) *PriceRegistryInterface_GetTokenPrices_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetTokenTransferFeeConfig provides a mock function with given fields: opts, destChainSelector, token
 func (_m *PriceRegistryInterface) GetTokenTransferFeeConfig(opts *bind.CallOpts, destChainSelector uint64, token common.Address) (price_registry.PriceRegistryTokenTransferFeeConfig, error) {
 	ret := _m.Called(opts, destChainSelector, token)
@@ -1046,6 +2041,36 @@ func (_m *PriceRegistryInterface) GetTokenTransferFeeConfig(opts *bind.CallOpts,
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_GetTokenTransferFeeConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTokenTransferFeeConfig'
+type PriceRegistryInterface_GetTokenTransferFeeConfig_Call struct {
+	*mock.Call
+}
+
+// GetTokenTransferFeeConfig is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - destChainSelector uint64
+//   - token common.Address
+func (_e *PriceRegistryInterface_Expecter) GetTokenTransferFeeConfig(opts interface{}, destChainSelector interface{}, token interface{}) *PriceRegistryInterface_GetTokenTransferFeeConfig_Call {
+	return &PriceRegistryInterface_GetTokenTransferFeeConfig_Call{Call: _e.mock.On("GetTokenTransferFeeConfig", opts, destChainSelector, token)}
+}
+
+func (_c *PriceRegistryInterface_GetTokenTransferFeeConfig_Call) Run(run func(opts *bind.CallOpts, destChainSelector uint64, token common.Address)) *PriceRegistryInterface_GetTokenTransferFeeConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(uint64), args[2].(common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetTokenTransferFeeConfig_Call) Return(_a0 price_registry.PriceRegistryTokenTransferFeeConfig, _a1 error) *PriceRegistryInterface_GetTokenTransferFeeConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetTokenTransferFeeConfig_Call) RunAndReturn(run func(*bind.CallOpts, uint64, common.Address) (price_registry.PriceRegistryTokenTransferFeeConfig, error)) *PriceRegistryInterface_GetTokenTransferFeeConfig_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetValidatedFee provides a mock function with given fields: opts, destChainSelector, message
@@ -1078,6 +2103,36 @@ func (_m *PriceRegistryInterface) GetValidatedFee(opts *bind.CallOpts, destChain
 	return r0, r1
 }
 
+// PriceRegistryInterface_GetValidatedFee_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetValidatedFee'
+type PriceRegistryInterface_GetValidatedFee_Call struct {
+	*mock.Call
+}
+
+// GetValidatedFee is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - destChainSelector uint64
+//   - message price_registry.ClientEVM2AnyMessage
+func (_e *PriceRegistryInterface_Expecter) GetValidatedFee(opts interface{}, destChainSelector interface{}, message interface{}) *PriceRegistryInterface_GetValidatedFee_Call {
+	return &PriceRegistryInterface_GetValidatedFee_Call{Call: _e.mock.On("GetValidatedFee", opts, destChainSelector, message)}
+}
+
+func (_c *PriceRegistryInterface_GetValidatedFee_Call) Run(run func(opts *bind.CallOpts, destChainSelector uint64, message price_registry.ClientEVM2AnyMessage)) *PriceRegistryInterface_GetValidatedFee_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(uint64), args[2].(price_registry.ClientEVM2AnyMessage))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetValidatedFee_Call) Return(_a0 *big.Int, _a1 error) *PriceRegistryInterface_GetValidatedFee_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetValidatedFee_Call) RunAndReturn(run func(*bind.CallOpts, uint64, price_registry.ClientEVM2AnyMessage) (*big.Int, error)) *PriceRegistryInterface_GetValidatedFee_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetValidatedTokenPrice provides a mock function with given fields: opts, token
 func (_m *PriceRegistryInterface) GetValidatedTokenPrice(opts *bind.CallOpts, token common.Address) (*big.Int, error) {
 	ret := _m.Called(opts, token)
@@ -1106,6 +2161,35 @@ func (_m *PriceRegistryInterface) GetValidatedTokenPrice(opts *bind.CallOpts, to
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_GetValidatedTokenPrice_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetValidatedTokenPrice'
+type PriceRegistryInterface_GetValidatedTokenPrice_Call struct {
+	*mock.Call
+}
+
+// GetValidatedTokenPrice is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - token common.Address
+func (_e *PriceRegistryInterface_Expecter) GetValidatedTokenPrice(opts interface{}, token interface{}) *PriceRegistryInterface_GetValidatedTokenPrice_Call {
+	return &PriceRegistryInterface_GetValidatedTokenPrice_Call{Call: _e.mock.On("GetValidatedTokenPrice", opts, token)}
+}
+
+func (_c *PriceRegistryInterface_GetValidatedTokenPrice_Call) Run(run func(opts *bind.CallOpts, token common.Address)) *PriceRegistryInterface_GetValidatedTokenPrice_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetValidatedTokenPrice_Call) Return(_a0 *big.Int, _a1 error) *PriceRegistryInterface_GetValidatedTokenPrice_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_GetValidatedTokenPrice_Call) RunAndReturn(run func(*bind.CallOpts, common.Address) (*big.Int, error)) *PriceRegistryInterface_GetValidatedTokenPrice_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Owner provides a mock function with given fields: opts
@@ -1138,6 +2222,34 @@ func (_m *PriceRegistryInterface) Owner(opts *bind.CallOpts) (common.Address, er
 	return r0, r1
 }
 
+// PriceRegistryInterface_Owner_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Owner'
+type PriceRegistryInterface_Owner_Call struct {
+	*mock.Call
+}
+
+// Owner is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *PriceRegistryInterface_Expecter) Owner(opts interface{}) *PriceRegistryInterface_Owner_Call {
+	return &PriceRegistryInterface_Owner_Call{Call: _e.mock.On("Owner", opts)}
+}
+
+func (_c *PriceRegistryInterface_Owner_Call) Run(run func(opts *bind.CallOpts)) *PriceRegistryInterface_Owner_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_Owner_Call) Return(_a0 common.Address, _a1 error) *PriceRegistryInterface_Owner_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_Owner_Call) RunAndReturn(run func(*bind.CallOpts) (common.Address, error)) *PriceRegistryInterface_Owner_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseAuthorizedCallerAdded provides a mock function with given fields: log
 func (_m *PriceRegistryInterface) ParseAuthorizedCallerAdded(log types.Log) (*price_registry.PriceRegistryAuthorizedCallerAdded, error) {
 	ret := _m.Called(log)
@@ -1166,6 +2278,34 @@ func (_m *PriceRegistryInterface) ParseAuthorizedCallerAdded(log types.Log) (*pr
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_ParseAuthorizedCallerAdded_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseAuthorizedCallerAdded'
+type PriceRegistryInterface_ParseAuthorizedCallerAdded_Call struct {
+	*mock.Call
+}
+
+// ParseAuthorizedCallerAdded is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParseAuthorizedCallerAdded(log interface{}) *PriceRegistryInterface_ParseAuthorizedCallerAdded_Call {
+	return &PriceRegistryInterface_ParseAuthorizedCallerAdded_Call{Call: _e.mock.On("ParseAuthorizedCallerAdded", log)}
+}
+
+func (_c *PriceRegistryInterface_ParseAuthorizedCallerAdded_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParseAuthorizedCallerAdded_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseAuthorizedCallerAdded_Call) Return(_a0 *price_registry.PriceRegistryAuthorizedCallerAdded, _a1 error) *PriceRegistryInterface_ParseAuthorizedCallerAdded_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseAuthorizedCallerAdded_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryAuthorizedCallerAdded, error)) *PriceRegistryInterface_ParseAuthorizedCallerAdded_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseAuthorizedCallerRemoved provides a mock function with given fields: log
@@ -1198,6 +2338,34 @@ func (_m *PriceRegistryInterface) ParseAuthorizedCallerRemoved(log types.Log) (*
 	return r0, r1
 }
 
+// PriceRegistryInterface_ParseAuthorizedCallerRemoved_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseAuthorizedCallerRemoved'
+type PriceRegistryInterface_ParseAuthorizedCallerRemoved_Call struct {
+	*mock.Call
+}
+
+// ParseAuthorizedCallerRemoved is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParseAuthorizedCallerRemoved(log interface{}) *PriceRegistryInterface_ParseAuthorizedCallerRemoved_Call {
+	return &PriceRegistryInterface_ParseAuthorizedCallerRemoved_Call{Call: _e.mock.On("ParseAuthorizedCallerRemoved", log)}
+}
+
+func (_c *PriceRegistryInterface_ParseAuthorizedCallerRemoved_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParseAuthorizedCallerRemoved_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseAuthorizedCallerRemoved_Call) Return(_a0 *price_registry.PriceRegistryAuthorizedCallerRemoved, _a1 error) *PriceRegistryInterface_ParseAuthorizedCallerRemoved_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseAuthorizedCallerRemoved_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryAuthorizedCallerRemoved, error)) *PriceRegistryInterface_ParseAuthorizedCallerRemoved_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseDestChainAdded provides a mock function with given fields: log
 func (_m *PriceRegistryInterface) ParseDestChainAdded(log types.Log) (*price_registry.PriceRegistryDestChainAdded, error) {
 	ret := _m.Called(log)
@@ -1226,6 +2394,34 @@ func (_m *PriceRegistryInterface) ParseDestChainAdded(log types.Log) (*price_reg
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_ParseDestChainAdded_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseDestChainAdded'
+type PriceRegistryInterface_ParseDestChainAdded_Call struct {
+	*mock.Call
+}
+
+// ParseDestChainAdded is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParseDestChainAdded(log interface{}) *PriceRegistryInterface_ParseDestChainAdded_Call {
+	return &PriceRegistryInterface_ParseDestChainAdded_Call{Call: _e.mock.On("ParseDestChainAdded", log)}
+}
+
+func (_c *PriceRegistryInterface_ParseDestChainAdded_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParseDestChainAdded_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseDestChainAdded_Call) Return(_a0 *price_registry.PriceRegistryDestChainAdded, _a1 error) *PriceRegistryInterface_ParseDestChainAdded_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseDestChainAdded_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryDestChainAdded, error)) *PriceRegistryInterface_ParseDestChainAdded_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseDestChainConfigUpdated provides a mock function with given fields: log
@@ -1258,6 +2454,34 @@ func (_m *PriceRegistryInterface) ParseDestChainConfigUpdated(log types.Log) (*p
 	return r0, r1
 }
 
+// PriceRegistryInterface_ParseDestChainConfigUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseDestChainConfigUpdated'
+type PriceRegistryInterface_ParseDestChainConfigUpdated_Call struct {
+	*mock.Call
+}
+
+// ParseDestChainConfigUpdated is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParseDestChainConfigUpdated(log interface{}) *PriceRegistryInterface_ParseDestChainConfigUpdated_Call {
+	return &PriceRegistryInterface_ParseDestChainConfigUpdated_Call{Call: _e.mock.On("ParseDestChainConfigUpdated", log)}
+}
+
+func (_c *PriceRegistryInterface_ParseDestChainConfigUpdated_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParseDestChainConfigUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseDestChainConfigUpdated_Call) Return(_a0 *price_registry.PriceRegistryDestChainConfigUpdated, _a1 error) *PriceRegistryInterface_ParseDestChainConfigUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseDestChainConfigUpdated_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryDestChainConfigUpdated, error)) *PriceRegistryInterface_ParseDestChainConfigUpdated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseFeeTokenAdded provides a mock function with given fields: log
 func (_m *PriceRegistryInterface) ParseFeeTokenAdded(log types.Log) (*price_registry.PriceRegistryFeeTokenAdded, error) {
 	ret := _m.Called(log)
@@ -1286,6 +2510,34 @@ func (_m *PriceRegistryInterface) ParseFeeTokenAdded(log types.Log) (*price_regi
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_ParseFeeTokenAdded_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseFeeTokenAdded'
+type PriceRegistryInterface_ParseFeeTokenAdded_Call struct {
+	*mock.Call
+}
+
+// ParseFeeTokenAdded is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParseFeeTokenAdded(log interface{}) *PriceRegistryInterface_ParseFeeTokenAdded_Call {
+	return &PriceRegistryInterface_ParseFeeTokenAdded_Call{Call: _e.mock.On("ParseFeeTokenAdded", log)}
+}
+
+func (_c *PriceRegistryInterface_ParseFeeTokenAdded_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParseFeeTokenAdded_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseFeeTokenAdded_Call) Return(_a0 *price_registry.PriceRegistryFeeTokenAdded, _a1 error) *PriceRegistryInterface_ParseFeeTokenAdded_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseFeeTokenAdded_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryFeeTokenAdded, error)) *PriceRegistryInterface_ParseFeeTokenAdded_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseFeeTokenRemoved provides a mock function with given fields: log
@@ -1318,6 +2570,34 @@ func (_m *PriceRegistryInterface) ParseFeeTokenRemoved(log types.Log) (*price_re
 	return r0, r1
 }
 
+// PriceRegistryInterface_ParseFeeTokenRemoved_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseFeeTokenRemoved'
+type PriceRegistryInterface_ParseFeeTokenRemoved_Call struct {
+	*mock.Call
+}
+
+// ParseFeeTokenRemoved is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParseFeeTokenRemoved(log interface{}) *PriceRegistryInterface_ParseFeeTokenRemoved_Call {
+	return &PriceRegistryInterface_ParseFeeTokenRemoved_Call{Call: _e.mock.On("ParseFeeTokenRemoved", log)}
+}
+
+func (_c *PriceRegistryInterface_ParseFeeTokenRemoved_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParseFeeTokenRemoved_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseFeeTokenRemoved_Call) Return(_a0 *price_registry.PriceRegistryFeeTokenRemoved, _a1 error) *PriceRegistryInterface_ParseFeeTokenRemoved_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseFeeTokenRemoved_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryFeeTokenRemoved, error)) *PriceRegistryInterface_ParseFeeTokenRemoved_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseLog provides a mock function with given fields: log
 func (_m *PriceRegistryInterface) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	ret := _m.Called(log)
@@ -1346,6 +2626,34 @@ func (_m *PriceRegistryInterface) ParseLog(log types.Log) (generated.AbigenLog, 
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_ParseLog_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseLog'
+type PriceRegistryInterface_ParseLog_Call struct {
+	*mock.Call
+}
+
+// ParseLog is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParseLog(log interface{}) *PriceRegistryInterface_ParseLog_Call {
+	return &PriceRegistryInterface_ParseLog_Call{Call: _e.mock.On("ParseLog", log)}
+}
+
+func (_c *PriceRegistryInterface_ParseLog_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParseLog_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseLog_Call) Return(_a0 generated.AbigenLog, _a1 error) *PriceRegistryInterface_ParseLog_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseLog_Call) RunAndReturn(run func(types.Log) (generated.AbigenLog, error)) *PriceRegistryInterface_ParseLog_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseOwnershipTransferRequested provides a mock function with given fields: log
@@ -1378,6 +2686,34 @@ func (_m *PriceRegistryInterface) ParseOwnershipTransferRequested(log types.Log)
 	return r0, r1
 }
 
+// PriceRegistryInterface_ParseOwnershipTransferRequested_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseOwnershipTransferRequested'
+type PriceRegistryInterface_ParseOwnershipTransferRequested_Call struct {
+	*mock.Call
+}
+
+// ParseOwnershipTransferRequested is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParseOwnershipTransferRequested(log interface{}) *PriceRegistryInterface_ParseOwnershipTransferRequested_Call {
+	return &PriceRegistryInterface_ParseOwnershipTransferRequested_Call{Call: _e.mock.On("ParseOwnershipTransferRequested", log)}
+}
+
+func (_c *PriceRegistryInterface_ParseOwnershipTransferRequested_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParseOwnershipTransferRequested_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseOwnershipTransferRequested_Call) Return(_a0 *price_registry.PriceRegistryOwnershipTransferRequested, _a1 error) *PriceRegistryInterface_ParseOwnershipTransferRequested_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseOwnershipTransferRequested_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryOwnershipTransferRequested, error)) *PriceRegistryInterface_ParseOwnershipTransferRequested_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseOwnershipTransferred provides a mock function with given fields: log
 func (_m *PriceRegistryInterface) ParseOwnershipTransferred(log types.Log) (*price_registry.PriceRegistryOwnershipTransferred, error) {
 	ret := _m.Called(log)
@@ -1406,6 +2742,34 @@ func (_m *PriceRegistryInterface) ParseOwnershipTransferred(log types.Log) (*pri
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_ParseOwnershipTransferred_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseOwnershipTransferred'
+type PriceRegistryInterface_ParseOwnershipTransferred_Call struct {
+	*mock.Call
+}
+
+// ParseOwnershipTransferred is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParseOwnershipTransferred(log interface{}) *PriceRegistryInterface_ParseOwnershipTransferred_Call {
+	return &PriceRegistryInterface_ParseOwnershipTransferred_Call{Call: _e.mock.On("ParseOwnershipTransferred", log)}
+}
+
+func (_c *PriceRegistryInterface_ParseOwnershipTransferred_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParseOwnershipTransferred_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseOwnershipTransferred_Call) Return(_a0 *price_registry.PriceRegistryOwnershipTransferred, _a1 error) *PriceRegistryInterface_ParseOwnershipTransferred_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseOwnershipTransferred_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryOwnershipTransferred, error)) *PriceRegistryInterface_ParseOwnershipTransferred_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParsePremiumMultiplierWeiPerEthUpdated provides a mock function with given fields: log
@@ -1438,6 +2802,34 @@ func (_m *PriceRegistryInterface) ParsePremiumMultiplierWeiPerEthUpdated(log typ
 	return r0, r1
 }
 
+// PriceRegistryInterface_ParsePremiumMultiplierWeiPerEthUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParsePremiumMultiplierWeiPerEthUpdated'
+type PriceRegistryInterface_ParsePremiumMultiplierWeiPerEthUpdated_Call struct {
+	*mock.Call
+}
+
+// ParsePremiumMultiplierWeiPerEthUpdated is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParsePremiumMultiplierWeiPerEthUpdated(log interface{}) *PriceRegistryInterface_ParsePremiumMultiplierWeiPerEthUpdated_Call {
+	return &PriceRegistryInterface_ParsePremiumMultiplierWeiPerEthUpdated_Call{Call: _e.mock.On("ParsePremiumMultiplierWeiPerEthUpdated", log)}
+}
+
+func (_c *PriceRegistryInterface_ParsePremiumMultiplierWeiPerEthUpdated_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParsePremiumMultiplierWeiPerEthUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParsePremiumMultiplierWeiPerEthUpdated_Call) Return(_a0 *price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdated, _a1 error) *PriceRegistryInterface_ParsePremiumMultiplierWeiPerEthUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParsePremiumMultiplierWeiPerEthUpdated_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdated, error)) *PriceRegistryInterface_ParsePremiumMultiplierWeiPerEthUpdated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParsePriceFeedPerTokenUpdated provides a mock function with given fields: log
 func (_m *PriceRegistryInterface) ParsePriceFeedPerTokenUpdated(log types.Log) (*price_registry.PriceRegistryPriceFeedPerTokenUpdated, error) {
 	ret := _m.Called(log)
@@ -1466,6 +2858,34 @@ func (_m *PriceRegistryInterface) ParsePriceFeedPerTokenUpdated(log types.Log) (
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_ParsePriceFeedPerTokenUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParsePriceFeedPerTokenUpdated'
+type PriceRegistryInterface_ParsePriceFeedPerTokenUpdated_Call struct {
+	*mock.Call
+}
+
+// ParsePriceFeedPerTokenUpdated is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParsePriceFeedPerTokenUpdated(log interface{}) *PriceRegistryInterface_ParsePriceFeedPerTokenUpdated_Call {
+	return &PriceRegistryInterface_ParsePriceFeedPerTokenUpdated_Call{Call: _e.mock.On("ParsePriceFeedPerTokenUpdated", log)}
+}
+
+func (_c *PriceRegistryInterface_ParsePriceFeedPerTokenUpdated_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParsePriceFeedPerTokenUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParsePriceFeedPerTokenUpdated_Call) Return(_a0 *price_registry.PriceRegistryPriceFeedPerTokenUpdated, _a1 error) *PriceRegistryInterface_ParsePriceFeedPerTokenUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParsePriceFeedPerTokenUpdated_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryPriceFeedPerTokenUpdated, error)) *PriceRegistryInterface_ParsePriceFeedPerTokenUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParsePriceUpdaterRemoved provides a mock function with given fields: log
@@ -1498,6 +2918,34 @@ func (_m *PriceRegistryInterface) ParsePriceUpdaterRemoved(log types.Log) (*pric
 	return r0, r1
 }
 
+// PriceRegistryInterface_ParsePriceUpdaterRemoved_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParsePriceUpdaterRemoved'
+type PriceRegistryInterface_ParsePriceUpdaterRemoved_Call struct {
+	*mock.Call
+}
+
+// ParsePriceUpdaterRemoved is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParsePriceUpdaterRemoved(log interface{}) *PriceRegistryInterface_ParsePriceUpdaterRemoved_Call {
+	return &PriceRegistryInterface_ParsePriceUpdaterRemoved_Call{Call: _e.mock.On("ParsePriceUpdaterRemoved", log)}
+}
+
+func (_c *PriceRegistryInterface_ParsePriceUpdaterRemoved_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParsePriceUpdaterRemoved_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParsePriceUpdaterRemoved_Call) Return(_a0 *price_registry.PriceRegistryPriceUpdaterRemoved, _a1 error) *PriceRegistryInterface_ParsePriceUpdaterRemoved_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParsePriceUpdaterRemoved_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryPriceUpdaterRemoved, error)) *PriceRegistryInterface_ParsePriceUpdaterRemoved_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParsePriceUpdaterSet provides a mock function with given fields: log
 func (_m *PriceRegistryInterface) ParsePriceUpdaterSet(log types.Log) (*price_registry.PriceRegistryPriceUpdaterSet, error) {
 	ret := _m.Called(log)
@@ -1526,6 +2974,34 @@ func (_m *PriceRegistryInterface) ParsePriceUpdaterSet(log types.Log) (*price_re
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_ParsePriceUpdaterSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParsePriceUpdaterSet'
+type PriceRegistryInterface_ParsePriceUpdaterSet_Call struct {
+	*mock.Call
+}
+
+// ParsePriceUpdaterSet is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParsePriceUpdaterSet(log interface{}) *PriceRegistryInterface_ParsePriceUpdaterSet_Call {
+	return &PriceRegistryInterface_ParsePriceUpdaterSet_Call{Call: _e.mock.On("ParsePriceUpdaterSet", log)}
+}
+
+func (_c *PriceRegistryInterface_ParsePriceUpdaterSet_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParsePriceUpdaterSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParsePriceUpdaterSet_Call) Return(_a0 *price_registry.PriceRegistryPriceUpdaterSet, _a1 error) *PriceRegistryInterface_ParsePriceUpdaterSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParsePriceUpdaterSet_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryPriceUpdaterSet, error)) *PriceRegistryInterface_ParsePriceUpdaterSet_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseTokenTransferFeeConfigDeleted provides a mock function with given fields: log
@@ -1558,6 +3034,34 @@ func (_m *PriceRegistryInterface) ParseTokenTransferFeeConfigDeleted(log types.L
 	return r0, r1
 }
 
+// PriceRegistryInterface_ParseTokenTransferFeeConfigDeleted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseTokenTransferFeeConfigDeleted'
+type PriceRegistryInterface_ParseTokenTransferFeeConfigDeleted_Call struct {
+	*mock.Call
+}
+
+// ParseTokenTransferFeeConfigDeleted is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParseTokenTransferFeeConfigDeleted(log interface{}) *PriceRegistryInterface_ParseTokenTransferFeeConfigDeleted_Call {
+	return &PriceRegistryInterface_ParseTokenTransferFeeConfigDeleted_Call{Call: _e.mock.On("ParseTokenTransferFeeConfigDeleted", log)}
+}
+
+func (_c *PriceRegistryInterface_ParseTokenTransferFeeConfigDeleted_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParseTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseTokenTransferFeeConfigDeleted_Call) Return(_a0 *price_registry.PriceRegistryTokenTransferFeeConfigDeleted, _a1 error) *PriceRegistryInterface_ParseTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseTokenTransferFeeConfigDeleted_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryTokenTransferFeeConfigDeleted, error)) *PriceRegistryInterface_ParseTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseTokenTransferFeeConfigUpdated provides a mock function with given fields: log
 func (_m *PriceRegistryInterface) ParseTokenTransferFeeConfigUpdated(log types.Log) (*price_registry.PriceRegistryTokenTransferFeeConfigUpdated, error) {
 	ret := _m.Called(log)
@@ -1586,6 +3090,34 @@ func (_m *PriceRegistryInterface) ParseTokenTransferFeeConfigUpdated(log types.L
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_ParseTokenTransferFeeConfigUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseTokenTransferFeeConfigUpdated'
+type PriceRegistryInterface_ParseTokenTransferFeeConfigUpdated_Call struct {
+	*mock.Call
+}
+
+// ParseTokenTransferFeeConfigUpdated is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParseTokenTransferFeeConfigUpdated(log interface{}) *PriceRegistryInterface_ParseTokenTransferFeeConfigUpdated_Call {
+	return &PriceRegistryInterface_ParseTokenTransferFeeConfigUpdated_Call{Call: _e.mock.On("ParseTokenTransferFeeConfigUpdated", log)}
+}
+
+func (_c *PriceRegistryInterface_ParseTokenTransferFeeConfigUpdated_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParseTokenTransferFeeConfigUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseTokenTransferFeeConfigUpdated_Call) Return(_a0 *price_registry.PriceRegistryTokenTransferFeeConfigUpdated, _a1 error) *PriceRegistryInterface_ParseTokenTransferFeeConfigUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseTokenTransferFeeConfigUpdated_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryTokenTransferFeeConfigUpdated, error)) *PriceRegistryInterface_ParseTokenTransferFeeConfigUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseUsdPerTokenUpdated provides a mock function with given fields: log
@@ -1618,6 +3150,34 @@ func (_m *PriceRegistryInterface) ParseUsdPerTokenUpdated(log types.Log) (*price
 	return r0, r1
 }
 
+// PriceRegistryInterface_ParseUsdPerTokenUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseUsdPerTokenUpdated'
+type PriceRegistryInterface_ParseUsdPerTokenUpdated_Call struct {
+	*mock.Call
+}
+
+// ParseUsdPerTokenUpdated is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParseUsdPerTokenUpdated(log interface{}) *PriceRegistryInterface_ParseUsdPerTokenUpdated_Call {
+	return &PriceRegistryInterface_ParseUsdPerTokenUpdated_Call{Call: _e.mock.On("ParseUsdPerTokenUpdated", log)}
+}
+
+func (_c *PriceRegistryInterface_ParseUsdPerTokenUpdated_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParseUsdPerTokenUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseUsdPerTokenUpdated_Call) Return(_a0 *price_registry.PriceRegistryUsdPerTokenUpdated, _a1 error) *PriceRegistryInterface_ParseUsdPerTokenUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseUsdPerTokenUpdated_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryUsdPerTokenUpdated, error)) *PriceRegistryInterface_ParseUsdPerTokenUpdated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseUsdPerUnitGasUpdated provides a mock function with given fields: log
 func (_m *PriceRegistryInterface) ParseUsdPerUnitGasUpdated(log types.Log) (*price_registry.PriceRegistryUsdPerUnitGasUpdated, error) {
 	ret := _m.Called(log)
@@ -1648,6 +3208,34 @@ func (_m *PriceRegistryInterface) ParseUsdPerUnitGasUpdated(log types.Log) (*pri
 	return r0, r1
 }
 
+// PriceRegistryInterface_ParseUsdPerUnitGasUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseUsdPerUnitGasUpdated'
+type PriceRegistryInterface_ParseUsdPerUnitGasUpdated_Call struct {
+	*mock.Call
+}
+
+// ParseUsdPerUnitGasUpdated is a helper method to define mock.On call
+//   - log types.Log
+func (_e *PriceRegistryInterface_Expecter) ParseUsdPerUnitGasUpdated(log interface{}) *PriceRegistryInterface_ParseUsdPerUnitGasUpdated_Call {
+	return &PriceRegistryInterface_ParseUsdPerUnitGasUpdated_Call{Call: _e.mock.On("ParseUsdPerUnitGasUpdated", log)}
+}
+
+func (_c *PriceRegistryInterface_ParseUsdPerUnitGasUpdated_Call) Run(run func(log types.Log)) *PriceRegistryInterface_ParseUsdPerUnitGasUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseUsdPerUnitGasUpdated_Call) Return(_a0 *price_registry.PriceRegistryUsdPerUnitGasUpdated, _a1 error) *PriceRegistryInterface_ParseUsdPerUnitGasUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ParseUsdPerUnitGasUpdated_Call) RunAndReturn(run func(types.Log) (*price_registry.PriceRegistryUsdPerUnitGasUpdated, error)) *PriceRegistryInterface_ParseUsdPerUnitGasUpdated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ProcessMessageArgs provides a mock function with given fields: opts, destChainSelector, feeToken, feeTokenAmount, extraArgs
 func (_m *PriceRegistryInterface) ProcessMessageArgs(opts *bind.CallOpts, destChainSelector uint64, feeToken common.Address, feeTokenAmount *big.Int, extraArgs []byte) (price_registry.ProcessMessageArgs, error) {
 	ret := _m.Called(opts, destChainSelector, feeToken, feeTokenAmount, extraArgs)
@@ -1674,6 +3262,38 @@ func (_m *PriceRegistryInterface) ProcessMessageArgs(opts *bind.CallOpts, destCh
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_ProcessMessageArgs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ProcessMessageArgs'
+type PriceRegistryInterface_ProcessMessageArgs_Call struct {
+	*mock.Call
+}
+
+// ProcessMessageArgs is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - destChainSelector uint64
+//   - feeToken common.Address
+//   - feeTokenAmount *big.Int
+//   - extraArgs []byte
+func (_e *PriceRegistryInterface_Expecter) ProcessMessageArgs(opts interface{}, destChainSelector interface{}, feeToken interface{}, feeTokenAmount interface{}, extraArgs interface{}) *PriceRegistryInterface_ProcessMessageArgs_Call {
+	return &PriceRegistryInterface_ProcessMessageArgs_Call{Call: _e.mock.On("ProcessMessageArgs", opts, destChainSelector, feeToken, feeTokenAmount, extraArgs)}
+}
+
+func (_c *PriceRegistryInterface_ProcessMessageArgs_Call) Run(run func(opts *bind.CallOpts, destChainSelector uint64, feeToken common.Address, feeTokenAmount *big.Int, extraArgs []byte)) *PriceRegistryInterface_ProcessMessageArgs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(uint64), args[2].(common.Address), args[3].(*big.Int), args[4].([]byte))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ProcessMessageArgs_Call) Return(_a0 price_registry.ProcessMessageArgs, _a1 error) *PriceRegistryInterface_ProcessMessageArgs_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ProcessMessageArgs_Call) RunAndReturn(run func(*bind.CallOpts, uint64, common.Address, *big.Int, []byte) (price_registry.ProcessMessageArgs, error)) *PriceRegistryInterface_ProcessMessageArgs_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // TransferOwnership provides a mock function with given fields: opts, to
@@ -1706,6 +3326,35 @@ func (_m *PriceRegistryInterface) TransferOwnership(opts *bind.TransactOpts, to 
 	return r0, r1
 }
 
+// PriceRegistryInterface_TransferOwnership_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TransferOwnership'
+type PriceRegistryInterface_TransferOwnership_Call struct {
+	*mock.Call
+}
+
+// TransferOwnership is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - to common.Address
+func (_e *PriceRegistryInterface_Expecter) TransferOwnership(opts interface{}, to interface{}) *PriceRegistryInterface_TransferOwnership_Call {
+	return &PriceRegistryInterface_TransferOwnership_Call{Call: _e.mock.On("TransferOwnership", opts, to)}
+}
+
+func (_c *PriceRegistryInterface_TransferOwnership_Call) Run(run func(opts *bind.TransactOpts, to common.Address)) *PriceRegistryInterface_TransferOwnership_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_TransferOwnership_Call) Return(_a0 *types.Transaction, _a1 error) *PriceRegistryInterface_TransferOwnership_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_TransferOwnership_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address) (*types.Transaction, error)) *PriceRegistryInterface_TransferOwnership_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // TypeAndVersion provides a mock function with given fields: opts
 func (_m *PriceRegistryInterface) TypeAndVersion(opts *bind.CallOpts) (string, error) {
 	ret := _m.Called(opts)
@@ -1732,6 +3381,34 @@ func (_m *PriceRegistryInterface) TypeAndVersion(opts *bind.CallOpts) (string, e
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_TypeAndVersion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TypeAndVersion'
+type PriceRegistryInterface_TypeAndVersion_Call struct {
+	*mock.Call
+}
+
+// TypeAndVersion is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *PriceRegistryInterface_Expecter) TypeAndVersion(opts interface{}) *PriceRegistryInterface_TypeAndVersion_Call {
+	return &PriceRegistryInterface_TypeAndVersion_Call{Call: _e.mock.On("TypeAndVersion", opts)}
+}
+
+func (_c *PriceRegistryInterface_TypeAndVersion_Call) Run(run func(opts *bind.CallOpts)) *PriceRegistryInterface_TypeAndVersion_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_TypeAndVersion_Call) Return(_a0 string, _a1 error) *PriceRegistryInterface_TypeAndVersion_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_TypeAndVersion_Call) RunAndReturn(run func(*bind.CallOpts) (string, error)) *PriceRegistryInterface_TypeAndVersion_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // UpdatePrices provides a mock function with given fields: opts, priceUpdates
@@ -1764,6 +3441,35 @@ func (_m *PriceRegistryInterface) UpdatePrices(opts *bind.TransactOpts, priceUpd
 	return r0, r1
 }
 
+// PriceRegistryInterface_UpdatePrices_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdatePrices'
+type PriceRegistryInterface_UpdatePrices_Call struct {
+	*mock.Call
+}
+
+// UpdatePrices is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - priceUpdates price_registry.InternalPriceUpdates
+func (_e *PriceRegistryInterface_Expecter) UpdatePrices(opts interface{}, priceUpdates interface{}) *PriceRegistryInterface_UpdatePrices_Call {
+	return &PriceRegistryInterface_UpdatePrices_Call{Call: _e.mock.On("UpdatePrices", opts, priceUpdates)}
+}
+
+func (_c *PriceRegistryInterface_UpdatePrices_Call) Run(run func(opts *bind.TransactOpts, priceUpdates price_registry.InternalPriceUpdates)) *PriceRegistryInterface_UpdatePrices_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(price_registry.InternalPriceUpdates))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_UpdatePrices_Call) Return(_a0 *types.Transaction, _a1 error) *PriceRegistryInterface_UpdatePrices_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_UpdatePrices_Call) RunAndReturn(run func(*bind.TransactOpts, price_registry.InternalPriceUpdates) (*types.Transaction, error)) *PriceRegistryInterface_UpdatePrices_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateTokenPriceFeeds provides a mock function with given fields: opts, tokenPriceFeedUpdates
 func (_m *PriceRegistryInterface) UpdateTokenPriceFeeds(opts *bind.TransactOpts, tokenPriceFeedUpdates []price_registry.PriceRegistryTokenPriceFeedUpdate) (*types.Transaction, error) {
 	ret := _m.Called(opts, tokenPriceFeedUpdates)
@@ -1794,6 +3500,35 @@ func (_m *PriceRegistryInterface) UpdateTokenPriceFeeds(opts *bind.TransactOpts,
 	return r0, r1
 }
 
+// PriceRegistryInterface_UpdateTokenPriceFeeds_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateTokenPriceFeeds'
+type PriceRegistryInterface_UpdateTokenPriceFeeds_Call struct {
+	*mock.Call
+}
+
+// UpdateTokenPriceFeeds is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - tokenPriceFeedUpdates []price_registry.PriceRegistryTokenPriceFeedUpdate
+func (_e *PriceRegistryInterface_Expecter) UpdateTokenPriceFeeds(opts interface{}, tokenPriceFeedUpdates interface{}) *PriceRegistryInterface_UpdateTokenPriceFeeds_Call {
+	return &PriceRegistryInterface_UpdateTokenPriceFeeds_Call{Call: _e.mock.On("UpdateTokenPriceFeeds", opts, tokenPriceFeedUpdates)}
+}
+
+func (_c *PriceRegistryInterface_UpdateTokenPriceFeeds_Call) Run(run func(opts *bind.TransactOpts, tokenPriceFeedUpdates []price_registry.PriceRegistryTokenPriceFeedUpdate)) *PriceRegistryInterface_UpdateTokenPriceFeeds_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].([]price_registry.PriceRegistryTokenPriceFeedUpdate))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_UpdateTokenPriceFeeds_Call) Return(_a0 *types.Transaction, _a1 error) *PriceRegistryInterface_UpdateTokenPriceFeeds_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_UpdateTokenPriceFeeds_Call) RunAndReturn(run func(*bind.TransactOpts, []price_registry.PriceRegistryTokenPriceFeedUpdate) (*types.Transaction, error)) *PriceRegistryInterface_UpdateTokenPriceFeeds_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ValidatePoolReturnData provides a mock function with given fields: opts, destChainSelector, rampTokenAmounts, sourceTokenAmounts
 func (_m *PriceRegistryInterface) ValidatePoolReturnData(opts *bind.CallOpts, destChainSelector uint64, rampTokenAmounts []price_registry.InternalRampTokenAmount, sourceTokenAmounts []price_registry.ClientEVMTokenAmount) error {
 	ret := _m.Called(opts, destChainSelector, rampTokenAmounts, sourceTokenAmounts)
@@ -1810,6 +3545,37 @@ func (_m *PriceRegistryInterface) ValidatePoolReturnData(opts *bind.CallOpts, de
 	}
 
 	return r0
+}
+
+// PriceRegistryInterface_ValidatePoolReturnData_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ValidatePoolReturnData'
+type PriceRegistryInterface_ValidatePoolReturnData_Call struct {
+	*mock.Call
+}
+
+// ValidatePoolReturnData is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - destChainSelector uint64
+//   - rampTokenAmounts []price_registry.InternalRampTokenAmount
+//   - sourceTokenAmounts []price_registry.ClientEVMTokenAmount
+func (_e *PriceRegistryInterface_Expecter) ValidatePoolReturnData(opts interface{}, destChainSelector interface{}, rampTokenAmounts interface{}, sourceTokenAmounts interface{}) *PriceRegistryInterface_ValidatePoolReturnData_Call {
+	return &PriceRegistryInterface_ValidatePoolReturnData_Call{Call: _e.mock.On("ValidatePoolReturnData", opts, destChainSelector, rampTokenAmounts, sourceTokenAmounts)}
+}
+
+func (_c *PriceRegistryInterface_ValidatePoolReturnData_Call) Run(run func(opts *bind.CallOpts, destChainSelector uint64, rampTokenAmounts []price_registry.InternalRampTokenAmount, sourceTokenAmounts []price_registry.ClientEVMTokenAmount)) *PriceRegistryInterface_ValidatePoolReturnData_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(uint64), args[2].([]price_registry.InternalRampTokenAmount), args[3].([]price_registry.ClientEVMTokenAmount))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ValidatePoolReturnData_Call) Return(_a0 error) *PriceRegistryInterface_ValidatePoolReturnData_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_ValidatePoolReturnData_Call) RunAndReturn(run func(*bind.CallOpts, uint64, []price_registry.InternalRampTokenAmount, []price_registry.ClientEVMTokenAmount) error) *PriceRegistryInterface_ValidatePoolReturnData_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchAuthorizedCallerAdded provides a mock function with given fields: opts, sink
@@ -1842,6 +3608,35 @@ func (_m *PriceRegistryInterface) WatchAuthorizedCallerAdded(opts *bind.WatchOpt
 	return r0, r1
 }
 
+// PriceRegistryInterface_WatchAuthorizedCallerAdded_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchAuthorizedCallerAdded'
+type PriceRegistryInterface_WatchAuthorizedCallerAdded_Call struct {
+	*mock.Call
+}
+
+// WatchAuthorizedCallerAdded is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryAuthorizedCallerAdded
+func (_e *PriceRegistryInterface_Expecter) WatchAuthorizedCallerAdded(opts interface{}, sink interface{}) *PriceRegistryInterface_WatchAuthorizedCallerAdded_Call {
+	return &PriceRegistryInterface_WatchAuthorizedCallerAdded_Call{Call: _e.mock.On("WatchAuthorizedCallerAdded", opts, sink)}
+}
+
+func (_c *PriceRegistryInterface_WatchAuthorizedCallerAdded_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryAuthorizedCallerAdded)) *PriceRegistryInterface_WatchAuthorizedCallerAdded_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryAuthorizedCallerAdded))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchAuthorizedCallerAdded_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchAuthorizedCallerAdded_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchAuthorizedCallerAdded_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryAuthorizedCallerAdded) (event.Subscription, error)) *PriceRegistryInterface_WatchAuthorizedCallerAdded_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchAuthorizedCallerRemoved provides a mock function with given fields: opts, sink
 func (_m *PriceRegistryInterface) WatchAuthorizedCallerRemoved(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryAuthorizedCallerRemoved) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
@@ -1870,6 +3665,35 @@ func (_m *PriceRegistryInterface) WatchAuthorizedCallerRemoved(opts *bind.WatchO
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_WatchAuthorizedCallerRemoved_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchAuthorizedCallerRemoved'
+type PriceRegistryInterface_WatchAuthorizedCallerRemoved_Call struct {
+	*mock.Call
+}
+
+// WatchAuthorizedCallerRemoved is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryAuthorizedCallerRemoved
+func (_e *PriceRegistryInterface_Expecter) WatchAuthorizedCallerRemoved(opts interface{}, sink interface{}) *PriceRegistryInterface_WatchAuthorizedCallerRemoved_Call {
+	return &PriceRegistryInterface_WatchAuthorizedCallerRemoved_Call{Call: _e.mock.On("WatchAuthorizedCallerRemoved", opts, sink)}
+}
+
+func (_c *PriceRegistryInterface_WatchAuthorizedCallerRemoved_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryAuthorizedCallerRemoved)) *PriceRegistryInterface_WatchAuthorizedCallerRemoved_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryAuthorizedCallerRemoved))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchAuthorizedCallerRemoved_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchAuthorizedCallerRemoved_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchAuthorizedCallerRemoved_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryAuthorizedCallerRemoved) (event.Subscription, error)) *PriceRegistryInterface_WatchAuthorizedCallerRemoved_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchDestChainAdded provides a mock function with given fields: opts, sink, destChainSelector
@@ -1902,6 +3726,36 @@ func (_m *PriceRegistryInterface) WatchDestChainAdded(opts *bind.WatchOpts, sink
 	return r0, r1
 }
 
+// PriceRegistryInterface_WatchDestChainAdded_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchDestChainAdded'
+type PriceRegistryInterface_WatchDestChainAdded_Call struct {
+	*mock.Call
+}
+
+// WatchDestChainAdded is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryDestChainAdded
+//   - destChainSelector []uint64
+func (_e *PriceRegistryInterface_Expecter) WatchDestChainAdded(opts interface{}, sink interface{}, destChainSelector interface{}) *PriceRegistryInterface_WatchDestChainAdded_Call {
+	return &PriceRegistryInterface_WatchDestChainAdded_Call{Call: _e.mock.On("WatchDestChainAdded", opts, sink, destChainSelector)}
+}
+
+func (_c *PriceRegistryInterface_WatchDestChainAdded_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryDestChainAdded, destChainSelector []uint64)) *PriceRegistryInterface_WatchDestChainAdded_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryDestChainAdded), args[2].([]uint64))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchDestChainAdded_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchDestChainAdded_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchDestChainAdded_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryDestChainAdded, []uint64) (event.Subscription, error)) *PriceRegistryInterface_WatchDestChainAdded_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchDestChainConfigUpdated provides a mock function with given fields: opts, sink, destChainSelector
 func (_m *PriceRegistryInterface) WatchDestChainConfigUpdated(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryDestChainConfigUpdated, destChainSelector []uint64) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, destChainSelector)
@@ -1930,6 +3784,36 @@ func (_m *PriceRegistryInterface) WatchDestChainConfigUpdated(opts *bind.WatchOp
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_WatchDestChainConfigUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchDestChainConfigUpdated'
+type PriceRegistryInterface_WatchDestChainConfigUpdated_Call struct {
+	*mock.Call
+}
+
+// WatchDestChainConfigUpdated is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryDestChainConfigUpdated
+//   - destChainSelector []uint64
+func (_e *PriceRegistryInterface_Expecter) WatchDestChainConfigUpdated(opts interface{}, sink interface{}, destChainSelector interface{}) *PriceRegistryInterface_WatchDestChainConfigUpdated_Call {
+	return &PriceRegistryInterface_WatchDestChainConfigUpdated_Call{Call: _e.mock.On("WatchDestChainConfigUpdated", opts, sink, destChainSelector)}
+}
+
+func (_c *PriceRegistryInterface_WatchDestChainConfigUpdated_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryDestChainConfigUpdated, destChainSelector []uint64)) *PriceRegistryInterface_WatchDestChainConfigUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryDestChainConfigUpdated), args[2].([]uint64))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchDestChainConfigUpdated_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchDestChainConfigUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchDestChainConfigUpdated_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryDestChainConfigUpdated, []uint64) (event.Subscription, error)) *PriceRegistryInterface_WatchDestChainConfigUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchFeeTokenAdded provides a mock function with given fields: opts, sink, feeToken
@@ -1962,6 +3846,36 @@ func (_m *PriceRegistryInterface) WatchFeeTokenAdded(opts *bind.WatchOpts, sink 
 	return r0, r1
 }
 
+// PriceRegistryInterface_WatchFeeTokenAdded_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchFeeTokenAdded'
+type PriceRegistryInterface_WatchFeeTokenAdded_Call struct {
+	*mock.Call
+}
+
+// WatchFeeTokenAdded is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryFeeTokenAdded
+//   - feeToken []common.Address
+func (_e *PriceRegistryInterface_Expecter) WatchFeeTokenAdded(opts interface{}, sink interface{}, feeToken interface{}) *PriceRegistryInterface_WatchFeeTokenAdded_Call {
+	return &PriceRegistryInterface_WatchFeeTokenAdded_Call{Call: _e.mock.On("WatchFeeTokenAdded", opts, sink, feeToken)}
+}
+
+func (_c *PriceRegistryInterface_WatchFeeTokenAdded_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryFeeTokenAdded, feeToken []common.Address)) *PriceRegistryInterface_WatchFeeTokenAdded_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryFeeTokenAdded), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchFeeTokenAdded_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchFeeTokenAdded_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchFeeTokenAdded_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryFeeTokenAdded, []common.Address) (event.Subscription, error)) *PriceRegistryInterface_WatchFeeTokenAdded_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchFeeTokenRemoved provides a mock function with given fields: opts, sink, feeToken
 func (_m *PriceRegistryInterface) WatchFeeTokenRemoved(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryFeeTokenRemoved, feeToken []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, feeToken)
@@ -1990,6 +3904,36 @@ func (_m *PriceRegistryInterface) WatchFeeTokenRemoved(opts *bind.WatchOpts, sin
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_WatchFeeTokenRemoved_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchFeeTokenRemoved'
+type PriceRegistryInterface_WatchFeeTokenRemoved_Call struct {
+	*mock.Call
+}
+
+// WatchFeeTokenRemoved is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryFeeTokenRemoved
+//   - feeToken []common.Address
+func (_e *PriceRegistryInterface_Expecter) WatchFeeTokenRemoved(opts interface{}, sink interface{}, feeToken interface{}) *PriceRegistryInterface_WatchFeeTokenRemoved_Call {
+	return &PriceRegistryInterface_WatchFeeTokenRemoved_Call{Call: _e.mock.On("WatchFeeTokenRemoved", opts, sink, feeToken)}
+}
+
+func (_c *PriceRegistryInterface_WatchFeeTokenRemoved_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryFeeTokenRemoved, feeToken []common.Address)) *PriceRegistryInterface_WatchFeeTokenRemoved_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryFeeTokenRemoved), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchFeeTokenRemoved_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchFeeTokenRemoved_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchFeeTokenRemoved_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryFeeTokenRemoved, []common.Address) (event.Subscription, error)) *PriceRegistryInterface_WatchFeeTokenRemoved_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchOwnershipTransferRequested provides a mock function with given fields: opts, sink, from, to
@@ -2022,6 +3966,37 @@ func (_m *PriceRegistryInterface) WatchOwnershipTransferRequested(opts *bind.Wat
 	return r0, r1
 }
 
+// PriceRegistryInterface_WatchOwnershipTransferRequested_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchOwnershipTransferRequested'
+type PriceRegistryInterface_WatchOwnershipTransferRequested_Call struct {
+	*mock.Call
+}
+
+// WatchOwnershipTransferRequested is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryOwnershipTransferRequested
+//   - from []common.Address
+//   - to []common.Address
+func (_e *PriceRegistryInterface_Expecter) WatchOwnershipTransferRequested(opts interface{}, sink interface{}, from interface{}, to interface{}) *PriceRegistryInterface_WatchOwnershipTransferRequested_Call {
+	return &PriceRegistryInterface_WatchOwnershipTransferRequested_Call{Call: _e.mock.On("WatchOwnershipTransferRequested", opts, sink, from, to)}
+}
+
+func (_c *PriceRegistryInterface_WatchOwnershipTransferRequested_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryOwnershipTransferRequested, from []common.Address, to []common.Address)) *PriceRegistryInterface_WatchOwnershipTransferRequested_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryOwnershipTransferRequested), args[2].([]common.Address), args[3].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchOwnershipTransferRequested_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchOwnershipTransferRequested_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchOwnershipTransferRequested_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryOwnershipTransferRequested, []common.Address, []common.Address) (event.Subscription, error)) *PriceRegistryInterface_WatchOwnershipTransferRequested_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchOwnershipTransferred provides a mock function with given fields: opts, sink, from, to
 func (_m *PriceRegistryInterface) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, from, to)
@@ -2050,6 +4025,37 @@ func (_m *PriceRegistryInterface) WatchOwnershipTransferred(opts *bind.WatchOpts
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_WatchOwnershipTransferred_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchOwnershipTransferred'
+type PriceRegistryInterface_WatchOwnershipTransferred_Call struct {
+	*mock.Call
+}
+
+// WatchOwnershipTransferred is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryOwnershipTransferred
+//   - from []common.Address
+//   - to []common.Address
+func (_e *PriceRegistryInterface_Expecter) WatchOwnershipTransferred(opts interface{}, sink interface{}, from interface{}, to interface{}) *PriceRegistryInterface_WatchOwnershipTransferred_Call {
+	return &PriceRegistryInterface_WatchOwnershipTransferred_Call{Call: _e.mock.On("WatchOwnershipTransferred", opts, sink, from, to)}
+}
+
+func (_c *PriceRegistryInterface_WatchOwnershipTransferred_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryOwnershipTransferred, from []common.Address, to []common.Address)) *PriceRegistryInterface_WatchOwnershipTransferred_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryOwnershipTransferred), args[2].([]common.Address), args[3].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchOwnershipTransferred_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchOwnershipTransferred_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchOwnershipTransferred_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryOwnershipTransferred, []common.Address, []common.Address) (event.Subscription, error)) *PriceRegistryInterface_WatchOwnershipTransferred_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchPremiumMultiplierWeiPerEthUpdated provides a mock function with given fields: opts, sink, token
@@ -2082,6 +4088,36 @@ func (_m *PriceRegistryInterface) WatchPremiumMultiplierWeiPerEthUpdated(opts *b
 	return r0, r1
 }
 
+// PriceRegistryInterface_WatchPremiumMultiplierWeiPerEthUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchPremiumMultiplierWeiPerEthUpdated'
+type PriceRegistryInterface_WatchPremiumMultiplierWeiPerEthUpdated_Call struct {
+	*mock.Call
+}
+
+// WatchPremiumMultiplierWeiPerEthUpdated is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdated
+//   - token []common.Address
+func (_e *PriceRegistryInterface_Expecter) WatchPremiumMultiplierWeiPerEthUpdated(opts interface{}, sink interface{}, token interface{}) *PriceRegistryInterface_WatchPremiumMultiplierWeiPerEthUpdated_Call {
+	return &PriceRegistryInterface_WatchPremiumMultiplierWeiPerEthUpdated_Call{Call: _e.mock.On("WatchPremiumMultiplierWeiPerEthUpdated", opts, sink, token)}
+}
+
+func (_c *PriceRegistryInterface_WatchPremiumMultiplierWeiPerEthUpdated_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdated, token []common.Address)) *PriceRegistryInterface_WatchPremiumMultiplierWeiPerEthUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdated), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchPremiumMultiplierWeiPerEthUpdated_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchPremiumMultiplierWeiPerEthUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchPremiumMultiplierWeiPerEthUpdated_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryPremiumMultiplierWeiPerEthUpdated, []common.Address) (event.Subscription, error)) *PriceRegistryInterface_WatchPremiumMultiplierWeiPerEthUpdated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchPriceFeedPerTokenUpdated provides a mock function with given fields: opts, sink, token
 func (_m *PriceRegistryInterface) WatchPriceFeedPerTokenUpdated(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryPriceFeedPerTokenUpdated, token []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, token)
@@ -2110,6 +4146,36 @@ func (_m *PriceRegistryInterface) WatchPriceFeedPerTokenUpdated(opts *bind.Watch
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_WatchPriceFeedPerTokenUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchPriceFeedPerTokenUpdated'
+type PriceRegistryInterface_WatchPriceFeedPerTokenUpdated_Call struct {
+	*mock.Call
+}
+
+// WatchPriceFeedPerTokenUpdated is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryPriceFeedPerTokenUpdated
+//   - token []common.Address
+func (_e *PriceRegistryInterface_Expecter) WatchPriceFeedPerTokenUpdated(opts interface{}, sink interface{}, token interface{}) *PriceRegistryInterface_WatchPriceFeedPerTokenUpdated_Call {
+	return &PriceRegistryInterface_WatchPriceFeedPerTokenUpdated_Call{Call: _e.mock.On("WatchPriceFeedPerTokenUpdated", opts, sink, token)}
+}
+
+func (_c *PriceRegistryInterface_WatchPriceFeedPerTokenUpdated_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryPriceFeedPerTokenUpdated, token []common.Address)) *PriceRegistryInterface_WatchPriceFeedPerTokenUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryPriceFeedPerTokenUpdated), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchPriceFeedPerTokenUpdated_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchPriceFeedPerTokenUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchPriceFeedPerTokenUpdated_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryPriceFeedPerTokenUpdated, []common.Address) (event.Subscription, error)) *PriceRegistryInterface_WatchPriceFeedPerTokenUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchPriceUpdaterRemoved provides a mock function with given fields: opts, sink, priceUpdater
@@ -2142,6 +4208,36 @@ func (_m *PriceRegistryInterface) WatchPriceUpdaterRemoved(opts *bind.WatchOpts,
 	return r0, r1
 }
 
+// PriceRegistryInterface_WatchPriceUpdaterRemoved_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchPriceUpdaterRemoved'
+type PriceRegistryInterface_WatchPriceUpdaterRemoved_Call struct {
+	*mock.Call
+}
+
+// WatchPriceUpdaterRemoved is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryPriceUpdaterRemoved
+//   - priceUpdater []common.Address
+func (_e *PriceRegistryInterface_Expecter) WatchPriceUpdaterRemoved(opts interface{}, sink interface{}, priceUpdater interface{}) *PriceRegistryInterface_WatchPriceUpdaterRemoved_Call {
+	return &PriceRegistryInterface_WatchPriceUpdaterRemoved_Call{Call: _e.mock.On("WatchPriceUpdaterRemoved", opts, sink, priceUpdater)}
+}
+
+func (_c *PriceRegistryInterface_WatchPriceUpdaterRemoved_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryPriceUpdaterRemoved, priceUpdater []common.Address)) *PriceRegistryInterface_WatchPriceUpdaterRemoved_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryPriceUpdaterRemoved), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchPriceUpdaterRemoved_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchPriceUpdaterRemoved_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchPriceUpdaterRemoved_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryPriceUpdaterRemoved, []common.Address) (event.Subscription, error)) *PriceRegistryInterface_WatchPriceUpdaterRemoved_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchPriceUpdaterSet provides a mock function with given fields: opts, sink, priceUpdater
 func (_m *PriceRegistryInterface) WatchPriceUpdaterSet(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryPriceUpdaterSet, priceUpdater []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, priceUpdater)
@@ -2170,6 +4266,36 @@ func (_m *PriceRegistryInterface) WatchPriceUpdaterSet(opts *bind.WatchOpts, sin
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_WatchPriceUpdaterSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchPriceUpdaterSet'
+type PriceRegistryInterface_WatchPriceUpdaterSet_Call struct {
+	*mock.Call
+}
+
+// WatchPriceUpdaterSet is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryPriceUpdaterSet
+//   - priceUpdater []common.Address
+func (_e *PriceRegistryInterface_Expecter) WatchPriceUpdaterSet(opts interface{}, sink interface{}, priceUpdater interface{}) *PriceRegistryInterface_WatchPriceUpdaterSet_Call {
+	return &PriceRegistryInterface_WatchPriceUpdaterSet_Call{Call: _e.mock.On("WatchPriceUpdaterSet", opts, sink, priceUpdater)}
+}
+
+func (_c *PriceRegistryInterface_WatchPriceUpdaterSet_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryPriceUpdaterSet, priceUpdater []common.Address)) *PriceRegistryInterface_WatchPriceUpdaterSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryPriceUpdaterSet), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchPriceUpdaterSet_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchPriceUpdaterSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchPriceUpdaterSet_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryPriceUpdaterSet, []common.Address) (event.Subscription, error)) *PriceRegistryInterface_WatchPriceUpdaterSet_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchTokenTransferFeeConfigDeleted provides a mock function with given fields: opts, sink, destChainSelector, token
@@ -2202,6 +4328,37 @@ func (_m *PriceRegistryInterface) WatchTokenTransferFeeConfigDeleted(opts *bind.
 	return r0, r1
 }
 
+// PriceRegistryInterface_WatchTokenTransferFeeConfigDeleted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchTokenTransferFeeConfigDeleted'
+type PriceRegistryInterface_WatchTokenTransferFeeConfigDeleted_Call struct {
+	*mock.Call
+}
+
+// WatchTokenTransferFeeConfigDeleted is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryTokenTransferFeeConfigDeleted
+//   - destChainSelector []uint64
+//   - token []common.Address
+func (_e *PriceRegistryInterface_Expecter) WatchTokenTransferFeeConfigDeleted(opts interface{}, sink interface{}, destChainSelector interface{}, token interface{}) *PriceRegistryInterface_WatchTokenTransferFeeConfigDeleted_Call {
+	return &PriceRegistryInterface_WatchTokenTransferFeeConfigDeleted_Call{Call: _e.mock.On("WatchTokenTransferFeeConfigDeleted", opts, sink, destChainSelector, token)}
+}
+
+func (_c *PriceRegistryInterface_WatchTokenTransferFeeConfigDeleted_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryTokenTransferFeeConfigDeleted, destChainSelector []uint64, token []common.Address)) *PriceRegistryInterface_WatchTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryTokenTransferFeeConfigDeleted), args[2].([]uint64), args[3].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchTokenTransferFeeConfigDeleted_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchTokenTransferFeeConfigDeleted_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryTokenTransferFeeConfigDeleted, []uint64, []common.Address) (event.Subscription, error)) *PriceRegistryInterface_WatchTokenTransferFeeConfigDeleted_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchTokenTransferFeeConfigUpdated provides a mock function with given fields: opts, sink, destChainSelector, token
 func (_m *PriceRegistryInterface) WatchTokenTransferFeeConfigUpdated(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryTokenTransferFeeConfigUpdated, destChainSelector []uint64, token []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, destChainSelector, token)
@@ -2230,6 +4387,37 @@ func (_m *PriceRegistryInterface) WatchTokenTransferFeeConfigUpdated(opts *bind.
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_WatchTokenTransferFeeConfigUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchTokenTransferFeeConfigUpdated'
+type PriceRegistryInterface_WatchTokenTransferFeeConfigUpdated_Call struct {
+	*mock.Call
+}
+
+// WatchTokenTransferFeeConfigUpdated is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryTokenTransferFeeConfigUpdated
+//   - destChainSelector []uint64
+//   - token []common.Address
+func (_e *PriceRegistryInterface_Expecter) WatchTokenTransferFeeConfigUpdated(opts interface{}, sink interface{}, destChainSelector interface{}, token interface{}) *PriceRegistryInterface_WatchTokenTransferFeeConfigUpdated_Call {
+	return &PriceRegistryInterface_WatchTokenTransferFeeConfigUpdated_Call{Call: _e.mock.On("WatchTokenTransferFeeConfigUpdated", opts, sink, destChainSelector, token)}
+}
+
+func (_c *PriceRegistryInterface_WatchTokenTransferFeeConfigUpdated_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryTokenTransferFeeConfigUpdated, destChainSelector []uint64, token []common.Address)) *PriceRegistryInterface_WatchTokenTransferFeeConfigUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryTokenTransferFeeConfigUpdated), args[2].([]uint64), args[3].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchTokenTransferFeeConfigUpdated_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchTokenTransferFeeConfigUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchTokenTransferFeeConfigUpdated_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryTokenTransferFeeConfigUpdated, []uint64, []common.Address) (event.Subscription, error)) *PriceRegistryInterface_WatchTokenTransferFeeConfigUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchUsdPerTokenUpdated provides a mock function with given fields: opts, sink, token
@@ -2262,6 +4450,36 @@ func (_m *PriceRegistryInterface) WatchUsdPerTokenUpdated(opts *bind.WatchOpts, 
 	return r0, r1
 }
 
+// PriceRegistryInterface_WatchUsdPerTokenUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchUsdPerTokenUpdated'
+type PriceRegistryInterface_WatchUsdPerTokenUpdated_Call struct {
+	*mock.Call
+}
+
+// WatchUsdPerTokenUpdated is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryUsdPerTokenUpdated
+//   - token []common.Address
+func (_e *PriceRegistryInterface_Expecter) WatchUsdPerTokenUpdated(opts interface{}, sink interface{}, token interface{}) *PriceRegistryInterface_WatchUsdPerTokenUpdated_Call {
+	return &PriceRegistryInterface_WatchUsdPerTokenUpdated_Call{Call: _e.mock.On("WatchUsdPerTokenUpdated", opts, sink, token)}
+}
+
+func (_c *PriceRegistryInterface_WatchUsdPerTokenUpdated_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryUsdPerTokenUpdated, token []common.Address)) *PriceRegistryInterface_WatchUsdPerTokenUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryUsdPerTokenUpdated), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchUsdPerTokenUpdated_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchUsdPerTokenUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchUsdPerTokenUpdated_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryUsdPerTokenUpdated, []common.Address) (event.Subscription, error)) *PriceRegistryInterface_WatchUsdPerTokenUpdated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchUsdPerUnitGasUpdated provides a mock function with given fields: opts, sink, destChain
 func (_m *PriceRegistryInterface) WatchUsdPerUnitGasUpdated(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryUsdPerUnitGasUpdated, destChain []uint64) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, destChain)
@@ -2290,6 +4508,36 @@ func (_m *PriceRegistryInterface) WatchUsdPerUnitGasUpdated(opts *bind.WatchOpts
 	}
 
 	return r0, r1
+}
+
+// PriceRegistryInterface_WatchUsdPerUnitGasUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchUsdPerUnitGasUpdated'
+type PriceRegistryInterface_WatchUsdPerUnitGasUpdated_Call struct {
+	*mock.Call
+}
+
+// WatchUsdPerUnitGasUpdated is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *price_registry.PriceRegistryUsdPerUnitGasUpdated
+//   - destChain []uint64
+func (_e *PriceRegistryInterface_Expecter) WatchUsdPerUnitGasUpdated(opts interface{}, sink interface{}, destChain interface{}) *PriceRegistryInterface_WatchUsdPerUnitGasUpdated_Call {
+	return &PriceRegistryInterface_WatchUsdPerUnitGasUpdated_Call{Call: _e.mock.On("WatchUsdPerUnitGasUpdated", opts, sink, destChain)}
+}
+
+func (_c *PriceRegistryInterface_WatchUsdPerUnitGasUpdated_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *price_registry.PriceRegistryUsdPerUnitGasUpdated, destChain []uint64)) *PriceRegistryInterface_WatchUsdPerUnitGasUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *price_registry.PriceRegistryUsdPerUnitGasUpdated), args[2].([]uint64))
+	})
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchUsdPerUnitGasUpdated_Call) Return(_a0 event.Subscription, _a1 error) *PriceRegistryInterface_WatchUsdPerUnitGasUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *PriceRegistryInterface_WatchUsdPerUnitGasUpdated_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *price_registry.PriceRegistryUsdPerUnitGasUpdated, []uint64) (event.Subscription, error)) *PriceRegistryInterface_WatchUsdPerUnitGasUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewPriceRegistryInterface creates a new instance of PriceRegistryInterface. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

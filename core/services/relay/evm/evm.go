@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"strings"
 	"sync"
-	"time"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
@@ -277,7 +276,7 @@ func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontyp
 		return nil, err
 	}
 
-	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, nil, 0)
+	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +435,7 @@ func (r *Relayer) NewCCIPCommitProvider(rargs commontypes.RelayArgs, pargs commo
 	subjectID := chainToUUID(configWatcher.chain.ID())
 	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{
 		subjectID: &subjectID,
-	}, OCR2AggregatorTransmissionContractABI, fn, 0)
+	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0))
 	if err != nil {
 		return nil, err
 	}
@@ -509,7 +508,7 @@ func (r *Relayer) NewCCIPExecProvider(rargs commontypes.RelayArgs, pargs commont
 	subjectID := chainToUUID(configWatcher.chain.ID())
 	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{
 		subjectID: &subjectID,
-	}, OCR2AggregatorTransmissionContractABI, fn, 0)
+	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0))
 	if err != nil {
 		return nil, err
 	}
@@ -524,6 +523,7 @@ func (r *Relayer) NewCCIPExecProvider(rargs commontypes.RelayArgs, pargs commont
 		configWatcher,
 		r.chain.GasEstimator(),
 		*r.chain.Config().EVM().GasEstimator().PriceMax().ToInt(),
+		r.chain.TxManager(),
 		cciptypes.Address(rargs.ContractID),
 	)
 }
@@ -746,7 +746,25 @@ type configTransmitterOpts struct {
 }
 
 // newOnChainContractTransmitter creates a new contract transmitter.
-func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, reportToEvmTxMeta ReportToEthMetadata, transmissionContractRetention time.Duration) (*contractTransmitter, error) {
+func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (*contractTransmitter, error) {
+	transmitter, err := generateTransmitterFrom(ctx, rargs, ethKeystore, configWatcher, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewOCRContractTransmitter(
+		ctx,
+		configWatcher.contractAddress,
+		configWatcher.chain.Client(),
+		transmissionContractABI,
+		transmitter,
+		configWatcher.chain.LogPoller(),
+		lggr,
+		ocrTransmitterOpts...,
+	)
+}
+
+func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts) (Transmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -826,18 +844,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to create transmitter")
 	}
-
-	return NewOCRContractTransmitterWithRetention(
-		ctx,
-		configWatcher.contractAddress,
-		configWatcher.chain.Client(),
-		transmissionContractABI,
-		transmitter,
-		configWatcher.chain.LogPoller(),
-		lggr,
-		reportToEvmTxMeta,
-		transmissionContractRetention,
-	)
+	return transmitter, nil
 }
 
 func (r *Relayer) NewChainWriter(_ context.Context, config []byte) (commontypes.ChainWriter, error) {
@@ -856,7 +863,7 @@ func (r *Relayer) NewContractReader(chainReaderConfig []byte) (commontypes.Contr
 		return nil, fmt.Errorf("failed to unmarshall chain reader config err: %s", err)
 	}
 
-	return NewChainReaderService(ctx, r.lggr, r.chain.LogPoller(), r.chain.Client(), *cfg)
+	return NewChainReaderService(ctx, r.lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *cfg)
 }
 
 func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MedianProvider, error) {
@@ -885,7 +892,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 
 	reportCodec := evmreportcodec.ReportCodec{}
 
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, nil, 0)
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
 	if err != nil {
 		return nil, err
 	}
@@ -906,11 +913,11 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	// allow fallback until chain reader is default and median contract is removed, but still log just in case
 	var chainReaderService ChainReaderService
 	if relayConfig.ChainReader != nil {
-		if chainReaderService, err = NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
+		if chainReaderService, err = NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
 			return nil, err
 		}
 
-		boundContracts := []commontypes.BoundContract{{Name: "median", Pending: true, Address: contractID.String()}}
+		boundContracts := []commontypes.BoundContract{{Name: "median", Address: contractID.String()}}
 		if err = chainReaderService.Bind(context.Background(), boundContracts); err != nil {
 			return nil, err
 		}

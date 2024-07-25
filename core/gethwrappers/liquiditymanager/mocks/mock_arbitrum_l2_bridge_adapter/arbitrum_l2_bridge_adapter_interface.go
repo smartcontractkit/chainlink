@@ -18,6 +18,14 @@ type ArbitrumL2BridgeAdapterInterface struct {
 	mock.Mock
 }
 
+type ArbitrumL2BridgeAdapterInterface_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *ArbitrumL2BridgeAdapterInterface) EXPECT() *ArbitrumL2BridgeAdapterInterface_Expecter {
+	return &ArbitrumL2BridgeAdapterInterface_Expecter{mock: &_m.Mock}
+}
+
 // Address provides a mock function with given fields:
 func (_m *ArbitrumL2BridgeAdapterInterface) Address() common.Address {
 	ret := _m.Called()
@@ -36,6 +44,33 @@ func (_m *ArbitrumL2BridgeAdapterInterface) Address() common.Address {
 	}
 
 	return r0
+}
+
+// ArbitrumL2BridgeAdapterInterface_Address_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Address'
+type ArbitrumL2BridgeAdapterInterface_Address_Call struct {
+	*mock.Call
+}
+
+// Address is a helper method to define mock.On call
+func (_e *ArbitrumL2BridgeAdapterInterface_Expecter) Address() *ArbitrumL2BridgeAdapterInterface_Address_Call {
+	return &ArbitrumL2BridgeAdapterInterface_Address_Call{Call: _e.mock.On("Address")}
+}
+
+func (_c *ArbitrumL2BridgeAdapterInterface_Address_Call) Run(run func()) *ArbitrumL2BridgeAdapterInterface_Address_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ArbitrumL2BridgeAdapterInterface_Address_Call) Return(_a0 common.Address) *ArbitrumL2BridgeAdapterInterface_Address_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ArbitrumL2BridgeAdapterInterface_Address_Call) RunAndReturn(run func() common.Address) *ArbitrumL2BridgeAdapterInterface_Address_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // DepositNativeToL1 provides a mock function with given fields: opts, recipient
@@ -68,6 +103,35 @@ func (_m *ArbitrumL2BridgeAdapterInterface) DepositNativeToL1(opts *bind.Transac
 	return r0, r1
 }
 
+// ArbitrumL2BridgeAdapterInterface_DepositNativeToL1_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DepositNativeToL1'
+type ArbitrumL2BridgeAdapterInterface_DepositNativeToL1_Call struct {
+	*mock.Call
+}
+
+// DepositNativeToL1 is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - recipient common.Address
+func (_e *ArbitrumL2BridgeAdapterInterface_Expecter) DepositNativeToL1(opts interface{}, recipient interface{}) *ArbitrumL2BridgeAdapterInterface_DepositNativeToL1_Call {
+	return &ArbitrumL2BridgeAdapterInterface_DepositNativeToL1_Call{Call: _e.mock.On("DepositNativeToL1", opts, recipient)}
+}
+
+func (_c *ArbitrumL2BridgeAdapterInterface_DepositNativeToL1_Call) Run(run func(opts *bind.TransactOpts, recipient common.Address)) *ArbitrumL2BridgeAdapterInterface_DepositNativeToL1_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *ArbitrumL2BridgeAdapterInterface_DepositNativeToL1_Call) Return(_a0 *types.Transaction, _a1 error) *ArbitrumL2BridgeAdapterInterface_DepositNativeToL1_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumL2BridgeAdapterInterface_DepositNativeToL1_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address) (*types.Transaction, error)) *ArbitrumL2BridgeAdapterInterface_DepositNativeToL1_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FinalizeWithdrawERC20 provides a mock function with given fields: opts, arg0, arg1, arg2
 func (_m *ArbitrumL2BridgeAdapterInterface) FinalizeWithdrawERC20(opts *bind.CallOpts, arg0 common.Address, arg1 common.Address, arg2 []byte) (bool, error) {
 	ret := _m.Called(opts, arg0, arg1, arg2)
@@ -94,6 +158,37 @@ func (_m *ArbitrumL2BridgeAdapterInterface) FinalizeWithdrawERC20(opts *bind.Cal
 	}
 
 	return r0, r1
+}
+
+// ArbitrumL2BridgeAdapterInterface_FinalizeWithdrawERC20_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FinalizeWithdrawERC20'
+type ArbitrumL2BridgeAdapterInterface_FinalizeWithdrawERC20_Call struct {
+	*mock.Call
+}
+
+// FinalizeWithdrawERC20 is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - arg0 common.Address
+//   - arg1 common.Address
+//   - arg2 []byte
+func (_e *ArbitrumL2BridgeAdapterInterface_Expecter) FinalizeWithdrawERC20(opts interface{}, arg0 interface{}, arg1 interface{}, arg2 interface{}) *ArbitrumL2BridgeAdapterInterface_FinalizeWithdrawERC20_Call {
+	return &ArbitrumL2BridgeAdapterInterface_FinalizeWithdrawERC20_Call{Call: _e.mock.On("FinalizeWithdrawERC20", opts, arg0, arg1, arg2)}
+}
+
+func (_c *ArbitrumL2BridgeAdapterInterface_FinalizeWithdrawERC20_Call) Run(run func(opts *bind.CallOpts, arg0 common.Address, arg1 common.Address, arg2 []byte)) *ArbitrumL2BridgeAdapterInterface_FinalizeWithdrawERC20_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address), args[2].(common.Address), args[3].([]byte))
+	})
+	return _c
+}
+
+func (_c *ArbitrumL2BridgeAdapterInterface_FinalizeWithdrawERC20_Call) Return(_a0 bool, _a1 error) *ArbitrumL2BridgeAdapterInterface_FinalizeWithdrawERC20_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumL2BridgeAdapterInterface_FinalizeWithdrawERC20_Call) RunAndReturn(run func(*bind.CallOpts, common.Address, common.Address, []byte) (bool, error)) *ArbitrumL2BridgeAdapterInterface_FinalizeWithdrawERC20_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetBridgeFeeInNative provides a mock function with given fields: opts
@@ -126,6 +221,34 @@ func (_m *ArbitrumL2BridgeAdapterInterface) GetBridgeFeeInNative(opts *bind.Call
 	return r0, r1
 }
 
+// ArbitrumL2BridgeAdapterInterface_GetBridgeFeeInNative_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetBridgeFeeInNative'
+type ArbitrumL2BridgeAdapterInterface_GetBridgeFeeInNative_Call struct {
+	*mock.Call
+}
+
+// GetBridgeFeeInNative is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *ArbitrumL2BridgeAdapterInterface_Expecter) GetBridgeFeeInNative(opts interface{}) *ArbitrumL2BridgeAdapterInterface_GetBridgeFeeInNative_Call {
+	return &ArbitrumL2BridgeAdapterInterface_GetBridgeFeeInNative_Call{Call: _e.mock.On("GetBridgeFeeInNative", opts)}
+}
+
+func (_c *ArbitrumL2BridgeAdapterInterface_GetBridgeFeeInNative_Call) Run(run func(opts *bind.CallOpts)) *ArbitrumL2BridgeAdapterInterface_GetBridgeFeeInNative_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *ArbitrumL2BridgeAdapterInterface_GetBridgeFeeInNative_Call) Return(_a0 *big.Int, _a1 error) *ArbitrumL2BridgeAdapterInterface_GetBridgeFeeInNative_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumL2BridgeAdapterInterface_GetBridgeFeeInNative_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *ArbitrumL2BridgeAdapterInterface_GetBridgeFeeInNative_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendERC20 provides a mock function with given fields: opts, localToken, remoteToken, recipient, amount, arg4
 func (_m *ArbitrumL2BridgeAdapterInterface) SendERC20(opts *bind.TransactOpts, localToken common.Address, remoteToken common.Address, recipient common.Address, amount *big.Int, arg4 []byte) (*types.Transaction, error) {
 	ret := _m.Called(opts, localToken, remoteToken, recipient, amount, arg4)
@@ -154,6 +277,39 @@ func (_m *ArbitrumL2BridgeAdapterInterface) SendERC20(opts *bind.TransactOpts, l
 	}
 
 	return r0, r1
+}
+
+// ArbitrumL2BridgeAdapterInterface_SendERC20_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendERC20'
+type ArbitrumL2BridgeAdapterInterface_SendERC20_Call struct {
+	*mock.Call
+}
+
+// SendERC20 is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - localToken common.Address
+//   - remoteToken common.Address
+//   - recipient common.Address
+//   - amount *big.Int
+//   - arg4 []byte
+func (_e *ArbitrumL2BridgeAdapterInterface_Expecter) SendERC20(opts interface{}, localToken interface{}, remoteToken interface{}, recipient interface{}, amount interface{}, arg4 interface{}) *ArbitrumL2BridgeAdapterInterface_SendERC20_Call {
+	return &ArbitrumL2BridgeAdapterInterface_SendERC20_Call{Call: _e.mock.On("SendERC20", opts, localToken, remoteToken, recipient, amount, arg4)}
+}
+
+func (_c *ArbitrumL2BridgeAdapterInterface_SendERC20_Call) Run(run func(opts *bind.TransactOpts, localToken common.Address, remoteToken common.Address, recipient common.Address, amount *big.Int, arg4 []byte)) *ArbitrumL2BridgeAdapterInterface_SendERC20_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(common.Address), args[3].(common.Address), args[4].(*big.Int), args[5].([]byte))
+	})
+	return _c
+}
+
+func (_c *ArbitrumL2BridgeAdapterInterface_SendERC20_Call) Return(_a0 *types.Transaction, _a1 error) *ArbitrumL2BridgeAdapterInterface_SendERC20_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumL2BridgeAdapterInterface_SendERC20_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, common.Address, common.Address, *big.Int, []byte) (*types.Transaction, error)) *ArbitrumL2BridgeAdapterInterface_SendERC20_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewArbitrumL2BridgeAdapterInterface creates a new instance of ArbitrumL2BridgeAdapterInterface. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

@@ -28,8 +28,6 @@ func (pt PluginType) String() string {
 }
 
 // CCIPOracle represents either a CCIP commit or exec oracle or a bootstrap node.
-//
-//go:generate mockery --name CCIPOracle --output ./mocks/ --case underscore
 type CCIPOracle interface {
 	Close() error
 	Start() error
@@ -37,8 +35,6 @@ type CCIPOracle interface {
 
 // OracleCreator is an interface for creating CCIP oracles.
 // Whether the oracle uses a LOOPP or not is an implementation detail.
-//
-//go:generate mockery --name OracleCreator --output ./mocks/ --case underscore
 type OracleCreator interface {
 	// CreatePlugin creates a new oracle that will run either the commit or exec ccip plugin.
 	// The oracle must be returned unstarted.

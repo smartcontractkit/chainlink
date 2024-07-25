@@ -163,6 +163,7 @@ func (i *inprocessOracleCreator) CreatePluginOracle(pluginType cctypes.PluginTyp
 				Named(chain.ID().String()).
 				Named(pluginType.String()),
 			chain.LogPoller(),
+			chain.HeadTracker(),
 			chain.Client(),
 			chainReaderConfig,
 		)

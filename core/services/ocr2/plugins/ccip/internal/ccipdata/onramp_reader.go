@@ -16,7 +16,6 @@ const (
 	CONFIG_CHANGED    = "Dynamic config changed"
 )
 
-//go:generate mockery --quiet --name OnRampReader --filename onramp_reader_mock.go --case=underscore
 type OnRampReader interface {
 	cciptypes.OnRampReader
 }

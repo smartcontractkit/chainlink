@@ -730,6 +730,7 @@ func TestConfig_Marshal(t *testing.T) {
 			TransmitQueueMaxSize: ptr(uint32(123)),
 			TransmitTimeout:      commoncfg.MustNewDuration(234 * time.Second),
 		},
+		VerboseLogging: ptr(true),
 	}
 
 	for _, tt := range []struct {
@@ -1188,6 +1189,8 @@ URL = 'http://stark.node'
 APIKey = 'key'
 `},
 		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
+VerboseLogging = true
+
 [Mercury.Cache]
 LatestReportTTL = '1m40s'
 MaxStaleAge = '1m41s'

@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
@@ -81,7 +82,6 @@ type TestConfig struct {
 	LogPoller  *lp_config.Config        `toml:"LogPoller"`
 	OCR        *ocr_config.Config       `toml:"OCR"`
 	OCR2       *ocr_config.Config       `toml:"OCR2"`
-	OCR2VRF    *ocr_config.Config       `toml:"OCRR2VRF"`
 	VRF        *vrf_config.Config       `toml:"VRF"`
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
@@ -211,11 +211,7 @@ func (c TestConfig) GetActiveOCRConfig() *ocr_config.Config {
 		return c.OCR
 	}
 
-	if c.OCR2 != nil {
-		return c.OCR2
-	}
-
-	return c.OCR2VRF
+	return c.OCR2
 }
 
 func (c *TestConfig) AsBase64() (string, error) {
@@ -253,7 +249,6 @@ const (
 	Node          Product = "node"
 	OCR           Product = "ocr"
 	OCR2          Product = "ocr2"
-	OCR2VRF       Product = "ocr2vrf"
 	RunLog        Product = "runlog"
 	VRF           Product = "vrf"
 	VRFv2         Product = "vrfv2"
@@ -341,6 +336,8 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 				return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 			}
 
+			_ = checkSecretsInToml(content)
+
 			for _, configurationName := range configurationNames {
 				err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, content)
 				if err != nil {
@@ -348,6 +345,12 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 				}
 			}
 		}
+	}
+
+	// it needs some custom logic, so we do it separately
+	err := testConfig.readNetworkConfiguration()
+	if err != nil {
+		return TestConfig{}, errors.Wrapf(err, "error reading network config")
 	}
 
 	logger.Info().Msg("Reading configs from Base64 override env var")
@@ -359,6 +362,8 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 			return TestConfig{}, err
 		}
 
+		_ = checkSecretsInToml(decoded)
+
 		for _, configurationName := range configurationNames {
 			err = ctf_config.BytesToAnyTomlStruct(logger, Base64OverrideEnvVarName, configurationName, &testConfig, decoded)
 			if err != nil {
@@ -369,10 +374,16 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		logger.Debug().Msg("Base64 config override from environment variable not found")
 	}
 
-	// it needs some custom logic, so we do it separately
-	err := testConfig.readNetworkConfiguration()
+	logger.Info().Msg("Loading config values from default ~/.testsecrets env file")
+	err = ctf_config.LoadSecretEnvsFromFiles()
 	if err != nil {
-		return TestConfig{}, errors.Wrapf(err, "error reading network config")
+		return TestConfig{}, errors.Wrapf(err, "error reading test config values from ~/.testsecrets file")
+	}
+
+	logger.Info().Msg("Reading values from environment variables")
+	err = testConfig.ReadFromEnvVar()
+	if err != nil {
+		return TestConfig{}, errors.Wrapf(err, "error reading test config values from env vars")
 	}
 
 	logger.Debug().Msg("Validating test config")
@@ -387,27 +398,34 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		testConfig.Common = &Common{}
 	}
 
+	testConfig.logRiskySettings(logger)
+
+	logger.Debug().Msg("Correct test config constructed successfully")
+	return testConfig, nil
+}
+
+func (c *TestConfig) logRiskySettings(logger zerolog.Logger) {
 	isAnySimulated := false
-	for _, network := range testConfig.Network.SelectedNetworks {
+	for _, network := range c.Network.SelectedNetworks {
 		if strings.Contains(strings.ToUpper(network), "SIMULATED") {
 			isAnySimulated = true
 			break
 		}
 	}
 
-	if testConfig.Seth != nil && !isAnySimulated && (testConfig.Seth.EphemeralAddrs != nil && *testConfig.Seth.EphemeralAddrs != 0) {
-		testConfig.Seth.EphemeralAddrs = new(int64)
+	if c.Seth != nil && !isAnySimulated && (c.Seth.EphemeralAddrs != nil && *c.Seth.EphemeralAddrs != 0) {
+		c.Seth.EphemeralAddrs = new(int64)
 		logger.Warn().
 			Msg("Ephemeral addresses were enabled, but test was setup to run on a live network. Ephemeral addresses will be disabled.")
 	}
 
-	if testConfig.Seth != nil && (testConfig.Seth.EphemeralAddrs != nil && *testConfig.Seth.EphemeralAddrs != 0) {
-		rootBuffer := testConfig.Seth.RootKeyFundsBuffer
+	if c.Seth != nil && (c.Seth.EphemeralAddrs != nil && *c.Seth.EphemeralAddrs != 0) {
+		rootBuffer := c.Seth.RootKeyFundsBuffer
 		zero := int64(0)
 		if rootBuffer == nil {
 			rootBuffer = &zero
 		}
-		clNodeFunding := testConfig.Common.ChainlinkNodeFunding
+		clNodeFunding := c.Common.ChainlinkNodeFunding
 		if clNodeFunding == nil {
 			zero := 0.0
 			clNodeFunding = &zero
@@ -434,8 +452,66 @@ root_key_funds_buffer = 1_000
 		}
 	}
 
-	logger.Debug().Msg("Correct test config constructed successfully")
-	return testConfig, nil
+	var customChainSettings []string
+	for _, network := range networks.MustGetSelectedNetworkConfig(c.Network) {
+		if c.NodeConfig != nil && len(c.NodeConfig.ChainConfigTOMLByChainID) > 0 {
+			if _, ok := c.NodeConfig.ChainConfigTOMLByChainID[fmt.Sprint(network.ChainID)]; ok {
+				logger.Warn().Msgf("You have provided custom Chainlink Node configuration for network '%s' (chain id: %d). Chainlink Node's default settings won't be used", network.Name, network.ChainID)
+				customChainSettings = append(customChainSettings, fmt.Sprint(network.ChainID))
+			}
+		}
+	}
+
+	if len(customChainSettings) == 0 && c.NodeConfig != nil && c.NodeConfig.CommonChainConfigTOML != "" {
+		logger.Warn().Msg("***** You have provided your own default Chainlink Node configuration for all networks. Chainlink Node's default settings for selected networks won't be used *****")
+	}
+
+}
+
+// checkSecretsInToml checks if the TOML file contains secrets and shows error logs if it does
+// This is a temporary and will be removed after migration to test secrets from env vars
+func checkSecretsInToml(content []byte) error {
+	logger := logging.GetTestLogger(nil)
+	data := make(map[string]interface{})
+
+	// Decode the TOML data
+	err := toml.Unmarshal(content, &data)
+	if err != nil {
+		return errors.Wrapf(err, "error decoding TOML file")
+	}
+
+	logError := func(key, envVar string) {
+		logger.Error().Msgf("Error in TOML test config!! TOML cannot have '%s' key. Remove it and set %s env in ~/.testsecrets instead", key, envVar)
+	}
+
+	if data["ChainlinkImage"] != nil {
+		chainlinkImage := data["ChainlinkImage"].(map[string]interface{})
+		if chainlinkImage["image"] != nil {
+			logError("ChainlinkImage.image", "E2E_TEST_CHAINLINK_IMAGE")
+		}
+	}
+
+	if data["ChainlinkUpgradeImage"] != nil {
+		chainlinkUpgradeImage := data["ChainlinkUpgradeImage"].(map[string]interface{})
+		if chainlinkUpgradeImage["image"] != nil {
+			logError("ChainlinkUpgradeImage.image", "E2E_TEST_CHAINLINK_UPGRADE_IMAGE")
+		}
+	}
+
+	if data["Network"] != nil {
+		network := data["Network"].(map[string]interface{})
+		if network["RpcHttpUrls"] != nil {
+			logError("Network.RpcHttpUrls", "`E2E_TEST_(.+)_RPC_HTTP_URL$` like E2E_TEST_ARBITRUM_SEPOLIA_RPC_HTTP_URL")
+		}
+		if network["RpcWsUrls"] != nil {
+			logError("Network.RpcWsUrls", "`E2E_TEST_(.+)_RPC_WS_URL$` like E2E_TEST_ARBITRUM_SEPOLIA_RPC_WS_URL")
+		}
+		if network["WalletKeys"] != nil {
+			logError("Network.wallet_keys", "`E2E_TEST_(.+)_WALLET_KEY$` E2E_TEST_ARBITRUM_SEPOLIA_WALLET_KEY")
+		}
+	}
+
+	return nil
 }
 
 func (c *TestConfig) readNetworkConfiguration() error {
@@ -569,12 +645,6 @@ func (c *TestConfig) Validate() error {
 	if c.OCR2 != nil {
 		if err := c.OCR2.Validate(); err != nil {
 			return errors.Wrapf(err, "OCR2 config validation failed")
-		}
-	}
-
-	if c.OCR2VRF != nil {
-		if err := c.OCR2VRF.Validate(); err != nil {
-			return errors.Wrapf(err, "OCR2VRF config validation failed")
 		}
 	}
 

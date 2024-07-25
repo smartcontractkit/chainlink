@@ -1329,31 +1329,51 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
 		var wg sync.WaitGroup
 		wg.Add(1)
-		//Wait at least 256 blocks
-		_, err = actions.WaitForBlockNumberToBe(
-			randRequestBlockNumber+uint64(257),
-			sethClient,
-			&wg,
-			configCopy.VRFv2Plus.General.WaitFor256BlocksTimeout.Duration,
-			t,
-			l,
-		)
+
+		waitForNumberOfBlocks := 257
+		desiredBlockNumberReached := make(chan bool)
+		go func() {
+			//Wait at least 256 blocks
+			_, err = actions.WaitForBlockNumberToBe(
+				testcontext.Get(t),
+				randRequestBlockNumber+uint64(waitForNumberOfBlocks),
+				sethClient,
+				&wg,
+				desiredBlockNumberReached,
+				configCopy.VRFv2Plus.General.WaitFor256BlocksTimeout.Duration,
+				l,
+			)
+			require.NoError(t, err)
+		}()
+
+		if *configCopy.VRFv2Plus.General.GenerateTXsOnChain {
+			go func() {
+				_, err := actions.ContinuouslyGenerateTXsOnChain(sethClient, desiredBlockNumberReached, l)
+				require.NoError(t, err)
+				// Wait to let the transactions be mined and avoid nonce issues
+				time.Sleep(time.Second * 5)
+			}()
+		}
 		wg.Wait()
-		require.NoError(t, err)
+
 		err = vrfv2plus.FundSubscriptions(
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountNative),
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink),
 			vrfContracts.LinkToken,
 			vrfContracts.CoordinatorV2Plus,
 			subIDs,
+			*configCopy.VRFv2Plus.General.SubscriptionBillingType,
 		)
 		require.NoError(t, err, "error funding subscriptions")
-		randomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
-			contracts.RandomWordsFulfilledEventFilter{
-				RequestIds: []*big.Int{randomWordsRequestedEvent.RequestId},
-				SubIDs:     []*big.Int{subID},
-				Timeout:    configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
-			},
+		randomWordsFulfilledEvent, err := vrfv2plus.WaitRandomWordsFulfilledEvent(
+			vrfContracts.CoordinatorV2Plus,
+			randomWordsRequestedEvent.RequestId,
+			subID,
+			randomWordsRequestedEvent.Raw.BlockNumber,
+			isNativeBilling,
+			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			l,
+			0,
 		)
 		require.NoError(t, err, "error waiting for randomness fulfilled event")
 		vrfcommon.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsFulfilledEvent, isNativeBilling, 0)
@@ -1368,6 +1388,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		l.Info().
 			Str("Randomness Request's Blockhash", randomWordsRequestedEvent.Raw.BlockHash.String()).
 			Str("Block Hash stored by BHS contract", fmt.Sprintf("0x%x", randRequestBlockHash)).
+			Str("BHS Contract", vrfContracts.BHS.Address()).
 			Msg("BHS Contract's stored Blockhash for Randomness Request")
 		require.Equal(t, 0, randomWordsRequestedEvent.Raw.BlockHash.Cmp(randRequestBlockHash))
 	})
@@ -1414,11 +1435,12 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		_, err = actions.WaitForBlockNumberToBe(
+			testcontext.Get(t),
 			randRequestBlockNumber+uint64(*configCopy.VRFv2Plus.General.BHSJobWaitBlocks+10),
 			sethClient,
 			&wg,
+			nil,
 			time.Minute*1,
-			t,
 			l,
 		)
 		wg.Wait()
@@ -1565,11 +1587,12 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		wg.Add(1)
 		//Wait at least 256 blocks
 		_, err = actions.WaitForBlockNumberToBe(
+			testcontext.Get(t),
 			randRequestBlockNumber+uint64(257),
 			sethClient,
 			&wg,
+			nil,
 			configCopy.VRFv2Plus.General.WaitFor256BlocksTimeout.Duration,
-			t,
 			l,
 		)
 		wg.Wait()
@@ -1583,14 +1606,19 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 			vrfContracts.LinkToken,
 			vrfContracts.CoordinatorV2Plus,
 			subIDs,
+			*configCopy.VRFv2Plus.General.SubscriptionBillingType,
 		)
 		require.NoError(t, err, "error funding subscriptions")
-		randomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
-			contracts.RandomWordsFulfilledEventFilter{
-				RequestIds: []*big.Int{randomWordsRequestedEvent.RequestId},
-				SubIDs:     []*big.Int{subID},
-				Timeout:    configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
-			},
+
+		randomWordsFulfilledEvent, err := vrfv2plus.WaitRandomWordsFulfilledEvent(
+			vrfContracts.CoordinatorV2Plus,
+			randomWordsRequestedEvent.RequestId,
+			subID,
+			randomWordsRequestedEvent.Raw.BlockNumber,
+			isNativeBilling,
+			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			l,
+			0,
 		)
 		require.NoError(t, err, "error waiting for randomness fulfilled event")
 		vrfcommon.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsFulfilledEvent, isNativeBilling, 0)
@@ -1721,6 +1749,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 			vrfContracts.LinkToken,
 			vrfContracts.CoordinatorV2Plus,
 			[]*big.Int{subID},
+			*configCopy.VRFv2Plus.General.SubscriptionBillingType,
 		)
 		require.NoError(t, err, "error funding subs after request timeout")
 
@@ -1768,12 +1797,15 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		l.Info().Str("reqID", initialReqRandomWordsRequestedEvent.RequestId.String()).
 			Str("subID", subID.String()).
 			Msg("Waiting for initalReqRandomWordsFulfilledEvent")
-		initalReqRandomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
-			contracts.RandomWordsFulfilledEventFilter{
-				RequestIds: []*big.Int{initialReqRandomWordsRequestedEvent.RequestId},
-				SubIDs:     []*big.Int{subID},
-				Timeout:    configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
-			},
+		initalReqRandomWordsFulfilledEvent, err := vrfv2plus.WaitRandomWordsFulfilledEvent(
+			vrfContracts.CoordinatorV2Plus,
+			initialReqRandomWordsRequestedEvent.RequestId,
+			subID,
+			initialReqRandomWordsRequestedEvent.Raw.BlockNumber,
+			isNativeBilling,
+			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			l,
+			0,
 		)
 		require.NoError(t, err, "error waiting for initial request RandomWordsFulfilledEvent")
 
@@ -2045,14 +2077,17 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 
 		// 5. ensure that rand request is not fulfilled for the request which was made on reorged fork
 		// For context - when performing debug_setHead on geth simulated chain and therefore rewinding chain to a previous block,
-		// then tx that was mined after reorg will not appear in canonical chain contrary to real world scenario
-		// Hence, we only verify that VRF node will not generate fulfillment for the reorged fork request
-		_, err = vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
-			contracts.RandomWordsFulfilledEventFilter{
-				RequestIds: []*big.Int{randomWordsRequestedEvent.RequestId},
-				SubIDs:     []*big.Int{subID},
-				Timeout:    time.Second * 10,
-			},
+		//then tx that was mined after reorg will not appear in canonical chain contrary to real world scenario
+		//Hence, we only verify that VRF node will not generate fulfillment for the reorged fork request
+		_, err = vrfv2plus.WaitRandomWordsFulfilledEvent(
+			vrfContracts.CoordinatorV2Plus,
+			randomWordsRequestedEvent.RequestId,
+			subID,
+			randomWordsRequestedEvent.Raw.BlockNumber,
+			isNativeBilling,
+			time.Second*10,
+			l,
+			0,
 		)
 		require.Error(t, err, "fulfillment should not be generated for the request which was made on reorged fork on Simulated Chain")
 	})

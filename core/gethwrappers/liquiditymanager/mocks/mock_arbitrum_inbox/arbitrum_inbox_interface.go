@@ -25,6 +25,14 @@ type ArbitrumInboxInterface struct {
 	mock.Mock
 }
 
+type ArbitrumInboxInterface_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *ArbitrumInboxInterface) EXPECT() *ArbitrumInboxInterface_Expecter {
+	return &ArbitrumInboxInterface_Expecter{mock: &_m.Mock}
+}
+
 // Address provides a mock function with given fields:
 func (_m *ArbitrumInboxInterface) Address() common.Address {
 	ret := _m.Called()
@@ -43,6 +51,33 @@ func (_m *ArbitrumInboxInterface) Address() common.Address {
 	}
 
 	return r0
+}
+
+// ArbitrumInboxInterface_Address_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Address'
+type ArbitrumInboxInterface_Address_Call struct {
+	*mock.Call
+}
+
+// Address is a helper method to define mock.On call
+func (_e *ArbitrumInboxInterface_Expecter) Address() *ArbitrumInboxInterface_Address_Call {
+	return &ArbitrumInboxInterface_Address_Call{Call: _e.mock.On("Address")}
+}
+
+func (_c *ArbitrumInboxInterface_Address_Call) Run(run func()) *ArbitrumInboxInterface_Address_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_Address_Call) Return(_a0 common.Address) *ArbitrumInboxInterface_Address_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_Address_Call) RunAndReturn(run func() common.Address) *ArbitrumInboxInterface_Address_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // AllowListEnabled provides a mock function with given fields: opts
@@ -71,6 +106,34 @@ func (_m *ArbitrumInboxInterface) AllowListEnabled(opts *bind.CallOpts) (bool, e
 	}
 
 	return r0, r1
+}
+
+// ArbitrumInboxInterface_AllowListEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AllowListEnabled'
+type ArbitrumInboxInterface_AllowListEnabled_Call struct {
+	*mock.Call
+}
+
+// AllowListEnabled is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *ArbitrumInboxInterface_Expecter) AllowListEnabled(opts interface{}) *ArbitrumInboxInterface_AllowListEnabled_Call {
+	return &ArbitrumInboxInterface_AllowListEnabled_Call{Call: _e.mock.On("AllowListEnabled", opts)}
+}
+
+func (_c *ArbitrumInboxInterface_AllowListEnabled_Call) Run(run func(opts *bind.CallOpts)) *ArbitrumInboxInterface_AllowListEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_AllowListEnabled_Call) Return(_a0 bool, _a1 error) *ArbitrumInboxInterface_AllowListEnabled_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_AllowListEnabled_Call) RunAndReturn(run func(*bind.CallOpts) (bool, error)) *ArbitrumInboxInterface_AllowListEnabled_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Bridge provides a mock function with given fields: opts
@@ -103,6 +166,34 @@ func (_m *ArbitrumInboxInterface) Bridge(opts *bind.CallOpts) (common.Address, e
 	return r0, r1
 }
 
+// ArbitrumInboxInterface_Bridge_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Bridge'
+type ArbitrumInboxInterface_Bridge_Call struct {
+	*mock.Call
+}
+
+// Bridge is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *ArbitrumInboxInterface_Expecter) Bridge(opts interface{}) *ArbitrumInboxInterface_Bridge_Call {
+	return &ArbitrumInboxInterface_Bridge_Call{Call: _e.mock.On("Bridge", opts)}
+}
+
+func (_c *ArbitrumInboxInterface_Bridge_Call) Run(run func(opts *bind.CallOpts)) *ArbitrumInboxInterface_Bridge_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_Bridge_Call) Return(_a0 common.Address, _a1 error) *ArbitrumInboxInterface_Bridge_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_Bridge_Call) RunAndReturn(run func(*bind.CallOpts) (common.Address, error)) *ArbitrumInboxInterface_Bridge_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CalculateRetryableSubmissionFee provides a mock function with given fields: opts, dataLength, baseFee
 func (_m *ArbitrumInboxInterface) CalculateRetryableSubmissionFee(opts *bind.CallOpts, dataLength *big.Int, baseFee *big.Int) (*big.Int, error) {
 	ret := _m.Called(opts, dataLength, baseFee)
@@ -131,6 +222,36 @@ func (_m *ArbitrumInboxInterface) CalculateRetryableSubmissionFee(opts *bind.Cal
 	}
 
 	return r0, r1
+}
+
+// ArbitrumInboxInterface_CalculateRetryableSubmissionFee_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CalculateRetryableSubmissionFee'
+type ArbitrumInboxInterface_CalculateRetryableSubmissionFee_Call struct {
+	*mock.Call
+}
+
+// CalculateRetryableSubmissionFee is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - dataLength *big.Int
+//   - baseFee *big.Int
+func (_e *ArbitrumInboxInterface_Expecter) CalculateRetryableSubmissionFee(opts interface{}, dataLength interface{}, baseFee interface{}) *ArbitrumInboxInterface_CalculateRetryableSubmissionFee_Call {
+	return &ArbitrumInboxInterface_CalculateRetryableSubmissionFee_Call{Call: _e.mock.On("CalculateRetryableSubmissionFee", opts, dataLength, baseFee)}
+}
+
+func (_c *ArbitrumInboxInterface_CalculateRetryableSubmissionFee_Call) Run(run func(opts *bind.CallOpts, dataLength *big.Int, baseFee *big.Int)) *ArbitrumInboxInterface_CalculateRetryableSubmissionFee_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(*big.Int), args[2].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_CalculateRetryableSubmissionFee_Call) Return(_a0 *big.Int, _a1 error) *ArbitrumInboxInterface_CalculateRetryableSubmissionFee_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_CalculateRetryableSubmissionFee_Call) RunAndReturn(run func(*bind.CallOpts, *big.Int, *big.Int) (*big.Int, error)) *ArbitrumInboxInterface_CalculateRetryableSubmissionFee_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterInboxMessageDelivered provides a mock function with given fields: opts, messageNum
@@ -163,6 +284,35 @@ func (_m *ArbitrumInboxInterface) FilterInboxMessageDelivered(opts *bind.FilterO
 	return r0, r1
 }
 
+// ArbitrumInboxInterface_FilterInboxMessageDelivered_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterInboxMessageDelivered'
+type ArbitrumInboxInterface_FilterInboxMessageDelivered_Call struct {
+	*mock.Call
+}
+
+// FilterInboxMessageDelivered is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - messageNum []*big.Int
+func (_e *ArbitrumInboxInterface_Expecter) FilterInboxMessageDelivered(opts interface{}, messageNum interface{}) *ArbitrumInboxInterface_FilterInboxMessageDelivered_Call {
+	return &ArbitrumInboxInterface_FilterInboxMessageDelivered_Call{Call: _e.mock.On("FilterInboxMessageDelivered", opts, messageNum)}
+}
+
+func (_c *ArbitrumInboxInterface_FilterInboxMessageDelivered_Call) Run(run func(opts *bind.FilterOpts, messageNum []*big.Int)) *ArbitrumInboxInterface_FilterInboxMessageDelivered_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_FilterInboxMessageDelivered_Call) Return(_a0 *arbitrum_inbox.ArbitrumInboxInboxMessageDeliveredIterator, _a1 error) *ArbitrumInboxInterface_FilterInboxMessageDelivered_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_FilterInboxMessageDelivered_Call) RunAndReturn(run func(*bind.FilterOpts, []*big.Int) (*arbitrum_inbox.ArbitrumInboxInboxMessageDeliveredIterator, error)) *ArbitrumInboxInterface_FilterInboxMessageDelivered_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterInboxMessageDeliveredFromOrigin provides a mock function with given fields: opts, messageNum
 func (_m *ArbitrumInboxInterface) FilterInboxMessageDeliveredFromOrigin(opts *bind.FilterOpts, messageNum []*big.Int) (*arbitrum_inbox.ArbitrumInboxInboxMessageDeliveredFromOriginIterator, error) {
 	ret := _m.Called(opts, messageNum)
@@ -191,6 +341,35 @@ func (_m *ArbitrumInboxInterface) FilterInboxMessageDeliveredFromOrigin(opts *bi
 	}
 
 	return r0, r1
+}
+
+// ArbitrumInboxInterface_FilterInboxMessageDeliveredFromOrigin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterInboxMessageDeliveredFromOrigin'
+type ArbitrumInboxInterface_FilterInboxMessageDeliveredFromOrigin_Call struct {
+	*mock.Call
+}
+
+// FilterInboxMessageDeliveredFromOrigin is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - messageNum []*big.Int
+func (_e *ArbitrumInboxInterface_Expecter) FilterInboxMessageDeliveredFromOrigin(opts interface{}, messageNum interface{}) *ArbitrumInboxInterface_FilterInboxMessageDeliveredFromOrigin_Call {
+	return &ArbitrumInboxInterface_FilterInboxMessageDeliveredFromOrigin_Call{Call: _e.mock.On("FilterInboxMessageDeliveredFromOrigin", opts, messageNum)}
+}
+
+func (_c *ArbitrumInboxInterface_FilterInboxMessageDeliveredFromOrigin_Call) Run(run func(opts *bind.FilterOpts, messageNum []*big.Int)) *ArbitrumInboxInterface_FilterInboxMessageDeliveredFromOrigin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_FilterInboxMessageDeliveredFromOrigin_Call) Return(_a0 *arbitrum_inbox.ArbitrumInboxInboxMessageDeliveredFromOriginIterator, _a1 error) *ArbitrumInboxInterface_FilterInboxMessageDeliveredFromOrigin_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_FilterInboxMessageDeliveredFromOrigin_Call) RunAndReturn(run func(*bind.FilterOpts, []*big.Int) (*arbitrum_inbox.ArbitrumInboxInboxMessageDeliveredFromOriginIterator, error)) *ArbitrumInboxInterface_FilterInboxMessageDeliveredFromOrigin_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetProxyAdmin provides a mock function with given fields: opts
@@ -223,6 +402,34 @@ func (_m *ArbitrumInboxInterface) GetProxyAdmin(opts *bind.CallOpts) (common.Add
 	return r0, r1
 }
 
+// ArbitrumInboxInterface_GetProxyAdmin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetProxyAdmin'
+type ArbitrumInboxInterface_GetProxyAdmin_Call struct {
+	*mock.Call
+}
+
+// GetProxyAdmin is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *ArbitrumInboxInterface_Expecter) GetProxyAdmin(opts interface{}) *ArbitrumInboxInterface_GetProxyAdmin_Call {
+	return &ArbitrumInboxInterface_GetProxyAdmin_Call{Call: _e.mock.On("GetProxyAdmin", opts)}
+}
+
+func (_c *ArbitrumInboxInterface_GetProxyAdmin_Call) Run(run func(opts *bind.CallOpts)) *ArbitrumInboxInterface_GetProxyAdmin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_GetProxyAdmin_Call) Return(_a0 common.Address, _a1 error) *ArbitrumInboxInterface_GetProxyAdmin_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_GetProxyAdmin_Call) RunAndReturn(run func(*bind.CallOpts) (common.Address, error)) *ArbitrumInboxInterface_GetProxyAdmin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Initialize provides a mock function with given fields: opts, _bridge, _sequencerInbox
 func (_m *ArbitrumInboxInterface) Initialize(opts *bind.TransactOpts, _bridge common.Address, _sequencerInbox common.Address) (*types.Transaction, error) {
 	ret := _m.Called(opts, _bridge, _sequencerInbox)
@@ -253,6 +460,36 @@ func (_m *ArbitrumInboxInterface) Initialize(opts *bind.TransactOpts, _bridge co
 	return r0, r1
 }
 
+// ArbitrumInboxInterface_Initialize_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Initialize'
+type ArbitrumInboxInterface_Initialize_Call struct {
+	*mock.Call
+}
+
+// Initialize is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _bridge common.Address
+//   - _sequencerInbox common.Address
+func (_e *ArbitrumInboxInterface_Expecter) Initialize(opts interface{}, _bridge interface{}, _sequencerInbox interface{}) *ArbitrumInboxInterface_Initialize_Call {
+	return &ArbitrumInboxInterface_Initialize_Call{Call: _e.mock.On("Initialize", opts, _bridge, _sequencerInbox)}
+}
+
+func (_c *ArbitrumInboxInterface_Initialize_Call) Run(run func(opts *bind.TransactOpts, _bridge common.Address, _sequencerInbox common.Address)) *ArbitrumInboxInterface_Initialize_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(common.Address))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_Initialize_Call) Return(_a0 *types.Transaction, _a1 error) *ArbitrumInboxInterface_Initialize_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_Initialize_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, common.Address) (*types.Transaction, error)) *ArbitrumInboxInterface_Initialize_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // IsAllowed provides a mock function with given fields: opts, user
 func (_m *ArbitrumInboxInterface) IsAllowed(opts *bind.CallOpts, user common.Address) (bool, error) {
 	ret := _m.Called(opts, user)
@@ -279,6 +516,35 @@ func (_m *ArbitrumInboxInterface) IsAllowed(opts *bind.CallOpts, user common.Add
 	}
 
 	return r0, r1
+}
+
+// ArbitrumInboxInterface_IsAllowed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsAllowed'
+type ArbitrumInboxInterface_IsAllowed_Call struct {
+	*mock.Call
+}
+
+// IsAllowed is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - user common.Address
+func (_e *ArbitrumInboxInterface_Expecter) IsAllowed(opts interface{}, user interface{}) *ArbitrumInboxInterface_IsAllowed_Call {
+	return &ArbitrumInboxInterface_IsAllowed_Call{Call: _e.mock.On("IsAllowed", opts, user)}
+}
+
+func (_c *ArbitrumInboxInterface_IsAllowed_Call) Run(run func(opts *bind.CallOpts, user common.Address)) *ArbitrumInboxInterface_IsAllowed_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_IsAllowed_Call) Return(_a0 bool, _a1 error) *ArbitrumInboxInterface_IsAllowed_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_IsAllowed_Call) RunAndReturn(run func(*bind.CallOpts, common.Address) (bool, error)) *ArbitrumInboxInterface_IsAllowed_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // MaxDataSize provides a mock function with given fields: opts
@@ -311,6 +577,34 @@ func (_m *ArbitrumInboxInterface) MaxDataSize(opts *bind.CallOpts) (*big.Int, er
 	return r0, r1
 }
 
+// ArbitrumInboxInterface_MaxDataSize_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MaxDataSize'
+type ArbitrumInboxInterface_MaxDataSize_Call struct {
+	*mock.Call
+}
+
+// MaxDataSize is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *ArbitrumInboxInterface_Expecter) MaxDataSize(opts interface{}) *ArbitrumInboxInterface_MaxDataSize_Call {
+	return &ArbitrumInboxInterface_MaxDataSize_Call{Call: _e.mock.On("MaxDataSize", opts)}
+}
+
+func (_c *ArbitrumInboxInterface_MaxDataSize_Call) Run(run func(opts *bind.CallOpts)) *ArbitrumInboxInterface_MaxDataSize_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_MaxDataSize_Call) Return(_a0 *big.Int, _a1 error) *ArbitrumInboxInterface_MaxDataSize_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_MaxDataSize_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *ArbitrumInboxInterface_MaxDataSize_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseInboxMessageDelivered provides a mock function with given fields: log
 func (_m *ArbitrumInboxInterface) ParseInboxMessageDelivered(log types.Log) (*arbitrum_inbox.ArbitrumInboxInboxMessageDelivered, error) {
 	ret := _m.Called(log)
@@ -339,6 +633,34 @@ func (_m *ArbitrumInboxInterface) ParseInboxMessageDelivered(log types.Log) (*ar
 	}
 
 	return r0, r1
+}
+
+// ArbitrumInboxInterface_ParseInboxMessageDelivered_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseInboxMessageDelivered'
+type ArbitrumInboxInterface_ParseInboxMessageDelivered_Call struct {
+	*mock.Call
+}
+
+// ParseInboxMessageDelivered is a helper method to define mock.On call
+//   - log types.Log
+func (_e *ArbitrumInboxInterface_Expecter) ParseInboxMessageDelivered(log interface{}) *ArbitrumInboxInterface_ParseInboxMessageDelivered_Call {
+	return &ArbitrumInboxInterface_ParseInboxMessageDelivered_Call{Call: _e.mock.On("ParseInboxMessageDelivered", log)}
+}
+
+func (_c *ArbitrumInboxInterface_ParseInboxMessageDelivered_Call) Run(run func(log types.Log)) *ArbitrumInboxInterface_ParseInboxMessageDelivered_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_ParseInboxMessageDelivered_Call) Return(_a0 *arbitrum_inbox.ArbitrumInboxInboxMessageDelivered, _a1 error) *ArbitrumInboxInterface_ParseInboxMessageDelivered_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_ParseInboxMessageDelivered_Call) RunAndReturn(run func(types.Log) (*arbitrum_inbox.ArbitrumInboxInboxMessageDelivered, error)) *ArbitrumInboxInterface_ParseInboxMessageDelivered_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseInboxMessageDeliveredFromOrigin provides a mock function with given fields: log
@@ -371,6 +693,34 @@ func (_m *ArbitrumInboxInterface) ParseInboxMessageDeliveredFromOrigin(log types
 	return r0, r1
 }
 
+// ArbitrumInboxInterface_ParseInboxMessageDeliveredFromOrigin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseInboxMessageDeliveredFromOrigin'
+type ArbitrumInboxInterface_ParseInboxMessageDeliveredFromOrigin_Call struct {
+	*mock.Call
+}
+
+// ParseInboxMessageDeliveredFromOrigin is a helper method to define mock.On call
+//   - log types.Log
+func (_e *ArbitrumInboxInterface_Expecter) ParseInboxMessageDeliveredFromOrigin(log interface{}) *ArbitrumInboxInterface_ParseInboxMessageDeliveredFromOrigin_Call {
+	return &ArbitrumInboxInterface_ParseInboxMessageDeliveredFromOrigin_Call{Call: _e.mock.On("ParseInboxMessageDeliveredFromOrigin", log)}
+}
+
+func (_c *ArbitrumInboxInterface_ParseInboxMessageDeliveredFromOrigin_Call) Run(run func(log types.Log)) *ArbitrumInboxInterface_ParseInboxMessageDeliveredFromOrigin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_ParseInboxMessageDeliveredFromOrigin_Call) Return(_a0 *arbitrum_inbox.ArbitrumInboxInboxMessageDeliveredFromOrigin, _a1 error) *ArbitrumInboxInterface_ParseInboxMessageDeliveredFromOrigin_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_ParseInboxMessageDeliveredFromOrigin_Call) RunAndReturn(run func(types.Log) (*arbitrum_inbox.ArbitrumInboxInboxMessageDeliveredFromOrigin, error)) *ArbitrumInboxInterface_ParseInboxMessageDeliveredFromOrigin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseLog provides a mock function with given fields: log
 func (_m *ArbitrumInboxInterface) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	ret := _m.Called(log)
@@ -399,6 +749,34 @@ func (_m *ArbitrumInboxInterface) ParseLog(log types.Log) (generated.AbigenLog, 
 	}
 
 	return r0, r1
+}
+
+// ArbitrumInboxInterface_ParseLog_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseLog'
+type ArbitrumInboxInterface_ParseLog_Call struct {
+	*mock.Call
+}
+
+// ParseLog is a helper method to define mock.On call
+//   - log types.Log
+func (_e *ArbitrumInboxInterface_Expecter) ParseLog(log interface{}) *ArbitrumInboxInterface_ParseLog_Call {
+	return &ArbitrumInboxInterface_ParseLog_Call{Call: _e.mock.On("ParseLog", log)}
+}
+
+func (_c *ArbitrumInboxInterface_ParseLog_Call) Run(run func(log types.Log)) *ArbitrumInboxInterface_ParseLog_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_ParseLog_Call) Return(_a0 generated.AbigenLog, _a1 error) *ArbitrumInboxInterface_ParseLog_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_ParseLog_Call) RunAndReturn(run func(types.Log) (generated.AbigenLog, error)) *ArbitrumInboxInterface_ParseLog_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Pause provides a mock function with given fields: opts
@@ -431,6 +809,34 @@ func (_m *ArbitrumInboxInterface) Pause(opts *bind.TransactOpts) (*types.Transac
 	return r0, r1
 }
 
+// ArbitrumInboxInterface_Pause_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Pause'
+type ArbitrumInboxInterface_Pause_Call struct {
+	*mock.Call
+}
+
+// Pause is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+func (_e *ArbitrumInboxInterface_Expecter) Pause(opts interface{}) *ArbitrumInboxInterface_Pause_Call {
+	return &ArbitrumInboxInterface_Pause_Call{Call: _e.mock.On("Pause", opts)}
+}
+
+func (_c *ArbitrumInboxInterface_Pause_Call) Run(run func(opts *bind.TransactOpts)) *ArbitrumInboxInterface_Pause_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_Pause_Call) Return(_a0 *types.Transaction, _a1 error) *ArbitrumInboxInterface_Pause_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_Pause_Call) RunAndReturn(run func(*bind.TransactOpts) (*types.Transaction, error)) *ArbitrumInboxInterface_Pause_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendContractTransaction provides a mock function with given fields: opts, gasLimit, maxFeePerGas, to, value, data
 func (_m *ArbitrumInboxInterface) SendContractTransaction(opts *bind.TransactOpts, gasLimit *big.Int, maxFeePerGas *big.Int, to common.Address, value *big.Int, data []byte) (*types.Transaction, error) {
 	ret := _m.Called(opts, gasLimit, maxFeePerGas, to, value, data)
@@ -459,6 +865,39 @@ func (_m *ArbitrumInboxInterface) SendContractTransaction(opts *bind.TransactOpt
 	}
 
 	return r0, r1
+}
+
+// ArbitrumInboxInterface_SendContractTransaction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendContractTransaction'
+type ArbitrumInboxInterface_SendContractTransaction_Call struct {
+	*mock.Call
+}
+
+// SendContractTransaction is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - gasLimit *big.Int
+//   - maxFeePerGas *big.Int
+//   - to common.Address
+//   - value *big.Int
+//   - data []byte
+func (_e *ArbitrumInboxInterface_Expecter) SendContractTransaction(opts interface{}, gasLimit interface{}, maxFeePerGas interface{}, to interface{}, value interface{}, data interface{}) *ArbitrumInboxInterface_SendContractTransaction_Call {
+	return &ArbitrumInboxInterface_SendContractTransaction_Call{Call: _e.mock.On("SendContractTransaction", opts, gasLimit, maxFeePerGas, to, value, data)}
+}
+
+func (_c *ArbitrumInboxInterface_SendContractTransaction_Call) Run(run func(opts *bind.TransactOpts, gasLimit *big.Int, maxFeePerGas *big.Int, to common.Address, value *big.Int, data []byte)) *ArbitrumInboxInterface_SendContractTransaction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(*big.Int), args[2].(*big.Int), args[3].(common.Address), args[4].(*big.Int), args[5].([]byte))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_SendContractTransaction_Call) Return(_a0 *types.Transaction, _a1 error) *ArbitrumInboxInterface_SendContractTransaction_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_SendContractTransaction_Call) RunAndReturn(run func(*bind.TransactOpts, *big.Int, *big.Int, common.Address, *big.Int, []byte) (*types.Transaction, error)) *ArbitrumInboxInterface_SendContractTransaction_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SendL2Message provides a mock function with given fields: opts, messageData
@@ -491,6 +930,35 @@ func (_m *ArbitrumInboxInterface) SendL2Message(opts *bind.TransactOpts, message
 	return r0, r1
 }
 
+// ArbitrumInboxInterface_SendL2Message_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendL2Message'
+type ArbitrumInboxInterface_SendL2Message_Call struct {
+	*mock.Call
+}
+
+// SendL2Message is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - messageData []byte
+func (_e *ArbitrumInboxInterface_Expecter) SendL2Message(opts interface{}, messageData interface{}) *ArbitrumInboxInterface_SendL2Message_Call {
+	return &ArbitrumInboxInterface_SendL2Message_Call{Call: _e.mock.On("SendL2Message", opts, messageData)}
+}
+
+func (_c *ArbitrumInboxInterface_SendL2Message_Call) Run(run func(opts *bind.TransactOpts, messageData []byte)) *ArbitrumInboxInterface_SendL2Message_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].([]byte))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_SendL2Message_Call) Return(_a0 *types.Transaction, _a1 error) *ArbitrumInboxInterface_SendL2Message_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_SendL2Message_Call) RunAndReturn(run func(*bind.TransactOpts, []byte) (*types.Transaction, error)) *ArbitrumInboxInterface_SendL2Message_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendL2MessageFromOrigin provides a mock function with given fields: opts, messageData
 func (_m *ArbitrumInboxInterface) SendL2MessageFromOrigin(opts *bind.TransactOpts, messageData []byte) (*types.Transaction, error) {
 	ret := _m.Called(opts, messageData)
@@ -519,6 +987,35 @@ func (_m *ArbitrumInboxInterface) SendL2MessageFromOrigin(opts *bind.TransactOpt
 	}
 
 	return r0, r1
+}
+
+// ArbitrumInboxInterface_SendL2MessageFromOrigin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendL2MessageFromOrigin'
+type ArbitrumInboxInterface_SendL2MessageFromOrigin_Call struct {
+	*mock.Call
+}
+
+// SendL2MessageFromOrigin is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - messageData []byte
+func (_e *ArbitrumInboxInterface_Expecter) SendL2MessageFromOrigin(opts interface{}, messageData interface{}) *ArbitrumInboxInterface_SendL2MessageFromOrigin_Call {
+	return &ArbitrumInboxInterface_SendL2MessageFromOrigin_Call{Call: _e.mock.On("SendL2MessageFromOrigin", opts, messageData)}
+}
+
+func (_c *ArbitrumInboxInterface_SendL2MessageFromOrigin_Call) Run(run func(opts *bind.TransactOpts, messageData []byte)) *ArbitrumInboxInterface_SendL2MessageFromOrigin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].([]byte))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_SendL2MessageFromOrigin_Call) Return(_a0 *types.Transaction, _a1 error) *ArbitrumInboxInterface_SendL2MessageFromOrigin_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_SendL2MessageFromOrigin_Call) RunAndReturn(run func(*bind.TransactOpts, []byte) (*types.Transaction, error)) *ArbitrumInboxInterface_SendL2MessageFromOrigin_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SendUnsignedTransaction provides a mock function with given fields: opts, gasLimit, maxFeePerGas, nonce, to, value, data
@@ -551,6 +1048,40 @@ func (_m *ArbitrumInboxInterface) SendUnsignedTransaction(opts *bind.TransactOpt
 	return r0, r1
 }
 
+// ArbitrumInboxInterface_SendUnsignedTransaction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendUnsignedTransaction'
+type ArbitrumInboxInterface_SendUnsignedTransaction_Call struct {
+	*mock.Call
+}
+
+// SendUnsignedTransaction is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - gasLimit *big.Int
+//   - maxFeePerGas *big.Int
+//   - nonce *big.Int
+//   - to common.Address
+//   - value *big.Int
+//   - data []byte
+func (_e *ArbitrumInboxInterface_Expecter) SendUnsignedTransaction(opts interface{}, gasLimit interface{}, maxFeePerGas interface{}, nonce interface{}, to interface{}, value interface{}, data interface{}) *ArbitrumInboxInterface_SendUnsignedTransaction_Call {
+	return &ArbitrumInboxInterface_SendUnsignedTransaction_Call{Call: _e.mock.On("SendUnsignedTransaction", opts, gasLimit, maxFeePerGas, nonce, to, value, data)}
+}
+
+func (_c *ArbitrumInboxInterface_SendUnsignedTransaction_Call) Run(run func(opts *bind.TransactOpts, gasLimit *big.Int, maxFeePerGas *big.Int, nonce *big.Int, to common.Address, value *big.Int, data []byte)) *ArbitrumInboxInterface_SendUnsignedTransaction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(*big.Int), args[2].(*big.Int), args[3].(*big.Int), args[4].(common.Address), args[5].(*big.Int), args[6].([]byte))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_SendUnsignedTransaction_Call) Return(_a0 *types.Transaction, _a1 error) *ArbitrumInboxInterface_SendUnsignedTransaction_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_SendUnsignedTransaction_Call) RunAndReturn(run func(*bind.TransactOpts, *big.Int, *big.Int, *big.Int, common.Address, *big.Int, []byte) (*types.Transaction, error)) *ArbitrumInboxInterface_SendUnsignedTransaction_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SequencerInbox provides a mock function with given fields: opts
 func (_m *ArbitrumInboxInterface) SequencerInbox(opts *bind.CallOpts) (common.Address, error) {
 	ret := _m.Called(opts)
@@ -579,6 +1110,34 @@ func (_m *ArbitrumInboxInterface) SequencerInbox(opts *bind.CallOpts) (common.Ad
 	}
 
 	return r0, r1
+}
+
+// ArbitrumInboxInterface_SequencerInbox_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SequencerInbox'
+type ArbitrumInboxInterface_SequencerInbox_Call struct {
+	*mock.Call
+}
+
+// SequencerInbox is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *ArbitrumInboxInterface_Expecter) SequencerInbox(opts interface{}) *ArbitrumInboxInterface_SequencerInbox_Call {
+	return &ArbitrumInboxInterface_SequencerInbox_Call{Call: _e.mock.On("SequencerInbox", opts)}
+}
+
+func (_c *ArbitrumInboxInterface_SequencerInbox_Call) Run(run func(opts *bind.CallOpts)) *ArbitrumInboxInterface_SequencerInbox_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_SequencerInbox_Call) Return(_a0 common.Address, _a1 error) *ArbitrumInboxInterface_SequencerInbox_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_SequencerInbox_Call) RunAndReturn(run func(*bind.CallOpts) (common.Address, error)) *ArbitrumInboxInterface_SequencerInbox_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SetAllowList provides a mock function with given fields: opts, user, val
@@ -611,6 +1170,36 @@ func (_m *ArbitrumInboxInterface) SetAllowList(opts *bind.TransactOpts, user []c
 	return r0, r1
 }
 
+// ArbitrumInboxInterface_SetAllowList_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetAllowList'
+type ArbitrumInboxInterface_SetAllowList_Call struct {
+	*mock.Call
+}
+
+// SetAllowList is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - user []common.Address
+//   - val []bool
+func (_e *ArbitrumInboxInterface_Expecter) SetAllowList(opts interface{}, user interface{}, val interface{}) *ArbitrumInboxInterface_SetAllowList_Call {
+	return &ArbitrumInboxInterface_SetAllowList_Call{Call: _e.mock.On("SetAllowList", opts, user, val)}
+}
+
+func (_c *ArbitrumInboxInterface_SetAllowList_Call) Run(run func(opts *bind.TransactOpts, user []common.Address, val []bool)) *ArbitrumInboxInterface_SetAllowList_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].([]common.Address), args[2].([]bool))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_SetAllowList_Call) Return(_a0 *types.Transaction, _a1 error) *ArbitrumInboxInterface_SetAllowList_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_SetAllowList_Call) RunAndReturn(run func(*bind.TransactOpts, []common.Address, []bool) (*types.Transaction, error)) *ArbitrumInboxInterface_SetAllowList_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetAllowListEnabled provides a mock function with given fields: opts, _allowListEnabled
 func (_m *ArbitrumInboxInterface) SetAllowListEnabled(opts *bind.TransactOpts, _allowListEnabled bool) (*types.Transaction, error) {
 	ret := _m.Called(opts, _allowListEnabled)
@@ -639,6 +1228,35 @@ func (_m *ArbitrumInboxInterface) SetAllowListEnabled(opts *bind.TransactOpts, _
 	}
 
 	return r0, r1
+}
+
+// ArbitrumInboxInterface_SetAllowListEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetAllowListEnabled'
+type ArbitrumInboxInterface_SetAllowListEnabled_Call struct {
+	*mock.Call
+}
+
+// SetAllowListEnabled is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _allowListEnabled bool
+func (_e *ArbitrumInboxInterface_Expecter) SetAllowListEnabled(opts interface{}, _allowListEnabled interface{}) *ArbitrumInboxInterface_SetAllowListEnabled_Call {
+	return &ArbitrumInboxInterface_SetAllowListEnabled_Call{Call: _e.mock.On("SetAllowListEnabled", opts, _allowListEnabled)}
+}
+
+func (_c *ArbitrumInboxInterface_SetAllowListEnabled_Call) Run(run func(opts *bind.TransactOpts, _allowListEnabled bool)) *ArbitrumInboxInterface_SetAllowListEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(bool))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_SetAllowListEnabled_Call) Return(_a0 *types.Transaction, _a1 error) *ArbitrumInboxInterface_SetAllowListEnabled_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_SetAllowListEnabled_Call) RunAndReturn(run func(*bind.TransactOpts, bool) (*types.Transaction, error)) *ArbitrumInboxInterface_SetAllowListEnabled_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Unpause provides a mock function with given fields: opts
@@ -671,6 +1289,34 @@ func (_m *ArbitrumInboxInterface) Unpause(opts *bind.TransactOpts) (*types.Trans
 	return r0, r1
 }
 
+// ArbitrumInboxInterface_Unpause_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Unpause'
+type ArbitrumInboxInterface_Unpause_Call struct {
+	*mock.Call
+}
+
+// Unpause is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+func (_e *ArbitrumInboxInterface_Expecter) Unpause(opts interface{}) *ArbitrumInboxInterface_Unpause_Call {
+	return &ArbitrumInboxInterface_Unpause_Call{Call: _e.mock.On("Unpause", opts)}
+}
+
+func (_c *ArbitrumInboxInterface_Unpause_Call) Run(run func(opts *bind.TransactOpts)) *ArbitrumInboxInterface_Unpause_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_Unpause_Call) Return(_a0 *types.Transaction, _a1 error) *ArbitrumInboxInterface_Unpause_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_Unpause_Call) RunAndReturn(run func(*bind.TransactOpts) (*types.Transaction, error)) *ArbitrumInboxInterface_Unpause_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchInboxMessageDelivered provides a mock function with given fields: opts, sink, messageNum
 func (_m *ArbitrumInboxInterface) WatchInboxMessageDelivered(opts *bind.WatchOpts, sink chan<- *arbitrum_inbox.ArbitrumInboxInboxMessageDelivered, messageNum []*big.Int) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, messageNum)
@@ -701,6 +1347,36 @@ func (_m *ArbitrumInboxInterface) WatchInboxMessageDelivered(opts *bind.WatchOpt
 	return r0, r1
 }
 
+// ArbitrumInboxInterface_WatchInboxMessageDelivered_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchInboxMessageDelivered'
+type ArbitrumInboxInterface_WatchInboxMessageDelivered_Call struct {
+	*mock.Call
+}
+
+// WatchInboxMessageDelivered is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *arbitrum_inbox.ArbitrumInboxInboxMessageDelivered
+//   - messageNum []*big.Int
+func (_e *ArbitrumInboxInterface_Expecter) WatchInboxMessageDelivered(opts interface{}, sink interface{}, messageNum interface{}) *ArbitrumInboxInterface_WatchInboxMessageDelivered_Call {
+	return &ArbitrumInboxInterface_WatchInboxMessageDelivered_Call{Call: _e.mock.On("WatchInboxMessageDelivered", opts, sink, messageNum)}
+}
+
+func (_c *ArbitrumInboxInterface_WatchInboxMessageDelivered_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *arbitrum_inbox.ArbitrumInboxInboxMessageDelivered, messageNum []*big.Int)) *ArbitrumInboxInterface_WatchInboxMessageDelivered_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *arbitrum_inbox.ArbitrumInboxInboxMessageDelivered), args[2].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_WatchInboxMessageDelivered_Call) Return(_a0 event.Subscription, _a1 error) *ArbitrumInboxInterface_WatchInboxMessageDelivered_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_WatchInboxMessageDelivered_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *arbitrum_inbox.ArbitrumInboxInboxMessageDelivered, []*big.Int) (event.Subscription, error)) *ArbitrumInboxInterface_WatchInboxMessageDelivered_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchInboxMessageDeliveredFromOrigin provides a mock function with given fields: opts, sink, messageNum
 func (_m *ArbitrumInboxInterface) WatchInboxMessageDeliveredFromOrigin(opts *bind.WatchOpts, sink chan<- *arbitrum_inbox.ArbitrumInboxInboxMessageDeliveredFromOrigin, messageNum []*big.Int) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, messageNum)
@@ -729,6 +1405,36 @@ func (_m *ArbitrumInboxInterface) WatchInboxMessageDeliveredFromOrigin(opts *bin
 	}
 
 	return r0, r1
+}
+
+// ArbitrumInboxInterface_WatchInboxMessageDeliveredFromOrigin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchInboxMessageDeliveredFromOrigin'
+type ArbitrumInboxInterface_WatchInboxMessageDeliveredFromOrigin_Call struct {
+	*mock.Call
+}
+
+// WatchInboxMessageDeliveredFromOrigin is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *arbitrum_inbox.ArbitrumInboxInboxMessageDeliveredFromOrigin
+//   - messageNum []*big.Int
+func (_e *ArbitrumInboxInterface_Expecter) WatchInboxMessageDeliveredFromOrigin(opts interface{}, sink interface{}, messageNum interface{}) *ArbitrumInboxInterface_WatchInboxMessageDeliveredFromOrigin_Call {
+	return &ArbitrumInboxInterface_WatchInboxMessageDeliveredFromOrigin_Call{Call: _e.mock.On("WatchInboxMessageDeliveredFromOrigin", opts, sink, messageNum)}
+}
+
+func (_c *ArbitrumInboxInterface_WatchInboxMessageDeliveredFromOrigin_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *arbitrum_inbox.ArbitrumInboxInboxMessageDeliveredFromOrigin, messageNum []*big.Int)) *ArbitrumInboxInterface_WatchInboxMessageDeliveredFromOrigin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *arbitrum_inbox.ArbitrumInboxInboxMessageDeliveredFromOrigin), args[2].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_WatchInboxMessageDeliveredFromOrigin_Call) Return(_a0 event.Subscription, _a1 error) *ArbitrumInboxInterface_WatchInboxMessageDeliveredFromOrigin_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumInboxInterface_WatchInboxMessageDeliveredFromOrigin_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *arbitrum_inbox.ArbitrumInboxInboxMessageDeliveredFromOrigin, []*big.Int) (event.Subscription, error)) *ArbitrumInboxInterface_WatchInboxMessageDeliveredFromOrigin_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewArbitrumInboxInterface creates a new instance of ArbitrumInboxInterface. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

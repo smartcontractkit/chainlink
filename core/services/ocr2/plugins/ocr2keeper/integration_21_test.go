@@ -1166,6 +1166,7 @@ func (c *feedLookupUpkeepController) EmitEvents(
 	ctx := testutils.Context(t)
 
 	for i := 0; i < count && ctx.Err() == nil; i++ {
+		blockBeforeOrder, _ := backend.BlockByHash(ctx, backend.Commit())
 		_, err := c.protocol.ExecuteLimitOrder(c.protocolOwner, big.NewInt(1000), big.NewInt(10000), c.logSrcAddr)
 		require.NoError(t, err, "no error expected from limit order exec")
 
@@ -1182,7 +1183,7 @@ func (c *feedLookupUpkeepController) EmitEvents(
 		iter, _ := c.protocol.FilterLimitOrderExecuted(
 			&bind.FilterOpts{
 				Context: testutils.Context(t),
-				Start:   block.NumberU64() - 1,
+				Start:   blockBeforeOrder.NumberU64() - 1,
 			},
 			[]*big.Int{big.NewInt(1000)},
 			[]*big.Int{big.NewInt(10000)},

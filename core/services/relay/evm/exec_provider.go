@@ -13,11 +13,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
@@ -156,6 +158,10 @@ func (s *SrcExecProvider) Codec() commontypes.Codec {
 	return nil
 }
 
+func (s *SrcExecProvider) GetTransactionStatus(ctx context.Context, transactionID string) (types.TransactionStatus, error) {
+	return 0, fmt.Errorf("invalid: GetTransactionStatus called on SrcExecProvider. It should only be called on DstExecProvider")
+}
+
 func (s *SrcExecProvider) NewCommitStoreReader(ctx context.Context, addr cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
 	commitStoreReader = NewIncompleteSourceCommitStoreReader(s.estimator, s.maxGasPrice)
 	return
@@ -230,6 +236,7 @@ type DstExecProvider struct {
 	configWatcher       *configWatcher
 	gasEstimator        gas.EvmFeeEstimator
 	maxGasPrice         big.Int
+	txm                 txmgr.TxManager
 	offRampAddress      cciptypes.Address
 
 	// these values are nil and are updated for Close()
@@ -246,6 +253,7 @@ func NewDstExecProvider(
 	configWatcher *configWatcher,
 	gasEstimator gas.EvmFeeEstimator,
 	maxGasPrice big.Int,
+	txm txmgr.TxManager,
 	offRampAddress cciptypes.Address,
 ) (commontypes.CCIPExecProvider, error) {
 	return &DstExecProvider{
@@ -258,6 +266,7 @@ func NewDstExecProvider(
 		configWatcher:       configWatcher,
 		gasEstimator:        gasEstimator,
 		maxGasPrice:         maxGasPrice,
+		txm:                 txm,
 		offRampAddress:      offRampAddress,
 	}, nil
 }
@@ -327,6 +336,10 @@ func (d *DstExecProvider) ChainReader() commontypes.ContractReader {
 
 func (d *DstExecProvider) Codec() commontypes.Codec {
 	return nil
+}
+
+func (d *DstExecProvider) GetTransactionStatus(ctx context.Context, transactionID string) (types.TransactionStatus, error) {
+	return d.txm.GetTransactionStatus(ctx, transactionID)
 }
 
 func (d *DstExecProvider) NewCommitStoreReader(ctx context.Context, addr cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {

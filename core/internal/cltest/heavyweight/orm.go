@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/jmoiron/sqlx"
@@ -68,7 +67,8 @@ func (c Kind) PrepareDB(t testing.TB, overrideFn func(c *chainlink.Config, s *ch
 	db, err := pg.NewConnection(migrationTestDBURL, dialects.Postgres, gcfg.Database())
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		assert.NoError(t, db.Close())
+		require.NoError(t, db.Close()) // must close before dropping
+		require.NoError(t, testdb.Drop(*testutils.MustParseURL(t, migrationTestDBURL)))
 		os.RemoveAll(gcfg.RootDir())
 	})
 

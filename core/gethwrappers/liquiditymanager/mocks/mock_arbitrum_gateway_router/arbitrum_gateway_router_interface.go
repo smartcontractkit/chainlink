@@ -25,6 +25,14 @@ type ArbitrumGatewayRouterInterface struct {
 	mock.Mock
 }
 
+type ArbitrumGatewayRouterInterface_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *ArbitrumGatewayRouterInterface) EXPECT() *ArbitrumGatewayRouterInterface_Expecter {
+	return &ArbitrumGatewayRouterInterface_Expecter{mock: &_m.Mock}
+}
+
 // Address provides a mock function with given fields:
 func (_m *ArbitrumGatewayRouterInterface) Address() common.Address {
 	ret := _m.Called()
@@ -43,6 +51,33 @@ func (_m *ArbitrumGatewayRouterInterface) Address() common.Address {
 	}
 
 	return r0
+}
+
+// ArbitrumGatewayRouterInterface_Address_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Address'
+type ArbitrumGatewayRouterInterface_Address_Call struct {
+	*mock.Call
+}
+
+// Address is a helper method to define mock.On call
+func (_e *ArbitrumGatewayRouterInterface_Expecter) Address() *ArbitrumGatewayRouterInterface_Address_Call {
+	return &ArbitrumGatewayRouterInterface_Address_Call{Call: _e.mock.On("Address")}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_Address_Call) Run(run func()) *ArbitrumGatewayRouterInterface_Address_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_Address_Call) Return(_a0 common.Address) *ArbitrumGatewayRouterInterface_Address_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_Address_Call) RunAndReturn(run func() common.Address) *ArbitrumGatewayRouterInterface_Address_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // CalculateL2TokenAddress provides a mock function with given fields: opts, l1ERC20
@@ -75,6 +110,35 @@ func (_m *ArbitrumGatewayRouterInterface) CalculateL2TokenAddress(opts *bind.Cal
 	return r0, r1
 }
 
+// ArbitrumGatewayRouterInterface_CalculateL2TokenAddress_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CalculateL2TokenAddress'
+type ArbitrumGatewayRouterInterface_CalculateL2TokenAddress_Call struct {
+	*mock.Call
+}
+
+// CalculateL2TokenAddress is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - l1ERC20 common.Address
+func (_e *ArbitrumGatewayRouterInterface_Expecter) CalculateL2TokenAddress(opts interface{}, l1ERC20 interface{}) *ArbitrumGatewayRouterInterface_CalculateL2TokenAddress_Call {
+	return &ArbitrumGatewayRouterInterface_CalculateL2TokenAddress_Call{Call: _e.mock.On("CalculateL2TokenAddress", opts, l1ERC20)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_CalculateL2TokenAddress_Call) Run(run func(opts *bind.CallOpts, l1ERC20 common.Address)) *ArbitrumGatewayRouterInterface_CalculateL2TokenAddress_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_CalculateL2TokenAddress_Call) Return(_a0 common.Address, _a1 error) *ArbitrumGatewayRouterInterface_CalculateL2TokenAddress_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_CalculateL2TokenAddress_Call) RunAndReturn(run func(*bind.CallOpts, common.Address) (common.Address, error)) *ArbitrumGatewayRouterInterface_CalculateL2TokenAddress_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DefaultGateway provides a mock function with given fields: opts
 func (_m *ArbitrumGatewayRouterInterface) DefaultGateway(opts *bind.CallOpts) (common.Address, error) {
 	ret := _m.Called(opts)
@@ -103,6 +167,34 @@ func (_m *ArbitrumGatewayRouterInterface) DefaultGateway(opts *bind.CallOpts) (c
 	}
 
 	return r0, r1
+}
+
+// ArbitrumGatewayRouterInterface_DefaultGateway_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DefaultGateway'
+type ArbitrumGatewayRouterInterface_DefaultGateway_Call struct {
+	*mock.Call
+}
+
+// DefaultGateway is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *ArbitrumGatewayRouterInterface_Expecter) DefaultGateway(opts interface{}) *ArbitrumGatewayRouterInterface_DefaultGateway_Call {
+	return &ArbitrumGatewayRouterInterface_DefaultGateway_Call{Call: _e.mock.On("DefaultGateway", opts)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_DefaultGateway_Call) Run(run func(opts *bind.CallOpts)) *ArbitrumGatewayRouterInterface_DefaultGateway_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_DefaultGateway_Call) Return(_a0 common.Address, _a1 error) *ArbitrumGatewayRouterInterface_DefaultGateway_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_DefaultGateway_Call) RunAndReturn(run func(*bind.CallOpts) (common.Address, error)) *ArbitrumGatewayRouterInterface_DefaultGateway_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterDefaultGatewayUpdated provides a mock function with given fields: opts
@@ -135,6 +227,34 @@ func (_m *ArbitrumGatewayRouterInterface) FilterDefaultGatewayUpdated(opts *bind
 	return r0, r1
 }
 
+// ArbitrumGatewayRouterInterface_FilterDefaultGatewayUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterDefaultGatewayUpdated'
+type ArbitrumGatewayRouterInterface_FilterDefaultGatewayUpdated_Call struct {
+	*mock.Call
+}
+
+// FilterDefaultGatewayUpdated is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+func (_e *ArbitrumGatewayRouterInterface_Expecter) FilterDefaultGatewayUpdated(opts interface{}) *ArbitrumGatewayRouterInterface_FilterDefaultGatewayUpdated_Call {
+	return &ArbitrumGatewayRouterInterface_FilterDefaultGatewayUpdated_Call{Call: _e.mock.On("FilterDefaultGatewayUpdated", opts)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_FilterDefaultGatewayUpdated_Call) Run(run func(opts *bind.FilterOpts)) *ArbitrumGatewayRouterInterface_FilterDefaultGatewayUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_FilterDefaultGatewayUpdated_Call) Return(_a0 *arbitrum_gateway_router.ArbitrumGatewayRouterDefaultGatewayUpdatedIterator, _a1 error) *ArbitrumGatewayRouterInterface_FilterDefaultGatewayUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_FilterDefaultGatewayUpdated_Call) RunAndReturn(run func(*bind.FilterOpts) (*arbitrum_gateway_router.ArbitrumGatewayRouterDefaultGatewayUpdatedIterator, error)) *ArbitrumGatewayRouterInterface_FilterDefaultGatewayUpdated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterGatewaySet provides a mock function with given fields: opts, l1Token, gateway
 func (_m *ArbitrumGatewayRouterInterface) FilterGatewaySet(opts *bind.FilterOpts, l1Token []common.Address, gateway []common.Address) (*arbitrum_gateway_router.ArbitrumGatewayRouterGatewaySetIterator, error) {
 	ret := _m.Called(opts, l1Token, gateway)
@@ -163,6 +283,36 @@ func (_m *ArbitrumGatewayRouterInterface) FilterGatewaySet(opts *bind.FilterOpts
 	}
 
 	return r0, r1
+}
+
+// ArbitrumGatewayRouterInterface_FilterGatewaySet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterGatewaySet'
+type ArbitrumGatewayRouterInterface_FilterGatewaySet_Call struct {
+	*mock.Call
+}
+
+// FilterGatewaySet is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - l1Token []common.Address
+//   - gateway []common.Address
+func (_e *ArbitrumGatewayRouterInterface_Expecter) FilterGatewaySet(opts interface{}, l1Token interface{}, gateway interface{}) *ArbitrumGatewayRouterInterface_FilterGatewaySet_Call {
+	return &ArbitrumGatewayRouterInterface_FilterGatewaySet_Call{Call: _e.mock.On("FilterGatewaySet", opts, l1Token, gateway)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_FilterGatewaySet_Call) Run(run func(opts *bind.FilterOpts, l1Token []common.Address, gateway []common.Address)) *ArbitrumGatewayRouterInterface_FilterGatewaySet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_FilterGatewaySet_Call) Return(_a0 *arbitrum_gateway_router.ArbitrumGatewayRouterGatewaySetIterator, _a1 error) *ArbitrumGatewayRouterInterface_FilterGatewaySet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_FilterGatewaySet_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address) (*arbitrum_gateway_router.ArbitrumGatewayRouterGatewaySetIterator, error)) *ArbitrumGatewayRouterInterface_FilterGatewaySet_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterTransferRouted provides a mock function with given fields: opts, token, _userFrom, _userTo
@@ -195,6 +345,37 @@ func (_m *ArbitrumGatewayRouterInterface) FilterTransferRouted(opts *bind.Filter
 	return r0, r1
 }
 
+// ArbitrumGatewayRouterInterface_FilterTransferRouted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterTransferRouted'
+type ArbitrumGatewayRouterInterface_FilterTransferRouted_Call struct {
+	*mock.Call
+}
+
+// FilterTransferRouted is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - token []common.Address
+//   - _userFrom []common.Address
+//   - _userTo []common.Address
+func (_e *ArbitrumGatewayRouterInterface_Expecter) FilterTransferRouted(opts interface{}, token interface{}, _userFrom interface{}, _userTo interface{}) *ArbitrumGatewayRouterInterface_FilterTransferRouted_Call {
+	return &ArbitrumGatewayRouterInterface_FilterTransferRouted_Call{Call: _e.mock.On("FilterTransferRouted", opts, token, _userFrom, _userTo)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_FilterTransferRouted_Call) Run(run func(opts *bind.FilterOpts, token []common.Address, _userFrom []common.Address, _userTo []common.Address)) *ArbitrumGatewayRouterInterface_FilterTransferRouted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]common.Address), args[3].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_FilterTransferRouted_Call) Return(_a0 *arbitrum_gateway_router.ArbitrumGatewayRouterTransferRoutedIterator, _a1 error) *ArbitrumGatewayRouterInterface_FilterTransferRouted_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_FilterTransferRouted_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address, []common.Address) (*arbitrum_gateway_router.ArbitrumGatewayRouterTransferRoutedIterator, error)) *ArbitrumGatewayRouterInterface_FilterTransferRouted_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FinalizeInboundTransfer provides a mock function with given fields: opts, _token, _from, _to, _amount, _data
 func (_m *ArbitrumGatewayRouterInterface) FinalizeInboundTransfer(opts *bind.TransactOpts, _token common.Address, _from common.Address, _to common.Address, _amount *big.Int, _data []byte) (*types.Transaction, error) {
 	ret := _m.Called(opts, _token, _from, _to, _amount, _data)
@@ -223,6 +404,39 @@ func (_m *ArbitrumGatewayRouterInterface) FinalizeInboundTransfer(opts *bind.Tra
 	}
 
 	return r0, r1
+}
+
+// ArbitrumGatewayRouterInterface_FinalizeInboundTransfer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FinalizeInboundTransfer'
+type ArbitrumGatewayRouterInterface_FinalizeInboundTransfer_Call struct {
+	*mock.Call
+}
+
+// FinalizeInboundTransfer is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _token common.Address
+//   - _from common.Address
+//   - _to common.Address
+//   - _amount *big.Int
+//   - _data []byte
+func (_e *ArbitrumGatewayRouterInterface_Expecter) FinalizeInboundTransfer(opts interface{}, _token interface{}, _from interface{}, _to interface{}, _amount interface{}, _data interface{}) *ArbitrumGatewayRouterInterface_FinalizeInboundTransfer_Call {
+	return &ArbitrumGatewayRouterInterface_FinalizeInboundTransfer_Call{Call: _e.mock.On("FinalizeInboundTransfer", opts, _token, _from, _to, _amount, _data)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_FinalizeInboundTransfer_Call) Run(run func(opts *bind.TransactOpts, _token common.Address, _from common.Address, _to common.Address, _amount *big.Int, _data []byte)) *ArbitrumGatewayRouterInterface_FinalizeInboundTransfer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(common.Address), args[3].(common.Address), args[4].(*big.Int), args[5].([]byte))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_FinalizeInboundTransfer_Call) Return(_a0 *types.Transaction, _a1 error) *ArbitrumGatewayRouterInterface_FinalizeInboundTransfer_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_FinalizeInboundTransfer_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, common.Address, common.Address, *big.Int, []byte) (*types.Transaction, error)) *ArbitrumGatewayRouterInterface_FinalizeInboundTransfer_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetGateway provides a mock function with given fields: opts, _token
@@ -255,6 +469,35 @@ func (_m *ArbitrumGatewayRouterInterface) GetGateway(opts *bind.CallOpts, _token
 	return r0, r1
 }
 
+// ArbitrumGatewayRouterInterface_GetGateway_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetGateway'
+type ArbitrumGatewayRouterInterface_GetGateway_Call struct {
+	*mock.Call
+}
+
+// GetGateway is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - _token common.Address
+func (_e *ArbitrumGatewayRouterInterface_Expecter) GetGateway(opts interface{}, _token interface{}) *ArbitrumGatewayRouterInterface_GetGateway_Call {
+	return &ArbitrumGatewayRouterInterface_GetGateway_Call{Call: _e.mock.On("GetGateway", opts, _token)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_GetGateway_Call) Run(run func(opts *bind.CallOpts, _token common.Address)) *ArbitrumGatewayRouterInterface_GetGateway_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_GetGateway_Call) Return(_a0 common.Address, _a1 error) *ArbitrumGatewayRouterInterface_GetGateway_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_GetGateway_Call) RunAndReturn(run func(*bind.CallOpts, common.Address) (common.Address, error)) *ArbitrumGatewayRouterInterface_GetGateway_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetOutboundCalldata provides a mock function with given fields: opts, _token, _from, _to, _amount, _data
 func (_m *ArbitrumGatewayRouterInterface) GetOutboundCalldata(opts *bind.CallOpts, _token common.Address, _from common.Address, _to common.Address, _amount *big.Int, _data []byte) ([]byte, error) {
 	ret := _m.Called(opts, _token, _from, _to, _amount, _data)
@@ -283,6 +526,39 @@ func (_m *ArbitrumGatewayRouterInterface) GetOutboundCalldata(opts *bind.CallOpt
 	}
 
 	return r0, r1
+}
+
+// ArbitrumGatewayRouterInterface_GetOutboundCalldata_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetOutboundCalldata'
+type ArbitrumGatewayRouterInterface_GetOutboundCalldata_Call struct {
+	*mock.Call
+}
+
+// GetOutboundCalldata is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - _token common.Address
+//   - _from common.Address
+//   - _to common.Address
+//   - _amount *big.Int
+//   - _data []byte
+func (_e *ArbitrumGatewayRouterInterface_Expecter) GetOutboundCalldata(opts interface{}, _token interface{}, _from interface{}, _to interface{}, _amount interface{}, _data interface{}) *ArbitrumGatewayRouterInterface_GetOutboundCalldata_Call {
+	return &ArbitrumGatewayRouterInterface_GetOutboundCalldata_Call{Call: _e.mock.On("GetOutboundCalldata", opts, _token, _from, _to, _amount, _data)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_GetOutboundCalldata_Call) Run(run func(opts *bind.CallOpts, _token common.Address, _from common.Address, _to common.Address, _amount *big.Int, _data []byte)) *ArbitrumGatewayRouterInterface_GetOutboundCalldata_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address), args[2].(common.Address), args[3].(common.Address), args[4].(*big.Int), args[5].([]byte))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_GetOutboundCalldata_Call) Return(_a0 []byte, _a1 error) *ArbitrumGatewayRouterInterface_GetOutboundCalldata_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_GetOutboundCalldata_Call) RunAndReturn(run func(*bind.CallOpts, common.Address, common.Address, common.Address, *big.Int, []byte) ([]byte, error)) *ArbitrumGatewayRouterInterface_GetOutboundCalldata_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // OutboundTransfer provides a mock function with given fields: opts, _token, _to, _amount, _maxGas, _gasPriceBid, _data
@@ -315,6 +591,40 @@ func (_m *ArbitrumGatewayRouterInterface) OutboundTransfer(opts *bind.TransactOp
 	return r0, r1
 }
 
+// ArbitrumGatewayRouterInterface_OutboundTransfer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OutboundTransfer'
+type ArbitrumGatewayRouterInterface_OutboundTransfer_Call struct {
+	*mock.Call
+}
+
+// OutboundTransfer is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _token common.Address
+//   - _to common.Address
+//   - _amount *big.Int
+//   - _maxGas *big.Int
+//   - _gasPriceBid *big.Int
+//   - _data []byte
+func (_e *ArbitrumGatewayRouterInterface_Expecter) OutboundTransfer(opts interface{}, _token interface{}, _to interface{}, _amount interface{}, _maxGas interface{}, _gasPriceBid interface{}, _data interface{}) *ArbitrumGatewayRouterInterface_OutboundTransfer_Call {
+	return &ArbitrumGatewayRouterInterface_OutboundTransfer_Call{Call: _e.mock.On("OutboundTransfer", opts, _token, _to, _amount, _maxGas, _gasPriceBid, _data)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_OutboundTransfer_Call) Run(run func(opts *bind.TransactOpts, _token common.Address, _to common.Address, _amount *big.Int, _maxGas *big.Int, _gasPriceBid *big.Int, _data []byte)) *ArbitrumGatewayRouterInterface_OutboundTransfer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(common.Address), args[3].(*big.Int), args[4].(*big.Int), args[5].(*big.Int), args[6].([]byte))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_OutboundTransfer_Call) Return(_a0 *types.Transaction, _a1 error) *ArbitrumGatewayRouterInterface_OutboundTransfer_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_OutboundTransfer_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, common.Address, *big.Int, *big.Int, *big.Int, []byte) (*types.Transaction, error)) *ArbitrumGatewayRouterInterface_OutboundTransfer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseDefaultGatewayUpdated provides a mock function with given fields: log
 func (_m *ArbitrumGatewayRouterInterface) ParseDefaultGatewayUpdated(log types.Log) (*arbitrum_gateway_router.ArbitrumGatewayRouterDefaultGatewayUpdated, error) {
 	ret := _m.Called(log)
@@ -343,6 +653,34 @@ func (_m *ArbitrumGatewayRouterInterface) ParseDefaultGatewayUpdated(log types.L
 	}
 
 	return r0, r1
+}
+
+// ArbitrumGatewayRouterInterface_ParseDefaultGatewayUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseDefaultGatewayUpdated'
+type ArbitrumGatewayRouterInterface_ParseDefaultGatewayUpdated_Call struct {
+	*mock.Call
+}
+
+// ParseDefaultGatewayUpdated is a helper method to define mock.On call
+//   - log types.Log
+func (_e *ArbitrumGatewayRouterInterface_Expecter) ParseDefaultGatewayUpdated(log interface{}) *ArbitrumGatewayRouterInterface_ParseDefaultGatewayUpdated_Call {
+	return &ArbitrumGatewayRouterInterface_ParseDefaultGatewayUpdated_Call{Call: _e.mock.On("ParseDefaultGatewayUpdated", log)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_ParseDefaultGatewayUpdated_Call) Run(run func(log types.Log)) *ArbitrumGatewayRouterInterface_ParseDefaultGatewayUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_ParseDefaultGatewayUpdated_Call) Return(_a0 *arbitrum_gateway_router.ArbitrumGatewayRouterDefaultGatewayUpdated, _a1 error) *ArbitrumGatewayRouterInterface_ParseDefaultGatewayUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_ParseDefaultGatewayUpdated_Call) RunAndReturn(run func(types.Log) (*arbitrum_gateway_router.ArbitrumGatewayRouterDefaultGatewayUpdated, error)) *ArbitrumGatewayRouterInterface_ParseDefaultGatewayUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseGatewaySet provides a mock function with given fields: log
@@ -375,6 +713,34 @@ func (_m *ArbitrumGatewayRouterInterface) ParseGatewaySet(log types.Log) (*arbit
 	return r0, r1
 }
 
+// ArbitrumGatewayRouterInterface_ParseGatewaySet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseGatewaySet'
+type ArbitrumGatewayRouterInterface_ParseGatewaySet_Call struct {
+	*mock.Call
+}
+
+// ParseGatewaySet is a helper method to define mock.On call
+//   - log types.Log
+func (_e *ArbitrumGatewayRouterInterface_Expecter) ParseGatewaySet(log interface{}) *ArbitrumGatewayRouterInterface_ParseGatewaySet_Call {
+	return &ArbitrumGatewayRouterInterface_ParseGatewaySet_Call{Call: _e.mock.On("ParseGatewaySet", log)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_ParseGatewaySet_Call) Run(run func(log types.Log)) *ArbitrumGatewayRouterInterface_ParseGatewaySet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_ParseGatewaySet_Call) Return(_a0 *arbitrum_gateway_router.ArbitrumGatewayRouterGatewaySet, _a1 error) *ArbitrumGatewayRouterInterface_ParseGatewaySet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_ParseGatewaySet_Call) RunAndReturn(run func(types.Log) (*arbitrum_gateway_router.ArbitrumGatewayRouterGatewaySet, error)) *ArbitrumGatewayRouterInterface_ParseGatewaySet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseLog provides a mock function with given fields: log
 func (_m *ArbitrumGatewayRouterInterface) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	ret := _m.Called(log)
@@ -403,6 +769,34 @@ func (_m *ArbitrumGatewayRouterInterface) ParseLog(log types.Log) (generated.Abi
 	}
 
 	return r0, r1
+}
+
+// ArbitrumGatewayRouterInterface_ParseLog_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseLog'
+type ArbitrumGatewayRouterInterface_ParseLog_Call struct {
+	*mock.Call
+}
+
+// ParseLog is a helper method to define mock.On call
+//   - log types.Log
+func (_e *ArbitrumGatewayRouterInterface_Expecter) ParseLog(log interface{}) *ArbitrumGatewayRouterInterface_ParseLog_Call {
+	return &ArbitrumGatewayRouterInterface_ParseLog_Call{Call: _e.mock.On("ParseLog", log)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_ParseLog_Call) Run(run func(log types.Log)) *ArbitrumGatewayRouterInterface_ParseLog_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_ParseLog_Call) Return(_a0 generated.AbigenLog, _a1 error) *ArbitrumGatewayRouterInterface_ParseLog_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_ParseLog_Call) RunAndReturn(run func(types.Log) (generated.AbigenLog, error)) *ArbitrumGatewayRouterInterface_ParseLog_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseTransferRouted provides a mock function with given fields: log
@@ -435,6 +829,34 @@ func (_m *ArbitrumGatewayRouterInterface) ParseTransferRouted(log types.Log) (*a
 	return r0, r1
 }
 
+// ArbitrumGatewayRouterInterface_ParseTransferRouted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseTransferRouted'
+type ArbitrumGatewayRouterInterface_ParseTransferRouted_Call struct {
+	*mock.Call
+}
+
+// ParseTransferRouted is a helper method to define mock.On call
+//   - log types.Log
+func (_e *ArbitrumGatewayRouterInterface_Expecter) ParseTransferRouted(log interface{}) *ArbitrumGatewayRouterInterface_ParseTransferRouted_Call {
+	return &ArbitrumGatewayRouterInterface_ParseTransferRouted_Call{Call: _e.mock.On("ParseTransferRouted", log)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_ParseTransferRouted_Call) Run(run func(log types.Log)) *ArbitrumGatewayRouterInterface_ParseTransferRouted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_ParseTransferRouted_Call) Return(_a0 *arbitrum_gateway_router.ArbitrumGatewayRouterTransferRouted, _a1 error) *ArbitrumGatewayRouterInterface_ParseTransferRouted_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_ParseTransferRouted_Call) RunAndReturn(run func(types.Log) (*arbitrum_gateway_router.ArbitrumGatewayRouterTransferRouted, error)) *ArbitrumGatewayRouterInterface_ParseTransferRouted_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchDefaultGatewayUpdated provides a mock function with given fields: opts, sink
 func (_m *ArbitrumGatewayRouterInterface) WatchDefaultGatewayUpdated(opts *bind.WatchOpts, sink chan<- *arbitrum_gateway_router.ArbitrumGatewayRouterDefaultGatewayUpdated) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
@@ -463,6 +885,35 @@ func (_m *ArbitrumGatewayRouterInterface) WatchDefaultGatewayUpdated(opts *bind.
 	}
 
 	return r0, r1
+}
+
+// ArbitrumGatewayRouterInterface_WatchDefaultGatewayUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchDefaultGatewayUpdated'
+type ArbitrumGatewayRouterInterface_WatchDefaultGatewayUpdated_Call struct {
+	*mock.Call
+}
+
+// WatchDefaultGatewayUpdated is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *arbitrum_gateway_router.ArbitrumGatewayRouterDefaultGatewayUpdated
+func (_e *ArbitrumGatewayRouterInterface_Expecter) WatchDefaultGatewayUpdated(opts interface{}, sink interface{}) *ArbitrumGatewayRouterInterface_WatchDefaultGatewayUpdated_Call {
+	return &ArbitrumGatewayRouterInterface_WatchDefaultGatewayUpdated_Call{Call: _e.mock.On("WatchDefaultGatewayUpdated", opts, sink)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_WatchDefaultGatewayUpdated_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *arbitrum_gateway_router.ArbitrumGatewayRouterDefaultGatewayUpdated)) *ArbitrumGatewayRouterInterface_WatchDefaultGatewayUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *arbitrum_gateway_router.ArbitrumGatewayRouterDefaultGatewayUpdated))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_WatchDefaultGatewayUpdated_Call) Return(_a0 event.Subscription, _a1 error) *ArbitrumGatewayRouterInterface_WatchDefaultGatewayUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_WatchDefaultGatewayUpdated_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *arbitrum_gateway_router.ArbitrumGatewayRouterDefaultGatewayUpdated) (event.Subscription, error)) *ArbitrumGatewayRouterInterface_WatchDefaultGatewayUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchGatewaySet provides a mock function with given fields: opts, sink, l1Token, gateway
@@ -495,6 +946,37 @@ func (_m *ArbitrumGatewayRouterInterface) WatchGatewaySet(opts *bind.WatchOpts, 
 	return r0, r1
 }
 
+// ArbitrumGatewayRouterInterface_WatchGatewaySet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchGatewaySet'
+type ArbitrumGatewayRouterInterface_WatchGatewaySet_Call struct {
+	*mock.Call
+}
+
+// WatchGatewaySet is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *arbitrum_gateway_router.ArbitrumGatewayRouterGatewaySet
+//   - l1Token []common.Address
+//   - gateway []common.Address
+func (_e *ArbitrumGatewayRouterInterface_Expecter) WatchGatewaySet(opts interface{}, sink interface{}, l1Token interface{}, gateway interface{}) *ArbitrumGatewayRouterInterface_WatchGatewaySet_Call {
+	return &ArbitrumGatewayRouterInterface_WatchGatewaySet_Call{Call: _e.mock.On("WatchGatewaySet", opts, sink, l1Token, gateway)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_WatchGatewaySet_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *arbitrum_gateway_router.ArbitrumGatewayRouterGatewaySet, l1Token []common.Address, gateway []common.Address)) *ArbitrumGatewayRouterInterface_WatchGatewaySet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *arbitrum_gateway_router.ArbitrumGatewayRouterGatewaySet), args[2].([]common.Address), args[3].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_WatchGatewaySet_Call) Return(_a0 event.Subscription, _a1 error) *ArbitrumGatewayRouterInterface_WatchGatewaySet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_WatchGatewaySet_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *arbitrum_gateway_router.ArbitrumGatewayRouterGatewaySet, []common.Address, []common.Address) (event.Subscription, error)) *ArbitrumGatewayRouterInterface_WatchGatewaySet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchTransferRouted provides a mock function with given fields: opts, sink, token, _userFrom, _userTo
 func (_m *ArbitrumGatewayRouterInterface) WatchTransferRouted(opts *bind.WatchOpts, sink chan<- *arbitrum_gateway_router.ArbitrumGatewayRouterTransferRouted, token []common.Address, _userFrom []common.Address, _userTo []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, token, _userFrom, _userTo)
@@ -523,6 +1005,38 @@ func (_m *ArbitrumGatewayRouterInterface) WatchTransferRouted(opts *bind.WatchOp
 	}
 
 	return r0, r1
+}
+
+// ArbitrumGatewayRouterInterface_WatchTransferRouted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchTransferRouted'
+type ArbitrumGatewayRouterInterface_WatchTransferRouted_Call struct {
+	*mock.Call
+}
+
+// WatchTransferRouted is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *arbitrum_gateway_router.ArbitrumGatewayRouterTransferRouted
+//   - token []common.Address
+//   - _userFrom []common.Address
+//   - _userTo []common.Address
+func (_e *ArbitrumGatewayRouterInterface_Expecter) WatchTransferRouted(opts interface{}, sink interface{}, token interface{}, _userFrom interface{}, _userTo interface{}) *ArbitrumGatewayRouterInterface_WatchTransferRouted_Call {
+	return &ArbitrumGatewayRouterInterface_WatchTransferRouted_Call{Call: _e.mock.On("WatchTransferRouted", opts, sink, token, _userFrom, _userTo)}
+}
+
+func (_c *ArbitrumGatewayRouterInterface_WatchTransferRouted_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *arbitrum_gateway_router.ArbitrumGatewayRouterTransferRouted, token []common.Address, _userFrom []common.Address, _userTo []common.Address)) *ArbitrumGatewayRouterInterface_WatchTransferRouted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *arbitrum_gateway_router.ArbitrumGatewayRouterTransferRouted), args[2].([]common.Address), args[3].([]common.Address), args[4].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_WatchTransferRouted_Call) Return(_a0 event.Subscription, _a1 error) *ArbitrumGatewayRouterInterface_WatchTransferRouted_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ArbitrumGatewayRouterInterface_WatchTransferRouted_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *arbitrum_gateway_router.ArbitrumGatewayRouterTransferRouted, []common.Address, []common.Address, []common.Address) (event.Subscription, error)) *ArbitrumGatewayRouterInterface_WatchTransferRouted_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewArbitrumGatewayRouterInterface creates a new instance of ArbitrumGatewayRouterInterface. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

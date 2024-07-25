@@ -16,6 +16,14 @@ type RebalancingAlgo struct {
 	mock.Mock
 }
 
+type RebalancingAlgo_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *RebalancingAlgo) EXPECT() *RebalancingAlgo_Expecter {
+	return &RebalancingAlgo_Expecter{mock: &_m.Mock}
+}
+
 // ComputeTransfersToBalance provides a mock function with given fields: g, unexecuted
 func (_m *RebalancingAlgo) ComputeTransfersToBalance(g graph.Graph, unexecuted []rebalalgo.UnexecutedTransfer) ([]models.ProposedTransfer, error) {
 	ret := _m.Called(g, unexecuted)
@@ -44,6 +52,35 @@ func (_m *RebalancingAlgo) ComputeTransfersToBalance(g graph.Graph, unexecuted [
 	}
 
 	return r0, r1
+}
+
+// RebalancingAlgo_ComputeTransfersToBalance_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ComputeTransfersToBalance'
+type RebalancingAlgo_ComputeTransfersToBalance_Call struct {
+	*mock.Call
+}
+
+// ComputeTransfersToBalance is a helper method to define mock.On call
+//   - g graph.Graph
+//   - unexecuted []rebalalgo.UnexecutedTransfer
+func (_e *RebalancingAlgo_Expecter) ComputeTransfersToBalance(g interface{}, unexecuted interface{}) *RebalancingAlgo_ComputeTransfersToBalance_Call {
+	return &RebalancingAlgo_ComputeTransfersToBalance_Call{Call: _e.mock.On("ComputeTransfersToBalance", g, unexecuted)}
+}
+
+func (_c *RebalancingAlgo_ComputeTransfersToBalance_Call) Run(run func(g graph.Graph, unexecuted []rebalalgo.UnexecutedTransfer)) *RebalancingAlgo_ComputeTransfersToBalance_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(graph.Graph), args[1].([]rebalalgo.UnexecutedTransfer))
+	})
+	return _c
+}
+
+func (_c *RebalancingAlgo_ComputeTransfersToBalance_Call) Return(_a0 []models.ProposedTransfer, _a1 error) *RebalancingAlgo_ComputeTransfersToBalance_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RebalancingAlgo_ComputeTransfersToBalance_Call) RunAndReturn(run func(graph.Graph, []rebalalgo.UnexecutedTransfer) ([]models.ProposedTransfer, error)) *RebalancingAlgo_ComputeTransfersToBalance_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewRebalancingAlgo creates a new instance of RebalancingAlgo. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

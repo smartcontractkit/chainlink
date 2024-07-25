@@ -24,7 +24,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-//go:generate mockery --quiet --name BalanceMonitor --output ../mocks/ --case=underscore
 type (
 	// BalanceMonitor checks the balance for each key on every new head
 	BalanceMonitor interface {
