@@ -47,7 +47,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
       - name: Check Merge Group Condition
         id: condition-check
@@ -82,7 +82,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
@@ -145,7 +145,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
       - name: Setup Go
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
@@ -203,7 +203,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Setup Github Token
         if: ${{ inputs.evm-ref }}
@@ -249,7 +249,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Go Test Command
         id: build-go-test-command
@@ -451,7 +451,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Go Test Command
         id: build-go-test-command
@@ -691,7 +691,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
 
       - name: 🧼 Clean up Environment
@@ -722,7 +722,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Download All Artifacts
         uses: actions/download-artifact@9c19ed7fe5d278cd354c7dfd5d3b88589c7e2395 # v4.1.6
@@ -745,7 +745,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Run Setup
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
@@ -796,7 +796,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Get Latest Version
         id: get_latest_version

@@ -46,7 +46,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           fetch-depth: 0
       - name: Check for go.mod changes
         id: changes
@@ -282,7 +282,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Build Chainlink Image
         uses: ./.github/actions/build-chainlink-image
@@ -484,7 +484,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Prepare Base64 TOML override
         uses: ./.github/actions/setup-create-base64-config
