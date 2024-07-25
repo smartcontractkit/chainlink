@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/headreporter"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -16,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/services/telemetry/mocks"

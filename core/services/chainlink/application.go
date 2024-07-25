@@ -46,7 +46,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
-	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -182,6 +181,7 @@ type ApplicationOpts struct {
 	CapabilitiesRegistry       *capabilities.Registry
 	CapabilitiesDispatcher     remotetypes.Dispatcher
 	CapabilitiesPeerWrapper    p2ptypes.PeerWrapper
+	TelemetryManager           *telemetry.Manager
 }
 
 // NewApplication initializes a new store if one is not already
@@ -291,8 +291,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), keyStore.CSA(), globalLogger)
-	srvcs = append(srvcs, telemetryManager)
+	srvcs = append(srvcs, opts.TelemetryManager)
 
 	backupCfg := cfg.Database().Backup()
 	if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.Frequency() > 0 {
@@ -322,8 +321,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	srvcs = append(srvcs, mailMon)
 	srvcs = append(srvcs, relayerChainInterops.Services()...)
-	headReporter := headreporter.NewHeadReporterService(cfg.HeadReport(), opts.DS, legacyEVMChains, globalLogger, telemetryManager)
-	srvcs = append(srvcs, headReporter)
 
 	// Initialize Local Users ORM and Authentication Provider specified in config
 	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
@@ -364,7 +361,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	)
 
 	for _, chain := range legacyEVMChains.Slice() {
-		chain.HeadBroadcaster().Subscribe(headReporter)
 		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
 	}
 
@@ -429,7 +425,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				opts.DS, jobORM,
 				opts.CapabilitiesRegistry,
 				loopRegistrarConfig,
-				telemetryManager,
+				opts.TelemetryManager,
 				pipelineRunner,
 				opts.RelayerChainInteroperators),
 		}
@@ -478,7 +474,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore,
 			pipelineRunner,
 			peerWrapper,
-			telemetryManager,
+			opts.TelemetryManager,
 			legacyEVMChains,
 			globalLogger,
 			cfg,
@@ -501,7 +497,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			pipelineRunner,
 			streamRegistry,
 			peerWrapper,
-			telemetryManager,
+			opts.TelemetryManager,
 			legacyEVMChains,
 			globalLogger,
 			ocr2DelegateConfig,

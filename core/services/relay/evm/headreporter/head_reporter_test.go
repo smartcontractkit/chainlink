@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/headreporter"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 
 	"github.com/jmoiron/sqlx"
@@ -26,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 )
 
 func newHead() evmtypes.Head {

@@ -3,6 +3,7 @@ package cltest
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -404,6 +405,7 @@ func NewLegacyChainsWithMockChainAndTxManager(t testing.TB, ethClient evmclient.
 	ch.On("ID").Return(scopedCfg.EVM().ChainID())
 	ch.On("Config").Return(scopedCfg)
 	ch.On("TxManager").Return(txm)
+	ch.On("HeadBroadcaster").Return(headtracker.NewHeadBroadcaster(ch.Logger()))
 
 	return NewLegacyChainsWithChain(ch, cfg)
 }

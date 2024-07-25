@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/headreporter"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/stretchr/testify/mock"
@@ -13,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 )
 
 func Test_PrometheusReporter(t *testing.T) {
