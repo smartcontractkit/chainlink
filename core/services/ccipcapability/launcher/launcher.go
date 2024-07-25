@@ -93,15 +93,15 @@ func (l *launcher) getLatestState() registrysyncer.LocalRegistry {
 	return l.latestState
 }
 
-func (l *launcher) runningDONIDs() []registrysyncer.DonID {
-	l.lock.RLock()
-	defer l.lock.RUnlock()
-	var runningDONs []registrysyncer.DonID
-	for id := range l.dons {
-		runningDONs = append(runningDONs, id)
-	}
-	return runningDONs
-}
+//func (l *launcher) runningDONIDs() []registrysyncer.DonID {
+//	l.lock.RLock()
+//	defer l.lock.RUnlock()
+//	var runningDONs []registrysyncer.DonID
+//	for id := range l.dons {
+//		runningDONs = append(runningDONs, id)
+//	}
+//	return runningDONs
+//}
 
 // Close implements job.ServiceCtx.
 func (l *launcher) Close() error {

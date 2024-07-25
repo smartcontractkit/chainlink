@@ -1,10 +1,10 @@
 package launcher
 
-const (
-	ccipCapVersion    = "v1.0.0"
-	ccipCapNewVersion = "v1.1.0"
-	ccipCapName       = "ccip"
-)
+//const (
+//	ccipCapVersion    = "v1.0.0"
+//	ccipCapNewVersion = "v1.1.0"
+//	ccipCapName       = "ccip"
+//)
 
 //func Test_diff(t *testing.T) {
 //	type args struct {

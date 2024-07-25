@@ -97,7 +97,7 @@ func filterCCIPDONs(
 ) (map[registrysyncer.DonID]registrysyncer.DON, error) {
 	ccipDONs := make(map[registrysyncer.DonID]registrysyncer.DON)
 	for _, don := range state.IDsToDONs {
-		for cid, _ := range don.CapabilityConfigurations {
+		for cid := range don.CapabilityConfigurations {
 			capability, ok := state.IDsToCapabilities[cid]
 			if !ok {
 				return nil, fmt.Errorf("could not find capability matching id %s", cid)
