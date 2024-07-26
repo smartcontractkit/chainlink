@@ -2223,3 +2223,103 @@ contract SetAdminPrivilegeConfig is SetUp {
     assertEq(cfg, hex"1233");
   }
 }
+
+contract TransferUpkeepAdmin is SetUp {
+  event UpkeepAdminTransferRequested(uint256 indexed id, address indexed from, address indexed to);
+
+  function test_RevertsWhen_NotCalledByAdmin() external {
+    vm.startPrank(STRANGER);
+
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    registry.transferUpkeepAdmin(linkUpkeepID, randomAddress());
+  }
+
+  function test_RevertsWhen_TransferToSelf() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectRevert(Registry.ValueNotChanged.selector);
+    registry.transferUpkeepAdmin(linkUpkeepID, UPKEEP_ADMIN);
+  }
+
+  function test_RevertsWhen_UpkeepCanceled() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.expectRevert(Registry.UpkeepCancelled.selector);
+    registry.transferUpkeepAdmin(linkUpkeepID, randomAddress());
+  }
+
+  function test_DoesNotChangeUpkeepAdmin() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.transferUpkeepAdmin(linkUpkeepID, randomAddress());
+
+    assertEq(registry.getUpkeep(linkUpkeepID).admin, UPKEEP_ADMIN);
+  }
+
+  function test_EmitEvent_CalledByAdmin() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    address newAdmin = randomAddress();
+
+    vm.expectEmit();
+    emit UpkeepAdminTransferRequested(linkUpkeepID, UPKEEP_ADMIN, newAdmin);
+    registry.transferUpkeepAdmin(linkUpkeepID, newAdmin);
+
+    // transferring to the same propose admin won't yield another event
+    vm.recordLogs();
+    registry.transferUpkeepAdmin(linkUpkeepID, newAdmin);
+    Vm.Log[] memory entries = vm.getRecordedLogs();
+  }
+
+  function test_CancelTransfer_ByTransferToEmptyAddress() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    address newAdmin = randomAddress();
+
+    vm.expectEmit();
+    emit UpkeepAdminTransferRequested(linkUpkeepID, UPKEEP_ADMIN, newAdmin);
+    registry.transferUpkeepAdmin(linkUpkeepID, newAdmin);
+
+    vm.expectEmit();
+    emit UpkeepAdminTransferRequested(linkUpkeepID, UPKEEP_ADMIN, address(0));
+    registry.transferUpkeepAdmin(linkUpkeepID, address(0));
+  }
+}
+
+contract AcceptUpkeepAdmin is SetUp {
+  event UpkeepAdminTransferred(uint256 indexed id, address indexed from, address indexed to);
+
+  function test_RevertsWhen_NotCalledByProposedAdmin() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    address newAdmin = randomAddress();
+    registry.transferUpkeepAdmin(linkUpkeepID, newAdmin);
+
+    vm.startPrank(STRANGER);
+    vm.expectRevert(Registry.OnlyCallableByProposedAdmin.selector);
+    registry.acceptUpkeepAdmin(linkUpkeepID);
+  }
+
+  function test_RevertsWhen_UpkeepCanceled() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    address newAdmin = randomAddress();
+    registry.transferUpkeepAdmin(linkUpkeepID, newAdmin);
+
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.startPrank(newAdmin);
+    vm.expectRevert(Registry.UpkeepCancelled.selector);
+    registry.acceptUpkeepAdmin(linkUpkeepID);
+  }
+
+  function test_UpkeepAdminChanged() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    address newAdmin = randomAddress();
+    registry.transferUpkeepAdmin(linkUpkeepID, newAdmin);
+
+    vm.startPrank(newAdmin);
+    vm.expectEmit();
+    emit UpkeepAdminTransferred(linkUpkeepID, UPKEEP_ADMIN, newAdmin);
+    registry.acceptUpkeepAdmin(linkUpkeepID);
+
+    assertEq(newAdmin, registry.getUpkeep(linkUpkeepID).admin);
+  }
+}
