@@ -1998,7 +1998,7 @@ contract Pause is SetUp {
     registry.pause();
 
     vm.expectRevert(Registry.RegistryPaused.selector);
-    linkUpkeepID = registry.registerUpkeep(
+    uint256 id = registry.registerUpkeep(
       address(TARGET1),
       config.maxPerformGas,
       UPKEEP_ADMIN,
@@ -2008,5 +2008,133 @@ contract Pause is SetUp {
       "",
       ""
     );
+  }
+
+  //  function test_revertsWhen_transmitInPausedRegistry() external {
+  //    vm.startPrank(registry.owner());
+  //    registry.pause();
+  //
+  //    vm.expectRevert(Registry.RegistryPaused.selector);
+  //    _transmit(usdUpkeepID18, registry);
+  //  }
+}
+
+contract Unpause is SetUp {
+  function test_RevertsWhen_CalledByNonOwner() external {
+    vm.startPrank(registry.owner());
+    registry.pause();
+
+    vm.expectRevert(bytes("Only callable by owner"));
+    vm.startPrank(STRANGER);
+    registry.unpause();
+  }
+
+  function test_CalledByOwner_success() external {
+    vm.startPrank(registry.owner());
+    registry.pause();
+    (IAutomationV21PlusCommon.StateLegacy memory state1, , , , ) = registry.getState();
+    assertTrue(state1.paused);
+
+    registry.unpause();
+    (IAutomationV21PlusCommon.StateLegacy memory state2, , , , ) = registry.getState();
+    assertFalse(state2.paused);
+  }
+}
+
+contract CancelUpkeep is SetUp {
+  event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
+
+  function test_RevertsWhen_IdIsInvalid_CalledByAdmin() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    vm.expectRevert(Registry.CannotCancel.selector);
+    registry.cancelUpkeep(1111111);
+  }
+
+  function test_RevertsWhen_IdIsInvalid_CalledByOwner() external {
+    vm.startPrank(registry.owner());
+    vm.expectRevert(Registry.CannotCancel.selector);
+    registry.cancelUpkeep(1111111);
+  }
+
+  function test_RevertsWhen_NotCalledByOwnerOrAdmin() external {
+    vm.startPrank(STRANGER);
+    vm.expectRevert(Registry.OnlyCallableByOwnerOrAdmin.selector);
+    registry.cancelUpkeep(linkUpkeepID);
+  }
+
+  function test_RevertsWhen_UpkeepAlreadyCanceledByAdmin_CalledByOwner() external {
+    uint256 bn = block.number;
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.roll(50 + bn);
+
+    vm.startPrank(registry.owner());
+    vm.expectRevert(Registry.UpkeepCancelled.selector);
+    registry.cancelUpkeep(linkUpkeepID);
+  }
+
+  function test_RevertsWhen_UpkeepAlreadyCanceled_CalledByAdmin() external {
+    uint256 bn = block.number;
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.roll(10 + bn);
+
+    vm.expectRevert(Registry.UpkeepCancelled.selector);
+    registry.cancelUpkeep(linkUpkeepID);
+  }
+
+  function test_RevertsWhen_UpkeepAlreadyCanceled_CalledByOwner() external {
+    uint256 bn = block.number;
+    vm.startPrank(registry.owner());
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.roll(10 + bn);
+
+    vm.expectRevert(Registry.UpkeepCancelled.selector);
+    registry.cancelUpkeep(linkUpkeepID);
+  }
+
+  function test_CancelUpkeep_SetMaxValidBlockNumber_CalledByAdmin() external {
+    uint256 bn = block.number;
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.roll(10 + bn);
+    uint256 maxValidBlocknumber = uint256(registry.getUpkeep(linkUpkeepID).maxValidBlocknumber);
+
+    // 50 is the cancellation delay
+    assertEq(bn + 50, maxValidBlocknumber);
+  }
+
+  function test_CancelUpkeep_SetMaxValidBlockNumber_CalledByOwner() external {
+    uint256 bn = block.number;
+    vm.startPrank(registry.owner());
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.roll(10 + bn);
+    uint256 maxValidBlocknumber = uint256(registry.getUpkeep(linkUpkeepID).maxValidBlocknumber);
+
+    // cancellation by registry owner is immediate and no cancellation delay is applied
+    assertEq(bn, maxValidBlocknumber);
+  }
+
+  function test_cancelUpkeep_emitEvent_CalledByAdmin() external {
+    uint256 bn = block.number;
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectEmit();
+    emit UpkeepCanceled(linkUpkeepID, uint64(bn + 50));
+    registry.cancelUpkeep(linkUpkeepID);
+  }
+
+  function test_cancelUpkeep_emitEvent_CalledByOwner() external {
+    uint256 bn = block.number;
+    vm.startPrank(registry.owner());
+
+    vm.expectEmit();
+    emit UpkeepCanceled(linkUpkeepID, uint64(bn));
+    registry.cancelUpkeep(linkUpkeepID);
   }
 }

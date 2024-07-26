@@ -4890,21 +4890,6 @@ describe('AutomationRegistry2_3', () => {
   })
 
   describe('#pause', () => {
-    // it('reverts if called by a non-owner', async () => {
-    //   await evmRevert(
-    //     registry.connect(keeper1).pause(),
-    //     'Only callable by owner',
-    //   )
-    // })
-    //
-    // it('marks the contract as paused', async () => {
-    //   assert.isFalse((await registry.getState()).state.paused)
-    //
-    //   await registry.connect(owner).pause()
-    //
-    //   assert.isTrue((await registry.getState()).state.paused)
-    // })
-
     it('Does not allow transmits when paused', async () => {
       await registry.connect(owner).pause()
 
@@ -4913,48 +4898,6 @@ describe('AutomationRegistry2_3', () => {
         registry,
         'RegistryPaused',
       )
-    })
-
-    // it('Does not allow creation of new upkeeps when paused', async () => {
-    //   await registry.connect(owner).pause()
-    //
-    //   await evmRevertCustomError(
-    //     registry
-    //       .connect(owner)
-    //       .registerUpkeep(
-    //         mock.address,
-    //         performGas,
-    //         await admin.getAddress(),
-    //         Trigger.CONDITION,
-    //         linkToken.address,
-    //         '0x',
-    //         '0x',
-    //         '0x',
-    //       ),
-    //     registry,
-    //     'RegistryPaused',
-    //   )
-    // })
-  })
-
-  describe('#unpause', () => {
-    beforeEach(async () => {
-      await registry.connect(owner).pause()
-    })
-
-    it('reverts if called by a non-owner', async () => {
-      await evmRevert(
-        registry.connect(keeper1).unpause(),
-        'Only callable by owner',
-      )
-    })
-
-    it('marks the contract as not paused', async () => {
-      assert.isTrue((await registry.getState()).state.paused)
-
-      await registry.connect(owner).unpause()
-
-      assert.isFalse((await registry.getState()).state.paused)
     })
   })
 
@@ -5078,41 +5021,7 @@ describe('AutomationRegistry2_3', () => {
   })
 
   describe('#cancelUpkeep', () => {
-    it('reverts if the ID is not valid', async () => {
-      await evmRevertCustomError(
-        registry.connect(owner).cancelUpkeep(upkeepId.add(1)),
-        registry,
-        'CannotCancel',
-      )
-    })
-
-    it('reverts if called by a non-owner/non-admin', async () => {
-      await evmRevertCustomError(
-        registry.connect(keeper1).cancelUpkeep(upkeepId),
-        registry,
-        'OnlyCallableByOwnerOrAdmin',
-      )
-    })
-
     describe('when called by the owner', async () => {
-      it('sets the registration to invalid immediately', async () => {
-        const tx = await registry.connect(owner).cancelUpkeep(upkeepId)
-        const receipt = await tx.wait()
-        const registration = await registry.getUpkeep(upkeepId)
-        assert.equal(
-          registration.maxValidBlocknumber.toNumber(),
-          receipt.blockNumber,
-        )
-      })
-
-      it('emits an event', async () => {
-        const tx = await registry.connect(owner).cancelUpkeep(upkeepId)
-        const receipt = await tx.wait()
-        await expect(tx)
-          .to.emit(registry, 'UpkeepCanceled')
-          .withArgs(upkeepId, BigNumber.from(receipt.blockNumber))
-      })
-
       it('immediately prevents upkeep', async () => {
         await registry.connect(owner).cancelUpkeep(upkeepId)
 
@@ -5122,15 +5031,6 @@ describe('AutomationRegistry2_3', () => {
           parseCancelledUpkeepReportLogs(receipt)
         // exactly 1 CancelledUpkeepReport log should be emitted
         assert.equal(cancelledUpkeepReportLogs.length, 1)
-      })
-
-      it('does not revert if reverts if called multiple times', async () => {
-        await registry.connect(owner).cancelUpkeep(upkeepId)
-        await evmRevertCustomError(
-          registry.connect(owner).cancelUpkeep(upkeepId),
-          registry,
-          'UpkeepCancelled',
-        )
       })
 
       describe('when called by the owner when the admin has just canceled', () => {
@@ -5155,51 +5055,6 @@ describe('AutomationRegistry2_3', () => {
     })
 
     describe('when called by the admin', async () => {
-      it('reverts if called again by the admin', async () => {
-        await registry.connect(admin).cancelUpkeep(upkeepId)
-
-        await evmRevertCustomError(
-          registry.connect(admin).cancelUpkeep(upkeepId),
-          registry,
-          'UpkeepCancelled',
-        )
-      })
-
-      it('reverts if called by the owner after the timeout', async () => {
-        await registry.connect(admin).cancelUpkeep(upkeepId)
-
-        for (let i = 0; i < cancellationDelay; i++) {
-          await ethers.provider.send('evm_mine', [])
-        }
-
-        await evmRevertCustomError(
-          registry.connect(owner).cancelUpkeep(upkeepId),
-          registry,
-          'UpkeepCancelled',
-        )
-      })
-
-      it('sets the registration to invalid in 50 blocks', async () => {
-        const tx = await registry.connect(admin).cancelUpkeep(upkeepId)
-        const receipt = await tx.wait()
-        const registration = await registry.getUpkeep(upkeepId)
-        assert.equal(
-          registration.maxValidBlocknumber.toNumber(),
-          receipt.blockNumber + 50,
-        )
-      })
-
-      it('emits an event', async () => {
-        const tx = await registry.connect(admin).cancelUpkeep(upkeepId)
-        const receipt = await tx.wait()
-        await expect(tx)
-          .to.emit(registry, 'UpkeepCanceled')
-          .withArgs(
-            upkeepId,
-            BigNumber.from(receipt.blockNumber + cancellationDelay),
-          )
-      })
-
       it('immediately prevents upkeep', async () => {
         await linkToken.connect(owner).approve(registry.address, toWei('100'))
         await registry.connect(owner).addFunds(upkeepId, toWei('100'))
