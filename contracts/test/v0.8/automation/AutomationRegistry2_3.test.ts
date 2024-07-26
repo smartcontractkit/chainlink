@@ -4299,119 +4299,6 @@ describe('AutomationRegistry2_3', () => {
     })
   })
 
-  describe('#transferPayeeship', () => {
-    it('reverts when called by anyone but the current payee', async () => {
-      await evmRevertCustomError(
-        registry
-          .connect(payee2)
-          .transferPayeeship(
-            await keeper1.getAddress(),
-            await payee2.getAddress(),
-          ),
-        registry,
-        'OnlyCallableByPayee',
-      )
-    })
-
-    it('reverts when transferring to self', async () => {
-      await evmRevertCustomError(
-        registry
-          .connect(payee1)
-          .transferPayeeship(
-            await keeper1.getAddress(),
-            await payee1.getAddress(),
-          ),
-        registry,
-        'ValueNotChanged',
-      )
-    })
-
-    it('does not change the payee', async () => {
-      await registry
-        .connect(payee1)
-        .transferPayeeship(
-          await keeper1.getAddress(),
-          await payee2.getAddress(),
-        )
-
-      const info = await registry.getTransmitterInfo(await keeper1.getAddress())
-      assert.equal(await payee1.getAddress(), info.payee)
-    })
-
-    it('emits an event announcing the new payee', async () => {
-      const tx = await registry
-        .connect(payee1)
-        .transferPayeeship(
-          await keeper1.getAddress(),
-          await payee2.getAddress(),
-        )
-      await expect(tx)
-        .to.emit(registry, 'PayeeshipTransferRequested')
-        .withArgs(
-          await keeper1.getAddress(),
-          await payee1.getAddress(),
-          await payee2.getAddress(),
-        )
-    })
-
-    it('does not emit an event when called with the same proposal', async () => {
-      await registry
-        .connect(payee1)
-        .transferPayeeship(
-          await keeper1.getAddress(),
-          await payee2.getAddress(),
-        )
-
-      const tx = await registry
-        .connect(payee1)
-        .transferPayeeship(
-          await keeper1.getAddress(),
-          await payee2.getAddress(),
-        )
-      const receipt = await tx.wait()
-      assert.equal(receipt.logs.length, 0)
-    })
-  })
-
-  describe('#acceptPayeeship', () => {
-    beforeEach(async () => {
-      await registry
-        .connect(payee1)
-        .transferPayeeship(
-          await keeper1.getAddress(),
-          await payee2.getAddress(),
-        )
-    })
-
-    it('reverts when called by anyone but the proposed payee', async () => {
-      await evmRevertCustomError(
-        registry.connect(payee1).acceptPayeeship(await keeper1.getAddress()),
-        registry,
-        'OnlyCallableByProposedPayee',
-      )
-    })
-
-    it('emits an event announcing the new payee', async () => {
-      const tx = await registry
-        .connect(payee2)
-        .acceptPayeeship(await keeper1.getAddress())
-      await expect(tx)
-        .to.emit(registry, 'PayeeshipTransferred')
-        .withArgs(
-          await keeper1.getAddress(),
-          await payee1.getAddress(),
-          await payee2.getAddress(),
-        )
-    })
-
-    it('does change the payee', async () => {
-      await registry.connect(payee2).acceptPayeeship(await keeper1.getAddress())
-
-      const info = await registry.getTransmitterInfo(await keeper1.getAddress())
-      assert.equal(await payee2.getAddress(), info.payee)
-    })
-  })
-
   describe('#pause', () => {
     it('Does not allow transmits when paused', async () => {
       await registry.connect(owner).pause()
@@ -4427,35 +4314,8 @@ describe('AutomationRegistry2_3', () => {
   describe('#setPayees', () => {
     const IGNORE_ADDRESS = '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF'
 
-    it('reverts when not called by the owner', async () => {
-      await evmRevert(
-        registry.connect(keeper1).setPayees(payees),
-        'Only callable by owner',
-      )
-    })
-
-    it('reverts with different numbers of payees than transmitters', async () => {
-      await evmRevertCustomError(
-        registry.connect(owner).setPayees([...payees, randomAddress()]),
-        registry,
-        'ParameterLengthError',
-      )
-    })
-
-    it('reverts if the payee is the zero address', async () => {
-      await blankRegistry.connect(owner).setConfigTypeSafe(...baseConfig) // used to test initial config
-
-      await evmRevertCustomError(
-        blankRegistry // used to test initial config
-          .connect(owner)
-          .setPayees([ethers.constants.AddressZero, ...payees.slice(1)]),
-        registry,
-        'InvalidPayee',
-      )
-    })
-
     itMaybe(
-      'sets the payees when exisitng payees are zero address',
+      'sets the payees when existing payees are zero address',
       async () => {
         //Initial payees should be zero address
         await blankRegistry.connect(owner).setConfigTypeSafe(...baseConfig) // used to test initial config

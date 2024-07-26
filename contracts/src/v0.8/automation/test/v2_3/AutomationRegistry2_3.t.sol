@@ -22,11 +22,11 @@ contract SetUp is BaseTest {
   AutomationRegistryBase2_3.OnchainConfig internal config;
   bytes internal constant offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
 
-  uint256 linkUpkeepID;
-  uint256 linkUpkeepID2; // 2 upkeeps use the same billing token (LINK) to test migration scenario
-  uint256 usdUpkeepID18; // 1 upkeep uses ERC20 token with 18 decimals
-  uint256 usdUpkeepID6; // 1 upkeep uses ERC20 token with 6 decimals
-  uint256 nativeUpkeepID;
+  uint256 internal linkUpkeepID;
+  uint256 internal linkUpkeepID2; // 2 upkeeps use the same billing token (LINK) to test migration scenario
+  uint256 internal usdUpkeepID18; // 1 upkeep uses ERC20 token with 18 decimals
+  uint256 internal usdUpkeepID6; // 1 upkeep uses ERC20 token with 6 decimals
+  uint256 internal nativeUpkeepID;
 
   function setUp() public virtual override {
     super.setUp();
@@ -2269,6 +2269,7 @@ contract TransferUpkeepAdmin is SetUp {
     vm.recordLogs();
     registry.transferUpkeepAdmin(linkUpkeepID, newAdmin);
     Vm.Log[] memory entries = vm.getRecordedLogs();
+    assertEq(0, entries.length);
   }
 
   function test_CancelTransfer_ByTransferToEmptyAddress() external {
@@ -2588,5 +2589,100 @@ contract SetUpkeepTriggerConfig is SetUp {
     registry.setUpkeepTriggerConfig(linkUpkeepID, hex"1234");
 
     assertEq(registry.getUpkeepTriggerConfig(linkUpkeepID), hex"1234");
+  }
+}
+
+contract TransferPayeeship is SetUp {
+  event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);
+
+  function test_RevertsWhen_NotCalledByPayee() external {
+    vm.startPrank(STRANGER);
+
+    vm.expectRevert(Registry.OnlyCallableByPayee.selector);
+    registry.transferPayeeship(TRANSMITTERS[0], randomAddress());
+  }
+
+  function test_RevertsWhen_TransferToSelf() external {
+    vm.startPrank(PAYEES[0]);
+
+    vm.expectRevert(Registry.ValueNotChanged.selector);
+    registry.transferPayeeship(TRANSMITTERS[0], PAYEES[0]);
+  }
+
+  function test_Transfer_DoesNotChangePayee() external {
+    vm.startPrank(PAYEES[0]);
+
+    registry.transferPayeeship(TRANSMITTERS[0], randomAddress());
+
+    (, , , , address payee) = registry.getTransmitterInfo(TRANSMITTERS[0]);
+    assertEq(PAYEES[0], payee);
+  }
+
+  function test_EmitEvent_CalledByPayee() external {
+    vm.startPrank(PAYEES[0]);
+    address newPayee = randomAddress();
+
+    vm.expectEmit();
+    emit PayeeshipTransferRequested(TRANSMITTERS[0], PAYEES[0], newPayee);
+    registry.transferPayeeship(TRANSMITTERS[0], newPayee);
+
+    // transferring to the same propose payee won't yield another event
+    vm.recordLogs();
+    registry.transferPayeeship(TRANSMITTERS[0], newPayee);
+    Vm.Log[] memory entries = vm.getRecordedLogs();
+    assertEq(0, entries.length);
+  }
+}
+
+contract AcceptPayeeship is SetUp {
+  event PayeeshipTransferred(address indexed transmitter, address indexed from, address indexed to);
+
+  function test_RevertsWhen_NotCalledByProposedPayee() external {
+    vm.startPrank(PAYEES[0]);
+    address newPayee = randomAddress();
+    registry.transferPayeeship(TRANSMITTERS[0], newPayee);
+
+    vm.startPrank(STRANGER);
+    vm.expectRevert(Registry.OnlyCallableByProposedPayee.selector);
+    registry.acceptPayeeship(TRANSMITTERS[0]);
+  }
+
+  function test_PayeeChanged() external {
+    vm.startPrank(PAYEES[0]);
+    address newPayee = randomAddress();
+    registry.transferPayeeship(TRANSMITTERS[0], newPayee);
+
+    vm.startPrank(newPayee);
+    vm.expectEmit();
+    emit PayeeshipTransferred(TRANSMITTERS[0], PAYEES[0], newPayee);
+    registry.acceptPayeeship(TRANSMITTERS[0]);
+
+    (, , , , address payee) = registry.getTransmitterInfo(TRANSMITTERS[0]);
+    assertEq(newPayee, payee);
+  }
+}
+
+contract SetPayees is SetUp {
+  function test_RevertsWhen_NotCalledByOwner() external {
+    vm.startPrank(STRANGER);
+
+    vm.expectRevert(bytes("Only callable by owner"));
+    registry.setPayees(NEW_PAYEES);
+  }
+
+  function test_RevertsWhen_PayeesLengthError() external {
+    vm.startPrank(registry.owner());
+
+    address[] memory payees = new address[](5);
+    vm.expectRevert(Registry.ParameterLengthError.selector);
+    registry.setPayees(payees);
+  }
+
+  function test_RevertsWhen_InvalidPayee() external {
+    vm.startPrank(registry.owner());
+
+    NEW_PAYEES[0] = address(0);
+    vm.expectRevert(Registry.InvalidPayee.selector);
+    registry.setPayees(NEW_PAYEES);
   }
 }
