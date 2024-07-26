@@ -42,7 +42,7 @@ var _ services.Service = &client{}
 func NewClient(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration, lggr logger.Logger) *client {
 	return &client{
-		lggr:                     lggr,
+		lggr:                     lggr.Named("TargetClient"),
 		remoteCapabilityInfo:     remoteCapabilityInfo,
 		localDONInfo:             localDonInfo,
 		dispatcher:               dispatcher,
@@ -130,6 +130,8 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 		return nil, fmt.Errorf("failed to get message ID for request: %w", err)
 	}
 
+	c.lggr.Debugw("executing remote target", "messageID", messageID)
+
 	if _, ok := c.messageIDToCallerRequest[messageID]; ok {
 		return nil, fmt.Errorf("request for message ID %s already exists", messageID)
 	}
@@ -150,6 +152,8 @@ func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
 	defer c.mutex.Unlock()
 
 	messageID := GetMessageID(msg)
+
+	c.lggr.Debugw("Remote client target receiving message", "messageID", messageID)
 
 	req := c.messageIDToCallerRequest[messageID]
 	if req == nil {

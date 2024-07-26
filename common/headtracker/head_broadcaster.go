@@ -28,8 +28,6 @@ func (set callbackSet[H, BLOCK_HASH]) values() []HeadTrackable[H, BLOCK_HASH] {
 
 // HeadTrackable is implemented by the core txm to be able to receive head events from any chain.
 // Chain implementations should notify head events to the core txm via this interface.
-//
-//go:generate mockery --quiet --name HeadTrackable --output ./mocks/ --case=underscore
 type HeadTrackable[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
 	// OnNewLongestChain sends a new head when it becomes available. Subscribers can recursively trace the parent
 	// of the head to the finalized block back.
@@ -37,8 +35,6 @@ type HeadTrackable[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interfac
 }
 
 // HeadBroadcaster relays new Heads to all subscribers.
-//
-//go:generate mockery --quiet --name HeadBroadcaster --output ./mocks/ --case=underscore
 type HeadBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
 	services.Service
 	BroadcastNewLongestChain(H)
