@@ -4225,33 +4225,6 @@ describe('AutomationRegistry2_3', () => {
     })
   })
 
-  describe('#setPeerRegistryMigrationPermission() / #getPeerRegistryMigrationPermission()', () => {
-    const peer = randomAddress()
-    it('allows the owner to set the peer registries', async () => {
-      let permission = await registry.getPeerRegistryMigrationPermission(peer)
-      expect(permission).to.equal(0)
-      await registry.setPeerRegistryMigrationPermission(peer, 1)
-      permission = await registry.getPeerRegistryMigrationPermission(peer)
-      expect(permission).to.equal(1)
-      await registry.setPeerRegistryMigrationPermission(peer, 2)
-      permission = await registry.getPeerRegistryMigrationPermission(peer)
-      expect(permission).to.equal(2)
-      await registry.setPeerRegistryMigrationPermission(peer, 0)
-      permission = await registry.getPeerRegistryMigrationPermission(peer)
-      expect(permission).to.equal(0)
-    })
-    it('reverts if passed an unsupported permission', async () => {
-      await expect(
-        registry.connect(admin).setPeerRegistryMigrationPermission(peer, 10),
-      ).to.be.reverted
-    })
-    it('reverts if not called by the owner', async () => {
-      await expect(
-        registry.connect(admin).setPeerRegistryMigrationPermission(peer, 1),
-      ).to.be.revertedWith('Only callable by owner')
-    })
-  })
-
   describe('#pauseUpkeep', () => {
     it('reverts if the registration does not exist', async () => {
       await evmRevertCustomError(

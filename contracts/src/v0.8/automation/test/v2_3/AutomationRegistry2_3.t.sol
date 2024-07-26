@@ -2120,7 +2120,7 @@ contract CancelUpkeep is SetUp {
     assertEq(bn, maxValidBlocknumber);
   }
 
-  function test_cancelUpkeep_emitEvent_CalledByAdmin() external {
+  function test_CancelUpkeep_EmitEvent_CalledByAdmin() external {
     uint256 bn = block.number;
     vm.startPrank(UPKEEP_ADMIN);
 
@@ -2129,12 +2129,50 @@ contract CancelUpkeep is SetUp {
     registry.cancelUpkeep(linkUpkeepID);
   }
 
-  function test_cancelUpkeep_emitEvent_CalledByOwner() external {
+  function test_CancelUpkeep_EmitEvent_CalledByOwner() external {
     uint256 bn = block.number;
     vm.startPrank(registry.owner());
 
     vm.expectEmit();
     emit UpkeepCanceled(linkUpkeepID, uint64(bn));
     registry.cancelUpkeep(linkUpkeepID);
+  }
+}
+
+contract SetPeerRegistryMigrationPermission is SetUp {
+  function test_SetPeerRegistryMigrationPermission_CalledByOwner() external {
+    address peer = randomAddress();
+    vm.startPrank(registry.owner());
+
+    uint8 permission = registry.getPeerRegistryMigrationPermission(peer);
+    assertEq(0, permission);
+
+    registry.setPeerRegistryMigrationPermission(peer, 1);
+    permission = registry.getPeerRegistryMigrationPermission(peer);
+    assertEq(1, permission);
+
+    registry.setPeerRegistryMigrationPermission(peer, 2);
+    permission = registry.getPeerRegistryMigrationPermission(peer);
+    assertEq(2, permission);
+
+    registry.setPeerRegistryMigrationPermission(peer, 0);
+    permission = registry.getPeerRegistryMigrationPermission(peer);
+    assertEq(0, permission);
+  }
+
+  function test_RevertsWhen_InvalidPermission_CalledByOwner() external {
+    address peer = randomAddress();
+    vm.startPrank(registry.owner());
+
+    vm.expectRevert();
+    registry.setPeerRegistryMigrationPermission(peer, 100);
+  }
+
+  function test_RevertsWhen_CalledByNonOwner() external {
+    address peer = randomAddress();
+    vm.startPrank(STRANGER);
+
+    vm.expectRevert(bytes("Only callable by owner"));
+    registry.setPeerRegistryMigrationPermission(peer, 1);
   }
 }
