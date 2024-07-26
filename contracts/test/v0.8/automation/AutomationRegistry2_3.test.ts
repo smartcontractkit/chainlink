@@ -442,7 +442,8 @@ describe('AutomationRegistry2_3', () => {
       await ethers.getContractFactory('UpkeepAutoFunder')
     chainModuleBaseFactory = await ethers.getContractFactory('ChainModuleBase')
     arbitrumModuleFactory = await ethers.getContractFactory('ArbitrumModule')
-    optimismModuleV2Factory = await ethers.getContractFactory('OptimismModuleV2')
+    optimismModuleV2Factory =
+      await ethers.getContractFactory('OptimismModuleV2')
     streamsLookupUpkeepFactory = await ethers.getContractFactory(
       'StreamsLookupUpkeep',
     )
