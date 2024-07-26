@@ -2176,3 +2176,50 @@ contract SetPeerRegistryMigrationPermission is SetUp {
     registry.setPeerRegistryMigrationPermission(peer, 1);
   }
 }
+
+contract SetUpkeepPrivilegeConfig is SetUp {
+  function test_RevertsWhen_CalledByNonManager() external {
+    vm.startPrank(STRANGER);
+
+    vm.expectRevert(Registry.OnlyCallableByUpkeepPrivilegeManager.selector);
+    registry.setUpkeepPrivilegeConfig(linkUpkeepID, hex"1233");
+  }
+
+  function test_UpkeepHasEmptyConfig() external {
+    bytes memory cfg = registry.getUpkeepPrivilegeConfig(linkUpkeepID);
+    assertEq(cfg, bytes(""));
+  }
+
+  function test_SetUpkeepPrivilegeConfig_CalledByManager() external {
+    vm.startPrank(PRIVILEGE_MANAGER);
+
+    registry.setUpkeepPrivilegeConfig(linkUpkeepID, hex"1233");
+
+    bytes memory cfg = registry.getUpkeepPrivilegeConfig(linkUpkeepID);
+    assertEq(cfg, hex"1233");
+  }
+}
+
+contract SetAdminPrivilegeConfig is SetUp {
+  function test_RevertsWhen_CalledByNonManager() external {
+    vm.startPrank(STRANGER);
+
+    vm.expectRevert(Registry.OnlyCallableByUpkeepPrivilegeManager.selector);
+    registry.setAdminPrivilegeConfig(randomAddress(), hex"1233");
+  }
+
+  function test_UpkeepHasEmptyConfig() external {
+    bytes memory cfg = registry.getAdminPrivilegeConfig(randomAddress());
+    assertEq(cfg, bytes(""));
+  }
+
+  function test_SetAdminPrivilegeConfig_CalledByManager() external {
+    vm.startPrank(PRIVILEGE_MANAGER);
+    address admin = randomAddress();
+
+    registry.setAdminPrivilegeConfig(admin, hex"1233");
+
+    bytes memory cfg = registry.getAdminPrivilegeConfig(admin);
+    assertEq(cfg, hex"1233");
+  }
+}

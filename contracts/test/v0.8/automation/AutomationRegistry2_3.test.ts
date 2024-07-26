@@ -25,7 +25,6 @@ import { ChainModuleBase__factory as ChainModuleBaseFactory } from '../../../typ
 import { ArbitrumModule__factory as ArbitrumModuleFactory } from '../../../typechain/factories/ArbitrumModule__factory'
 import { OptimismModule__factory as OptimismModuleFactory } from '../../../typechain/factories/OptimismModule__factory'
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
-import { IAutomationForwarder__factory as IAutomationForwarderFactory } from '../../../typechain/factories/IAutomationForwarder__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
 import { AutomationCompatibleUtils } from '../../../typechain/AutomationCompatibleUtils'
 import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
@@ -5420,62 +5419,6 @@ describe('AutomationRegistry2_3', () => {
       assert.equal(res.performData, expectedPerformData)
       assert.equal(res.upkeepFailureReason, UpkeepFailureReason.NONE)
       assert.isTrue(res.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
-    })
-  })
-
-  describe('#setUpkeepPrivilegeConfig() / #getUpkeepPrivilegeConfig()', () => {
-    it('reverts when non manager tries to set privilege config', async () => {
-      await evmRevertCustomError(
-        registry.connect(payee3).setUpkeepPrivilegeConfig(upkeepId, '0x1234'),
-        registry,
-        'OnlyCallableByUpkeepPrivilegeManager',
-      )
-    })
-
-    it('returns empty bytes for upkeep privilege config before setting', async () => {
-      const cfg = await registry.getUpkeepPrivilegeConfig(upkeepId)
-      assert.equal(cfg, '0x')
-    })
-
-    it('allows upkeep manager to set privilege config', async () => {
-      const tx = await registry
-        .connect(personas.Norbert)
-        .setUpkeepPrivilegeConfig(upkeepId, '0x1234')
-      await expect(tx)
-        .to.emit(registry, 'UpkeepPrivilegeConfigSet')
-        .withArgs(upkeepId, '0x1234')
-
-      const cfg = await registry.getUpkeepPrivilegeConfig(upkeepId)
-      assert.equal(cfg, '0x1234')
-    })
-  })
-
-  describe('#setAdminPrivilegeConfig() / #getAdminPrivilegeConfig()', () => {
-    const admin = randomAddress()
-
-    it('reverts when non manager tries to set privilege config', async () => {
-      await evmRevertCustomError(
-        registry.connect(payee3).setAdminPrivilegeConfig(admin, '0x1234'),
-        registry,
-        'OnlyCallableByUpkeepPrivilegeManager',
-      )
-    })
-
-    it('returns empty bytes for upkeep privilege config before setting', async () => {
-      const cfg = await registry.getAdminPrivilegeConfig(admin)
-      assert.equal(cfg, '0x')
-    })
-
-    it('allows upkeep manager to set privilege config', async () => {
-      const tx = await registry
-        .connect(personas.Norbert)
-        .setAdminPrivilegeConfig(admin, '0x1234')
-      await expect(tx)
-        .to.emit(registry, 'AdminPrivilegeConfigSet')
-        .withArgs(admin, '0x1234')
-
-      const cfg = await registry.getAdminPrivilegeConfig(admin)
-      assert.equal(cfg, '0x1234')
     })
   })
 
