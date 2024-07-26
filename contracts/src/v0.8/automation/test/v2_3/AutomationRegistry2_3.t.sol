@@ -2323,3 +2323,96 @@ contract AcceptUpkeepAdmin is SetUp {
     assertEq(newAdmin, registry.getUpkeep(linkUpkeepID).admin);
   }
 }
+
+contract PauseUpkeep is SetUp {
+  event UpkeepPaused(uint256 indexed id);
+
+  function test_RevertsWhen_NotCalledByUpkeepAdmin() external {
+    vm.startPrank(STRANGER);
+
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    registry.pauseUpkeep(linkUpkeepID);
+  }
+
+  function test_RevertsWhen_InvalidUpkeepId() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    registry.pauseUpkeep(linkUpkeepID + 1);
+  }
+
+  function test_RevertsWhen_UpkeepAlreadyCanceled() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.expectRevert(Registry.UpkeepCancelled.selector);
+    registry.pauseUpkeep(linkUpkeepID);
+  }
+
+  function test_RevertsWhen_UpkeepAlreadyPaused() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.pauseUpkeep(linkUpkeepID);
+
+    vm.expectRevert(Registry.OnlyUnpausedUpkeep.selector);
+    registry.pauseUpkeep(linkUpkeepID);
+  }
+
+  function test_EmitEvent_CalledByAdmin() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectEmit();
+    emit UpkeepPaused(linkUpkeepID);
+    registry.pauseUpkeep(linkUpkeepID);
+  }
+}
+
+contract UnpauseUpkeep is SetUp {
+  event UpkeepUnpaused(uint256 indexed id);
+
+  function test_RevertsWhen_InvalidUpkeepId() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    registry.unpauseUpkeep(linkUpkeepID + 1);
+  }
+
+  function test_RevertsWhen_UpkeepIsNotPaused() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectRevert(Registry.OnlyPausedUpkeep.selector);
+    registry.unpauseUpkeep(linkUpkeepID);
+  }
+
+  function test_RevertsWhen_UpkeepAlreadyCanceled() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.pauseUpkeep(linkUpkeepID);
+
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.expectRevert(Registry.UpkeepCancelled.selector);
+    registry.unpauseUpkeep(linkUpkeepID);
+  }
+
+  function test_RevertsWhen_NotCalledByUpkeepAdmin() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.pauseUpkeep(linkUpkeepID);
+
+    vm.startPrank(STRANGER);
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    registry.unpauseUpkeep(linkUpkeepID);
+  }
+
+  function test_UnpauseUpkeep_CalledByUpkeepAdmin() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.pauseUpkeep(linkUpkeepID);
+
+    uint256[] memory ids1 = registry.getActiveUpkeepIDs(0, 0);
+
+    vm.expectEmit();
+    emit UpkeepUnpaused(linkUpkeepID);
+    registry.unpauseUpkeep(linkUpkeepID);
+
+    uint256[] memory ids2 = registry.getActiveUpkeepIDs(0, 0);
+    assertEq(ids1.length + 1, ids2.length);
+  }
+}
