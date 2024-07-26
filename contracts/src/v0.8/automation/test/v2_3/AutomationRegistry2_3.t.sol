@@ -2416,3 +2416,177 @@ contract UnpauseUpkeep is SetUp {
     assertEq(ids1.length + 1, ids2.length);
   }
 }
+
+contract SetUpkeepCheckData is SetUp {
+  event UpkeepCheckDataSet(uint256 indexed id, bytes newCheckData);
+
+  function test_RevertsWhen_InvalidUpkeepId() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    registry.setUpkeepCheckData(linkUpkeepID + 1, hex"1234");
+  }
+
+  function test_RevertsWhen_UpkeepAlreadyCanceled() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.expectRevert(Registry.UpkeepCancelled.selector);
+    registry.setUpkeepCheckData(linkUpkeepID, hex"1234");
+  }
+
+  function test_RevertsWhen_NewCheckDataTooLarge() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectRevert(Registry.CheckDataExceedsLimit.selector);
+    registry.setUpkeepCheckData(linkUpkeepID, new bytes(10_000));
+  }
+
+  function test_RevertsWhen_NotCalledByAdmin() external {
+    vm.startPrank(STRANGER);
+
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    registry.setUpkeepCheckData(linkUpkeepID, hex"1234");
+  }
+
+  function test_UpdateOffchainConfig_CalledByAdmin() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectEmit();
+    emit UpkeepCheckDataSet(linkUpkeepID, hex"1234");
+    registry.setUpkeepCheckData(linkUpkeepID, hex"1234");
+
+    assertEq(registry.getUpkeep(linkUpkeepID).checkData, hex"1234");
+  }
+
+  function test_UpdateOffchainConfigOnPausedUpkeep_CalledByAdmin() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    registry.pauseUpkeep(linkUpkeepID);
+
+    vm.expectEmit();
+    emit UpkeepCheckDataSet(linkUpkeepID, hex"1234");
+    registry.setUpkeepCheckData(linkUpkeepID, hex"1234");
+
+    assertTrue(registry.getUpkeep(linkUpkeepID).paused);
+    assertEq(registry.getUpkeep(linkUpkeepID).checkData, hex"1234");
+  }
+}
+
+contract SetUpkeepGasLimit is SetUp {
+  event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
+
+  function test_RevertsWhen_InvalidUpkeepId() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    registry.setUpkeepGasLimit(linkUpkeepID + 1, 1230000);
+  }
+
+  function test_RevertsWhen_UpkeepAlreadyCanceled() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.expectRevert(Registry.UpkeepCancelled.selector);
+    registry.setUpkeepGasLimit(linkUpkeepID, 1230000);
+  }
+
+  function test_RevertsWhen_NewGasLimitOutOfRange() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectRevert(Registry.GasLimitOutsideRange.selector);
+    registry.setUpkeepGasLimit(linkUpkeepID, 300);
+
+    vm.expectRevert(Registry.GasLimitOutsideRange.selector);
+    registry.setUpkeepGasLimit(linkUpkeepID, 3000000000);
+  }
+
+  function test_RevertsWhen_NotCalledByAdmin() external {
+    vm.startPrank(STRANGER);
+
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    registry.setUpkeepGasLimit(linkUpkeepID, 1230000);
+  }
+
+  function test_UpdateGasLimit_CalledByAdmin() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectEmit();
+    emit UpkeepGasLimitSet(linkUpkeepID, 1230000);
+    registry.setUpkeepGasLimit(linkUpkeepID, 1230000);
+
+    assertEq(registry.getUpkeep(linkUpkeepID).performGas, 1230000);
+  }
+}
+
+contract SetUpkeepOffchainConfig is SetUp {
+  event UpkeepOffchainConfigSet(uint256 indexed id, bytes offchainConfig);
+
+  function test_RevertsWhen_InvalidUpkeepId() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    registry.setUpkeepOffchainConfig(linkUpkeepID + 1, hex"1233");
+  }
+
+  function test_RevertsWhen_UpkeepAlreadyCanceled() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.expectRevert(Registry.UpkeepCancelled.selector);
+    registry.setUpkeepOffchainConfig(linkUpkeepID, hex"1234");
+  }
+
+  function test_RevertsWhen_NotCalledByAdmin() external {
+    vm.startPrank(STRANGER);
+
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    registry.setUpkeepOffchainConfig(linkUpkeepID, hex"1234");
+  }
+
+  function test_UpdateOffchainConfig_CalledByAdmin() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectEmit();
+    emit UpkeepOffchainConfigSet(linkUpkeepID, hex"1234");
+    registry.setUpkeepOffchainConfig(linkUpkeepID, hex"1234");
+
+    assertEq(registry.getUpkeep(linkUpkeepID).offchainConfig, hex"1234");
+  }
+}
+
+contract SetUpkeepTriggerConfig is SetUp {
+  event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
+
+  function test_RevertsWhen_InvalidUpkeepId() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    registry.setUpkeepTriggerConfig(linkUpkeepID + 1, hex"1233");
+  }
+
+  function test_RevertsWhen_UpkeepAlreadyCanceled() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.expectRevert(Registry.UpkeepCancelled.selector);
+    registry.setUpkeepTriggerConfig(linkUpkeepID, hex"1234");
+  }
+
+  function test_RevertsWhen_NotCalledByAdmin() external {
+    vm.startPrank(STRANGER);
+
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    registry.setUpkeepTriggerConfig(linkUpkeepID, hex"1234");
+  }
+
+  function test_UpdateTriggerConfig_CalledByAdmin() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    vm.expectEmit();
+    emit UpkeepTriggerConfigSet(linkUpkeepID, hex"1234");
+    registry.setUpkeepTriggerConfig(linkUpkeepID, hex"1234");
+
+    assertEq(registry.getUpkeepTriggerConfig(linkUpkeepID), hex"1234");
+  }
+}
