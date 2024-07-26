@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/urfave/cli"
 
@@ -12,10 +13,13 @@ import (
 )
 
 type deleteWorkflows struct {
+	NodeList string
 }
 
 func NewDeleteWorkflowsCommand() *deleteWorkflows {
-	return &deleteWorkflows{}
+	return &deleteWorkflows{
+		NodeList: ".cache/NodeList.txt",
+	}
 }
 
 func (g *deleteWorkflows) Name() string {
@@ -23,7 +27,22 @@ func (g *deleteWorkflows) Name() string {
 }
 
 func (g *deleteWorkflows) Run(args []string) {
-	nodes := downloadNodeAPICredentialsDefault()
+
+	fs := flag.NewFlagSet(g.Name(), flag.ExitOnError)
+	customNodeList := fs.String("nodes", "", "Custom node list location")
+
+	err := fs.Parse(args)
+	if err != nil {
+		fs.Usage()
+		os.Exit(1)
+	}
+
+	if *customNodeList != "" {
+		fmt.Printf("Custom node file override flag detected, using custom node file path %s", *customNodeList)
+		g.NodeList = *customNodeList
+	}
+
+	nodes := downloadNodeAPICredentials(g.NodeList)
 
 	for _, node := range nodes {
 		output := &bytes.Buffer{}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/urfave/cli"
 
@@ -12,6 +13,8 @@ import (
 )
 
 type deleteJobs struct {
+	NodeList  string
+	Artefacts string
 }
 
 type OCRSpec struct {
@@ -35,7 +38,10 @@ type JobSpec struct {
 }
 
 func NewDeleteJobsCommand() *deleteJobs {
-	return &deleteJobs{}
+	return &deleteJobs{
+		NodeList:  ".cache/NodeList.txt",
+		Artefacts: artefactsDir,
+	}
 }
 
 func (g *deleteJobs) Name() string {
@@ -43,9 +49,29 @@ func (g *deleteJobs) Name() string {
 }
 
 func (g *deleteJobs) Run(args []string) {
-	deployedContracts, err := LoadDeployedContracts()
+	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
+	customNodeList := fs.String("nodes", "", "Custom node list location")
+	customArtefacts := fs.String("artefacts", "", "Custom artefacts directory location")
+
+	err := fs.Parse(args)
+	if err != nil {
+		fs.Usage()
+		os.Exit(1)
+	}
+
+	if *customArtefacts != "" {
+		fmt.Printf("Custom  artefacts folder flag detected, using custom path %s", *customArtefacts)
+		g.Artefacts = *customArtefacts
+	}
+
+	if *customNodeList != "" {
+		fmt.Printf("Custom node file override flag detected, using custom node file path %s", *customNodeList)
+		g.NodeList = *customNodeList
+	}
+
+	deployedContracts, err := LoadDeployedContracts(g.Artefacts)
 	helpers.PanicErr(err)
-	nodes := downloadNodeAPICredentialsDefault()
+	nodes := downloadNodeAPICredentialsDefault(g.NodeList)
 
 	for _, node := range nodes {
 		output := &bytes.Buffer{}

@@ -17,10 +17,20 @@ import (
 )
 
 type deployJobSpecs struct {
+	CacheLocation     string
+	TemplatesLocation string
+	NodeList          string
+	PublicKeys        string
+	Artefacts         string
 }
 
 func NewDeployJobSpecsCommand() *deployJobSpecs {
-	return &deployJobSpecs{}
+	return &deployJobSpecs{
+		TemplatesLocation: "templates",
+		NodeList:          ".cache/NodeList.txt",
+		PublicKeys:        ".cache/PublicKeys.json",
+		Artefacts:         artefactsDir,
+	}
 }
 
 func (g *deployJobSpecs) Name() string {
@@ -32,6 +42,11 @@ func (g *deployJobSpecs) Run(args []string) {
 	chainID := fs.Int64("chainid", 11155111, "chain id")
 	p2pPort := fs.Int64("p2pport", 6690, "p2p port")
 	onlyReplay := fs.Bool("onlyreplay", false, "only replay the block from the OCR3 contract setConfig transaction")
+	templatesOverride := fs.String("templatesoverride", "", "Custom templates location")
+	customNodeList := fs.String("nodes", "", "Custom node list location")
+	customPublicKeys := fs.String("publickeys", "", "Custom public keys json location")
+	customArtefacts := fs.String("artefacts", "", "Custom artefacts directory location")
+
 	err := fs.Parse(args)
 	if err != nil || chainID == nil || *chainID == 0 || p2pPort == nil || *p2pPort == 0 || onlyReplay == nil {
 		fs.Usage()
@@ -43,12 +58,33 @@ func (g *deployJobSpecs) Run(args []string) {
 		fmt.Println("Deploying OCR3 job specs")
 	}
 
-	nodes := downloadNodeAPICredentialsDefault()
-	deployedContracts, err := LoadDeployedContracts()
+	if *customArtefacts != "" {
+		fmt.Printf("Custom  artefacts folder flag detected, using custom path %s\n", *customArtefacts)
+		g.Artefacts = *customArtefacts
+	}
+
+	if *templatesOverride != "" {
+		fmt.Printf("Templates override flag detected, using custom template path %s\n", *templatesOverride)
+		g.TemplatesLocation = *templatesOverride
+	}
+
+	if *customNodeList != "" {
+		fmt.Printf("Custom node file override flag detected, using custom node file path %s", *customNodeList)
+		g.NodeList = *customNodeList
+	}
+	if *customPublicKeys != "" {
+		fmt.Printf("Custom public keys json override flag detected, using custom cache path %s", *customPublicKeys)
+		g.PublicKeys = *customPublicKeys
+	}
+
+	nodes := downloadNodeAPICredentialsDefault(g.NodeList)
+	deployedContracts, err := LoadDeployedContracts(g.Artefacts)
 	PanicErr(err)
 
 	jobspecs := genSpecs(
-		".cache/PublicKeys.json", ".cache/NodeList.txt", "templates",
+		g.PublicKeys,
+		g.NodeList,
+		g.TemplatesLocation,
 		*chainID, *p2pPort, deployedContracts.OCRContract.Hex(),
 	)
 	flattenedSpecs := []hostSpec{jobspecs.bootstrap}
