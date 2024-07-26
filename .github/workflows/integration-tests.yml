@@ -555,9 +555,9 @@ jobs:
           selectedNetworks: SIMULATED_1,SIMULATED_2
           chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
           chainlinkVersion: ${{ github.sha }}
-          lokiEndpoint: ${{ secrets.LOKI_URL_CI }}
-          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           grafanaUrl: "http://localhost:8080/primary"
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
