@@ -1977,3 +1977,36 @@ contract MigrateReceive is SetUp {
     vm.stopPrank();
   }
 }
+
+contract Pause is SetUp {
+  function test_RevertsWhen_CalledByNonOwner() external {
+    vm.expectRevert(bytes("Only callable by owner"));
+    vm.prank(STRANGER);
+    registry.pause();
+  }
+
+  function test_CalledByOwner_success() external {
+    vm.startPrank(registry.owner());
+    registry.pause();
+
+    (IAutomationV21PlusCommon.StateLegacy memory state, , , , ) = registry.getState();
+    assertTrue(state.paused);
+  }
+
+  function test_revertsWhen_registerUpkeepInPausedRegistry() external {
+    vm.startPrank(registry.owner());
+    registry.pause();
+
+    vm.expectRevert(Registry.RegistryPaused.selector);
+    linkUpkeepID = registry.registerUpkeep(
+      address(TARGET1),
+      config.maxPerformGas,
+      UPKEEP_ADMIN,
+      uint8(Trigger.CONDITION),
+      address(linkToken),
+      "",
+      "",
+      ""
+    );
+  }
+}
