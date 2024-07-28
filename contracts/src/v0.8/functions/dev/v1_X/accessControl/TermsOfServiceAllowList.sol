@@ -30,6 +30,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   error InvalidUsage();
   error RecipientIsBlocked();
   error InvalidCalldata();
+  error NoPreviousToSContract();
 
   TermsOfServiceAllowListConfig private s_config;
 
@@ -202,15 +203,19 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     return blockedSenders;
   }
 
+  /// @inheritdoc ITermsOfServiceAllowList
   function migratePreviouslyAllowedSenders(address[] memory previousSendersToAdd) external override onlyOwner {
-    require(s_previousToSContract != address(0), "No previous ToS contract");
+    if (s_previousToSContract == address(0)) {
+      revert NoPreviousToSContract();
+    }
     IAccessController previousToSContract = IAccessController(s_previousToSContract);
     for (uint256 i = 0; i < previousSendersToAdd.length; ++i) {
       if (
-        previousToSContract.hasAccess(previousSendersToAdd[i], "") &&
-        !s_blockedSenders.contains(previousSendersToAdd[i])
+        previousToSContract.hasAccess(previousSendersToAdd[i], "")
       ) {
-        s_allowedSenders.add(previousSendersToAdd[i]);
+        if (!s_blockedSenders.contains(previousSendersToAdd[i])) {
+          s_allowedSenders.add(previousSendersToAdd[i]);
+        }
       }
     }
   }
