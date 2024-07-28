@@ -21,7 +21,7 @@ func TestCronBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig("Smoke", tc.Cron)
+	config, err := tc.GetConfig([]string{"Smoke"}, tc.Cron)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,6 @@ func TestCronBasic(t *testing.T) {
 		WithMockAdapter().
 		WithCLNodes(1).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err)
 
@@ -77,7 +76,7 @@ func TestCronJobReplacement(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig("Smoke", tc.Cron)
+	config, err := tc.GetConfig([]string{"Smoke"}, tc.Cron)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +91,6 @@ func TestCronJobReplacement(t *testing.T) {
 		WithMockAdapter().
 		WithCLNodes(1).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err)
 

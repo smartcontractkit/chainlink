@@ -262,14 +262,15 @@ type RandomKey struct {
 
 func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2, common.Address) {
 	ctx := testutils.Context(t)
-	if r.chainIDs == nil {
-		r.chainIDs = []ubig.Big{*ubig.New(&FixtureChainID)}
+	chainIDs := r.chainIDs
+	if chainIDs == nil {
+		chainIDs = []ubig.Big{*ubig.New(&FixtureChainID)}
 	}
 
 	key := MustGenerateRandomKey(t)
 	keystore.XXXTestingOnlyAdd(ctx, key)
 
-	for _, cid := range r.chainIDs {
+	for _, cid := range chainIDs {
 		require.NoError(t, keystore.Add(ctx, key.Address, cid.ToInt()))
 		require.NoError(t, keystore.Enable(ctx, key.Address, cid.ToInt()))
 		if r.Disabled {

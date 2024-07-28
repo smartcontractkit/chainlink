@@ -22,14 +22,15 @@ import (
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
+
 	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	f_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/functions"
 	keeper_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/keeper"
 	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 	ocr_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
-	ocr2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr2"
 	vrf_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrf"
 	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
@@ -64,11 +65,11 @@ type AutomationTestConfig interface {
 }
 
 type OcrTestConfig interface {
-	GetOCRConfig() *ocr_config.Config
+	GetActiveOCRConfig() *ocr_config.Config
 }
 
 type Ocr2TestConfig interface {
-	GetOCR2Config() *ocr2_config.Config
+	GetOCR2Config() *ocr_config.Config
 }
 
 type TestConfig struct {
@@ -80,12 +81,12 @@ type TestConfig struct {
 	Keeper     *keeper_config.Config    `toml:"Keeper"`
 	LogPoller  *lp_config.Config        `toml:"LogPoller"`
 	OCR        *ocr_config.Config       `toml:"OCR"`
-	OCR2       *ocr2_config.Config      `toml:"OCR2"`
+	OCR2       *ocr_config.Config       `toml:"OCR2"`
 	VRF        *vrf_config.Config       `toml:"VRF"`
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
 
-	ConfigurationName string `toml:"-"`
+	ConfigurationNames []string `toml:"-"`
 }
 
 var embeddedConfigs embed.FS
@@ -197,12 +198,20 @@ func (c TestConfig) GetOCRConfig() *ocr_config.Config {
 	return c.OCR
 }
 
-func (c TestConfig) GetConfigurationName() string {
-	return c.ConfigurationName
+func (c TestConfig) GetConfigurationNames() []string {
+	return c.ConfigurationNames
 }
 
 func (c TestConfig) GetSethConfig() *seth.Config {
 	return c.Seth
+}
+
+func (c TestConfig) GetActiveOCRConfig() *ocr_config.Config {
+	if c.OCR != nil {
+		return c.OCR
+	}
+
+	return c.OCR2
 }
 
 func (c *TestConfig) AsBase64() (string, error) {
@@ -240,7 +249,6 @@ const (
 	Node          Product = "node"
 	OCR           Product = "ocr"
 	OCR2          Product = "ocr2"
-	OCR2VRF       Product = "ocr2vrf"
 	RunLog        Product = "runlog"
 	VRF           Product = "vrf"
 	VRFv2         Product = "vrfv2"
@@ -260,15 +268,23 @@ func GetConfigurationNameFromEnv() (string, error) {
 
 const (
 	Base64OverrideEnvVarName = k8s_config.EnvBase64ConfigOverride
-	NoKey                    = "NO_KEY"
 )
 
-func GetConfig(configurationName string, product Product) (TestConfig, error) {
+func GetConfig(configurationNames []string, product Product) (TestConfig, error) {
 	logger := logging.GetTestLogger(nil)
 
-	configurationName = strings.ReplaceAll(configurationName, "/", "_")
-	configurationName = strings.ReplaceAll(configurationName, " ", "_")
-	configurationName = cases.Title(language.English, cases.NoLower).String(configurationName)
+	for idx, configurationName := range configurationNames {
+		configurationNames[idx] = strings.ReplaceAll(configurationName, "/", "_")
+		configurationNames[idx] = strings.ReplaceAll(configurationName, " ", "_")
+		configurationNames[idx] = cases.Title(language.English, cases.NoLower).String(configurationName)
+	}
+
+	// add unnamed (default) configuration as the first one to be read
+	configurationNamesCopy := make([]string, len(configurationNames))
+	copy(configurationNamesCopy, configurationNames)
+
+	configurationNames = append([]string{""}, configurationNamesCopy...)
+
 	fileNames := []string{
 		"default.toml",
 		fmt.Sprintf("%s.toml", product),
@@ -276,17 +292,9 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 	}
 
 	testConfig := TestConfig{}
-	testConfig.ConfigurationName = configurationName
-	logger.Debug().Msgf("Will apply configuration named '%s' if it is found in any of the configs", configurationName)
+	testConfig.ConfigurationNames = configurationNames
 
-	var handleSpecialOverrides = func(logger zerolog.Logger, filename, configurationName string, target *TestConfig, content []byte, product Product) error {
-		switch product {
-		case Automation:
-			return handleAutomationConfigOverride(logger, filename, configurationName, target, content)
-		default:
-			return handleDefaultConfigOverride(logger, filename, configurationName, target, content)
-		}
-	}
+	logger.Debug().Msgf("Will apply configurations named '%s' if they are found in any of the configs", strings.Join(configurationNames, ","))
 
 	// read embedded configs is build tag "embed" is set
 	// this makes our life much easier when using a binary
@@ -302,35 +310,47 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 				return TestConfig{}, errors.Wrapf(err, "error reading embedded config")
 			}
 
-			err = handleSpecialOverrides(logger, fileName, configurationName, &testConfig, file, product)
+			for _, configurationName := range configurationNames {
+				err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, file)
+				if err != nil {
+					return TestConfig{}, errors.Wrapf(err, "error unmarshalling embedded config %s", embeddedFiles)
+				}
+			}
+		}
+	} else {
+		logger.Info().Msg("Reading configs from file system")
+		for _, fileName := range fileNames {
+			logger.Debug().Msgf("Looking for config file %s", fileName)
+			filePath, err := osutil.FindFile(fileName, osutil.DEFAULT_STOP_FILE_NAME, 3)
+
+			if err != nil && errors.Is(err, os.ErrNotExist) {
+				logger.Debug().Msgf("Config file %s not found", fileName)
+				continue
+			} else if err != nil {
+				return TestConfig{}, errors.Wrapf(err, "error looking for file %s", filePath)
+			}
+			logger.Debug().Str("location", filePath).Msgf("Found config file %s", fileName)
+
+			content, err := readFile(filePath)
 			if err != nil {
-				return TestConfig{}, errors.Wrapf(err, "error unmarshalling embedded config")
+				return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
+			}
+
+			_ = checkSecretsInToml(content)
+
+			for _, configurationName := range configurationNames {
+				err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, content)
+				if err != nil {
+					return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
+				}
 			}
 		}
 	}
 
-	logger.Info().Msg("Reading configs from file system")
-	for _, fileName := range fileNames {
-		logger.Debug().Msgf("Looking for config file %s", fileName)
-		filePath, err := osutil.FindFile(fileName, osutil.DEFAULT_STOP_FILE_NAME, 3)
-
-		if err != nil && errors.Is(err, os.ErrNotExist) {
-			logger.Debug().Msgf("Config file %s not found", fileName)
-			continue
-		} else if err != nil {
-			return TestConfig{}, errors.Wrapf(err, "error looking for file %s", filePath)
-		}
-		logger.Debug().Str("location", filePath).Msgf("Found config file %s", fileName)
-
-		content, err := readFile(filePath)
-		if err != nil {
-			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
-		}
-
-		err = handleSpecialOverrides(logger, fileName, configurationName, &testConfig, content, product)
-		if err != nil {
-			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
-		}
+	// it needs some custom logic, so we do it separately
+	err := testConfig.readNetworkConfiguration()
+	if err != nil {
+		return TestConfig{}, errors.Wrapf(err, "error reading network config")
 	}
 
 	logger.Info().Msg("Reading configs from Base64 override env var")
@@ -342,18 +362,28 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 			return TestConfig{}, err
 		}
 
-		err = handleSpecialOverrides(logger, Base64OverrideEnvVarName, configurationName, &testConfig, decoded, product)
-		if err != nil {
-			return TestConfig{}, errors.Wrapf(err, "error unmarshaling base64 config")
+		_ = checkSecretsInToml(decoded)
+
+		for _, configurationName := range configurationNames {
+			err = ctf_config.BytesToAnyTomlStruct(logger, Base64OverrideEnvVarName, configurationName, &testConfig, decoded)
+			if err != nil {
+				return TestConfig{}, errors.Wrapf(err, "error unmarshaling base64 config")
+			}
 		}
 	} else {
 		logger.Debug().Msg("Base64 config override from environment variable not found")
 	}
 
-	// it neede some custom logic, so we do it separately
-	err := testConfig.readNetworkConfiguration()
+	logger.Info().Msg("Loading config values from default ~/.testsecrets env file")
+	err = ctf_config.LoadSecretEnvsFromFiles()
 	if err != nil {
-		return TestConfig{}, errors.Wrapf(err, "error reading network config")
+		return TestConfig{}, errors.Wrapf(err, "error reading test config values from ~/.testsecrets file")
+	}
+
+	logger.Info().Msg("Reading values from environment variables")
+	err = testConfig.ReadFromEnvVar()
+	if err != nil {
+		return TestConfig{}, errors.Wrapf(err, "error reading test config values from env vars")
 	}
 
 	logger.Debug().Msg("Validating test config")
@@ -368,27 +398,34 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		testConfig.Common = &Common{}
 	}
 
+	testConfig.logRiskySettings(logger)
+
+	logger.Debug().Msg("Correct test config constructed successfully")
+	return testConfig, nil
+}
+
+func (c *TestConfig) logRiskySettings(logger zerolog.Logger) {
 	isAnySimulated := false
-	for _, network := range testConfig.Network.SelectedNetworks {
+	for _, network := range c.Network.SelectedNetworks {
 		if strings.Contains(strings.ToUpper(network), "SIMULATED") {
 			isAnySimulated = true
 			break
 		}
 	}
 
-	if testConfig.Seth != nil && !isAnySimulated && (testConfig.Seth.EphemeralAddrs != nil && *testConfig.Seth.EphemeralAddrs != 0) {
-		testConfig.Seth.EphemeralAddrs = new(int64)
+	if c.Seth != nil && !isAnySimulated && (c.Seth.EphemeralAddrs != nil && *c.Seth.EphemeralAddrs != 0) {
+		c.Seth.EphemeralAddrs = new(int64)
 		logger.Warn().
 			Msg("Ephemeral addresses were enabled, but test was setup to run on a live network. Ephemeral addresses will be disabled.")
 	}
 
-	if testConfig.Seth != nil && (testConfig.Seth.EphemeralAddrs != nil && *testConfig.Seth.EphemeralAddrs != 0) {
-		rootBuffer := testConfig.Seth.RootKeyFundsBuffer
+	if c.Seth != nil && (c.Seth.EphemeralAddrs != nil && *c.Seth.EphemeralAddrs != 0) {
+		rootBuffer := c.Seth.RootKeyFundsBuffer
 		zero := int64(0)
 		if rootBuffer == nil {
 			rootBuffer = &zero
 		}
-		clNodeFunding := testConfig.Common.ChainlinkNodeFunding
+		clNodeFunding := c.Common.ChainlinkNodeFunding
 		if clNodeFunding == nil {
 			zero := 0.0
 			clNodeFunding = &zero
@@ -415,8 +452,66 @@ root_key_funds_buffer = 1_000
 		}
 	}
 
-	logger.Debug().Msg("Correct test config constructed successfully")
-	return testConfig, nil
+	var customChainSettings []string
+	for _, network := range networks.MustGetSelectedNetworkConfig(c.Network) {
+		if c.NodeConfig != nil && len(c.NodeConfig.ChainConfigTOMLByChainID) > 0 {
+			if _, ok := c.NodeConfig.ChainConfigTOMLByChainID[fmt.Sprint(network.ChainID)]; ok {
+				logger.Warn().Msgf("You have provided custom Chainlink Node configuration for network '%s' (chain id: %d). Chainlink Node's default settings won't be used", network.Name, network.ChainID)
+				customChainSettings = append(customChainSettings, fmt.Sprint(network.ChainID))
+			}
+		}
+	}
+
+	if len(customChainSettings) == 0 && c.NodeConfig != nil && c.NodeConfig.CommonChainConfigTOML != "" {
+		logger.Warn().Msg("***** You have provided your own default Chainlink Node configuration for all networks. Chainlink Node's default settings for selected networks won't be used *****")
+	}
+
+}
+
+// checkSecretsInToml checks if the TOML file contains secrets and shows error logs if it does
+// This is a temporary and will be removed after migration to test secrets from env vars
+func checkSecretsInToml(content []byte) error {
+	logger := logging.GetTestLogger(nil)
+	data := make(map[string]interface{})
+
+	// Decode the TOML data
+	err := toml.Unmarshal(content, &data)
+	if err != nil {
+		return errors.Wrapf(err, "error decoding TOML file")
+	}
+
+	logError := func(key, envVar string) {
+		logger.Error().Msgf("Error in TOML test config!! TOML cannot have '%s' key. Remove it and set %s env in ~/.testsecrets instead", key, envVar)
+	}
+
+	if data["ChainlinkImage"] != nil {
+		chainlinkImage := data["ChainlinkImage"].(map[string]interface{})
+		if chainlinkImage["image"] != nil {
+			logError("ChainlinkImage.image", "E2E_TEST_CHAINLINK_IMAGE")
+		}
+	}
+
+	if data["ChainlinkUpgradeImage"] != nil {
+		chainlinkUpgradeImage := data["ChainlinkUpgradeImage"].(map[string]interface{})
+		if chainlinkUpgradeImage["image"] != nil {
+			logError("ChainlinkUpgradeImage.image", "E2E_TEST_CHAINLINK_UPGRADE_IMAGE")
+		}
+	}
+
+	if data["Network"] != nil {
+		network := data["Network"].(map[string]interface{})
+		if network["RpcHttpUrls"] != nil {
+			logError("Network.RpcHttpUrls", "`E2E_TEST_(.+)_RPC_HTTP_URL$` like E2E_TEST_ARBITRUM_SEPOLIA_RPC_HTTP_URL")
+		}
+		if network["RpcWsUrls"] != nil {
+			logError("Network.RpcWsUrls", "`E2E_TEST_(.+)_RPC_WS_URL$` like E2E_TEST_ARBITRUM_SEPOLIA_RPC_WS_URL")
+		}
+		if network["WalletKeys"] != nil {
+			logError("Network.wallet_keys", "`E2E_TEST_(.+)_WALLET_KEY$` E2E_TEST_ARBITRUM_SEPOLIA_WALLET_KEY")
+		}
+	}
+
+	return nil
 }
 
 func (c *TestConfig) readNetworkConfiguration() error {
@@ -536,6 +631,12 @@ func (c *TestConfig) Validate() error {
 		}
 	}
 
+	if c.OCR2 != nil {
+		if err := c.OCR2.Validate(); err != nil {
+			return errors.Wrapf(err, "OCR2 config validation failed")
+		}
+	}
+
 	if c.VRF != nil {
 		if err := c.VRF.Validate(); err != nil {
 			return errors.Wrapf(err, "VRF config validation failed")
@@ -569,77 +670,4 @@ func readFile(filePath string) ([]byte, error) {
 	}
 
 	return content, nil
-}
-
-func handleAutomationConfigOverride(logger zerolog.Logger, filename, configurationName string, target *TestConfig, content []byte) error {
-	logger.Debug().Msgf("Handling automation config override for %s", filename)
-	oldConfig := MustCopy(target)
-	newConfig := TestConfig{}
-
-	err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &target, content)
-	if err != nil {
-		return errors.Wrapf(err, "error reading file %s", filename)
-	}
-
-	err = ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &newConfig, content)
-	if err != nil {
-		return errors.Wrapf(err, "error reading file %s", filename)
-	}
-
-	// override instead of merging
-	if (newConfig.Automation != nil && len(newConfig.Automation.Load) > 0) && (oldConfig != nil && oldConfig.Automation != nil && len(oldConfig.Automation.Load) > 0) {
-		target.Automation.Load = newConfig.Automation.Load
-	}
-
-	return nil
-}
-
-func handleDefaultConfigOverride(logger zerolog.Logger, filename, configurationName string, target *TestConfig, content []byte) error {
-	logger.Debug().Msgf("Handling default config override for %s", filename)
-	oldConfig := MustCopy(target)
-	newConfig := TestConfig{}
-
-	err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &target, content)
-	if err != nil {
-		return errors.Wrapf(err, "error reading file %s", filename)
-	}
-
-	err = ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &newConfig, content)
-	if err != nil {
-		return errors.Wrapf(err, "error reading file %s", filename)
-	}
-
-	// temporary fix for Duration not being correctly copied
-	if oldConfig != nil && oldConfig.Seth != nil && oldConfig.Seth.Networks != nil {
-		for i, old_network := range oldConfig.Seth.Networks {
-			for _, target_network := range target.Seth.Networks {
-				if old_network.ChainID == target_network.ChainID {
-					oldConfig.Seth.Networks[i].TxnTimeout = target_network.TxnTimeout
-				}
-			}
-		}
-	}
-
-	// override instead of merging
-	if (newConfig.Seth != nil && len(newConfig.Seth.Networks) > 0) && (oldConfig != nil && oldConfig.Seth != nil && len(oldConfig.Seth.Networks) > 0) {
-		networksToUse := map[string]*seth.Network{}
-		for i, old_network := range oldConfig.Seth.Networks {
-			for _, new_network := range newConfig.Seth.Networks {
-				if old_network.ChainID == new_network.ChainID {
-					oldConfig.Seth.Networks[i] = new_network
-					break
-				}
-				if _, ok := networksToUse[new_network.ChainID]; !ok {
-					networksToUse[new_network.ChainID] = new_network
-				}
-			}
-			networksToUse[old_network.ChainID] = oldConfig.Seth.Networks[i]
-		}
-		target.Seth.Networks = []*seth.Network{}
-		for _, network := range networksToUse {
-			target.Seth.Networks = append(target.Seth.Networks, network)
-		}
-	}
-
-	return nil
 }

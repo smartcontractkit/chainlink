@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/contracts",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Chainlink smart contracts",
   "author": "Chainlink devs",
   "license": "MIT",
@@ -30,6 +30,10 @@
     "overrides": {
       "@ethersproject/logger": "5.0.6"
     }
+  },
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=9"
   },
   "devDependencies": {
     "@ethereum-waffle/mock-contract": "^3.4.4",

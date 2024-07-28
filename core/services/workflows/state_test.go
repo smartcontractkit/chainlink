@@ -38,7 +38,7 @@ func TestInterpolateKey(t *testing.T) {
 			state: store.WorkflowExecution{
 				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						Outputs: &store.StepOutput{
+						Outputs: store.StepOutput{
 							Value: values.NewString("<a report>"),
 						},
 					},
@@ -68,7 +68,7 @@ func TestInterpolateKey(t *testing.T) {
 			state: store.WorkflowExecution{
 				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						Outputs: &store.StepOutput{
+						Outputs: store.StepOutput{
 							Value: values.NewString("<a report>"),
 						},
 					},
@@ -82,7 +82,7 @@ func TestInterpolateKey(t *testing.T) {
 			state: store.WorkflowExecution{
 				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						Outputs: &store.StepOutput{
+						Outputs: store.StepOutput{
 							Err: errors.New("catastrophic error"),
 						},
 					},
@@ -96,7 +96,7 @@ func TestInterpolateKey(t *testing.T) {
 			state: store.WorkflowExecution{
 				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						Outputs: &store.StepOutput{
+						Outputs: store.StepOutput{
 							Value: val,
 						},
 					},
@@ -110,7 +110,7 @@ func TestInterpolateKey(t *testing.T) {
 			state: store.WorkflowExecution{
 				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						Outputs: &store.StepOutput{
+						Outputs: store.StepOutput{
 							Value: val,
 						},
 					},
@@ -124,7 +124,7 @@ func TestInterpolateKey(t *testing.T) {
 			state: store.WorkflowExecution{
 				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						Outputs: &store.StepOutput{
+						Outputs: store.StepOutput{
 							Value: val,
 						},
 					},
@@ -138,7 +138,7 @@ func TestInterpolateKey(t *testing.T) {
 			state: store.WorkflowExecution{
 				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						Outputs: &store.StepOutput{
+						Outputs: store.StepOutput{
 							Value: val,
 						},
 					},
@@ -152,7 +152,7 @@ func TestInterpolateKey(t *testing.T) {
 			state: store.WorkflowExecution{
 				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						Outputs: &store.StepOutput{
+						Outputs: store.StepOutput{
 							Value: val,
 						},
 					},
@@ -166,7 +166,7 @@ func TestInterpolateKey(t *testing.T) {
 			state: store.WorkflowExecution{
 				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						Outputs: &store.StepOutput{
+						Outputs: store.StepOutput{
 							Value: val,
 						},
 					},
@@ -180,7 +180,7 @@ func TestInterpolateKey(t *testing.T) {
 			state: store.WorkflowExecution{
 				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						Outputs: &store.StepOutput{
+						Outputs: store.StepOutput{
 							Value: val,
 						},
 					},
@@ -222,7 +222,7 @@ func TestInterpolateInputsFromState(t *testing.T) {
 			state: store.WorkflowExecution{
 				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						Outputs: &store.StepOutput{
+						Outputs: store.StepOutput{
 							Value: values.NewString("<a report>"),
 						},
 					},
@@ -242,7 +242,7 @@ func TestInterpolateInputsFromState(t *testing.T) {
 			state: store.WorkflowExecution{
 				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						Outputs: &store.StepOutput{
+						Outputs: store.StepOutput{
 							Value: values.NewString("<a report>"),
 						},
 					},

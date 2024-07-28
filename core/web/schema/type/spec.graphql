@@ -11,10 +11,12 @@ union JobSpec =
     BlockHeaderFeederSpec |
     BootstrapSpec |
     GatewaySpec |
-    WorkflowSpec
+    WorkflowSpec |
+    StandardCapabilitiesSpec
 
 type CronSpec {
     schedule: String!
+    evmChainID: String
     createdAt: Time!
 }
 
@@ -169,4 +171,11 @@ type WorkflowSpec {
     workflowOwner: String!
     createdAt: Time!
     updatedAt: Time!
+}
+
+type StandardCapabilitiesSpec {
+    id: ID!
+    createdAt: Time!
+    command: String!
+    config: String
 }

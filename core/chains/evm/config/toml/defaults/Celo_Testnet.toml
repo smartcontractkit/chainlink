@@ -1,6 +1,6 @@
 ChainID = '44787'
 ChainType = 'celo'
-FinalityDepth = 1
+FinalityDepth = 10
 LogPollInterval = '5s'
 MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '1m'

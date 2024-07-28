@@ -1,5 +1,5 @@
 ChainID = '8217'
-FinalityDepth = 1
+FinalityDepth = 10
 MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '30s'
 OCR.ContractConfirmations = 1

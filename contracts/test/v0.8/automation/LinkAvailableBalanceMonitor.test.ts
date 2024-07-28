@@ -182,7 +182,7 @@ describe('LinkAvailableBalanceMonitor', () => {
   })
 
   describe('add funds', () => {
-    it('Should allow anyone to add funds', async () => {
+    it('should allow anyone to add funds', async () => {
       await lt.transfer(labm.address, oneLINK)
       await lt.connect(stranger).transfer(labm.address, oneLINK)
     })
@@ -197,7 +197,7 @@ describe('LinkAvailableBalanceMonitor', () => {
       assert.equal(report.topUpAmount.toString(), '100')
     })
 
-    it('configuresis only callable by the owner', async () => {
+    it('is only callable by the owner', async () => {
       await expect(
         labm.connect(stranger).setTopUpAmount(directTarget1.address, 100),
       ).to.be.reverted
@@ -266,7 +266,7 @@ describe('LinkAvailableBalanceMonitor', () => {
       await tx.wait()
     })
 
-    it('Should allow the owner to withdraw', async () => {
+    it('should allow the owner to withdraw', async () => {
       const beforeBalance = await lt.balanceOf(owner.address)
       const tx = await labm.connect(owner).withdraw(oneLINK, owner.address)
       await tx.wait()
@@ -277,14 +277,14 @@ describe('LinkAvailableBalanceMonitor', () => {
       )
     })
 
-    it('Should emit an event', async () => {
+    it('should emit an event', async () => {
       const tx = await labm.connect(owner).withdraw(oneLINK, owner.address)
       await expect(tx)
         .to.emit(labm, 'FundsWithdrawn')
         .withArgs(oneLINK, owner.address)
     })
 
-    it('Should allow the owner to withdraw to anyone', async () => {
+    it('should allow the owner to withdraw to anyone', async () => {
       const beforeBalance = await lt.balanceOf(stranger.address)
       const tx = await labm.connect(owner).withdraw(oneLINK, stranger.address)
       await tx.wait()
@@ -295,21 +295,21 @@ describe('LinkAvailableBalanceMonitor', () => {
       )
     })
 
-    it('Should not allow strangers to withdraw', async () => {
+    it('should not allow strangers to withdraw', async () => {
       const tx = labm.connect(stranger).withdraw(oneLINK, owner.address)
       await expect(tx).to.be.reverted
     })
   })
 
   describe('pause() / unpause()', () => {
-    it('Should allow owner to pause / unpause', async () => {
+    it('should allow owner to pause / unpause', async () => {
       const pauseTx = await labm.connect(owner).pause()
       await pauseTx.wait()
       const unpauseTx = await labm.connect(owner).unpause()
       await unpauseTx.wait()
     })
 
-    it('Should not allow strangers to pause / unpause', async () => {
+    it('should not allow strangers to pause / unpause', async () => {
       const pauseTxStranger = labm.connect(stranger).pause()
       await expect(pauseTxStranger).to.be.reverted
       const pauseTxOwner = await labm.connect(owner).pause()
@@ -319,7 +319,7 @@ describe('LinkAvailableBalanceMonitor', () => {
     })
   })
 
-  describe('setWatchList() / addToWatchListOrDecomissionOrDecomission() / removeFromWatchlist() / getWatchList()', () => {
+  describe('setWatchList() / addToWatchListOrDecommissionOrDecommission() / removeFromWatchlist() / getWatchList()', () => {
     const watchAddress1 = randAddr()
     const watchAddress2 = randAddr()
     const watchAddress3 = randAddr()
@@ -331,15 +331,15 @@ describe('LinkAvailableBalanceMonitor', () => {
       assert.deepEqual(watchList, [])
     })
 
-    it('Should allow owner to adjust the watchlist', async () => {
+    it('should allow owner to adjust the watchlist', async () => {
       // add first watchlist
-      let tx = await labm
+      await labm
         .connect(owner)
         .setWatchList([watchAddress1], [oneLINK], [oneLINK], [0])
       let watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress1)
       // add more to watchlist
-      tx = await labm
+      const tx = await labm
         .connect(owner)
         .setWatchList(
           [watchAddress1, watchAddress2, watchAddress3],
@@ -352,8 +352,8 @@ describe('LinkAvailableBalanceMonitor', () => {
       assert.deepEqual(watchList, [watchAddress1, watchAddress2, watchAddress3])
     })
 
-    it('Should not allow different length arrays in the watchlist', async () => {
-      let tx = labm
+    it('should not allow different length arrays in the watchlist', async () => {
+      const tx = labm
         .connect(owner)
         .setWatchList(
           [watchAddress1, watchAddress2, watchAddress1],
@@ -367,8 +367,8 @@ describe('LinkAvailableBalanceMonitor', () => {
       )
     })
 
-    it('Should not allow duplicates in the watchlist', async () => {
-      let tx = labm
+    it('should not allow duplicates in the watchlist', async () => {
+      const tx = labm
         .connect(owner)
         .setWatchList(
           [watchAddress1, watchAddress2, watchAddress1],
@@ -381,15 +381,15 @@ describe('LinkAvailableBalanceMonitor', () => {
         .withArgs(watchAddress1)
     })
 
-    it('Should not allow strangers to set the watchlist', async () => {
+    it('should not allow strangers to set the watchlist', async () => {
       const setTxStranger = labm
         .connect(stranger)
         .setWatchList([watchAddress1], [oneLINK], [oneLINK], [0])
       await expect(setTxStranger).to.be.reverted
     })
 
-    it('Should revert if any of the addresses are empty', async () => {
-      let tx = labm
+    it('should revert if any of the addresses are empty', async () => {
+      const tx = labm
         .connect(owner)
         .setWatchList(
           [watchAddress1, ethers.constants.AddressZero],
@@ -403,17 +403,17 @@ describe('LinkAvailableBalanceMonitor', () => {
       )
     })
 
-    it('Should allow owner to add multiple addresses with dstChainSelector 0 to the watchlist', async () => {
+    it('should allow owner to add multiple addresses with dstChainSelector 0 to the watchlist', async () => {
       let tx = await labm
         .connect(owner)
-        .addToWatchListOrDecomission(watchAddress1, 0)
+        .addToWatchListOrDecommission(watchAddress1, 0)
       await tx.wait
       let watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress1)
 
       tx = await labm
         .connect(owner)
-        .addToWatchListOrDecomission(watchAddress2, 0)
+        .addToWatchListOrDecommission(watchAddress2, 0)
       await tx.wait
       watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress1)
@@ -421,7 +421,7 @@ describe('LinkAvailableBalanceMonitor', () => {
 
       tx = await labm
         .connect(owner)
-        .addToWatchListOrDecomission(watchAddress3, 0)
+        .addToWatchListOrDecommission(watchAddress3, 0)
       await tx.wait
       watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress1)
@@ -429,10 +429,10 @@ describe('LinkAvailableBalanceMonitor', () => {
       assert.deepEqual(watchList[2], watchAddress3)
     })
 
-    it('Should allow owner to add only one address with an unique non-zero dstChainSelector 0 to the watchlist', async () => {
+    it('should allow owner to add only one address with an unique non-zero dstChainSelector 0 to the watchlist', async () => {
       let tx = await labm
         .connect(owner)
-        .addToWatchListOrDecomission(watchAddress1, 1)
+        .addToWatchListOrDecommission(watchAddress1, 1)
       await tx.wait
       let watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress1)
@@ -443,7 +443,7 @@ describe('LinkAvailableBalanceMonitor', () => {
 
       tx = await labm
         .connect(owner)
-        .addToWatchListOrDecomission(watchAddress2, 1)
+        .addToWatchListOrDecommission(watchAddress2, 1)
       await tx.wait
       watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress2)
@@ -456,7 +456,7 @@ describe('LinkAvailableBalanceMonitor', () => {
 
       tx = await labm
         .connect(owner)
-        .addToWatchListOrDecomission(watchAddress3, 1)
+        .addToWatchListOrDecommission(watchAddress3, 1)
       await tx.wait
       watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress3)
@@ -470,25 +470,25 @@ describe('LinkAvailableBalanceMonitor', () => {
       assert.isFalse(report.isActive)
     })
 
-    it('Should not add address 0 to the watchlist', async () => {
+    it('should not add address 0 to the watchlist', async () => {
       await labm
         .connect(owner)
-        .addToWatchListOrDecomission(ethers.constants.AddressZero, 1)
+        .addToWatchListOrDecommission(ethers.constants.AddressZero, 1)
       expect(await labm.getWatchList()).to.not.contain(
         ethers.constants.AddressZero,
       )
     })
 
-    it('Should not allow stangers to add addresses to the watchlist', async () => {
+    it('should not allow stangers to add addresses to the watchlist', async () => {
       await expect(
-        labm.connect(stranger).addToWatchListOrDecomission(watchAddress1, 1),
+        labm.connect(stranger).addToWatchListOrDecommission(watchAddress1, 1),
       ).to.be.reverted
     })
 
-    it('Should allow owner to remove addresses from the watchlist', async () => {
-      let tx = await labm
+    it('should allow owner to remove addresses from the watchlist', async () => {
+      const tx = await labm
         .connect(owner)
-        .addToWatchListOrDecomission(watchAddress1, 1)
+        .addToWatchListOrDecommission(watchAddress1, 1)
       await tx.wait
       let watchList = await labm.getWatchList()
       assert.deepEqual(watchList[0], watchAddress1)
@@ -496,7 +496,7 @@ describe('LinkAvailableBalanceMonitor', () => {
       assert.isTrue(report.isActive)
 
       // remove address
-      tx = await labm.connect(owner).removeFromWatchList(watchAddress1)
+      await labm.connect(owner).removeFromWatchList(watchAddress1)
 
       // address should be false
       report = await labm.getAccountInfo(watchAddress1)
@@ -506,13 +506,13 @@ describe('LinkAvailableBalanceMonitor', () => {
       assert.deepEqual(watchList, [])
     })
 
-    it('Should allow only one address per dstChainSelector', async () => {
+    it('should allow only one address per dstChainSelector', async () => {
       // add address1
-      await labm.connect(owner).addToWatchListOrDecomission(watchAddress1, 1)
+      await labm.connect(owner).addToWatchListOrDecommission(watchAddress1, 1)
       expect(await labm.getWatchList()).to.contain(watchAddress1)
 
       // add address2
-      await labm.connect(owner).addToWatchListOrDecomission(watchAddress2, 1)
+      await labm.connect(owner).addToWatchListOrDecommission(watchAddress2, 1)
 
       // only address2 has to be in the watchlist
       const watchlist = await labm.getWatchList()
@@ -520,15 +520,15 @@ describe('LinkAvailableBalanceMonitor', () => {
       expect(watchlist).to.contain(watchAddress2)
     })
 
-    it('Should delete the onRamp address on a zero-address with same dstChainSelector', async () => {
+    it('should delete the onRamp address on a zero-address with same dstChainSelector', async () => {
       // add address1
-      await labm.connect(owner).addToWatchListOrDecomission(watchAddress1, 1)
+      await labm.connect(owner).addToWatchListOrDecommission(watchAddress1, 1)
       expect(await labm.getWatchList()).to.contain(watchAddress1)
 
       // simulates an onRampSet(zeroAddress, same dstChainSelector)
       await labm
         .connect(owner)
-        .addToWatchListOrDecomission(ethers.constants.AddressZero, 1)
+        .addToWatchListOrDecommission(ethers.constants.AddressZero, 1)
 
       // address1 should be cleaned
       const watchlist = await labm.getWatchList()
@@ -538,7 +538,7 @@ describe('LinkAvailableBalanceMonitor', () => {
   })
 
   describe('checkUpkeep() / sampleUnderfundedAddresses() [ @skip-coverage ]', () => {
-    it('Should return list of address that are underfunded', async () => {
+    it('should return list of address that are underfunded', async () => {
       const fundTx = await lt
         .connect(owner)
         .transfer(labm.address, oneHundredLINK)
@@ -563,7 +563,25 @@ describe('LinkAvailableBalanceMonitor', () => {
       expect(addresses).to.deep.equalInAnyOrder(watchListAddresses)
     })
 
-    it('Should omit aggregators that have sufficient funding', async () => {
+    it('should return false because the monitor is underfunded', async () => {
+      // it needs 10 LINKs to fund all 5 upkeeps, but it only has 8 LINKs
+      const fundTx = await lt
+        .connect(owner)
+        .transfer(labm.address, fourLINK.add(fourLINK))
+      await fundTx.wait()
+
+      await labm.setWatchList(
+        watchListAddresses,
+        watchListMinBalances,
+        watchListTopUpAmounts,
+        watchListDstChainSelectors,
+      )
+
+      const [should, _] = await labm.checkUpkeep('0x')
+      assert.isFalse(should)
+    })
+
+    it('should omit aggregators that have sufficient funding', async () => {
       const fundTx = await lt.connect(owner).transfer(
         labm.address,
         oneHundredLINK, // enough for anything that needs funding
@@ -607,7 +625,7 @@ describe('LinkAvailableBalanceMonitor', () => {
       expect(addresses).to.deep.equalInAnyOrder([])
     })
 
-    it('Should revert when paused', async () => {
+    it('should revert when paused', async () => {
       const tx = await labm.connect(owner).pause()
       await tx.wait()
       const ethCall = labm.checkUpkeep('0x')
@@ -657,17 +675,17 @@ describe('LinkAvailableBalanceMonitor', () => {
           topUpAmount,
           dstChainSelectors,
         )
-        let watchlist = await labm.getWatchList()
+        const watchlist = await labm.getWatchList()
         expect(watchlist).to.deep.equalInAnyOrder(proxyAddresses)
         assert.equal(watchlist.length, minBalances.length)
       })
 
-      it('Should not include more than MAX_PERFORM addresses', async () => {
+      it('should not include more than MAX_PERFORM addresses', async () => {
         const addresses = await labm.sampleUnderfundedAddresses()
         expect(addresses.length).to.be.lessThanOrEqual(MAX_PERFORM)
       })
 
-      it('Should sample from the list of addresses pseudorandomly', async () => {
+      it('should sample from the list of addresses pseudorandomly', async () => {
         const firstAddress: string[] = []
         for (let idx = 0; idx < 10; idx++) {
           const addresses = await labm.sampleUnderfundedAddresses()
@@ -686,7 +704,7 @@ describe('LinkAvailableBalanceMonitor', () => {
         )
       })
 
-      it('Can check MAX_CHECK upkeeps within the allotted gas limit', async () => {
+      it('can check MAX_CHECK upkeeps within the allotted gas limit', async () => {
         for (const aggregator of aggregators) {
           // here we make no aggregators eligible for funding, requiring the function to
           // traverse the whole list
@@ -715,13 +733,13 @@ describe('LinkAvailableBalanceMonitor', () => {
         )
     })
 
-    it('Should revert when paused', async () => {
+    it('should revert when paused', async () => {
       await labm.connect(owner).pause()
       const performTx = labm.connect(keeperRegistry).performUpkeep(validPayload)
       await expect(performTx).to.be.revertedWith(PAUSED_ERR)
     })
 
-    it('Should fund the appropriate addresses', async () => {
+    it('should fund the appropriate addresses', async () => {
       await aggregator1.mock.linkAvailableForPayment.returns(zeroLINK)
       await aggregator2.mock.linkAvailableForPayment.returns(zeroLINK)
       await aggregator3.mock.linkAvailableForPayment.returns(zeroLINK)
@@ -731,25 +749,25 @@ describe('LinkAvailableBalanceMonitor', () => {
       const fundTx = await lt.connect(owner).transfer(labm.address, tenLINK)
       await fundTx.wait()
 
-      h.assertLinkTokenBalance(lt, aggregator1.address, zeroLINK)
-      h.assertLinkTokenBalance(lt, aggregator2.address, zeroLINK)
-      h.assertLinkTokenBalance(lt, aggregator3.address, zeroLINK)
-      h.assertLinkTokenBalance(lt, directTarget1.address, zeroLINK)
-      h.assertLinkTokenBalance(lt, directTarget2.address, zeroLINK)
+      await h.assertLinkTokenBalance(lt, aggregator1.address, zeroLINK)
+      await h.assertLinkTokenBalance(lt, aggregator2.address, zeroLINK)
+      await h.assertLinkTokenBalance(lt, aggregator3.address, zeroLINK)
+      await h.assertLinkTokenBalance(lt, directTarget1.address, zeroLINK)
+      await h.assertLinkTokenBalance(lt, directTarget2.address, zeroLINK)
 
       const performTx = await labm
         .connect(keeperRegistry)
         .performUpkeep(validPayload, { gasLimit: 1_500_000 })
       await performTx.wait()
 
-      h.assertLinkTokenBalance(lt, aggregator1.address, twoLINK)
-      h.assertLinkTokenBalance(lt, aggregator2.address, twoLINK)
-      h.assertLinkTokenBalance(lt, aggregator3.address, twoLINK)
-      h.assertLinkTokenBalance(lt, directTarget1.address, twoLINK)
-      h.assertLinkTokenBalance(lt, directTarget2.address, twoLINK)
+      await h.assertLinkTokenBalance(lt, aggregator1.address, twoLINK)
+      await h.assertLinkTokenBalance(lt, aggregator2.address, twoLINK)
+      await h.assertLinkTokenBalance(lt, aggregator3.address, twoLINK)
+      await h.assertLinkTokenBalance(lt, directTarget1.address, twoLINK)
+      await h.assertLinkTokenBalance(lt, directTarget2.address, twoLINK)
     })
 
-    it('Can handle MAX_PERFORM proxies within gas limit', async () => {
+    it('can handle MAX_PERFORM proxies within gas limit', async () => {
       const MAX_PERFORM = await labm.getMaxPerform()
       const proxyAddresses = []
       const minBalances = []
@@ -777,13 +795,13 @@ describe('LinkAvailableBalanceMonitor', () => {
         topUpAmount,
         dstChainSelectors,
       )
-      let watchlist = await labm.getWatchList()
+      const watchlist = await labm.getWatchList()
       expect(watchlist).to.deep.equalInAnyOrder(proxyAddresses)
       assert.equal(watchlist.length, minBalances.length)
 
       // add funds
       const wl = await labm.getWatchList()
-      let fundsNeeded = BigNumber.from(0)
+      const fundsNeeded = BigNumber.from(0)
       for (let idx = 0; idx < wl.length; idx++) {
         const targetInfo = await labm.getAccountInfo(wl[idx])
         const targetTopUpAmount = targetInfo.topUpAmount
@@ -805,13 +823,13 @@ describe('LinkAvailableBalanceMonitor', () => {
   })
 
   describe('topUp()', () => {
-    it('Should revert topUp address(0)', async () => {
+    it('should revert topUp address(0)', async () => {
       const tx = await labm.connect(owner).topUp([ethers.constants.AddressZero])
       await expect(tx).to.emit(labm, 'TopUpBlocked')
     })
 
     context('when not paused', () => {
-      it('Should be callable by anyone', async () => {
+      it('should be callable by anyone', async () => {
         const users = [owner, keeperRegistry, stranger]
         for (let idx = 0; idx < users.length; idx++) {
           const user = users[idx]
@@ -821,7 +839,7 @@ describe('LinkAvailableBalanceMonitor', () => {
     })
 
     context('when paused', () => {
-      it('Should be callable by no one', async () => {
+      it('should be callable by no one', async () => {
         await labm.connect(owner).pause()
         const users = [owner, keeperRegistry, stranger]
         for (let idx = 0; idx < users.length; idx++) {
@@ -844,7 +862,12 @@ describe('LinkAvailableBalanceMonitor', () => {
         )
       })
 
-      it('Should fund the appropriate addresses', async () => {
+      it('should fund the appropriate addresses', async () => {
+        const ai1 = await labm.getAccountInfo(proxy1.address)
+        assert.equal(0, ai1.lastTopUpTimestamp.toNumber())
+        const ai4 = await labm.getAccountInfo(directTarget1.address)
+        assert.equal(0, ai4.lastTopUpTimestamp.toNumber())
+
         const tx = await labm.connect(keeperRegistry).topUp(watchListAddresses)
 
         await aggregator1.mock.linkAvailableForPayment.returns(twoLINK)
@@ -855,22 +878,34 @@ describe('LinkAvailableBalanceMonitor', () => {
 
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy1.address)
+          .withArgs(aggregator1.address, twoLINK)
+        assert.equal(
+          (await lt.balanceOf(aggregator1.address)).toBigInt(),
+          twoLINK.toBigInt(),
+        )
+        const targetInfo1 = await labm.getAccountInfo(proxy1.address)
+        assert.notEqual(0, targetInfo1.lastTopUpTimestamp.toNumber())
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy2.address)
+          .withArgs(aggregator2.address, twoLINK)
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy3.address)
+          .withArgs(aggregator3.address, twoLINK)
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(directTarget1.address)
+          .withArgs(directTarget1.address, twoLINK)
+        assert.equal(
+          (await lt.balanceOf(directTarget1.address)).toBigInt(),
+          twoLINK.toBigInt(),
+        )
+        const targetInfo4 = await labm.getAccountInfo(directTarget1.address)
+        assert.notEqual(0, targetInfo4.lastTopUpTimestamp.toNumber())
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(directTarget2.address)
+          .withArgs(directTarget2.address, twoLINK)
       })
 
-      it('Should only fund the addresses provided', async () => {
+      it('should only fund the addresses provided', async () => {
         await labm
           .connect(keeperRegistry)
           .topUp([proxy1.address, directTarget1.address])
@@ -882,7 +917,7 @@ describe('LinkAvailableBalanceMonitor', () => {
         await directTarget2.mock.linkAvailableForPayment.returns(zeroLINK)
       })
 
-      it('Should skip un-approved addresses', async () => {
+      it('should skip un-approved addresses', async () => {
         await labm
           .connect(owner)
           .setWatchList(
@@ -901,26 +936,31 @@ describe('LinkAvailableBalanceMonitor', () => {
             directTarget2.address,
           ])
 
-        h.assertLinkTokenBalance(lt, aggregator1.address, twoLINK)
-        h.assertLinkTokenBalance(lt, aggregator2.address, zeroLINK)
-        h.assertLinkTokenBalance(lt, aggregator3.address, zeroLINK)
-        h.assertLinkTokenBalance(lt, directTarget1.address, twoLINK)
-        h.assertLinkTokenBalance(lt, directTarget2.address, zeroLINK)
+        await h.assertLinkTokenBalance(lt, aggregator1.address, oneLINK)
+        await h.assertLinkTokenBalance(lt, aggregator2.address, zeroLINK)
+        await h.assertLinkTokenBalance(lt, aggregator3.address, zeroLINK)
+        await h.assertLinkTokenBalance(lt, directTarget1.address, oneLINK)
+        await h.assertLinkTokenBalance(lt, directTarget2.address, zeroLINK)
 
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy1.address)
+          .withArgs(aggregator1.address, oneLINK)
+        const targetInfo1 = await labm.getAccountInfo(proxy1.address)
+        assert.notEqual(0, targetInfo1.lastTopUpTimestamp.toNumber())
+
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(directTarget1.address)
+          .withArgs(directTarget1.address, oneLINK)
         await expect(tx).to.emit(labm, 'TopUpBlocked').withArgs(proxy2.address)
         await expect(tx).to.emit(labm, 'TopUpBlocked').withArgs(proxy3.address)
         await expect(tx)
           .to.emit(labm, 'TopUpBlocked')
           .withArgs(directTarget2.address)
+        const targetInfo5 = await labm.getAccountInfo(directTarget2.address)
+        assert.equal(0, targetInfo5.lastTopUpTimestamp.toNumber())
       })
 
-      it('Should skip an address if the proxy is invalid and it is not a direct target', async () => {
+      it('should skip an address if the proxy is invalid and it is not a direct target', async () => {
         await labm
           .connect(owner)
           .setWatchList(
@@ -934,11 +974,11 @@ describe('LinkAvailableBalanceMonitor', () => {
           .topUp([proxy1.address, proxy4.address])
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy1.address)
+          .withArgs(aggregator1.address, oneLINK)
         await expect(tx).to.emit(labm, 'TopUpBlocked').withArgs(proxy4.address)
       })
 
-      it('Should skip an address if the aggregator is invalid', async () => {
+      it('should skip an address if the aggregator is invalid', async () => {
         await proxy4.mock.aggregator.returns(aggregator4.address)
         await labm
           .connect(owner)
@@ -953,11 +993,11 @@ describe('LinkAvailableBalanceMonitor', () => {
           .topUp([proxy1.address, proxy4.address])
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy1.address)
+          .withArgs(aggregator1.address, oneLINK)
         await expect(tx).to.emit(labm, 'TopUpBlocked').withArgs(proxy4.address)
       })
 
-      it('Should skip an address if the aggregator has sufficient funding', async () => {
+      it('should skip an address if the aggregator has sufficient funding', async () => {
         await proxy4.mock.aggregator.returns(aggregator4.address)
         await aggregator4.mock.linkAvailableForPayment.returns(tenLINK)
         await labm
@@ -973,11 +1013,11 @@ describe('LinkAvailableBalanceMonitor', () => {
           .topUp([proxy1.address, proxy4.address])
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy1.address)
+          .withArgs(aggregator1.address, oneLINK)
         await expect(tx).to.emit(labm, 'TopUpBlocked').withArgs(proxy4.address)
       })
 
-      it('Should skip an address if the direct target has sufficient funding', async () => {
+      it('should skip an address if the direct target has sufficient funding', async () => {
         await directTarget1.mock.linkAvailableForPayment.returns(tenLINK)
         await labm
           .connect(owner)
@@ -992,7 +1032,11 @@ describe('LinkAvailableBalanceMonitor', () => {
           .topUp([proxy1.address, directTarget1.address])
         await expect(tx)
           .to.emit(labm, 'TopUpSucceeded')
-          .withArgs(proxy1.address)
+          .withArgs(aggregator1.address, oneLINK)
+        assert.equal(
+          (await lt.balanceOf(aggregator1.address)).toBigInt(),
+          oneLINK.toBigInt(),
+        )
         await expect(tx)
           .to.emit(labm, 'TopUpBlocked')
           .withArgs(directTarget1.address)
@@ -1000,7 +1044,7 @@ describe('LinkAvailableBalanceMonitor', () => {
     })
 
     context('when partially funded', () => {
-      it('Should fund as many addresses as possible T', async () => {
+      it('should fund as many addresses as possible', async () => {
         await lt.connect(owner).transfer(
           labm.address,
           fourLINK, // only enough LINK to fund 2 addresses
@@ -1012,14 +1056,21 @@ describe('LinkAvailableBalanceMonitor', () => {
         await directTarget1.mock.linkAvailableForPayment.returns(zeroLINK)
         await directTarget2.mock.linkAvailableForPayment.returns(zeroLINK)
 
-        h.assertLinkTokenBalance(lt, aggregator1.address, twoLINK)
-        h.assertLinkTokenBalance(lt, aggregator2.address, twoLINK)
-        h.assertLinkTokenBalance(lt, aggregator3.address, zeroLINK)
-        h.assertLinkTokenBalance(lt, directTarget1.address, zeroLINK)
-        h.assertLinkTokenBalance(lt, directTarget2.address, zeroLINK)
-
         const tx = await labm.connect(keeperRegistry).topUp(watchListAddresses)
-        await expect(tx).to.emit(labm, 'TopUpSucceeded')
+        await expect(tx)
+          .to.emit(labm, 'TopUpSucceeded')
+          .withArgs(aggregator3.address, twoLINK)
+        await expect(tx)
+          .to.emit(labm, 'TopUpSucceeded')
+          .withArgs(directTarget1.address, twoLINK)
+        assert.equal(
+          (await lt.balanceOf(aggregator3.address)).toBigInt(),
+          twoLINK.toBigInt(),
+        )
+        assert.equal(
+          (await lt.balanceOf(directTarget1.address)).toBigInt(),
+          twoLINK.toBigInt(),
+        )
       })
     })
   })

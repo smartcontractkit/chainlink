@@ -23,7 +23,7 @@ import (
 //
 // TriggerSubscriber communicates with corresponding TriggerReceivers on remote nodes.
 type triggerSubscriber struct {
-	config              types.RemoteTriggerConfig
+	config              capabilities.RemoteTriggerConfig
 	capInfo             commoncap.CapabilityInfo
 	capDonInfo          capabilities.DON
 	capDonMembers       map[p2ptypes.PeerID]struct{}
@@ -44,7 +44,7 @@ type triggerEventKey struct {
 }
 
 type subRegState struct {
-	callback   chan<- commoncap.CapabilityResponse
+	callback   chan commoncap.CapabilityResponse
 	rawRequest []byte
 }
 
@@ -55,7 +55,7 @@ var _ services.Service = &triggerSubscriber{}
 // TODO makes this configurable with a default
 const defaultSendChannelBufferSize = 1000
 
-func NewTriggerSubscriber(config types.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo capabilities.DON, localDonInfo capabilities.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
+func NewTriggerSubscriber(config capabilities.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo capabilities.DON, localDonInfo capabilities.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
 	if aggregator == nil {
 		lggr.Warnw("no aggregator provided, using default MODE aggregator", "capabilityId", capInfo.ID)
 		aggregator = NewDefaultModeAggregator(uint32(capDonInfo.F + 1))
@@ -76,7 +76,7 @@ func NewTriggerSubscriber(config types.RemoteTriggerConfig, capInfo commoncap.Ca
 		messageCache:        NewMessageCache[triggerEventKey, p2ptypes.PeerID](),
 		registeredWorkflows: make(map[string]*subRegState),
 		stopCh:              make(services.StopChan),
-		lggr:                lggr,
+		lggr:                lggr.Named("TriggerSubscriber"),
 	}
 }
 
@@ -103,19 +103,25 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	callback := make(chan commoncap.CapabilityResponse, defaultSendChannelBufferSize)
-	s.registeredWorkflows[request.Metadata.WorkflowID] = &subRegState{
-		callback:   callback,
-		rawRequest: rawRequest,
+	s.lggr.Infow("RegisterTrigger called", "capabilityId", s.capInfo.ID, "donId", s.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID)
+	regState, ok := s.registeredWorkflows[request.Metadata.WorkflowID]
+	if !ok {
+		regState = &subRegState{
+			callback:   make(chan commoncap.CapabilityResponse, defaultSendChannelBufferSize),
+			rawRequest: rawRequest,
+		}
+		s.registeredWorkflows[request.Metadata.WorkflowID] = regState
+	} else {
+		regState.rawRequest = rawRequest
+		s.lggr.Warnw("RegisterTrigger re-registering trigger", "capabilityId", s.capInfo.ID, "donId", s.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID)
 	}
 
-	s.lggr.Infow("RegisterTrigger called", "capabilityId", s.capInfo.ID, "donId", s.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID)
-	return callback, nil
+	return regState.callback, nil
 }
 
 func (s *triggerSubscriber) registrationLoop() {
 	defer s.wg.Done()
-	ticker := time.NewTicker(time.Duration(s.config.RegistrationRefreshMs) * time.Millisecond)
+	ticker := time.NewTicker(s.config.RegistrationRefresh)
 	defer ticker.Stop()
 	for {
 		select {
@@ -124,6 +130,9 @@ func (s *triggerSubscriber) registrationLoop() {
 		case <-ticker.C:
 			s.mu.RLock()
 			s.lggr.Infow("register trigger for remote capability", "capabilityId", s.capInfo.ID, "donId", s.capDonInfo.ID, "nMembers", len(s.capDonInfo.Members), "nWorkflows", len(s.registeredWorkflows))
+			if len(s.registeredWorkflows) == 0 {
+				s.lggr.Infow("no workflows to register")
+			}
 			for _, registration := range s.registeredWorkflows {
 				// NOTE: send to all by default, introduce different strategies later (KS-76)
 				for _, peerID := range s.capDonInfo.Members {
@@ -149,14 +158,17 @@ func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commo
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	close(s.registeredWorkflows[request.Metadata.WorkflowID].callback)
+	state := s.registeredWorkflows[request.Metadata.WorkflowID]
+	if state != nil && state.callback != nil {
+		close(state.callback)
+	}
 	delete(s.registeredWorkflows, request.Metadata.WorkflowID)
 	// Registrations will quickly expire on all remote nodes.
 	// Alternatively, we could send UnregisterTrigger messages right away.
 	return nil
 }
 
-func (s *triggerSubscriber) Receive(msg *types.MessageBody) {
+func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 	sender := ToPeerID(msg.Sender)
 	if _, found := s.capDonMembers[sender]; !found {
 		s.lggr.Errorw("received message from unexpected node", "capabilityId", s.capInfo.ID, "sender", sender)
@@ -183,9 +195,9 @@ func (s *triggerSubscriber) Receive(msg *types.MessageBody) {
 			nowMs := time.Now().UnixMilli()
 			s.mu.RLock()
 			creationTs := s.messageCache.Insert(key, sender, nowMs, msg.Payload)
-			ready, payloads := s.messageCache.Ready(key, s.config.MinResponsesToAggregate, nowMs-int64(s.config.MessageExpiryMs), true)
+			ready, payloads := s.messageCache.Ready(key, s.config.MinResponsesToAggregate, nowMs-s.config.MessageExpiry.Milliseconds(), true)
 			s.mu.RUnlock()
-			if nowMs-creationTs > int64(s.config.RegistrationExpiryMs) {
+			if nowMs-creationTs > s.config.RegistrationExpiry.Milliseconds() {
 				s.lggr.Warnw("received trigger event for an expired ID", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId, "sender", sender)
 				continue
 			}
@@ -207,7 +219,7 @@ func (s *triggerSubscriber) Receive(msg *types.MessageBody) {
 
 func (s *triggerSubscriber) eventCleanupLoop() {
 	defer s.wg.Done()
-	ticker := time.NewTicker(time.Duration(s.config.MessageExpiryMs) * time.Millisecond)
+	ticker := time.NewTicker(s.config.MessageExpiry)
 	defer ticker.Stop()
 	for {
 		select {
@@ -215,7 +227,7 @@ func (s *triggerSubscriber) eventCleanupLoop() {
 			return
 		case <-ticker.C:
 			s.mu.Lock()
-			s.messageCache.DeleteOlderThan(time.Now().UnixMilli() - int64(s.config.MessageExpiryMs))
+			s.messageCache.DeleteOlderThan(time.Now().UnixMilli() - s.config.MessageExpiry.Milliseconds())
 			s.mu.Unlock()
 		}
 	}

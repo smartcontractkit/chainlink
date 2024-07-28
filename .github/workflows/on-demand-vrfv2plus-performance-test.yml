@@ -8,17 +8,17 @@ on:
         type: string          
       performanceTestType:
         description: Performance Test Type of test to run
-        type: choice
-        options:
-          - "Smoke"
-          - "Soak"
-          - "Load"
-          - "Stress"
-          - "Spike"
+        type: string
+        required: true
       test_list_regex:
         description: "Regex for tests to run"
         required: false
         default: "(TestVRFV2PlusPerformance)"
+      test_secrets_override_key:
+        description: 'Key to run tests with custom test secrets'
+        required: false
+        type: string 
+
 jobs:
   vrfv2plus_performance_test:
     name: VRFV2 Plus Performance Test
@@ -45,7 +45,7 @@ jobs:
     steps:      
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: on-demand-vrfv2-plus-performance-test
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -76,10 +76,11 @@ jobs:
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY                
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
         with:
           test_command_to_run: cd ./integration-tests/load && go test -v -count=1 -timeout 24h -run "${{ inputs.test_list_regex }}" ./vrfv2plus
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_secrets_override_base64: ${{ secrets[inputs.test_secrets_override_key] }}
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}

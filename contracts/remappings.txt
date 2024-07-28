@@ -1,5 +1,4 @@
-ds-test/=foundry-lib/forge-std/lib/ds-test/src/
-forge-std/=foundry-lib/forge-std/src/
+forge-std/=src/v0.8/vendor/forge-std/src/
 
 @openzeppelin/=node_modules/@openzeppelin/
 hardhat/=node_modules/hardhat/

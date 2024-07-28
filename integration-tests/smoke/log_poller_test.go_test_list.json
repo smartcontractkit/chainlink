@@ -23,12 +23,6 @@
     },
     {
       "name": "TestLogPollerReplayFinalityTag"
-    },
-    {
-      "name": "TestLogPollerManyFiltersFixedDepth"
-    },
-    {
-      "name": "TestLogPollerManyFiltersFinalityTag"
     }
   ]
 }

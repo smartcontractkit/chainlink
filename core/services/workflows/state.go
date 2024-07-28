@@ -29,7 +29,7 @@ func copyState(es store.WorkflowExecution) store.WorkflowExecution {
 			Ref:         step.Ref,
 			Status:      step.Status,
 
-			Outputs: &store.StepOutput{
+			Outputs: store.StepOutput{
 				Err:   step.Outputs.Err,
 				Value: copiedov,
 			},

@@ -1,8 +1,6 @@
 package contracts
 
 import (
-	"context"
-	"fmt"
 	"math/big"
 	"strings"
 
@@ -10,10 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/seth"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 )
@@ -39,19 +34,6 @@ type Call struct {
 type Result struct {
 	Success    bool
 	ReturnData []byte
-}
-
-func WaitForSuccessfulTxMined(evmClient blockchain.EVMClient, tx *types.Transaction) error {
-	log.Debug().Str("tx", tx.Hash().Hex()).Msg("waiting for tx to be mined")
-	receipt, err := bind.WaitMined(context.Background(), evmClient.DeployBackend(), tx)
-	if err != nil {
-		return err
-	}
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		return fmt.Errorf("tx failed %s", tx.Hash().Hex())
-	}
-	log.Debug().Str("tx", tx.Hash().Hex()).Str("Network", evmClient.GetNetworkName()).Msg("tx mined successfully")
-	return nil
 }
 
 func MultiCallLogTriggerLoadGen(

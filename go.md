@@ -3,9 +3,13 @@
 flowchart LR
   subgraph chains
     chainlink-cosmos
-    chainlink-evm
     chainlink-solana
     chainlink-starknet/relayer
+    subgraph chainlink-integrations
+      direction LR
+      chainlink-integrations/evm/relayer
+      chainlink-integrations/common
+    end
   end
 
   subgraph products
@@ -36,8 +40,6 @@ flowchart LR
   click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
   chainlink/v2 --> chainlink-starknet/relayer
   click chainlink-starknet/relayer href "https://github.com/smartcontractkit/chainlink-starknet"
-  chainlink/v2 --> chainlink-vrf
-  click chainlink-vrf href "https://github.com/smartcontractkit/chainlink-vrf"
   chainlink/v2 --> libocr
   click libocr href "https://github.com/smartcontractkit/libocr"
   chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
@@ -51,7 +53,6 @@ flowchart LR
   chainlink-common --> libocr
   chainlink-cosmos --> chainlink-common
   chainlink-cosmos --> libocr
-  chainlink-data-streams --> chain-selectors
   chainlink-data-streams --> chainlink-common
   chainlink-data-streams --> libocr
   chainlink-feeds --> chainlink-common
@@ -60,7 +61,6 @@ flowchart LR
   chainlink-solana --> libocr
   chainlink-starknet/relayer --> chainlink-common
   chainlink-starknet/relayer --> libocr
-  chainlink-vrf --> libocr
   tdh2/go/ocr2/decryptionplugin --> libocr
   tdh2/go/ocr2/decryptionplugin --> tdh2/go/tdh2
 ```

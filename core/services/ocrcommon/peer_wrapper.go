@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/smartcontractkit/libocr/networking/rageping"
 
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocr1types "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -117,7 +118,7 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 	}
 	p.PeerID = key.PeerID()
 
-	discovererDB := NewDiscovererDatabase(p.ds, p.PeerID.Raw())
+	discovererDB := NewOCRDiscovererDatabase(p.ds, p.PeerID.Raw())
 
 	config := p.p2pCfg
 	peerConfig := ocrnetworking.PeerConfig{
@@ -135,7 +136,8 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 			IncomingMessageBufferSize: config.IncomingMessageBufferSize(),
 			OutgoingMessageBufferSize: config.OutgoingMessageBufferSize(),
 		},
-		MetricsRegisterer: prometheus.DefaultRegisterer,
+		MetricsRegisterer:            prometheus.DefaultRegisterer,
+		LatencyMetricsServiceConfigs: rageping.DefaultConfigs(),
 	}
 
 	return peerConfig, nil

@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -195,7 +194,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Keep
 		if inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_0 || inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_1 || inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_2 {
 			nodesToFund = k.chainlinkNodes[1:]
 		}
-		err = actions_seth.FundChainlinkNodesAtKeyIndexFromRootAddress(k.log, k.chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(nodesToFund), k.Inputs.ChainlinkNodeFunding, index)
+		err = actions.FundChainlinkNodesAtKeyIndexFromRootAddress(k.log, k.chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(nodesToFund), k.Inputs.ChainlinkNodeFunding, index)
 		require.NoError(k.t, err, "Funding Chainlink nodes shouldn't fail")
 	}
 
@@ -241,8 +240,9 @@ func (k *KeeperBenchmarkTest) Run() {
 			txKeyId = 0
 		}
 		kr := k.keeperRegistries[rIndex]
+		// TODO: need to add the LINK, WETH and WETH/USD feed to support v23
 		ocrConfig, err := actions.BuildAutoOCR2ConfigVarsWithKeyIndex(
-			k.t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, kr.Address(), k.Inputs.DeltaStage, txKeyId, common.Address{}, kr.ChainModuleAddress(), kr.ReorgProtectionEnabled(),
+			k.t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, kr.Address(), k.Inputs.DeltaStage, txKeyId, common.Address{}, kr.ChainModuleAddress(), kr.ReorgProtectionEnabled(), nil, nil, nil,
 		)
 		require.NoError(k.t, err, "Building OCR config shouldn't fail")
 
@@ -730,14 +730,14 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 		registrar, err = contracts.DeployKeeperRegistrar(k.chainClient, registryVersion, k.linkToken.Address(), registrarSettings)
 		require.NoError(k.t, err, "Funding keeper registrar contract shouldn't fail")
 	} else { // OCR automation - v2.X
-		registry, registrar = actions_seth.DeployAutoOCRRegistryAndRegistrar(
-			k.t, k.chainClient, registryVersion, *k.Inputs.KeeperRegistrySettings, k.linkToken,
+		registry, registrar = actions.DeployAutoOCRRegistryAndRegistrar(
+			k.t, k.chainClient, registryVersion, *k.Inputs.KeeperRegistrySettings, k.linkToken, nil, nil,
 		)
 
 		// Fund the registry with LINK
 		err := k.linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(k.Inputs.Upkeeps.NumberOfUpkeeps))))
 		require.NoError(k.t, err, "Funding keeper registry contract shouldn't fail")
-		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(k.t, k.chainlinkNodes[1:], *k.Inputs.KeeperRegistrySettings, registrar.Address(), k.Inputs.DeltaStage, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
+		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(k.t, k.chainlinkNodes[1:], *k.Inputs.KeeperRegistrySettings, registrar.Address(), k.Inputs.DeltaStage, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled(), nil, nil, nil)
 		require.NoError(k.t, err, "Building OCR config shouldn't fail")
 		k.log.Debug().Interface("KeeperRegistrySettings", *k.Inputs.KeeperRegistrySettings).Interface("OCRConfig", ocrConfig).Msg("Config")
 		require.NoError(k.t, err, "Error building OCR config vars")
@@ -799,10 +799,10 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 
 	linkFunds = big.NewInt(0).Add(linkFunds, minLinkBalance)
 
-	err = actions_seth.DeployMultiCallAndFundDeploymentAddresses(k.chainClient, k.linkToken, upkeep.NumberOfUpkeeps, linkFunds)
+	err = actions.DeployMultiCallAndFundDeploymentAddresses(k.chainClient, k.linkToken, upkeep.NumberOfUpkeeps, linkFunds)
 	require.NoError(k.t, err, "Sending link funds to deployment addresses shouldn't fail")
 
-	upkeepIds := actions_seth.RegisterUpkeepContractsWithCheckData(k.t, k.chainClient, k.linkToken, linkFunds, uint32(upkeep.UpkeepGasLimit), registry, registrar, upkeep.NumberOfUpkeeps, upkeepAddresses, checkData, false, false)
+	upkeepIds := actions.RegisterUpkeepContractsWithCheckData(k.t, k.chainClient, k.linkToken, linkFunds, uint32(upkeep.UpkeepGasLimit), registry, registrar, upkeep.NumberOfUpkeeps, upkeepAddresses, checkData, false, false, false, nil)
 
 	k.keeperRegistries[index] = registry
 	k.keeperRegistrars[index] = registrar

@@ -27,18 +27,19 @@ func (t JobSpecType) String() string {
 }
 
 const (
-	DirectRequestJobSpec     JobSpecType = "directrequest"
-	FluxMonitorJobSpec       JobSpecType = "fluxmonitor"
-	OffChainReportingJobSpec JobSpecType = "offchainreporting"
-	KeeperJobSpec            JobSpecType = "keeper"
-	CronJobSpec              JobSpecType = "cron"
-	VRFJobSpec               JobSpecType = "vrf"
-	WebhookJobSpec           JobSpecType = "webhook"
-	BlockhashStoreJobSpec    JobSpecType = "blockhashstore"
-	BlockHeaderFeederJobSpec JobSpecType = "blockheaderfeeder"
-	BootstrapJobSpec         JobSpecType = "bootstrap"
-	GatewayJobSpec           JobSpecType = "gateway"
-	WorkflowJobSpec          JobSpecType = "workflow"
+	DirectRequestJobSpec        JobSpecType = "directrequest"
+	FluxMonitorJobSpec          JobSpecType = "fluxmonitor"
+	OffChainReportingJobSpec    JobSpecType = "offchainreporting"
+	KeeperJobSpec               JobSpecType = "keeper"
+	CronJobSpec                 JobSpecType = "cron"
+	VRFJobSpec                  JobSpecType = "vrf"
+	WebhookJobSpec              JobSpecType = "webhook"
+	BlockhashStoreJobSpec       JobSpecType = "blockhashstore"
+	BlockHeaderFeederJobSpec    JobSpecType = "blockheaderfeeder"
+	BootstrapJobSpec            JobSpecType = "bootstrap"
+	GatewayJobSpec              JobSpecType = "gateway"
+	WorkflowJobSpec             JobSpecType = "workflow"
+	StandardCapabilitiesJobSpec JobSpecType = "standardcapabilities"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
@@ -251,9 +252,10 @@ func NewWebhookSpec(spec *job.WebhookSpec) *WebhookSpec {
 
 // CronSpec defines the spec details of a Cron Job
 type CronSpec struct {
-	CronSchedule string    `json:"schedule" tom:"schedule"`
+	CronSchedule string    `json:"schedule"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
+	EVMChainID   *big.Big  `json:"evmChainID"`
 }
 
 // NewCronSpec generates a new CronSpec from a job.CronSpec
@@ -262,6 +264,7 @@ func NewCronSpec(spec *job.CronSpec) *CronSpec {
 		CronSchedule: spec.CronSchedule,
 		CreatedAt:    spec.CreatedAt,
 		UpdatedAt:    spec.UpdatedAt,
+		EVMChainID:   spec.EVMChainID,
 	}
 }
 
@@ -449,6 +452,22 @@ func NewWorkflowSpec(spec *job.WorkflowSpec) *WorkflowSpec {
 	}
 }
 
+type StandardCapabilitiesSpec struct {
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	Command   string    `json:"command"`
+	Config    string    `json:"config"`
+}
+
+func NewStandardCapabilitiesSpec(spec *job.StandardCapabilitiesSpec) *StandardCapabilitiesSpec {
+	return &StandardCapabilitiesSpec{
+		CreatedAt: spec.CreatedAt,
+		UpdatedAt: spec.UpdatedAt,
+		Command:   spec.Command,
+		Config:    spec.Config,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -471,29 +490,30 @@ func NewJobError(e job.SpecError) JobError {
 // JobResource represents a JobResource
 type JobResource struct {
 	JAID
-	Name                   string                  `json:"name"`
-	StreamID               *uint32                 `json:"streamID,omitempty"`
-	Type                   JobSpecType             `json:"type"`
-	SchemaVersion          uint32                  `json:"schemaVersion"`
-	GasLimit               clnull.Uint32           `json:"gasLimit"`
-	ForwardingAllowed      bool                    `json:"forwardingAllowed"`
-	MaxTaskDuration        models.Interval         `json:"maxTaskDuration"`
-	ExternalJobID          uuid.UUID               `json:"externalJobID"`
-	DirectRequestSpec      *DirectRequestSpec      `json:"directRequestSpec"`
-	FluxMonitorSpec        *FluxMonitorSpec        `json:"fluxMonitorSpec"`
-	CronSpec               *CronSpec               `json:"cronSpec"`
-	OffChainReportingSpec  *OffChainReportingSpec  `json:"offChainReportingOracleSpec"`
-	OffChainReporting2Spec *OffChainReporting2Spec `json:"offChainReporting2OracleSpec"`
-	KeeperSpec             *KeeperSpec             `json:"keeperSpec"`
-	VRFSpec                *VRFSpec                `json:"vrfSpec"`
-	WebhookSpec            *WebhookSpec            `json:"webhookSpec"`
-	BlockhashStoreSpec     *BlockhashStoreSpec     `json:"blockhashStoreSpec"`
-	BlockHeaderFeederSpec  *BlockHeaderFeederSpec  `json:"blockHeaderFeederSpec"`
-	BootstrapSpec          *BootstrapSpec          `json:"bootstrapSpec"`
-	GatewaySpec            *GatewaySpec            `json:"gatewaySpec"`
-	WorkflowSpec           *WorkflowSpec           `json:"workflowSpec"`
-	PipelineSpec           PipelineSpec            `json:"pipelineSpec"`
-	Errors                 []JobError              `json:"errors"`
+	Name                     string                    `json:"name"`
+	StreamID                 *uint32                   `json:"streamID,omitempty"`
+	Type                     JobSpecType               `json:"type"`
+	SchemaVersion            uint32                    `json:"schemaVersion"`
+	GasLimit                 clnull.Uint32             `json:"gasLimit"`
+	ForwardingAllowed        bool                      `json:"forwardingAllowed"`
+	MaxTaskDuration          models.Interval           `json:"maxTaskDuration"`
+	ExternalJobID            uuid.UUID                 `json:"externalJobID"`
+	DirectRequestSpec        *DirectRequestSpec        `json:"directRequestSpec"`
+	FluxMonitorSpec          *FluxMonitorSpec          `json:"fluxMonitorSpec"`
+	CronSpec                 *CronSpec                 `json:"cronSpec"`
+	OffChainReportingSpec    *OffChainReportingSpec    `json:"offChainReportingOracleSpec"`
+	OffChainReporting2Spec   *OffChainReporting2Spec   `json:"offChainReporting2OracleSpec"`
+	KeeperSpec               *KeeperSpec               `json:"keeperSpec"`
+	VRFSpec                  *VRFSpec                  `json:"vrfSpec"`
+	WebhookSpec              *WebhookSpec              `json:"webhookSpec"`
+	BlockhashStoreSpec       *BlockhashStoreSpec       `json:"blockhashStoreSpec"`
+	BlockHeaderFeederSpec    *BlockHeaderFeederSpec    `json:"blockHeaderFeederSpec"`
+	BootstrapSpec            *BootstrapSpec            `json:"bootstrapSpec"`
+	GatewaySpec              *GatewaySpec              `json:"gatewaySpec"`
+	WorkflowSpec             *WorkflowSpec             `json:"workflowSpec"`
+	StandardCapabilitiesSpec *StandardCapabilitiesSpec `json:"standardCapabilitiesSpec"`
+	PipelineSpec             PipelineSpec              `json:"pipelineSpec"`
+	Errors                   []JobError                `json:"errors"`
 }
 
 // NewJobResource initializes a new JSONAPI job resource
@@ -540,6 +560,8 @@ func NewJobResource(j job.Job) *JobResource {
 		// no spec; nothing to do
 	case job.Workflow:
 		resource.WorkflowSpec = NewWorkflowSpec(j.WorkflowSpec)
+	case job.StandardCapabilities:
+		resource.StandardCapabilitiesSpec = NewStandardCapabilitiesSpec(j.StandardCapabilitiesSpec)
 	case job.LegacyGasStationServer, job.LegacyGasStationSidecar:
 		// unsupported
 	}

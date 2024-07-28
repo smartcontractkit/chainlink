@@ -12,7 +12,7 @@ import (
 
 	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	aconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
@@ -97,7 +97,7 @@ type task struct {
 func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load, chainClient *seth.Client, multicallAddress common.Address, maxConcurrency int, automationDefaultLinkFunds *big.Int, linkToken contracts.LinkToken) (DeploymentData, error) {
 	data := DeploymentData{}
 
-	concurrency, err := actions_seth.GetAndAssertCorrectConcurrency(chainClient, 1)
+	concurrency, err := actions.GetAndAssertCorrectConcurrency(chainClient, 1)
 	if err != nil {
 		return DeploymentData{}, err
 	}
@@ -197,7 +197,7 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load
 		}
 	}
 
-	sendErr := actions_seth.SendLinkFundsToDeploymentAddresses(chainClient, concurrency, *loadConfig.NumberOfUpkeeps, *loadConfig.NumberOfUpkeeps/concurrency, multicallAddress, automationDefaultLinkFunds, linkToken)
+	sendErr := actions.SendLinkFundsToDeploymentAddresses(chainClient, concurrency, *loadConfig.NumberOfUpkeeps, *loadConfig.NumberOfUpkeeps/concurrency, multicallAddress, automationDefaultLinkFunds, linkToken)
 	if sendErr != nil {
 		return DeploymentData{}, sendErr
 	}

@@ -5,11 +5,11 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 )
 
 type Config interface {
-	ChainType() config.ChainType
+	ChainType() chaintype.ChainType
 }
 
 func ParseBootstrapPeers(peers []string) (bootstrapPeers []commontypes.BootstrapperLocator, err error) {

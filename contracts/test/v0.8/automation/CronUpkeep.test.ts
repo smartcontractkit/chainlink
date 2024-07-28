@@ -117,7 +117,7 @@ describe('CronUpkeep', () => {
   it('has a limited public ABI [ @skip-coverage ]', () => {
     // Casting cron is necessary due to a tricky versioning mismatch issue, likely between ethers
     // and typechain. Remove once the version issue is resolved.
-    // https://app.shortcut.com/chainlinklabs/story/21905/remove-contract-cast-in-cronupkeep-test-ts
+    // https://smartcontract-it.atlassian.net/browse/ARCHIVE-22094
     h.publicAbi(cron as unknown as Contract, [
       's_maxJobs',
       'performUpkeep',

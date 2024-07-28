@@ -1324,15 +1324,19 @@ func (m *MercuryTransmitter) setFrom(f *MercuryTransmitter) {
 }
 
 type Mercury struct {
-	Cache       MercuryCache       `toml:",omitempty"`
-	TLS         MercuryTLS         `toml:",omitempty"`
-	Transmitter MercuryTransmitter `toml:",omitempty"`
+	Cache          MercuryCache       `toml:",omitempty"`
+	TLS            MercuryTLS         `toml:",omitempty"`
+	Transmitter    MercuryTransmitter `toml:",omitempty"`
+	VerboseLogging *bool              `toml:",omitempty"`
 }
 
 func (m *Mercury) setFrom(f *Mercury) {
 	m.Cache.setFrom(&f.Cache)
 	m.TLS.setFrom(&f.TLS)
 	m.Transmitter.setFrom(&f.Transmitter)
+	if v := f.VerboseLogging; v != nil {
+		m.VerboseLogging = v
+	}
 }
 
 func (m *Mercury) ValidateConfig() (err error) {
@@ -1406,12 +1410,34 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 	return err
 }
 
+type ExternalRegistry struct {
+	Address   *string
+	NetworkID *string
+	ChainID   *string
+}
+
+func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
+	if f.Address != nil {
+		r.Address = f.Address
+	}
+
+	if f.NetworkID != nil {
+		r.NetworkID = f.NetworkID
+	}
+
+	if f.ChainID != nil {
+		r.ChainID = f.ChainID
+	}
+}
+
 type Capabilities struct {
-	Peering P2P `toml:",omitempty"`
+	Peering          P2P              `toml:",omitempty"`
+	ExternalRegistry ExternalRegistry `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.Peering.setFrom(&f.Peering)
+	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
 }
 
 type ThresholdKeyShareSecrets struct {

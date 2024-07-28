@@ -13,8 +13,6 @@ import (
 )
 
 // TxStore is a superset of all the needed persistence layer methods
-//
-//go:generate mockery --quiet --name TxStore --output ./mocks/ --case=underscore
 type TxStore[
 	// Represents an account address, in native chain format.
 	ADDR types.Hashable,
@@ -53,6 +51,7 @@ type TxStore[
 	FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) (tx []*Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 	// Find transactions loaded with transaction attempts and receipts by transaction IDs and states
 	FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []int64, states []TxState, chainID *big.Int) (tx []*Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
+	FindTxWithIdempotencyKey(ctx context.Context, idempotencyKey string, chainID CHAIN_ID) (tx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 }
 
 // TransactionStore contains the persistence layer methods needed to manage Txs and TxAttempts

@@ -8,9 +8,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func Test_SendEveryStrategy(t *testing.T) {
@@ -20,7 +21,7 @@ func Test_SendEveryStrategy(t *testing.T) {
 
 	assert.Equal(t, uuid.NullUUID{}, s.Subject())
 
-	ids, err := s.PruneQueue(testutils.Context(t), nil)
+	ids, err := s.PruneQueue(tests.Context(t), nil)
 	assert.NoError(t, err)
 	assert.Len(t, ids, 0)
 }
@@ -44,7 +45,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	t.Run("calls PrineUnstartedTxQueue for the given subject and queueSize, ignoring fromAddress", func(t *testing.T) {
 		strategy1 := txmgrcommon.NewDropOldestStrategy(subject, queueSize)
 		mockTxStore.On("PruneUnstartedTxQueue", mock.Anything, queueSize-1, subject, mock.Anything, mock.Anything).Once().Return([]int64{1, 2}, nil)
-		ids, err := strategy1.PruneQueue(testutils.Context(t), mockTxStore)
+		ids, err := strategy1.PruneQueue(tests.Context(t), mockTxStore)
 		require.NoError(t, err)
 		assert.Equal(t, []int64{1, 2}, ids)
 	})

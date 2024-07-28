@@ -76,14 +76,17 @@ func (p *Plugins) Scan(value interface{}) error {
 type ChainType string
 
 const (
-	ChainTypeUnknown ChainType = "UNKNOWN"
-	ChainTypeEVM     ChainType = "EVM"
+	ChainTypeUnknown  ChainType = "UNKNOWN"
+	ChainTypeEVM      ChainType = "EVM"
+	ChainTypeStarknet ChainType = "STARKNET"
 )
 
 func NewChainType(s string) (ChainType, error) {
 	switch s {
 	case "EVM":
 		return ChainTypeEVM, nil
+	case "STARKNET":
+		return ChainTypeStarknet, nil
 	default:
 		return ChainTypeUnknown, errors.New("invalid chain type")
 	}
@@ -103,17 +106,18 @@ type FeedsManager struct {
 
 // ChainConfig defines the chain configuration for a Feeds Manager.
 type ChainConfig struct {
-	ID                int64
-	FeedsManagerID    int64
-	ChainID           string
-	ChainType         ChainType
-	AccountAddress    string
-	AdminAddress      string
-	FluxMonitorConfig FluxMonitorConfig
-	OCR1Config        OCR1Config
-	OCR2Config        OCR2ConfigModel
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                      int64
+	FeedsManagerID          int64
+	ChainID                 string
+	ChainType               ChainType
+	AccountAddress          string
+	AccountAddressPublicKey null.String
+	AdminAddress            string
+	FluxMonitorConfig       FluxMonitorConfig
+	OCR1Config              OCR1Config
+	OCR2Config              OCR2ConfigModel
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 // FluxMonitorConfig defines configuration for FluxMonitorJobs.

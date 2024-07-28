@@ -1,6 +1,6 @@
 ChainID = '588'
 ChainType = 'metis'
-FinalityDepth = 1
+FinalityDepth = 10
 MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1

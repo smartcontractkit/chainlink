@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -20,8 +21,8 @@ import (
 func NewHeadTracker(
 	lggr logger.Logger,
 	ethClient evmclient.Client,
-	config Config,
-	htConfig HeadTrackerConfig,
+	config commontypes.Config,
+	htConfig commontypes.HeadTrackerConfig,
 	headBroadcaster httypes.HeadBroadcaster,
 	headSaver httypes.HeadSaver,
 	mailMon *mailbox.Monitor,
@@ -48,7 +49,10 @@ func (*nullTracker) Ready() error                   { return nil }
 func (*nullTracker) HealthReport() map[string]error { return map[string]error{} }
 func (*nullTracker) Name() string                   { return "" }
 func (*nullTracker) SetLogLevel(zapcore.Level)      {}
-func (*nullTracker) Backfill(ctx context.Context, headWithChain, latestFinalized *evmtypes.Head) (err error) {
+func (*nullTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Head) (err error) {
 	return nil
 }
 func (*nullTracker) LatestChain() *evmtypes.Head { return nil }
+func (*nullTracker) LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error) {
+	return nil, nil, nil
+}

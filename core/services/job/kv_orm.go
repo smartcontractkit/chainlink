@@ -10,8 +10,6 @@ import (
 )
 
 // KVStore is a simple KV store that can store and retrieve serializable data.
-//
-//go:generate mockery --quiet --name KVStore --output ./mocks/ --case=underscore
 type KVStore interface {
 	Store(ctx context.Context, key string, val []byte) error
 	Get(ctx context.Context, key string) ([]byte, error)

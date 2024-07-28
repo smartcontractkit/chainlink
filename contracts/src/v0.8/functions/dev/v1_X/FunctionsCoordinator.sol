@@ -16,7 +16,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   using FunctionsResponse for FunctionsResponse.FulfillResult;
 
   /// @inheritdoc ITypeAndVersion
-  string public constant override typeAndVersion = "Functions Coordinator v1.3.0";
+  string public constant override typeAndVersion = "Functions Coordinator v1.3.1";
 
   event OracleRequest(
     bytes32 indexed requestId,

@@ -94,38 +94,38 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 
 	conn, err := ldSync.ldapClient.CreateEphemeralConnection()
 	if err != nil {
-		ldSync.lggr.Errorf("Failed to Dial LDAP Server", err)
+		ldSync.lggr.Error("Failed to Dial LDAP Server: ", err)
 		return
 	}
 	// Root level root user auth with credentials provided from config
 	bindStr := ldSync.config.BaseUserAttr() + "=" + ldSync.config.ReadOnlyUserLogin() + "," + ldSync.config.BaseDN()
 	if err = conn.Bind(bindStr, ldSync.config.ReadOnlyUserPass()); err != nil {
-		ldSync.lggr.Errorf("Unable to login as initial root LDAP user", err)
+		ldSync.lggr.Error("Unable to login as initial root LDAP user: ", err)
 	}
 	defer conn.Close()
 
 	// Query for list of uniqueMember IDs present in Admin group
 	adminUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.AdminUserGroupCN(), sessions.UserRoleAdmin)
 	if err != nil {
-		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
+		ldSync.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
 		return
 	}
 	// Query for list of uniqueMember IDs present in Edit group
 	editUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.EditUserGroupCN(), sessions.UserRoleEdit)
 	if err != nil {
-		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
+		ldSync.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
 		return
 	}
 	// Query for list of uniqueMember IDs present in Edit group
 	runUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.RunUserGroupCN(), sessions.UserRoleRun)
 	if err != nil {
-		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
+		ldSync.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
 		return
 	}
 	// Query for list of uniqueMember IDs present in Edit group
 	readUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.ReadUserGroupCN(), sessions.UserRoleView)
 	if err != nil {
-		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
+		ldSync.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
 		return
 	}
 
@@ -149,7 +149,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 	// list group members that are no longer marked as active
 	usersActiveFlags, err := ldSync.validateUsersActive(dedupedEmails, conn)
 	if err != nil {
-		ldSync.lggr.Errorf("Error validating supplied user list: ", err)
+		ldSync.lggr.Error("Error validating supplied user list: ", err)
 	}
 	// Remove users in the upstreamUserStateMap source of truth who are part of groups but marked as deactivated/no-active
 	for i, active := range usersActiveFlags {
@@ -252,7 +252,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 		return nil
 	})
 	if err != nil {
-		ldSync.lggr.Errorf("Error syncing local database state: ", err)
+		ldSync.lggr.Error("Error syncing local database state: ", err)
 	}
 	ldSync.lggr.Info("Upstream LDAP sync complete")
 }

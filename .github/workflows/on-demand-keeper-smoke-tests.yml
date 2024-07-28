@@ -37,11 +37,10 @@ jobs:
             tag-suffix: ""
     name: Build Chainlink Image ${{ matrix.image.name }}
     runs-on: ubuntu22.04-16cores-64GB
-    needs: [changes]
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-build-chainlink
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -94,8 +93,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs:
-      [build-chainlink, compare-tests]
+    needs: [build-chainlink, compare-tests]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
@@ -110,7 +108,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-matrix-${{ matrix.product.name }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -133,30 +131,18 @@ jobs:
           else
             echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
           fi
-      - name: Prepare Base64 TOML override
-        uses: ./.github/actions/setup-create-base64-config
-        with:
-          runId: ${{ github.run_id }}
-          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
-          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
-          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ inputs.evm-ref || github.sha }}
-          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
-          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
-          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: ${{ vars.GRAFANA_URL }}
-          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
 
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@519851800779323566b7b7c22cc21bff95dbb639
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_config_chainlink_version: ${{ inputs.evm-ref || github.sha }}
+          test_config_selected_networks: ${{ env.SELECTED_NETWORKS }}
+          test_config_logging_run_id: ${{ github.run_id }}
+          test_config_logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          test_config_test_log_collect: ${{ vars.TEST_LOG_COLLECT }}
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ inputs.evm-ref || github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
@@ -175,6 +161,17 @@ jobs:
           should_tidy: "false"
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
+          DEFAULT_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          DEFAULT_GRAFANA_BASE_URL: ${{ vars.GRAFANA_URL }}
+          DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          DEFAULT_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          DEFAULT_PYROSCOPE_SERVER_URL: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          DEFAULT_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          DEFAULT_PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
+          DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.product.pyroscope_env == '' || !startsWith(github.ref, 'refs/tags/') && 'false' || 'true' }}
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
@@ -202,7 +199,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-matrix-results
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -235,7 +232,7 @@ jobs:
       - name: Collect Metrics
         if: ${{ github.event_name == 'pull_request' }}
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-env-cleanup
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}

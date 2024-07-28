@@ -133,12 +133,6 @@ func WithKeySpecificMaxGasPrice(addresses []string, maxGasPriceGWei int64) NodeC
 	}
 }
 
-func WithLogPollInterval(interval time.Duration) NodeConfigOpt {
-	return func(c *chainlink.Config) {
-		c.EVM[0].Chain.LogPollInterval = commonconfig.MustNewDuration(interval)
-	}
-}
-
 func BuildChainlinkNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string, configByChain map[string]string) (*corechainlink.Config, string, error) {
 	var tomlCfg *corechainlink.Config
 	var err error

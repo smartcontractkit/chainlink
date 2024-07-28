@@ -149,14 +149,14 @@ func (r *logRecoverer) Start(ctx context.Context) error {
 		})
 
 		r.threadCtrl.Go(func(ctx context.Context) {
-			cleanupTicker := time.NewTicker(utils.WithJitter(GCInterval))
+			cleanupTicker := services.NewTicker(GCInterval)
 			defer cleanupTicker.Stop()
 
 			for {
 				select {
 				case <-cleanupTicker.C:
 					r.clean(ctx)
-					cleanupTicker.Reset(utils.WithJitter(GCInterval))
+					cleanupTicker.Reset()
 				case <-ctx.Done():
 					return
 				}
@@ -724,7 +724,7 @@ func (r *logRecoverer) updateBlockTime(ctx context.Context) {
 		currentBlockTime := r.blockTime.Load()
 		newBlockTime := int64(blockTime)
 		if currentBlockTime > 0 && (int64(math.Abs(float64(currentBlockTime-newBlockTime)))*100/currentBlockTime) > 20 {
-			r.lggr.Warnf("updating blocktime from %d to %d, this change is larger than 20%", currentBlockTime, newBlockTime)
+			r.lggr.Warnf("updating blocktime from %d to %d, this change is larger than 20%%", currentBlockTime, newBlockTime)
 		} else {
 			r.lggr.Debugf("updating blocktime from %d to %d", currentBlockTime, newBlockTime)
 		}

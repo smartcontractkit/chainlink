@@ -20,18 +20,18 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
+	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -58,6 +58,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
@@ -73,8 +74,6 @@ import (
 )
 
 // Application implements the common functions used in the core node.
-//
-//go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
 type Application interface {
 	Start(ctx context.Context) error
 	Stop() error
@@ -180,7 +179,9 @@ type ApplicationOpts struct {
 	LoopRegistry               *plugins.LoopRegistry
 	GRPCOpts                   loop.GRPCOpts
 	MercuryPool                wsrpc.Pool
-	CapabilitiesRegistry       coretypes.CapabilitiesRegistry
+	CapabilitiesRegistry       *capabilities.Registry
+	CapabilitiesDispatcher     remotetypes.Dispatcher
+	CapabilitiesPeerWrapper    p2ptypes.PeerWrapper
 }
 
 // NewApplication initializes a new store if one is not already
@@ -201,21 +202,54 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
 	if opts.CapabilitiesRegistry == nil {
+		// for tests only, in prod Registry should always be set at this point
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	if cfg.Capabilities().Peering().Enabled() {
-		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), globalLogger)
-		signer := externalPeer
-		externalPeerWrapper = externalPeer
+		var dispatcher remotetypes.Dispatcher
+		if opts.CapabilitiesDispatcher == nil {
+			externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), opts.DS, globalLogger)
+			signer := externalPeer
+			externalPeerWrapper = externalPeer
+			remoteDispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
+			srvcs = append(srvcs, remoteDispatcher)
+
+			dispatcher = remoteDispatcher
+		} else {
+			dispatcher = opts.CapabilitiesDispatcher
+			externalPeerWrapper = opts.CapabilitiesPeerWrapper
+		}
 
 		srvcs = append(srvcs, externalPeerWrapper)
 
-		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
-		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
-		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger)
-		srvcs = append(srvcs, dispatcher, registrySyncer)
+		rid := cfg.Capabilities().ExternalRegistry().RelayID()
+		registryAddress := cfg.Capabilities().ExternalRegistry().Address()
+		relayer, err := relayerChainInterops.Get(rid)
+		if err != nil {
+			return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
+		}
+
+		registrySyncer, err := registrysyncer.New(
+			globalLogger,
+			externalPeerWrapper,
+			relayer,
+			registryAddress,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("could not configure syncer: %w", err)
+		}
+
+		wfLauncher := capabilities.NewLauncher(
+			globalLogger,
+			externalPeerWrapper,
+			dispatcher,
+			opts.CapabilitiesRegistry,
+		)
+		registrySyncer.AddLauncher(wfLauncher)
+
+		srvcs = append(srvcs, dispatcher, wfLauncher, registrySyncer)
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
@@ -326,7 +360,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		jobORM         = job.NewORM(opts.DS, pipelineORM, bridgeORM, keyStore, globalLogger)
 		txmORM         = txmgr.NewTxStore(opts.DS, globalLogger)
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
-		workflowORM    = workflowstore.NewDBStore(opts.DS, clockwork.NewRealClock())
+		workflowORM    = workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewRealClock())
 	)
 
 	for _, chain := range legacyEVMChains.Slice() {
@@ -335,6 +369,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	srvcs = append(srvcs, pipelineORM)
+
+	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register, opts.LoopRegistry.Unregister)
 
 	var (
 		delegates = map[job.Type]job.Delegate{
@@ -388,6 +424,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineRunner,
 				cfg.JobPipeline(),
 			),
+			job.StandardCapabilities: standardcapabilities.NewDelegate(
+				globalLogger,
+				opts.DS, jobORM,
+				opts.CapabilitiesRegistry,
+				loopRegistrarConfig,
+				telemetryManager,
+				pipelineRunner,
+				opts.RelayerChainInteroperators),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
@@ -395,16 +439,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	delegates[job.Workflow] = workflows.NewDelegate(
 		globalLogger,
 		opts.CapabilitiesRegistry,
-		legacyEVMChains,
 		workflowORM,
-		func() *p2ptypes.PeerID {
-			if externalPeerWrapper == nil {
-				return nil
-			}
-
-			peerID := externalPeerWrapper.GetPeer().ID()
-			return &peerID
-		},
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
@@ -453,8 +488,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Off-chain reporting disabled")
 	}
 
-	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register, opts.LoopRegistry.Unregister)
-
 	if cfg.OCR2().Enabled() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 
@@ -473,8 +506,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			ocr2DelegateConfig,
 			keyStore.OCR2(),
-			keyStore.DKGSign(),
-			keyStore.DKGEncrypt(),
 			keyStore.Eth(),
 			opts.RelayerChainInteroperators,
 			mailMon,
@@ -842,7 +873,7 @@ func (app *ChainlinkApplication) RunJobV2(
 				},
 			}
 		}
-		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), app.logger, saveTasks)
+		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), saveTasks)
 	}
 	return runID, err
 }
