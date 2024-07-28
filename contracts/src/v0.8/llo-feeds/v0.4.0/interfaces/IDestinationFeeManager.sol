@@ -54,10 +54,23 @@ interface IDestinationFeeManager is IERC165 {
   function payLinkDeficit(bytes32 configDigest) external;
 
   /**
-   * @notice Sets the verifier to the list of verifiers able to use the feeManager
+   * @notice Adds the verifier to the list of verifiers able to use the feeManager
    * @param verifier address of the verifier
    */
-  function setVerifier(address verifier) external;
+  function addVerifier(address verifier) external;
+
+  /**
+   * @notice Removes the verifier from the list of verifiers able to use the feeManager
+   * @param verifier address of the verifier
+   */
+  function removeVerifier(address verifier) external;
+
+
+  /**
+   * @notice Sets the reward manager to the address
+   * @param rewardManager address of the reward manager
+   */
+  function setRewardManager(address rewardManager) external;
 
   /**
    * @notice Handles fees for a report from the subscriber and manages rewards

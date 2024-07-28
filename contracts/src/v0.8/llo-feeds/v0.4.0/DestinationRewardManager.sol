@@ -39,7 +39,7 @@ contract DestinationRewardManager is IDestinationRewardManager, ConfirmedOwner, 
   uint64 private constant PERCENTAGE_SCALAR = 1e18;
 
   // The fee manager address
-  address public s_feeManagerAddress;
+  mapping(address => address) public s_feeManagerAddressList;
 
   // @notice Thrown whenever the RewardRecipient weights are invalid
   error InvalidWeights();
@@ -85,13 +85,14 @@ contract DestinationRewardManager is IDestinationRewardManager, ConfirmedOwner, 
       interfaceId == this.setRewardRecipients.selector ||
       interfaceId == this.updateRewardRecipients.selector ||
       interfaceId == this.payRecipients.selector ||
-      interfaceId == this.setFeeManager.selector ||
+      interfaceId == this.addFeeManager.selector ||
+      interfaceId == this.removeFeeManager.selector ||
       interfaceId == this.getAvailableRewardPoolIds.selector ||
       interfaceId == this.onFeePaid.selector;
   }
 
   modifier onlyOwnerOrFeeManager() {
-    if (msg.sender != owner() && msg.sender != s_feeManagerAddress) revert Unauthorized();
+    if (msg.sender != owner() && msg.sender != s_feeManagerAddressList[msg.sender]) revert Unauthorized();
     _;
   }
 
@@ -101,7 +102,7 @@ contract DestinationRewardManager is IDestinationRewardManager, ConfirmedOwner, 
   }
 
   modifier onlyFeeManager() {
-    if (msg.sender != s_feeManagerAddress) revert Unauthorized();
+    if (msg.sender != s_feeManagerAddressList[msg.sender]) revert Unauthorized();
     _;
   }
 
@@ -278,12 +279,19 @@ contract DestinationRewardManager is IDestinationRewardManager, ConfirmedOwner, 
   }
 
   /// @inheritdoc IDestinationRewardManager
-  function setFeeManager(address newFeeManagerAddress) external onlyOwner {
+  function addFeeManager(address newFeeManagerAddress) external onlyOwner {
     if (newFeeManagerAddress == address(0)) revert InvalidAddress();
+    if (s_feeManagerAddressList[newFeeManagerAddress] != address(0)) revert InvalidAddress();
 
-    s_feeManagerAddress = newFeeManagerAddress;
+    s_feeManagerAddressList[newFeeManagerAddress] = newFeeManagerAddress;
 
     emit FeeManagerUpdated(newFeeManagerAddress);
+  }
+
+  /// @inheritdoc IDestinationRewardManager
+  function removeFeeManager(address feeManagerAddress) external onlyOwner {
+    if (s_feeManagerAddressList[feeManagerAddress] == address(0)) revert InvalidAddress();
+    delete s_feeManagerAddressList[feeManagerAddress];
   }
 
   /// @inheritdoc IDestinationRewardManager

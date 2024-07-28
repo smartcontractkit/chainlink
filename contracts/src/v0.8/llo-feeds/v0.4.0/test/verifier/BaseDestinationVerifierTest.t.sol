@@ -217,7 +217,7 @@ contract BaseTest is Test {
     return signers;
   }
 
-  function _getSignerAddresses(Signer[] memory signers) internal view returns (address[] memory) {
+  function _getSignerAddresses(Signer[] memory signers) internal pure returns (address[] memory) {
     address[] memory signerAddrs = new address[](signers.length);
     for (uint256 i = 0; i < signerAddrs.length; i++) {
       signerAddrs[i] = signers[i].signerAddress;
@@ -235,13 +235,13 @@ contract BaseTest is Test {
     return DONConfigID;
   }
 
-  function assertReportsEqual(bytes memory response, V3Report memory testReport) public {
+  function assertReportsEqual(bytes memory response, V3Report memory testReport) public pure{
     (
       bytes32 feedId,
       uint32 observationsTimestamp,
       uint32 validFromTimestamp,
-      uint192 linkFee,
       uint192 nativeFee,
+      uint192 linkFee,
       uint32 expiresAt,
       int192 benchmarkPrice,
       int192 bid,
@@ -254,6 +254,8 @@ contract BaseTest is Test {
     assertEq(benchmarkPrice, testReport.benchmarkPrice);
     assertEq(bid, testReport.bid);
     assertEq(ask, testReport.ask);
+    assertEq(linkFee, testReport.linkFee);
+    assertEq(nativeFee, testReport.nativeFee);
   }
 
   function _approveNative(address spender, uint256 quantity, address sender) internal {
@@ -273,7 +275,7 @@ contract VerifierWithFeeManager is BaseTest {
     BaseTest.setUp();
 
     s_verifier.setFeeManager(address(feeManager));
-    rewardManager.setFeeManager(address(feeManager));
+    rewardManager.addFeeManager(address(feeManager));
 
     //mint some tokens to the user
     link.mint(USER, DEFAULT_LINK_MINT_QUANTITY);

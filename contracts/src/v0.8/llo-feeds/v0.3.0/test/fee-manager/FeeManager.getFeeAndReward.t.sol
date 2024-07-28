@@ -10,7 +10,7 @@ import "./BaseFeeManager.t.sol";
  * @notice This contract will test the functionality of the feeManager's getFeeAndReward
  */
 contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
-  function test_baseFeeIsAppliedForNative() public {
+  function test_baseFeeIsAppliedForNative() public view {
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
@@ -18,7 +18,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE);
   }
 
-  function test_baseFeeIsAppliedForLink() public {
+  function test_baseFeeIsAppliedForLink() public view {
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
@@ -378,7 +378,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE - expectedDiscount);
   }
 
-  function test_reportWithNoExpiryOrFeeReturnsZero() public {
+  function test_reportWithNoExpiryOrFeeReturnsZero() public view {
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getV1Report(DEFAULT_FEED_1_V1), getNativeQuote(), USER);
 
@@ -462,7 +462,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     setNativeSurcharge(nativeSurcharge, ADMIN);
   }
 
-  function test_getBaseRewardWithLinkQuote() public {
+  function test_getBaseRewardWithLinkQuote() public view {
     //get the fee required by the feeManager
     Common.Asset memory reward = getReward(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
@@ -481,7 +481,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(reward.amount, DEFAULT_REPORT_LINK_FEE / 2);
   }
 
-  function test_getRewardWithNativeQuote() public {
+  function test_getRewardWithNativeQuote() public view{
     //get the fee required by the feeManager
     Common.Asset memory reward = getReward(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 

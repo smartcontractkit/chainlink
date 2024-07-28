@@ -32,7 +32,7 @@ contract VerifierVerifyTest is BaseTestWithConfiguredVerifierAndFeeManager {
     );
   }
 
-  function assertReportsEqual(bytes memory response, V1Report memory testReport) public {
+  function assertReportsEqual(bytes memory response, V1Report memory testReport) public pure {
     (
       bytes32 feedId,
       uint32 timestamp,

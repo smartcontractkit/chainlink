@@ -109,10 +109,10 @@ contract DestinationRewardManagerSetRecipientsTest is BaseDestinationRewardManag
 
   function test_setRewardRecipientFromManagerAddress() public {
     //update the proxy address
-    setFeeManager(FEE_MANAGER, ADMIN);
+    setFeeManager(FEE_MANAGER_2, ADMIN);
 
     //set the recipients
-    setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), FEE_MANAGER);
+    setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), FEE_MANAGER_2);
   }
 
   function test_eventIsEmittedUponSetRecipients() public {

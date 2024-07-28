@@ -30,12 +30,12 @@ contract VerifierConstructorTest is BaseTest {
 }
 
 contract VerifierSupportsInterfaceTest is BaseTest {
-  function test_falseIfIsNotCorrectInterface() public {
+  function test_falseIfIsNotCorrectInterface() public view {
     bool isInterface = s_verifier.supportsInterface(bytes4("abcd"));
     assertEq(isInterface, false);
   }
 
-  function test_trueIfIsCorrectInterface() public {
+  function test_trueIfIsCorrectInterface() public view {
     bool isInterface = s_verifier.supportsInterface(Verifier.verify.selector);
     assertEq(isInterface, true);
   }

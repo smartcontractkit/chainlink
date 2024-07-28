@@ -19,12 +19,12 @@ contract VerifierConstructorTest is BaseTest {
     assertEq(typeAndVersion, "DestinationVerifier 1.0.0");
   }
 
-  function test_falseIfIsNotCorrectInterface() public {
+  function test_falseIfIsNotCorrectInterface() view public {
     bool isInterface = s_verifier.supportsInterface(bytes4("abcd"));
     assertEq(isInterface, false);
   }
 
-  function test_trueIfIsCorrectInterface() public {
+  function test_trueIfIsCorrectInterface() view public {
     bool isInterface = s_verifier.supportsInterface(DestinationVerifier.verify.selector);
     assertEq(isInterface, true);
   }

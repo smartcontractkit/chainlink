@@ -31,7 +31,7 @@ contract VerifierProxyInitializeVerifierTest is BaseTest {
     assertEq(proxy.owner(), ADMIN);
   }
 
-  function test_correctlySetsVersion() public {
+  function test_correctlySetsVersion() public view {
     string memory version = s_verifierProxy.typeAndVersion();
     assertEq(version, "DestinationVerifierProxy 1.0.0");
   }

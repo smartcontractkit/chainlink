@@ -40,10 +40,16 @@ interface IDestinationRewardManager is IERC165 {
   function payRecipients(bytes32 poolId, address[] calldata recipients) external;
 
   /**
-   * @notice Sets the fee manager. This needs to be done post construction to prevent a circular dependency.
+   * @notice Add the fee manager to the list of feeManagers able to call the reward manager
    * @param newFeeManager address of the new verifier proxy
    */
-  function setFeeManager(address newFeeManager) external;
+  function addFeeManager(address newFeeManager) external;
+
+  /**
+   * @notice Removes the fee manager. This needs to be done post construction to prevent a circular dependency.
+   * @param feeManager address of the verifier proxy to remove
+   */
+  function removeFeeManager(address feeManager) external;
 
   /**
    * @notice Gets a list of pool ids which have reward for a specific recipient.

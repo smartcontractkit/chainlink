@@ -111,7 +111,7 @@ contract BaseDestinationFeeManagerTest is Test {
     feeManagerProxy.setDestinationFeeManager(feeManager);
 
     //link the feeManager to the reward manager
-    rewardManager.setFeeManager(address(feeManager));
+    rewardManager.addFeeManager(address(feeManager));
 
     //mint some tokens to the admin
     link.mint(ADMIN, DEFAULT_LINK_MINT_QUANTITY);

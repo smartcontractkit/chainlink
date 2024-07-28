@@ -32,10 +32,10 @@ contract DestinationRewardManagerSetupTest is BaseDestinationRewardManagerTest {
     vm.expectEmit();
 
     //emit the event that is expected to be emitted
-    emit FeeManagerUpdated(FEE_MANAGER);
+    emit FeeManagerUpdated(FEE_MANAGER_2);
 
     //set the verifier proxy
-    setFeeManager(FEE_MANAGER, ADMIN);
+    setFeeManager(FEE_MANAGER_2, ADMIN);
   }
 
   function test_eventEmittedUponFeePaid() public {

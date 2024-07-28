@@ -23,8 +23,10 @@ contract BaseDestinationRewardManagerTest is Test {
   address internal constant INVALID_ADDRESS = address(0);
   //contract owner
   address internal constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
-  //address to represent verifier contract
+  //address to represent feeManager contract
   address internal constant FEE_MANAGER = address(uint160(uint256(keccak256("FEE_MANAGER"))));
+  //address to represent another feeManager
+  address internal constant FEE_MANAGER_2 = address(uint160(uint256(keccak256("FEE_MANAGER_2"))));
   //a general user
   address internal constant USER = address(uint160(uint256(keccak256("USER"))));
 
@@ -102,7 +104,7 @@ contract BaseDestinationRewardManagerTest is Test {
     //create the contract
     rewardManager = new DestinationRewardManager(address(asset));
 
-    rewardManager.setFeeManager(FEE_MANAGER);
+    rewardManager.addFeeManager(FEE_MANAGER);
   }
 
   function createPrimaryPool() public {
@@ -242,7 +244,7 @@ contract BaseDestinationRewardManagerTest is Test {
     changePrank(sender);
 
     //update the proxy
-    rewardManager.setFeeManager(feeManager);
+    rewardManager.addFeeManager(feeManager);
 
     //change back to the original address
     changePrank(originalAddr);

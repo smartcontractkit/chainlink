@@ -17,7 +17,7 @@ contract VerifierProxyConstructorTest is BaseTest {
     assertEq(address(proxy.s_accessController()), accessControllerAddr);
   }
 
-  function test_correctlySetsVersion() public {
+  function test_correctlySetsVersion() public view {
     string memory version = s_verifierProxy.typeAndVersion();
     assertEq(version, "VerifierProxy 2.0.0");
   }

@@ -26,7 +26,6 @@ contract VerifierSetConfigTest is BaseTest {
        - it removes and readds config B multiple times while trying Config A verifications
       */
     Signer[] memory signers = _getSigners(MAX_ORACLES);
-    address[] memory signerAddrs = _getSignerAddresses(signers);
 
     uint8 MINIMAL_FAULT_TOLERANCE = 2;
     BaseTest.Signer[] memory signersA = new BaseTest.Signer[](7);

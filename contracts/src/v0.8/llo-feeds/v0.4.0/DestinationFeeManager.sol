@@ -37,10 +37,10 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
   address public immutable i_nativeAddress;
 
   /// @notice the verifier address
-  address public i_verifierAddress;
+  mapping(address => address) public s_verifierAddressList;
 
   /// @notice the reward manager address
-  IDestinationRewardManager public immutable i_rewardManager;
+  IDestinationRewardManager public s_rewardManager;
 
   // @notice the mask to apply to get the report version
   bytes32 private constant REPORT_VERSION_MASK = 0xffff000000000000000000000000000000000000000000000000000000000000;
@@ -144,19 +144,19 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
 
     i_linkAddress = _linkAddress;
     i_nativeAddress = _nativeAddress;
-    i_verifierAddress = _verifierAddress;
-    i_rewardManager = IDestinationRewardManager(_rewardManagerAddress);
+    s_verifierAddressList[_verifierAddress] = _verifierAddress;
+    s_rewardManager = IDestinationRewardManager(_rewardManagerAddress);
 
-    IERC20(i_linkAddress).approve(address(i_rewardManager), type(uint256).max);
+    IERC20(i_linkAddress).approve(address(s_rewardManager), type(uint256).max);
   }
 
   modifier onlyOwnerOrVerifier() {
-    if (msg.sender != i_verifierAddress && msg.sender != owner()) revert Unauthorized();
+    if (msg.sender != s_verifierAddressList[msg.sender] && msg.sender != owner()) revert Unauthorized();
     _;
   }
 
   modifier onlyVerifier() {
-    if (msg.sender != i_verifierAddress) revert Unauthorized();
+    if (msg.sender != s_verifierAddressList[msg.sender]) revert Unauthorized();
     _;
   }
 
@@ -175,7 +175,8 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
       interfaceId == this.withdraw.selector ||
       interfaceId == this.linkAvailableForPayment.selector ||
       interfaceId == this.payLinkDeficit.selector ||
-      interfaceId == this.setVerifier.selector ||
+      interfaceId == this.addVerifier.selector ||
+      interfaceId == this.removeVerifier.selector ||
       interfaceId == this.processFee.selector ||
       interfaceId == this.processFeeBulk.selector ||
       interfaceId == this.setFeeRecipients.selector;
@@ -330,7 +331,7 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     bytes32 configDigest,
     Common.AddressAndWeight[] calldata rewardRecipientAndWeights
   ) external onlyOwnerOrVerifier {
-    i_rewardManager.setRewardRecipients(configDigest, rewardRecipientAndWeights);
+    s_rewardManager.setRewardRecipients(configDigest, rewardRecipientAndWeights);
   }
 
   /// @inheritdoc IDestinationFeeManager
@@ -482,7 +483,7 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     }
 
     if (linkRewards.length != 0) {
-      i_rewardManager.onFeePaid(linkRewards, subscriber);
+      s_rewardManager.onFeePaid(linkRewards, subscriber);
     }
 
     if (nativeFeeLinkRewards.length != 0) {
@@ -499,7 +500,7 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
         emit InsufficientLink(nativeFeeLinkRewards);
       } else {
         //distribute the fees
-        i_rewardManager.onFeePaid(nativeFeeLinkRewards, address(this));
+        s_rewardManager.onFeePaid(nativeFeeLinkRewards, address(this));
       }
     }
 
@@ -525,14 +526,30 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
 
     deficitFeePayment[0] = IDestinationRewardManager.FeePayment(configDigest, uint192(deficit));
 
-    i_rewardManager.onFeePaid(deficitFeePayment, address(this));
+    s_rewardManager.onFeePaid(deficitFeePayment, address(this));
 
     emit LinkDeficitCleared(configDigest, deficit);
   }
 
   /// @inheritdoc IDestinationFeeManager
-  function setVerifier(address verifierAddress) external onlyOwner {
+  function addVerifier(address verifierAddress) external onlyOwner {
     if (verifierAddress == address(0)) revert InvalidAddress();
-    i_verifierAddress = verifierAddress;
+    //check doesn't already exist
+    if (s_verifierAddressList[verifierAddress] != address(0)) revert InvalidAddress();
+    s_verifierAddressList[verifierAddress] = verifierAddress;
+  }
+
+  /// @inheritdoc IDestinationFeeManager
+  function removeVerifier(address verifierAddress) external onlyOwner {
+    if (verifierAddress == address(0)) revert InvalidAddress();
+      //check doesn't already exist
+    if (s_verifierAddressList[verifierAddress] == address(0)) revert InvalidAddress();
+    delete s_verifierAddressList[verifierAddress];
+  }
+
+    /// @inheritdoc IDestinationFeeManager
+  function setRewardManager(address rewardManagerAddress) external onlyOwner {
+    if (rewardManagerAddress == address(0)) revert InvalidAddress();
+    s_rewardManager = IDestinationRewardManager(rewardManagerAddress);
   }
 }

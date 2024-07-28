@@ -585,7 +585,6 @@ contract VerifierVerifyTest is BaseTest {
     vm.warp(block.timestamp + 1000);
 
     Signer[] memory signers = _getSigners(MAX_ORACLES);
-    address[] memory signerAddrs = _getSignerAddresses(signers);
 
     uint8 MINIMAL_FAULT_TOLERANCE = 2;
     BaseTest.Signer[] memory signersA = new BaseTest.Signer[](7);

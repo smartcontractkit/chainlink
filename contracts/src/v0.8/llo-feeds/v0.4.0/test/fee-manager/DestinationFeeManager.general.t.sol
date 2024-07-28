@@ -242,13 +242,13 @@ contract DestinationFeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
 
   function test_revertOnSettingAnAddressZeroVerifier() public {
     vm.expectRevert(INVALID_ADDRESS_ERROR);
-    feeManager.setVerifier(address(0));
+    feeManager.addVerifier(address(0));
   }
 
   function test_onlyCallableByOwnerReverts() public {
     address STRANGER = address(999);
     changePrank(STRANGER);
     vm.expectRevert(bytes("Only callable by owner"));
-    feeManager.setVerifier(address(0));
+    feeManager.addVerifier(address(0));
   }
 }

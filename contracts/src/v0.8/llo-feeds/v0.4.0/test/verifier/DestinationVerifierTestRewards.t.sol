@@ -38,7 +38,7 @@ contract VerifierBillingTests is VerifierWithFeeManager {
     s_testReport = generateReportAtTimestamp(block.timestamp);
   }
 
-  function generateReportAtTimestamp(uint256 timestamp) public returns (V3Report memory) {
+  function generateReportAtTimestamp(uint256 timestamp) public pure returns (V3Report memory) {
     return
       V3Report({
         feedId: FEED_ID_V3,
@@ -54,7 +54,7 @@ contract VerifierBillingTests is VerifierWithFeeManager {
       });
   }
 
-  function getRecipientAndWeightsGroup2() public returns (Common.AddressAndWeight[] memory, address[] memory) {
+  function getRecipientAndWeightsGroup2() public pure returns (Common.AddressAndWeight[] memory, address[] memory) {
     address[] memory recipients = new address[](4);
     recipients[0] = DEFAULT_RECIPIENT_4;
     recipients[1] = DEFAULT_RECIPIENT_5;
@@ -70,7 +70,7 @@ contract VerifierBillingTests is VerifierWithFeeManager {
     return (weights, recipients);
   }
 
-  function getRecipientAndWeightsGroup1() public returns (Common.AddressAndWeight[] memory, address[] memory) {
+  function getRecipientAndWeightsGroup1() public pure returns (Common.AddressAndWeight[] memory, address[] memory) {
     address[] memory recipients = new address[](4);
     recipients[0] = DEFAULT_RECIPIENT_1;
     recipients[1] = DEFAULT_RECIPIENT_2;
