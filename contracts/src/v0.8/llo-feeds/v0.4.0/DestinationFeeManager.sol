@@ -551,7 +551,6 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
   function setRewardManager(address rewardManagerAddress) external onlyOwner {
     if (rewardManagerAddress == address(0)) revert InvalidAddress();
     IERC20(i_linkAddress).approve(address(i_rewardManager), 0);
-
     i_rewardManager = IDestinationRewardManager(rewardManagerAddress);
     IERC20(i_linkAddress).approve(address(i_rewardManager), type(uint256).max);
   }
