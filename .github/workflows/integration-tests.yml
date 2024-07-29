@@ -778,7 +778,7 @@ jobs:
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
         with:
-          test_directory: ./integration-tests/smoke/
+          test_directories: ./integration-tests/smoke/
 
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:
