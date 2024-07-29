@@ -2,12 +2,6 @@
 
 ## 2.15.0
 
-### Patch Changes
-
-- Bump to start v2.15.0
-
-## 2.15.0
-
 ### Minor Changes
 
 - 685681e1b3: Remove ocr2vrf
