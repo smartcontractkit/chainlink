@@ -107,10 +107,9 @@ fi
 
 if [ "${#FAILED_FILES[@]}" -gt 0 ]; then
     echo "Error: Failed to generate UML diagrams for ${#FAILED_FILES[@]} files:"
-    echo "Failed to generate UML diagrams for:" > "$TARGET_DIR/failed_files.txt"
     for FILE in "${FAILED_FILES[@]}"; do
         echo "  $FILE"
-        echo "$FILE" >> "$TARGET_DIR/failed_files.txt"
+        echo "$FILE" >> "$TARGET_DIR/uml_generation_failures.txt"
     done
 fi
 

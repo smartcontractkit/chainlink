@@ -45,7 +45,7 @@ jobs:
           list-files: 'csv'
           base: ${{ env.BASE_REF }} #TODO change to inputs.base_ref after testing
           filters: |
-            ignore: &ignore
+            ignored: &ignored
               - '!contracts/src/v0.8/**/test/**'
               - '!contracts/src/v0.8/**/tests/**'
               - '!contracts/src/v0.8/**/*.t.sol'
@@ -53,20 +53,19 @@ jobs:
               - '!contracts/src/v0.8/**/testhelpers/**'
               - '!contracts/src/v0.8/testhelpers/**'
               - '!contracts/src/v0.8/vendor/**'
+            shared: &shared
+              - added|modified: 'contracts/src/v0.8/shared/**/*.sol'
+              - added|modified: 'contracts/src/v0.8/*.sol'
+              - *ignored            
             sol:
-              - 'contracts/src/v0.8/**/*.sol'
-              - *ignore
+              - added|modified: 'contracts/src/v0.8/**/*.sol'
+              - *ignored
             product:
-              - 'contracts/src/v0.8/${{ env.PRODUCT }}/**/*.sol'         
-              - *ignore
-            shared:
-              - 'contracts/src/v0.8/shared/**/*.sol'
-              - 'contracts/src/v0.8/*.sol'
-              - *ignore
+              - added|modified: 'contracts/src/v0.8/${{ env.PRODUCT }}/**/*.sol'         
+              - *ignored
             included:
-              - 'contracts/src/v0.8/${{ env.PRODUCT }}/**/*.sol'
-              - 'contracts/src/v0.8/shared/**/*.sol'
-              - *ignore
+              - added|modified: 'contracts/src/v0.8/${{ env.PRODUCT }}/**/*.sol'
+              - *shared            
 
       - name: Check for changes outside of artifact scope
         if: ${{ steps.changes.outputs.sol == 'true' }}
@@ -291,11 +290,11 @@ jobs:
                     
           ./contracts/scripts/ci/generate_uml.sh "./" "contracts/uml-diagrams" "$contract_list"
           
-          if [ -f  "contracts/uml-diagrams/failed_files.txt" ]; then
+          if [ -f  "contracts/uml-diagrams/uml_generation_failures.txt" ]; then
             echo "# Warning!" >> $GITHUB_STEP_SUMMARY
             echo "## Reason: Failed to generate UML diagrams for some contracts" >> $GITHUB_STEP_SUMMARY
             echo "### Files:" >> $GITHUB_STEP_SUMMARY
-            cat contracts/uml-diagrams/failed_files.txt >> $GITHUB_STEP_SUMMARY
+            cat contracts/uml-diagrams/uml_generation_failures.txt >> $GITHUB_STEP_SUMMARY
             echo "## Action required: Please try generate artifacts for them locally or using a different tool" >> $GITHUB_STEP_SUMMARY  
           fi
 
