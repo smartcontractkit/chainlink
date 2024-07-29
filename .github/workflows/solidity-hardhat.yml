@@ -45,25 +45,35 @@ jobs:
           list-files: 'csv'
           base: ${{ env.BASE_REF }} #TODO change to inputs.base_ref after testing
           filters: |
-            ignore: &ignore
+            sol:
+              - 'contracts/src/v0.8/**/*.sol'
               - 'contracts/src/v0.8/**/test/*.sol'
               - 'contracts/src/v0.8/**/tests/*.sol'
               - 'contracts/src/v0.8/**/*.t.sol'
               - 'contracts/src/v0.8/**/testhelpers/**'
               - 'contracts/src/v0.8/vendor/**'
-            sol:
-              - 'contracts/src/v0.8/**/*.sol'
-              - *ignore
             product:
               - 'contracts/src/v0.8/${{ env.PRODUCT }}/**/*.sol'         
-              - *ignore
+              - 'contracts/src/v0.8/**/test/*.sol'
+              - 'contracts/src/v0.8/**/tests/*.sol'
+              - 'contracts/src/v0.8/**/*.t.sol'
+              - 'contracts/src/v0.8/**/testhelpers/**'
+              - 'contracts/src/v0.8/vendor/**'
             shared:
               - 'contracts/src/v0.8/shared/**/*.sol'
-              - *ignore
+              - 'contracts/src/v0.8/**/test/*.sol'
+              - 'contracts/src/v0.8/**/tests/*.sol'
+              - 'contracts/src/v0.8/**/*.t.sol'
+              - 'contracts/src/v0.8/**/testhelpers/**'
+              - 'contracts/src/v0.8/vendor/**'
             included:
               - 'contracts/src/v0.8/${{ env.PRODUCT }}/**/*.sol'
               - 'contracts/src/v0.8/shared/**/*.sol'
-              - *ignore
+              - 'contracts/src/v0.8/**/test/*.sol'
+              - 'contracts/src/v0.8/**/tests/*.sol'
+              - 'contracts/src/v0.8/**/*.t.sol'
+              - 'contracts/src/v0.8/**/testhelpers/**'
+              - 'contracts/src/v0.8/vendor/**'
 
       - name: Check for changes outside of artifact scope
         if: ${{ steps.changes.outputs.sol == 'true' }}
