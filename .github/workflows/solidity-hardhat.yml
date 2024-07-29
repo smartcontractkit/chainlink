@@ -15,7 +15,7 @@ env:
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
   PRODUCT: "keystone"
-  BASE_REF: "27d9c71b196961666de87bc3128d31f3c22fb3fa"
+  BASE_REF: "ca6e1c26a331af67a1d57bf69d8160c23fc1e297"
 
 jobs:
   changes:
