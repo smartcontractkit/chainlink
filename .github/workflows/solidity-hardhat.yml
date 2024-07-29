@@ -46,8 +46,8 @@ jobs:
           base: ${{ env.BASE_REF }} #TODO change to inputs.base_ref after testing
           filters: |
             ignore: &ignore
-              - '!contracts/src/v0.8/**/test/*.sol'
-              - '!contracts/src/v0.8/**/tests/*.sol'
+              - '!contracts/src/v0.8/**/test/**'
+              - '!contracts/src/v0.8/**/tests/**'
               - '!contracts/src/v0.8/**/*.t.sol'
               - '!contracts/src/v0.8/**/testhelpers/**'
               - '!contracts/src/v0.8/vendor/**'
