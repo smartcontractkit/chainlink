@@ -258,36 +258,13 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 	filterStore := NewUpkeepFilterStore()
 	p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, filterStore, NewOptions(200, big.NewInt(1)))
 
-	var ids []*big.Int
 	for i := 0; i < 10; i++ {
 		cfg, f := newEntry(p, i+1)
-		ids = append(ids, f.upkeepID)
 		require.NoError(t, p.RegisterFilter(ctx, FilterOptions{
 			UpkeepID:      f.upkeepID,
 			TriggerConfig: cfg,
 		}))
 	}
-
-	t.Run("no entries", func(t *testing.T) {
-		require.NoError(t, p.ReadLogs(ctx, big.NewInt(999999)))
-		logs := p.buffer.peek(10)
-		require.Len(t, logs, 0)
-	})
-
-	t.Run("has entries", func(t *testing.T) {
-		require.NoError(t, p.ReadLogs(ctx, ids[:2]...))
-		logs := p.buffer.peek(10)
-		require.Len(t, logs, 2)
-
-		var updatedFilters []upkeepFilter
-		filterStore.RangeFiltersByIDs(func(i int, f upkeepFilter) {
-			updatedFilters = append(updatedFilters, f.Clone())
-		}, ids[:2]...)
-		for _, f := range updatedFilters {
-			// Last poll block should be updated
-			require.Equal(t, int64(1), f.lastPollBlock)
-		}
-	})
 
 	// TODO: test rate limiting
 }
@@ -342,7 +319,6 @@ func remainingBlockWindowCounts(queues map[string]*upkeepLogQueue, blockRate int
 func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 	t.Run("dequeuing from an empty buffer returns 0 logs", func(t *testing.T) {
 		opts := NewOptions(200, big.NewInt(42161))
-		opts.BufferVersion = "v1"
 
 		logPoller := &mockLogPoller{
 			LatestBlockFn: func(ctx context.Context) (int64, error) {
@@ -361,7 +337,6 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 	t.Run("a single log for a single upkeep gets dequeued", func(t *testing.T) {
 		opts := NewOptions(200, big.NewInt(42161))
-		opts.BufferVersion = "v1"
 
 		logPoller := &mockLogPoller{
 			LatestBlockFn: func(ctx context.Context) (int64, error) {
@@ -373,7 +348,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		buffer := provider.bufferV1
+		buffer := provider.buffer
 
 		buffer.Enqueue(big.NewInt(1), logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0})
 
@@ -384,7 +359,6 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 	t.Run("a log per upkeep for 4 upkeeps across 4 blocks (2 separate block windows) is dequeued, for a total of 4 payloads", func(t *testing.T) {
 		opts := NewOptions(200, big.NewInt(42161))
-		opts.BufferVersion = "v1"
 
 		logPoller := &mockLogPoller{
 			LatestBlockFn: func(ctx context.Context) (int64, error) {
@@ -396,7 +370,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		buffer := provider.bufferV1
+		buffer := provider.buffer
 
 		buffer.Enqueue(big.NewInt(1), logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0})
 		buffer.Enqueue(big.NewInt(2), logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0})
@@ -410,7 +384,6 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 	t.Run("100 logs are dequeued for a single upkeep, 1 log for every block window across 100 blocks followed by best effort", func(t *testing.T) {
 		opts := NewOptions(200, big.NewInt(42161))
-		opts.BufferVersion = "v1"
 
 		logPoller := &mockLogPoller{
 			LatestBlockFn: func(ctx context.Context) (int64, error) {
@@ -422,7 +395,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		buffer := provider.bufferV1.(*logBuffer)
+		buffer := provider.buffer.(*logBuffer)
 
 		for i := 0; i < 100; i++ {
 			buffer.Enqueue(big.NewInt(1), logpoller.Log{BlockNumber: int64(i + 1), TxHash: common.HexToHash(fmt.Sprintf("0x%d", i+1)), LogIndex: 0})
@@ -439,7 +412,6 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 	t.Run("100 logs are dequeued for two upkeeps, 25 logs each as min commitment (50 logs total best effort), followed by best effort", func(t *testing.T) {
 		opts := NewOptions(200, big.NewInt(42161))
-		opts.BufferVersion = "v1"
 
 		logPoller := &mockLogPoller{
 			LatestBlockFn: func(ctx context.Context) (int64, error) {
@@ -451,7 +423,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		buffer := provider.bufferV1.(*logBuffer)
+		buffer := provider.buffer.(*logBuffer)
 
 		for i := 0; i < 100; i++ {
 			buffer.Enqueue(big.NewInt(1), logpoller.Log{BlockNumber: int64(i + 1), TxHash: common.HexToHash(fmt.Sprintf("0x1%d", i+1)), LogIndex: 0})
@@ -491,7 +463,6 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 	t.Run("minimum guaranteed for all windows including an incomplete window followed by best effort", func(t *testing.T) {
 		opts := NewOptions(200, big.NewInt(42161))
-		opts.BufferVersion = "v1"
 
 		logPoller := &mockLogPoller{
 			LatestBlockFn: func(ctx context.Context) (int64, error) {
@@ -503,7 +474,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		buffer := provider.bufferV1.(*logBuffer)
+		buffer := provider.buffer.(*logBuffer)
 
 		for i := 0; i < 102; i++ {
 			buffer.Enqueue(big.NewInt(1), logpoller.Log{BlockNumber: int64(i + 1), TxHash: common.HexToHash(fmt.Sprintf("0x1%d", i+1)), LogIndex: 0})
@@ -551,7 +522,6 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 	t.Run("min dequeue followed by best effort followed by reorg followed by best effort", func(t *testing.T) {
 		opts := NewOptions(200, big.NewInt(42161))
-		opts.BufferVersion = "v1"
 
 		logPoller := &mockLogPoller{
 			LatestBlockFn: func(ctx context.Context) (int64, error) {
@@ -563,7 +533,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		buffer := provider.bufferV1.(*logBuffer)
+		buffer := provider.buffer.(*logBuffer)
 
 		for i := 0; i < 100; i++ {
 			buffer.Enqueue(big.NewInt(1), logpoller.Log{BlockNumber: int64(i + 1), TxHash: common.HexToHash(fmt.Sprintf("0x1%d", i+1)), LogIndex: 0})
@@ -606,7 +576,6 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 	t.Run("sparsely populated blocks", func(t *testing.T) {
 		opts := NewOptions(200, big.NewInt(42161))
-		opts.BufferVersion = "v1"
 
 		logPoller := &mockLogPoller{
 			LatestBlockFn: func(ctx context.Context) (int64, error) {
@@ -618,7 +587,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		buffer := provider.bufferV1.(*logBuffer)
+		buffer := provider.buffer.(*logBuffer)
 
 		upkeepOmittedOnBlocks := map[int64][]int{
 			1: {5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100},                                                                                                                      // upkeep 1 won't have logs on 20 blocks
