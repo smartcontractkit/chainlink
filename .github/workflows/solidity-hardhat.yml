@@ -73,7 +73,7 @@ jobs:
         shell: bash
         run: |
           echo "Modified contracts: ${{ steps.changes.outputs.sol_files }}"
-          excluded_paths_pattern="!/^contracts\/src\/v0\.8\/shared/ && !/^contracts\/src\/v0\.8\/${{ env.PRODUCT}}/"
+          excluded_paths_pattern="!/^contracts\/src\/v0\.8\/shared/ && !/^contracts\/src\/v0\.8\/${{ env.PRODUCT}}/ && !/^contracts\/src\/v0\.8\/*.sol/"
           echo "Excluded paths: $excluded_paths_pattern"
           unexpected_files=$(echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n' | awk "$excluded_paths_pattern")
           if [[ -n "$unexpected_files" ]]; then
@@ -86,7 +86,7 @@ jobs:
             echo "## Reason: Found modified contracts outside of the expected scope: ${{ env.PRODUCT }}, shared" >> $GITHUB_STEP_SUMMARY
             echo "### Files:" >> $GITHUB_STEP_SUMMARY
             echo "$unexpected_files" >> $GITHUB_STEP_SUMMARY
-            echo "## Action required: Please generate artifacts for them separately" >> $GITHUB_STEP_SUMMARY            
+            echo "## Action required: Please generate run this pipeline separately for other products, if you want to generate the artifacts" >> $GITHUB_STEP_SUMMARY            
           else
             echo "No unexpected files found."
           fi          
