@@ -40,6 +40,53 @@ const (
 	SethRootKeyIndex = 0
 )
 
+// vrfv2CleanUpFn is a cleanup function that captures pointers from context, in which it's called and uses them to clean up the test environment
+var vrfv2CleanUpFn = func(
+	t **testing.T,
+	sethClient **seth.Client,
+	config **tc.TestConfig,
+	testEnv **test_env.CLClusterTestEnv,
+	vrfContracts **vrfcommon.VRFContracts,
+	subIDsForCancellingAfterTest *[]uint64,
+	walletAddress **string,
+) func() {
+	return func() {
+		logger := logging.GetTestLogger(*t)
+		testConfig := **config
+		network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
+		if network.Simulated {
+			logger.Info().
+				Str("Network Name", network.Name).
+				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+		} else {
+			if *vrfContracts != nil && *sethClient != nil {
+				if *testConfig.VRFv2.General.CancelSubsAfterTestRun {
+					client := *sethClient
+					var returnToAddress string
+					if walletAddress == nil || *walletAddress == nil {
+						returnToAddress = client.MustGetRootKeyAddress().Hex()
+					} else {
+						returnToAddress = **walletAddress
+					}
+					//cancel subs and return funds to sub owner
+					vrfv2.CancelSubsAndReturnFunds(testcontext.Get(*t), *vrfContracts, returnToAddress, *subIDsForCancellingAfterTest, logger)
+				}
+			} else {
+				logger.Error().Msg("VRF Contracts and/or Seth client are nil. Cannot execute cleanup")
+			}
+		}
+		if !*testConfig.VRFv2.General.UseExistingEnv {
+			if *testEnv == nil {
+				logger.Error().Msg("Test environment is nil. Cannot execute cleanup")
+				return
+			}
+			if err := (*testEnv).Cleanup(test_env.CleanupOpts{TestName: (*t).Name()}); err != nil {
+				logger.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		}
+	}
+}
+
 func TestVRFv2Basic(t *testing.T) {
 	t.Parallel()
 	var (
@@ -54,30 +101,13 @@ func TestVRFv2Basic(t *testing.T) {
 
 	config, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
-	vrfv2Config := config.VRFv2
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 
-	cleanupFn := func() {
-		if sethClient.Cfg.IsSimulatedNetwork() {
-			l.Info().
-				Str("Network Name", sethClient.Cfg.Network.Name).
-				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
-		} else {
-			if *vrfv2Config.General.CancelSubsAfterTestRun {
-				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
-			}
-		}
-		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
-				l.Error().Err(err).Msg("Error cleaning up test environment")
-			}
-		}
-	}
+	configPtr := &config
 	vrfEnvConfig := vrfcommon.VRFEnvConfig{
 		TestConfig: config,
 		ChainID:    chainID,
-		CleanupFn:  cleanupFn,
+		CleanupFn:  vrfv2CleanUpFn(&t, &sethClient, &configPtr, &testEnv, &vrfContracts, &subIDsForCancellingAfterTest, nil),
 	}
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},
@@ -574,29 +604,12 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
-	vrfv2Config := config.VRFv2
 
-	cleanupFn := func() {
-		if sethClient.Cfg.IsSimulatedNetwork() {
-			l.Info().
-				Str("Network Name", sethClient.Cfg.Network.Name).
-				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
-		} else {
-			if *vrfv2Config.General.CancelSubsAfterTestRun {
-				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
-			}
-		}
-		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
-				l.Error().Err(err).Msg("Error cleaning up test environment")
-			}
-		}
-	}
+	configPtr := &config
 	vrfEnvConfig := vrfcommon.VRFEnvConfig{
 		TestConfig: config,
 		ChainID:    chainID,
-		CleanupFn:  cleanupFn,
+		CleanupFn:  vrfv2CleanUpFn(&t, &sethClient, &configPtr, &testEnv, &vrfContracts, &subIDsForCancellingAfterTest, nil),
 	}
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},
@@ -680,29 +693,12 @@ func TestVRFOwner(t *testing.T) {
 	config, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
-	vrfv2Config := config.VRFv2
 
-	cleanupFn := func() {
-		if sethClient.Cfg.IsSimulatedNetwork() {
-			l.Info().
-				Str("Network Name", sethClient.Cfg.Network.Name).
-				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
-		} else {
-			if *vrfv2Config.General.CancelSubsAfterTestRun {
-				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
-			}
-		}
-		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
-				l.Error().Err(err).Msg("Error cleaning up test environment")
-			}
-		}
-	}
+	configPtr := &config
 	vrfEnvConfig := vrfcommon.VRFEnvConfig{
 		TestConfig: config,
 		ChainID:    chainID,
-		CleanupFn:  cleanupFn,
+		CleanupFn:  vrfv2CleanUpFn(&t, &sethClient, &configPtr, &testEnv, &vrfContracts, &subIDsForCancellingAfterTest, nil),
 	}
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},
@@ -818,31 +814,16 @@ func TestVRFV2WithBHS(t *testing.T) {
 	vrfv2Config := config.VRFv2
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 
-	cleanupFn := func() {
-		if sethClient.Cfg.IsSimulatedNetwork() {
-			l.Info().
-				Str("Network Name", sethClient.Cfg.Network.Name).
-				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
-		} else {
-			if *vrfv2Config.General.CancelSubsAfterTestRun {
-				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
-			}
-		}
-		if !*vrfv2Config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
-				l.Error().Err(err).Msg("Error cleaning up test environment")
-			}
-		}
-	}
+	configPtr := &config
 
+	//TODO @Ilya - does it have any effect? We are not using that vrfv2Config reference anywhere
 	//decrease default span for checking blockhashes for unfulfilled requests
 	vrfv2Config.General.BHSJobWaitBlocks = ptr.Ptr(2)
 	vrfv2Config.General.BHSJobLookBackBlocks = ptr.Ptr(20)
 	vrfEnvConfig := vrfcommon.VRFEnvConfig{
 		TestConfig: config,
 		ChainID:    chainID,
-		CleanupFn:  cleanupFn,
+		CleanupFn:  vrfv2CleanUpFn(&t, &sethClient, &configPtr, &testEnv, &vrfContracts, &subIDsForCancellingAfterTest, nil),
 	}
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF, vrfcommon.BHS},
@@ -1029,38 +1010,23 @@ func TestVRFV2NodeReorg(t *testing.T) {
 		env                          *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
-		defaultWalletAddress         string
-		vrfKey                       *vrfcommon.VRFKeyData
-		sethClient                   *seth.Client
+		//TODO @Ilya where do we set this value?
+		defaultWalletAddress *string
+		vrfKey               *vrfcommon.VRFKeyData
+		sethClient           *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
-	vrfv2Config := config.VRFv2
 	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
 	if !network.Simulated {
 		t.Skip("Skipped since Reorg test could only be run on Simulated chain.")
 	}
 	chainID := network.ChainID
-	cleanupFn := func() {
-		if sethClient.Cfg.IsSimulatedNetwork() {
-			l.Info().
-				Str("Network Name", sethClient.Cfg.Network.Name).
-				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
-		} else {
-			if *vrfv2Config.General.CancelSubsAfterTestRun {
-				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
-			}
-		}
-		if !*vrfv2Config.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
-				l.Error().Err(err).Msg("Error cleaning up test environment")
-			}
-		}
-	}
 
+	configPtr := &config
+	walletAddrRef := &defaultWalletAddress
 	chainlinkNodeLogScannerSettings := test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(
 		testreporters.NewAllowedLogMessage(
 			"This is a problem and either means a very deep re-org occurred",
@@ -1076,7 +1042,7 @@ func TestVRFV2NodeReorg(t *testing.T) {
 	vrfEnvConfig := vrfcommon.VRFEnvConfig{
 		TestConfig: config,
 		ChainID:    chainID,
-		CleanupFn:  cleanupFn,
+		CleanupFn:  vrfv2CleanUpFn(&t, &sethClient, &configPtr, &env, &vrfContracts, &subIDsForCancellingAfterTest, walletAddrRef),
 	}
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},
@@ -1208,7 +1174,7 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 		env                          *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
-		defaultWalletAddress         string
+		defaultWalletAddress         *string
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
 		sethClient                   *seth.Client
@@ -1217,30 +1183,15 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 
 	config, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
-	vrfv2Config := config.VRFv2
 	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
 	chainID := network.ChainID
-	cleanupFn := func() {
-		if sethClient.Cfg.IsSimulatedNetwork() {
-			l.Info().
-				Str("Network Name", sethClient.Cfg.Network.Name).
-				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
-		} else {
-			if *vrfv2Config.General.CancelSubsAfterTestRun {
-				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
-			}
-		}
-		if !*vrfv2Config.General.UseExistingEnv {
-			if err := env.Cleanup(test_env.CleanupOpts{TestName: t.Name()}); err != nil {
-				l.Error().Err(err).Msg("Error cleaning up test environment")
-			}
-		}
-	}
+
+	configPtr := &config
+	walletAddrRef := &defaultWalletAddress
 	vrfEnvConfig := vrfcommon.VRFEnvConfig{
 		TestConfig: config,
 		ChainID:    chainID,
-		CleanupFn:  cleanupFn,
+		CleanupFn:  vrfv2CleanUpFn(&t, &sethClient, &configPtr, &env, &vrfContracts, &subIDsForCancellingAfterTest, walletAddrRef),
 	}
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},
