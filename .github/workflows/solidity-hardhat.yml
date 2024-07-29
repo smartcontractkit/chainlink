@@ -53,7 +53,7 @@ jobs:
               - '!contracts/src/v0.8/**/testhelpers/**'
               - '!contracts/src/v0.8/testhelpers/**'
               - '!contracts/src/v0.8/vendor/**'
-            shared: &shared
+            shared:
               - added|modified: 'contracts/src/v0.8/shared/**/*.sol'
               - added|modified: 'contracts/src/v0.8/*.sol'
               - *ignored            
@@ -64,7 +64,9 @@ jobs:
               - added|modified: 'contracts/src/v0.8/${{ env.PRODUCT }}/**/*.sol'         
               - *ignored
             included:
-              - added|modified: 'contracts/src/v0.8/${{ env.PRODUCT }}/**/*.sol'
+              - added|modified: 'contracts/src/v0.8/${{ env.PRODUCT }}/**/*.sol'                     
+              - added|modified: 'contracts/src/v0.8/shared/**/*.sol'
+              - added|modified: 'contracts/src/v0.8/*.sol'
               - *shared            
 
       - name: Check for changes outside of artifact scope
