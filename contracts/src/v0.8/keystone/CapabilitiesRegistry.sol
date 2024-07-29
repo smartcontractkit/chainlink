@@ -502,7 +502,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       NodeOperator memory nodeOperator = nodeOperators[i];
       if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
-      if (msg.sender != nodeOperator.admin && msg.sender != owner) revert AccessForbidden(msg.sender);
+      if (msg.sender != currentNodeOperator.admin && msg.sender != owner) revert AccessForbidden(msg.sender);
 
       if (
         currentNodeOperator.admin != nodeOperator.admin ||
