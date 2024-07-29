@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
@@ -198,4 +199,33 @@ func NewRegistry(lggr logger.Logger) *Registry {
 		m:    map[string]capabilities.BaseCapability{},
 		lggr: lggr.Named("CapabilitiesRegistry"),
 	}
+}
+
+type mockMetadataRegistry struct{}
+
+func (r *mockMetadataRegistry) LocalNode(ctx context.Context) (capabilities.Node, error) {
+	pid := p2ptypes.PeerID([32]byte{})
+
+	return capabilities.Node{
+		PeerID: &pid,
+		WorkflowDON: capabilities.DON{
+			ID:               0,
+			ConfigVersion:    0,
+			Members:          []p2ptypes.PeerID{},
+			F:                1,
+			IsPublic:         true,
+			AcceptsWorkflows: true,
+		},
+		CapabilityDONs: []capabilities.DON{},
+	}, nil
+}
+
+func (r *mockMetadataRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
+	return registrysyncer.CapabilityConfiguration{
+		Config: []byte{},
+	}, nil
+}
+
+func NewMockMetadataRegistry() metadataRegistry {
+	return &mockMetadataRegistry{}
 }

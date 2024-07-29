@@ -266,6 +266,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 			srvcs = append(srvcs, wfLauncher, registrySyncer)
 		}
+	} else {
+		// If registry syncer is not set up we use a dummy local registry so that local capabilities can still be used
+		opts.CapabilitiesRegistry.SetLocalRegistry(capabilities.NewMockMetadataRegistry())
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
