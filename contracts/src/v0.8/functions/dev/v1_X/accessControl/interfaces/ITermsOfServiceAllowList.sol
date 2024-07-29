@@ -69,6 +69,10 @@ interface ITermsOfServiceAllowList {
     uint64 blockedSenderIdxStart,
     uint64 blockedSenderIdxEnd
   ) external view returns (address[] memory blockedSenders);
+
+  /// @notice Enables migrating any previously allowed senders to the new contract
+  /// @param previousSendersToAdd - List of addresses to migrate. These address must be allowed on the previous ToS contract and not blocked
+  function migratePreviouslyAllowedSenders(address[] memory previousSendersToAdd) external;
 }
 
 // ================================================================

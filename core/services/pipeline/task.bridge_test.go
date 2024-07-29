@@ -1258,8 +1258,7 @@ ds [type=bridge name="adapter-error-bridge" timeout="50ms" requestData="{\"data\
 	spec := pipeline.Spec{DotDagSource: dag}
 	vars := pipeline.NewVarsFrom(nil)
 
-	lggr := logger.TestLogger(t)
-	_, trrs, err := r.ExecuteRun(ctx, spec, vars, lggr)
+	_, trrs, err := r.ExecuteRun(ctx, spec, vars)
 
 	require.NoError(t, err)
 	require.Len(t, trrs, 1)

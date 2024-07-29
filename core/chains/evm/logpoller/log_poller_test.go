@@ -1342,6 +1342,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(blocks))
 	assert.Equal(t, 1, int(blocks[0].BlockNumber))
+	assert.Equal(t, 1, int(blocks[0].FinalizedBlockNumber))
 
 	// LP fails to return block 2 because it hasn't been finalized yet
 	blockNums = []uint64{2}
@@ -1360,6 +1361,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(rpcBlocks))
 	assert.Equal(t, 2, int(rpcBlocks[0].BlockNumber))
+	assert.Equal(t, 2, int(rpcBlocks[0].FinalizedBlockNumber))
 
 	th.Client.Commit() // commit block #5 so that #3 becomes finalized
 
@@ -1374,6 +1376,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	assert.Equal(t, 2, len(rpcBlocks2))
 	assert.Equal(t, 1, int(rpcBlocks2[0].BlockNumber))
 	assert.Equal(t, 3, int(rpcBlocks2[1].BlockNumber))
+	assert.Equal(t, 3, int(rpcBlocks2[1].FinalizedBlockNumber))
 
 	// after calling PollAndSaveLogs, block 3 (latest finalized block) is persisted in DB
 	th.LogPoller.PollAndSaveLogs(testutils.Context(t), 1)
@@ -1387,6 +1390,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	assert.Equal(t, 1, len(lpBlocks))
 	assert.Equal(t, rpcBlocks[0].BlockNumber, lpBlocks[0].BlockNumber)
 	assert.Equal(t, rpcBlocks[0].BlockHash, lpBlocks[0].BlockHash)
+	assert.Equal(t, rpcBlocks[0].FinalizedBlockNumber, lpBlocks[0].FinalizedBlockNumber)
 
 	// getBlocksRange return multiple blocks
 	blockNums = []uint64{1, 2}
@@ -1396,6 +1400,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	assert.NotEmpty(t, blocks[0].BlockHash)
 	assert.Equal(t, 2, int(blocks[1].BlockNumber))
 	assert.NotEmpty(t, blocks[1].BlockHash)
+	assert.Equal(t, 2, int(blocks[1].FinalizedBlockNumber))
 
 	// getBlocksRange return blocks in requested order
 	blockNums = []uint64{2, 1}

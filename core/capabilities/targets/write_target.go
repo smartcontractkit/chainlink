@@ -29,6 +29,7 @@ type WriteTarget struct {
 	cw               commontypes.ChainWriter
 	forwarderAddress string
 	capabilities.CapabilityInfo
+
 	lggr logger.Logger
 
 	bound bool
@@ -132,7 +133,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	}
 	var transmitter common.Address
 	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", primitives.Unconfirmed, queryInputs, &transmitter); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to getTransmitter latest value: %w", err)
 	}
 	if transmitter != common.HexToAddress("0x0") {
 		cap.lggr.Infow("WriteTarget report already onchain - returning without a tranmission attempt", "executionID", request.Metadata.WorkflowExecutionID)
