@@ -37,7 +37,11 @@ run_slither() {
     local FILE=$1
     local TARGET_DIR=$2
 
-    ./contracts/scripts/ci/select_solc_version.sh "$FILE"
+    source ./contracts/scripts/ci/select_solc_version.sh "$FILE"
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to select Solc version for $FILE"
+        exit 1
+    fi
 
     SLITHER_OUTPUT_FILE="$TARGET_DIR/$(basename "${FILE%.sol}")-slither-report.md"
 
