@@ -14,7 +14,7 @@ env:
   FOUNDRY_PROFILE: ci
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
-  PRODUCT: "keystone"
+  PRODUCT: "27d9c71b196961666de87bc3128d31f3c22fb3fa"
   BASE_REF: "v2.13.0"
 
 jobs:
@@ -330,33 +330,6 @@ jobs:
         with:
           path: review_artifacts-${{ env.PRODUCT }}-${{ github.sha }}
           merge-multiple: true
-#      - name: Download UMLs and Slither Reports artifact
-#        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-#        with:
-#          name: contracts-artifacts
-#          path: review_artifacts
-#      - name: Download product artifacts
-#        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-#        with:
-#          name: ${{ env.PRODUCT }}-artifacts
-#          path: review_artifacts
-#      - name: Download shared artifacts
-#        if: ${{ needs.changes.outputs.shared_changes == 'true' }}
-#        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-#        with:
-#          name: shared-artifacts
-#          path: review_artifacts
-#      - name: Download product artifacts
-#        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-#        with:
-#          name: code-coverage-report-${{ env.PRODUCT }}
-#          path: review_artifacts/coverage_${{ env.PRODUCT }}
-#      - name: Download shared artifacts
-#        if: ${{ needs.changes.outputs.shared_changes == 'true' }}
-#        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-#        with:
-#          name: code-coverage-report-shared
-#          path: review_artifacts/coverage_shared
 
       - name: Upload all artifacts as single package
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
@@ -368,57 +341,24 @@ jobs:
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
         with:
           name: tmp-*
-#      - name: Remove UML & Slither artifact
-#        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
-#        with:
-#          name: contracts-artifacts
-#      - name: Remove product code coverage artifacts
-#        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
-#        with:
-#          name: code-coverage-report-${{ env.PRODUCT }}
-#      - name: Remove shared code coverage artifacts
-#        if: ${{ needs.changes.outputs.shared_changes == 'true' }}
-#        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
-#        with:
-#          name: code-coverage-report-shared
-#      - name: Remove product artifacts
-#        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
-#        with:
-#          name: ${{ env.PRODUCT }}-artifacts
-#      - name: Remove shared artifacts
-#        if: ${{ needs.changes.outputs.shared_changes == 'true' }}
-#        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
-#        with:
-#          name: shared-artifacts
-
-      - name: Print Artifact URL
-        run: |
-          REPO_NAME="${GITHUB_REPOSITORY}"
-          RUN_ID="${GITHUB_RUN_ID}"
-          ARTIFACT_NAME="review-artifacts"
-          ARTIFACT_URL="https://github.com/${REPO_NAME}/suites/${RUN_ID}/artifacts/${ARTIFACT_NAME}"
-          echo "Artifact URL: ${ARTIFACT_URL}"
-        env:
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
 
       - name: Retrieve artifact ID
         id: get_artifact_id
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
-          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts") | .id')
-          echo "Artifact ID: $ARTIFACT_ID"
-          echo "artifact_id=$ARTIFACT_ID" >> $GITHUB_OUTPUT            
 
       - name: Print Artifact URL in job summary
         run: |
+          ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts") | .id')
+          echo "Artifact ID: $ARTIFACT_ID"
+          
           echo "# Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
           # TODO change to inputs.base_ref after testing
           echo "Base Ref used: **${{ env.BASE_REF }}**" >> $GITHUB_STEP_SUMMARY
           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
-          echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.get_artifact_id.outputs.artifact_id }})" >> $GITHUB_STEP_SUMMARY        
+          echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID" >> $GITHUB_STEP_SUMMARY        
 
   notify-no-changes:
     if: ${{ needs.changes.outputs.product_changes == 'false' && needs.changes.outputs.shared_changes == 'false' }}
