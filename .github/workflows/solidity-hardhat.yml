@@ -162,7 +162,7 @@ jobs:
           FOUNDRY_PROFILE: "shared"
 
       - name: Generate Code Coverage HTML report for product contracts
-        if: ${{ needs.changes.outputs.product_changes == 'true' }}
+        if: ${{ !contains(fromJson('["vrf"]'), env.PRODUCT) && !contains(fromJson('["automation"]'), env.PRODUCT) && !contains(fromJson('["functions"]'), env.PRODUCT) && needs.changes.outputs.product_changes == 'true' }}
         shell: bash
         run: |
           cd contracts
@@ -176,7 +176,7 @@ jobs:
           genhtml code-coverage/lcov-shared.info --branch-coverage --output-directory code-coverage/shared
 
       - name: Run Forge doc for product contracts
-        if: ${{ needs.changes.outputs.product_changes == 'true' }}
+        if: ${{ !contains(fromJson('["vrf"]'), env.PRODUCT) && !contains(fromJson('["automation"]'), env.PRODUCT) && !contains(fromJson('["functions"]'), env.PRODUCT) && needs.changes.outputs.product_changes == 'true' }}
         run: |
           forge doc --build -o docs/${{ env.PRODUCT }}
         working-directory: contracts
