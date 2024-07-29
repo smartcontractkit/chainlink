@@ -11,7 +11,7 @@ const (
 	ChainArbitrum        ChainType = "arbitrum"
 	ChainCelo            ChainType = "celo"
 	ChainGnosis          ChainType = "gnosis"
-	ChainHedera			 ChainType = "hedera"
+	ChainHedera          ChainType = "hedera"
 	ChainKroma           ChainType = "kroma"
 	ChainMetis           ChainType = "metis"
 	ChainOptimismBedrock ChainType = "optimismBedrock"

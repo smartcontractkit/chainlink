@@ -63,7 +63,7 @@ type Receipt struct {
 	BlockHash         common.Hash     `json:"blockHash,omitempty"`
 	BlockNumber       *big.Int        `json:"blockNumber,omitempty"`
 	TransactionIndex  uint            `json:"transactionIndex"`
-	RevertReason	  []byte		  `json:"revertReason,omitempty"` // Only returned by Hedera
+	RevertReason      []byte          `json:"revertReason,omitempty"` // Only provided by Hedera
 }
 
 // FromGethReceipt converts a gethTypes.Receipt to a Receipt
@@ -121,7 +121,7 @@ func (r Receipt) MarshalJSON() ([]byte, error) {
 		BlockHash         common.Hash     `json:"blockHash,omitempty"`
 		BlockNumber       *hexutil.Big    `json:"blockNumber,omitempty"`
 		TransactionIndex  hexutil.Uint    `json:"transactionIndex"`
-		RevertReason	  hexutil.Bytes   `json:"revertReason,omitempty"` // Only returned by Hedera
+		RevertReason      hexutil.Bytes   `json:"revertReason,omitempty"` // Only provided by Hedera
 	}
 	var enc Receipt
 	enc.PostState = r.PostState
@@ -153,7 +153,7 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 		BlockHash         *common.Hash     `json:"blockHash,omitempty"`
 		BlockNumber       *hexutil.Big     `json:"blockNumber,omitempty"`
 		TransactionIndex  *hexutil.Uint    `json:"transactionIndex"`
-		RevertReason	  *hexutil.Bytes   `json:"revertReason,omitempty"` // Only returned by Hedera
+		RevertReason      *hexutil.Bytes   `json:"revertReason,omitempty"` // Only provided by Hedera
 	}
 	var dec Receipt
 	if err := json.Unmarshal(input, &dec); err != nil {
