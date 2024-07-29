@@ -445,11 +445,10 @@ func confidenceToConfirmations(confirmationsMapping map[primitives.ConfidenceLev
 
 func NewContractStateReader(ctx context.Context, lggr logger.Logger, client evmclient.Client, config types.ChainReaderConfig) (commontypes.ContractStateReader, error) {
 	cr := &chainReader{
-		lggr:             lggr.Named("ContractStateReader"),
-		client:           client,
-		contractBindings: bindings{},
-		parsed: &parsedTypes{encoderDefs: map[string]types.CodecEntry{},
-			decoderDefs: map[string]types.CodecEntry{}},
+		lggr:     lggr.Named("ContractStateReader"),
+		client:   client,
+		bindings: bindings{contractBindings: make(map[string]*contractBinding)},
+		parsed:   &ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
 	}
 
 	var err error
@@ -457,11 +456,20 @@ func NewContractStateReader(ctx context.Context, lggr logger.Logger, client evmc
 		return nil, err
 	}
 
-	if cr.codec, err = cr.parsed.toCodec(); err != nil {
+	if cr.codec, err = cr.parsed.ToCodec(); err != nil {
 		return nil, err
 	}
 
-	err = cr.contractBindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+	cr.bindings.BatchCaller = NewDynamicLimitedBatchCaller(
+		cr.lggr,
+		cr.codec,
+		cr.client,
+		DefaultRpcBatchSizeLimit,
+		DefaultRpcBatchBackOffMultiplier,
+		DefaultMaxParallelRpcCalls,
+	)
+
+	err = cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
 		for _, rb := range cb.readBindings {
 			rb.SetCodec(cr.codec)
 		}

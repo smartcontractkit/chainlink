@@ -9,6 +9,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -80,7 +81,6 @@ func (t *OnChainRead) Run(ctx context.Context, _ logger.Logger, vars Vars, input
 		err = csr.Bind(ctx, []types.BoundContract{{
 			Address: contractAddress.String(),
 			Name:    contractName.String(),
-			Pending: false,
 		}})
 		if err != nil {
 			return Result{Error: err}, runInfo
@@ -96,7 +96,7 @@ func (t *OnChainRead) Run(ctx context.Context, _ logger.Logger, vars Vars, input
 	}
 
 	var response any
-	err = csr.GetLatestValue(ctx, t.ContractName, t.MethodName, methodParams, &response)
+	err = csr.GetLatestValue(ctx, t.ContractName, t.MethodName, primitives.Finalized, methodParams, &response)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
