@@ -14,7 +14,7 @@ env:
   FOUNDRY_PROFILE: ci
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
-  PRODUCT: "keystone"
+  PRODUCT: "automation"
   BASE_REF: "ca6e1c26a331af67a1d57bf69d8160c23fc1e297"
 
 jobs:
@@ -342,13 +342,9 @@ jobs:
         with:
           name: tmp-*
 
-      - name: Retrieve artifact ID
-        id: get_artifact_id
+      - name: Print Artifact URL in job summary
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-
-      - name: Print Artifact URL in job summary
         run: |
           ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
           ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts") | .id')
