@@ -14,7 +14,6 @@ env:
   FOUNDRY_PROFILE: ci
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
-  # PRODUCT: ${{ github.event.env.PRODUCT }}
   PRODUCT: "functions"
 
 #TODO remove label trigger after testing
@@ -81,12 +80,14 @@ jobs:
           fi
 
       - name: Check for changes only in shared
-        if: ${{ steps.changes.outputs.product == 'false' }}
+        if: ${{ steps.changes.outputs.product == 'false' && steps.changes.outputs.shared == 'true' }}
         shell: bash
         run: |
           echo "# Warning!" >> $GITHUB_STEP_SUMMARY
           echo "## Reason: Found No modified contracts for product ${{ env.PRODUCT }}" >> $GITHUB_STEP_SUMMARY
-          echo "## Action required: Please check if you chose correct product and base reference" >> $GITHUB_STEP_SUMMARY                   
+          echo "## Action required: Please check if you chose correct product and base reference" >> $GITHUB_STEP_SUMMARY
+          echo "## Product: ${{ env.PRODUCT }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Base Ref: ${{ inputs.base_ref || github.base_ref }}" >> $GITHUB_STEP_SUMMARY
 
   # some of the artifacts can only be generated on product level, and we cannot scope them to single contracts
   # some product-level modifications might also require shared contracts changes, so if these happened we need to generate artifacts for shared contracts as well
@@ -414,17 +415,11 @@ jobs:
         shell: bash
         run: |
           echo "# Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
-             if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-               echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
-               echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
-               desc="No modified Solidity files found between ${{ inputs.base_ref }} and ${{ github.sha }} or they are located outside of './contracts' folder."
-             else
-               echo "Commit SHA used: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-               desc="No modified Solidity files found in the PR or they are located outside of './contracts' folder."
-             fi
-             echo "## Reason: No Solidity files found." >> $GITHUB_STEP_SUMMARY
-             echo "$desc" >> $GITHUB_STEP_SUMMARY
-          fi
+          #TODO remove github.base_ref after testing
+           echo "Base Ref used: **${{ inputs.base_ref || github.base_ref }}**" >> $GITHUB_STEP_SUMMARY
+           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
+           echo "## Reason: No modified Solidity files found." >> $GITHUB_STEP_SUMMARY
+           echo "No modified Solidity files found between ${{ inputs.base_ref || github.base_ref }} and ${{ github.sha }} commits or they are located outside of ./contracts/v0.8/${{ env.PRODUCT}} or ./contracts/v0.8/shared folders" >> $GITHUB_STEP_SUMMARY
 
 #on:
 #  merge_group:
