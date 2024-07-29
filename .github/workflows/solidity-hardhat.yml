@@ -49,7 +49,9 @@ jobs:
               - '!contracts/src/v0.8/**/test/**'
               - '!contracts/src/v0.8/**/tests/**'
               - '!contracts/src/v0.8/**/*.t.sol'
+              - '!contracts/src/v0.8/*.t.sol'
               - '!contracts/src/v0.8/**/testhelpers/**'
+              - '!contracts/src/v0.8/testhelpers/**'
               - '!contracts/src/v0.8/vendor/**'
             sol:
               - 'contracts/src/v0.8/**/*.sol'
@@ -59,6 +61,7 @@ jobs:
               - *ignore
             shared:
               - 'contracts/src/v0.8/shared/**/*.sol'
+              - 'contracts/src/v0.8/*.sol'
               - *ignore
             included:
               - 'contracts/src/v0.8/${{ env.PRODUCT }}/**/*.sol'
