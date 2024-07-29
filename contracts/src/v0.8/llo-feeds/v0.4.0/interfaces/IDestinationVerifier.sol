@@ -5,8 +5,7 @@ import {Common} from "../../libraries/Common.sol";
 import "./IDestinationFeeManager.sol";
 import "../../../shared/interfaces/IAccessController.sol";
 
-interface IDestinationVerifier{
-
+interface IDestinationVerifier {
   /**
    * @notice Verifies that the data encoded has been signed correctly using the signatures included within the payload.
    * @param signedReport The encoded data to be verified.
@@ -15,7 +14,11 @@ interface IDestinationVerifier{
    * @dev Verification is typically only done through the proxy contract so we can't just use msg.sender.
    * @return verifierResponse The encoded verified response.
    */
-  function verify(bytes calldata signedReport, bytes calldata parameterPayload, address sender) external payable returns (bytes memory verifierResponse);
+  function verify(
+    bytes calldata signedReport,
+    bytes calldata parameterPayload,
+    address sender
+  ) external payable returns (bytes memory verifierResponse);
 
   /**
    * @notice Bulk verifies that the data encoded has been signed correctly using the signatures included within the payload.
@@ -25,7 +28,11 @@ interface IDestinationVerifier{
    * @dev Verification is typically only done through the proxy contract so we can't just use msg.sender.
    * @return verifiedReports The encoded verified responses.
    */
-  function verifyBulk(bytes[] calldata signedReports, bytes calldata parameterPayload, address sender) external payable returns (bytes[] memory verifiedReports);
+  function verifyBulk(
+    bytes[] calldata signedReports,
+    bytes calldata parameterPayload,
+    address sender
+  ) external payable returns (bytes[] memory verifiedReports);
 
   /**
    * @notice sets off-chain reporting protocol configuration incl. participating oracles
@@ -40,7 +47,7 @@ interface IDestinationVerifier{
   ) external;
 
   /**
- * @notice sets off-chain reporting protocol configuration incl. participating oracles
+   * @notice sets off-chain reporting protocol configuration incl. participating oracles
    * @param signers addresses with which oracles sign the reports
    * @param f number of faulty oracles the system can tolerate
    * @param recipientAddressesAndWeights the addresses and weights of all the recipients to receive rewards
@@ -54,39 +61,38 @@ interface IDestinationVerifier{
   ) external;
 
   /**
-    * @notice Sets the fee manager address
-    * @param feeManager The address of the fee manager
-    */
+   * @notice Sets the fee manager address
+   * @param feeManager The address of the fee manager
+   */
   function setFeeManager(address feeManager) external;
 
   /**
-    * @notice Sets the access controller address
-    * @param accessController The address of the access controller
-    */
+   * @notice Sets the access controller address
+   * @param accessController The address of the access controller
+   */
   function setAccessController(address accessController) external;
 
   /**
-    * @notice Updates the config active status
-    * @param donConfigId The ID of the config to update
-    * @param isActive The new config active status
-    */
+   * @notice Updates the config active status
+   * @param donConfigId The ID of the config to update
+   * @param isActive The new config active status
+   */
   function setConfigActive(uint256 donConfigId, bool isActive) external;
 
   /**
-    * @notice Removes the latest config
-    */
+   * @notice Removes the latest config
+   */
   function removeLatestConfig() external;
 
   /*
- * @notice Returns the reward manager
+   * @notice Returns the reward manager
    * @return IDestinationRewardManager
    */
   function s_feeManager() external view returns (address);
 
   /**
-    * @notice Returns the access controller
-    * @return IDestinationFeeManager
-    */
+   * @notice Returns the access controller
+   * @return IDestinationFeeManager
+   */
   function s_accessController() external view returns (address);
-
 }

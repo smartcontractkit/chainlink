@@ -481,7 +481,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(reward.amount, DEFAULT_REPORT_LINK_FEE / 2);
   }
 
-  function test_getRewardWithNativeQuote() public view{
+  function test_getRewardWithNativeQuote() public view {
     //get the fee required by the feeManager
     Common.Asset memory reward = getReward(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 

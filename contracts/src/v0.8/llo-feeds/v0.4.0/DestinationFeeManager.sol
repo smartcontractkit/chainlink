@@ -542,12 +542,12 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
   /// @inheritdoc IDestinationFeeManager
   function removeVerifier(address verifierAddress) external onlyOwner {
     if (verifierAddress == address(0)) revert InvalidAddress();
-      //check doesn't already exist
+    //check doesn't already exist
     if (s_verifierAddressList[verifierAddress] == address(0)) revert InvalidAddress();
     delete s_verifierAddressList[verifierAddress];
   }
 
-    /// @inheritdoc IDestinationFeeManager
+  /// @inheritdoc IDestinationFeeManager
   function setRewardManager(address rewardManagerAddress) external onlyOwner {
     if (rewardManagerAddress == address(0)) revert InvalidAddress();
     IERC20(i_linkAddress).approve(address(i_rewardManager), 0);

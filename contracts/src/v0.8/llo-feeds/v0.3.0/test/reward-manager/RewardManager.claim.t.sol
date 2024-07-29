@@ -574,7 +574,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
     assertEq(poolIds[1], ZERO_POOL_ID);
   }
 
-  function test_getRewardsAvailableToRecipientInNoPools() view public {
+  function test_getRewardsAvailableToRecipientInNoPools() public view {
     //get index 0 as this recipient is in both default pools
     bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(FEE_MANAGER, 0, type(uint256).max);
 

@@ -235,7 +235,7 @@ contract BaseTest is Test {
     return donConfigId;
   }
 
-  function assertReportsEqual(bytes memory response, V3Report memory testReport) public pure{
+  function assertReportsEqual(bytes memory response, V3Report memory testReport) public pure {
     (
       bytes32 feedId,
       uint32 observationsTimestamp,

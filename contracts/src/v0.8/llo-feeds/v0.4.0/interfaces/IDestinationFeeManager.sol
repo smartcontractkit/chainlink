@@ -65,7 +65,6 @@ interface IDestinationFeeManager is IERC165 {
    */
   function removeVerifier(address verifier) external;
 
-
   /**
    * @notice Sets the reward manager to the address
    * @param rewardManager address of the reward manager
