@@ -83,13 +83,13 @@ jobs:
             echo "Error: Found modified contracts outside of the expected scope: ${{ env.PRODUCT }}, shared"
             echo "Files:"
             echo "$unexpected_files"
-            echo "Please generate run this pipeline separately for other products, if you want to generate the artifacts"
+            echo "Please run this workflow separately for other products, if you want to generate the artifacts"
           
             echo "# Warning!" >> $GITHUB_STEP_SUMMARY
             echo "## Reason: Found modified contracts outside of the expected scope: ${{ env.PRODUCT }}, shared" >> $GITHUB_STEP_SUMMARY
             echo "### Files:" >> $GITHUB_STEP_SUMMARY
             echo "$unexpected_files" >> $GITHUB_STEP_SUMMARY
-            echo "## Action required: Please generate run this pipeline separately for other products, if you want to generate the artifacts" >> $GITHUB_STEP_SUMMARY            
+            echo "## Action required: Please run this workflow separately for other products, if you want to generate the artifacts" >> $GITHUB_STEP_SUMMARY            
           else
             echo "No unexpected files found."
           fi          
@@ -344,14 +344,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
-          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts") | .id')
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts-${{ env.PRODUCT }}-${{ github.sha }}") | .id')
           echo "Artifact ID: $ARTIFACT_ID"
           
           echo "# Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
           # TODO change to inputs.base_ref after testing
           echo "Base Ref used: **${{ env.BASE_REF }}**" >> $GITHUB_STEP_SUMMARY
           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
-          echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID" >> $GITHUB_STEP_SUMMARY        
+          echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID)" >> $GITHUB_STEP_SUMMARY        
 
   notify-no-changes:
     if: ${{ needs.changes.outputs.product_changes == 'false' && needs.changes.outputs.shared_changes == 'false' }}
