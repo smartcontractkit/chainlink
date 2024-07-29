@@ -128,7 +128,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 			if val != nil {
 				svmu.Lock()
 				defer svmu.Unlock()
-				streamValues[streamID] = val
+				streamValues[streamID] = nil
 			}
 		}(streamID)
 	}
