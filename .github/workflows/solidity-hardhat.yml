@@ -201,7 +201,7 @@ jobs:
           name: tmp-shared-artifacts
           path: |
             contracts/docs/shared
-            contracts/code-coverage/shared-lcov.info
+            contracts/code-coverage/lcov-shared.info
             contracts/code-coverage/shared
           retention-days: 7
 
