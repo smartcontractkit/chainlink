@@ -14,7 +14,7 @@ env:
   FOUNDRY_PROFILE: ci
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
-  PRODUCT: "vrf"
+  PRODUCT: "automation"
   BASE_REF: "v2.13.0"
 
 jobs:
