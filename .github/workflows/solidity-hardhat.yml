@@ -48,7 +48,9 @@ jobs:
             ignore: &ignore
               - 'contracts/src/v0.8/**/test/*.sol'
               - 'contracts/src/v0.8/**/tests/*.sol'
-              - 'contracts/src/v0.8/**/test/*.t.sol'
+              - 'contracts/src/v0.8/**/*.t.sol'
+              - 'contracts/src/v0.8/**/testhelpers/**'
+              - 'contracts/src/v0.8/vendor/**'
             sol:
               - 'contracts/src/v0.8/**/*.sol'
               - *ignore
