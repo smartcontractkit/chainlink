@@ -11,6 +11,7 @@ import (
 )
 
 // MercuryClient is the client API for Mercury service.
+//
 type MercuryClient interface {
 	Transmit(ctx context.Context, in *TransmitRequest) (*TransmitResponse, error)
 	LatestReport(ctx context.Context, in *LatestReportRequest) (*LatestReportResponse, error)
