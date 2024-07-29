@@ -40,7 +40,7 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
   mapping(address => address) public s_verifierAddressList;
 
   /// @notice the reward manager address
-  IDestinationRewardManager public s_rewardManager;
+  IDestinationRewardManager public i_rewardManager;
 
   // @notice the mask to apply to get the report version
   bytes32 private constant REPORT_VERSION_MASK = 0xffff000000000000000000000000000000000000000000000000000000000000;
@@ -145,9 +145,9 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     i_linkAddress = _linkAddress;
     i_nativeAddress = _nativeAddress;
     s_verifierAddressList[_verifierAddress] = _verifierAddress;
-    s_rewardManager = IDestinationRewardManager(_rewardManagerAddress);
+    i_rewardManager = IDestinationRewardManager(_rewardManagerAddress);
 
-    IERC20(i_linkAddress).approve(address(s_rewardManager), type(uint256).max);
+    IERC20(i_linkAddress).approve(address(i_rewardManager), type(uint256).max);
   }
 
   modifier onlyOwnerOrVerifier() {
@@ -331,7 +331,7 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     bytes32 configDigest,
     Common.AddressAndWeight[] calldata rewardRecipientAndWeights
   ) external onlyOwnerOrVerifier {
-    s_rewardManager.setRewardRecipients(configDigest, rewardRecipientAndWeights);
+    i_rewardManager.setRewardRecipients(configDigest, rewardRecipientAndWeights);
   }
 
   /// @inheritdoc IDestinationFeeManager
@@ -483,7 +483,7 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     }
 
     if (linkRewards.length != 0) {
-      s_rewardManager.onFeePaid(linkRewards, subscriber);
+      i_rewardManager.onFeePaid(linkRewards, subscriber);
     }
 
     if (nativeFeeLinkRewards.length != 0) {
@@ -500,7 +500,7 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
         emit InsufficientLink(nativeFeeLinkRewards);
       } else {
         //distribute the fees
-        s_rewardManager.onFeePaid(nativeFeeLinkRewards, address(this));
+        i_rewardManager.onFeePaid(nativeFeeLinkRewards, address(this));
       }
     }
 
@@ -526,7 +526,7 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
 
     deficitFeePayment[0] = IDestinationRewardManager.FeePayment(configDigest, uint192(deficit));
 
-    s_rewardManager.onFeePaid(deficitFeePayment, address(this));
+    i_rewardManager.onFeePaid(deficitFeePayment, address(this));
 
     emit LinkDeficitCleared(configDigest, deficit);
   }
@@ -550,9 +550,9 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     /// @inheritdoc IDestinationFeeManager
   function setRewardManager(address rewardManagerAddress) external onlyOwner {
     if (rewardManagerAddress == address(0)) revert InvalidAddress();
-    IERC20(i_linkAddress).approve(address(s_rewardManager), 0);
+    IERC20(i_linkAddress).approve(address(i_rewardManager), 0);
 
-    s_rewardManager = IDestinationRewardManager(rewardManagerAddress);
-    IERC20(i_linkAddress).approve(address(s_rewardManager), type(uint256).max);
+    i_rewardManager = IDestinationRewardManager(rewardManagerAddress);
+    IERC20(i_linkAddress).approve(address(i_rewardManager), type(uint256).max);
   }
 }
