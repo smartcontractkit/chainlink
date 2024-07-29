@@ -39,7 +39,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Find modified contracts
-        uses: AurorNZ/paths-filter@3b1f3abc3371cca888d8eb03dfa70bc8a9867629 # v4.0.0
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
           list-files: 'csv'
@@ -91,6 +91,8 @@ jobs:
           else
             echo "No unexpected files found."
           fi
+          
+          exit 1
 
       - name: Check for changes only in shared
         if: ${{ steps.changes.outputs.product == 'false' && steps.changes.outputs.shared == 'true' }}
