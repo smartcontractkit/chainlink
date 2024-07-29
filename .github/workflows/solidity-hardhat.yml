@@ -25,8 +25,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       changes: ${{ steps.changes.outputs.sol }}
+      product_changes: ${{ steps.changes.outputs.product }}
       shared_changes: ${{ steps.changes.outputs.shared }}
-      files: ${{ steps.changes.outputs.sol_files }}
+      files: ${{ steps.changes.outputs.product_files }}
     steps:
       - name: Validate product input
         run: |
@@ -48,6 +49,8 @@ jobs:
           filters: |
             sol:
               - 'contracts/src/v0.8/**/*.sol'
+            product:
+              - 'contracts/src/v0.8/${{ env.PRODUCT }}/**/*.sol'
             shared:
               - 'contracts/src/v0.8/shared/**/*.sol'
 
