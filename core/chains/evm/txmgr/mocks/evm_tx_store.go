@@ -18,6 +18,8 @@ import (
 
 	time "time"
 
+	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+
 	types "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
 	uuid "github.com/google/uuid"
@@ -445,23 +447,23 @@ func (_c *EvmTxStore_DeleteInProgressAttempt_Call) RunAndReturn(run func(context
 }
 
 // FindConfirmedTxesReceipts provides a mock function with given fields: ctx, finalizedBlockNum, chainID
-func (_m *EvmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) ([]txmgr.dbReceipt, error) {
+func (_m *EvmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) ([]txmgr.DbReceipt, error) {
 	ret := _m.Called(ctx, finalizedBlockNum, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindConfirmedTxesReceipts")
 	}
 
-	var r0 []txmgr.dbReceipt
+	var r0 []txmgr.DbReceipt
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) ([]txmgr.dbReceipt, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) ([]txmgr.DbReceipt, error)); ok {
 		return rf(ctx, finalizedBlockNum, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) []txmgr.dbReceipt); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) []txmgr.DbReceipt); ok {
 		r0 = rf(ctx, finalizedBlockNum, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]txmgr.dbReceipt)
+			r0 = ret.Get(0).([]txmgr.DbReceipt)
 		}
 	}
 
@@ -494,12 +496,12 @@ func (_c *EvmTxStore_FindConfirmedTxesReceipts_Call) Run(run func(ctx context.Co
 	return _c
 }
 
-func (_c *EvmTxStore_FindConfirmedTxesReceipts_Call) Return(receipts []txmgr.dbReceipt, err error) *EvmTxStore_FindConfirmedTxesReceipts_Call {
+func (_c *EvmTxStore_FindConfirmedTxesReceipts_Call) Return(receipts []txmgr.DbReceipt, err error) *EvmTxStore_FindConfirmedTxesReceipts_Call {
 	_c.Call.Return(receipts, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindConfirmedTxesReceipts_Call) RunAndReturn(run func(context.Context, int64, *big.Int) ([]txmgr.dbReceipt, error)) *EvmTxStore_FindConfirmedTxesReceipts_Call {
+func (_c *EvmTxStore_FindConfirmedTxesReceipts_Call) RunAndReturn(run func(context.Context, int64, *big.Int) ([]txmgr.DbReceipt, error)) *EvmTxStore_FindConfirmedTxesReceipts_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -3197,6 +3199,54 @@ func (_c *EvmTxStore_UpdateTxForRebroadcast_Call) RunAndReturn(run func(context.
 	return _c
 }
 
+// UpdateTxStatesToFinalizedUsingReceiptId provides a mock function with given fields: ctx, etxIDs, chainId
+func (_m *EvmTxStore) UpdateTxStatesToFinalizedUsingReceiptId(ctx context.Context, etxIDs []int64, chainId *big.Int) error {
+	ret := _m.Called(ctx, etxIDs, chainId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateTxStatesToFinalizedUsingReceiptId")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, *big.Int) error); ok {
+		r0 = rf(ctx, etxIDs, chainId)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateTxStatesToFinalizedUsingReceiptId'
+type EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call struct {
+	*mock.Call
+}
+
+// UpdateTxStatesToFinalizedUsingReceiptId is a helper method to define mock.On call
+//   - ctx context.Context
+//   - etxIDs []int64
+//   - chainId *big.Int
+func (_e *EvmTxStore_Expecter) UpdateTxStatesToFinalizedUsingReceiptId(ctx interface{}, etxIDs interface{}, chainId interface{}) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call {
+	return &EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call{Call: _e.mock.On("UpdateTxStatesToFinalizedUsingReceiptId", ctx, etxIDs, chainId)}
+}
+
+func (_c *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call) Run(run func(ctx context.Context, etxIDs []int64, chainId *big.Int)) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]int64), args[2].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call) Return(_a0 error) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call) RunAndReturn(run func(context.Context, []int64, *big.Int) error) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateTxUnstartedToInProgress provides a mock function with given fields: ctx, etx, attempt
 func (_m *EvmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
 	ret := _m.Called(ctx, etx, attempt)
@@ -3241,54 +3291,6 @@ func (_c *EvmTxStore_UpdateTxUnstartedToInProgress_Call) Return(_a0 error) *EvmT
 }
 
 func (_c *EvmTxStore_UpdateTxUnstartedToInProgress_Call) RunAndReturn(run func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_UpdateTxUnstartedToInProgress_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// UpdateTxesFinalized provides a mock function with given fields: ctx, etxIDs, chainId
-func (_m *EvmTxStore) UpdateTxesFinalized(ctx context.Context, etxIDs []int64, chainId *big.Int) error {
-	ret := _m.Called(ctx, etxIDs, chainId)
-
-	if len(ret) == 0 {
-		panic("no return value specified for UpdateTxesFinalized")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []int64, *big.Int) error); ok {
-		r0 = rf(ctx, etxIDs, chainId)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// EvmTxStore_UpdateTxesFinalized_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateTxesFinalized'
-type EvmTxStore_UpdateTxesFinalized_Call struct {
-	*mock.Call
-}
-
-// UpdateTxesFinalized is a helper method to define mock.On call
-//   - ctx context.Context
-//   - etxIDs []int64
-//   - chainId *big.Int
-func (_e *EvmTxStore_Expecter) UpdateTxesFinalized(ctx interface{}, etxIDs interface{}, chainId interface{}) *EvmTxStore_UpdateTxesFinalized_Call {
-	return &EvmTxStore_UpdateTxesFinalized_Call{Call: _e.mock.On("UpdateTxesFinalized", ctx, etxIDs, chainId)}
-}
-
-func (_c *EvmTxStore_UpdateTxesFinalized_Call) Run(run func(ctx context.Context, etxIDs []int64, chainId *big.Int)) *EvmTxStore_UpdateTxesFinalized_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].([]int64), args[2].(*big.Int))
-	})
-	return _c
-}
-
-func (_c *EvmTxStore_UpdateTxesFinalized_Call) Return(_a0 error) *EvmTxStore_UpdateTxesFinalized_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *EvmTxStore_UpdateTxesFinalized_Call) RunAndReturn(run func(context.Context, []int64, *big.Int) error) *EvmTxStore_UpdateTxesFinalized_Call {
 	_c.Call.Return(run)
 	return _c
 }

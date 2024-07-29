@@ -47,7 +47,7 @@ type EvmTxStore interface {
 
 	// methods used solely in EVM components
 	FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []Receipt, err error)
-	UpdateTxesFinalized(ctx context.Context, etxIDs []int64, chainId *big.Int) error
+	UpdateTxStatesToFinalizedUsingReceiptIds(ctx context.Context, etxIDs []int64, chainId *big.Int) error
 }
 
 // TxStoreWebApi encapsulates the methods that are not used by the txmgr and only used by the various web controllers, readers, or evm specific components
@@ -91,7 +91,7 @@ var _ TestEvmTxStore = (*evmTxStore)(nil)
 // Directly maps to columns of database table "evm.receipts".
 // Do not modify type unless you
 // intend to modify the database schema
-type dbReceipt struct {
+type DbReceipt struct {
 	ID               int64
 	TxHash           common.Hash
 	BlockHash        common.Hash
@@ -101,8 +101,8 @@ type dbReceipt struct {
 	CreatedAt        time.Time
 }
 
-func DbReceiptFromEvmReceipt(evmReceipt *evmtypes.Receipt) dbReceipt {
-	return dbReceipt{
+func DbReceiptFromEvmReceipt(evmReceipt *evmtypes.Receipt) DbReceipt {
+	return DbReceipt{
 		TxHash:           evmReceipt.TxHash,
 		BlockHash:        evmReceipt.BlockHash,
 		BlockNumber:      evmReceipt.BlockNumber.Int64(),
@@ -111,7 +111,7 @@ func DbReceiptFromEvmReceipt(evmReceipt *evmtypes.Receipt) dbReceipt {
 	}
 }
 
-func DbReceiptToEvmReceipt(receipt *dbReceipt) *evmtypes.Receipt {
+func DbReceiptToEvmReceipt(receipt *DbReceipt) *evmtypes.Receipt {
 	return &receipt.Receipt
 }
 
@@ -135,7 +135,7 @@ type dbReceiptPlus struct {
 	FailOnRevert bool             `db:"FailOnRevert"`
 }
 
-func fromDBReceipts(rs []dbReceipt) []*evmtypes.Receipt {
+func fromDBReceipts(rs []DbReceipt) []*evmtypes.Receipt {
 	receipts := make([]*evmtypes.Receipt, len(rs))
 	for i := 0; i < len(rs); i++ {
 		receipts[i] = DbReceiptToEvmReceipt(&rs[i])
@@ -681,7 +681,7 @@ func (o *evmTxStore) loadEthTxesAttemptsReceipts(ctx context.Context, etxs []*Tx
 			attemptHashes = append(attemptHashes, attempt.Hash.Bytes())
 		}
 	}
-	var rs []dbReceipt
+	var rs []DbReceipt
 	if err = o.q.SelectContext(ctx, &rs, `SELECT * FROM evm.receipts WHERE tx_hash = ANY($1)`, pq.Array(attemptHashes)); err != nil {
 		return pkgerrors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load evm.receipts")
 	}
@@ -704,7 +704,7 @@ func loadConfirmedAttemptsReceipts(ctx context.Context, q sqlutil.DataSource, at
 		byHash[attempt.Hash.String()] = &attempts[i]
 		hashes = append(hashes, attempt.Hash.Bytes())
 	}
-	var rs []dbReceipt
+	var rs []DbReceipt
 	if err := q.SelectContext(ctx, &rs, `SELECT * FROM evm.receipts WHERE tx_hash = ANY($1)`, pq.Array(hashes)); err != nil {
 		return pkgerrors.Wrap(err, "loadConfirmedAttemptsReceipts failed to load evm.receipts")
 	}
@@ -2083,7 +2083,7 @@ func (o *evmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlo
 		INNER JOIN evm.tx_attempts ON evm.tx_attempts.hash = evm.receipts.tx_hash
 		INNER JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id
 		WHERE evm.txes.state = 'confirmed' AND evm.receipts.block_number <= $1 AND evm.txes.evm_chain_id = $2`
-		var dbReceipts []dbReceipt
+		var dbReceipts []DbReceipt
 		err = o.q.SelectContext(ctx, &dbReceipts, sql, finalizedBlockNum, chainID.String())
 		if len(dbReceipts) == 0 {
 			return nil
@@ -2095,7 +2095,7 @@ func (o *evmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlo
 }
 
 // Mark transactions corresponding to receipt IDs as finalized
-func (o *evmTxStore) UpdateTxesFinalized(ctx context.Context, receiptIDs []int64, chainId *big.Int) error {
+func (o *evmTxStore) UpdateTxStatesToFinalizedUsingReceiptIds(ctx context.Context, receiptIDs []int64, chainId *big.Int) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()

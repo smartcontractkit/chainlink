@@ -24,7 +24,7 @@ const processHeadTimeout = 10 * time.Minute
 
 type finalizerTxStore interface {
 	FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) ([]Receipt, error)
-	UpdateTxesFinalized(ctx context.Context, txs []int64, chainId *big.Int) error
+	UpdateTxStatesToFinalizedUsingReceiptIds(ctx context.Context, txs []int64, chainId *big.Int) error
 }
 
 type finalizerChainClient interface {
@@ -210,7 +210,7 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 
 	receiptIDs := f.buildReceiptIdList(finalizedReceipts)
 
-	err = f.txStore.UpdateTxesFinalized(ctx, receiptIDs, f.chainId)
+	err = f.txStore.UpdateTxStatesToFinalizedUsingReceiptIds(ctx, receiptIDs, f.chainId)
 	if err != nil {
 		return fmt.Errorf("failed to update transactions as finalized: %w", err)
 	}

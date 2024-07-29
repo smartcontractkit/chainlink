@@ -1897,7 +1897,7 @@ func TestORM_UpdateTxesFinalized(t *testing.T) {
 		err = txStore.InsertTxAttempt(ctx, &attempt)
 		require.NoError(t, err)
 		receipt := mustInsertEthReceipt(t, txStore, 100, testutils.NewHash(), attempt.Hash)
-		err = txStore.UpdateTxesFinalized(ctx, []int64{receipt.ID}, testutils.FixtureChainID)
+		err = txStore.UpdateTxStatesToFinalizedUsingReceiptIds(ctx, []int64{receipt.ID}, testutils.FixtureChainID)
 		require.NoError(t, err)
 		etx, err := txStore.FindTxWithAttempts(ctx, tx.ID)
 		require.NoError(t, err)
