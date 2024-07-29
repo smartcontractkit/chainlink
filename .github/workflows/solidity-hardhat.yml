@@ -330,9 +330,6 @@ jobs:
         with:
           path: review_artifacts-${{ env.PRODUCT }}-${{ github.sha }}
           merge-multiple: true
-      - name: View downloaded
-        run: |
-          ls -la review_artifacts
 #      - name: Download UMLs and Slither Reports artifact
 #        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
 #        with:
@@ -364,8 +361,8 @@ jobs:
       - name: Upload all artifacts as single package
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
-          name: review-artifacts
-          path: review_artifacts/
+          name: review-artifacts-${{ env.PRODUCT }}-${{ github.sha }}
+          path: review_artifacts-${{ env.PRODUCT }}-${{ github.sha }}
 
       - name: Remove temporary artifacts
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
