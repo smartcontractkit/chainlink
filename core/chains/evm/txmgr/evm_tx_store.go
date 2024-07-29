@@ -40,8 +40,6 @@ var (
 )
 
 // EvmTxStore combines the txmgr tx store interface and the interface needed for the API to read from the tx DB
-//
-//go:generate mockery --quiet --name EvmTxStore --output ./mocks/ --case=underscore
 type EvmTxStore interface {
 	// redeclare TxStore for mockery
 	txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
@@ -1706,9 +1704,7 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx,
 				pqErr.ConstraintName == "eth_tx_attempts_eth_tx_id_fkey" {
 				return txmgr.ErrTxRemoved
 			}
-			if err != nil {
-				return pkgerrors.Wrap(err, "UpdateTxUnstartedToInProgress failed to create eth_tx_attempt")
-			}
+			return pkgerrors.Wrap(err, "UpdateTxUnstartedToInProgress failed to create eth_tx_attempt")
 		}
 		dbAttempt.ToTxAttempt(attempt)
 		var dbEtx DbEthTx

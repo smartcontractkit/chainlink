@@ -7,8 +7,6 @@ import (
 
 // Head provides access to a chain's head, as needed by the TxManager.
 // This is a generic interface which ALL chains will implement.
-//
-//go:generate mockery --quiet --name Head --output ./mocks/ --case=underscore
 type Head[BLOCK_HASH Hashable] interface {
 	// BlockNumber is the head's block number
 	BlockNumber() int64

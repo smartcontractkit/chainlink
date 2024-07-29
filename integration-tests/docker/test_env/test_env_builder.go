@@ -280,6 +280,9 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 					// new logs can be added to the log stream, so parallel processing would get stuck on waiting for it to be unlocked
 				LogScanningLoop:
 					for i := 0; i < b.clNodesCount; i++ {
+						if b == nil || b.te == nil || b.te.ClCluster == nil || b.te.ClCluster.Nodes == nil || b.te.ClCluster.Nodes[i] == nil || len(b.te.ClCluster.Nodes)-1 < i {
+							continue
+						}
 						// ignore count return, because we are only interested in the error
 						_, err := logProcessor.ProcessContainerLogs(b.te.ClCluster.Nodes[i].ContainerName, processFn)
 						if err != nil && !strings.Contains(err.Error(), testreporters.MultipleLogsAtLogLevelErr) && !strings.Contains(err.Error(), testreporters.OneLogAtLogLevelErr) {
@@ -448,18 +451,21 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
 		}
 
+		// only add EVM networks to node config if running EVM tests
 		dereferrencedEvms := make([]blockchain.EVMNetwork, 0)
-		for _, en := range b.te.EVMNetworks {
-			network := *en
-			if en.Simulated {
-				if rpcs, ok := b.te.rpcProviders[network.ChainID]; ok {
-					network.HTTPURLs = rpcs.PrivateHttpUrls()
-					network.URLs = rpcs.PrivateWsUrsl()
-				} else {
-					return nil, fmt.Errorf("rpc provider for chain %d not found", network.ChainID)
+		if b.isEVM {
+			for _, en := range b.te.EVMNetworks {
+				network := *en
+				if en.Simulated {
+					if rpcs, ok := b.te.rpcProviders[network.ChainID]; ok {
+						network.HTTPURLs = rpcs.PrivateHttpUrls()
+						network.URLs = rpcs.PrivateWsUrsl()
+					} else {
+						return nil, fmt.Errorf("rpc provider for chain %d not found", network.ChainID)
+					}
 				}
+				dereferrencedEvms = append(dereferrencedEvms, network)
 			}
-			dereferrencedEvms = append(dereferrencedEvms, network)
 		}
 
 		nodeConfigInToml := b.testConfig.GetNodeConfig()

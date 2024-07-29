@@ -33,7 +33,6 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-//go:generate mockery --quiet --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
 type LogPoller interface {
 	services.Service
 	Healthy() error
@@ -559,9 +558,14 @@ func (lp *logPoller) run() {
 	defer lp.wg.Done()
 	ctx, cancel := lp.stopCh.NewCtx()
 	defer cancel()
-	logPollTick := time.After(0)
+	logPollTicker := services.NewTicker(lp.pollPeriod)
+	defer logPollTicker.Stop()
 	// stagger these somewhat, so they don't all run back-to-back
-	backupLogPollTick := time.After(100 * time.Millisecond)
+	backupLogPollTicker := services.TickerConfig{
+		Initial:   100 * time.Millisecond,
+		JitterPct: services.DefaultJitter,
+	}.NewTicker(time.Duration(lp.backupPollerBlockDelay) * lp.pollPeriod)
+	defer backupLogPollTicker.Stop()
 	filtersLoaded := false
 
 	for {
@@ -570,8 +574,7 @@ func (lp *logPoller) run() {
 			return
 		case fromBlockReq := <-lp.replayStart:
 			lp.handleReplayRequest(ctx, fromBlockReq, filtersLoaded)
-		case <-logPollTick:
-			logPollTick = time.After(utils.WithJitter(lp.pollPeriod))
+		case <-logPollTicker.C:
 			if !filtersLoaded {
 				if err := lp.loadFilters(ctx); err != nil {
 					lp.lggr.Errorw("Failed loading filters in main logpoller loop, retrying later", "err", err)
@@ -609,7 +612,7 @@ func (lp *logPoller) run() {
 				start = lastProcessed.BlockNumber + 1
 			}
 			lp.PollAndSaveLogs(ctx, start)
-		case <-backupLogPollTick:
+		case <-backupLogPollTicker.C:
 			if lp.backupPollerBlockDelay == 0 {
 				continue // backup poller is disabled
 			}
@@ -621,7 +624,6 @@ func (lp *logPoller) run() {
 			// frequently than the primary log poller (instead of roughly once per block it runs once roughly once every
 			// lp.backupPollerDelay blocks--with default settings about 100x less frequently).
 
-			backupLogPollTick = time.After(utils.WithJitter(time.Duration(lp.backupPollerBlockDelay) * lp.pollPeriod))
 			if !filtersLoaded {
 				lp.lggr.Warnw("Backup log poller ran before filters loaded, skipping")
 				continue
@@ -1274,11 +1276,12 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 	logPollerBlocks := make(map[uint64]LogPollerBlock)
 	for _, head := range evmBlocks {
 		logPollerBlocks[uint64(head.Number)] = LogPollerBlock{
-			EvmChainId:     head.EVMChainID,
-			BlockHash:      head.Hash,
-			BlockNumber:    head.Number,
-			BlockTimestamp: head.Timestamp,
-			CreatedAt:      head.Timestamp,
+			EvmChainId:           head.EVMChainID,
+			BlockHash:            head.Hash,
+			BlockNumber:          head.Number,
+			BlockTimestamp:       head.Timestamp,
+			FinalizedBlockNumber: head.Number, // always finalized; only matters if this block is returned by LatestBlock()
+			CreatedAt:            head.Timestamp,
 		}
 	}
 	return logPollerBlocks, nil

@@ -11,8 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
@@ -42,19 +40,15 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 	sol1, sol2 := solkey.MustNewInsecure(rand.Reader), solkey.MustNewInsecure(rand.Reader)
 	vrf1, vrf2 := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1)), vrfkey.MustNewV2XXXTestingOnly(big.NewInt(2))
 	tk1, tk2 := cosmoskey.MustNewInsecure(rand.Reader), cosmoskey.MustNewInsecure(rand.Reader)
-	dkgsign1, dkgsign2 := dkgsignkey.MustNewXXXTestingOnly(big.NewInt(1)), dkgsignkey.MustNewXXXTestingOnly(big.NewInt(2))
-	dkgencrypt1, dkgencrypt2 := dkgencryptkey.MustNewXXXTestingOnly(big.NewInt(1)), dkgencryptkey.MustNewXXXTestingOnly(big.NewInt(2))
 	originalKeyRingRaw := rawKeyRing{
-		CSA:        []csakey.Raw{csa1.Raw(), csa2.Raw()},
-		Eth:        []ethkey.Raw{eth1.Raw(), eth2.Raw()},
-		OCR:        []ocrkey.Raw{ocr[0].Raw(), ocr[1].Raw()},
-		OCR2:       ocr2_raw,
-		P2P:        []p2pkey.Raw{p2p1.Raw(), p2p2.Raw()},
-		Solana:     []solkey.Raw{sol1.Raw(), sol2.Raw()},
-		VRF:        []vrfkey.Raw{vrf1.Raw(), vrf2.Raw()},
-		Cosmos:     []cosmoskey.Raw{tk1.Raw(), tk2.Raw()},
-		DKGSign:    []dkgsignkey.Raw{dkgsign1.Raw(), dkgsign2.Raw()},
-		DKGEncrypt: []dkgencryptkey.Raw{dkgencrypt1.Raw(), dkgencrypt2.Raw()},
+		CSA:    []csakey.Raw{csa1.Raw(), csa2.Raw()},
+		Eth:    []ethkey.Raw{eth1.Raw(), eth2.Raw()},
+		OCR:    []ocrkey.Raw{ocr[0].Raw(), ocr[1].Raw()},
+		OCR2:   ocr2_raw,
+		P2P:    []p2pkey.Raw{p2p1.Raw(), p2p2.Raw()},
+		Solana: []solkey.Raw{sol1.Raw(), sol2.Raw()},
+		VRF:    []vrfkey.Raw{vrf1.Raw(), vrf2.Raw()},
+		Cosmos: []cosmoskey.Raw{tk1.Raw(), tk2.Raw()},
 	}
 	originalKeyRing, kerr := originalKeyRingRaw.keys()
 	require.NoError(t, kerr)
@@ -109,14 +103,6 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		require.Equal(t, 2, len(decryptedKeyRing.VRF))
 		require.Equal(t, originalKeyRing.VRF[vrf1.ID()].PublicKey, decryptedKeyRing.VRF[vrf1.ID()].PublicKey)
 		require.Equal(t, originalKeyRing.VRF[vrf2.ID()].PublicKey, decryptedKeyRing.VRF[vrf2.ID()].PublicKey)
-		// compare dkgsign keys
-		require.Equal(t, 2, len(decryptedKeyRing.DKGSign))
-		require.Equal(t, originalKeyRing.DKGSign[dkgsign1.ID()].PublicKey, decryptedKeyRing.DKGSign[dkgsign1.ID()].PublicKey)
-		require.Equal(t, originalKeyRing.DKGSign[dkgsign2.ID()].PublicKey, decryptedKeyRing.DKGSign[dkgsign2.ID()].PublicKey)
-		// compare dkgencrypt keys
-		require.Equal(t, 2, len(decryptedKeyRing.DKGEncrypt))
-		require.Equal(t, originalKeyRing.DKGEncrypt[dkgencrypt1.ID()].PublicKey, decryptedKeyRing.DKGEncrypt[dkgencrypt1.ID()].PublicKey)
-		require.Equal(t, originalKeyRing.DKGEncrypt[dkgencrypt2.ID()].PublicKey, decryptedKeyRing.DKGEncrypt[dkgencrypt2.ID()].PublicKey)
 	})
 
 	t.Run("test legacy system", func(t *testing.T) {

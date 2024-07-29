@@ -36,9 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
-//go:generate mockery --quiet --name Service --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --dir ./proto --name FeedsManagerClient --output ./mocks/ --case=underscore
-
 var (
 	ErrOCR2Disabled         = errors.New("ocr2 is disabled")
 	ErrOCRDisabled          = errors.New("ocr is disabled")
