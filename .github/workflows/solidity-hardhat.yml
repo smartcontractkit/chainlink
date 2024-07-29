@@ -46,7 +46,7 @@ jobs:
           base: ${{ env.BASE_REF }} #TODO change to inputs.base_ref after testing
           filters: |
             sol:
-              - 'contracts/src/v0.8/**/*!(t).sol'
+              - 'contracts/src/v0.8/**/!(*.t).sol'
             product:
               - 'contracts/src/v0.8/${{ env.PRODUCT }}/**/*.sol'         
             shared:
