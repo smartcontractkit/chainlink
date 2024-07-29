@@ -1,6 +1,6 @@
 ChainID = '81'
-FinalityTagEnabled = true
-LogPollInterval = '12s'
+FinalityDepth = 100
+LogPollInterval = '6s'
 
 [GasEstimator]
 EIP1559DynamicFees = false
