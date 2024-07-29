@@ -3,9 +3,11 @@ package remote_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -40,11 +42,11 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	}
 
 	dispatcher := remoteMocks.NewDispatcher(t)
-	config := &remotetypes.RemoteTriggerConfig{
-		RegistrationRefreshMs:   100,
-		RegistrationExpiryMs:    100_000,
+	config := capabilities.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
-		MessageExpiryMs:         100_000,
+		MessageExpiry:           100 * time.Second,
 	}
 	workflowDONs := map[uint32]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,

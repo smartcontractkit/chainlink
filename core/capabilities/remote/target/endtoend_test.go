@@ -371,6 +371,26 @@ type nodeDispatcher struct {
 	broker       broker
 }
 
+func (t *nodeDispatcher) Name() string {
+	return "nodeDispatcher"
+}
+
+func (t *nodeDispatcher) Start(ctx context.Context) error {
+	return nil
+}
+
+func (t *nodeDispatcher) Close() error {
+	return nil
+}
+
+func (t *nodeDispatcher) Ready() error {
+	return nil
+}
+
+func (t *nodeDispatcher) HealthReport() map[string]error {
+	return nil
+}
+
 func (t *nodeDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
 	msgBody.Version = 1
 	msgBody.Sender = t.callerPeerID[:]
