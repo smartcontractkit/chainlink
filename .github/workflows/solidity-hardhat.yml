@@ -416,10 +416,11 @@ jobs:
         run: |
           echo "# Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
           #TODO remove github.base_ref after testing
-           echo "Base Ref used: **${{ inputs.base_ref || github.base_ref }}**" >> $GITHUB_STEP_SUMMARY
-           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
-           echo "## Reason: No modified Solidity files found." >> $GITHUB_STEP_SUMMARY
-           echo "No modified Solidity files found between ${{ inputs.base_ref || github.base_ref }} and ${{ github.sha }} commits or they are located outside of ./contracts/v0.8/${{ env.PRODUCT}} or ./contracts/v0.8/shared folders" >> $GITHUB_STEP_SUMMARY
+          echo "Base Ref used: **${{ inputs.base_ref || github.base_ref }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
+          echo "## Reason: No modified Solidity files found." >> $GITHUB_STEP_SUMMARY
+          echo "No modified Solidity files found between ${{ inputs.base_ref || github.base_ref }} and ${{ github.sha }} commits or they are located outside of ./contracts/v0.8/${{ env.PRODUCT}} or ./contracts/v0.8/shared folders" >> $GITHUB_STEP_SUMMARY
+          exit 1
 
 #on:
 #  merge_group:
