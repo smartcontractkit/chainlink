@@ -81,7 +81,7 @@ jobs:
           fi
 
       - name: Check for changes only in shared
-        if: ${{ steps.changes.outputs.product_changes == 'false' }}
+        if: ${{ steps.changes.outputs.product == 'false' }}
         shell: bash
         run: |
           echo "# Warning!" >> $GITHUB_STEP_SUMMARY
