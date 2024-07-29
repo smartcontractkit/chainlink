@@ -2,8 +2,7 @@
 pragma solidity 0.8.19;
 
 import {Common} from "../../libraries/Common.sol";
-import "./IDestinationFeeManager.sol";
-import "../../../shared/interfaces/IAccessController.sol";
+
 
 interface IDestinationVerifier {
   /**
@@ -88,11 +87,13 @@ interface IDestinationVerifier {
    * @notice Returns the reward manager
    * @return IDestinationRewardManager
    */
+  // solhint-disable-next-line func-name-mixedcase
   function s_feeManager() external view returns (address);
 
   /**
    * @notice Returns the access controller
    * @return IDestinationFeeManager
    */
+  // solhint-disable-next-line func-name-mixedcase
   function s_accessController() external view returns (address);
 }

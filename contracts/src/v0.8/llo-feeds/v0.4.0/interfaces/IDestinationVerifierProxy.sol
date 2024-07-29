@@ -38,11 +38,13 @@ interface IDestinationVerifierProxy {
    * @notice Used to honor the source verifierProxy feeManager interface
    * @return IVerifierFeeManager
    */
+  // solhint-disable-next-line func-name-mixedcase
   function s_feeManager() external view returns (address);
 
   /**
    * @notice Used to honor the source verifierProxy feeManager interface
    * @return AccessControllerInterface
    */
+  // solhint-disable-next-line func-name-mixedcase
   function s_accessController() external view returns (address);
 }

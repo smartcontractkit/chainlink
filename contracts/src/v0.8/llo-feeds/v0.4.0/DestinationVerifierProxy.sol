@@ -56,10 +56,13 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
   }
 
   /// @inheritdoc IDestinationVerifierProxy
+  // solhint-disable-next-line func-name-mixedcase
   function s_feeManager() external view override returns (address) {
     return s_verifier.s_feeManager();
   }
 
+  /// @inheritdoc IDestinationVerifierProxy
+  // solhint-disable-next-line func-name-mixedcase
   function s_accessController() external view override returns (address) {
     return s_verifier.s_accessController();
   }

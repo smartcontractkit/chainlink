@@ -9,6 +9,18 @@ contract ErroredVerifier is IVerifier {
     return interfaceId == this.verify.selector;
   }
 
+  //define each of the errors thrown in the revert below
+
+  error FailedToVerify();
+  error FailedToSetConfig();
+  error FailedToActivateConfig();
+  error FailedToDeactivateConfig();
+  error FailedToActivateFeed();
+  error FailedToDeactivateFeed();
+  error FailedToGetLatestConfigDigestAndEpoch();
+  error FailedToGetLatestConfigDetails();
+
+
   function verify(
     bytes memory,
     /**
@@ -26,7 +38,7 @@ contract ErroredVerifier is IVerifier {
       bytes memory
     )
   {
-    revert("Failed to verify");
+    revert FailedToVerify();
   }
 
   function setConfig(
@@ -39,7 +51,7 @@ contract ErroredVerifier is IVerifier {
     bytes memory,
     Common.AddressAndWeight[] memory
   ) external pure override {
-    revert("Failed to set config");
+    revert FailedToSetConfig();
   }
 
   function setConfigFromSource(
@@ -55,30 +67,30 @@ contract ErroredVerifier is IVerifier {
     bytes memory,
     Common.AddressAndWeight[] memory
   ) external pure override {
-    revert("Failed to set config");
+    revert FailedToSetConfig();
   }
 
   function activateConfig(bytes32, bytes32) external pure {
-    revert("Failed to activate config");
+    revert FailedToActivateConfig();
   }
 
   function deactivateConfig(bytes32, bytes32) external pure {
-    revert("Failed to deactivate config");
+    revert FailedToDeactivateConfig();
   }
 
   function activateFeed(bytes32) external pure {
-    revert("Failed to activate feed");
+    revert FailedToActivateFeed();
   }
 
   function deactivateFeed(bytes32) external pure {
-    revert("Failed to deactivate feed");
+    revert FailedToDeactivateFeed();
   }
 
   function latestConfigDigestAndEpoch(bytes32) external pure override returns (bool, bytes32, uint32) {
-    revert("Failed to get latest config digest and epoch");
+    revert FailedToGetLatestConfigDigestAndEpoch();
   }
 
   function latestConfigDetails(bytes32) external pure override returns (uint32, uint32, bytes32) {
-    revert("Failed to get latest config details");
+    revert FailedToGetLatestConfigDetails();
   }
 }
