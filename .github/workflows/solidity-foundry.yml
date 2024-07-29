@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        product: [automation, functions, keystone, l2ep, llo-feeds, operatorforwarder, shared, vrf]
+        product: [automation, ccip, functions, keystone, l2ep, liquiditymanager, llo-feeds, operatorforwarder, shared, vrf]
     needs: [changes]
     name: Foundry Tests ${{ matrix.product }}
     # See https://github.com/foundry-rs/foundry/issues/3827
