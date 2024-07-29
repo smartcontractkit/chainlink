@@ -1,5 +1,65 @@
 # Changelog Chainlink Core
 
+## 2.15.1
+
+### Patch Changes
+
+- Bump to start v2.15.0
+
+## 2.15.0
+
+### Minor Changes
+
+- 685681e1b3: Remove ocr2vrf
+
+  #removed all ocr2vrf and dkg OCR2 plugin materials.
+
+- e065b82d2b: Initialize registry syncer' contract reader lazily #keystone #internal
+- f84a3f2f27: #internal Change CR GetLatestValue to accept confidenceLevels that map to finality for contract read and event querying. Also remove Pending from BoundContract which used to map to finality for log events.
+- 5daee38379: #internal Added small check to allow for nil TxMeta in CW SubmitTransaction
+- 055a9d24f8: #internal Add BatchGetLatestValues to ChainReader
+- 8beda6093f: Bump to start the next version
+- 4e3f5e8d4f: #internal refactor goose migrations to use provider
+- 31557117b2: #internal cleanup heavyweight test databases automatically
+- b3c93a7f25: #bugfix Set LatestFinalizedBlock for finalized blocks saved by logpoller
+- 5b668c186a: Use the new log buffer in automation #changed
+
+### Patch Changes
+
+- e28f8a4386: add chaos and reorg tests #added
+- 27d9c71b19: #internal address security vulnerabilities around updating nodes and node operators on capabilities registry
+- 5f3d58ba67: Add "VerboseLogging" option to mercury
+
+  Off by default, can be enabled like so:
+
+  ```toml
+  [Mercury]
+  VerboseLogging = true
+  ```
+
+  #updated
+
+- df0b06ee1c: #added support for EIP-1559 transactions for Scroll
+- 6bf25fc01c: remove tautological err check within evm txm. #internal
+- 48b11ddff4: #db_update add an empty BAL spec in migrations
+- b1c9315776: Dequeue minimum guaranteed upkeeps as a priority #changed
+- 6adb82788a: #internal change chain reader to use nil blocknumber when reading latest value
+- 741351107b: #internal Bumped dependencies for `chainlink-common`, `chainlink-solana`, and `chainlink-starknet`.
+- e140a2bc1c: #internal add `NewChainWriter` method onto the dummy relayer.
+- 89196f1fb8: Make send signatures configurable when Transmit in Contract Transmitter #internal
+- 683a12e85e: Updated Functions ToS contract wrappers #internal
+- d6ebada1b6: #internal end to end test for streams capabilities
+- fb177f4ee7: #internal Updated wrappers for improved L1 -> L2 fee calculation for Functions
+- 697e469e41: VRFV2Plus coordinator and wrapper split contracts between L1 and L2 chains #updated
+- 873abacbc6: #internal Mercury v3: Include telemetry if bid/ask violation is detected
+- 81a21bb56c: #internal logging of non determinism in target server
+- 00ef51a7c1: Protocol-level support for preventing bid/ask variant violations in mercury #added
+- 68a6a66919: #changed Rename the `InBackupHealthReport` to `StartUpHealthReport` and enable it for DB migrations as well. This will enable health report to be available during long start-up tasks (db backups and migrations).
+- ced300beeb: #internal additional logging to remote target capability
+- 51225f83f3: #internal Use txid as the idempotency key in the evm chainwriter
+- 535d2795c6: Fix TestHeadTracker_CallsHeadTrackableCallbacks flaky test #internal
+- 6d2b5faf10: Fix TestIntegration_KeeperPluginLogUpkeep_ErrHandler flaky test #internal
+
 ## 2.14.0 - 2024-07-29
 
 ### Minor Changes
