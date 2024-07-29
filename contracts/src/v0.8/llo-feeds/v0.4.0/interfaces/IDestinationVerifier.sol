@@ -3,6 +3,8 @@ pragma solidity 0.8.19;
 
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {Common} from "../../libraries/Common.sol";
+import "./IDestinationFeeManager.sol";
+import "../../../shared/interfaces/IAccessController.sol";
 
 interface IDestinationVerifier{
 
@@ -25,18 +27,6 @@ interface IDestinationVerifier{
    * @return verifiedReports The encoded verified responses.
    */
   function verifyBulk(bytes[] calldata signedReports, bytes calldata parameterPayload, address sender) external payable returns (bytes[] memory verifiedReports);
-
-  /**
-   * @notice Returns the current access controller
-   * @return The address of the access controller
-   */
-  function getAccessController() external view returns (address);
-
-  /**
-    * @notice Returns the current fee manager
-    * @return The address of the fee manager
-    */
-  function getFeeManager() external view returns (address);
 
   /**
    * @notice sets off-chain reporting protocol configuration incl. participating oracles
@@ -87,4 +77,17 @@ interface IDestinationVerifier{
     * @notice Removes the latest config
     */
   function removeLatestConfig() external;
+
+  /*
+ * @notice Returns the reward manager
+   * @return IDestinationRewardManager
+   */
+  function s_feeManager() external view returns (address);
+
+  /**
+    * @notice Returns the access controller
+    * @return IDestinationFeeManager
+    */
+  function s_accessController() external view returns (address);
+
 }

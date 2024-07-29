@@ -22,8 +22,8 @@ contract VerifierProxyInitializeVerifierTest is BaseTest {
 
   function test_setVerifierOk() public {
     s_verifierProxy.setVerifier(address(s_verifier));
-    assertEq(s_verifierProxy.s_feeManager(), s_verifier.getFeeManager());
-    assertEq(s_verifierProxy.s_accessController(), s_verifier.getAccessController());
+    assertEq(s_verifierProxy.s_feeManager(), s_verifier.s_feeManager());
+    assertEq(s_verifierProxy.s_accessController(), s_verifier.s_accessController());
   }
 
   function test_correctlySetsTheOwner() public {

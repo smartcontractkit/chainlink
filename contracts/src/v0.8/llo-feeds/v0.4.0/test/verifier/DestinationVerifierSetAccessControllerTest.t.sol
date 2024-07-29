@@ -15,13 +15,13 @@ contract VerifierSetAccessControllerTest is BaseTest {
 
   function test_successfullySetsNewAccessController() public {
     s_verifier.setAccessController(ACCESS_CONTROLLER_ADDRESS);
-    address ac = s_verifier.getAccessController();
+    address ac = s_verifier.s_accessController();
     assertEq(ac, ACCESS_CONTROLLER_ADDRESS);
   }
 
   function test_successfullySetsNewAccessControllerIsEmpty() public {
     s_verifier.setAccessController(address(0));
-    address ac = s_verifier.getAccessController();
+    address ac = s_verifier.s_accessController();
     assertEq(ac, address(0));
   }
 

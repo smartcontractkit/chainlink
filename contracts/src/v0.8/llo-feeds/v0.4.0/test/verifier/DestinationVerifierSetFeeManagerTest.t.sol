@@ -17,7 +17,7 @@ contract VerifierSetAccessControllerTest is BaseTest {
     vm.expectEmit(true, false, false, false);
     emit FeeManagerSet(address(0), ACCESS_CONTROLLER_ADDRESS);
     s_verifier.setFeeManager(address(feeManager));
-    address ac = s_verifier.getFeeManager();
+    address ac = s_verifier.s_feeManager();
     assertEq(ac, address(feeManager));
   }
 

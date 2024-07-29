@@ -46,8 +46,8 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
   function setVerifier(address verifierAddress) external onlyOwner {
     //check it supports the functions we need
     if (
-      !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.getAccessController.selector) ||
-      !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.getFeeManager.selector) ||
+      !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.s_accessController.selector) ||
+      !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.s_feeManager.selector) ||
       !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.verify.selector) ||
       !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.verifyBulk.selector)
     ) revert VerifierInvalid(verifierAddress);
@@ -57,11 +57,11 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
 
   /// @inheritdoc IDestinationVerifierProxy
   function s_feeManager() external view override returns (address) {
-    return s_verifier.getFeeManager();
+    return s_verifier.s_feeManager();
   }
 
   function s_accessController() external view override returns (address) {
-    return s_verifier.getAccessController();
+    return s_verifier.s_accessController();
   }
 
   /// @inheritdoc IERC165

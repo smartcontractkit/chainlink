@@ -27,10 +27,10 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     DONConfig[] private s_DONConfigs;
 
     /// @notice The address of the verifierProxy
-    IDestinationFeeManager private s_feeManager;
+    address public s_feeManager;
 
     /// @notice The address of the access controller
-    IAccessController private s_accessController;
+    address public s_accessController;
 
     /// @notice The address of the verifierProxy
     IDestinationVerifierProxy public immutable i_verifierProxy;
@@ -141,9 +141,10 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     ) external override checkValidProxy checkAccess(sender) payable returns (bytes memory) {
         (bytes memory verifierResponse, bytes32 DONConfigId) = _verify(signedReport, sender);
 
-        if(address(s_feeManager) != address(0)){
+        address fm = s_feeManager;
+        if(fm != address(0)){
             //process the fee and catch the error
-            try s_feeManager.processFee{value: msg.value}(DONConfigId, signedReport, parameterPayload, sender) {
+            try IDestinationFeeManager(fm).processFee{value: msg.value}(DONConfigId, signedReport, parameterPayload, sender) {
                 //do nothing
             } catch {
                 // we purposefully obfuscate the error here to prevent information leaking leading to free verifications
@@ -169,9 +170,10 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
             DONConfigs[i] = config;
         }
 
-        if(address(s_feeManager) != address(0)){
+        address fm = s_feeManager;
+        if(fm != address(0)){
             //process the fee and catch the error
-            try s_feeManager.processFeeBulk{value: msg.value}(DONConfigs, signedReports, parameterPayload, sender) {
+            try IDestinationFeeManager(fm).processFeeBulk{value: msg.value}(DONConfigs, signedReports, parameterPayload, sender) {
                 //do nothing
             } catch {
                 // we purposefully obfuscate the error here to prevent information leaking leading to free verifications
@@ -310,7 +312,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
 
         // We may want to register these later or skip this step in the unlikely scenario they've previously been registered in the RewardsManager
         if(recipientAddressesAndWeights.length != 0) {
-          s_feeManager.setFeeRecipients(DONConfigID, recipientAddressesAndWeights);
+          IDestinationFeeManager(s_feeManager).setFeeRecipients(DONConfigID, recipientAddressesAndWeights);
         }
 
         // push the DONConfig
@@ -325,16 +327,16 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
             !IERC165(feeManager).supportsInterface(IDestinationFeeManager.processFeeBulk.selector) ||
             !IERC165(feeManager).supportsInterface(IDestinationFeeManager.setFeeRecipients.selector)) revert FeeManagerInvalid();
 
-        address oldFeeManager = address(s_feeManager);
-        s_feeManager = IDestinationFeeManager(feeManager);
+        address oldFeeManager = s_feeManager;
+        s_feeManager = feeManager;
 
         emit FeeManagerSet(oldFeeManager, feeManager);
     }
 
     /// @inheritdoc IDestinationVerifier
     function setAccessController(address accessController) external override onlyOwner {
-        address oldAccessController = address(s_accessController);
-        s_accessController = IAccessController(accessController);
+        address oldAccessController = s_accessController;
+        s_accessController = accessController;
         emit AccessControllerSet(oldAccessController, accessController);
     }
 
@@ -401,8 +403,8 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     }
 
     modifier checkAccess(address sender) {
-        IAccessController ac = s_accessController;
-        if (address(ac) != address(0) && !ac.hasAccess(sender, msg.data)) revert AccessForbidden();
+        address ac = s_accessController;
+        if (address(ac) != address(0) && !IAccessController(ac).hasAccess(sender, msg.data)) revert AccessForbidden();
         _;
     }
 
@@ -410,8 +412,8 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
        return interfaceId == this.verify.selector ||
               interfaceId == this.verifyBulk.selector ||
-              interfaceId == this.getAccessController.selector ||
-              interfaceId == this.getFeeManager.selector ||
+              interfaceId == this.s_accessController.selector ||
+              interfaceId == this.s_feeManager.selector ||
               interfaceId == this.setConfig.selector ||
               interfaceId == this.setConfigWithActivationTime.selector ||
               interfaceId == this.setFeeManager.selector ||
@@ -422,16 +424,6 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     /// @inheritdoc TypeAndVersionInterface
     function typeAndVersion() external pure override returns (string memory) {
         return "DestinationVerifier 1.0.0";
-    }
-
-    /// @inheritdoc IDestinationVerifier
-    function getAccessController() external view override returns (address) {
-        return address(s_accessController);
-    }
-
-    /// @inheritdoc IDestinationVerifier
-    function getFeeManager() external view override returns (address) {
-        return address(s_feeManager);
     }
 }
 
