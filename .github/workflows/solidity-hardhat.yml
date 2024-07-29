@@ -4,8 +4,19 @@ on:
   workflow_dispatch:
     inputs:
       product:
+        type: choice
         description: 'product for which to generate artifacts; should be the same as foundry profile'
         required: true
+        options:
+          - "automation"
+          - "ccip"
+          - "functions"
+          - "keystone"
+          - "l2ep"
+          - "llo-feeds"
+          - "operatorforwarder"
+          - "transmission"
+          - "vrf"
       base_ref:
         description: 'commit or tag to be used as base reference, when looking for modified Solidity files'
         required: true
@@ -15,7 +26,7 @@ env:
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
   PRODUCT: "automation"
-  BASE_REF: "ca6e1c26a331af67a1d57bf69d8160c23fc1e297"
+  BASE_REF: "v2.13.0"
 
 jobs:
   changes:
@@ -27,15 +38,6 @@ jobs:
       shared_changes: ${{ steps.changes.outputs.shared }}
       files: ${{ steps.changes.outputs.included_files }}
     steps:
-      - name: Validate product input
-        run: |
-          product="${{ env.PRODUCT }}"
-          if [[ "$product" =~ [,\ ] ]]; then
-            >&2 echo "Error: 'env.PRODUCT' contains commas or spaces: \"${{ env.PRODUCT }}\". Please provide just a single valid product name."
-            exit 1
-          else
-            echo "Product is valid: $product"
-          fi
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Find modified contracts
@@ -55,6 +57,7 @@ jobs:
               - '!contracts/src/v0.8/vendor/**'
             shared: &shared
               - 'contracts/src/v0.8/shared/**/*.sol'
+              - 'contracts/src/v0.8/interfaces/**/*.sol'
               - 'contracts/src/v0.8/*.sol'
               - *ignored            
             sol:
