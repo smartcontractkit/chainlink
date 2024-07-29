@@ -665,7 +665,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		node := newTestNode(t, testNodeOpts{})
 		node.setState(nodeStateClosed)
 		node.wg.Add(1)
-		node.outOfSyncLoop(0)
+		node.outOfSyncLoop(syncStatusNotInSyncWithPool)
 	})
 	t.Run("on old blocks stays outOfSync and returns on close", func(t *testing.T) {
 		t.Parallel()
@@ -699,7 +699,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
 
-		node.declareOutOfSync(syncIssueNoNewHead)
+		node.declareOutOfSync(syncStatusNoNewHead)
 		// wait until all heads are consumed
 		wg.Wait()
 		assert.Equal(t, nodeStateOutOfSync, node.State())
@@ -715,7 +715,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		expectedError := errors.New("failed to dial rpc")
 		// might be called again in unreachable loop, so no need to set once
 		rpc.On("Dial", mock.Anything).Return(expectedError)
-		node.declareOutOfSync(syncIssueNoNewHead)
+		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
 		})
@@ -735,7 +735,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		expectedError := errors.New("failed to get chain ID")
 		// might be called multiple times
 		rpc.On("ChainID", mock.Anything).Return(types.NewIDFromInt(0), expectedError)
-		node.declareOutOfSync(syncIssueNoNewHead)
+		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
 		})
@@ -755,7 +755,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(nil).Twice()
 		// might be called multiple times
 		rpc.On("ChainID", mock.Anything).Return(rpcChainID, nil)
-		node.declareOutOfSync(syncIssueNoNewHead)
+		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateInvalidChainID
 		})
@@ -775,7 +775,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
 		// might be called multiple times
 		rpc.On("IsSyncing", mock.Anything).Return(true, nil)
-		node.declareOutOfSync(syncIssueNoNewHead)
+		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateSyncing
 		})
@@ -798,7 +798,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
 		// might be called multiple times
 		rpc.On("IsSyncing", mock.Anything).Return(false, errors.New("failed to check syncing"))
-		node.declareOutOfSync(syncIssueNoNewHead)
+		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
 		})
@@ -818,7 +818,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		expectedError := errors.New("failed to subscribe")
 		rpc.On("SubscribeToHeads", mock.Anything).Return(nil, nil, expectedError).Once()
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
-		node.declareOutOfSync(syncIssueNoNewHead)
+		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
 		})
@@ -845,7 +845,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		sub.On("Unsubscribe").Once()
 		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Once()
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
-		node.declareOutOfSync(syncIssueNoNewHead)
+		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertLogEventually(t, observedLogs, "Subscription was terminated")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
@@ -875,7 +875,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 			close(ch)
 		}).Return((<-chan Head)(ch), sub, nil).Once()
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
-		node.declareOutOfSync(syncIssueNoNewHead)
+		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertLogEventually(t, observedLogs, "Subscription channel unexpectedly closed")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
@@ -907,7 +907,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: highestBlock}, ChainInfo{BlockNumber: highestBlock})
 		setupRPCForAliveLoop(t, rpc)
 
-		node.declareOutOfSync(syncIssueNoNewHead)
+		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertLogEventually(t, observedLogs, msgReceivedBlock)
 		tests.AssertLogEventually(t, observedLogs, msgInSync)
 		tests.AssertEventually(t, func() bool {
@@ -945,7 +945,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), outOfSyncSubscription, nil).Once()
 		setupRPCForAliveLoop(t, rpc)
 
-		node.declareOutOfSync(syncIssueNoNewHead)
+		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertLogEventually(t, observedLogs, "RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateAlive
@@ -989,7 +989,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 			go writeHeads(t, ch, head{BlockNumber: highestBlock - 1}, head{BlockNumber: highestBlock}, head{BlockNumber: highestBlock + 1})
 		}).Return((<-chan Head)(ch), outOfSyncSubscription, nil).Once()
 
-		node.declareOutOfSync(syncIssueNoNewHead)
+		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertLogEventually(t, observedLogs, msgReceivedBlock)
 		tests.AssertLogEventually(t, observedLogs, "No new heads received for")
 		tests.AssertEventually(t, func() bool {
@@ -1026,7 +1026,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		// unreachable
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
 
-		node.declareOutOfSync(syncIssueNoNewHead)
+		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
 		})
@@ -1055,7 +1055,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		// unreachable
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
-		node.declareOutOfSync(syncIssueNoNewHead)
+		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertLogEventually(t, observedLogs, "Finalized head subscription was terminated")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
@@ -1086,7 +1086,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		// unreachable
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
-		node.declareOutOfSync(syncIssueNoNewHead)
+		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertLogEventually(t, observedLogs, "Finalized heads subscription channel unexpectedly closed")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
@@ -1119,7 +1119,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		setupRPCForAliveLoop(t, rpc)
 
-		node.declareOutOfSync(syncIssueNoNewFinalizedHead)
+		node.declareOutOfSync(syncStatusNoNewFinalizedHead)
 		heads := []head{{BlockNumber: highestBlock - 1}, {BlockNumber: highestBlock}}
 		writeHeads(t, ch, heads...)
 		assert.Equal(t, nodeStateOutOfSync, node.State())
@@ -1154,7 +1154,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		ch := make(chan Head)
 		rpc.On("SubscribeToFinalizedHeads", mock.Anything).Return((<-chan Head)(ch), outOfSyncSubscription, nil).Once()
 
-		node.declareOutOfSync(syncIssueNotInSyncWithPool)
+		node.declareOutOfSync(syncStatusNotInSyncWithPool)
 		heads := []head{{BlockNumber: highestBlock - 1}, {BlockNumber: highestBlock}}
 		writeHeads(t, ch, heads...)
 		assert.Equal(t, nodeStateOutOfSync, node.State())

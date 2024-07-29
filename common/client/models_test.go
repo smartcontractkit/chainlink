@@ -17,27 +17,27 @@ func TestSendTxReturnCode_String(t *testing.T) {
 	}
 }
 
-func TestSyncIssue(t *testing.T) {
-	t.Run("All of the issues have proper string representation", func(t *testing.T) {
-		for i := syncIssueNotInSyncWithPool; i < syncIssueLen; i <<= 1 {
-			// ensure that i's string representation is not equal to `syncIssue(%d)`
-			assert.NotContains(t, i.String(), "syncIssue(")
+func TestSyncStatus_String(t *testing.T) {
+	t.Run("All of the statuses have proper string representation", func(t *testing.T) {
+		for i := syncStatusNotInSyncWithPool; i < syncStatusLen; i <<= 1 {
+			// ensure that i's string representation is not equal to `syncStatus(%d)`
+			assert.NotContains(t, i.String(), "syncStatus(")
 		}
 	})
 	t.Run("Unwraps mask", func(t *testing.T) {
 		testCases := []struct {
-			Mask        syncIssue
+			Mask        syncStatus
 			ExpectedStr string
 		}{
 			{
-				ExpectedStr: "synced",
+				ExpectedStr: "Synced",
 			},
 			{
-				Mask:        syncIssueNotInSyncWithPool | syncIssueNoNewHead,
+				Mask:        syncStatusNotInSyncWithPool | syncStatusNoNewHead,
 				ExpectedStr: "NotInSyncWithRPCPool,NoNewHead",
 			},
 			{
-				Mask:        syncIssueNotInSyncWithPool | syncIssueNoNewHead | syncIssueNoNewFinalizedHead,
+				Mask:        syncStatusNotInSyncWithPool | syncStatusNoNewHead | syncStatusNoNewFinalizedHead,
 				ExpectedStr: "NotInSyncWithRPCPool,NoNewHead,NoNewFinalizedHead",
 			},
 		}

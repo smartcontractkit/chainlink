@@ -184,7 +184,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 					lggr.Criticalf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState)
 					continue
 				}
-				n.declareOutOfSync(syncIssueNotInSyncWithPool)
+				n.declareOutOfSync(syncStatusNotInSyncWithPool)
 				return
 			}
 		case bh, open := <-headsSub.Heads:
@@ -215,7 +215,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 					continue
 				}
 			}
-			n.declareOutOfSync(syncIssueNoNewHead)
+			n.declareOutOfSync(syncStatusNoNewHead)
 			return
 		case latestFinalized, open := <-finalizedHeadsSub.Heads:
 			if !open {
@@ -241,7 +241,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 					continue
 				}
 			}
-			n.declareOutOfSync(syncIssueNoNewFinalizedHead)
+			n.declareOutOfSync(syncStatusNoNewFinalizedHead)
 			return
 		case <-finalizedHeadsSub.Errors:
 			lggr.Errorw("Finalized heads subscription was terminated", "err", err)
@@ -383,7 +383,7 @@ const (
 )
 
 // outOfSyncLoop takes an OutOfSync node and waits until isOutOfSync returns false to go back to live status
-func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncIssue) {
+func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 	defer n.wg.Done()
 	ctx, cancel := n.newCtx()
 	defer cancel()
@@ -442,7 +442,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncIssue) {
 
 	_, localHighestChainInfo := n.rpc.GetInterceptedChainInfo()
 	for {
-		if syncIssues == 0 {
+		if syncIssues == syncStatusSynced {
 			// back in-sync! flip back into alive loop
 			lggr.Infow(fmt.Sprintf("%s: %s. Node was out-of-sync for %s", msgInSync, n.String(), time.Since(outOfSyncAt)))
 			n.declareInSync()
@@ -463,11 +463,14 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncIssue) {
 				continue
 			}
 
-			syncIssues &= ^syncIssueNoNewHead
+			// received a new head - clear NoNewHead flag
+			syncIssues &= ^syncStatusNoNewHead
 			if outOfSync, _ := n.isOutOfSyncWithPool(localHighestChainInfo); !outOfSync {
-				syncIssues &= ^syncIssueNotInSyncWithPool
+				// we caught up with the pool - clear NotInSyncWithPool flag
+				syncIssues &= ^syncStatusNotInSyncWithPool
 			} else {
-				syncIssues |= syncIssueNotInSyncWithPool
+				// we've received new head, but lagging behind the pool, add NotInSyncWithPool flag to prevent false transition to alive
+				syncIssues |= syncStatusNotInSyncWithPool
 			}
 
 			if noNewHeadsTimeoutThreshold > 0 {
@@ -488,8 +491,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncIssue) {
 			n.declareUnreachable()
 			return
 		case <-headsSub.NoNewHeads:
-			// we are not resetting the timer, as there is no need to add syncIssueNoNewHead until it's removed on new head.
-			syncIssues |= syncIssueNoNewHead
+			// we are not resetting the timer, as there is no need to add syncStatusNoNewHead until it's removed on new head.
+			syncIssues |= syncStatusNoNewHead
 			lggr.Debugw(fmt.Sprintf("No new heads received for %s. Node stays out-of-sync due to sync issues: %s", noNewHeadsTimeoutThreshold, syncIssues))
 		case latestFinalized, open := <-finalizedHeadsSub.Heads:
 			if !open {
@@ -507,7 +510,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncIssue) {
 				continue
 			}
 
-			syncIssues &= ^syncIssueNoNewFinalizedHead
+			// on new finalized head remove NoNewFinalizedHead flag from the mask
+			syncIssues &= ^syncStatusNoNewFinalizedHead
 			if noNewFinalizedBlocksTimeoutThreshold > 0 {
 				finalizedHeadsSub.ResetTimer(noNewFinalizedBlocksTimeoutThreshold)
 			}
@@ -518,8 +522,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncIssue) {
 			n.declareUnreachable()
 			return
 		case <-finalizedHeadsSub.NoNewHeads:
-			// we are not resetting the timer, as there is no need to add syncIssueNoNewFinalizedHead until it's removed on new finalized head.
-			syncIssues |= syncIssueNoNewFinalizedHead
+			// we are not resetting the timer, as there is no need to add syncStatusNoNewFinalizedHead until it's removed on new finalized head.
+			syncIssues |= syncStatusNoNewFinalizedHead
 			lggr.Debugw(fmt.Sprintf("No new finalized heads received for %s. Node stays out-of-sync due to sync issues: %s", noNewFinalizedBlocksTimeoutThreshold, syncIssues))
 		}
 	}

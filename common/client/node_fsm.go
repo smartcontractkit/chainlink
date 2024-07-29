@@ -239,7 +239,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(fn func()) {
 
 // declareOutOfSync puts a node into OutOfSync state, disconnecting all current
 // clients and making it unavailable for use until back in-sync.
-func (n *node[CHAIN_ID, HEAD, RPC]) declareOutOfSync(syncIssues syncIssue) {
+func (n *node[CHAIN_ID, HEAD, RPC]) declareOutOfSync(syncIssues syncStatus) {
 	n.transitionToOutOfSync(func() {
 		n.lfcLog.Errorw("RPC Node is out of sync", "nodeState", n.state, "syncIssues", syncIssues)
 		n.wg.Add(1)

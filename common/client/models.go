@@ -76,25 +76,27 @@ func (n NodeTier) String() string {
 	}
 }
 
-// syncIssue - defines problems related to RPC's state synchronization. Can be used as a bitmask to define multiple issues
-type syncIssue int
+// syncStatus - defines problems related to RPC's state synchronization. Can be used as a bitmask to define multiple issues
+type syncStatus int
 
 const (
-	// syncIssueNotInSyncWithPool - RPC is lagging behind the highest block observed within the pool of RPCs
-	syncIssueNotInSyncWithPool syncIssue = 1 << iota
-	// syncIssueNoNewHead - RPC failed to produce a new head for too long
-	syncIssueNoNewHead
-	// syncIssueNoNewFinalizedHead - RPC failed to produce a new finalized head for too long
-	syncIssueNoNewFinalizedHead
-	syncIssueLen
+	// syncStatusSynced - RPC is fully synced
+	syncStatusSynced = 0
+	// syncStatusNotInSyncWithPool - RPC is lagging behind the highest block observed within the pool of RPCs
+	syncStatusNotInSyncWithPool syncStatus = 1 << iota
+	// syncStatusNoNewHead - RPC failed to produce a new head for too long
+	syncStatusNoNewHead
+	// syncStatusNoNewFinalizedHead - RPC failed to produce a new finalized head for too long
+	syncStatusNoNewFinalizedHead
+	syncStatusLen
 )
 
-func (s syncIssue) String() string {
-	if s == 0 {
-		return "synced"
+func (s syncStatus) String() string {
+	if s == syncStatusSynced {
+		return "Synced"
 	}
 	var result bytes.Buffer
-	for i := syncIssueNotInSyncWithPool; i < syncIssueLen; i = i << 1 {
+	for i := syncStatusNotInSyncWithPool; i < syncStatusLen; i = i << 1 {
 		if i&s == 0 {
 			continue
 		}
@@ -105,15 +107,15 @@ func (s syncIssue) String() string {
 	return result.String()
 }
 
-func (s syncIssue) string() string {
+func (s syncStatus) string() string {
 	switch s {
-	case syncIssueNotInSyncWithPool:
+	case syncStatusNotInSyncWithPool:
 		return "NotInSyncWithRPCPool"
-	case syncIssueNoNewHead:
+	case syncStatusNoNewHead:
 		return "NoNewHead"
-	case syncIssueNoNewFinalizedHead:
+	case syncStatusNoNewFinalizedHead:
 		return "NoNewFinalizedHead"
 	default:
-		return fmt.Sprintf("syncIssue(%d)", s)
+		return fmt.Sprintf("syncStatus(%d)", s)
 	}
 }
