@@ -8,8 +8,6 @@ import (
 
 // Simple wrapper around a channel to transmit offchain reports between
 // OCR plugin and Gateway connector
-//
-//go:generate mockery --quiet --name OffchainTransmitter --output ./mocks/ --case=underscore
 type OffchainTransmitter interface {
 	TransmitReport(ctx context.Context, report *OffchainResponse) error
 	ReportChannel() chan *OffchainResponse

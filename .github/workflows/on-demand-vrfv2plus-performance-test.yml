@@ -8,17 +8,17 @@ on:
         type: string          
       performanceTestType:
         description: Performance Test Type of test to run
-        type: choice
-        options:
-          - "Smoke"
-          - "Soak"
-          - "Load"
-          - "Stress"
-          - "Spike"
+        type: string
+        required: true
       test_list_regex:
         description: "Regex for tests to run"
         required: false
         default: "(TestVRFV2PlusPerformance)"
+      test_secrets_override_key:
+        description: 'Key to run tests with custom test secrets'
+        required: false
+        type: string 
+
 jobs:
   vrfv2plus_performance_test:
     name: VRFV2 Plus Performance Test
@@ -76,10 +76,11 @@ jobs:
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY                
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
         with:
           test_command_to_run: cd ./integration-tests/load && go test -v -count=1 -timeout 24h -run "${{ inputs.test_list_regex }}" ./vrfv2plus
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_secrets_override_base64: ${{ secrets[inputs.test_secrets_override_key] }}
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}

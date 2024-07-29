@@ -3,7 +3,7 @@ package ocr
 import (
 	"testing"
 
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 
 	"github.com/stretchr/testify/require"
 
@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/k8s"
+	"github.com/smartcontractkit/chainlink/integration-tests/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -28,20 +28,17 @@ func TestOCRLoad(t *testing.T) {
 	config, err := tc.GetConfig([]string{"Load"}, tc.OCR)
 	require.NoError(t, err)
 
-	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote()
+	sethClient, msClient, bootstrapNode, workerNodes, err := crib.ConnectRemote()
 	require.NoError(t, err)
 
-	seth, err := seth_utils.GetChainClient(config, *evmNetwork)
-	require.NoError(t, err, "Error creating seth client")
-
-	lta, err := SetupCluster(l, seth, workerNodes)
+	lta, err := actions.SetupOCRv1Cluster(l, sethClient, workerNodes)
 	require.NoError(t, err)
-	ocrInstances, err := SetupFeed(l, seth, lta, msClient, bootstrapNode, workerNodes)
+	ocrInstances, err := actions.SetupOCRv1Feed(l, sethClient, lta, msClient, bootstrapNode, workerNodes)
 	require.NoError(t, err)
 
 	cfg := config.OCR
 	cfgl := config.Logging.Loki
-	SimulateEAActivity(l, cfg.Load.EAChangeInterval.Duration, ocrInstances, workerNodes, msClient)
+	actions.SimulateOCRv1EAActivity(l, cfg.Load.EAChangeInterval.Duration, ocrInstances, workerNodes, msClient)
 
 	p := wasp.NewProfile()
 	p.Add(wasp.NewGenerator(&wasp.Config{
@@ -51,7 +48,7 @@ func TestOCRLoad(t *testing.T) {
 		CallTimeout:           cfg.Load.VerificationTimeout.Duration,
 		RateLimitUnitDuration: cfg.Load.RateLimitUnitDuration.Duration,
 		Schedule:              wasp.Plain(*cfg.Load.Rate, cfg.Load.TestDuration.Duration),
-		Gun:                   NewGun(l, seth, ocrInstances),
+		Gun:                   NewGun(l, sethClient, ocrInstances),
 		Labels:                CommonTestLabels,
 		LokiConfig:            wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 	}))
@@ -64,13 +61,10 @@ func TestOCRVolume(t *testing.T) {
 	config, err := tc.GetConfig([]string{"Volume"}, tc.OCR)
 	require.NoError(t, err)
 
-	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote()
+	sethClient, msClient, bootstrapNode, workerNodes, err := crib.ConnectRemote()
 	require.NoError(t, err)
 
-	seth, err := seth_utils.GetChainClient(config, *evmNetwork)
-	require.NoError(t, err, "Error creating seth client")
-
-	lta, err := SetupCluster(l, seth, workerNodes)
+	lta, err := actions.SetupOCRv1Cluster(l, sethClient, workerNodes)
 	require.NoError(t, err)
 
 	cfg := config.OCR
@@ -83,7 +77,7 @@ func TestOCRVolume(t *testing.T) {
 		LoadType:    wasp.VU,
 		CallTimeout: cfg.Volume.VerificationTimeout.Duration,
 		Schedule:    wasp.Plain(*cfg.Volume.Rate, cfg.Volume.TestDuration.Duration),
-		VU:          NewVU(l, seth, *cfg.Volume.VURequestsPerUnit, cfg.Volume.RateLimitUnitDuration.Duration, lta, bootstrapNode, workerNodes, msClient),
+		VU:          NewVU(l, sethClient, *cfg.Volume.VURequestsPerUnit, cfg.Volume.RateLimitUnitDuration.Duration, lta, bootstrapNode, workerNodes, msClient),
 		Labels:      CommonTestLabels,
 		LokiConfig:  wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 	}))

@@ -44,8 +44,6 @@ type Metadata struct {
 	Signature []byte
 }
 
-//go:generate mockery --quiet --name Storage --output ./mocks/ --case=underscore
-
 // Storage represents S4 storage access interface.
 // All functions are thread-safe.
 type Storage interface {

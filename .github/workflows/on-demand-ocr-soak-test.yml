@@ -27,7 +27,11 @@ on:
         required: true
         default: U01A2B2C3D4
         type: string
-
+      test_secrets_override_key:
+        description: 'Key to run tests with custom test secrets'
+        required: false
+        type: string 
+        
 jobs:
   ocr_soak_test:
     name: OCR Soak Test
@@ -89,7 +93,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
         env:
           DETACH_RUNNER: true
           TEST_SUITE: soak
@@ -101,6 +105,7 @@ jobs:
         with:
           test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^${{ github.event.inputs.testToRun }}$ ./soak
           test_download_vendor_packages_command: make gomod
+          test_secrets_override_base64: ${{ secrets[inputs.test_secrets_override_key] }}
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           token: ${{ secrets.GITHUB_TOKEN }}

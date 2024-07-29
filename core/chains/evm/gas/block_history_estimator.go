@@ -91,7 +91,6 @@ type estimatorGasEstimatorConfig interface {
 	bumpConfig
 }
 
-//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type BlockHistoryEstimator struct {
 	services.StateMachine
 	ethClient feeEstimatorClient

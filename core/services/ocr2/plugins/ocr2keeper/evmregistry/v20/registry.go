@@ -59,7 +59,6 @@ var (
 	logEventLookback           int64 = 250
 )
 
-//go:generate mockery --quiet --name Registry --output ./mocks/ --case=underscore
 type Registry interface {
 	GetUpkeep(opts *bind.CallOpts, id *big.Int) (keeper_registry_wrapper2_0.UpkeepInfo, error)
 	GetState(opts *bind.CallOpts) (keeper_registry_wrapper2_0.GetState, error)

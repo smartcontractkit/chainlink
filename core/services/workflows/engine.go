@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -32,12 +33,10 @@ type Engine struct {
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
-	getLocalNode         func(ctx context.Context) (capabilities.Node, error)
 	localNode            capabilities.Node
 	executionStates      store.Store
 	pendingStepRequests  chan stepRequest
 	triggerEvents        chan capabilities.CapabilityResponse
-	newWorkerCh          chan struct{}
 	stepUpdateCh         chan store.WorkflowExecutionStep
 	wg                   sync.WaitGroup
 	stopCh               services.StopChan
@@ -55,6 +54,8 @@ type Engine struct {
 	// when initializing the engine.
 	retryMs int
 
+	maxWorkerLimit int
+
 	clock clockwork.Clock
 }
 
@@ -62,6 +63,11 @@ func (e *Engine) Start(ctx context.Context) error {
 	return e.StartOnce("Engine", func() error {
 		// create a new context, since the one passed in via Start is short-lived.
 		ctx, _ := e.stopCh.NewCtx()
+
+		e.wg.Add(e.maxWorkerLimit)
+		for i := 0; i < e.maxWorkerLimit; i++ {
+			go e.worker(ctx)
+		}
 
 		e.wg.Add(2)
 		go e.init(ctx)
@@ -157,9 +163,11 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		return newCPErr("failed to get capability info", err)
 	}
 
+	step.info = info
+
 	// Special treatment for local targets - wrap into a transmission capability
 	// If the DON is nil, this is a local target.
-	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.DON == nil {
+	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.IsLocal {
 		l := e.logger.With("capabilityID", step.ID)
 		l.Debug("wrapping capability in local transmission protocol")
 		cp = transmission.NewLocalTargetCapability(
@@ -215,7 +223,7 @@ func (e *Engine) init(ctx context.Context) {
 	retryErr := retryable(ctx, e.logger, e.retryMs, e.maxRetries, func() error {
 		// first wait for localDON to return a non-error response; this depends
 		// on the underlying peerWrapper returning the PeerID.
-		node, err := e.getLocalNode(ctx)
+		node, err := e.registry.LocalNode(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get donInfo: %w", err)
 		}
@@ -431,21 +439,6 @@ func (e *Engine) loop(ctx context.Context) {
 			if err != nil {
 				e.logger.With(eIDKey, executionID).Errorf("failed to start execution: %v", err)
 			}
-		case pendingStepRequest := <-e.pendingStepRequests:
-			// Wait for a new worker to be available before dispatching a new one.
-			// We'll do this up to newWorkerTimeout. If this expires, we'll put the
-			// message back on the queue and keep going.
-			t := e.clock.NewTimer(e.newWorkerTimeout)
-			select {
-			case <-e.newWorkerCh:
-				e.wg.Add(1)
-				go e.workerForStepRequest(ctx, pendingStepRequest)
-			case <-t.Chan():
-				e.logger.With(eIDKey, pendingStepRequest.state.ExecutionID, sRKey, pendingStepRequest.stepRef).
-					Errorf("timed out when spinning off worker for pending step request %+v", pendingStepRequest)
-				e.pendingStepRequests <- pendingStepRequest
-			}
-			t.Stop()
 		case stepUpdate := <-e.stepUpdateCh:
 			// Executed synchronously to ensure we correctly schedule subsequent tasks.
 			err := e.handleStepUpdate(ctx, stepUpdate)
@@ -631,10 +624,20 @@ func (e *Engine) finishExecution(ctx context.Context, executionID string, status
 	return nil
 }
 
-func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
-	defer func() { e.newWorkerCh <- struct{}{} }()
+func (e *Engine) worker(ctx context.Context) {
 	defer e.wg.Done()
 
+	for {
+		select {
+		case pendingStepRequest := <-e.pendingStepRequests:
+			e.workerForStepRequest(ctx, pendingStepRequest)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// Instantiate a child logger; in addition to the WorkflowID field the workflow
 	// logger will already have, this adds the `stepRef` and `executionID`
 	l := e.logger.With(sRKey, msg.stepRef, eIDKey, msg.state.ExecutionID)
@@ -678,6 +681,45 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 }
 
+func merge(baseConfig *values.Map, overrideConfig *values.Map) *values.Map {
+	m := values.EmptyMap()
+
+	for k, v := range baseConfig.Underlying {
+		m.Underlying[k] = v
+	}
+
+	for k, v := range overrideConfig.Underlying {
+		m.Underlying[k] = v
+	}
+
+	return m
+}
+
+func (e *Engine) configForStep(ctx context.Context, executionID string, step *step) (*values.Map, error) {
+	ID := step.info.ID
+
+	// If the capability info is missing a DON, then
+	// the capability is local, and we should use the localNode's DON ID.
+	var donID uint32
+	if !step.info.IsLocal {
+		donID = step.info.DON.ID
+	} else {
+		donID = e.localNode.WorkflowDON.ID
+	}
+
+	capConfig, err := e.registry.ConfigForCapability(ctx, ID, donID)
+	if err != nil {
+		e.logger.Warnw(fmt.Sprintf("could not retrieve config from remote registry: %s", err), "executionID", executionID, "capabilityID", ID)
+		return step.config, nil
+	}
+
+	// Merge the configs for now; note that this means that a workflow can override
+	// all of the config set by the capability. This is probably not desirable in
+	// the long-term, but we don't know much about those use cases so stick to a simpler
+	// implementation for now.
+	return merge(capConfig.DefaultConfig, step.config), nil
+}
+
 // executeStep executes the referenced capability within a step and returns the result.
 func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map, values.Value, error) {
 	step, err := e.workflow.Vertex(msg.stepRef)
@@ -702,9 +744,14 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		return nil, nil, err
 	}
 
+	config, err := e.configForStep(ctx, msg.state.ExecutionID, step)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	tr := capabilities.CapabilityRequest{
 		Inputs: inputsMap,
-		Config: step.config,
+		Config: config,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               msg.state.WorkflowID,
 			WorkflowExecutionID:      msg.state.ExecutionID,
@@ -823,7 +870,6 @@ type Config struct {
 	QueueSize            int
 	NewWorkerTimeout     time.Duration
 	MaxExecutionDuration time.Duration
-	GetLocalNode         func(ctx context.Context) (capabilities.Node, error)
 	Store                store.Store
 
 	// For testing purposes only
@@ -866,12 +912,6 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		cfg.MaxExecutionDuration = defaultMaxExecutionDuration
 	}
 
-	if cfg.GetLocalNode == nil {
-		cfg.GetLocalNode = func(ctx context.Context) (capabilities.Node, error) {
-			return capabilities.Node{}, nil
-		}
-	}
-
 	if cfg.retryMs == 0 {
 		cfg.retryMs = 5000
 	}
@@ -905,32 +945,25 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	workflow.owner = cfg.WorkflowOwner
 	workflow.name = hex.EncodeToString([]byte(cfg.WorkflowName))
 
-	// Instantiate semaphore to put a limit on the number of workers
-	newWorkerCh := make(chan struct{}, cfg.MaxWorkerLimit)
-	for i := 0; i < cfg.MaxWorkerLimit; i++ {
-		newWorkerCh <- struct{}{}
-	}
-
 	engine = &Engine{
 		logger:               cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
 		registry:             cfg.Registry,
 		workflow:             workflow,
-		getLocalNode:         cfg.GetLocalNode,
 		executionStates:      cfg.Store,
 		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
-		newWorkerCh:          newWorkerCh,
 		stepUpdateCh:         make(chan store.WorkflowExecutionStep),
 		triggerEvents:        make(chan capabilities.CapabilityResponse),
 		stopCh:               make(chan struct{}),
 		newWorkerTimeout:     cfg.NewWorkerTimeout,
 		maxExecutionDuration: cfg.MaxExecutionDuration,
-
-		onExecutionFinished: cfg.onExecutionFinished,
-		afterInit:           cfg.afterInit,
-		maxRetries:          cfg.maxRetries,
-		retryMs:             cfg.retryMs,
-		clock:               cfg.clock,
+		onExecutionFinished:  cfg.onExecutionFinished,
+		afterInit:            cfg.afterInit,
+		maxRetries:           cfg.maxRetries,
+		retryMs:              cfg.retryMs,
+		maxWorkerLimit:       cfg.MaxWorkerLimit,
+		clock:                cfg.clock,
 	}
+
 	return engine, nil
 }
 
