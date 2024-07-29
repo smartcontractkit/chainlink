@@ -205,6 +205,8 @@ github.com/avast/retry-go v3.0.0+incompatible h1:4SOWQ7Qs+oroOTQOYnAHqelpCO0biHS
 github.com/avast/retry-go v3.0.0+incompatible/go.mod h1:XtSnn+n/sHqQIpZ10K1qAevBhOOCWBLXXy3hyiqqBrY=
 github.com/avast/retry-go/v4 v4.5.1 h1:AxIx0HGi4VZ3I02jr78j5lZ3M6x1E0Ivxa6b0pUUh7o=
 github.com/avast/retry-go/v4 v4.5.1/go.mod h1:/sipNsvNB3RRuT5iNcb6h73nw3IBmXJ/H3XrCQYSOpc=
+github.com/awalterschulze/gographviz v2.0.3+incompatible h1:9sVEXJBJLwGX7EQVhLm2elIKCm7P2YHFC8v6096G09E=
+github.com/awalterschulze/gographviz v2.0.3+incompatible/go.mod h1:GEV5wmg4YquNw7v1kkyoX9etIk8yVmXj+AkDHuuETHs=
 github.com/aws/aws-sdk-go v1.22.1/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
 github.com/aws/aws-sdk-go v1.23.20/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
 github.com/aws/aws-sdk-go v1.38.35/go.mod h1:hcU610XS61/+aQV88ixoOzUoG7v3b31pl2zKMmprdro=
@@ -1506,8 +1508,8 @@ github.com/smartcontractkit/havoc/k8schaos v0.0.0-20240409145249-e78d20847e37 h1
 github.com/smartcontractkit/havoc/k8schaos v0.0.0-20240409145249-e78d20847e37/go.mod h1:/kFr0D7SI/vueXl1N03uzOun4nViGPFRyA5X6eL3jXw=
 github.com/smartcontractkit/libocr v0.0.0-20240702141926-063ceef8c42e h1:9ypZ/8aW8Vm497i1gXHcT96oNLiu88jbg9QdX+IUE3E=
 github.com/smartcontractkit/libocr v0.0.0-20240702141926-063ceef8c42e/go.mod h1:fb1ZDVXACvu4frX3APHZaEBp0xi1DIm34DcA0CwTsZM=
-github.com/smartcontractkit/seth v1.0.12 h1:iVdgMx42XWanPPnBaM5StR4c1XsTr/0/B/kKRZL5BsY=
-github.com/smartcontractkit/seth v1.0.12/go.mod h1:thWtbLyW4nRHJGzC5heknQDORoJPErE15sF34LHkorg=
+github.com/smartcontractkit/seth v1.1.0 h1:A0BEh6+Lo/zosB0oihRA5eq2CqcWi0t1f/iX3rHZzM8=
+github.com/smartcontractkit/seth v1.1.0/go.mod h1:cDfKHi/hJLpO9sRpVbrflrHCOV+MJPAMJHloExJnIXk=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 h1:yiKnypAqP8l0OX0P3klzZ7SCcBUxy5KqTAKZmQOvSQE=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1/go.mod h1:q6f4fe39oZPdsh1i57WznEZgxd8siidMaSFq3wdPmVg=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 h1:Dai1bn+Q5cpeGMQwRdjOdVjG8mmFFROVkSKuUgBErRQ=

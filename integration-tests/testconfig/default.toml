@@ -99,7 +99,11 @@ FeeCapDefault = '200 gwei'
 # if transaction level doesn't match, then calling Decode() does nothing. It's advised to keep it set
 # to 'reverted' to limit noise. If you combine it with 'trace_to_json' it will save all possible data
 # in JSON files for reverted transactions.
-tracing_level = "reverted"
+
+# DEBUG: Checking for CI artifacts
+# tracing_level = "reverted"
+tracing_level = "all"
+trace_outputs = ["dot"]
 # saves each decoding/tracing results to JSON files; what exactly is saved depends on what we
 # were able te decode, we try to save maximum information possible. It can either be:
 # just tx hash, decoded transaction or call trace. Which transactions traces are saved depends
