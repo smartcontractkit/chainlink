@@ -55,7 +55,7 @@ jobs:
   # some product-level modifications might also require shared contracts changes, so if these happened we need to generate artifacts for shared contracts as well
   coverage-and-book:
     if: ${{ needs.changes.outputs.changes == 'true' }}
-    name: Foundry Tests
+    name: Generate Docs and Code Coverage reports
     runs-on: ubuntu-22.04
     needs: [changes]
     steps:
@@ -89,6 +89,11 @@ jobs:
         env:
           FOUNDRY_PROFILE: "shared"
 
+      - name: Create directories
+        shell: bash
+        run: |
+          mkdir -p contracts/code-coverage
+
       # required for code coverage report generation
       - name: Setup LCOV
         uses: hrishikesh-kadam/setup-lcov@f5da1b26b0dcf5d893077a3c4f29cf78079c841d # v1.0.0
@@ -96,14 +101,14 @@ jobs:
       - name: Run coverage for
         if: ${{ !contains(fromJson('["vrf"]'), env.PRODUCT) && !contains(fromJson('["automation"]'), env.PRODUCT) && !contains(fromJson('["functions"]'), env.PRODUCT) && needs.changes.outputs.changes == 'true' }}
         working-directory: contracts
-        run: forge coverage --report lcov --report-file lcov-${{ env.PRODUCT }}.info
+        run: forge coverage --report lcov --report-file code-coverage/lcov-${{ env.PRODUCT }}.info
         env:
           FOUNDRY_PROFILE: ${{ env.PRODUCT }}
 
       - name: Run coverage for shared contracts
         if: ${{ needs.changes.outputs.shared_changes == 'true' }}
         working-directory: contracts
-        run: forge coverage --report lcov --report-file lcov-shared.info
+        run: forge coverage --report lcov --report-file code-coverage/lcov-shared.info
         env:
           FOUNDRY_PROFILE: "shared"
 
@@ -122,14 +127,14 @@ jobs:
         shell: bash
         run: |
           cd contracts
-          genhtml lcov-${{ env.PRODUCT }}.info --branch-coverage --output-directory ${{ env.PRODUCT }}-html
+          genhtml lcov-${{ env.PRODUCT }}.info --branch-coverage --output-directory code-coverage/${{ env.PRODUCT }}
 
       - name: Generate Code Coverage HTML report for shared contracts
         if: ${{ needs.changes.outputs.shared_changes == 'true' }}
         shell: bash
         run: |
           cd contracts
-          genhtml lcov-shared.info --branch-coverage --output-directory shared-html          
+          genhtml lcov-shared.info --branch-coverage --output-directory code-coverage/shared          
 
       - name: Run Forge doc for
         run: |
@@ -154,8 +159,8 @@ jobs:
           name: tmp-${{ env.PRODUCT }}-artifacts
           path: |
             contracts/docs/${{ env.PRODUCT }}
-            contracts/lcov-${{ env.PRODUCT }}.info
-            contracts/${{ env.PRODUCT }}-html
+            contracts/code-coverage/lcov-${{ env.PRODUCT }}.info
+            contracts/code-coverage/${{ env.PRODUCT }}
           retention-days: 7
 
       - name: Upload Artifacts for shared contracts
@@ -167,8 +172,8 @@ jobs:
           name: tmp-shared-artifacts
           path: |
             contracts/docs/shared
-            contracts/shared-lcov.info
-            contracts/shared-html
+            contracts/code-coverage/shared-lcov.info
+            contracts/code-coverage/shared
           retention-days: 7
 
   # Generates UML diagrams and Slither reports for modified contracts
@@ -223,6 +228,8 @@ jobs:
           cd contracts
           
           echo "Commit SHA used to generate artifacts: ${{ github.sha }}" > commit_sha.txt
+          #TODO remove github.base_ref after testing
+          echo "Base reference SHA used to find modified contracts: ${{ inputs.base_ref || github.base_ref }}" >> commit_sha_base_ref.txt 
           contract_list="${{ needs.changes.outputs.files }}"
           new_line_list=$(echo "$contract_list" | tr ',' '\n' | sed 's/,$//')
           printf "%s\n" "$new_line_list" > modified_contracts.txt
@@ -238,7 +245,7 @@ jobs:
           ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
           mv remappings_modified.txt remappings.txt
                     
-          ./contracts/scripts/ci/generate_uml.sh "./" "contracts/uml" "$contract_list"
+          ./contracts/scripts/ci/generate_uml.sh "./" "contracts/uml-diagrams" "$contract_list"
 
       - name: Generate Slither Markdown reports
         run: |
@@ -254,10 +261,10 @@ jobs:
         with:
           name: tmp-contracts-artifacts
           path: |
-            contracts/uml
+            contracts/uml-diagrams
             contracts/slither-reports
             contracts/modified_contracts.txt
-            contracts/commit_sha.txt
+            contracts/commit_sha_base_ref.txt
           retention-days: 7
 
   gather-all-artifacts:
@@ -358,11 +365,12 @@ jobs:
       # TODO remove ELSE branch after testing
       - name: Print Artifact URL in job summary
         run: |
-          echo "#Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
+          echo "# Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "Base Ref used: ${{ inputs.base_ref }}" >> $GITHUB_STEP_SUMMARY
           else
-            echo "Commit SHA used: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+            echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
+            echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
           fi
           echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.get_artifact_id.outputs.artifact_id }})" >> $GITHUB_STEP_SUMMARY        
 
@@ -374,9 +382,10 @@ jobs:
       - name: Print warning in job summary
         shell: bash
         run: |
-          echo "#Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
+          echo "# Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
              if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-               echo "Base Ref used: ${{ inputs.base_ref }}" >> $GITHUB_STEP_SUMMARY
+               echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
+               echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
                desc="No modified Solidity files found between ${{ inputs.base_ref }} and ${{ github.sha }} or they are located outside of './contracts' folder."
              else
                echo "Commit SHA used: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
