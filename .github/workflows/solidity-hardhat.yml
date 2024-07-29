@@ -59,9 +59,9 @@ jobs:
         shell: bash
         run: |
           echo "Modified contracts: ${{ steps.changes.outputs.sol_files }}"
-          excluded_paths_pattern="!/^contracts\/src\/v0\.8\/shared/ && !/^contracts\/src\/v0\.8\/${{ env.PRODUCT}} /"
+          excluded_paths_pattern="!/^contracts\/src\/v0\.8\/shared/ && !/^contracts\/src\/v0\.8\/${{ env.PRODUCT}}/"
           echo "Excluded paths: $excluded_paths_pattern"
-          unexpected_files=$(echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n' | awk $excluded_paths_pattern)
+          unexpected_files=$(echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n' | awk "$excluded_paths_pattern")
           if [[ -n "$unexpected_files" ]]; then
             echo "Error: Found modified contracts outside of the expected scope: $unexpected_files"
             echo "Please generate artifacts for them separately"
