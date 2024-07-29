@@ -1156,36 +1156,6 @@ func (_c *TxStore_FindTxesPendingCallback_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HA
 	return _c
 }
 
-// FindTxesToMarkFinalized provides a mock function with given fields: ctx, finalizedBlockNum, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesToMarkFinalized(ctx context.Context, finalizedBlockNum int64, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	ret := _m.Called(ctx, finalizedBlockNum, chainID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for FindTxesToMarkFinalized")
-	}
-
-	var r0 []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
-		return rf(ctx, finalizedBlockNum, chainID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, CHAIN_ID) []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(ctx, finalizedBlockNum, chainID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int64, CHAIN_ID) error); ok {
-		r1 = rf(ctx, finalizedBlockNum, chainID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // FindTxesWithAttemptsAndReceiptsByIdsAndState provides a mock function with given fields: ctx, ids, states, chainID
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []int64, states []txmgrtypes.TxState, chainID *big.Int) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	ret := _m.Called(ctx, ids, states, chainID)
@@ -1790,37 +1760,6 @@ func (_c *TxStore_HasInProgressTransaction_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_H
 	return _c
 }
 
-// TxStore_IsTxFinalized_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsTxFinalized'
-type TxStore_IsTxFinalized_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
-	*mock.Call
-}
-
-// IsTxFinalized is a helper method to define mock.On call
-//   - ctx context.Context
-//   - blockHeight int64
-//   - txID int64
-//   - chainID CHAIN_ID
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsTxFinalized(ctx interface{}, blockHeight interface{}, txID interface{}, chainID interface{}) *TxStore_IsTxFinalized_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_IsTxFinalized_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("IsTxFinalized", ctx, blockHeight, txID, chainID)}
-}
-
-func (_c *TxStore_IsTxFinalized_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, blockHeight int64, txID int64, chainID CHAIN_ID)) *TxStore_IsTxFinalized_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(int64), args[2].(int64), args[3].(CHAIN_ID))
-	})
-	return _c
-}
-
-func (_c *TxStore_IsTxFinalized_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(finalized bool, err error) *TxStore_IsTxFinalized_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Return(finalized, err)
-	return _c
-}
-
-func (_c *TxStore_IsTxFinalized_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, int64, int64, CHAIN_ID) (bool, error)) *TxStore_IsTxFinalized_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Return(run)
-	return _c
-}
-
 // LoadTxAttempts provides a mock function with given fields: ctx, etx
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) LoadTxAttempts(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	ret := _m.Called(ctx, etx)
@@ -2041,6 +1980,11 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PruneUnstar
 	return r0, r1
 }
 
+// TxStore_PruneUnstartedTxQueue_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PruneUnstartedTxQueue'
+type TxStore_PruneUnstartedTxQueue_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
+	*mock.Call
+}
+
 // PruneUnstartedTxQueue is a helper method to define mock.On call
 //   - ctx context.Context
 //   - queueSize uint32
@@ -2065,12 +2009,6 @@ func (_c *TxStore_PruneUnstartedTxQueue_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH
 	_c.Call.Return(run)
 	return _c
 }
-
-// TxStore_PruneUnstartedTxQueue_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PruneUnstartedTxQueue'
-type TxStore_PruneUnstartedTxQueue_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
-	*mock.Call
-}
-
 
 // ReapTxHistory provides a mock function with given fields: ctx, timeThreshold, chainID
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapTxHistory(ctx context.Context, timeThreshold time.Time, chainID CHAIN_ID) error {
@@ -2097,16 +2035,15 @@ type TxStore_ReapTxHistory_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH 
 
 // ReapTxHistory is a helper method to define mock.On call
 //   - ctx context.Context
-//   - minBlockNumberToKeep int64
 //   - timeThreshold time.Time
 //   - chainID CHAIN_ID
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapTxHistory(ctx interface{}, minBlockNumberToKeep interface{}, timeThreshold interface{}, chainID interface{}) *TxStore_ReapTxHistory_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_ReapTxHistory_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("ReapTxHistory", ctx, minBlockNumberToKeep, timeThreshold, chainID)}
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapTxHistory(ctx interface{}, timeThreshold interface{}, chainID interface{}) *TxStore_ReapTxHistory_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_ReapTxHistory_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("ReapTxHistory", ctx, timeThreshold, chainID)}
 }
 
-func (_c *TxStore_ReapTxHistory_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID)) *TxStore_ReapTxHistory_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_ReapTxHistory_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, timeThreshold time.Time, chainID CHAIN_ID)) *TxStore_ReapTxHistory_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(int64), args[2].(time.Time), args[3].(CHAIN_ID))
+		run(args[0].(context.Context), args[1].(time.Time), args[2].(CHAIN_ID))
 	})
 	return _c
 }
@@ -2116,7 +2053,7 @@ func (_c *TxStore_ReapTxHistory_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ
 	return _c
 }
 
-func (_c *TxStore_ReapTxHistory_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, int64, time.Time, CHAIN_ID) error) *TxStore_ReapTxHistory_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_ReapTxHistory_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, time.Time, CHAIN_ID) error) *TxStore_ReapTxHistory_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2747,24 +2684,6 @@ func (_c *TxStore_UpdateTxUnstartedToInProgress_Call[ADDR, CHAIN_ID, TX_HASH, BL
 func (_c *TxStore_UpdateTxUnstartedToInProgress_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error) *TxStore_UpdateTxUnstartedToInProgress_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
-}
-
-// UpdateTxesFinalized provides a mock function with given fields: ctx, etxs, chainId
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxesFinalized(ctx context.Context, etxs []int64, chainId CHAIN_ID) error {
-	ret := _m.Called(ctx, etxs, chainId)
-
-	if len(ret) == 0 {
-		panic("no return value specified for UpdateTxesFinalized")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []int64, CHAIN_ID) error); ok {
-		r0 = rf(ctx, etxs, chainId)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
 }
 
 // UpdateTxsUnconfirmed provides a mock function with given fields: ctx, ids
