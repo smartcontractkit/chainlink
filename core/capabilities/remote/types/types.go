@@ -8,6 +8,7 @@ import (
 	"context"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -19,6 +20,7 @@ const (
 )
 
 type Dispatcher interface {
+	services.Service
 	SetReceiver(capabilityId string, donId uint32, receiver Receiver) error
 	RemoveReceiver(capabilityId string, donId uint32)
 	Send(peerID p2ptypes.PeerID, msgBody *MessageBody) error
