@@ -39,7 +39,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Find modified contracts
-        uses: https://github.com/AurorNZ/paths-filter@3b1f3abc3371cca888d8eb03dfa70bc8a9867629 # v4.0.0
+        uses: AurorNZ/paths-filter@3b1f3abc3371cca888d8eb03dfa70bc8a9867629 # v4.0.0
         id: changes
         with:
           list-files: 'csv'
