@@ -20,7 +20,6 @@ contract ErroredVerifier is IVerifier {
   error FailedToGetLatestConfigDigestAndEpoch();
   error FailedToGetLatestConfigDetails();
 
-
   function verify(
     bytes memory,
     /**
