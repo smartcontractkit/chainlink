@@ -14,7 +14,7 @@ env:
   FOUNDRY_PROFILE: ci
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
-  PRODUCT: "functions"
+  PRODUCT: "vrf"
   BASE_REF: "v2.13.0"
 
 jobs:
@@ -176,7 +176,7 @@ jobs:
           genhtml code-coverage/lcov-shared.info --branch-coverage --output-directory code-coverage/shared
 
       - name: Run Forge doc for product contracts
-        if: ${{ !contains(fromJson('["vrf"]'), env.PRODUCT) && !contains(fromJson('["automation"]'), env.PRODUCT) && !contains(fromJson('["functions"]'), env.PRODUCT) && needs.changes.outputs.product_changes == 'true' }}
+        if: ${{ needs.changes.outputs.product_changes == 'true' }}
         run: |
           forge doc --build -o docs/${{ env.PRODUCT }}
         working-directory: contracts

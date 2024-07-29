@@ -45,6 +45,7 @@ flatten_and_generate_uml() {
     if [ $? -ne 0 ]; then
         echo "Error: Failed to generate UML diagram in SVG format for $FILE"
         FAILED_FILES+=("$FILE")
+        rm "$FLATTENED_FILE"
         return
     fi
     OUTPUT_FILE_DOT="${OUTPUT_FILE%.sol}.dot"
@@ -53,6 +54,7 @@ flatten_and_generate_uml() {
     if [ $? -ne 0 ]; then
         echo "Error: Failed to generate UML diagram in DOT format for $FILE"
         FAILED_FILES+=("$FILE")
+        rm "$FLATTENED_FILE"
         return
     fi
 
