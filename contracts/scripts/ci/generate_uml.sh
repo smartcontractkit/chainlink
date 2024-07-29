@@ -96,7 +96,7 @@ process_files() {
             # needed, because the action we use returns all modified files, also deleted ones and we must skip those
             echo "File $FILE does not exist within the source directory $SOURCE_DIR."
             echo "Skipping..."
-            return
+            continue
         fi
     done
 }
