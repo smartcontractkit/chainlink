@@ -15,8 +15,7 @@ env:
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
   PRODUCT: "functions"
-
-#TODO remove label trigger after testing
+  BASE_REF: "v2.13.0"
 
 jobs:
   changes:
@@ -44,7 +43,7 @@ jobs:
         id: changes
         with:
           list-files: 'csv'
-          base: ${{ inputs.base_ref || github.base_ref }} #TODO remove after testing
+          base: ${{ env.BASE_REF }} #TODO change to inputs.base_ref after testing
           filters: |
             sol:
               - 'contracts/src/v0.8/**/*.sol'
@@ -87,7 +86,8 @@ jobs:
           echo "## Reason: Found No modified contracts for product ${{ env.PRODUCT }}" >> $GITHUB_STEP_SUMMARY
           echo "## Action required: Please check if you chose correct product and base reference" >> $GITHUB_STEP_SUMMARY
           echo "## Product: ${{ env.PRODUCT }}" >> $GITHUB_STEP_SUMMARY
-          echo "## Base Ref: ${{ inputs.base_ref || github.base_ref }}" >> $GITHUB_STEP_SUMMARY
+          #TODO change to inputs.base_ref after testing
+          echo "## Base Ref: ${{ env.BASE_REF }}" >> $GITHUB_STEP_SUMMARY
 
   # some of the artifacts can only be generated on product level, and we cannot scope them to single contracts
   # some product-level modifications might also require shared contracts changes, so if these happened we need to generate artifacts for shared contracts as well
@@ -259,8 +259,8 @@ jobs:
           cd contracts
           
           echo "Commit SHA used to generate artifacts: ${{ github.sha }}" > commit_sha_base_ref.txt
-          #TODO remove github.base_ref after testing
-          echo "Base reference SHA used to find modified contracts: ${{ inputs.base_ref || github.base_ref }}" >> commit_sha_base_ref.txt 
+          #TODO change to inputs.base_ref after testing
+          echo "Base reference SHA used to find modified contracts: ${{ env.BASE_REF }}" >> commit_sha_base_ref.txt 
           contract_list="${{ needs.changes.outputs.files }}"
           new_line_list=$(echo "$contract_list" | tr ',' '\n' | sed 's/,$//')
           printf "%s\n" "$new_line_list" > modified_contracts.txt
@@ -394,16 +394,12 @@ jobs:
           echo "Artifact ID: $ARTIFACT_ID"
           echo "artifact_id=$ARTIFACT_ID" >> $GITHUB_OUTPUT            
 
-      # TODO remove ELSE branch after testing
       - name: Print Artifact URL in job summary
         run: |
           echo "# Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "Base Ref used: ${{ inputs.base_ref }}" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
-            echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
-          fi
+          # TODO change to inputs.base_ref after testing
+          echo "Base Ref used: **${{ env.BASE_REF }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
           echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.get_artifact_id.outputs.artifact_id }})" >> $GITHUB_STEP_SUMMARY        
 
   notify-no-changes:
@@ -415,11 +411,12 @@ jobs:
         shell: bash
         run: |
           echo "# Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
-          #TODO remove github.base_ref after testing
-          echo "Base Ref used: **${{ inputs.base_ref || github.base_ref }}**" >> $GITHUB_STEP_SUMMARY
+          #TODO change to inputs.base_ref after testing
+          echo "Base Ref used: **${{ env.BASE_REF }}**" >> $GITHUB_STEP_SUMMARY
           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
           echo "## Reason: No modified Solidity files found." >> $GITHUB_STEP_SUMMARY
-          echo "No modified Solidity files found between ${{ inputs.base_ref || github.base_ref }} and ${{ github.sha }} commits or they are located outside of ./contracts/v0.8/${{ env.PRODUCT}} or ./contracts/v0.8/shared folders" >> $GITHUB_STEP_SUMMARY
+          #TODO change to inputs.base_ref after testing
+          echo "No modified Solidity files found between ${{ env.BASE_REF }} and ${{ github.sha }} commits or they are located outside of ./contracts/v0.8/${{ env.PRODUCT}} or ./contracts/v0.8/shared folders" >> $GITHUB_STEP_SUMMARY
           exit 1
 
 #on:
