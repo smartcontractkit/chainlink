@@ -7,7 +7,7 @@ function check_chainlink_dir() {
   current_base=$(basename "$current_dir")
 
   if [ "$current_base" != "$param_dir" ]; then
-    echo "The script must be run from the root of $param_dir directory"
+    >&2 echo "The script must be run from the root of $param_dir directory"
     exit 1
   fi
 }
@@ -15,8 +15,8 @@ function check_chainlink_dir() {
 check_chainlink_dir
 
 if [ "$#" -lt 5 ]; then
-echo "Generates Markdown Slither reports and saves them to a target directory."
-echo "Usage: $0 <https://github.com/ORG/REPO/blob/COMMIT/> <config-file> <root-directory-with–contracts> <comma-separated list of contracts> <where-to-save-reports> [slither extra params]"
+  >&2 echo "Generates Markdown Slither reports and saves them to a target directory."
+  >&2 echo "Usage: $0 <https://github.com/ORG/REPO/blob/COMMIT/> <config-file> <root-directory-with–contracts> <comma-separated list of contracts> <where-to-save-reports> [slither extra params]"
 exit 1
 fi
 
@@ -46,7 +46,7 @@ run_slither() {
 
     source ./contracts/scripts/ci/select_solc_version.sh "$FILE"
     if [ $? -ne 0 ]; then
-        echo "Error: Failed to select Solc version for $FILE"
+        >&2 echo "Error: Failed to select Solc version for $FILE"
         exit 1
     fi
 
@@ -54,7 +54,7 @@ run_slither() {
 
     output=$(slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL" --fail-none $SLITHER_EXTRA_PARAMS)
     if [ $? -ne 0 ]; then
-        echo "Slither failed for $FILE"
+        >&2 echo "Slither failed for $FILE"
         exit 1
     fi
     output=$(echo "$output" | sed '/\*\*THIS CHECKLIST IS NOT COMPLETE\*\*. Use `--show-ignored-findings` to show all the results./d'  | sed '/Summary/d')
@@ -79,7 +79,7 @@ process_files() {
 process_files "$SOURCE_DIR" "$TARGET_DIR" "${FILES[@]}"
 
 if [ $? -ne 0 ]; then
-    echo "Error: Failed to generate Slither reports"
+    >&2 echo "Error: Failed to generate Slither reports"
     exit 1
 fi
 

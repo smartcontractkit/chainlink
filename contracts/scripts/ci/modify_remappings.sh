@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 <directory_prefix> <remappings_file>"
+    >&2 echo "Usage: $0 <directory_prefix> <remappings_file>"
     exit 1
 fi
 
@@ -9,7 +9,7 @@ DIR_PREFIX=$1
 REMAPPINGS_FILE=$2
 
 if [ ! -f "$REMAPPINGS_FILE" ]; then
-    echo "Error: Remappings file '$REMAPPINGS_FILE' not found."
+    >&2 echo "Error: Remappings file '$REMAPPINGS_FILE' not found."
     exit 1
 fi
 

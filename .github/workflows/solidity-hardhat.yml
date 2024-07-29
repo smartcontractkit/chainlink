@@ -31,7 +31,7 @@ jobs:
         run: |
           product="${{ env.PRODUCT }}"
           if [[ "$product" =~ [,\ ] ]]; then
-            echo "Error: 'env.PRODUCT' contains commas or spaces: \"${{ env.PRODUCT }}\". Please provide just a single valid product name."
+            >&2 echo "Error: 'env.PRODUCT' contains commas or spaces: \"${{ env.PRODUCT }}\". Please provide just a single valid product name."
             exit 1
           else
             echo "Product is valid: $product"
@@ -72,15 +72,15 @@ jobs:
         if: ${{ steps.changes.outputs.sol == 'true' }}
         shell: bash
         run: |
-          echo "Modified contracts: ${{ steps.changes.outputs.sol_files }}"
+          echo "::debug::Modified contracts: ${{ steps.changes.outputs.sol_files }}"
           excluded_paths_pattern="!/^contracts\/src\/v0\.8\/shared/ && !/^contracts\/src\/v0\.8\/${{ env.PRODUCT}}/ && !/^contracts\/src\/v0\.8\/[^\/]+\.sol$/"
-          echo "Excluded paths: $excluded_paths_pattern"
+          echo "::debug::Excluded paths: $excluded_paths_pattern"
           unexpected_files=$(echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n' | awk "$excluded_paths_pattern")
           if [[ -n "$unexpected_files" ]]; then
             echo "Error: Found modified contracts outside of the expected scope: ${{ env.PRODUCT }}, shared"
             echo "Files:"
             echo "$unexpected_files"
-            echo "Please generate artifacts for them separately"
+            echo "Please generate run this pipeline separately for other products, if you want to generate the artifacts"
           
             echo "# Warning!" >> $GITHUB_STEP_SUMMARY
             echo "## Reason: Found modified contracts outside of the expected scope: ${{ env.PRODUCT }}, shared" >> $GITHUB_STEP_SUMMARY
@@ -167,29 +167,23 @@ jobs:
       - name: Generate Code Coverage HTML report for product contracts
         if: ${{ !contains(fromJson('["vrf"]'), env.PRODUCT) && !contains(fromJson('["automation"]'), env.PRODUCT) && !contains(fromJson('["functions"]'), env.PRODUCT) && needs.changes.outputs.product_changes == 'true' }}
         shell: bash
-        run: |
-          cd contracts
-          genhtml code-coverage/lcov-${{ env.PRODUCT }}.info --branch-coverage --output-directory code-coverage/${{ env.PRODUCT }}
+        run: cd contracts && genhtml code-coverage/lcov-${{ env.PRODUCT }}.info --branch-coverage --output-directory code-coverage/${{ env.PRODUCT }}
 
       - name: Generate Code Coverage HTML report for shared contracts
         if: ${{ needs.changes.outputs.shared_changes == 'true' }}
         shell: bash
-        run: |
-          cd contracts
-          genhtml code-coverage/lcov-shared.info --branch-coverage --output-directory code-coverage/shared
+        run: cd contracts && genhtml code-coverage/lcov-shared.info --branch-coverage --output-directory code-coverage/shared
 
       - name: Run Forge doc for product contracts
         if: ${{ needs.changes.outputs.product_changes == 'true' }}
-        run: |
-          forge doc --build -o docs/${{ env.PRODUCT }}
+        run: forge doc --build -o docs/${{ env.PRODUCT }}
         working-directory: contracts
         env:
           FOUNDRY_PROFILE: ${{ env.PRODUCT }}
 
       - name: Run Forge doc for shared contracts
         if: ${{ needs.changes.outputs.shared_changes == 'true' }}
-        run: |
-          forge doc --build -o docs/shared
+        run: forge doc --build -o docs/shared
         working-directory: contracts
         env:
           FOUNDRY_PROFILE: "shared"
@@ -303,7 +297,7 @@ jobs:
         run: |
           contract_list="${{ needs.changes.outputs.files }}"
         
-          echo "Processing contracts: $contract_list"
+          echo "::debug::Processing contracts: $contract_list"
           ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/.slither.config-artifacts.json "." "$contract_list" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
 
       - name: Upload UMLs and Slither reports
@@ -370,7 +364,7 @@ jobs:
           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
           echo "## Reason: No modified Solidity files found." >> $GITHUB_STEP_SUMMARY
           #TODO change to inputs.base_ref after testing
-          echo "No modified Solidity files found between ${{ env.BASE_REF }} and ${{ github.sha }} commits or they are located outside of ./contracts/v0.8/${{ env.PRODUCT}} or ./contracts/v0.8/shared folders" >> $GITHUB_STEP_SUMMARY
+          echo "No modified Solidity files found between ${{ env.BASE_REF }} and ${{ github.sha }} commits or they are located outside of ./contracts/src/v0.8 folder" >> $GITHUB_STEP_SUMMARY
           exit 1
 
 #on:

@@ -7,7 +7,7 @@ function check_chainlink_dir() {
   current_base=$(basename "$current_dir")
 
   if [ "$current_base" != "$param_dir" ]; then
-    echo "The script must be run from the root of $param_dir directory"
+    >&2 echo "The script must be run from the root of $param_dir directory"
     exit 1
   fi
 }
@@ -15,8 +15,8 @@ function check_chainlink_dir() {
 check_chainlink_dir
 
 if [ "$#" -lt 2 ]; then
-    echo "Generates UML diagrams for all contracts in a directory after flattening them to avoid call stack overflows."
-    echo "Usage: $0 <path to contracts> <path to target directory> [comma-separated list of files]"
+    >&2 echo "Generates UML diagrams for all contracts in a directory after flattening them to avoid call stack overflows."
+    >&2 echo "Usage: $0 <path to contracts> <path to target directory> [comma-separated list of files]"
     exit 1
 fi
 
@@ -30,29 +30,29 @@ flatten_and_generate_uml() {
     local TARGET_DIR=$2
 
     FLATTENED_FILE="$TARGET_DIR/flattened_$(basename "$FILE")"
-    echo "Flattening $FILE to $FLATTENED_FILE"
+    echo "::debug::Flattening $FILE to $FLATTENED_FILE"
     forge flatten "$FILE" -o "$FLATTENED_FILE" --root contracts
     if [ $? -ne 0 ]; then
-        echo "Error: Failed to flatten $FILE"
+        >&2 echo "Error: Failed to flatten $FILE"
         FAILED_FILES+=("$FILE")
         return
     fi
 
     OUTPUT_FILE=${FLATTENED_FILE//"flattened_"/""}
     OUTPUT_FILE_SVG="${OUTPUT_FILE%.sol}.svg"
-    echo "Generating SVG UML for $FLATTENED_FILE to $OUTPUT_FILE_SVG"
+    echo "::debug::Generating SVG UML for $FLATTENED_FILE to $OUTPUT_FILE_SVG"
     sol2uml "$FLATTENED_FILE" -o "$OUTPUT_FILE_SVG"
     if [ $? -ne 0 ]; then
-        echo "Error: Failed to generate UML diagram in SVG format for $FILE"
+        >&2 echo "Error: Failed to generate UML diagram in SVG format for $FILE"
         FAILED_FILES+=("$FILE")
         rm "$FLATTENED_FILE"
         return
     fi
     OUTPUT_FILE_DOT="${OUTPUT_FILE%.sol}.dot"
-    echo "Generating DOT UML for $FLATTENED_FILE to $OUTPUT_FILE_DOT"
+    echo "::debug::Generating DOT UML for $FLATTENED_FILE to $OUTPUT_FILE_DOT"
     sol2uml "$FLATTENED_FILE" -o "$OUTPUT_FILE_DOT" -f dot
     if [ $? -ne 0 ]; then
-        echo "Error: Failed to generate UML diagram in DOT format for $FILE"
+        >&2 echo "Error: Failed to generate UML diagram in DOT format for $FILE"
         FAILED_FILES+=("$FILE")
         rm "$FLATTENED_FILE"
         return
@@ -84,13 +84,13 @@ process_files() {
         MATCHES=($(find "$SOURCE_DIR" -type f -path "*/$FILE"))
 
         if [ ${#MATCHES[@]} -gt 1 ]; then
-            echo "Error: Multiple matches found for $FILE:"
+            >&2 echo "Error: Multiple matches found for $FILE:"
             for MATCH in "${MATCHES[@]}"; do
-                echo "  $MATCH"
+                >&2 echo "  $MATCH"
             done
             exit 1
         elif [ ${#MATCHES[@]} -eq 1 ]; then
-            echo "File found: ${MATCHES[0]}"
+            >&2 echo "File found: ${MATCHES[0]}"
             flatten_and_generate_uml "${MATCHES[0]}" "$TARGET_DIR"
         else
             # needed, because the action we use returns all modified files, also deleted ones and we must skip those
@@ -108,9 +108,9 @@ else
 fi
 
 if [ "${#FAILED_FILES[@]}" -gt 0 ]; then
-    echo "Error: Failed to generate UML diagrams for ${#FAILED_FILES[@]} files:"
+    >&2 echo "Error: Failed to generate UML diagrams for ${#FAILED_FILES[@]} files:"
     for FILE in "${FAILED_FILES[@]}"; do
-        echo "  $FILE"
+        >&2 echo "  $FILE"
         echo "$FILE" >> "$TARGET_DIR/uml_generation_failures.txt"
     done
 fi
