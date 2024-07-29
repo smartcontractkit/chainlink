@@ -16,12 +16,12 @@ uint256 constant MAX_NUM_ORACLES = 31;
 /**
  * @title DestinationVerifier
  * @author Michael Fletcher
- * @notice This contract will be used to verify reports based on the oracle signatures
+ * @notice This contract will be used to verify reports based on the oracle signatures. This is not the source verifier which required individual fee configurations, instead, this checks that a report has been signed by one of the configured oracles.
  */
 contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVersionInterface, IERC165 {
 
     /// @notice The list of DON configurations by hash(address|DONConfigID) - set to true if the signer is part of the config
-    mapping(bytes32 => bool) private s_SignerByAddressAndDONConfigId;
+    mapping(bytes32 => bool) private s_signerByAddressAndDONConfigId;
 
     /// array of DON configs
     DONConfig[] private s_DONConfigs;
@@ -239,7 +239,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
         bytes32 signerDONConfigKey;
         for(uint i; i < signers.length; ++i) {
             signerDONConfigKey = keccak256(abi.encodePacked(signers[i], activeDONConfig.DONConfigID));
-            if(!s_SignerByAddressAndDONConfigId[signerDONConfigKey]) {
+            if(!s_signerByAddressAndDONConfigId[signerDONConfigKey]) {
                 revert BadVerification();
             }
         }
@@ -297,7 +297,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
             /** This index is registered so we can efficiently lookup whether a NOP is part of a config without having to
                 loop through the entire config each verification. It's effectively a DONConfig <-> Signer
                 composite key which keys track of all historic configs for a signer */
-            s_SignerByAddressAndDONConfigId[keccak256(abi.encodePacked(signers[i], DONConfigID))] = true;
+            s_signerByAddressAndDONConfigId[keccak256(abi.encodePacked(signers[i], DONConfigID))] = true;
         }
 
         // Check the activation time is greater than the latest config

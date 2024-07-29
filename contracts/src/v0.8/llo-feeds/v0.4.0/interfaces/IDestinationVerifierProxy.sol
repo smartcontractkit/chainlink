@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 interface IDestinationVerifierProxy {
   /**
    * @notice Verifies that the data encoded has been signed
-   * correctly by routing to the correct verifier, and bills the user if applicable.
+   * correctly by routing to the verifier, and bills the user if applicable.
    * @param payload The encoded data to be verified, including the signed
    * report.
    * @param parameterPayload fee metadata for billing

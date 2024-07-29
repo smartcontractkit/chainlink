@@ -91,17 +91,17 @@ contract VerifierSetConfigTest is BaseTest {
     s_verifier.setConfig(signerAddrsMinusOne, FAULT_TOLERANCE - 1, new Common.AddressAndWeight[](0));
   }
 
-  function test_addressesAndWeightsDoNotProduceSideEffectsInDonConfigIds() public {
+  function test_addressesAndWeightsDoNotProduceSideEffectsInDONConfigIDs() public {
     Signer[] memory signers = _getSigners(MAX_ORACLES);
     address[] memory signerAddrs = _getSignerAddresses(signers);
 
     s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
 
-    bytes24 expectedDonConfigID = _DONConfigIdFromConfigData(signerAddrs, FAULT_TOLERANCE);
+    bytes24 expectedDonConfigID = _DONConfigIDFromConfigData(signerAddrs, FAULT_TOLERANCE);
 
     vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.DONConfigAlreadyExists.selector, expectedDonConfigID));
 
-    // Same call to setConfig with different addressAndWeights do not entail a new DONConfigId
+    // Same call to setConfig with different addressAndWeights do not entail a new DONConfigID
     // Resulting in a DONConfigAlreadyExists error
     Common.AddressAndWeight[] memory weights = new Common.AddressAndWeight[](1);
     weights[0] = Common.AddressAndWeight(signers[0].signerAddress, 1);

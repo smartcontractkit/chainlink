@@ -10,7 +10,7 @@ import {IDestinationVerifier} from "./interfaces/IDestinationVerifier.sol";
 /**
  * @title DestinationVerifierProxy
  * @author Michael Fletcher
- * @notice This contract will be used to route all requests through to the assigned verifier contract
+ * @notice This contract will be used to route all requests through to the assigned verifier contract. This contract does not support individual feed configurations and is aimed at being a simple proxy for the verifier contract on any destination chain.
  */
 contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, TypeAndVersionInterface, IERC165 {
   /// @notice The active verifier for this proxy

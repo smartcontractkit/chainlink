@@ -56,15 +56,15 @@ interface IDestinationVerifier{
 
   /**
     * @notice Sets the fee manager address
-    * @param _feeManager The address of the fee manager
+    * @param feeManager The address of the fee manager
     */
-  function setFeeManager(address _feeManager) external;
+  function setFeeManager(address feeManager) external;
 
   /**
     * @notice Sets the access controller address
-    * @param _accessController The address of the access controller
+    * @param accessController The address of the access controller
     */
-  function setAccessController(address _accessController) external;
+  function setAccessController(address accessController) external;
 
   /**
     * @notice Updates the config active status
