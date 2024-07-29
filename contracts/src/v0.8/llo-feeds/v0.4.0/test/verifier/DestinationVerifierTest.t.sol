@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {BaseTest} from "./BaseDestinationVerifierTest.t.sol";
 import {DestinationVerifier} from "../../../v0.4.0/DestinationVerifier.sol";
 
-contract VerifierConstructorTest is BaseTest {
+contract DestinationVerifierConstructorTest is BaseTest {
   bytes32[3] internal s_reportContext;
 
   function test_revertsIfInitializedWithEmptyVerifierProxy() public {

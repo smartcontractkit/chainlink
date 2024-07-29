@@ -6,7 +6,7 @@ import {DestinationVerifier} from "../../../v0.4.0/DestinationVerifier.sol";
 import {DestinationRewardManager} from "../../../v0.4.0/DestinationRewardManager.sol";
 import {Common} from "../../../libraries/Common.sol";
 
-contract VerifierSetConfigTest is BaseTest {
+contract DestinationVerifierSetConfigTest is BaseTest {
   bytes32[3] internal s_reportContext;
   V3Report internal s_testReport;
 

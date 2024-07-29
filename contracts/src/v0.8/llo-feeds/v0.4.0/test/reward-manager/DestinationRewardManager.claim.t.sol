@@ -248,7 +248,7 @@ contract DestinationRewardManagerClaimTest is BaseDestinationRewardManagerTest {
   }
 }
 
-contract RewardManagerRecipientClaimMultiplePoolsTest is BaseDestinationRewardManagerTest {
+contract DestinationRewardManagerRecipientClaimMultiplePoolsTest is BaseDestinationRewardManagerTest {
   uint256 internal constant POOL_DEPOSIT_AMOUNT = 10e18;
 
   function setUp() public override {
@@ -626,7 +626,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseDestinationRewardMa
   }
 }
 
-contract RewardManagerRecipientClaimDifferentWeightsTest is BaseDestinationRewardManagerTest {
+contract DestinationRewardManagerRecipientClaimDifferentWeightsTest is BaseDestinationRewardManagerTest {
   uint256 internal constant POOL_DEPOSIT_AMOUNT = 10e18;
 
   function setUp() public override {
@@ -671,7 +671,7 @@ contract RewardManagerRecipientClaimDifferentWeightsTest is BaseDestinationRewar
   }
 }
 
-contract RewardManagerRecipientClaimUnevenWeightTest is BaseDestinationRewardManagerTest {
+contract DestinationRewardManagerRecipientClaimUnevenWeightTest is BaseDestinationRewardManagerTest {
   uint256 internal constant POOL_DEPOSIT_AMOUNT = 10e18;
 
   function setUp() public override {
@@ -745,7 +745,7 @@ contract RewardManagerRecipientClaimUnevenWeightTest is BaseDestinationRewardMan
   }
 }
 
-contract RewardManagerNoRecipientSet is BaseDestinationRewardManagerTest {
+contract DestinationRewardManagerNoRecipientSet is BaseDestinationRewardManagerTest {
   uint256 internal constant POOL_DEPOSIT_AMOUNT = 10e18;
 
   function setUp() public override {

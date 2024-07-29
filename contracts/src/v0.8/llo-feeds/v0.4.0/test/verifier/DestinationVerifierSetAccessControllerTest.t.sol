@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {BaseTest} from "./BaseDestinationVerifierTest.t.sol";
 
-contract VerifierSetAccessControllerTest is BaseTest {
+contract DestinationVerifierSetAccessControllerTest is BaseTest {
   event AccessControllerSet(address oldAccessController, address newAccessController);
 
   function test_revertsIfCalledByNonOwner() public {

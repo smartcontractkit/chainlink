@@ -99,7 +99,7 @@ contract VerifierBillingTests is VerifierWithFeeManager {
   }
 }
 
-contract VerifierBulkVerifyBillingReport is VerifierWithFeeManager {
+contract DestinationVerifierBulkVerifyBillingReport is VerifierWithFeeManager {
   uint256 internal constant NUMBERS_OF_REPORTS = 5;
 
   bytes32[3] internal s_reportContext;

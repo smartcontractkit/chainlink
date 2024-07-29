@@ -7,7 +7,7 @@ import {DestinationVerifier} from "../../../v0.4.0/DestinationVerifier.sol";
 import {DestinationFeeManager} from "../../../v0.4.0/DestinationFeeManager.sol";
 import {IERC165} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 
-contract VerifierProxyInitializeVerifierTest is BaseTest {
+contract DestinationVerifierProxyInitializeVerifierTest is BaseTest {
   function test_setVerifierCalledByNoOwner() public {
     address STRANGER = address(999);
     changePrank(STRANGER);

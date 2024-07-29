@@ -376,7 +376,7 @@ contract DestinationRewardManagerUpdateRewardRecipientsTest is BaseDestinationRe
   }
 }
 
-contract RewardManagerUpdateRewardRecipientsMultiplePoolsTest is BaseDestinationRewardManagerTest {
+contract DestinationRewardManagerUpdateRewardRecipientsMultiplePoolsTest is BaseDestinationRewardManagerTest {
   uint256 internal constant POOL_DEPOSIT_AMOUNT = 10e18;
 
   function setUp() public override {

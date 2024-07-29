@@ -10,7 +10,7 @@ import {IDestinationRewardManager} from "../../interfaces/IDestinationRewardMana
  * @author Michael Fletcher
  * @notice This contract will test the functionality of the feeManager processFee
  */
-contract FeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
+contract DestinationFeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
   function setUp() public override {
     super.setUp();
   }
