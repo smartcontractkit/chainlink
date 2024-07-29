@@ -33,15 +33,15 @@ contract VerifierBillingTests is VerifierWithFeeManager {
     Common.AddressAndWeight[] memory weights = new Common.AddressAndWeight[](0);
     s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, weights);
     bytes memory signedReport = _generateV3EncodedBlob(s_testReportThree, s_reportContext, signers);
-    bytes32 expectedDonConfigID = _DONConfigIdFromConfigData(signerAddrs, FAULT_TOLERANCE);
+    bytes32 expectedDonConfigId = _donConfigIdFromConfigData(signerAddrs, FAULT_TOLERANCE);
 
     _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
     _verify(signedReport, address(link), 0, USER);
     assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE);
 
     // internal state checks
-    assertEq(feeManager.s_linkDeficit(expectedDonConfigID), 0);
-    assertEq(rewardManager.s_totalRewardRecipientFees(expectedDonConfigID), DEFAULT_REPORT_LINK_FEE);
+    assertEq(feeManager.s_linkDeficit(expectedDonConfigId), 0);
+    assertEq(rewardManager.s_totalRewardRecipientFees(expectedDonConfigId), DEFAULT_REPORT_LINK_FEE);
     assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
   }
 

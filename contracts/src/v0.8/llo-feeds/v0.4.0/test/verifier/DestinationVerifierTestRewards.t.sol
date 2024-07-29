@@ -97,21 +97,21 @@ contract VerifierBillingTests is VerifierWithFeeManager {
     weights[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, ONE_PERCENT * 100);
     s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, weights);
     bytes memory signedReport = _generateV3EncodedBlob(s_testReport, s_reportContext, signers);
-    bytes32 expectedDonConfigID = _DONConfigIdFromConfigData(signerAddrs, FAULT_TOLERANCE);
+    bytes32 expectedDonConfigId = _donConfigIdFromConfigData(signerAddrs, FAULT_TOLERANCE);
 
     _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
     _verify(signedReport, address(link), 0, USER);
     assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE);
 
     // internal state checks
-    assertEq(feeManager.s_linkDeficit(expectedDonConfigID), 0);
-    assertEq(rewardManager.s_totalRewardRecipientFees(expectedDonConfigID), DEFAULT_REPORT_LINK_FEE);
+    assertEq(feeManager.s_linkDeficit(expectedDonConfigId), 0);
+    assertEq(rewardManager.s_totalRewardRecipientFees(expectedDonConfigId), DEFAULT_REPORT_LINK_FEE);
     assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
 
     // check the recipients are paid according to weights
     address[] memory recipients = new address[](1);
     recipients[0] = DEFAULT_RECIPIENT_1;
-    payRecipients(expectedDonConfigID, recipients, ADMIN);
+    payRecipients(expectedDonConfigId, recipients, ADMIN);
     assertEq(link.balanceOf(recipients[0]), DEFAULT_REPORT_LINK_FEE);
     assertEq(link.balanceOf(address(rewardManager)), 0);
   }
@@ -129,7 +129,7 @@ contract VerifierBillingTests is VerifierWithFeeManager {
     s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, weights);
 
     bytes memory signedReport = _generateV3EncodedBlob(s_testReport, s_reportContext, signers);
-    bytes32 expectedDonConfigID = _DONConfigIdFromConfigData(signerAddrs, FAULT_TOLERANCE);
+    bytes32 expectedDonConfigId = _donConfigIdFromConfigData(signerAddrs, FAULT_TOLERANCE);
 
     uint256 number_of_reports_verified = 10;
 
@@ -143,7 +143,7 @@ contract VerifierBillingTests is VerifierWithFeeManager {
     //each recipient should receive 1/4 of the pool
     uint256 expectedRecipientAmount = expected_pool_amount / 4;
 
-    payRecipients(expectedDonConfigID, recipients, ADMIN);
+    payRecipients(expectedDonConfigId, recipients, ADMIN);
     for (uint256 i = 0; i < recipients.length; i++) {
       // checking each recipient got rewards as set by the weights
       assertEq(link.balanceOf(recipients[i]), expectedRecipientAmount);
@@ -172,7 +172,7 @@ contract VerifierBillingTests is VerifierWithFeeManager {
 
     V3Report memory testReportAtT1 = generateReportAtTimestamp(block.timestamp);
     bytes memory signedReportT1 = _generateV3EncodedBlob(testReportAtT1, s_reportContext, signers);
-    bytes32 expectedDonConfigIDA = _DONConfigIdFromConfigData(signerAddrs, MINIMAL_FAULT_TOLERANCE);
+    bytes32 expectedDonConfigIdA = _donConfigIdFromConfigData(signerAddrs, MINIMAL_FAULT_TOLERANCE);
 
     uint256 number_of_reports_verified = 2;
 
@@ -185,7 +185,7 @@ contract VerifierBillingTests is VerifierWithFeeManager {
 
     // Create ConfigB
     s_verifier.setConfig(signerAddrs2, MINIMAL_FAULT_TOLERANCE, weights2);
-    bytes32 expectedDonConfigIDB = _DONConfigIdFromConfigData(signerAddrs2, MINIMAL_FAULT_TOLERANCE);
+    bytes32 expectedDonConfigIdB = _donConfigIdFromConfigData(signerAddrs2, MINIMAL_FAULT_TOLERANCE);
 
     V3Report memory testReportAtT2 = generateReportAtTimestamp(block.timestamp);
 
@@ -202,18 +202,18 @@ contract VerifierBillingTests is VerifierWithFeeManager {
     }
 
     uint256 expected_pool_amount = DEFAULT_REPORT_LINK_FEE * number_of_reports_verified;
-    assertEq(rewardManager.s_totalRewardRecipientFees(expectedDonConfigIDA), expected_pool_amount);
-    assertEq(rewardManager.s_totalRewardRecipientFees(expectedDonConfigIDB), expected_pool_amount);
+    assertEq(rewardManager.s_totalRewardRecipientFees(expectedDonConfigIdA), expected_pool_amount);
+    assertEq(rewardManager.s_totalRewardRecipientFees(expectedDonConfigIdB), expected_pool_amount);
 
     // check the recipients are paid according to weights
-    payRecipients(expectedDonConfigIDA, recipients, ADMIN);
+    payRecipients(expectedDonConfigIdA, recipients, ADMIN);
 
     for (uint256 i = 0; i < recipients.length; i++) {
       // //each recipient should receive 1/4 of the pool
       assertEq(link.balanceOf(recipients[i]), expected_pool_amount / 4);
     }
 
-    payRecipients(expectedDonConfigIDB, recipients2, ADMIN);
+    payRecipients(expectedDonConfigIdB, recipients2, ADMIN);
 
     for (uint256 i = 1; i < recipients2.length; i++) {
       // //each recipient should receive 1/4 of the pool

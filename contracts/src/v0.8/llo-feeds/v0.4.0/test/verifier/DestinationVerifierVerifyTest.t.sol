@@ -41,7 +41,7 @@ contract VerifierVerifyTest is BaseTest {
     assertReportsEqual(verifierResponse, s_testReportThree);
   }
 
-  function test_verifyTooglingActiveFlagsDONConfigs() public {
+  function test_verifyTooglingActiveFlagsDonConfigs() public {
     // sets config
     Signer[] memory signers = _getSigners(MAX_ORACLES);
     address[] memory signerAddrs = _getSignerAddresses(signers);

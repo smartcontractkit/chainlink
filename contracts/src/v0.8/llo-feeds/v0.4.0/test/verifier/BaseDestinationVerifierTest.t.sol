@@ -225,14 +225,14 @@ contract BaseTest is Test {
     return signerAddrs;
   }
 
-  function _signerAddressAndDonConfigKey(address signer, bytes24 DONConfigID) internal pure returns (bytes32) {
-    return keccak256(abi.encodePacked(signer, DONConfigID));
+  function _signerAddressAndDonConfigKey(address signer, bytes24 donConfigId) internal pure returns (bytes32) {
+    return keccak256(abi.encodePacked(signer, donConfigId));
   }
 
-  function _DONConfigIdFromConfigData(address[] memory signers, uint8 f) internal pure returns (bytes24) {
+  function _donConfigIdFromConfigData(address[] memory signers, uint8 f) internal pure returns (bytes24) {
     Common._quickSort(signers, 0, int256(signers.length - 1));
-    bytes24 DONConfigID = bytes24(keccak256(abi.encodePacked(signers, f)));
-    return DONConfigID;
+    bytes24 donConfigId = bytes24(keccak256(abi.encodePacked(signers, f)));
+    return donConfigId;
   }
 
   function assertReportsEqual(bytes memory response, V3Report memory testReport) public pure{

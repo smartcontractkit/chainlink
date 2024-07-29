@@ -68,10 +68,10 @@ interface IDestinationVerifier{
 
   /**
     * @notice Updates the config active status
-    * @param DONConfigID The ID of the config to update
+    * @param donConfigId The ID of the config to update
     * @param isActive The new config active status
     */
-  function setConfigActive(uint256 DONConfigID, bool isActive) external;
+  function setConfigActive(uint256 donConfigId, bool isActive) external;
 
   /**
     * @notice Removes the latest config

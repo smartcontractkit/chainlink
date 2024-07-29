@@ -16,7 +16,7 @@ contract VerifierSetConfigTest is BaseTest {
   }
 
   function test_removeLatestConfigWhenNoConfigShouldFail() public {
-    vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.DONConfigDoesNotExist.selector));
+    vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.DonConfigDoesNotExist.selector));
     s_verifier.removeLatestConfig();
   }
 
@@ -120,7 +120,7 @@ contract VerifierSetConfigTest is BaseTest {
     s_verifierProxy.verify(signedReportB, abi.encode(native));
 
     // removing again should fail. no other configs exist
-    vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.DONConfigDoesNotExist.selector));
+    vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.DonConfigDoesNotExist.selector));
     s_verifier.removeLatestConfig();
   }
 }
