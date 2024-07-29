@@ -49,7 +49,28 @@ jobs:
             sol:
               - 'contracts/src/v0.8/**/*.sol'
             shared:
-              - 'contracts/src/v0.8/**/shared/**/*.sol'        
+              - 'contracts/src/v0.8/shared/**/*.sol'
+
+      - name: Check for changes outside of artifact scope
+        if: ${{ steps.changes.outputs.sol == 'true' }}
+        shell: bash
+        run: |
+          echo "Modified contracts: ${{ steps.changes.outputs.sol_files }}"
+          excluded_paths_pattern="!/^contracts\/src\/v0\.8\/shared/ && !/^contracts\/src\/v0\.8\/${{ env.PRODUCT}} /"
+          echo "Excluded paths: $excluded_paths_pattern"
+          unexpected_files=$(echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n' | awk $excluded_paths_pattern)
+          if [[ -n "$unexpected_files" ]]; then
+            echo "Error: Found modified contracts outside of the expected scope: $unexpected_files"
+            echo "Please generate artifacts for them separately"
+          
+            echo "# Warning!" >> $GITHUB_STEP_SUMMARY
+            echo "## Reason: Found modified contracts outside of the expected scope" >> $GITHUB_STEP_SUMMARY
+            echo "### Files:" >> $GITHUB_STEP_SUMMARY
+            echo "$unexpected_files" >> $GITHUB_STEP_SUMMARY
+            echo "## Action required: Please generate artifacts for them separately" >> $GITHUB_STEP_SUMMARY            
+          else
+            echo "No unexpected files found."
+          fi
 
   # some of the artifacts can only be generated on product level, and we cannot scope them to single contracts
   # some product-level modifications might also require shared contracts changes, so if these happened we need to generate artifacts for shared contracts as well
@@ -127,14 +148,14 @@ jobs:
         shell: bash
         run: |
           cd contracts
-          genhtml lcov-${{ env.PRODUCT }}.info --branch-coverage --output-directory code-coverage/${{ env.PRODUCT }}
+          genhtml code-coverage/lcov-${{ env.PRODUCT }}.info --branch-coverage --output-directory code-coverage/${{ env.PRODUCT }}
 
       - name: Generate Code Coverage HTML report for shared contracts
         if: ${{ needs.changes.outputs.shared_changes == 'true' }}
         shell: bash
         run: |
           cd contracts
-          genhtml lcov-shared.info --branch-coverage --output-directory code-coverage/shared          
+          genhtml code-coverage/lcov-shared.info --branch-coverage --output-directory code-coverage/shared          
 
       - name: Run Forge doc for
         run: |
