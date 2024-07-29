@@ -1,6 +1,6 @@
 # ALL_FOUNDRY_PRODUCTS contains a list of all products that have a foundry
-# profile defined and use the Foundry snapshots. 
-ALL_FOUNDRY_PRODUCTS = functions keystone l2ep llo-feeds operatorforwarder shared transmission
+# profile defined and use the Foundry snapshots.
+ALL_FOUNDRY_PRODUCTS = ccip functions keystone l2ep liquiditymanager llo-feeds operatorforwarder shared transmission
 
 # To make a snapshot for a specific product, either set the `FOUNDRY_PROFILE` env var
 # or call the target with `FOUNDRY_PROFILE=product`
@@ -16,11 +16,11 @@ ALL_FOUNDRY_PRODUCTS = functions keystone l2ep llo-feeds operatorforwarder share
 # a static fuzz seed by default, flaky gas results per platform are still observed.
 .PHONY: snapshot
 snapshot: ## Make a snapshot for a specific product.
-	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --nmt "testFuzz_\w{1,}?" --snap gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
+	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --nmt "test_?Fuzz_\w{1,}?" --snap gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
 
 .PHONY: snapshot-diff
 snapshot-diff: ## Make a snapshot for a specific product.
-	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --nmt "testFuzz_\w{1,}?" --diff gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
+	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --nmt "test_?Fuzz_\w{1,}?" --diff gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
 
 
 .PHONY: snapshot-all
@@ -49,6 +49,21 @@ foundry: ## Install foundry.
 foundry-refresh: foundry
 	git submodule deinit -f .
 	git submodule update --init --recursive
+
+ccip-precommit: export FOUNDRY_PROFILE=ccip
+.PHONY: ccip-precommit
+ccip-precommit:
+	forge test
+	make snapshot
+	forge fmt
+	pnpm solhint
+
+ccip-lcov: export FOUNDRY_PROFILE=ccip
+.PHONY: ccip-lcov
+ccip-lcov:
+	forge coverage --report lcov
+	../tools/ci/ccip_lcov_prune ./lcov.info ./lcov.info.pruned
+	genhtml -o report lcov.info.pruned --branch-coverage
 
 # To generate gethwrappers for a specific product, either set the `FOUNDRY_PROFILE`
 # env var or call the target with `FOUNDRY_PROFILE=product`
