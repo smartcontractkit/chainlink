@@ -27,7 +27,7 @@ jobs:
       changes: ${{ steps.changes.outputs.sol }}
       product_changes: ${{ steps.changes.outputs.product }}
       shared_changes: ${{ steps.changes.outputs.shared }}
-      files: ${{ steps.changes.outputs.product_files }}
+      files: ${{ steps.changes.outputs.included_files }}
     steps:
       - name: Validate product input
         run: |
@@ -53,6 +53,9 @@ jobs:
               - 'contracts/src/v0.8/${{ env.PRODUCT }}/**/*.sol'
             shared:
               - 'contracts/src/v0.8/shared/**/*.sol'
+            included:
+              - 'contracts/src/v0.8/${{ env.PRODUCT }}/**/*.sol'
+              - 'contracts/src/v0.8/shared/**/*.sol'
 
       - name: Check for changes outside of artifact scope
         if: ${{ steps.changes.outputs.sol == 'true' }}
@@ -63,11 +66,13 @@ jobs:
           echo "Excluded paths: $excluded_paths_pattern"
           unexpected_files=$(echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n' | awk "$excluded_paths_pattern")
           if [[ -n "$unexpected_files" ]]; then
-            echo "Error: Found modified contracts outside of the expected scope: $unexpected_files"
+            echo "Error: Found modified contracts outside of the expected scope: ${{ env.PRODUCT }}, shared"
+            echo "Files:"
+            echo "$unexpected_files"
             echo "Please generate artifacts for them separately"
           
             echo "# Warning!" >> $GITHUB_STEP_SUMMARY
-            echo "## Reason: Found modified contracts outside of the expected scope" >> $GITHUB_STEP_SUMMARY
+            echo "## Reason: Found modified contracts outside of the expected scope: ${{ env.PRODUCT }}, shared" >> $GITHUB_STEP_SUMMARY
             echo "### Files:" >> $GITHUB_STEP_SUMMARY
             echo "$unexpected_files" >> $GITHUB_STEP_SUMMARY
             echo "## Action required: Please generate artifacts for them separately" >> $GITHUB_STEP_SUMMARY            
@@ -158,7 +163,7 @@ jobs:
         shell: bash
         run: |
           cd contracts
-          genhtml code-coverage/lcov-shared.info --branch-coverage --output-directory code-coverage/shared          
+          genhtml code-coverage/lcov-shared.info --branch-coverage --output-directory code-coverage/shared
 
       - name: Run Forge doc for
         run: |
@@ -251,7 +256,7 @@ jobs:
         run: |
           cd contracts
           
-          echo "Commit SHA used to generate artifacts: ${{ github.sha }}" > commit_sha.txt
+          echo "Commit SHA used to generate artifacts: ${{ github.sha }}" > commit_sha_base_ref.txt
           #TODO remove github.base_ref after testing
           echo "Base reference SHA used to find modified contracts: ${{ inputs.base_ref || github.base_ref }}" >> commit_sha_base_ref.txt 
           contract_list="${{ needs.changes.outputs.files }}"
