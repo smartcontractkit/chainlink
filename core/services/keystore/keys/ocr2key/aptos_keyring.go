@@ -85,6 +85,9 @@ func (akr *aptosKeyring) verifyBlob(pubkey ocrtypes.OnchainPublicKey, b, sig []b
 	if len(sig) != akr.MaxSignatureLength() {
 		return false
 	}
+	// we ignore the passed in publicKey since that will be the EVM key if using multi-chain config
+	// instead we use the embedded publicKey that's part of the ed25519 signature
+	pubkey = sig[:32]
 	if len(pubkey) != ed25519.PublicKeySize {
 		return false
 	}
