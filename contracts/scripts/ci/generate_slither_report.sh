@@ -37,6 +37,13 @@ run_slither() {
     local FILE=$1
     local TARGET_DIR=$2
 
+    # needed, because the action we use returns all modified files, also deleted ones and we must skip those
+    if [ ! -f "$FILE" ]; then
+      echo "Warning: File not found: $FILE"
+      echo "Skipping..."
+      return
+    fi
+
     source ./contracts/scripts/ci/select_solc_version.sh "$FILE"
     if [ $? -ne 0 ]; then
         echo "Error: Failed to select Solc version for $FILE"

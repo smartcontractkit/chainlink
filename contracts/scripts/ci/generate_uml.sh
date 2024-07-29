@@ -93,8 +93,10 @@ process_files() {
             echo "File found: ${MATCHES[0]}"
             flatten_and_generate_uml "${MATCHES[0]}" "$TARGET_DIR"
         else
+            # needed, because the action we use returns all modified files, also deleted ones and we must skip those
             echo "File $FILE does not exist within the source directory $SOURCE_DIR."
-            return 1
+            echo "Skipping..."
+            return
         fi
     done
 }
