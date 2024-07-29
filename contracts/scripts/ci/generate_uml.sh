@@ -23,6 +23,7 @@ fi
 SOURCE_DIR="$1"
 TARGET_DIR="$2"
 FILES=${3// /}  # Remove any spaces from the list of files
+FAILED_FILES=()
 
 flatten_and_generate_uml() {
     local FILE=$1
@@ -33,7 +34,8 @@ flatten_and_generate_uml() {
     forge flatten "$FILE" -o "$FLATTENED_FILE" --root contracts
     if [ $? -ne 0 ]; then
         echo "Error: Failed to flatten $FILE"
-        exit 1
+        FAILED_FILES+=("$FILE")
+        return
     fi
 
     OUTPUT_FILE=${FLATTENED_FILE//"flattened_"/""}
@@ -42,14 +44,16 @@ flatten_and_generate_uml() {
     sol2uml "$FLATTENED_FILE" -o "$OUTPUT_FILE_SVG"
     if [ $? -ne 0 ]; then
         echo "Error: Failed to generate UML diagram in SVG format for $FILE"
-        exit 1
+        FAILED_FILES+=("$FILE")
+        return
     fi
     OUTPUT_FILE_DOT="${OUTPUT_FILE%.sol}.dot"
     echo "Generating DOT UML for $FLATTENED_FILE to $OUTPUT_FILE_DOT"
     sol2uml "$FLATTENED_FILE" -o "$OUTPUT_FILE_DOT" -f dot
     if [ $? -ne 0 ]; then
         echo "Error: Failed to generate UML diagram in DOT format for $FILE"
-        exit 1
+        FAILED_FILES+=("$FILE")
+        return
     fi
 
     rm "$FLATTENED_FILE"
@@ -99,9 +103,13 @@ else
     process_files "$SOURCE_DIR" "$TARGET_DIR" "$FILES"
 fi
 
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to generate UML diagrams."
-    exit 1
+if [ "${#FAILED_FILES[@]}" -gt 0 ]; then
+    echo "Error: Failed to generate UML diagrams for ${#FAILED_FILES[@]} files:"
+    echo "Failed to generate UML diagrams for:" > "$TARGET_DIR/failed_files.txt"
+    for FILE in "${FAILED_FILES[@]}"; do
+        echo "  $FILE"
+        echo "$FILE" >> "$TARGET_DIR/failed_files.txt"
+    done
 fi
 
 echo "UML diagrams saved in $TARGET_DIR folder"

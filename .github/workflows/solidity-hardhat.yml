@@ -287,6 +287,14 @@ jobs:
           mv remappings_modified.txt remappings.txt
                     
           ./contracts/scripts/ci/generate_uml.sh "./" "contracts/uml-diagrams" "$contract_list"
+          
+          if [ -f  "contracts/uml-diagrams/failed_files.txt" ]; then
+            echo "# Warning!" >> $GITHUB_STEP_SUMMARY
+            echo "## Reason: Failed to generate UML diagrams for some contracts" >> $GITHUB_STEP_SUMMARY
+            echo "### Files:" >> $GITHUB_STEP_SUMMARY
+            cat contracts/uml-diagrams/failed_files.txt >> $GITHUB_STEP_SUMMARY
+            echo "## Action required: Please try generate artifacts for them locally or using a different tool" >> $GITHUB_STEP_SUMMARY  
+          fi
 
       - name: Generate Slither Markdown reports
         run: |
