@@ -118,23 +118,18 @@ jobs:
 
       # We could gather coverage for all products
 
-      - name: Report code coverage for
-        if: ${{ !contains(fromJson('["vrf"]'), env.PRODUCT) && !contains(fromJson('["automation"]'), env.PRODUCT) && !contains(fromJson('["functions"]'), env.PRODUCT) && needs.changes.outputs.changes == 'true' }}
-        uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
-        with:
-          coverage-files: ./contracts/lcov-${{ env.PRODUCT }}.info
-          artifact-name: tmp-code-coverage-report-${{ env.PRODUCT }}
-          minimum-coverage: 0
-          working-directory: ./contracts
+      - name: Generate Code Coverage HTML report for
+        shell: bash
+        run: |
+          cd contracts
+          genhtml lcov-${{ env.PRODUCT }}.info --branch-coverage --output-directory ${{ env.PRODUCT }}-html
 
-      - name: Report code coverage for shared contracts
+      - name: Generate Code Coverage HTML report for shared contracts
         if: ${{ needs.changes.outputs.shared_changes == 'true' }}
-        uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
-        with:
-          coverage-files: ./contracts/lcov-shared.info
-          artifact-name: tmp-code-coverage-report-shared
-          minimum-coverage: 0
-          working-directory: ./contracts
+        shell: bash
+        run: |
+          cd contracts
+          genhtml lcov-shared.info --branch-coverage --output-directory shared-html          
 
       - name: Run Forge doc for
         run: |
@@ -160,6 +155,7 @@ jobs:
           path: |
             contracts/docs/${{ env.PRODUCT }}
             contracts/lcov-${{ env.PRODUCT }}.info
+            contracts/${{ env.PRODUCT }}-html
           retention-days: 7
 
       - name: Upload Artifacts for shared contracts
@@ -172,6 +168,7 @@ jobs:
           path: |
             contracts/docs/shared
             contracts/shared-lcov.info
+            contracts/shared-html
           retention-days: 7
 
   # Generates UML diagrams and Slither reports for modified contracts
