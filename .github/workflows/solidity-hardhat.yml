@@ -89,9 +89,7 @@ jobs:
             echo "## Action required: Please generate artifacts for them separately" >> $GITHUB_STEP_SUMMARY            
           else
             echo "No unexpected files found."
-          fi
-          
-          exit 1
+          fi          
 
       - name: Check for changes only in shared
         if: ${{ steps.changes.outputs.product == 'false' && steps.changes.outputs.shared == 'true' }}
