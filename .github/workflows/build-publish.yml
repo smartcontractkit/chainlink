@@ -93,7 +93,7 @@ jobs:
               format(
                 'https://github.com/{0}/blob/{1}/CHANGELOG.md',
                 github.repository,
-                github.ref_name,
+                github.ref_name
               ) || ''
             }}
           docker-image-name: >-
