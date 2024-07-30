@@ -712,6 +712,33 @@ func (_m *GeneralConfig) HeadReport() config.HeadReport {
 	return r0
 }
 
+// GeneralConfig_HeadReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HeadReport'
+type GeneralConfig_HeadReport_Call struct {
+	*mock.Call
+}
+
+// HeadReport is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) HeadReport() *GeneralConfig_HeadReport_Call {
+	return &GeneralConfig_HeadReport_Call{Call: _e.mock.On("HeadReport")}
+}
+
+func (_c *GeneralConfig_HeadReport_Call) Run(run func()) *GeneralConfig_HeadReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_HeadReport_Call) Return(_a0 config.HeadReport) *GeneralConfig_HeadReport_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_HeadReport_Call) RunAndReturn(run func() config.HeadReport) *GeneralConfig_HeadReport_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Insecure provides a mock function with given fields:
 func (_m *GeneralConfig) Insecure() config.Insecure {
 	ret := _m.Called()

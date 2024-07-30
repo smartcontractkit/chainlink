@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-//go:generate mockery --quiet --name HeadReporter --output ../../internal/mocks/ --case=underscore
 type (
 	HeadReporter interface {
 		ReportNewHead(ctx context.Context, head *evmtypes.Head) error

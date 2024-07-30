@@ -15,6 +15,14 @@ type HeadReporter struct {
 	mock.Mock
 }
 
+type HeadReporter_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *HeadReporter) EXPECT() *HeadReporter_Expecter {
+	return &HeadReporter_Expecter{mock: &_m.Mock}
+}
+
 // ReportNewHead provides a mock function with given fields: ctx, head
 func (_m *HeadReporter) ReportNewHead(ctx context.Context, head *types.Head) error {
 	ret := _m.Called(ctx, head)
@@ -33,6 +41,35 @@ func (_m *HeadReporter) ReportNewHead(ctx context.Context, head *types.Head) err
 	return r0
 }
 
+// HeadReporter_ReportNewHead_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReportNewHead'
+type HeadReporter_ReportNewHead_Call struct {
+	*mock.Call
+}
+
+// ReportNewHead is a helper method to define mock.On call
+//   - ctx context.Context
+//   - head *types.Head
+func (_e *HeadReporter_Expecter) ReportNewHead(ctx interface{}, head interface{}) *HeadReporter_ReportNewHead_Call {
+	return &HeadReporter_ReportNewHead_Call{Call: _e.mock.On("ReportNewHead", ctx, head)}
+}
+
+func (_c *HeadReporter_ReportNewHead_Call) Run(run func(ctx context.Context, head *types.Head)) *HeadReporter_ReportNewHead_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*types.Head))
+	})
+	return _c
+}
+
+func (_c *HeadReporter_ReportNewHead_Call) Return(_a0 error) *HeadReporter_ReportNewHead_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *HeadReporter_ReportNewHead_Call) RunAndReturn(run func(context.Context, *types.Head) error) *HeadReporter_ReportNewHead_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ReportPeriodic provides a mock function with given fields: ctx
 func (_m *HeadReporter) ReportPeriodic(ctx context.Context) error {
 	ret := _m.Called(ctx)
@@ -49,6 +86,34 @@ func (_m *HeadReporter) ReportPeriodic(ctx context.Context) error {
 	}
 
 	return r0
+}
+
+// HeadReporter_ReportPeriodic_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReportPeriodic'
+type HeadReporter_ReportPeriodic_Call struct {
+	*mock.Call
+}
+
+// ReportPeriodic is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *HeadReporter_Expecter) ReportPeriodic(ctx interface{}) *HeadReporter_ReportPeriodic_Call {
+	return &HeadReporter_ReportPeriodic_Call{Call: _e.mock.On("ReportPeriodic", ctx)}
+}
+
+func (_c *HeadReporter_ReportPeriodic_Call) Run(run func(ctx context.Context)) *HeadReporter_ReportPeriodic_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *HeadReporter_ReportPeriodic_Call) Return(_a0 error) *HeadReporter_ReportPeriodic_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *HeadReporter_ReportPeriodic_Call) RunAndReturn(run func(context.Context) error) *HeadReporter_ReportPeriodic_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewHeadReporter creates a new instance of HeadReporter. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

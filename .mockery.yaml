@@ -258,11 +258,6 @@ packages:
       ORM:
       Runner:
       PipelineParamUnmarshaler:
-  github.com/smartcontractkit/chainlink/v2/core/services/promreporter:
-    config:
-      dir: core/internal/mocks
-    interfaces:
-      PrometheusBackend:
   github.com/smartcontractkit/chainlink/v2/core/services/relay/evm:
     interfaces:
       BatchCaller:
@@ -279,6 +274,12 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types:
     interfaces:
       LogPollerWrapper:
+  github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/headreporter:
+    config:
+      dir: core/internal/mocks
+    interfaces:
+      HeadReporter:
+      PrometheusBackend:
   github.com/smartcontractkit/chainlink/v2/core/services/s4:
     interfaces:
       ORM:
