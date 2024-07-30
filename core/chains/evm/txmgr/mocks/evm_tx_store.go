@@ -3199,12 +3199,12 @@ func (_c *EvmTxStore_UpdateTxForRebroadcast_Call) RunAndReturn(run func(context.
 	return _c
 }
 
-// UpdateTxStatesToFinalizedUsingReceiptId provides a mock function with given fields: ctx, etxIDs, chainId
-func (_m *EvmTxStore) UpdateTxStatesToFinalizedUsingReceiptId(ctx context.Context, etxIDs []int64, chainId *big.Int) error {
+// UpdateTxStatesToFinalizedUsingReceiptIds provides a mock function with given fields: ctx, etxIDs, chainId
+func (_m *EvmTxStore) UpdateTxStatesToFinalizedUsingReceiptIds(ctx context.Context, etxIDs []int64, chainId *big.Int) error {
 	ret := _m.Called(ctx, etxIDs, chainId)
 
 	if len(ret) == 0 {
-		panic("no return value specified for UpdateTxStatesToFinalizedUsingReceiptId")
+		panic("no return value specified for UpdateTxStatesToFinalizedUsingReceiptIds")
 	}
 
 	var r0 error
@@ -3217,32 +3217,32 @@ func (_m *EvmTxStore) UpdateTxStatesToFinalizedUsingReceiptId(ctx context.Contex
 	return r0
 }
 
-// EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateTxStatesToFinalizedUsingReceiptId'
-type EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call struct {
+// EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateTxStatesToFinalizedUsingReceiptIds'
+type EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call struct {
 	*mock.Call
 }
 
-// UpdateTxStatesToFinalizedUsingReceiptId is a helper method to define mock.On call
+// UpdateTxStatesToFinalizedUsingReceiptIds is a helper method to define mock.On call
 //   - ctx context.Context
 //   - etxIDs []int64
 //   - chainId *big.Int
-func (_e *EvmTxStore_Expecter) UpdateTxStatesToFinalizedUsingReceiptId(ctx interface{}, etxIDs interface{}, chainId interface{}) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call {
-	return &EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call{Call: _e.mock.On("UpdateTxStatesToFinalizedUsingReceiptId", ctx, etxIDs, chainId)}
+func (_e *EvmTxStore_Expecter) UpdateTxStatesToFinalizedUsingReceiptIds(ctx interface{}, etxIDs interface{}, chainId interface{}) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call {
+	return &EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call{Call: _e.mock.On("UpdateTxStatesToFinalizedUsingReceiptIds", ctx, etxIDs, chainId)}
 }
 
-func (_c *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call) Run(run func(ctx context.Context, etxIDs []int64, chainId *big.Int)) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call {
+func (_c *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call) Run(run func(ctx context.Context, etxIDs []int64, chainId *big.Int)) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].([]int64), args[2].(*big.Int))
 	})
 	return _c
 }
 
-func (_c *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call) Return(_a0 error) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call {
+func (_c *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call) Return(_a0 error) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call) RunAndReturn(run func(context.Context, []int64, *big.Int) error) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptId_Call {
+func (_c *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call) RunAndReturn(run func(context.Context, []int64, *big.Int) error) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call {
 	_c.Call.Return(run)
 	return _c
 }
