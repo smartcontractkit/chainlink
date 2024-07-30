@@ -97,13 +97,13 @@ FeeCapDefault = '200 gwei'
 [Seth]
 # controls which transactions are decoded/traced. Possbile values are: none, all, reverted (default).
 # if transaction level doesn't match, then calling Decode() does nothing. It's advised to keep it set
-# to 'reverted' to limit noise. If you combine it with 'trace_to_json' it will save all possible data
-# in JSON files for reverted transactions.
+# to 'reverted' to limit noise.
 tracing_level = "reverted"
-# saves each decoding/tracing results to JSON files; what exactly is saved depends on what we
+# saves each decoding/tracing results to DOT files; what exactly is saved depends on what we
 # were able te decode, we try to save maximum information possible. It can either be:
 # just tx hash, decoded transaction or call trace. Which transactions traces are saved depends
 # on 'tracing_level'.
+trace_outputs = ["dot"]
 
 # number of addresses to be generated and runtime, if set to 0, no addresses will be generated
 # each generated address will receive a proportion of native tokens from root private key's balance
