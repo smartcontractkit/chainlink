@@ -166,6 +166,12 @@ func peerToNode(nopID uint32, p peer) (kcr.CapabilitiesRegistryNodeParams, error
 	}, nil
 }
 
+func newCapabilityConfig() *capabilitiespb.CapabilityConfig {
+	return &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+	}
+}
+
 // Run expects the following environment variables to be set:
 //
 //  1. Deploys the CapabilitiesRegistry contract
@@ -312,9 +318,16 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		panic(err)
 	}
 
+	cc := newCapabilityConfig()
+	ccb, err := proto.Marshal(cc)
+	if err != nil {
+		panic(err)
+	}
+
 	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: ocrid,
+			Config:       ccb,
 		},
 	}
 	_, err = reg.AddDON(env.Owner, ps, cfgs, true, true, 2)
@@ -360,9 +373,16 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		panic(err)
 	}
 
+	cc = newCapabilityConfig()
+	ccb, err = proto.Marshal(cc)
+	if err != nil {
+		panic(err)
+	}
+
 	cfgs = []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: wid,
+			Config:       ccb,
 		},
 	}
 	_, err = reg.AddDON(env.Owner, ps, cfgs, true, false, 1)
