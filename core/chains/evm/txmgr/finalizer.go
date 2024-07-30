@@ -160,7 +160,7 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 	}
 
 	earliestBlockNumInChain := latestFinalizedHead.EarliestHeadInChain().BlockNumber()
-	f.lggr.Debugw("processing latest finalized head", "block num", latestFinalizedHead.BlockNumber(), "block hash", latestFinalizedHead.BlockHash(), "earliest block num in chain", earliestBlockNumInChain)
+	f.lggr.Debugw("processing latest finalized head", "blockNum", latestFinalizedHead.BlockNumber(), "blockHash", latestFinalizedHead.BlockHash(), "earliestBlockNumInChain", earliestBlockNumInChain)
 
 	// Retrieve all confirmed transactions with receipts older than or equal to the finalized block, loaded with attempts and receipts
 	unfinalizedReceipts, err := f.txStore.FindConfirmedTxesReceipts(ctx, latestFinalizedHead.BlockNumber(), f.chainId)
@@ -200,12 +200,7 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 
 	// Check if block hashes exist for receipts on-chain older than the earliest cached head
 	// Transactions are grouped by their receipt block hash to avoid repeat requests on the same hash in case transactions were confirmed in the same block
-	validatedReceipts, err := f.batchCheckReceiptHashesOnchain(ctx, blockNumToReceiptsMap)
-	if err != nil {
-		// Do not error out to allow transactions that did not need RPC validation to still be marked as finalized
-		// The transactions failed to be validated will be checked again in the next round
-		f.lggr.Errorf("failed to validate receipt block hashes over RPC: %v", err)
-	}
+	validatedReceipts := f.batchCheckReceiptHashesOnchain(ctx, blockNumToReceiptsMap)
 	finalizedReceipts = append(finalizedReceipts, validatedReceipts...)
 
 	receiptIDs := f.buildReceiptIdList(finalizedReceipts)
@@ -220,9 +215,9 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 	return nil
 }
 
-func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, blockNumToReceiptsMap map[int64][]Receipt) ([]Receipt, error) {
+func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, blockNumToReceiptsMap map[int64][]Receipt) []Receipt {
 	if len(blockNumToReceiptsMap) == 0 {
-		return nil, nil
+		return nil
 	}
 	// Group the RPC batch calls in groups of rpcBatchSize
 	var rpcBatchGroups [][]rpc.BatchElem
@@ -251,7 +246,7 @@ func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, block
 		err := f.client.BatchCallContext(ctx, rpcBatch)
 		if err != nil {
 			// Continue if batch RPC call failed so other batches can still be considered for finalization
-			f.lggr.Debugw("failed to find blocks due to batch call failure")
+			f.lggr.Errorw("failed to find blocks due to batch call failure", "error", err)
 			continue
 		}
 		for _, req := range rpcBatch {
@@ -281,7 +276,7 @@ func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, block
 			}
 		}
 	}
-	return finalizedReceipts, nil
+	return finalizedReceipts
 }
 
 // Build list of transaction IDs
