@@ -98,9 +98,9 @@ contract MultiVerifierBillingTests is MultipleVerifierWithMultipleFeeManagers {
     s_verifier2.setConfig(signerAddrs, MINIMAL_FAULT_TOLERANCE, weights2);
     s_verifier3.setConfig(signerAddrs, MINIMAL_FAULT_TOLERANCE + 1, weights3);
     bytes memory signedReport = _generateV3EncodedBlob(s_testReport, s_reportContext, signers);
-    bytes32 expectedDonConfigID = _DONConfigIdFromConfigData(signerAddrs, FAULT_TOLERANCE);
-    bytes32 expectedDonConfigID2 = _DONConfigIdFromConfigData(signerAddrs, MINIMAL_FAULT_TOLERANCE);
-    bytes32 expectedDonConfigID3 = _DONConfigIdFromConfigData(signerAddrs, MINIMAL_FAULT_TOLERANCE + 1);
+    bytes32 expectedDonConfigID = _donConfigIdFromConfigData(signerAddrs, FAULT_TOLERANCE);
+    bytes32 expectedDonConfigID2 = _donConfigIdFromConfigData(signerAddrs, MINIMAL_FAULT_TOLERANCE);
+    bytes32 expectedDonConfigID3 = _donConfigIdFromConfigData(signerAddrs, MINIMAL_FAULT_TOLERANCE + 1);
 
     _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
     _verify(s_verifierProxy, signedReport, address(link), 0, USER);
