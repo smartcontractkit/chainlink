@@ -1,6 +1,8 @@
 package registrysyncer
 
 import (
+	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -55,14 +57,16 @@ func generateState(t *testing.T) LocalRegistry {
 	}
 	capabilityID := randomWord()
 	capabilityID2 := randomWord()
-	capabilityIDStr := string(capabilityID[:])
-	capabilityID2Str := string(capabilityID2[:])
+	capabilityIDStr := hex.EncodeToString(capabilityID[:])
+	capabilityID2Str := hex.EncodeToString(capabilityID2[:])
 	rtc := capabilities.RemoteTriggerConfig{
 		RegistrationRefresh:     20 * time.Second,
 		MinResponsesToAggregate: 2,
 		RegistrationExpiry:      60 * time.Second,
 		MessageExpiry:           120 * time.Second,
 	}
+
+	fmt.Println(capabilityID2Str, capabilityIDStr)
 
 	return LocalRegistry{
 		IDsToDONs: map[DonID]DON{
