@@ -66,4 +66,34 @@ contract DestinationRewardManagerSetupTest is BaseDestinationRewardManagerTest {
     //set the verifier proxy
     setFeeManager(address(0), ADMIN);
   }
+
+  function test_addFeeManagerZeroAddress() public {
+      vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+      rewardManager.addFeeManager(address(0));
+  }
+
+  function test_addFeeManagerExistingAddress() public {
+    address dummyAddress = address(998);
+    rewardManager.addFeeManager(dummyAddress);
+    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+    rewardManager.addFeeManager(dummyAddress);
+  }
+
+  function test_removeFeeManagerNonExistentAddress() public {
+    address dummyAddress = address(991);
+    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+    rewardManager.removeFeeManager(dummyAddress);
+  }
+
+  function test_addRemoveFeeManager() public {
+      address dummyAddress1 = address(1);
+      address dummyAddress2 = address(2);
+      rewardManager.addFeeManager(dummyAddress1);
+      rewardManager.addFeeManager(dummyAddress2);
+      assertEq(rewardManager.s_feeManagerAddressList(dummyAddress1), dummyAddress1);
+      assertEq(rewardManager.s_feeManagerAddressList(dummyAddress2), dummyAddress2);
+      rewardManager.removeFeeManager(dummyAddress1);
+      assertEq(rewardManager.s_feeManagerAddressList(dummyAddress1), address(0));
+      assertEq(rewardManager.s_feeManagerAddressList(dummyAddress2), dummyAddress2);
+  }
 }

@@ -274,8 +274,62 @@ contract VerifierWithFeeManager is BaseTest {
   function setUp() public virtual override {
     BaseTest.setUp();
 
+    s_verifierProxy.setVerifier(address(s_verifier));
     s_verifier.setFeeManager(address(feeManager));
     rewardManager.addFeeManager(address(feeManager));
+
+    //mint some tokens to the user
+    link.mint(USER, DEFAULT_LINK_MINT_QUANTITY);
+    native.mint(USER, DEFAULT_NATIVE_MINT_QUANTITY);
+    vm.deal(USER, DEFAULT_NATIVE_MINT_QUANTITY);
+
+    //mint some link tokens to the feeManager pool
+    link.mint(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+  }
+}
+
+contract MultipleVerifierWithMultipleFeeManagers is BaseTest {
+  uint256 internal constant DEFAULT_LINK_MINT_QUANTITY = 100 ether;
+  uint256 internal constant DEFAULT_NATIVE_MINT_QUANTITY = 100 ether;
+
+  DestinationVerifier internal s_verifier2;
+  DestinationVerifier internal s_verifier3;
+
+  DestinationVerifierProxy internal s_verifierProxy2;
+  DestinationVerifierProxy internal s_verifierProxy3;
+
+  DestinationFeeManager internal feeManager2;
+
+  function setUp() public virtual override {
+    /*
+      - Sets up 3 verifiers
+      - Sets up 2 Fee managers, wire the fee managers and verifiers
+      - Sets up a Reward Manager which can be used by both fee managers
+     */
+    BaseTest.setUp();
+
+    s_verifierProxy2 = new DestinationVerifierProxy();
+    s_verifierProxy3 = new DestinationVerifierProxy();
+
+    s_verifier2 = new DestinationVerifier(address(s_verifierProxy2));
+    s_verifier3 = new DestinationVerifier(address(s_verifierProxy3));
+
+    s_verifierProxy2.setVerifier(address(s_verifier2));
+    s_verifierProxy3.setVerifier(address(s_verifier3));
+
+    feeManager2 = new DestinationFeeManager(address(link), address(native), address(s_verifier), address(rewardManager));
+
+    s_verifier.setFeeManager(address(feeManager));
+    s_verifier2.setFeeManager(address(feeManager));
+    s_verifier3.setFeeManager(address(feeManager2));
+
+    // this is already set in the base contract
+    // feeManager.addVerifier(address(s_verifier));
+    feeManager.addVerifier(address(s_verifier2));
+    feeManager2.addVerifier(address(s_verifier3));
+
+    rewardManager.addFeeManager(address(feeManager));
+    rewardManager.addFeeManager(address(feeManager2));
 
     //mint some tokens to the user
     link.mint(USER, DEFAULT_LINK_MINT_QUANTITY);

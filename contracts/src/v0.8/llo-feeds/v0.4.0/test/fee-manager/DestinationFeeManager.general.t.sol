@@ -251,4 +251,50 @@ contract DestinationFeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
     vm.expectRevert(bytes("Only callable by owner"));
     feeManager.addVerifier(address(0));
   }
+
+  function test_addVerifierExistingAddress() public {
+    address dummyAddress = address(998);
+    feeManager.addVerifier(dummyAddress);
+    vm.expectRevert(INVALID_ADDRESS_ERROR);
+    feeManager.addVerifier(dummyAddress);
+  }
+
+  function test_addVerifier() public {
+    address dummyAddress = address(998);
+    feeManager.addVerifier(dummyAddress);
+    vm.expectRevert(INVALID_ADDRESS_ERROR);
+    feeManager.addVerifier(dummyAddress);
+
+  // check calls to setFeeRecipients it should not error unauthorized
+    changePrank(dummyAddress);
+    bytes32 dummyConfigDigest = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
+    Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](1);
+    recipients[0] = Common.AddressAndWeight(address(991), 1e18);
+    feeManager.setFeeRecipients(dummyConfigDigest, recipients);
+
+    // removing this verifier should result in unauthorized when calling  setFeeRecipients
+    changePrank(ADMIN);
+    feeManager.removeVerifier(dummyAddress);
+    changePrank(dummyAddress);
+    vm.expectRevert(UNAUTHORIZED_ERROR);
+    feeManager.setFeeRecipients(dummyConfigDigest, recipients);
+  }
+
+  function test_removeVerifierZeroAaddress() public {
+    address dummyAddress = address(0);
+    vm.expectRevert(INVALID_ADDRESS_ERROR);
+    feeManager.removeVerifier(dummyAddress);
+  }
+
+  function test_removeVerifierNonExistentAddress() public {
+    address dummyAddress = address(991);
+    vm.expectRevert(INVALID_ADDRESS_ERROR);
+    feeManager.removeVerifier(dummyAddress);
+  }
+
+  function test_setRewardManagerZeroAddress() public {
+      vm.expectRevert(INVALID_ADDRESS_ERROR);
+      feeManager.setRewardManager(address(0));
+  }
+
 }
