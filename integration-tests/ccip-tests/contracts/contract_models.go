@@ -48,6 +48,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
+type LogInfo struct {
+	BlockNumber uint64
+	TxHash      common.Hash
+}
+
 // Name denotes a contract name
 type Name string
 
@@ -955,7 +960,7 @@ type CommitStoreReportAccepted struct {
 	Min        uint64
 	Max        uint64
 	MerkleRoot [32]byte
-	Raw        types.Log
+	LogInfo    LogInfo
 }
 
 type CommitStoreWrapper struct {
@@ -1496,7 +1501,7 @@ type SendReqEventData struct {
 	SequenceNumber uint64
 	DataLength     int
 	NoOfTokens     int
-	Raw            types.Log
+	LogInfo        LogInfo
 	Fee            *big.Int
 }
 
@@ -2151,7 +2156,7 @@ type EVM2EVMOffRampExecutionStateChanged struct {
 	MessageId      [32]byte
 	State          uint8
 	ReturnData     []byte
-	Raw            types.Log
+	LogInfo        LogInfo
 }
 
 type MockAggregator struct {
