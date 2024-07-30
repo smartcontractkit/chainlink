@@ -53,7 +53,6 @@ type AppConfig interface {
 	Pyroscope() Pyroscope
 	Sentry() Sentry
 	TelemetryIngress() TelemetryIngress
-	HeadReport() HeadReport
 	Threshold() Threshold
 	WebServer() WebServer
 	Tracing() Tracing

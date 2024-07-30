@@ -61,6 +61,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 FinalityTagBypass = true
 MaxAllowedFinalityDepth = 10000
+HeadTelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5

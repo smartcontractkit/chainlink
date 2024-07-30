@@ -130,7 +130,7 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 			legacyMap[id.ChainID] = a.Chain()
 		}
 		op.legacyChains.EVMChains = legacyevm.NewLegacyChains(legacyMap, config.AppConfig.EVMConfigs())
-		headReporter := headreporter.NewHeadReporterService(config.AppConfig.HeadReport(), config.DS, op.legacyChains.EVMChains, factory.Logger, monitoringEndpointGen, true)
+		headReporter := headreporter.NewHeadReporterService(config.DS, op.legacyChains.EVMChains, factory.Logger, monitoringEndpointGen)
 		op.srvs = append(op.srvs, headReporter)
 		return nil
 	}
