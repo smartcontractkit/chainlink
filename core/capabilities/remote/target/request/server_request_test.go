@@ -190,6 +190,26 @@ type testDispatcher struct {
 	msgs []*types.MessageBody
 }
 
+func (t *testDispatcher) Name() string {
+	return "testDispatcher"
+}
+
+func (t *testDispatcher) Start(ctx context.Context) error {
+	return nil
+}
+
+func (t *testDispatcher) Close() error {
+	return nil
+}
+
+func (t *testDispatcher) Ready() error {
+	return nil
+}
+
+func (t *testDispatcher) HealthReport() map[string]error {
+	return nil
+}
+
 func (t *testDispatcher) SetReceiver(capabilityId string, donId uint32, receiver types.Receiver) error {
 	return nil
 }

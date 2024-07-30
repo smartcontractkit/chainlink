@@ -12,7 +12,7 @@ import (
 )
 
 type Runner interface {
-	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error)
+	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error)
 	InitializePipeline(spec pipeline.Spec) (*pipeline.Pipeline, error)
 }
 
@@ -87,7 +87,7 @@ func (s *stream) executeRun(ctx context.Context) (*pipeline.Run, pipeline.TaskRu
 		},
 	})
 
-	run, trrs, err := s.runner.ExecuteRun(ctx, *s.spec, vars, s.lggr)
+	run, trrs, err := s.runner.ExecuteRun(ctx, *s.spec, vars)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error executing run for spec ID %v: %w", s.spec.ID, err)
 	}

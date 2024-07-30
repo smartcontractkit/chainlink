@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-//go:generate mockery --quiet --name Decryptor --output ./mocks/ --case=underscore
 type Decryptor interface {
 	Decrypt(ctx context.Context, ciphertextId decryptionPlugin.CiphertextId, ciphertext []byte) ([]byte, error)
 }

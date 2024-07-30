@@ -1126,7 +1126,7 @@ func (lsn *listenerV2) simulateFulfillment(
 		},
 	})
 	var trrs pipeline.TaskRunResults
-	res.run, trrs, err = lsn.pipelineRunner.ExecuteRun(ctx, *lsn.job.PipelineSpec, vars, lg)
+	res.run, trrs, err = lsn.pipelineRunner.ExecuteRun(ctx, *lsn.job.PipelineSpec, vars)
 	if err != nil {
 		res.err = fmt.Errorf("executing run: %w", err)
 		return res
@@ -1168,7 +1168,7 @@ func (lsn *listenerV2) simulateFulfillment(
 
 		return res
 	}
-	finalResult := trrs.FinalResult(lg)
+	finalResult := trrs.FinalResult()
 	if len(finalResult.Values) != 1 {
 		res.err = errors.Errorf("unexpected number of outputs, expected 1, was %d", len(finalResult.Values))
 		return res

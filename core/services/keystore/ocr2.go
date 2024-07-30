@@ -10,8 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
-//go:generate mockery --quiet --name OCR2 --output mocks/ --case=underscore
-
 type OCR2 interface {
 	Get(id string) (ocr2key.KeyBundle, error)
 	GetAll() ([]ocr2key.KeyBundle, error)

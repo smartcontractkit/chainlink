@@ -158,7 +158,7 @@ popd
 4. Generate and compile static assets:
 
 ```bash
-go generate ./...
+make generate
 ```
 
 5. Prepare your development environment:

@@ -13,9 +13,45 @@ type ConnectionAcceptor struct {
 	mock.Mock
 }
 
+type ConnectionAcceptor_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *ConnectionAcceptor) EXPECT() *ConnectionAcceptor_Expecter {
+	return &ConnectionAcceptor_Expecter{mock: &_m.Mock}
+}
+
 // AbortHandshake provides a mock function with given fields: attemptId
 func (_m *ConnectionAcceptor) AbortHandshake(attemptId string) {
 	_m.Called(attemptId)
+}
+
+// ConnectionAcceptor_AbortHandshake_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AbortHandshake'
+type ConnectionAcceptor_AbortHandshake_Call struct {
+	*mock.Call
+}
+
+// AbortHandshake is a helper method to define mock.On call
+//   - attemptId string
+func (_e *ConnectionAcceptor_Expecter) AbortHandshake(attemptId interface{}) *ConnectionAcceptor_AbortHandshake_Call {
+	return &ConnectionAcceptor_AbortHandshake_Call{Call: _e.mock.On("AbortHandshake", attemptId)}
+}
+
+func (_c *ConnectionAcceptor_AbortHandshake_Call) Run(run func(attemptId string)) *ConnectionAcceptor_AbortHandshake_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *ConnectionAcceptor_AbortHandshake_Call) Return() *ConnectionAcceptor_AbortHandshake_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *ConnectionAcceptor_AbortHandshake_Call) RunAndReturn(run func(string)) *ConnectionAcceptor_AbortHandshake_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FinalizeHandshake provides a mock function with given fields: attemptId, response, conn
@@ -34,6 +70,36 @@ func (_m *ConnectionAcceptor) FinalizeHandshake(attemptId string, response []byt
 	}
 
 	return r0
+}
+
+// ConnectionAcceptor_FinalizeHandshake_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FinalizeHandshake'
+type ConnectionAcceptor_FinalizeHandshake_Call struct {
+	*mock.Call
+}
+
+// FinalizeHandshake is a helper method to define mock.On call
+//   - attemptId string
+//   - response []byte
+//   - conn *websocket.Conn
+func (_e *ConnectionAcceptor_Expecter) FinalizeHandshake(attemptId interface{}, response interface{}, conn interface{}) *ConnectionAcceptor_FinalizeHandshake_Call {
+	return &ConnectionAcceptor_FinalizeHandshake_Call{Call: _e.mock.On("FinalizeHandshake", attemptId, response, conn)}
+}
+
+func (_c *ConnectionAcceptor_FinalizeHandshake_Call) Run(run func(attemptId string, response []byte, conn *websocket.Conn)) *ConnectionAcceptor_FinalizeHandshake_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].([]byte), args[2].(*websocket.Conn))
+	})
+	return _c
+}
+
+func (_c *ConnectionAcceptor_FinalizeHandshake_Call) Return(_a0 error) *ConnectionAcceptor_FinalizeHandshake_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ConnectionAcceptor_FinalizeHandshake_Call) RunAndReturn(run func(string, []byte, *websocket.Conn) error) *ConnectionAcceptor_FinalizeHandshake_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // StartHandshake provides a mock function with given fields: authHeader
@@ -71,6 +137,34 @@ func (_m *ConnectionAcceptor) StartHandshake(authHeader []byte) (string, []byte,
 	}
 
 	return r0, r1, r2
+}
+
+// ConnectionAcceptor_StartHandshake_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartHandshake'
+type ConnectionAcceptor_StartHandshake_Call struct {
+	*mock.Call
+}
+
+// StartHandshake is a helper method to define mock.On call
+//   - authHeader []byte
+func (_e *ConnectionAcceptor_Expecter) StartHandshake(authHeader interface{}) *ConnectionAcceptor_StartHandshake_Call {
+	return &ConnectionAcceptor_StartHandshake_Call{Call: _e.mock.On("StartHandshake", authHeader)}
+}
+
+func (_c *ConnectionAcceptor_StartHandshake_Call) Run(run func(authHeader []byte)) *ConnectionAcceptor_StartHandshake_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].([]byte))
+	})
+	return _c
+}
+
+func (_c *ConnectionAcceptor_StartHandshake_Call) Return(attemptId string, challenge []byte, err error) *ConnectionAcceptor_StartHandshake_Call {
+	_c.Call.Return(attemptId, challenge, err)
+	return _c
+}
+
+func (_c *ConnectionAcceptor_StartHandshake_Call) RunAndReturn(run func([]byte) (string, []byte, error)) *ConnectionAcceptor_StartHandshake_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewConnectionAcceptor creates a new instance of ConnectionAcceptor. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

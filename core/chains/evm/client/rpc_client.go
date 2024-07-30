@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -75,8 +76,6 @@ var (
 )
 
 // RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
-//
-//go:generate mockery --quiet --name RPCClient --output ./mocks --case=underscore
 type RPCClient interface {
 	commonclient.RPC[
 		*big.Int,
@@ -104,6 +103,8 @@ type RPCClient interface {
 	GetInterceptedChainInfo() (latest, highestUserObservations commonclient.ChainInfo)
 }
 
+const rpcSubscriptionMethodNewHeads = "newHeads"
+
 type rawclient struct {
 	rpc  *rpc.Client
 	geth *ethclient.Client
@@ -111,11 +112,12 @@ type rawclient struct {
 }
 
 type rpcClient struct {
-	rpcLog  logger.SugaredLogger
-	name    string
-	id      int32
-	chainID *big.Int
-	tier    commonclient.NodeTier
+	rpcLog                     logger.SugaredLogger
+	name                       string
+	id                         int32
+	chainID                    *big.Int
+	tier                       commonclient.NodeTier
+	finalizedBlockPollInterval time.Duration
 
 	ws   rawclient
 	http *rawclient
@@ -149,6 +151,7 @@ func NewRPCClient(
 	id int32,
 	chainID *big.Int,
 	tier commonclient.NodeTier,
+	finalizedBlockPollInterval time.Duration,
 ) RPCClient {
 	r := new(rpcClient)
 	r.name = name
@@ -156,6 +159,7 @@ func NewRPCClient(
 	r.chainID = chainID
 	r.tier = tier
 	r.ws.uri = wsuri
+	r.finalizedBlockPollInterval = finalizedBlockPollInterval
 	if httpuri != nil {
 		r.http = &rawclient{uri: *httpuri}
 	}
@@ -405,6 +409,7 @@ func (r *rpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) err
 	return err
 }
 
+// TODO: Full transition from SubscribeNewHead to SubscribeToHeads is done in BCI-2875
 func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtypes.Head) (_ commontypes.Subscription, err error) {
 	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx)
 	defer cancel()
@@ -434,6 +439,54 @@ func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtyp
 	}
 
 	return subForwarder, nil
+}
+
+func (r *rpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.Head, sub commontypes.Subscription, err error) {
+	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx)
+	defer cancel()
+
+	args := []interface{}{rpcSubscriptionMethodNewHeads}
+	start := time.Now()
+	lggr := r.newRqLggr().With("args", args)
+
+	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
+	defer func() {
+		duration := time.Since(start)
+		r.logResult(lggr, err, duration, r.getRPCDomain(), "EthSubscribe")
+		err = r.wrapWS(err)
+	}()
+
+	channel := make(chan *evmtypes.Head)
+	forwarder := newSubForwarder(channel, func(head *evmtypes.Head) *evmtypes.Head {
+		head.EVMChainID = ubig.New(r.chainID)
+		r.onNewHead(ctx, chStopInFlight, head)
+		return head
+	}, r.wrapRPCClientError)
+
+	err = forwarder.start(ws.rpc.EthSubscribe(ctx, forwarder.srcCh, args...))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = r.registerSub(forwarder, chStopInFlight)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return channel, forwarder, err
+}
+
+func (r *rpcClient) SubscribeToFinalizedHeads(_ context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
+	interval := r.finalizedBlockPollInterval
+	if interval == 0 {
+		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
+	}
+	timeout := interval
+	poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.LatestFinalizedBlock, timeout, r.rpcLog)
+	if err := poller.Start(); err != nil {
+		return nil, nil, err
+	}
+	return channel, &poller, nil
 }
 
 // GethClient wrappers

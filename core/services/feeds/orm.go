@@ -13,8 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
-//go:generate mockery --with-expecter=true --quiet --name ORM --output ./mocks/ --case=underscore
-
 type ORM interface {
 	CountManagers(ctx context.Context) (int64, error)
 	CreateManager(ctx context.Context, ms *FeedsManager) (int64, error)

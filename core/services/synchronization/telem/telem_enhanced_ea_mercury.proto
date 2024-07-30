@@ -11,6 +11,7 @@ message EnhancedEAMercury {
   double dp_benchmark_price=2;
   double dp_bid=3;
   double dp_ask=4;
+  bool dp_invariant_violation_detected=33;
 
   // v1 fields (block range)
   int64 current_block_number=5;
@@ -48,6 +49,4 @@ message EnhancedEAMercury {
   int64 round=19;
   int64 epoch=20;
   string asset_symbol=21;
-
-
 }
