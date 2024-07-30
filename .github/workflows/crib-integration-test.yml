@@ -1,0 +1,74 @@
+# this is disabled because of GAP limitations, should be re-enabled when github-actions-controller will be installed
+
+#name: CRIB Integration Tests
+#on:
+#  push:
+#  workflow_call:
+#concurrency:
+#  group: ${{ github.workflow }}-${{ github.ref }}
+#  cancel-in-progress: true
+#jobs:
+#  test:
+#    runs-on: ubuntu-latest
+#    environment: integration
+#    permissions:
+#      id-token: write
+#      contents: read
+#      actions: read
+#    steps:
+#      - name: Checkout repository
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#
+#      - name: Setup Nix + GATI environment
+#        uses: smartcontractkit/.github/actions/setup-nix-gati@514fe346780e2eddf7ea8b9f48120c2fba120d94
+#        with:
+#          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
+#          aws-lambda-url: ${{ secrets.AWS_CORE_TOKEN_ISSUER_LAMBDA_URL }} # see https://github.com/smartcontractkit/  infra/blob/a79bcfb48315c4411023c182e98eb80ff9e9cda6/accounts/production/us-west-2/lambda/  github-app-token-issuer-production/teams/releng/config.json#L9
+#          aws-region: ${{ secrets.AWS_REGION }}
+#          aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+#          enable-magic-cache: true
+#
+#      - name: Nix Develop Action
+#        uses: nicknovitski/nix-develop@v1
+#        with:
+#          arguments: "--accept-flake-config"
+#      - name: setup-gap
+#        uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
+#        with:
+#          aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
+#          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_K8S_STAGE }}
+#          aws-region: ${{ secrets.AWS_REGION }}
+#          ecr-private-registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+#          k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
+#          use-private-ecr-registry: true
+#          use-k8s: true
+#          metrics-job-name: "k8s"
+#          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+#          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+#          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#        name: Checkout CRIB repository
+#        with:
+#          repository: 'smartcontractkit/crib'
+#          ref: 'main'
+#      - name: Generate Short UUID
+#        id: uuid
+#        run: echo "CRIB_NAMESPACE=$(uuidgen | cut -c1-5)" >> $GITHUB_ENV
+#      - name: Create a new CRIB environment
+#        run: |-
+#          devspace use namespace $CRIB_NAMESPACE
+#          devspace deploy --profile local-dev-simulated-core-ocr1
+#      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#      - name: Setup go
+#        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+#        with:
+#          go-version-file: "go.mod"
+#      - name: Run CRIB integration test
+#        working-directory: integration-tests/crib
+#        env:
+#          K8S_STAGING_INGRESS_SUFFIX: ${{ secrets.K8S_STAGING_INGRESS_SUFFIX }}
+#          CRIB_NAMESPACE: ${{ env.CRIB_NAMESPACE }}
+#          CRIB_NETWORK: geth
+#          CRIB_NODES: 5
+#        run: |-
+#          go test -v -run TestCRIB
