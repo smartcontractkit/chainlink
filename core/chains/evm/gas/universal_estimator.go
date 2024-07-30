@@ -262,7 +262,7 @@ func (u *UniversalEstimator) FetchDynamicPrice() (fee DynamicFee, err error) {
 	u.priorityFeeThreshold = priorityFeeThresholdWei
 	u.priorityFeeThresholdMu.Unlock()
 
-	// eth_feeHistory may return less results than BlockHistorySize so we need to divide by the lenght of the result
+	// eth_feeHistory may return less results than BlockHistorySize so we need to divide by the length of the result
 	maxPriorityFeePerGas := assets.NewWei(priorityFee.Div(priorityFee, big.NewInt(int64(len(feeHistory.Reward)))))
 	// baseFeeBufferPercentage is used as a safety to catch fluctuations in the next block.
 	maxFeePerGas := baseFee.AddPercentage(BaseFeeBufferPercentage).Add((maxPriorityFeePerGas))
