@@ -6,6 +6,7 @@ MinIncomingConfirmations = 1
 # WeMix emits a block every 1 second, regardless of transactions
 LogPollInterval = '3s'
 NoNewHeadsThreshold = '30s'
+NoNewFinalizedHeadsThreshold = '40s'
 
 [OCR]
 ContractConfirmations = 1

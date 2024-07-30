@@ -6,6 +6,7 @@ LinkContractAddress = '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
 LogPollInterval = '2s'
 NoNewHeadsThreshold = '40s'
 MinIncomingConfirmations = 1
+NoNewFinalizedHeadsThreshold = '13m'
 
 [GasEstimator]
 EIP1559DynamicFees = true
