@@ -54,7 +54,7 @@ var (
 
 const (
 	MinimumBumpPercentage   = 10 // based on geth's spec
-	ConnectivityPercentile  = 80
+	ConnectivityPercentile  = 85
 	BaseFeeBufferPercentage = 40
 )
 
@@ -115,7 +115,7 @@ func (u *UniversalEstimator) Start(context.Context) error {
 				strconv.FormatUint(uint64(u.config.BumpPercent), 10), strconv.Itoa(MinimumBumpPercentage))
 		}
 		if u.config.EIP1559 && u.config.RewardPercentile > ConnectivityPercentile {
-			return fmt.Errorf("RewardPercentile: %s is greater than maximum allowed connectivity percentage: %s",
+			return fmt.Errorf("RewardPercentile: %s is greater than maximum allowed percentile: %s",
 				strconv.FormatUint(uint64(u.config.RewardPercentile), 10), strconv.Itoa(ConnectivityPercentile))
 		}
 		if u.config.EIP1559 && u.config.BlockHistorySize == 0 {
@@ -184,7 +184,7 @@ func (u *UniversalEstimator) FetchGasPrice() (*assets.Wei, error) {
 
 	promUniversalEstimatorGasPrice.WithLabelValues(u.chainID.String()).Set(float64(gasPrice.Int64()))
 
-	gasPriceWei := (*assets.Wei)(gasPrice)
+	gasPriceWei := assets.NewWei(gasPrice)
 
 	u.logger.Debugf("fetched new gas price: %v", gasPriceWei)
 
@@ -226,8 +226,8 @@ func (u *UniversalEstimator) GetDynamicFee(ctx context.Context, maxPrice *assets
 	return
 }
 
-// FetchDynamicPrice uses eth_feeHistory to fetch the basFee of the latest block and the Nth maxPriorityFeePerGas percentiles
-// of the past X blocks. It also fetches the highest Zth maxPriorityFeePerGas percentile of the past X blocks. Z is configurable
+// FetchDynamicPrice uses eth_feeHistory to fetch the baseFee of the latest block and the Nth maxPriorityFeePerGas percentiles
+// of the past X blocks. It also fetches the highest 85th maxPriorityFeePerGas percentile of the past X blocks. Z is configurable
 // and it represents the highest percentile we're willing to pay.
 // A buffer is added on top of the latest basFee to catch fluctuations in the next blocks. On Ethereum the increase is baseFee*1.125 per block.
 func (u *UniversalEstimator) FetchDynamicPrice() (fee DynamicFee, err error) {
@@ -243,9 +243,11 @@ func (u *UniversalEstimator) FetchDynamicPrice() (fee DynamicFee, err error) {
 		return fee, fmt.Errorf("failed to fetch dynamic prices: %s", err)
 	}
 
-	// Latest base fee
-	baseFee := (*assets.Wei)(feeHistory.BaseFee[len(feeHistory.BaseFee)-1])
-	latestBlock := big.NewInt(0).Add(feeHistory.OldestBlock, big.NewInt(int64(u.config.BlockHistorySize)))
+	// eth_feeHistory doesn't return the latest baseFee of the range but rather the latest + 1, because it can be derived from the existing
+	// values. Source: https://github.com/ethereum/go-ethereum/blob/b0f66e34ca2a4ea7ae23475224451c8c9a569826/eth/gasprice/feehistory.go#L235
+	// nextBlock is the latest returned + 1 to be aligned with the base fee value.
+	baseFee := assets.NewWei(feeHistory.BaseFee[len(feeHistory.BaseFee)-1])
+	nextBlock := big.NewInt(0).Add(feeHistory.OldestBlock, big.NewInt(int64(u.config.BlockHistorySize)))
 
 	priorityFee := big.NewInt(0)
 	priorityFeeThreshold := big.NewInt(0)
@@ -254,12 +256,14 @@ func (u *UniversalEstimator) FetchDynamicPrice() (fee DynamicFee, err error) {
 		// We don't need an average, we need the max value
 		priorityFeeThreshold = bigmath.Max(priorityFeeThreshold, fee[1])
 	}
+	priorityFeeThresholdWei := assets.NewWei(priorityFeeThreshold)
 
 	u.priorityFeeThresholdMu.Lock()
-	u.priorityFeeThreshold = (*assets.Wei)(priorityFeeThreshold)
+	u.priorityFeeThreshold = priorityFeeThresholdWei
 	u.priorityFeeThresholdMu.Unlock()
 
-	maxPriorityFeePerGas := (*assets.Wei)(priorityFee.Div(priorityFee, big.NewInt(int64(u.config.BlockHistorySize))))
+	// eth_feeHistory may return less results than BlockHistorySize so we need to divide by the lenght of the result
+	maxPriorityFeePerGas := assets.NewWei(priorityFee.Div(priorityFee, big.NewInt(int64(len(feeHistory.Reward)))))
 	// baseFeeBufferPercentage is used as a safety to catch fluctuations in the next block.
 	maxFeePerGas := baseFee.AddPercentage(BaseFeeBufferPercentage).Add((maxPriorityFeePerGas))
 
@@ -267,8 +271,8 @@ func (u *UniversalEstimator) FetchDynamicPrice() (fee DynamicFee, err error) {
 	promUniversalEstimatorMaxPriorityFeePerGas.WithLabelValues(u.chainID.String()).Set(float64(maxPriorityFeePerGas.Int64()))
 	promUniversalEstimatorMaxFeePerGas.WithLabelValues(u.chainID.String()).Set(float64(maxFeePerGas.Int64()))
 
-	u.logger.Debugf("Fetched new dynamic prices, block#: %v - maxFeePerGas: %v - maxPriorityFeePerGas: %v - maxPriorityFeeThreshold: %v",
-		latestBlock, maxFeePerGas, maxPriorityFeePerGas, (*assets.Wei)(priorityFeeThreshold))
+	u.logger.Debugf("Fetched new dynamic prices, nextBlock#: %v - oldestBlock#: %v - maxFeePerGas: %v - maxPriorityFeePerGas: %v - maxPriorityFeeThreshold: %v",
+		nextBlock, feeHistory.OldestBlock, maxFeePerGas, maxPriorityFeePerGas, priorityFeeThresholdWei)
 
 	u.dynamicPriceMu.Lock()
 	defer u.dynamicPriceMu.Unlock()

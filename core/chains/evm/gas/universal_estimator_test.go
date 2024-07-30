@@ -35,14 +35,14 @@ func TestUniversalEstimatorLifecycle(t *testing.T) {
 		assert.ErrorContains(t, err, "gas price not set")
 	})
 
-	t.Run("fails to start if BumpPercent is lower  than the minimum cap", func(t *testing.T) {
+	t.Run("fails to start if BumpPercent is lower than the minimum cap", func(t *testing.T) {
 		cfg := gas.UniversalEstimatorConfig{BumpPercent: 9}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), nil, cfg, chainID, nil)
 		assert.ErrorContains(t, u.Start(tests.Context(t)), "BumpPercent")
 	})
 
-	t.Run("fails to start if RewardPercentile is lower than ConnectivityPercentile in EIP-1559", func(t *testing.T) {
+	t.Run("fails to start if RewardPercentile is higher than ConnectivityPercentile in EIP-1559", func(t *testing.T) {
 		cfg := gas.UniversalEstimatorConfig{
 			BumpPercent:      20,
 			RewardPercentile: 99,
@@ -391,7 +391,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("returns market prices bumped by BumpPercent if bumped original fee is lower", func(t *testing.T) {
+	t.Run("returns market prices if bumped original fee is lower", func(t *testing.T) {
 		client := mocks.NewUniversalEstimatorClient(t)
 		originalFee := gas.DynamicFee{
 			FeeCap: assets.NewWeiI(20),
