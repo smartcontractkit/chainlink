@@ -2096,6 +2096,9 @@ func (o *evmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlo
 
 // Mark transactions corresponding to receipt IDs as finalized
 func (o *evmTxStore) UpdateTxStatesToFinalizedUsingReceiptIds(ctx context.Context, receiptIDs []int64, chainId *big.Int) error {
+	if len(receiptIDs) == 0 {
+		return nil
+	}
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
