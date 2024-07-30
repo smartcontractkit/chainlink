@@ -13,7 +13,7 @@ type MockRunner struct {
 	Err  error
 }
 
-func (m *MockRunner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error) {
+func (m *MockRunner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error) {
 	return &pipeline.Run{ID: 42}, m.Trrs, m.Err
 }
 
