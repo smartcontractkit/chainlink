@@ -3,7 +3,50 @@ name: GHA Workflow Validation
 on:
   pull_request:
 
+env:
+  ECR_HOSTNAME: public.ecr.aws
+  ECR_IMAGE_NAME: chainlink/chainlink
+  DOCKER_IMAGE_TAG: 2.14.0-test
+  DOCKER_IMAGE_SHA: sha256:b4793a0f233afd26901deb244098d9429097d149a6fb0bef4e08b7aa626d9067
+
 jobs:
+  slack-notify:
+    runs-on: ubuntu-24.04
+    environment: build-publish
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Notify Slack
+        uses: smartcontractkit/.github/actions/slack-notify-git-ref@e789bce9ce7912b9d9920f4e0d79fea4369cbb3a # slack-notify-git-ref@0.1.1
+        with:
+          slack-channel-id: ${{ secrets.SLACK_CHANNEL_RELENG_TEST }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }} # Releng Bot
+          git-ref: ${{ github.ref_name }}
+          git-ref-type: ${{ github.ref_type }}
+          changelog-url: >-
+            ${{
+              github.ref_type == 'branch' &&
+              format(
+                'https://github.com/{0}/blob/{1}/CHANGELOG.md',
+                github.repository,
+                github.ref_name
+              ) || ''
+            }}
+          docker-image-name: >-
+            ${{ 
+              github.ref_type == 'branch' && 
+              format(
+                '{0}/{1}:{2}', 
+                env.ECR_HOSTNAME, 
+                env.ECR_IMAGE_NAME, 
+                env.DOCKER_IMAGE_TAG
+              ) || ''
+            }}
+          docker-image-digest: >-
+            ${{ 
+              github.ref_type == 'branch' && 
+              env.DOCKER_IMAGE_SHA || ''
+            }}
 
   validate-worfklow-changes:
     name: Validate Workflow Changes
@@ -17,7 +60,7 @@ jobs:
         uses: smartcontractkit/.github/actions/gha-workflow-validator@d316f66b2990ea4daa479daa3de6fc92b00f863e # gha-workflow-validator@0.2.0
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          
+
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
