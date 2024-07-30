@@ -274,6 +274,7 @@ contract VerifierWithFeeManager is BaseTest {
   function setUp() public virtual override {
     BaseTest.setUp();
 
+    s_verifierProxy.setVerifier(address(s_verifier));
     s_verifier.setFeeManager(address(feeManager));
     rewardManager.addFeeManager(address(feeManager));
 
