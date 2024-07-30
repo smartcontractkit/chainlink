@@ -111,6 +111,11 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPluginFn(config types.Rep
 			return reportingPluginAndInfo{}, fmt.Errorf("get onchain config from offramp: %w", err)
 		}
 
+		batchingStrategy, err := NewBatchingStrategy(offchainConfig.BatchingStrategyID, rf.config.txmStatusChecker)
+		if err != nil {
+			return reportingPluginAndInfo{}, fmt.Errorf("get batching strategy: %w", err)
+		}
+
 		msgVisibilityInterval := offchainConfig.MessageVisibilityInterval.Duration()
 		if msgVisibilityInterval.Seconds() == 0 {
 			rf.config.lggr.Info("MessageVisibilityInterval not set, falling back to PermissionLessExecutionThreshold")
@@ -139,6 +144,7 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPluginFn(config types.Rep
 			commitRootsCache:            cache.NewCommitRootsCache(lggr, msgVisibilityInterval, offchainConfig.RootSnoozeTime.Duration()),
 			metricsCollector:            rf.config.metricsCollector,
 			chainHealthcheck:            rf.config.chainHealthcheck,
+			batchingStrategy:            batchingStrategy,
 		}
 
 		pluginInfo := types.ReportingPluginInfo{

@@ -330,15 +330,15 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 
 		dstProvider, err2 := d.ccipCommitGetDstProvider(ctx, jb, pluginJobSpecConfig, transmitterID)
 		if err2 != nil {
-			return err2
+			return err
 		}
 
 		srcProvider, _, err2 := d.ccipCommitGetSrcProvider(ctx, jb, pluginJobSpecConfig, transmitterID, dstProvider)
 		if err2 != nil {
-			return err2
+			return err
 		}
 		err2 = ccipcommit.UnregisterCommitPluginLpFilters(srcProvider, dstProvider)
-		if err != nil {
+		if err2 != nil {
 			d.lggr.Errorw("failed to unregister ccip commit plugin filters", "err", err2, "spec", spec)
 		}
 		return nil
@@ -353,12 +353,12 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 
 		dstProvider, err2 := d.ccipExecGetDstProvider(ctx, jb, pluginJobSpecConfig, transmitterID)
 		if err2 != nil {
-			return err2
+			return err
 		}
 
 		srcProvider, _, err2 := d.ccipExecGetSrcProvider(ctx, jb, pluginJobSpecConfig, transmitterID, dstProvider)
 		if err2 != nil {
-			return err2
+			return err
 		}
 		err2 = ccipexec.UnregisterExecPluginLpFilters(srcProvider, dstProvider)
 		if err2 != nil {
