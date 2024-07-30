@@ -3,10 +3,11 @@ package mocks
 import "time"
 
 type ChainConfig struct {
-	IsFinalityTagEnabled    bool
-	FinalityDepthVal        uint32
-	NoNewHeadsThresholdVal  time.Duration
-	FinalizedBlockOffsetVal uint32
+	IsFinalityTagEnabled            bool
+	FinalityDepthVal                uint32
+	NoNewHeadsThresholdVal          time.Duration
+	FinalizedBlockOffsetVal         uint32
+	NoNewFinalizedHeadsThresholdVal time.Duration
 }
 
 func (t ChainConfig) NodeNoNewHeadsThreshold() time.Duration {
@@ -23,4 +24,8 @@ func (t ChainConfig) FinalityTagEnabled() bool {
 
 func (t ChainConfig) FinalizedBlockOffset() uint32 {
 	return t.FinalizedBlockOffsetVal
+}
+
+func (t ChainConfig) NoNewFinalizedHeadsThreshold() time.Duration {
+	return t.NoNewFinalizedHeadsThresholdVal
 }
