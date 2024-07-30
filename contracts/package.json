@@ -3,7 +3,7 @@
   "version": "1.2.0",
   "description": "Chainlink smart contracts",
   "author": "Chainlink devs",
-  "license": "BUSL-1.1",
+  "license": "MIT",
   "private": false,
   "scripts": {
     "test": "hardhat test --parallel",
