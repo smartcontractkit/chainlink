@@ -5,6 +5,7 @@ LogPollInterval = '5s'
 MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '1m'
 OCR.ContractConfirmations = 1
+NoNewFinalizedHeadsThreshold = '1m'
 
 [GasEstimator]
 PriceDefault = '5 gwei'
