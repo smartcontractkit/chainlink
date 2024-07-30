@@ -68,8 +68,8 @@ contract DestinationRewardManagerSetupTest is BaseDestinationRewardManagerTest {
   }
 
   function test_addFeeManagerZeroAddress() public {
-      vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
-      rewardManager.addFeeManager(address(0));
+    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+    rewardManager.addFeeManager(address(0));
   }
 
   function test_addFeeManagerExistingAddress() public {
@@ -86,14 +86,14 @@ contract DestinationRewardManagerSetupTest is BaseDestinationRewardManagerTest {
   }
 
   function test_addRemoveFeeManager() public {
-      address dummyAddress1 = address(1);
-      address dummyAddress2 = address(2);
-      rewardManager.addFeeManager(dummyAddress1);
-      rewardManager.addFeeManager(dummyAddress2);
-      assertEq(rewardManager.s_feeManagerAddressList(dummyAddress1), dummyAddress1);
-      assertEq(rewardManager.s_feeManagerAddressList(dummyAddress2), dummyAddress2);
-      rewardManager.removeFeeManager(dummyAddress1);
-      assertEq(rewardManager.s_feeManagerAddressList(dummyAddress1), address(0));
-      assertEq(rewardManager.s_feeManagerAddressList(dummyAddress2), dummyAddress2);
+    address dummyAddress1 = address(1);
+    address dummyAddress2 = address(2);
+    rewardManager.addFeeManager(dummyAddress1);
+    rewardManager.addFeeManager(dummyAddress2);
+    assertEq(rewardManager.s_feeManagerAddressList(dummyAddress1), dummyAddress1);
+    assertEq(rewardManager.s_feeManagerAddressList(dummyAddress2), dummyAddress2);
+    rewardManager.removeFeeManager(dummyAddress1);
+    assertEq(rewardManager.s_feeManagerAddressList(dummyAddress1), address(0));
+    assertEq(rewardManager.s_feeManagerAddressList(dummyAddress2), dummyAddress2);
   }
 }

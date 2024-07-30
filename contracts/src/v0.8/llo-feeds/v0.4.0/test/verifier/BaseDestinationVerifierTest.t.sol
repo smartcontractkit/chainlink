@@ -317,7 +317,12 @@ contract MultipleVerifierWithMultipleFeeManagers is BaseTest {
     s_verifierProxy2.setVerifier(address(s_verifier2));
     s_verifierProxy3.setVerifier(address(s_verifier3));
 
-    feeManager2 = new DestinationFeeManager(address(link), address(native), address(s_verifier), address(rewardManager));
+    feeManager2 = new DestinationFeeManager(
+      address(link),
+      address(native),
+      address(s_verifier),
+      address(rewardManager)
+    );
 
     s_verifier.setFeeManager(address(feeManager));
     s_verifier2.setFeeManager(address(feeManager));

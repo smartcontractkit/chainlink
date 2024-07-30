@@ -265,7 +265,7 @@ contract DestinationFeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
     vm.expectRevert(INVALID_ADDRESS_ERROR);
     feeManager.addVerifier(dummyAddress);
 
-  // check calls to setFeeRecipients it should not error unauthorized
+    // check calls to setFeeRecipients it should not error unauthorized
     changePrank(dummyAddress);
     bytes32 dummyConfigDigest = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](1);
@@ -293,8 +293,7 @@ contract DestinationFeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
   }
 
   function test_setRewardManagerZeroAddress() public {
-      vm.expectRevert(INVALID_ADDRESS_ERROR);
-      feeManager.setRewardManager(address(0));
+    vm.expectRevert(INVALID_ADDRESS_ERROR);
+    feeManager.setRewardManager(address(0));
   }
-
 }

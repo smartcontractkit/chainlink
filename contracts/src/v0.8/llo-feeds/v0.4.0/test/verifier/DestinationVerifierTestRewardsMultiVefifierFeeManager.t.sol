@@ -7,11 +7,7 @@ import {DestinationVerifierProxy} from "../../../v0.4.0/DestinationVerifierProxy
 import {AccessControllerInterface} from "../../../../shared/interfaces/AccessControllerInterface.sol";
 import {Common} from "../../../libraries/Common.sol";
 
-
 contract MultiVerifierBillingTests is MultipleVerifierWithMultipleFeeManagers {
-
-
-
   uint8 MINIMAL_FAULT_TOLERANCE = 2;
   address internal constant DEFAULT_RECIPIENT_1 = address(uint160(uint256(keccak256("DEFAULT_RECIPIENT_1"))));
   address internal constant DEFAULT_RECIPIENT_2 = address(uint160(uint256(keccak256("DEFAULT_RECIPIENT_2"))));
@@ -20,7 +16,6 @@ contract MultiVerifierBillingTests is MultipleVerifierWithMultipleFeeManagers {
   address internal constant DEFAULT_RECIPIENT_5 = address(uint160(uint256(keccak256("DEFAULT_RECIPIENT_5"))));
   address internal constant DEFAULT_RECIPIENT_6 = address(uint160(uint256(keccak256("DEFAULT_RECIPIENT_6"))));
   address internal constant DEFAULT_RECIPIENT_7 = address(uint160(uint256(keccak256("DEFAULT_RECIPIENT_7"))));
-
 
   bytes32[3] internal s_reportContext;
   V3Report internal s_testReport;
@@ -31,7 +26,13 @@ contract MultiVerifierBillingTests is MultipleVerifierWithMultipleFeeManagers {
     s_testReport = generateReportAtTimestamp(block.timestamp);
   }
 
-  function _verify(DestinationVerifierProxy proxy, bytes memory payload, address feeAddress, uint256 wrappedNativeValue, address sender) internal {
+  function _verify(
+    DestinationVerifierProxy proxy,
+    bytes memory payload,
+    address feeAddress,
+    uint256 wrappedNativeValue,
+    address sender
+  ) internal {
     address originalAddr = msg.sender;
     changePrank(sender);
 
@@ -111,8 +112,7 @@ contract MultiVerifierBillingTests is MultipleVerifierWithMultipleFeeManagers {
     assertEq(rewardManager.s_totalRewardRecipientFees(expectedDonConfigID), DEFAULT_REPORT_LINK_FEE);
     assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
 
-    
-    // check the recipients are paid according to weights 
+    // check the recipients are paid according to weights
     // These rewards happened through verifier1 and feeManager1
     address[] memory recipients = new address[](1);
     recipients[0] = DEFAULT_RECIPIENT_1;
@@ -129,7 +129,6 @@ contract MultiVerifierBillingTests is MultipleVerifierWithMultipleFeeManagers {
     assertEq(link.balanceOf(recipients2[0]), DEFAULT_REPORT_LINK_FEE);
     assertEq(link.balanceOf(address(rewardManager)), 0);
 
-    
     // these rewards happened through verifier3 and feeManager2
     address[] memory recipients3 = new address[](1);
     recipients3[0] = DEFAULT_RECIPIENT_3;
@@ -137,8 +136,6 @@ contract MultiVerifierBillingTests is MultipleVerifierWithMultipleFeeManagers {
     _verify(s_verifierProxy3, signedReport, address(link), 0, USER);
     payRecipients(expectedDonConfigID3, recipients3, ADMIN);
     assertEq(link.balanceOf(recipients3[0]), DEFAULT_REPORT_LINK_FEE);
-    assertEq(link.balanceOf(address(rewardManager)), 0);    
+    assertEq(link.balanceOf(address(rewardManager)), 0);
   }
-
-
 }
