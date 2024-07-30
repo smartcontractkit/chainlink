@@ -93,11 +93,13 @@ type chainBase struct {
 // 2. Deploys the CCIP contracts to all chains.
 // 3. Sets up the initial configurations for the contracts on all chains.
 // 4. Wires the chains together.
+//
+// Conceptually one universe is ONE chain with all the contracts deployed on it and all the dependencies initialized.
 func createUniverses(
 	t *testing.T,
-	numUniverses int,
+	numChains int,
 ) (homeChainUni homeChain, universes map[uint64]onchainUniverse) {
-	chains := createChains(t, numUniverses)
+	chains := createChains(t, numChains)
 
 	homeChainBase, ok := chains[homeChainID]
 	require.True(t, ok, "home chain backend not available")
@@ -119,9 +121,9 @@ func createUniverses(
 		tokenAdminRegistry := deployTokenAdminRegistry(t, owner, backend, chainID)
 		nonceManager := deployNonceManager(t, owner, backend, chainID)
 
-		//======================================================================
+		// ======================================================================
 		//							OnRamp
-		//======================================================================
+		// ======================================================================
 		onRampAddr, _, _, err := evm_2_evm_multi_onramp.DeployEVM2EVMMultiOnRamp(
 			owner,
 			backend,
@@ -134,7 +136,7 @@ func createUniverses(
 			evm_2_evm_multi_onramp.EVM2EVMMultiOnRampDynamicConfig{
 				Router:        rout.Address(),
 				PriceRegistry: priceRegistry.Address(),
-				//`withdrawFeeTokens` onRamp function is not part of the message flow
+				// `withdrawFeeTokens` onRamp function is not part of the message flow
 				// so we can set this to any address
 				FeeAggregator: testutils.NewAddress(),
 			},
@@ -144,9 +146,9 @@ func createUniverses(
 		onramp, err := evm_2_evm_multi_onramp.NewEVM2EVMMultiOnRamp(onRampAddr, backend)
 		require.NoError(t, err)
 
-		//======================================================================
+		// ======================================================================
 		//							OffRamp
-		//======================================================================
+		// ======================================================================
 		offrampAddr, _, _, err := evm_2_evm_multi_offramp.DeployEVM2EVMMultiOffRamp(
 			owner,
 			backend,
@@ -506,25 +508,25 @@ func connectUniverses(
 // 2. Set the price registry with local token prices
 // 3. Authorize the onRamp and offRamp on the nonce manager
 func setupUniverseBasics(t *testing.T, uni onchainUniverse) {
-	//=============================================================================
+	// =============================================================================
 	//			Universe specific  updates/configs
 	//		These updates are specific to each universe and are set up here
 	//      These updates don't depend on other chains
-	//=============================================================================
+	// =============================================================================
 	owner := uni.owner
-	//=============================================================================
+	// =============================================================================
 	//							Mint 1000 LINK to owner
-	//=============================================================================
+	// =============================================================================
 	_, err := uni.linkToken.GrantMintRole(owner, owner.From)
 	require.NoError(t, err)
 	_, err = uni.linkToken.Mint(owner, owner.From, e18Mult(1000))
 	require.NoError(t, err)
 	uni.backend.Commit()
 
-	//=============================================================================
+	// =============================================================================
 	//						Price updates for tokens
 	//			These are the prices of the fee tokens of local chain in USD
-	//=============================================================================
+	// =============================================================================
 	tokenPriceUpdates := []price_registry.InternalTokenPriceUpdate{
 		{
 			SourceToken: uni.linkToken.Address(),
@@ -549,10 +551,10 @@ func setupUniverseBasics(t *testing.T, uni onchainUniverse) {
 	require.NoError(t, err, "failed to authorize offramp on price registry")
 	uni.backend.Commit()
 
-	//=============================================================================
+	// =============================================================================
 	//						Authorize OnRamp & OffRamp on NonceManager
 	//	Otherwise the onramp will not be able to call the nonceManager to get next Nonce
-	//=============================================================================
+	// =============================================================================
 	authorizedCallersAuthorizedCallerArgs := nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
 		AddedCallers: []common.Address{
 			uni.onramp.Address(),
@@ -767,7 +769,7 @@ func deployPriceRegistry(
 		[]price_registry.PriceRegistryTokenTransferFeeConfigArgs{},
 		[]price_registry.PriceRegistryPremiumMultiplierWeiPerEthArgs{
 			{
-				PremiumMultiplierWeiPerEth: 9e17, //0.9 ETH
+				PremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
 				Token:                      linkAddr,
 			},
 			{
