@@ -3,13 +3,14 @@ package cltest
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
