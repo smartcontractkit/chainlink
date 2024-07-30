@@ -33,7 +33,6 @@ type Engine struct {
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
-	getLocalNode         func(ctx context.Context) (capabilities.Node, error)
 	localNode            capabilities.Node
 	executionStates      store.Store
 	pendingStepRequests  chan stepRequest
@@ -164,9 +163,11 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		return newCPErr("failed to get capability info", err)
 	}
 
+	step.info = info
+
 	// Special treatment for local targets - wrap into a transmission capability
 	// If the DON is nil, this is a local target.
-	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.DON == nil {
+	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.IsLocal {
 		l := e.logger.With("capabilityID", step.ID)
 		l.Debug("wrapping capability in local transmission protocol")
 		cp = transmission.NewLocalTargetCapability(
@@ -222,7 +223,7 @@ func (e *Engine) init(ctx context.Context) {
 	retryErr := retryable(ctx, e.logger, e.retryMs, e.maxRetries, func() error {
 		// first wait for localDON to return a non-error response; this depends
 		// on the underlying peerWrapper returning the PeerID.
-		node, err := e.getLocalNode(ctx)
+		node, err := e.registry.LocalNode(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get donInfo: %w", err)
 		}
@@ -680,6 +681,45 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 }
 
+func merge(baseConfig *values.Map, overrideConfig *values.Map) *values.Map {
+	m := values.EmptyMap()
+
+	for k, v := range baseConfig.Underlying {
+		m.Underlying[k] = v
+	}
+
+	for k, v := range overrideConfig.Underlying {
+		m.Underlying[k] = v
+	}
+
+	return m
+}
+
+func (e *Engine) configForStep(ctx context.Context, executionID string, step *step) (*values.Map, error) {
+	ID := step.info.ID
+
+	// If the capability info is missing a DON, then
+	// the capability is local, and we should use the localNode's DON ID.
+	var donID uint32
+	if !step.info.IsLocal {
+		donID = step.info.DON.ID
+	} else {
+		donID = e.localNode.WorkflowDON.ID
+	}
+
+	capConfig, err := e.registry.ConfigForCapability(ctx, ID, donID)
+	if err != nil {
+		e.logger.Warnw(fmt.Sprintf("could not retrieve config from remote registry: %s", err), "executionID", executionID, "capabilityID", ID)
+		return step.config, nil
+	}
+
+	// Merge the configs for now; note that this means that a workflow can override
+	// all of the config set by the capability. This is probably not desirable in
+	// the long-term, but we don't know much about those use cases so stick to a simpler
+	// implementation for now.
+	return merge(capConfig.DefaultConfig, step.config), nil
+}
+
 // executeStep executes the referenced capability within a step and returns the result.
 func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map, values.Value, error) {
 	step, err := e.workflow.Vertex(msg.stepRef)
@@ -704,9 +744,14 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		return nil, nil, err
 	}
 
+	config, err := e.configForStep(ctx, msg.state.ExecutionID, step)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	tr := capabilities.CapabilityRequest{
 		Inputs: inputsMap,
-		Config: step.config,
+		Config: config,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               msg.state.WorkflowID,
 			WorkflowExecutionID:      msg.state.ExecutionID,
@@ -825,7 +870,6 @@ type Config struct {
 	QueueSize            int
 	NewWorkerTimeout     time.Duration
 	MaxExecutionDuration time.Duration
-	GetLocalNode         func(ctx context.Context) (capabilities.Node, error)
 	Store                store.Store
 
 	// For testing purposes only
@@ -868,12 +912,6 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		cfg.MaxExecutionDuration = defaultMaxExecutionDuration
 	}
 
-	if cfg.GetLocalNode == nil {
-		cfg.GetLocalNode = func(ctx context.Context) (capabilities.Node, error) {
-			return capabilities.Node{}, nil
-		}
-	}
-
 	if cfg.retryMs == 0 {
 		cfg.retryMs = 5000
 	}
@@ -911,7 +949,6 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		logger:               cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
 		registry:             cfg.Registry,
 		workflow:             workflow,
-		getLocalNode:         cfg.GetLocalNode,
 		executionStates:      cfg.Store,
 		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
 		stepUpdateCh:         make(chan store.WorkflowExecutionStep),

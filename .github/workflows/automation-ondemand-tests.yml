@@ -146,21 +146,48 @@ jobs:
           - name: chaos
             id: chaos
             suite: chaos
-            nodes: 15
+            nodes: 20
             os: ubuntu-latest
             enabled: ${{ inputs.enableChaos }}
             pyroscope_env: ci-automation-on-demand-chaos
             network: SIMULATED
             command: -run ^TestAutomationChaos$ ./chaos
-          - name: reorg
-            id: reorg
+          - name: reorg 2.0
+            id: reorg-2.0
             suite: reorg
-            nodes: 7
+            nodes: 1
             os: ubuntu-latest
             enabled: ${{ inputs.enableReorg }}
             pyroscope_env: ci-automation-on-demand-reorg
             network: SIMULATED
-            command: -run ^TestAutomationReorg$ ./reorg
+            command: -run ^TestAutomationReorg/registry_2_0 ./reorg
+          - name: reorg 2.1
+            id: reorg-2.1
+            suite: reorg
+            nodes: 2
+            os: ubuntu-latest
+            enabled: ${{ inputs.enableReorg }}
+            pyroscope_env: ci-automation-on-demand-reorg
+            network: SIMULATED
+            command: -run ^TestAutomationReorg/registry_2_1 ./reorg
+          - name: reorg 2.2
+            id: reorg-2.2
+            suite: reorg
+            nodes: 2
+            os: ubuntu-latest
+            enabled: ${{ inputs.enableReorg }}
+            pyroscope_env: ci-automation-on-demand-reorg
+            network: SIMULATED
+            command: -run ^TestAutomationReorg/registry_2_2 ./reorg
+          - name: reorg 2.3
+            id: reorg-2.3
+            suite: reorg
+            nodes: 2
+            os: ubuntu-latest
+            enabled: ${{ inputs.enableReorg }}
+            pyroscope_env: ci-automation-on-demand-reorg
+            network: SIMULATED
+            command: -run ^TestAutomationReorg/registry_2_3 ./reorg
           - name: upgrade 2.0
             id: upgrade-2.0
             type: upgrade
