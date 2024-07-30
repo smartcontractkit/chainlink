@@ -380,10 +380,26 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	_, err = reg.AddNodes(owner, nodes)
 	require.NoError(t, err)
 
+	config := &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+				RegistrationRefresh: durationpb.New(20 * time.Second),
+				RegistrationExpiry:  durationpb.New(60 * time.Second),
+				// F + 1
+				MinResponsesToAggregate: uint32(1) + 1,
+			},
+		},
+	}
+	configb, err := proto.Marshal(config)
+	if err != nil {
+		require.NoError(t, err)
+	}
+
 	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: cid,
-			Config:       []byte(`{"hello": "world"}`),
+			Config:       configb,
 		},
 	}
 	_, err = reg.AddDON(
@@ -421,8 +437,10 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	time.Sleep(1 * time.Second) // TODO: figure out another alternative to wait for the state to be stored in the DB
 	st, err := syncer.orm.latestState(ctx)
 	require.NoError(t, err)
+	st.peerWrapper = syncer.peerWrapper
+	st.lggr = syncer.lggr
 
-	assert.Equal(t, s, *st, "expected the state to be the same as the one stored in the DB")
+	assert.Equal(t, s, st, "expected the state to be the same as the one stored in the DB")
 
 	err = syncer.sync(ctx, true) // should load the data from the DB
 	require.NoError(t, err)

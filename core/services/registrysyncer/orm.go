@@ -98,7 +98,7 @@ func (t *LocalRegistry) MarshalJSON() ([]byte, error) {
 
 	idsToCapabilities := make(map[string]capabilitiesRegistryCapabilityInfo)
 	for k, v := range t.IDsToCapabilities {
-		idsToCapabilities[fmt.Sprintf("%x", k[:])] = capabilitiesRegistryCapabilityInfo{
+		idsToCapabilities[k] = capabilitiesRegistryCapabilityInfo{
 			ID:             v.ID,
 			CapabilityType: int(v.CapabilityType),
 		}
