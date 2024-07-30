@@ -73,6 +73,7 @@ func (key Key) ID() string {
 	return key.PublicKeyStr()
 }
 
+// https://github.com/aptos-foundation/AIPs/blob/main/aips/aip-40.md#long
 func (key Key) Account() string {
 	authKey := sha3.Sum256(append([]byte(key.pubKey), 0x00))
 	return fmt.Sprintf("%064x", authKey)
@@ -84,9 +85,8 @@ func (key Key) GetPublic() ed25519.PublicKey {
 }
 
 // PublicKeyStr returns hex encoded public key
-// https://github.com/aptos-foundation/AIPs/blob/main/aips/aip-40.md#long
 func (key Key) PublicKeyStr() string {
-	return fmt.Sprintf("0x%064x", key.pubKey)
+	return fmt.Sprintf("%064x", key.pubKey)
 }
 
 // Raw returns the seed from private key
