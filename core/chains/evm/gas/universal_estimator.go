@@ -229,7 +229,7 @@ func (u *UniversalEstimator) GetDynamicFee(ctx context.Context, maxPrice *assets
 // FetchDynamicPrice uses eth_feeHistory to fetch the baseFee of the latest block and the Nth maxPriorityFeePerGas percentiles
 // of the past X blocks. It also fetches the highest 85th maxPriorityFeePerGas percentile of the past X blocks. Z is configurable
 // and it represents the highest percentile we're willing to pay.
-// A buffer is added on top of the latest basFee to catch fluctuations in the next blocks. On Ethereum the increase is baseFee*1.125 per block.
+// A buffer is added on top of the latest baseFee to catch fluctuations in the next blocks. On Ethereum the increase is baseFee*1.125 per block.
 func (u *UniversalEstimator) FetchDynamicPrice() (fee DynamicFee, err error) {
 	ctx, cancel := u.stopCh.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
