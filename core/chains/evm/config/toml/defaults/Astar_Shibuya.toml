@@ -1,0 +1,10 @@
+ChainID = '81'
+FinalityDepth = 100
+LogPollInterval = '6s'
+
+[GasEstimator]
+EIP1559DynamicFees = false
+PriceDefault = '700 gwei'
+PriceMin = '700 gwei'
+PriceMax = '80000 gwei'
+LimitDefault = 8000000
