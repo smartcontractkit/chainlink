@@ -130,7 +130,7 @@ contract MultiVerifierBillingTests is MultipleVerifierWithMultipleFeeManagers {
     assertEq(link.balanceOf(address(rewardManager)), 0);
 
     
-    // these rewards happaned through verifier3 and feeManager2
+    // these rewards happened through verifier3 and feeManager2
     address[] memory recipients3 = new address[](1);
     recipients3[0] = DEFAULT_RECIPIENT_3;
     _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
