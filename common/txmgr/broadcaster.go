@@ -627,8 +627,9 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) vali
 	if err != nil {
 		return errType, err
 	}
+
 	// Check that the transaction count has incremented on-chain to include the broadcasted transaction
-	// Insufficient transaction fee is a common scenario in which the sequence is not incremented by the chain
+	// Insufficient transaction fee is a common scenario in which the sequence is not incremented by the chain even though we got a successful response
 	// If the sequence failed to increment and hasn't reached the max retries, return the Underpriced error to try again with a bumped attempt
 	if nextSeqOnChain.Int64() == txSeq.Int64() && retryCount < maxHederaBroadcastRetries {
 		return client.Underpriced, nil
@@ -636,11 +637,19 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) vali
 
 	// If the transaction reaches the retry limit and fails to get included, mark it as fatally errored
 	// Some unknown error other than insufficient tx fee could be the cause
-	if retryCount >= maxHederaBroadcastRetries {
+	if nextSeqOnChain.Int64() == txSeq.Int64() && retryCount >= maxHederaBroadcastRetries {
 		err := fmt.Errorf("failed to broadcast transaction on %s after %d retries", hederaChainType, retryCount)
 		lgr.Error(err.Error())
 		return client.Fatal, err
 	}
+
+	// Belts and braces approach to detect and handle sqeuence gaps if the broadcast is considered successful
+	if nextSeqOnChain.Int64() < txSeq.Int64() {
+		err := fmt.Errorf("next expected sequence on-chain (%s) is less than the broadcasted transaction's sequence (%s)", nextSeqOnChain.String(), txSeq.String())
+		lgr.Criticalw("Sequence gap has been detected and needs to be filled", "error", err)
+		return client.Fatal, err
+	}
+
 	return client.Successful, nil
 }
 
