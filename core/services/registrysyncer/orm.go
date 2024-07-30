@@ -9,7 +9,8 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
@@ -18,19 +19,18 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-type capabilitiesRegistryDONInfo struct {
-	Id                       uint32                                        `json:"id"`
-	ConfigCount              uint32                                        `json:"configCount"`
-	F                        uint8                                         `json:"f"`
-	IsPublic                 bool                                          `json:"isPublic"`
-	AcceptsWorkflows         bool                                          `json:"acceptsWorkflows"`
-	NodeP2PIds               []string                                      `json:"nodeP2PIds"`
-	CapabilityConfigurations []capabilitiesRegistryCapabilityConfiguration `json:"capabilityConfigurations"`
+type capabilitiesRegistryDON struct {
+	ID               uint32   `json:"id"`
+	ConfigVersion    uint32   `json:"configVersion"`
+	F                uint8    `json:"f"`
+	IsPublic         bool     `json:"isPublic"`
+	AcceptsWorkflows bool     `json:"acceptsWorkflows"`
+	Members          []string `json:"members"`
 }
 
-type capabilitiesRegistryCapabilityConfiguration struct {
-	CapabilityId string `json:"capabilityId"`
-	Config       string `json:"config"`
+type capabilitiesRegistryDONInfo struct {
+	capabilitiesRegistryDON
+	CapabilityConfigurations map[string]capabilities.CapabilityConfiguration `json:"capabilityConfigurations"`
 }
 
 type capabilitiesRegistryNodeInfo struct {
@@ -44,36 +44,33 @@ type capabilitiesRegistryNodeInfo struct {
 }
 
 type capabilitiesRegistryCapabilityInfo struct {
-	HashedId              string `json:"hashedId"`
-	LabelledName          string `json:"labelledName"`
-	Version               string `json:"version"`
-	CapabilityType        uint8  `json:"capabilityType"`
-	ResponseType          uint8  `json:"responseType"`
-	ConfigurationContract string `json:"configurationContract"`
-	IsDeprecated          bool   `json:"isDeprecated"`
+	ID             string `json:"id"`
+	CapabilityType int    `json:"capabilityType"`
 }
 
-func (t *State) MarshalJSON() ([]byte, error) {
+func (t *LocalRegistry) MarshalJSON() ([]byte, error) {
 	idsToDONs := make(map[string]capabilitiesRegistryDONInfo)
 	for k, v := range t.IDsToDONs {
-		nodeP2PIds := make([]string, len(v.NodeP2PIds))
-		for i, id := range v.NodeP2PIds {
-			nodeP2PIds[i] = hex.EncodeToString(id[:])
+		members := make([]string, len(v.Members))
+		for i, id := range v.Members {
+			members[i] = hex.EncodeToString(id[:])
 		}
-		configs := make([]capabilitiesRegistryCapabilityConfiguration, len(v.CapabilityConfigurations))
+		configs := make(map[string]capabilities.CapabilityConfiguration, len(v.CapabilityConfigurations))
 		for i, c := range v.CapabilityConfigurations {
-			configs[i] = capabilitiesRegistryCapabilityConfiguration{
-				CapabilityId: hex.EncodeToString(c.CapabilityId[:]),
-				Config:       hex.EncodeToString(c.Config),
+			configs[i] = capabilities.CapabilityConfiguration{
+				DefaultConfig:       c.DefaultConfig,
+				RemoteTriggerConfig: c.RemoteTriggerConfig,
 			}
 		}
 		idsToDONs[fmt.Sprintf("%d", k)] = capabilitiesRegistryDONInfo{
-			Id:                       v.Id,
-			ConfigCount:              v.ConfigCount,
-			F:                        v.F,
-			IsPublic:                 v.IsPublic,
-			AcceptsWorkflows:         v.AcceptsWorkflows,
-			NodeP2PIds:               nodeP2PIds,
+			capabilitiesRegistryDON: capabilitiesRegistryDON{
+				ID:               v.ID,
+				ConfigVersion:    v.ConfigVersion,
+				F:                v.F,
+				IsPublic:         v.IsPublic,
+				AcceptsWorkflows: v.AcceptsWorkflows,
+				Members:          members,
+			},
 			CapabilityConfigurations: configs,
 		}
 	}
@@ -102,13 +99,8 @@ func (t *State) MarshalJSON() ([]byte, error) {
 	idsToCapabilities := make(map[string]capabilitiesRegistryCapabilityInfo)
 	for k, v := range t.IDsToCapabilities {
 		idsToCapabilities[fmt.Sprintf("%x", k[:])] = capabilitiesRegistryCapabilityInfo{
-			HashedId:              hex.EncodeToString(v.HashedId[:]),
-			LabelledName:          v.LabelledName,
-			Version:               v.Version,
-			CapabilityType:        v.CapabilityType,
-			ResponseType:          v.ResponseType,
-			ConfigurationContract: v.ConfigurationContract.Hex(),
-			IsDeprecated:          v.IsDeprecated,
+			ID:             v.ID,
+			CapabilityType: int(v.CapabilityType),
 		}
 	}
 
@@ -123,7 +115,7 @@ func (t *State) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (t *State) UnmarshalJSON(data []byte) error {
+func (t *LocalRegistry) UnmarshalJSON(data []byte) error {
 	temp := struct {
 		IDsToDONs         map[string]capabilitiesRegistryDONInfo
 		IDsToNodes        map[string]capabilitiesRegistryNodeInfo
@@ -138,42 +130,36 @@ func (t *State) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("failed to unmarshal state: %w", err)
 	}
 
-	t.IDsToDONs = make(map[DonID]kcr.CapabilitiesRegistryDONInfo)
+	t.IDsToDONs = make(map[DonID]DON)
 	for k, v := range temp.IDsToDONs {
 		id, err := strconv.ParseUint(k, 10, 32)
 		if err != nil {
 			return fmt.Errorf("failed to parse DON ID: %w", err)
 		}
-		nodeP2PIds := make([][32]byte, len(v.NodeP2PIds))
-		for i, p2pid := range v.NodeP2PIds {
+		members := make([]types.PeerID, len(v.Members))
+		for i, p2pid := range v.Members {
 			b, err2 := hex.DecodeString(p2pid)
 			if err2 != nil {
 				return fmt.Errorf("failed to decode nodeP2PId: %w", err2)
 			}
-			copy(nodeP2PIds[i][:], b[:32])
+			copy(members[i][:], b[:32])
 		}
-		configs := make([]kcr.CapabilitiesRegistryCapabilityConfiguration, len(v.CapabilityConfigurations))
+		configs := make(map[string]capabilities.CapabilityConfiguration, len(v.CapabilityConfigurations))
 		for i, c := range v.CapabilityConfigurations {
-			capabilityId, err2 := hex.DecodeString(c.CapabilityId)
-			if err2 != nil {
-				return fmt.Errorf("failed to decode capabilityId: %w", err2)
-			}
-			config, err2 := hex.DecodeString(c.Config)
-			if err2 != nil {
-				return fmt.Errorf("failed to decode capability config: %w", err2)
-			}
-			configs[i] = kcr.CapabilitiesRegistryCapabilityConfiguration{
-				CapabilityId: to32Byte(capabilityId),
-				Config:       config,
+			configs[i] = capabilities.CapabilityConfiguration{
+				DefaultConfig:       c.DefaultConfig,
+				RemoteTriggerConfig: c.RemoteTriggerConfig,
 			}
 		}
-		t.IDsToDONs[DonID(id)] = kcr.CapabilitiesRegistryDONInfo{
-			Id:                       v.Id,
-			ConfigCount:              v.ConfigCount,
-			F:                        v.F,
-			IsPublic:                 v.IsPublic,
-			AcceptsWorkflows:         v.AcceptsWorkflows,
-			NodeP2PIds:               nodeP2PIds,
+		t.IDsToDONs[DonID(id)] = DON{
+			DON: capabilities.DON{
+				ID:               v.ID,
+				ConfigVersion:    v.ConfigVersion,
+				F:                v.F,
+				IsPublic:         v.IsPublic,
+				AcceptsWorkflows: v.AcceptsWorkflows,
+				Members:          members,
+			},
 			CapabilityConfigurations: configs,
 		}
 	}
@@ -221,27 +207,21 @@ func (t *State) UnmarshalJSON(data []byte) error {
 		}
 	}
 
-	t.IDsToCapabilities = make(map[HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo)
+	t.IDsToCapabilities = make(map[string]Capability)
 	for k, v := range temp.IDsToCapabilities {
-		id, err := hex.DecodeString(k)
-		if err != nil {
-			return fmt.Errorf("failed to decode capability ID: %w", err)
-		}
-		var hashedId HashedCapabilityID
-		copy(hashedId[:], id[:32])
-
-		t.IDsToCapabilities[hashedId] = kcr.CapabilitiesRegistryCapabilityInfo{
-			HashedId:              hashedId,
-			LabelledName:          v.LabelledName,
-			Version:               v.Version,
-			CapabilityType:        v.CapabilityType,
-			ResponseType:          v.ResponseType,
-			ConfigurationContract: common.HexToAddress(v.ConfigurationContract),
-			IsDeprecated:          v.IsDeprecated,
+		t.IDsToCapabilities[k] = Capability{
+			ID:             k,
+			CapabilityType: capabilities.CapabilityType(v.CapabilityType),
 		}
 	}
 
 	return nil
+}
+
+func to32Byte(slice []byte) [32]byte {
+	var b [32]byte
+	copy(b[:], slice[:32])
+	return b
 }
 
 type syncerORM struct {
@@ -257,17 +237,17 @@ func newORM(ds sqlutil.DataSource, lggr logger.Logger) syncerORM {
 	}
 }
 
-func (orm syncerORM) addState(ctx context.Context, state State) error {
+func (orm syncerORM) addState(ctx context.Context, localRegistry LocalRegistry) error {
 	return sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
-		stateJSON, err := state.MarshalJSON()
+		localRegistryJSON, err := localRegistry.MarshalJSON()
 		if err != nil {
 			return err
 		}
-		hash := sha256.Sum256(stateJSON)
+		hash := sha256.Sum256(localRegistryJSON)
 		_, err = tx.ExecContext(
 			ctx,
 			`INSERT INTO registry_syncer_states (data, data_hash) VALUES ($1, $2) ON CONFLICT (data_hash) DO NOTHING`,
-			stateJSON, fmt.Sprintf("%x", hash[:]),
+			localRegistryJSON, fmt.Sprintf("%x", hash[:]),
 		)
 		if err != nil {
 			return err
@@ -282,16 +262,16 @@ WHERE data_hash NOT IN (
 	})
 }
 
-func (orm syncerORM) latestState(ctx context.Context) (*State, error) {
-	var state State
-	var stateJSON string
-	err := orm.ds.GetContext(ctx, &stateJSON, `SELECT data FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
+func (orm syncerORM) latestState(ctx context.Context) (*LocalRegistry, error) {
+	var localRegistry LocalRegistry
+	var localRegistryJSON string
+	err := orm.ds.GetContext(ctx, &localRegistryJSON, `SELECT data FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
 	if err != nil {
 		return nil, err
 	}
-	err = state.UnmarshalJSON([]byte(stateJSON))
+	err = localRegistry.UnmarshalJSON([]byte(localRegistryJSON))
 	if err != nil {
 		return nil, err
 	}
-	return &state, nil
+	return &localRegistry, nil
 }

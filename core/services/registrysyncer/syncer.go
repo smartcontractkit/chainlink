@@ -46,7 +46,7 @@ type registrySyncer struct {
 	registryAddress string
 	peerWrapper     p2ptypes.PeerWrapper
 
-	orm             *syncerORM
+	orm *syncerORM
 
 	updateChan chan *LocalRegistry
 	dbMu       sync.RWMutex
@@ -182,13 +182,13 @@ func (s *registrySyncer) updateStateLoop() {
 		select {
 		case <-s.stopCh:
 			return
-		case state, ok := <-s.updateChan:
+		case localRegistry, ok := <-s.updateChan:
 			if !ok {
 				// channel has been closed, terminating.
 				return
 			}
 			s.dbMu.Lock()
-			if err := s.orm.addState(ctx, *state); err != nil {
+			if err := s.orm.addState(ctx, *localRegistry); err != nil {
 				s.lggr.Errorw("failed to save state to local registry", "error", err)
 			}
 			s.dbMu.Unlock()
@@ -218,7 +218,7 @@ func unmarshalCapabilityConfig(data []byte) (capabilities.CapabilityConfiguratio
 }
 
 func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, error) {
-	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
+	var caps []kcr.CapabilitiesRegistryCapabilityInfo
 	err := s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getCapabilities", primitives.Unconfirmed, nil, &caps)
 	if err != nil {
 		return nil, err
@@ -236,7 +236,7 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 		hashedIDsToCapabilityIDs[c.HashedId] = cid
 	}
 
-	dons := []kcr.CapabilitiesRegistryDONInfo{}
+	var dons []kcr.CapabilitiesRegistryDONInfo
 	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getDONs", primitives.Unconfirmed, nil, &dons)
 	if err != nil {
 		return nil, err
@@ -267,7 +267,7 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 		}
 	}
 
-	nodes := []kcr.CapabilitiesRegistryNodeInfo{}
+	var nodes []kcr.CapabilitiesRegistryNodeInfo
 	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getNodes", primitives.Unconfirmed, nil, &nodes)
 	if err != nil {
 		return nil, err
@@ -318,25 +318,25 @@ func (s *registrySyncer) sync(ctx context.Context, isInitialSync bool) error {
 
 	if lr == nil {
 		s.lggr.Debug("syncing with remote registry")
-		st, err := s.localRegistry(ctx)
+		localRegistry, err := s.localRegistry(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to sync with remote registry: %w", err)
 		}
-		lr = st
-		// Attempt to send state to the update channel without blocking
+		lr = localRegistry
+		// Attempt to send local registry to the update channel without blocking
 		// This is to prevent the tests from hanging if they are not calling `Start()` on the syncer
 		select {
 		case s.updateChan <- lr:
 			// Successfully sent state
-			s.lggr.Debug("state update triggered successfully")
+			s.lggr.Debug("remote registry update triggered successfully")
 		default:
 			// No one is ready to receive the state, handle accordingly
-			s.lggr.Debug("no listeners on update channel, state update skipped")
+			s.lggr.Debug("no listeners on update channel, remote registry update skipped")
 		}
 	}
 
 	for _, h := range s.launchers {
-		if err := h.Launch(ctx, *lr); err != nil {
+		if err := h.Launch(ctx, lr); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 		}
 	}

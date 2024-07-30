@@ -3,7 +3,10 @@ package registrysyncer
 import (
 	"math/big"
 	"testing"
+	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,7 +24,7 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	orm := newORM(db, lggr)
 
-	var states []State
+	var states []LocalRegistry
 	for i := 0; i < 11; i++ {
 		state := generateState(t)
 		err := orm.addState(ctx, state)
@@ -39,7 +42,7 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	assert.Equal(t, states[10], *state)
 }
 
-func generateState(t *testing.T) State {
+func generateState(t *testing.T) LocalRegistry {
 	dID := uint32(1)
 	var pid ragetypes.PeerID
 	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
@@ -52,47 +55,46 @@ func generateState(t *testing.T) State {
 	}
 	capabilityID := randomWord()
 	capabilityID2 := randomWord()
-	addr := testutils.NewAddress()
+	capabilityIDStr := string(capabilityID[:])
+	capabilityID2Str := string(capabilityID2[:])
+	rtc := capabilities.RemoteTriggerConfig{
+		RegistrationRefresh:     20 * time.Second,
+		MinResponsesToAggregate: 2,
+		RegistrationExpiry:      60 * time.Second,
+		MessageExpiry:           120 * time.Second,
+	}
 
-	return State{
-		IDsToDONs: map[DonID]kcr.CapabilitiesRegistryDONInfo{
+	return LocalRegistry{
+		IDsToDONs: map[DonID]DON{
 			DonID(dID): {
-				Id:               dID,
-				ConfigCount:      uint32(0),
-				F:                uint8(1),
-				IsPublic:         true,
-				AcceptsWorkflows: true,
-				NodeP2PIds:       nodes,
-				CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
-					{
-						CapabilityId: capabilityID,
-						Config:       []byte(""),
+				DON: capabilities.DON{
+					ID:               dID,
+					ConfigVersion:    uint32(0),
+					F:                uint8(1),
+					IsPublic:         true,
+					AcceptsWorkflows: true,
+					Members:          toPeerIDs(nodes),
+				},
+				CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
+					capabilityIDStr: {
+						DefaultConfig:       values.EmptyMap(),
+						RemoteTriggerConfig: rtc,
 					},
-					{
-						CapabilityId: capabilityID2,
-						Config:       []byte(""),
+					capabilityID2Str: {
+						DefaultConfig:       values.EmptyMap(),
+						RemoteTriggerConfig: rtc,
 					},
 				},
 			},
 		},
-		IDsToCapabilities: map[HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{
-			capabilityID: {
-				HashedId:              capabilityID,
-				LabelledName:          "label-1",
-				Version:               "1.0.0",
-				CapabilityType:        0,
-				ResponseType:          0,
-				ConfigurationContract: addr,
-				IsDeprecated:          false,
+		IDsToCapabilities: map[string]Capability{
+			capabilityIDStr: {
+				ID:             capabilityIDStr,
+				CapabilityType: 0,
 			},
-			capabilityID2: {
-				HashedId:              capabilityID2,
-				LabelledName:          "label-2",
-				Version:               "1.0.0",
-				CapabilityType:        3,
-				ResponseType:          0,
-				ConfigurationContract: addr,
-				IsDeprecated:          false,
+			capabilityID2Str: {
+				ID:             capabilityID2Str,
+				CapabilityType: 3,
 			},
 		},
 		IDsToNodes: map[types.PeerID]kcr.CapabilitiesRegistryNodeInfo{

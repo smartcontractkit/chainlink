@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -136,7 +137,7 @@ func (l *launcher) Launch(ctx context.Context, localRegistry *LocalRegistry) err
 }
 
 func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
-	pids := []p2ptypes.PeerID{}
+	var pids []p2ptypes.PeerID
 	for _, id := range ids {
 		pids = append(pids, id)
 	}
