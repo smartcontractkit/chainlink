@@ -2,7 +2,6 @@ package ocr2key
 
 import (
 	"crypto/ed25519"
-	"encoding/binary"
 	"io"
 
 	"github.com/hdevalence/ed25519consensus"
@@ -41,13 +40,11 @@ func (akr *aptosKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, repor
 	if err != nil {
 		return nil, err
 	}
-	reportLen := make([]byte, 4)
-	binary.BigEndian.PutUint32(reportLen[0:], uint32(len(report)))
-	h.Write(reportLen[:])
-	h.Write(report)
+	// blake2b_256(report_context | report)
 	h.Write(rawReportContext[0][:])
 	h.Write(rawReportContext[1][:])
 	h.Write(rawReportContext[2][:])
+	h.Write(report)
 	return h.Sum(nil), nil
 }
 
