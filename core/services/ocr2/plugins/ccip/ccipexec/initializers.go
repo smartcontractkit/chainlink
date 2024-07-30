@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -165,6 +166,7 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 		metricsCollector:              metricsCollector,
 		chainHealthcheck:              chainHealthcheck,
 		newReportingPluginRetryConfig: defaultNewReportingPluginRetryConfig,
+		txmStatusChecker:              statuschecker.NewTxmStatusChecker(dstProvider.GetTransactionStatus),
 	})
 
 	argsNoPlugin.ReportingPluginFactory = promwrapper.NewPromFactory(wrappedPluginFactory, "CCIPExecution", jb.OCR2OracleSpec.Relay, big.NewInt(0).SetInt64(dstChainID))
