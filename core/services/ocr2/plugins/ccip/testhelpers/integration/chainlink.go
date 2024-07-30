@@ -639,14 +639,15 @@ func (c *CCIPIntegrationTestHarness) SetupFeedsManager(t *testing.T) {
 			PublicKey: *pkey,
 		}
 
-		_, err = f.RegisterManager(testutils.Context(t), m)
-		require.NoError(t, err)
-
 		connManager := feedsMocks.NewConnectionsManager(t)
+		connManager.On("Connect", mock.Anything).Maybe()
 		connManager.On("GetClient", mock.Anything).Maybe().Return(NoopFeedsClient{}, nil)
 		connManager.On("Close").Maybe().Return()
 		connManager.On("IsConnected", mock.Anything).Maybe().Return(true)
 		f.Unsafe_SetConnectionsManager(connManager)
+
+		_, err = f.RegisterManager(testutils.Context(t), m)
+		require.NoError(t, err)
 	}
 }
 
