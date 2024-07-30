@@ -587,6 +587,7 @@ func TestConfig_Marshal(t *testing.T) {
 					SamplingInterval:        &hour,
 					FinalityTagBypass:       ptr[bool](false),
 					MaxAllowedFinalityDepth: ptr[uint32](1500),
+					HeadTelemetryEnabled:    ptr[bool](true),
 				},
 
 				NodePool: evmcfg.NodePool{
@@ -732,9 +733,6 @@ func TestConfig_Marshal(t *testing.T) {
 			TransmitTimeout:      commoncfg.MustNewDuration(234 * time.Second),
 		},
 		VerboseLogging: ptr(true),
-	}
-	full.HeadReport = toml.HeadReport{
-		TelemetryEnabled: ptr(true),
 	}
 	for _, tt := range []struct {
 		name   string
@@ -1057,6 +1055,7 @@ MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 1500
 FinalityTagBypass = false
+HeadTelemetryEnabled = true
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
@@ -1206,9 +1205,6 @@ CertFile = '/path/to/cert.pem'
 [Mercury.Transmitter]
 TransmitQueueMaxSize = 123
 TransmitTimeout = '3m54s'
-`},
-		{"HeadReport", Config{Core: toml.Core{HeadReport: full.HeadReport}}, `[HeadReport]
-TelemetryEnabled = true
 `},
 		{"full", full, fullTOML},
 		{"multi-chain", multiChain, multiChainTOML},

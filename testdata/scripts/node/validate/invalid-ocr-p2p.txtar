@@ -278,9 +278,6 @@ CertFile = ''
 TransmitQueueMaxSize = 10000
 TransmitTimeout = '5s'
 
-[HeadReport]
-TelemetryEnabled = false
-
 [Capabilities]
 [Capabilities.Peering]
 IncomingMessageBufferSize = 10

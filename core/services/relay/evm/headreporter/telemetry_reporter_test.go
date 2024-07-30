@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/headreporter"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -16,11 +14,11 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
+	mocks2 "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
-	mocks2 "github.com/smartcontractkit/chainlink/v2/core/services/telemetry/mocks"
 )
 
 type IngressAgent struct {
@@ -55,7 +53,7 @@ func Test_TelemetryReporter_NewHead(t *testing.T) {
 	monitoringEndpointGen.
 		On("GenMonitoringEndpoint", "EVM", "100", "", synchronization.HeadReport).
 		Return(ingressAgent)
-	reporter := headreporter.NewTelemetryReporter(chains, logger.TestLogger(t), monitoringEndpointGen)
+	reporter := headreporter.NewTelemetryReporter(chains, monitoringEndpointGen)
 
 	head := evmtypes.Head{
 		Number:      42,
@@ -102,7 +100,7 @@ func Test_TelemetryReporter_NewHeadMissingFinalized(t *testing.T) {
 	monitoringEndpointGen.
 		On("GenMonitoringEndpoint", "EVM", "100", "", synchronization.HeadReport).
 		Return(ingressAgent)
-	reporter := headreporter.NewTelemetryReporter(chains, logger.TestLogger(t), monitoringEndpointGen)
+	reporter := headreporter.NewTelemetryReporter(chains, monitoringEndpointGen)
 
 	head := evmtypes.Head{
 		Number:      42,
@@ -137,7 +135,7 @@ func Test_TelemetryReporter_NewHead_MissingEndpoint(t *testing.T) {
 		On("GenMonitoringEndpoint", "EVM", "100", "", synchronization.HeadReport).
 		Return(nil)
 
-	reporter := headreporter.NewTelemetryReporter(chains, logger.TestLogger(t), monitoringEndpointGen)
+	reporter := headreporter.NewTelemetryReporter(chains, monitoringEndpointGen)
 
 	head := evmtypes.Head{Number: 42, EVMChainID: ubig.NewI(100)}
 
