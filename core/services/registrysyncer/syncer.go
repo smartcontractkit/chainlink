@@ -311,11 +311,11 @@ func (s *registrySyncer) sync(ctx context.Context, isInitialSync bool) error {
 	if isInitialSync {
 		s.lggr.Debug("syncing with local registry")
 		lr, err = s.orm.latestState(ctx)
-		lr.lggr = s.lggr
-		lr.peerWrapper = s.peerWrapper
 		if err != nil {
 			s.lggr.Errorw("failed to sync with local registry, using remote registry instead", "error", err)
 		}
+		lr.lggr = s.lggr
+		lr.peerWrapper = s.peerWrapper
 	}
 
 	if lr == nil {
