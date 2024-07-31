@@ -149,9 +149,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		hcr,
 	)
 
+	capabilityID := fmt.Sprintf("%s@%s", spec.CCIPSpec.CapabilityLabelledName, spec.CCIPSpec.CapabilityVersion)
 	capLauncher := launcher.New(
-		spec.CCIPSpec.CapabilityVersion,
-		spec.CCIPSpec.CapabilityLabelledName,
+		capabilityID,
 		ragep2ptypes.PeerID(p2pID.PeerID()),
 		d.lggr,
 		hcr,

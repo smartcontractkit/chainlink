@@ -28,8 +28,7 @@ var (
 )
 
 func New(
-	capabilityVersion,
-	capabilityLabelledName string,
+	capabilityID string,
 	p2pID ragep2ptypes.PeerID,
 	lggr logger.Logger,
 	homeChainReader ccipreader.HomeChain,
@@ -37,11 +36,10 @@ func New(
 	tickInterval time.Duration,
 ) *launcher {
 	return &launcher{
-		capabilityVersion:      capabilityVersion,
-		capabilityLabelledName: capabilityLabelledName,
-		p2pID:                  p2pID,
-		lggr:                   lggr,
-		homeChainReader:        homeChainReader,
+		p2pID:           p2pID,
+		capabilityID:    capabilityID,
+		lggr:            lggr,
+		homeChainReader: homeChainReader,
 		regState: registrysyncer.LocalRegistry{
 			IDsToDONs:         make(map[registrysyncer.DonID]registrysyncer.DON),
 			IDsToNodes:        make(map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo),
@@ -57,12 +55,11 @@ func New(
 type launcher struct {
 	services.StateMachine
 
-	capabilityVersion      string
-	capabilityLabelledName string
-	p2pID                  ragep2ptypes.PeerID
-	lggr                   logger.Logger
-	homeChainReader        ccipreader.HomeChain
-	stopChan               chan struct{}
+	capabilityID    string
+	p2pID           ragep2ptypes.PeerID
+	lggr            logger.Logger
+	homeChainReader ccipreader.HomeChain
+	stopChan        chan struct{}
 	// latestState is the latest capability registry state received from the syncer.
 	latestState registrysyncer.LocalRegistry
 	// regState is the latest capability registry state that we have successfully processed.
@@ -157,7 +154,7 @@ func (l *launcher) tick() error {
 	// launch or update any OCR instances.
 	latestState := l.getLatestState()
 
-	diffRes, err := diff(l.capabilityVersion, l.capabilityLabelledName, l.regState, latestState)
+	diffRes, err := diff(l.capabilityID, l.regState, latestState)
 	if err != nil {
 		return fmt.Errorf("failed to diff capability registry states: %w", err)
 	}
@@ -212,8 +209,7 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 		l.dons[donID] = futDeployment
 		// update the state with the latest config.
 		// this way if one of the starts errors, we don't retry all of them.
-		//TODO: Boda
-		//l.regState.IDsToDONs[donID] = updated[donID]
+		l.regState.IDsToDONs[donID] = updated[donID]
 	}
 
 	return nil
@@ -250,8 +246,7 @@ func (l *launcher) processAdded(added map[registrysyncer.DonID]registrysyncer.DO
 		l.dons[donID] = dep
 		// update the state with the latest config.
 		// this way if one of the starts errors, we don't retry all of them.
-		//TODO: Boda
-		//l.regState.IDsToDONs[donID] = added[donID]
+		l.regState.IDsToDONs[donID] = added[donID]
 	}
 
 	return nil

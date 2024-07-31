@@ -38,6 +38,7 @@ require (
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240805140125-f23843ca95b3 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45 // indirect
 	k8s.io/apimachinery v0.30.2 // indirect
 )

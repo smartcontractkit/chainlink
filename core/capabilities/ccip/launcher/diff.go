@@ -18,12 +18,11 @@ type diffResult struct {
 
 // diff compares the old and new state and returns the added, removed and updated CCIP DONs.
 func diff(
-	capabilityVersion,
-	capabilityLabelledName string,
+	capabilityID string,
 	oldState,
 	newState registrysyncer.LocalRegistry,
 ) (diffResult, error) {
-	ccipCapability, err := checkCapabilityPresence(capabilityVersion, capabilityLabelledName, newState)
+	ccipCapability, err := checkCapabilityPresence(capabilityID, newState)
 	if err != nil {
 		return diffResult{}, fmt.Errorf("failed to check capability presence: %w", err)
 	}
@@ -86,7 +85,6 @@ func compareDONs(
 	}, nil
 }
 
-// TODO: Boda
 // filterCCIPDONs filters the CCIP DONs from the given state.
 func filterCCIPDONs(
 	ccipCapability registrysyncer.Capability, // This will change to registrysyncer.Capability
@@ -103,22 +101,17 @@ func filterCCIPDONs(
 	return ccipDONs, nil
 }
 
-// TODO: Boda
 // checkCapabilityPresence checks if the capability with the given version and
 // labelled name is present in the given capability registry state.
 func checkCapabilityPresence(
-	capabilityVersion,
-	capabilityLabelledName string,
+	capabilityID string,
 	state registrysyncer.LocalRegistry,
 ) (registrysyncer.Capability, error) {
 	// Sanity check to make sure the capability registry has the capability we are looking for.
-	//hid, err := common.HashedCapabilityID(capabilityLabelledName, capabilityVersion)
-	id := fmt.Sprintf("%s@%s", capabilityLabelledName, capabilityVersion)
-	ccipCapability, ok := state.IDsToCapabilities[id]
+	ccipCapability, ok := state.IDsToCapabilities[capabilityID]
 	if !ok {
 		return registrysyncer.Capability{},
-			fmt.Errorf("failed to find capability with name %s and version %s in capability registry state",
-				capabilityLabelledName, capabilityVersion)
+			fmt.Errorf("failed to find capability with capabilityID %s in capability registry state", capabilityID)
 	}
 
 	return ccipCapability, nil
