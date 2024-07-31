@@ -258,7 +258,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     emit ConfigChanged();
   }
 
-  function setConfig2(
+  function setConfig3(
     IAutomationRegistryMaster2_3 registry,
     IERC20[] memory billingTokens,
     uint256[] memory minBalances

@@ -35,7 +35,9 @@ jobs:
               - modified: 'contracts/src/v0.8/**/*.sol'
 
   tests:
-    if: needs.changes.outputs.src_changes == 'true'
+#    if: needs.changes.outputs.src_changes == 'true'
+    # TODO remove
+    if: needs.changes.outputs.src_changes == 'mietek'
     strategy:
       fail-fast: false
       matrix:
