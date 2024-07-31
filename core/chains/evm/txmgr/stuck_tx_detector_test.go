@@ -429,6 +429,6 @@ type testAutoPurgeConfig struct {
 }
 
 func (t testAutoPurgeConfig) Enabled() bool             { return t.enabled }
-func (t testAutoPurgeConfig) Threshold() *uint32         { return t.threshold }
-func (t testAutoPurgeConfig) MinAttempts() *uint32       { return t.minAttempts }
+func (t testAutoPurgeConfig) Threshold() *uint32        { return t.threshold }
+func (t testAutoPurgeConfig) MinAttempts() *uint32      { return t.minAttempts }
 func (t testAutoPurgeConfig) DetectionApiUrl() *url.URL { return t.detectionApiUrl }
