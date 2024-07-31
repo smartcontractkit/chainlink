@@ -39,7 +39,7 @@ require (
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/havoc/k8schaos v0.0.0-20240409145249-e78d20847e37
-	github.com/smartcontractkit/libocr v0.0.0-20240702141926-063ceef8c42e
+	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7
 	github.com/smartcontractkit/seth v1.0.12
 	github.com/smartcontractkit/wasp v0.4.5
 	github.com/spf13/cobra v1.8.0
