@@ -200,7 +200,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install slither-analyzer
 
-      - name: Run Slither
+      - name: Run Slither for current changes
         shell: bash
         run: |
           CHANGED="${{ needs.changes.outputs.sol_files }}"
@@ -219,8 +219,14 @@ jobs:
           path: contracts/slither-reports
           retention-days: 7
 
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          submodules: recursive
+          sha: ${{ github.base_ref }}
+
       # Run this step only if some existing files were modified
-      - name: Run Slither
+      - name: Run Slither for base ref
         if: needs.changes.outputs.mod_sol_changes == 'true'
         shell: bash
         run: |
