@@ -284,7 +284,6 @@ jobs:
     if: |
       always() &&
       needs.should-run.outputs.should_run == 'true' &&
-      github.ref_type != 'tag' &&
       (
         needs.select-versions.outputs.evm_implementations != '' ||
         github.event.inputs.base64TestList != ''
