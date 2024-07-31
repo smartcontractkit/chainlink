@@ -42,7 +42,7 @@ func (g *deployJobSpecs) Run(args []string) {
 	chainID := fs.Int64("chainid", 11155111, "chain id")
 	p2pPort := fs.Int64("p2pport", 6690, "p2p port")
 	onlyReplay := fs.Bool("onlyreplay", false, "only replay the block from the OCR3 contract setConfig transaction")
-	templatesOverride := fs.String("templatesoverride", "", "Custom templates location")
+	templatesOverride := fs.String("templates", "", "Custom templates location")
 	customNodeList := fs.String("nodes", "", "Custom node list location")
 	customPublicKeys := fs.String("publickeys", "", "Custom public keys json location")
 	customArtefacts := fs.String("artefacts", "", "Custom artefacts directory location")

@@ -120,6 +120,8 @@ func deploy(
 		publicKeys,
 	)
 
+	fmt.Printf("%+v\n", ocrConfig)
+
 	if dryRun {
 		fmt.Println("Dry run, skipping deployment and funding")
 		return
