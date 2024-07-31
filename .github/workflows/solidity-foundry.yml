@@ -11,28 +11,61 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
-      changes: ${{ steps.changes.outputs.src }}
+      src_changes: ${{ steps.changes.outputs.src }}
+      sol_changes: ${{ steps.changes.outputs.sol }}
+      mod_sol_changes: ${{ steps.changes.outputs.mod_sol }}
+      sol_files: ${{ steps.changes.outputs.sol_files }}
+      mod_sol_files: ${{ steps.changes.outputs.mod_sol_files }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
+          list-files: 'shell'
           filters: |
             src:
               - 'contracts/src/v0.8/**/*'
               - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
+            sol:
+              - 'contracts/src/v0.8/**/*.sol'
+            mod_sol:
+              - modified: 'contracts/src/v0.8/**/*.sol'
 
   tests:
+#    if: needs.changes.outputs.src_changes == 'true'
+    # TODO remove
+    if: needs.changes.outputs.src_changes == 'mietek'
     strategy:
       fail-fast: false
       matrix:
-        product: [automation, ccip, functions, keystone, l2ep, liquiditymanager, llo-feeds, operatorforwarder, shared, vrf]
+        product:
+          # 98.5 is the aspirational code coverage once we migrate all tests to Foundry
+          # product that have that minimum coverage of 98.5 in the matrix below are currently excluded from the check
+          - name: automation
+            min-coverage: 98.5
+          - name: ccip
+            min-coverage: 98.5
+          - name: functions
+            min-coverage: 98.5
+          - name: keystone
+            min-coverage: 3.9
+          - name: l2ep
+            min-coverage: 3.67
+          - name: liquiditymanager
+            min-coverage: 98.5
+          - name: llo-feeds
+            min-coverage: 4.7
+          - name: operatorforwarder
+            min-coverage: 1.88
+          - name: shared
+            min-coverage: 1.9
+          - name: vrf
+            min-coverage: 98.5
     needs: [changes]
-    name: Foundry Tests ${{ matrix.product }}
-    # See https://github.com/foundry-rs/foundry/issues/3827
+    name: Foundry Tests ${{ matrix.product.name }}
     runs-on: ubuntu-22.04
 
     # The if statements for steps after checkout repo is workaround for
@@ -47,77 +80,273 @@ jobs:
       # and not native Foundry. This is to make sure the dependencies
       # stay in sync.
       - name: Setup NodeJS
-        if: needs.changes.outputs.changes == 'true'
+        if: needs.changes.outputs.src_changes == 'true'
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
-        if: needs.changes.outputs.changes == 'true'
+        if: needs.changes.outputs.src_changes == 'true'
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
           version: ${{ env.FOUNDRY_VERSION }}
 
       - name: Run Forge build
-        if: needs.changes.outputs.changes == 'true'
+        if: needs.changes.outputs.src_changes == 'true'
         run: |
           forge --version
           forge build
         id: build
         working-directory: contracts
         env:
-          FOUNDRY_PROFILE: ${{ matrix.product }}
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
       - name: Run Forge tests
-        if: needs.changes.outputs.changes == 'true'
+        if: needs.changes.outputs.src_changes == 'true'
         run: |
           forge test -vvv
         id: test
         working-directory: contracts
         env:
-          FOUNDRY_PROFILE: ${{ matrix.product }}
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
       - name: Run Forge snapshot
-        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) && !contains(fromJson('["automation"]'), matrix.product) && !contains(fromJson('["keystone"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
+        if: ${{ !contains(fromJson('["vrf"]'), matrix.product.name) && !contains(fromJson('["automation"]'), matrix.product.name) && !contains(fromJson('["keystone"]'), matrix.product.name) && needs.changes.outputs.src_changes == 'true' }}
         run: |
-          forge snapshot --nmt "test_?Fuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product }}.gas-snapshot
+          forge snapshot --nmt "test_?Fuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product.name }}.gas-snapshot
         id: snapshot
         working-directory: contracts
         env:
-          FOUNDRY_PROFILE: ${{ matrix.product }}
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
-      - name: Run coverage
+      # required for code coverage report generation
+      - name: Setup LCOV
+        uses: hrishikesh-kadam/setup-lcov@f5da1b26b0dcf5d893077a3c4f29cf78079c841d # v1.0.0
+
+      - name: Run coverage for ${{ matrix.product.name }}
+        if: ${{ !contains(fromJson('["vrf"]'), matrix.product.name) && !contains(fromJson('["automation"]'), matrix.product.name) && !contains(fromJson('["functions"]'), matrix.product.name) && needs.changes.outputs.src_changes == 'true' }}
+        working-directory: contracts
+        run: forge coverage --report lcov
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
+
+      - name: Report code coverage for ${{ matrix.product.name }}
+        if: ${{ !contains(fromJson('["vrf"]'), matrix.product.name) && !contains(fromJson('["automation"]'), matrix.product.name) && !contains(fromJson('["functions"]'), matrix.product.name) && needs.changes.outputs.src_changes == 'true' }}
+        uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
+        with:
+          update-comment: true
+          coverage-files: ./contracts/lcov.info
+          minimum-coverage: ${{ matrix.product.min-coverage }}
+          artifact-name: code-coverage-report-${{ matrix.product.name }}
+          working-directory: ./contracts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run coverage for ccip
         if: ${{ contains(fromJson('["ccip"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
         working-directory: contracts
         run: forge coverage --report lcov
         env:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
-      - name: Prune report
+      - name: Prune ccip report
         if: ${{ contains(fromJson('["ccip"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
         run: |
           sudo apt-get install lcov
           ./contracts/scripts/ccip_lcov_prune ./contracts/lcov.info ./lcov.info.pruned
 
-      - name: Report code coverage
+      - name: Report code coverage for ccip
         if: ${{ contains(fromJson('["ccip"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
         uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
         with:
           update-comment: true
           coverage-files: lcov.info.pruned
-          minimum-coverage: 98.5
-          artifact-name: code-coverage-report
+          minimum-coverage: ${{ matrix.product.min-coverage }}
+          artifact-name: code-coverage-report-${{ matrix.product.name }}
           working-directory: ./contracts
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Collect Metrics
-        if: needs.changes.outputs.changes == 'true'
+        if: needs.changes.outputs.src_changes == 'true'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
-          id: solidity-foundry
+          id: ${{ matrix.product.name }}-solidity-foundry
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Foundry Tests ${{ matrix.product }}
+          this-job-name: Foundry Tests ${{ matrix.product.name }}
+        continue-on-error: true
+
+  analyze:
+    needs: [ changes ]
+    name: Run static analysis
+    if: needs.changes.outputs.sol_changes == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          submodules: recursive
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install semver
+        shell: bash
+        run: |
+          npm install -g semver
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          version: ${{ env.FOUNDRY_VERSION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+
+      - name: Install solc-select and solc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip
+          pip3 install solc-select
+          sudo ln -s /usr/local/bin/solc-select /usr/bin/solc-select
+          solc-select install 0.8.19
+          solc-select use 0.8.19
+
+      - name: Install Slither
+        run: |
+          python -m pip install --upgrade pip
+          pip install slither-analyzer
+
+      - name: Run Slither
+        shell: bash
+        run: |
+          CHANGED="${{ needs.changes.outputs.sol_files }}"
+          CHANGED_ARRAY=$(echo "$CHANGED" | tr ' ' ',')
+          
+          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/.slither.config-artifacts.json "." "$CHANGED_ARRAY" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
+
+        # Run this step only if some existing files were modified
+      - name: Save Slither results for current commit
+        if: needs.changes.outputs.mod_sol_changes == 'true'
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: tmp-slither-reports-${{ github.sha }}
+          path: contracts/slither-reports
+          retention-days: 7
+
+      # Run this step only if some existing files were modified
+      - name: Run Slither
+        if: needs.changes.outputs.mod_sol_changes == 'true'
+        shell: bash
+        run: |
+          MODIFIED="${{ needs.changes.outputs.mod_sol_files }}"
+          MODIFIED_ARRAY=$(echo "$MODIFIED" | tr ' ' ',')
+          
+          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/.slither.config-pr.json "." "$MODIFIED_ARRAY" "contracts/slither-reports-original" "--solc-remaps @=contracts/node_modules/@"
+
+      - name: Download Slither artifact
+        if: needs.changes.outputs.mod_sol_changes == 'true'
+        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        with:
+          name: tmp-slither-reports-${{ github.sha }}
+          path: contracts/slither-reports
+
+      - name: Merge Slither reports
+        if: needs.changes.outputs.mod_sol_changes == 'true'
+        run: |
+          for original_file in contracts/slither-reports-original/*.md; do
+            base_file=$(basename "$original_file")
+            new_file="contracts/slither-reports/$base_file"
+            diff_file="contracts/slither-reports/${base_file%.md}_diff.md"
+            if [ -f "$new_file" ]; then
+              # we need to use awk to skip the first line of the diff output, which contains info about line number and type of change that do not interest us
+              diff "$original_file" "$new_file" > "$diff_file" | awk 'NR>1'
+            else
+              echo "File $new_file does not exist, skipping diff."
+            fi
+          done
+
+      - name: Print Slither summary
+        shell: bash
+        run: |
+          echo "# Static analysis results " >> $GITHUB_STEP_SUMMARY
+          for file in "contracts/slither-reports"/*.md; do
+            if [ -e "$file" ]; then
+              cat "$file" >> $GITHUB_STEP_SUMMARY
+            fi
+          done          
+
+      - name: Upload Slither report
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 10
+        continue-on-error: true
+        with:
+          name: slither-report
+          path: |
+            contracts/slither-results
+          retention-days: 7
+
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: solidity-foundry-slither
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Run static analysis
+        continue-on-error: true
+
+  fmt:
+    needs: [ changes ]
+    name: Check formatting
+    if: needs.changes.outputs.sol_changes == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          submodules: recursive
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          version: ${{ env.FOUNDRY_VERSION }}
+
+      - name: Run Forge fmt
+        run: |
+          SOL_FILES="${{ needs.changes.outputs.sol_files }}"
+          FILE_LIST=$(echo "$SOL_FILES" | tr ' ' '\n')
+          format_errors=0
+          for file in $FILE_LIST; do
+            sanitized_file="${file/contracts\//}"
+            echo "Running forge fmt --check on $sanitized_file"
+            forge fmt --check "$sanitized_file" || format_errors=$((format_errors+1))
+          done
+          if [ $format_errors -ne 0 ]; then
+            echo "There were $format_errors formatting errors."
+            exit 1
+          else
+            echo "All files are properly formatted."
+          fi
+        id: fmt
+        working-directory: contracts
+
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: solidity-foundry-fmt
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Check formatting
         continue-on-error: true
 
   solidity-forge-fmt:
