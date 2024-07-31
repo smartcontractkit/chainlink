@@ -48,11 +48,11 @@ jobs:
           base: ${{ env.BASE_REF }} #TODO change to inputs.base_ref after testing
           filters: |
             shared: &shared
-              - 'contracts/src/!(v0.8/**/test/**|v0.8/**/tests/**|v0.8/**/*.t.sol|v0.8/*.t.sol|v0.8/**/testhelpers/**|v0.8/testhelpers/**|v0.8/vendor/**)/(shared/**/*.sol|interfaces/**/*.sol|*.sol)'
+              - modified|added: 'contracts/src/!(v0.8/**/test/**|v0.8/**/tests/**|v0.8/**/*.t.sol|v0.8/*.t.sol|v0.8/**/testhelpers/**|v0.8/testhelpers/**|v0.8/vendor/**)/(shared/**/*.sol|interfaces/**/*.sol|*.sol)'
             sol:
-              - 'contracts/src/!(v0.8/**/test/**|v0.8/**/tests/**|v0.8/**/*.t.sol|v0.8/*.t.sol|v0.8/**/testhelpers/**|v0.8/testhelpers/**|v0.8/vendor/**)/**/*.sol'
+              - modified|added: 'contracts/src/!(v0.8/**/test/**|v0.8/**/tests/**|v0.8/**/*.t.sol|v0.8/*.t.sol|v0.8/**/testhelpers/**|v0.8/testhelpers/**|v0.8/vendor/**)/**/*.sol'
             product: &product
-              - 'contracts/src/!(v0.8/**/test/**|v0.8/**/tests/**|v0.8/**/*.t.sol|v0.8/*.t.sol|v0.8/**/testhelpers/**|v0.8/testhelpers/**|v0.8/vendor/**)/${{ env.PRODUCT }}/**/*.sol'
+              - modified|added: 'contracts/src/!(v0.8/**/test/**|v0.8/**/tests/**|v0.8/**/*.t.sol|v0.8/*.t.sol|v0.8/**/testhelpers/**|v0.8/testhelpers/**|v0.8/vendor/**)/${{ env.PRODUCT }}/**/*.sol'
             included:
               - *product
               - *shared
