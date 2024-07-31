@@ -85,7 +85,7 @@ type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 
 	// Pipeline variables - if you aren't calling this from chain tx task within
 	// the pipeline, you don't need these variables
-	MinConfirmations  clnull.Uint32
+	MinConfirmations  clnull.Uint32 // deprecated
 	PipelineTaskRunID *uuid.UUID
 
 	Strategy TxStrategy
