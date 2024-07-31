@@ -87,7 +87,7 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/setup-go
       - name: Validate go.mod
-        uses: smartcontractkit/.github/apps/go-mod-validator@ed160c68552180fd2ad6b04b713612e02ae87e75 # go-mod-validator@fix/go-mod-validator
+        uses: smartcontractkit/.github/apps/go-mod-validator@fix/go-mod-validator # go-mod-validator@pin_later
 
   core:
     env:
