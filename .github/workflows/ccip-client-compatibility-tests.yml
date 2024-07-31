@@ -613,7 +613,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U03GWA0NSF7>' || 'All Good!' }}"
+                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed! Notifying <!subteam^S06HJ46A1EX|ccip-qa>' || 'All Good!' }}"
                       }
                     },
                     {
@@ -659,7 +659,7 @@ jobs:
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
           
-          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^CCIP Compatibility with (.*?)$" -namedKey="CCIP" -outputFile=output.json
+          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^CCIP Compatibility with (.*)$" -namedKey="CCIP" -outputFile=output.json
           
           echo "base64_parsed_results=$(base64 -w 0 output.json)" >> $GITHUB_OUTPUT
 
