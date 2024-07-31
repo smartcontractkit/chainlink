@@ -1122,7 +1122,7 @@ jobs:
         uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@46b1311a5a83f33d08ffa8e1e0ab04f9ad51665d # node20 update on may 10, 2024
         with:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
-          image: projectserum/build
+          image: backpackapp/build
           image-version: ${{ needs.get_projectserum_version.outputs.projectserum_version }}
 
   solana-build-test-image:
