@@ -33,7 +33,7 @@ jobs:
           gap-name: crib
           use-private-ecr-registry: true
           use-tls: true
-          proxy-port: 8443
+          proxy-port: 8080
           metrics-job-name: "test"
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -51,7 +51,7 @@ jobs:
           gap-name: k8s
           use-private-ecr-registry: true
           use-k8s: true
-          proxy-port: 9443
+          proxy-port: 8443
           metrics-job-name: "test"
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
