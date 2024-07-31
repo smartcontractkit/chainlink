@@ -284,6 +284,10 @@ func (d *stuckTxDetector) detectStuckTransactionsScroll(ctx context.Context, txs
 	if err != nil {
 		return nil, fmt.Errorf("failed to make new request with context: %w", err)
 	}
+
+	// Add Content-Type header
+	postReq.Header.Add("Content-Type", "application/json")
+
 	// Send request
 	resp, err := d.httpClient.Do(postReq)
 	if err != nil {
@@ -293,6 +297,7 @@ func (d *stuckTxDetector) detectStuckTransactionsScroll(ctx context.Context, txs
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("request failed with status %d", resp.StatusCode)
 	}
+
 	// Decode the response into expected type
 	scrollResp := new(scrollResponse)
 	err = json.NewDecoder(resp.Body).Decode(scrollResp)
