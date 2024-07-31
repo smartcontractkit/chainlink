@@ -16,7 +16,8 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   using EnumerableSet for EnumerableSet.AddressSet;
 
   /// @inheritdoc ITypeAndVersion
-  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.1.0";
+  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.1.1";
+  address private s_previousToSContract;
 
   EnumerableSet.AddressSet private s_allowedSenders;
   EnumerableSet.AddressSet private s_blockedSenders;
@@ -29,6 +30,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   error InvalidUsage();
   error RecipientIsBlocked();
   error InvalidCalldata();
+  error NoPreviousToSContract();
 
   TermsOfServiceAllowListConfig private s_config;
 
@@ -41,7 +43,8 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   constructor(
     TermsOfServiceAllowListConfig memory config,
     address[] memory initialAllowedSenders,
-    address[] memory initialBlockedSenders
+    address[] memory initialBlockedSenders,
+    address previousToSContract
   ) ConfirmedOwner(msg.sender) {
     updateConfig(config);
 
@@ -56,6 +59,8 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
       }
       s_blockedSenders.add(initialBlockedSenders[j]);
     }
+
+    s_previousToSContract = previousToSContract;
   }
 
   // ================================================================
@@ -196,5 +201,20 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     }
 
     return blockedSenders;
+  }
+
+  /// @inheritdoc ITermsOfServiceAllowList
+  function migratePreviouslyAllowedSenders(address[] memory previousSendersToAdd) external override onlyOwner {
+    if (s_previousToSContract == address(0)) {
+      revert NoPreviousToSContract();
+    }
+    IAccessController previousToSContract = IAccessController(s_previousToSContract);
+    for (uint256 i = 0; i < previousSendersToAdd.length; ++i) {
+      if (previousToSContract.hasAccess(previousSendersToAdd[i], "")) {
+        if (!s_blockedSenders.contains(previousSendersToAdd[i])) {
+          s_allowedSenders.add(previousSendersToAdd[i]);
+        }
+      }
+    }
   }
 }

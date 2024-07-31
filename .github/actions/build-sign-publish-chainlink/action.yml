@@ -68,6 +68,13 @@ inputs:
     description: When set to the string boolean value of "true", the resulting build image signature will be verified
     default: "false"
     required: false
+outputs:
+  docker-image-tag:
+    description: The docker image tag that was built and pushed
+    value: ${{ steps.save-non-root-image-name-env.outputs.image-tag }}
+  docker-image-digest:
+    description: The docker image digest that was built and pushed
+    value: ${{ steps.save-non-root-image-name-env.outputs.image-digest }}
 
 runs:
   using: composite
@@ -208,10 +215,13 @@ runs:
         IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['image.name'] }}
         IMAGE_DIGEST=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['containerimage.digest'] }}
         IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
+        IMAGE_TAG=$(echo "$IMAGES_NAME_RAW" | cut -d":" -f2)
         echo "nonroot_image_name=${IMAGE_NAME}" >> $GITHUB_ENV
         echo '### Docker Image' >> $GITHUB_STEP_SUMMARY
         echo "Image Name: ${IMAGE_NAME}"  >> $GITHUB_STEP_SUMMARY
         echo "Image Digest: ${IMAGE_DIGEST}"  >> $GITHUB_STEP_SUMMARY
+        echo "image-tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+        echo "image-digest=${IMAGE_DIGEST}" >> $GITHUB_OUTPUT
 
     - name: Check if non-root image runs as root
       id: check-nonroot-runs-root
