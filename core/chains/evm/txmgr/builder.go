@@ -1,7 +1,6 @@
 package txmgr
 
 import (
-	"context"
 	"math/big"
 	"time"
 
@@ -18,10 +17,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-type latestAndFinalizedBlockHeadTracker interface {
-	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error)
-}
-
 // NewTxm constructs the necessary dependencies for the EvmTxm (broadcaster, confirmer, etc) and returns a new EvmTxManager
 func NewTxm(
 	ds sqlutil.DataSource,
@@ -36,7 +31,7 @@ func NewTxm(
 	logPoller logpoller.LogPoller,
 	keyStore keystore.Eth,
 	estimator gas.EvmFeeEstimator,
-	headTracker latestAndFinalizedBlockHeadTracker,
+	headTracker logpoller.HeadTracker,
 ) (txm TxManager,
 	err error,
 ) {
@@ -117,7 +112,7 @@ func NewEvmConfirmer(
 	txAttemptBuilder TxAttemptBuilder,
 	lggr logger.Logger,
 	stuckTxDetector StuckTxDetector,
-	headTracker latestAndFinalizedBlockHeadTracker,
+	headTracker logpoller.HeadTracker,
 ) *Confirmer {
 	return txmgr.NewConfirmer(txStore, client, chainConfig, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil }, stuckTxDetector, headTracker)
 }
