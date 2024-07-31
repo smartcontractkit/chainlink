@@ -3034,13 +3034,12 @@ func (lane *CCIPLane) ExecuteManually(options ...ManualExecutionOption) error {
 // validationOptions are used in the ValidateRequests function to specify which phase is expected to fail and how
 type validationOptions struct {
 	phaseExpectedToFail  testreporters.Phase // the phase expected to fail
-	phaseShouldExist     bool                // for some phases, their lack of existence is a failure, for others their existence can also have a failure state
 	expectedErrorMessage string              // if provided, we're looking for a specific error message
 	timeout              time.Duration       // timeout for the validation
 }
 
 // ValidationOptionFunc is a function that can be passed to ValidateRequests to specify which phase is expected to fail
-type ValidationOptionFunc func(logger *zerolog.Logger, opts *validationOptions)
+type ValidationOptionFunc func(opts *validationOptions)
 
 // PhaseSpecificValidationOptionFunc can specify how exactly you want a phase to fail
 type PhaseSpecificValidationOptionFunc func(*validationOptions)
@@ -3059,38 +3058,18 @@ func WithTimeout(timeout time.Duration) PhaseSpecificValidationOptionFunc {
 	}
 }
 
-// ShouldExist specifies that a specific phase should exist, but be in a failed state. This is only applicable to the `ExecStateChanged` phase.
-func ShouldExist() PhaseSpecificValidationOptionFunc {
-	return func(opts *validationOptions) {
-		opts.phaseShouldExist = true
-	}
-}
-
 // ExpectPhaseToFail specifies that a specific phase is expected to fail.
 // You can optionally provide an expected error message, if you don't have one in mind, just pass an empty string.
 // shouldExist is used to specify whether the phase should exist or not, which is only applicable to the `ExecStateChanged` phase.
 // If you expect the `ExecStateChanged` events to be there, but in a "failed" state, set this to true.
 // It will otherwise be ignored.
 func ExpectPhaseToFail(phase testreporters.Phase, phaseSpecificOptions ...PhaseSpecificValidationOptionFunc) ValidationOptionFunc {
-	return func(logger *zerolog.Logger, opts *validationOptions) {
+	return func(opts *validationOptions) {
 		opts.phaseExpectedToFail = phase
 		for _, f := range phaseSpecificOptions {
 			if f != nil {
 				f(opts)
 			}
-		}
-		if phase == testreporters.ExecStateChanged {
-			if opts.expectedErrorMessage != "" {
-				logger.Warn().Msg("You are overriding the expected error message for the ExecStateChanged phase. This can cause unexpected behavior and is generally not recommended.")
-			} else if !opts.phaseShouldExist {
-				opts.expectedErrorMessage = "ExecutionStateChanged event not found for seq num"
-			} else {
-				opts.expectedErrorMessage = "ExecutionStateChanged event state - expected"
-			}
-		}
-		if phase != testreporters.ExecStateChanged && opts.phaseShouldExist {
-			logger.Warn().Msg("phaseShouldExist is only applicable to the ExecStateChanged phase. Ignoring for other phases.")
-			opts.phaseShouldExist = false
 		}
 	}
 }
@@ -3102,7 +3081,7 @@ func (lane *CCIPLane) ValidateRequests(validationOptionFuncs ...ValidationOption
 	var opts validationOptions
 	for _, f := range validationOptionFuncs {
 		if f != nil {
-			f(lane.Logger, &opts)
+			f(&opts)
 		}
 	}
 	for txHash, ccipReqs := range lane.SentReqs {

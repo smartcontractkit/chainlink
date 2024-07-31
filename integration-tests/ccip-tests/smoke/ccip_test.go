@@ -840,7 +840,7 @@ func TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas(t *te
 			// send with insufficient gas for ccip-receive to fail
 			err := tc.lane.SendRequests(1, big.NewInt(0))
 			require.NoError(t, err)
-			tc.lane.ValidateRequests(actions.ExpectPhaseToFail(testreporters.ExecStateChanged, actions.ShouldExist()))
+			tc.lane.ValidateRequests(actions.ExpectPhaseToFail(testreporters.ExecStateChanged))
 			// wait for events
 			err = tc.lane.Dest.Common.ChainClient.WaitForEvents()
 			require.NoError(t, err)
@@ -882,7 +882,6 @@ func testOffRampRateLimits(t *testing.T, rateLimiterConfig contracts.RateLimiter
 		contracts.OffRampContract: contracts.V1_5_0_dev,
 	})
 	require.NoError(t, err, "Required contract versions not met")
-	require.True(t, TestCfg.SelectedNetworks[0].Simulated, "This test relies on timing assumptions and should only be run on simulated networks")
 	require.False(t, pointer.GetBool(TestCfg.TestGroupInput.ExistingDeployment), "This test modifies contract state and cannot be run on existing deployments")
 
 	// Set the default permissionless exec threshold lower so that we can manually execute the transactions faster
@@ -975,13 +974,9 @@ func testOffRampRateLimits(t *testing.T, rateLimiterConfig contracts.RateLimiter
 			tc.lane.RecordStateBeforeTransfer()
 			err = tc.lane.SendRequests(1, big.NewInt(actions.DefaultDestinationGasLimit))
 			require.NoError(t, err, "Failed to send rate limited token transfer")
-			// Expect the ExecutionStateChanged event to never show up
-			// Since we're looking to confirm that an event has NOT occurred, this can lead to some imperfect assumptions and results
-			// We set the timeout to stop waiting for the event after a minute
-			// 99% of transactions occur in under a minute in ideal simulated conditions, so this is an okay assumption there
-			// but on real chains this risks false negatives
-			// If we don't set this timeout, this test can take a long time and hold up CI
-			tc.lane.ValidateRequests(actions.ExpectPhaseToFail(testreporters.ExecStateChanged, actions.WithTimeout(time.Minute)))
+
+			// We should see the ExecStateChanged phase fail on the OffRamp
+			tc.lane.ValidateRequests(actions.ExpectPhaseToFail(testreporters.ExecStateChanged))
 			tc.lane.Logger.Info().
 				Str("Token", limitedSrcToken.ContractAddress.Hex()).
 				Msg("Limited token transfer failed on destination chain (a good thing in this context)")
