@@ -258,6 +258,9 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     emit ConfigChanged();
   }
 
+  uint256 upkeepId2;
+  uint256 upkeepId3;
+
   /**
    * @notice owner calls to set the config for this upkeep type
    * @param triggerType the upkeep type to configure
