@@ -1037,7 +1037,7 @@ jobs:
         id: getsha
         run: |
           cd solanapath
-          full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}})
+          full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}}^{}) # additional suffix allows handling tagged versions as well
           if [ -z "${full_sha}" ]; then
               echo "Error: could not get the full sha from the short sha using git, look above for error(s)"
               exit 1
