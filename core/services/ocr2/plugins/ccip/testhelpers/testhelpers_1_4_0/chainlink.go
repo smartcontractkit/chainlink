@@ -642,7 +642,7 @@ func (c *CCIPIntegrationTestHarness) SetupFeedsManager(t *testing.T) {
 		connManager.On("GetClient", mock.Anything).Maybe().Return(NoopFeedsClient{}, nil)
 		connManager.On("Close").Maybe().Return()
 		connManager.On("IsConnected", mock.Anything).Maybe().Return(true)
-		f.Unsafe_SetConnectionsManager(connManager)
+		f.UnsafeSetConnectionsManager(connManager)
 	}
 }
 
