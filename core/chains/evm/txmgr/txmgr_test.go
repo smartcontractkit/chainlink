@@ -85,7 +85,8 @@ func makeTestEvmTxm(
 		lggr,
 		lp,
 		keyStore,
-		estimator)
+		estimator,
+		ht)
 }
 
 func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {
@@ -612,6 +613,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	feeEstimator.On("Start", mock.Anything).Return(nil).Once()
 	feeEstimator.On("Close", mock.Anything).Return(nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
 	feeEstimator.On("OnNewLongestChain", mock.Anything, mock.Anything).Once()
 	txm, err := makeTestEvmTxm(t, db, ethClient, feeEstimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), gcfg.Database(), gcfg.Database().Listener(), ethKeyStore)
 	require.NoError(t, err)
