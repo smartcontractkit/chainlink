@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
@@ -141,7 +142,7 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPluginFn(config types.Rep
 			offRampReader:               rf.config.offRampReader,
 			tokenPoolBatchedReader:      rf.config.tokenPoolBatchedReader,
 			inflightReports:             newInflightExecReportsContainer(offchainConfig.InflightCacheExpiry.Duration()),
-			commitRootsCache:            cache.NewCommitRootsCache(lggr, msgVisibilityInterval, offchainConfig.RootSnoozeTime.Duration()),
+			commitRootsCache:            cache.NewCommitRootsCache(lggr, rf.config.commitStoreReader, msgVisibilityInterval, offchainConfig.RootSnoozeTime.Duration()),
 			metricsCollector:            rf.config.metricsCollector,
 			chainHealthcheck:            rf.config.chainHealthcheck,
 			batchingStrategy:            batchingStrategy,
