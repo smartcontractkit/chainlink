@@ -258,7 +258,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     emit ConfigChanged();
   }
 
-  uint256 upkeepId2;
+  uint256 upkeepId4;
   uint256 upkeepId3;
 
   /**
