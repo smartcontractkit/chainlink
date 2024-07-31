@@ -12,6 +12,8 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+type DonID uint32
+
 type DON struct {
 	capabilities.DON
 	CapabilityConfigurations map[string]capabilities.CapabilityConfiguration
@@ -25,7 +27,7 @@ type Capability struct {
 type LocalRegistry struct {
 	lggr              logger.Logger
 	peerWrapper       p2ptypes.PeerWrapper
-	IDsToDONs         map[uint32]DON
+	IDsToDONs         map[DonID]DON
 	IDsToNodes        map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo
 	IDsToCapabilities map[string]Capability
 }
@@ -69,7 +71,7 @@ func (l *LocalRegistry) LocalNode(ctx context.Context) (capabilities.Node, error
 }
 
 func (l *LocalRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
-	d, ok := l.IDsToDONs[donID]
+	d, ok := l.IDsToDONs[DonID(donID)]
 	if !ok {
 		return capabilities.CapabilityConfiguration{}, fmt.Errorf("could not find don %d", donID)
 	}

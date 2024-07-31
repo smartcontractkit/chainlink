@@ -179,7 +179,7 @@ func TestResolveLocalNodeInfo(t *testing.T) {
 	var pid p2ptypes.PeerID
 	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
 	require.NoError(t, err)
-	registry.On("GetLocalNode", mock.Anything).Return(capabilities.Node{
+	registry.On("LocalNode", mock.Anything).Return(capabilities.Node{
 		PeerID: &pid,
 		WorkflowDON: capabilities.DON{
 			ID:            1,

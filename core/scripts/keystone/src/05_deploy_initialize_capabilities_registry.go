@@ -18,9 +18,6 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"

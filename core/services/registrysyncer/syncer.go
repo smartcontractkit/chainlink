@@ -209,7 +209,7 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 		return nil, err
 	}
 
-	idsToDONs := map[uint32]DON{}
+	idsToDONs := map[DonID]DON{}
 	for _, d := range dons {
 		cc := map[string]capabilities.CapabilityConfiguration{}
 		for _, dc := range d.CapabilityConfigurations {
@@ -228,7 +228,7 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 			cc[cid] = cconf
 		}
 
-		idsToDONs[d.Id] = DON{
+		idsToDONs[DonID(d.Id)] = DON{
 			DON:                      *toDONInfo(d),
 			CapabilityConfigurations: cc,
 		}

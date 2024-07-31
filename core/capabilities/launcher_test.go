@@ -327,8 +327,8 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	rtc.ApplyDefaults()
 
 	state := &registrysyncer.LocalRegistry{
-		IDsToDONs: map[uint32]registrysyncer.DON{
-			dID: {
+		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+			registrysyncer.DonID(dID): {
 				DON: capabilities.DON{
 					ID:               dID,
 					ConfigVersion:    uint32(0),
@@ -338,7 +338,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 					Members:          workflowDonNodes,
 				},
 			},
-			capDonID: {
+			registrysyncer.DonID(capDonID): {
 				DON: capabilities.DON{
 					ID:               capDonID,
 					ConfigVersion:    uint32(0),
@@ -476,8 +476,8 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 	// which exposes the streams-trigger and write_chain capabilities.
 	// We expect receivers to be wired up and both capabilities to be added to the registry.
 	state := &registrysyncer.LocalRegistry{
-		IDsToDONs: map[uint32]registrysyncer.DON{
-			dID: {
+		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+			registrysyncer.DonID(dID): {
 				DON: capabilities.DON{
 					ID:               dID,
 					ConfigVersion:    uint32(0),
@@ -487,7 +487,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 					Members:          workflowDonNodes,
 				},
 			},
-			triggerCapDonID: {
+			registrysyncer.DonID(triggerCapDonID): {
 				DON: capabilities.DON{
 					ID:               triggerCapDonID,
 					ConfigVersion:    uint32(0),
@@ -500,7 +500,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 					fullTriggerCapID: {},
 				},
 			},
-			targetCapDonID: {
+			registrysyncer.DonID(targetCapDonID): {
 				DON: capabilities.DON{
 					ID:               targetCapDonID,
 					ConfigVersion:    uint32(0),
@@ -633,8 +633,8 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 	// which exposes the streams-trigger and write_chain capabilities.
 	// We expect receivers to be wired up.
 	state := &registrysyncer.LocalRegistry{
-		IDsToDONs: map[uint32]registrysyncer.DON{
-			dID: {
+		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+			registrysyncer.DonID(dID): {
 				DON: capabilities.DON{
 					ID:               dID,
 					ConfigVersion:    uint32(0),
@@ -644,7 +644,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 					Members:          workflowDonNodes,
 				},
 			},
-			capDonID: {
+			registrysyncer.DonID(capDonID): {
 				DON: capabilities.DON{
 					ID:               capDonID,
 					ConfigVersion:    uint32(0),
