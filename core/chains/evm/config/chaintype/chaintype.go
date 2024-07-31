@@ -19,6 +19,7 @@ const (
 	ChainXLayer          ChainType = "xlayer"
 	ChainZkEvm           ChainType = "zkevm"
 	ChainZkSync          ChainType = "zksync"
+	ChainHedera          ChainType = "hedera"
 )
 
 // IsL2 returns true if this chain is a Layer 2 chain. Notably:
@@ -35,7 +36,7 @@ func (c ChainType) IsL2() bool {
 
 func (c ChainType) IsValid() bool {
 	switch c {
-	case "", ChainArbitrum, ChainCelo, ChainGnosis, ChainKroma, ChainMetis, ChainOptimismBedrock, ChainScroll, ChainWeMix, ChainXLayer, ChainZkEvm, ChainZkSync:
+	case "", ChainArbitrum, ChainCelo, ChainGnosis, ChainKroma, ChainMetis, ChainOptimismBedrock, ChainScroll, ChainWeMix, ChainXLayer, ChainZkEvm, ChainZkSync, ChainHedera:
 		return true
 	}
 	return false
@@ -65,6 +66,8 @@ func ChainTypeFromSlug(slug string) ChainType {
 		return ChainZkEvm
 	case "zksync":
 		return ChainZkSync
+	case "hedera":
+		return ChainHedera
 	default:
 		return ChainType(slug)
 	}
@@ -128,4 +131,5 @@ var ErrInvalidChainType = fmt.Errorf("must be one of %s or omitted", strings.Joi
 	string(ChainXLayer),
 	string(ChainZkEvm),
 	string(ChainZkSync),
+	string(ChainHedera),
 }, ", "))
