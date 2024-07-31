@@ -180,3 +180,5 @@ package gethwrappers
 
 // Transmission
 //go:generate go generate ./transmission
+
+//go:generate go generate ./ccip
