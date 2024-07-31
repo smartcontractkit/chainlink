@@ -21,32 +21,53 @@ jobs:
         with:
           nix_path: nixpkgs=channel:nixos-unstable
 
-      - name: setup-gap
-        uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
+      - name: setup-gap crib
+        # TODO: update after testing and latest changes are released.
+        uses: smartcontractkit/.github/actions/setup-gap@crib-274/multi-gap-and-tls # setup-gap@0.4.0
         with:
           aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_CRIB_STAGE }}
           aws-region: ${{ secrets.AWS_REGION }}
           ecr-private-registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
           k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
+          gap-name: crib
           use-private-ecr-registry: true
-          use-k8s: true
-          metrics-job-name: "k8s"
+          use-tls: true
+          proxy-port: 8443
+          metrics-job-name: "test"
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-#      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-#        name: Checkout CRIB repository
-#        with:
-#          repository: 'smartcontractkit/crib'
-#          ref: 'main'
-#      - name: Generate Short UUID
-#        id: uuid
-#        run: echo "CRIB_NAMESPACE=$(uuidgen | cut -c1-5)" >> $GITHUB_ENV
-#      - name: Create a new CRIB environment
-#        run: |-
-#          devspace use namespace $CRIB_NAMESPACE
-#          devspace deploy --profile local-dev-simulated-core-ocr1
+
+      - name: setup-gap k8s
+        # TODO: update after testing and latest changes are released.
+        uses: smartcontractkit/.github/actions/setup-gap@crib-274/multi-gap-and-tls # setup-gap@0.4.0
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_K8S_STAGE }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          ecr-private-registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+          k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
+          gap-name: k8s
+          use-private-ecr-registry: true
+          use-k8s: true
+          proxy-port: 9443
+          metrics-job-name: "test"
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      #      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      #        name: Checkout CRIB repository
+      #        with:
+      #          repository: 'smartcontractkit/crib'
+      #          ref: 'main'
+      #      - name: Generate Short UUID
+      #        id: uuid
+      #        run: echo "CRIB_NAMESPACE=$(uuidgen | cut -c1-5)" >> $GITHUB_ENV
+      #      - name: Create a new CRIB environment
+      #        run: |-
+      #          devspace use namespace $CRIB_NAMESPACE
+      #          devspace deploy --profile local-dev-simulated-core-ocr1
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
