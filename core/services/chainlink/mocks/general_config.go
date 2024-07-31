@@ -26,6 +26,14 @@ type GeneralConfig struct {
 	mock.Mock
 }
 
+type GeneralConfig_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *GeneralConfig) EXPECT() *GeneralConfig_Expecter {
+	return &GeneralConfig_Expecter{mock: &_m.Mock}
+}
+
 // AppID provides a mock function with given fields:
 func (_m *GeneralConfig) AppID() uuid.UUID {
 	ret := _m.Called()
@@ -46,6 +54,33 @@ func (_m *GeneralConfig) AppID() uuid.UUID {
 	return r0
 }
 
+// GeneralConfig_AppID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AppID'
+type GeneralConfig_AppID_Call struct {
+	*mock.Call
+}
+
+// AppID is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) AppID() *GeneralConfig_AppID_Call {
+	return &GeneralConfig_AppID_Call{Call: _e.mock.On("AppID")}
+}
+
+func (_c *GeneralConfig_AppID_Call) Run(run func()) *GeneralConfig_AppID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_AppID_Call) Return(_a0 uuid.UUID) *GeneralConfig_AppID_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_AppID_Call) RunAndReturn(run func() uuid.UUID) *GeneralConfig_AppID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // AptosEnabled provides a mock function with given fields:
 func (_m *GeneralConfig) AptosEnabled() bool {
 	ret := _m.Called()
@@ -62,6 +97,33 @@ func (_m *GeneralConfig) AptosEnabled() bool {
 	}
 
 	return r0
+}
+
+// GeneralConfig_AptosEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AptosEnabled'
+type GeneralConfig_AptosEnabled_Call struct {
+	*mock.Call
+}
+
+// AptosEnabled is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) AptosEnabled() *GeneralConfig_AptosEnabled_Call {
+	return &GeneralConfig_AptosEnabled_Call{Call: _e.mock.On("AptosEnabled")}
+}
+
+func (_c *GeneralConfig_AptosEnabled_Call) Run(run func()) *GeneralConfig_AptosEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_AptosEnabled_Call) Return(_a0 bool) *GeneralConfig_AptosEnabled_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_AptosEnabled_Call) RunAndReturn(run func() bool) *GeneralConfig_AptosEnabled_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // AuditLogger provides a mock function with given fields:
@@ -84,6 +146,33 @@ func (_m *GeneralConfig) AuditLogger() config.AuditLogger {
 	return r0
 }
 
+// GeneralConfig_AuditLogger_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AuditLogger'
+type GeneralConfig_AuditLogger_Call struct {
+	*mock.Call
+}
+
+// AuditLogger is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) AuditLogger() *GeneralConfig_AuditLogger_Call {
+	return &GeneralConfig_AuditLogger_Call{Call: _e.mock.On("AuditLogger")}
+}
+
+func (_c *GeneralConfig_AuditLogger_Call) Run(run func()) *GeneralConfig_AuditLogger_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_AuditLogger_Call) Return(_a0 config.AuditLogger) *GeneralConfig_AuditLogger_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_AuditLogger_Call) RunAndReturn(run func() config.AuditLogger) *GeneralConfig_AuditLogger_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // AutoPprof provides a mock function with given fields:
 func (_m *GeneralConfig) AutoPprof() config.AutoPprof {
 	ret := _m.Called()
@@ -104,6 +193,33 @@ func (_m *GeneralConfig) AutoPprof() config.AutoPprof {
 	return r0
 }
 
+// GeneralConfig_AutoPprof_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AutoPprof'
+type GeneralConfig_AutoPprof_Call struct {
+	*mock.Call
+}
+
+// AutoPprof is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) AutoPprof() *GeneralConfig_AutoPprof_Call {
+	return &GeneralConfig_AutoPprof_Call{Call: _e.mock.On("AutoPprof")}
+}
+
+func (_c *GeneralConfig_AutoPprof_Call) Run(run func()) *GeneralConfig_AutoPprof_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_AutoPprof_Call) Return(_a0 config.AutoPprof) *GeneralConfig_AutoPprof_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_AutoPprof_Call) RunAndReturn(run func() config.AutoPprof) *GeneralConfig_AutoPprof_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Capabilities provides a mock function with given fields:
 func (_m *GeneralConfig) Capabilities() config.Capabilities {
 	ret := _m.Called()
@@ -122,6 +238,33 @@ func (_m *GeneralConfig) Capabilities() config.Capabilities {
 	}
 
 	return r0
+}
+
+// GeneralConfig_Capabilities_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Capabilities'
+type GeneralConfig_Capabilities_Call struct {
+	*mock.Call
+}
+
+// Capabilities is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Capabilities() *GeneralConfig_Capabilities_Call {
+	return &GeneralConfig_Capabilities_Call{Call: _e.mock.On("Capabilities")}
+}
+
+func (_c *GeneralConfig_Capabilities_Call) Run(run func()) *GeneralConfig_Capabilities_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Capabilities_Call) Return(_a0 config.Capabilities) *GeneralConfig_Capabilities_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Capabilities_Call) RunAndReturn(run func() config.Capabilities) *GeneralConfig_Capabilities_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ConfigTOML provides a mock function with given fields:
@@ -152,6 +295,33 @@ func (_m *GeneralConfig) ConfigTOML() (string, string) {
 	return r0, r1
 }
 
+// GeneralConfig_ConfigTOML_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConfigTOML'
+type GeneralConfig_ConfigTOML_Call struct {
+	*mock.Call
+}
+
+// ConfigTOML is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) ConfigTOML() *GeneralConfig_ConfigTOML_Call {
+	return &GeneralConfig_ConfigTOML_Call{Call: _e.mock.On("ConfigTOML")}
+}
+
+func (_c *GeneralConfig_ConfigTOML_Call) Run(run func()) *GeneralConfig_ConfigTOML_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_ConfigTOML_Call) Return(user string, effective string) *GeneralConfig_ConfigTOML_Call {
+	_c.Call.Return(user, effective)
+	return _c
+}
+
+func (_c *GeneralConfig_ConfigTOML_Call) RunAndReturn(run func() (string, string)) *GeneralConfig_ConfigTOML_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CosmosConfigs provides a mock function with given fields:
 func (_m *GeneralConfig) CosmosConfigs() cosmosconfig.TOMLConfigs {
 	ret := _m.Called()
@@ -172,6 +342,33 @@ func (_m *GeneralConfig) CosmosConfigs() cosmosconfig.TOMLConfigs {
 	return r0
 }
 
+// GeneralConfig_CosmosConfigs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CosmosConfigs'
+type GeneralConfig_CosmosConfigs_Call struct {
+	*mock.Call
+}
+
+// CosmosConfigs is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) CosmosConfigs() *GeneralConfig_CosmosConfigs_Call {
+	return &GeneralConfig_CosmosConfigs_Call{Call: _e.mock.On("CosmosConfigs")}
+}
+
+func (_c *GeneralConfig_CosmosConfigs_Call) Run(run func()) *GeneralConfig_CosmosConfigs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_CosmosConfigs_Call) Return(_a0 cosmosconfig.TOMLConfigs) *GeneralConfig_CosmosConfigs_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_CosmosConfigs_Call) RunAndReturn(run func() cosmosconfig.TOMLConfigs) *GeneralConfig_CosmosConfigs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CosmosEnabled provides a mock function with given fields:
 func (_m *GeneralConfig) CosmosEnabled() bool {
 	ret := _m.Called()
@@ -188,6 +385,33 @@ func (_m *GeneralConfig) CosmosEnabled() bool {
 	}
 
 	return r0
+}
+
+// GeneralConfig_CosmosEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CosmosEnabled'
+type GeneralConfig_CosmosEnabled_Call struct {
+	*mock.Call
+}
+
+// CosmosEnabled is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) CosmosEnabled() *GeneralConfig_CosmosEnabled_Call {
+	return &GeneralConfig_CosmosEnabled_Call{Call: _e.mock.On("CosmosEnabled")}
+}
+
+func (_c *GeneralConfig_CosmosEnabled_Call) Run(run func()) *GeneralConfig_CosmosEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_CosmosEnabled_Call) Return(_a0 bool) *GeneralConfig_CosmosEnabled_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_CosmosEnabled_Call) RunAndReturn(run func() bool) *GeneralConfig_CosmosEnabled_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Database provides a mock function with given fields:
@@ -210,6 +434,33 @@ func (_m *GeneralConfig) Database() config.Database {
 	return r0
 }
 
+// GeneralConfig_Database_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Database'
+type GeneralConfig_Database_Call struct {
+	*mock.Call
+}
+
+// Database is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Database() *GeneralConfig_Database_Call {
+	return &GeneralConfig_Database_Call{Call: _e.mock.On("Database")}
+}
+
+func (_c *GeneralConfig_Database_Call) Run(run func()) *GeneralConfig_Database_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Database_Call) Return(_a0 config.Database) *GeneralConfig_Database_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Database_Call) RunAndReturn(run func() config.Database) *GeneralConfig_Database_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // EVMConfigs provides a mock function with given fields:
 func (_m *GeneralConfig) EVMConfigs() toml.EVMConfigs {
 	ret := _m.Called()
@@ -230,6 +481,33 @@ func (_m *GeneralConfig) EVMConfigs() toml.EVMConfigs {
 	return r0
 }
 
+// GeneralConfig_EVMConfigs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EVMConfigs'
+type GeneralConfig_EVMConfigs_Call struct {
+	*mock.Call
+}
+
+// EVMConfigs is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) EVMConfigs() *GeneralConfig_EVMConfigs_Call {
+	return &GeneralConfig_EVMConfigs_Call{Call: _e.mock.On("EVMConfigs")}
+}
+
+func (_c *GeneralConfig_EVMConfigs_Call) Run(run func()) *GeneralConfig_EVMConfigs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_EVMConfigs_Call) Return(_a0 toml.EVMConfigs) *GeneralConfig_EVMConfigs_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_EVMConfigs_Call) RunAndReturn(run func() toml.EVMConfigs) *GeneralConfig_EVMConfigs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // EVMEnabled provides a mock function with given fields:
 func (_m *GeneralConfig) EVMEnabled() bool {
 	ret := _m.Called()
@@ -248,6 +526,33 @@ func (_m *GeneralConfig) EVMEnabled() bool {
 	return r0
 }
 
+// GeneralConfig_EVMEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EVMEnabled'
+type GeneralConfig_EVMEnabled_Call struct {
+	*mock.Call
+}
+
+// EVMEnabled is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) EVMEnabled() *GeneralConfig_EVMEnabled_Call {
+	return &GeneralConfig_EVMEnabled_Call{Call: _e.mock.On("EVMEnabled")}
+}
+
+func (_c *GeneralConfig_EVMEnabled_Call) Run(run func()) *GeneralConfig_EVMEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_EVMEnabled_Call) Return(_a0 bool) *GeneralConfig_EVMEnabled_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_EVMEnabled_Call) RunAndReturn(run func() bool) *GeneralConfig_EVMEnabled_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // EVMRPCEnabled provides a mock function with given fields:
 func (_m *GeneralConfig) EVMRPCEnabled() bool {
 	ret := _m.Called()
@@ -264,6 +569,33 @@ func (_m *GeneralConfig) EVMRPCEnabled() bool {
 	}
 
 	return r0
+}
+
+// GeneralConfig_EVMRPCEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EVMRPCEnabled'
+type GeneralConfig_EVMRPCEnabled_Call struct {
+	*mock.Call
+}
+
+// EVMRPCEnabled is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) EVMRPCEnabled() *GeneralConfig_EVMRPCEnabled_Call {
+	return &GeneralConfig_EVMRPCEnabled_Call{Call: _e.mock.On("EVMRPCEnabled")}
+}
+
+func (_c *GeneralConfig_EVMRPCEnabled_Call) Run(run func()) *GeneralConfig_EVMRPCEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_EVMRPCEnabled_Call) Return(_a0 bool) *GeneralConfig_EVMRPCEnabled_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_EVMRPCEnabled_Call) RunAndReturn(run func() bool) *GeneralConfig_EVMRPCEnabled_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Feature provides a mock function with given fields:
@@ -286,6 +618,33 @@ func (_m *GeneralConfig) Feature() config.Feature {
 	return r0
 }
 
+// GeneralConfig_Feature_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Feature'
+type GeneralConfig_Feature_Call struct {
+	*mock.Call
+}
+
+// Feature is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Feature() *GeneralConfig_Feature_Call {
+	return &GeneralConfig_Feature_Call{Call: _e.mock.On("Feature")}
+}
+
+func (_c *GeneralConfig_Feature_Call) Run(run func()) *GeneralConfig_Feature_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Feature_Call) Return(_a0 config.Feature) *GeneralConfig_Feature_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Feature_Call) RunAndReturn(run func() config.Feature) *GeneralConfig_Feature_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FluxMonitor provides a mock function with given fields:
 func (_m *GeneralConfig) FluxMonitor() config.FluxMonitor {
 	ret := _m.Called()
@@ -304,6 +663,33 @@ func (_m *GeneralConfig) FluxMonitor() config.FluxMonitor {
 	}
 
 	return r0
+}
+
+// GeneralConfig_FluxMonitor_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FluxMonitor'
+type GeneralConfig_FluxMonitor_Call struct {
+	*mock.Call
+}
+
+// FluxMonitor is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) FluxMonitor() *GeneralConfig_FluxMonitor_Call {
+	return &GeneralConfig_FluxMonitor_Call{Call: _e.mock.On("FluxMonitor")}
+}
+
+func (_c *GeneralConfig_FluxMonitor_Call) Run(run func()) *GeneralConfig_FluxMonitor_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_FluxMonitor_Call) Return(_a0 config.FluxMonitor) *GeneralConfig_FluxMonitor_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_FluxMonitor_Call) RunAndReturn(run func() config.FluxMonitor) *GeneralConfig_FluxMonitor_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Insecure provides a mock function with given fields:
@@ -326,6 +712,33 @@ func (_m *GeneralConfig) Insecure() config.Insecure {
 	return r0
 }
 
+// GeneralConfig_Insecure_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Insecure'
+type GeneralConfig_Insecure_Call struct {
+	*mock.Call
+}
+
+// Insecure is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Insecure() *GeneralConfig_Insecure_Call {
+	return &GeneralConfig_Insecure_Call{Call: _e.mock.On("Insecure")}
+}
+
+func (_c *GeneralConfig_Insecure_Call) Run(run func()) *GeneralConfig_Insecure_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Insecure_Call) Return(_a0 config.Insecure) *GeneralConfig_Insecure_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Insecure_Call) RunAndReturn(run func() config.Insecure) *GeneralConfig_Insecure_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // InsecureFastScrypt provides a mock function with given fields:
 func (_m *GeneralConfig) InsecureFastScrypt() bool {
 	ret := _m.Called()
@@ -342,6 +755,33 @@ func (_m *GeneralConfig) InsecureFastScrypt() bool {
 	}
 
 	return r0
+}
+
+// GeneralConfig_InsecureFastScrypt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InsecureFastScrypt'
+type GeneralConfig_InsecureFastScrypt_Call struct {
+	*mock.Call
+}
+
+// InsecureFastScrypt is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) InsecureFastScrypt() *GeneralConfig_InsecureFastScrypt_Call {
+	return &GeneralConfig_InsecureFastScrypt_Call{Call: _e.mock.On("InsecureFastScrypt")}
+}
+
+func (_c *GeneralConfig_InsecureFastScrypt_Call) Run(run func()) *GeneralConfig_InsecureFastScrypt_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_InsecureFastScrypt_Call) Return(_a0 bool) *GeneralConfig_InsecureFastScrypt_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_InsecureFastScrypt_Call) RunAndReturn(run func() bool) *GeneralConfig_InsecureFastScrypt_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // JobPipeline provides a mock function with given fields:
@@ -364,6 +804,33 @@ func (_m *GeneralConfig) JobPipeline() config.JobPipeline {
 	return r0
 }
 
+// GeneralConfig_JobPipeline_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'JobPipeline'
+type GeneralConfig_JobPipeline_Call struct {
+	*mock.Call
+}
+
+// JobPipeline is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) JobPipeline() *GeneralConfig_JobPipeline_Call {
+	return &GeneralConfig_JobPipeline_Call{Call: _e.mock.On("JobPipeline")}
+}
+
+func (_c *GeneralConfig_JobPipeline_Call) Run(run func()) *GeneralConfig_JobPipeline_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_JobPipeline_Call) Return(_a0 config.JobPipeline) *GeneralConfig_JobPipeline_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_JobPipeline_Call) RunAndReturn(run func() config.JobPipeline) *GeneralConfig_JobPipeline_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Keeper provides a mock function with given fields:
 func (_m *GeneralConfig) Keeper() config.Keeper {
 	ret := _m.Called()
@@ -382,6 +849,33 @@ func (_m *GeneralConfig) Keeper() config.Keeper {
 	}
 
 	return r0
+}
+
+// GeneralConfig_Keeper_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Keeper'
+type GeneralConfig_Keeper_Call struct {
+	*mock.Call
+}
+
+// Keeper is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Keeper() *GeneralConfig_Keeper_Call {
+	return &GeneralConfig_Keeper_Call{Call: _e.mock.On("Keeper")}
+}
+
+func (_c *GeneralConfig_Keeper_Call) Run(run func()) *GeneralConfig_Keeper_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Keeper_Call) Return(_a0 config.Keeper) *GeneralConfig_Keeper_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Keeper_Call) RunAndReturn(run func() config.Keeper) *GeneralConfig_Keeper_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Log provides a mock function with given fields:
@@ -404,9 +898,65 @@ func (_m *GeneralConfig) Log() config.Log {
 	return r0
 }
 
+// GeneralConfig_Log_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Log'
+type GeneralConfig_Log_Call struct {
+	*mock.Call
+}
+
+// Log is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Log() *GeneralConfig_Log_Call {
+	return &GeneralConfig_Log_Call{Call: _e.mock.On("Log")}
+}
+
+func (_c *GeneralConfig_Log_Call) Run(run func()) *GeneralConfig_Log_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Log_Call) Return(_a0 config.Log) *GeneralConfig_Log_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Log_Call) RunAndReturn(run func() config.Log) *GeneralConfig_Log_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // LogConfiguration provides a mock function with given fields: log, warn
 func (_m *GeneralConfig) LogConfiguration(log config.LogfFn, warn config.LogfFn) {
 	_m.Called(log, warn)
+}
+
+// GeneralConfig_LogConfiguration_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LogConfiguration'
+type GeneralConfig_LogConfiguration_Call struct {
+	*mock.Call
+}
+
+// LogConfiguration is a helper method to define mock.On call
+//   - log config.LogfFn
+//   - warn config.LogfFn
+func (_e *GeneralConfig_Expecter) LogConfiguration(log interface{}, warn interface{}) *GeneralConfig_LogConfiguration_Call {
+	return &GeneralConfig_LogConfiguration_Call{Call: _e.mock.On("LogConfiguration", log, warn)}
+}
+
+func (_c *GeneralConfig_LogConfiguration_Call) Run(run func(log config.LogfFn, warn config.LogfFn)) *GeneralConfig_LogConfiguration_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(config.LogfFn), args[1].(config.LogfFn))
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_LogConfiguration_Call) Return() *GeneralConfig_LogConfiguration_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *GeneralConfig_LogConfiguration_Call) RunAndReturn(run func(config.LogfFn, config.LogfFn)) *GeneralConfig_LogConfiguration_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Mercury provides a mock function with given fields:
@@ -429,6 +979,33 @@ func (_m *GeneralConfig) Mercury() config.Mercury {
 	return r0
 }
 
+// GeneralConfig_Mercury_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Mercury'
+type GeneralConfig_Mercury_Call struct {
+	*mock.Call
+}
+
+// Mercury is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Mercury() *GeneralConfig_Mercury_Call {
+	return &GeneralConfig_Mercury_Call{Call: _e.mock.On("Mercury")}
+}
+
+func (_c *GeneralConfig_Mercury_Call) Run(run func()) *GeneralConfig_Mercury_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Mercury_Call) Return(_a0 config.Mercury) *GeneralConfig_Mercury_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Mercury_Call) RunAndReturn(run func() config.Mercury) *GeneralConfig_Mercury_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // OCR provides a mock function with given fields:
 func (_m *GeneralConfig) OCR() config.OCR {
 	ret := _m.Called()
@@ -447,6 +1024,33 @@ func (_m *GeneralConfig) OCR() config.OCR {
 	}
 
 	return r0
+}
+
+// GeneralConfig_OCR_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OCR'
+type GeneralConfig_OCR_Call struct {
+	*mock.Call
+}
+
+// OCR is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) OCR() *GeneralConfig_OCR_Call {
+	return &GeneralConfig_OCR_Call{Call: _e.mock.On("OCR")}
+}
+
+func (_c *GeneralConfig_OCR_Call) Run(run func()) *GeneralConfig_OCR_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_OCR_Call) Return(_a0 config.OCR) *GeneralConfig_OCR_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_OCR_Call) RunAndReturn(run func() config.OCR) *GeneralConfig_OCR_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // OCR2 provides a mock function with given fields:
@@ -469,6 +1073,33 @@ func (_m *GeneralConfig) OCR2() config.OCR2 {
 	return r0
 }
 
+// GeneralConfig_OCR2_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OCR2'
+type GeneralConfig_OCR2_Call struct {
+	*mock.Call
+}
+
+// OCR2 is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) OCR2() *GeneralConfig_OCR2_Call {
+	return &GeneralConfig_OCR2_Call{Call: _e.mock.On("OCR2")}
+}
+
+func (_c *GeneralConfig_OCR2_Call) Run(run func()) *GeneralConfig_OCR2_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_OCR2_Call) Return(_a0 config.OCR2) *GeneralConfig_OCR2_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_OCR2_Call) RunAndReturn(run func() config.OCR2) *GeneralConfig_OCR2_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // P2P provides a mock function with given fields:
 func (_m *GeneralConfig) P2P() config.P2P {
 	ret := _m.Called()
@@ -487,6 +1118,33 @@ func (_m *GeneralConfig) P2P() config.P2P {
 	}
 
 	return r0
+}
+
+// GeneralConfig_P2P_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'P2P'
+type GeneralConfig_P2P_Call struct {
+	*mock.Call
+}
+
+// P2P is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) P2P() *GeneralConfig_P2P_Call {
+	return &GeneralConfig_P2P_Call{Call: _e.mock.On("P2P")}
+}
+
+func (_c *GeneralConfig_P2P_Call) Run(run func()) *GeneralConfig_P2P_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_P2P_Call) Return(_a0 config.P2P) *GeneralConfig_P2P_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_P2P_Call) RunAndReturn(run func() config.P2P) *GeneralConfig_P2P_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Password provides a mock function with given fields:
@@ -509,6 +1167,33 @@ func (_m *GeneralConfig) Password() config.Password {
 	return r0
 }
 
+// GeneralConfig_Password_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Password'
+type GeneralConfig_Password_Call struct {
+	*mock.Call
+}
+
+// Password is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Password() *GeneralConfig_Password_Call {
+	return &GeneralConfig_Password_Call{Call: _e.mock.On("Password")}
+}
+
+func (_c *GeneralConfig_Password_Call) Run(run func()) *GeneralConfig_Password_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Password_Call) Return(_a0 config.Password) *GeneralConfig_Password_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Password_Call) RunAndReturn(run func() config.Password) *GeneralConfig_Password_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Prometheus provides a mock function with given fields:
 func (_m *GeneralConfig) Prometheus() config.Prometheus {
 	ret := _m.Called()
@@ -527,6 +1212,33 @@ func (_m *GeneralConfig) Prometheus() config.Prometheus {
 	}
 
 	return r0
+}
+
+// GeneralConfig_Prometheus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Prometheus'
+type GeneralConfig_Prometheus_Call struct {
+	*mock.Call
+}
+
+// Prometheus is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Prometheus() *GeneralConfig_Prometheus_Call {
+	return &GeneralConfig_Prometheus_Call{Call: _e.mock.On("Prometheus")}
+}
+
+func (_c *GeneralConfig_Prometheus_Call) Run(run func()) *GeneralConfig_Prometheus_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Prometheus_Call) Return(_a0 config.Prometheus) *GeneralConfig_Prometheus_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Prometheus_Call) RunAndReturn(run func() config.Prometheus) *GeneralConfig_Prometheus_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Pyroscope provides a mock function with given fields:
@@ -549,6 +1261,33 @@ func (_m *GeneralConfig) Pyroscope() config.Pyroscope {
 	return r0
 }
 
+// GeneralConfig_Pyroscope_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Pyroscope'
+type GeneralConfig_Pyroscope_Call struct {
+	*mock.Call
+}
+
+// Pyroscope is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Pyroscope() *GeneralConfig_Pyroscope_Call {
+	return &GeneralConfig_Pyroscope_Call{Call: _e.mock.On("Pyroscope")}
+}
+
+func (_c *GeneralConfig_Pyroscope_Call) Run(run func()) *GeneralConfig_Pyroscope_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Pyroscope_Call) Return(_a0 config.Pyroscope) *GeneralConfig_Pyroscope_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Pyroscope_Call) RunAndReturn(run func() config.Pyroscope) *GeneralConfig_Pyroscope_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RootDir provides a mock function with given fields:
 func (_m *GeneralConfig) RootDir() string {
 	ret := _m.Called()
@@ -565,6 +1304,33 @@ func (_m *GeneralConfig) RootDir() string {
 	}
 
 	return r0
+}
+
+// GeneralConfig_RootDir_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RootDir'
+type GeneralConfig_RootDir_Call struct {
+	*mock.Call
+}
+
+// RootDir is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) RootDir() *GeneralConfig_RootDir_Call {
+	return &GeneralConfig_RootDir_Call{Call: _e.mock.On("RootDir")}
+}
+
+func (_c *GeneralConfig_RootDir_Call) Run(run func()) *GeneralConfig_RootDir_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_RootDir_Call) Return(_a0 string) *GeneralConfig_RootDir_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_RootDir_Call) RunAndReturn(run func() string) *GeneralConfig_RootDir_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Sentry provides a mock function with given fields:
@@ -587,6 +1353,33 @@ func (_m *GeneralConfig) Sentry() config.Sentry {
 	return r0
 }
 
+// GeneralConfig_Sentry_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Sentry'
+type GeneralConfig_Sentry_Call struct {
+	*mock.Call
+}
+
+// Sentry is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Sentry() *GeneralConfig_Sentry_Call {
+	return &GeneralConfig_Sentry_Call{Call: _e.mock.On("Sentry")}
+}
+
+func (_c *GeneralConfig_Sentry_Call) Run(run func()) *GeneralConfig_Sentry_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Sentry_Call) Return(_a0 config.Sentry) *GeneralConfig_Sentry_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Sentry_Call) RunAndReturn(run func() config.Sentry) *GeneralConfig_Sentry_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetLogLevel provides a mock function with given fields: lvl
 func (_m *GeneralConfig) SetLogLevel(lvl zapcore.Level) error {
 	ret := _m.Called(lvl)
@@ -605,14 +1398,99 @@ func (_m *GeneralConfig) SetLogLevel(lvl zapcore.Level) error {
 	return r0
 }
 
+// GeneralConfig_SetLogLevel_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetLogLevel'
+type GeneralConfig_SetLogLevel_Call struct {
+	*mock.Call
+}
+
+// SetLogLevel is a helper method to define mock.On call
+//   - lvl zapcore.Level
+func (_e *GeneralConfig_Expecter) SetLogLevel(lvl interface{}) *GeneralConfig_SetLogLevel_Call {
+	return &GeneralConfig_SetLogLevel_Call{Call: _e.mock.On("SetLogLevel", lvl)}
+}
+
+func (_c *GeneralConfig_SetLogLevel_Call) Run(run func(lvl zapcore.Level)) *GeneralConfig_SetLogLevel_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(zapcore.Level))
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_SetLogLevel_Call) Return(_a0 error) *GeneralConfig_SetLogLevel_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_SetLogLevel_Call) RunAndReturn(run func(zapcore.Level) error) *GeneralConfig_SetLogLevel_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetLogSQL provides a mock function with given fields: logSQL
 func (_m *GeneralConfig) SetLogSQL(logSQL bool) {
 	_m.Called(logSQL)
 }
 
+// GeneralConfig_SetLogSQL_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetLogSQL'
+type GeneralConfig_SetLogSQL_Call struct {
+	*mock.Call
+}
+
+// SetLogSQL is a helper method to define mock.On call
+//   - logSQL bool
+func (_e *GeneralConfig_Expecter) SetLogSQL(logSQL interface{}) *GeneralConfig_SetLogSQL_Call {
+	return &GeneralConfig_SetLogSQL_Call{Call: _e.mock.On("SetLogSQL", logSQL)}
+}
+
+func (_c *GeneralConfig_SetLogSQL_Call) Run(run func(logSQL bool)) *GeneralConfig_SetLogSQL_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(bool))
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_SetLogSQL_Call) Return() *GeneralConfig_SetLogSQL_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *GeneralConfig_SetLogSQL_Call) RunAndReturn(run func(bool)) *GeneralConfig_SetLogSQL_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetPasswords provides a mock function with given fields: keystore, vrf
 func (_m *GeneralConfig) SetPasswords(keystore *string, vrf *string) {
 	_m.Called(keystore, vrf)
+}
+
+// GeneralConfig_SetPasswords_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetPasswords'
+type GeneralConfig_SetPasswords_Call struct {
+	*mock.Call
+}
+
+// SetPasswords is a helper method to define mock.On call
+//   - keystore *string
+//   - vrf *string
+func (_e *GeneralConfig_Expecter) SetPasswords(keystore interface{}, vrf interface{}) *GeneralConfig_SetPasswords_Call {
+	return &GeneralConfig_SetPasswords_Call{Call: _e.mock.On("SetPasswords", keystore, vrf)}
+}
+
+func (_c *GeneralConfig_SetPasswords_Call) Run(run func(keystore *string, vrf *string)) *GeneralConfig_SetPasswords_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*string), args[1].(*string))
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_SetPasswords_Call) Return() *GeneralConfig_SetPasswords_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *GeneralConfig_SetPasswords_Call) RunAndReturn(run func(*string, *string)) *GeneralConfig_SetPasswords_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ShutdownGracePeriod provides a mock function with given fields:
@@ -631,6 +1509,33 @@ func (_m *GeneralConfig) ShutdownGracePeriod() time.Duration {
 	}
 
 	return r0
+}
+
+// GeneralConfig_ShutdownGracePeriod_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ShutdownGracePeriod'
+type GeneralConfig_ShutdownGracePeriod_Call struct {
+	*mock.Call
+}
+
+// ShutdownGracePeriod is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) ShutdownGracePeriod() *GeneralConfig_ShutdownGracePeriod_Call {
+	return &GeneralConfig_ShutdownGracePeriod_Call{Call: _e.mock.On("ShutdownGracePeriod")}
+}
+
+func (_c *GeneralConfig_ShutdownGracePeriod_Call) Run(run func()) *GeneralConfig_ShutdownGracePeriod_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_ShutdownGracePeriod_Call) Return(_a0 time.Duration) *GeneralConfig_ShutdownGracePeriod_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_ShutdownGracePeriod_Call) RunAndReturn(run func() time.Duration) *GeneralConfig_ShutdownGracePeriod_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SolanaConfigs provides a mock function with given fields:
@@ -653,6 +1558,33 @@ func (_m *GeneralConfig) SolanaConfigs() solanaconfig.TOMLConfigs {
 	return r0
 }
 
+// GeneralConfig_SolanaConfigs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SolanaConfigs'
+type GeneralConfig_SolanaConfigs_Call struct {
+	*mock.Call
+}
+
+// SolanaConfigs is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) SolanaConfigs() *GeneralConfig_SolanaConfigs_Call {
+	return &GeneralConfig_SolanaConfigs_Call{Call: _e.mock.On("SolanaConfigs")}
+}
+
+func (_c *GeneralConfig_SolanaConfigs_Call) Run(run func()) *GeneralConfig_SolanaConfigs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_SolanaConfigs_Call) Return(_a0 solanaconfig.TOMLConfigs) *GeneralConfig_SolanaConfigs_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_SolanaConfigs_Call) RunAndReturn(run func() solanaconfig.TOMLConfigs) *GeneralConfig_SolanaConfigs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SolanaEnabled provides a mock function with given fields:
 func (_m *GeneralConfig) SolanaEnabled() bool {
 	ret := _m.Called()
@@ -671,6 +1603,33 @@ func (_m *GeneralConfig) SolanaEnabled() bool {
 	return r0
 }
 
+// GeneralConfig_SolanaEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SolanaEnabled'
+type GeneralConfig_SolanaEnabled_Call struct {
+	*mock.Call
+}
+
+// SolanaEnabled is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) SolanaEnabled() *GeneralConfig_SolanaEnabled_Call {
+	return &GeneralConfig_SolanaEnabled_Call{Call: _e.mock.On("SolanaEnabled")}
+}
+
+func (_c *GeneralConfig_SolanaEnabled_Call) Run(run func()) *GeneralConfig_SolanaEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_SolanaEnabled_Call) Return(_a0 bool) *GeneralConfig_SolanaEnabled_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_SolanaEnabled_Call) RunAndReturn(run func() bool) *GeneralConfig_SolanaEnabled_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // StarkNetEnabled provides a mock function with given fields:
 func (_m *GeneralConfig) StarkNetEnabled() bool {
 	ret := _m.Called()
@@ -687,6 +1646,33 @@ func (_m *GeneralConfig) StarkNetEnabled() bool {
 	}
 
 	return r0
+}
+
+// GeneralConfig_StarkNetEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StarkNetEnabled'
+type GeneralConfig_StarkNetEnabled_Call struct {
+	*mock.Call
+}
+
+// StarkNetEnabled is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) StarkNetEnabled() *GeneralConfig_StarkNetEnabled_Call {
+	return &GeneralConfig_StarkNetEnabled_Call{Call: _e.mock.On("StarkNetEnabled")}
+}
+
+func (_c *GeneralConfig_StarkNetEnabled_Call) Run(run func()) *GeneralConfig_StarkNetEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_StarkNetEnabled_Call) Return(_a0 bool) *GeneralConfig_StarkNetEnabled_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_StarkNetEnabled_Call) RunAndReturn(run func() bool) *GeneralConfig_StarkNetEnabled_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // StarknetConfigs provides a mock function with given fields:
@@ -709,6 +1695,33 @@ func (_m *GeneralConfig) StarknetConfigs() chainlinkconfig.TOMLConfigs {
 	return r0
 }
 
+// GeneralConfig_StarknetConfigs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StarknetConfigs'
+type GeneralConfig_StarknetConfigs_Call struct {
+	*mock.Call
+}
+
+// StarknetConfigs is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) StarknetConfigs() *GeneralConfig_StarknetConfigs_Call {
+	return &GeneralConfig_StarknetConfigs_Call{Call: _e.mock.On("StarknetConfigs")}
+}
+
+func (_c *GeneralConfig_StarknetConfigs_Call) Run(run func()) *GeneralConfig_StarknetConfigs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_StarknetConfigs_Call) Return(_a0 chainlinkconfig.TOMLConfigs) *GeneralConfig_StarknetConfigs_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_StarknetConfigs_Call) RunAndReturn(run func() chainlinkconfig.TOMLConfigs) *GeneralConfig_StarknetConfigs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // TelemetryIngress provides a mock function with given fields:
 func (_m *GeneralConfig) TelemetryIngress() config.TelemetryIngress {
 	ret := _m.Called()
@@ -727,6 +1740,33 @@ func (_m *GeneralConfig) TelemetryIngress() config.TelemetryIngress {
 	}
 
 	return r0
+}
+
+// GeneralConfig_TelemetryIngress_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TelemetryIngress'
+type GeneralConfig_TelemetryIngress_Call struct {
+	*mock.Call
+}
+
+// TelemetryIngress is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) TelemetryIngress() *GeneralConfig_TelemetryIngress_Call {
+	return &GeneralConfig_TelemetryIngress_Call{Call: _e.mock.On("TelemetryIngress")}
+}
+
+func (_c *GeneralConfig_TelemetryIngress_Call) Run(run func()) *GeneralConfig_TelemetryIngress_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_TelemetryIngress_Call) Return(_a0 config.TelemetryIngress) *GeneralConfig_TelemetryIngress_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_TelemetryIngress_Call) RunAndReturn(run func() config.TelemetryIngress) *GeneralConfig_TelemetryIngress_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Threshold provides a mock function with given fields:
@@ -749,6 +1789,33 @@ func (_m *GeneralConfig) Threshold() config.Threshold {
 	return r0
 }
 
+// GeneralConfig_Threshold_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Threshold'
+type GeneralConfig_Threshold_Call struct {
+	*mock.Call
+}
+
+// Threshold is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Threshold() *GeneralConfig_Threshold_Call {
+	return &GeneralConfig_Threshold_Call{Call: _e.mock.On("Threshold")}
+}
+
+func (_c *GeneralConfig_Threshold_Call) Run(run func()) *GeneralConfig_Threshold_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Threshold_Call) Return(_a0 config.Threshold) *GeneralConfig_Threshold_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Threshold_Call) RunAndReturn(run func() config.Threshold) *GeneralConfig_Threshold_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Tracing provides a mock function with given fields:
 func (_m *GeneralConfig) Tracing() config.Tracing {
 	ret := _m.Called()
@@ -769,6 +1836,33 @@ func (_m *GeneralConfig) Tracing() config.Tracing {
 	return r0
 }
 
+// GeneralConfig_Tracing_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Tracing'
+type GeneralConfig_Tracing_Call struct {
+	*mock.Call
+}
+
+// Tracing is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Tracing() *GeneralConfig_Tracing_Call {
+	return &GeneralConfig_Tracing_Call{Call: _e.mock.On("Tracing")}
+}
+
+func (_c *GeneralConfig_Tracing_Call) Run(run func()) *GeneralConfig_Tracing_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Tracing_Call) Return(_a0 config.Tracing) *GeneralConfig_Tracing_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Tracing_Call) RunAndReturn(run func() config.Tracing) *GeneralConfig_Tracing_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Validate provides a mock function with given fields:
 func (_m *GeneralConfig) Validate() error {
 	ret := _m.Called()
@@ -785,6 +1879,33 @@ func (_m *GeneralConfig) Validate() error {
 	}
 
 	return r0
+}
+
+// GeneralConfig_Validate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Validate'
+type GeneralConfig_Validate_Call struct {
+	*mock.Call
+}
+
+// Validate is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Validate() *GeneralConfig_Validate_Call {
+	return &GeneralConfig_Validate_Call{Call: _e.mock.On("Validate")}
+}
+
+func (_c *GeneralConfig_Validate_Call) Run(run func()) *GeneralConfig_Validate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Validate_Call) Return(_a0 error) *GeneralConfig_Validate_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Validate_Call) RunAndReturn(run func() error) *GeneralConfig_Validate_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ValidateDB provides a mock function with given fields:
@@ -805,6 +1926,33 @@ func (_m *GeneralConfig) ValidateDB() error {
 	return r0
 }
 
+// GeneralConfig_ValidateDB_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ValidateDB'
+type GeneralConfig_ValidateDB_Call struct {
+	*mock.Call
+}
+
+// ValidateDB is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) ValidateDB() *GeneralConfig_ValidateDB_Call {
+	return &GeneralConfig_ValidateDB_Call{Call: _e.mock.On("ValidateDB")}
+}
+
+func (_c *GeneralConfig_ValidateDB_Call) Run(run func()) *GeneralConfig_ValidateDB_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_ValidateDB_Call) Return(_a0 error) *GeneralConfig_ValidateDB_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_ValidateDB_Call) RunAndReturn(run func() error) *GeneralConfig_ValidateDB_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WebServer provides a mock function with given fields:
 func (_m *GeneralConfig) WebServer() config.WebServer {
 	ret := _m.Called()
@@ -823,6 +1971,33 @@ func (_m *GeneralConfig) WebServer() config.WebServer {
 	}
 
 	return r0
+}
+
+// GeneralConfig_WebServer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WebServer'
+type GeneralConfig_WebServer_Call struct {
+	*mock.Call
+}
+
+// WebServer is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) WebServer() *GeneralConfig_WebServer_Call {
+	return &GeneralConfig_WebServer_Call{Call: _e.mock.On("WebServer")}
+}
+
+func (_c *GeneralConfig_WebServer_Call) Run(run func()) *GeneralConfig_WebServer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_WebServer_Call) Return(_a0 config.WebServer) *GeneralConfig_WebServer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_WebServer_Call) RunAndReturn(run func() config.WebServer) *GeneralConfig_WebServer_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewGeneralConfig creates a new instance of GeneralConfig. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

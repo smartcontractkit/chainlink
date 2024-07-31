@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 
@@ -25,7 +26,7 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 
 		anyString := "foo"
 		it.dirtyContracts = true
-		tx, err := it.evmTest.ChainReaderTesterTransactor.TriggerEventWithDynamicTopic(it.GetAuthWithGasSet(t), anyString)
+		tx, err := it.contractTesters[it.address].ChainReaderTesterTransactor.TriggerEventWithDynamicTopic(it.GetAuthWithGasSet(t), anyString)
 		require.NoError(t, err)
 		it.Helper.Commit()
 		it.IncNonce()
@@ -42,7 +43,7 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 		rOutput := reflect.Indirect(reflect.ValueOf(output))
 
 		require.Eventually(t, func() bool {
-			return cr.GetLatestValue(ctx, AnyContractName, triggerWithDynamicTopic, input, output) == nil
+			return cr.GetLatestValue(ctx, AnyContractName, triggerWithDynamicTopic, primitives.Unconfirmed, input, output) == nil
 		}, it.MaxWaitTimeForEvents(), 100*time.Millisecond)
 
 		assert.Equal(t, &anyString, rOutput.FieldByName("Field").Interface())
@@ -67,7 +68,7 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 
 		time.Sleep(it.MaxWaitTimeForEvents())
 
-		require.NoError(t, cr.GetLatestValue(ctx, AnyContractName, triggerWithAllTopics, params, &latest))
+		require.NoError(t, cr.GetLatestValue(ctx, AnyContractName, triggerWithAllTopics, primitives.Unconfirmed, params, &latest))
 		assert.Equal(t, int32(1), latest.Field1)
 		assert.Equal(t, int32(2), latest.Field2)
 		assert.Equal(t, int32(3), latest.Field3)
@@ -80,14 +81,14 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 		reader := it.GetChainReader(t)
 
 		ctx := it.Helper.Context(t)
-		err := reader.Bind(ctx, []clcommontypes.BoundContract{{Name: AnyContractName, Address: addr.Hex(), Pending: true}})
+		err := reader.Bind(ctx, []clcommontypes.BoundContract{{Name: AnyContractName, Address: addr.Hex()}})
 
 		require.ErrorIs(t, err, evm.NoContractExistsError{Address: addr})
 	})
 }
 
 func triggerFourTopics[T TestingT[T]](t T, it *EVMChainReaderInterfaceTester[T], i1, i2, i3 int32) {
-	tx, err := it.evmTest.ChainReaderTesterTransactor.TriggerWithFourTopics(it.GetAuthWithGasSet(t), i1, i2, i3)
+	tx, err := it.contractTesters[it.address].ChainReaderTesterTransactor.TriggerWithFourTopics(it.GetAuthWithGasSet(t), i1, i2, i3)
 	require.NoError(t, err)
 	require.NoError(t, err)
 	it.Helper.Commit()

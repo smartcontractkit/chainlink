@@ -10,8 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 )
 
-//go:generate mockery --quiet --name Broadcast --output ./mocks/ --case=underscore --structname Broadcast --filename broadcast.go
-
 type (
 	// The Broadcast type wraps a types.Log but provides additional functionality
 	// for determining whether or not the log has been consumed and for marking
@@ -99,8 +97,6 @@ func NewLogBroadcast(rawLog types.Log, evmChainID big.Int, decodedLog interface{
 		evmChainID:        evmChainID,
 	}
 }
-
-//go:generate mockery --quiet --name AbigenContract --output ./mocks --case=underscore
 
 type AbigenContract interface {
 	Address() common.Address
