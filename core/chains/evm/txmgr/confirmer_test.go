@@ -34,6 +34,7 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
@@ -131,7 +132,8 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	feeEstimator := gas.NewEvmFeeEstimator(lggr, newEst, ge.EIP1559DynamicFees(), ge)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), config.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
-	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), gconfig.Database(), ethKeyStore, txBuilder, lggr, stuckTxDetector)
+	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), gconfig.Database(), ethKeyStore, txBuilder, lggr, stuckTxDetector, ht)
 	ctx := tests.Context(t)
 
 	// Can't close unstarted instance
@@ -145,26 +147,27 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	// Can't start an already started instance
 	err = ec.Start(ctx)
 	require.Error(t, err)
+
+	latestFinalizedHead := evmtypes.Head{
+		Number:      8,
+		Hash:        testutils.NewHash(),
+		Parent:      nil,
+		IsFinalized: true, // We are guaranteed to receive a latestFinalizedHead.
+	}
+
 	head := evmtypes.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
 		Parent: &evmtypes.Head{
 			Hash:   testutils.NewHash(),
 			Number: 9,
-			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   testutils.NewHash(),
-				Parent: nil,
-			},
+			Parent: &latestFinalizedHead,
 		},
 	}
 
-	// If there's no finalized head yet, returns error.
-	err = ec.ProcessHead(ctx, &head)
-	require.Error(t, err)
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&head, nil).Once()
+	ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&latestFinalizedHead, nil).Once()
 
-	// Successful after having a head finalized in the chain
-	head.Parent.Parent.IsFinalized = true
 	err = ec.ProcessHead(ctx, &head)
 	require.NoError(t, err)
 	// Can successfully close once
@@ -1663,8 +1666,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), ccfg.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
+		ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 		// Create confirmer with necessary state
-		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), ccfg.EVM(), txmgr.NewEvmTxmFeeConfig(ccfg.EVM().GasEstimator()), ccfg.EVM().Transactions(), cfg.Database(), kst, txBuilder, lggr, stuckTxDetector)
+		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), ccfg.EVM(), txmgr.NewEvmTxmFeeConfig(ccfg.EVM().GasEstimator()), ccfg.EVM().Transactions(), cfg.Database(), kst, txBuilder, lggr, stuckTxDetector, ht)
 		servicetest.Run(t, ec)
 		currentHead := int64(30)
 		oldEnough := int64(15)
@@ -1712,7 +1716,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), ccfg.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
-		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), ccfg.EVM(), txmgr.NewEvmTxmFeeConfig(ccfg.EVM().GasEstimator()), ccfg.EVM().Transactions(), cfg.Database(), kst, txBuilder, lggr, stuckTxDetector)
+		ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), ccfg.EVM(), txmgr.NewEvmTxmFeeConfig(ccfg.EVM().GasEstimator()), ccfg.EVM().Transactions(), cfg.Database(), kst, txBuilder, lggr, stuckTxDetector, ht)
 		servicetest.Run(t, ec)
 		currentHead := int64(30)
 		oldEnough := int64(15)
@@ -2684,6 +2689,13 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	gconfig, config := newTestChainScopedConfig(t)
 	ec := newEthConfirmer(t, txStore, ethClient, gconfig, config, ethKeyStore, nil)
 
+	latestFinalizedHead := evmtypes.Head{
+		Number:      8,
+		Hash:        testutils.NewHash(),
+		Parent:      nil,
+		IsFinalized: false, // Not finalized yet to check if it's handed gracefully.
+	}
+
 	head := evmtypes.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
@@ -2693,27 +2705,27 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 			Parent: &evmtypes.Head{
 				Number: 8,
 				Hash:   testutils.NewHash(),
-				Parent: nil,
+				Parent: &latestFinalizedHead,
 			},
 		},
 	}
 
-	t.Run("error if there's no LatestFinalizedHead", func(t *testing.T) {
-		require.Error(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+	t.Run("No latest finalized head is handed gracefully.", func(t *testing.T) {
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, &latestFinalizedHead))
 	})
 
-	// Finalized a head
-	head.Parent.Parent.IsFinalized = true
+	// Finalize Latest Finalized Head
+	latestFinalizedHead.IsFinalized = true
 
 	t.Run("does nothing if there aren't any transactions", func(t *testing.T) {
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, &latestFinalizedHead))
 	})
 
 	t.Run("does nothing to unconfirmed transactions", func(t *testing.T) {
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, &latestFinalizedHead))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2725,7 +2737,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, &latestFinalizedHead))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2738,7 +2750,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		mustInsertEthReceipt(t, txStore, head.Parent.Parent.Number-1, testutils.NewHash(), etx.TxAttempts[0].Hash)
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, &latestFinalizedHead))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2759,7 +2771,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, &latestFinalizedHead))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2782,7 +2794,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 			commonclient.Successful, nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, &latestFinalizedHead))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2817,7 +2829,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, &latestFinalizedHead))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2837,7 +2849,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		// Add receipt that is higher than head
 		mustInsertEthReceipt(t, txStore, head.Number+1, testutils.NewHash(), attempt.Hash)
 
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, &latestFinalizedHead))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -3177,7 +3189,8 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 	ge := evmcfg.EVM().GasEstimator()
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), evmcfg.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
-	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database(), ethKeyStore, txBuilder, lggr, stuckTxDetector)
+	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database(), ethKeyStore, txBuilder, lggr, stuckTxDetector, ht)
 	servicetest.Run(t, ec)
 
 	ctx := tests.Context(t)
@@ -3195,6 +3208,9 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 			Number:      blockNum,
 			IsFinalized: true,
 		}
+
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&head, nil).Once()
+		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&head, nil).Once()
 		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(0), nil).Once()
 		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil).Once()
 
@@ -3220,6 +3236,8 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 			Number:      blockNum + 1,
 			IsFinalized: true,
 		}
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&head, nil).Once()
+		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&head, nil).Once()
 		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(1), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 4 && cltest.BatchElemMatchesParams(b[0], latestAttempt.Hash, "eth_getTransactionReceipt")
@@ -3258,7 +3276,8 @@ func newEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient client.Cl
 	}, ge.EIP1559DynamicFees(), ge)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ks, estimator)
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), config.EVM().Transactions().AutoPurge(), estimator, txStore, ethClient)
-	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), gconfig.Database(), ks, txBuilder, lggr, stuckTxDetector)
+	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), gconfig.Database(), ks, txBuilder, lggr, stuckTxDetector, ht)
 	ec.SetResumeCallback(fn)
 	servicetest.Run(t, ec)
 	return ec
