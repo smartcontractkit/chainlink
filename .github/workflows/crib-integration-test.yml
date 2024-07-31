@@ -22,8 +22,7 @@ jobs:
           nix_path: nixpkgs=channel:nixos-unstable
 
       - name: setup-gap crib
-        # TODO: update after testing and latest changes are released.
-        uses: smartcontractkit/.github/actions/setup-gap@crib-274/multi-gap-and-tls # setup-gap@0.4.0
+        uses: smartcontractkit/.github/actions/setup-gap@00b58566e0ee2761e56d9db0ea72b783fdb89b8d # setup-gap@0.4.0
         with:
           aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_CRIB_STAGE }}
@@ -40,8 +39,7 @@ jobs:
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
 
       - name: setup-gap k8s
-        # TODO: update after testing and latest changes are released.
-        uses: smartcontractkit/.github/actions/setup-gap@crib-274/multi-gap-and-tls # setup-gap@0.4.0
+        uses: smartcontractkit/.github/actions/setup-gap@00b58566e0ee2761e56d9db0ea72b783fdb89b8d # setup-gap@0.4.0
         with:
           aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_K8S_STAGE }}
