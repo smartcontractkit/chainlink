@@ -223,7 +223,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
-          sha: ${{ github.base_ref }}
+          ref: ${{ github.base_ref }}
 
       # Run this step only if some existing files were modified
       - name: Run Slither for base ref
