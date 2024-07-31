@@ -1,12 +1,15 @@
 package cache
 
 import (
-	"encoding/hex"
+	"context"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/patrickmn/go-cache"
 	orderedmap "github.com/wk8/go-ordered-map/v2"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -19,179 +22,222 @@ const (
 )
 
 type CommitsRootsCache interface {
-	// IsSkipped returns true if the root is either executed or snoozed. Snoozing can be temporary based on the configuration
-	IsSkipped(merkleRoot [32]byte) bool
+	RootsEligibleForExecution(ctx context.Context) ([]ccip.CommitStoreReport, error)
 	MarkAsExecuted(merkleRoot [32]byte)
 	Snooze(merkleRoot [32]byte)
-
-	// OldestRootTimestamp returns the oldest root timestamp that is not executed yet (minus 1 second).
-	// If there are no roots in the queue, it returns the messageVisibilityInterval
-	OldestRootTimestamp() time.Time
-	// AppendUnexecutedRoot appends the root to the unexecuted roots queue to keep track of the roots that are not executed yet
-	// Roots has to be added in the order they are fetched from the database
-	AppendUnexecutedRoot(merkleRoot [32]byte, blockTimestamp time.Time)
-}
-
-type commitRootsCache struct {
-	lggr logger.Logger
-	// executedRoots is used to keep track of the roots that are executed. Roots that are considered as executed
-	// when all messages are executed on the dest and matching execution state change logs are finalized
-	executedRoots *cache.Cache
-	// snoozedRoots is used to keep track of the roots that are temporary snoozed
-	snoozedRoots *cache.Cache
-	// unexecutedRootsQueue is used to keep track of the unexecuted roots in the order they are fetched from database (should be ordered by block_number, log_index)
-	// First run of Exec will fill the queue with all the roots that are not executed yet within the [now-messageVisibilityInterval, now] window.
-	// When a root is executed, it is removed from the queue. Next database query instead of using entire messageVisibilityInterval window
-	// will use oldestRootTimestamp as the lower bound filter for block_timestamp.
-	// This way we can reduce the number of database rows fetched with every OCR round.
-	// We do it this way because roots for most of the cases are executed sequentially.
-	// Instead of skipping snoozed roots after we fetch them from the database, we do that on the db level by narrowing the search window.
-	//
-	// Example
-	// messageVisibilityInterval - 10 days, now - 2010-10-15
-	// We fetch all the roots that within the [2010-10-05, 2010-10-15] window and load them to the queue
-	// [0xA - 2010-10-10, 0xB - 2010-10-11, 0xC - 2010-10-12] -> 0xA is the oldest root
-	// We executed 0xA and a couple of rounds later, we mark 0xA as executed and snoozed that forever which removes it from the queue.
-	// [0xB - 2010-10-11, 0xC - 2010-10-12]
-	// Now the search filter wil be 0xA timestamp -> [2010-10-11, 20-10-15]
-	// If roots are executed out of order, it's not going to change anything. However, for most of the cases we have sequential root execution and that is
-	// a huge improvement because we don't need to fetch all the roots from the database in every round.
-	unexecutedRootsQueue *orderedmap.OrderedMap[string, time.Time]
-	oldestRootTimestamp  time.Time
-	rootsQueueMu         sync.RWMutex
-
-	// Both rootSnoozedTime and messageVisibilityInterval can be kept in the commitRootsCache without need to be updated.
-	// Those config properties are populates via onchain/offchain config. When changed, OCR plugin will be restarted and cache initialized with new config.
-	rootSnoozedTime           time.Duration
-	messageVisibilityInterval time.Duration
-}
-
-func newCommitRootsCache(
-	lggr logger.Logger,
-	messageVisibilityInterval time.Duration,
-	rootSnoozeTime time.Duration,
-	evictionGracePeriod time.Duration,
-	cleanupInterval time.Duration,
-) *commitRootsCache {
-	executedRoots := cache.New(messageVisibilityInterval+evictionGracePeriod, cleanupInterval)
-	snoozedRoots := cache.New(rootSnoozeTime, cleanupInterval)
-
-	return &commitRootsCache{
-		lggr:                      lggr,
-		executedRoots:             executedRoots,
-		snoozedRoots:              snoozedRoots,
-		unexecutedRootsQueue:      orderedmap.New[string, time.Time](),
-		rootSnoozedTime:           rootSnoozeTime,
-		messageVisibilityInterval: messageVisibilityInterval,
-	}
 }
 
 func NewCommitRootsCache(
 	lggr logger.Logger,
+	reader ccip.CommitStoreReader,
 	messageVisibilityInterval time.Duration,
 	rootSnoozeTime time.Duration,
-) *commitRootsCache {
+) CommitsRootsCache {
 	return newCommitRootsCache(
 		lggr,
+		reader,
 		messageVisibilityInterval,
 		rootSnoozeTime,
-		EvictionGracePeriod,
 		CleanupInterval,
+		EvictionGracePeriod,
 	)
 }
 
-func (s *commitRootsCache) IsSkipped(merkleRoot [32]byte) bool {
-	_, snoozed := s.snoozedRoots.Get(merkleRootToString(merkleRoot))
-	_, executed := s.executedRoots.Get(merkleRootToString(merkleRoot))
-	return snoozed || executed
+func newCommitRootsCache(
+	lggr logger.Logger,
+	reader ccip.CommitStoreReader,
+	messageVisibilityInterval time.Duration,
+	rootSnoozeTime time.Duration,
+	cleanupInterval time.Duration,
+	evictionGracePeriod time.Duration,
+) *commitRootsCache {
+	snoozedRoots := cache.New(rootSnoozeTime, cleanupInterval)
+	executedRoots := cache.New(messageVisibilityInterval+evictionGracePeriod, cleanupInterval)
+
+	return &commitRootsCache{
+		lggr:                        lggr,
+		reader:                      reader,
+		rootSnoozeTime:              rootSnoozeTime,
+		finalizedRoots:              orderedmap.New[string, ccip.CommitStoreReportWithTxMeta](),
+		executedRoots:               executedRoots,
+		snoozedRoots:                snoozedRoots,
+		messageVisibilityInterval:   messageVisibilityInterval,
+		latestFinalizedCommitRootTs: time.Now().Add(-messageVisibilityInterval),
+		cacheMu:                     sync.RWMutex{},
+	}
 }
 
-func (s *commitRootsCache) MarkAsExecuted(merkleRoot [32]byte) {
+type commitRootsCache struct {
+	lggr                      logger.Logger
+	reader                    ccip.CommitStoreReader
+	messageVisibilityInterval time.Duration
+	rootSnoozeTime            time.Duration
+
+	// Mutable state. finalizedRoots is thread-safe by default, but updating latestFinalizedCommitRootTs and finalizedRoots requires locking.
+	cacheMu sync.RWMutex
+	// finalizedRoots is a map of merkleRoot -> CommitStoreReportWithTxMeta. It stores all the CommitReports that are
+	// marked as finalized by LogPoller, but not executed yet. Keeping only finalized reports doesn't require any state sync between LP and the cache.
+	// In order to keep this map size under control, we evict stale items every time we fetch new logs from the database.
+	// Also, ccip.CommitStoreReportWithTxMeta is a very tiny entity with almost fixed size, so it's not a big deal to keep it in memory.
+	// In case of high memory footprint caused by storing roots, we can make these even more lightweight by removing token/gas price updates.
+	// Whenever the root is executed (all messages executed and ExecutionStateChange events are finalized), we remove the root from the map.
+	finalizedRoots *orderedmap.OrderedMap[string, ccip.CommitStoreReportWithTxMeta]
+	// snoozedRoots used only for temporary snoozing roots. It's a cache with TTL (usually around 5 minutes, but this configuration is set up on chain using rootSnoozeTime)
+	snoozedRoots *cache.Cache
+	// executedRoots is a cache with TTL (usually around 8 hours, but this configuration is set up on chain using messageVisibilityInterval).
+	// We keep executed roots there to make sure we don't accidentally try to reprocess already executed CommitReport
+	executedRoots *cache.Cache
+	// latestFinalizedCommitRootTs is the timestamp of the latest finalized commit root (youngest in terms of timestamp).
+	// It's used get only the logs that were considered as unfinalized in a previous run.
+	// This way we limit database scans to the minimum and keep polling "unfinalized" part of the ReportAccepted events queue.
+	latestFinalizedCommitRootTs time.Time
+}
+
+func (r *commitRootsCache) RootsEligibleForExecution(ctx context.Context) ([]ccip.CommitStoreReport, error) {
+	// 1. Fetch all the logs from the database after the latest finalized commit root timestamp.
+	// If this is a first run, it will fetch all the logs based on the messageVisibilityInterval.
+	// Worst case scenario, it will fetch around 480 reports (OCR Commit 60 seconds (fast chains default) * messageVisibilityInterval set to 8 hours (mainnet default))
+	// Even with the larger messageVisibilityInterval window (e.g. 24 hours) it should be acceptable (around 1500 logs).
+	// Keep in mind that this potentially heavy operation happens only once during the plugin boot and it's no different from the previous implementation.
+	logs, err := r.fetchLogsFromCommitStore(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Iterate over the logs and check if the root is finalized or not. Return finalized and unfinalized reports
+	// It promotes finalized roots to the finalizedRoots map and evicts stale roots.
+	finalizedReports, unfinalizedReports := r.updateFinalizedRoots(logs)
+
+	// 3. Join finalized commit reports with unfinalized reports and outfilter snoozed roots.
+	// Return only the reports that are not snoozed.
+	return r.pickReadyToExecute(finalizedReports, unfinalizedReports), nil
+}
+
+// MarkAsExecuted marks the root as executed. It means that all the messages from the root were executed and the ExecutionStateChange event was finalized.
+// Executed roots are removed from the cache.
+func (r *commitRootsCache) MarkAsExecuted(merkleRoot [32]byte) {
 	prettyMerkleRoot := merkleRootToString(merkleRoot)
-	s.executedRoots.SetDefault(prettyMerkleRoot, struct{}{})
+	r.lggr.Infow("Marking root as executed and removing entirely from cache", "merkleRoot", prettyMerkleRoot)
 
-	s.rootsQueueMu.Lock()
-	defer s.rootsQueueMu.Unlock()
-	// if there is only one root in the queue, we put its block_timestamp as oldestRootTimestamp
-	if s.unexecutedRootsQueue.Len() == 1 {
-		s.oldestRootTimestamp = s.unexecutedRootsQueue.Oldest().Value
-	}
-	s.unexecutedRootsQueue.Delete(prettyMerkleRoot)
-	if head := s.unexecutedRootsQueue.Oldest(); head != nil {
-		s.oldestRootTimestamp = head.Value
-	}
-	s.lggr.Debugw("Deleting executed root from the queue",
-		"merkleRoot", prettyMerkleRoot,
-		"oldestRootTimestamp", s.oldestRootTimestamp,
-	)
+	r.cacheMu.Lock()
+	defer r.cacheMu.Unlock()
+	r.finalizedRoots.Delete(prettyMerkleRoot)
+	r.executedRoots.SetDefault(prettyMerkleRoot, struct{}{})
 }
 
-func (s *commitRootsCache) Snooze(merkleRoot [32]byte) {
-	s.snoozedRoots.SetDefault(merkleRootToString(merkleRoot), struct{}{})
-}
-
-func (s *commitRootsCache) OldestRootTimestamp() time.Time {
-	return time.Now().Add(-s.messageVisibilityInterval)
-	// TODO we can't rely on block timestamps, because in case of re-org they can change and therefore affect
-	// the logic in the case. In the meantime, always fallback to the default behaviour and use permissionlessThresholdWindow
-	//timestamp, ok := s.pickOldestRootBlockTimestamp(messageVisibilityInterval)
-	//
-	//if ok {
-	//	return timestamp
-	//}
-	//
-	//s.rootsQueueMu.Lock()
-	//defer s.rootsQueueMu.Unlock()
-	//
-	//// If rootsSearchFilter is before messageVisibilityInterval, it means that we have roots that are stuck forever and will never be executed
-	//// In that case, we wipe out the entire queue. Next round should start from the messageVisibilityInterval and rebuild cache from scratch.
-	//s.unexecutedRootsQueue = orderedmap.New[string, time.Time]()
-	//return messageVisibilityInterval
-}
-
-//func (s *commitRootsCache) pickOldestRootBlockTimestamp(messageVisibilityInterval time.Time) (time.Time, bool) {
-//	s.rootsQueueMu.RLock()
-//	defer s.rootsQueueMu.RUnlock()
-//
-//	// If there are no roots in the queue, we can return the messageVisibilityInterval
-//	if s.oldestRootTimestamp.IsZero() {
-//		return messageVisibilityInterval, true
-//	}
-//
-//	if s.oldestRootTimestamp.After(messageVisibilityInterval) {
-//		// Query used for fetching roots from the database is exclusive (block_timestamp > :timestamp)
-//		// so we need to subtract 1 second from the head timestamp to make sure that this root is included in the results
-//		return s.oldestRootTimestamp.Add(-time.Second), true
-//	}
-//	return time.Time{}, false
-//}
-
-func (s *commitRootsCache) AppendUnexecutedRoot(merkleRoot [32]byte, blockTimestamp time.Time) {
+// Snooze temporarily snoozes the root. It means that the root is not eligible for execution for a certain period of time.
+// Snoozed roots are skipped when calling RootsEligibleForExecution
+func (r *commitRootsCache) Snooze(merkleRoot [32]byte) {
 	prettyMerkleRoot := merkleRootToString(merkleRoot)
-
-	s.rootsQueueMu.Lock()
-	defer s.rootsQueueMu.Unlock()
-
-	// If the root is already in the queue, we must not add it to the queue
-	if _, found := s.unexecutedRootsQueue.Get(prettyMerkleRoot); found {
-		return
-	}
-	// If the root is already executed, we must not add it to the queue
-	if _, executed := s.executedRoots.Get(prettyMerkleRoot); executed {
-		return
-	}
-	// Initialize the search filter with the first root that is added to the queue
-	if s.unexecutedRootsQueue.Len() == 0 {
-		s.oldestRootTimestamp = blockTimestamp
-	}
-	s.unexecutedRootsQueue.Set(prettyMerkleRoot, blockTimestamp)
-	s.lggr.Debugw("Adding unexecuted root to the queue",
-		"merkleRoot", prettyMerkleRoot,
-		"blockTimestamp", blockTimestamp,
-		"oldestRootTimestamp", s.oldestRootTimestamp,
-	)
+	r.lggr.Infow("Snoozing root temporarily", "merkleRoot", prettyMerkleRoot, "rootSnoozeTime", r.rootSnoozeTime)
+	r.snoozedRoots.SetDefault(prettyMerkleRoot, struct{}{})
 }
 
-func merkleRootToString(merkleRoot [32]byte) string {
-	return hex.EncodeToString(merkleRoot[:])
+func (r *commitRootsCache) isSnoozed(merkleRoot [32]byte) bool {
+	_, snoozed := r.snoozedRoots.Get(merkleRootToString(merkleRoot))
+	return snoozed
+}
+
+func (r *commitRootsCache) isExecuted(merkleRoot [32]byte) bool {
+	_, executed := r.executedRoots.Get(merkleRootToString(merkleRoot))
+	return executed
+}
+
+func (r *commitRootsCache) fetchLogsFromCommitStore(ctx context.Context) ([]ccip.CommitStoreReportWithTxMeta, error) {
+	r.cacheMu.Lock()
+	messageVisibilityWindow := time.Now().Add(-r.messageVisibilityInterval)
+	if r.latestFinalizedCommitRootTs.Before(messageVisibilityWindow) {
+		r.latestFinalizedCommitRootTs = messageVisibilityWindow
+	}
+	commitRootsFilterTimestamp := r.latestFinalizedCommitRootTs
+	r.cacheMu.Unlock()
+
+	// IO operation, release lock before!
+	r.lggr.Infow("Fetching Commit Reports with timestamp greater than or equal to", "blockTimestamp", commitRootsFilterTimestamp)
+	return r.reader.GetAcceptedCommitReportsGteTimestamp(ctx, commitRootsFilterTimestamp, 0)
+}
+
+func (r *commitRootsCache) updateFinalizedRoots(logs []ccip.CommitStoreReportWithTxMeta) ([]ccip.CommitStoreReportWithTxMeta, []ccip.CommitStoreReportWithTxMeta) {
+	r.cacheMu.Lock()
+	defer r.cacheMu.Unlock()
+
+	// Assuming logs are properly ordered by block_timestamp, log_index
+	var unfinalizedReports []ccip.CommitStoreReportWithTxMeta
+	for _, log := range logs {
+		prettyMerkleRoot := merkleRootToString(log.MerkleRoot)
+		// Defensive check, if something is marked as executed, never allow it to come back to the cache
+		if r.isExecuted(log.MerkleRoot) {
+			r.lggr.Debugw("Ignoring root marked as executed", "merkleRoot", prettyMerkleRoot, "blockTimestamp", log.BlockTimestampUnixMilli)
+			continue
+		}
+
+		if log.IsFinalized() {
+			r.lggr.Debugw("Adding finalized root to cache", "merkleRoot", prettyMerkleRoot, "blockTimestamp", log.BlockTimestampUnixMilli)
+			r.finalizedRoots.Store(prettyMerkleRoot, log)
+		} else {
+			r.lggr.Debugw("Bypassing unfinalized root", "merkleRoot", prettyMerkleRoot, "blockTimestamp", log.BlockTimestampUnixMilli)
+			unfinalizedReports = append(unfinalizedReports, log)
+		}
+	}
+
+	if newest := r.finalizedRoots.Newest(); newest != nil {
+		r.latestFinalizedCommitRootTs = time.UnixMilli(newest.Value.BlockTimestampUnixMilli)
+	}
+
+	var finalizedRoots []ccip.CommitStoreReportWithTxMeta
+	var rootsToDelete []string
+
+	messageVisibilityWindow := time.Now().Add(-r.messageVisibilityInterval)
+	for pair := r.finalizedRoots.Oldest(); pair != nil; pair = pair.Next() {
+		// Mark items as stale if they are older than the messageVisibilityInterval
+		// SortedMap doesn't allow to iterate and delete, so we mark roots for deletion and remove them in a separate loop
+		if time.UnixMilli(pair.Value.BlockTimestampUnixMilli).Before(messageVisibilityWindow) {
+			rootsToDelete = append(rootsToDelete, pair.Key)
+			continue
+		}
+		finalizedRoots = append(finalizedRoots, pair.Value)
+	}
+
+	// Remove stale items
+	for _, root := range rootsToDelete {
+		r.finalizedRoots.Delete(root)
+	}
+
+	return finalizedRoots, unfinalizedReports
+}
+
+func (r *commitRootsCache) pickReadyToExecute(r1 []ccip.CommitStoreReportWithTxMeta, r2 []ccip.CommitStoreReportWithTxMeta) []ccip.CommitStoreReport {
+	allReports := append(r1, r2...)
+	eligibleReports := make([]ccip.CommitStoreReport, 0, len(allReports))
+	for _, report := range allReports {
+		if r.isSnoozed(report.MerkleRoot) {
+			r.lggr.Debugw("Skipping snoozed root",
+				"minSeqNr", report.Interval.Min,
+				"maxSeqNr", report.Interval.Max,
+				"merkleRoot", merkleRootToString(report.MerkleRoot))
+			continue
+		}
+		eligibleReports = append(eligibleReports, report.CommitStoreReport)
+	}
+	// safety check, probably not needed
+	slices.SortFunc(eligibleReports, func(i, j ccip.CommitStoreReport) int {
+		return int(i.Interval.Min - j.Interval.Min)
+	})
+	return eligibleReports
+}
+
+// internal use only for testing
+func (r *commitRootsCache) finalizedCachedLogs() []ccip.CommitStoreReport {
+	r.cacheMu.RLock()
+	defer r.cacheMu.RUnlock()
+
+	var finalizedRoots []ccip.CommitStoreReport
+	for pair := r.finalizedRoots.Oldest(); pair != nil; pair = pair.Next() {
+		finalizedRoots = append(finalizedRoots, pair.Value.CommitStoreReport)
+	}
+	return finalizedRoots
+}
+
+func merkleRootToString(merkleRoot ccip.Hash) string {
+	return merkleRoot.String()
 }

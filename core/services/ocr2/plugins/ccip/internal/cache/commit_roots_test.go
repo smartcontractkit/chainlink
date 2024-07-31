@@ -1,247 +1,297 @@
-package cache
+package cache_test
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 )
 
-func TestSnoozedRoots(t *testing.T) {
-	c := NewCommitRootsCache(logger.TestLogger(t), 1*time.Minute, 1*time.Minute)
+func Test_RootsEligibleForExecution(t *testing.T) {
+	ctx := testutils.Context(t)
+	chainID := testutils.NewRandomEVMChainID()
+	orm := logpoller.NewORM(chainID, pgtest.NewSqlxDB(t), logger.TestLogger(t))
+	lpOpts := logpoller.Opts{
+		PollPeriod:               time.Hour,
+		FinalityDepth:            2,
+		BackfillBatchSize:        20,
+		RpcBatchSize:             10,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	lp := logpoller.NewLogPoller(orm, nil, logger.TestLogger(t), nil, lpOpts)
 
-	k1 := [32]byte{1}
-	k2 := [32]byte{2}
+	commitStoreAddr := utils.RandomAddress()
 
-	// return false for non existing element
-	snoozed := c.IsSkipped(k1)
-	assert.False(t, snoozed)
+	block2 := time.Now().Add(-8 * time.Hour)
+	block3 := time.Now().Add(-5 * time.Hour)
+	block4 := time.Now().Add(-1 * time.Hour)
+	newBlock4 := time.Now().Add(-2 * time.Hour)
+	block5 := time.Now()
 
-	// after an element is marked as executed it should be snoozed
-	c.MarkAsExecuted(k1)
-	snoozed = c.IsSkipped(k1)
-	assert.True(t, snoozed)
+	root1 := utils.RandomBytes32()
+	root2 := utils.RandomBytes32()
+	root3 := utils.RandomBytes32()
+	root4 := utils.RandomBytes32()
+	root5 := utils.RandomBytes32()
 
-	// after snoozing an element it should be snoozed
-	c.Snooze(k2)
-	snoozed = c.IsSkipped(k2)
-	assert.True(t, snoozed)
+	inputLogs := []logpoller.Log{
+		createReportAcceptedLog(t, chainID, commitStoreAddr, 2, 1, root1, block2),
+		createReportAcceptedLog(t, chainID, commitStoreAddr, 2, 2, root2, block2),
+	}
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.NewLogPollerBlock(utils.RandomBytes32(), 2, time.Now(), 1)))
+
+	commitStore, err := v1_2_0.NewCommitStore(logger.TestLogger(t), commitStoreAddr, nil, lp)
+	require.NoError(t, err)
+
+	rootsCache := cache.NewCommitRootsCache(logger.TestLogger(t), commitStore, 10*time.Hour, time.Second)
+
+	roots, err := rootsCache.RootsEligibleForExecution(ctx)
+	require.NoError(t, err)
+	assertRoots(t, roots, root1, root2)
+
+	rootsCache.Snooze(root1)
+	rootsCache.Snooze(root2)
+
+	// Roots are snoozed
+	roots, err = rootsCache.RootsEligibleForExecution(ctx)
+	require.NoError(t, err)
+	assertRoots(t, roots)
+
+	// Roots are unsnoozed
+	require.Eventually(t, func() bool {
+		roots, err = rootsCache.RootsEligibleForExecution(ctx)
+		require.NoError(t, err)
+		return len(roots) == 2
+	}, 5*time.Second, 1*time.Second)
+
+	// Marking root as executed doesn't ignore other roots from the same block
+	rootsCache.MarkAsExecuted(root1)
+	roots, err = rootsCache.RootsEligibleForExecution(ctx)
+	require.NoError(t, err)
+	assertRoots(t, roots, root2)
+
+	// Finality progress, mark all roots as finalized
+	require.NoError(t, orm.InsertBlock(ctx, utils.RandomBytes32(), 3, time.Now(), 3))
+	roots, err = rootsCache.RootsEligibleForExecution(ctx)
+	require.NoError(t, err)
+	assertRoots(t, roots, root2)
+
+	inputLogs = []logpoller.Log{
+		createReportAcceptedLog(t, chainID, commitStoreAddr, 3, 1, root3, block3),
+		createReportAcceptedLog(t, chainID, commitStoreAddr, 4, 1, root4, block4),
+		createReportAcceptedLog(t, chainID, commitStoreAddr, 5, 1, root5, block5),
+	}
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.NewLogPollerBlock(utils.RandomBytes32(), 5, time.Now(), 3)))
+	roots, err = rootsCache.RootsEligibleForExecution(ctx)
+	require.NoError(t, err)
+	assertRoots(t, roots, root2, root3, root4, root5)
+
+	// Mark root in the middle as executed but keep the oldest one still waiting
+	rootsCache.MarkAsExecuted(root3)
+	roots, err = rootsCache.RootsEligibleForExecution(ctx)
+	require.NoError(t, err)
+	assertRoots(t, roots, root2, root4, root5)
+
+	// Simulate reorg by removing all unfinalized blocks
+	require.NoError(t, orm.DeleteLogsAndBlocksAfter(ctx, 4))
+	roots, err = rootsCache.RootsEligibleForExecution(ctx)
+	require.NoError(t, err)
+	assertRoots(t, roots, root2)
+
+	// Root4 comes back but with the different block_timestamp (before the reorged block)
+	inputLogs = []logpoller.Log{
+		createReportAcceptedLog(t, chainID, commitStoreAddr, 4, 1, root4, newBlock4),
+	}
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.NewLogPollerBlock(utils.RandomBytes32(), 5, time.Now(), 3)))
+	roots, err = rootsCache.RootsEligibleForExecution(ctx)
+	require.NoError(t, err)
+	assertRoots(t, roots, root2, root4)
+
+	// Mark everything as executed
+	rootsCache.MarkAsExecuted(root2)
+	rootsCache.MarkAsExecuted(root4)
+	roots, err = rootsCache.RootsEligibleForExecution(ctx)
+	require.NoError(t, err)
+	assertRoots(t, roots)
 }
 
-func TestEvictingElements(t *testing.T) {
-	c := newCommitRootsCache(logger.TestLogger(t), 1*time.Hour, 1*time.Millisecond, 1*time.Millisecond, 1*time.Millisecond)
+func Test_RootsEligibleForExecutionWithReorgs(t *testing.T) {
+	ctx := testutils.Context(t)
+	chainID := testutils.NewRandomEVMChainID()
+	orm := logpoller.NewORM(chainID, pgtest.NewSqlxDB(t), logger.TestLogger(t))
+	lpOpts := logpoller.Opts{
+		PollPeriod:               time.Hour,
+		FinalityDepth:            2,
+		BackfillBatchSize:        20,
+		RpcBatchSize:             10,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	lp := logpoller.NewLogPoller(orm, nil, logger.TestLogger(t), nil, lpOpts)
 
-	k1 := [32]byte{1}
-	c.Snooze(k1)
+	commitStoreAddr := utils.RandomAddress()
 
-	time.Sleep(10 * time.Millisecond)
+	block1 := time.Now().Add(-8 * time.Hour)
+	block2 := time.Now().Add(-5 * time.Hour)
+	block3 := time.Now().Add(-2 * time.Hour)
+	block4 := time.Now().Add(-1 * time.Hour)
 
-	assert.False(t, c.IsSkipped(k1))
+	root1 := utils.RandomBytes32()
+	root2 := utils.RandomBytes32()
+	root3 := utils.RandomBytes32()
+
+	// Genesis block
+	require.NoError(t, orm.InsertBlock(ctx, utils.RandomBytes32(), 1, block1, 1))
+	inputLogs := []logpoller.Log{
+		createReportAcceptedLog(t, chainID, commitStoreAddr, 2, 1, root1, block2),
+		createReportAcceptedLog(t, chainID, commitStoreAddr, 2, 2, root2, block2),
+		createReportAcceptedLog(t, chainID, commitStoreAddr, 3, 1, root3, block3),
+	}
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.NewLogPollerBlock(utils.RandomBytes32(), 3, time.Now(), 1)))
+
+	commitStore, err := v1_2_0.NewCommitStore(logger.TestLogger(t), commitStoreAddr, nil, lp)
+	require.NoError(t, err)
+
+	rootsCache := cache.NewCommitRootsCache(logger.TestLogger(t), commitStore, 10*time.Hour, time.Second)
+
+	// Get all including finalized and unfinalized
+	roots, err := rootsCache.RootsEligibleForExecution(ctx)
+	require.NoError(t, err)
+	assertRoots(t, roots, root1, root2, root3)
+
+	// Reorg everything away
+	require.NoError(t, orm.DeleteLogsAndBlocksAfter(ctx, 2))
+	roots, err = rootsCache.RootsEligibleForExecution(ctx)
+	require.NoError(t, err)
+	assertRoots(t, roots)
+
+	// Reinsert the logs, mark first one as finalized
+	inputLogs = []logpoller.Log{
+		createReportAcceptedLog(t, chainID, commitStoreAddr, 3, 1, root1, block3),
+		createReportAcceptedLog(t, chainID, commitStoreAddr, 4, 1, root2, block4),
+		createReportAcceptedLog(t, chainID, commitStoreAddr, 4, 2, root3, block4),
+	}
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.NewLogPollerBlock(utils.RandomBytes32(), 5, time.Now(), 3)))
+	roots, err = rootsCache.RootsEligibleForExecution(ctx)
+	require.NoError(t, err)
+	assertRoots(t, roots, root1, root2, root3)
+
+	// Reorg away everything except the finalized one
+	require.NoError(t, orm.DeleteLogsAndBlocksAfter(ctx, 4))
+	roots, err = rootsCache.RootsEligibleForExecution(ctx)
+	require.NoError(t, err)
+	assertRoots(t, roots, root1)
 }
 
-func Test_UnexecutedRoots(t *testing.T) {
-	type rootWithTs struct {
-		root [32]byte
-		ts   time.Time
+// Not very likely, but let's be more defensive here and verify if cache works properly and can deal with duplicates
+func Test_BlocksWithTheSameTimestamps(t *testing.T) {
+	ctx := testutils.Context(t)
+	chainID := testutils.NewRandomEVMChainID()
+	orm := logpoller.NewORM(chainID, pgtest.NewSqlxDB(t), logger.TestLogger(t))
+	lpOpts := logpoller.Opts{
+		PollPeriod:               time.Hour,
+		FinalityDepth:            2,
+		BackfillBatchSize:        20,
+		RpcBatchSize:             10,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	lp := logpoller.NewLogPoller(orm, nil, logger.TestLogger(t), nil, lpOpts)
+
+	commitStoreAddr := utils.RandomAddress()
+
+	block := time.Now().Add(-1 * time.Hour).Truncate(time.Second)
+	root1 := utils.RandomBytes32()
+	root2 := utils.RandomBytes32()
+
+	inputLogs := []logpoller.Log{
+		createReportAcceptedLog(t, chainID, commitStoreAddr, 2, 1, root1, block),
+	}
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.NewLogPollerBlock(utils.RandomBytes32(), 2, time.Now(), 2)))
+
+	commitStore, err := v1_2_0.NewCommitStore(logger.TestLogger(t), commitStoreAddr, nil, lp)
+	require.NoError(t, err)
+
+	rootsCache := cache.NewCommitRootsCache(logger.TestLogger(t), commitStore, 10*time.Hour, time.Second)
+	roots, err := rootsCache.RootsEligibleForExecution(ctx)
+	require.NoError(t, err)
+	assertRoots(t, roots, root1)
+
+	inputLogs = []logpoller.Log{
+		createReportAcceptedLog(t, chainID, commitStoreAddr, 3, 1, root2, block),
+	}
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.NewLogPollerBlock(utils.RandomBytes32(), 3, time.Now(), 3)))
+
+	roots, err = rootsCache.RootsEligibleForExecution(ctx)
+	require.NoError(t, err)
+	assertRoots(t, roots, root1, root2)
+}
+
+func assertRoots(t *testing.T, roots []cciptypes.CommitStoreReport, root ...[32]byte) {
+	require.Len(t, roots, len(root))
+	for i, r := range root {
+		require.Equal(t, r, roots[i].MerkleRoot)
+	}
+}
+
+func createReportAcceptedLog(t testing.TB, chainID *big.Int, address common.Address, blockNumber int64, logIndex int64, merkleRoot common.Hash, blockTimestamp time.Time) logpoller.Log {
+	tAbi, err := commit_store_1_2_0.CommitStoreMetaData.GetAbi()
+	require.NoError(t, err)
+	eseEvent, ok := tAbi.Events["ReportAccepted"]
+	require.True(t, ok)
+
+	gasPriceUpdates := make([]commit_store_1_2_0.InternalGasPriceUpdate, 100)
+	tokenPriceUpdates := make([]commit_store_1_2_0.InternalTokenPriceUpdate, 100)
+
+	for i := 0; i < 100; i++ {
+		gasPriceUpdates[i] = commit_store_1_2_0.InternalGasPriceUpdate{
+			DestChainSelector: uint64(i),
+			UsdPerUnitGas:     big.NewInt(int64(i)),
+		}
+		tokenPriceUpdates[i] = commit_store_1_2_0.InternalTokenPriceUpdate{
+			SourceToken: utils.RandomAddress(),
+			UsdPerToken: big.NewInt(int64(i)),
+		}
 	}
 
-	r1 := [32]byte{1}
-	r2 := [32]byte{2}
-	r3 := [32]byte{3}
-
-	t1 := time.Now().Add(-4 * time.Hour)
-	t2 := time.Now().Add(-3 * time.Hour)
-	t3 := time.Now().Add(-2 * time.Hour)
-
-	tests := []struct {
-		name                    string
-		roots                   []rootWithTs
-		executedRoots           [][32]byte
-		permissionLessThreshold time.Duration
-		expectedTimestamp       time.Time
-	}{
-		{
-			name:                    "empty",
-			roots:                   []rootWithTs{},
-			permissionLessThreshold: 1 * time.Hour,
+	message := commit_store_1_2_0.CommitStoreCommitReport{
+		PriceUpdates: commit_store_1_2_0.InternalPriceUpdates{
+			TokenPriceUpdates: tokenPriceUpdates,
+			GasPriceUpdates:   gasPriceUpdates,
 		},
-		//{
-		//	name: "returns first root when all are not executed",
-		//	roots: []rootWithTs{
-		//		{r1, t1},
-		//		{r2, t2},
-		//		{r3, t3},
-		//	},
-		//	permissionLessThreshold: 10 * time.Hour,
-		//	expectedTimestamp:       t1,
-		//},
-		//{
-		//	name: "returns first root when tail of queue is executed",
-		//	roots: []rootWithTs{
-		//		{r1, t1},
-		//		{r2, t2},
-		//		{r3, t3},
-		//	},
-		//	executedRoots:           [][32]byte{r2, r3},
-		//	permissionLessThreshold: 10 * time.Hour,
-		//	expectedTimestamp:       t1,
-		//},
-		//{
-		//	name: "returns first not executed root",
-		//	roots: []rootWithTs{
-		//		{r1, t1},
-		//		{r2, t2},
-		//		{r3, t3},
-		//	},
-		//	executedRoots:           [][32]byte{r1, r2},
-		//	permissionLessThreshold: 10 * time.Hour,
-		//	expectedTimestamp:       t3,
-		//},
-		//{
-		//	name: "returns r2 timestamp when r1 and r3 are executed",
-		//	roots: []rootWithTs{
-		//		{r1, t1},
-		//		{r2, t2},
-		//		{r3, t3},
-		//	},
-		//	executedRoots:           [][32]byte{r1, r3},
-		//	permissionLessThreshold: 10 * time.Hour,
-		//	expectedTimestamp:       t2,
-		//},
-		//{
-		//	name: "returns oldest root even when all are executed",
-		//	roots: []rootWithTs{
-		//		{r1, t1},
-		//		{r2, t2},
-		//		{r3, t3},
-		//	},
-		//	executedRoots:           [][32]byte{r1, r2, r3},
-		//	permissionLessThreshold: 10 * time.Hour,
-		//	expectedTimestamp:       t3,
-		//},
-		{
-			name: "returns permissionLessThreshold when all roots ale older that threshold",
-			roots: []rootWithTs{
-				{r1, t1},
-				{r2, t2},
-				{r3, t3},
-			},
-			permissionLessThreshold: 1 * time.Minute,
+		Interval:   commit_store_1_2_0.CommitStoreInterval{Min: 1, Max: 10},
+		MerkleRoot: merkleRoot,
+	}
+
+	logData, err := eseEvent.Inputs.Pack(message)
+	require.NoError(t, err)
+
+	topic0 := commit_store_1_2_0.CommitStoreReportAccepted{}.Topic()
+
+	return logpoller.Log{
+		Topics: [][]byte{
+			topic0[:],
 		},
+		Data:           logData,
+		LogIndex:       logIndex,
+		BlockHash:      utils.RandomBytes32(),
+		BlockNumber:    blockNumber,
+		BlockTimestamp: blockTimestamp.Truncate(time.Millisecond),
+		EventSig:       topic0,
+		Address:        address,
+		TxHash:         utils.RandomBytes32(),
+		EvmChainId:     ubig.New(chainID),
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := newCommitRootsCache(logger.TestLogger(t), tt.permissionLessThreshold, 1*time.Hour, 1*time.Millisecond, 1*time.Millisecond)
-
-			for _, r := range tt.roots {
-				c.AppendUnexecutedRoot(r.root, r.ts)
-			}
-
-			for _, r := range tt.executedRoots {
-				c.MarkAsExecuted(r)
-			}
-
-			commitTs := c.OldestRootTimestamp()
-			if tt.expectedTimestamp.IsZero() {
-				assert.True(t, commitTs.Before(time.Now().Add(-tt.permissionLessThreshold)))
-			} else {
-				assert.Equal(t, tt.expectedTimestamp.Add(-time.Second), commitTs)
-			}
-		})
-	}
-}
-
-func Test_UnexecutedRootsScenario(t *testing.T) {
-	permissionLessThreshold := 10 * time.Hour
-	c := newCommitRootsCache(logger.TestLogger(t), permissionLessThreshold, 1*time.Hour, 1*time.Millisecond, 1*time.Millisecond)
-
-	k1 := [32]byte{1}
-	k2 := [32]byte{2}
-	k3 := [32]byte{3}
-	//k4 := [32]byte{4}
-
-	t1 := time.Now().Add(-4 * time.Hour)
-	t2 := time.Now().Add(-3 * time.Hour)
-	t3 := time.Now().Add(-2 * time.Hour)
-	//t4 := time.Now().Add(-1 * time.Hour)
-
-	// First check should return permissionLessThreshold window
-	commitTs := c.OldestRootTimestamp()
-	assert.True(t, commitTs.Before(time.Now().Add(-permissionLessThreshold)))
-
-	c.AppendUnexecutedRoot(k1, t1)
-	c.AppendUnexecutedRoot(k2, t2)
-	c.AppendUnexecutedRoot(k3, t3)
-
-	commitTs = c.OldestRootTimestamp()
-	assert.True(t, commitTs.Before(time.Now().Add(-permissionLessThreshold)))
-
-	//// After loading roots it should return the first one
-	//commitTs = c.OldestRootTimestamp()
-	//assert.Equal(t, t1.Add(-time.Second), commitTs)
-	//
-	//// Marking root in the middle as executed shouldn't change the commitTs
-	//c.MarkAsExecuted(k2)
-	//commitTs = c.OldestRootTimestamp()
-	//assert.Equal(t, t1.Add(-time.Second), commitTs)
-	//
-	//// Marking k1 as executed when k2 is already executed should return timestamp of k3
-	//c.MarkAsExecuted(k1)
-	//commitTs = c.OldestRootTimestamp()
-	//assert.Equal(t, t3.Add(-time.Second), commitTs)
-	//
-	//// Marking all as executed should return timestamp of the latest
-	//c.MarkAsExecuted(k3)
-	//commitTs = c.OldestRootTimestamp()
-	//assert.Equal(t, t3.Add(-time.Second), commitTs)
-	//
-	//// Adding k4 should return timestamp of k4
-	//c.AppendUnexecutedRoot(k4, t4)
-	//commitTs = c.OldestRootTimestamp()
-	//assert.Equal(t, t4.Add(-time.Second), commitTs)
-	//
-	//c.MarkAsExecuted(k4)
-	//commitTs = c.OldestRootTimestamp()
-	//assert.Equal(t, t4.Add(-time.Second), commitTs)
-	//
-	//// Appending already executed roots should be ignored
-	//c.AppendUnexecutedRoot(k1, t1)
-	//c.AppendUnexecutedRoot(k2, t2)
-	//commitTs = c.OldestRootTimestamp()
-	//assert.Equal(t, t4.Add(-time.Second), commitTs)
-}
-
-func Test_UnexecutedRootsStaleQueue(t *testing.T) {
-	t.Skip("This test needs caching to properly handle re-orgs")
-
-	permissionLessThreshold := 5 * time.Hour
-	c := newCommitRootsCache(logger.TestLogger(t), permissionLessThreshold, 1*time.Hour, 1*time.Millisecond, 1*time.Millisecond)
-
-	k1 := [32]byte{1}
-	k2 := [32]byte{2}
-	k3 := [32]byte{3}
-
-	t1 := time.Now().Add(-4 * time.Hour)
-	t2 := time.Now().Add(-3 * time.Hour)
-	t3 := time.Now().Add(-2 * time.Hour)
-
-	c.AppendUnexecutedRoot(k1, t1)
-	c.AppendUnexecutedRoot(k2, t2)
-	c.AppendUnexecutedRoot(k3, t3)
-
-	// First check should return permissionLessThreshold window
-	commitTs := c.OldestRootTimestamp()
-	assert.Equal(t, t1.Add(-time.Second), commitTs)
-
-	// Reducing permissionLessExecutionThreshold works as speeding the clock
-	c.messageVisibilityInterval = 1 * time.Hour
-
-	commitTs = c.OldestRootTimestamp()
-	assert.True(t, commitTs.Before(time.Now().Add(-1*time.Hour)))
-	assert.True(t, commitTs.After(t1))
-	assert.True(t, commitTs.After(t2))
-	assert.True(t, commitTs.After(t3))
 }
