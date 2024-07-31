@@ -26,7 +26,7 @@ env:
   FOUNDRY_PROFILE: ci
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
-  PRODUCT: "automation"
+  PRODUCT: "functions"
   BASE_REF: "v2.13.0"
 
 jobs:
@@ -150,6 +150,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
+          fetch-depth: 0
 
       - name: Copy modified changesets
         run: |
@@ -177,7 +178,8 @@ jobs:
           IFS=',' read -r -a modified_files <<< "${{ needs.changes.outputs.files }}"
           echo "# Modified contracts:" > contracts/modified_contracts.md
           for file in "${modified_files[@]}"; do          
-            status=$(git diff --name-status ${{ env.BASE_REF }}..${{ github.sha }} -- "$file"  | awk '{ print $1 }')
+            # TODO remove this check when AurorNZ/paths-filter is fixed
+            status=$(git diff --name-status ${{ env.BASE_REF }} ${{ github.sha }} -- "$file"  | awk '{ print $1 }')
             if [ "$status" == "D" ]; then
               echo "File $file was deleted, skipping."
               continue
@@ -367,14 +369,6 @@ jobs:
           mv remappings_modified.txt remappings.txt
                     
           ./contracts/scripts/ci/generate_uml.sh "./" "contracts/uml-diagrams" "$contract_list"
-          
-          if [ -f  "contracts/uml-diagrams/uml_generation_failures.txt" ]; then
-            echo "# Warning!" >> $GITHUB_STEP_SUMMARY
-            echo "## Reason: Failed to generate UML diagrams for some contracts" >> $GITHUB_STEP_SUMMARY
-            echo "### Files:" >> $GITHUB_STEP_SUMMARY
-            cat contracts/uml-diagrams/uml_generation_failures.txt >> $GITHUB_STEP_SUMMARY
-            echo "## Action required: Please try generate artifacts for them locally or using a different tool" >> $GITHUB_STEP_SUMMARY  
-          fi
 
       - name: Generate Slither Markdown reports
         run: |
@@ -401,21 +395,22 @@ jobs:
           IFS=',' read -r -a modified_files <<< "${{ needs.changes.outputs.files }}"
           missing_svgs=()
           missing_reports=()
-          for file in "${modified_files[@]}"; do          
-            status=$(git diff --name-status ${{ env.BASE_REF }}..${{ github.sha }} -- "$file"  | awk '{ print $1 }')
+          for file in "${modified_files[@]}"; do      
+            # TODO remove this check when AurorNZ/paths-filter is fixed
+            status=$(git diff --name-status ${{ env.BASE_REF }} ${{ github.sha }} -- "$file"  | awk '{ print $1 }')
             if [ "$status" == "D" ]; then
               echo "File $file was deleted, skipping validation"
               continue
             fi
             
             svg_file="$(basename "${file%.sol}").svg"
-            if [ ! -f "uml-diagrams/$svg_file" ]; then
+            if [ ! -f "contracts/uml-diagrams/$svg_file" ]; then
               echo "Error: UML diagram for $file not found"
               missing_svgs+=("$file")
             fi
             
             report_file="$(basename "${file%.sol}")-slither-report.md"            
-            if [ ! -f "slither-reports/$report_file" ]; then
+            if [ ! -f "contracts/slither-reports/$report_file" ]; then
               echo "Error: Slither report for $file not found"
               missing_reports+=("$file")
             fi
@@ -428,7 +423,7 @@ jobs:
               for file in "${missing_svgs[@]}"; do
                 echo " $file" >> $GITHUB_STEP_SUMMARY
               done
-              echo "## Action required: Please try generate artifacts for them locally or using a different tool" >> $GITHUB_STEP_SUMMARY
+              echo "## Action required: Please try to generate artifacts for them locally or using a different tool" >> $GITHUB_STEP_SUMMARY
           else 
               echo "All UML diagrams generated successfully"
           fi
@@ -436,11 +431,11 @@ jobs:
           if [ ${#missing_reports[@]} -gt 0 ]; then
               echo "Error: Missing Slither reports for files: ${missing_reports[@]}"
               echo "# Warning!" >> $GITHUB_STEP_SUMMARY
-              echo "## Reason: Missing Slither reports for files: ${missing_reports[@]}" >> $GITHUB_STEP_SUMMARY
+              echo "## Reason: Missing Slither reports for files:" >> $GITHUB_STEP_SUMMARY
               for file in "${missing_reports[@]}"; do
                 echo " $file" >> $GITHUB_STEP_SUMMARY
               done
-              echo "## Action required: Please try generate artifacts for them locally" >> $GITHUB_STEP_SUMMARY
+              echo "## Action required: Please try to generate artifacts for them locally" >> $GITHUB_STEP_SUMMARY
           else 
              echo "All Slither reports generated successfully"
           fi

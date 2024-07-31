@@ -35,9 +35,7 @@ jobs:
               - modified: 'contracts/src/v0.8/**/*.sol'
 
   tests:
-#    if: needs.changes.outputs.src_changes == 'true'
-    # TODO remove
-    if: needs.changes.outputs.src_changes == 'mietek'
+    if: needs.changes.outputs.src_changes == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -265,7 +263,10 @@ jobs:
           format_errors=0
           for file in $FILE_LIST; do
             sanitized_file="${file/contracts\//}"
-            PROFILE=$(echo "$sanitized_file" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)            
+            PROFILE=$(echo "$sanitized_file" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
+            if [ -z "$PROFILE" ]; then
+              PROFILE="${{ env.FOUNDRY_PROFILE }}"
+            fi
             echo "::debug::Running forge fmt $sanitized_file with FOUNDRY_PROFILE=$PROFILE"
             FOUNDRY_PROFILE=$PROFILE forge fmt --check "$sanitized_file" || format_errors=$((format_errors+1))
           done
@@ -286,57 +287,5 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Check formatting
-        continue-on-error: true
-
-  solidity-forge-fmt:
-    strategy:
-      fail-fast: false
-      matrix:
-        product: [ ccip ]
-    needs: [ changes ]
-    name: Forge fmt ${{ matrix.product }}
-    # See https://github.com/foundry-rs/foundry/issues/3827
-    runs-on: ubuntu-22.04
-
-    # The if statements for steps after checkout repo is workaround for
-    # passing required check for PRs that don't have filtered changes.
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          submodules: recursive
-
-      # Only needed because we use the NPM versions of packages
-      # and not native Foundry. This is to make sure the dependencies
-      # stay in sync.
-      - name: Setup NodeJS
-        if: needs.changes.outputs.changes == 'true'
-        uses: ./.github/actions/setup-nodejs
-
-      - name: Install Foundry
-        if: needs.changes.outputs.changes == 'true'
-        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
-        with:
-          version: ${{ env.FOUNDRY_VERSION }}
-
-      - name: Run Forge fmt
-        if: needs.changes.outputs.changes == 'true'
-        run: |
-          forge fmt --check
-        id: fmt
-        working-directory: contracts
-        env:
-          FOUNDRY_PROFILE: ${{ matrix.product }}
-
-      - name: Collect Metrics
-        if: needs.changes.outputs.changes == 'true'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
-        with:
-          id: solidity-forge-fmt
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Foundry Tests ${{ matrix.product }}
+          this-job-name: Foundry Tests fmt
         continue-on-error: true
