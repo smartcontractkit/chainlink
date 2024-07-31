@@ -29,7 +29,7 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240731121127-5ae22cf04996
-	github.com/smartcontractkit/chainlink-testing-framework v1.32.7
+	github.com/smartcontractkit/chainlink-testing-framework v1.33.0
 	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.0-20240405215812-5a72bc9af239
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/havoc/k8schaos v0.0.0-20240409145249-e78d20847e37
@@ -466,13 +466,13 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	k8s.io/api v0.28.2 // indirect
-	k8s.io/apiextensions-apiserver v0.28.1 // indirect
+	k8s.io/apiextensions-apiserver v0.28.2 // indirect
 	k8s.io/cli-runtime v0.28.2 // indirect
 	k8s.io/client-go v0.28.2 // indirect
 	k8s.io/component-base v0.28.2 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240709000822-3c01b740850f // indirect
-	k8s.io/kubectl v0.28.1 // indirect
+	k8s.io/kubectl v0.28.2 // indirect
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0 // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
 	pgregory.net/rapid v0.5.5 // indirect
@@ -506,38 +506,4 @@ replace (
 replace (
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/common => github.com/prometheus/common v0.42.0
-)
-
-replace (
-	k8s.io/api => k8s.io/api v0.28.2
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.2
-	k8s.io/apimachinery => k8s.io/apimachinery v0.28.2
-	k8s.io/apiserver => k8s.io/apiserver v0.28.2
-	k8s.io/cli-runtime => k8s.io/cli-runtime v0.28.2
-	k8s.io/client-go => k8s.io/client-go v0.28.2
-	k8s.io/cloud-provider => k8s.io/cloud-provider v0.28.2
-	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.28.2
-	k8s.io/code-generator => k8s.io/code-generator v0.28.2
-	k8s.io/component-base => k8s.io/component-base v0.28.2
-	k8s.io/component-helpers => k8s.io/component-helpers v0.28.2
-	k8s.io/controller-manager => k8s.io/controller-manager v0.28.2
-	k8s.io/cri-api => k8s.io/cri-api v0.28.2
-	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.28.2
-	k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.28.2
-	k8s.io/endpointslice => k8s.io/endpointslice v0.28.2
-	k8s.io/kms => k8s.io/kms v0.28.2
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.2
-	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.28.2
-	k8s.io/kube-proxy => k8s.io/kube-proxy v0.28.2
-	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.28.2
-	k8s.io/kubectl => k8s.io/kubectl v0.28.2
-	k8s.io/kubelet => k8s.io/kubelet v0.28.2
-	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.28.2
-	k8s.io/metrics => k8s.io/metrics v0.28.2
-	k8s.io/mount-utils => k8s.io/mount-utils v0.28.2
-	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.28.2
-	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.28.2
-	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.28.2
-	k8s.io/sample-controller => k8s.io/sample-controller v0.28.2
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.16.2
 )
