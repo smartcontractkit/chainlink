@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
+	ctf_config_types "github.com/smartcontractkit/chainlink-testing-framework/config/types"
 )
 
 var createTestConfigCmd = &cobra.Command{
@@ -148,9 +149,9 @@ var createTestConfigCmd = &cobra.Command{
 			privateEthereumNetworkCustomDockerImage = &oc.PrivateEthereumNetworkCustomDockerImages
 		}
 		if privateEthereumNetworkExecutionLayer != nil || privateEthereumNetworkEthereumVersion != nil || privateEthereumNetworkCustomDockerImage != nil {
-			var el ctf_config.ExecutionLayer
+			var el ctf_config_types.ExecutionLayer
 			if privateEthereumNetworkExecutionLayer != nil {
-				el = ctf_config.ExecutionLayer(*privateEthereumNetworkExecutionLayer)
+				el = ctf_config_types.ExecutionLayer(*privateEthereumNetworkExecutionLayer)
 			}
 			var ev ctf_config.EthereumVersion
 			if privateEthereumNetworkEthereumVersion != nil {

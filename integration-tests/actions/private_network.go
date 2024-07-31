@@ -4,6 +4,7 @@ import (
 	"github.com/rs/zerolog"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
+	ctf_config_types "github.com/smartcontractkit/chainlink-testing-framework/config/types"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 )
 
@@ -13,7 +14,7 @@ func EthereumNetworkConfigFromConfig(l zerolog.Logger, config ctf_config.GlobalT
 		ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
 		network, err = ethBuilder.
 			WithEthereumVersion(ctf_config.EthereumVersion_Eth1).
-			WithExecutionLayer(ctf_config.ExecutionLayer_Geth).
+			WithExecutionLayer(ctf_config_types.ExecutionLayer_Geth).
 			Build()
 
 		return

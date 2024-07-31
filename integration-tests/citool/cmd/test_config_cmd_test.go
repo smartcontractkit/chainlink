@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
+	ctf_config_types "github.com/smartcontractkit/chainlink-testing-framework/config/types"
 )
 
 func TestCreateTestConfigCmd(t *testing.T) {
@@ -34,7 +35,7 @@ func TestCreateTestConfigCmd(t *testing.T) {
 			check: func(t *testing.T, tc *ctf_config.TestConfig) {
 				assert.NotNil(t, tc.PrivateEthereumNetwork)
 				assert.NotNil(t, tc.PrivateEthereumNetwork.ExecutionLayer)
-				assert.Equal(t, ctf_config.ExecutionLayer("geth"), *tc.PrivateEthereumNetwork.ExecutionLayer)
+				assert.Equal(t, ctf_config_types.ExecutionLayer("geth"), *tc.PrivateEthereumNetwork.ExecutionLayer)
 				assert.Equal(t, ctf_config.EthereumVersion("1.10.0"), *tc.PrivateEthereumNetwork.EthereumVersion)
 			},
 		},
