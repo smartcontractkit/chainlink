@@ -207,6 +207,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
+	var peerWrapper *ocrcommon.SingletonPeerWrapper
+	if !cfg.OCR().Enabled() && !cfg.OCR2().Enabled() {
+		globalLogger.Debug("P2P stack not needed")
+	} else if cfg.P2P().Enabled() {
+		if err := ocrcommon.ValidatePeerWrapperConfig(cfg.P2P()); err != nil {
+			return nil, err
+		}
+		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), opts.DS, globalLogger)
+		srvcs = append(srvcs, peerWrapper)
+	} else {
+		return nil, fmt.Errorf("P2P stack required for OCR or OCR2")
+	}
+
 	var capabilityRegistrySyncer registrysyncer.Syncer
 
 	if cfg.Capabilities().ExternalRegistry().Address() != "" {
@@ -218,6 +231,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 		registrySyncer, err := registrysyncer.New(
 			globalLogger,
+			func() (p2ptypes.PeerID, error) {
+				return p2ptypes.PeerID(peerWrapper.PeerID), nil
+			},
 			relayer,
 			registryAddress,
 		)
@@ -256,7 +272,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		registrySyncer, err := registrysyncer.New(
 			globalLogger,
-			externalPeerWrapper,
+			func() (p2ptypes.PeerID, error) {
+				p := externalPeerWrapper.GetPeer()
+				if p == nil {
+					return p2ptypes.PeerID{}, errors.New("could not get peer")
+				}
+
+				return p.ID(), nil
+			},
 			relayer,
 			registryAddress,
 		)
@@ -479,19 +502,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			legacyEVMChains,
 			globalLogger,
 		)
-	}
-
-	var peerWrapper *ocrcommon.SingletonPeerWrapper
-	if !cfg.OCR().Enabled() && !cfg.OCR2().Enabled() {
-		globalLogger.Debug("P2P stack not needed")
-	} else if cfg.P2P().Enabled() {
-		if err := ocrcommon.ValidatePeerWrapperConfig(cfg.P2P()); err != nil {
-			return nil, err
-		}
-		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), opts.DS, globalLogger)
-		srvcs = append(srvcs, peerWrapper)
-	} else {
-		return nil, fmt.Errorf("P2P stack required for OCR or OCR2")
 	}
 
 	if cfg.OCR().Enabled() {

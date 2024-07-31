@@ -26,7 +26,7 @@ type Capability struct {
 
 type LocalRegistry struct {
 	lggr              logger.Logger
-	peerWrapper       p2ptypes.PeerWrapper
+	getPeerID         func() (p2ptypes.PeerID, error)
 	IDsToDONs         map[DonID]DON
 	IDsToNodes        map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo
 	IDsToCapabilities map[string]Capability
@@ -36,11 +36,10 @@ func (l *LocalRegistry) LocalNode(ctx context.Context) (capabilities.Node, error
 	// Load the current nodes PeerWrapper, this gets us the current node's
 	// PeerID, allowing us to contextualize registry information in terms of DON ownership
 	// (eg. get my current DON configuration, etc).
-	if l.peerWrapper.GetPeer() == nil {
+	pid, err := l.getPeerID()
+	if err != nil {
 		return capabilities.Node{}, errors.New("unable to get local node: peerWrapper hasn't started yet")
 	}
-
-	pid := l.peerWrapper.GetPeer().ID()
 
 	var workflowDON capabilities.DON
 	capabilityDONs := []capabilities.DON{}

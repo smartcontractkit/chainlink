@@ -39,7 +39,7 @@ type registrySyncer struct {
 	initReader      func(ctx context.Context, lggr logger.Logger, relayer contractReaderFactory, registryAddress string) (types.ContractReader, error)
 	relayer         contractReaderFactory
 	registryAddress string
-	peerWrapper     p2ptypes.PeerWrapper
+	getPeerID       func() (p2ptypes.PeerID, error)
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -55,7 +55,7 @@ var (
 // New instantiates a new RegistrySyncer
 func New(
 	lggr logger.Logger,
-	peerWrapper p2ptypes.PeerWrapper,
+	getPeerID func() (p2ptypes.PeerID, error),
 	relayer contractReaderFactory,
 	registryAddress string,
 ) (*registrySyncer, error) {
@@ -66,7 +66,7 @@ func New(
 		relayer:         relayer,
 		registryAddress: registryAddress,
 		initReader:      newReader,
-		peerWrapper:     peerWrapper,
+		getPeerID:       getPeerID,
 	}, nil
 }
 
@@ -242,7 +242,7 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 
 	return &LocalRegistry{
 		lggr:              s.lggr,
-		peerWrapper:       s.peerWrapper,
+		getPeerID:         s.getPeerID,
 		IDsToDONs:         idsToDONs,
 		IDsToCapabilities: idsToCapabilities,
 		IDsToNodes:        idsToNodes,
