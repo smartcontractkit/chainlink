@@ -3,10 +3,12 @@ package client_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -56,7 +58,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		// set to default values
@@ -106,7 +108,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		ch := make(chan *evmtypes.Head)
@@ -129,7 +131,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 	t.Run("Block's chain ID matched configured", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		ch := make(chan *evmtypes.Head)
@@ -146,7 +148,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		})
 		wsURL := server.WSURL()
 		observedLggr, observed := logger.TestObserved(t, zap.DebugLevel)
-		rpc := client.NewRPCClient(observedLggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		rpc := client.NewRPCClient(observedLggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout)
 		require.NoError(t, rpc.Dial(ctx))
 		server.Close()
 		_, err := rpc.SubscribeNewHead(ctx, make(chan *evmtypes.Head))
@@ -156,7 +158,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 	t.Run("Subscription error is properly wrapper", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		sub, err := rpc.SubscribeNewHead(ctx, make(chan *evmtypes.Head))
@@ -184,7 +186,7 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 		})
 		wsURL := server.WSURL()
 		observedLggr, observed := logger.TestObserved(t, zap.DebugLevel)
-		rpc := client.NewRPCClient(observedLggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		rpc := client.NewRPCClient(observedLggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout)
 		require.NoError(t, rpc.Dial(ctx))
 		server.Close()
 		_, err := rpc.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, make(chan types.Log))
@@ -201,7 +203,7 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 			return resp
 		})
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		sub, err := rpc.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, make(chan types.Log))
@@ -250,7 +252,7 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	}
 
 	server := createRPCServer()
-	rpc := client.NewRPCClient(lggr, *server.URL, nil, "rpc", 1, chainId, commonclient.Primary)
+	rpc := client.NewRPCClient(lggr, *server.URL, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout)
 	require.NoError(t, rpc.Dial(ctx))
 	defer rpc.Close()
 	server.Head = &evmtypes.Head{Number: 128}
@@ -297,4 +299,74 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 
 	assert.Equal(t, int64(0), latest.BlockNumber)
 	assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
+}
+
+func TestRpcClientLargePayloadTimeout(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		Name string
+		Fn   func(ctx context.Context, rpc client.RPCClient) error
+	}{
+		{
+			Name: "SendTransaction",
+			Fn: func(ctx context.Context, rpc client.RPCClient) error {
+				return rpc.SendTransaction(ctx, types.NewTx(&types.LegacyTx{}))
+			},
+		},
+		{
+			Name: "EstimateGas",
+			Fn: func(ctx context.Context, rpc client.RPCClient) error {
+				_, err := rpc.EstimateGas(ctx, ethereum.CallMsg{})
+				return err
+			},
+		},
+		{
+			Name: "CallContract",
+			Fn: func(ctx context.Context, rpc client.RPCClient) error {
+				_, err := rpc.CallContract(ctx, ethereum.CallMsg{}, nil)
+				return err
+			},
+		},
+		{
+			Name: "CallContext",
+			Fn: func(ctx context.Context, rpc client.RPCClient) error {
+				err := rpc.CallContext(ctx, nil, "rpc_call", nil)
+				return err
+			},
+		},
+		{
+			Name: "BatchCallContext",
+			Fn: func(ctx context.Context, rpc client.RPCClient) error {
+				err := rpc.BatchCallContext(ctx, nil)
+				return err
+			},
+		},
+	}
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.Name, func(t *testing.T) {
+			t.Parallel()
+			// use background context to ensure that the DeadlineExceeded is caused by timeout we've set on request
+			// level, instead of one that was set on test level.
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			chainId := big.NewInt(123456)
+			rpcURL := testutils.NewWSServer(t, chainId, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+				// block until test is done
+				<-ctx.Done()
+				return
+			}).WSURL()
+
+			// use something unreasonably large for RPC timeout to ensure that we use largePayloadRPCTimeout
+			const rpcTimeout = time.Hour
+			const largePayloadRPCTimeout = tests.TestInterval
+			rpc := client.NewRPCClient(logger.Test(t), *rpcURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, largePayloadRPCTimeout, rpcTimeout)
+			require.NoError(t, rpc.Dial(ctx))
+			defer rpc.Close()
+			err := testCase.Fn(ctx, rpc)
+			assert.True(t, errors.Is(err, context.DeadlineExceeded), fmt.Sprintf("Expected DedlineExceeded error, but got: %v", err))
+		})
+	}
 }

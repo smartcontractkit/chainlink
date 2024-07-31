@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -102,6 +103,8 @@ type RPCClient interface {
 	GetInterceptedChainInfo() (latest, highestUserObservations commonclient.ChainInfo)
 }
 
+const rpcSubscriptionMethodNewHeads = "newHeads"
+
 type rawclient struct {
 	rpc  *rpc.Client
 	geth *ethclient.Client
@@ -109,11 +112,14 @@ type rawclient struct {
 }
 
 type rpcClient struct {
-	rpcLog  logger.SugaredLogger
-	name    string
-	id      int32
-	chainID *big.Int
-	tier    commonclient.NodeTier
+	rpcLog                     logger.SugaredLogger
+	name                       string
+	id                         int32
+	chainID                    *big.Int
+	tier                       commonclient.NodeTier
+	largePayloadRpcTimeout     time.Duration
+	rpcTimeout                 time.Duration
+	finalizedBlockPollInterval time.Duration
 
 	ws   rawclient
 	http *rawclient
@@ -147,13 +153,20 @@ func NewRPCClient(
 	id int32,
 	chainID *big.Int,
 	tier commonclient.NodeTier,
+	finalizedBlockPollInterval time.Duration,
+	largePayloadRpcTimeout time.Duration,
+	rpcTimeout time.Duration,
 ) RPCClient {
-	r := new(rpcClient)
+	r := &rpcClient{
+		largePayloadRpcTimeout: largePayloadRpcTimeout,
+		rpcTimeout:             rpcTimeout,
+	}
 	r.name = name
 	r.id = id
 	r.chainID = chainID
 	r.tier = tier
 	r.ws.uri = wsuri
+	r.finalizedBlockPollInterval = finalizedBlockPollInterval
 	if httpuri != nil {
 		r.http = &rawclient{uri: *httpuri}
 	}
@@ -172,7 +185,7 @@ func NewRPCClient(
 
 // Not thread-safe, pure dial.
 func (r *rpcClient) Dial(callerCtx context.Context) error {
-	ctx, cancel := r.makeQueryCtx(callerCtx)
+	ctx, cancel := r.makeQueryCtx(callerCtx, r.rpcTimeout)
 	defer cancel()
 
 	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
@@ -361,7 +374,7 @@ func (r *rpcClient) UnsubscribeAllExceptAliveLoop() {
 
 // CallContext implementation
 func (r *rpcClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With(
 		"method", method,
@@ -384,7 +397,7 @@ func (r *rpcClient) CallContext(ctx context.Context, result interface{}, method 
 }
 
 func (r *rpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("nBatchElems", len(b), "batchElems", b)
 
@@ -403,8 +416,9 @@ func (r *rpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) err
 	return err
 }
 
+// TODO: Full transition from SubscribeNewHead to SubscribeToHeads is done in BCI-2875
 func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtypes.Head) (_ commontypes.Subscription, err error) {
-	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx)
+	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
 	defer cancel()
 	args := []interface{}{"newHeads"}
 	lggr := r.newRqLggr().With("args", args)
@@ -434,6 +448,54 @@ func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtyp
 	return subForwarder, nil
 }
 
+func (r *rpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.Head, sub commontypes.Subscription, err error) {
+	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
+	defer cancel()
+
+	args := []interface{}{rpcSubscriptionMethodNewHeads}
+	start := time.Now()
+	lggr := r.newRqLggr().With("args", args)
+
+	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
+	defer func() {
+		duration := time.Since(start)
+		r.logResult(lggr, err, duration, r.getRPCDomain(), "EthSubscribe")
+		err = r.wrapWS(err)
+	}()
+
+	channel := make(chan *evmtypes.Head)
+	forwarder := newSubForwarder(channel, func(head *evmtypes.Head) *evmtypes.Head {
+		head.EVMChainID = ubig.New(r.chainID)
+		r.onNewHead(ctx, chStopInFlight, head)
+		return head
+	}, r.wrapRPCClientError)
+
+	err = forwarder.start(ws.rpc.EthSubscribe(ctx, forwarder.srcCh, args...))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = r.registerSub(forwarder, chStopInFlight)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return channel, forwarder, err
+}
+
+func (r *rpcClient) SubscribeToFinalizedHeads(_ context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
+	interval := r.finalizedBlockPollInterval
+	if interval == 0 {
+		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
+	}
+	timeout := interval
+	poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.LatestFinalizedBlock, timeout, r.rpcLog)
+	if err := poller.Start(); err != nil {
+		return nil, nil, err
+	}
+	return channel, &poller, nil
+}
+
 // GethClient wrappers
 
 func (r *rpcClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *evmtypes.Receipt, err error) {
@@ -449,7 +511,7 @@ func (r *rpcClient) TransactionReceipt(ctx context.Context, txHash common.Hash) 
 }
 
 func (r *rpcClient) TransactionReceiptGeth(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("txHash", txHash)
 
@@ -472,7 +534,7 @@ func (r *rpcClient) TransactionReceiptGeth(ctx context.Context, txHash common.Ha
 	return
 }
 func (r *rpcClient) TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("txHash", txHash)
 
@@ -496,7 +558,7 @@ func (r *rpcClient) TransactionByHash(ctx context.Context, txHash common.Hash) (
 }
 
 func (r *rpcClient) HeaderByNumber(ctx context.Context, number *big.Int) (header *types.Header, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("number", number)
 
@@ -517,7 +579,7 @@ func (r *rpcClient) HeaderByNumber(ctx context.Context, number *big.Int) (header
 }
 
 func (r *rpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header *types.Header, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("hash", hash)
 
@@ -549,7 +611,7 @@ func (r *rpcClient) BlockByNumber(ctx context.Context, number *big.Int) (head *e
 }
 
 func (r *rpcClient) blockByNumber(ctx context.Context, number string) (head *evmtypes.Head, err error) {
-	ctx, cancel, chStopInFlight, ws, http := r.acquireQueryCtx(ctx)
+	ctx, cancel, chStopInFlight, ws, http := r.acquireQueryCtx(ctx, r.rpcTimeout)
 	defer cancel()
 	const method = "eth_getBlockByNumber"
 	args := []interface{}{number, false}
@@ -601,7 +663,7 @@ func (r *rpcClient) BlockByHash(ctx context.Context, hash common.Hash) (head *ev
 }
 
 func (r *rpcClient) BlockByHashGeth(ctx context.Context, hash common.Hash) (block *types.Block, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("hash", hash)
 
@@ -624,7 +686,7 @@ func (r *rpcClient) BlockByHashGeth(ctx context.Context, hash common.Hash) (bloc
 }
 
 func (r *rpcClient) BlockByNumberGeth(ctx context.Context, number *big.Int) (block *types.Block, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("number", number)
 
@@ -647,7 +709,7 @@ func (r *rpcClient) BlockByNumberGeth(ctx context.Context, number *big.Int) (blo
 }
 
 func (r *rpcClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("tx", tx)
 
@@ -685,7 +747,7 @@ func (r *rpcClient) SendEmptyTransaction(
 
 // PendingSequenceAt returns one higher than the highest nonce from both mempool and mined transactions
 func (r *rpcClient) PendingSequenceAt(ctx context.Context, account common.Address) (nonce evmtypes.Nonce, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("account", account)
 
@@ -714,7 +776,7 @@ func (r *rpcClient) PendingSequenceAt(ctx context.Context, account common.Addres
 // mined nonce at the given block number, but it actually returns the total
 // transaction count which is the highest mined nonce + 1
 func (r *rpcClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce evmtypes.Nonce, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("account", account, "blockNumber", blockNumber)
 
@@ -740,7 +802,7 @@ func (r *rpcClient) SequenceAt(ctx context.Context, account common.Address, bloc
 }
 
 func (r *rpcClient) PendingCodeAt(ctx context.Context, account common.Address) (code []byte, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("account", account)
 
@@ -763,7 +825,7 @@ func (r *rpcClient) PendingCodeAt(ctx context.Context, account common.Address) (
 }
 
 func (r *rpcClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) (code []byte, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("account", account, "blockNumber", blockNumber)
 
@@ -786,7 +848,7 @@ func (r *rpcClient) CodeAt(ctx context.Context, account common.Address, blockNum
 }
 
 func (r *rpcClient) EstimateGas(ctx context.Context, c interface{}) (gas uint64, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRpcTimeout)
 	defer cancel()
 	call := c.(ethereum.CallMsg)
 	lggr := r.newRqLggr().With("call", call)
@@ -810,7 +872,7 @@ func (r *rpcClient) EstimateGas(ctx context.Context, c interface{}) (gas uint64,
 }
 
 func (r *rpcClient) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr()
 
@@ -833,7 +895,7 @@ func (r *rpcClient) SuggestGasPrice(ctx context.Context) (price *big.Int, err er
 }
 
 func (r *rpcClient) CallContract(ctx context.Context, msg interface{}, blockNumber *big.Int) (val []byte, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("callMsg", msg, "blockNumber", blockNumber)
 	message := msg.(ethereum.CallMsg)
@@ -861,7 +923,7 @@ func (r *rpcClient) CallContract(ctx context.Context, msg interface{}, blockNumb
 }
 
 func (r *rpcClient) PendingCallContract(ctx context.Context, msg interface{}) (val []byte, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("callMsg", msg)
 	message := msg.(ethereum.CallMsg)
@@ -895,7 +957,7 @@ func (r *rpcClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
 }
 
 func (r *rpcClient) BlockNumber(ctx context.Context) (height uint64, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr()
 
@@ -918,7 +980,7 @@ func (r *rpcClient) BlockNumber(ctx context.Context) (height uint64, err error) 
 }
 
 func (r *rpcClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (balance *big.Int, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("account", account.Hex(), "blockNumber", blockNumber)
 
@@ -983,7 +1045,7 @@ func (r *rpcClient) FilterEvents(ctx context.Context, q ethereum.FilterQuery) ([
 }
 
 func (r *rpcClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []types.Log, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("q", q)
 
@@ -1011,7 +1073,7 @@ func (r *rpcClient) ClientVersion(ctx context.Context) (version string, err erro
 }
 
 func (r *rpcClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (_ ethereum.Subscription, err error) {
-	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx)
+	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("q", q)
 
@@ -1037,7 +1099,7 @@ func (r *rpcClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQu
 }
 
 func (r *rpcClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr()
 
@@ -1062,7 +1124,7 @@ func (r *rpcClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err 
 // Returns the ChainID according to the geth client. This is useful for functions like verify()
 // the common node.
 func (r *rpcClient) ChainID(ctx context.Context) (chainID *big.Int, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 
 	defer cancel()
 
@@ -1117,12 +1179,12 @@ func (r *rpcClient) wrapHTTP(err error) error {
 }
 
 // makeLiveQueryCtxAndSafeGetClients wraps makeQueryCtx
-func (r *rpcClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context) (ctx context.Context, cancel context.CancelFunc, ws rawclient, http *rawclient) {
-	ctx, cancel, _, ws, http = r.acquireQueryCtx(parentCtx)
+func (r *rpcClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc, ws rawclient, http *rawclient) {
+	ctx, cancel, _, ws, http = r.acquireQueryCtx(parentCtx, timeout)
 	return
 }
 
-func (r *rpcClient) acquireQueryCtx(parentCtx context.Context) (ctx context.Context, cancel context.CancelFunc,
+func (r *rpcClient) acquireQueryCtx(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc,
 	chStopInFlight chan struct{}, ws rawclient, http *rawclient) {
 	// Need to wrap in mutex because state transition can cancel and replace the
 	// context
@@ -1134,7 +1196,7 @@ func (r *rpcClient) acquireQueryCtx(parentCtx context.Context) (ctx context.Cont
 		http = &cp
 	}
 	r.stateMu.RUnlock()
-	ctx, cancel = makeQueryCtx(parentCtx, chStopInFlight)
+	ctx, cancel = makeQueryCtx(parentCtx, chStopInFlight, timeout)
 	return
 }
 
@@ -1142,10 +1204,10 @@ func (r *rpcClient) acquireQueryCtx(parentCtx context.Context) (ctx context.Cont
 // 1. Passed in ctx cancels
 // 2. Passed in channel is closed
 // 3. Default timeout is reached (queryTimeout)
-func makeQueryCtx(ctx context.Context, ch services.StopChan) (context.Context, context.CancelFunc) {
+func makeQueryCtx(ctx context.Context, ch services.StopChan, timeout time.Duration) (context.Context, context.CancelFunc) {
 	var chCancel, timeoutCancel context.CancelFunc
 	ctx, chCancel = ch.Ctx(ctx)
-	ctx, timeoutCancel = context.WithTimeout(ctx, queryTimeout)
+	ctx, timeoutCancel = context.WithTimeout(ctx, timeout)
 	cancel := func() {
 		chCancel()
 		timeoutCancel()
@@ -1153,12 +1215,12 @@ func makeQueryCtx(ctx context.Context, ch services.StopChan) (context.Context, c
 	return ctx, cancel
 }
 
-func (r *rpcClient) makeQueryCtx(ctx context.Context) (context.Context, context.CancelFunc) {
-	return makeQueryCtx(ctx, r.getChStopInflight())
+func (r *rpcClient) makeQueryCtx(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	return makeQueryCtx(ctx, r.getChStopInflight(), timeout)
 }
 
 func (r *rpcClient) IsSyncing(ctx context.Context) (bool, error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr()
 

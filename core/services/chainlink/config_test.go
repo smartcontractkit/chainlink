@@ -553,19 +553,20 @@ func TestConfig_Marshal(t *testing.T) {
 					},
 				},
 
-				LinkContractAddress:       mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
-				LogBackfillBatchSize:      ptr[uint32](17),
-				LogPollInterval:           &minute,
-				LogKeepBlocksDepth:        ptr[uint32](100000),
-				LogPrunePageSize:          ptr[uint32](0),
-				BackupLogPollerBlockDelay: ptr[uint64](532),
-				MinContractPayment:        commonassets.NewLinkFromJuels(math.MaxInt64),
-				MinIncomingConfirmations:  ptr[uint32](13),
-				NonceAutoSync:             ptr(true),
-				NoNewHeadsThreshold:       &minute,
-				OperatorFactoryAddress:    mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
-				RPCDefaultBatchSize:       ptr[uint32](17),
-				RPCBlockQueryDelay:        ptr[uint16](10),
+				LinkContractAddress:          mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
+				LogBackfillBatchSize:         ptr[uint32](17),
+				LogPollInterval:              &minute,
+				LogKeepBlocksDepth:           ptr[uint32](100000),
+				LogPrunePageSize:             ptr[uint32](0),
+				BackupLogPollerBlockDelay:    ptr[uint64](532),
+				MinContractPayment:           commonassets.NewLinkFromJuels(math.MaxInt64),
+				MinIncomingConfirmations:     ptr[uint32](13),
+				NonceAutoSync:                ptr(true),
+				NoNewHeadsThreshold:          &minute,
+				OperatorFactoryAddress:       mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
+				RPCDefaultBatchSize:          ptr[uint32](17),
+				RPCBlockQueryDelay:           ptr[uint16](10),
+				NoNewFinalizedHeadsThreshold: &hour,
 
 				Transactions: evmcfg.Transactions{
 					MaxInFlight:          ptr[uint32](19),
@@ -996,6 +997,7 @@ OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 16
+NoNewFinalizedHeadsThreshold = '1h0m0s'
 
 [EVM.Transactions]
 ForwardersEnabled = true

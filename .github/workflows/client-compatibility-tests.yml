@@ -192,8 +192,7 @@ jobs:
             implementations_arr=()
             # we use 100 days since we really want the latest one, and it's highly improbable there won't be a release in last 100 days
             chainlink_version=$(ghlatestreleasechecker "smartcontractkit/chainlink" 100) 
-            echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
-            cl_ref_path="release"
+            cl_ref_path="releases"
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             echo "Fetching Chainlink version from input"
             if [ -n "${{ github.event.inputs.chainlinkVersion }}" ]; then
@@ -202,35 +201,32 @@ jobs:
               if [[ "$chainlink_version" =~ ^[0-9a-f]{40}$ ]]; then
                 cl_ref_path="commit"
               else
-                cl_ref_path="release"
+                cl_ref_path="releases"
               fi
             else
               echo "Chainlink version not provided in input. Using latest commit SHA."
               chainlink_version=${{ github.sha }}
               cl_ref_path="commit"
             fi
-            echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
-            echo "cl_ref_path=$cl_ref_path" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             echo "Fetching Chainlink version from PR's head commit"
             chainlink_version="${{ github.event.pull_request.head.sha }}"
-            echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
-            echo "cl_ref_path=commit" >> $GITHUB_OUTPUT
+            cl_ref_path="commit"
           elif [ "$GITHUB_EVENT_NAME" = "merge_queue" ]; then
             echo "Fetching Chainlink version from merge queue's head commit"
             chainlink_version="${{ github.event.merge_group.head_sha }}"
-            echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
-            echo "cl_ref_path=commit" >> $GITHUB_OUTPUT
+            cl_ref_path="commit"
           elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
             echo "Fetching Chainlink version from tag"
             chainlink_version="${{ github.ref_name }}"
-            echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
-            echo "cl_ref_path=release" >> $GITHUB_OUTPUT
+            cl_ref_path="releases"
           else
             echo "Unsupported trigger event. It's probably an issue with the pipeline definition. Please reach out to the Test Tooling team."
             exit 1
           fi
           echo "Will use following Chainlink version: $chainlink_version"
+          echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+          echo "cl_ref_path=$cl_ref_path" >> $GITHUB_OUTPUT
       - name: Get image count
         id: get-image-count
         run: |
@@ -288,7 +284,6 @@ jobs:
     if: |
       always() &&
       needs.should-run.outputs.should_run == 'true' &&
-      github.ref_type != 'tag' &&
       (
         needs.select-versions.outputs.evm_implementations != '' ||
         github.event.inputs.base64TestList != ''
@@ -680,7 +675,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && format('Some tests failed, notifying <{0}>', secrets.COMPAT_SLACK_NOTIFICATION_HANDLE) || 'All Good!' }}"
+                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && format('Some tests failed, notifying <!subteam^{0}|bix-scale-eng>', secrets.COMPAT_SLACK_NOTIFICATION_HANDLE) || 'All Good!' }}"
                       }
                     },
                     {
