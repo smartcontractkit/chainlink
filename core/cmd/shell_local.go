@@ -34,6 +34,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -669,7 +670,11 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	cfg := txmgr.NewEvmTxmConfig(chain.Config().EVM())
 	feeCfg := txmgr.NewEvmTxmFeeConfig(chain.Config().EVM().GasEstimator())
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, ethClient.ConfiguredChainID(), "", assets.NewWei(assets.NewEth(100).ToInt()), chain.Config().EVM().Transactions().AutoPurge(), nil, orm, ethClient)
-	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+	htConfig := chain.Config().EVM().HeadTracker()
+	hb := headtracker.NewHeadBroadcaster(lggr)
+	htORM := headtracker.NewORM(*chain.ID(), db)
+	hs := headtracker.NewHeadSaver(lggr, htORM, chain.Config().EVM(), htConfig)
+	ht := headtracker.NewHeadTracker(lggr, ethClient, chain.Config().EVM(), htConfig, hb, hs, mailbox.NewMonitor(app.ID().String(), lggr))
 	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient, chain.Config().EVM().NodePool().Errors()),
 		cfg, feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), keyStore.Eth(), txBuilder, chain.Logger(), stuckTxDetector, ht)
 	totalNonces := endingNonce - beginningNonce + 1
