@@ -333,7 +333,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 		return err
 	}
 
-	t.config = tc
+	t.config.Store(tc)
 
 	triggerRegRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
@@ -343,7 +343,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 			WorkflowName:             e.workflow.name,
 			WorkflowOwner:            e.workflow.owner,
 		},
-		Config: tc,
+		Config: t.config.Load(),
 		Inputs: triggerInputs,
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
@@ -788,7 +788,7 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 			WorkflowOwner:            e.workflow.owner,
 		},
 		Inputs: triggerInputs,
-		Config: t.config,
+		Config: t.config.Load(),
 	}
 
 	// if t.trigger == nil, then we haven't initialized the workflow
