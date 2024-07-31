@@ -41,35 +41,21 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Find modified contracts
-        uses: AurorNZ/paths-filter@3b1f3abc3371cca888d8eb03dfa70bc8a9867629 # v4.0.0
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
           list-files: 'csv'
           base: ${{ env.BASE_REF }} #TODO change to inputs.base_ref after testing
           filters: |
-            ignored: &ignored
-              - '!contracts/src/v0.8/**/test/**'
-              - '!contracts/src/v0.8/**/tests/**'
-              - '!contracts/src/v0.8/**/*.t.sol'
-              - '!contracts/src/v0.8/*.t.sol'
-              - '!contracts/src/v0.8/**/testhelpers/**'
-              - '!contracts/src/v0.8/testhelpers/**'
-              - '!contracts/src/v0.8/vendor/**'
             shared: &shared
-              - 'contracts/src/v0.8/shared/**/*.sol'
-              - 'contracts/src/v0.8/interfaces/**/*.sol'
-              - 'contracts/src/v0.8/*.sol'
-              - *ignored            
+              - 'contracts/src/!(v0.8/**/test/**|v0.8/**/tests/**|v0.8/**/*.t.sol|v0.8/*.t.sol|v0.8/**/testhelpers/**|v0.8/testhelpers/**|v0.8/vendor/**)/(shared/**/*.sol|interfaces/**/*.sol|*.sol)'
             sol:
-              - 'contracts/src/v0.8/**/*.sol'
-              - *ignored
+              - 'contracts/src/!(v0.8/**/test/**|v0.8/**/tests/**|v0.8/**/*.t.sol|v0.8/*.t.sol|v0.8/**/testhelpers/**|v0.8/testhelpers/**|v0.8/vendor/**)/**/*.sol'
             product: &product
-              - 'contracts/src/v0.8/${{ env.PRODUCT }}/**/*.sol'         
-              - *ignored
+              - 'contracts/src/!(v0.8/**/test/**|v0.8/**/tests/**|v0.8/**/*.t.sol|v0.8/*.t.sol|v0.8/**/testhelpers/**|v0.8/testhelpers/**|v0.8/vendor/**)/${{ env.PRODUCT }}/**/*.sol'
             included:
               - *product
               - *shared
-              - *ignored            
 
       - name: Check for changes outside of artifact scope
         if: ${{ steps.changes.outputs.sol == 'true' }}
@@ -92,7 +78,9 @@ jobs:
             echo "## Action required: Please run this workflow separately for other products, if you want to generate the artifacts" >> $GITHUB_STEP_SUMMARY            
           else
             echo "No unexpected files found."
-          fi          
+          fi
+          
+          exit 1
 
       - name: Check for changes only in shared
         if: ${{ steps.changes.outputs.product == 'false' && steps.changes.outputs.shared == 'true' }}
