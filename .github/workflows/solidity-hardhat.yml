@@ -363,6 +363,8 @@ jobs:
           echo "No modified Solidity files found between ${{ env.BASE_REF }} and ${{ github.sha }} commits or they are located outside of ./contracts/src/v0.8 folder" >> $GITHUB_STEP_SUMMARY
           exit 1
 
+#name: Solidity-Hardhat
+#
 #on:
 #  merge_group:
 #  push:
@@ -388,7 +390,7 @@ jobs:
 #        with:
 #          filters: |
 #            src:
-#              - 'contracts/src/!(v0.8/(ccip|functions|keystone|l2ep|llo-feeds|transmission|vrf)/**)/**/*'
+#              - 'contracts/src/!(v0.8/(ccip|functions|keystone|l2ep|liquiditymanager|llo-feeds|transmission|vrf)/**)/**/*'
 #              - 'contracts/test/**/*'
 #              - 'contracts/package.json'
 #              - 'contracts/pnpm-lock.yaml'
