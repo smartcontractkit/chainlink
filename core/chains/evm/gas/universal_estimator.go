@@ -209,9 +209,6 @@ func (u *UniversalEstimator) GetDynamicFee(ctx context.Context, maxPrice *assets
 		return
 	}
 
-	if fee.FeeCap == nil || fee.TipCap == nil {
-		return fee, fmt.Errorf("dynamic price not set")
-	}
 	if fee.FeeCap.Cmp(maxPrice) > 0 {
 		u.logger.Warnf("estimated maxFeePerGas: %v is greater than the maximum price configured: %v, returning the maximum price instead.",
 			fee.FeeCap, maxPrice)
@@ -226,10 +223,10 @@ func (u *UniversalEstimator) GetDynamicFee(ctx context.Context, maxPrice *assets
 	return
 }
 
-// FetchDynamicPrice uses eth_feeHistory to fetch the baseFee of the latest block and the Nth maxPriorityFeePerGas percentiles
-// of the past X blocks. It also fetches the highest 85th maxPriorityFeePerGas percentile of the past X blocks. Z is configurable
-// and it represents the highest percentile we're willing to pay.
-// A buffer is added on top of the latest baseFee to catch fluctuations in the next blocks. On Ethereum the increase is baseFee*1.125 per block.
+// FetchDynamicPrice uses eth_feeHistory to fetch the baseFee of the next block and the Nth maxPriorityFeePerGas percentiles
+// of the past X blocks. It also fetches the highest 85th maxPriorityFeePerGas percentile of the past X blocks, which represents
+// the highest percentile we're willing to pay. A buffer is added on top of the latest baseFee to catch fluctuations in the next
+// blocks. On Ethereum the increase is baseFee * 1.125 per block, however in some chains that may vary.
 func (u *UniversalEstimator) FetchDynamicPrice() (fee DynamicFee, err error) {
 	ctx, cancel := u.stopCh.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
@@ -376,7 +373,7 @@ func (u *UniversalEstimator) BumpDynamicFee(ctx context.Context, originalFee Dyn
 	return bumpedFee, nil
 }
 
-// LimitBumpedFee selects the maximum value between the original fee and the bumped attempt. If the result is higher than the max price it gets capped.
+// LimitBumpedFee selects the maximum value between the bumped attempt and the current fee, if there is one. If the result is higher than the max price it gets capped.
 // Geth's implementation has a hard 10% minimum limit for the bumped values, otherwise it rejects the transaction with an error.
 // See: https://github.com/ethereum/go-ethereum/blob/bff330335b94af3643ac2fb809793f77de3069d4/core/tx_list.go#L298
 //
@@ -392,7 +389,7 @@ func LimitBumpedFee(originalFee *assets.Wei, currentFee *assets.Wei, bumpedFee *
 	// The first check is added for the following edge case:
 	// If originalFee is below 10 wei, then adding the minimum bump percentage won't have any effect on the final value because of rounding down.
 	// Similarly for bumpedFee, it can have the exact same value as the originalFee, even if we bumped, given an originalFee of less than 10 wei
-	// and a small BumpPercent.
+	// and a small enough BumpPercent.
 	if bumpedFee.Cmp(originalFee) == 0 ||
 		bumpedFee.Cmp(originalFee.AddPercentage(MinimumBumpPercentage)) < 0 {
 		return nil, fmt.Errorf("%w: %s is bumped less than minimum allowed percentage(%s) from originalFee: %s - maxPrice: %s",
