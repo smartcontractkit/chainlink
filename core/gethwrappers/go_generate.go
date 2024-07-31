@@ -154,20 +154,14 @@ package gethwrappers
 // ChainReader test contract
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ChainReaderTester/ChainReaderTester.abi ../../contracts/solc/v0.8.19/ChainReaderTester/ChainReaderTester.bin ChainReaderTester chain_reader_tester
 
-// Chainlink Functions
 //go:generate go generate ./functions
-
-// Chainlink Keystone
 //go:generate go generate ./keystone
-
-// Mercury
 //go:generate go generate ./llo-feeds
-
-// Operator Forwarder
 //go:generate go generate ./operatorforwarder
-
-// Shared
 //go:generate go generate ./shared
+//go:generate go generate ./transmission
+//go:generate go generate ./ccip
+//go:generate go generate ./liquiditymanager
 
 // Mocks that contain only events and functions to emit them
 // These contracts are used in testing Atlas flows. The contracts contain no logic, only events, structures, and functions to emit them.
@@ -177,8 +171,3 @@ package gethwrappers
 // 3. Compile events mock contracts. ./generation/compile_event_mock_contract.sh calls contracts/scripts/native_solc_compile_all_events_mock to compile events mock contracts.
 // 4. Generate wrappers for events mock contracts.
 //go:generate ./generation/compile_event_mock_contract.sh
-
-// Transmission
-//go:generate go generate ./transmission
-
-//go:generate go generate ./ccip
