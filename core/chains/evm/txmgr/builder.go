@@ -1,6 +1,7 @@
 package txmgr
 
 import (
+	"context"
 	"math/big"
 	"time"
 
@@ -17,6 +18,10 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
+type latestAndFinalizedBlockHeadTracker interface {
+	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error)
+}
+
 // NewTxm constructs the necessary dependencies for the EvmTxm (broadcaster, confirmer, etc) and returns a new EvmTxManager
 func NewTxm(
 	ds sqlutil.DataSource,
@@ -31,6 +36,7 @@ func NewTxm(
 	logPoller logpoller.LogPoller,
 	keyStore keystore.Eth,
 	estimator gas.EvmFeeEstimator,
+	headTracker latestAndFinalizedBlockHeadTracker,
 ) (txm TxManager,
 	err error,
 ) {
@@ -52,7 +58,7 @@ func NewTxm(
 	evmBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, lggr, checker, chainConfig.NonceAutoSync())
 	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
 	stuckTxDetector := NewStuckTxDetector(lggr, client.ConfiguredChainID(), chainConfig.ChainType(), fCfg.PriceMax(), txConfig.AutoPurge(), estimator, txStore, client)
-	evmConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr, stuckTxDetector)
+	evmConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr, stuckTxDetector, headTracker)
 	var evmResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
 		evmResender = NewEvmResender(lggr, txStore, txmClient, evmTracker, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
@@ -111,8 +117,9 @@ func NewEvmConfirmer(
 	txAttemptBuilder TxAttemptBuilder,
 	lggr logger.Logger,
 	stuckTxDetector StuckTxDetector,
+	headTracker latestAndFinalizedBlockHeadTracker,
 ) *Confirmer {
-	return txmgr.NewConfirmer(txStore, client, chainConfig, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil }, stuckTxDetector)
+	return txmgr.NewConfirmer(txStore, client, chainConfig, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil }, stuckTxDetector, headTracker)
 }
 
 // NewEvmTracker instantiates a new EVM tracker for abandoned transactions

@@ -27,6 +27,7 @@ import (
 	iutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 const (
@@ -102,6 +103,10 @@ var (
 	}, []string{"chainID"})
 )
 
+type confirmerHeadTracker interface {
+	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error)
+}
+
 // Confirmer is a broad service which performs four different tasks in sequence on every new longest chain
 // Step 1: Mark that all currently pending transaction attempts were broadcast before this block
 // Step 2: Check pending transactions for receipts
@@ -141,6 +146,8 @@ type Confirmer[
 
 	nConsecutiveBlocksChainTooShort int
 	isReceiptNil                    func(R) bool
+
+	headTracker confirmerHeadTracker
 }
 
 func NewConfirmer[
@@ -164,6 +171,7 @@ func NewConfirmer[
 	lggr logger.Logger,
 	isReceiptNil func(R) bool,
 	stuckTxDetector txmgrtypes.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	headTracker confirmerHeadTracker,
 ) *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Confirmer")
 	return &Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
@@ -181,6 +189,7 @@ func NewConfirmer[
 		mb:               mailbox.NewSingle[HEAD](),
 		isReceiptNil:     isReceiptNil,
 		stuckTxDetector:  stuckTxDetector,
+		headTracker:      headTracker,
 	}
 }
 
@@ -297,11 +306,12 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 		return fmt.Errorf("CheckConfirmedMissingReceipt failed: %w", err)
 	}
 
-	if head.LatestFinalizedHead() == nil {
-		return errors.New("There is no LatestFinalizedHead")
+	_, latestFinalizedHead, err := ec.headTracker.LatestAndFinalizedBlock(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve latest finalized head: %w", err)
 	}
 
-	if err := ec.CheckForReceipts(ctx, head.BlockNumber(), head.LatestFinalizedHead().BlockNumber()); err != nil {
+	if err := ec.CheckForReceipts(ctx, head.BlockNumber(), latestFinalizedHead.BlockNumber()); err != nil {
 		return fmt.Errorf("CheckForReceipts failed: %w", err)
 	}
 
@@ -322,7 +332,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	ec.lggr.Debugw("Finished RebroadcastWhereNecessary", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 	mark = time.Now()
 
-	if err := ec.EnsureConfirmedTransactionsInLongestChain(ctx, head); err != nil {
+	if err := ec.EnsureConfirmedTransactionsInLongestChain(ctx, head, latestFinalizedHead); err != nil {
 		return fmt.Errorf("EnsureConfirmedTransactionsInLongestChain failed: %w", err)
 	}
 
@@ -1010,14 +1020,10 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head types.Head[BLOCK_HASH]) error {
-	if head.LatestFinalizedHead() == nil {
-		return errors.New("There is no LatestFinalizedHead")
-	}
-
-	if head.ChainLength() < uint32(head.LatestFinalizedHead().BlockNumber()) {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head types.Head[BLOCK_HASH], latestFinalizedHead *evmtypes.Head) error {
+	if head.ChainLength() < uint32(latestFinalizedHead.BlockNumber()) {
 		logArgs := []interface{}{
-			"chainLength", head.ChainLength(), "latestFinalizedHead", head.LatestFinalizedHead().BlockNumber(),
+			"chainLength", head.ChainLength(), "latestFinalizedHead", latestFinalizedHead.BlockNumber(),
 		}
 		if ec.nConsecutiveBlocksChainTooShort > logAfterNConsecutiveBlocksChainTooShort {
 			warnMsg := "Chain length supplied for re-org detection was shorter than LatestFinalizedHead. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
