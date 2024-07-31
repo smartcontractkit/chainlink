@@ -75,6 +75,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 
 	// create l1Oracle only if it is supported for the chain
 	var l1Oracle rollups.L1Oracle
+	lggr.Infow("Checking if chain type is roll up", "chainType", cfg.ChainType(), "isRollUp", rollups.IsRollupWithL1Support(cfg.ChainType()))
 	if rollups.IsRollupWithL1Support(cfg.ChainType()) {
 		var err error
 		l1Oracle, err = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())

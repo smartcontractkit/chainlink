@@ -4,7 +4,7 @@ description: A composite action that allows building and publishing the test rem
 inputs:
   repository:
     description: The docker repository for the image
-    default: chainlink-tests
+    default: chainlink-ccip-tests
     required: false
   tag:
     description: The tag to use by default and to use for checking image existance
@@ -15,7 +15,7 @@ inputs:
     required: false
   suites:
     description: The test suites to build into the image
-    default: chaos migration reorg smoke soak benchmark load
+    default: chaos migration reorg smoke soak benchmark load ccip-tests/load ccip-tests/smoke ccip-tests/chaos
     required: false
   QA_AWS_ROLE_TO_ASSUME:
     description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action

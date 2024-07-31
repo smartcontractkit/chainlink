@@ -982,6 +982,17 @@ func TestBlock_UnmarshalJSON(t *testing.T) {
 		assert.Equal(t, int64(1708087260), b.Timestamp.Unix())
 		assert.Len(t, b.Transactions, 6)
 	})
+	t.Run("unmarshals EIP-4844 block", func(t *testing.T) {
+		b := new(evmtypes.Block)
+		err := b.UnmarshalJSON([]byte(eip4844Block))
+		assert.NoError(t, err)
+		assert.Equal(t, int64(5300694), b.Number)
+		assert.Equal(t, "0x3edd900025edab70dde26a52377c3d0a9474c3f540bd0131d58f508711272590", b.Hash.Hex())
+		assert.Equal(t, "0x077c1d68b52f8203cb90a71759a09b11c2a6577f97ea1fd4a8686a387fbedac8", b.ParentHash.Hex())
+		assert.Equal(t, assets.NewWeiI(96436174005), b.BaseFeePerGas)
+		assert.Equal(t, int64(1708087260), b.Timestamp.Unix())
+		assert.Len(t, b.Transactions, 6)
+	})
 }
 
 func TestTransaction_UnmarshalJSON(t *testing.T) {

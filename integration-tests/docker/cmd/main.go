@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/testcontainers/testcontainers-go"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/cmd/internal"
+	"github.com/smartcontractkit/ccip/integration-tests/docker/cmd/internal"
 )
 
 var rootCmd = &cobra.Command{

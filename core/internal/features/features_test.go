@@ -300,7 +300,7 @@ type OperatorContracts struct {
 func setupOperatorContracts(t *testing.T) OperatorContracts {
 	user := testutils.MustNewSimTransactor(t)
 	genesisData := core.GenesisAlloc{
-		user.From: {Balance: assets.Ether(1000).ToInt()},
+		user.From: {Balance: assets.Ether(10000).ToInt()},
 	}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
 	b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
@@ -385,7 +385,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			// Fund node account with ETH.
 			n, err := b.NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 			require.NoError(t, err)
-			tx = cltest.NewLegacyTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+			tx = cltest.NewLegacyTransaction(n, sendingKeys[0].Address, assets.Ether(1000).ToInt(), 21000, big.NewInt(1000000000), nil)
 			signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 			require.NoError(t, err)
 			err = b.SendTransaction(testutils.Context(t), signedTx)
@@ -484,7 +484,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 	// Fund node account with ETH.
 	n, err := b.NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 	require.NoError(t, err)
-	tx := cltest.NewLegacyTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+	tx := cltest.NewLegacyTransaction(n, sendingKeys[0].Address, assets.Ether(1000).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(testutils.Context(t), signedTx)
@@ -631,7 +631,7 @@ observationSource   = """
 		output := outputs[0]
 		receipt := output.(map[string]interface{})
 		assert.Equal(t, "0x11", receipt["blockNumber"])
-		assert.Equal(t, "0x7a120", receipt["gasUsed"])
+		assert.Equal(t, "0x7a1200", receipt["gasUsed"])
 		assert.Equal(t, "0x0", receipt["status"])
 	})
 }
@@ -715,7 +715,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
 	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := cltest.NewLegacyTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+	tx := cltest.NewLegacyTransaction(n, transmitter, assets.Ether(1000).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(testutils.Context(t), signedTx)
@@ -758,7 +758,7 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := cltest.NewLegacyTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+	tx := cltest.NewLegacyTransaction(n, transmitter, assets.Ether(1000).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(testutils.Context(t), signedTx)

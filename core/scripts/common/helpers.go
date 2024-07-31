@@ -23,6 +23,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/shopspring/decimal"
 
+	types2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
 )
@@ -166,13 +168,15 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 
 	case 420: // Optimism Goerli
 		prefix = "https://goerli-optimism.etherscan.io"
+	case 11155420: // Optimism Sepolia
+		prefix = "https://optimism-sepolia.blockscout.com/"
 
 	case ArbitrumGoerliChainID: // Arbitrum Goerli
 		prefix = "https://goerli.arbiscan.io"
 	case ArbitrumOneChainID: // Arbitrum mainnet
 		prefix = "https://arbiscan.io"
 	case ArbitrumSepoliaChainID: // Arbitrum Sepolia
-		prefix = "https://sepolia.arbiscan.io"
+		prefix = "https://sepolia.arbiscan.io/"
 
 	case 56: // BSC mainnet
 		prefix = "https://bscscan.com"
@@ -198,6 +202,16 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 	case 53935: // Defi Kingdoms mainnet
 		prefix = "https://subnets.avax.network/defi-kingdoms"
 
+	case 1111: // wemix mainnet
+		prefix = "https://explorer.wemix.com/"
+	case 1112: // wemix testnet
+		prefix = "https://explorer.test.wemix.com"
+
+	case 255: // Kroma mainnet
+		prefix = "https://kromascan.com/"
+	case 2358: // Kroma sepolia
+		prefix = "https://sepolia.kromascan.com/"
+
 	case 1666600000, 1666600001, 1666600002, 1666600003: // Harmony mainnet
 		prefix = "https://explorer.harmony.one"
 	case 1666700000, 1666700001, 1666700002, 1666700003: // Harmony testnet
@@ -207,6 +221,8 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 		prefix = "https://goerli.basescan.org"
 	case 8453:
 		prefix = "https://basescan.org"
+	case 84532:
+		return "https://base-sepolia.blockscout.com/"
 
 	case 280: // zkSync Goerli testnet
 		prefix = "https://goerli.explorer.zksync.io"
@@ -595,6 +611,17 @@ func IsAvaxSubnet(chainID int64) bool {
 		chainID == 807424 || // Nexon QA
 		chainID == 847799 || // Nexon Stage
 		chainID == 60118 // Nexon Mainnet
+}
+
+func ToOffchainPublicKey(s string) (key types2.OffchainPublicKey) {
+	copy(key[:], hexutil.MustDecode(s)[:])
+	return
+}
+
+func StringTo32Bytes(s string) [32]byte {
+	var b [32]byte
+	copy(b[:], hexutil.MustDecode(s))
+	return b
 }
 
 func UpkeepLink(chainID int64, upkeepID *big.Int) string {

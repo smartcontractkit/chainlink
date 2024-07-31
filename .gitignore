@@ -62,6 +62,9 @@ core/cmd/vrfkey1
 
 # Integration Tests
 integration-tests/**/logs/
+integration-tests/**/tmp_*
+integration-tests/**/testconfig/override/**.env
+integration-tests/**/secrets.toml
 tests-*.xml
 *.test
 tmp-manifest-*.yaml
@@ -80,6 +83,16 @@ cosign.*
 dist/
 MacOSX*
 
+cache
+core/services/ocr2/plugins/ccip/transactions.rlp
+lcov.info
+!core/services/ocr2/plugins/ccip/internal/cache/
+
+
+core/scripts/ccip/json/credentials
+core/scripts/ccip/json/deployments
+core/scripts/ccip/csv/node-wallets
+
 # Test & linter reports
 *report.xml
 *report.json
@@ -89,6 +102,12 @@ contracts/yarn.lock
 
 # Ignore DevSpace cache and log folder
 .devspace/
+
+/core/scripts/ccip/json/credentials
+/core/scripts/ccip/revert-reason/bin/ccip-revert-reason
+
+# dependencies generated after running `go mod vendor`
+vendor/
 go.work*
 
 # This sometimes shows up for some reason

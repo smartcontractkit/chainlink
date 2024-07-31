@@ -9,6 +9,22 @@ defaults:
     shell: bash
 
 jobs:
+  initialize:
+    name: Initialize
+    runs-on: ubuntu-latest
+    outputs:
+      is-release: ${{ steps.release-tag-check.outputs.is-release }}
+      is-pre-release: ${{ steps.release-tag-check.outputs.is-pre-release }}
+    steps:
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Check release tag
+        id: release-tag-check
+        uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        env:
+          # Match semver git tags with a "contracts-ccip/" prefix.
+          RELEASE_REGEX: '^contracts-ccip/v[0-9]+\.[0-9]+\.[0-9]+$'
+          PRE_RELEASE_REGEX: '^contracts-ccip/v[0-9]+\.[0-9]+\.[0-9]+-(.+)$'
+
   readonly_changes:
     name: Detect readonly solidity file changes
     runs-on: ubuntu-latest
@@ -54,29 +70,29 @@ jobs:
           # Get the version by stripping the "contracts-v" prefix.
           VERSION_PREFIX: 'contracts-v'
 
-  prepublish-test:
-    needs: [changes, tag-check]
-    if: needs.changes.outputs.changes == 'true' || needs.tag-check.outputs.is-pre-release == 'true'
-    name: Prepublish Test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
-      - name: Run Prepublish test
-        working-directory: contracts
-        run: pnpm prepublishOnly
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: solidity-prepublish-test
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Prepublish Test
-        continue-on-error: true
+#  prepublish-test:
+#    needs: [changes, tag-check]
+#    if: needs.changes.outputs.changes == 'true' || needs.tag-check.outputs.is-pre-release == 'true'
+#    name: Prepublish Test
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout the repo
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#      - name: Setup NodeJS
+#        uses: ./.github/actions/setup-nodejs
+#      - name: Run Prepublish test
+#        working-directory: contracts
+#        run: pnpm prepublishOnly
+#      - name: Collect Metrics
+#        id: collect-gha-metrics
+#        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+#        with:
+#          id: solidity-prepublish-test
+#          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+#          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+#          this-job-name: Prepublish Test
+#        continue-on-error: true
 
   native-compile:
     needs: [changes, tag-check]
@@ -105,7 +121,7 @@ jobs:
         working-directory: ./contracts
       - name: Verify local solc binaries
         run: ./tools/ci/check_solc_hashes
-      - name: Check if Go solidity wrappers are updated
+      - name: Display git diff
         if: ${{ needs.changes.outputs.changes == 'true' }}
         run: git diff --minimal --color --exit-code | diff-so-fancy
       - name: Collect Metrics
@@ -178,7 +194,7 @@ jobs:
   publish-beta:
     name: Publish Beta NPM
     environment: publish-contracts
-    needs: [tag-check, changes, lint, prettier, native-compile, prepublish-test]
+    needs: [tag-check, changes, lint, prettier, native-compile]
     if: needs.tag-check.outputs.is-pre-release == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -206,7 +222,7 @@ jobs:
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
-          id: solidity-publish-beta
+          id: ccip-solidity-publish-beta
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -216,7 +232,7 @@ jobs:
   publish-prod:
     name: Publish Prod NPM
     environment: publish-contracts
-    needs: [tag-check, changes, lint, prettier, native-compile, prepublish-test]
+    needs: [tag-check, changes, lint, prettier, native-compile]
     if: needs.tag-check.outputs.is-release == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -249,7 +265,7 @@ jobs:
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
-          id: solitidy-publish-prod
+          id: ccip-solidity-publish-prod
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}

@@ -252,6 +252,8 @@ contract OffchainAggregator is ITypeAndVersion {
 contract SuperDuperAggregator is ITypeAndVersion {
     /// This is a new contract that has not been released yet, so we
     /// add a `-dev` suffix to the typeAndVersion.
+
+    // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
     string public constant override typeAndVersion = "SuperDuperAggregator 1.1.0-dev";
 
     function getData() public returns(uint256) {

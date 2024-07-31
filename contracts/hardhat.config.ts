@@ -39,8 +39,8 @@ let config = {
   paths: {
     artifacts: './artifacts',
     cache: './cache',
-    sources: './src',
-    tests: './test',
+    sources: './src/v0.8',
+    tests: './test/v0.8',
   },
   typechain: {
     outDir: './typechain',
