@@ -611,6 +611,27 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
     s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
   }
 
+  function test_execute_RouterYULCall_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateSingleBasicMessage();
+
+    // gas limit too high, Router's external call should revert
+    messages[0].gasLimit = 1e36;
+    messages[0].receiver = address(new ConformingReceiver(address(s_destRouter), s_destFeeToken));
+    messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash());
+
+    Internal.ExecutionReport memory executionReport = _generateReportFromMessages(messages);
+
+    vm.expectEmit();
+    emit EVM2EVMOffRamp.ExecutionStateChanged(
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.FAILURE,
+      abi.encodeWithSelector(CallWithExactGas.NotEnoughGasForCall.selector)
+    );
+
+    s_offRamp.execute(executionReport, new uint256[](0));
+  }
+
   // Reverts
 
   function test_InvalidMessageId_Revert() public {
@@ -719,24 +740,6 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
     Internal.ExecutionReport memory executionReport = _generateReportFromMessages(messages);
     vm.expectRevert(
       abi.encodeWithSelector(EVM2EVMOffRamp.MessageTooLarge.selector, MAX_DATA_SIZE, messages[0].data.length)
-    );
-    s_offRamp.execute(executionReport, new uint256[](0));
-  }
-
-  function test_RouterYULCall_Revert() public {
-    Internal.EVM2EVMMessage[] memory messages = _generateSingleBasicMessage();
-
-    // gas limit too high, Router's external call should revert
-    messages[0].gasLimit = 1e36;
-    messages[0].receiver = address(new ConformingReceiver(address(s_destRouter), s_destFeeToken));
-    messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash());
-
-    Internal.ExecutionReport memory executionReport = _generateReportFromMessages(messages);
-
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        EVM2EVMOffRamp.ExecutionError.selector, abi.encodeWithSelector(CallWithExactGas.NotEnoughGasForCall.selector)
-      )
     );
     s_offRamp.execute(executionReport, new uint256[](0));
   }

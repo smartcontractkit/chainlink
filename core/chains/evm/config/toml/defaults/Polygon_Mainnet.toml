@@ -2,6 +2,7 @@
 ChainID = '137'
 # It is quite common to see re-orgs on polygon go several hundred blocks deep. See: https://polygonscan.com/blocks_forked
 FinalityDepth = 500
+FinalityTagEnabled = true
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 LogPollInterval = '1s'
 MinIncomingConfirmations = 5

@@ -44,3 +44,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ROUTE53_ZONE_ID: ${{ secrets.ROUTE53_ZONE_ID_SAND }}
+          SUBDOMAIN_PREFIX: crib-ccip

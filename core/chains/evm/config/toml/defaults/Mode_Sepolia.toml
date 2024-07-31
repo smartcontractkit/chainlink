@@ -1,0 +1,30 @@
+ChainID = '919'
+FinalityDepth = 200
+FinalityTagEnabled = true
+ChainType = 'optimismBedrock'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 wei'
+PriceMax = '120 gwei'
+LimitDefault = 8000000
+FeeCapDefault = '120 gwei'
+
+[GasEstimator.BlockHistory]
+# Default is 24, which leads to bumpy gas prices. In CCIP
+# we want to smooth out the gas prices, so we increase the sample size.
+BlockHistorySize = 200
+# The formula for FeeCap is (current block base fee * (1.125 ^ EIP1559FeeCapBufferBlocks) + tipcap)
+# where tipcap is managed by the block history estimators. In the context of CCIP,
+# the gas price is relayed to other changes for quotes so we want accurate/avg not pessimistic values.
+# So we set this to zero so FeeCap = baseFee + tipcap.
+EIP1559FeeCapBufferBlocks = 0
+
+[HeadTracker]
+HistoryDepth = 300
+
+[NodePool]
+PollFailureThreshold = 2
+PollInterval = '3s'

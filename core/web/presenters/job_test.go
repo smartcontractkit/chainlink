@@ -130,6 +130,7 @@ func TestJob(t *testing.T) {
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
 						"errors": []
 					}
 				}
@@ -208,6 +209,7 @@ func TestJob(t *testing.T) {
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
 						"errors": []
 					}
 				}
@@ -296,6 +298,7 @@ func TestJob(t *testing.T) {
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
 						"errors": []
 					}
 				}
@@ -361,6 +364,7 @@ func TestJob(t *testing.T) {
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
 						"errors": []
 					}
 				}
@@ -423,6 +427,7 @@ func TestJob(t *testing.T) {
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
                         "errors": []
                     }
                 }
@@ -481,6 +486,7 @@ func TestJob(t *testing.T) {
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
 						"errors": []
 					}
 				}
@@ -566,7 +572,9 @@ func TestJob(t *testing.T) {
 							"dotDagSource": ""
 						},
 						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,	
+						"standardCapabilitiesSpec": null,
+						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
 						"errors": []
 					}
 				}
@@ -649,6 +657,7 @@ func TestJob(t *testing.T) {
 						},
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
 						"errors": []
 					}
 				}
@@ -731,6 +740,7 @@ func TestJob(t *testing.T) {
 						},
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
 						"errors": []
 					}
 				}
@@ -780,14 +790,14 @@ func TestJob(t *testing.T) {
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": {
-							"blockchainTimeout":"0s", 
-							"contractConfigConfirmations":0, 
-							"contractConfigTrackerPollInterval":"0s", 
-							"contractConfigTrackerSubscribeInterval":"0s", 
-							"contractID":"0x16988483b46e695f6c8D58e6e1461DC703e008e1", 
-							"createdAt":"0001-01-01T00:00:00Z", 
-							"relay":"evm", 
-							"relayConfig":{"chainID":1337}, 
+							"blockchainTimeout":"0s",
+							"contractConfigConfirmations":0,
+							"contractConfigTrackerPollInterval":"0s",
+							"contractConfigTrackerSubscribeInterval":"0s",
+							"contractID":"0x16988483b46e695f6c8D58e6e1461DC703e008e1",
+							"createdAt":"0001-01-01T00:00:00Z",
+							"relay":"evm",
+							"relayConfig":{"chainID":1337},
 							"updatedAt":"0001-01-01T00:00:00Z"
 						},
 						"pipelineSpec": {
@@ -797,6 +807,7 @@ func TestJob(t *testing.T) {
 						},
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
 						"errors": []
 					}
 				}
@@ -855,6 +866,7 @@ func TestJob(t *testing.T) {
 							"updatedAt":"0001-01-01T00:00:00Z"
 						},
 						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
 						"pipelineSpec": {
 							"id": 1,
 							"jobID": 0,
@@ -919,6 +931,7 @@ func TestJob(t *testing.T) {
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
 						"pipelineSpec": {
 							"id": 1,
 							"jobID": 0,
@@ -978,6 +991,72 @@ func TestJob(t *testing.T) {
 							"config":"testconfig",
 							"createdAt":"0001-01-01T00:00:00Z",
 							"updatedAt":"0001-01-01T00:00:00Z"
+						},
+						"ccipSpec": null,
+						"pipelineSpec": {
+							"id": 1,
+							"jobID": 0,
+							"dotDagSource": ""
+						},
+						"errors": []
+					}
+				}
+			}`,
+		},
+		{
+			name: "ccip spec",
+			job: job.Job{
+				ID: 1,
+				CCIPSpec: &job.CCIPSpec{
+					ID:                     3,
+					CreatedAt:              timestamp,
+					UpdatedAt:              timestamp,
+					CapabilityVersion:      "4.5.9",
+					CapabilityLabelledName: "ccip",
+				},
+				PipelineSpec: &pipeline.Spec{
+					ID:           1,
+					DotDagSource: "",
+				},
+				ExternalJobID: uuid.MustParse("0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"),
+				Type:          job.CCIP,
+				SchemaVersion: 1,
+				Name:          null.StringFrom("ccip test"),
+			},
+			want: `
+			{
+				"data": {
+					"type": "jobs",
+					"id": "1",
+					"attributes": {
+						"name": "ccip test",
+						"type": "ccip",
+						"schemaVersion": 1,
+						"maxTaskDuration": "0s",
+						"externalJobID": "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
+						"directRequestSpec": null,
+						"fluxMonitorSpec": null,
+						"gasLimit": null,
+						"forwardingAllowed": false,
+						"cronSpec": null,
+						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
+						"keeperSpec": null,
+						"vrfSpec": null,
+						"webhookSpec": null,
+						"workflowSpec": null,
+						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
+						"bootstrapSpec": null,
+						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,
+						"ccipSpec": {
+							"capabilityVersion":"4.5.9",
+							"capabilityLabelledName":"ccip",
+							"ocrKeyBundleIDs": null,
+							"p2pKeyID": "",
+							"createdAt":"2000-01-01T00:00:00Z",
+							"updatedAt":"2000-01-01T00:00:00Z"
 						},
 						"pipelineSpec": {
 							"id": 1,
@@ -1058,6 +1137,7 @@ func TestJob(t *testing.T) {
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
 						"errors": [{
 							"id": 200,
 							"description": "some error",

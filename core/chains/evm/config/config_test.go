@@ -232,8 +232,8 @@ func TestChainScopedConfig_GasEstimator(t *testing.T) {
 	assert.Equal(t, assets.GWei(20), ge.PriceDefault())
 	assert.Equal(t, assets.GWei(500), ge.PriceMax())
 	assert.Equal(t, assets.GWei(1), ge.PriceMin())
-	assert.Equal(t, uint64(500000), ge.LimitDefault())
-	assert.Equal(t, uint64(500000), ge.LimitMax())
+	assert.Equal(t, uint64(8_000_000), ge.LimitDefault())
+	assert.Equal(t, uint64(8_000_000), ge.LimitMax())
 	assert.Equal(t, float32(1), ge.LimitMultiplier())
 	assert.Equal(t, uint64(21000), ge.LimitTransfer())
 	assert.Equal(t, assets.GWei(5), ge.BumpMin())
@@ -267,23 +267,23 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 		expectedGasLimitDefault        uint64
 		expectedMinimumContractPayment string
 	}{
-		{"default", 0, 500000, "0.00001"},
-		{"mainnet", 1, 500000, "0.1"},
-		{"kovan", 42, 500000, "0.1"},
+		{"default", 0, 8_000_000, "0.00001"},
+		{"mainnet", 1, 8_000_000, "0.1"},
+		{"kovan", 42, 8_000_000, "0.1"},
 
-		{"optimism", 10, 500000, "0.00001"},
-		{"optimism", 69, 500000, "0.00001"},
-		{"optimism", 420, 500000, "0.00001"},
+		{"optimism", 10, 8_000_000, "0.00001"},
+		{"optimism", 69, 8_000_000, "0.00001"},
+		{"optimism", 420, 8_000_000, "0.00001"},
 
-		{"bscMainnet", 56, 500000, "0.00001"},
-		{"hecoMainnet", 128, 500000, "0.00001"},
-		{"fantomMainnet", 250, 500000, "0.00001"},
-		{"fantomTestnet", 4002, 500000, "0.00001"},
-		{"polygonMatic", 800001, 500000, "0.00001"},
-		{"harmonyMainnet", 1666600000, 500000, "0.00001"},
-		{"harmonyTestnet", 1666700000, 500000, "0.00001"},
+		{"bscMainnet", 56, 8_000_000, "0.00001"},
+		{"hecoMainnet", 128, 8_000_000, "0.00001"},
+		{"fantomMainnet", 250, 8_000_000, "0.00001"},
+		{"fantomTestnet", 4002, 8_000_000, "0.00001"},
+		{"polygonMatic", 800001, 8_000_000, "0.00001"},
+		{"harmonyMainnet", 1666600000, 8_000_000, "0.00001"},
+		{"harmonyTestnet", 1666700000, 8_000_000, "0.00001"},
 
-		{"gnosisMainnet", 100, 500000, "0.00001"},
+		{"gnosisMainnet", 100, 8_000_000, "0.00001"},
 	}
 	for _, test := range tests {
 		tt := test

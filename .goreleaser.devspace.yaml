@@ -1,5 +1,5 @@
 ## goreleaser <1.14.0
-project_name: chainlink-devspace
+project_name: ccip
 
 env:
   - ZIG_EXEC={{ if index .Env "ZIG_EXEC"  }}{{ .Env.ZIG_EXEC }}{{ else }}zig{{ end }}

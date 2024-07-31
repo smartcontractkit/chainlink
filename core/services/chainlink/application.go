@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccipcapability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 
@@ -204,6 +205,28 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if opts.CapabilitiesRegistry == nil {
 		// for tests only, in prod Registry should always be set at this point
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
+	}
+
+	var capabilityRegistrySyncer registrysyncer.Syncer
+
+	if cfg.Capabilities().ExternalRegistry().Address() != "" {
+		rid := cfg.Capabilities().ExternalRegistry().RelayID()
+		registryAddress := cfg.Capabilities().ExternalRegistry().Address()
+		relayer, err := relayerChainInterops.Get(rid)
+		if err != nil {
+			return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
+		}
+		registrySyncer, err := registrysyncer.New(
+			globalLogger,
+			relayer,
+			registryAddress,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("could not configure syncer: %w", err)
+		}
+
+		capabilityRegistrySyncer = registrySyncer
+		srvcs = append(srvcs, capabilityRegistrySyncer)
 	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
@@ -519,6 +542,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			cfg.OCR2(),
 			cfg.Insecure(),
 			opts.RelayerChainInteroperators,
+		)
+		delegates[job.CCIP] = ccipcapability.NewDelegate(
+			globalLogger,
+			loopRegistrarConfig,
+			pipelineRunner,
+			opts.RelayerChainInteroperators.LegacyEVMChains(),
+			capabilityRegistrySyncer,
+			opts.KeyStore,
+			opts.DS,
+			peerWrapper,
+			telemetryManager,
+			cfg.Capabilities(),
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")

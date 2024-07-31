@@ -109,6 +109,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     bytes32[] ids; // ══╸ The IDs that key into the routes that will be modified if the update is applied
     address[] to; // ═══╸ The address of the contracts that the route will point to if the updated is applied
   }
+
   ContractProposalSet private s_proposedContractSet;
 
   event ContractProposed(

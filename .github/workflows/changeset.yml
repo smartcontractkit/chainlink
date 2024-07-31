@@ -4,7 +4,7 @@
 #
 name: Changeset
 
-on: pull_request
+on: 
 
 jobs:
   changeset:
@@ -24,7 +24,7 @@ jobs:
 
     # For security reasons, GITHUB_TOKEN is read-only on forks, so we cannot leave comments on PRs.
     # This check skips the job if it is detected we are running on a fork.
-    if: ${{ github.event.pull_request.head.repo.full_name == 'smartcontractkit/chainlink' }}
+    if: ${{ github.event.pull_request.head.repo.full_name == 'smartcontractkit/ccip' }}
     name: Changeset checker
     runs-on: ubuntu-latest
     steps:

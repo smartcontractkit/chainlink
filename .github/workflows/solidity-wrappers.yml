@@ -58,7 +58,7 @@ jobs:
         uses: smartcontractkit/.github/actions/setup-github-token@ef78fa97bf3c77de6563db1175422703e9e6674f # setup-github-token@0.2.1
         id: get-gh-token
         with:
-          aws-role-arn:  ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
+          aws-role-arn:  ${{ secrets.AWS_OIDC_CCIP_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
           aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
           aws-region: ${{ secrets.AWS_REGION }}
 

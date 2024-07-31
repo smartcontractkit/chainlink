@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	d "github.com/smartcontractkit/chainlink/integration-tests/docker"
@@ -171,7 +172,7 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 	}
 
 	if te.ClCluster == nil || len(te.ClCluster.Nodes) == 0 {
-		return fmt.Errorf("chainlink nodes are nil, unable cleanup chainlink nodes")
+		return fmt.Errorf("chainlink nodes are nil, unable to cleanup chainlink nodes")
 	}
 
 	te.logWhetherAllContainersAreRunning()

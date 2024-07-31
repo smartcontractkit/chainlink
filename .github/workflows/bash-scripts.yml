@@ -1,7 +1,9 @@
 name: Bash Scripts
 
 on:
-  pull_request:
+  push:
+    branches:
+      - this-workflow-is-disabled-for-ccip
 
 jobs:
   changes:
