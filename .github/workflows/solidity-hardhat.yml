@@ -50,7 +50,7 @@ jobs:
             shared: &shared
               - modified|added: 'contracts/src/!(v0.8/**/test/**|v0.8/**/tests/**|v0.8/**/*.t.sol|v0.8/*.t.sol|v0.8/**/testhelpers/**|v0.8/testhelpers/**|v0.8/vendor/**)/(shared/**/*.sol|interfaces/**/*.sol|*.sol)'
             sol:
-              - modified|added: 'contracts/src/!(v0.8/**/test/**|v0.8/**/tests/**|v0.8/**/*.t.sol|v0.8/*.t.sol|v0.8/**/testhelpers/**|v0.8/testhelpers/**|v0.8/vendor/**)/**/*.sol'
+              - modified|added: 'contracts/src/v0.8/!(test|tests|**/*.t.sol|*.t.sol|testhelpers|vendor)/**/!(test|tests|testhelpers|vendor)/!(test|tests|*.t.sol|testhelpers|vendor)/**/*.sol'
             product: &product
               - modified|added: 'contracts/src/!(v0.8/**/test/**|v0.8/**/tests/**|v0.8/**/*.t.sol|v0.8/*.t.sol|v0.8/**/testhelpers/**|v0.8/testhelpers/**|v0.8/vendor/**)/${{ env.PRODUCT }}/**/*.sol'
             included:
@@ -61,7 +61,8 @@ jobs:
         if: ${{ steps.changes.outputs.sol == 'true' }}
         shell: bash
         run: |
-          echo "::debug::Modified contracts: ${{ steps.changes.outputs.sol_files }}"
+          echo "::debug::Modified contracts:"
+          echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n'
           excluded_paths_pattern="!/^contracts\/src\/v0\.8\/shared/ && !/^contracts\/src\/v0\.8\/${{ env.PRODUCT}}/ && !/^contracts\/src\/v0\.8\/[^\/]+\.sol$/"
           echo "::debug::Excluded paths: $excluded_paths_pattern"
           unexpected_files=$(echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n' | awk "$excluded_paths_pattern")
