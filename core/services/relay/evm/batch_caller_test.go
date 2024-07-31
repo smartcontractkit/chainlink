@@ -21,7 +21,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-//go:generate mockery --quiet --name Codec --srcpkg=github.com/smartcontractkit/chainlink-common/pkg/types --output ./mocks/ --case=underscore
 func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 	testCases := []struct {
 		name                          string

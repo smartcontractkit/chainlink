@@ -63,7 +63,6 @@ func (c Call) String() string {
 		c.ContractAddress.Hex(), c.ContractName, c.MethodName, c.Params, c.ReturnVal)
 }
 
-//go:generate mockery --quiet --name BatchCaller --output ./rpclibmocks --outpkg rpclibmocks --filename batch_caller.go --case=underscore
 type BatchCaller interface {
 	// BatchCall executes all the provided BatchRequest and returns the results in the same order
 	// of the calls. Pass blockNumber=0 to use the latest block.

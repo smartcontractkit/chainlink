@@ -101,13 +101,11 @@ func (e *ServerRequest) Cancel(err types.Error, msg string) error {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
-	if e.hasResponse() {
-		return fmt.Errorf("request already has response")
-	}
-
-	e.setError(err, msg)
-	if err := e.sendResponses(); err != nil {
-		return fmt.Errorf("failed to send responses: %w", err)
+	if !e.hasResponse() {
+		e.setError(err, msg)
+		if err := e.sendResponses(); err != nil {
+			return fmt.Errorf("failed to send responses: %w", err)
+		}
 	}
 
 	return nil
