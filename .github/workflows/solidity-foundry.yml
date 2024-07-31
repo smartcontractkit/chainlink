@@ -120,7 +120,7 @@ jobs:
           this-job-name: Foundry Tests ${{ matrix.product }}
         continue-on-error: true
 
-  fmt:
+  solidity-forge-fmt:
     strategy:
       fail-fast: false
       matrix:
@@ -165,7 +165,7 @@ jobs:
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
-          id: ccip-solidity-foundry-fmt
+          id: solidity-forge-fmt
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
