@@ -77,6 +77,18 @@ jobs:
           channel-id: "#team-core"
           slack-message: "golangci-lint failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
 
+  go-mod-validation:
+    if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
+    name: Validate go.mod dependencies
+    runs-on: ubuntu-latest
+    needs: [filter]
+    steps:
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Validate go.mod
+        uses: smartcontractkit/.github/apps/go-mod-validator@ed160c68552180fd2ad6b04b713612e02ae87e75 # go-mod-validator@0.2.0
+
   core:
     env:
       # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
