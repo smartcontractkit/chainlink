@@ -311,6 +311,26 @@ type clientRequestTestDispatcher struct {
 	msgs chan *types.MessageBody
 }
 
+func (t *clientRequestTestDispatcher) Name() string {
+	return "clientRequestTestDispatcher"
+}
+
+func (t *clientRequestTestDispatcher) Start(ctx context.Context) error {
+	return nil
+}
+
+func (t *clientRequestTestDispatcher) Close() error {
+	return nil
+}
+
+func (t *clientRequestTestDispatcher) Ready() error {
+	return nil
+}
+
+func (t *clientRequestTestDispatcher) HealthReport() map[string]error {
+	return nil
+}
+
 func (t *clientRequestTestDispatcher) SetReceiver(capabilityId string, donId uint32, receiver types.Receiver) error {
 	return nil
 }

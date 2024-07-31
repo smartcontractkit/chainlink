@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │    Compiling LiquidityManager contracts...   │"
+echo " └──────────────────────────────────────────────┘"
+
+SOLC_VERSION="0.8.24"
+OPTIMIZE_RUNS=1000000
+
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
+
+compileContract () {
+  local contract
+  contract=$(basename "$1" ".sol")
+
+  solc @arbitrum/="$ROOT"/contracts/node_modules/@arbitrum/ \
+       @eth-optimism/="$ROOT"/contracts/node_modules/@eth-optimism/ \
+       @openzeppelin/="$ROOT"/contracts/node_modules/@openzeppelin/ \
+       --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+      -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
+      --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8,"$ROOT"/contracts/node_modules \
+      --evm-version paris \
+      "$ROOT"/contracts/src/v0.8/"$1"
+}
+
+
+# Liquidity Management
+compileContract liquiditymanager/LiquidityManager.sol
+compileContract liquiditymanager/bridge-adapters/ArbitrumL1BridgeAdapter.sol
+compileContract liquiditymanager/bridge-adapters/ArbitrumL2BridgeAdapter.sol
+compileContract liquiditymanager/bridge-adapters/OptimismL1BridgeAdapter.sol
+compileContract liquiditymanager/bridge-adapters/OptimismL2BridgeAdapter.sol
+compileContract liquiditymanager/test/mocks/NoOpOCR3.sol
+compileContract liquiditymanager/test/mocks/MockBridgeAdapter.sol
+compileContract liquiditymanager/test/helpers/ReportEncoder.sol
+
+# Arbitrum helpers
+compileContract liquiditymanager/interfaces/arbitrum/IArbSys.sol
+compileContract liquiditymanager/interfaces/arbitrum/INodeInterface.sol
+compileContract liquiditymanager/interfaces/arbitrum/IL2ArbitrumGateway.sol
+compileContract liquiditymanager/interfaces/arbitrum/IL2ArbitrumMessenger.sol
+compileContract liquiditymanager/interfaces/arbitrum/IArbRollupCore.sol
+compileContract liquiditymanager/interfaces/arbitrum/IArbitrumL1GatewayRouter.sol
+compileContract liquiditymanager/interfaces/arbitrum/IArbitrumInbox.sol
+compileContract liquiditymanager/interfaces/arbitrum/IArbitrumGatewayRouter.sol
+compileContract liquiditymanager/interfaces/arbitrum/IArbitrumTokenGateway.sol
+compileContract liquiditymanager/interfaces/arbitrum/IAbstractArbitrumTokenGateway.sol
+
+# Optimism helpers
+compileContract liquiditymanager/interfaces/optimism/IOptimismPortal.sol
+compileContract liquiditymanager/interfaces/optimism/IOptimismL2OutputOracle.sol
+compileContract liquiditymanager/interfaces/optimism/IOptimismL2ToL1MessagePasser.sol
+compileContract liquiditymanager/interfaces/optimism/IOptimismCrossDomainMessenger.sol
+compileContract liquiditymanager/interfaces/optimism/IOptimismPortal2.sol
+compileContract liquiditymanager/interfaces/optimism/IOptimismDisputeGameFactory.sol
+compileContract liquiditymanager/interfaces/optimism/IOptimismStandardBridge.sol
+compileContract liquiditymanager/interfaces/optimism/IOptimismL1StandardBridge.sol
+compileContract liquiditymanager/encoders/OptimismL1BridgeAdapterEncoder.sol

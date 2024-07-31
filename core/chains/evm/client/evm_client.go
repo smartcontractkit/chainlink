@@ -22,13 +22,13 @@ func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, cli
 	for i, node := range nodes {
 		if node.SendOnly != nil && *node.SendOnly {
 			rpc := NewRPCClient(lggr, empty, (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID,
-				commonclient.Secondary, largePayloadRPCTimeout, defaultRPCTimeout)
+				commonclient.Secondary, cfg.FinalizedBlockPollInterval(), largePayloadRPCTimeout, defaultRPCTimeout)
 			sendonly := commonclient.NewSendOnlyNode(lggr, (url.URL)(*node.HTTPURL),
 				*node.Name, chainID, rpc)
 			sendonlys = append(sendonlys, sendonly)
 		} else {
 			rpc := NewRPCClient(lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i),
-				chainID, commonclient.Primary, largePayloadRPCTimeout, defaultRPCTimeout)
+				chainID, commonclient.Primary, cfg.FinalizedBlockPollInterval(), largePayloadRPCTimeout, defaultRPCTimeout)
 			primaryNode := commonclient.NewNode(cfg, chainCfg,
 				lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID, *node.Order,
 				rpc, "EVM")
