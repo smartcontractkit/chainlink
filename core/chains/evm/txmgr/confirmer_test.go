@@ -2693,7 +2693,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		Number:      8,
 		Hash:        testutils.NewHash(),
 		Parent:      nil,
-		IsFinalized: false, // Not finalized yet to check if it's handed gracefully.
+		IsFinalized: false, // We are guaranteed to receive a latestFinalizedHead.
 	}
 
 	head := evmtypes.Head{
@@ -2709,14 +2709,6 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 			},
 		},
 	}
-
-	t.Run("No latest finalized head is handed gracefully.", func(t *testing.T) {
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, &latestFinalizedHead))
-	})
-
-	// Finalize Latest Finalized Head
-	latestFinalizedHead.IsFinalized = true
-
 	t.Run("does nothing if there aren't any transactions", func(t *testing.T) {
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, &latestFinalizedHead))
 	})
