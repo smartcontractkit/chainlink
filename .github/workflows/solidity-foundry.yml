@@ -128,36 +128,18 @@ jobs:
         env:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
+      - name: Prune ccip report
+        if: ${{ contains(fromJson('["ccip"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
+        run: |
+          sudo apt-get install lcov
+          ./contracts/scripts/ccip_lcov_prune ./contracts/lcov.info ./lcov.info.pruned          
+
       - name: Report code coverage for ${{ matrix.product.name }}
         if: ${{ !contains(fromJson('["vrf"]'), matrix.product.name) && !contains(fromJson('["automation"]'), matrix.product.name) && !contains(fromJson('["functions"]'), matrix.product.name) && needs.changes.outputs.src_changes == 'true' }}
         uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
         with:
           update-comment: true
           coverage-files: ./contracts/lcov.info
-          minimum-coverage: ${{ matrix.product.min-coverage }}
-          artifact-name: code-coverage-report-${{ matrix.product.name }}
-          working-directory: ./contracts
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Run coverage for ccip
-        if: ${{ contains(fromJson('["ccip"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
-        working-directory: contracts
-        run: forge coverage --report lcov
-        env:
-          FOUNDRY_PROFILE: ${{ matrix.product }}
-
-      - name: Prune ccip report
-        if: ${{ contains(fromJson('["ccip"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
-        run: |
-          sudo apt-get install lcov
-          ./contracts/scripts/ccip_lcov_prune ./contracts/lcov.info ./lcov.info.pruned
-
-      - name: Report code coverage for ccip
-        if: ${{ contains(fromJson('["ccip"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
-        uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
-        with:
-          update-comment: true
-          coverage-files: lcov.info.pruned
           minimum-coverage: ${{ matrix.product.min-coverage }}
           artifact-name: code-coverage-report-${{ matrix.product.name }}
           working-directory: ./contracts
@@ -263,10 +245,15 @@ jobs:
             diff_file="contracts/slither-reports/${base_file%.md}_diff.md"
             if [ -f "$new_file" ]; then
               # we need to use awk to skip the first line of the diff output, which contains info about line number and type of change that do not interest us
-              diff "$original_file" "$new_file" > "$diff_file" | awk 'NR>1'
+              diff "$original_file" "$new_file" | awk 'NR>1' > "$diff_file" 
             else
               echo "File $new_file does not exist, skipping diff."
             fi
+          done
+          
+          for original_file in contracts/slither-reports/*_diff.md; do
+            echo "$original_file:"
+            cat "$original_file"
           done
 
       - name: Print Slither summary
@@ -284,9 +271,9 @@ jobs:
         timeout-minutes: 10
         continue-on-error: true
         with:
-          name: slither-report
+          name: slither-reports-${{ github.sha }}
           path: |
-            contracts/slither-results
+            contracts/slither-reports
           retention-days: 7
 
       - name: Collect Metrics
@@ -303,7 +290,9 @@ jobs:
   fmt:
     needs: [ changes ]
     name: Check formatting
-    if: needs.changes.outputs.sol_changes == 'true'
+    # TODO remove me
+    if: needs.changes.outputs.sol_changes == 'mietek'
+    # if: needs.changes.outputs.sol_changes == 'true'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
@@ -318,6 +307,8 @@ jobs:
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
           version: ${{ env.FOUNDRY_VERSION }}
+
+      # TODO think about running this with correct FOUNDRY PROFILE
 
       - name: Run Forge fmt
         run: |

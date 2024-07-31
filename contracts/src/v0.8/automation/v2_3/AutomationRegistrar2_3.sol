@@ -258,18 +258,8 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     emit ConfigChanged();
   }
 
-  function setConfig4(
-    IAutomationRegistryMaster2_3 registry,
-    IERC20[] memory billingTokens,
-    uint256[] memory minBalances
-  ) public onlyOwner {
-    if (billingTokens.length != minBalances.length) revert InvalidDataLength();
-    s_registry = registry;
-    for (uint256 i = 0; i < billingTokens.length; i++) {
-      s_minRegistrationAmounts[billingTokens[i]] = minBalances[i];
-    }
-    emit ConfigChanged();
-  }
+  uint256 upkeepId2;
+  uint256 upkeepId3;
 
   /**
    * @notice owner calls to set the config for this upkeep type
