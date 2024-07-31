@@ -173,8 +173,13 @@ func unmarshalCapabilityConfig(data []byte) (capabilities.CapabilityConfiguratio
 		rtc.MessageExpiry = prtc.MessageExpiry.AsDuration()
 	}
 
+	mv, err := values.FromMapValueProto(cconf.DefaultConfig)
+	if err != nil {
+		return capabilities.CapabilityConfiguration{}, err
+	}
+
 	return capabilities.CapabilityConfiguration{
-		DefaultConfig:       values.FromMapValueProto(cconf.DefaultConfig),
+		DefaultConfig:       mv,
 		RemoteTriggerConfig: rtc,
 	}, nil
 }
