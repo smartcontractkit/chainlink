@@ -62,6 +62,7 @@ const (
 	Fatal
 	ServiceUnavailable
 	TerminallyStuck
+	InvalidSender
 )
 
 type ClientErrors map[int]*regexp.Regexp
@@ -159,6 +160,21 @@ var arbitrum = ClientErrors{
 	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
 	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
 	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
+}
+
+// Treasure
+// Derived from Arbitrum config due to similar behaviour
+var treasureFatal = regexp.MustCompile(`(: |^)(invalid message format|forbidden sender address)$|(: |^)(execution reverted)(:|$)`)
+var treasure = ClientErrors{
+	NonceTooLow:           regexp.MustCompile(`(: |^)invalid transaction nonce$|(: |^)nonce too low(:|$)`),
+	NonceTooHigh:          regexp.MustCompile(`(: |^)nonce too high(:|$)`),
+	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gas price too low$`),
+	InsufficientEth:       regexp.MustCompile(`(: |^)(not enough funds for gas|insufficient funds for gas \* price \+ value)`),
+	Fatal:                 arbitrumFatal,
+	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
+	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
+	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
+	InvalidSender:         regexp.MustCompile(`(: |^)invalid chain id for signer(:|$)`),
 }
 
 var celo = ClientErrors{
@@ -331,6 +347,10 @@ func (s *SendError) IsTemporarilyUnderpriced(configErrors *ClientErrors) bool {
 
 func (s *SendError) IsInsufficientEth(configErrors *ClientErrors) bool {
 	return s.is(InsufficientEth, configErrors)
+}
+
+func (s *SendError) IsInvalidSenderError(configErrors *ClientErrors) bool {
+	return s.is(InvalidSender, configErrors)
 }
 
 // IsTxFeeExceedsCap returns true if the transaction and gas price are combined in
