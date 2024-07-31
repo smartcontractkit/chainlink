@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -30,12 +31,15 @@ type WriteTarget struct {
 	cw               commontypes.ChainWriter
 	forwarderAddress string
 	capabilities.CapabilityInfo
+
 	lggr logger.Logger
 
 	// options for configuring local node info retrieval
 	registry         core.CapabilitiesRegistry
 	localNodeRetryMs int // how often to retry fetching local node info
 	localNode        *capabilities.Node
+
+	bound bool
 }
 
 func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string, registry core.CapabilitiesRegistry, localNodeInfoIntervalMs int) *WriteTarget {
@@ -59,6 +63,7 @@ func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader
 		registry,
 		localNodeInfoIntervalMs,
 		nil,
+		false,
 	}
 
 	wt.ResolveLocalNodeInfo(context.Background())
@@ -97,7 +102,7 @@ func (cap *WriteTarget) ResolveLocalNodeInfo(ctx context.Context) {
 
 	go func() {
 		err := utils.Retryable(ctx, cap.lggr.Errorf, cap.localNodeRetryMs, 0, func() error {
-			node, iErr := cap.registry.GetLocalNode(ctx)
+			node, iErr := cap.registry.LocalNode(ctx)
 			if iErr != nil {
 				return iErr
 			}
@@ -124,6 +129,20 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		l = l.With("workflowDONID", request.Metadata.WorkflowDonID, "workflowDONConfigVersion", request.Metadata.WorkflowDonConfigVersion)
 	}
 	l.Debugw("Execute", "request", request)
+	// Bind to the contract address on the write path.
+	// Bind() requires a connection to the node's RPCs and
+	// cannot be run during initialization.
+	if !cap.bound {
+		cap.lggr.Debugw("Binding to forwarder address")
+		err := cap.cr.Bind(ctx, []commontypes.BoundContract{{
+			Address: cap.forwarderAddress,
+			Name:    "forwarder",
+		}})
+		if err != nil {
+			return nil, err
+		}
+		cap.bound = true
+	}
 
 	reqConfig, err := parseConfig(request.Config)
 	if err != nil {
@@ -163,8 +182,8 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	}
 	l = l.With("receiver", queryInputs.Receiver, "reportID", queryInputs.ReportId)
 	var transmitter common.Address
-	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", queryInputs, &transmitter); err != nil {
-		return nil, err
+	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", primitives.Unconfirmed, queryInputs, &transmitter); err != nil {
+		return nil, fmt.Errorf("failed to getTransmitter latest value: %w", err)
 	}
 	if transmitter != common.HexToAddress("0x0") {
 		l.Infow("WriteTarget report already onchain - returning without a tranmission attempt")

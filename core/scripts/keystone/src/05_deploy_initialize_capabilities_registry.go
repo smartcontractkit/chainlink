@@ -8,10 +8,15 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -164,6 +169,12 @@ func peerToNode(nopID uint32, p peer) (kcr.CapabilitiesRegistryNodeParams, error
 	}, nil
 }
 
+func newCapabilityConfig() *capabilitiespb.CapabilityConfig {
+	return &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+	}
+}
+
 // Run expects the following environment variables to be set:
 //
 //  1. Deploys the CapabilitiesRegistry contract
@@ -310,12 +321,19 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		panic(err)
 	}
 
+	cc := newCapabilityConfig()
+	ccb, err := proto.Marshal(cc)
+	if err != nil {
+		panic(err)
+	}
+
 	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: ocrid,
+			Config:       ccb,
 		},
 	}
-	_, err = reg.AddDON(env.Owner, ps, cfgs, false, true, 2)
+	_, err = reg.AddDON(env.Owner, ps, cfgs, true, true, 2)
 	if err != nil {
 		log.Printf("workflowDON: failed to AddDON: %s", err)
 	}
@@ -327,11 +345,11 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 	}
 
 	config := &capabilitiespb.CapabilityConfig{
-		ExecuteConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
 		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
 			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefreshMs: 20000,
-				RegistrationExpiryMs:  60000,
+				RegistrationRefresh: durationpb.New(20 * time.Second),
+				RegistrationExpiry:  durationpb.New(60 * time.Second),
 				// F + 1
 				MinResponsesToAggregate: uint32(1) + 1,
 			},
@@ -358,9 +376,16 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		panic(err)
 	}
 
+	cc = newCapabilityConfig()
+	ccb, err = proto.Marshal(cc)
+	if err != nil {
+		panic(err)
+	}
+
 	cfgs = []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: wid,
+			Config:       ccb,
 		},
 	}
 	_, err = reg.AddDON(env.Owner, ps, cfgs, true, false, 1)

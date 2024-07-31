@@ -57,7 +57,7 @@ func NewLauncher(
 	registry *Registry,
 ) *launcher {
 	return &launcher{
-		lggr:        lggr,
+		lggr:        lggr.Named("CapabilitiesLauncher"),
 		peerWrapper: peerWrapper,
 		dispatcher:  dispatcher,
 		registry:    registry,
@@ -275,7 +275,7 @@ type capabilityService interface {
 }
 
 func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability registrysyncer.Capability, don registrysyncer.DON, newCapFn func(info capabilities.CapabilityInfo) (capabilityService, error)) error {
-	capabilityID := string(capability.ID)
+	capabilityID := capability.ID
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capabilityID,
 		capability.CapabilityType,
@@ -390,7 +390,7 @@ type receiverService interface {
 }
 
 func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Capability, don registrysyncer.DON, newReceiverFn func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (receiverService, error)) error {
-	capID := string(capability.ID)
+	capID := capability.ID
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capID,
 		capability.CapabilityType,
@@ -400,7 +400,7 @@ func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Ca
 	if err != nil {
 		return fmt.Errorf("failed to instantiate remote capability for receiver: %w", err)
 	}
-	underlying, err := w.registry.Get(ctx, string(capability.ID))
+	underlying, err := w.registry.Get(ctx, capability.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get capability from registry: %w", err)
 	}
@@ -410,9 +410,14 @@ func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Ca
 		return fmt.Errorf("failed to instantiate receiver: %w", err)
 	}
 
-	w.lggr.Debugw("Enabling external access for capability", "id", capability.ID, "donID", don.ID)
+	w.lggr.Debugw("Enabling external access for capability", "id", capID, "donID", don.ID)
 	err = w.dispatcher.SetReceiver(capID, don.ID, receiver)
-	if err != nil {
+	if errors.Is(err, remote.ErrReceiverExists) {
+		// If a receiver already exists, let's log the error for debug purposes, but
+		// otherwise short-circuit here. We've handled this capability in a previous iteration.
+		w.lggr.Debugf("receiver already exists for cap ID %s and don ID %d: %s", capID, don.ID, err)
+		return nil
+	} else if err != nil {
 		return fmt.Errorf("failed to set receiver: %w", err)
 	}
 

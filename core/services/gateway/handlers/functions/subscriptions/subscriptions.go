@@ -32,8 +32,6 @@ type OnchainSubscriptionsConfig struct {
 
 // OnchainSubscriptions maintains a mirror of all subscriptions fetched from the blockchain (EVM-only).
 // All methods are thread-safe.
-//
-//go:generate mockery --quiet --name OnchainSubscriptions --output ./mocks/ --case=underscore
 type OnchainSubscriptions interface {
 	job.ServiceCtx
 

@@ -13,6 +13,7 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -31,10 +32,14 @@ type Syncer interface {
 }
 
 type registrySyncer struct {
-	stopCh      services.StopChan
-	launchers   []Launcher
-	reader      types.ContractReader
-	peerWrapper p2ptypes.PeerWrapper
+	services.StateMachine
+	stopCh          services.StopChan
+	launchers       []Launcher
+	reader          types.ContractReader
+	initReader      func(ctx context.Context, lggr logger.Logger, relayer contractReaderFactory, registryAddress string) (types.ContractReader, error)
+	relayer         contractReaderFactory
+	registryAddress string
+	peerWrapper     p2ptypes.PeerWrapper
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -55,23 +60,23 @@ func New(
 	registryAddress string,
 ) (*registrySyncer, error) {
 	stopCh := make(services.StopChan)
-	ctx, _ := stopCh.NewCtx()
-	reader, err := newReader(ctx, lggr, relayer, registryAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	return newSyncer(
-		stopCh,
-		lggr.Named("RegistrySyncer"),
-		reader,
-	), nil
+	return &registrySyncer{
+		stopCh:          stopCh,
+		lggr:            lggr.Named("RegistrySyncer"),
+		relayer:         relayer,
+		registryAddress: registryAddress,
+		initReader:      newReader,
+		peerWrapper:     peerWrapper,
+	}, nil
 }
 
 type contractReaderFactory interface {
 	NewContractReader(context.Context, []byte) (types.ContractReader, error)
 }
 
+// NOTE: this can't be called while initializing the syncer and needs to be called in the sync loop.
+// This is because Bind() makes an onchain call to verify that the contract address exists, and if
+// called during initialization, this results in a "no live nodes" error.
 func newReader(ctx context.Context, lggr logger.Logger, relayer contractReaderFactory, remoteRegistryAddress string) (types.ContractReader, error) {
 	contractReaderConfig := evmrelaytypes.ChainReaderConfig{
 		Contracts: map[string]evmrelaytypes.ChainContractReader{
@@ -112,25 +117,15 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer contractReaderFa
 	return cr, err
 }
 
-func newSyncer(
-	stopCh services.StopChan,
-	lggr logger.Logger,
-	reader types.ContractReader,
-) *registrySyncer {
-	return &registrySyncer{
-		stopCh: stopCh,
-		lggr:   lggr,
-		reader: reader,
-	}
-}
-
 func (s *registrySyncer) Start(ctx context.Context) error {
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-		s.syncLoop()
-	}()
-	return nil
+	return s.StartOnce("RegistrySyncer", func() error {
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
+			s.syncLoop()
+		}()
+		return nil
+	})
 }
 
 func (s *registrySyncer) syncLoop() {
@@ -172,29 +167,34 @@ func unmarshalCapabilityConfig(data []byte) (capabilities.CapabilityConfiguratio
 
 	var rtc capabilities.RemoteTriggerConfig
 	if prtc := cconf.GetRemoteTriggerConfig(); prtc != nil {
-		rtc.RegistrationRefreshMs = prtc.RegistrationRefreshMs
-		rtc.RegistrationExpiryMs = prtc.RegistrationExpiryMs
+		rtc.RegistrationRefresh = prtc.RegistrationRefresh.AsDuration()
+		rtc.RegistrationExpiry = prtc.RegistrationExpiry.AsDuration()
 		rtc.MinResponsesToAggregate = prtc.MinResponsesToAggregate
-		rtc.MessageExpiryMs = prtc.MessageExpiryMs
+		rtc.MessageExpiry = prtc.MessageExpiry.AsDuration()
+	}
+
+	dc, err := values.FromMapValueProto(cconf.DefaultConfig)
+	if err != nil {
+		return capabilities.CapabilityConfiguration{}, err
 	}
 
 	return capabilities.CapabilityConfiguration{
-		ExecuteConfig:       values.FromMapValueProto(cconf.ExecuteConfig),
+		DefaultConfig:       dc,
 		RemoteTriggerConfig: rtc,
 	}, nil
 }
 
-func (s *registrySyncer) state(ctx context.Context) (*LocalRegistry, error) {
+func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, error) {
 	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
-	err := s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getCapabilities", nil, &caps)
+	err := s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getCapabilities", primitives.Unconfirmed, nil, &caps)
 	if err != nil {
 		return nil, err
 	}
 
-	idsToCapabilities := map[CapabilityID]Capability{}
-	hashedIDsToCapabilityIDs := map[[32]byte]CapabilityID{}
+	idsToCapabilities := map[string]Capability{}
+	hashedIDsToCapabilityIDs := map[[32]byte]string{}
 	for _, c := range caps {
-		cid := CapabilityID(fmt.Sprintf("%s@%s", c.LabelledName, c.Version))
+		cid := fmt.Sprintf("%s@%s", c.LabelledName, c.Version)
 		idsToCapabilities[cid] = Capability{
 			ID:             cid,
 			CapabilityType: toCapabilityType(c.CapabilityType),
@@ -204,14 +204,14 @@ func (s *registrySyncer) state(ctx context.Context) (*LocalRegistry, error) {
 	}
 
 	dons := []kcr.CapabilitiesRegistryDONInfo{}
-	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getDONs", nil, &dons)
+	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getDONs", primitives.Unconfirmed, nil, &dons)
 	if err != nil {
 		return nil, err
 	}
 
-	idsToDONs := map[DonID]DON{}
+	idsToDONs := map[uint32]DON{}
 	for _, d := range dons {
-		cc := map[CapabilityID]capabilities.CapabilityConfiguration{}
+		cc := map[string]capabilities.CapabilityConfiguration{}
 		for _, dc := range d.CapabilityConfigurations {
 			cid, ok := hashedIDsToCapabilityIDs[dc.CapabilityId]
 			if !ok {
@@ -219,7 +219,7 @@ func (s *registrySyncer) state(ctx context.Context) (*LocalRegistry, error) {
 			}
 
 			cconf, innerErr := unmarshalCapabilityConfig(dc.Config)
-			if err != nil {
+			if innerErr != nil {
 				return nil, innerErr
 			}
 
@@ -228,14 +228,14 @@ func (s *registrySyncer) state(ctx context.Context) (*LocalRegistry, error) {
 			cc[cid] = cconf
 		}
 
-		idsToDONs[DonID(d.Id)] = DON{
+		idsToDONs[d.Id] = DON{
 			DON:                      *toDONInfo(d),
 			CapabilityConfigurations: cc,
 		}
 	}
 
 	nodes := []kcr.CapabilitiesRegistryNodeInfo{}
-	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getNodes", nil, &nodes)
+	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getNodes", primitives.Unconfirmed, nil, &nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -263,13 +263,22 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 		return nil
 	}
 
-	state, err := s.state(ctx)
+	if s.reader == nil {
+		reader, err := s.initReader(ctx, s.lggr, s.relayer, s.registryAddress)
+		if err != nil {
+			return err
+		}
+
+		s.reader = reader
+	}
+
+	lr, err := s.localRegistry(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to sync with remote registry: %w", err)
 	}
 
 	for _, h := range s.launchers {
-		if err := h.Launch(ctx, state); err != nil {
+		if err := h.Launch(ctx, lr); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 		}
 	}
@@ -300,10 +309,12 @@ func toDONInfo(don kcr.CapabilitiesRegistryDONInfo) *capabilities.DON {
 	}
 
 	return &capabilities.DON{
-		ID:            don.Id,
-		ConfigVersion: don.ConfigCount,
-		Members:       peerIDs,
-		F:             don.F,
+		ID:               don.Id,
+		ConfigVersion:    don.ConfigCount,
+		Members:          peerIDs,
+		F:                don.F,
+		IsPublic:         don.IsPublic,
+		AcceptsWorkflows: don.AcceptsWorkflows,
 	}
 }
 
@@ -314,9 +325,11 @@ func (s *registrySyncer) AddLauncher(launchers ...Launcher) {
 }
 
 func (s *registrySyncer) Close() error {
-	close(s.stopCh)
-	s.wg.Wait()
-	return nil
+	return s.StopOnce("RegistrySyncer", func() error {
+		close(s.stopCh)
+		s.wg.Wait()
+		return nil
+	})
 }
 
 func (s *registrySyncer) Ready() error {

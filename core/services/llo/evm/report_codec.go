@@ -1,13 +1,10 @@
 package evm
 
 import (
+	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
@@ -51,47 +48,6 @@ func NewReportCodec() ReportCodec {
 	return ReportCodec{}
 }
 
-func (ReportCodec) Encode(report llo.Report) ([]byte, error) {
-	chainID, err := chainselectors.ChainIdFromSelector(report.ChainSelector)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get chain ID for selector %d; %w", report.ChainSelector, err)
-	}
-
-	b, err := Schema.Pack(report.ConfigDigest, chainID, report.SeqNr, report.ChannelID, report.ValidAfterSeconds, report.ValidUntilSeconds, report.Values, report.Specimen)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode report: %w", err)
-	}
-	return b, nil
-}
-
-func (ReportCodec) Decode(encoded []byte) (llo.Report, error) {
-	type decode struct {
-		ConfigDigest      types.ConfigDigest
-		ChainId           uint64
-		SeqNr             uint64
-		ChannelId         llotypes.ChannelID
-		ValidAfterSeconds uint32
-		ValidUntilSeconds uint32
-		Values            []*big.Int
-		Specimen          bool
-	}
-	values, err := Schema.Unpack(encoded)
-	if err != nil {
-		return llo.Report{}, fmt.Errorf("failed to decode report: %w", err)
-	}
-	decoded := new(decode)
-	if err = Schema.Copy(decoded, values); err != nil {
-		return llo.Report{}, fmt.Errorf("failed to copy report values to struct: %w", err)
-	}
-	chainSelector, err := chainselectors.SelectorFromChainId(decoded.ChainId)
-	return llo.Report{
-		ConfigDigest:      decoded.ConfigDigest,
-		ChainSelector:     chainSelector,
-		SeqNr:             decoded.SeqNr,
-		ChannelID:         decoded.ChannelId,
-		ValidAfterSeconds: decoded.ValidAfterSeconds,
-		ValidUntilSeconds: decoded.ValidUntilSeconds,
-		Values:            decoded.Values,
-		Specimen:          decoded.Specimen,
-	}, err
+func (ReportCodec) Encode(report llo.Report, cd llotypes.ChannelDefinition) ([]byte, error) {
+	return nil, errors.New("not implemented")
 }

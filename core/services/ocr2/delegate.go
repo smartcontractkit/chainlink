@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -54,7 +55,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -185,6 +185,7 @@ type mercuryConfig interface {
 	Cache() coreconfig.MercuryCache
 	TLS() coreconfig.MercuryTLS
 	Transmitter() coreconfig.MercuryTransmitter
+	VerboseLogging() bool
 }
 
 type thresholdConfig interface {
@@ -966,6 +967,9 @@ func (d *Delegate) newServicesLLO(
 		OffchainKeyring:        kb,
 		OnchainKeyring:         kr,
 		OCRLogger:              ocrLogger,
+
+		// Enable verbose logging if either Mercury.VerboseLogging is on or OCR2.TraceLogging is on
+		ReportingPluginConfig: datastreamsllo.Config{VerboseLogging: d.cfg.Mercury().VerboseLogging() || d.cfg.OCR2().TraceLogging()},
 	}
 	oracle, err := llo.NewDelegate(cfg)
 	if err != nil {
@@ -1116,14 +1120,6 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	keeperProvider, ok := provider.(types.AutomationProvider)
 	if !ok {
 		return nil, errors.New("could not coerce PluginProvider to AutomationProvider")
-	}
-
-	// TODO: (AUTO-9355) remove once we remove v0
-	if useBufferV1 := cfg.UseBufferV1 != nil && *cfg.UseBufferV1; useBufferV1 {
-		logProviderFeatures, ok := keeperProvider.LogEventProvider().(logprovider.LogEventProviderFeatures)
-		if ok {
-			logProviderFeatures.WithBufferVersion("v1")
-		}
 	}
 
 	services, err := ocr2keeper.EVMDependencies21(kb)

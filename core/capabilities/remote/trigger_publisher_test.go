@@ -3,6 +3,7 @@ package remote_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -42,10 +43,10 @@ func TestTriggerPublisher_Register(t *testing.T) {
 
 	dispatcher := remoteMocks.NewDispatcher(t)
 	config := capabilities.RemoteTriggerConfig{
-		RegistrationRefreshMs:   100,
-		RegistrationExpiryMs:    100_000,
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
-		MessageExpiryMs:         100_000,
+		MessageExpiry:           100 * time.Second,
 	}
 	workflowDONs := map[uint32]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,

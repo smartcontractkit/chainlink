@@ -168,7 +168,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 
 	// Special treatment for local targets - wrap into a transmission capability
 	// If the DON is nil, this is a local target.
-	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.DON == nil {
+	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.IsLocal {
 		l := e.logger.With("capabilityID", step.ID)
 		l.Debug("wrapping capability in local transmission protocol")
 		cp = transmission.NewLocalTargetCapability(
@@ -224,7 +224,7 @@ func (e *Engine) init(ctx context.Context) {
 	retryErr := utils.Retryable(ctx, e.logger.Errorf, e.retryMs, e.maxRetries, func() error {
 		// first wait for localDON to return a non-error response; this depends
 		// on the underlying peerWrapper returning the PeerID.
-		node, err := e.registry.GetLocalNode(ctx)
+		node, err := e.registry.LocalNode(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get donInfo: %w", err)
 		}
@@ -334,7 +334,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 		return err
 	}
 
-	t.config = tc
+	t.config.Store(tc)
 
 	triggerRegRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
@@ -344,7 +344,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 			WorkflowName:             e.workflow.name,
 			WorkflowOwner:            e.workflow.owner,
 		},
-		Config: tc,
+		Config: t.config.Load(),
 		Inputs: triggerInputs,
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
@@ -696,22 +696,29 @@ func merge(baseConfig *values.Map, overrideConfig *values.Map) *values.Map {
 	return m
 }
 
-func configForStep(ctx context.Context, reg core.CapabilitiesRegistry, localNode capabilities.Node, step *step) (*values.Map, error) {
+func (e *Engine) configForStep(ctx context.Context, executionID string, step *step) (*values.Map, error) {
 	ID := step.info.ID
 
 	// If the capability info is missing a DON, then
 	// the capability is local, and we should use the localNode's DON ID.
-	donID := localNode.WorkflowDON.ID
-	if step.info.DON != nil {
+	var donID uint32
+	if !step.info.IsLocal {
 		donID = step.info.DON.ID
+	} else {
+		donID = e.localNode.WorkflowDON.ID
 	}
 
-	capConfig, err := reg.ConfigForCapability(ctx, ID, donID)
+	capConfig, err := e.registry.ConfigForCapability(ctx, ID, donID)
 	if err != nil {
-		return nil, err
+		e.logger.Warnw(fmt.Sprintf("could not retrieve config from remote registry: %s", err), "executionID", executionID, "capabilityID", ID)
+		return step.config, nil
 	}
 
-	return merge(capConfig.ExecuteConfig, step.config), nil
+	// Merge the configs for now; note that this means that a workflow can override
+	// all of the config set by the capability. This is probably not desirable in
+	// the long-term, but we don't know much about those use cases so stick to a simpler
+	// implementation for now.
+	return merge(capConfig.DefaultConfig, step.config), nil
 }
 
 // executeStep executes the referenced capability within a step and returns the result.
@@ -738,7 +745,7 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		return nil, nil, err
 	}
 
-	config, err := configForStep(ctx, e.registry, e.localNode, step)
+	config, err := e.configForStep(ctx, msg.state.ExecutionID, step)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -782,7 +789,7 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 			WorkflowOwner:            e.workflow.owner,
 		},
 		Inputs: triggerInputs,
-		Config: t.config,
+		Config: t.config.Load(),
 	}
 
 	// if t.trigger == nil, then we haven't initialized the workflow

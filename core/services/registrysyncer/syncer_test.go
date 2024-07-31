@@ -16,11 +16,15 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -63,6 +67,7 @@ func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilitiesRegistry, common.
 
 type crFactory struct {
 	lggr      logger.Logger
+	ht        logpoller.HeadTracker
 	logPoller logpoller.LogPoller
 	client    evmclient.Client
 }
@@ -72,7 +77,8 @@ func (c *crFactory) NewContractReader(ctx context.Context, cfg []byte) (types.Co
 	if err := json.Unmarshal(cfg, crCfg); err != nil {
 		return nil, err
 	}
-	svc, err := evm.NewChainReaderService(ctx, c.lggr, c.logPoller, c.client, *crCfg)
+
+	svc, err := evm.NewChainReaderService(ctx, c.lggr, c.logPoller, c.ht, c.client, *crCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +112,7 @@ func newContractReaderFactory(t *testing.T, simulatedBackend *backends.Simulated
 	return &crFactory{
 		lggr:      lggr,
 		client:    client,
+		ht:        ht,
 		logPoller: lp,
 	}
 }
@@ -117,6 +124,15 @@ func randomWord() [32]byte {
 		panic(err)
 	}
 	return [32]byte(word)
+}
+
+type launcher struct {
+	localRegistry *LocalRegistry
+}
+
+func (l *launcher) Launch(ctx context.Context, localRegistry *LocalRegistry) error {
+	l.localRegistry = localRegistry
+	return nil
 }
 
 func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
@@ -135,7 +151,7 @@ func TestReader_Integration(t *testing.T) {
 	require.NoError(t, err, "AddCapability failed for %s", writeChainCapability.LabelledName)
 	sim.Commit()
 
-	cid := CapabilityID(fmt.Sprintf("%s@%s", writeChainCapability.LabelledName, writeChainCapability.Version))
+	cid := fmt.Sprintf("%s@%s", writeChainCapability.LabelledName, writeChainCapability.Version)
 
 	hid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, writeChainCapability.LabelledName, writeChainCapability.Version)
 	require.NoError(t, err)
@@ -186,10 +202,26 @@ func TestReader_Integration(t *testing.T) {
 	_, err = reg.AddNodes(owner, nodes)
 	require.NoError(t, err)
 
+	config := &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+				RegistrationRefresh: durationpb.New(20 * time.Second),
+				RegistrationExpiry:  durationpb.New(60 * time.Second),
+				// F + 1
+				MinResponsesToAggregate: uint32(1) + 1,
+			},
+		},
+	}
+	configb, err := proto.Marshal(config)
+	if err != nil {
+		panic(err)
+	}
+
 	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: hid,
-			Config:       []byte(`{"hello": "world"}`),
+			Config:       configb,
 		},
 	}
 	_, err = reg.AddDON(
@@ -206,10 +238,14 @@ func TestReader_Integration(t *testing.T) {
 
 	wrapper := mocks.NewPeerWrapper(t)
 	factory := newContractReaderFactory(t, sim)
-	reader, err := New(logger.TestLogger(t), wrapper, factory, regAddress.Hex())
+	syncer, err := New(logger.TestLogger(t), wrapper, factory, regAddress.Hex())
 	require.NoError(t, err)
 
-	s, err := reader.state(ctx)
+	l := &launcher{}
+	syncer.AddLauncher(l)
+
+	err = syncer.sync(ctx)
+	s := l.localRegistry
 	require.NoError(t, err)
 	assert.Len(t, s.IDsToCapabilities, 1)
 
@@ -220,20 +256,24 @@ func TestReader_Integration(t *testing.T) {
 	}, gotCap)
 
 	assert.Len(t, s.IDsToDONs, 1)
-	var rtc capabilities.RemoteTriggerConfig
-	rtc.ApplyDefaults()
+	rtc := capabilities.RemoteTriggerConfig{
+		RegistrationRefresh:     20 * time.Second,
+		MinResponsesToAggregate: 2,
+		RegistrationExpiry:      60 * time.Second,
+		MessageExpiry:           120 * time.Second,
+	}
 	expectedDON := DON{
 		DON: capabilities.DON{
 			ID:               1,
 			ConfigVersion:    1,
-			IsPublic:         false,
-			AcceptsWorkflows: false,
+			IsPublic:         true,
+			AcceptsWorkflows: true,
 			F:                1,
 			Members:          toPeerIDs(nodeSet),
 		},
-		CapabilityConfigurations: map[CapabilityID]capabilities.CapabilityConfiguration{
+		CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
 			cid: {
-				ExecuteConfig:       nil,
+				DefaultConfig:       values.EmptyMap(),
 				RemoteTriggerConfig: rtc,
 			},
 		},
@@ -343,7 +383,7 @@ func TestSyncer_LocalNode(t *testing.T) {
 		},
 	}
 
-	node, err := localRegistry.GetLocalNode(ctx)
+	node, err := localRegistry.LocalNode(ctx)
 	require.NoError(t, err)
 
 	don := capabilities.DON{

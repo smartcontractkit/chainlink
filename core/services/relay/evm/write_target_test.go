@@ -5,7 +5,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -49,6 +52,11 @@ func TestEvmWrite(t *testing.T) {
 	chain.On("ID").Return(big.NewInt(11155111))
 	chain.On("TxManager").Return(txManager)
 	chain.On("LogPoller").Return(nil)
+
+	ht := mocks.NewHeadTracker[*types.Head, common.Hash](t)
+	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&types.Head{}, &types.Head{}, nil)
+	chain.On("HeadTracker").Return(ht)
+
 	chain.On("Client").Return(evmClient)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {

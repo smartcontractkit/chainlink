@@ -12,28 +12,28 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-type CapabilityID string
-type DonID uint32
-
 type DON struct {
 	capabilities.DON
-	CapabilityConfigurations map[CapabilityID]capabilities.CapabilityConfiguration
+	CapabilityConfigurations map[string]capabilities.CapabilityConfiguration
 }
 
 type Capability struct {
-	ID             CapabilityID
+	ID             string
 	CapabilityType capabilities.CapabilityType
 }
 
 type LocalRegistry struct {
 	lggr              logger.Logger
 	peerWrapper       p2ptypes.PeerWrapper
-	IDsToDONs         map[DonID]DON
+	IDsToDONs         map[uint32]DON
 	IDsToNodes        map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo
-	IDsToCapabilities map[CapabilityID]Capability
+	IDsToCapabilities map[string]Capability
 }
 
-func (l *LocalRegistry) GetLocalNode(ctx context.Context) (capabilities.Node, error) {
+func (l *LocalRegistry) LocalNode(ctx context.Context) (capabilities.Node, error) {
+	// Load the current nodes PeerWrapper, this gets us the current node's
+	// PeerID, allowing us to contextualize registry information in terms of DON ownership
+	// (eg. get my current DON configuration, etc).
 	if l.peerWrapper.GetPeer() == nil {
 		return capabilities.Node{}, errors.New("unable to get local node: peerWrapper hasn't started yet")
 	}
@@ -46,6 +46,8 @@ func (l *LocalRegistry) GetLocalNode(ctx context.Context) (capabilities.Node, er
 		for _, p := range d.Members {
 			if p == pid {
 				if d.AcceptsWorkflows {
+					// The CapabilitiesRegistry enforces that the DON ID is strictly
+					// greater than 0, so if the ID is 0, it means we've not set `workflowDON` initialized above yet.
 					if workflowDON.ID == 0 {
 						workflowDON = d.DON
 						l.lggr.Debug("Workflow DON identified: %+v", workflowDON)
@@ -67,14 +69,14 @@ func (l *LocalRegistry) GetLocalNode(ctx context.Context) (capabilities.Node, er
 }
 
 func (l *LocalRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
-	d, ok := l.IDsToDONs[DonID(donID)]
+	d, ok := l.IDsToDONs[donID]
 	if !ok {
 		return capabilities.CapabilityConfiguration{}, fmt.Errorf("could not find don %d", donID)
 	}
 
-	cc, ok := d.CapabilityConfigurations[CapabilityID(capabilityID)]
+	cc, ok := d.CapabilityConfigurations[capabilityID]
 	if !ok {
-		return capabilities.CapabilityConfiguration{}, fmt.Errorf("could not find capability configuration for capability: %s", capabilityID)
+		return capabilities.CapabilityConfiguration{}, fmt.Errorf("could not find capability configuration for capability %s and donID %d", capabilityID, donID)
 	}
 
 	return cc, nil

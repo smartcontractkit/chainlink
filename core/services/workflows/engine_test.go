@@ -104,7 +104,7 @@ type testConfigProvider struct {
 	configForCapability func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error)
 }
 
-func (t testConfigProvider) GetLocalNode(ctx context.Context) (capabilities.Node, error) {
+func (t testConfigProvider) LocalNode(ctx context.Context) (capabilities.Node, error) {
 	if t.localNode != nil {
 		return t.localNode(ctx)
 	}
@@ -123,7 +123,7 @@ func (t testConfigProvider) ConfigForCapability(ctx context.Context, capabilityI
 		return t.configForCapability(ctx, capabilityID, donID)
 	}
 
-	return capabilities.CapabilityConfiguration{ExecuteConfig: values.EmptyMap()}, nil
+	return capabilities.CapabilityConfiguration{DefaultConfig: values.EmptyMap()}, nil
 }
 
 // newTestEngine creates a new engine with some test defaults.
@@ -828,6 +828,7 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 			c.Store = dbstore
 			c.clock = clock
 			c.maxRetries = 2
+			c.retryMs = 0
 		},
 	)
 	servicetest.Run(t, eng)
@@ -1030,7 +1031,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
 			if capabilityID != writeID {
 				return capabilities.CapabilityConfiguration{
-					ExecuteConfig: values.EmptyMap(),
+					DefaultConfig: values.EmptyMap(),
 				}, nil
 			}
 
@@ -1043,7 +1044,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 			}
 
 			return capabilities.CapabilityConfiguration{
-				ExecuteConfig: cm,
+				DefaultConfig: cm,
 			}, nil
 		},
 	})
