@@ -18,11 +18,11 @@ func copyState(es store.WorkflowExecution) store.WorkflowExecution {
 		var mval *values.Map
 		if step.Inputs != nil {
 			mp := values.Proto(step.Inputs).GetMapValue()
-			mval = values.FromMapValueProto(mp)
+			mval, _ = values.FromMapValueProto(mp)
 		}
 
 		op := values.Proto(step.Outputs.Value)
-		copiedov := values.FromProto(op)
+		copiedov, _ := values.FromProto(op)
 
 		newState := &store.WorkflowExecutionStep{
 			ExecutionID: step.ExecutionID,
