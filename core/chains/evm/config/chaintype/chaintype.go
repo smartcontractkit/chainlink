@@ -11,6 +11,7 @@ const (
 	ChainArbitrum        ChainType = "arbitrum"
 	ChainCelo            ChainType = "celo"
 	ChainGnosis          ChainType = "gnosis"
+	ChainHedera          ChainType = "hedera"
 	ChainKroma           ChainType = "kroma"
 	ChainMetis           ChainType = "metis"
 	ChainOptimismBedrock ChainType = "optimismBedrock"
@@ -19,7 +20,6 @@ const (
 	ChainXLayer          ChainType = "xlayer"
 	ChainZkEvm           ChainType = "zkevm"
 	ChainZkSync          ChainType = "zksync"
-	ChainHedera          ChainType = "hedera"
 )
 
 // IsL2 returns true if this chain is a Layer 2 chain. Notably:
@@ -36,7 +36,7 @@ func (c ChainType) IsL2() bool {
 
 func (c ChainType) IsValid() bool {
 	switch c {
-	case "", ChainArbitrum, ChainCelo, ChainGnosis, ChainKroma, ChainMetis, ChainOptimismBedrock, ChainScroll, ChainWeMix, ChainXLayer, ChainZkEvm, ChainZkSync, ChainHedera:
+	case "", ChainArbitrum, ChainCelo, ChainGnosis, ChainHedera, ChainKroma, ChainMetis, ChainOptimismBedrock, ChainScroll, ChainWeMix, ChainXLayer, ChainZkEvm, ChainZkSync:
 		return true
 	}
 	return false
@@ -50,6 +50,8 @@ func ChainTypeFromSlug(slug string) ChainType {
 		return ChainCelo
 	case "gnosis":
 		return ChainGnosis
+	case "hedera":
+		return ChainHedera
 	case "kroma":
 		return ChainKroma
 	case "metis":
@@ -66,8 +68,6 @@ func ChainTypeFromSlug(slug string) ChainType {
 		return ChainZkEvm
 	case "zksync":
 		return ChainZkSync
-	case "hedera":
-		return ChainHedera
 	default:
 		return ChainType(slug)
 	}
@@ -123,6 +123,7 @@ var ErrInvalidChainType = fmt.Errorf("must be one of %s or omitted", strings.Joi
 	string(ChainArbitrum),
 	string(ChainCelo),
 	string(ChainGnosis),
+	string(ChainHedera),
 	string(ChainKroma),
 	string(ChainMetis),
 	string(ChainOptimismBedrock),
@@ -131,5 +132,4 @@ var ErrInvalidChainType = fmt.Errorf("must be one of %s or omitted", strings.Joi
 	string(ChainXLayer),
 	string(ChainZkEvm),
 	string(ChainZkSync),
-	string(ChainHedera),
 }, ", "))
