@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Adds L3X Config
+#added L3X Config
