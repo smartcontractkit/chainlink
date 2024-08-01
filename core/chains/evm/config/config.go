@@ -46,6 +46,7 @@ type EVM interface {
 	RPCDefaultBatchSize() uint32
 	NodeNoNewHeadsThreshold() time.Duration
 	FinalizedBlockOffset() uint32
+	NoNewFinalizedHeadsThreshold() time.Duration
 
 	IsEnabled() bool
 	TOMLString() (string, error)

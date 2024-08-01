@@ -132,4 +132,5 @@ type ChainReceipt[TX_HASH, BLOCK_HASH types.Hashable] interface {
 	GetFeeUsed() uint64
 	GetTransactionIndex() uint
 	GetBlockHash() BLOCK_HASH
+	GetRevertReason() *string
 }
