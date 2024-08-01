@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 import {IEVM2AnyOnRamp} from "./interfaces/IEVM2AnyOnRamp.sol";
 import {INonceManager} from "./interfaces/INonceManager.sol";
 
@@ -8,7 +9,7 @@ import {AuthorizedCallers} from "../shared/access/AuthorizedCallers.sol";
 
 /// @title NonceManager
 /// @notice NonceManager contract that manages sender nonces for the on/off ramps
-contract NonceManager is INonceManager, AuthorizedCallers {
+contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
   error PreviousRampAlreadySet();
 
   event PreviousRampsUpdated(uint64 indexed remoteChainSelector, PreviousRamps prevRamp);
@@ -26,6 +27,8 @@ contract NonceManager is INonceManager, AuthorizedCallers {
     uint64 remoteChainSelector; // Chain selector
     PreviousRamps prevRamps; // Previous on/off ramps
   }
+
+  string public constant override typeAndVersion = "NonceManager 1.6.0-dev";
 
   /// @dev previous ramps
   mapping(uint64 chainSelector => PreviousRamps previousRamps) private s_previousRamps;
