@@ -16,6 +16,7 @@ import (
 	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -301,7 +302,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 	// v2+v3 fields
 	var mfts, lp, np int64
 	// v4 fields
-	marketStatus := telem.MarketStatus_UNKNOWN
+	var marketStatus telem.MarketStatus
 
 	switch {
 	case d.V1Observation != nil:

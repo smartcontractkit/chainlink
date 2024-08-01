@@ -6,13 +6,9 @@ package telem;
 
 enum MarketStatus {
   // Same values as those used by OCR.
-  CLOSED = 0;
-  OPEN = 1;
-
-  // OCR guarantees that the market status value is valid if present, however for telemetry purposes
-  // it may be unset if there is an error. Instead of using the zero value which can be confused
-  // with CLOSED, let's use -1 as a sentinel value which will never be used by OCR.
-  UNKNOWN = -1;
+  UNKNOWN = 0;
+  CLOSED = 1;
+  OPEN = 2;
 }
 
 message EnhancedEAMercury {
