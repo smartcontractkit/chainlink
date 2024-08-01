@@ -83,7 +83,7 @@ const (
 	ChaosGroupNetworkBCCIPGeth        = "CCIPNetworkBGeth"
 
 	defaultUSDCDestBytesOverhead = 640
-	defaultUSDCDestGasOverhead   = 120_000
+	defaultUSDCDestGasOverhead   = 150_000
 	DefaultDestinationGasLimit   = 600_000
 	// DefaultResubscriptionTimeout denotes the max backoff duration for resubscription for various watch events
 	// if the subscription keeps failing even after this duration, the test will fail
@@ -3764,7 +3764,6 @@ func SetOCR2Config(
 			DefaultMaxNoOfTokensInMsg,
 			MaxDataBytes,
 			200_000,
-			50_000,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create exec onchain config: %w", err)

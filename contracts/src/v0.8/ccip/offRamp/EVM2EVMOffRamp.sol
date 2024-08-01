@@ -90,9 +90,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     uint32 maxDataBytes; //                             │ Maximum payload data size in bytes
     uint16 maxNumberOfTokensPerMsg; //                  │ Maximum number of ERC20 token transfers that can be included per message
     address router; // ─────────────────────────────────╯ Router address
-    address priceRegistry; // ──────────╮ Price registry address
-    uint32 maxPoolReleaseOrMintGas; //  │ Maximum amount of gas passed on to token pool `releaseOrMint` call
-    uint32 maxTokenTransferGas; // ─────╯ Maximum amount of gas passed on to token `transfer` call
+    address priceRegistry; //                             Price registry address
   }
 
   /// @notice RateLimitToken struct containing both the source and destination token addresses
@@ -616,7 +614,8 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     // contains a contract. If it doesn't it reverts with a known error, which we catch gracefully.
     // We call the pool with exact gas to increase resistance against malicious tokens or token pools.
     // We protects against return data bombs by capping the return data size at MAX_RET_BYTES.
-    (bool success, bytes memory returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
+    (bool success, bytes memory returnData, uint256 gasUsedReleaseOrMint) = CallWithExactGas
+      ._callWithExactGasSafeReturnData(
       abi.encodeCall(
         IPoolV1.releaseOrMint,
         Pool.ReleaseOrMintInV1({
@@ -631,7 +630,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
         })
       ),
       localPoolAddress,
-      s_dynamicConfig.maxPoolReleaseOrMintGas,
+      sourceTokenData.destGasAmount,
       Internal.GAS_FOR_CALL_EXACT_CHECK,
       Internal.MAX_RET_BYTES
     );
@@ -650,7 +649,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     (success, returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
       abi.encodeCall(IERC20.transfer, (receiver, localAmount)),
       localToken,
-      s_dynamicConfig.maxTokenTransferGas,
+      sourceTokenData.destGasAmount - gasUsedReleaseOrMint,
       Internal.GAS_FOR_CALL_EXACT_CHECK,
       Internal.MAX_RET_BYTES
     );

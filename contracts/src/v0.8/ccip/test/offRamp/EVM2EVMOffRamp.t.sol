@@ -590,7 +590,8 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
       Internal.SourceTokenData({
         sourcePoolAddress: abi.encode(fakePoolAddress),
         destTokenAddress: abi.encode(s_destTokenBySourceToken[messages[0].tokenAmounts[0].token]),
-        extraData: ""
+        extraData: "",
+        destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
       })
     );
 
@@ -1221,7 +1222,8 @@ contract EVM2EVMOffRamp_manuallyExecute is EVM2EVMOffRampSetup {
       Internal.SourceTokenData({
         sourcePoolAddress: abi.encode(s_sourcePoolByToken[s_sourceFeeToken]),
         destTokenAddress: abi.encode(s_destTokenBySourceToken[s_sourceFeeToken]),
-        extraData: ""
+        extraData: "",
+        destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
       })
     );
 
@@ -1406,7 +1408,8 @@ contract EVM2EVMOffRamp__trialExecute is EVM2EVMOffRampSetup {
       Internal.SourceTokenData({
         sourcePoolAddress: abi.encode(address(0)),
         destTokenAddress: abi.encode(address(0)),
-        extraData: ""
+        extraData: "",
+        destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
       })
     );
 
@@ -1429,7 +1432,8 @@ contract EVM2EVMOffRamp__trialExecute is EVM2EVMOffRampSetup {
       Internal.SourceTokenData({
         sourcePoolAddress: abi.encode(address(0)),
         destTokenAddress: abi.encode(notAContract),
-        extraData: ""
+        extraData: "",
+        destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
       })
     );
 
@@ -1460,7 +1464,8 @@ contract EVM2EVMOffRamp__releaseOrMintToken is EVM2EVMOffRampSetup {
     Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(s_sourcePoolByToken[token]),
       destTokenAddress: abi.encode(s_destTokenBySourceToken[token]),
-      extraData: ""
+      extraData: "",
+      destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
     });
 
     vm.expectCall(
@@ -1496,7 +1501,8 @@ contract EVM2EVMOffRamp__releaseOrMintToken is EVM2EVMOffRampSetup {
     Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(s_sourcePoolByToken[token]),
       destTokenAddress: abi.encode(destToken),
-      extraData: ""
+      extraData: "",
+      destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
     });
 
     // Address(0) should always revert
@@ -1537,7 +1543,8 @@ contract EVM2EVMOffRamp__releaseOrMintToken is EVM2EVMOffRampSetup {
     Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(s_sourcePoolByToken[token]),
       destTokenAddress: abi.encode(destToken),
-      extraData: ""
+      extraData: "",
+      destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
     });
 
     bytes memory revertData = "call reverted :o";
@@ -1731,7 +1738,8 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
       Internal.SourceTokenData({
         sourcePoolAddress: abi.encode(s_sourcePoolByToken[srcTokenAmounts[0].token]),
         destTokenAddress: wrongAddress,
-        extraData: ""
+        extraData: "",
+        destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
       })
     );
 
@@ -1778,7 +1786,8 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
       Internal.SourceTokenData({
         sourcePoolAddress: abi.encode(fakePoolAddress),
         destTokenAddress: abi.encode(fakePoolAddress),
-        extraData: ""
+        extraData: "",
+        destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
       })
     );
 
@@ -1821,7 +1830,8 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
       Internal.SourceTokenData({
         sourcePoolAddress: unusedVar,
         destTokenAddress: abi.encode(destPool),
-        extraData: unusedVar
+        extraData: unusedVar,
+        destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
       })
     );
 

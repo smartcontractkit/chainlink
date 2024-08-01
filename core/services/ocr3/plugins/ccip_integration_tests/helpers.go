@@ -688,7 +688,7 @@ func defaultPriceRegistryDestChainConfig(t *testing.T) price_registry.PriceRegis
 		DestDataAvailabilityOverheadGas:   0,
 		DestGasPerDataAvailabilityByte:    100,
 		DestDataAvailabilityMultiplierBps: 1,
-		DefaultTokenDestGasOverhead:       50_000,
+		DefaultTokenDestGasOverhead:       125_000,
 		DefaultTokenDestBytesOverhead:     32,
 		DefaultTxGasLimit:                 200_000,
 		GasMultiplierWeiPerEth:            1,

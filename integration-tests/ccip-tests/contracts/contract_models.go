@@ -97,7 +97,7 @@ const (
 	CommitStoreContract   Name = "CommitStore"
 
 	defaultDestByteOverhead = uint32(32)
-	defaultDestGasOverhead  = uint32(29_000)
+	defaultDestGasOverhead  = uint32(125_000)
 )
 
 var (

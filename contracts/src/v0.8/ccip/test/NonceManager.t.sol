@@ -230,7 +230,6 @@ contract NonceManager_OnRampUpgrade is EVM2EVMMultiOnRampSetup {
         maxPerMsgGasLimit: MAX_GAS_LIMIT,
         defaultTokenFeeUSDCents: DEFAULT_TOKEN_FEE_USD_CENTS,
         defaultTokenDestGasOverhead: DEFAULT_TOKEN_DEST_GAS_OVERHEAD,
-        defaultTokenDestBytesOverhead: DEFAULT_TOKEN_BYTES_OVERHEAD,
         enforceOutOfOrder: false
       }),
       RateLimiter.Config({isEnabled: true, capacity: 100e28, rate: 1e15}),

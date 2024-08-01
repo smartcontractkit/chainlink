@@ -1043,8 +1043,7 @@ func (e *CCIPContractsDeployer) DeployOnRamp(
 					MaxDataBytes:                      50000,
 					MaxPerMsgGasLimit:                 4_000_000,
 					DefaultTokenFeeUSDCents:           50,
-					DefaultTokenDestGasOverhead:       34_000,
-					DefaultTokenDestBytesOverhead:     500,
+					DefaultTokenDestGasOverhead:       125_000,
 				},
 				evm_2_evm_onramp.RateLimiterConfig{
 					Capacity: opts.Capacity,
@@ -1445,19 +1444,10 @@ func NewExecOnchainConfig(
 	MaxNumberOfTokensPerMsg uint16,
 	MaxDataBytes uint32,
 	MaxPoolReleaseOrMintGas uint32,
-	MaxTokenTransferGas uint32,
 ) (abihelpers.AbiDefined, error) {
 	switch VersionMap[OffRampContract] {
 	case Latest:
-		return testhelpers.NewExecOnchainConfig(
-			PermissionLessExecutionThresholdSeconds,
-			Router,
-			PriceRegistry,
-			MaxNumberOfTokensPerMsg,
-			MaxDataBytes,
-			MaxPoolReleaseOrMintGas,
-			MaxTokenTransferGas,
-		), nil
+		return testhelpers.NewExecOnchainConfig(PermissionLessExecutionThresholdSeconds, Router, PriceRegistry, MaxNumberOfTokensPerMsg, MaxDataBytes), nil
 	case V1_2_0:
 		return testhelpers_1_4_0.NewExecOnchainConfig(
 			PermissionLessExecutionThresholdSeconds,
