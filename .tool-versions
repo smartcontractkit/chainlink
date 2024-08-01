@@ -7,4 +7,3 @@ helm 3.10.3
 zig 0.11.0
 golangci-lint 1.55.2
 protoc 25.1
-starknet-foundry 0.27.0
