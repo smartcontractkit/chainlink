@@ -164,10 +164,6 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 			Parent: &latestFinalizedHead,
 		},
 	}
-
-	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&head, nil).Once()
-	ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&latestFinalizedHead, nil).Once()
-
 	err = ec.ProcessHead(ctx, &head)
 	require.NoError(t, err)
 	// Can successfully close once
@@ -3184,8 +3180,6 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 			Number:      blockNum,
 			IsFinalized: true,
 		}
-		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&head, nil).Once()
-		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&head, nil).Once()
 		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(0), nil).Once()
 		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil).Once()
 
@@ -3211,8 +3205,6 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 			Number:      blockNum + 1,
 			IsFinalized: true,
 		}
-		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&head, nil).Once()
-		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&head, nil).Once()
 		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(1), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 4 && cltest.BatchElemMatchesParams(b[0], latestAttempt.Hash, "eth_getTransactionReceipt")
