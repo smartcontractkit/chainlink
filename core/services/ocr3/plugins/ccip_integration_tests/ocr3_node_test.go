@@ -25,6 +25,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+/*
+*   If you want to debug, set log level to info and use the following commands for easier logs filtering.
+*
+*   // Run the test and redirect logs to logs.txt
+*   go test -v -run "^TestIntegration_OCR3Nodes" ./core/services/ocr3/plugins/ccip_integration_tests 2>&1 > logs.txt
+*
+*   // Reads logs.txt as a stream and apply filters using grep
+*   tail -fn0 logs.txt | grep "CCIPExecPlugin"
+ */
 func TestIntegration_OCR3Nodes(t *testing.T) {
 	const (
 		numChains = 3 // number of chains that this test will run on
@@ -33,7 +42,7 @@ func TestIntegration_OCR3Nodes(t *testing.T) {
 		simulatedBackendBlockTime = 900 * time.Millisecond // Simulated backend blocks committing interval
 		oraclesBootWaitTime       = 30 * time.Second       // Time to wait for oracles to come up (HACK)
 		fChain                    = 1                      // fChain value for all the chains
-		oracleLogLevel            = zapcore.InfoLevel      // Log level for the oracle / plugins.
+		oracleLogLevel            = zapcore.ErrorLevel     // Log level for the oracle / plugins.
 	)
 
 	t.Logf("creating %d universes", numChains)
