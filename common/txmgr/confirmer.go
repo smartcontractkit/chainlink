@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -104,6 +104,10 @@ var (
 	}, []string{"chainID"})
 )
 
+type confirmerHeadTracker interface {
+	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error)
+}
+
 // Confirmer is a broad service which performs four different tasks in sequence on every new longest chain
 // Step 1: Mark that all currently pending transaction attempts were broadcast before this block
 // Step 2: Check pending transactions for receipts
@@ -143,7 +147,7 @@ type Confirmer[
 
 	nConsecutiveBlocksChainTooShort int
 	isReceiptNil                    func(R) bool
-	headTracker                     logpoller.HeadTracker
+	headTracker                     confirmerHeadTracker
 }
 
 func NewConfirmer[
@@ -167,7 +171,7 @@ func NewConfirmer[
 	lggr logger.Logger,
 	isReceiptNil func(R) bool,
 	stuckTxDetector txmgrtypes.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	headTracker logpoller.HeadTracker,
+	headTracker confirmerHeadTracker,
 ) *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Confirmer")
 	return &Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
@@ -331,16 +335,12 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 
 	if ec.resumeCallback != nil {
 		mark = time.Now()
-
-		headBlockNumber := head.BlockNumber()
 		_, latestFinalizedHead, err := ec.headTracker.LatestAndFinalizedBlock(ctx)
-		if err == nil {
-			headBlockNumber = latestFinalizedHead.BlockNumber()
-		} else {
-			ec.lggr.Errorw("failed to retrieve latest finalized head, use default head number", "error", err, "headNum", headBlockNumber, "id", "confirmer")
+		if err != nil {
+			return fmt.Errorf("failed to retrieve latest finalized head: %w", err)
 		}
 
-		if err = ec.ResumePendingTaskRuns(ctx, headBlockNumber); err != nil {
+		if err = ec.ResumePendingTaskRuns(ctx, latestFinalizedHead.BlockNumber()); err != nil {
 			return fmt.Errorf("ResumePendingTaskRuns failed: %w", err)
 		}
 
@@ -1198,8 +1198,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sen
 }
 
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ResumePendingTaskRuns(ctx context.Context, headBlockNumber int64) error {
-	receiptsPlus, err := ec.txStore.FindTxesPendingCallback(ctx, headBlockNumber, ec.chainID)
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ResumePendingTaskRuns(ctx context.Context, latestFinalizedBlockNum int64) error {
+	receiptsPlus, err := ec.txStore.FindTxesPendingCallback(ctx, latestFinalizedBlockNum, ec.chainID)
 	if err != nil {
 		return err
 	}
