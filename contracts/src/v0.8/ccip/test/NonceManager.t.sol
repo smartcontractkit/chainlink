@@ -18,6 +18,19 @@ import {EVM2EVMOnRampHelper} from "./helpers/EVM2EVMOnRampHelper.sol";
 import {MockCommitStore} from "./mocks/MockCommitStore.sol";
 import {EVM2EVMMultiOffRampSetup} from "./offRamp/EVM2EVMMultiOffRampSetup.t.sol";
 import {EVM2EVMMultiOnRampSetup} from "./onRamp/EVM2EVMMultiOnRampSetup.t.sol";
+import {Test} from "forge-std/Test.sol";
+
+contract NonceManager_typeAndVersion is Test {
+  NonceManager private s_nonceManager;
+
+  function setUp() public {
+    s_nonceManager = new NonceManager(new address[](0));
+  }
+
+  function test_typeAndVersion() public {
+    assertEq(s_nonceManager.typeAndVersion(), "NonceManager 1.6.0-dev");
+  }
+}
 
 contract NonceManager_NonceIncrementation is BaseTest {
   NonceManager private s_nonceManager;
