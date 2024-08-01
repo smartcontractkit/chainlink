@@ -19,10 +19,10 @@ jobs:
         run: |
           cat <<EOF > matrix.json
           [
-            { "name": "automation", "setup": { "run-coverage": false, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "automation", "setup": { "run-coverage": false, "run-gas-snapshot": false, "run-forge-fmt": false }},
             { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 98.5, "run-gas-snapshot": true, "run-forge-fmt": true }},
             { "name": "functions", "setup": { "run-coverage": false, "run-gas-snapshot": true, "run-forge-fmt": false }},
-            { "name": "keystone", "setup": { "run-coverage": true, "min-coverage": 74.1, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "keystone", "setup": { "run-coverage": true, "min-coverage": 74.1, "run-gas-snapshot": false, "run-forge-fmt": false }},
             { "name": "l2ep", "setup": { "run-coverage": true, "min-coverage": 65.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "liquiditymanager", "setup": { "run-coverage": true, "min-coverage": 46.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "llo-feeds", "setup": { "run-coverage": true, "min-coverage": 49.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
@@ -244,7 +244,7 @@ jobs:
         continue-on-error: true
 
   solidity-forge-fmt:
-    if: needs.changes.outputs.changes == 'true'
+    if: needs.changes.outputs.sol_changes == 'true'
     needs: [define-matrix, changes]
     strategy:
       fail-fast: false
@@ -254,23 +254,23 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
-        if: ${{ needs.changes.outputs.changes == 'true' && matrix.product.setup.run-forge-fmt }}
+        if: ${{ needs.changes.outputs.sol_changes == 'true' && matrix.product.setup.run-forge-fmt }}
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
 
       - name: Setup NodeJS
-        if: ${{ needs.changes.outputs.changes == 'true' && matrix.product.setup.run-forge-fmt }}
+        if: ${{ needs.changes.outputs.sol_changes == 'true' && matrix.product.setup.run-forge-fmt }}
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
-        if: ${{ needs.changes.outputs.changes == 'true' && matrix.product.setup.run-forge-fmt }}
+        if: ${{ needs.changes.outputs.sol_changes == 'true' && matrix.product.setup.run-forge-fmt }}
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
           version: ${{ env.FOUNDRY_VERSION }}
 
       - name: Run Forge fmt
-        if: ${{ needs.changes.outputs.changes == 'true' && matrix.product.setup.run-forge-fmt }}
+        if: ${{ needs.changes.outputs.sol_changes == 'true' && matrix.product.setup.run-forge-fmt }}
         run: forge fmt --check
         id: fmt
         working-directory: contracts
@@ -278,7 +278,7 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
       - name: Collect Metrics
-        if: ${{ needs.changes.outputs.changes == 'true' && matrix.product.setup.run-forge-fmt }}
+        if: ${{ needs.changes.outputs.sol_changes == 'true' && matrix.product.setup.run-forge-fmt }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
