@@ -27,7 +27,6 @@ import (
 	iutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 const (
@@ -103,8 +102,8 @@ var (
 	}, []string{"chainID"})
 )
 
-type confirmerHeadTracker interface {
-	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error)
+type confirmerHeadTracker[HEAD types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
+	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized HEAD, err error)
 }
 
 // Confirmer is a broad service which performs four different tasks in sequence on every new longest chain
@@ -147,7 +146,7 @@ type Confirmer[
 	nConsecutiveBlocksChainTooShort int
 	isReceiptNil                    func(R) bool
 
-	headTracker confirmerHeadTracker
+	headTracker confirmerHeadTracker[HEAD, BLOCK_HASH]
 }
 
 func NewConfirmer[
@@ -171,7 +170,7 @@ func NewConfirmer[
 	lggr logger.Logger,
 	isReceiptNil func(R) bool,
 	stuckTxDetector txmgrtypes.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	headTracker confirmerHeadTracker,
+	headTracker confirmerHeadTracker[HEAD, BLOCK_HASH],
 ) *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Confirmer")
 	return &Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
@@ -1020,7 +1019,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head types.Head[BLOCK_HASH], latestFinalizedHead *evmtypes.Head) error {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head, latestFinalizedHead types.Head[BLOCK_HASH]) error {
 	if head.ChainLength() < uint32(latestFinalizedHead.BlockNumber()) {
 		logArgs := []interface{}{
 			"chainLength", head.ChainLength(), "latestFinalizedHead", latestFinalizedHead.BlockNumber(),
