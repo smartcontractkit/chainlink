@@ -335,12 +335,28 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 
 	if ec.resumeCallback != nil {
 		mark = time.Now()
-		_, latestFinalizedHead, err := ec.headTracker.LatestAndFinalizedBlock(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve latest finalized head: %w", err)
+
+		// backward compatibility purpose:
+		// Since fallback.toml have not yet updated, LatestAndFinalizedBlock() is not going to work properly due to
+		// calculateLatestFinalized() checks the related tags, and we will always get 0 for finalized block height, causing
+		// integration test (TestIntegration_AsyncEthTx) to fail.
+		//
+		// HOWEVER, we are assuming the current head is finalized head, because we removed the minConfirmation check
+		//  if this is an issue, then we will have to merge this PR after BCI-3573 and BCI-3730
+
+		headNumber := head.BlockNumber()
+		if ec.chainConfig.FinalityTagEnabled() {
+			_, latestFinalizedBlock, err := ec.headTracker.LatestAndFinalizedBlock(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to retrieve latest finalized head: %w", err)
+			}
+
+			headNumber = latestFinalizedBlock.BlockNumber()
 		}
 
-		if err = ec.ResumePendingTaskRuns(ctx, latestFinalizedHead.BlockNumber()); err != nil {
+		// TODO Once BCI-3574 is merged we can update the chainConfig interface to remove FinalityTagEnabled, and remove the
+		//  head.BlockNumber()
+		if err := ec.ResumePendingTaskRuns(ctx, headNumber); err != nil {
 			return fmt.Errorf("ResumePendingTaskRuns failed: %w", err)
 		}
 
