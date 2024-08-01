@@ -37,7 +37,7 @@ providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
-strategyName = 'single-chain'
+strategyName = 'multi-chain'
 [onchainSigningStrategy.config]
 
 --------------------------------
@@ -66,7 +66,7 @@ providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
-strategyName = 'single-chain'
+strategyName = 'multi-chain'
 [onchainSigningStrategy.config]
 
 --------------------------------
@@ -95,7 +95,7 @@ providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
-strategyName = 'single-chain'
+strategyName = 'multi-chain'
 [onchainSigningStrategy.config]
 
 --------------------------------
@@ -124,7 +124,7 @@ providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
-strategyName = 'single-chain'
+strategyName = 'multi-chain'
 [onchainSigningStrategy.config]
 
 
