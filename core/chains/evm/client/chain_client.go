@@ -20,7 +20,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-const queryTimeout = 10 * time.Second
 const BALANCE_OF_ADDRESS_FUNCTION_SELECTOR = "0x70a08231"
 
 var _ Client = (*chainClient)(nil)
@@ -99,7 +98,7 @@ type Client interface {
 }
 
 func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc) {
-	return context.WithTimeout(context.Background(), queryTimeout)
+	return context.WithTimeout(context.Background(), commonclient.QueryTimeout)
 }
 
 type chainClient struct {
