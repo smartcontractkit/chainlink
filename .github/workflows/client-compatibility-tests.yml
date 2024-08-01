@@ -279,7 +279,7 @@ jobs:
             expression: '^v[0-9]+\.[0-9]+\.[0-9]+$'
     steps:
       - name: Update internal ECR if the latest Ethereum client image does not exist
-        uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@4ce33d7304aba46d68152503c408f3a62c5f4e9d # v1.32.8
+        uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@352cf299b529a33208146d9f7f0e0b5534fba6e7 # v1.33.0
         with:
           aws_region: ${{ secrets.QA_AWS_REGION }}
           role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
