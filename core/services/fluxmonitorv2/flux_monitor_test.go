@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -18,11 +19,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
@@ -491,7 +491,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 
 			oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 			tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-			require.NoError(t, fm.SetOracleAddress())
+			require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
 			fm.ExportedPollIfEligible(thresholds.rel, thresholds.abs)
 		})
 	}
@@ -526,7 +526,7 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 		Once()
 
 	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-	require.NoError(t, fm.SetOracleAddress())
+	require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
 
 	fm.ExportedPollIfEligible(1, 1)
 }
@@ -1171,7 +1171,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	tm.fluxAggregator.On("Address").Return(common.Address{})
 	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 
-	require.NoError(t, fm.SetOracleAddress())
+	require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
 	fm.ExportedRoundState(t)
 	servicetest.Run(t, fm)
 
@@ -1506,7 +1506,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Return(nil)
 
 		tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-		require.NoError(t, fm.SetOracleAddress())
+		require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
 
 		tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(flux_aggregator_wrapper.LatestRoundData{
 			Answer:    big.NewInt(10),
@@ -1635,7 +1635,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Once()
 
 		tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-		require.NoError(t, fm.SetOracleAddress())
+		require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
 		fm.ExportedPollIfEligible(0, 0)
 
 		// Now fire off the NewRound log and ensure it does not respond this time
@@ -1732,7 +1732,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Once()
 
 		tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-		require.NoError(t, fm.SetOracleAddress())
+		require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
 		fm.ExportedPollIfEligible(0, 0)
 
 		// Now fire off the NewRound log and ensure it does not respond this time

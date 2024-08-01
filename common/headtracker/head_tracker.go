@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -51,7 +50,9 @@ type headTracker[
 	ID types.ID,
 	BLOCK_HASH types.Hashable,
 ] struct {
-	services.StateMachine
+	services.Service
+	eng *services.Engine
+
 	log             logger.SugaredLogger
 	headBroadcaster HeadBroadcaster[HTH, BLOCK_HASH]
 	headSaver       HeadSaver[HTH, BLOCK_HASH]
@@ -64,8 +65,6 @@ type headTracker[
 	backfillMB   *mailbox.Mailbox[HTH]
 	broadcastMB  *mailbox.Mailbox[HTH]
 	headListener HeadListener[HTH, BLOCK_HASH]
-	chStop       services.StopChan
-	wgDone       sync.WaitGroup
 	getNilHead   func() HTH
 }
 
@@ -85,52 +84,52 @@ func NewHeadTracker[
 	mailMon *mailbox.Monitor,
 	getNilHead func() HTH,
 ) HeadTracker[HTH, BLOCK_HASH] {
-	chStop := make(chan struct{})
-	lggr = logger.Named(lggr, "HeadTracker")
-	return &headTracker[HTH, S, ID, BLOCK_HASH]{
+	ht := &headTracker[HTH, S, ID, BLOCK_HASH]{
 		headBroadcaster: headBroadcaster,
 		client:          client,
 		chainID:         client.ConfiguredChainID(),
 		config:          config,
 		htConfig:        htConfig,
-		log:             logger.Sugared(lggr),
 		backfillMB:      mailbox.NewSingle[HTH](),
 		broadcastMB:     mailbox.New[HTH](HeadsBufferSize),
-		chStop:          chStop,
-		headListener:    NewHeadListener[HTH, S, ID, BLOCK_HASH](lggr, client, config, chStop),
 		headSaver:       headSaver,
 		mailMon:         mailMon,
 		getNilHead:      getNilHead,
 	}
+	ht.Service, ht.eng = services.Config{
+		Name: "HeadTracker",
+		NewSubServices: func(lggr logger.Logger) []services.Service {
+			ht.headListener = NewHeadListener[HTH, S, ID, BLOCK_HASH](lggr, client, config,
+				// NOTE: Always try to start the head tracker off with whatever the
+				// latest head is, without waiting for the subscription to send us one.
+				//
+				// In some cases the subscription will send us the most recent head
+				// anyway when we connect (but we should not rely on this because it is
+				// not specced). If it happens this is fine, and the head will be
+				// ignored as a duplicate.
+				func(ctx context.Context) {
+					err := ht.handleInitialHead(ctx)
+					if err != nil {
+						ht.log.Errorw("Error handling initial head", "err", err.Error())
+					}
+				}, ht.handleNewHead)
+			return []services.Service{ht.headListener}
+		},
+		Start: ht.start,
+		Close: ht.close,
+	}.NewServiceEngine(lggr)
+	ht.log = logger.Sugared(ht.eng)
+	return ht
 }
 
 // Start starts HeadTracker service.
-func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error {
-	return ht.StartOnce("HeadTracker", func() error {
-		ht.log.Debugw("Starting HeadTracker", "chainID", ht.chainID)
-		// NOTE: Always try to start the head tracker off with whatever the
-		// latest head is, without waiting for the subscription to send us one.
-		//
-		// In some cases the subscription will send us the most recent head
-		// anyway when we connect (but we should not rely on this because it is
-		// not specced). If it happens this is fine, and the head will be
-		// ignored as a duplicate.
-		onSubscribe := func() {
-			err := ht.handleInitialHead(ctx)
-			if err != nil {
-				ht.log.Errorw("Error handling initial head", "err", err.Error())
-			}
-		}
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) start(context.Context) error {
+	ht.eng.Go(ht.backfillLoop)
+	ht.eng.Go(ht.broadcastLoop)
 
-		ht.wgDone.Add(3)
-		go ht.headListener.ListenForNewHeads(onSubscribe, ht.handleNewHead, ht.wgDone.Done)
-		go ht.backfillLoop()
-		go ht.broadcastLoop()
+	ht.mailMon.Monitor(ht.broadcastMB, "HeadTracker", "Broadcast", ht.chainID.String())
 
-		ht.mailMon.Monitor(ht.broadcastMB, "HeadTracker", "Broadcast", ht.chainID.String())
-
-		return nil
-	})
+	return nil
 }
 
 func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleInitialHead(ctx context.Context) error {
@@ -176,23 +175,8 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleInitialHead(ctx context.Con
 	return nil
 }
 
-// Close stops HeadTracker service.
-func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Close() error {
-	return ht.StopOnce("HeadTracker", func() error {
-		close(ht.chStop)
-		ht.wgDone.Wait()
-		return ht.broadcastMB.Close()
-	})
-}
-
-func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Name() string {
-	return ht.log.Name()
-}
-
-func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error {
-	report := map[string]error{ht.Name(): ht.Healthy()}
-	services.CopyHealth(report, ht.headListener.HealthReport())
-	return report
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) close() error {
+	return ht.broadcastMB.Close()
 }
 
 func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain HTH) (err error) {
@@ -265,15 +249,13 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 		if prevLatestFinalized != nil && head.BlockNumber() <= prevLatestFinalized.BlockNumber() {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
 			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.BlockNumber(), prevHead.BlockNumber())
-			ht.SvcErrBuffer.Append(errors.New("got very old block"))
+			ht.eng.EmitHealthErr(errors.New("got very old block"))
 		}
 	}
 	return nil
 }
 
-func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) broadcastLoop() {
-	defer ht.wgDone.Done()
-
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) broadcastLoop(ctx context.Context) {
 	samplingInterval := ht.htConfig.SamplingInterval()
 	if samplingInterval > 0 {
 		ht.log.Debugf("Head sampling is enabled - sampling interval is set to: %v", samplingInterval)
@@ -281,7 +263,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) broadcastLoop() {
 		defer debounceHead.Stop()
 		for {
 			select {
-			case <-ht.chStop:
+			case <-ctx.Done():
 				return
 			case <-debounceHead.C:
 				item := ht.broadcastMB.RetrieveLatestAndClear()
@@ -295,7 +277,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) broadcastLoop() {
 		ht.log.Info("Head sampling is disabled - callback will be called on every head")
 		for {
 			select {
-			case <-ht.chStop:
+			case <-ctx.Done():
 				return
 			case <-ht.broadcastMB.Notify():
 				for {
@@ -310,15 +292,10 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) broadcastLoop() {
 	}
 }
 
-func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
-	defer ht.wgDone.Done()
-
-	ctx, cancel := ht.chStop.NewCtx()
-	defer cancel()
-
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop(ctx context.Context) {
 	for {
 		select {
-		case <-ht.chStop:
+		case <-ctx.Done():
 			return
 		case <-ht.backfillMB.Notify():
 			for {
