@@ -340,7 +340,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 		// Since fallback.toml have not yet updated, LatestAndFinalizedBlock() is not going to work properly due to
 		// calculateLatestFinalized() checks the related tags, and we will always get 0 for finalized block height, causing
 		// integration test (TestIntegration_AsyncEthTx) to fail.
-		//
+
 		// HOWEVER, we are assuming the current head is finalized head, because we removed the minConfirmation check
 		//  if this is an issue, then we will have to merge this PR after BCI-3573 and BCI-3730
 
