@@ -286,7 +286,7 @@ jobs:
 
   solidity-forge-fmt:
     name: Forge fmt ${{ matrix.product.name }}
-    if: ${{ needs.changes.outputs.non_src_changes == 'true'}}
+    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified == 'true' }}
     needs: [define-matrix, changes]
     strategy:
       fail-fast: false
