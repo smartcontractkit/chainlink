@@ -8,6 +8,7 @@ env:
 
 jobs:
   define-matrix:
+    name: Define test matrix
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
@@ -31,7 +32,7 @@ jobs:
           ]
           EOF
           
-          matrix=$(cat matrix.json)
+          matrix=$(cat matrix.json | jq -c .)
           echo "matrix=$matrix" >> $GITHUB_OUTPUT
 
   changes:
