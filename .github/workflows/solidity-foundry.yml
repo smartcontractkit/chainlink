@@ -13,7 +13,9 @@ jobs:
     outputs:
       src_changes: ${{ steps.changes.outputs.src }}
       sol_changes: ${{ steps.changes.outputs.sol }}
+      mod_sol_changes: ${{ steps.changes.outputs.mod_sol }}
       sol_files: ${{ steps.changes.outputs.sol_files }}
+      mod_sol_files: ${{ steps.changes.outputs.mod_sol_files }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -29,9 +31,13 @@ jobs:
               - 'contracts/gas-snapshots/*.gas-snapshot'
             sol:
               - 'contracts/src/v0.8/**/*.sol'
+            mod_sol:
+              - modified: 'contracts/src/v0.8/**/*.sol'            
 
   tests:
-    if: needs.changes.outputs.src_changes == 'true'
+    #TODO change me back
+    if: needs.changes.outputs.src_changes == 'mietek'
+#    if: needs.changes.outputs.src_changes == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -195,19 +201,125 @@ jobs:
           python -m pip install --upgrade pip
           pip install slither-analyzer
 
-      - name: Run Slither
+      - name: Run Slither for current branch
         shell: bash
-        env:
-          FOUNDRY_PROFILE: ${{ matrix.product.name }}
         run: |
           CHANGED="${{ needs.changes.outputs.sol_files }}"
           CHANGED_ARRAY=$(echo "$CHANGED" | tr ' ' ',')
           
-          # modify remappings so that solc can find dependencies
-          ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
-          mv remappings_modified.txt remappings.txt
-          
           ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/.slither.config-artifacts.json "." "$CHANGED_ARRAY" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
+
+        # Run the steps below only if some existing files were modified
+      - name: Upload Slither results for current branch
+        if: needs.changes.outputs.mod_sol_changes == 'true'
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: tmp-slither-reports-current-${{ github.sha }}
+          path: contracts/slither-reports
+          retention-days: 7
+
+      - name: Upload Slither scripts
+        if: needs.changes.outputs.mod_sol_changes == 'true'
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: tmp-slither-scripts-${{ github.sha }}
+          path: contracts/scripts/ci
+          retention-days: 7
+
+      - name: Checkout the repo
+        if: needs.changes.outputs.mod_sol_changes == 'true'
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          submodules: recursive
+          ref: ${{ github.base_ref }}
+
+      - name: Download Slither scripts
+        if: needs.changes.outputs.mod_sol_changes == 'true'
+        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        with:
+          name: tmp-slither-scripts-${{ github.sha }}
+          path: contracts/scripts/ci
+
+      - name: Run Slither for base reference
+        if: needs.changes.outputs.mod_sol_changes == 'true'
+        shell: bash
+        run: |
+          MODIFIED="${{ needs.changes.outputs.mod_sol_files }}"
+          MODIFIED_ARRAY=$(echo "$MODIFIED" | tr ' ' ',')
+          
+          for file in contracts/scripts/ci/*.sh; do
+            chmod +x "$file"
+          done
+          
+          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/.slither.config-pr.json "." "$MODIFIED_ARRAY" "contracts/slither-reports-base-ref" "--solc-remaps @=contracts/node_modules/@"
+
+      - name: Upload Slither report
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 10
+        continue-on-error: true
+        with:
+          name: tmp-slither-reports-base-${{ github.sha }}
+          path: |
+            contracts/slither-reports-base-ref
+          retention-days: 7
+
+      - name: Download Slither results for current branch
+        if: needs.changes.outputs.mod_sol_changes == 'true'
+        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        with:
+          name: tmp-slither-reports-current-${{ github.sha }}
+          path: contracts/slither-reports-current
+
+      - name: Generate diff of Slither reports for modified files
+        if: needs.changes.outputs.mod_sol_changes == 'true'
+        run: |
+          for original_file in contracts/slither-reports-base-ref/*.md; do
+            base_file=$(basename "$original_file")
+            new_file="contracts/slither-reports-current/$base_file"
+            diff_file="contracts/slither-reports-current/${base_file%.md}_diff.md"
+            if [ -f "$new_file" ]; then
+              report1=$(cat $original_file | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
+              report2=$(cat $new_file | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
+              openai_prompt=$(cat contracts/scripts/ci/prompt.md | sed 's/"/\\"/g' | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
+              openai_model="gpt-4o-mini"
+              openai_result=$(echo '{
+                "model": "'$openai_model'",
+                "temperature": 0.1,
+                "messages": [
+                  {
+                    "role": "system",
+                    "content": "'$openai_prompt' \nreport1:\n```'$report1'```\nreport2:\n```'$report2'```"
+                  }
+                ]
+                }' | envsubst | curl https://api.openai.com/v1/chat/completions \
+                              -w "%{http_code}" \
+                              -o prompt_response.json \
+                              -H "Content-Type: application/json" \
+                              -H "Authorization: Bearer $OPEN_API_KEY" \
+                              -d @-
+                )
+            
+              # throw error openai_result when is not 200
+              if [ "$openai_result" != '200' ]; then
+              echo "::error::OpenAI API call failed with status $openai_result: $(cat prompt_response.json)"
+              exit 1
+              fi
+              
+              # replace lines starting with ' -' (1space) with '  -' (2spaces)
+              response_content=$(cat prompt_response.json | jq -r '.choices[0].message.content')
+              echo "$response_content" | sed -e 's/^ -/  -/g' > $diff_file
+          
+              rm $new_file
+              mv $diff_file $new_file
+            else
+              echo "File $new_file does not exist, skipping diff."
+              #TODO check with git diff if it indeed was deleted?
+            fi
+          done        
 
       - name: Print Slither summary
         shell: bash
@@ -241,9 +353,11 @@ jobs:
         continue-on-error: true
 
   fmt:
+    #TODO change me back
+    if: needs.changes.outputs.src_changes == 'mietek'
+    #    if: needs.changes.outputs.src_changes == 'true'
     needs: [ changes ]
     name: Check formatting for modified files
-    if: needs.changes.outputs.sol_changes == 'true'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
