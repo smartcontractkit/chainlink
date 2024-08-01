@@ -3,13 +3,14 @@ package remote
 import (
 	"context"
 	"errors"
-	sync "sync"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -169,6 +170,10 @@ func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commo
 }
 
 func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
+	if msg == nil {
+		s.lggr.Errorw("received nil message on subscriber::Receive()", "capabilityId", s.capInfo.ID)
+		return
+	}
 	sender := ToPeerID(msg.Sender)
 	if _, found := s.capDonMembers[sender]; !found {
 		s.lggr.Errorw("received message from unexpected node", "capabilityId", s.capInfo.ID, "sender", sender)

@@ -2,13 +2,14 @@ package remote
 
 import (
 	"context"
-	sync "sync"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -72,6 +73,10 @@ func (p *triggerPublisher) Start(ctx context.Context) error {
 }
 
 func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
+	if msg == nil {
+		p.lggr.Errorw("received nil message on publisher::Receive()", "capabilityId", p.capInfo.ID)
+		return
+	}
 	sender := ToPeerID(msg.Sender)
 	if msg.Method == types.MethodRegisterTrigger {
 		req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
