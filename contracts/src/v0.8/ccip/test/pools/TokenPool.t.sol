@@ -429,10 +429,10 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
 
   // Reverts
 
-  function test_OnlyOwner_Revert() public {
+  function test_OnlyOwnerOrRateLimitAdmin_Revert() public {
     vm.startPrank(STRANGER);
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(abi.encodeWithSelector(TokenPool.Unauthorized.selector, STRANGER));
     s_tokenPool.setChainRateLimiterConfig(
       s_remoteChainSelector, getOutboundRateLimiterConfig(), getInboundRateLimiterConfig()
     );
@@ -445,6 +445,23 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
     s_tokenPool.setChainRateLimiterConfig(
       wrongChainSelector, getOutboundRateLimiterConfig(), getInboundRateLimiterConfig()
     );
+  }
+}
+
+contract LockRelease_setRateLimitAdmin is TokenPoolSetup {
+  function test_SetRateLimitAdmin_Success() public {
+    assertEq(address(0), s_tokenPool.getRateLimitAdmin());
+    s_tokenPool.setRateLimitAdmin(OWNER);
+    assertEq(OWNER, s_tokenPool.getRateLimitAdmin());
+  }
+
+  // Reverts
+
+  function test_SetRateLimitAdmin_Revert() public {
+    vm.startPrank(STRANGER);
+
+    vm.expectRevert("Only callable by owner");
+    s_tokenPool.setRateLimitAdmin(STRANGER);
   }
 }
 

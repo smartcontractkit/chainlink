@@ -141,19 +141,6 @@ contract PriceRegistrySetup is TokenSetup {
     );
     s_priceRegistryTokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs.push(
       PriceRegistry.TokenTransferFeeConfigSingleTokenArgs({
-        token: s_sourceRouter.getWrappedNative(),
-        tokenTransferFeeConfig: PriceRegistry.TokenTransferFeeConfig({
-          minFeeUSDCents: 50, // 0.5 USD
-          maxFeeUSDCents: 500_00, // 500 USD
-          deciBps: 5_0, // 5 bps, or 0.05%
-          destGasOverhead: 10_000,
-          destBytesOverhead: 100,
-          isEnabled: true
-        })
-      })
-    );
-    s_priceRegistryTokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs.push(
-      PriceRegistry.TokenTransferFeeConfigSingleTokenArgs({
         token: CUSTOM_TOKEN,
         tokenTransferFeeConfig: PriceRegistry.TokenTransferFeeConfig({
           minFeeUSDCents: 2_00, // 1 USD
@@ -1777,35 +1764,6 @@ contract PriceRegistry_getTokenTransferCost is PriceRegistryFeeSetup {
     assertEq(transferFeeConfig.destBytesOverhead, destBytesOverhead);
   }
 
-  function test_WETHTokenBpsFee_Success() public view {
-    uint256 tokenAmount = 100e18;
-
-    Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
-      receiver: abi.encode(OWNER),
-      data: "",
-      tokenAmounts: new Client.EVMTokenAmount[](1),
-      feeToken: s_sourceRouter.getWrappedNative(),
-      extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: GAS_LIMIT}))
-    });
-    message.tokenAmounts[0] = Client.EVMTokenAmount({token: s_sourceRouter.getWrappedNative(), amount: tokenAmount});
-
-    PriceRegistry.TokenTransferFeeConfig memory transferFeeConfig =
-      s_priceRegistry.getTokenTransferFeeConfig(DEST_CHAIN_SELECTOR, message.tokenAmounts[0].token);
-
-    (uint256 feeUSDWei, uint32 destGasOverhead, uint32 destBytesOverhead) = s_priceRegistry.getTokenTransferCost(
-      DEST_CHAIN_SELECTOR, message.feeToken, s_wrappedTokenPrice, message.tokenAmounts
-    );
-
-    uint256 usdWei = calcUSDValueFromTokenAmount(s_wrappedTokenPrice, tokenAmount);
-    uint256 bpsUSDWei = applyBpsRatio(
-      usdWei, s_priceRegistryTokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[1].tokenTransferFeeConfig.deciBps
-    );
-
-    assertEq(bpsUSDWei, feeUSDWei);
-    assertEq(transferFeeConfig.destGasOverhead, destGasOverhead);
-    assertEq(transferFeeConfig.destBytesOverhead, destBytesOverhead);
-  }
-
   function test_CustomTokenBpsFee_Success() public view {
     uint256 tokenAmount = 200000e18;
 
@@ -1826,7 +1784,7 @@ contract PriceRegistry_getTokenTransferCost is PriceRegistryFeeSetup {
 
     uint256 usdWei = calcUSDValueFromTokenAmount(s_customTokenPrice, tokenAmount);
     uint256 bpsUSDWei = applyBpsRatio(
-      usdWei, s_priceRegistryTokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[2].tokenTransferFeeConfig.deciBps
+      usdWei, s_priceRegistryTokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[1].tokenTransferFeeConfig.deciBps
     );
 
     assertEq(bpsUSDWei, feeUSDWei);
@@ -1914,9 +1872,15 @@ contract PriceRegistry_getTokenTransferCost is PriceRegistryFeeSetup {
     // Start with small token transfers, total bps fee is lower than min token transfer fee
     for (uint256 i = 0; i < testTokens.length; ++i) {
       message.tokenAmounts[i] = Client.EVMTokenAmount({token: testTokens[i], amount: 1e14});
-      expectedTotalGas += s_priceRegistry.getTokenTransferFeeConfig(DEST_CHAIN_SELECTOR, testTokens[i]).destGasOverhead;
-      expectedTotalBytes +=
-        s_priceRegistry.getTokenTransferFeeConfig(DEST_CHAIN_SELECTOR, testTokens[i]).destBytesOverhead;
+      PriceRegistry.TokenTransferFeeConfig memory tokenTransferFeeConfig =
+        s_priceRegistry.getTokenTransferFeeConfig(DEST_CHAIN_SELECTOR, testTokens[i]);
+
+      expectedTotalGas += tokenTransferFeeConfig.destGasOverhead == 0
+        ? DEFAULT_TOKEN_DEST_GAS_OVERHEAD
+        : tokenTransferFeeConfig.destGasOverhead;
+      expectedTotalBytes += tokenTransferFeeConfig.destBytesOverhead == 0
+        ? DEFAULT_TOKEN_BYTES_OVERHEAD
+        : tokenTransferFeeConfig.destBytesOverhead;
     }
     (uint256 feeUSDWei, uint32 destGasOverhead, uint32 destBytesOverhead) = s_priceRegistry.getTokenTransferCost(
       DEST_CHAIN_SELECTOR, message.feeToken, s_wrappedTokenPrice, message.tokenAmounts
@@ -1924,44 +1888,45 @@ contract PriceRegistry_getTokenTransferCost is PriceRegistryFeeSetup {
 
     uint256 expectedFeeUSDWei = 0;
     for (uint256 i = 0; i < testTokens.length; ++i) {
-      expectedFeeUSDWei += configUSDCentToWei(tokenTransferFeeConfigs[i].minFeeUSDCents);
+      expectedFeeUSDWei += configUSDCentToWei(
+        tokenTransferFeeConfigs[i].minFeeUSDCents == 0
+          ? DEFAULT_TOKEN_FEE_USD_CENTS
+          : tokenTransferFeeConfigs[i].minFeeUSDCents
+      );
     }
 
-    assertEq(expectedFeeUSDWei, feeUSDWei);
-    assertEq(expectedTotalGas, destGasOverhead);
-    assertEq(expectedTotalBytes, destBytesOverhead);
+    assertEq(expectedFeeUSDWei, feeUSDWei, "wrong feeUSDWei 1");
+    assertEq(expectedTotalGas, destGasOverhead, "wrong destGasOverhead 1");
+    assertEq(expectedTotalBytes, destBytesOverhead, "wrong destBytesOverhead 1");
 
     // Set 1st token transfer to a meaningful amount so its bps fee is now between min and max fee
     message.tokenAmounts[0] = Client.EVMTokenAmount({token: testTokens[0], amount: 10000e18});
 
+    uint256 token0USDWei = applyBpsRatio(
+      calcUSDValueFromTokenAmount(tokenPrices[0], message.tokenAmounts[0].amount), tokenTransferFeeConfigs[0].deciBps
+    );
+    uint256 token1USDWei = configUSDCentToWei(DEFAULT_TOKEN_FEE_USD_CENTS);
+
     (feeUSDWei, destGasOverhead, destBytesOverhead) = s_priceRegistry.getTokenTransferCost(
       DEST_CHAIN_SELECTOR, message.feeToken, s_wrappedTokenPrice, message.tokenAmounts
     );
-    expectedFeeUSDWei = applyBpsRatio(
-      calcUSDValueFromTokenAmount(tokenPrices[0], message.tokenAmounts[0].amount), tokenTransferFeeConfigs[0].deciBps
-    );
-    expectedFeeUSDWei += configUSDCentToWei(tokenTransferFeeConfigs[1].minFeeUSDCents);
-    expectedFeeUSDWei += configUSDCentToWei(tokenTransferFeeConfigs[2].minFeeUSDCents);
+    expectedFeeUSDWei = token0USDWei + token1USDWei + configUSDCentToWei(tokenTransferFeeConfigs[2].minFeeUSDCents);
 
-    assertEq(expectedFeeUSDWei, feeUSDWei);
-    assertEq(expectedTotalGas, destGasOverhead);
-    assertEq(expectedTotalBytes, destBytesOverhead);
+    assertEq(expectedFeeUSDWei, feeUSDWei, "wrong feeUSDWei 2");
+    assertEq(expectedTotalGas, destGasOverhead, "wrong destGasOverhead 2");
+    assertEq(expectedTotalBytes, destBytesOverhead, "wrong destBytesOverhead 2");
 
     // Set 2nd token transfer to a large amount that is higher than maxFeeUSD
-    message.tokenAmounts[1] = Client.EVMTokenAmount({token: testTokens[1], amount: 1e36});
+    message.tokenAmounts[2] = Client.EVMTokenAmount({token: testTokens[2], amount: 1e36});
 
     (feeUSDWei, destGasOverhead, destBytesOverhead) = s_priceRegistry.getTokenTransferCost(
       DEST_CHAIN_SELECTOR, message.feeToken, s_wrappedTokenPrice, message.tokenAmounts
     );
-    expectedFeeUSDWei = applyBpsRatio(
-      calcUSDValueFromTokenAmount(tokenPrices[0], message.tokenAmounts[0].amount), tokenTransferFeeConfigs[0].deciBps
-    );
-    expectedFeeUSDWei += configUSDCentToWei(tokenTransferFeeConfigs[1].maxFeeUSDCents);
-    expectedFeeUSDWei += configUSDCentToWei(tokenTransferFeeConfigs[2].minFeeUSDCents);
+    expectedFeeUSDWei = token0USDWei + token1USDWei + configUSDCentToWei(tokenTransferFeeConfigs[2].maxFeeUSDCents);
 
-    assertEq(expectedFeeUSDWei, feeUSDWei);
-    assertEq(expectedTotalGas, destGasOverhead);
-    assertEq(expectedTotalBytes, destBytesOverhead);
+    assertEq(expectedFeeUSDWei, feeUSDWei, "wrong feeUSDWei 3");
+    assertEq(expectedTotalGas, destGasOverhead, "wrong destGasOverhead 3");
+    assertEq(expectedTotalBytes, destBytesOverhead, "wrong destBytesOverhead 3");
   }
 }
 
