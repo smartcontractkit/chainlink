@@ -41,7 +41,8 @@ contract RouterSetup is BaseTest {
     return Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(address(12312412312)),
       destTokenAddress: abi.encode(address(9809808909)),
-      extraData: ""
+      extraData: "",
+      destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
     });
   }
 }

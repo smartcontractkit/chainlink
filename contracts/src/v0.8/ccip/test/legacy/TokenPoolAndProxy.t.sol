@@ -585,7 +585,7 @@ contract LockReleaseTokenPoolPoolAndProxy_provideLiquidity is LockReleaseTokenPo
 
   function test_Unauthorized_Revert() public {
     vm.startPrank(STRANGER);
-    vm.expectRevert(abi.encodeWithSelector(LockReleaseTokenPoolAndProxy.Unauthorized.selector, STRANGER));
+    vm.expectRevert(abi.encodeWithSelector(TokenPool.Unauthorized.selector, STRANGER));
 
     s_lockReleaseTokenPoolAndProxy.provideLiquidity(1);
   }
@@ -620,7 +620,7 @@ contract LockReleaseTokenPoolPoolAndProxy_withdrawalLiquidity is LockReleaseToke
 
   function test_Unauthorized_Revert() public {
     vm.startPrank(STRANGER);
-    vm.expectRevert(abi.encodeWithSelector(LockReleaseTokenPoolAndProxy.Unauthorized.selector, STRANGER));
+    vm.expectRevert(abi.encodeWithSelector(TokenPool.Unauthorized.selector, STRANGER));
 
     s_lockReleaseTokenPoolAndProxy.withdrawLiquidity(1);
   }
@@ -643,129 +643,5 @@ contract LockReleaseTokenPoolPoolAndProxy_supportsInterface is LockReleaseTokenP
   function test_SupportsInterface_Success() public view {
     assertTrue(s_lockReleaseTokenPoolAndProxy.supportsInterface(type(IPoolV1).interfaceId));
     assertTrue(s_lockReleaseTokenPoolAndProxy.supportsInterface(type(IERC165).interfaceId));
-  }
-}
-
-contract LockReleaseTokenPoolPoolAndProxy_setChainRateLimiterConfig is LockReleaseTokenPoolAndProxySetup {
-  event ConfigChanged(RateLimiter.Config);
-  event ChainConfigured(
-    uint64 chainSelector, RateLimiter.Config outboundRateLimiterConfig, RateLimiter.Config inboundRateLimiterConfig
-  );
-
-  uint64 internal s_remoteChainSelector;
-
-  function setUp() public virtual override {
-    LockReleaseTokenPoolAndProxySetup.setUp();
-    TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
-    s_remoteChainSelector = 123124;
-    chainUpdates[0] = TokenPool.ChainUpdate({
-      remoteChainSelector: s_remoteChainSelector,
-      remotePoolAddress: abi.encode(address(1)),
-      remoteTokenAddress: abi.encode(address(2)),
-      allowed: true,
-      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
-      inboundRateLimiterConfig: getInboundRateLimiterConfig()
-    });
-    s_lockReleaseTokenPoolAndProxy.applyChainUpdates(chainUpdates);
-  }
-
-  function test_Fuzz_SetChainRateLimiterConfig_Success(uint128 capacity, uint128 rate, uint32 newTime) public {
-    // Cap the lower bound to 4 so 4/2 is still >= 2
-    vm.assume(capacity >= 4);
-    // Cap the lower bound to 2 so 2/2 is still >= 1
-    rate = uint128(bound(rate, 2, capacity - 2));
-    // Bucket updates only work on increasing time
-    newTime = uint32(bound(newTime, block.timestamp + 1, type(uint32).max));
-    vm.warp(newTime);
-
-    uint256 oldOutboundTokens =
-      s_lockReleaseTokenPoolAndProxy.getCurrentOutboundRateLimiterState(s_remoteChainSelector).tokens;
-    uint256 oldInboundTokens =
-      s_lockReleaseTokenPoolAndProxy.getCurrentInboundRateLimiterState(s_remoteChainSelector).tokens;
-
-    RateLimiter.Config memory newOutboundConfig = RateLimiter.Config({isEnabled: true, capacity: capacity, rate: rate});
-    RateLimiter.Config memory newInboundConfig =
-      RateLimiter.Config({isEnabled: true, capacity: capacity / 2, rate: rate / 2});
-
-    vm.expectEmit();
-    emit ConfigChanged(newOutboundConfig);
-    vm.expectEmit();
-    emit ConfigChanged(newInboundConfig);
-    vm.expectEmit();
-    emit ChainConfigured(s_remoteChainSelector, newOutboundConfig, newInboundConfig);
-
-    s_lockReleaseTokenPoolAndProxy.setChainRateLimiterConfig(s_remoteChainSelector, newOutboundConfig, newInboundConfig);
-
-    uint256 expectedTokens = RateLimiter._min(newOutboundConfig.capacity, oldOutboundTokens);
-
-    RateLimiter.TokenBucket memory bucket =
-      s_lockReleaseTokenPoolAndProxy.getCurrentOutboundRateLimiterState(s_remoteChainSelector);
-    assertEq(bucket.capacity, newOutboundConfig.capacity);
-    assertEq(bucket.rate, newOutboundConfig.rate);
-    assertEq(bucket.tokens, expectedTokens);
-    assertEq(bucket.lastUpdated, newTime);
-
-    expectedTokens = RateLimiter._min(newInboundConfig.capacity, oldInboundTokens);
-
-    bucket = s_lockReleaseTokenPoolAndProxy.getCurrentInboundRateLimiterState(s_remoteChainSelector);
-    assertEq(bucket.capacity, newInboundConfig.capacity);
-    assertEq(bucket.rate, newInboundConfig.rate);
-    assertEq(bucket.tokens, expectedTokens);
-    assertEq(bucket.lastUpdated, newTime);
-  }
-
-  function test_OnlyOwnerOrRateLimitAdmin_Revert() public {
-    address rateLimiterAdmin = address(28973509103597907);
-
-    s_lockReleaseTokenPoolAndProxy.setRateLimitAdmin(rateLimiterAdmin);
-
-    vm.startPrank(rateLimiterAdmin);
-
-    s_lockReleaseTokenPoolAndProxy.setChainRateLimiterConfig(
-      s_remoteChainSelector, getOutboundRateLimiterConfig(), getInboundRateLimiterConfig()
-    );
-
-    vm.startPrank(OWNER);
-
-    s_lockReleaseTokenPoolAndProxy.setChainRateLimiterConfig(
-      s_remoteChainSelector, getOutboundRateLimiterConfig(), getInboundRateLimiterConfig()
-    );
-  }
-
-  // Reverts
-
-  function test_OnlyOwner_Revert() public {
-    vm.startPrank(STRANGER);
-
-    vm.expectRevert(abi.encodeWithSelector(LockReleaseTokenPoolAndProxy.Unauthorized.selector, STRANGER));
-    s_lockReleaseTokenPoolAndProxy.setChainRateLimiterConfig(
-      s_remoteChainSelector, getOutboundRateLimiterConfig(), getInboundRateLimiterConfig()
-    );
-  }
-
-  function test_NonExistentChain_Revert() public {
-    uint64 wrongChainSelector = 9084102894;
-
-    vm.expectRevert(abi.encodeWithSelector(TokenPool.NonExistentChain.selector, wrongChainSelector));
-    s_lockReleaseTokenPoolAndProxy.setChainRateLimiterConfig(
-      wrongChainSelector, getOutboundRateLimiterConfig(), getInboundRateLimiterConfig()
-    );
-  }
-}
-
-contract LockReleaseTokenPoolAndProxy_setRateLimitAdmin is LockReleaseTokenPoolAndProxySetup {
-  function test_SetRateLimitAdmin_Success() public {
-    assertEq(address(0), s_lockReleaseTokenPoolAndProxy.getRateLimitAdmin());
-    s_lockReleaseTokenPoolAndProxy.setRateLimitAdmin(OWNER);
-    assertEq(OWNER, s_lockReleaseTokenPoolAndProxy.getRateLimitAdmin());
-  }
-
-  // Reverts
-
-  function test_SetRateLimitAdmin_Revert() public {
-    vm.startPrank(STRANGER);
-
-    vm.expectRevert("Only callable by owner");
-    s_lockReleaseTokenPoolAndProxy.setRateLimitAdmin(STRANGER);
   }
 }

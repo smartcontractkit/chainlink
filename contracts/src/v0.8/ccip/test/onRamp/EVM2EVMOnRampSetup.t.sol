@@ -65,19 +65,8 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
         minFeeUSDCents: 1_00, // 1 USD
         maxFeeUSDCents: 1000_00, // 1,000 USD
         deciBps: 2_5, // 2.5 bps, or 0.025%
-        destGasOverhead: 40_000,
+        destGasOverhead: 100_000,
         destBytesOverhead: uint32(Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES),
-        aggregateRateLimitEnabled: true
-      })
-    );
-    s_tokenTransferFeeConfigArgs.push(
-      EVM2EVMOnRamp.TokenTransferFeeConfigArgs({
-        token: s_sourceRouter.getWrappedNative(),
-        minFeeUSDCents: 50, // 0.5 USD
-        maxFeeUSDCents: 500_00, // 500 USD
-        deciBps: 5_0, // 5 bps, or 0.05%
-        destGasOverhead: 10_000,
-        destBytesOverhead: 100,
         aggregateRateLimitEnabled: true
       })
     );
@@ -85,9 +74,9 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
       EVM2EVMOnRamp.TokenTransferFeeConfigArgs({
         token: CUSTOM_TOKEN,
         minFeeUSDCents: 2_00, // 1 USD
-        maxFeeUSDCents: 2000_00, // 1,000 USD
+        maxFeeUSDCents: 500_00, // 500 USD
         deciBps: 10_0, // 10 bps, or 0.1%
-        destGasOverhead: 1,
+        destGasOverhead: 90_000,
         destBytesOverhead: 200,
         aggregateRateLimitEnabled: true
       })
@@ -157,7 +146,6 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
       maxPerMsgGasLimit: MAX_GAS_LIMIT,
       defaultTokenFeeUSDCents: DEFAULT_TOKEN_FEE_USD_CENTS,
       defaultTokenDestGasOverhead: DEFAULT_TOKEN_DEST_GAS_OVERHEAD,
-      defaultTokenDestBytesOverhead: DEFAULT_TOKEN_BYTES_OVERHEAD,
       enforceOutOfOrder: false
     });
   }
@@ -232,11 +220,17 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
     });
 
     for (uint256 i = 0; i < numberOfTokens; ++i) {
+      EVM2EVMOnRamp.TokenTransferFeeConfig memory tokenTransferFeeConfig =
+        s_onRamp.getTokenTransferFeeConfig(message.tokenAmounts[i].token);
+
       messageEvent.sourceTokenData[i] = abi.encode(
         Internal.SourceTokenData({
           sourcePoolAddress: abi.encode(s_sourcePoolByToken[message.tokenAmounts[i].token]),
           destTokenAddress: abi.encode(s_destTokenBySourceToken[message.tokenAmounts[i].token]),
-          extraData: ""
+          extraData: "",
+          destGasAmount: tokenTransferFeeConfig.isEnabled
+            ? tokenTransferFeeConfig.destGasOverhead
+            : DEFAULT_TOKEN_DEST_GAS_OVERHEAD
         })
       );
     }
