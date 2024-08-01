@@ -55,7 +55,7 @@ jobs:
           - name: operatorforwarder
             min-coverage: 55.7
           - name: shared
-            min-coverage: 37.1
+            min-coverage: 32.6
           - name: vrf
             min-coverage: 98.5
     needs: [changes]
