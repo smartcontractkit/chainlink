@@ -218,7 +218,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 						DS:        db,
 					},
 					CSAETHKeystore: keyStore,
-				}, nil),
+				}),
 			},
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,
@@ -292,7 +292,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 						DS:      db,
 					},
 					CSAETHKeystore: keyStore,
-				}, nil),
+				}),
 				chainlink.InitStarknet(testctx, factory, chainlink.StarkNetFactoryConfig{
 					Keystore:    keyStore.StarkNet(),
 					TOMLConfigs: cfg.StarknetConfigs()}),

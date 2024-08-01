@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"slices"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -23,6 +24,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/headreporter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -181,7 +188,6 @@ type ApplicationOpts struct {
 	CapabilitiesRegistry       *capabilities.Registry
 	CapabilitiesDispatcher     remotetypes.Dispatcher
 	CapabilitiesPeerWrapper    p2ptypes.PeerWrapper
-	TelemetryManager           *telemetry.Manager
 }
 
 // NewApplication initializes a new store if one is not already
@@ -292,7 +298,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	srvcs = append(srvcs, opts.TelemetryManager)
+	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), keyStore.CSA(), globalLogger)
+	srvcs = append(srvcs, telemetryManager)
 
 	backupCfg := cfg.Database().Backup()
 	if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.Frequency() > 0 {
@@ -361,7 +368,21 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		workflowORM    = workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewRealClock())
 	)
 
+	promReporter := headreporter.NewPrometheusReporter(opts.DS, legacyEVMChains)
+	var headReporter *headreporter.HeadReporterService
+	if slices.ContainsFunc(legacyEVMChains.Slice(), func(chain legacyevm.Chain) bool {
+		return chain.Config().EVM().HeadTracker().HeadTelemetryEnabled()
+	}) {
+		telemReporter := headreporter.NewTelemetryReporter(legacyEVMChains, telemetryManager)
+		headReporter = headreporter.NewHeadReporterService(opts.DS, globalLogger, promReporter, telemReporter)
+	} else {
+		headReporter = headreporter.NewHeadReporterService(opts.DS, globalLogger, promReporter)
+	}
+
 	for _, chain := range legacyEVMChains.Slice() {
+		if chain.Config().EVM().HeadTracker().HeadTelemetryEnabled() {
+			chain.HeadBroadcaster().Subscribe(headReporter)
+		}
 		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
 	}
 
@@ -426,7 +447,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				opts.DS, jobORM,
 				opts.CapabilitiesRegistry,
 				loopRegistrarConfig,
-				opts.TelemetryManager,
+				telemetryManager,
 				pipelineRunner,
 				opts.RelayerChainInteroperators),
 		}
@@ -475,7 +496,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore,
 			pipelineRunner,
 			peerWrapper,
-			opts.TelemetryManager,
+			telemetryManager,
 			legacyEVMChains,
 			globalLogger,
 			cfg,
@@ -498,7 +519,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			pipelineRunner,
 			streamRegistry,
 			peerWrapper,
-			opts.TelemetryManager,
+			telemetryManager,
 			legacyEVMChains,
 			globalLogger,
 			ocr2DelegateConfig,
