@@ -1,0 +1,56 @@
+syntax = "proto3";
+// this is it's own package to avoid name collision with median types like OnchainConfig and BuildReport
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/mercury/v2;mercuryv2pb";
+
+package loop.internal.pb.mercury.v2;
+
+
+// note: the generate.go file in this dir specifies the import path of the relative proto files
+import "relayer.proto";
+
+
+// ReportCodec is a gRPC adapter for the ReportCodec interface [pkg/types/mercury/v2/ReportCodec].
+service ReportCodec {
+  rpc BuildReport (BuildReportRequest) returns (BuildReportReply) {}
+  rpc MaxReportLength (MaxReportLengthRequest) returns (MaxReportLengthReply) {}
+  rpc ObservationTimestampFromReport (ObservationTimestampFromReportRequest) returns (ObservationTimestampFromReportReply) {}
+}
+
+// ReportFields is gRPC wrapper for struct [github.com/smartcontractkit/chainlink-data-streams/mercury/v2/ReportFields].
+message ReportFields {
+  uint32 validFromTimestamp =1;
+  uint32 timestamp =2;
+  BigInt nativeFee = 3;
+  BigInt linkFee = 4;
+  uint32 expiresAt = 5;
+  BigInt benchmarkPrice = 6;
+}
+  
+// BuildReportRequest is gRPC adapter for [github.com/smartcontractkit/chainlink-data-streams/mercury/v2/ReportCodec.BuildReport].
+message BuildReportRequest {
+  ReportFields reportFields = 1;
+}
+
+// BuildReportReply is gRPC adapter for the return values of [github.com/smartcontractkit/chainlink-data-streams/mercury/v2/ReportCodec.BuildReport].
+message BuildReportReply {
+  bytes report = 1;
+}
+
+// MaxReportLengthRequest is gRPC adapter for [github.com/smartcontractkit/chainlink-data-streams/mercury/v3/ReportCodec.MaxReportLength].
+message MaxReportLengthRequest {
+  uint64 numOracles = 1;
+}
+
+// MaxReportLengthReply has return arguments for [github.com/smartcontractkit/chainlink-data-streams/mercury/v3/ReportCodec.MaxReportLength].
+message MaxReportLengthReply {
+  uint64 maxReportLength = 1;
+}
+
+// ObservationTimestampFromReportRequest has arguments for [github.com/smartcontractkit/chainlink-data-streams/mercury/v1/ReportCodec.ObservationTimestampFromReport].
+message ObservationTimestampFromReportRequest {
+  bytes report = 1;
+}
+//ObservationTimestampFromReportReply has return arguments for [github.com/smartcontractkit/chainlink-data-streams/mercury/v1/ReportCodec.ObservationTimestampFromReport].
+message ObservationTimestampFromReportReply {
+  uint32 timestamp = 1;
+}

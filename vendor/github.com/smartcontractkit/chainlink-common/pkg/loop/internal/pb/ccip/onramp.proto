@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip;ccippb";
+
+package loop.internal.pb.ccip;
+import "google/protobuf/empty.proto";
+import "models.proto";
+
+
+// OnRampReader is a gRPC service adapter for the interface
+// [github.com/smartcontractkit/chainlink-common/pkg/types/OnRampReader]
+service OnRampReader {
+    rpc Address(google.protobuf.Empty) returns (OnrampAddressResponse) {}
+    rpc GetDynamicConfig(google.protobuf.Empty) returns (GetDynamicConfigResponse) {}
+    rpc GetSendRequestsBetweenSeqNums(GetSendRequestsBetweenSeqNumsRequest) returns (GetSendRequestsBetweenSeqNumsResponse) {}
+    rpc IsSourceChainHealthy(google.protobuf.Empty) returns (IsSourceChainHealthyResponse) {}
+    rpc IsSourceCursed(google.protobuf.Empty) returns (IsSourceCursedResponse) {}
+    rpc RouterAddress(google.protobuf.Empty) returns (RouterAddressResponse) {}
+    rpc SourcePriceRegistryAddress(google.protobuf.Empty) returns (SourcePriceRegistryAddressResponse) {}
+    rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
+
+// GetSendRequestsBetweenSeqNumsRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/OnRampReader.GetSendRequestsBetweenSeqNums]
+message GetSendRequestsBetweenSeqNumsRequest {
+    uint64 seq_num_min = 1;
+    uint64 seq_num_max = 2;
+    bool finalized = 3;
+}
+
+// GetSendRequestsBetweenSeqNumsResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/OnRampReader.GetSendRequestsBetweenSeqNums]
+message GetSendRequestsBetweenSeqNumsResponse {
+    // Note, the content here maybe better modeled as a oneof when CCIP supports
+    // multiple types of messages/chains
+    repeated EVM2EVMMessageWithTxMeta send_requests = 1;
+}
+
+// RouterAddressResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/OnRampReader.RouterAddress]
+message RouterAddressResponse {
+    string router_address = 1;
+}
+
+// OnrampAddressResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/OnRampReader.Address]
+message OnrampAddressResponse {
+    string address = 1;
+}
+
+// GetDynamicConfigResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/OnRampReader.GetDynamicConfig]
+message GetDynamicConfigResponse {
+    OnRampDynamicConfig dynamic_config = 1;
+}
+
+// OnRampDynamicConfig is a gRPC adapter for the struct
+// [github.com/smartcontractkit/chainlink-common/pkg/types/OnRampDynamicConfig]
+message OnRampDynamicConfig {
+    string router = 1; // Address
+    uint32 max_number_of_tokens_per_msg = 2;
+    uint32 dest_gas_overhead = 3;
+    uint32 dest_gas_per_byte = 4;
+    uint32 dest_data_availability_overhead_gas = 5;
+    uint32 dest_gas_per_data_availability_byte = 6;
+    uint32 dest_data_availability_multiplier_bps = 7;
+    string price_registry = 8; // Address
+    uint32 max_data_bytes = 9;
+    uint32 max_per_msg_gas_limit = 10;
+}
+
+// EVM2EVMMessageWithTxMeta is a gRPC adapter for the struct
+// [github.com/smartcontractkit/chainlink-common/pkg/types/EVM2EVMMessageWithTxMeta]
+message EVM2EVMMessageWithTxMeta {
+    EVM2EVMMessage message = 1;
+    TxMeta tx_meta = 2;
+}
+
+message IsSourceChainHealthyResponse {
+    bool is_healthy = 1;
+}
+
+message IsSourceCursedResponse {
+    bool is_cursed = 1;
+}
+
+message SourcePriceRegistryAddressResponse {
+    string price_registry_address = 1;
+}

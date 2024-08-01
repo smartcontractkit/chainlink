@@ -1,0 +1,25 @@
+root = true
+
+[*]
+end_of_line = lf
+indent_size = 4
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace  = true
+insert_final_newline = true
+charset = utf-8
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.go]
+indent_size = 8
+indent_style = tab
+
+[*.json]
+indent_size = 4
+indent_style = space
+
+[Makefile]
+indent_style = tab
+indent_size = 4

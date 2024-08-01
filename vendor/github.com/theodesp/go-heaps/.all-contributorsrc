@@ -1,0 +1,96 @@
+{
+  "projectName": "go-heaps",
+  "projectOwner": "theodesp",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "contributors": [
+    {
+      "login": "mb-14",
+      "name": "Miroojin Bakshi",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/1137632?v=4",
+      "profile": "http://mb-14.github.io",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "Syfaro",
+      "name": "Syfaro",
+      "avatar_url": "https://avatars2.githubusercontent.com/u/1369709?v=4",
+      "profile": "https://syfaro.net",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "theodesp",
+      "name": "Theofanis Despoudis",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/328805?v=4",
+      "profile": "https://github.com/theodesp",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "radlinskii",
+      "name": "Radliński Ignacy",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/26116041?v=4",
+      "profile": "https://www.linkedin.com/in/ignacy-radlinski",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "DonMcNamara",
+      "name": "Don McNamara",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/1152286?v=4",
+      "profile": "https://github.com/DonMcNamara",
+      "contributions": [
+        "infra"
+      ]
+    },
+    {
+      "login": "koneko096",
+      "name": "Afrizal Fikri",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/9217338?v=4",
+      "profile": "https://koneko096.github.io/",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "lhauspie",
+      "name": "Logan HAUSPIE",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/25682509?v=4",
+      "profile": "https://github.com/lhauspie",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "erjiaqing",
+      "name": "Song Guo",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/5517838?v=4",
+      "profile": "https://ejq.me/",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "safwan-moha",
+      "name": "Safwan Mohammed",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/7314967?v=4",
+      "profile": "https://github.com/safwan-moha",
+      "contributions": [
+        "test",
+        "code"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7
+}

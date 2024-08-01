@@ -1,0 +1,100 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb";
+
+package loop;
+
+import "values/pb/values.proto";
+import "google/protobuf/empty.proto";
+
+service BaseCapability {
+  rpc Info (google.protobuf.Empty) returns (CapabilityInfoReply) {}
+}
+
+enum CapabilityType {
+  CAPABILITY_TYPE_UNKNOWN = 0;
+  CAPABILITY_TYPE_TRIGGER = 1;
+  CAPABILITY_TYPE_ACTION = 2;
+  CAPABILITY_TYPE_CONSENSUS = 3;
+  CAPABILITY_TYPE_TARGET = 4;
+}
+
+message CapabilityInfoReply {
+  string id = 1; 
+  CapabilityType capability_type = 2;
+  string description = 3;
+  string version = 4;
+  bool isLocal = 5;
+}
+
+message RequestMetadata {
+  reserved 5;
+  string workflow_id = 1;
+  string workflow_execution_id = 2;
+  string workflow_owner = 3;
+  string workflow_name = 4;
+  uint32 workflow_don_id = 6;
+  uint32 workflow_don_config_version = 7;
+}
+
+message CapabilityRequest {
+  RequestMetadata metadata = 1;
+  values.Map config = 2;
+  values.Map inputs = 3;
+}
+
+service TriggerExecutable {
+  rpc RegisterTrigger (CapabilityRequest) returns (stream ResponseMessage) {}
+  rpc UnregisterTrigger (CapabilityRequest) returns (google.protobuf.Empty) {}
+}
+
+message ResponseMessage {
+  oneof message {
+    google.protobuf.Empty ack = 1;
+    CapabilityResponse response = 2;
+  }
+}
+
+message CapabilityResponse {
+  values.Map value = 1;
+  string error = 2;
+}
+
+message RegistrationMetadata {
+  string workflow_id = 1;
+}
+
+message RegisterToWorkflowRequest {
+  RegistrationMetadata metadata = 1;
+  values.Map config = 2;
+}
+
+message UnregisterFromWorkflowRequest {
+  RegistrationMetadata metadata = 1;
+  values.Map config = 2;
+}
+
+service CallbackExecutable {
+  rpc RegisterToWorkflow (RegisterToWorkflowRequest) returns (google.protobuf.Empty) {}
+  rpc UnregisterFromWorkflow (UnregisterFromWorkflowRequest) returns (google.protobuf.Empty) {}
+  rpc Execute(CapabilityRequest) returns (stream ResponseMessage) {}
+}
+
+service StandardCapabilities {
+  rpc Initialise(InitialiseRequest) returns (google.protobuf.Empty) {}
+  rpc Infos(google.protobuf.Empty) returns (CapabilityInfosReply) {}
+}
+
+message InitialiseRequest {
+  string config = 1;
+  uint32 error_log_id = 2;
+  uint32 pipeline_runner_id = 3;
+  uint32 telemetry_id = 4;
+  uint32 capRegistry_id = 5;
+  uint32 keyValueStore_id = 6;
+  uint32 relayer_set_id = 7;
+}
+
+message CapabilityInfosReply {
+  repeated CapabilityInfoReply infos = 1;
+}

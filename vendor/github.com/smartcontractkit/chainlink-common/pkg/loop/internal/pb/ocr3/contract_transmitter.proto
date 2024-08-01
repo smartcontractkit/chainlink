@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ocr3;ocr3pb";
+
+package loop.internal.pb.ocr3;
+
+import "google/protobuf/empty.proto";
+import "ocr3_reporting.proto";
+
+message Signature {
+  bytes signature = 1;
+  uint32 signer = 2; // NOTE: this is actually a uint8, but proto doesn't support this.
+}
+
+message TransmitRequest {
+  bytes configDigest = 1; // NOTE: this is actually [32]byte
+  uint64 seqNr = 2;
+  ReportWithInfo reportWithInfo = 3;
+  repeated Signature signatures = 4;
+}
+
+message FromAccountReply {
+  string account = 1;
+}
+
+service ContractTransmitter {
+  rpc Transmit(TransmitRequest) returns (google.protobuf.Empty) {}
+  rpc FromAccount(google.protobuf.Empty) returns (FromAccountReply) {}
+}
+

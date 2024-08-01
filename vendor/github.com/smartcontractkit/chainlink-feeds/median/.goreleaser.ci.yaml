@@ -1,0 +1,19 @@
+# Requires GoReleaser Pro
+includes:
+  - from_file:
+      path: ./median/.goreleaser.yaml
+
+nightly:
+  # This is a GoReleaser Pro feature that we use for pre-releases.
+  # Default is `{{ incpatch .Version }}-{{ .ShortCommit }}-nightly`.
+  name_template: "{{ incpatch .Version }}-{{ .ShortCommit }}-devel"
+
+  # Tag name to create if publish_release is enabled.
+  tag_name: devel
+
+  # Creates a GitHub Release
+  publish_release: false
+
+  # Whether to delete previous pre-releases for the same `tag_name` when
+  # releasing.
+  keep_single_release: false

@@ -1,0 +1,8 @@
+precomp
+*.png
+*.prof
+*.cov
+.vscode
+*.tbz2
+*.tar
+cover.out

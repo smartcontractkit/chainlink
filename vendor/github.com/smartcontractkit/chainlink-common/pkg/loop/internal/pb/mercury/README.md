@@ -1,0 +1,2 @@
+the bizarre naming pattern like `/v1/datasource_v1.proto` instead of `/v1/datasource.proto` is to work around the baffling
+proto constraint that (*filenames* must be *globally* unique) [https://github.com/golang/protobuf/issues/1122].

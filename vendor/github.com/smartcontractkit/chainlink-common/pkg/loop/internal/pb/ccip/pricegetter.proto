@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip;ccippb";
+
+
+package loop.internal.pb.ccip;
+import "relayer.proto";
+import "google/protobuf/empty.proto";
+
+
+// PriceGetter is a service that returns the price of a token in USD. It is a gRPC service adapter for the interface
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceGetter]
+service PriceGetter {
+    rpc FilterConfiguredTokens(FilterConfiguredTokensRequest) returns (FilterConfiguredTokensResponse) {}
+    rpc TokenPricesUSD(TokenPricesRequest) returns (TokenPricesResponse) {}
+    rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
+
+// FilterConfiguredTokensRequest is a request for which tokens of a list of addresses are configured and which aren't.. It is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceGetter.FilterConfiguredTokens]
+message FilterConfiguredTokensRequest {
+    repeated string tokens = 1; // []Address
+}
+
+// FilterConfiguredTokensResponse is a response for which tokens of a list of addresses are configured and which aren't. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceGetter.FilterConfiguredTokens]
+message FilterConfiguredTokensResponse {
+    repeated string configured = 1; // []Address
+    repeated string unconfigured = 2; // []Address
+}
+
+// TokenPricesRequest is a request for the price of a token in USD. It is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceGetter.TokenPricesUSD]]
+message TokenPricesRequest {
+    repeated string tokens = 1; // []Address
+}
+
+// TokenPricesResponse is a response for the price of a token in USD. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader]
+message TokenPricesResponse {
+    map<string, BigInt> prices = 1; // map[Address]price
+}

@@ -1,0 +1,194 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip;ccippb";
+
+package loop.internal.pb.ccip;
+import "google/protobuf/empty.proto";
+
+// ExecutionFactoryGenerator is a gRPC service that generates a execution factory
+// It is a gRPC service adapter for the https://github.com/smartcontractkit/ccip/core/services/ocr2/plugins/ccip/ccipexec/NewExecutionReportingPluginFactory
+service ExecutionFactoryGenerator {
+    rpc NewExecutionFactory(NewExecutionFactoryRequest) returns (NewExecutionFactoryResponse);
+}
+
+// ExecutionCustomHandlers is a gRPC service that services the custom
+// resource generation requests for the execution provider
+service ExecutionCustomHandlers {
+    rpc GetTransactionStatus(GetTransactionStatusRequest) returns (GetTransactionStatusResponse) {}
+    rpc NewCommitStoreReader(NewCommitStoreReaderRequest) returns (NewCommitStoreReaderResponse) {}
+    rpc NewOffRampReader(NewOffRampReaderRequest) returns (NewOffRampReaderResponse) {}
+    rpc NewOnRampReader(NewOnRampReaderRequest) returns (NewOnRampReaderResponse) {}
+    rpc NewPriceRegistryReader(NewPriceRegistryReaderRequest) returns (NewPriceRegistryReaderResponse) {}
+    rpc NewTokenDataReader(NewTokenDataRequest) returns (NewTokenDataResponse) {}
+    rpc NewTokenPoolBatchedReader(NewTokenPoolBatchedReaderRequest) returns (NewTokenPoolBatchedReaderResponse) {}
+    rpc SourceNativeToken(SourceNativeTokenRequest) returns (SourceNativeTokenResponse) {}
+    rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
+
+// NewExecutionFactoryRequest is a gRPC adapter to the factory configuration [https://github.com/smartcontractkit/ccip/core/services/ocr2/plugins/ccip/ccipexec/ExecutionPluginStaticConfig]
+message NewExecutionFactoryRequest {
+    uint32 provider_service_id = 1;
+}
+
+// NewExecutionFactoryResponse is a contains the id of the created execution factory
+message NewExecutionFactoryResponse {
+    uint32 execution_factory_service_id = 1;
+}
+
+service CommitFactoryGenerator {
+    rpc NewCommitFactory(NewCommitFactoryRequest) returns (NewCommitFactoryResponse);
+}
+
+// NewCommitFactoryRequest is a gRPC adapter to the factory configuration [https://github.com/smartcontractkit/ccip/core/services/ocr2/plugins/ccip/ccipcommit/CommitPluginStaticConfig]
+message NewCommitFactoryRequest {
+    uint32 provider_service_id = 1;
+}
+
+// NewCommitFactoryResponse is a reference to the factory generator service. It is a gRPC proxy mechanism 
+// for the return value of [github.com/smartcontractkit/ccip/core/services/ocr2/plugins/ccip/ccipcommit.NewCommitReportingPluginFactory]
+// because the underlying return value is an interface, which is modeled as a service in gRPC
+message NewCommitFactoryResponse {
+    uint32 commit_factory_service_id = 1;
+}
+
+// CommitCustomHandlers is a gRPC service that services the custom
+// resource generation requests for the commit provider
+service CommitCustomHandlers {
+    rpc NewCommitStoreReader(NewCommitStoreReaderRequest) returns (NewCommitStoreReaderResponse) {}
+    rpc NewOffRampReader(NewOffRampReaderRequest) returns (NewOffRampReaderResponse) {}
+    rpc NewOnRampReader(NewOnRampReaderRequest) returns (NewOnRampReaderResponse) {}
+    rpc NewPriceGetter(google.protobuf.Empty) returns (NewPriceGetterResponse) {}
+    rpc NewPriceRegistryReader(NewPriceRegistryReaderRequest) returns (NewPriceRegistryReaderResponse) {}
+    rpc SourceNativeToken(SourceNativeTokenRequest) returns (SourceNativeTokenResponse) {}
+    rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
+
+// GetTransactionStatusRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.GetTransactionStatus]
+message GetTransactionStatusRequest {
+    string transaction_id = 1;
+}
+
+// GetTransactionStatusResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.GetTransactionStatus]
+message GetTransactionStatusResponse {
+    int32 transaction_status = 1;
+}
+
+// NewCommitStoreReaderRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewCommitStoreReader]
+message NewCommitStoreReaderRequest {
+    string address = 1;
+}
+
+// NewCommitStoreReaderResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewCommitStoreReader]
+// It contains the id of the created commit store reader service that was created
+message NewCommitStoreReaderResponse {
+    int32 commit_store_reader_service_id = 1;
+}
+
+// NewOffRampReaderRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewOffRampReader]
+message NewOffRampReaderRequest {
+    string address = 1;
+}
+
+// NewOffRampReaderResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewOffRampReader]
+// It contains the id of the created offramp reader service that was created
+message NewOffRampReaderResponse {
+    int32 offramp_reader_service_id = 1;
+}
+
+// NewOnRampReaderRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewOnRampReader]
+message NewOnRampReaderRequest {
+    string address = 1;
+    uint64 sourceChainSelector = 2;
+    uint64 destChainSelector = 3;
+}
+
+// NewOnRampReaderResponse is a gRPC wrapper for the return value of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewOnRampReader]
+// It contains the id of the created onramp reader service that was created
+message NewOnRampReaderResponse {
+    int32 onramp_reader_service_id = 1;
+}
+
+
+// NewPriceGetterRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPCommitProvider.NewPriceGetter]
+message NewPriceGetterRequest {
+    string address = 1;
+}
+
+// NewPriceGetterResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPCommitProvider.NewPriceGetter]
+// It contains the id of the created price getter service that was created
+message NewPriceGetterResponse {
+    int32 price_getter_service_id = 1;
+}
+
+// NewPriceRegistryRequest is a gRPC adapter for the input arguments of 
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewPriceRegistryReader]
+message NewPriceRegistryReaderRequest {
+    string address = 1;
+}
+
+// NewPriceRegistryReaderResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewPriceRegistryReader]
+// It contains the id of the created price registry reader service that was created
+message NewPriceRegistryReaderResponse {
+    int32 price_registry_reader_service_id = 1;
+}
+
+
+// NewTokenDataRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewTokenDataReader]
+message NewTokenDataRequest {
+    string address = 1;
+}
+
+// NewTokenDataResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewTokenDataReader]
+// It contains the id of the created token data reader service that was created
+message NewTokenDataResponse {
+    int32 token_data_reader_service_id = 1;
+}
+
+message NewTokenPoolBatchedReaderRequest {
+    string address = 1;
+    uint64 sourceChainSelector = 2;
+}
+
+// NewTokenPoolBatchedReaderResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewTokenPoolBatchedReader]
+// It contains the id of the created token pool batched reader service that was created
+message NewTokenPoolBatchedReaderResponse {
+    int32 token_pool_batched_reader_service_id = 1;
+}
+
+// SourceNativeTokenResponse is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPCommitProvider.SourceNativeToken]
+message SourceNativeTokenRequest {
+    string source_router_address = 1;
+}
+
+// SourceNativeTokenResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.SourceNativeToken]
+message SourceNativeTokenResponse {
+    string native_token_address = 1;
+}
+
+// NewOffRampReadersRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPCommitProvider.NewOffRampReaders]
+message NewOffRampReadersRequest {
+    string dest_router_address = 1;
+}
+
+// NewOffRampReadersRequest is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPCommitProvider.NewOffRampReaders]
+message NewOffRampReadersResponse {
+    repeated int32 offramp_readers_service_ids = 1;
+}

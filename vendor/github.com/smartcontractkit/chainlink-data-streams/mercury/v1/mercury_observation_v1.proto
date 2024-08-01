@@ -1,0 +1,38 @@
+syntax="proto3";
+
+package v1;
+option go_package = ".;mercury_v1";
+
+message MercuryObservationProto {
+    uint32 timestamp = 1;
+
+    // Prices
+    bytes benchmarkPrice = 2;
+    bytes bid = 3;
+    bytes ask = 4;
+    // All three prices must be valid, or none are (they all should come from one API query and hold invariant bid <= bm <= ask)
+    bool pricesValid = 5;
+
+    // DEPRECATED: replaced by "latestBlocks"
+    // https://smartcontract-it.atlassian.net/browse/MERC-2272
+    // Current block
+    int64 currentBlockNum = 6;
+    bytes currentBlockHash = 7;
+    uint64 currentBlockTimestamp = 8;
+    // All three block observations must be valid, or none are (they all come from the same block)
+    bool currentBlockValid = 9;
+
+    // MaxFinalizedBlockNumber comes from previous report when present and is
+    // only observed from mercury server when previous report is nil
+    int64 maxFinalizedBlockNumber = 10;
+    bool maxFinalizedBlockNumberValid = 11;
+
+    // Latest blocks
+    repeated BlockProto latestBlocks = 12;
+}
+
+message BlockProto {
+    int64 num = 1;
+    bytes hash = 2;
+    uint64 ts = 3;
+}

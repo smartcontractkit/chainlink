@@ -1,0 +1,20 @@
+run:
+  timeout: 5m
+
+linters:
+  disable-all: true
+  enable:
+    - govet
+    - errcheck
+    - gosimple
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - stdmethods
+      - fieldalignment

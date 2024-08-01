@@ -5,7 +5,6 @@ import {ILiquidityContainer} from "../../liquiditymanager/interfaces/ILiquidityC
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
 import {Pool} from "../libraries/Pool.sol";
-import {RateLimiter} from "../libraries/RateLimiter.sol";
 import {TokenPool} from "./TokenPool.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -20,20 +19,18 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
 
   error InsufficientLiquidity();
   error LiquidityNotAccepted();
-  error Unauthorized(address caller);
+
+  event LiquidityTransferred(address indexed from, uint256 amount);
 
   string public constant override typeAndVersion = "LockReleaseTokenPool 1.5.0-dev";
 
   /// @dev Whether or not the pool accepts liquidity.
   /// External liquidity is not required when there is one canonical token deployed to a chain,
   /// and CCIP is facilitating mint/burn on all the other chains, in which case the invariant
-  /// balanceOf(pool) on home chain == sum(totalSupply(mint/burn "wrapped" token) on all remote chains) should always hold
+  /// balanceOf(pool) on home chain >= sum(totalSupply(mint/burn "wrapped" token) on all remote chains) should always hold
   bool internal immutable i_acceptLiquidity;
   /// @notice The address of the rebalancer.
   address internal s_rebalancer;
-  /// @notice The address of the rate limiter admin.
-  /// @dev Can be address(0) if none is configured.
-  address internal s_rateLimitAdmin;
 
   constructor(
     IERC20 token,
@@ -95,18 +92,6 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
     s_rebalancer = rebalancer;
   }
 
-  /// @notice Sets the rate limiter admin address.
-  /// @dev Only callable by the owner.
-  /// @param rateLimitAdmin The new rate limiter admin address.
-  function setRateLimitAdmin(address rateLimitAdmin) external onlyOwner {
-    s_rateLimitAdmin = rateLimitAdmin;
-  }
-
-  /// @notice Gets the rate limiter admin address.
-  function getRateLimitAdmin() external view returns (address) {
-    return s_rateLimitAdmin;
-  }
-
   /// @notice Checks if the pool can accept liquidity.
   /// @return true if the pool can accept liquidity, false otherwise.
   function canAcceptLiquidity() external view returns (bool) {
@@ -133,19 +118,20 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
     emit LiquidityRemoved(msg.sender, amount);
   }
 
-  /// @notice Sets the rate limiter admin address.
-  /// @dev Only callable by the owner or the rate limiter admin. NOTE: overwrites the normal
-  /// onlyAdmin check in the base implementation to also allow the rate limiter admin.
-  /// @param remoteChainSelector The remote chain selector for which the rate limits apply.
-  /// @param outboundConfig The new outbound rate limiter config.
-  /// @param inboundConfig The new inbound rate limiter config.
-  function setChainRateLimiterConfig(
-    uint64 remoteChainSelector,
-    RateLimiter.Config memory outboundConfig,
-    RateLimiter.Config memory inboundConfig
-  ) external override {
-    if (msg.sender != s_rateLimitAdmin && msg.sender != owner()) revert Unauthorized(msg.sender);
+  /// @notice This function can be used to transfer liquidity from an older version of the pool to this pool. To do so
+  /// this pool will have to be set as the rebalancer in the older version of the pool. This allows it to transfer the
+  /// funds in the old pool to the new pool.
+  /// @dev When upgrading a LockRelease pool, this function can be called at the same time as the pool is changed in the
+  /// TokenAdminRegistry. This allows for a smooth transition of both liquidity and transactions to the new pool.
+  /// Alternatively, when no multicall is available, a portion of the funds can be transferred to the new pool before
+  /// changing which pool CCIP uses, to ensure both pools can operate. Then the pool should be changed in the
+  /// TokenAdminRegistry, which will activate the new pool. All new transactions will use the new pool and its
+  /// liquidity. Finally, the remaining liquidity can be transferred to the new pool using this function one more time.
+  /// @param from The address of the old pool.
+  /// @param amount The amount of liquidity to transfer.
+  function transferLiquidity(address from, uint256 amount) external onlyOwner {
+    LockReleaseTokenPool(from).withdrawLiquidity(amount);
 
-    _setRateLimitConfig(remoteChainSelector, outboundConfig, inboundConfig);
+    emit LiquidityTransferred(from, amount);
   }
 }

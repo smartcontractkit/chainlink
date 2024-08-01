@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option go_package = "./;config";
+
+package config_types;
+
+message OracleIDtoKeyShareIndex {
+  uint32 oracle_id = 1;
+  uint32 key_share_index = 2;
+}
+
+message ReportingPluginConfig {
+  uint32 max_query_length_bytes = 1;
+  uint32 max_observation_length_bytes = 2;
+  uint32 max_report_length_bytes = 3;
+  uint32 request_count_limit = 4;
+  uint32 request_total_bytes_limit = 5;
+  bool require_local_request_check = 6;
+  uint32 k = 7; // Number of decryption shares required for assembling plaintext.
+}

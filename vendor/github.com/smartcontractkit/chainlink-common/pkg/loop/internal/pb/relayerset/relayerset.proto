@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/relayerset";
+
+package loop.relayerset;
+
+import "google/protobuf/empty.proto";
+
+message RelayerId {
+  string network = 1;
+  string chain_id = 2;
+}
+
+message GetRelayerRequest {
+  RelayerId id = 1;
+}
+
+message GetRelayerResponse {
+  RelayerId id = 1;
+}
+
+message ListAllRelayersRequest {
+  repeated RelayerId ids = 1;
+}
+
+message ListAllRelayersResponse {
+  repeated RelayerId ids = 1;
+}
+
+message RelayArgs {
+  string contractID = 1;
+  bytes relayConfig = 2;
+  string providerType = 3;
+  // TODO - this is a temporary solution to minimise refactor and allow the relayer to pass necessary credentials to the plugin - should be rolled into the relayConfig as a second step
+  MercuryCredentials mercuryCredentials = 4;
+}
+
+// TODO - this is a temporary solution to minimise refactor and allow the relayer to pass necessary credentials to the plugin - should be rolled into the relayConfig as a second step
+message MercuryCredentials {
+  string legacy_url=1;
+  string url=2;
+  string username=3;
+  string password=4;
+}
+
+message PluginArgs {
+  string transmitterID = 1;
+  bytes pluginConfig = 2;
+}
+
+message NewPluginProviderRequest {
+  RelayerId relayerId = 1;
+  RelayArgs relayArgs = 2;
+  PluginArgs pluginArgs = 3;
+}
+
+message NewPluginProviderResponse {
+  uint32 plugin_provider_id = 1;
+}
+
+message RelayerHealthReportResponse {
+  map<string, string> report = 1;
+}
+
+message RelayerNameResponse {
+  string name = 1;
+}
+
+service RelayerSet {
+  rpc Get(GetRelayerRequest) returns (GetRelayerResponse) {}
+  rpc List(ListAllRelayersRequest) returns (ListAllRelayersResponse) {}
+  rpc NewPluginProvider(NewPluginProviderRequest) returns (NewPluginProviderResponse) {}
+
+  rpc StartRelayer(RelayerId) returns (google.protobuf.Empty) {}
+  rpc CloseRelayer(RelayerId) returns (google.protobuf.Empty) {}
+  rpc RelayerReady(RelayerId) returns (google.protobuf.Empty) {}
+  rpc RelayerHealthReport(RelayerId) returns (RelayerHealthReportResponse) {}
+  rpc RelayerName(RelayerId) returns (RelayerNameResponse) {}
+}
+
+
+
+
+
+
+
+

@@ -1,0 +1,21 @@
+syntax="proto3";
+
+package v3;
+option go_package = ".;mercury_v3";
+
+message MercuryObservationProto {
+    uint32 timestamp = 1;
+
+    bytes benchmarkPrice = 2;
+    bytes bid = 3;
+    bytes ask = 4;
+    bool pricesValid = 5;
+
+    int64 maxFinalizedTimestamp = 6;
+    bool maxFinalizedTimestampValid = 7;
+
+    bytes linkFee = 8;
+    bool linkFeeValid = 9;
+    bytes nativeFee = 10;
+    bool nativeFeeValid = 11;
+}

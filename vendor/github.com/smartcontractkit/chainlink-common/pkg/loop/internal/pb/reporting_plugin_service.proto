@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb";
+
+package loop;
+
+service ReportingPluginService {
+  rpc NewReportingPluginFactory (NewReportingPluginFactoryRequest) returns (NewReportingPluginFactoryReply) {}
+  rpc NewValidationService(ValidationServiceRequest) returns (ValidationServiceResponse){}
+}
+
+message ValidationServiceRequest {
+//Add services as needed
+}
+
+message ValidationServiceResponse {
+  uint32 ID = 1;
+}
+
+message ReportingPluginServiceConfig {
+  string providerType = 1;
+  string command = 2;
+  string pluginName = 3;
+  string pluginConfig = 4;
+  string telemetryType = 5;
+}
+
+// NewReportingPluginFactoryRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop/reporting_plugins/LOOPPService.NewReportingPluginFactory].
+message NewReportingPluginFactoryRequest {
+  uint32 providerID = 1;
+  uint32 errorLogID = 2;
+  uint32 pipelineRunnerID = 3;
+  uint32 telemetryID = 4;
+  ReportingPluginServiceConfig ReportingPluginServiceConfig = 5;
+  uint32 capRegistryID = 6;
+  uint32 keyValueStoreID = 7;
+  uint32 relayerSetID = 8;
+}
+
+// NewReportingPluginFactoryReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop/reporting_plugins/LOOPPService.NewReportingPluginFactory].
+message NewReportingPluginFactoryReply {
+  uint32 ID = 1;
+}

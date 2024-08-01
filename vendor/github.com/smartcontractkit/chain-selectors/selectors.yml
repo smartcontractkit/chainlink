@@ -1,0 +1,132 @@
+selectors:
+  # Testnets
+  31: 
+    selector: 8953668971247136127 
+    name: "bitcoin-testnet-rootstock"
+  97:
+    selector: 13264668187771770619
+    name: "binance_smart_chain-testnet"
+  280:
+    selector: 6802309497652714138
+    name: "ethereum-testnet-goerli-zksync-1"
+  300: 
+    selector: 6898391096552792247 
+    name: "ethereum-testnet-sepolia-zksync-1"
+  420:
+    selector: 2664363617261496610
+    name: "ethereum-testnet-goerli-optimism-1"
+  1029:
+    selector: 4459371029167934217
+    name: "bittorrent_chain-testnet"
+  1112:
+    selector: 9284632837123596123
+    name: "wemix-testnet"
+  1337:
+    selector: 3379446385462418246
+    name: "geth-testnet"
+  1442:
+    selector: 11059667695644972511
+    name: "ethereum-testnet-goerli-polygon-zkevm-1"
+  2221:
+    selector: 2110537777356199208
+    name: "kava-testnet"
+  2358:
+    selector: 5990477251245693094
+    name: "ethereum-testnet-sepolia-kroma-1"
+  4002: 
+    selector: 4905564228793744293
+    name: "fantom-testnet"
+  4202: 
+    selector: 5298399861320400553
+    name: "ethereum-testnet-sepolia-lisk-1"
+  5001:
+    selector: 4168263376276232250
+    name: "ethereum-testnet-goerli-mantle-1"
+  5003:
+    selector: 8236463271206331221
+    name: "ethereum-testnet-sepolia-mantle-1"
+  43113:
+    selector: 14767482510784806043
+    name: "avalanche-testnet-fuji"
+  44787: 
+    selector: 3552045678561919002
+    name: "celo-testnet-alfajores"
+  76578:
+    selector: 781901677223027175
+  80001:
+    selector: 12532609583862916517
+    name: "polygon-testnet-mumbai"
+  84531:
+    selector: 5790810961207155433
+    name: "ethereum-testnet-goerli-base-1"
+  84532:
+    selector: 10344971235874465080
+    name: "ethereum-testnet-sepolia-base-1"
+  10200: 
+    selector: 8871595565390010547
+    name: "gnosis_chain-testnet-chiado"
+  421613:
+    selector: 6101244977088475029
+    name: "ethereum-testnet-goerli-arbitrum-1"
+  421614:
+    selector: 3478487238524512106
+    name: "ethereum-testnet-sepolia-arbitrum-1"
+  534351:
+    selector: 2279865765895943307
+    name: "ethereum-testnet-sepolia-scroll-1"
+  595581: 
+    selector: 7837562506228496256
+    name: "avalanche-testnet-nexon"
+  11155111:
+    selector: 16015286601757825753
+    name: "ethereum-testnet-sepolia"
+  11155420:
+    selector: 5224473277236331295
+    name: "ethereum-testnet-sepolia-optimism-1"
+  168587773: 
+    selector: 2027362563942762617
+    name: "ethereum-testnet-sepolia-blast-1"
+
+  # Mainnets
+  1:
+    selector: 5009297550715157269
+    name: "ethereum-mainnet"
+  10:
+    selector: 3734403246176062136
+    name: "ethereum-mainnet-optimism-1"
+  56:
+    selector: 11344663589394136015
+    name: "binance_smart_chain-mainnet"
+  137:
+    selector: 4051577828743386545
+    name: "polygon-mainnet"
+  199:
+    selector: 3776006016387883143
+    name: "bittorrent_chain-mainnet"
+  255:
+    selector: 3719320017875267166
+    name: "ethereum-mainnet-kroma-1"
+  1101:
+    selector: 4348158687435793198
+    name: "ethereum-mainnet-polygon-zkevm-1"
+  1111:
+    selector: 5142893604156789321
+    name: "wemix-mainnet"
+  2222:
+    selector: 7550000543357438061
+    name: "kava-mainnet"
+  5000:
+    selector: 1556008542357238666
+    name: "ethereum-mainnet-mantle-1"
+  8453:
+    selector: 15971525489660198786
+    name: "ethereum-mainnet-base-1"
+  42161:
+    selector: 4949039107694359620
+    name: "ethereum-mainnet-arbitrum-1"
+  43114:
+    selector: 6433500567565415381
+    name: "avalanche-mainnet"
+  534352:
+    selector: 13204309965629103672
+    name: "ethereum-mainnet-scroll-1"

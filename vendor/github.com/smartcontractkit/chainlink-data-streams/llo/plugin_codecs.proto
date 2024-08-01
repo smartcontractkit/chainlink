@@ -1,0 +1,80 @@
+syntax="proto3";
+
+package v1;
+option go_package = ".;llo";
+
+// WARNING
+// Use extreme caution making changes in this file
+// All changes MUST be backwards compatible
+// If the format changes in a backwards incompatible way, active DONs can
+// become stuck permanently
+message LLOObservationProto {
+    bytes attestedPredecessorRetirement = 1;
+    bool shouldRetire = 2;
+    int64 unixTimestampNanoseconds = 3;
+    repeated uint32 removeChannelIDs = 4;
+    // Maps are safe to use here because Observation serialization does not
+    // need to be deterministic. Non-deterministic map serialization is
+    // marginally more efficient than converting to tuples and guarantees
+    // uniqueness.
+    map<uint32, LLOChannelDefinitionProto> updateChannelDefinitions = 5;
+    map<uint32, LLOStreamValue> streamValues = 6;
+}
+
+message LLOStreamValue {
+    enum Type
+    {
+        Decimal = 0;
+        Quote = 1;
+    }
+    Type type = 1;
+    bytes value = 2;
+}
+
+message LLOStreamValueQuote{
+    bytes bid = 1;
+    bytes benchmark = 2;
+    bytes ask = 3;
+}
+
+message LLOChannelDefinitionProto {
+    uint32 reportFormat = 1;
+    LLOStreamDefinition streams = 2;
+    bytes opts = 3;
+}
+
+message LLOStreamDefinition {
+    uint32 streamID = 1;
+    uint32 aggregator = 2;
+}
+
+message LLOStreamObservationProto {
+    bool valid = 1;
+    bytes value = 2;
+}
+
+// NOTE: Outcome must serialize deterministically, hence use of repeated tuple instead of maps
+message LLOOutcomeProto {
+    string lifeCycleStage = 1;
+    int64 observationsTimestampNanoseconds = 2;
+    repeated LLOChannelIDAndDefinitionProto channelDefinitions = 3;
+    repeated LLOChannelIDAndValidAfterSecondsProto validAfterSeconds = 4;
+    repeated LLOStreamAggregate streamAggregates = 5;
+}
+
+message LLOChannelIDAndDefinitionProto {
+    uint32 channelID = 1;
+    LLOChannelDefinitionProto channelDefinition = 2;
+}
+
+message LLOChannelIDAndValidAfterSecondsProto {
+    uint32 channelID = 1;
+    uint32 validAfterSeconds = 2;
+}
+
+message LLOStreamAggregate {
+    uint32 streamID = 1;
+    LLOStreamValue streamValue = 2;
+    uint32 aggregator = 3;
+}
+

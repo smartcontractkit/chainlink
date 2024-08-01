@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+option go_package = "./;decryptionplugin";
+
+package types;
+
+message CiphertextWithID {
+	bytes ciphertext_id = 1;
+	bytes ciphertext = 2;
+}
+message Query {
+	repeated CiphertextWithID decryption_requests = 1;
+}
+
+message DecryptionShareWithID {
+	bytes ciphertext_id = 1;
+	bytes decryption_share = 2;
+}
+
+message Observation {
+	repeated DecryptionShareWithID decryption_shares = 1;
+}
+
+message ProcessedDecryptionRequest {
+	bytes ciphertext_id = 1;
+	bytes plaintext = 2;
+}
+
+message Report {
+	repeated ProcessedDecryptionRequest processedDecryptedRequests = 1;
+}

@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb";
+
+package loop;
+
+import "google/protobuf/empty.proto";
+
+message StoreKeyValueRequest {
+  string key = 1;
+  bytes value = 2;
+}
+
+message GetValueForKeyRequest {
+  string key = 1;
+}
+
+message GetValueForKeyResponse {
+  bytes value = 1;
+}
+
+service KeyValueStore {
+  rpc StoreKeyValue(StoreKeyValueRequest) returns (google.protobuf.Empty);
+  rpc GetValueForKey(GetValueForKeyRequest) returns (GetValueForKeyResponse);
+}

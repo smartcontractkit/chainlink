@@ -1,0 +1,9 @@
+{
+  "name": "mercury",
+  "version": "0.1.0",
+  "description": "",
+  "private": true,
+  "main": "index.js",
+  "author": "",
+  "license": "UNLICENSED"
+}

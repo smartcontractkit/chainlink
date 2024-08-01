@@ -1,0 +1,13 @@
+version = 1
+  
+  test_patterns = [
+  "*/*_test.go",
+  "*_test.go"
+]
+
+  [[analyzers]]
+  name = "go"
+  
+  [analyzers.meta]
+  import_root = "github.com/holiman/billy"
+

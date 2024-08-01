@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+option go_package = "capabilities/consensus/ocr3/types";
+
+package ocr3_types;
+
+import "values/pb/values.proto";
+
+// per-workflow aggregation outcome
+message AggregationOutcome {
+  values.Map encodableOutcome = 1; // passed to encoders
+  bytes metadata = 2; // internal to the aggregator
+  bool shouldReport = 3;
+  uint64 lastSeenAt = 4; // this is the equivalent of a SeqNr
+}
+
+message Query {
+  // the requests to get consensus on.
+  repeated Id ids = 1;
+}
+
+message Id {
+  reserved 5;
+  string workflowExecutionId = 1;
+  string workflowId = 2;
+  string workflowOwner = 3;
+  string workflowName = 4;
+  string reportId = 6;
+  uint32 workflowDonId = 7;
+  uint32 workflowDonConfigVersion = 8;
+  string keyId = 9;
+}
+
+message Observation {
+  Id id = 1;
+  // list of observations defined in inputs.observations
+  values.List observations = 4;
+}
+
+message Observations {
+  // batched observations for multiple workflow execution IDs
+  repeated Observation observations = 1;
+  // the workflow IDs that are registered in the node
+  repeated string registeredWorkflowIds = 2;
+}
+
+message Report {
+  Id id = 1;
+  AggregationOutcome outcome = 2;
+}
+
+message ReportInfo {
+  Id id = 1;
+  bool should_report = 2;
+}
+
+message Outcome {
+  map<string, AggregationOutcome> outcomes = 1;
+  repeated Report current_reports = 2;
+}

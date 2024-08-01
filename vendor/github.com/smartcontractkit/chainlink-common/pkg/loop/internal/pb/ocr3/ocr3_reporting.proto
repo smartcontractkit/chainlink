@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ocr3;ocr3pb";
+
+package loop.internal.pb.ocr3;
+
+import "google/protobuf/empty.proto";
+
+service ReportingPluginFactory {
+  rpc NewReportingPlugin (NewReportingPluginRequest) returns (NewReportingPluginReply) {}
+}
+
+message NewReportingPluginRequest {
+  ReportingPluginConfig reportingPluginConfig = 1;
+}
+
+message NewReportingPluginReply {
+  uint32 reportingPluginID = 1;
+  ReportingPluginInfo reportingPluginInfo = 2;
+}
+
+message ReportingPluginConfig {
+  bytes configDigest = 1;
+  uint32 oracleID = 2;
+  uint32 n = 3;
+  uint32 f = 4;
+  bytes onchainConfig = 5;
+  bytes offchainConfig = 6;
+  int64 estimatedRoundInterval = 7;
+  int64 maxDurationQuery = 8;
+  int64 maxDurationObservation = 9;
+  int64 MaxDurationShouldAcceptAttestedReport = 10;
+  int64 MaxDurationShouldTransmitAcceptedReport = 11;
+
+}
+
+message ReportingPluginLimits {
+  uint64 maxQueryLength = 1;
+  uint64 maxObservationLength = 2;
+  uint64 MaxOutcomeLength = 3;
+  uint64 MaxReportLength = 4;
+  uint64 MaxReportCount = 5;
+}
+
+message ReportingPluginInfo {
+  string name = 1;
+  ReportingPluginLimits reportingPluginLimits = 2;
+}
+
+
+service ReportingPlugin {
+  rpc Query(QueryRequest) returns (QueryReply) {}
+  rpc Observation(ObservationRequest)returns (ObservationReply) {}
+  rpc ValidateObservation(ValidateObservationRequest) returns (google.protobuf.Empty) {}
+  rpc ObservationQuorum(ObservationQuorumRequest) returns (ObservationQuorumReply) {}
+  rpc Outcome(OutcomeRequest) returns (OutcomeReply) {}
+  rpc Reports(ReportsRequest)returns (ReportsReply) {}
+  rpc ShouldAcceptAttestedReport(ShouldAcceptAttestedReportRequest) returns (ShouldAcceptAttestedReportReply) {}
+  rpc ShouldTransmitAcceptedReport(ShouldTransmitAcceptedReportRequest) returns (ShouldTransmitAcceptedReportReply) {}
+  rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
+
+message QueryRequest {
+  OutcomeContext outcomeContext=1;
+}
+
+message OutcomeContext {
+  uint64 seqNr=1;
+  bytes previousOutcome=2;
+  uint64 epoch=3;
+  uint64 round=4;
+}
+
+message QueryReply {
+  bytes query =1;
+}
+
+message ObservationRequest {
+  OutcomeContext outcomeContext=1;
+  bytes query=2;
+}
+
+message ObservationReply {
+  bytes observation=1;
+}
+
+message ValidateObservationRequest{
+  OutcomeContext outcomeContext=1;
+  bytes query=2;
+  AttributedObservation ao=3;
+}
+
+message AttributedObservation{
+  bytes observation=1;
+  uint32 observer =2;
+}
+
+message ObservationQuorumRequest {
+  OutcomeContext outcomeContext=1;
+  bytes query=2;
+}
+
+message ObservationQuorumReply {
+  int32 quorum =1;
+}
+
+message OutcomeRequest{
+  OutcomeContext outcomeContext=1;
+  bytes query=2;
+  repeated AttributedObservation ao=3;
+}
+
+message OutcomeReply{
+ bytes outcome=1;
+}
+
+message ReportsRequest{
+ uint64 seqNr=1;
+ bytes outcome=2;
+}
+
+message ReportsReply{
+ repeated ReportWithInfo ReportWithInfo=1;
+}
+
+message ReportWithInfo{
+  bytes report=1;
+  bytes info=2;
+}
+
+message ShouldAcceptAttestedReportRequest{
+  uint64  segNr=1;
+  ReportWithInfo ri=2;
+}
+
+message ShouldAcceptAttestedReportReply{
+  bool shouldAccept=1;
+}
+
+message ShouldTransmitAcceptedReportRequest{
+  uint64  segNr=1;
+  ReportWithInfo ri=2;
+}
+
+message ShouldTransmitAcceptedReportReply{
+  bool shouldTransmit=1;
+}

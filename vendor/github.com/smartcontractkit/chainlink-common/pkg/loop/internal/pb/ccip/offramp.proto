@@ -1,0 +1,216 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip;ccippb";
+
+package loop.internal.pb.ccip;
+import "google/protobuf/empty.proto";
+import "google/protobuf/duration.proto";
+import "models.proto";
+
+// OffRampReader is a gRPC service adapter for the OffRampReader interface 
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader]
+service OffRampReader {
+    rpc Address(google.protobuf.Empty) returns (OffRampAddressResponse) {}
+    rpc ChangeConfig(ChangeConfigRequest) returns (ChangeConfigResponse) {}
+    rpc CurrentRateLimiterState(google.protobuf.Empty) returns (CurrentRateLimiterStateResponse) {}
+    rpc DecodeExecutionReport(DecodeExecutionReportRequest) returns (DecodeExecutionReportResponse) {}
+    rpc EncodeExecutionReport(EncodeExecutionReportRequest) returns (EncodeExecutionReportResponse) {}
+    rpc GasPriceEstimator(google.protobuf.Empty) returns (GasPriceEstimatorResponse) {}
+    rpc GetExecutionState(GetExecutionStateRequest) returns (GetExecutionStateResponse) {}
+    rpc GetExecutionStateChanges(GetExecutionStateChangesRequest) returns (GetExecutionStateChangesResponse) {}
+    rpc GetRouter(google.protobuf.Empty) returns (GetRouterResponse) {}
+    rpc GetSourceToDestTokensMapping(google.protobuf.Empty) returns (GetSourceToDestTokensMappingResponse) {}
+    rpc GetStaticConfig(google.protobuf.Empty) returns (GetStaticConfigResponse) {}
+    rpc GetTokens(google.protobuf.Empty) returns (GetTokensResponse) {}
+    rpc ListSenderNonces(ListSenderNoncesRequest) returns (ListSenderNoncesResponse) {}
+    rpc OffchainConfig(google.protobuf.Empty) returns (OffchainConfigResponse) {}
+    rpc OnchainConfig(google.protobuf.Empty) returns (OnchainConfigResponse) {}
+    rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
+
+// EncodeExecutionReportRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.EncodeExecutionReport]
+message EncodeExecutionReportRequest {
+    ExecutionReport report = 1;
+}
+
+// EncodeExecutionReportResponse returns the encoded report. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.EncodeExecutionReport]
+message EncodeExecutionReportResponse {
+    bytes report = 1;
+}
+
+// DecodeExecutionReportRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.DecodeExecutionReport]
+message DecodeExecutionReportRequest {
+    bytes report = 1;
+}
+
+// DecodeExecutionReportResponse returns the decoded report. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.DecodeExecutionReport]
+message DecodeExecutionReportResponse {
+    ExecutionReport report = 1;
+}
+
+// GetExecutionStateChangesRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.GetExecutionStateChangesBetweenSeqNums]
+message GetExecutionStateChangesRequest {
+    uint64 min_seq_num = 1;
+    uint64 max_seq_num = 2;
+    int64 confirmations = 3;
+}
+
+// GetExecutionStateChangesResponse returns the execution state changes. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.GetExecutionStateChangesBetweenSeqNums]
+message GetExecutionStateChangesResponse {
+    repeated ExecutionStateChangeWithTxMeta execution_state_changes = 1;
+}
+
+// OffRampAddressResponse returns the offramp address. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.Address]
+message OffRampAddressResponse {
+    string address = 1;
+}
+
+// ChangeConfigRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.ChangeConfig]
+message ChangeConfigRequest {
+    bytes onchain_config = 1;
+    bytes offchain_config = 2;
+}
+
+// ChangeConfigResponse returns the new config addresses. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.ChangeConfig]
+message ChangeConfigResponse {
+    string onchain_config_address = 1; // Address
+    string offchain_config_address = 2; // Address
+}
+
+// OffchainConfigResponse returns the offchain config. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.OffchainConfig]
+message OffchainConfigResponse {
+    ExecOffchainConfig config = 1;
+}
+
+// OnchainConfigResponse returns the onchain config. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.OnchainConfig]
+message OnchainConfigResponse {
+    ExecOnchainConfig config = 1;
+}
+
+// GasPriceEstimatorResponse returns a reference to the gas price estimator service. It is a gRPC proxying mechanism for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.GasPriceEstimator]
+// because the underlying return value is an interface, which is modeled as a service in gRPC
+message GasPriceEstimatorResponse {
+   int32 estimator_service_id=1; 
+}
+
+// ListSenderNoncesRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.ListSenderNonces]
+message ListSenderNoncesRequest {
+    repeated string senders = 1; // []Address
+}
+
+// ListSenderNoncesResponse returns the sender nonce. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.ListSenderNonces]
+message ListSenderNoncesResponse {
+    map<string,uint64> nonce_mapping = 1; // map[Address]nonce
+}
+
+// CurrentRateLimiterStateResponse returns the current rate limiter state. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.CurrentRateLimiterState]
+message CurrentRateLimiterStateResponse {
+    TokenPoolRateLimit rate_limiter = 1;
+}
+
+// GetExecutionStateRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.GetExecutionState]
+message GetExecutionStateRequest {
+    uint64 seq_num = 1;
+}
+
+// GetExecutionStateResponse returns the execution state. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.GetExecutionState]
+message GetExecutionStateResponse {
+   uint32 execution_state = 1; // uint8
+}
+
+// GetStaticConfigResponse returns the static config. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.GetStaticConfig]
+message GetStaticConfigResponse {
+    OffRampStaticConfig config = 1;
+}
+
+// GetSourceToDestTokensMappingResponse returns the source to destination token mapping. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.GetSourceToDestTokensMapping]
+message GetSourceToDestTokensMappingResponse {
+    map<string,string> token_mappings = 1; // map[Address]Address
+}
+
+// GetTokensResponse returns the tokens. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.GetTokens]
+message GetTokensResponse {
+    OffRampTokens tokens = 1; // []Address
+}
+
+// GetRouterResponse returns the router address. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampReader.GetRouter]
+message GetRouterResponse {
+    string router = 1;
+}
+
+// ExecutionStateChangeWithTxMeta is a gRPC adapter for the struct
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/ExecutionStateChangeWithTxMeta]
+message ExecutionStateChangeWithTxMeta {
+    ExecutionStateChange execution_state_change = 1;
+    TxMeta tx_meta = 2;
+}
+
+// ExecutionStateChange is a gRPC adapter for the struct
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/ExecutionStateChange]
+message ExecutionStateChange {
+    uint64 seq_num = 1;
+}
+
+// ExecOffchainConfig is a gRPC adapter for the struct
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/ExecOffchainConfig]
+message ExecOffchainConfig {
+    uint32 dest_optimistic_confirmations = 1;
+    uint32 batch_gas_limit = 2;
+    double relative_boost_per_wait_hour = 3; // float64
+    google.protobuf.Duration inflight_cache_expiry = 4; // config.Duration
+    google.protobuf.Duration root_snooze_time = 5; // config.Duration
+    google.protobuf.Duration message_visibility_interval = 6; // config.Duration
+    uint32 batching_strategy_id = 7;
+}
+
+// ExecOnchainConfig is a gRPC adapter for the struct
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/ExecOnchainConfig]
+message ExecOnchainConfig {
+    google.protobuf.Duration  permissionless_exec_threshold_seconds = 1; // time.Duration
+    string router = 2; // Address
+    uint32 max_data_bytes = 3;
+    uint32 max_number_of_tokens_per_msg = 4;
+    string price_registry = 5; // Address
+    uint32 max_pool_release_or_mint_gas = 6;
+    uint32 max_token_transfer_gas = 7;
+}
+
+// OffRampStaticConfig is a gRPC adapter for the struct
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampStaticConfig]
+message OffRampStaticConfig {
+    string commit_store = 1; // Address
+    uint64 chain_selector = 2;
+    uint64 source_chain_selector = 3;
+    string on_ramp = 4; // Address
+    string prev_off_ramp =5; // Address
+    string arm_proxy = 6; // Address
+}
+
+// OffRampTokens is a gRPC adapter for the struct
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/OffRampTokens]
+message OffRampTokens {
+    repeated string destination_tokens = 1; // []Address
+    repeated string source_tokens = 2; // []Address
+    reserved 3;
+}

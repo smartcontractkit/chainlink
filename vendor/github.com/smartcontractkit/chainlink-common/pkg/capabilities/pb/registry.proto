@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb";
+
+package loop;
+
+import "values/pb/values.proto";
+import "google/protobuf/duration.proto";
+
+message RemoteTriggerConfig {
+  google.protobuf.Duration registrationRefresh = 1;
+  google.protobuf.Duration registrationExpiry = 2;
+  uint32 minResponsesToAggregate = 3;
+  google.protobuf.Duration messageExpiry = 4;
+}
+
+message RemoteTargetConfig {
+  // A collection of dot seperated paths to attributes that should be excluded from the request sent to the remote target
+  // when calculating the hash of the request.  This is useful for excluding attributes that are not deterministic to ensure
+  // that the hash of logically identical requests is consistent.
+  repeated string requestHashExcludedAttributes = 1;
+}
+
+message CapabilityConfig {
+  values.Map default_config = 1;
+
+  oneof remote_config {
+    RemoteTriggerConfig remote_trigger_config = 2;
+    RemoteTargetConfig remote_target_config = 3;
+  }
+}
+

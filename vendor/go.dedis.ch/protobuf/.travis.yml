@@ -1,0 +1,16 @@
+language: go
+
+go:
+  - "1.13.x"
+
+go_import_path: go.dedis.ch/protobuf
+
+script: GO111MODULE=on go test
+
+notifications:
+  email: false
+
+cache:
+  directories:
+    - $HOME/.cache/go-build
+    - $GOPATH/pkg/mod

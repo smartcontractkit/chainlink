@@ -1,0 +1,10 @@
+sudo: false
+language: go
+go:
+- 1.11.x
+
+install:
+- make get-deps get-tools
+
+script:
+- make

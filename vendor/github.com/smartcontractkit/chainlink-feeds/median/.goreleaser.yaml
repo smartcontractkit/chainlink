@@ -1,0 +1,10 @@
+# Requires GoReleaser Pro
+includes:
+  - from_file:
+      path: ./.goreleaser-template.yaml
+
+project_name: median
+
+monorepo:
+  tag_prefix: median@
+  dir: median

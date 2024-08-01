@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip;ccippb";
+
+package loop.internal.pb.ccip;
+import "google/protobuf/timestamp.proto";
+import "relayer.proto";
+
+// This file contains message definitions for the Cross-Chain Interoperability Protocol (CCIP) that are used by
+// multiple interfaces comprising CCIP
+
+enum FinalityStatus {
+    Unknown = 0;
+    Finalized = 1;
+    NotFinalized = 2;
+}
+
+// TxMeta is a message that contains the metadata of a transaction. It is a gRPC adapter to
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.TxMeta]
+message TxMeta {
+    int64 block_timestamp_unix_milli = 1;
+    uint64 block_number = 2;
+    string tx_hash = 3;
+    uint64 log_index = 4;
+    FinalityStatus finalized = 5;
+}
+
+// EVM2EVMMesssage is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.EVM2EVMMessage]
+message EVM2EVMMessage {
+    uint64 sequence_number = 1;
+    BigInt gas_limit = 2;
+    uint64 nonce = 3;
+    uint64 gas_price = 4;
+    bytes message_id = 5; // Hash [32]byte
+    uint64 source_chain_selector = 6;
+    string sender = 7; // Address
+    string receiver = 8; // Address
+    bool strict = 9;
+    string fee_token = 10; // Address
+    BigInt fee_token_amount = 11;
+    bytes data = 12;
+    repeated TokenAmount token_amounts = 13;
+    repeated bytes source_token_data = 14;
+    // Note: we don't bother with the Hash field here in the gRPC because it's derived from the golang struct
+}
+
+// EVM2EVMOnRampCCIPSendRequestedWithMeta is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta]
+message EVM2EVMOnRampCCIPSendRequestedWithMeta {
+    EVM2EVMMessage evm_to_evm_msg = 1;
+    google.protobuf.Timestamp block_timestamp = 2;
+    bool executed = 3;
+    bool finalized = 4;
+    uint64 log_index = 5;
+    string tx_hash = 6;
+}
+
+// TokenPoolRateLimit is a gRPC adapter for the struct
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/TokenPoolRateLimit]
+message TokenPoolRateLimit {
+    BigInt tokens = 1;
+    uint32 last_updated = 2;
+    bool is_enabled = 3;
+    BigInt capacity = 4;
+    BigInt rate = 5;
+}
+
+// TokenAmount is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.TokenAmount]
+message TokenAmount {
+    string token = 1; // Address
+    BigInt amount = 2;
+}
+
+// ExecutionReport is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.ExecutionReport]
+message ExecutionReport {
+    repeated EVM2EVMMessage evm_to_evm_messages = 1;
+    repeated TokenData offchain_token_data = 2;
+    repeated bytes proofs = 3; // [][32]byte
+    BigInt proof_flag_bits = 4;
+}
+
+message TokenData {
+    repeated bytes data= 1;
+}
+
+// TokenPrice is the price of the stated token. It is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.TokenPrice]
+message TokenPrice {
+    string token = 1; // Address
+    BigInt value = 2;
+}
+
+// GasPrice is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.GasPrice]
+message GasPrice {
+    uint64 dest_chain_selector = 1;
+    BigInt value = 2;
+}

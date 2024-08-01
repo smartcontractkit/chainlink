@@ -1,0 +1,79 @@
+run:
+  concurrency: 4
+  deadline: 1m
+  issues-exit-code: 1
+  tests: true
+
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+
+linters-settings:
+  errcheck:
+    check-type-assertions: false
+    check-blank: false
+  govet:
+    check-shadowing: false
+    use-installed-packages: false
+  golint:
+    min-confidence: 0.8
+  gofmt:
+    simplify: true
+  gocyclo:
+    min-complexity: 10
+  maligned:
+    suggest-new: true
+  dupl:
+    threshold: 80
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+  misspell:
+    locale: US
+  lll:
+    line-length: 140
+  unused:
+    check-exported: false
+  unparam:
+    algo: cha
+    check-exported: false
+  nakedret:
+    max-func-lines: 30
+
+linters:
+  enable:
+    - megacheck
+    - govet
+    - errcheck
+    - gas
+    - structcheck
+    - varcheck
+    - ineffassign
+    - deadcode
+    - typecheck
+    - unconvert
+    - gocyclo
+    - gofmt
+    - misspell
+    - lll
+    - nakedret
+  enable-all: false
+  disable:
+    - depguard
+    - prealloc
+    - dupl
+    - maligned
+  disable-all: false
+
+
+issues:
+  exclude-use-default: false
+  max-per-linter: 1024
+  max-same: 1024
+  exclude:
+    - "G304"
+    - "G101"
+    - "G104"
