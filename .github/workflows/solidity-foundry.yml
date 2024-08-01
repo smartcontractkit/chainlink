@@ -17,7 +17,7 @@ jobs:
         shell: bash
         run: |
           cat <<EOF > matrix.json
-          {
+          [
             { "name": "automation", "setup": { "run-coverage": false, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 98.5, "run-gas-snapshot": true, "run-forge-fmt": true }},
             { "name": "functions", "setup": { "run-coverage": false, "run-gas-snapshot": true, "run-forge-fmt": false }},
@@ -28,10 +28,11 @@ jobs:
             { "name": "operatorforwarder", "setup": { "run-coverage": true, "min-coverage": 55.7, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "shared", "setup": { "run-coverage": true, "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "vrf", "setup": { "run-coverage": false, "run-gas-snapshot": false, "run-forge-fmt": false }}
-          }
+          ]
           EOF
           
-          cat matrix.json >> $GITHUB_OUTPUT
+          matrix=$(cat matrix.json)
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
 
   changes:
     name: Detect changes
