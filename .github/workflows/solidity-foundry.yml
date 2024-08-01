@@ -251,7 +251,7 @@ jobs:
           ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
           mv remappings_modified.txt remappings.txt
           
-          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/.slither.config-artifacts.json "." "$CHANGED_ARRAY" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
+          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/.slither.config-pr.json "." "$CHANGED_ARRAY" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
 
       - name: Print Slither summary
         shell: bash
