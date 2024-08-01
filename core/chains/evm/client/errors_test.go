@@ -66,7 +66,7 @@ func Test_Eth_Errors(t *testing.T) {
 				err = evmclient.NewSendErrorS(test.message)
 				assert.Equal(t, err.IsInvalidSenderError(clientErrors), test.expect)
 				err = newSendErrorWrapped(test.message)
-				assert.Equal(t, err.IsNonceTooHighError(clientErrors), test.expect)
+				assert.Equal(t, err.IsInvalidSenderError(clientErrors), test.expect)
 			})
 		}
 	})
