@@ -458,7 +458,7 @@ packages:
       outpkg: mock_optimism_dispute_game_factory
     interfaces:
       OptimismDisputeGameFactoryInterface: 
-  github.com/smartcontractkit/chainlink/v2/core/services/ccipcapability/types:
+  github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types:
     interfaces:
       CCIPOracle:
       OracleCreator:

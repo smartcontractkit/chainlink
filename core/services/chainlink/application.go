@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
@@ -27,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ccipcapability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 
@@ -522,7 +523,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			cfg.Insecure(),
 			opts.RelayerChainInteroperators,
 		)
-		delegates[job.CCIP] = ccipcapability.NewDelegate(
+		delegates[job.CCIP] = ccip.NewDelegate(
 			globalLogger,
 			loopRegistrarConfig,
 			pipelineRunner,
