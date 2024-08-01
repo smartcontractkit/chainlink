@@ -41,6 +41,14 @@ contract KeystoneForwarder_SetConfigTest is BaseTest {
     s_forwarder.setConfig(DON_ID, CONFIG_VERSION, F, signers);
   }
 
+  function test_RevertWhen_ProvidingZeroAddressSigner() public {
+    address[] memory signers = _getSignerAddresses();
+    signers[1] = address(0);
+
+    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidSigner.selector, signers[1]));
+    s_forwarder.setConfig(DON_ID, CONFIG_VERSION, F, signers);
+  }
+
   function test_SetConfig_FirstTime() public {
     s_forwarder.setConfig(DON_ID, CONFIG_VERSION, F, _getSignerAddresses());
   }
