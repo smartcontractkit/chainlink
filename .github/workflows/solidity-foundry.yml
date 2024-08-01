@@ -83,9 +83,7 @@ jobs:
               - 'contracts/src/v0.8/vendor/**/*.sol'            
 
   tests:
-    if: ${{ needs.changes.outputs.non_src_changes == 'true' 
-      || contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name) 
-      || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared')}}
+    if: ${{ needs.changes.outputs.non_src_changes == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -98,6 +96,8 @@ jobs:
     # passing required check for PRs that don't have filtered changes.
     steps:
       - name: Checkout the repo
+        if: ${{ contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared') }}
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
@@ -106,14 +106,20 @@ jobs:
       # and not native Foundry. This is to make sure the dependencies
       # stay in sync.
       - name: Setup NodeJS
+        if: ${{ contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared') }}
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
+        if: ${{ contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared') }}
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
           version: ${{ env.FOUNDRY_VERSION }}
 
       - name: Run Forge build
+        if: ${{ contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared') }}
         run: |
           forge --version
           forge build
@@ -123,6 +129,8 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
       - name: Run Forge tests
+        if: ${{ contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared') }}
         run: |
           forge test -vvv
         id: test
@@ -131,7 +139,9 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
       - name: Run Forge snapshot
-        if: ${{  matrix.product.setup.run-gas-snapshot }}
+        if: ${{ (contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared')) && 
+          matrix.product.setup.run-gas-snapshot }}
         run: |
           forge snapshot --nmt "test_?Fuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product.name }}.gas-snapshot
         id: snapshot
@@ -141,24 +151,32 @@ jobs:
 
       # required for code coverage report generation
       - name: Setup LCOV
-        if: ${{ matrix.product.setup.run-coverage }}
+        if: ${{ (contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared')) 
+          && matrix.product.setup.run-coverage }}
         uses: hrishikesh-kadam/setup-lcov@f5da1b26b0dcf5d893077a3c4f29cf78079c841d # v1.0.0
 
       - name: Run coverage for ${{ matrix.product.name }}
-        if: ${{ matrix.product.setup.run-coverage }}
+        if: ${{ (contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared'))
+          && matrix.product.setup.run-coverage }}
         working-directory: contracts
         run: forge coverage --report lcov
         env:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
       - name: Prune lcov report
-        if: ${{ matrix.product.setup.run-coverage }}
+        if: ${{ (contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared'))
+          && matrix.product.setup.run-coverage }}
         run: |
           sudo apt-get install lcov
           ./contracts/scripts/lcov_prune ${{ matrix.product.name }} ./contracts/lcov.info ./contracts/lcov.info.pruned
 
       - name: Report code coverage for ${{ matrix.product.name }}
-        if: ${{ matrix.product.setup.run-coverage }}
+        if: ${{ (contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared'))
+          && matrix.product.setup.run-coverage }}
         uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
         with:
           update-comment: false
@@ -168,6 +186,8 @@ jobs:
           working-directory: ./contracts
 
       - name: Collect Metrics
+        if: ${{ contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared')}}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
@@ -266,10 +286,7 @@ jobs:
 
   solidity-forge-fmt:
     name: Forge fmt ${{ matrix.product.name }}
-    if: ${{ needs.changes.outputs.non_src_changes == 'true'
-      || contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
-      || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared')
-      && matrix.product.setup.run-forge-fmt}}
+    if: ${{ needs.changes.outputs.non_src_changes == 'true'}}
     needs: [define-matrix, changes]
     strategy:
       fail-fast: false
@@ -278,19 +295,31 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
+        if: ${{ (contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared'))
+          && matrix.product.setup.run-forge-fmt }}
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
 
       - name: Setup NodeJS
+        if: ${{ (contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared'))
+          && matrix.product.setup.run-forge-fmt }}
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
+        if: ${{ (contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared'))
+          && matrix.product.setup.run-forge-fmt }}
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
           version: ${{ env.FOUNDRY_VERSION }}
 
       - name: Run Forge fmt
+        if: ${{ (contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared'))
+          && matrix.product.setup.run-forge-fmt }}
         run: forge fmt --check
         id: fmt
         working-directory: contracts
@@ -298,6 +327,9 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
       - name: Collect Metrics
+        if: ${{ (contains(fromJson(needs.define-matrix.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.define-matrix.outputs.all_changes), 'shared'))
+          && matrix.product.setup.run-forge-fmt }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
