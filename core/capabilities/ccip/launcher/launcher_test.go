@@ -15,6 +15,7 @@ import (
 
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -153,7 +154,7 @@ func Test_createDON(t *testing.T) {
 		p2pID           ragep2ptypes.PeerID
 		homeChainReader *mocks.HomeChainReader
 		oracleCreator   *mocks.OracleCreator
-		don             registrysyncer.DON
+		don             kcr.CapabilitiesRegistryDONInfo
 	}
 	tests := []struct {
 		name    string
@@ -165,12 +166,14 @@ func Test_createDON(t *testing.T) {
 			"not a member of the DON",
 			args{
 				logger.TestLogger(t),
-				p2pID1,
+				ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID()),
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
-				registrysyncer.DON{
-					DON:                      getDON(2, []ragep2ptypes.PeerID{p2pID2}, 0),
-					CapabilityConfigurations: defaultCapCfgs,
+				kcr.CapabilitiesRegistryDONInfo{
+					NodeP2PIds: [][32]byte{
+						p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2)).PeerID(),
+					},
+					Id: 2,
 				},
 			},
 			func(t *testing.T, args args, oracleCreator *mocks.OracleCreator, homeChainReader *mocks.HomeChainReader) {
@@ -181,10 +184,15 @@ func Test_createDON(t *testing.T) {
 			"success, no bootstrap",
 			args{
 				logger.TestLogger(t),
-				p2pID1,
+				ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID()),
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
-				defaultRegistryDon,
+				kcr.CapabilitiesRegistryDONInfo{
+					NodeP2PIds: [][32]byte{
+						p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID(),
+					},
+					Id: 1,
+				},
 			},
 			func(t *testing.T, args args, oracleCreator *mocks.OracleCreator, homeChainReader *mocks.HomeChainReader) {
 				homeChainReader.
@@ -254,7 +262,7 @@ func Test_updateDON(t *testing.T) {
 		homeChainReader *mocks.HomeChainReader
 		oracleCreator   *mocks.OracleCreator
 		prevDeployment  ccipDeployment
-		don             registrysyncer.DON
+		don             kcr.CapabilitiesRegistryDONInfo
 	}
 	tests := []struct {
 		name              string
@@ -285,7 +293,7 @@ func Test_launcher_processDiff(t *testing.T) {
 		homeChainReader *mocks.HomeChainReader
 		oracleCreator   *mocks.OracleCreator
 		dons            map[registrysyncer.DonID]*ccipDeployment
-		regState        registrysyncer.LocalRegistry
+		regState        registrysyncer.State
 	}
 	type args struct {
 		diff diffResult
@@ -318,16 +326,20 @@ func Test_launcher_processDiff(t *testing.T) {
 						},
 					},
 				},
-				regState: registrysyncer.LocalRegistry{
-					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
-						1: defaultRegistryDon,
+				regState: registrysyncer.State{
+					IDsToDONs: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{
+						1: {
+							Id: 1,
+						},
 					},
 				},
 			},
 			args{
 				diff: diffResult{
-					removed: map[registrysyncer.DonID]registrysyncer.DON{
-						1: defaultRegistryDon,
+					removed: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{
+						1: {
+							Id: 1,
+						},
 					},
 				},
 			},
@@ -341,7 +353,7 @@ func Test_launcher_processDiff(t *testing.T) {
 			"don added success",
 			fields{
 				lggr:  logger.TestLogger(t),
-				p2pID: p2pID1,
+				p2pID: ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID()),
 				homeChainReader: newMock(t, func(t *testing.T) *mocks.HomeChainReader {
 					return mocks.NewHomeChainReader(t)
 				}, func(m *mocks.HomeChainReader) {
@@ -363,14 +375,19 @@ func Test_launcher_processDiff(t *testing.T) {
 						Return(execOracle, nil)
 				}),
 				dons: map[registrysyncer.DonID]*ccipDeployment{},
-				regState: registrysyncer.LocalRegistry{
-					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{},
+				regState: registrysyncer.State{
+					IDsToDONs: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{},
 				},
 			},
 			args{
 				diff: diffResult{
-					added: map[registrysyncer.DonID]registrysyncer.DON{
-						1: defaultRegistryDon,
+					added: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{
+						1: {
+							Id: 1,
+							NodeP2PIds: [][32]byte{
+								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID(),
+							},
+						},
 					},
 				},
 			},
@@ -384,7 +401,7 @@ func Test_launcher_processDiff(t *testing.T) {
 			"don updated new green instance success",
 			fields{
 				lggr:  logger.TestLogger(t),
-				p2pID: p2pID1,
+				p2pID: ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID()),
 				homeChainReader: newMock(t, func(t *testing.T) *mocks.HomeChainReader {
 					return mocks.NewHomeChainReader(t)
 				}, func(m *mocks.HomeChainReader) {
@@ -419,19 +436,26 @@ func Test_launcher_processDiff(t *testing.T) {
 						},
 					},
 				},
-				regState: registrysyncer.LocalRegistry{
-					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
-						1: defaultRegistryDon,
+				regState: registrysyncer.State{
+					IDsToDONs: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{
+						1: {
+							Id: 1,
+							NodeP2PIds: [][32]byte{
+								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID(),
+							},
+						},
 					},
 				},
 			},
 			args{
 				diff: diffResult{
-					updated: map[registrysyncer.DonID]registrysyncer.DON{
+					updated: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{
 						1: {
-							// new Node in Don: p2pID2
-							DON:                      getDON(1, []ragep2ptypes.PeerID{p2pID1, p2pID2}, 0),
-							CapabilityConfigurations: defaultCapCfgs,
+							Id: 1,
+							NodeP2PIds: [][32]byte{
+								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID(),
+								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2)).PeerID(), // new node in don
+							},
 						},
 					},
 				},
@@ -439,7 +463,7 @@ func Test_launcher_processDiff(t *testing.T) {
 			func(t *testing.T, l *launcher) {
 				require.Len(t, l.dons, 1)
 				require.Len(t, l.regState.IDsToDONs, 1)
-				require.Len(t, l.regState.IDsToDONs[1].Members, 2)
+				require.Len(t, l.regState.IDsToDONs[1].NodeP2PIds, 2)
 			},
 			false,
 		},

@@ -43,10 +43,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/bridges:
     interfaces:
       ORM:
-  github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types:
-    interfaces:
-      CCIPOracle:
-      OracleCreator:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types:
     interfaces:
       Dispatcher:
@@ -262,20 +258,11 @@ packages:
       ORM:
       Runner:
       PipelineParamUnmarshaler:
-  github.com/smartcontractkit/chainlink/v2/core/services/headreporter:
+  github.com/smartcontractkit/chainlink/v2/core/services/promreporter:
     config:
-      dir: "{{ .InterfaceDir }}"
-      filename: "{{ .InterfaceName | snakecase }}_mock.go"
-      inpackage: true
-      mockname: "Mock{{ .InterfaceName | camelcase }}"
+      dir: core/internal/mocks
     interfaces:
-      HeadReporter:
       PrometheusBackend:
-  github.com/smartcontractkit/libocr/commontypes:
-    config:
-      dir: "common/types/mocks"
-    interfaces:
-      MonitoringEndpoint:
   github.com/smartcontractkit/chainlink/v2/core/services/relay/evm:
     interfaces:
       BatchCaller:
@@ -310,15 +297,6 @@ packages:
     interfaces:
       Config:
       FeeConfig:
-  github.com/smartcontractkit/chainlink/v2/core/services/telemetry:
-    config:
-      dir: "{{ .InterfaceDir }}"
-      filename: "{{ .InterfaceName | snakecase }}_mock.go"
-      inpackage: true
-      mockname: "Mock{{ .InterfaceName | camelcase }}"
-    interfaces:
-      MonitoringEndpointGenerator:
-      IngressAgent:
   github.com/smartcontractkit/chainlink/v2/core/services/webhook:
     interfaces:
       ExternalInitiatorManager:
@@ -479,7 +457,11 @@ packages:
       filename: optimism_dispute_game_factory_interface.go
       outpkg: mock_optimism_dispute_game_factory
     interfaces:
-      OptimismDisputeGameFactoryInterface:
+      OptimismDisputeGameFactoryInterface: 
+  github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types:
+    interfaces:
+      CCIPOracle:
+      OracleCreator:
   github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache:
     config:
       filename: chain_health_mock.go
@@ -529,11 +511,6 @@ packages:
       PriceGetter:
         config:
           mockname: "Mock{{ .InterfaceName }}"
-          filename: mock.go
-      AllTokensPriceGetter:
-        config:
-          mockname: "Mock{{ .InterfaceName }}"
-          filename: all_price_getter_mock.go
   github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker:
     interfaces:
       CCIPTransactionStatusChecker:
@@ -576,6 +553,37 @@ packages:
       Reader:
         config:
           mockname: "Mock{{ .InterfaceName }}"
-  github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer:
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/bridge:
     interfaces:
-      ORM:
+      Bridge:
+        config:
+          filename: bridge_mock.go
+      Factory:
+        config:
+          filename: bridge_factory_mock.go
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/chain/evm:
+    interfaces:
+      Factory:
+        config:
+          filename: lm_factory_mock.go
+          dir: "{{ .InterfaceDir }}/../../mocks"
+      LiquidityManager:
+        config:
+          filename: liquidity_manager_mock.go
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager:
+    interfaces:
+      LiquidityManager:
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/discoverer:
+    interfaces:
+      Discoverer:
+        config:
+          filename: discoverer_mock.go
+      Factory:
+        config:
+          filename: factory_mock.go
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/rebalalgo:
+    config:
+      dir: "{{ .InterfaceDir }}/../mocks"
+      filename: rebalancer_mock.go
+    interfaces:
+      RebalancingAlgo:
