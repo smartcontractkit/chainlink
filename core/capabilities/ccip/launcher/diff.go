@@ -3,26 +3,30 @@ package launcher
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 // diffResult contains the added, removed and updated CCIP DONs.
 // It is determined by using the `diff` function below.
 type diffResult struct {
-	added   map[registrysyncer.DonID]registrysyncer.DON
-	removed map[registrysyncer.DonID]registrysyncer.DON
-	updated map[registrysyncer.DonID]registrysyncer.DON
+	added   map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo
+	removed map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo
+	updated map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo
 }
 
 // diff compares the old and new state and returns the added, removed and updated CCIP DONs.
 func diff(
-	capabilityID string,
+	capabilityVersion,
+	capabilityLabelledName string,
 	oldState,
-	newState registrysyncer.LocalRegistry,
+	newState registrysyncer.State,
 ) (diffResult, error) {
-	ccipCapability, err := checkCapabilityPresence(capabilityID, newState)
+	ccipCapability, err := checkCapabilityPresence(capabilityVersion, capabilityLabelledName, newState)
 	if err != nil {
 		return diffResult{}, fmt.Errorf("failed to check capability presence: %w", err)
 	}
@@ -49,14 +53,14 @@ func diff(
 // compareDONs compares the current and new CCIP DONs and returns the added, removed and updated DONs.
 func compareDONs(
 	currCCIPDONs,
-	newCCIPDONs map[registrysyncer.DonID]registrysyncer.DON,
+	newCCIPDONs map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo,
 ) (
 	dr diffResult,
 	err error,
 ) {
-	added := make(map[registrysyncer.DonID]registrysyncer.DON)
-	removed := make(map[registrysyncer.DonID]registrysyncer.DON)
-	updated := make(map[registrysyncer.DonID]registrysyncer.DON)
+	added := make(map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo)
+	removed := make(map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo)
+	updated := make(map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo)
 
 	for id, don := range newCCIPDONs {
 		if currDONState, ok := currCCIPDONs[id]; !ok {
@@ -65,7 +69,7 @@ func compareDONs(
 		} else {
 			// If its in the current state and the config count for the DON has changed, mark as updated.
 			// Since the registry returns the full state we need to compare the config count.
-			if don.ConfigVersion > currDONState.ConfigVersion {
+			if don.ConfigCount > currDONState.ConfigCount {
 				updated[id] = don
 			}
 		}
@@ -87,39 +91,50 @@ func compareDONs(
 
 // filterCCIPDONs filters the CCIP DONs from the given state.
 func filterCCIPDONs(
-	ccipCapability registrysyncer.Capability,
-	state registrysyncer.LocalRegistry,
-) (map[registrysyncer.DonID]registrysyncer.DON, error) {
-	ccipDONs := make(map[registrysyncer.DonID]registrysyncer.DON)
+	ccipCapability kcr.CapabilitiesRegistryCapabilityInfo,
+	state registrysyncer.State,
+) (map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo, error) {
+	ccipDONs := make(map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo)
 	for _, don := range state.IDsToDONs {
-		_, ok := don.CapabilityConfigurations[ccipCapability.ID]
-		if ok {
-			ccipDONs[registrysyncer.DonID(don.ID)] = don
+		for _, donCapabilities := range don.CapabilityConfigurations {
+			hid, err := common.HashedCapabilityID(ccipCapability.LabelledName, ccipCapability.Version)
+			if err != nil {
+				return nil, fmt.Errorf("failed to hash capability id: %w", err)
+			}
+			if donCapabilities.CapabilityId == hid {
+				ccipDONs[registrysyncer.DonID(don.Id)] = don
+			}
 		}
 	}
 
 	return ccipDONs, nil
 }
 
-// checkCapabilityPresence checks if the capability with the given capabilityID
-// is present in the given capability registry state.
+// checkCapabilityPresence checks if the capability with the given version and
+// labelled name is present in the given capability registry state.
 func checkCapabilityPresence(
-	capabilityID string,
-	state registrysyncer.LocalRegistry,
-) (registrysyncer.Capability, error) {
+	capabilityVersion,
+	capabilityLabelledName string,
+	state registrysyncer.State,
+) (kcr.CapabilitiesRegistryCapabilityInfo, error) {
 	// Sanity check to make sure the capability registry has the capability we are looking for.
-	ccipCapability, ok := state.IDsToCapabilities[capabilityID]
+	hid, err := common.HashedCapabilityID(capabilityLabelledName, capabilityVersion)
+	if err != nil {
+		return kcr.CapabilitiesRegistryCapabilityInfo{}, fmt.Errorf("failed to hash capability id: %w", err)
+	}
+	ccipCapability, ok := state.IDsToCapabilities[hid]
 	if !ok {
-		return registrysyncer.Capability{},
-			fmt.Errorf("failed to find capability with capabilityID %s in capability registry state", capabilityID)
+		return kcr.CapabilitiesRegistryCapabilityInfo{},
+			fmt.Errorf("failed to find capability with name %s and version %s in capability registry state",
+				capabilityLabelledName, capabilityVersion)
 	}
 
 	return ccipCapability, nil
 }
 
 // isMemberOfDON returns true if and only if the given p2pID is a member of the given DON.
-func isMemberOfDON(don registrysyncer.DON, p2pID ragep2ptypes.PeerID) bool {
-	for _, node := range don.Members {
+func isMemberOfDON(don kcr.CapabilitiesRegistryDONInfo, p2pID ragep2ptypes.PeerID) bool {
+	for _, node := range don.NodeP2PIds {
 		if node == p2pID {
 			return true
 		}

@@ -5,15 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/launcher"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/oraclecreator"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -32,28 +27,25 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-type RelayGetter interface {
-	Get(types.RelayID) (loop.Relayer, error)
-	GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error)
-}
-
 type Delegate struct {
 	lggr                  logger.Logger
 	registrarConfig       plugins.RegistrarConfig
 	pipelineRunner        pipeline.Runner
 	chains                legacyevm.LegacyChainContainer
-	relayers              RelayGetter
 	keystore              keystore.Master
 	ds                    sqlutil.DataSource
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
+	registrySyncer        registrysyncer.Syncer
 	capabilityConfig      config.Capabilities
 
 	isNewlyCreatedJob bool
@@ -64,7 +56,7 @@ func NewDelegate(
 	registrarConfig plugins.RegistrarConfig,
 	pipelineRunner pipeline.Runner,
 	chains legacyevm.LegacyChainContainer,
-	relayers RelayGetter,
+	registrySyncer registrysyncer.Syncer,
 	keystore keystore.Master,
 	ds sqlutil.DataSource,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
@@ -76,7 +68,7 @@ func NewDelegate(
 		registrarConfig:       registrarConfig,
 		pipelineRunner:        pipelineRunner,
 		chains:                chains,
-		relayers:              relayers,
+		registrySyncer:        registrySyncer,
 		ds:                    ds,
 		keystore:              keystore,
 		peerWrapper:           peerWrapper,
@@ -105,25 +97,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	p2pID, err := d.keystore.P2P().Get(peerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all p2p keys: %w", err)
-	}
-
-	cfg := d.capabilityConfig
-	rid := cfg.ExternalRegistry().RelayID()
-	relayer, err := d.relayers.Get(rid)
-	if err != nil {
-		return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
-	}
-	registrySyncer, err := registrysyncer.New(
-		d.lggr,
-		func() (p2ptypes.PeerID, error) {
-			return p2ptypes.PeerID(p2pID.PeerID()), nil
-		},
-		relayer,
-		cfg.ExternalRegistry().Address(),
-		registrysyncer.NewORM(d.ds, d.lggr),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not configure syncer: %w", err)
 	}
 
 	ocrKeys, err := d.getOCRKeys(spec.CCIPSpec.OCRKeyBundleIDs)
@@ -176,9 +149,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		hcr,
 	)
 
-	capabilityID := fmt.Sprintf("%s@%s", spec.CCIPSpec.CapabilityLabelledName, spec.CCIPSpec.CapabilityVersion)
 	capLauncher := launcher.New(
-		capabilityID,
+		spec.CCIPSpec.CapabilityVersion,
+		spec.CCIPSpec.CapabilityLabelledName,
 		ragep2ptypes.PeerID(p2pID.PeerID()),
 		d.lggr,
 		hcr,
@@ -187,10 +160,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	)
 
 	// register the capability launcher with the registry syncer
-	registrySyncer.AddLauncher(capLauncher)
+	d.registrySyncer.AddLauncher(capLauncher)
 
 	return []job.ServiceCtx{
-		registrySyncer,
 		hcr,
 		capLauncher,
 	}, nil

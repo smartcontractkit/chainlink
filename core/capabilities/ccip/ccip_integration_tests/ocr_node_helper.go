@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -26,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -35,6 +32,7 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -43,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/stretchr/testify/require"
@@ -122,6 +119,7 @@ func setupNodeOCR3(
 		ChainOpts: legacyevm.ChainOpts{
 			AppConfig: cfg,
 			GenEthClient: func(i *big.Int) client.Client {
+				t.Log("genning eth client for chain id:", i.String())
 				client, ok := clients[i.Uint64()]
 				if !ok {
 					t.Fatal("no backend for chainID", i)
@@ -134,10 +132,9 @@ func setupNodeOCR3(
 		CSAETHKeystore: kStore,
 	}
 	relayerFactory := chainlink.RelayerFactory{
-		Logger:               lggr,
-		LoopRegistry:         plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing()),
-		GRPCOpts:             loop.GRPCOpts{},
-		CapabilitiesRegistry: coretypes.NewCapabilitiesRegistry(t),
+		Logger:       lggr,
+		LoopRegistry: plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing()),
+		GRPCOpts:     loop.GRPCOpts{},
 	}
 	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(testutils.Context(t), relayerFactory, evmOpts)}
 	rci, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
@@ -221,6 +218,7 @@ type EthKeystoreSim struct {
 // override
 func (e *EthKeystoreSim) SignTx(ctx context.Context, address common.Address, tx *gethtypes.Transaction, chainID *big.Int) (*gethtypes.Transaction, error) {
 	// always sign with chain id 1337 for the simulated backend
+	e.t.Log("always signing tx for chain id:", chainID.String(), "with chain id 1337, tx hash:", tx.Hash())
 	return e.Eth.SignTx(ctx, address, tx, big.NewInt(1337))
 }
 
