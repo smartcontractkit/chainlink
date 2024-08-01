@@ -53,7 +53,7 @@ func genTestEVMRelayers(t *testing.T, opts legacyevm.ChainRelayExtenderConfig, k
 	relayers, err := chainlink.NewCoreRelayerChainInteroperators(chainlink.InitEVM(testutils.Context(t), f, chainlink.EVMFactoryConfig{
 		ChainOpts:      opts.ChainOpts,
 		CSAETHKeystore: ks,
-	}, nil))
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}

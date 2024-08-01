@@ -5,14 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -25,7 +23,6 @@ type (
 	HeadReporterService struct {
 		services.StateMachine
 		ds             sqlutil.DataSource
-		chains         legacyevm.LegacyChainContainer
 		lggr           logger.Logger
 		newHeads       *mailbox.Mailbox[*evmtypes.Head]
 		chStop         services.StopChan
@@ -36,60 +33,24 @@ type (
 	}
 )
 
-func NewHeadReporterService(ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, monitoringEndpointGen telemetry.MonitoringEndpointGenerator, opts ...interface{}) *HeadReporterService {
-	reporters := make([]HeadReporter, 1, 2)
-	reporters[0] = NewPrometheusReporter(ds, chainContainer, lggr, opts)
-	telemetryEnabled := false
-	for _, chain := range chainContainer.Slice() {
-		if chain.Config().EVM().HeadTracker().HeadTelemetryEnabled() {
-			telemetryEnabled = true
-			break
-		}
-	}
-	if telemetryEnabled {
-		reporters = append(reporters, NewTelemetryReporter(chainContainer, monitoringEndpointGen))
-	}
-	return NewHeadReporterServiceWithReporters(ds, chainContainer, lggr, reporters, opts)
-}
-
-func NewHeadReporterServiceWithReporters(ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, reporters []HeadReporter, opts ...interface{}) *HeadReporterService {
-	reportPeriod := 30 * time.Second
-	for _, opt := range opts {
-		switch v := opt.(type) {
-		case time.Duration:
-			reportPeriod = v
-		default:
-			lggr.Debugf("Unknown opt type '%T' passed to HeadReporterService", v)
-		}
-	}
-	chStop := make(chan struct{})
+func NewHeadReporterService(ds sqlutil.DataSource, lggr logger.Logger, reporters ...HeadReporter) *HeadReporterService {
 	return &HeadReporterService{
-		ds:             ds,
-		chains:         chainContainer,
-		lggr:           lggr.Named("HeadReporterService"),
-		newHeads:       mailbox.NewSingle[*evmtypes.Head](),
-		chStop:         chStop,
-		wgDone:         sync.WaitGroup{},
-		reportPeriod:   reportPeriod,
-		reporters:      reporters,
-		unsubscribeFns: nil,
+		ds:        ds,
+		lggr:      lggr.Named("HeadReporter"),
+		newHeads:  mailbox.NewSingle[*evmtypes.Head](),
+		chStop:    make(chan struct{}),
+		reporters: reporters,
 	}
 }
 
-func (hrd *HeadReporterService) subscribe() {
-	hrd.unsubscribeFns = make([]func(), 0, hrd.chains.Len())
-	for _, chain := range hrd.chains.Slice() {
-		if chain.Config().EVM().HeadTracker().HeadTelemetryEnabled() {
-			_, unsubscribe := chain.HeadBroadcaster().Subscribe(hrd)
-			hrd.unsubscribeFns = append(hrd.unsubscribeFns, unsubscribe)
-		}
-	}
+func (hrd *HeadReporterService) Subscribe(subFn func(types.HeadTrackable) (evmtypes.Head, func())) {
+	_, unsubscribe := subFn(hrd)
+	hrd.unsubscribeFns = append(hrd.unsubscribeFns, unsubscribe)
 }
 
 func (hrd *HeadReporterService) Start(context.Context) error {
 	return hrd.StartOnce(hrd.Name(), func() error {
 		hrd.wgDone.Add(1)
-		hrd.subscribe()
 		go hrd.eventLoop()
 		return nil
 	})

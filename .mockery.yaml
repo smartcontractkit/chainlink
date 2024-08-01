@@ -276,7 +276,10 @@ packages:
       LogPollerWrapper:
   github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/headreporter:
     config:
-      dir: core/internal/mocks
+      dir: "{{ .InterfaceDir }}"
+      filename: "mock_{{ .InterfaceName | snakecase }}_test.go"
+      inpackage: true
+      mockname: "Mock{{ .InterfaceName | camelcase }}"
     interfaces:
       HeadReporter:
       PrometheusBackend:

@@ -7,11 +7,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/headreporter"
-	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	relay "github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
@@ -116,7 +113,7 @@ func InitDummy(ctx context.Context, factory RelayerFactory) CoreRelayerChainInit
 }
 
 // InitEVM is a option for instantiating evm relayers
-func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfig, monitoringEndpointGen telemetry.MonitoringEndpointGenerator) CoreRelayerChainInitFunc {
+func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
 		adapters, err2 := factory.NewEVM(ctx, config)
 		if err2 != nil {
@@ -130,8 +127,6 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 			legacyMap[id.ChainID] = a.Chain()
 		}
 		op.legacyChains.EVMChains = legacyevm.NewLegacyChains(legacyMap, config.AppConfig.EVMConfigs())
-		headReporter := headreporter.NewHeadReporterService(config.DS, op.legacyChains.EVMChains, factory.Logger, monitoringEndpointGen)
-		op.srvs = append(op.srvs, headReporter)
 		return nil
 	}
 }

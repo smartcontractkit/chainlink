@@ -84,7 +84,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
-	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -416,11 +415,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	testCtx := testutils.Context(t)
 	// evm alway enabled for backward compatibility
-	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), keyStore.CSA(), lggr)
-	initOps := []chainlink.CoreRelayerChainInitFunc{
-		chainlink.InitDummy(testCtx, relayerFactory),
-		chainlink.InitEVM(testCtx, relayerFactory, evmOpts, telemetryManager),
-	}
+	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitDummy(testCtx, relayerFactory), chainlink.InitEVM(testCtx, relayerFactory, evmOpts)}
 
 	if cfg.CosmosEnabled() {
 		cosmosCfg := chainlink.CosmosFactoryConfig{
@@ -468,7 +463,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		CapabilitiesRegistry:       capabilitiesRegistry,
 		CapabilitiesDispatcher:     dispatcher,
 		CapabilitiesPeerWrapper:    peerWrapper,
-		TelemetryManager:           telemetryManager,
 	})
 
 	require.NoError(t, err)
