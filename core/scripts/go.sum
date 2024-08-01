@@ -1195,8 +1195,8 @@ github.com/smartcontractkit/chainlink-feeds v0.0.0-20240617141425-d184a59a6b42 h
 github.com/smartcontractkit/chainlink-feeds v0.0.0-20240617141425-d184a59a6b42/go.mod h1:PJlzwLaYsA7YcAKXdysMjNONeIolPrRjT9v/AMo4Er0=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240422172640-59d47c73ba58 h1:jc4ab5QrKZfkICyxJysCt7mSExuSPbePjgZsnJR3nRQ=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240422172640-59d47c73ba58/go.mod h1:oV5gIuSKrPEcjQ6uB6smBsm5kXHxyydVLNyAs4V9CoQ=
-github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240718184359-6f396818d097 h1:Vgo8p/9udAfuhS/T13KpSXe30pJo4XXFOugOQXw9OZ4=
-github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240718184359-6f396818d097/go.mod h1:Fqkjgw9r7sT0D6OvRyygm1sqeBE1XNtbmHkz9RFhNZg=
+github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240801181751-d35782c173fb h1:IiB0+epMT2qK9lsdtUkxJAhDQDHbtt2JWGkCqgM6ADs=
+github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240801181751-d35782c173fb/go.mod h1:Fqkjgw9r7sT0D6OvRyygm1sqeBE1XNtbmHkz9RFhNZg=
 github.com/smartcontractkit/chainlink-vrf v0.0.0-20240222010609-cd67d123c772 h1:LQmRsrzzaYYN3wEU1l5tWiccznhvbyGnu2N+wHSXZAo=
 github.com/smartcontractkit/chainlink-vrf v0.0.0-20240222010609-cd67d123c772/go.mod h1:Kn1Hape05UzFZ7bOUnm3GVsHzP0TNrVmpfXYNHdqGGs=
 github.com/smartcontractkit/go-plugin v0.0.0-20240208201424-b3b91517de16 h1:TFe+FvzxClblt6qRfqEhUfa4kFQx5UobuoFGO2W4mMo=
