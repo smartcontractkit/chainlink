@@ -5,11 +5,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"sort"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
