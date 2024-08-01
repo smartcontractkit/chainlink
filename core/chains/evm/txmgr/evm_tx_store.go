@@ -1475,7 +1475,7 @@ FROM (
 		WHERE e2.state = 'confirmed_missing_receipt'
 		AND e2.evm_chain_id = $3
 		GROUP BY e2.id
-		HAVING max(evm.tx_attempts.broadcast_before_block_num) < $2
+		HAVING max(evm.tx_attempts.broadcast_before_block_num) <= $2
 	)
 	FOR UPDATE OF e1
 ) e0
