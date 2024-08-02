@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
@@ -292,38 +293,29 @@ func (e *eventBinding) encodeParams(item reflect.Value) ([]common.Hash, error) {
 		item = reflect.Indirect(item)
 	}
 
-	var topics []any
-	switch item.Kind() {
+	var params []any
+	switch nativeParams.Kind() {
 	case reflect.Array, reflect.Slice:
-		native, err := representArray(item, e.inputInfo)
+		native, err := representArray(nativeParams, e.inputInfo)
 		if err != nil {
 			return nil, err
 		}
-		topics = []any{native}
+		params = []any{native}
 	case reflect.Struct, reflect.Map:
 		var err error
-		if topics, err = unrollItem(item, e.inputInfo); err != nil {
+		if params, err = unrollItem(nativeParams, e.inputInfo); err != nil {
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("%w: cannot encode kind %v", commontypes.ErrInvalidType, item.Kind())
+		return nil, fmt.Errorf("%w: cannot encode kind %v", commontypes.ErrInvalidType, nativeParams.Kind())
 	}
 
-	// abi params allow you to Pack a pointers, but MakeTopics doesn't work with pointers.
-	if err := e.derefTopics(topics); err != nil {
+	// abi params allow you to Pack a pointers, but makeTopics doesn't work with pointers.
+	if err := e.derefTopics(params); err != nil {
 		return nil, err
 	}
 
-	hashes, err := abi.MakeTopics(topics)
-	if err != nil {
-		return nil, wrapInternalErr(err)
-	}
-
-	if len(hashes) != 1 {
-		return nil, fmt.Errorf("%w: expected 1 filter set, got %d", commontypes.ErrInternal, len(hashes))
-	}
-
-	return hashes[0], nil
+	return e.makeTopics(params)
 }
 
 func (e *eventBinding) derefTopics(topics []any) error {
@@ -338,6 +330,31 @@ func (e *eventBinding) derefTopics(topics []any) error {
 		}
 	}
 	return nil
+}
+
+// makeTopics encodes and hashes params filtering values to match onchain indexed topics.
+func (e *eventBinding) makeTopics(params []any) ([]common.Hash, error) {
+	// make topic value for non-fixed bytes array manually because geth MakeTopics doesn't support it
+	for i, topic := range params {
+		if abiArg := e.inputInfo.Args()[i]; abiArg.Type.T == abi.ArrayTy && (abiArg.Type.Elem != nil && abiArg.Type.Elem.T == abi.UintTy) {
+			packed, err := abi.Arguments{abiArg}.Pack(topic)
+			if err != nil {
+				return nil, err
+			}
+			params[i] = crypto.Keccak256Hash(packed)
+		}
+	}
+
+	hashes, err := abi.MakeTopics(params)
+	if err != nil {
+		return nil, wrapInternalErr(err)
+	}
+
+	if len(hashes) != 1 {
+		return nil, fmt.Errorf("%w: expected 1 filter set, got %d", commontypes.ErrInternal, len(hashes))
+	}
+
+	return hashes[0], nil
 }
 
 func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into any) error {
