@@ -945,11 +945,10 @@ contract EVM2EVMMultiOffRamp_executeSingleReport is EVM2EVMMultiOffRampSetup {
     );
     s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
 
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        EVM2EVMMultiOffRamp.AlreadyAttempted.selector, SOURCE_CHAIN_SELECTOR_1, messages[0].header.sequenceNumber
-      )
-    );
+    // The second time should skip the msg
+    vm.expectEmit();
+    emit EVM2EVMMultiOffRamp.AlreadyAttempted(SOURCE_CHAIN_SELECTOR_1, messages[0].header.sequenceNumber);
+
     s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
   }
 
@@ -1681,7 +1680,7 @@ contract EVM2EVMMultiOffRamp_manuallyExecute is EVM2EVMMultiOffRampSetup {
     s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
   }
 
-  function test_manuallyExecute_ReentrancyFails() public {
+  function test_manuallyExecute_ReentrancyFails_Success() public {
     uint256 tokenAmount = 1e9;
     IERC20 tokenToAbuse = IERC20(s_destFeeToken);
 
@@ -1715,29 +1714,26 @@ contract EVM2EVMMultiOffRamp_manuallyExecute is EVM2EVMMultiOffRampSetup {
     uint256[][] memory gasLimitOverrides = new uint256[][](1);
     gasLimitOverrides[0] = _getGasLimitsFromMessages(messages);
 
-    // The first entry should be fine and triggers the second entry. This one fails
-    // but since it's an inner tx of the first one it is caught in the try-catch.
-    // This means the first tx is marked `FAILURE` with the error message of the second tx.
+    // The first entry should be fine and triggers the second entry which is skipped. Due to the reentrancy
+    // the second completes first, so we expect the skip event before the success event.
+    vm.expectEmit();
+    emit EVM2EVMMultiOffRamp.SkippedAlreadyExecutedMessage(
+      messages[0].header.sourceChainSelector, messages[0].header.sequenceNumber
+    );
+
     vm.expectEmit();
     emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
-      Internal.MessageExecutionState.FAILURE,
-      abi.encodeWithSelector(
-        EVM2EVMMultiOffRamp.ReceiverError.selector,
-        abi.encodeWithSelector(
-          EVM2EVMMultiOffRamp.AlreadyExecuted.selector,
-          messages[0].header.sourceChainSelector,
-          messages[0].header.sequenceNumber
-        )
-      )
+      Internal.MessageExecutionState.SUCCESS,
+      ""
     );
 
     s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
 
     // Since the tx failed we don't release the tokens
-    assertEq(tokenToAbuse.balanceOf(address(receiver)), balancePre);
+    assertEq(tokenToAbuse.balanceOf(address(receiver)), balancePre + tokenAmount);
   }
 }
 
