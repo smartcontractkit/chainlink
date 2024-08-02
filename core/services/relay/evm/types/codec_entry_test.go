@@ -273,17 +273,14 @@ func TestCodecEntry(t *testing.T) {
 		assertHaveSameStructureAndNames(t, iNative.Type(), entry.CheckedType())
 	})
 
-	t.Run("Indexed non basic types change to hash", func(t *testing.T) {
+	t.Run("Indexed string and bytes array change to hash", func(t *testing.T) {
 		stringType, err := abi.NewType("string", "", []abi.ArgumentMarshaling{})
-		require.NoError(t, err)
-		fixedBytesType, err := abi.NewType("bytes32", "", []abi.ArgumentMarshaling{})
 		require.NoError(t, err)
 		arrayType, err := abi.NewType("uint8[32]", "", []abi.ArgumentMarshaling{})
 		require.NoError(t, err)
 
 		abiArgs := abi.Arguments{
 			{Name: "String", Type: stringType, Indexed: true},
-			{Name: "FixedBytes", Type: fixedBytesType, Indexed: true},
 			{Name: "Array", Type: arrayType, Indexed: true},
 		}
 
