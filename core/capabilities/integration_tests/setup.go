@@ -47,7 +47,9 @@ import (
 
 const (
 	// As a  default set the logging to info otherwise 10s/100s of MB of logs are created on each test run
-	TestLogLevel = zapcore.InfoLevel
+	TestLogLevel   = zapcore.InfoLevel
+	LibOCRInterval = 1000 * time.Millisecond
+	BlockTime      = 1000 * time.Millisecond
 )
 
 var (
@@ -67,7 +69,7 @@ func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, 
 	lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(TestLogLevel)
 
-	ethBlockchain, transactor := setupBlockchain(t, 1000, 1*time.Second)
+	ethBlockchain, transactor := setupBlockchain(t, 1000, BlockTime)
 	capabilitiesRegistryAddr := setupCapabilitiesRegistryContract(ctx, t, workflowDonInfo.peerIDs, triggerDonInfo.peerIDs, targetDonInfo.peerIDs, transactor, ethBlockchain)
 	forwarderAddr, _ := setupForwarderContract(t, workflowDonInfo.peerIDs, workflowDonInfo.ID, 1, workflowDonInfo.F, transactor, ethBlockchain)
 	consumerAddr, consumer := setupConsumerContract(t, transactor, ethBlockchain, forwarderAddr, workflowOwnerID, workflowName)
@@ -79,7 +81,7 @@ func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, 
 
 	sink := newReportsSink()
 
-	libocr := newMockLibOCR(t, workflowDonInfo.F, 1*time.Second)
+	libocr := newMockLibOCR(t, workflowDonInfo.F, LibOCRInterval)
 	workflowDonNodes, _, _ := createDons(ctx, t, lggr, sink,
 		workflowDonInfo, triggerDonInfo, targetDonInfo,
 		ethBlockchain, capabilitiesRegistryAddr, forwarderAddr,

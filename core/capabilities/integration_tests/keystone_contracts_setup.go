@@ -208,13 +208,18 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	require.NoError(t, err)
 
 	triggerDonF := 1
-	config := &pb.RemoteTriggerConfig{
-		RegistrationRefresh: durationpb.New(20000 * time.Millisecond),
-		RegistrationExpiry:  durationpb.New(60000 * time.Millisecond),
-		// F + 1
-		MinResponsesToAggregate: uint32(triggerDonF) + 1,
+
+	triggerCapabilityConfig := newCapabilityConfig()
+	triggerCapabilityConfig.RemoteConfig = &pb.CapabilityConfig_RemoteTriggerConfig{
+		RemoteTriggerConfig: &pb.RemoteTriggerConfig{
+			RegistrationRefresh: durationpb.New(1000 * time.Millisecond),
+			RegistrationExpiry:  durationpb.New(60000 * time.Millisecond),
+			// F + 1
+			MinResponsesToAggregate: uint32(triggerDonF) + 1,
+		},
 	}
-	configb, err := proto.Marshal(config)
+
+	configb, err := proto.Marshal(triggerCapabilityConfig)
 	require.NoError(t, err)
 
 	cfgs = []kcr.CapabilitiesRegistryCapabilityConfiguration{
