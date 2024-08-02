@@ -457,20 +457,21 @@ func TestORM(t *testing.T) {
 	time.Sleep(2 * time.Millisecond) // just in case we haven't reached the end of the 1ms retention period
 	deleted, err := o1.DeleteExpiredLogs(ctx, 0)
 	require.NoError(t, err)
-	assert.Equal(t, int64(1), deleted)
+	assert.Equal(t, int64(4), deleted)
+
 	logs, err = o1.SelectLogsByBlockRange(ctx, 1, latest.BlockNumber)
 	require.NoError(t, err)
-	// The only log which should be deleted is the one which matches filter1 (ret=1ms) but not filter12 (ret=1 hour)
-	// Importantly, it shouldn't delete any logs matching only filter0 (ret=0 meaning permanent retention).  Anything
-	// matching filter12 should be kept regardless of what other filters it matches.
-	assert.Len(t, logs, 7)
+	// It should have retained the log matching filter0 (due to ret=0 meaning permanent retention) as well as all
+	// 3 logs matching filter12 (ret=1 hour). It should have deleted 3 logs not matching any filter, as well as 1
+	// of the 2 logs matching filter1 (ret=1ms)--the one that doesn't also match filter12.
+	assert.Len(t, logs, 4)
 
 	// Delete logs after should delete all logs.
 	err = o1.DeleteLogsAndBlocksAfter(ctx, 1)
 	require.NoError(t, err)
 	logs, err = o1.SelectLogsByBlockRange(ctx, 1, latest.BlockNumber)
 	require.NoError(t, err)
-	require.Zero(t, len(logs))
+	assert.Zero(t, len(logs))
 }
 
 type PgxLogger struct {

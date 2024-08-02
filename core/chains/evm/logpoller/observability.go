@@ -285,7 +285,7 @@ func withObservedExecAndRowsAffected(o *ObservedORM, queryName string, queryType
 		WithLabelValues(o.chainId, queryName, string(queryType)).
 		Observe(float64(time.Since(queryStarted)))
 
-	if err != nil {
+	if err == nil {
 		o.datasetSize.
 			WithLabelValues(o.chainId, queryName, string(queryType)).
 			Set(float64(rowsAffected))
