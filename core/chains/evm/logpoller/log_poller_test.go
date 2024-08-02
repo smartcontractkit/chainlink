@@ -1683,7 +1683,6 @@ func TestTooManyLogResults(t *testing.T) {
 		require.Len(t, warns, 1)
 		assert.Contains(t, warns[0].Message, "retrying later")
 	})
-
 }
 
 func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
