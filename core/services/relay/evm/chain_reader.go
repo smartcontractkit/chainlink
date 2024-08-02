@@ -259,7 +259,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return err
 	}
 
-	// Encoder def's codec won't be used to encode, only for its type as input for GetLatestValue
+	// Encoder defs codec won't be used for encoding, but for storing caller filtering params which won't be hashed.
 	if err := cr.addEncoderDef(contractName, eventName, filterArgs, nil, chainReaderDefinition.InputModifications); err != nil {
 		return err
 	}
@@ -330,6 +330,7 @@ func (cr *chainReader) addQueryingReadBindings(contractName string, genericTopic
 func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractName, eventName string) (
 	types.CodecEntry, codec.Modifier, error) {
 	inputInfo := cr.parsed.EncoderDefs[WrapItemType(contractName, eventName, true)]
+	// TODO can this be simplified? Isn't this same as inputInfo.Modifier()? BCI-3909
 	inMod, err := def.InputModifications.ToModifier(DecoderHooks...)
 	if err != nil {
 		return nil, nil, err

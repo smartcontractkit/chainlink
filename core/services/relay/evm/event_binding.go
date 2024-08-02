@@ -210,11 +210,13 @@ func (e *eventBinding) getLatestValueWithFilters(
 		return err
 	}
 
+	// convert caller chain agnostic params types to types representing onchain abi types, for e.g. bytes32.
 	checkedParams, err := e.inputModifier.TransformToOnChain(offChain, "" /* unused */)
 	if err != nil {
 		return err
 	}
 
+	// convert onchain params to native types similarly to generated abi wrappers, for e.g. fixed bytes32 abi type to [32]uint8.
 	nativeParams, err := e.inputInfo.ToNative(reflect.ValueOf(checkedParams))
 	if err != nil {
 		return err
@@ -253,6 +255,8 @@ func (e *eventBinding) getLatestValueWithFilters(
 	return e.decodeLog(ctx, logToUse, into)
 }
 
+// convertToOffChainType creates a struct based on contract abi with applied codec modifiers.
+// Created type shouldn't have hashed types for indexed topics since incoming params wouldn't be hashed.
 func (e *eventBinding) convertToOffChainType(params any) (any, error) {
 	offChain, err := e.codec.CreateType(WrapItemType(e.contractName, e.eventName, true), true)
 	if err != nil {
@@ -288,9 +292,10 @@ func matchesRemainingFilters(log *logpoller.Log, filters []common.Hash) bool {
 	return true
 }
 
-func (e *eventBinding) encodeParams(item reflect.Value) ([]common.Hash, error) {
-	for item.Kind() == reflect.Pointer {
-		item = reflect.Indirect(item)
+// encodeParams accepts nativeParams and encodes them to match onchain topics.
+func (e *eventBinding) encodeParams(nativeParams reflect.Value) ([]common.Hash, error) {
+	for nativeParams.Kind() == reflect.Pointer {
+		nativeParams = reflect.Indirect(nativeParams)
 	}
 
 	var params []any
@@ -358,10 +363,12 @@ func (e *eventBinding) makeTopics(params []any) ([]common.Hash, error) {
 }
 
 func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into any) error {
+	// decode non indexed topics and apply output modifiers
 	if err := e.codec.Decode(ctx, log.Data, into, WrapItemType(e.contractName, e.eventName, false)); err != nil {
 		return err
 	}
 
+	// decode indexed topics which is rarely useful since most indexed topic types get Keccak256 hashed and should be just used for log filtering.
 	topics := make([]common.Hash, len(e.codecTopicInfo.Args()))
 	if len(log.Topics) < len(topics)+1 {
 		return fmt.Errorf("%w: not enough topics to decode", commontypes.ErrInvalidType)
