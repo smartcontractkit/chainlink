@@ -283,7 +283,6 @@ contract BaseTest is Test {
       billingTokenAddresses,
       billingTokenConfigs
     );
-    registry.setPayees(PAYEES);
     return (registry, registrar);
   }
 

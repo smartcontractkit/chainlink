@@ -790,6 +790,7 @@ contract SetConfig is SetUp {
   }
 
   function testSetConfigOnTransmittersAndPayees() public {
+    registry.setPayees(PAYEES);
     AutomationRegistryBase2_3.TransmitterPayeeInfo[] memory transmitterPayeeInfos = registry
       .getTransmittersWithPayees();
     assertEq(transmitterPayeeInfos.length, TRANSMITTERS.length);
@@ -975,6 +976,7 @@ contract NOPsSettlement is SetUp {
   function testSettleNOPsOffchainSuccess() public {
     // deploy and configure a registry with OFF_CHAIN payout
     (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
+    registry.setPayees(PAYEES);
 
     uint256[] memory payments = new uint256[](TRANSMITTERS.length);
     for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
@@ -991,6 +993,7 @@ contract NOPsSettlement is SetUp {
   function testSettleNOPsOffchainSuccessWithERC20MultiSteps() public {
     // deploy and configure a registry with OFF_CHAIN payout
     (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
+    registry.setPayees(PAYEES);
 
     // register an upkeep and add funds
     uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken18), "", "", "");
@@ -1186,6 +1189,7 @@ contract NOPsSettlement is SetUp {
   function testSinglePerformAndNodesCanWithdrawOnchain() public {
     // deploy and configure a registry with OFF_CHAIN payout
     (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
+    registry.setPayees(PAYEES);
 
     // register an upkeep and add funds
     uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken18), "", "", "");
@@ -1224,6 +1228,7 @@ contract NOPsSettlement is SetUp {
   function testMultiplePerformsAndNodesCanWithdrawOnchain() public {
     // deploy and configure a registry with OFF_CHAIN payout
     (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
+    registry.setPayees(PAYEES);
 
     // register an upkeep and add funds
     uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken18), "", "", "");
@@ -2604,6 +2609,7 @@ contract TransferPayeeship is SetUp {
   }
 
   function test_RevertsWhen_TransferToSelf() external {
+    registry.setPayees(PAYEES);
     vm.startPrank(PAYEES[0]);
 
     vm.expectRevert(Registry.ValueNotChanged.selector);
@@ -2611,6 +2617,8 @@ contract TransferPayeeship is SetUp {
   }
 
   function test_Transfer_DoesNotChangePayee() external {
+    registry.setPayees(PAYEES);
+
     vm.startPrank(PAYEES[0]);
 
     registry.transferPayeeship(TRANSMITTERS[0], randomAddress());
@@ -2620,6 +2628,8 @@ contract TransferPayeeship is SetUp {
   }
 
   function test_EmitEvent_CalledByPayee() external {
+    registry.setPayees(PAYEES);
+
     vm.startPrank(PAYEES[0]);
     address newPayee = randomAddress();
 
@@ -2639,6 +2649,8 @@ contract AcceptPayeeship is SetUp {
   event PayeeshipTransferred(address indexed transmitter, address indexed from, address indexed to);
 
   function test_RevertsWhen_NotCalledByProposedPayee() external {
+    registry.setPayees(PAYEES);
+
     vm.startPrank(PAYEES[0]);
     address newPayee = randomAddress();
     registry.transferPayeeship(TRANSMITTERS[0], newPayee);
@@ -2649,6 +2661,8 @@ contract AcceptPayeeship is SetUp {
   }
 
   function test_PayeeChanged() external {
+    registry.setPayees(PAYEES);
+
     vm.startPrank(PAYEES[0]);
     address newPayee = randomAddress();
     registry.transferPayeeship(TRANSMITTERS[0], newPayee);
