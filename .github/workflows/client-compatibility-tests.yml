@@ -14,10 +14,10 @@ on:
         required: false
         type: string
       evmImplementations:
-        description: comma separated list of EVM implementations to test (ignored if base64TestList is used)
+        description: comma separated list of EVM implementations to test (ignored if base64TestList is used); supports geth,besu,nethermind,erigon,reth
         required: true
         type: string
-        default: "geth,besu,nethermind,erigon"
+        default: "geth,besu,nethermind,erigon,reth"
       latestVersionsNumber:
         description: how many of latest images of EVM implementations to test with (ignored if base64TestList is used)
         required: true
@@ -162,6 +162,12 @@ jobs:
               echo "New nethermind release found: $new_nethermind"
               implementations_arr+=("nethermind")
             fi
+            new_reth=$(ghlatestreleasechecker "paradigmxyz/reth" $RELEASED_DAYS_AGO)
+            if [ "new_reth" != "none" ]; then
+              echo "New reth release found: $new_reth"
+              implementations_arr+=("reth")
+            fi
+          
             IFS=','
             eth_implementations="${implementations_arr[*]}"
             if [ -n "$eth_implementations" ]; then
@@ -179,7 +185,7 @@ jobs:
             fi
           else 
             echo "Will test all EVM implementations"
-            echo "evm_implementations=geth,besu,nethermind,erigon" >> $GITHUB_OUTPUT
+            echo "evm_implementations=geth,besu,nethermind,erigon,reth" >> $GITHUB_OUTPUT
           fi
       - name: Select Chainlink version
         id: select-chainlink-version
@@ -269,9 +275,11 @@ jobs:
             expression: '^[0-9]+\.[0-9]+\.[0-9]+$'
           - name: tofelb/ethereum-genesis-generator
             expression: '^[0-9]+\.[0-9]+\.[0-9]+(\-slots\-per\-epoch)?'
+          - name: ghcr.io/paradigmxyz/reth
+            expression: '^v[0-9]+\.[0-9]+\.[0-9]+$'
     steps:
       - name: Update internal ECR if the latest Ethereum client image does not exist
-        uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@5eea86ee4f7742b4e944561a570a6b268e712d9e # v1.30.3
+        uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@352cf299b529a33208146d9f7f0e0b5534fba6e7 # v1.33.0
         with:
           aws_region: ${{ secrets.QA_AWS_REGION }}
           role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -279,6 +287,7 @@ jobs:
           image_name: ${{matrix.mirror.name}}
           expression: ${{matrix.mirror.expression}}
           page_size: ${{matrix.mirror.page_size}}
+          github_token: ${{ secrets.RETH_GH_TOKEN }} # needed only for checking GHRC.io repositories
 
   build-chainlink:
     if: |
@@ -322,7 +331,7 @@ jobs:
 
   get-latest-available-images:
     name: Get Latest EVM Implementation's Images
-    if: always() && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
+    if: always() && needs.should-run.outputs.should_run == 'true' && needs.select-versions.outputs.evm_implementations != '' && github.event.inputs.base64TestList == ''
     environment: integration
     runs-on: ubuntu-latest
     needs: [check-ecr-images-exist, should-run, select-versions]
@@ -336,6 +345,7 @@ jobs:
       nethermind_images: ${{ env.NETHERMIND_IMAGES }}
       besu_images: ${{ env.BESU_IMAGES }}
       erigon_images: ${{ env.ERIGON_IMAGES }}
+      reth_images: ${{ env.RETH_IMAGES }}
     steps:
       # Setup AWS creds
       - name: Configure AWS Credentials
@@ -390,6 +400,12 @@ jobs:
             echo "ERIGON_IMAGES=$erigon_images" >> $GITHUB_ENV
             echo "Erigon latest images: $erigon_images" 
           fi
+          
+          if [[ "$ETH_IMPLEMENTATIONS" == *"reth"* ]]; then
+            reth_images=$(ecrimagefetcher 'ghcr.io/paradigmxyz/reth' '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
+            echo "RETH_IMAGES=$reth_images" >> $GITHUB_ENV
+            echo "Reth latest images: $reth_images" 
+          fi          
 
   # End Build Test Dependencies
 
@@ -518,7 +534,24 @@ jobs:
           else
             echo "Will not test compatibility with nethermind"
           fi
-
+          
+          if [[ "$ETH_IMPLEMENTATIONS" == *"reth"* ]]; then
+            echo "Will test compatibility with reth"
+            testlistgenerator -o compatibility_test_list.json -p cron -r TestCronBasic -f './smoke/cron_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
+            testlistgenerator -o compatibility_test_list.json -p flux -r TestFluxBasic -f './smoke/flux_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
+            testlistgenerator -o compatibility_test_list.json -p runlog -r TestRunLogBasic -f './smoke/runlog_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
+            testlistgenerator -o compatibility_test_list.json -p log_poller -r TestLogPollerFewFiltersFixedDepth -f './smoke/log_poller_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
+            testlistgenerator -o compatibility_test_list.json -p ocr -r TestOCRBasic -f './smoke/ocr_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
+            testlistgenerator -o compatibility_test_list.json -p ocr2 -r '^TestOCRv2Basic/plugins$' -f './smoke/ocr2_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
+            testlistgenerator -o compatibility_test_list.json -p automation -r 'TestAutomationBasic/registry_2_1_logtrigger' -f './smoke/automation_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
+            testlistgenerator -o compatibility_test_list.json -p keeper -r 'TestKeeperBasicSmoke/registry_1_3' -f './smoke/keeper_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
+            testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
+            testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
+            testlistgenerator -o compatibility_test_list.json -p vrfv2plus -r '^TestVRFv2Plus$/^Link_Billing$' -f './smoke/vrfv2plus_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
+          else
+            echo "Will not test compatibility with reth"
+          fi          
+          
           jq . compatibility_test_list.json
           JOB_MATRIX_JSON=$(jq -c . compatibility_test_list.json)
           echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV
