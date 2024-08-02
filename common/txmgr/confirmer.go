@@ -336,14 +336,6 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	if ec.resumeCallback != nil {
 		mark = time.Now()
 
-		// There might be some dependency here with BCI-3573 and BCI-3730. Since we haven't enabled finality tag,
-		// LatestAndFinalizedBlock() is returning 0 from calculateLatestFinalized() for the first $(finalityDepth+finalityOffset) number of blocks
-		// and this becomes an issue for integration test (TestIntegration_AsyncEthTx).
-		//
-		// Therefore, line 349, temporarily made the block number to be the current head when finality tag disabled ,
-		// however we removed the minConfirmation offset when fetching pending task/blocks and this can be optimistic,
-		// wonder if we want to merge this PR the last among the three of them in BCI-3572.
-
 		// TODO update this after BCI-3573 and BCI-3730 is merged
 		var latestFinalizedHeadNum int64
 		if !ec.chainConfig.FinalityTagEnabled() {
