@@ -460,6 +460,7 @@ func (e *eventBinding) remapExpression(key string, expression query.Expression) 
 // remap chain agnostic primitives to chain specific
 func (e *eventBinding) remapPrimitive(key string, expression query.Expression) (query.Expression, error) {
 	switch primitive := expression.Primitive.(type) {
+	// TODO comparator primitive should undergo codec transformations and do hashed types handling similarly to how GetLatestValue handles it BCI-3910
 	case *primitives.Comparator:
 		if val, ok := e.eventDataWords[primitive.Name]; ok {
 			return logpoller.NewEventByWordFilter(e.hash, val, primitive.ValueComparators), nil
