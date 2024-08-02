@@ -194,9 +194,6 @@ func getNativeAndCheckedTypesForArg(arg *abi.Argument) (reflect.Type, reflect.Ty
 		switch arg.Type.T {
 		case abi.StringTy:
 			return reflect.TypeOf(common.Hash{}), reflect.TypeOf(common.Hash{}), nil
-		case abi.FixedBytesTy:
-			//handle same as non indexed since fixedBytes don't get hashed
-			break
 		case abi.ArrayTy:
 			u8, _ := GetAbiEncodingType("uint8")
 			if arg.Type.Elem.GetType() == u8.native {
