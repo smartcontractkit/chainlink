@@ -263,7 +263,6 @@ jobs:
           
           ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/.slither.config-pr.json "." "$CHANGED_ARRAY" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
 
-        # Run the steps below only if some existing files were modified
       - name: Upload Slither results for current branch
         if: needs.changes.outputs.sol_mod_only == 'true'
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
@@ -284,6 +283,16 @@ jobs:
           path: contracts/scripts/ci
           retention-days: 7
 
+      - name: Upload Slither config file
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: tmp-slither-config-${{ github.sha }}
+          path: contracts/.slither.config-pr.json
+          retention-days: 7
+
       - name: Checkout the repo
         if: needs.changes.outputs.sol_mod_only == 'true'
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -297,6 +306,17 @@ jobs:
         with:
           name: tmp-slither-scripts-${{ github.sha }}
           path: contracts/scripts/ci
+
+      - name: Download Slither config file
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        with:
+          name: tmp-slither-config-${{ github.sha }}
+          path: contracts
+
+      # install node dependencies again, so that we can compile contracts
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
 
       - name: Run Slither for base reference
         if: needs.changes.outputs.sol_mod_only == 'true'
