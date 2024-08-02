@@ -343,19 +343,18 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 		// task/blocks and this can be optimistic, so not sure if we want to merge this PR first among the three
 
 		// TODO update this after BCI-3573 and BCI-3730 is merged
-		headNumber := head.BlockNumber()
-		if ec.chainConfig.FinalityTagEnabled() {
-			_, latestFinalizedBlock, err := ec.headTracker.LatestAndFinalizedBlock(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to retrieve latest finalized head: %w", err)
-			}
-
-			headNumber = latestFinalizedBlock.BlockNumber()
+		var latestFinalizedHeadNum int64
+		if !ec.chainConfig.FinalityTagEnabled() {
+			latestFinalizedHeadNum = head.BlockNumber()
+		} else if _, latestFinalizedBlock, err := ec.headTracker.LatestAndFinalizedBlock(ctx); err != nil {
+			return fmt.Errorf("failed to retrieve latest finalized head: %w", err)
+		} else {
+			latestFinalizedHeadNum = latestFinalizedBlock.BlockNumber()
 		}
 
 		// TODO Once BCI-3574 is merged we can update the chainConfig interface to remove FinalityTagEnabled, and remove the
 		//  head.BlockNumber()
-		if err := ec.ResumePendingTaskRuns(ctx, headNumber); err != nil {
+		if err := ec.ResumePendingTaskRuns(ctx, latestFinalizedHeadNum); err != nil {
 			return fmt.Errorf("ResumePendingTaskRuns failed: %w", err)
 		}
 
