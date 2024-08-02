@@ -17,6 +17,8 @@ Group the issues by their type, which is defined as Heading 2 (##).
 Provide a bullet point summary of resolved issues that were fixed in the second report.
 Do not include any other details about resolved issues.
 
-Output your response starting from**New Issues** and **Resolved Issues** in escaped, markdown text that can be sent as http body to API. Do not wrap output in code blocks. extract the name of the file from the first line of the report and title the new report with it in a following way: "# Slither diff report for: <file_name>"
+Output your response starting from**New Issues** and **Resolved Issues** in escaped, markdown text that can be sent as http body to API. Do not wrap output in code blocks.
+If there are no resolved issues, do not include the **Resolved Issues** section in the output, but if there are no new issues, do include the **New Issues** section in the output and indicate that there are no new issues.
+Extract the name of the file from the first line of the report and title the new report with it in a following way: "# Slither diff report for: <file_name>"
 
 Format **New Issues** and **Resolved Issues** as Heading 2 using double sharp characters (##). Otherwise, do not include any another preamble and postamble to your answer.
