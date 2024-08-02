@@ -2738,3 +2738,33 @@ contract SetPayees is SetUp {
     assertEq(PAYEES[1], payee);
   }
 }
+
+contract GetActiveUpkeepIDs is SetUp {
+  function test_RevertsWhen_IndexOutOfRange() external {
+    vm.expectRevert(Registry.IndexOutOfRange.selector);
+    registry.getActiveUpkeepIDs(5, 0);
+
+    vm.expectRevert(Registry.IndexOutOfRange.selector);
+    registry.getActiveUpkeepIDs(6, 0);
+  }
+
+  function test_ReturnsAllUpkeeps_WhenMaxCountIsZero() external {
+    uint256[] memory uids = registry.getActiveUpkeepIDs(0, 0);
+    assertEq(5, uids.length);
+
+    uids = registry.getActiveUpkeepIDs(2, 0);
+    assertEq(3, uids.length);
+  }
+
+  function test_ReturnsAllRemainingUpkeeps_WhenMaxCountIsTooLarge() external {
+    uint256[] memory uids = registry.getActiveUpkeepIDs(2, 20);
+    assertEq(3, uids.length);
+  }
+
+  function test_ReturnsUpkeeps_BoundByMaxCount() external {
+    uint256[] memory uids = registry.getActiveUpkeepIDs(1, 2);
+    assertEq(2, uids.length);
+    assertEq(uids[0], linkUpkeepID2);
+    assertEq(uids[1], usdUpkeepID18);
+  }
+}

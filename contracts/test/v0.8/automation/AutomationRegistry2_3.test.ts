@@ -3106,44 +3106,6 @@ describe('AutomationRegistry2_3', () => {
       await getTransmitTx(registry, keeper1, [upkeepId2])
     })
 
-    it('reverts if called on a non existing ID', async () => {
-      await evmRevertCustomError(
-        registry
-          .connect(admin)
-          .withdrawFunds(upkeepId.add(1), await payee1.getAddress()),
-        registry,
-        'OnlyCallableByAdmin',
-      )
-    })
-
-    it('reverts if called by anyone but the admin', async () => {
-      await evmRevertCustomError(
-        registry
-          .connect(owner)
-          .withdrawFunds(upkeepId, await payee1.getAddress()),
-        registry,
-        'OnlyCallableByAdmin',
-      )
-    })
-
-    it('reverts if called on an uncanceled upkeep', async () => {
-      await evmRevertCustomError(
-        registry
-          .connect(admin)
-          .withdrawFunds(upkeepId, await payee1.getAddress()),
-        registry,
-        'UpkeepNotCanceled',
-      )
-    })
-
-    it('reverts if called with the 0 address', async () => {
-      await evmRevertCustomError(
-        registry.connect(admin).withdrawFunds(upkeepId, zeroAddress),
-        registry,
-        'InvalidRecipient',
-      )
-    })
-
     describe('after the registration is paused, then cancelled', () => {
       it('allows the admin to withdraw', async () => {
         const balance = await registry.getBalance(upkeepId)
@@ -3510,46 +3472,6 @@ describe('AutomationRegistry2_3', () => {
           assert.equal(checkUpkeepResult.upkeepNeeded, true)
         },
       )
-    })
-  })
-
-  describe('#getActiveUpkeepIDs', () => {
-    it('reverts if startIndex is out of bounds ', async () => {
-      await evmRevertCustomError(
-        registry.getActiveUpkeepIDs(numUpkeeps, 0),
-        registry,
-        'IndexOutOfRange',
-      )
-      await evmRevertCustomError(
-        registry.getActiveUpkeepIDs(numUpkeeps + 1, 0),
-        registry,
-        'IndexOutOfRange',
-      )
-    })
-
-    it('returns upkeep IDs bounded by maxCount', async () => {
-      let upkeepIds = await registry.getActiveUpkeepIDs(0, 1)
-      assert(upkeepIds.length == 1)
-      assert(upkeepIds[0].eq(upkeepId))
-      upkeepIds = await registry.getActiveUpkeepIDs(1, 3)
-      assert(upkeepIds.length == 3)
-      expect(upkeepIds).to.deep.equal([
-        afUpkeepId,
-        logUpkeepId,
-        streamsLookupUpkeepId,
-      ])
-    })
-
-    it('returns as many ids as possible if maxCount > num available', async () => {
-      const upkeepIds = await registry.getActiveUpkeepIDs(1, numUpkeeps + 100)
-      assert(upkeepIds.length == numUpkeeps - 1)
-    })
-
-    it('returns all upkeep IDs if maxCount is 0', async () => {
-      let upkeepIds = await registry.getActiveUpkeepIDs(0, 0)
-      assert(upkeepIds.length == numUpkeeps)
-      upkeepIds = await registry.getActiveUpkeepIDs(2, 0)
-      assert(upkeepIds.length == numUpkeeps - 2)
     })
   })
 
@@ -4221,81 +4143,6 @@ describe('AutomationRegistry2_3', () => {
 
       // Event should have been emitted
       await expect(tx).to.emit(registry, 'ConfigSet')
-    })
-  })
-
-  describe('#withdrawOwnerFunds', () => {
-    it('can only be called by finance admin', async () => {
-      await evmRevertCustomError(
-        registry.connect(keeper1).withdrawLink(zeroAddress, 1),
-        registry,
-        'OnlyFinanceAdmin',
-      )
-    })
-
-    itMaybe('withdraws the collected fees to owner', async () => {
-      await registry.connect(admin).addFunds(upkeepId, toWei('100'))
-      const financeAdminAddress = await financeAdmin.getAddress()
-      // Very high min spend, whole balance as cancellation fees
-      const newMinUpkeepSpend = toWei('1000')
-      await registry.connect(owner).setConfigTypeSafe(
-        signerAddresses,
-        keeperAddresses,
-        f,
-        {
-          checkGasLimit,
-          stalenessSeconds,
-          gasCeilingMultiplier,
-          maxCheckDataSize,
-          maxPerformDataSize,
-          maxRevertDataSize,
-          maxPerformGas,
-          fallbackGasPrice,
-          fallbackLinkPrice,
-          fallbackNativePrice,
-          transcoder: transcoder.address,
-          registrars: [],
-          upkeepPrivilegeManager: upkeepManager,
-          chainModule: chainModuleBase.address,
-          reorgProtectionEnabled: true,
-          financeAdmin: financeAdminAddress,
-        },
-        offchainVersion,
-        offchainBytes,
-        [linkToken.address],
-        [
-          {
-            gasFeePPB: paymentPremiumPPB,
-            flatFeeMilliCents,
-            priceFeed: linkUSDFeed.address,
-            fallbackPrice: fallbackLinkPrice,
-            minSpend: newMinUpkeepSpend,
-            decimals: 18,
-          },
-        ],
-      )
-      const upkeepBalance = (await registry.getUpkeep(upkeepId)).balance
-      const ownerBefore = await linkToken.balanceOf(await owner.getAddress())
-
-      await registry.connect(owner).cancelUpkeep(upkeepId)
-
-      // Transfered to owner balance on registry
-      let ownerRegistryBalance = await registry.linkAvailableForPayment()
-      assert.isTrue(ownerRegistryBalance.eq(upkeepBalance))
-
-      // Now withdraw
-      await registry
-        .connect(financeAdmin)
-        .withdrawLink(await owner.getAddress(), ownerRegistryBalance)
-
-      ownerRegistryBalance = await registry.linkAvailableForPayment()
-      const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
-
-      // Owner registry balance should be changed to 0
-      assert.isTrue(ownerRegistryBalance.eq(BigNumber.from('0')))
-
-      // Owner should be credited with the balance
-      assert.isTrue(ownerBefore.add(upkeepBalance).eq(ownerAfter))
     })
   })
 
