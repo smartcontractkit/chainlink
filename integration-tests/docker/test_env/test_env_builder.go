@@ -280,6 +280,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 					// new logs can be added to the log stream, so parallel processing would get stuck on waiting for it to be unlocked
 				LogScanningLoop:
 					for i := 0; i < b.clNodesCount; i++ {
+						// if something went wrong during environment setup we might not have all nodes, and we don't want an NPE
 						if b == nil || b.te == nil || b.te.ClCluster == nil || b.te.ClCluster.Nodes == nil || b.te.ClCluster.Nodes[i] == nil || len(b.te.ClCluster.Nodes)-1 < i {
 							continue
 						}
