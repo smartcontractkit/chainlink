@@ -349,7 +349,7 @@ contract Withdraw is SetUp {
 
   // default is ON_CHAIN mode
   function test_WithdrawERC20Fees_RevertsWhen_LinkAvailableForPaymentIsNegative() public {
-    _transmit(usdUpkeepID18, registry); // adds USD token to finance withdrawable, and gives NOPs a LINK balance
+    _transmit(usdUpkeepID18, registry, bytes4(0)); // adds USD token to finance withdrawable, and gives NOPs a LINK balance
     require(registry.linkAvailableForPayment() < 0, "linkAvailableForPayment should be negative");
     require(
       registry.getAvailableERC20ForPayment(address(usdToken18)) > 0,
@@ -375,7 +375,7 @@ contract Withdraw is SetUp {
     registry.addFunds(id, 1e20);
 
     // manually create a transmit so transmitters earn some rewards
-    _transmit(id, registry);
+    _transmit(id, registry, bytes4(0));
     require(registry.linkAvailableForPayment() < 0, "linkAvailableForPayment should be negative");
     vm.prank(FINANCE_ADMIN);
     registry.withdrawERC20Fees(address(usdToken18), aMockAddress, 1); // finance can withdraw
@@ -1000,7 +1000,7 @@ contract NOPsSettlement is SetUp {
     registry.addFunds(id, 1e20);
 
     // manually create a transmit so transmitters earn some rewards
-    _transmit(id, registry);
+    _transmit(id, registry, bytes4(0));
 
     // verify transmitters have positive balances
     uint256[] memory payments = new uint256[](TRANSMITTERS.length);
@@ -1037,7 +1037,7 @@ contract NOPsSettlement is SetUp {
     vm.startPrank(UPKEEP_ADMIN);
     vm.roll(100 + block.number);
     // manually create a transmit so transmitters earn some rewards
-    _transmit(id, registry);
+    _transmit(id, registry, bytes4(0));
 
     uint256 erc20ForPayment2 = registry.getAvailableERC20ForPayment(address(usdToken18));
     require(erc20ForPayment2 > erc20ForPayment1, "ERC20AvailableForPayment should be greater after another transmit");
@@ -1080,13 +1080,13 @@ contract NOPsSettlement is SetUp {
     registry.addFunds(id, 1e20);
 
     // manually create a transmit so TRANSMITTERS earn some rewards
-    _transmit(id, registry);
+    _transmit(id, registry, bytes4(0));
 
     // TRANSMITTERS have positive balance now
     // configure the registry to use NEW_TRANSMITTERS
     _configureWithNewTransmitters(registry, registrar);
 
-    _transmit(id, registry);
+    _transmit(id, registry, bytes4(0));
 
     // verify all transmitters have positive balances
     address[] memory expectedPayees = new address[](6);
@@ -1195,7 +1195,7 @@ contract NOPsSettlement is SetUp {
     registry.addFunds(id, 1e20);
 
     // manually create a transmit so transmitters earn some rewards
-    _transmit(id, registry);
+    _transmit(id, registry, bytes4(0));
 
     // disable offchain payments
     _mintLink(address(registry), 1e19);
@@ -1235,7 +1235,7 @@ contract NOPsSettlement is SetUp {
     // manually call transmit so transmitters earn some rewards
     for (uint256 i = 0; i < 50; i++) {
       vm.roll(100 + block.number);
-      _transmit(id, registry);
+      _transmit(id, registry, bytes4(0));
     }
 
     // disable offchain payments
@@ -1246,7 +1246,7 @@ contract NOPsSettlement is SetUp {
     // manually call transmit after offchain payment is disabled
     for (uint256 i = 0; i < 50; i++) {
       vm.roll(100 + block.number);
-      _transmit(id, registry);
+      _transmit(id, registry, bytes4(0));
     }
 
     // payees should be able to withdraw onchain
@@ -1671,7 +1671,7 @@ contract Transmit is SetUp {
     require(registry.getAvailableERC20ForPayment(address(weth)) == 0, "ERC20AvailableForPayment should be 0");
 
     // do the thing
-    _transmit(upkeepIDs, registry);
+    _transmit(upkeepIDs, registry, bytes4(0));
 
     // withdraw-able by the finance team should be positive
     require(
@@ -1726,7 +1726,7 @@ contract Transmit is SetUp {
 
     // manually create a transmit
     vm.recordLogs();
-    _transmit(upkeepID, registry);
+    _transmit(upkeepID, registry, bytes4(0));
     Vm.Log[] memory entries = vm.getRecordedLogs();
 
     assertEq(entries.length, 3);
@@ -1777,7 +1777,7 @@ contract Transmit is SetUp {
 
     // manually create a transmit
     vm.recordLogs();
-    _transmit(upkeepID, registry);
+    _transmit(upkeepID, registry, bytes4(0));
     Vm.Log[] memory entries = vm.getRecordedLogs();
 
     assertEq(entries.length, 3);
@@ -2010,13 +2010,12 @@ contract Pause is SetUp {
     );
   }
 
-  //  function test_revertsWhen_transmitInPausedRegistry() external {
-  //    vm.startPrank(registry.owner());
-  //    registry.pause();
-  //
-  //    vm.expectRevert(Registry.RegistryPaused.selector);
-  //    _transmit(usdUpkeepID18, registry);
-  //  }
+  function test_revertsWhen_transmitInPausedRegistry() external {
+    vm.startPrank(registry.owner());
+    registry.pause();
+
+    _transmit(usdUpkeepID18, registry, Registry.RegistryPaused.selector);
+  }
 }
 
 contract Unpause is SetUp {
@@ -2067,30 +2066,34 @@ contract CancelUpkeep is SetUp {
     vm.startPrank(UPKEEP_ADMIN);
     registry.cancelUpkeep(linkUpkeepID);
 
-    vm.roll(50 + bn);
-
     vm.startPrank(registry.owner());
     vm.expectRevert(Registry.UpkeepCancelled.selector);
     registry.cancelUpkeep(linkUpkeepID);
   }
 
-  function test_RevertsWhen_UpkeepAlreadyCanceled_CalledByAdmin() external {
+  function test_RevertsWhen_UpkeepAlreadyCanceledByOwner_CalledByAdmin() external {
+    uint256 bn = block.number;
+    vm.startPrank(registry.owner());
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.startPrank(UPKEEP_ADMIN);
+    vm.expectRevert(Registry.UpkeepCancelled.selector);
+    registry.cancelUpkeep(linkUpkeepID);
+  }
+
+  function test_RevertsWhen_UpkeepAlreadyCanceledByAdmin_CalledByAdmin() external {
     uint256 bn = block.number;
     vm.startPrank(UPKEEP_ADMIN);
     registry.cancelUpkeep(linkUpkeepID);
 
-    vm.roll(10 + bn);
-
     vm.expectRevert(Registry.UpkeepCancelled.selector);
     registry.cancelUpkeep(linkUpkeepID);
   }
 
-  function test_RevertsWhen_UpkeepAlreadyCanceled_CalledByOwner() external {
+  function test_RevertsWhen_UpkeepAlreadyCanceledByOwner_CalledByOwner() external {
     uint256 bn = block.number;
     vm.startPrank(registry.owner());
     registry.cancelUpkeep(linkUpkeepID);
-
-    vm.roll(10 + bn);
 
     vm.expectRevert(Registry.UpkeepCancelled.selector);
     registry.cancelUpkeep(linkUpkeepID);
@@ -2101,7 +2104,6 @@ contract CancelUpkeep is SetUp {
     vm.startPrank(UPKEEP_ADMIN);
     registry.cancelUpkeep(linkUpkeepID);
 
-    vm.roll(10 + bn);
     uint256 maxValidBlocknumber = uint256(registry.getUpkeep(linkUpkeepID).maxValidBlocknumber);
 
     // 50 is the cancellation delay
@@ -2113,7 +2115,6 @@ contract CancelUpkeep is SetUp {
     vm.startPrank(registry.owner());
     registry.cancelUpkeep(linkUpkeepID);
 
-    vm.roll(10 + bn);
     uint256 maxValidBlocknumber = uint256(registry.getUpkeep(linkUpkeepID).maxValidBlocknumber);
 
     // cancellation by registry owner is immediate and no cancellation delay is applied

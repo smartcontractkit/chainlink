@@ -4299,18 +4299,6 @@ describe('AutomationRegistry2_3', () => {
     })
   })
 
-  describe('#pause', () => {
-    it('Does not allow transmits when paused', async () => {
-      await registry.connect(owner).pause()
-
-      await evmRevertCustomError(
-        getTransmitTx(registry, keeper1, [upkeepId]),
-        registry,
-        'RegistryPaused',
-      )
-    })
-  })
-
   describe('#setPayees', () => {
     const IGNORE_ADDRESS = '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF'
 
@@ -4414,26 +4402,6 @@ describe('AutomationRegistry2_3', () => {
           parseCancelledUpkeepReportLogs(receipt)
         // exactly 1 CancelledUpkeepReport log should be emitted
         assert.equal(cancelledUpkeepReportLogs.length, 1)
-      })
-
-      describe('when called by the owner when the admin has just canceled', () => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        // @ts-ignore
-        let oldExpiration: BigNumber
-
-        beforeEach(async () => {
-          await registry.connect(admin).cancelUpkeep(upkeepId)
-          const registration = await registry.getUpkeep(upkeepId)
-          oldExpiration = registration.maxValidBlocknumber
-        })
-
-        it('reverts with proper error', async () => {
-          await evmRevertCustomError(
-            registry.connect(owner).cancelUpkeep(upkeepId),
-            registry,
-            'UpkeepCancelled',
-          )
-        })
       })
     })
 
