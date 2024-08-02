@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
@@ -42,13 +43,19 @@ import (
 )
 
 var (
-	homeChainID = chainsel.GETH_TESTNET.EvmChainID
+	homeChainID                = chainsel.GETH_TESTNET.EvmChainID
+	ccipSendRequestedTopic     = evm_2_evm_multi_onramp.EVM2EVMMultiOnRampCCIPSendRequested{}.Topic()
+	commitReportAcceptedTopic  = evm_2_evm_multi_offramp.EVM2EVMMultiOffRampCommitReportAccepted{}.Topic()
+	executionStateChangedTopic = evm_2_evm_multi_offramp.EVM2EVMMultiOffRampExecutionStateChanged{}.Topic()
 )
 
 const (
 	CapabilityLabelledName = "ccip"
 	CapabilityVersion      = "v1.0.0"
 	NodeOperatorID         = 1
+	// TODO: this is 8 hours now to match what is hardcoded in the exec plugin.
+	// Eventually this should drive what is set in the exec plugin.
+	FirstBlockAge = 8 * time.Hour
 )
 
 func e18Mult(amount uint64) *big.Int {
@@ -81,6 +88,43 @@ type onchainUniverse struct {
 	priceRegistry      *price_registry.PriceRegistry
 	tokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	nonceManager       *nonce_manager.NonceManager
+	receiver           *maybe_revert_message_receiver.MaybeRevertMessageReceiver
+}
+
+type requestData struct {
+	destChainSelector uint64
+	receiverAddress   common.Address
+	data              []byte
+}
+
+func (u *onchainUniverse) SendCCIPRequests(t *testing.T, requestDatas []requestData) {
+	for _, reqData := range requestDatas {
+		msg := router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(reqData.receiverAddress.Bytes(), 32),
+			Data:         reqData.data,
+			TokenAmounts: nil, // TODO: no tokens for now
+			FeeToken:     u.weth.Address(),
+			ExtraArgs:    nil, // TODO: no extra args for now, falls back to default
+		}
+		fee, err := u.router.GetFee(&bind.CallOpts{Context: testutils.Context(t)}, reqData.destChainSelector, msg)
+		require.NoError(t, err)
+		_, err = u.weth.Deposit(&bind.TransactOpts{
+			From:   u.owner.From,
+			Signer: u.owner.Signer,
+			Value:  fee,
+		})
+		require.NoError(t, err)
+		u.backend.Commit()
+		_, err = u.weth.Approve(u.owner, u.router.Address(), fee)
+		require.NoError(t, err)
+		u.backend.Commit()
+
+		t.Logf("Sending CCIP request from chain %d (selector %d) to chain selector %d",
+			u.chainID, getSelector(u.chainID), reqData.destChainSelector)
+		_, err = u.router.CcipSend(u.owner, reqData.destChainSelector, msg)
+		require.NoError(t, err)
+		u.backend.Commit()
+	}
 }
 
 type chainBase struct {
@@ -171,6 +215,16 @@ func createUniverses(
 		offramp, err := evm_2_evm_multi_offramp.NewEVM2EVMMultiOffRamp(offrampAddr, backend)
 		require.NoError(t, err)
 
+		receiverAddress, _, _, err := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(
+			owner,
+			backend,
+			false,
+		)
+		require.NoError(t, err, "failed to deploy MaybeRevertMessageReceiver on chain id %d", chainID)
+		backend.Commit()
+		receiver, err := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(receiverAddress, backend)
+		require.NoError(t, err)
+
 		universe := onchainUniverse{
 			backend:            backend,
 			owner:              owner,
@@ -185,6 +239,7 @@ func createUniverses(
 			priceRegistry:      priceRegistry,
 			tokenAdminRegistry: tokenAdminRegistry,
 			nonceManager:       nonceManager,
+			receiver:           receiver,
 		}
 		// Set up the initial configurations for the contracts
 		setupUniverseBasics(t, universe)
@@ -213,6 +268,11 @@ func createUniverses(
 		)
 	}
 
+	// print out topic hashes of relevant events for debugging purposes
+	t.Logf("Topic hash of CommitReportAccepted: %s", commitReportAcceptedTopic.Hex())
+	t.Logf("Topic hash of ExecutionStateChanged: %s", executionStateChangedTopic.Hex())
+	t.Logf("Topic hash of CCIPSendRequested: %s", ccipSendRequestedTopic.Hex())
+
 	return homeChainUniverse, universes
 }
 
@@ -221,28 +281,49 @@ func createChains(t *testing.T, numChains int) map[uint64]chainBase {
 	chains := make(map[uint64]chainBase)
 
 	homeChainOwner := testutils.MustNewSimTransactor(t)
+	homeChainBackend := backends.NewSimulatedBackend(core.GenesisAlloc{
+		homeChainOwner.From: core.GenesisAccount{
+			Balance: assets.Ether(10_000).ToInt(),
+		},
+	}, 30e6)
+	tweakChainTimestamp(t, homeChainBackend, FirstBlockAge)
+
 	chains[homeChainID] = chainBase{
-		owner: homeChainOwner,
-		backend: backends.NewSimulatedBackend(core.GenesisAlloc{
-			homeChainOwner.From: core.GenesisAccount{
-				Balance: assets.Ether(10_000).ToInt(),
-			},
-		}, 30e6),
+		owner:   homeChainOwner,
+		backend: homeChainBackend,
 	}
 
 	for chainID := chainsel.TEST_90000001.EvmChainID; len(chains) < numChains && chainID < chainsel.TEST_90000020.EvmChainID; chainID++ {
 		owner := testutils.MustNewSimTransactor(t)
+		backend := backends.NewSimulatedBackend(core.GenesisAlloc{
+			owner.From: core.GenesisAccount{
+				Balance: assets.Ether(10_000).ToInt(),
+			},
+		}, 30e6)
+
+		tweakChainTimestamp(t, backend, FirstBlockAge)
+
 		chains[chainID] = chainBase{
-			owner: owner,
-			backend: backends.NewSimulatedBackend(core.GenesisAlloc{
-				owner.From: core.GenesisAccount{
-					Balance: assets.Ether(10_000).ToInt(),
-				},
-			}, 30e6),
+			owner:   owner,
+			backend: backend,
 		}
 	}
 
 	return chains
+}
+
+// CCIP relies on block timestamps, but SimulatedBackend uses by default clock starting from 1970-01-01
+// This trick is used to move the clock closer to the current time. We set first block to be X hours ago.
+// Tests create plenty of transactions so this number can't be too low, every new block mined will tick the clock,
+// if you mine more than "X hours" transactions, SimulatedBackend will panic because generated timestamps will be in the future.
+func tweakChainTimestamp(t *testing.T, backend *backends.SimulatedBackend, tweak time.Duration) {
+	blockTime := time.Unix(int64(backend.Blockchain().CurrentHeader().Time), 0)
+	sinceBlockTime := time.Since(blockTime)
+	diff := sinceBlockTime - tweak
+	err := backend.AdjustTime(diff)
+	require.NoError(t, err, "unable to adjust time on simulated chain")
+	backend.Commit()
+	backend.Commit()
 }
 
 func setupHomeChain(t *testing.T, owner *bind.TransactOpts, backend *backends.SimulatedBackend) homeChain {
@@ -361,8 +442,8 @@ func (h *homeChain) AddDON(
 		10*time.Second, // deltaResend
 		20*time.Second, // deltaInitial
 		2*time.Second,  // deltaRound
-		20*time.Second, // deltaGrace
-		10*time.Second, // deltaCertifiedCommitRequest
+		2*time.Second,  // deltaGrace
+		10*time.Second, // deltaCertifiedCommitRequest TODO: whats a good value for this?
 		10*time.Second, // deltaStage
 		3,              // rmax
 		schedule,
