@@ -10,8 +10,6 @@ import (
 	"sync"
 	"time"
 
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
@@ -104,10 +102,6 @@ var (
 	}, []string{"chainID"})
 )
 
-type confirmerHeadTracker interface {
-	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error)
-}
-
 // Confirmer is a broad service which performs four different tasks in sequence on every new longest chain
 // Step 1: Mark that all currently pending transaction attempts were broadcast before this block
 // Step 2: Check pending transactions for receipts
@@ -147,7 +141,6 @@ type Confirmer[
 
 	nConsecutiveBlocksChainTooShort int
 	isReceiptNil                    func(R) bool
-	headTracker                     confirmerHeadTracker
 }
 
 func NewConfirmer[
@@ -171,7 +164,6 @@ func NewConfirmer[
 	lggr logger.Logger,
 	isReceiptNil func(R) bool,
 	stuckTxDetector txmgrtypes.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	headTracker confirmerHeadTracker,
 ) *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Confirmer")
 	return &Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
@@ -189,7 +181,6 @@ func NewConfirmer[
 		mb:               mailbox.NewSingle[HEAD](),
 		isReceiptNil:     isReceiptNil,
 		stuckTxDetector:  stuckTxDetector,
-		headTracker:      headTracker,
 	}
 }
 
@@ -335,20 +326,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 
 	if ec.resumeCallback != nil {
 		mark = time.Now()
-
-		// TODO update this after BCI-3573 and BCI-3730 is merged
-		var latestFinalizedHeadNum int64
-		if !ec.chainConfig.FinalityTagEnabled() {
-			latestFinalizedHeadNum = head.BlockNumber()
-		} else if _, latestFinalizedBlock, err := ec.headTracker.LatestAndFinalizedBlock(ctx); err != nil {
-			return fmt.Errorf("failed to retrieve latest finalized head: %w", err)
-		} else {
-			latestFinalizedHeadNum = latestFinalizedBlock.BlockNumber()
-		}
-
-		// TODO Once BCI-3574 is merged we can update the chainConfig interface to remove FinalityTagEnabled, and remove the
-		//  head.BlockNumber()
-		if err := ec.ResumePendingTaskRuns(ctx, latestFinalizedHeadNum); err != nil {
+		if err := ec.ResumePendingTaskRuns(ctx, head.BlockNumber()); err != nil {
 			return fmt.Errorf("ResumePendingTaskRuns failed: %w", err)
 		}
 

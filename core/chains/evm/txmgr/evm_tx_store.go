@@ -1017,6 +1017,8 @@ func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, latestFinalize
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
+
+	// TODO update the query to use tx finality state instead of use block range after Finalizer PR https://github.com/smartcontractkit/chainlink/pull/13638 merged
 	err = o.q.SelectContext(ctx, &rs, `
 	SELECT evm.txes.pipeline_task_run_id, evm.receipts.receipt, COALESCE((evm.txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM evm.txes
 	INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
