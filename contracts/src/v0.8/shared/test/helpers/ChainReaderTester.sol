@@ -41,7 +41,7 @@ contract ChainReaderTester {
   event TriggeredWithFourTopics(int32 indexed field1, int32 indexed field2, int32 indexed field3);
 
   // first topic is event hash, second and third topics get hashed before getting stored
-  event TriggeredWithFourTopicsWithHashed(string indexed field1,  uint8[32] indexed field2, bytes32 indexed field3);
+  event TriggeredWithFourTopicsWithHashed(string indexed field1, uint8[32] indexed field2, bytes32 indexed field3);
 
   TestStruct[] private s_seen;
   uint64[] private s_arr;
