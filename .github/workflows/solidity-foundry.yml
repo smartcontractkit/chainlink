@@ -408,7 +408,7 @@ jobs:
         shell: bash
         run: |
           echo "# Static analysis results " >> $GITHUB_STEP_SUMMARY
-          for file in "contracts/slither-reports"/*.md; do
+          for file in "contracts/slither-reports-current"/*.md; do
             if [ -e "$file" ]; then
               cat "$file" >> $GITHUB_STEP_SUMMARY
             fi
@@ -421,7 +421,7 @@ jobs:
         with:
           name: slither-reports-${{ github.sha }}
           path: |
-            contracts/slither-reports
+            contracts/slither-reports-current
           retention-days: 7
 
       - name: Collect Metrics
