@@ -140,9 +140,9 @@ jobs:
           #TODO change to inputs.base_ref after testing
           echo "## Base Ref: ${{ env.BASE_REF }}" >> $GITHUB_STEP_SUMMARY
 
-  gather-changesets:
+  gather-basic-info:
     if: ${{ needs.changes.outputs.changeset_changes == 'true' }}
-    name: Gather modified changesets
+    name: Gather basic info
     runs-on: ubuntu-22.04
     needs: [ changes ]
     steps:
@@ -159,13 +159,44 @@ jobs:
             cp $changeset contracts/changesets/changesets
           done
 
-      - name: Upload changesets
+      - name: Generate basic info
+        shell: bash
+        run: |    
+          echo "Commit SHA used to generate artifacts: ${{ github.sha }}" > contracts/commit_sha_base_ref.txt
+          #TODO change to inputs.base_ref after testing
+          echo "Base reference SHA used to find modified contracts: ${{ env.BASE_REF }}" >> contracts/commit_sha_base_ref.txt 
+          contract_list="${{ needs.changes.outputs.files }}"
+          new_line_list=$(echo "$contract_list" | tr ',' '\n' | sed 's/,$//')
+          printf "%s\n" "$new_line_list" > contracts/modified_contracts.txt
+          
+          cat contracts/modified_contracts.txt          
+
+      - name: Generate modified contracts list
+        shell: bash
+        run: |
+          IFS=',' read -r -a modified_files <<< "${{ needs.changes.outputs.files }}"
+          echo "# Modified contracts:" > contracts/modified_contracts.md
+          for file in "${modified_files[@]}"; do          
+            status=$(git diff --name-status ${{ env.BASE_REF }}..${{ github.sha }} -- "$file"  | awk '{ print $1 }')
+            if [ "$status" == "D" ]; then
+              echo "File $file was deleted, skipping."
+              continue
+            fi
+          
+            echo " - [$file](${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/$file)" >> contracts/modified_contracts.md
+          done
+
+      - name: Upload basic info
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         timeout-minutes: 2
         continue-on-error: true
         with:
-          name: tmp-changesets
-          path: contracts/changesets
+          name: tmp-basic-info
+          path: |
+            contracts/modified_contracts.md
+            contracts/modified_contracts.txt
+            contracts/commit_sha_base_ref.txt            
+            contracts/changesets
           retention-days: 7
 
   # some of the artifacts can only be generated on product level, and we cannot scope them to single contracts
@@ -326,23 +357,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install slither-analyzer
 
-      - name: Save basic info
-        shell: bash
-        run: |
-          cd contracts
-          
-          echo "Commit SHA used to generate artifacts: ${{ github.sha }}" > commit_sha_base_ref.txt
-          #TODO change to inputs.base_ref after testing
-          echo "Base reference SHA used to find modified contracts: ${{ env.BASE_REF }}" >> commit_sha_base_ref.txt 
-          contract_list="${{ needs.changes.outputs.files }}"
-          new_line_list=$(echo "$contract_list" | tr ',' '\n' | sed 's/,$//')
-          printf "%s\n" "$new_line_list" > modified_contracts.txt
-          
-          cat modified_contracts.txt
-
       - name: Generate UML
         shell: bash
-        run: |          
+        run: |
           contract_list="${{ needs.changes.outputs.files }}"
           
           # modify remappings so that sol2uml can find dependencies
@@ -375,8 +392,6 @@ jobs:
           path: |
             contracts/uml-diagrams
             contracts/slither-reports
-            contracts/modified_contracts.txt
-            contracts/commit_sha_base_ref.txt
           retention-days: 7
 
       - name: Validate UMLs and Slither reports
@@ -386,7 +401,13 @@ jobs:
           IFS=',' read -r -a modified_files <<< "${{ needs.changes.outputs.files }}"
           missing_svgs=()
           missing_reports=()
-          for file in "${modified_files[@]}"; do
+          for file in "${modified_files[@]}"; do          
+            status=$(git diff --name-status ${{ env.BASE_REF }}..${{ github.sha }} -- "$file"  | awk '{ print $1 }')
+            if [ "$status" == "D" ]; then
+              echo "File $file was deleted, skipping validation"
+              continue
+            fi
+            
             svg_file="$(basename "${file%.sol}").svg"
             if [ ! -f "uml-diagrams/$svg_file" ]; then
               echo "Error: UML diagram for $file not found"
@@ -403,22 +424,32 @@ jobs:
           if [ ${#missing_svgs[@]} -gt 0 ]; then
               echo "Error: Missing UML diagrams for files: ${missing_svgs[@]}"
               echo "# Warning!" >> $GITHUB_STEP_SUMMARY
-              echo "## Reason: Missing UML diagrams for files: ${missing_svgs[@]}" >> $GITHUB_STEP_SUMMARY
+              echo "## Reason: Missing UML diagrams for files:" >> $GITHUB_STEP_SUMMARY
+              for file in "${missing_svgs[@]}"; do
+                echo " $file" >> $GITHUB_STEP_SUMMARY
+              done
               echo "## Action required: Please try generate artifacts for them locally or using a different tool" >> $GITHUB_STEP_SUMMARY
+          else 
+              echo "All UML diagrams generated successfully"
           fi
           
           if [ ${#missing_reports[@]} -gt 0 ]; then
               echo "Error: Missing Slither reports for files: ${missing_reports[@]}"
               echo "# Warning!" >> $GITHUB_STEP_SUMMARY
               echo "## Reason: Missing Slither reports for files: ${missing_reports[@]}" >> $GITHUB_STEP_SUMMARY
+              for file in "${missing_reports[@]}"; do
+                echo " $file" >> $GITHUB_STEP_SUMMARY
+              done
               echo "## Action required: Please try generate artifacts for them locally" >> $GITHUB_STEP_SUMMARY
+          else 
+             echo "All Slither reports generated successfully"
           fi
 
   gather-all-artifacts:
     name: Gather all artifacts
     if: ${{ needs.changes.outputs.product_changes == 'true' || needs.changes.outputs.shared_changes == 'true' }}
     runs-on: ubuntu-latest
-    needs: [coverage-and-book, uml-static-analysis, gather-changesets, changes]
+    needs: [coverage-and-book, uml-static-analysis, gather-basic-info, changes]
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
