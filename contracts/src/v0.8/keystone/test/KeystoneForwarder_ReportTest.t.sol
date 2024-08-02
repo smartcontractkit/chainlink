@@ -156,7 +156,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     vm.expectEmit(address(s_forwarder));
     emit ReportProcessed(address(s_receiver), executionId, reportId, true);
 
-    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
+    s_forwarder.report{gas: 200_000}(address(s_receiver), report, reportContext, signatures);
 
     assertEq(
       s_forwarder.getTransmitter(address(s_receiver), executionId, reportId),
@@ -218,7 +218,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     emit ReportProcessed(address(s_receiver), executionId, reportId, true);
 
     vm.prank(TRANSMITTER);
-    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
+    s_forwarder.report{gas: 200_000}(address(s_receiver), report, reportContext, signatures);
 
     // after clear the old version doesn't work anymore
     vm.prank(ADMIN);
@@ -227,7 +227,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     uint64 configId = (uint64(DON_ID) << 32) | CONFIG_VERSION;
     vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, configId));
     vm.prank(TRANSMITTER);
-    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
+    s_forwarder.report{gas: 200_000}(address(s_receiver), report, reportContext, signatures);
 
     // but new config does
     bytes32 newExecutionId = hex"6d795f657865637574696f6e5f69640000000000000000000000000000000001";
@@ -251,7 +251,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     emit ReportProcessed(address(s_receiver), newExecutionId, reportId, true);
 
     vm.prank(TRANSMITTER);
-    s_forwarder.report(address(s_receiver), newReport, reportContext, newSignatures);
+    s_forwarder.report{gas: 200_000}(address(s_receiver), newReport, reportContext, newSignatures);
 
     // validate transmitter was recorded
     address transmitter = s_forwarder.getTransmitter(address(s_receiver), newExecutionId, reportId);

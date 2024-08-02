@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
+import "forge-std/console.sol";
 
 import {IReceiver} from "./interfaces/IReceiver.sol";
 import {IRouter} from "./interfaces/IRouter.sol";
@@ -93,6 +94,9 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
 
   /// @dev The minimum amount of gas to perform the call with exact gas.
   uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
+  /// @dev The gas we require to revert in case of a revert in the call to the
+  /// receiver. This is more than enough and does not attempt to be exact.
+  uint256 internal constant GAS_FOR_ROUTER_LOGIC = 40_000;
 
   // ================================================================
   // │                          Router                              │
@@ -112,6 +116,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   }
 
   function callWithExactGas(
+    uint256 gasLimit,
     address receiver,
     bytes calldata metadata,
     bytes calldata validatedReport
@@ -120,7 +125,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
       CallWithExactGas._callWithExactGas(
         abi.encodeCall(IReceiver.onReport, (metadata, validatedReport)),
         receiver,
-        500_000, // TODO
+        gasLimit,
         GAS_FOR_CALL_EXACT_CHECK
       );
   }
@@ -132,16 +137,20 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     bytes calldata metadata,
     bytes calldata validatedReport
   ) public returns (bool) {
-    if (!s_forwarders[msg.sender]) {
-      revert UnauthorizedForwarder();
-    }
+    // Calculating the remainder of the gas available after accounting for the
+    // gas needed to handle reverts in the call to the receiver allows us to
+    // avoid passing the gas limit as a parameter to the `route` function.
+    uint256 gasLimit = gasleft() - GAS_FOR_ROUTER_LOGIC;
 
+    if (!s_forwarders[msg.sender]) revert UnauthorizedForwarder();
     if (s_transmissions[transmissionId].transmitter != address(0)) revert AlreadyAttempted(transmissionId);
+
     s_transmissions[transmissionId].transmitter = transmitter;
+    s_transmissions[transmissionId].gasProvided = uint88(gasLimit);
 
     // Making this an external call to be able to catch reverts from the _callWithExactGas function
     // and avoid having to inline the entire function here.
-    try this.callWithExactGas(receiver, metadata, validatedReport) returns (bool success) {
+    try this.callWithExactGas(gasLimit, receiver, metadata, validatedReport) returns (bool success) {
       s_transmissions[transmissionId].success = success;
       return success;
     } catch {

@@ -52,6 +52,6 @@ contract KeystoneRouter_SetConfigTest is Test {
     vm.prank(FORWARDER);
     vm.mockCall(RECEIVER, abi.encodeCall(IReceiver.onReport, (metadata, report)), abi.encode());
     vm.expectCall(RECEIVER, abi.encodeCall(IReceiver.onReport, (metadata, report)));
-    s_router.route(id, TRANSMITTER, RECEIVER, metadata, report);
+    s_router.route{gas: 200_000}(id, TRANSMITTER, RECEIVER, metadata, report);
   }
 }
