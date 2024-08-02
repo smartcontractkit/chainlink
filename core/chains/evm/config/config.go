@@ -109,8 +109,8 @@ type Transactions interface {
 
 type AutoPurgeConfig interface {
 	Enabled() bool
-	Threshold() uint32
-	MinAttempts() uint32
+	Threshold() *uint32
+	MinAttempts() *uint32
 	DetectionApiUrl() *url.URL
 }
 
