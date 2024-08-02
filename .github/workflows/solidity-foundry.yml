@@ -437,6 +437,11 @@ jobs:
           this-job-name: Run static analysis
         continue-on-error: true
 
+      - name: Remove temp artifacts
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: tmp-*
+
   solidity-forge-fmt:
     name: Forge fmt ${{ matrix.product.name }}
     #TODO remove me after testing
