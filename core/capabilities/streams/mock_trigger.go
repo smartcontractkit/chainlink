@@ -42,11 +42,6 @@ func RegisterMockTrigger(lggr logger.Logger, capRegistry core.CapabilitiesRegist
 		return nil, err
 	}
 
-	producer := NewMockDataProducer(trigger, lggr)
-	if err := producer.Start(ctx); err != nil {
-		return nil, err
-	}
-
 	return trigger, nil
 }
 
@@ -117,8 +112,9 @@ type MockTriggerService struct {
 	lggr               logger.Logger
 
 	//
-	meta    datastreams.SignersMetadata
-	signers []*ecdsa.PrivateKey
+	meta     datastreams.SignersMetadata
+	signers  []*ecdsa.PrivateKey
+	producer *mockDataProducer
 	//
 }
 
@@ -214,6 +210,13 @@ func (o *MockTriggerService) RegisterTrigger(ctx context.Context, req capabiliti
 			workflowID: wid,
 			config:     *config,
 		}
+
+	// Only start the producer once a workflow is registered
+	o.producer = NewMockDataProducer(o, o.lggr)
+	if err := o.producer.Start(ctx); err != nil {
+		return nil, err
+	}
+
 	return ch, nil
 }
 
@@ -235,6 +238,12 @@ func (o *MockTriggerService) UnregisterTrigger(ctx context.Context, req capabili
 	}
 	close(subscriber.ch)
 	delete(o.subscribers, triggerID)
+	if len(o.subscribers) == 0 {
+		if err := o.producer.Close(); err != nil {
+			return err
+		}
+		o.producer = nil
+	}
 	return nil
 }
 
