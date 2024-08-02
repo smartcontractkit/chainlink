@@ -379,7 +379,6 @@ func setupNodeCCIP(
 			fmt.Sprintf("127.0.0.1:%d", port),
 		}
 		c.Log.Level = &loglevel
-		c.Feature.CCIP = &trueRef
 		c.Feature.UICSAKeys = &trueRef
 		c.Feature.FeedsManager = &trueRef
 		c.OCR.Enabled = &falseRef
