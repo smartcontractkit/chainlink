@@ -327,6 +327,8 @@ jobs:
 
       - name: Generate diff of Slither reports for modified files
         if: needs.changes.outputs.sol_mod_only == 'true'
+        env:
+          OPEN_API_KEY: ${{ secrets.OPEN_AI_SLITHER_API_KEY }}
         run: |
           for original_file in contracts/slither-reports-base-ref/*.md; do
             base_file=$(basename "$original_file")
