@@ -114,7 +114,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     emit ForwarderRemoved(forwarder);
   }
 
-  function callWithExactGas(
+  function reportWithExactGas(
     uint256 gasLimit,
     address receiver,
     bytes calldata metadata,
@@ -149,7 +149,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
 
     // Making this an external call to be able to catch reverts from the _callWithExactGas function
     // and avoid having to inline the entire function here.
-    try this.callWithExactGas(gasLimit, receiver, metadata, validatedReport) returns (bool success) {
+    try this.reportWithExactGas(gasLimit, receiver, metadata, validatedReport) returns (bool success) {
       s_transmissions[transmissionId].success = success;
       return success;
     } catch {
