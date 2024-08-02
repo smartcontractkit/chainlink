@@ -336,14 +336,12 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	if ec.resumeCallback != nil {
 		mark = time.Now()
 
-		// backward compatibility purpose:
-		// Since fallback.toml have not yet updated, LatestAndFinalizedBlock() is not going to work properly due to
-		// calculateLatestFinalized() checks the related tags, and we will always get 0 for finalized block height, causing
-		// integration test (TestIntegration_AsyncEthTx) to fail.
+		// LatestAndFinalizedBlock() is returning only the (latest block - finalityDepth - finalityOffset) and we will have
+		// 0 for the first $(finalityDepth) number of blocks, and this becomes an issue for integration test (TestIntegration_AsyncEthTx)
+		// Temporarily made the block number to be the current head, however we removed the minConfirmation offset when fetching pending
+		// task/blocks and this can be optimistic
 
-		// HOWEVER, we are assuming the current head is finalized head, because we removed the minConfirmation check
-		//  if this is an issue, then we will have to merge this PR after BCI-3573 and BCI-3730
-
+		// TODO update this after BCI-3573 and BCI-3730 is merged
 		headNumber := head.BlockNumber()
 		if ec.chainConfig.FinalityTagEnabled() {
 			_, latestFinalizedBlock, err := ec.headTracker.LatestAndFinalizedBlock(ctx)
@@ -352,6 +350,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 			}
 
 			headNumber = latestFinalizedBlock.BlockNumber()
+		} else {
+			headNumber = headNumber - int64(ec.chainConfig.FinalityDepth())
 		}
 
 		// TODO Once BCI-3574 is merged we can update the chainConfig interface to remove FinalityTagEnabled, and remove the
