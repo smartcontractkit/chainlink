@@ -1315,7 +1315,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Arbitrum):  must be one of arbitrum, astar, celo, gnosis, hedera, kroma, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync or omitted
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3.Nodes: 5 errors:
