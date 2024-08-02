@@ -1333,9 +1333,9 @@ func (_c *EvmTxStore_FindTxesByMetaFieldAndStates_Call) RunAndReturn(run func(co
 	return _c
 }
 
-// FindTxesPendingCallback provides a mock function with given fields: ctx, latestFinalizedBlockNum, chainID
-func (_m *EvmTxStore) FindTxesPendingCallback(ctx context.Context, latestFinalizedBlockNum int64, chainID *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error) {
-	ret := _m.Called(ctx, latestFinalizedBlockNum, chainID)
+// FindTxesPendingCallback provides a mock function with given fields: ctx, blockNum, chainID
+func (_m *EvmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error) {
+	ret := _m.Called(ctx, blockNum, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxesPendingCallback")
@@ -1344,10 +1344,10 @@ func (_m *EvmTxStore) FindTxesPendingCallback(ctx context.Context, latestFinaliz
 	var r0 []types.ReceiptPlus[*evmtypes.Receipt]
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error)); ok {
-		return rf(ctx, latestFinalizedBlockNum, chainID)
+		return rf(ctx, blockNum, chainID)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) []types.ReceiptPlus[*evmtypes.Receipt]); ok {
-		r0 = rf(ctx, latestFinalizedBlockNum, chainID)
+		r0 = rf(ctx, blockNum, chainID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]types.ReceiptPlus[*evmtypes.Receipt])
@@ -1355,7 +1355,7 @@ func (_m *EvmTxStore) FindTxesPendingCallback(ctx context.Context, latestFinaliz
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, int64, *big.Int) error); ok {
-		r1 = rf(ctx, latestFinalizedBlockNum, chainID)
+		r1 = rf(ctx, blockNum, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1370,13 +1370,13 @@ type EvmTxStore_FindTxesPendingCallback_Call struct {
 
 // FindTxesPendingCallback is a helper method to define mock.On call
 //   - ctx context.Context
-//   - latestFinalizedBlockNum int64
+//   - blockNum int64
 //   - chainID *big.Int
-func (_e *EvmTxStore_Expecter) FindTxesPendingCallback(ctx interface{}, latestFinalizedBlockNum interface{}, chainID interface{}) *EvmTxStore_FindTxesPendingCallback_Call {
-	return &EvmTxStore_FindTxesPendingCallback_Call{Call: _e.mock.On("FindTxesPendingCallback", ctx, latestFinalizedBlockNum, chainID)}
+func (_e *EvmTxStore_Expecter) FindTxesPendingCallback(ctx interface{}, blockNum interface{}, chainID interface{}) *EvmTxStore_FindTxesPendingCallback_Call {
+	return &EvmTxStore_FindTxesPendingCallback_Call{Call: _e.mock.On("FindTxesPendingCallback", ctx, blockNum, chainID)}
 }
 
-func (_c *EvmTxStore_FindTxesPendingCallback_Call) Run(run func(ctx context.Context, latestFinalizedBlockNum int64, chainID *big.Int)) *EvmTxStore_FindTxesPendingCallback_Call {
+func (_c *EvmTxStore_FindTxesPendingCallback_Call) Run(run func(ctx context.Context, blockNum int64, chainID *big.Int)) *EvmTxStore_FindTxesPendingCallback_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(int64), args[2].(*big.Int))
 	})

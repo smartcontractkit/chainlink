@@ -85,8 +85,7 @@ func makeTestEvmTxm(
 		lggr,
 		lp,
 		keyStore,
-		estimator,
-		ht)
+		estimator)
 }
 
 func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {

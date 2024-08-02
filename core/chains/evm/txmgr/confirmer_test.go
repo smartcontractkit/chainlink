@@ -145,21 +145,13 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	// Can't start an already started instance
 	err = ec.Start(ctx)
 	require.Error(t, err)
-
-	latestFinalizedHead := evmtypes.Head{
-		Number:      8,
-		Hash:        testutils.NewHash(),
-		Parent:      nil,
-		IsFinalized: true, // We are guaranteed to receive a latestFinalizedHead.
-	}
-
 	head := evmtypes.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
 		Parent: &evmtypes.Head{
 			Hash:   testutils.NewHash(),
-			Number: 9,
-			Parent: &latestFinalizedHead,
+			Number: 8,
+			Parent: nil,
 		},
 	}
 	err = ec.ProcessHead(ctx, &head)
@@ -2948,21 +2940,13 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
-
-	latestFinalizedHead := evmtypes.Head{
-		Number:      8,
-		Hash:        testutils.NewHash(),
-		Parent:      nil,
-		IsFinalized: true, // We are guaranteed to receive a latestFinalizedHead.
-	}
-
 	head := evmtypes.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
 		Parent: &evmtypes.Head{
 			Hash:   testutils.NewHash(),
 			Number: 9,
-			Parent: &latestFinalizedHead,
+			Parent: nil,
 		},
 	}
 	pgtest.MustExec(t, db, `SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
@@ -2978,29 +2962,16 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 1, 1, fromAddress)
-		mustInsertEthReceipt(t, txStore, latestFinalizedHead.BlockNumber(), head.Hash, etx.TxAttempts[0].Hash)
+		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 		// Setting both signal_callback and callback_completed to TRUE to simulate a completed pipeline task
 		// It would only be in a state past suspended if the resume callback was called and callback_completed was set to TRUE
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE, callback_completed = TRUE WHERE id = $2`, &tr.ID, etx.ID)
 
-		err := ec.ResumePendingTaskRuns(tests.Context(t), latestFinalizedHead.BlockNumber())
+		err := ec.ResumePendingTaskRuns(tests.Context(t), head.Number)
 		require.NoError(t, err)
 	})
 
-	t.Run("doesn't process task runs where the receipt is before LatestFinalizedBlockNum", func(t *testing.T) {
-		run := cltest.MustInsertPipelineRun(t, db)
-		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
-
-		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 1, fromAddress)
-		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
-
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr.ID, etx.ID)
-
-		err := ec.ResumePendingTaskRuns(tests.Context(t), latestFinalizedHead.BlockNumber())
-		require.NoError(t, err)
-	})
-
-	t.Run("processes eth_txes with receipts after LatestFinalizedBlockNum", func(t *testing.T) {
+	t.Run("processes eth_txes with receipts after headNum", func(t *testing.T) {
 		ch := make(chan interface{})
 		nonce := evmtypes.Nonce(3)
 		var err error
@@ -3016,7 +2987,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
-		receipt := mustInsertEthReceipt(t, txStore, latestFinalizedHead.BlockNumber(), head.Hash, etx.TxAttempts[0].Hash)
+		receipt := mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr.ID, etx.ID)
 
@@ -3024,7 +2995,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		t.Cleanup(func() { <-done })
 		go func() {
 			defer close(done)
-			err2 := ec.ResumePendingTaskRuns(tests.Context(t), latestFinalizedHead.BlockNumber())
+			err2 := ec.ResumePendingTaskRuns(tests.Context(t), head.Number)
 			if !assert.NoError(t, err2) {
 				return
 			}
@@ -3050,7 +3021,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	pgtest.MustExec(t, db, `DELETE FROM pipeline_runs`)
 
-	t.Run("processes eth_txes with receipt before LatestFinalizedBlockNum that reverted", func(t *testing.T) {
+	t.Run("processes eth_txes with receipt before latest head that reverted", func(t *testing.T) {
 		type data struct {
 			value any
 			error
@@ -3070,7 +3041,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 
 		// receipt is not passed through as a value since it reverted and caused an error
-		mustInsertRevertedEthReceipt(t, txStore, latestFinalizedHead.BlockNumber()-2, head.Hash, etx.TxAttempts[0].Hash)
+		mustInsertRevertedEthReceipt(t, txStore, head.Number-2, head.Hash, etx.TxAttempts[0].Hash)
 
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr.ID, etx.ID)
 
@@ -3078,7 +3049,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		t.Cleanup(func() { <-done })
 		go func() {
 			defer close(done)
-			err2 := ec.ResumePendingTaskRuns(tests.Context(t), latestFinalizedHead.BlockNumber())
+			err2 := ec.ResumePendingTaskRuns(tests.Context(t), head.Number)
 			if !assert.NoError(t, err2) {
 				return
 			}
@@ -3112,10 +3083,10 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
-		mustInsertEthReceipt(t, txStore, latestFinalizedHead.BlockNumber(), head.Hash, etx.TxAttempts[0].Hash)
+		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr.ID, etx.ID)
 
-		err := ec.ResumePendingTaskRuns(tests.Context(t), latestFinalizedHead.BlockNumber())
+		err := ec.ResumePendingTaskRuns(tests.Context(t), head.Number)
 		require.Error(t, err)
 
 		// Retrieve Tx to check if callback completed flag was left unchanged
