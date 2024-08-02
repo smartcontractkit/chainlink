@@ -7,6 +7,10 @@ import (
 )
 
 func decodeExtraArgsV1V2(extraArgs []byte) (gasLimit *big.Int, err error) {
+	if len(extraArgs) < 4 {
+		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))
+	}
+
 	var method string
 	if bytes.Equal(extraArgs[:4], evmExtraArgsV1Tag) {
 		method = "decodeEVMExtraArgsV1"

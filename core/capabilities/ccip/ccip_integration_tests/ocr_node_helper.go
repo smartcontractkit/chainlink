@@ -119,7 +119,6 @@ func setupNodeOCR3(
 		ChainOpts: legacyevm.ChainOpts{
 			AppConfig: cfg,
 			GenEthClient: func(i *big.Int) client.Client {
-				t.Log("genning eth client for chain id:", i.String())
 				client, ok := clients[i.Uint64()]
 				if !ok {
 					t.Fatal("no backend for chainID", i)
@@ -218,7 +217,6 @@ type EthKeystoreSim struct {
 // override
 func (e *EthKeystoreSim) SignTx(ctx context.Context, address common.Address, tx *gethtypes.Transaction, chainID *big.Int) (*gethtypes.Transaction, error) {
 	// always sign with chain id 1337 for the simulated backend
-	e.t.Log("always signing tx for chain id:", chainID.String(), "with chain id 1337, tx hash:", tx.Hash())
 	return e.Eth.SignTx(ctx, address, tx, big.NewInt(1337))
 }
 
