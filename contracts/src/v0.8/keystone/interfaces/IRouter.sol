@@ -18,6 +18,12 @@ interface IRouter {
   struct TransmissionInfo {
     address transmitter;
     bool success;
+    // The amount of gas allocated for the `IReceiver.onReport` call. uint88
+    // allows storing gas for known EVM block gas limits.
+    // Ensures that the minimum gas requested by the user is available during
+    // the transmission attempt. If the transmission fails (indicated by a
+    // `false` success state), it can be retried with an increased gas limit.
+    uint88 gasLimit;
   }
 
   function addForwarder(address forwarder) external;
@@ -46,5 +52,10 @@ interface IRouter {
     bytes32 workflowExecutionId,
     bytes2 reportId
   ) external view returns (TransmissionState);
+  function getTransmissionGasLimit(
+    address receiver,
+    bytes32 workflowExecutionId,
+    bytes2 reportId
+  ) external view returns (uint256);
   function isForwarder(address forwarder) external view returns (bool);
 }
