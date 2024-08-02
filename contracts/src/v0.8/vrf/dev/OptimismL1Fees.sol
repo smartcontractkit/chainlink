@@ -70,12 +70,12 @@ abstract contract OptimismL1Fees is ConfirmedOwner {
   function _getL1CostWeiForCalldataSize(uint256 calldataSizeBytes) internal view returns (uint256) {
     uint8 l1FeeCalculationMode = s_l1FeeCalculationMode;
     if (l1FeeCalculationMode == L1_CALLDATA_GAS_COST_MODE) {
-      // estimate based on unsigned fully RLP-encoded transaction size so we have to account for paddding bytes as well
+      // estimate based on unsigned fully RLP-encoded transaction size so we have to account for padding bytes as well
       return
         (s_l1FeeCoefficient * _calculateOptimismL1DataFee(calldataSizeBytes + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE)) /
         100;
     } else if (l1FeeCalculationMode == L1_GAS_FEES_UPPER_BOUND_MODE) {
-      // getL1FeeUpperBound expects unsigned fully RLP-encoded transaction size so we have to account for paddding bytes as well
+      // getL1FeeUpperBound expects unsigned fully RLP-encoded transaction size so we have to account for padding bytes as well
       return
         (s_l1FeeCoefficient *
           OVM_GASPRICEORACLE.getL1FeeUpperBound(calldataSizeBytes + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE)) / 100;
