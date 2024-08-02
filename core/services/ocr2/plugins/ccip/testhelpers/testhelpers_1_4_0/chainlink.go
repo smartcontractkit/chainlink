@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -457,9 +458,10 @@ func setupNodeCCIP(
 	}
 	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), config.Tracing())
 	relayerFactory := chainlink.RelayerFactory{
-		Logger:       lggr,
-		LoopRegistry: loopRegistry,
-		GRPCOpts:     loop.GRPCOpts{},
+		Logger:               lggr,
+		LoopRegistry:         loopRegistry,
+		GRPCOpts:             loop.GRPCOpts{},
+		CapabilitiesRegistry: coretypes.NewCapabilitiesRegistry(t),
 	}
 	testCtx := testutils.Context(t)
 	// evm alway enabled for backward compatibility
