@@ -14,6 +14,13 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
 
   event OwnershipTransferRequestedWithMessage(address indexed from, address indexed to, bytes message);
 
+  event UnusedEvent();
+  uint256 public someNumber;
+
+  function infiniteLoop() public {
+    this.infiniteLoop();
+  }
+
   constructor(
     address link,
     address owner,
