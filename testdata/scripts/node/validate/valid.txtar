@@ -59,7 +59,7 @@ ShutdownGracePeriod = '5s'
 FeedsManager = true
 LogPoller = false
 UICSAKeys = false
-CCIP = false
+CCIP = true
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1h0m0s'
