@@ -633,6 +633,36 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
     s_offRamp.execute(executionReport, new uint256[](0));
   }
 
+  function test_RetryFailedMessageWithoutManualExecution_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateSingleBasicMessage();
+
+    bytes memory realError1 = new bytes(2);
+    realError1[0] = 0xbe;
+    realError1[1] = 0xef;
+    s_reverting_receiver.setErr(realError1);
+
+    messages[0].receiver = address(s_reverting_receiver);
+    messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash());
+
+    vm.expectEmit();
+    emit EVM2EVMOffRamp.ExecutionStateChanged(
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.FAILURE,
+      abi.encodeWithSelector(
+        EVM2EVMOffRamp.ReceiverError.selector,
+        abi.encodeWithSelector(MaybeRevertMessageReceiver.CustomError.selector, realError1)
+      )
+    );
+    s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
+
+    // The second time should skip the msg
+    vm.expectEmit();
+    emit EVM2EVMOffRamp.AlreadyAttempted(messages[0].sequenceNumber);
+
+    s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
+  }
+
   // Reverts
 
   function test_InvalidMessageId_Revert() public {
@@ -743,33 +773,6 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
       abi.encodeWithSelector(EVM2EVMOffRamp.MessageTooLarge.selector, MAX_DATA_SIZE, messages[0].data.length)
     );
     s_offRamp.execute(executionReport, new uint256[](0));
-  }
-
-  function test_RetryFailedMessageWithoutManualExecution_Revert() public {
-    Internal.EVM2EVMMessage[] memory messages = _generateSingleBasicMessage();
-
-    bytes memory realError1 = new bytes(2);
-    realError1[0] = 0xbe;
-    realError1[1] = 0xef;
-    s_reverting_receiver.setErr(realError1);
-
-    messages[0].receiver = address(s_reverting_receiver);
-    messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash());
-
-    vm.expectEmit();
-    emit EVM2EVMOffRamp.ExecutionStateChanged(
-      messages[0].sequenceNumber,
-      messages[0].messageId,
-      Internal.MessageExecutionState.FAILURE,
-      abi.encodeWithSelector(
-        EVM2EVMOffRamp.ReceiverError.selector,
-        abi.encodeWithSelector(MaybeRevertMessageReceiver.CustomError.selector, realError1)
-      )
-    );
-    s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
-
-    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.AlreadyAttempted.selector, messages[0].sequenceNumber));
-    s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
   }
 }
 
@@ -1144,6 +1147,55 @@ contract EVM2EVMOffRamp_manuallyExecute is EVM2EVMOffRampSetup {
     s_offRamp.manuallyExecute(_generateReportFromMessages(messages), gasLimitOverrides);
   }
 
+  function test_ReentrancyManualExecuteFails_Success() public {
+    uint256 tokenAmount = 1e9;
+    IERC20 tokenToAbuse = IERC20(s_destFeeToken);
+
+    // This needs to be deployed before the source chain message is sent
+    // because we need the address for the receiver.
+    ReentrancyAbuser receiver = new ReentrancyAbuser(address(s_destRouter), s_offRamp);
+    uint256 balancePre = tokenToAbuse.balanceOf(address(receiver));
+
+    // For this test any message will be flagged as correct by the
+    // commitStore. In a real scenario the abuser would have to actually
+    // send the message that they want to replay.
+    Internal.EVM2EVMMessage[] memory messages = _generateSingleBasicMessage();
+    messages[0].tokenAmounts = new Client.EVMTokenAmount[](1);
+    messages[0].tokenAmounts[0] = Client.EVMTokenAmount({token: s_sourceFeeToken, amount: tokenAmount});
+    messages[0].receiver = address(receiver);
+    messages[0].sourceTokenData = new bytes[](1);
+    messages[0].sourceTokenData[0] = abi.encode(
+      Internal.SourceTokenData({
+        sourcePoolAddress: abi.encode(s_sourcePoolByToken[s_sourceFeeToken]),
+        destTokenAddress: abi.encode(s_destTokenBySourceToken[s_sourceFeeToken]),
+        extraData: "",
+        destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
+      })
+    );
+
+    messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash());
+
+    Internal.ExecutionReport memory report = _generateReportFromMessages(messages);
+
+    // sets the report to be repeated on the ReentrancyAbuser to be able to replay
+    receiver.setPayload(report);
+
+    // The first entry should be fine and triggers the second entry which is skipped. Due to the reentrancy
+    // the second completes first, so we expect the skip event before the success event.
+    vm.expectEmit();
+    emit EVM2EVMOffRamp.SkippedAlreadyExecutedMessage(messages[0].sequenceNumber);
+
+    vm.expectEmit();
+    emit EVM2EVMOffRamp.ExecutionStateChanged(
+      messages[0].sequenceNumber, messages[0].messageId, Internal.MessageExecutionState.SUCCESS, ""
+    );
+
+    s_offRamp.manuallyExecute(report, _getGasLimitsFromMessages(messages));
+
+    // Assert that they only got the tokens once, not twice
+    assertEq(tokenToAbuse.balanceOf(address(receiver)), balancePre + tokenAmount);
+  }
+
   function test_ManualExecForkedChain_Revert() public {
     Internal.EVM2EVMMessage[] memory messages = _generateSingleBasicMessage();
 
@@ -1199,59 +1251,6 @@ contract EVM2EVMOffRamp_manuallyExecute is EVM2EVMOffRampSetup {
       )
     );
     s_offRamp.manuallyExecute(_generateReportFromMessages(messages), _getGasLimitsFromMessages(messages));
-  }
-
-  function test_ReentrancyManualExecuteFails() public {
-    uint256 tokenAmount = 1e9;
-    IERC20 tokenToAbuse = IERC20(s_destFeeToken);
-
-    // This needs to be deployed before the source chain message is sent
-    // because we need the address for the receiver.
-    ReentrancyAbuser receiver = new ReentrancyAbuser(address(s_destRouter), s_offRamp);
-    uint256 balancePre = tokenToAbuse.balanceOf(address(receiver));
-
-    // For this test any message will be flagged as correct by the
-    // commitStore. In a real scenario the abuser would have to actually
-    // send the message that they want to replay.
-    Internal.EVM2EVMMessage[] memory messages = _generateSingleBasicMessage();
-    messages[0].tokenAmounts = new Client.EVMTokenAmount[](1);
-    messages[0].tokenAmounts[0] = Client.EVMTokenAmount({token: s_sourceFeeToken, amount: tokenAmount});
-    messages[0].receiver = address(receiver);
-    messages[0].sourceTokenData = new bytes[](1);
-    messages[0].sourceTokenData[0] = abi.encode(
-      Internal.SourceTokenData({
-        sourcePoolAddress: abi.encode(s_sourcePoolByToken[s_sourceFeeToken]),
-        destTokenAddress: abi.encode(s_destTokenBySourceToken[s_sourceFeeToken]),
-        extraData: "",
-        destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
-      })
-    );
-
-    messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash());
-
-    Internal.ExecutionReport memory report = _generateReportFromMessages(messages);
-
-    // sets the report to be repeated on the ReentrancyAbuser to be able to replay
-    receiver.setPayload(report);
-
-    // The first entry should be fine and triggers the second entry. This one fails
-    // but since it's an inner tx of the first one it is caught in the try-catch.
-    // This means the first tx is marked `FAILURE` with the error message of the second tx.
-    vm.expectEmit();
-    emit EVM2EVMOffRamp.ExecutionStateChanged(
-      messages[0].sequenceNumber,
-      messages[0].messageId,
-      Internal.MessageExecutionState.FAILURE,
-      abi.encodeWithSelector(
-        EVM2EVMOffRamp.ReceiverError.selector,
-        abi.encodeWithSelector(EVM2EVMOffRamp.AlreadyExecuted.selector, messages[0].sequenceNumber)
-      )
-    );
-
-    s_offRamp.manuallyExecute(report, _getGasLimitsFromMessages(messages));
-
-    // Since the tx failed we don't release the tokens
-    assertEq(tokenToAbuse.balanceOf(address(receiver)), balancePre);
   }
 }
 
