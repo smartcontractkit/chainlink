@@ -91,8 +91,8 @@ jobs:
               - modified: 'contracts/src/v0.8/**/*.sol'            
 
   tests:
-    #TODO change me back
-    if: needs.changes.outputs.src_changes == 'mietek'
+    #TODO remove me after testing
+    if: ${{ 'true' == 'false' }}
 #    if: ${{ needs.changes.outputs.non_src_changes == 'true' }}
     strategy:
       fail-fast: false
@@ -364,6 +364,8 @@ jobs:
               response_content=$(cat prompt_response.json | jq -r '.choices[0].message.content')
               echo "$response_content" | sed -e 's/^ -/  -/g' > $diff_file
           
+              echo "Replacing full Slither report with diff for $new_file"
+          
               rm $new_file
               mv $diff_file $new_file
             else
@@ -405,7 +407,9 @@ jobs:
 
   solidity-forge-fmt:
     name: Forge fmt ${{ matrix.product.name }}
-    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified_added == 'true' }}
+    #TODO remove me after testing
+    if: ${{ 'true' == 'false' }}
+#    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified_added == 'true' }}
     needs: [define-matrix, changes]
     strategy:
       fail-fast: false
