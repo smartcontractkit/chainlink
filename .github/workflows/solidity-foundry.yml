@@ -257,6 +257,10 @@ jobs:
           CHANGED="${{ needs.changes.outputs.sol_modified_added_files }}"
           CHANGED_ARRAY=$(echo "$CHANGED" | tr ' ' ',')
           
+          # modify remappings so that solc can find dependencies
+          ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
+          mv remappings_modified.txt remappings.txt
+          
           ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/.slither.config-pr.json "." "$CHANGED_ARRAY" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
 
         # Run the steps below only if some existing files were modified
@@ -300,6 +304,10 @@ jobs:
         run: |
           MODIFIED="${{ needs.changes.outputs.sol_mod_only_files }}"
           MODIFIED_ARRAY=$(echo "$MODIFIED" | tr ' ' ',')
+          
+          # modify remappings so that solc can find dependencies
+          ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
+          mv remappings_modified.txt remappings.txt          
           
           for file in contracts/scripts/ci/*.sh; do
             chmod +x "$file"
