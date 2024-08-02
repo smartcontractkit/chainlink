@@ -51,8 +51,12 @@ extract_pragma() {
 
 echo "Detecting Solc version for $FILE"
 
+# Set FOUNDRY_PROFILE to the product name only if it is set; otherwise either already set value will be used or it will be empty
 PRODUCT=$(extract_product "$FILE")
-SOLC_IN_PROFILE=$(FOUNDRY_PROFILE=$PRODUCT forge config --json --root contracts | jq ".solc")
+if [ -n "$PRODUCT" ]; then
+  FOUNDRY_PROFILE="$PRODUCT"
+fi
+SOLC_IN_PROFILE=$(forge config --json --root contracts | jq ".solc")
 SOLC_IN_PROFILE=$(echo "$SOLC_IN_PROFILE" | tr -d "'\"")
 echo "::debug::Detected Solidity version in profile: $SOLC_IN_PROFILE"
 

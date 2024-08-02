@@ -27,12 +27,6 @@ FILES=${4// /}  # Remove any spaces from the list of files
 TARGET_DIR=$5
 SLITHER_EXTRA_PARAMS=$6
 
-extract_product() {
-    local path=$1
-
-    echo "$path" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1
-}
-
 run_slither() {
     local FILE=$1
     local TARGET_DIR=$2

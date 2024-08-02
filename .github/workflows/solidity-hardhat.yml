@@ -364,7 +364,7 @@ jobs:
         run: |
           contract_list="${{ needs.changes.outputs.files }}"
           
-          # modify remappings so that sol2uml can find dependencies
+          # modify remappings so that solc can find dependencies
           ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
           mv remappings_modified.txt remappings.txt
                     
