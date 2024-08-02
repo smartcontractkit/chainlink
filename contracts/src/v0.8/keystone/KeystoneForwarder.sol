@@ -145,7 +145,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     if (s_transmissions[transmissionId].transmitter != address(0)) revert AlreadyAttempted(transmissionId);
 
     s_transmissions[transmissionId].transmitter = transmitter;
-    s_transmissions[transmissionId].gasProvided = uint88(gasLimit);
+    s_transmissions[transmissionId].gasLimit = uint88(gasLimit);
 
     // Making this an external call to be able to catch reverts from the _callWithExactGas function
     // and avoid having to inline the entire function here.
@@ -177,12 +177,12 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   }
 
   /// @notice Get transmitter of a given report or 0x0 if it wasn't transmitted yet
-  function getTransmissionGasProvided(
+  function getTransmissionGasLimit(
     address receiver,
     bytes32 workflowExecutionId,
     bytes2 reportId
   ) external view returns (uint256) {
-    return s_transmissions[getTransmissionId(receiver, workflowExecutionId, reportId)].gasProvided;
+    return s_transmissions[getTransmissionId(receiver, workflowExecutionId, reportId)].gasLimit;
   }
 
   /// @notice Get delivery status of a given report

@@ -170,7 +170,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     );
 
     assertEq(
-      s_forwarder.getTransmissionGasProvided(address(s_receiver), executionId, reportId),
+      s_forwarder.getTransmissionGasLimit(address(s_receiver), executionId, reportId),
       137_398,
       "transmission gas limit mismatch"
     );
