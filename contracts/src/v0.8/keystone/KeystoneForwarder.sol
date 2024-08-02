@@ -176,7 +176,6 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     return s_transmissions[getTransmissionId(receiver, workflowExecutionId, reportId)].transmitter;
   }
 
-  /// @notice Get transmitter of a given report or 0x0 if it wasn't transmitted yet
   function getTransmissionGasLimit(
     address receiver,
     bytes32 workflowExecutionId,
