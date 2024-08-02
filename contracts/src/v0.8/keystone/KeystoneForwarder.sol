@@ -6,6 +6,7 @@ import {IRouter} from "./interfaces/IRouter.sol";
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
+import {CallWithExactGas} from "../shared/call/CallWithExactGas.sol";
 
 /// @notice This is an entry point for `write_${chain}` Target capability. It
 /// allows nodes to determine if reports have been processed (successfully or
@@ -90,6 +91,9 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   uint256 internal constant FORWARDER_METADATA_LENGTH = 45;
   uint256 internal constant SIGNATURE_LENGTH = 65;
 
+  /// @dev The minimum amount of gas to perform the call with exact gas.
+  uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
+
   // ================================================================
   // │                          Router                              │
   // ================================================================
@@ -107,6 +111,20 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     emit ForwarderRemoved(forwarder);
   }
 
+  function callWithExactGas(
+    address receiver,
+    bytes calldata metadata,
+    bytes calldata validatedReport
+  ) external returns (bool success) {
+    return
+      CallWithExactGas._callWithExactGas(
+        abi.encodeCall(IReceiver.onReport, (metadata, validatedReport)),
+        receiver,
+        500_000, // TODO
+        GAS_FOR_CALL_EXACT_CHECK
+      );
+  }
+
   function route(
     bytes32 transmissionId,
     address transmitter,
@@ -121,11 +139,11 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     if (s_transmissions[transmissionId].transmitter != address(0)) revert AlreadyAttempted(transmissionId);
     s_transmissions[transmissionId].transmitter = transmitter;
 
-    if (receiver.code.length == 0) return false;
-
-    try IReceiver(receiver).onReport(metadata, validatedReport) {
-      s_transmissions[transmissionId].success = true;
-      return true;
+    // Making this an external call to be able to catch reverts from the _callWithExactGas function
+    // and avoid having to inline the entire function here.
+    try this.callWithExactGas(receiver, metadata, validatedReport) returns (bool success) {
+      s_transmissions[transmissionId].success = success;
+      return success;
     } catch {
       return false;
     }
