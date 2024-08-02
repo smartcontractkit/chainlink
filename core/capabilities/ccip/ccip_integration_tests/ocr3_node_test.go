@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -111,7 +111,7 @@ func TestIntegration_OCR3Nodes(t *testing.T) {
 		AddChainConfig(t, homeChainUni, getSelector(uni.chainID), p2pIDs, fChain)
 	}
 
-	cfgs, err := homeChainUni.ccipConfig.GetAllChainConfigs(callCtx, big.NewInt(0), big.NewInt(100))
+	cfgs, err := homeChainUni.ccipConfig.GetAllChainConfigs(callCtx)
 	require.NoError(t, err)
 	require.Len(t, cfgs, numChains)
 
@@ -226,7 +226,7 @@ func waitForCommitWithInterval(
 	expectedSourceChainSelector uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
 ) {
-	sink := make(chan *offramp.OffRampCommitReportAccepted)
+	sink := make(chan *evm_2_evm_multi_offramp.EVM2EVMMultiOffRampCommitReportAccepted)
 	subscription, err := uni.offramp.WatchCommitReportAccepted(&bind.WatchOpts{
 		Context: testutils.Context(t),
 	}, sink)
