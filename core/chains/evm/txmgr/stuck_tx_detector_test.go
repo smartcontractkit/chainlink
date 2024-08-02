@@ -78,8 +78,8 @@ func TestStuckTxDetector_LoadPurgeBlockNumMap(t *testing.T) {
 	autoPurgeMinAttempts := uint32(3)
 	autoPurgeCfg := testAutoPurgeConfig{
 		enabled:     true, // Enable auto-purge feature for testing
-		threshold:   autoPurgeThreshold,
-		minAttempts: autoPurgeMinAttempts,
+		threshold:   &autoPurgeThreshold,
+		minAttempts: &autoPurgeMinAttempts,
 	}
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
 
@@ -176,8 +176,8 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 	autoPurgeMinAttempts := uint32(3)
 	autoPurgeCfg := testAutoPurgeConfig{
 		enabled:     true, // Enable auto-purge feature for testing
-		threshold:   autoPurgeThreshold,
-		minAttempts: autoPurgeMinAttempts,
+		threshold:   &autoPurgeThreshold,
+		minAttempts: &autoPurgeMinAttempts,
 	}
 	blockNum := int64(100)
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
@@ -423,12 +423,12 @@ func mustInsertUnconfirmedEthTxWithBroadcastPurgeAttempt(t *testing.T, txStore t
 
 type testAutoPurgeConfig struct {
 	enabled         bool
-	threshold       uint32
-	minAttempts     uint32
+	threshold       *uint32
+	minAttempts     *uint32
 	detectionApiUrl *url.URL
 }
 
 func (t testAutoPurgeConfig) Enabled() bool             { return t.enabled }
-func (t testAutoPurgeConfig) Threshold() uint32         { return t.threshold }
-func (t testAutoPurgeConfig) MinAttempts() uint32       { return t.minAttempts }
+func (t testAutoPurgeConfig) Threshold() *uint32        { return t.threshold }
+func (t testAutoPurgeConfig) MinAttempts() *uint32      { return t.minAttempts }
 func (t testAutoPurgeConfig) DetectionApiUrl() *url.URL { return t.detectionApiUrl }
