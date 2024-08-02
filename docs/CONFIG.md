@@ -3652,6 +3652,7 @@ GasLimit = 5400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'hedera'
 FinalityDepth = 3
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
@@ -3665,6 +3666,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
 ForwardersEnabled = false
@@ -3719,6 +3722,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
+DeathDeclarationDelay = '10s'
 
 [OCR]
 ContractConfirmations = 4
@@ -3741,10 +3746,11 @@ GasLimit = 5400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-FinalityDepth = 3
+ChainType = 'hedera'
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
-LogPollInterval = '20s'
+LogPollInterval = '10s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 100
@@ -3754,6 +3760,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
 
 [Transactions]
 ForwardersEnabled = false
@@ -3761,7 +3769,7 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '10s'
+ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3804,10 +3812,12 @@ FinalityTagBypass = true
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
-SyncThreshold = 5
+SyncThreshold = 0
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
+DeathDeclarationDelay = '10s'
 
 [OCR]
 ContractConfirmations = 4
