@@ -168,6 +168,12 @@ contract KeystoneForwarder_ReportTest is BaseTest {
       uint8(IRouter.TransmissionState.SUCCEEDED),
       "TransmissionState mismatch"
     );
+
+    assertEq(
+      s_forwarder.getTransmissionGasProvided(address(s_receiver), executionId, reportId),
+      137_398,
+      "transmission gas limit mismatch"
+    );
   }
 
   function test_Report_FailedDeliveryWhenReceiverNotContract() public {
