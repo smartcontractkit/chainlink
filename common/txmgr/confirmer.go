@@ -351,8 +351,6 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 			}
 
 			headNumber = latestFinalizedBlock.BlockNumber()
-		} else {
-			headNumber = headNumber - int64(ec.chainConfig.FinalityDepth())
 		}
 
 		// TODO Once BCI-3574 is merged we can update the chainConfig interface to remove FinalityTagEnabled, and remove the
