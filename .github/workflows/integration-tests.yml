@@ -808,7 +808,8 @@ jobs:
               echo "Error: The latest_version is empty. The migration tests need a verison to run."
               exit 1
           fi
-          echo "latest_version=${latest_version}" >> "$GITHUB_OUTPUT"
+          # CCIP uses the `-release` suffix for their versions
+          echo "latest_version=${latest_version}-release" >> "$GITHUB_OUTPUT"
       - name: Name Versions
         run: |
           echo "Running migration tests from version '${{ steps.get_latest_version.outputs.latest_version }}' to: '${{ inputs.evm-ref || github.sha }}'"
@@ -868,5 +869,40 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
         with:
-          channel-id: "#team-test-tooling-internal"
-          slack-message: ":x: :mild-panic-intensifies: Node Migration Tests Failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
+          channel-id: "C05QQ8Z342V"
+          slack-message: "CCIP Node Migration Tests Failed :x: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || '#2E7D32' }}",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "CCIP Version Migration Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
+                        "emoji": true
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed! Notifying <!subteam^S06HJ46A1EX|ccip-qa>' || 'All Good!' }}"
+                      }
+                    },
+                    {
+                      "type": "divider"
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}> | <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }

@@ -29,7 +29,7 @@ on:
         type: string
 
 env:
-  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip
   INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
   MOD_CACHE_VERSION: 2
 
@@ -270,7 +270,6 @@ jobs:
     if: |
       always() &&
       needs.should-run.outputs.should_run == 'true' &&
-      github.ref_type != 'tag' &&
       (
         needs.select-versions.outputs.evm_implementations != '' ||
         github.event.inputs.base64TestList != ''
