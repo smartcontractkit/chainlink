@@ -2678,6 +2678,8 @@ contract AcceptPayeeship is SetUp {
 }
 
 contract SetPayees is SetUp {
+  event PayeesUpdated(address[] transmitters, address[] payees);
+
   function test_RevertsWhen_NotCalledByOwner() external {
     vm.startPrank(STRANGER);
 
@@ -2699,5 +2701,40 @@ contract SetPayees is SetUp {
     NEW_PAYEES[0] = address(0);
     vm.expectRevert(Registry.InvalidPayee.selector);
     registry.setPayees(NEW_PAYEES);
+  }
+
+  function test_SetPayees_WhenExistingPayeesAreEmpty() external {
+    (registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.ON_CHAIN);
+
+    for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
+      (, , , , address payee) = registry.getTransmitterInfo(TRANSMITTERS[i]);
+      assertEq(address(0), payee);
+    }
+
+    vm.startPrank(registry.owner());
+
+    vm.expectEmit();
+    emit PayeesUpdated(TRANSMITTERS, PAYEES);
+    registry.setPayees(PAYEES);
+    for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
+      (bool active, , , , address payee) = registry.getTransmitterInfo(TRANSMITTERS[i]);
+      assertTrue(active);
+      assertEq(PAYEES[i], payee);
+    }
+  }
+
+  function test_DotNotSetPayeesToIgnoredAddress() external {
+    address IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
+    (registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.ON_CHAIN);
+    PAYEES[0] = IGNORE_ADDRESS;
+
+    registry.setPayees(PAYEES);
+    (bool active, , , , address payee) = registry.getTransmitterInfo(TRANSMITTERS[0]);
+    assertTrue(active);
+    assertEq(address(0), payee);
+
+    (active, , , , payee) = registry.getTransmitterInfo(TRANSMITTERS[1]);
+    assertTrue(active);
+    assertEq(PAYEES[1], payee);
   }
 }
