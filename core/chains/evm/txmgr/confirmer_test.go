@@ -150,8 +150,12 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 		Number: 10,
 		Parent: &evmtypes.Head{
 			Hash:   testutils.NewHash(),
-			Number: 8,
-			Parent: nil,
+			Number: 9,
+			Parent: &evmtypes.Head{
+				Number: 8,
+				Hash:   testutils.NewHash(),
+				Parent: nil,
+			},
 		},
 	}
 	err = ec.ProcessHead(ctx, &head)
@@ -2946,18 +2950,22 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		Parent: &evmtypes.Head{
 			Hash:   testutils.NewHash(),
 			Number: 9,
-			Parent: nil,
+			Parent: &evmtypes.Head{
+				Number: 8,
+				Hash:   testutils.NewHash(),
+				Parent: nil,
+			},
 		},
 	}
 	pgtest.MustExec(t, db, `SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 
-	ec := newEthConfirmer(t, txStore, ethClient, config, evmcfg, ethKeyStore, func(context.Context, uuid.UUID, interface{}, error) error {
-		t.Fatal("No value expected")
-		return nil
-	})
-
 	t.Run("doesn't process task runs that are not suspended (possibly already previously resumed)", func(t *testing.T) {
+		ec := newEthConfirmer(t, txStore, ethClient, config, evmcfg, ethKeyStore, func(context.Context, uuid.UUID, interface{}, error) error {
+			t.Fatal("No value expected")
+			return nil
+		})
+
 		run := cltest.MustInsertPipelineRun(t, db)
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 
@@ -2971,11 +2979,11 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("processes eth_txes with receipts after headNum", func(t *testing.T) {
+	t.Run("processes eth_txes with receipts older than minConfirmations", func(t *testing.T) {
 		ch := make(chan interface{})
 		nonce := evmtypes.Nonce(3)
 		var err error
-		ec = newEthConfirmer(t, txStore, ethClient, config, evmcfg, ethKeyStore, func(ctx context.Context, id uuid.UUID, value interface{}, thisErr error) error {
+		ec := newEthConfirmer(t, txStore, ethClient, config, evmcfg, ethKeyStore, func(ctx context.Context, id uuid.UUID, value interface{}, thisErr error) error {
 			err = thisErr
 			ch <- value
 			return nil
@@ -3028,7 +3036,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		}
 		ch := make(chan data)
 		nonce := evmtypes.Nonce(4)
-		ec = newEthConfirmer(t, txStore, ethClient, config, evmcfg, ethKeyStore, func(ctx context.Context, id uuid.UUID, value interface{}, err error) error {
+		ec := newEthConfirmer(t, txStore, ethClient, config, evmcfg, ethKeyStore, func(ctx context.Context, id uuid.UUID, value interface{}, err error) error {
 			ch <- data{value, err}
 			return nil
 		})
@@ -3075,7 +3083,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	t.Run("does not mark callback complete if callback fails", func(t *testing.T) {
 		nonce := evmtypes.Nonce(5)
-		ec = newEthConfirmer(t, txStore, ethClient, config, evmcfg, ethKeyStore, func(context.Context, uuid.UUID, interface{}, error) error {
+		ec := newEthConfirmer(t, txStore, ethClient, config, evmcfg, ethKeyStore, func(context.Context, uuid.UUID, interface{}, error) error {
 			return errors.New("error")
 		})
 
@@ -3142,9 +3150,8 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, nonce, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold), marketGasPrice.Add(oneGwei))
 
 		head := evmtypes.Head{
-			Hash:        testutils.NewHash(),
-			Number:      blockNum,
-			IsFinalized: true,
+			Hash:   testutils.NewHash(),
+			Number: blockNum,
 		}
 		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(0), nil).Once()
 		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil).Once()
@@ -3167,9 +3174,8 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		require.Equal(t, bumpedFee.Legacy, latestAttempt.TxFee.Legacy)
 
 		head = evmtypes.Head{
-			Hash:        testutils.NewHash(),
-			Number:      blockNum + 1,
-			IsFinalized: true,
+			Hash:   testutils.NewHash(),
+			Number: blockNum + 1,
 		}
 		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(1), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
