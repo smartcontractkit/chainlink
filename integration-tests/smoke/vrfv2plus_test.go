@@ -1959,7 +1959,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 	}
 	chainlinkNodeLogScannerSettings := test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(
 		testreporters.NewAllowedLogMessage(
-			"This is a problem and either means a very deep re-org occurred",
+			"Got very old block.",
 			"Test is expecting a reorg to occur",
 			zapcore.DPanicLevel,
 			testreporters.WarnAboutAllowedMsgs_No),
