@@ -628,20 +628,17 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	pgtest.MustExec(t, db, `SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 
-	latestFinalizedHead := evmtypes.Head{
-		Number:      8,
-		Hash:        utils.NewHash(),
-		Parent:      nil,
-		IsFinalized: true,
-	}
-
 	head := evmtypes.Head{
 		Hash:   utils.NewHash(),
 		Number: 10,
 		Parent: &evmtypes.Head{
 			Hash:   utils.NewHash(),
 			Number: 9,
-			Parent: &latestFinalizedHead,
+			Parent: &evmtypes.Head{
+				Number: 8,
+				Hash:   utils.NewHash(),
+				Parent: nil,
+			},
 		},
 	}
 
@@ -652,7 +649,7 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	etx1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 	attempt1 := etx1.TxAttempts[0]
-	mustInsertEthReceipt(t, txStore, latestFinalizedHead.BlockNumber(), head.Hash, attempt1.Hash)
+	mustInsertEthReceipt(t, txStore, head.BlockNumber(), head.Hash, attempt1.Hash)
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr1.ID, etx1.ID)
 
 	// Callback to pipeline service completed. Should be ignored
@@ -661,10 +658,10 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	etx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 1, fromAddress)
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": false}'`)
 	attempt2 := etx2.TxAttempts[0]
-	mustInsertEthReceipt(t, txStore, latestFinalizedHead.BlockNumber()-2, head.Hash, attempt2.Hash)
+	mustInsertEthReceipt(t, txStore, head.BlockNumber()-2, head.Hash, attempt2.Hash)
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE, callback_completed = TRUE WHERE id = $2`, &tr2.ID, etx2.ID)
 
-	// Suspend run after LatestFinalizedBlockNum. Should be ignored
+	// Suspend run after head block number. Should be ignored
 	run3 := cltest.MustInsertPipelineRun(t, db)
 	tr3 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run3.ID)
 	pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run3.ID)
@@ -683,9 +680,9 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 1, fromAddress)
 
 	// Search evm.txes table for tx requiring callback
-	receiptsPlus, err := txStore.FindTxesPendingCallback(tests.Context(t), latestFinalizedHead.BlockNumber(), ethClient.ConfiguredChainID())
+	receiptsPlus, err := txStore.FindTxesPendingCallback(tests.Context(t), head.BlockNumber(), ethClient.ConfiguredChainID())
 	require.NoError(t, err)
-	assert.Len(t, receiptsPlus, 1)
+	assert.Len(t, receiptsPlus, 2)
 	assert.Equal(t, tr1.ID, receiptsPlus[0].ID)
 }
 
