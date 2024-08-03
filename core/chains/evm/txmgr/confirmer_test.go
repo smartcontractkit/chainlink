@@ -2944,6 +2944,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
+
 	head := evmtypes.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
