@@ -3030,7 +3030,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	pgtest.MustExec(t, db, `DELETE FROM pipeline_runs`)
 
-	t.Run("processes eth_txes with receipt before latest head that reverted", func(t *testing.T) {
+	t.Run("processes eth_txes with receipt before current head that reverted", func(t *testing.T) {
 		type data struct {
 			value any
 			error
