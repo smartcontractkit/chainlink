@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
@@ -58,6 +59,7 @@ func (a *testAsyncMessageBroker) NewDispatcherForNode(nodePeerID p2ptypes.PeerID
 	return &brokerDispatcher{
 		callerPeerID: nodePeerID,
 		broker:       a,
+		receivers:    map[key]remotetypes.Receiver{},
 	}
 }
 
@@ -158,6 +160,14 @@ type broker interface {
 type brokerDispatcher struct {
 	callerPeerID p2ptypes.PeerID
 	broker       broker
+
+	receivers map[key]remotetypes.Receiver
+	mu        sync.Mutex
+}
+
+type key struct {
+	capId string
+	donId uint32
 }
 
 func (t *brokerDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
@@ -171,6 +181,15 @@ func (t *brokerDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.Mes
 }
 
 func (t *brokerDispatcher) SetReceiver(capabilityId string, donId uint32, receiver remotetypes.Receiver) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	k := key{capabilityId, donId}
+	_, ok := t.receivers[k]
+	if ok {
+		return fmt.Errorf("%w: receiver already exists for capability %s and don %d", remote.ErrReceiverExists, capabilityId, donId)
+	}
+	t.receivers[k] = receiver
+
 	t.broker.(*testAsyncMessageBroker).registerReceiverNode(t.callerPeerID, capabilityId, donId, receiver)
 	return nil
 }
