@@ -90,6 +90,11 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   uint256 internal constant FORWARDER_METADATA_LENGTH = 45;
   uint256 internal constant SIGNATURE_LENGTH = 65;
 
+  /// @dev The gas we require to revert in case of a revert in the call to the
+  /// receiver. This is more than enough and does not attempt to be exact.
+  uint256 internal constant REQUIRED_GAS_FOR_ROUTING = 40_000;
+  bytes4 internal constant INSUFFICIENT_GAS_FOR_ROUTING_SIG = 0x0bfecd63;
+
   // ================================================================
   // │                          Router                              │
   // ================================================================
@@ -114,21 +119,35 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     bytes calldata metadata,
     bytes calldata validatedReport
   ) public returns (bool) {
-    if (!s_forwarders[msg.sender]) {
-      revert UnauthorizedForwarder();
-    }
+    if (!s_forwarders[msg.sender]) revert UnauthorizedForwarder();
 
-    if (s_transmissions[transmissionId].transmitter != address(0)) revert AlreadyAttempted(transmissionId);
+    TransmissionInfo memory transmission = s_transmissions[transmissionId];
+    if (transmission.success || transmission.invalidReceiver) revert AlreadyAttempted(transmissionId);
+    uint256 gasLeft = gasleft();
+    if (gasLeft < REQUIRED_GAS_FOR_ROUTING) revert InsufficientGasForRouting(transmissionId);
+
+    uint256 gasLimit = gasLeft - REQUIRED_GAS_FOR_ROUTING;
     s_transmissions[transmissionId].transmitter = transmitter;
+    s_transmissions[transmissionId].gasLimit = uint80(gasLimit);
 
-    if (receiver.code.length == 0) return false;
-
-    try IReceiver(receiver).onReport(metadata, validatedReport) {
-      s_transmissions[transmissionId].success = true;
-      return true;
-    } catch {
+    if (receiver.code.length == 0) {
+      s_transmissions[transmissionId].invalidReceiver = true;
       return false;
     }
+
+    bool success;
+    bytes memory payload = abi.encodeCall(IReceiver.onReport, (metadata, validatedReport));
+
+    assembly {
+      // call and return whether we succeeded. ignore return data
+      // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
+      success := call(gasLimit, receiver, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
+    }
+
+    if (success) {
+      s_transmissions[transmissionId].success = true;
+    }
+    return success;
   }
 
   function getTransmissionId(
@@ -150,6 +169,14 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     return s_transmissions[getTransmissionId(receiver, workflowExecutionId, reportId)].transmitter;
   }
 
+  function getTransmissionGasLimit(
+    address receiver,
+    bytes32 workflowExecutionId,
+    bytes2 reportId
+  ) external view returns (uint256) {
+    return s_transmissions[getTransmissionId(receiver, workflowExecutionId, reportId)].gasLimit;
+  }
+
   /// @notice Get delivery status of a given report
   function getTransmissionState(
     address receiver,
@@ -158,6 +185,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   ) external view returns (IRouter.TransmissionState) {
     bytes32 transmissionId = getTransmissionId(receiver, workflowExecutionId, reportId);
 
+    if (s_transmissions[transmissionId].invalidReceiver) return IRouter.TransmissionState.INVALID_RECEIVER;
     if (s_transmissions[transmissionId].transmitter == address(0)) return IRouter.TransmissionState.NOT_ATTEMPTED;
     return
       s_transmissions[transmissionId].success ? IRouter.TransmissionState.SUCCEEDED : IRouter.TransmissionState.FAILED;
