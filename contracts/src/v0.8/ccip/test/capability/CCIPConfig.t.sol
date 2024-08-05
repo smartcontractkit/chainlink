@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-
 import {SortedSetValidationUtil} from "../../../shared/util/SortedSetValidationUtil.sol";
 import {CCIPConfig} from "../../capability/CCIPConfig.sol";
 import {ICapabilitiesRegistry} from "../../capability/interfaces/ICapabilitiesRegistry.sol";
 import {CCIPConfigTypes} from "../../capability/libraries/CCIPConfigTypes.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {CCIPConfigHelper} from "../helpers/CCIPConfigHelper.sol";
+import {Test} from "forge-std/Test.sol";
 
 contract CCIPConfigSetup is Test {
   address public constant OWNER = 0x82ae2B4F57CA5C1CBF8f744ADbD3697aD1a35AFe;
@@ -106,6 +105,24 @@ contract CCIPConfigSetup is Test {
   function test_getCapabilityConfiguration_Success() public {
     bytes memory capConfig = s_ccipCC.getCapabilityConfiguration(42 /* doesn't matter, not used */ );
     assertEq(capConfig.length, 0, "capability config length must be 0");
+  }
+}
+
+contract CCIPConfig_constructor is Test {
+  // Successes.
+
+  function test_constructor_Success() public {
+    address capabilitiesRegistry = makeAddr("capabilitiesRegistry");
+    CCIPConfigHelper ccipCC = new CCIPConfigHelper(capabilitiesRegistry);
+    assertEq(address(ccipCC.getCapabilityRegistry()), capabilitiesRegistry);
+    assertEq(ccipCC.typeAndVersion(), "CCIPConfig 1.6.0-dev");
+  }
+
+  // Reverts.
+
+  function test_constructor_ZeroAddressNotAllowed_Revert() public {
+    vm.expectRevert(CCIPConfig.ZeroAddressNotAllowed.selector);
+    new CCIPConfigHelper(address(0));
   }
 }
 
@@ -1360,7 +1377,7 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
   }
 }
 
-contract CCIPConfig__updatePluginConfig is CCIPConfigSetup {
+contract CCIPConfig_updatePluginConfig is CCIPConfigSetup {
   // Successes.
 
   function test__updatePluginConfig_InitToRunning_Success() public {

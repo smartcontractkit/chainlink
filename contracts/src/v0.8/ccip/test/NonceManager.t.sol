@@ -27,7 +27,7 @@ contract NonceManager_typeAndVersion is Test {
     s_nonceManager = new NonceManager(new address[](0));
   }
 
-  function test_typeAndVersion() public {
+  function test_typeAndVersion() public view {
     assertEq(s_nonceManager.typeAndVersion(), "NonceManager 1.6.0-dev");
   }
 }
