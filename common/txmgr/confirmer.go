@@ -1029,14 +1029,18 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	}
 
 	if head.BlockNumber() < latestFinalizedHead.BlockNumber() {
-		warnMsg := "current head is shorter than latest finalized head"
-		ec.lggr.Warnw(warnMsg, append(logArgs, "head block number", head.BlockNumber())...)
-	} else if head.ChainLength() < uint32(head.BlockNumber()-latestFinalizedHead.BlockNumber()) {
+		errMsg := "current head is shorter than latest finalized head"
+		ec.lggr.Errorw(errMsg, append(logArgs, "head block number", head.BlockNumber())...)
+		return errors.New(errMsg)
+	}
+
+	unconfirmedChainLength := uint32(head.BlockNumber() - latestFinalizedHead.BlockNumber())
+	if head.ChainLength() < unconfirmedChainLength {
 		if ec.nConsecutiveBlocksChainTooShort > logAfterNConsecutiveBlocksChainTooShort {
-			warnMsg := "Chain length supplied for re-org detection was shorter than chain depth. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
+			warnMsg := "Chain length supplied for re-org detection was shorter than unconfirmed chain length. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
 			ec.lggr.Warnw(warnMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
 		} else {
-			logMsg := "Chain length supplied for re-org detection was shorter than chain depth"
+			logMsg := "Chain length supplied for re-org detection was shorter than unconfirmed chain length"
 			ec.lggr.Debugw(logMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
 		}
 		ec.nConsecutiveBlocksChainTooShort++
