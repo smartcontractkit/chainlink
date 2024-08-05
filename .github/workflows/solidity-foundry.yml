@@ -44,8 +44,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       non_src_changes: ${{ steps.changes.outputs.non_src }}
-      sol_modified: ${{ steps.changes.outputs.sol }}
-      sol_modified_files: ${{ steps.changes.outputs.sol_files }}
+      sol_modified_added: ${{ steps.changes.outputs.sol_mod_added }}
+      sol_modified_added_files: ${{ steps.changes.outputs.sol_mod_added_files }}
+      sol_mod_only: ${{ steps.changes.outputs.sol_mod_only }}
+      sol_mod_only_files: ${{ steps.changes.outputs.sol_mod_only_files }}
       all_changes: ${{ steps.changes.outputs.changes }}
     steps:
       - name: Checkout the repo
@@ -59,7 +61,7 @@ jobs:
               - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
-            sol:
+            sol_mod_added:
               - modified|added: 'contracts/src/v0.8/**/*.sol'
             automation:
               - 'contracts/src/v0.8/automation/**/*.sol'
@@ -84,10 +86,14 @@ jobs:
               - 'contracts/src/v0.8/*.sol'
               - 'contracts/src/v0.8/mocks/**/*.sol'
               - 'contracts/src/v0.8/tests/**/*.sol'
-              - 'contracts/src/v0.8/vendor/**/*.sol'            
+              - 'contracts/src/v0.8/vendor/**/*.sol'
+            sol_mod_only:
+              - modified: 'contracts/src/v0.8/**/*.sol'            
 
   tests:
-    if: ${{ needs.changes.outputs.non_src_changes == 'true' }}
+    #TODO remove me after testing
+    if: ${{ 'true' == 'false' }}
+    #    if: ${{ needs.changes.outputs.non_src_changes == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -144,7 +150,7 @@ jobs:
 
       - name: Run Forge snapshot
         if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
-          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')) && 
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')) &&
           matrix.product.setup.run-gas-snapshot }}
         run: |
           forge snapshot --nmt "test_?Fuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product.name }}.gas-snapshot
@@ -156,7 +162,7 @@ jobs:
       # required for code coverage report generation
       - name: Setup LCOV
         if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
-          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')) 
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared'))
           && matrix.product.setup.run-coverage }}
         uses: hrishikesh-kadam/setup-lcov@f5da1b26b0dcf5d893077a3c4f29cf78079c841d # v1.0.0
 
@@ -205,7 +211,7 @@ jobs:
   analyze:
     needs: [ changes ]
     name: Run static analysis
-    if: needs.changes.outputs.sol_modified == 'true'
+    if: needs.changes.outputs.sol_modified_added == 'true'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
@@ -245,14 +251,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install slither-analyzer
 
-      - name: Run Slither
+      - name: Run Slither for current branch
         shell: bash
-        run: |          
+        run: |
           # modify remappings so that solc can find dependencies
           ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
           mv remappings_modified.txt remappings.txt
+          
+          # without it Slither sometimes fails to use remappings correctly
+          cp contracts/foundry.toml foundry.toml
 
-          FILES="${{ needs.changes.outputs.sol_modified_files }}"
+          FILES="${{ needs.changes.outputs.sol_modified_added_files }}"
           
           for FILE in $FILES; do
             PRODUCT=$(echo "$FILE" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
@@ -265,11 +274,165 @@ jobs:
             ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "." "$FILE" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
           done
 
+      - name: Upload Slither results for current branch
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: tmp-slither-reports-current-${{ github.sha }}
+          path: contracts/slither-reports
+          retention-days: 7
+
+      - name: Upload Slither scripts
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: tmp-slither-scripts-${{ github.sha }}
+          path: contracts/scripts/ci
+          retention-days: 7
+
+      - name: Upload configs
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: tmp-configs-${{ github.sha }}
+          path: contracts/configs
+          retention-days: 7
+
+      - name: Checkout the repo
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          submodules: recursive
+          ref: ${{ github.base_ref }}
+
+      - name: Download Slither scripts
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        with:
+          name: tmp-slither-scripts-${{ github.sha }}
+          path: contracts/scripts/ci
+
+      - name: Download configs
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        with:
+          name: tmp-configs-${{ github.sha }}
+          path: contracts/configs
+
+      # install node dependencies again, so that we can compile contracts
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Run Slither for base reference
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        shell: bash
+        run: |
+          for file in contracts/scripts/ci/*.sh; do
+            chmod +x "$file"
+          done
+          
+          # modify remappings so that solc can find dependencies
+          ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
+          mv remappings_modified.txt remappings.txt
+          
+          # without it Slither sometimes fails to use remappings correctly
+          cp contracts/foundry.toml foundry.toml
+          
+          FILES="${{ needs.changes.outputs.sol_mod_only_files }}"
+          
+          for FILE in $FILES; do
+            PRODUCT=$(echo "$FILE" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
+            echo "::debug::Running Slither for $FILE in $PRODUCT"
+            SLITHER_CONFIG="contracts/configs/slither/.slither.config-$PRODUCT-pr.json"
+            if [ ! -f $SLITHER_CONFIG ]; then
+              echo "::debug::No Slither config found for $PRODUCT, using default"
+              SLITHER_CONFIG="contracts/configs/slither/.slither.config-default-pr.json"
+            fi
+            ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "." "$FILE" "contracts/slither-reports-base-ref" "--solc-remaps @=contracts/node_modules/@"
+          done
+
+      - name: Upload Slither report
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 10
+        continue-on-error: true
+        with:
+          name: tmp-slither-reports-base-${{ github.sha }}
+          path: |
+            contracts/slither-reports-base-ref
+          retention-days: 7
+
+      - name: Download Slither results for current branch
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        with:
+          name: tmp-slither-reports-current-${{ github.sha }}
+          path: contracts/slither-reports-current
+
+      - name: Generate diff of Slither reports for modified files
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        env:
+          OPEN_API_KEY: ${{ secrets.OPEN_AI_SLITHER_API_KEY }}
+        run: |
+          for original_file in contracts/slither-reports-base-ref/*.md; do
+            base_file=$(basename "$original_file")
+            new_file="contracts/slither-reports-current/$base_file"
+            diff_file="contracts/slither-reports-current/${base_file%.md}_diff.md"
+            if [ -f "$new_file" ]; then
+              report1=$(cat $original_file | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
+              report2=$(cat $new_file | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
+              openai_prompt=$(cat contracts/scripts/ci/prompt.md | sed 's/"/\\"/g' | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
+              openai_model="gpt-4o-mini"
+              openai_result=$(echo '{
+                "model": "'$openai_model'",
+                "temperature": 0.1,
+                "messages": [
+                  {
+                    "role": "system",
+                    "content": "'$openai_prompt' \nreport1:\n```'$report1'```\nreport2:\n```'$report2'```"
+                  }
+                ]
+                }' | envsubst | curl https://api.openai.com/v1/chat/completions \
+                              -w "%{http_code}" \
+                              -o prompt_response.json \
+                              -H "Content-Type: application/json" \
+                              -H "Authorization: Bearer $OPEN_API_KEY" \
+                              -d @-
+                )
+          
+              # throw error openai_result when is not 200
+              if [ "$openai_result" != '200' ]; then
+              echo "::error::OpenAI API call failed with status $openai_result: $(cat prompt_response.json)"
+              exit 1
+              fi
+          
+              # replace lines starting with ' -' (1space) with '  -' (2spaces)
+              response_content=$(cat prompt_response.json | jq -r '.choices[0].message.content')
+              echo "$response_content" | sed -e 's/^ -/  -/g' > $diff_file
+          
+              awk 'NR==2{print "*This diff has been automatically generated by LLM model using two Slither reports. One based on `${{ github.base_ref}}` and another on `${{ github.sha }}` commits.*"}1' $diff_file > tmp.md && mv tmp.md $diff_file
+          
+              echo "Replacing full Slither report with diff for $new_file"
+          
+              rm $new_file
+              mv $diff_file $new_file
+            else
+              echo "File $new_file does not exist, skipping diff."
+              #TODO check with git diff if it indeed was deleted?
+            fi
+          done        
+
       - name: Print Slither summary
         shell: bash
         run: |
           echo "# Static analysis results " >> $GITHUB_STEP_SUMMARY
-          for file in "contracts/slither-reports"/*.md; do
+          for file in "contracts/slither-reports-current"/*.md; do
             if [ -e "$file" ]; then
               cat "$file" >> $GITHUB_STEP_SUMMARY
             fi
@@ -282,7 +445,7 @@ jobs:
         with:
           name: slither-reports-${{ github.sha }}
           path: |
-            contracts/slither-reports
+            contracts/slither-reports-current
           retention-days: 7
 
       - name: Collect Metrics
@@ -296,9 +459,16 @@ jobs:
           this-job-name: Run static analysis
         continue-on-error: true
 
+      - name: Remove temp artifacts
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: tmp-*
+
   solidity-forge-fmt:
     name: Forge fmt ${{ matrix.product.name }}
-    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified == 'true' }}
+    #TODO remove me after testing
+    if: ${{ 'true' == 'false' }}
+    #    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified_added == 'true' }}
     needs: [define-matrix, changes]
     strategy:
       fail-fast: false
