@@ -46,6 +46,8 @@ jobs:
       non_src_changes: ${{ steps.changes.outputs.non_src }}
       sol_modified: ${{ steps.changes.outputs.sol }}
       sol_modified_files: ${{ steps.changes.outputs.sol_files }}
+      not_test_sol_modified: ${{ steps.changes.outputs.not_test_sol }}
+      not_test_sol_modified_files: ${{ steps.changes.outputs.not_test_sol_files }}
       all_changes: ${{ steps.changes.outputs.changes }}
     steps:
       - name: Checkout the repo
@@ -61,6 +63,8 @@ jobs:
               - 'contracts/gas-snapshots/*.gas-snapshot'
             sol:
               - modified|added: 'contracts/src/v0.8/**/*.sol'
+            not_test_sol:
+              - modified|added: 'contracts/src/v0.8/**/!(*.t).sol'            
             automation:
               - 'contracts/src/v0.8/automation/**/*.sol'
             ccip:
@@ -87,7 +91,7 @@ jobs:
               - 'contracts/src/v0.8/vendor/**/*.sol'            
 
   tests:
-    if: ${{ needs.changes.outputs.non_src_changes == 'true' }}
+    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -205,7 +209,7 @@ jobs:
   analyze:
     needs: [ changes ]
     name: Run static analysis
-    if: needs.changes.outputs.sol_modified == 'true'
+    if: needs.changes.outputs.not_test_sol_modified == 'true'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
@@ -252,7 +256,7 @@ jobs:
           ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
           mv remappings_modified.txt remappings.txt
 
-          FILES="${{ needs.changes.outputs.sol_modified_files }}"
+          FILES="${{ needs.changes.outputs.not_test_sol_files }}"
           
           for FILE in $FILES; do
             PRODUCT=$(echo "$FILE" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
