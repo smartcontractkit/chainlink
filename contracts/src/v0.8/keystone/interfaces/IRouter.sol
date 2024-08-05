@@ -19,7 +19,25 @@ interface IRouter {
     FAILED
   }
 
+  struct Transmission {
+    address transmitter;
+    // This is true if the receiver is not a contract or does not implement the
+    // `IReceiver` interface.
+    bool invalidReceiver;
+    // Whether the transmission attempt was successful. If `false`, the
+    // transmission can be retried with an increased gas limit.
+    bool success;
+    // The amount of gas allocated for the `IReceiver.onReport` call. uint80
+    // allows storing gas for known EVM block gas limits.
+    // Ensures that the minimum gas requested by the user is available during
+    // the transmission attempt. If the transmission fails (indicated by a
+    // `false` success state), it can be retried with an increased gas limit.
+    uint80 gasLimit;
+  }
+
   struct TransmissionInfo {
+    bytes32 transmissionId;
+    TransmissionState state;
     address transmitter;
     // This is true if the receiver is not a contract or does not implement the
     // `IReceiver` interface.
@@ -51,20 +69,14 @@ interface IRouter {
     bytes32 workflowExecutionId,
     bytes2 reportId
   ) external pure returns (bytes32);
+  function getTransmissionInfo(
+    address receiver,
+    bytes32 workflowExecutionId,
+    bytes2 reportId
+  ) external view returns (TransmissionInfo memory);
   function getTransmitter(
     address receiver,
     bytes32 workflowExecutionId,
     bytes2 reportId
   ) external view returns (address);
-  function getTransmissionState(
-    address receiver,
-    bytes32 workflowExecutionId,
-    bytes2 reportId
-  ) external view returns (TransmissionState);
-  function getTransmissionGasLimit(
-    address receiver,
-    bytes32 workflowExecutionId,
-    bytes2 reportId
-  ) external view returns (uint256);
-  function isForwarder(address forwarder) external view returns (bool);
 }

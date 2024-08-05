@@ -168,11 +168,12 @@ contract KeystoneForwarder_ReportTest is BaseTest {
   }
 
   function test_Report_SuccessfulDelivery() public {
-    assertEq(
-      uint8(s_forwarder.getTransmissionState(address(s_receiver), executionId, reportId)),
-      uint8(IRouter.TransmissionState.NOT_ATTEMPTED),
-      "TransmissionState mismatch"
+    IRouter.TransmissionInfo memory transmissionInfo = s_forwarder.getTransmissionInfo(
+      address(s_receiver),
+      executionId,
+      reportId
     );
+    assertEq(uint8(transmissionInfo.state), uint8(IRouter.TransmissionState.NOT_ATTEMPTED), "state mismatch");
 
     vm.expectEmit(address(s_receiver));
     emit MessageReceived(metadata, mercuryReports);
@@ -182,42 +183,31 @@ contract KeystoneForwarder_ReportTest is BaseTest {
 
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
 
-    assertEq(
-      s_forwarder.getTransmitter(address(s_receiver), executionId, reportId),
-      TRANSMITTER,
-      "transmitter mismatch"
-    );
-    assertEq(
-      uint8(s_forwarder.getTransmissionState(address(s_receiver), executionId, reportId)),
-      uint8(IRouter.TransmissionState.SUCCEEDED),
-      "TransmissionState mismatch"
-    );
+    transmissionInfo = s_forwarder.getTransmissionInfo(address(s_receiver), executionId, reportId);
 
-    assertGt(
-      s_forwarder.getTransmissionGasLimit(address(s_receiver), executionId, reportId),
-      100_000,
-      "transmission gas limit mismatch"
-    );
+    assertEq(transmissionInfo.transmitter, TRANSMITTER, "transmitter mismatch");
+    assertEq(uint8(transmissionInfo.state), uint8(IRouter.TransmissionState.SUCCEEDED), "state mismatch");
+    assertGt(transmissionInfo.gasLimit, 100_000, "gas limit mismatch");
   }
 
   function test_Report_SuccessfulRetryWithMoreGas() public {
     s_forwarder.report{gas: 200_000}(address(s_receiver), report, reportContext, signatures);
 
-    // Expect to fail with the receiver running out of gas
-    assertEq(
-      uint8(s_forwarder.getTransmissionState(address(s_receiver), executionId, reportId)),
-      uint8(IRouter.TransmissionState.FAILED)
+    IRouter.TransmissionInfo memory transmissionInfo = s_forwarder.getTransmissionInfo(
+      address(s_receiver),
+      executionId,
+      reportId
     );
-    assertGt(s_forwarder.getTransmissionGasLimit(address(s_receiver), executionId, reportId), 100_000);
+    // Expect to fail with the receiver running out of gas
+    assertEq(uint8(transmissionInfo.state), uint8(IRouter.TransmissionState.FAILED), "state mismatch");
+    assertGt(transmissionInfo.gasLimit, 100_000, "gas limit mismatch");
 
     // Should succeed with more gas
     s_forwarder.report{gas: 300_000}(address(s_receiver), report, reportContext, signatures);
 
-    assertEq(
-      uint8(s_forwarder.getTransmissionState(address(s_receiver), executionId, reportId)),
-      uint8(IRouter.TransmissionState.SUCCEEDED)
-    );
-    assertGt(s_forwarder.getTransmissionGasLimit(address(s_receiver), executionId, reportId), 200_000);
+    transmissionInfo = s_forwarder.getTransmissionInfo(address(s_receiver), executionId, reportId);
+    assertEq(uint8(transmissionInfo.state), uint8(IRouter.TransmissionState.SUCCEEDED), "state mismatch");
+    assertGt(transmissionInfo.gasLimit, 200_000, "gas limit mismatch");
   }
 
   function test_Report_FailedDeliveryWhenReceiverNotContract() public {
@@ -229,17 +219,8 @@ contract KeystoneForwarder_ReportTest is BaseTest {
 
     s_forwarder.report(receiver, report, reportContext, signatures);
 
-    assertEq(s_forwarder.getTransmitter(receiver, executionId, reportId), TRANSMITTER, "transmitter mismatch");
-    assertEq(
-      uint8(s_forwarder.getTransmissionState(receiver, executionId, reportId)),
-      uint8(IRouter.TransmissionState.INVALID_RECEIVER),
-      "TransmissionState mismatch"
-    );
-    assertGt(
-      s_forwarder.getTransmissionGasLimit(receiver, executionId, reportId),
-      100_000,
-      "transmission gas limit mismatch"
-    );
+    IRouter.TransmissionInfo memory transmissionInfo = s_forwarder.getTransmissionInfo(receiver, executionId, reportId);
+    assertEq(uint8(transmissionInfo.state), uint8(IRouter.TransmissionState.INVALID_RECEIVER), "state mismatch");
   }
 
   function test_Report_FailedDeliveryWhenReceiverInterfaceNotSupported() public {
@@ -251,17 +232,8 @@ contract KeystoneForwarder_ReportTest is BaseTest {
 
     s_forwarder.report(receiver, report, reportContext, signatures);
 
-    assertEq(s_forwarder.getTransmitter(receiver, executionId, reportId), TRANSMITTER, "transmitter mismatch");
-    assertEq(
-      uint8(s_forwarder.getTransmissionState(receiver, executionId, reportId)),
-      uint8(IRouter.TransmissionState.INVALID_RECEIVER),
-      "TransmissionState mismatch"
-    );
-    assertGt(
-      s_forwarder.getTransmissionGasLimit(receiver, executionId, reportId),
-      100_000,
-      "transmission gas limit mismatch"
-    );
+    IRouter.TransmissionInfo memory transmissionInfo = s_forwarder.getTransmissionInfo(receiver, executionId, reportId);
+    assertEq(uint8(transmissionInfo.state), uint8(IRouter.TransmissionState.INVALID_RECEIVER), "state mismatch");
   }
 
   function test_Report_ConfigVersion() public {
