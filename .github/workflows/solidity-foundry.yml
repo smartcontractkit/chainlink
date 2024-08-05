@@ -252,15 +252,14 @@ jobs:
           ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
           mv remappings_modified.txt remappings.txt
 
-          # IFS=','
           FILES="${{ needs.changes.outputs.sol_modified_files }}"
           
           for FILE in $FILES; do
             PRODUCT=$(echo "$FILE" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
-            echo "Running Slither for $FILE in $PRODUCT"
+            echo "::debug::Running Slither for $FILE in $PRODUCT"
             SLITHER_CONFIG="contracts/configs/slither/.slither.config-$PRODUCT-pr.json"
             if [ ! -f $SLITHER_CONFIG ]; then
-              echo "No Slither config found for $PRODUCT, using default"
+              echo "::debug::No Slither config found for $PRODUCT, using default"
               SLITHER_CONFIG="contracts/configs/slither/.slither.config-default-pr.json"
             fi
             ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "." "$FILE" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
