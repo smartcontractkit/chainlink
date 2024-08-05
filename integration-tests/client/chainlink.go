@@ -66,14 +66,12 @@ func initRestyClient(url string, email string, password string, headers map[stri
 	if timeout != nil {
 		rc.SetTimeout(*timeout)
 	}
-	log.Warn().Bool("Debug", rc.Debug).Msg("here")
 	session := &Session{Email: email, Password: password}
 	// Retry the connection on boot up, sometimes pods can still be starting up and not ready to accept connections
 	var resp *resty.Response
 	var err error
 	retryCount := 20
 	for i := 0; i < retryCount; i++ {
-		log.Warn().Bool("Debug", rc.Debug).Msg("here")
 		resp, err = rc.R().SetBody(session).Post("/sessions")
 		if err != nil {
 			log.Warn().Err(err).Str("URL", url).Interface("Session Details", session).Msg("Error connecting to Chainlink node, retrying")
