@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -457,6 +458,11 @@ func isFatalSendError(err error) bool {
 	return false
 }
 
+var (
+	_ rpc.Error     = JsonError{}
+	_ rpc.DataError = JsonError{}
+)
+
 // go-ethereum@v1.10.0/rpc/json.go
 type JsonError struct {
 	Code    int         `json:"code"`
@@ -471,13 +477,14 @@ func (err JsonError) Error() string {
 	return err.Message
 }
 
-// Satisfies rpc.Error interface, which any actual jsonError returned from geth is expected to
+// To satisfy rpc.Error interface
 func (err JsonError) ErrorCode() int {
 	return err.Code
 }
 
-func (err JsonError) ErrorData() {
-
+// To satisfy rpc.DataError
+func (err JsonError) ErrorData() interface{} {
+	return err.Data
 }
 
 func (err JsonError) String() string {
