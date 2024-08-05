@@ -5,8 +5,6 @@ go 1.22.5
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
-replace github.com/smartcontractkit/chainlink-testing-framework => ../../chainlink-testing-framework
-
 require (
 	github.com/avast/retry-go/v4 v4.5.1
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
