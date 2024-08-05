@@ -123,42 +123,25 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
 
     TransmissionInfo memory transmission = s_transmissions[transmissionId];
     if (transmission.success || transmission.invalidReceiver) revert AlreadyAttempted(transmissionId);
+    uint256 gasLeft = gasleft();
+    if (gasLeft < REQUIRED_GAS_FOR_ROUTING) revert InsufficientGasForRouting(transmissionId);
 
     s_transmissions[transmissionId].transmitter = transmitter;
-    s_transmissions[transmissionId].gasLimit = uint80(gasleft());
+    s_transmissions[transmissionId].gasLimit = uint80(gasLeft);
 
     if (receiver.code.length == 0) {
       s_transmissions[transmissionId].invalidReceiver = true;
       return false;
     }
 
+    uint256 gasLimit = gasLeft - REQUIRED_GAS_FOR_ROUTING;
     bool success;
     bytes memory payload = abi.encodeCall(IReceiver.onReport, (metadata, validatedReport));
+
     assembly {
-      // solidity calls check that a contract actually exists at the destination, so we do the same
-      // Note we do this check prior to measuring gas so REQUIRED_GAS_FOR_ROUTING (our "cushion")
-      // doesn't need to account for it.
-      if iszero(extcodesize(receiver)) {
-        mstore(0x0, 0x00)
-        return(0x0, 0x20)
-      }
-
-      let g := gas()
-      // Compute g -= REQUIRED_GAS_FOR_ROUTING and check for underflow
-      // The gas actually passed to the callee is _min(gasAmount, 63//64*gas available).
-      // We want to ensure that we revert if gasAmount >  63//64*gas available
-      // as we do not want to provide them with less, however that check itself costs
-      // gas. REQUIRED_GAS_FOR_ROUTING ensures we have at least enough gas to be able
-      // to revert if gasAmount >  63//64*gas available.
-      if lt(g, REQUIRED_GAS_FOR_ROUTING) {
-        mstore(0x0, INSUFFICIENT_GAS_FOR_ROUTING_SIG)
-        revert(0x0, 0x4)
-      }
-      g := sub(g, REQUIRED_GAS_FOR_ROUTING)
-
       // call and return whether we succeeded. ignore return data
       // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
-      success := call(g, receiver, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
+      success := call(gasLimit, receiver, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
     }
 
     if (success) {
@@ -202,6 +185,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   ) external view returns (IRouter.TransmissionState) {
     bytes32 transmissionId = getTransmissionId(receiver, workflowExecutionId, reportId);
 
+    if (s_transmissions[transmissionId].invalidReceiver) return IRouter.TransmissionState.INVALID_RECEIVER;
     if (s_transmissions[transmissionId].transmitter == address(0)) return IRouter.TransmissionState.NOT_ATTEMPTED;
     return
       s_transmissions[transmissionId].success ? IRouter.TransmissionState.SUCCEEDED : IRouter.TransmissionState.FAILED;

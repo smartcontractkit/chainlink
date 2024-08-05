@@ -161,6 +161,12 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     s_forwarder.report{gas: 450_000}(receiver, report, reportContext, signatures);
   }
 
+  function test_RevertWhen_AttemptingTransmissionWithInsufficientGas() public {
+    bytes32 transmissionId = s_forwarder.getTransmissionId(address(s_receiver), executionId, reportId);
+    vm.expectRevert(abi.encodeWithSelector(IRouter.InsufficientGasForRouting.selector, transmissionId));
+    s_forwarder.report{gas: 50_000}(address(s_receiver), report, reportContext, signatures);
+  }
+
   function test_Report_SuccessfulDelivery() public {
     vm.expectEmit(address(s_receiver));
     emit MessageReceived(metadata, mercuryReports);
@@ -187,8 +193,6 @@ contract KeystoneForwarder_ReportTest is BaseTest {
       "transmission gas limit mismatch"
     );
   }
-
-  // TODO: Add error for insufficient gas
 
   function test_Report_SuccessfulRetryWithMoreGas() public {
     s_forwarder.report{gas: 150_000}(address(s_receiver), report, reportContext, signatures);
@@ -222,7 +226,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     assertEq(s_forwarder.getTransmitter(receiver, executionId, reportId), TRANSMITTER, "transmitter mismatch");
     assertEq(
       uint8(s_forwarder.getTransmissionState(receiver, executionId, reportId)),
-      uint8(IRouter.TransmissionState.FAILED),
+      uint8(IRouter.TransmissionState.INVALID_RECEIVER),
       "TransmissionState mismatch"
     );
     assertGt(
