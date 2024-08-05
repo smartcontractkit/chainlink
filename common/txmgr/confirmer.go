@@ -1024,21 +1024,26 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head, latestFinalizedHead types.Head[BLOCK_HASH]) error {
+	logArgs := []interface{}{
+		"chainLength", head.ChainLength(), "latestFinalizedHead number", latestFinalizedHead.BlockNumber(),
+	}
+
 	if head.BlockNumber() < latestFinalizedHead.BlockNumber() {
-		logArgs := []interface{}{
-			"chainLength", head.ChainLength(), "latestFinalizedHead", latestFinalizedHead.BlockNumber(),
-		}
+		warnMsg := "current head is shorter than latest finalized head"
+		ec.lggr.Warnw(warnMsg, append(logArgs, "head block number", head.BlockNumber())...)
+	} else if head.ChainLength() < uint32(head.BlockNumber()-latestFinalizedHead.BlockNumber()) {
 		if ec.nConsecutiveBlocksChainTooShort > logAfterNConsecutiveBlocksChainTooShort {
-			warnMsg := "Chain length supplied for re-org detection was shorter than LatestFinalizedHead. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
+			warnMsg := "Chain length supplied for re-org detection was shorter than chain depth. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
 			ec.lggr.Warnw(warnMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
 		} else {
-			logMsg := "Chain length supplied for re-org detection was shorter than LatestFinalizedHead"
+			logMsg := "Chain length supplied for re-org detection was shorter than chain depth"
 			ec.lggr.Debugw(logMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
 		}
 		ec.nConsecutiveBlocksChainTooShort++
 	} else {
 		ec.nConsecutiveBlocksChainTooShort = 0
 	}
+
 	etxs, err := ec.txStore.FindTransactionsConfirmedInBlockRange(ctx, head.BlockNumber(), head.EarliestHeadInChain().BlockNumber(), ec.chainID)
 	if err != nil {
 		return fmt.Errorf("findTransactionsConfirmedInBlockRange failed: %w", err)
