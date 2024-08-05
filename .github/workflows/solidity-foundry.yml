@@ -253,23 +253,24 @@ jobs:
 
       - name: Run Slither for current branch
         shell: bash
-        run: |
-          CHANGED_ARRAY="${{ needs.changes.outputs.sol_modified_added_files }}"
-          
+        run: |          
           # modify remappings so that solc can find dependencies
           ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
           mv remappings_modified.txt remappings.txt
+
+          # IFS=','
+          FILES="${{ needs.changes.outputs.sol_modified_added_files }}"
           
-          for FILE in $CHANGED_ARRAY; do
+          for FILE in $FILES; do
             PRODUCT=$(echo "$FILE" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
             echo "Running Slither for $FILE in $PRODUCT"
             SLITHER_CONFIG="contracts/configs/slither/.slither.config-$PRODUCT-pr.json"
             if [ ! -f $SLITHER_CONFIG ]; then
               echo "No Slither config found for $PRODUCT, using default"
               SLITHER_CONFIG="contracts/configs/slither/.slither.config-default-pr.json"
-              ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "." "$FILE" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
             fi
-          done          
+            ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "." "$FILE" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
+          done
 
       - name: Upload Slither results for current branch
         if: needs.changes.outputs.sol_mod_only == 'true'
@@ -491,9 +492,9 @@ jobs:
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
-          id: solidity-foundry-fmt-${{ matrix.product.name }}
+          id: solidity-forge-fmt-${{ matrix.product.name }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Foundry fmt ${{ matrix.product.name }}
+          this-job-name: Forge fmt ${{ matrix.product.name }}
         continue-on-error: true
