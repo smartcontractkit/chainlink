@@ -1,4 +1,4 @@
-name: "Build and Publish"
+name: "Push develop to private ECR"
 
 on:
   pull_request:
@@ -17,9 +17,9 @@ env:
   GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
 
 jobs:
-  build-publish-chainlink-develop:
-    name: "Chainlink Unsigned Image"
-    runs-on: ubuntu-20.04
+  push-chainlink-develop:
+    runs-on:
+      labels: ubuntu22.04-16cores-64GB
     outputs:
       goreleaser-metadata: ${{ steps.build-sign-publish.outputs.goreleaser-metadata }}
       goreleaser-artifacts: ${{ steps.build-sign-publish.outputs.goreleaser-artifacts }}
