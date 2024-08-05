@@ -337,7 +337,7 @@ contract EVM2EVMMultiOnRamp_forwardFromRouter is EVM2EVMMultiOnRampSetup {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = bytes("bad args");
 
-    vm.expectRevert(EVM2EVMMultiOnRamp.InvalidExtraArgsTag.selector);
+    vm.expectRevert(PriceRegistry.InvalidExtraArgsTag.selector);
 
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
   }
