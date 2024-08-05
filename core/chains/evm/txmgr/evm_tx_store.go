@@ -703,7 +703,7 @@ func (o *evmTxStore) loadEthTxesAttemptsReceipts(ctx context.Context, etxs []*Tx
 	return nil
 }
 
-// loadEthTxesAttemptsPartialReceipts loads ethTxes with attempts contains partial values for optimization
+// loadEthTxesAttemptsPartialReceipts loads ethTxes with partial attempts values for optimization
 func (o *evmTxStore) loadEthTxesAttemptsPartialReceipts(ctx context.Context, etxs []*Tx) (err error) {
 	attemptHashM, attemptHashes, empty := initEthTxesAttempts(etxs)
 	if empty {
@@ -1210,7 +1210,7 @@ ORDER BY nonce ASC
 			return pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load evm.tx_attempts")
 		}
 
-		// retrieve tx with attempts which contain partial values for optimization purpose
+		// retrieve tx with attempts which contain partial attempts values for optimization purpose
 		err = orm.loadEthTxesAttemptsPartialReceipts(ctx, etxs)
 		return pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load evm.receipts")
 	})
