@@ -517,7 +517,11 @@ func (s *Shell) Health(c *cli.Context) error {
 	if c.Bool("json") {
 		mime = gin.MIMEJSON
 	}
-	resp, err := s.HTTP.Get(s.ctx(), "/health", map[string]string{"Accept": mime})
+	u := "/health"
+	if c.Bool("failing") {
+		u += "?failing"
+	}
+	resp, err := s.HTTP.Get(s.ctx(), u, map[string]string{"Accept": mime})
 	if err != nil {
 		return s.errorOut(err)
 	}
