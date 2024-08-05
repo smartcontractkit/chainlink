@@ -1,4 +1,4 @@
-name: "Push develop to private ECR"
+name: "Build and Publish"
 
 on:
   pull_request:
@@ -17,7 +17,8 @@ env:
   GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
 
 jobs:
-  push-chainlink-develop:
+  build-publish-chainlink-develop:
+    name: "Chainlink Unsigned Image"
     runs-on:
       labels: ubuntu22.04-16cores-64GB
     outputs:
