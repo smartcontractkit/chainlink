@@ -664,11 +664,15 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bat
 		}
 
 		if receipt.GetStatus() == 0 {
-			rpcError, errExtract := ec.client.CallContract(ctx, attempt, receipt.GetBlockNumber())
-			if errExtract == nil {
-				l.Warnw("transaction reverted on-chain", "hash", receipt.GetTxHash(), "rpcError", rpcError.String())
+			if receipt.GetRevertReason() != nil {
+				l.Warnw("transaction reverted on-chain", "hash", receipt.GetTxHash(), "revertReason", *receipt.GetRevertReason())
 			} else {
-				l.Warnw("transaction reverted on-chain unable to extract revert reason", "hash", receipt.GetTxHash(), "err", err)
+				rpcError, errExtract := ec.client.CallContract(ctx, attempt, receipt.GetBlockNumber())
+				if errExtract == nil {
+					l.Warnw("transaction reverted on-chain", "hash", receipt.GetTxHash(), "rpcError", rpcError.String())
+				} else {
+					l.Warnw("transaction reverted on-chain unable to extract revert reason", "hash", receipt.GetTxHash(), "err", err)
+				}
 			}
 			// This might increment more than once e.g. in case of re-orgs going back and forth we might re-fetch the same receipt
 			promRevertedTxCount.WithLabelValues(ec.chainID.String()).Add(1)
