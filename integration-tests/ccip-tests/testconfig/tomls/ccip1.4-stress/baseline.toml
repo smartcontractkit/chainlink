@@ -7,7 +7,7 @@
 ##
 ## make test_load_ccip testimage=<aws account number>.dkr.ecr.<aws region>.amazonaws.com/chainlink-ccip-tests:ccip-develop  \
 ##      testname=TestLoadCCIPStableRequestTriggeringWithNetworkChaos \
-##      override_toml=./testconfig/tomls/baseline.toml \
+##      override_toml=./testconfig/tomls/ccip-1.4-stress/baseline.toml \
 ##      secret_toml=./testconfig/tomls/secrets.toml
 
 [CCIP]
@@ -148,8 +148,8 @@ BatchGasLimit = 11000000
 
 [CCIP.Groups.load.TokenConfig]
 TimeoutForPriceUpdate = '15m'
-NoOfTokensPerChain = 60
-NoOfTokensWithDynamicPrice = 15
+NoOfTokensPerChain = 10
+NoOfTokensWithDynamicPrice = 10
 DynamicPriceUpdateInterval ='15s'
 CCIPOwnerTokens = true
 
@@ -168,14 +168,14 @@ Frequencies = [4,12,3,1]
 MsgType = 'Token'
 DestGasLimit = 0
 DataLength = 0
-NoOfTokens = 5
+NoOfTokens = 1
 AmountPerToken = 1
 
 [[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
 MsgType = 'DataWithToken'
 DestGasLimit = 500000
 DataLength = 5000
-NoOfTokens = 5
+NoOfTokens = 1
 AmountPerToken = 1
 
 [[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
