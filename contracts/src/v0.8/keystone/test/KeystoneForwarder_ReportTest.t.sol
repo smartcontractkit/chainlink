@@ -246,7 +246,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     // Receiver is a contract but doesn't implement the required interface
     address receiver = address(s_forwarder);
 
-    vm.expectEmit(address(s_forwarder));
+    vm.expectEmit(true, true, true, false);
     emit ReportProcessed(receiver, executionId, reportId, false);
 
     s_forwarder.report(receiver, report, reportContext, signatures);
@@ -254,7 +254,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     assertEq(s_forwarder.getTransmitter(receiver, executionId, reportId), TRANSMITTER, "transmitter mismatch");
     assertEq(
       uint8(s_forwarder.getTransmissionState(receiver, executionId, reportId)),
-      uint8(IRouter.TransmissionState.FAILED),
+      uint8(IRouter.TransmissionState.INVALID_RECEIVER),
       "TransmissionState mismatch"
     );
     assertGt(

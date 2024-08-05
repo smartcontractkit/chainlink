@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
+
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
+import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
+
 import {IReceiver} from "./interfaces/IReceiver.sol";
 import {IRouter} from "./interfaces/IRouter.sol";
-import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
-
-import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
 /// @notice This is an entry point for `write_${chain}` Target capability. It
 /// allows nodes to determine if reports have been processed (successfully or
@@ -131,6 +133,11 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     s_transmissions[transmissionId].gasLimit = uint80(gasLimit);
 
     if (receiver.code.length == 0) {
+      s_transmissions[transmissionId].invalidReceiver = true;
+      return false;
+    }
+
+    try IERC165(receiver).supportsInterface(type(IReceiver).interfaceId) {} catch {
       s_transmissions[transmissionId].invalidReceiver = true;
       return false;
     }
