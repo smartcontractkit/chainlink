@@ -73,7 +73,7 @@ jobs:
               - 'contracts/src/v0.8/l2ep/**/*.sol'
             liquiditymanager:
               - 'contracts/src/v0.8/liquiditymanager/**/*.sol'
-            ll-feeds:
+            llo-feeds:
               - 'contracts/src/v0.8/llo-feeds/**/*.sol'
             operatorforwarder:
               - 'contracts/src/v0.8/operatorforwarder/**/*.sol'
@@ -248,14 +248,22 @@ jobs:
       - name: Run Slither
         shell: bash
         run: |
-          CHANGED="${{ needs.changes.outputs.sol_modified_files }}"
-          CHANGED_ARRAY=$(echo "$CHANGED" | tr ' ' ',')
+          CHANGED_ARRAY="${{ needs.changes.outputs.sol_modified_files }}"
           
           # modify remappings so that solc can find dependencies
           ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
           mv remappings_modified.txt remappings.txt
           
-          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/.slither.config-pr.json "." "$CHANGED_ARRAY" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
+          for FILE in $CHANGED_ARRAY; do
+            PRODUCT=$(echo "$FILE" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
+            echo "Running Slither for $FILE in $PRODUCT"
+            SLITHER_CONFIG="contracts/configs/slither/.slither.config-$PRODUCT-pr.json"
+            if [ ! -f $SLITHER_CONFIG ]; then
+              echo "No Slither config found for $PRODUCT, using default"
+              SLITHER_CONFIG="contracts/configs/slither/.slither.config-default-pr.json"
+              ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "." "$FILE" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
+            fi
+          done          
 
       - name: Print Slither summary
         shell: bash
