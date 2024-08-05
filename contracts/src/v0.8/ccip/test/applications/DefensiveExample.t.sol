@@ -94,4 +94,31 @@ contract DefensiveExampleTest is EVM2EVMOnRampSetup {
       })
     );
   }
+
+  function test_HappyPath_Success2() public {
+    bytes32 messageId = keccak256("messageId");
+    address token = address(s_destFeeToken);
+    uint256 amount = 111333333777;
+    Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](1);
+    destTokenAmounts[0] = Client.EVMTokenAmount({token: token, amount: amount});
+
+    // Make sure we give the receiver contract enough tokens like CCIP would.
+    deal(token, address(s_receiver), amount);
+
+    // The receiver contract will revert if the router is not the sender.
+    vm.startPrank(address(s_destRouter));
+
+    vm.expectEmit();
+    emit MessageSucceeded(messageId);
+
+    s_receiver.ccipReceive(
+      Client.Any2EVMMessage({
+        messageId: messageId,
+        sourceChainSelector: sourceChainSelector,
+        sender: abi.encode(address(s_receiver)), // correct sender
+        data: "",
+        destTokenAmounts: destTokenAmounts
+      })
+    );
+  }
 }
