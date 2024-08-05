@@ -236,8 +236,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 		"blockDifficulty", head.BlockDifficulty(),
 	)
 
-	err := ht.headSaver.Save(ctx, head)
-	if ctx.Err() != nil {
+	if err := ht.headSaver.Save(ctx, head); ctx.Err() != nil {
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to save head: %#v: %w", head, err)
@@ -264,8 +263,9 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 
 		if prevLatestFinalized != nil && head.BlockNumber() <= prevLatestFinalized.BlockNumber() {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
-			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.BlockNumber(), prevHead.BlockNumber())
-			ht.SvcErrBuffer.Append(errors.New("got very old block"))
+			err := fmt.Errorf("got very old block with number %d (highest seen was %d)", head.BlockNumber(), prevHead.BlockNumber())
+			ht.log.Critical("Got very old block. Either a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", "err", err)
+			ht.SvcErrBuffer.Append(err)
 		}
 	}
 	return nil
