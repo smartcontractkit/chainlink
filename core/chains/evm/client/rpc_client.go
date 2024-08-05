@@ -467,12 +467,14 @@ func isRequestingFinalizedBlock(el rpc.BatchElem) bool {
 		return true
 	}
 
-	if stringer, ok := el.Args[0].(fmt.Stringer); ok && stringer.String() == rpc.FinalizedBlockNumber.String() {
-		return true
+	switch arg := el.Args[0].(type) {
+	case string:
+		return arg == rpc.FinalizedBlockNumber.String()
+	case fmt.Stringer:
+		return arg.String() == rpc.FinalizedBlockNumber.String()
+	default:
+		return false
 	}
-
-	str, ok := el.Args[0].(string)
-	return ok && str == rpc.FinalizedBlockNumber.String()
 }
 
 // TODO: Full transition from SubscribeNewHead to SubscribeToHeads is done in BCI-2875
