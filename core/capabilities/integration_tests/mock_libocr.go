@@ -157,10 +157,6 @@ func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
 				Signer:    commontypes.OracleID(i),
 				Signature: sig,
 			})
-
-			if uint8(len(signatures)) == m.f+1 {
-				break
-			}
 		}
 
 		for _, node := range m.nodes {
@@ -181,7 +177,16 @@ func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
 				continue
 			}
 
-			err = node.Transmit(ctx, types.ConfigDigest{}, 0, report, signatures)
+			// For each node select a random set of f+1 signatures to mimic libocr behaviour
+			s := rand.NewSource(time.Now().UnixNano())
+			r := rand.New(s)
+			indices := r.Perm(len(signatures))
+			selectedSignatures := make([]types.AttributedOnchainSignature, m.f+1)
+			for i := 0; i < int(m.f+1); i++ {
+				selectedSignatures[i] = signatures[indices[i]]
+			}
+
+			err = node.Transmit(ctx, types.ConfigDigest{}, 0, report, selectedSignatures)
 			if err != nil {
 				return fmt.Errorf("failed to transmit report: %w", err)
 			}
