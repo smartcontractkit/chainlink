@@ -159,3 +159,16 @@ func TestHeads_MarkFinalized(t *testing.T) {
 	heads.AddHeads(h0, h1, h2, h2Uncle, h3, h4, h5)
 	t.Run("blocks remain finalized after re adding them to the Heads", ensureProperFinalization)
 }
+
+func BenchmarkEarliestHeadInChain(b *testing.B) {
+	const latestBlockNum = 200_000
+	blocks := NewBlocks(b, latestBlockNum+1)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		latest := blocks.Head(latestBlockNum)
+		earliest := latest.EarliestHeadInChain()
+		// perform sanity check
+		assert.NotEqual(b, latest.BlockNumber(), earliest.BlockNumber())
+		assert.NotEqual(b, latest.BlockHash(), earliest.BlockHash())
+	}
+}

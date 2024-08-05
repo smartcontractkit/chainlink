@@ -1276,8 +1276,11 @@ func TestHeadTracker_LatestAndFinalizedBlock(t *testing.T) {
 // BenchmarkHeadTracker_Backfill - benchmarks HeadTracker's Backfill with focus on efficiency after initial
 // backfill on start up
 func BenchmarkHeadTracker_Backfill(b *testing.B) {
+	const finalityDepth = 16_000 // observed value on Arbitrum
 	evmcfg := testutils.NewTestChainScopedConfig(b, func(c *toml.EVMConfig) {
 		c.FinalityTagEnabled = ptr(true)
+		c.HeadTracker.FinalityTagBypass = ptr(false)
+		c.HeadTracker.MaxAllowedFinalityDepth = ptr(uint32(finalityDepth))
 	})
 	db := pgtest.NewSqlxDB(b)
 	chainID := big.NewInt(evmclient.NullClientChainID)
@@ -1289,7 +1292,6 @@ func BenchmarkHeadTracker_Backfill(b *testing.B) {
 	makeHash := func(n int64) common.Hash {
 		return common.BigToHash(big.NewInt(n))
 	}
-	const finalityDepth = 12000 // observed value on Arbitrum
 	makeBlock := func(n int64) *evmtypes.Head {
 		return &evmtypes.Head{Number: n, Hash: makeHash(n), ParentHash: makeHash(n - 1)}
 	}
@@ -1425,7 +1427,7 @@ func (hb *headBuffer) Append(head *evmtypes.Head) {
 }
 
 type blocks struct {
-	t       *testing.T
+	t       testing.TB
 	Hashes  []common.Hash
 	mHashes map[int64]common.Hash
 	Heads   map[int64]*evmtypes.Head
@@ -1435,7 +1437,7 @@ func (b *blocks) Head(number uint64) *evmtypes.Head {
 	return b.Heads[int64(number)]
 }
 
-func NewBlocks(t *testing.T, numHashes int) *blocks {
+func NewBlocks(t testing.TB, numHashes int) *blocks {
 	hashes := make([]common.Hash, 0)
 	heads := make(map[int64]*evmtypes.Head)
 	for i := int64(0); i < int64(numHashes); i++ {
