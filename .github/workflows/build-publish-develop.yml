@@ -1,6 +1,9 @@
-name: "Push develop to private ECR"
+name: "Build and publish chainlink unsigned image"
 
 on:
+  pull_request:
+    branches:
+      - '!release/**'
   push:
     branches:
       - develop
@@ -9,61 +12,56 @@ on:
       git_ref:
         description: "Git ref (commit SHA, branch name, tag name, etc.) to checkout"
         required: true
+
 env:
   GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
 
 jobs:
-  push-chainlink-develop:
-    runs-on: ubuntu-20.04
+  build-publish-chainlink-develop:
+    runs-on:
+      labels: ubuntu22.04-16cores-64GB
+    outputs:
+      goreleaser-metadata: ${{ steps.build-sign-publish.outputs.goreleaser-metadata }}
+      goreleaser-artifacts: ${{ steps.build-sign-publish.outputs.goreleaser-artifacts }}
     environment: build-develop
     permissions:
       id-token: write
       contents: read
-    strategy:
-      matrix:
-        image:
-          - name: ""
-            dockerfile: core/chainlink.Dockerfile
-            tag-suffix: ""
-          - name: (plugins)
-            dockerfile: plugins/chainlink.Dockerfile
-            tag-suffix: -plugins
-    name: push-chainlink-develop ${{ matrix.image.name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           ref: ${{ env.GIT_REF }}
-      # When this is ran from manual workflow_dispatch, the github.sha may be
-      # different than the checked out commit sha. The core build uses this
-      # commit sha as build metadata, so we need to make sure it's correct.
-      - name: Get checked out git ref
-        if: github.event.inputs.git_ref
-        id: git-ref
-        run: echo "checked-out=$(git rev-parse HEAD)" | tee -a "${GITHUB_OUTPUT}"
-      - name: Build, sign and publish chainlink image
-        uses: ./.github/actions/build-sign-publish-chainlink
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
-          publish: true
-          aws-role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
-          aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
+          role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
-          ecr-hostname: ${{ secrets.AWS_DEVELOP_ECR_HOSTNAME }}
-          ecr-image-name: chainlink
-          ecr-tag-suffix: ${{ matrix.image.tag-suffix }}
-          dockerfile: ${{ matrix.image.dockerfile }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          git-commit-sha: ${{ steps.git-ref.outputs.checked-out || github.sha }}
+          mask-aws-account-id: true
+          role-session-name: build-publish-chainlink-develop
+
+      - name: Build, sign, and publish image
+        id: build-sign-publish
+        uses: ./.github/actions/goreleaser-build-sign-publish
+        with:
+          enable-docker-publish: "true"
+          docker-registry: ${{ secrets.AWS_DEVELOP_ECR_HOSTNAME }}
+          enable-goreleaser-snapshot: "true"
+          goreleaser-exec: ./tools/bin/goreleaser_wrapper
+          goreleaser-config: .goreleaser.develop.yaml
+          goreleaser-key: ${{ secrets.GORELEASER_KEY }}
+          zig-version: 0.11.0
 
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
-          id: build-chainlink-develop
+          id: goreleaser-build-publish
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: push-chainlink-develop ${{ matrix.image.name }}
+          this-job-name: build-publish-chainlink-develop
         continue-on-error: true
