@@ -35,17 +35,6 @@ interface IRouter {
     uint80 gasLimit;
   }
 
-  struct Transmission {
-    address transmitter;
-    TransmissionState state;
-    // The amount of gas allocated for the `IReceiver.onReport` call. uint80
-    // allows storing gas for known EVM block gas limits.
-    // Ensures that the minimum gas requested by the user is available during
-    // the transmission attempt. If the transmission fails (indicated by a
-    // `false` success state), it can be retried with an increased gas limit.
-    uint80 gasLimit;
-  }
-
   function addForwarder(address forwarder) external;
   function removeForwarder(address forwarder) external;
 
