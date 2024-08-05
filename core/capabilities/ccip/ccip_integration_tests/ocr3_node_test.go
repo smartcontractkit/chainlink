@@ -8,12 +8,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ping_pong_demo"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -25,11 +23,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const STATE_SUCCESS = uint8(2)
+
 /*
 *   If you want to debug, set log level to info and use the following commands for easier logs filtering.
 *
 *   // Run the test and redirect logs to logs.txt
-*   go test -v -run "^TestIntegration_OCR3Nodes" ./core/services/ocr3/plugins/ccip_integration_tests 2>&1 > logs.txt
+*   go test -v -run "^TestIntegration_OCR3Nodes" ./core/capabilities/ccip/ccip_integration_tests 2>&1 > logs.txt
 *
 *   // Reads logs.txt as a stream and apply filters using grep
 *   tail -fn0 logs.txt | grep "CCIPExecPlugin"
@@ -42,7 +42,7 @@ func TestIntegration_OCR3Nodes(t *testing.T) {
 		simulatedBackendBlockTime = 900 * time.Millisecond // Simulated backend blocks committing interval
 		oraclesBootWaitTime       = 30 * time.Second       // Time to wait for oracles to come up (HACK)
 		fChain                    = 1                      // fChain value for all the chains
-		oracleLogLevel            = zapcore.ErrorLevel     // Log level for the oracle / plugins.
+		oracleLogLevel            = zapcore.InfoLevel      // Log level for the oracle / plugins.
 	)
 
 	t.Logf("creating %d universes", numChains)
@@ -113,7 +113,6 @@ func TestIntegration_OCR3Nodes(t *testing.T) {
 
 	cfgs, err := homeChainUni.ccipConfig.GetAllChainConfigs(callCtx)
 	require.NoError(t, err)
-	t.Logf("Got all homechain configs %#v", cfgs)
 	require.Len(t, cfgs, numChains)
 
 	// Create a DON for each chain
@@ -144,15 +143,11 @@ func TestIntegration_OCR3Nodes(t *testing.T) {
 		require.NoErrorf(t, tApp.AddJobV2(ctx, &jb), "Wasn't able to create ccip job for node %d", i)
 	}
 
-	t.Logf("Initializing PingPong contracts")
-	pingPongs := initializePingPongContracts(t, universes)
-
-	// NOTE: messageIDs are populated in the sendPingPong function
-	var messageIDs = make(map[uint64]map[uint64][32]byte) // sourceChain->destChain->messageID
-	var replayBlocks = make(map[uint64]uint64)            // chainID -> blocksToReplay
-
-	t.Logf("Sending ping pong from each chain to each other")
-	sendPingPong(t, universes, pingPongs, messageIDs, replayBlocks, 1)
+	t.Logf("Sending ccip requests from each chain to all other chains")
+	for _, uni := range universes {
+		requests := genRequestData(uni.chainID, universes)
+		uni.SendCCIPRequests(t, requests)
+	}
 
 	// Wait for the oracles to come up.
 	// TODO: We need some data driven way to do this e.g. wait until LP filters to be registered.
@@ -161,136 +156,126 @@ func TestIntegration_OCR3Nodes(t *testing.T) {
 	// Replay the log poller on all the chains so that the logs are in the db.
 	// otherwise the plugins won't pick them up.
 	for _, node := range nodes {
-		for chainID, replayBlock := range replayBlocks {
-			t.Logf("Replaying logs for chain %d from block %d", chainID, replayBlock)
-			require.NoError(t, node.app.ReplayFromBlock(big.NewInt(int64(chainID)), replayBlock, false), "failed to replay logs")
+		for chainID := range universes {
+			t.Logf("Replaying logs for chain %d from block %d", chainID, 1)
+			require.NoError(t, node.app.ReplayFromBlock(big.NewInt(int64(chainID)), 1, false), "failed to replay logs")
 		}
 	}
 
-	// Wait for the commit reports to be generated and reported on all chains.
-	numUnis := len(universes)
+	// with only one request sent from each chain to each other chain,
+	// and with sequence numbers on incrementing by 1 on a per-dest chain
+	// basis, we expect the min sequence number to be 1 on all chains.
+	expectedSeqNrRange := ccipocr3.NewSeqNumRange(1, 1)
 	var wg sync.WaitGroup
 	for _, uni := range universes {
-		wg.Add(1)
-		go func(uni onchainUniverse) {
-			defer wg.Done()
-			waitForCommit(t, uni, numUnis, nil)
-		}(uni)
-	}
-
-	tStart := time.Now()
-	t.Log("Waiting for commit reports")
-	wg.Wait()
-	t.Logf("Commit reports received after %s", time.Since(tStart))
-
-	var preRequestBlocks = make(map[uint64]uint64)
-	for _, uni := range universes {
-		preRequestBlocks[uni.chainID] = uni.backend.Blockchain().CurrentBlock().Number.Uint64()
-	}
-
-	t.Log("Sending ping pong from each chain to each other again for a second time")
-	sendPingPong(t, universes, pingPongs, messageIDs, replayBlocks, 2)
-
-	for _, uni := range universes {
-		startBlock := preRequestBlocks[uni.chainID]
-		wg.Add(1)
-		go func(uni onchainUniverse, startBlock *uint64) {
-			defer wg.Done()
-			waitForCommit(t, uni, numUnis, startBlock)
-		}(uni, &startBlock)
-	}
-
-	tStart = time.Now()
-	t.Log("Waiting for second batch of commit reports")
-	wg.Wait()
-	t.Logf("Second batch of commit reports received after %s", time.Since(tStart))
-}
-
-func sendPingPong(t *testing.T, universes map[uint64]onchainUniverse, pingPongs map[uint64]map[uint64]*ping_pong_demo.PingPongDemo, messageIDs map[uint64]map[uint64][32]byte, replayBlocks map[uint64]uint64, expectedSeqNum uint64) {
-	for chainID, uni := range universes {
-		var replayBlock uint64
-		for otherChain, pingPong := range pingPongs[chainID] {
-			t.Log("PingPong From: ", chainID, " To: ", otherChain)
-
-			expNextSeqNr, err1 := uni.onramp.GetExpectedNextSequenceNumber(&bind.CallOpts{}, getSelector(otherChain))
-			require.NoError(t, err1)
-			require.Equal(t, expectedSeqNum, expNextSeqNr, "expected next sequence number should be 1")
-
-			uni.backend.Commit()
-
-			_, err2 := pingPong.StartPingPong(uni.owner)
-			require.NoError(t, err2)
-			uni.backend.Commit()
-
-			endBlock := uni.backend.Blockchain().CurrentBlock().Number.Uint64()
-			logIter, err3 := uni.onramp.FilterCCIPSendRequested(&bind.FilterOpts{
-				Start: endBlock - 1,
-				End:   &endBlock,
-			}, []uint64{getSelector(otherChain)})
-			require.NoError(t, err3)
-			// Iterate until latest event
-			var count int
-			for logIter.Next() {
-				count++
+		for remoteSelector := range universes {
+			if remoteSelector == uni.chainID {
+				continue
 			}
-			require.Equal(t, 1, count, "expected 1 CCIPSendRequested log only")
-
-			log := logIter.Event
-			require.Equal(t, getSelector(otherChain), log.DestChainSelector)
-			require.Equal(t, pingPong.Address(), log.Message.Sender)
-			chainPingPongAddr := pingPongs[otherChain][chainID].Address().Bytes()
-
-			// Receiver address is abi-encoded if destination is EVM.
-			paddedAddr := common.LeftPadBytes(chainPingPongAddr, len(log.Message.Receiver))
-			require.Equal(t, paddedAddr, log.Message.Receiver)
-
-			// check that sequence number is equal to the expected next sequence number.
-			// and that the sequence number is bumped in the onramp.
-			require.Equalf(t, log.Message.Header.SequenceNumber, expNextSeqNr, "incorrect sequence number in CCIPSendRequested event on chain %d", log.DestChainSelector)
-			newExpNextSeqNr, err := uni.onramp.GetExpectedNextSequenceNumber(&bind.CallOpts{}, getSelector(otherChain))
-			require.NoError(t, err)
-			require.Equal(t, expNextSeqNr+1, newExpNextSeqNr, "expected next sequence number should be bumped by 1")
-
-			_, ok := messageIDs[chainID]
-			if !ok {
-				messageIDs[chainID] = make(map[uint64][32]byte)
-			}
-			messageIDs[chainID][otherChain] = log.Message.Header.MessageId
-
-			// replay block should be the earliest block that has a ccip message.
-			if replayBlock == 0 {
-				replayBlock = endBlock
-			}
+			wg.Add(1)
+			go func(uni onchainUniverse, remoteSelector uint64) {
+				defer wg.Done()
+				waitForCommitWithInterval(t, uni, getSelector(remoteSelector), expectedSeqNrRange)
+			}(uni, remoteSelector)
 		}
-		replayBlocks[chainID] = replayBlock
 	}
+
+	start := time.Now()
+	wg.Wait()
+	t.Logf("All chains received the expected commit report in %s", time.Since(start))
+
+	// with only one request sent from each chain to each other chain,
+	// all ExecutionStateChanged events should have the sequence number 1.
+	expectedSeqNr := uint64(1)
+	for _, uni := range universes {
+		for remoteSelector := range universes {
+			if remoteSelector == uni.chainID {
+				continue
+			}
+			wg.Add(1)
+			go func(uni onchainUniverse, remoteSelector uint64) {
+				defer wg.Done()
+				waitForExecWithSeqNr(t, uni, getSelector(remoteSelector), expectedSeqNr)
+			}(uni, remoteSelector)
+		}
+	}
+
+	start = time.Now()
+	wg.Wait()
+	t.Logf("All chains received the expected ExecutionStateChanged event in %s", time.Since(start))
 }
 
-func waitForCommit(t *testing.T, uni onchainUniverse, numUnis int, startBlock *uint64) {
+func genRequestData(chainID uint64, universes map[uint64]onchainUniverse) []requestData {
+	var res []requestData
+	for destChainID, destUni := range universes {
+		if destChainID == chainID {
+			continue
+		}
+		res = append(res, requestData{
+			destChainSelector: getSelector(destChainID),
+			receiverAddress:   destUni.receiver.Address(),
+			data:              []byte(fmt.Sprintf("msg from chain %d to chain %d", chainID, destChainID)),
+		})
+	}
+	return res
+}
+
+func waitForCommitWithInterval(
+	t *testing.T,
+	uni onchainUniverse,
+	expectedSourceChainSelector uint64,
+	expectedSeqNumRange ccipocr3.SeqNumRange,
+) {
 	sink := make(chan *evm_2_evm_multi_offramp.EVM2EVMMultiOffRampCommitReportAccepted)
 	subscription, err := uni.offramp.WatchCommitReportAccepted(&bind.WatchOpts{
-		Start:   startBlock,
 		Context: testutils.Context(t),
 	}, sink)
 	require.NoError(t, err)
 
 	for {
 		select {
-		case <-time.After(5 * time.Second):
-			t.Logf("Waiting for commit report on chain id %d (selector %d)", uni.chainID, getSelector(uni.chainID))
+		case <-time.After(10 * time.Second):
+			t.Logf("Waiting for commit report on chain id %d (selector %d) from source selector %d expected seq nr range %s",
+				uni.chainID, getSelector(uni.chainID), expectedSourceChainSelector, expectedSeqNumRange.String())
 		case subErr := <-subscription.Err():
 			t.Fatalf("Subscription error: %+v", subErr)
 		case report := <-sink:
 			if len(report.Report.MerkleRoots) > 0 {
-				if len(report.Report.MerkleRoots) == numUnis-1 {
-					t.Logf("Received commit report with %d merkle roots on chain id %d (selector %d): %+v",
-						len(report.Report.MerkleRoots), uni.chainID, getSelector(uni.chainID), report)
-					return
+				// Check the interval of sequence numbers and make sure it matches
+				// the expected range.
+				for _, mr := range report.Report.MerkleRoots {
+					if mr.SourceChainSelector == expectedSourceChainSelector &&
+						uint64(expectedSeqNumRange.Start()) == mr.Interval.Min &&
+						uint64(expectedSeqNumRange.End()) == mr.Interval.Max {
+						t.Logf("Received commit report on chain id %d (selector %d) from source selector %d expected seq nr range %s",
+							uni.chainID, getSelector(uni.chainID), expectedSourceChainSelector, expectedSeqNumRange.String())
+						return
+					}
 				}
-				t.Fatalf("Received commit report with %d merkle roots, expected %d", len(report.Report.MerkleRoots), numUnis)
-			} else {
-				t.Logf("Received commit report without merkle roots on chain id %d (selector %d): %+v", uni.chainID, getSelector(uni.chainID), report)
 			}
 		}
+	}
+}
+
+func waitForExecWithSeqNr(t *testing.T, uni onchainUniverse, expectedSourceChainSelector, expectedSeqNr uint64) {
+	for {
+		scc, err := uni.offramp.GetSourceChainConfig(nil, expectedSourceChainSelector)
+		require.NoError(t, err)
+		t.Logf("Waiting for ExecutionStateChanged on chain %d (selector %d) from chain %d with expected sequence number %d, current onchain minSeqNr: %d",
+			uni.chainID, getSelector(uni.chainID), expectedSourceChainSelector, expectedSeqNr, scc.MinSeqNr)
+		iter, err := uni.offramp.FilterExecutionStateChanged(nil, []uint64{expectedSourceChainSelector}, []uint64{expectedSeqNr}, nil)
+		require.NoError(t, err)
+		var count int
+		for iter.Next() {
+			if iter.Event.SequenceNumber == expectedSeqNr && iter.Event.SourceChainSelector == expectedSourceChainSelector {
+				count++
+			}
+		}
+		if count == 1 {
+			t.Logf("Received ExecutionStateChanged on chain %d (selector %d) from chain %d with expected sequence number %d",
+				uni.chainID, getSelector(uni.chainID), expectedSourceChainSelector, expectedSeqNr)
+			return
+		}
+		time.Sleep(5 * time.Second)
 	}
 }

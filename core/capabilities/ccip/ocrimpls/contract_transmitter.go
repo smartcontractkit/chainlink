@@ -176,7 +176,7 @@ func (c *commitTransmitter[RI]) Transmit(
 		return fmt.Errorf("failed to generate UUID: %w", err)
 	}
 	zero := big.NewInt(0)
-	if err := c.cw.SubmitTransaction(ctx, c.contractName, c.method, args, txID.String(), c.offrampAddress, &meta, zero); err != nil {
+	if err := c.cw.SubmitTransaction(ctx, c.contractName, c.method, args, fmt.Sprintf("%s-%s-%s", c.contractName, c.offrampAddress, txID.String()), c.offrampAddress, &meta, zero); err != nil {
 		return fmt.Errorf("failed to submit transaction thru chainwriter: %w", err)
 	}
 
