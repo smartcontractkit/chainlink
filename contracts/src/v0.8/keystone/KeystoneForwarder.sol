@@ -126,15 +126,15 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     uint256 gasLeft = gasleft();
     if (gasLeft < REQUIRED_GAS_FOR_ROUTING) revert InsufficientGasForRouting(transmissionId);
 
+    uint256 gasLimit = gasLeft - REQUIRED_GAS_FOR_ROUTING;
     s_transmissions[transmissionId].transmitter = transmitter;
-    s_transmissions[transmissionId].gasLimit = uint80(gasLeft);
+    s_transmissions[transmissionId].gasLimit = uint80(gasLimit);
 
     if (receiver.code.length == 0) {
       s_transmissions[transmissionId].invalidReceiver = true;
       return false;
     }
 
-    uint256 gasLimit = gasLeft - REQUIRED_GAS_FOR_ROUTING;
     bool success;
     bytes memory payload = abi.encodeCall(IReceiver.onReport, (metadata, validatedReport));
 

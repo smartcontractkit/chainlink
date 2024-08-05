@@ -201,7 +201,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
   }
 
   function test_Report_SuccessfulRetryWithMoreGas() public {
-    s_forwarder.report{gas: 150_000}(address(s_receiver), report, reportContext, signatures);
+    s_forwarder.report{gas: 200_000}(address(s_receiver), report, reportContext, signatures);
 
     // Expect to fail with the receiver running out of gas
     assertEq(
@@ -217,7 +217,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
       uint8(s_forwarder.getTransmissionState(address(s_receiver), executionId, reportId)),
       uint8(IRouter.TransmissionState.SUCCEEDED)
     );
-    assertGt(s_forwarder.getTransmissionGasLimit(address(s_receiver), executionId, reportId), 250_000);
+    assertGt(s_forwarder.getTransmissionGasLimit(address(s_receiver), executionId, reportId), 200_000);
   }
 
   function test_Report_FailedDeliveryWhenReceiverNotContract() public {
