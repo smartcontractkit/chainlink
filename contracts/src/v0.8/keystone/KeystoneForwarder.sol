@@ -108,8 +108,8 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   }
 
   function removeForwarder(address forwarder) external onlyOwner {
-    delete s_forwarders[forwarder];
-    emit IRouter.ForwarderRemoved(forwarder);
+    s_forwarders[forwarder] = false;
+    emit ForwarderRemoved(forwarder);
   }
 
   function route(
