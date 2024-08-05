@@ -44,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
@@ -185,6 +184,7 @@ type CCIPCommon struct {
 	tokenPriceUpdateWatcher   map[common.Address]*big.Int // key - token; value - timestamp of update
 	gasUpdateWatcherMu        *sync.Mutex
 	gasUpdateWatcher          map[uint64]*big.Int // key - destchain id; value - timestamp of update
+	GasUpdateEvents           []contracts.GasUpdateEvent
 }
 
 // FreeUpUnusedSpace sets nil to various elements of ccipModule which are only used
@@ -524,6 +524,9 @@ func (ccipModule *CCIPCommon) WaitForPriceUpdates(
 	}
 }
 
+// WatchForPriceUpdates helps to ensure the price updates are happening in price registry by subscribing to a couple
+// of price update events and add the event details to watchers. It subscribes to 'UsdPerUnitGasUpdated'
+// and 'UsdPerTokenUpdated' event.
 func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context, lggr *zerolog.Logger) error {
 	gasUpdateEventLatest := make(chan *price_registry.PriceRegistryUsdPerUnitGasUpdated)
 	tokenUpdateEvent := make(chan *price_registry.PriceRegistryUsdPerTokenUpdated)
@@ -549,20 +552,28 @@ func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context, lggr *ze
 	if tokenUpdateSub == nil {
 		return fmt.Errorf("no event subscription found")
 	}
-	processEvent := func(timestamp *big.Int, destChainSelector uint64) error {
+	processEvent := func(value, timestamp *big.Int, destChainSelector uint64, raw types.Log) error {
 		destChain, err := chainselectors.ChainIdFromSelector(destChainSelector)
 		if err != nil {
 			return err
 		}
 		ccipModule.gasUpdateWatcherMu.Lock()
 		ccipModule.gasUpdateWatcher[destChain] = timestamp
+
+		ccipModule.GasUpdateEvents = append(ccipModule.GasUpdateEvents, contracts.GasUpdateEvent{
+			Sender:    raw.Address.Hex(),
+			Tx:        raw.TxHash.Hex(),
+			Value:     value,
+			DestChain: destChain,
+			Source:    ccipModule.ChainClient.GetNetworkName(),
+		})
 		ccipModule.gasUpdateWatcherMu.Unlock()
 		lggr.Info().
 			Uint64("chainSelector", destChainSelector).
-			Str("source_chain", ccipModule.ChainClient.GetNetworkName()).
 			Uint64("dest_chain", destChain).
 			Str("price_registry", ccipModule.PriceRegistry.Address()).
-			Msgf("UsdPerUnitGasUpdated event received for dest chain %d source chain %s",
+			Str("tx hash", raw.TxHash.Hex()).
+			Msgf("UsdPerUnitGasUpdated event received for dest chain: %d, source chain: %s",
 				destChain, ccipModule.ChainClient.GetNetworkName())
 		return nil
 	}
@@ -572,13 +583,14 @@ func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context, lggr *ze
 			tokenUpdateSub.Unsubscribe()
 			ccipModule.gasUpdateWatcher = nil
 			ccipModule.gasUpdateWatcherMu = nil
+			ccipModule.GasUpdateEvents = nil
 			ccipModule.tokenPriceUpdateWatcher = nil
 			ccipModule.tokenPriceUpdateWatcherMu = nil
 		}()
 		for {
 			select {
 			case e := <-gasUpdateEventLatest:
-				err := processEvent(e.Timestamp, e.DestChain)
+				err := processEvent(e.Value, e.Timestamp, e.DestChain, e.Raw)
 				if err != nil {
 					continue
 				}
@@ -2623,23 +2635,24 @@ func CCIPRequestFromTxHash(txHash common.Hash, chainClient blockchain.EVMClient)
 }
 
 type CCIPLane struct {
-	Test              *testing.T
-	Logger            *zerolog.Logger
-	SourceNetworkName string
-	DestNetworkName   string
-	SourceChain       blockchain.EVMClient
-	DestChain         blockchain.EVMClient
-	Source            *SourceCCIPModule
-	Dest              *DestCCIPModule
-	NumberOfReq       int
-	Reports           *testreporters.CCIPLaneStats
-	Balance           *BalanceSheet
-	SentReqs          map[common.Hash][]CCIPRequest
-	TotalFee          *big.Int // total fee for all the requests. Used for balance validation.
-	ValidationTimeout time.Duration
-	Context           context.Context
-	SrcNetworkLaneCfg *laneconfig.LaneConfig
-	DstNetworkLaneCfg *laneconfig.LaneConfig
+	Test                   *testing.T
+	Logger                 *zerolog.Logger
+	SourceNetworkName      string
+	DestNetworkName        string
+	SourceChain            blockchain.EVMClient
+	DestChain              blockchain.EVMClient
+	Source                 *SourceCCIPModule
+	Dest                   *DestCCIPModule
+	NumberOfReq            int
+	Reports                *testreporters.CCIPLaneStats
+	Balance                *BalanceSheet
+	SentReqs               map[common.Hash][]CCIPRequest
+	TotalFee               *big.Int // total fee for all the requests. Used for balance validation.
+	ValidationTimeout      time.Duration
+	Context                context.Context
+	SrcNetworkLaneCfg      *laneconfig.LaneConfig
+	DstNetworkLaneCfg      *laneconfig.LaneConfig
+	PriceReportingDisabled bool
 }
 
 func (lane *CCIPLane) TokenPricesConfig() (string, error) {
@@ -3645,7 +3658,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 
 	jobParams.P2PV2Bootstrappers = []string{p2pBootstrappersCommit.P2PV2Bootstrapper()}
 
-	err = SetOCR2Config(lane.Context, lane.Logger, *testConf, commitNodes, execNodes, *lane.Dest)
+	err = SetOCR2Config(lane.Context, lane.Logger, *testConf, commitNodes, execNodes, *lane.Dest, lane.PriceReportingDisabled)
 	if err != nil {
 		return fmt.Errorf("failed to set ocr2 config: %w", err)
 	}
@@ -3683,6 +3696,7 @@ func SetOCR2Config(
 	commitNodes,
 	execNodes []*client.CLNodesWithKeys,
 	destCCIP DestCCIPModule,
+	priceReportingDisabled bool,
 ) error {
 	inflightExpiryExec := commonconfig.MustNewDuration(InflightExpiryExec)
 	inflightExpiryCommit := commonconfig.MustNewDuration(InflightExpiryCommit)
@@ -3719,6 +3733,7 @@ func SetOCR2Config(
 		*commonconfig.MustNewDuration(5 * time.Second),
 		1e6,
 		*inflightExpiryCommit,
+		priceReportingDisabled,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create commit offchain config: %w", err)

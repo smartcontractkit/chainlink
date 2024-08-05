@@ -71,6 +71,12 @@ type NetworkPair struct {
 	ChainClientB blockchain.EVMClient
 }
 
+// LeaderLane is to hold the details of leader lane source and destination network
+type LeaderLane struct {
+	source string
+	dest   string
+}
+
 type CCIPTestConfig struct {
 	Test                *testing.T
 	EnvInput            *testconfig.Common
@@ -80,6 +86,7 @@ type CCIPTestConfig struct {
 	AllNetworks         map[string]blockchain.EVMNetwork
 	SelectedNetworks    []blockchain.EVMNetwork
 	NetworkPairs        []NetworkPair
+	LeaderLanes         []LeaderLane
 	GethResourceProfile map[string]interface{}
 }
 
@@ -322,15 +329,76 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 		c.NetworkPairs = newNetworkPairs
 	}
 
+	// setting leader lane details to network pairs if it is enabled and only in simulated environments
+	if !pointer.GetBool(c.TestGroupInput.ExistingDeployment) {
+		c.defineLeaderLanes(lggr)
+	}
 	for _, n := range c.NetworkPairs {
 		lggr.Info().
 			Str("NetworkA", fmt.Sprintf("%s-%d", n.NetworkA.Name, n.NetworkA.ChainID)).
 			Str("NetworkB", fmt.Sprintf("%s-%d", n.NetworkB.Name, n.NetworkB.ChainID)).
 			Msg("Network Pairs")
 	}
+	for _, lane := range c.LeaderLanes {
+		lggr.Info().
+			Str("Source", lane.source).
+			Str("Destination", lane.dest).
+			Msg("Leader Lane: ")
+	}
 	lggr.Info().Int("Pairs", len(c.NetworkPairs)).Msg("No Of Lanes")
 
 	return allError
+}
+
+// defineLeaderLanes goes over the available network pairs and define one leader lane per destination
+func (c *CCIPTestConfig) defineLeaderLanes(lggr zerolog.Logger) {
+	if !isLeaderLaneFeatureEnabled(&lggr) {
+		return
+	}
+	// the way we are defining leader lane is simply by tagging the destination as key along with the first source network
+	// as value to the map.
+	leaderLanes := make(map[string]string)
+	for _, n := range c.NetworkPairs {
+		if _, ok := leaderLanes[n.NetworkB.Name]; !ok {
+			leaderLanes[n.NetworkB.Name] = n.NetworkA.Name
+		}
+		if pointer.GetBool(c.TestGroupInput.BiDirectionalLane) {
+			if _, ok := leaderLanes[n.NetworkA.Name]; !ok {
+				leaderLanes[n.NetworkA.Name] = n.NetworkB.Name
+			}
+		}
+	}
+	for k, v := range leaderLanes {
+		c.LeaderLanes = append(c.LeaderLanes, LeaderLane{
+			source: v,
+			dest:   k,
+		})
+	}
+}
+
+// isPriceReportingDisabled checks the given lane is leader lane and return boolean accordingly
+func (c *CCIPTestConfig) isPriceReportingDisabled(lggr *zerolog.Logger, source, dest string) bool {
+	for _, leader := range c.LeaderLanes {
+		if leader.source == source && leader.dest == dest {
+			lggr.Debug().
+				Str("Source", source).
+				Str("Destination", dest).
+				Msg("Non-leader lane")
+			return true
+		}
+	}
+	return false
+}
+
+func isLeaderLaneFeatureEnabled(lggr *zerolog.Logger) bool {
+	if err := contracts.MatchContractVersionsOrAbove(map[contracts.Name]contracts.Version{
+		contracts.OffRampContract: contracts.V1_2_0,
+		contracts.OnRampContract:  contracts.V1_2_0,
+	}); err != nil {
+		lggr.Info().Str("Required contract version", contracts.V1_2_0.String()).Msg("Leader lane feature is not enabled")
+		return false
+	}
+	return true
 }
 
 func (c *CCIPTestConfig) FormNetworkPairCombinations() {
@@ -635,6 +703,10 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 		Balance:           o.Balance,
 		Context:           testcontext.Get(t),
 	}
+	// if it non leader lane, disable the price reporting
+	ccipLaneA2B.PriceReportingDisabled = len(o.Cfg.LeaderLanes) > 0 &&
+		!o.Cfg.isPriceReportingDisabled(lggr, ccipLaneA2B.SourceNetworkName, ccipLaneA2B.DestNetworkName)
+
 	contractsA, ok := o.LaneContractsByNetwork.Load(networkA.Name)
 	if !ok {
 		return errors.WithStack(fmt.Errorf("failed to load lane contracts for %s", networkA.Name))
@@ -689,6 +761,9 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 			SrcNetworkLaneCfg: ccipLaneA2B.DstNetworkLaneCfg,
 			DstNetworkLaneCfg: ccipLaneA2B.SrcNetworkLaneCfg,
 		}
+		// if it non leader lane, disable the price reporting
+		ccipLaneB2A.PriceReportingDisabled = len(o.Cfg.LeaderLanes) > 0 &&
+			!o.Cfg.isPriceReportingDisabled(lggr, ccipLaneB2A.SourceNetworkName, ccipLaneB2A.DestNetworkName)
 		b2aLogger := lggr.With().Str("env", namespace).Str("Lane",
 			fmt.Sprintf("%s-->%s", ccipLaneB2A.SourceNetworkName, ccipLaneB2A.DestNetworkName)).Logger()
 		ccipLaneB2A.Logger = &b2aLogger
@@ -853,6 +928,63 @@ func (o *CCIPTestSetUpOutputs) WaitForPriceUpdates() {
 	}
 
 	require.NoError(t, priceUpdateGrp.Wait())
+}
+
+// CheckGasUpdateTransaction checks the gas update transactions count
+func (o *CCIPTestSetUpOutputs) CheckGasUpdateTransaction(lggr *zerolog.Logger) error {
+	transactionsBySource := make(map[string]string)
+	destToSourcesList := make(map[string][]string)
+	// create a map to hold the unique destination with list of sources
+	for _, n := range o.Cfg.NetworkPairs {
+		destToSourcesList[n.NetworkB.Name] = append(destToSourcesList[n.NetworkB.Name], n.NetworkA.Name)
+		if pointer.GetBool(o.Cfg.TestGroupInput.BiDirectionalLane) {
+			destToSourcesList[n.NetworkA.Name] = append(destToSourcesList[n.NetworkA.Name], n.NetworkB.Name)
+		}
+	}
+	lggr.Debug().Interface("list", destToSourcesList).Msg("Dest to Source")
+	// a function to read the gas update events and create a map with unique source and store the tx hash
+	filterGasUpdateEventTxBySource := func(lane *actions.CCIPLane) error {
+		for _, g := range lane.Source.Common.GasUpdateEvents {
+			if g.Value == nil {
+				return fmt.Errorf("gas update value should not be nil in tx %s", g.Tx)
+			}
+			if _, ok := transactionsBySource[g.Source]; !ok {
+				transactionsBySource[g.Source] = g.Tx
+			}
+		}
+		return nil
+	}
+
+	for _, lane := range o.ReadLanes() {
+		if err := filterGasUpdateEventTxBySource(lane.ForwardLane); err != nil {
+			return fmt.Errorf("error in filtering gas update transactions in the lane source: %s and destination: %s, error: %w",
+				lane.ForwardLane.SourceNetworkName, lane.ForwardLane.DestNetworkName, err)
+		}
+		if lane.ReverseLane != nil {
+			if err := filterGasUpdateEventTxBySource(lane.ReverseLane); err != nil {
+				return fmt.Errorf("error in filtering gas update transactions in the lane source: %s and destination: %s, error: %w",
+					lane.ReverseLane.SourceNetworkName, lane.ReverseLane.DestNetworkName, err)
+			}
+		}
+	}
+
+	lggr.Debug().Interface("Tx hashes by source", transactionsBySource).Msg("Checked Gas Update Transactions by Source")
+	// when leader lane setup is enabled, number of unique transaction from the source
+	// should match the number of leader lanes defined.
+	if len(transactionsBySource) != len(o.Cfg.LeaderLanes) {
+		lggr.Error().
+			Int("Tx hashes expected", len(o.Cfg.LeaderLanes)).
+			Int("Tx hashes received", len(transactionsBySource)).
+			Int("Leader lanes count", len(o.Cfg.LeaderLanes)).
+			Msg("Checked Gas Update transactions count doesn't match")
+		return fmt.Errorf("checked Gas Update transactions count doesn't match")
+	}
+	lggr.Debug().
+		Int("Tx hashes by source", len(transactionsBySource)).
+		Int("Leader lanes count", len(o.Cfg.LeaderLanes)).
+		Msg("Checked Gas Update transactions count matches")
+
+	return nil
 }
 
 // CCIPDefaultTestSetUp sets up the environment for CCIP tests
@@ -1057,6 +1189,9 @@ func CCIPDefaultTestSetUp(
 		require.NoError(t, setUpArgs.JobAddGrp.Wait(), "Creating jobs shouldn't fail")
 		// wait for price updates to be available
 		setUpArgs.WaitForPriceUpdates()
+		if isLeaderLaneFeatureEnabled(lggr) && !pointer.GetBool(setUpArgs.Cfg.TestGroupInput.ExistingDeployment) {
+			require.NoError(t, setUpArgs.CheckGasUpdateTransaction(lggr), "gas update transaction check shouldn't fail")
+		}
 		// if dynamic price update is required
 		if setUpArgs.Cfg.TestGroupInput.TokenConfig.IsDynamicPriceUpdate() {
 			require.NoError(t, setUpArgs.SetupDynamicTokenPriceUpdates(), "setting up dynamic price update should not fail")

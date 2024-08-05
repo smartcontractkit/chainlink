@@ -393,6 +393,9 @@ base_url = "https://grafana..../"
 dashboard_url = "/d/6vjVx-1V8/ccip-long-running-tests"
 ```
 
+### CCIP.Env.Lane.LeaderLaneEnabled
+Specifies whether to enable the leader lane feature. This setting is only applicable for new deployments.
+
 ## CCIP.Groups
 Specifies the test config specific to each test type. Available test types are:
 - **CCIP.Groups.load**
