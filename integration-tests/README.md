@@ -27,6 +27,8 @@ version = "your tag"
 
 The `./testconfig/overrides.toml` file **should never be committed** and has been added to the [.gitignore](../.gitignore) file as it can often contain secrets like private keys and RPC URLs.
 
+For more information on how to configure the tests, see the [testconfig README](./testconfig/README.md).
+
 ## Build
 
 If you'd like to run the tests on a local build of Chainlink, you can point to your own docker image, or build a fresh one with `make`.
@@ -76,8 +78,7 @@ make test_soak_ocr_reorg_2
 
 Run reorg/automation_reorg_test.go with reorg settings:
 
-1. Use Simulated Geth network and put GethReorgConfig in overrides.toml 
-
+1. Use Simulated Geth network and put GethReorgConfig in overrides.toml
 
     ```toml
     [Network]
