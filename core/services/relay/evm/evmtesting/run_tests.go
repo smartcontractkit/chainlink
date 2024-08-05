@@ -1,6 +1,7 @@
 package evmtesting
 
 import (
+	"log"
 	"math/big"
 	"reflect"
 	"time"
@@ -13,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/binding"
 
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 )
@@ -33,21 +34,29 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		ctx := it.Helper.Context(t)
 
 		cr := it.GetChainReader(t)
-		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
-		contracts := it.GetBindings(t)
+		bindings := it.GetBindings(t)
+		require.NoError(t, cr.Bind(ctx, bindings))
+
 		type DynamicEvent struct {
 			Field string
 		}
-		SubmitTransactionToCW(t, it, "triggerEventWithDynamicTopic", DynamicEvent{Field: anyString}, contracts[0], types.Unconfirmed)
+		SubmitTransactionToCW(t, it, "triggerEventWithDynamicTopic", DynamicEvent{Field: anyString}, bindings[0], types.Unconfirmed)
 
+		log.Println("TRACE: setup complete")
 		input := struct{ Field string }{Field: anyString}
 		tp := cr.(clcommontypes.ContractTypeProvider)
-		output, err := tp.CreateContractType(AnyContractName, triggerWithDynamicTopic, false)
+
+		readName := types.BoundContract{
+			Address: bindings[0].Address,
+			Name:    AnyContractName,
+		}.ReadIdentifier(triggerWithDynamicTopic)
+
+		output, err := tp.CreateContractType(readName, false)
 		require.NoError(t, err)
 		rOutput := reflect.Indirect(reflect.ValueOf(output))
 
 		require.Eventually(t, func() bool {
-			return cr.GetLatestValue(ctx, AnyContractName, triggerWithDynamicTopic, primitives.Unconfirmed, input, output) == nil
+			return cr.GetLatestValue(ctx, readName, primitives.Unconfirmed, input, output) == nil
 		}, it.MaxWaitTimeForEvents(), 100*time.Millisecond)
 
 		assert.Equal(t, &anyString, rOutput.FieldByName("Field").Interface())
@@ -67,12 +76,24 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		triggerFourTopics(t, it, int32(1), int32(3), int32(3))
 		triggerFourTopics(t, it, int32(1), int32(2), int32(4))
 
+		ctx := it.Helper.Context(t)
+		cr := it.GetChainReader(t)
+		bindings := it.GetBindings(t)
+
+		var bound types.BoundContract
+		for idx := range bindings {
+			if bindings[idx].Name == AnyContractName {
+				bound = bindings[idx]
+			}
+		}
+
+		require.NoError(t, cr.Bind(ctx, bindings))
 		var latest struct{ Field1, Field2, Field3 int32 }
 		params := struct{ Field1, Field2, Field3 int32 }{Field1: 1, Field2: 2, Field3: 3}
 
 		time.Sleep(it.MaxWaitTimeForEvents())
 
-		require.NoError(t, cr.GetLatestValue(ctx, AnyContractName, triggerWithAllTopics, primitives.Unconfirmed, params, &latest))
+		require.NoError(t, cr.GetLatestValue(ctx, bound.ReadIdentifier(triggerWithAllTopics), primitives.Unconfirmed, params, &latest))
 		assert.Equal(t, int32(1), latest.Field1)
 		assert.Equal(t, int32(2), latest.Field2)
 		assert.Equal(t, int32(3), latest.Field3)
@@ -113,7 +134,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		ctx := it.Helper.Context(t)
 		err := reader.Bind(ctx, []clcommontypes.BoundContract{{Name: AnyContractName, Address: addr.Hex()}})
 
-		require.ErrorIs(t, err, evm.NoContractExistsError{Address: addr})
+		require.ErrorIs(t, err, binding.NoContractExistsError{Address: addr})
 	})
 }
 

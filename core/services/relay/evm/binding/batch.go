@@ -1,4 +1,4 @@
-package evm
+package binding
 
 import (
 	"context"
@@ -38,6 +38,7 @@ const (
 type BatchResult map[string]ContractResults
 type ContractResults []MethodCallResult
 type MethodCallResult struct {
+	Address     string
 	MethodName  string
 	ReturnValue any
 	Err         error
@@ -164,6 +165,7 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 	results := make([]dataAndErr, len(batchCall))
 	for i, call := range batchCall {
 		results[i] = dataAndErr{
+			address:      call.ContractAddress.Hex(),
 			contractName: call.ContractName,
 			methodName:   call.MethodName,
 			returnVal:    call.ReturnVal,
@@ -226,6 +228,7 @@ func (c *defaultEvmBatchCaller) batchCallDynamicLimitRetries(ctx context.Context
 }
 
 type dataAndErr struct {
+	address                  string
 	contractName, methodName string
 	returnVal                any
 	err                      error
@@ -296,6 +299,7 @@ func convertToBatchResult(data []dataAndErr) BatchResult {
 	batchResult := make(BatchResult)
 	for _, d := range data {
 		methodCall := MethodCallResult{
+			Address:     d.address,
 			MethodName:  d.methodName,
 			ReturnValue: d.returnVal,
 			Err:         d.err,
@@ -309,4 +313,12 @@ func convertToBatchResult(data []dataAndErr) BatchResult {
 	}
 
 	return batchResult
+}
+
+func WrapItemType(contractName, itemType string, isParams bool) string {
+	if isParams {
+		return fmt.Sprintf("params.%s.%s", contractName, itemType)
+	}
+
+	return fmt.Sprintf("return.%s.%s", contractName, itemType)
 }

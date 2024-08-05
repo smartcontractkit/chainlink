@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -44,6 +45,15 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	}
 	cr, err := relayer.NewContractReader(contractReaderConfigEncoded)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := cr.Bind(ctx, []commontypes.BoundContract{
+		{
+			Address:  config.ForwarderAddress().String(),
+			Contract: "forwarder",
+		},
+	}); err != nil {
 		return nil, err
 	}
 

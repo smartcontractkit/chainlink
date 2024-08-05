@@ -197,8 +197,13 @@ func (s *registrySyncer) updateStateLoop() {
 }
 
 func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, error) {
-	var caps []kcr.CapabilitiesRegistryCapabilityInfo
-	err := s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getCapabilities", primitives.Unconfirmed, nil, &caps)
+	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
+	binding := types.BoundContract{
+		Address: s.registryAddress,
+		Name:    "CapabilitiesRegistry",
+	}
+
+	err := s.reader.GetLatestValue(ctx, binding.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, nil, &caps)
 	if err != nil {
 		return nil, err
 	}
@@ -215,8 +220,9 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 		hashedIDsToCapabilityIDs[c.HashedId] = cid
 	}
 
-	var dons []kcr.CapabilitiesRegistryDONInfo
-	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getDONs", primitives.Unconfirmed, nil, &dons)
+	dons := []kcr.CapabilitiesRegistryDONInfo{}
+
+	err = s.reader.GetLatestValue(ctx, binding.ReadIdentifier("getDONs"), primitives.Unconfirmed, nil, &dons)
 	if err != nil {
 		return nil, err
 	}
@@ -241,8 +247,9 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 		}
 	}
 
-	var nodes []kcr.CapabilitiesRegistryNodeInfo
-	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getNodes", primitives.Unconfirmed, nil, &nodes)
+	nodes := []kcr.CapabilitiesRegistryNodeInfo{}
+
+	err = s.reader.GetLatestValue(ctx, binding.ReadIdentifier("getNodes"), primitives.Unconfirmed, nil, &nodes)
 	if err != nil {
 		return nil, err
 	}
