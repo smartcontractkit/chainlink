@@ -6,9 +6,11 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
@@ -19,8 +21,14 @@ type reportsSink struct {
 	services.StateMachine
 	triggers []streamsTrigger
 
+	nextEventID int
+
+	sentResponses []capabilities.CapabilityResponse
+
 	stopCh services.StopChan
 	wg     sync.WaitGroup
+
+	mux sync.Mutex
 }
 
 func newReportsSink() *reportsSink {
@@ -44,20 +52,55 @@ func (r *reportsSink) Close() error {
 }
 
 func (r *reportsSink) sendReports(reportList []*datastreams.FeedReport) {
+	r.mux.Lock()
+	defer r.mux.Unlock()
+
+	r.nextEventID++
+
+	resp, err := wrapReports(reportList, strconv.Itoa(r.nextEventID), time.Now().UnixMilli(), datastreams.SignersMetadata{})
+	if err != nil {
+		panic(fmt.Errorf("failed to wrap reports: %w", err))
+	}
+	r.sentResponses = append(r.sentResponses, resp)
+
 	for _, trigger := range r.triggers {
-		resp, err := wrapReports(reportList, "1", 12, datastreams.SignersMetadata{})
-		if err != nil {
-			panic(err)
+		if err := sendResponse(trigger, resp); err != nil {
+			panic(fmt.Errorf("failed to send response: %w", err))
 		}
-		trigger.sendResponse(resp)
 	}
 }
 
 func (r *reportsSink) getNewTrigger(t *testing.T) *streamsTrigger {
+	r.mux.Lock()
+	defer r.mux.Unlock()
 	trigger := streamsTrigger{t: t, toSend: make(chan capabilities.CapabilityResponse, 1000),
 		wg: &r.wg, stopCh: r.stopCh}
 	r.triggers = append(r.triggers, trigger)
+
+	for _, resp := range r.sentResponses {
+		if err := sendResponse(trigger, resp); err != nil {
+			panic(fmt.Errorf("failed to send response: %w", err))
+		}
+	}
+
 	return &trigger
+}
+
+func sendResponse(trigger streamsTrigger, response capabilities.CapabilityResponse) error {
+	// clone response before sending so each trigger has its own instance to avoid any cross trigger mutation
+	marshalledResponse, err := pb.MarshalCapabilityResponse(response)
+	if err != nil {
+		return fmt.Errorf("failed to marshal response: %w", err)
+	}
+
+	responseCopy, err := pb.UnmarshalCapabilityResponse(marshalledResponse)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	trigger.sendResponse(responseCopy)
+
+	return nil
 }
 
 type streamsTrigger struct {
