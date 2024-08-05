@@ -62,7 +62,7 @@ jobs:
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
             sol_mod_added:
-              - modified|added: 'contracts/src/v0.8/**/*.sol'
+              - modified|added: 'contracts/src/v0.8/**/!(*.t).sol'
             automation:
               - 'contracts/src/v0.8/automation/**/*.sol'
             ccip:
@@ -88,7 +88,7 @@ jobs:
               - 'contracts/src/v0.8/tests/**/*.sol'
               - 'contracts/src/v0.8/vendor/**/*.sol'
             sol_mod_only:
-              - modified: 'contracts/src/v0.8/**/*.sol'            
+              - modified: 'contracts/src/v0.8/**/!(*.t).sol'            
 
   tests:
     #TODO remove me after testing
