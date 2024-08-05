@@ -183,12 +183,14 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 	// Bind to the contract address on the write path.
 	// Bind() requires a connection to the node's RPCs and
 	// cannot be run during initialization.
+	binding := commontypes.BoundContract{
+		Address: cap.forwarderAddress,
+		Name:    "forwarder",
+	}
+
 	if !cap.bound {
 		cap.lggr.Debugw("Binding to forwarder address")
-		err := cap.cr.Bind(ctx, []commontypes.BoundContract{{
-			Address: cap.forwarderAddress,
-			Name:    "forwarder",
-		}})
+		err := cap.cr.Bind(ctx, []commontypes.BoundContract{binding})
 		if err != nil {
 			return nil, err
 		}
@@ -218,7 +220,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 		ReportId:            request.Inputs.SignedReport.ID,
 	}
 	var transmissionInfo TransmissionInfo
-	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmissionInfo", primitives.Unconfirmed, queryInputs, &transmissionInfo); err != nil {
+	if err = cap.cr.GetLatestValue(ctx, binding.ReadIdentifier("getTransmissionInfo"), primitives.Unconfirmed, queryInputs, &transmissionInfo); err != nil {
 		return nil, fmt.Errorf("failed to getTransmissionInfo latest value: %w", err)
 	}
 

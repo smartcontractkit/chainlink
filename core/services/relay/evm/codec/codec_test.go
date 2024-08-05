@@ -1,4 +1,4 @@
-package evm_test
+package codec_test
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting"
 
 	looptestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils" //nolint common practice to import test mods with .
@@ -21,7 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -45,7 +45,7 @@ func TestCodec(t *testing.T) {
 		codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
 			codecName: {TypeABI: evmEncoderConfig},
 		}}
-		c, err := evm.NewCodec(codecConfig)
+		c, err := codec.NewCodec(codecConfig)
 		require.NoError(t, err)
 
 		result, err := c.Encode(testutils.Context(t), encode, codecName)
@@ -91,7 +91,7 @@ func TestCodec_SimpleEncode(t *testing.T) {
 	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
 		codecName: {TypeABI: evmEncoderConfig},
 	}}
-	c, err := evm.NewCodec(codecConfig)
+	c, err := codec.NewCodec(codecConfig)
 	require.NoError(t, err)
 
 	result, err := c.Encode(testutils.Context(t), input, codecName)
@@ -120,7 +120,7 @@ func TestCodec_EncodeTuple(t *testing.T) {
 	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
 		codecName: {TypeABI: evmEncoderConfig},
 	}}
-	c, err := evm.NewCodec(codecConfig)
+	c, err := codec.NewCodec(codecConfig)
 	require.NoError(t, err)
 
 	result, err := c.Encode(testutils.Context(t), input, codecName)
@@ -152,7 +152,7 @@ func TestCodec_EncodeTupleWithLists(t *testing.T) {
 	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
 		codecName: {TypeABI: evmEncoderConfig},
 	}}
-	c, err := evm.NewCodec(codecConfig)
+	c, err := codec.NewCodec(codecConfig)
 	require.NoError(t, err)
 
 	result, err := c.Encode(testutils.Context(t), input, codecName)
@@ -204,13 +204,13 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 		entry.TypeABI = string(defBytes)
 
 		if k != sizeItemType && k != NilType {
-			entry.ModifierConfigs = codec.ModifiersConfig{
-				&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+			entry.ModifierConfigs = commoncodec.ModifiersConfig{
+				&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 			}
 		}
 
 		if k == TestItemWithConfigExtra {
-			hardCode := &codec.HardCodeModifierConfig{
+			hardCode := &commoncodec.HardCodeModifierConfig{
 				OnChainValues: map[string]any{
 					"BigField": testStruct.BigField.String(),
 					"Account":  hexutil.Encode(testStruct.Account),
@@ -222,7 +222,7 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 		codecConfig.Configs[k] = entry
 	}
 
-	c, err := evm.NewCodec(codecConfig)
+	c, err := codec.NewCodec(codecConfig)
 	require.NoError(t, err)
 	return c
 }

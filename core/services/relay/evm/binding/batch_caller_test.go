@@ -1,4 +1,4 @@
-package evm_test
+package binding_test
 
 import (
 	"encoding/hex"
@@ -16,7 +16,8 @@ import (
 	chainmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/binding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -31,8 +32,8 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 	}{
 		{
 			name:                          "defaults",
-			maxBatchSize:                  evm.DefaultRpcBatchSizeLimit,
-			backOffMultiplier:             evm.DefaultRpcBatchBackOffMultiplier,
+			maxBatchSize:                  binding.DefaultRpcBatchSizeLimit,
+			backOffMultiplier:             binding.DefaultRpcBatchBackOffMultiplier,
 			numCalls:                      200,
 			expectedBatchSizesOnEachRetry: []int{100, 20, 4, 1},
 		},
@@ -92,12 +93,12 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 				batchSizes = append(batchSizes, len(evmCalls))
 			}).Return(errors.New("some error"))
 
-			calls := make(evm.BatchCall, tc.numCalls)
+			calls := make(binding.BatchCall, tc.numCalls)
 			for i := range calls {
-				calls[i] = evm.Call{}
+				calls[i] = binding.Call{}
 			}
 
-			bc := evm.NewDynamicLimitedBatchCaller(logger.TestLogger(t), mockCodec, ec, tc.maxBatchSize, tc.backOffMultiplier, 1)
+			bc := binding.NewDynamicLimitedBatchCaller(logger.TestLogger(t), mockCodec, ec, tc.maxBatchSize, tc.backOffMultiplier, 1)
 			_, _ = bc.BatchCall(testutils.Context(t), 123, calls)
 			assert.Equal(t, tc.expectedBatchSizesOnEachRetry, batchSizes)
 		})
@@ -131,7 +132,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
 			ec := chainmocks.NewClient(t)
-			calls := make(evm.BatchCall, tc.numCalls)
+			calls := make(binding.BatchCall, tc.numCalls)
 			for j := range calls {
 				contractName := fmt.Sprintf("testCase_%d", i)
 				methodName := fmt.Sprintf("method_%d", j)
@@ -140,7 +141,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 
 				params := MethodParam{A: uint64(j)}
 				var returnVal MethodReturn
-				calls[j] = evm.Call{
+				calls[j] = binding.Call{
 					ContractName: contractName,
 					MethodName:   methodName,
 					Params:       &params,
@@ -161,9 +162,9 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 					}
 				}).Return(nil)
 
-			testCodec, err := evm.NewCodec(codecConfig)
+			testCodec, err := codec.NewCodec(codecConfig)
 			require.NoError(t, err)
-			bc := evm.NewDynamicLimitedBatchCaller(logger.TestLogger(t), testCodec, ec, tc.batchSize, 99999, tc.parallelRpcCallsLimit)
+			bc := binding.NewDynamicLimitedBatchCaller(logger.TestLogger(t), testCodec, ec, tc.batchSize, 99999, tc.parallelRpcCallsLimit)
 
 			// make the call and make sure the results are there
 			results, err := bc.BatchCall(ctx, 0, calls)

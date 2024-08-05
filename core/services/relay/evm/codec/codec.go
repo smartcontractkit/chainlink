@@ -1,4 +1,4 @@
-package evm
+package codec
 
 import (
 	"encoding/json"
@@ -11,8 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/mitchellh/mapstructure"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/codec"
-
+	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -33,10 +32,10 @@ import (
 // it was a *big.Int
 var DecoderHooks = []mapstructure.DecodeHookFunc{
 	decodeAccountAndAllowArraySliceHook,
-	codec.BigIntHook,
-	codec.SliceToArrayVerifySizeHook,
+	commoncodec.BigIntHook,
+	commoncodec.SliceToArrayVerifySizeHook,
 	sizeVerifyBigIntHook,
-	codec.NumberHook,
+	commoncodec.NumberHook,
 }
 
 // NewCodec creates a new [commontypes.RemoteCodec] for EVM.
@@ -103,7 +102,7 @@ func sizeVerifyBigIntHook(from, to reflect.Type, data any) (any, error) {
 	if from.Implements(types.SizedBigIntType()) &&
 		!to.Implements(types.SizedBigIntType()) &&
 		!reflect.PointerTo(to).Implements(types.SizedBigIntType()) {
-		return codec.BigIntHook(from, bigIntType, reflect.ValueOf(data).Convert(bigIntType).Interface())
+		return commoncodec.BigIntHook(from, bigIntType, reflect.ValueOf(data).Convert(bigIntType).Interface())
 	}
 
 	if !to.Implements(types.SizedBigIntType()) {
@@ -111,7 +110,7 @@ func sizeVerifyBigIntHook(from, to reflect.Type, data any) (any, error) {
 	}
 
 	var err error
-	data, err = codec.BigIntHook(from, bigIntType, data)
+	data, err = commoncodec.BigIntHook(from, bigIntType, data)
 	if err != nil {
 		return nil, err
 	}

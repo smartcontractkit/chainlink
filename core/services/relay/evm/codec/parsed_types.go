@@ -1,10 +1,10 @@
-package evm
+package codec
 
 import (
 	"fmt"
 	"reflect"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -16,7 +16,7 @@ type ParsedTypes struct {
 }
 
 func (parsed *ParsedTypes) ToCodec() (commontypes.RemoteCodec, error) {
-	modByTypeName := map[string]codec.Modifier{}
+	modByTypeName := map[string]commoncodec.Modifier{}
 	if err := AddEntries(parsed.EncoderDefs, modByTypeName); err != nil {
 		return nil, err
 	}
@@ -24,7 +24,7 @@ func (parsed *ParsedTypes) ToCodec() (commontypes.RemoteCodec, error) {
 		return nil, err
 	}
 
-	mod, err := codec.NewByItemTypeModifier(modByTypeName)
+	mod, err := commoncodec.NewByItemTypeModifier(modByTypeName)
 	if err != nil {
 		return nil, err
 	}
@@ -33,12 +33,12 @@ func (parsed *ParsedTypes) ToCodec() (commontypes.RemoteCodec, error) {
 		decoder:     &decoder{Definitions: parsed.DecoderDefs},
 		ParsedTypes: parsed,
 	}
-	return codec.NewModifierCodec(underlying, mod, DecoderHooks...)
+	return commoncodec.NewModifierCodec(underlying, mod, DecoderHooks...)
 }
 
 // AddEntries extracts the mods from codecEntry and adds them to modByTypeName use with codec.NewByItemTypeModifier
 // Since each input/output can have its own modifications, we need to keep track of them by type name
-func AddEntries(defs map[string]types.CodecEntry, modByTypeName map[string]codec.Modifier) error {
+func AddEntries(defs map[string]types.CodecEntry, modByTypeName map[string]commoncodec.Modifier) error {
 	for k, def := range defs {
 		modByTypeName[k] = def.Modifier()
 		_, err := def.Modifier().RetypeToOffChain(reflect.PointerTo(def.CheckedType()), k)

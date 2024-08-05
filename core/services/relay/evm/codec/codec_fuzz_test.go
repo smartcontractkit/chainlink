@@ -1,4 +1,4 @@
-package evm_test
+package codec_test
 
 import (
 	"testing"

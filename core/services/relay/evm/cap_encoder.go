@@ -10,7 +10,9 @@ import (
 	consensustypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	abiutil "github.com/smartcontractkit/chainlink/v2/core/chains/evm/abi"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -47,7 +49,7 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
 		encoderName: {TypeABI: string(jsonSelector)},
 	}}
-	c, err := NewCodec(codecConfig)
+	c, err := codec.NewCodec(codecConfig)
 	if err != nil {
 		return nil, err
 	}

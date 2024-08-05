@@ -16,7 +16,8 @@ import (
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/binding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -30,7 +31,7 @@ type ClientWithContractHistory struct {
 
 func (cwh *ClientWithContractHistory) Init(_ context.Context, config types.ChainReaderConfig) error {
 	cwh.valsWithCall = make(map[int64]valWithCall)
-	parsedTypes := evm.ParsedTypes{
+	parsedTypes := codec.ParsedTypes{
 		EncoderDefs: make(map[string]types.CodecEntry),
 		DecoderDefs: make(map[string]types.CodecEntry),
 	}
@@ -47,12 +48,12 @@ func (cwh *ClientWithContractHistory) Init(_ context.Context, config types.Chain
 				continue
 			}
 
-			inputMod, err := readDef.InputModifications.ToModifier(evm.DecoderHooks...)
+			inputMod, err := readDef.InputModifications.ToModifier(codec.DecoderHooks...)
 			if err != nil {
 				return err
 			}
 
-			outputMod, err := readDef.OutputModifications.ToModifier(evm.DecoderHooks...)
+			outputMod, err := readDef.OutputModifications.ToModifier(codec.DecoderHooks...)
 			if err != nil {
 				return err
 			}
@@ -67,16 +68,18 @@ func (cwh *ClientWithContractHistory) Init(_ context.Context, config types.Chain
 				return err
 			}
 
-			parsedTypes.EncoderDefs[evm.WrapItemType(contractName, genericName, true)] = input
-			parsedTypes.DecoderDefs[evm.WrapItemType(contractName, genericName, false)] = output
+			parsedTypes.EncoderDefs[binding.WrapItemType(contractName, genericName, true)] = input
+			parsedTypes.DecoderDefs[binding.WrapItemType(contractName, genericName, false)] = output
 		}
 	}
 
-	codec, err := parsedTypes.ToCodec()
+	parsedCodec, err := parsedTypes.ToCodec()
 	if err != nil {
 		return err
 	}
-	cwh.codec = codec
+
+	cwh.codec = parsedCodec
+
 	return nil
 }
 
@@ -123,7 +126,7 @@ func (cwh *ClientWithContractHistory) CallContract(ctx context.Context, msg ethe
 	}
 
 	// encode the expected call to compare with the actual call
-	dataToCmp, err := cwh.codec.Encode(ctx, valAndCall.Params, evm.WrapItemType(valAndCall.ContractName, valAndCall.ReadName, true))
+	dataToCmp, err := cwh.codec.Encode(ctx, valAndCall.Params, binding.WrapItemType(valAndCall.ContractName, valAndCall.ReadName, true))
 	if err != nil {
 		return nil, err
 	}
