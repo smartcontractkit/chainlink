@@ -141,12 +141,24 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
   }
 
-  function test_RevertWhen_AlreadyAttempted() public {
-    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
+  function test_RevertWhen_RetryingSuccessfulTransmission() public {
+    s_forwarder.report{gas: 400_000}(address(s_receiver), report, reportContext, signatures);
 
     bytes32 transmissionId = s_forwarder.getTransmissionId(address(s_receiver), executionId, reportId);
     vm.expectRevert(abi.encodeWithSelector(IRouter.AlreadyAttempted.selector, transmissionId));
-    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
+    // Retyring with more gas
+    s_forwarder.report{gas: 450_000}(address(s_receiver), report, reportContext, signatures);
+  }
+
+  function test_RevertWhen_RetryingInvalidContractTransmission() public {
+    // Receiver is not a contract
+    address receiver = address(404);
+    s_forwarder.report{gas: 400_000}(receiver, report, reportContext, signatures);
+
+    bytes32 transmissionId = s_forwarder.getTransmissionId(receiver, executionId, reportId);
+    vm.expectRevert(abi.encodeWithSelector(IRouter.AlreadyAttempted.selector, transmissionId));
+    // Retyring with more gas
+    s_forwarder.report{gas: 450_000}(receiver, report, reportContext, signatures);
   }
 
   function test_Report_SuccessfulDelivery() public {
@@ -178,7 +190,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
 
   // TODO: Add error for insufficient gas
 
-  function test_Report_SuccessfulRetryWithGas() public {
+  function test_Report_SuccessfulRetryWithMoreGas() public {
     s_forwarder.report{gas: 150_000}(address(s_receiver), report, reportContext, signatures);
 
     // Expect to fail with the receiver running out of gas

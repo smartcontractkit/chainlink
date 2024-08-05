@@ -122,12 +122,15 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     if (!s_forwarders[msg.sender]) revert UnauthorizedForwarder();
 
     TransmissionInfo memory transmission = s_transmissions[transmissionId];
-    uint256 gasLeft = gasleft();
-    if (transmission.transmitter != address(0) && transmission.gasLimit >= gasLeft)
-      revert AlreadyAttempted(transmissionId);
+    if (transmission.success || transmission.invalidReceiver) revert AlreadyAttempted(transmissionId);
 
     s_transmissions[transmissionId].transmitter = transmitter;
-    s_transmissions[transmissionId].gasLimit = uint88(gasLeft);
+    s_transmissions[transmissionId].gasLimit = uint80(gasleft());
+
+    if (receiver.code.length == 0) {
+      s_transmissions[transmissionId].invalidReceiver = true;
+      return false;
+    }
 
     bool success;
     bytes memory payload = abi.encodeCall(IReceiver.onReport, (metadata, validatedReport));
