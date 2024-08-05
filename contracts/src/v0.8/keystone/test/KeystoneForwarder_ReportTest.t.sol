@@ -168,6 +168,12 @@ contract KeystoneForwarder_ReportTest is BaseTest {
   }
 
   function test_Report_SuccessfulDelivery() public {
+    assertEq(
+      uint8(s_forwarder.getTransmissionState(address(s_receiver), executionId, reportId)),
+      uint8(IRouter.TransmissionState.NOT_ATTEMPTED),
+      "TransmissionState mismatch"
+    );
+
     vm.expectEmit(address(s_receiver));
     emit MessageReceived(metadata, mercuryReports);
 
