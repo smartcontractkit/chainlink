@@ -17,6 +17,6 @@ export CRIB_NETWORK=geth # only "geth" is supported for now
 export CRIB_NODES=5 # min 5 nodes
 #export SETH_LOG_LEVEL=debug # these two can be enabled to debug connection issues
 #export RESTY_DEBUG=true
-export GAP_URL=https://localhost:8080/primary # only applicable in CI
+export GAP_URL=https://localhost:8080/primary # only applicable in CI, unset the var to connect locally
 go test -v -run TestCRIB
 ```

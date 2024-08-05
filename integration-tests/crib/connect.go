@@ -38,7 +38,7 @@ func ConnectRemote() (
 	[]*client.ChainlinkK8sClient,
 	error,
 ) {
-	vars, err := crib.CoreDONConnection()
+	vars, err := crib.CoreDONSimulatedConnection()
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
