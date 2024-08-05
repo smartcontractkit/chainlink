@@ -1,4 +1,4 @@
-name: "Build and publish chainlink unsigned image"
+name: "Build and Publish"
 
 on:
   pull_request:
@@ -18,8 +18,8 @@ env:
 
 jobs:
   build-publish-chainlink-develop:
-    runs-on:
-      labels: ubuntu22.04-16cores-64GB
+    name: "Chainlink Unsigned Image"
+    runs-on: ubuntu-20.04
     outputs:
       goreleaser-metadata: ${{ steps.build-sign-publish.outputs.goreleaser-metadata }}
       goreleaser-artifacts: ${{ steps.build-sign-publish.outputs.goreleaser-artifacts }}
