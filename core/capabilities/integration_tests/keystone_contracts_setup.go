@@ -91,8 +91,8 @@ func peerToNode(nopID uint32, p peer) (kcr.CapabilitiesRegistryNodeParams, error
 	}, nil
 }
 
-func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workflowDonPeers []peer, triggerDonPeers []peer,
-	targetDonPeerIDs []peer,
+func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workflowDon donInfo, triggerDon donInfo,
+	targetDon donInfo,
 	transactOpts *bind.TransactOpts, backend *ethBackend) common.Address {
 	addr, _, reg, err := kcr.DeployCapabilitiesRegistry(transactOpts, backend)
 	require.NoError(t, err)
@@ -157,7 +157,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 
 	nopID := recLog.NodeOperatorId
 	nodes := []kcr.CapabilitiesRegistryNodeParams{}
-	for _, wfPeer := range workflowDonPeers {
+	for _, wfPeer := range workflowDon.peerIDs {
 		n, innerErr := peerToNode(nopID, wfPeer)
 		require.NoError(t, innerErr)
 
@@ -165,7 +165,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		nodes = append(nodes, n)
 	}
 
-	for _, triggerPeer := range triggerDonPeers {
+	for _, triggerPeer := range triggerDon.peerIDs {
 		n, innerErr := peerToNode(nopID, triggerPeer)
 		require.NoError(t, innerErr)
 
@@ -173,7 +173,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		nodes = append(nodes, n)
 	}
 
-	for _, targetPeer := range targetDonPeerIDs {
+	for _, targetPeer := range targetDon.peerIDs {
 		n, innerErr := peerToNode(nopID, targetPeer)
 		require.NoError(t, innerErr)
 
@@ -185,7 +185,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	require.NoError(t, err)
 
 	// workflow DON
-	ps, err := peers(workflowDonPeers)
+	ps, err := peers(workflowDon.peerIDs)
 	require.NoError(t, err)
 
 	cc := newCapabilityConfig()
@@ -199,22 +199,24 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		},
 	}
 
-	workflowDonF := uint8(2)
-	_, err = reg.AddDON(transactOpts, ps, cfgs, false, true, workflowDonF)
+	_, err = reg.AddDON(transactOpts, ps, cfgs, false, true, workflowDon.F)
 	require.NoError(t, err)
 
 	// trigger DON
-	ps, err = peers(triggerDonPeers)
+	ps, err = peers(triggerDon.peerIDs)
 	require.NoError(t, err)
 
-	triggerDonF := 1
-	config := &pb.RemoteTriggerConfig{
-		RegistrationRefresh: durationpb.New(20000 * time.Millisecond),
-		RegistrationExpiry:  durationpb.New(60000 * time.Millisecond),
-		// F + 1
-		MinResponsesToAggregate: uint32(triggerDonF) + 1,
+	triggerCapabilityConfig := newCapabilityConfig()
+	triggerCapabilityConfig.RemoteConfig = &pb.CapabilityConfig_RemoteTriggerConfig{
+		RemoteTriggerConfig: &pb.RemoteTriggerConfig{
+			RegistrationRefresh: durationpb.New(60000 * time.Millisecond),
+			RegistrationExpiry:  durationpb.New(60000 * time.Millisecond),
+			// F + 1
+			MinResponsesToAggregate: uint32(triggerDon.F) + 1,
+		},
 	}
-	configb, err := proto.Marshal(config)
+
+	configb, err := proto.Marshal(triggerCapabilityConfig)
 	require.NoError(t, err)
 
 	cfgs = []kcr.CapabilitiesRegistryCapabilityConfiguration{
@@ -224,22 +226,31 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		},
 	}
 
-	_, err = reg.AddDON(transactOpts, ps, cfgs, true, false, uint8(triggerDonF))
+	_, err = reg.AddDON(transactOpts, ps, cfgs, true, false, triggerDon.F)
 	require.NoError(t, err)
 
 	// target DON
-	ps, err = peers(targetDonPeerIDs)
+	ps, err = peers(targetDon.peerIDs)
+	require.NoError(t, err)
+
+	targetCapabilityConfig := newCapabilityConfig()
+	targetCapabilityConfig.RemoteConfig = &pb.CapabilityConfig_RemoteTargetConfig{
+		RemoteTargetConfig: &pb.RemoteTargetConfig{
+			RequestHashExcludedAttributes: []string{"signed_report.Signatures"},
+		},
+	}
+
+	remoteTargetConfigBytes, err := proto.Marshal(targetCapabilityConfig)
 	require.NoError(t, err)
 
 	cfgs = []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: wid,
-			Config:       ccb,
+			Config:       remoteTargetConfigBytes,
 		},
 	}
 
-	targetDonF := uint8(1)
-	_, err = reg.AddDON(transactOpts, ps, cfgs, true, false, targetDonF)
+	_, err = reg.AddDON(transactOpts, ps, cfgs, true, false, targetDon.F)
 	require.NoError(t, err)
 
 	backend.Commit()
@@ -253,19 +264,18 @@ func newCapabilityConfig() *pb.CapabilityConfig {
 	}
 }
 
-func setupForwarderContract(t *testing.T, workflowDonPeers []peer, workflowDonId uint32,
-	configVersion uint32, f uint8,
+func setupForwarderContract(t *testing.T, workflowDon donInfo,
 	transactOpts *bind.TransactOpts, backend *ethBackend) (common.Address, *forwarder.KeystoneForwarder) {
 	addr, _, fwd, err := forwarder.DeployKeystoneForwarder(transactOpts, backend)
 	require.NoError(t, err)
 	backend.Commit()
 
 	var signers []common.Address
-	for _, p := range workflowDonPeers {
+	for _, p := range workflowDon.peerIDs {
 		signers = append(signers, common.HexToAddress(p.Signer))
 	}
 
-	_, err = fwd.SetConfig(transactOpts, workflowDonId, configVersion, f, signers)
+	_, err = fwd.SetConfig(transactOpts, workflowDon.ID, workflowDon.ConfigVersion, workflowDon.F, signers)
 	require.NoError(t, err)
 	backend.Commit()
 
