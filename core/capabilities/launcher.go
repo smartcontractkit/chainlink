@@ -216,6 +216,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 					int(remoteDON.F+1),
 					w.lggr,
 				)
+
 				// TODO: We need to implement a custom, Mercury-specific
 				// aggregator here, because there is no guarantee that
 				// all trigger events in the workflow will have the same
@@ -358,6 +359,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 		case capabilities.CapabilityTypeTarget:
 			newTargetServer := func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (receiverService, error) {
 				return target.NewServer(
+					c.RemoteTargetConfig,
 					myPeerID,
 					capability.(capabilities.TargetCapability),
 					info,
