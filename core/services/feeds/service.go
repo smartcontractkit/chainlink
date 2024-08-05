@@ -108,8 +108,8 @@ type Service interface {
 	RejectSpec(ctx context.Context, id int64) error
 	UpdateSpecDefinition(ctx context.Context, id int64, spec string) error
 
-	// UnsafeSetConnectionsManager Only for testing
-	UnsafeSetConnectionsManager(ConnectionsManager)
+	// Unsafe_SetConnectionsManager Only for testing
+	Unsafe_SetConnectionsManager(ConnectionsManager)
 }
 
 type service struct {
@@ -1114,7 +1114,7 @@ func (s *service) observeJobProposalCounts(ctx context.Context) error {
 // tests.
 //
 // ONLY TO BE USED FOR TESTING.
-func (s *service) UnsafeSetConnectionsManager(connMgr ConnectionsManager) {
+func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
 	s.connMgr = connMgr
 }
 
@@ -1514,6 +1514,6 @@ func (ns NullService) IsJobManaged(ctx context.Context, jobID int64) (bool, erro
 func (ns NullService) UpdateSpecDefinition(ctx context.Context, id int64, spec string) error {
 	return ErrFeedsManagerDisabled
 }
-func (ns NullService) UnsafeSetConnectionsManager(_ ConnectionsManager) {}
+func (ns NullService) Unsafe_SetConnectionsManager(_ ConnectionsManager) {}
 
 //revive:enable
