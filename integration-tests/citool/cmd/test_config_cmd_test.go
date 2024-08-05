@@ -36,7 +36,7 @@ func TestCreateTestConfigCmd(t *testing.T) {
 				assert.NotNil(t, tc.PrivateEthereumNetwork)
 				assert.NotNil(t, tc.PrivateEthereumNetwork.ExecutionLayer)
 				assert.Equal(t, ctf_config_types.ExecutionLayer("geth"), *tc.PrivateEthereumNetwork.ExecutionLayer)
-				assert.Equal(t, ctf_config.EthereumVersion("1.10.0"), *tc.PrivateEthereumNetwork.EthereumVersion)
+				assert.Equal(t, ctf_config_types.EthereumVersion("1.10.0"), *tc.PrivateEthereumNetwork.EthereumVersion)
 			},
 		},
 		{

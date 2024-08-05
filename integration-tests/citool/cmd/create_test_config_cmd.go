@@ -153,9 +153,9 @@ var createTestConfigCmd = &cobra.Command{
 			if privateEthereumNetworkExecutionLayer != nil {
 				el = ctf_config_types.ExecutionLayer(*privateEthereumNetworkExecutionLayer)
 			}
-			var ev ctf_config.EthereumVersion
+			var ev ctf_config_types.EthereumVersion
 			if privateEthereumNetworkEthereumVersion != nil {
-				ev = ctf_config.EthereumVersion(*privateEthereumNetworkEthereumVersion)
+				ev = ctf_config_types.EthereumVersion(*privateEthereumNetworkEthereumVersion)
 			}
 			var customImages map[ctf_config.ContainerType]string
 			if privateEthereumNetworkCustomDockerImage != nil {
