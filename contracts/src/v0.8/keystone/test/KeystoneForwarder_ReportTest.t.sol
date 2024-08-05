@@ -156,7 +156,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     vm.expectEmit(address(s_forwarder));
     emit ReportProcessed(address(s_receiver), executionId, reportId, true);
 
-    s_forwarder.report{gas: 200_000}(address(s_receiver), report, reportContext, signatures);
+    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
 
     assertEq(
       s_forwarder.getTransmitter(address(s_receiver), executionId, reportId),
@@ -169,11 +169,33 @@ contract KeystoneForwarder_ReportTest is BaseTest {
       "TransmissionState mismatch"
     );
 
-    assertEq(
+    assertGt(
       s_forwarder.getTransmissionGasLimit(address(s_receiver), executionId, reportId),
-      137_398,
+      100_000,
       "transmission gas limit mismatch"
     );
+  }
+
+  // TODO: Add error for insufficient gas
+
+  function test_Report_SuccessfulRetryWithGas() public {
+    s_forwarder.report{gas: 150_000}(address(s_receiver), report, reportContext, signatures);
+
+    // Expect to fail with the receiver running out of gas
+    assertEq(
+      uint8(s_forwarder.getTransmissionState(address(s_receiver), executionId, reportId)),
+      uint8(IRouter.TransmissionState.FAILED)
+    );
+    assertGt(s_forwarder.getTransmissionGasLimit(address(s_receiver), executionId, reportId), 100_000);
+
+    // Should succeed with more gas
+    s_forwarder.report{gas: 300_000}(address(s_receiver), report, reportContext, signatures);
+
+    assertEq(
+      uint8(s_forwarder.getTransmissionState(address(s_receiver), executionId, reportId)),
+      uint8(IRouter.TransmissionState.SUCCEEDED)
+    );
+    assertGt(s_forwarder.getTransmissionGasLimit(address(s_receiver), executionId, reportId), 250_000);
   }
 
   function test_Report_FailedDeliveryWhenReceiverNotContract() public {
@@ -190,6 +212,11 @@ contract KeystoneForwarder_ReportTest is BaseTest {
       uint8(s_forwarder.getTransmissionState(receiver, executionId, reportId)),
       uint8(IRouter.TransmissionState.FAILED),
       "TransmissionState mismatch"
+    );
+    assertGt(
+      s_forwarder.getTransmissionGasLimit(receiver, executionId, reportId),
+      100_000,
+      "transmission gas limit mismatch"
     );
   }
 
@@ -208,6 +235,11 @@ contract KeystoneForwarder_ReportTest is BaseTest {
       uint8(IRouter.TransmissionState.FAILED),
       "TransmissionState mismatch"
     );
+    assertGt(
+      s_forwarder.getTransmissionGasLimit(receiver, executionId, reportId),
+      100_000,
+      "transmission gas limit mismatch"
+    );
   }
 
   function test_Report_ConfigVersion() public {
@@ -224,7 +256,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     emit ReportProcessed(address(s_receiver), executionId, reportId, true);
 
     vm.prank(TRANSMITTER);
-    s_forwarder.report{gas: 200_000}(address(s_receiver), report, reportContext, signatures);
+    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
 
     // after clear the old version doesn't work anymore
     vm.prank(ADMIN);
@@ -233,7 +265,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     uint64 configId = (uint64(DON_ID) << 32) | CONFIG_VERSION;
     vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, configId));
     vm.prank(TRANSMITTER);
-    s_forwarder.report{gas: 200_000}(address(s_receiver), report, reportContext, signatures);
+    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
 
     // but new config does
     bytes32 newExecutionId = hex"6d795f657865637574696f6e5f69640000000000000000000000000000000001";
@@ -257,7 +289,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     emit ReportProcessed(address(s_receiver), newExecutionId, reportId, true);
 
     vm.prank(TRANSMITTER);
-    s_forwarder.report{gas: 200_000}(address(s_receiver), newReport, reportContext, newSignatures);
+    s_forwarder.report(address(s_receiver), newReport, reportContext, newSignatures);
 
     // validate transmitter was recorded
     address transmitter = s_forwarder.getTransmitter(address(s_receiver), newExecutionId, reportId);

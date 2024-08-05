@@ -6,7 +6,6 @@ import {IRouter} from "./interfaces/IRouter.sol";
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
-import {CallWithExactGas} from "../shared/call/CallWithExactGas.sol";
 
 /// @notice This is an entry point for `write_${chain}` Target capability. It
 /// allows nodes to determine if reports have been processed (successfully or
@@ -91,11 +90,10 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   uint256 internal constant FORWARDER_METADATA_LENGTH = 45;
   uint256 internal constant SIGNATURE_LENGTH = 65;
 
-  /// @dev The minimum amount of gas to perform the call with exact gas.
-  uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
   /// @dev The gas we require to revert in case of a revert in the call to the
   /// receiver. This is more than enough and does not attempt to be exact.
-  uint256 internal constant GAS_FOR_ROUTER_LOGIC = 40_000;
+  uint256 internal constant REQUIRED_GAS_FOR_ROUTING = 40_000;
+  bytes4 internal constant INSUFFICIENT_GAS_FOR_ROUTING_SIG = 0x0bfecd63;
 
   // ================================================================
   // │                          Router                              │
@@ -110,23 +108,8 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   }
 
   function removeForwarder(address forwarder) external onlyOwner {
-    s_forwarders[forwarder] = false;
-    emit ForwarderRemoved(forwarder);
-  }
-
-  function reportWithExactGas(
-    uint256 gasLimit,
-    address receiver,
-    bytes calldata metadata,
-    bytes calldata validatedReport
-  ) external returns (bool success) {
-    return
-      CallWithExactGas._callWithExactGas(
-        abi.encodeCall(IReceiver.onReport, (metadata, validatedReport)),
-        receiver,
-        gasLimit,
-        GAS_FOR_CALL_EXACT_CHECK
-      );
+    delete s_forwarders[forwarder];
+    emit IRouter.ForwarderRemoved(forwarder);
   }
 
   function route(
@@ -136,25 +119,49 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     bytes calldata metadata,
     bytes calldata validatedReport
   ) public returns (bool) {
-    // Calculating the remainder of the gas available after accounting for the
-    // gas needed to handle reverts in the call to the receiver allows us to
-    // avoid passing the gas limit as a parameter to the `route` function.
-    uint256 gasLimit = gasleft() - GAS_FOR_ROUTER_LOGIC;
-
     if (!s_forwarders[msg.sender]) revert UnauthorizedForwarder();
-    if (s_transmissions[transmissionId].transmitter != address(0)) revert AlreadyAttempted(transmissionId);
+
+    TransmissionInfo memory transmission = s_transmissions[transmissionId];
+    uint256 gasLeft = gasleft();
+    if (transmission.transmitter != address(0) && transmission.gasLimit >= gasLeft)
+      revert AlreadyAttempted(transmissionId);
 
     s_transmissions[transmissionId].transmitter = transmitter;
-    s_transmissions[transmissionId].gasLimit = uint88(gasLimit);
+    s_transmissions[transmissionId].gasLimit = uint88(gasLeft);
 
-    // Making this an external call to be able to catch reverts from the _callWithExactGas function
-    // and avoid having to inline the entire function here.
-    try this.reportWithExactGas(gasLimit, receiver, metadata, validatedReport) returns (bool success) {
-      s_transmissions[transmissionId].success = success;
-      return success;
-    } catch {
-      return false;
+    bool success;
+    bytes memory payload = abi.encodeCall(IReceiver.onReport, (metadata, validatedReport));
+    assembly {
+      // solidity calls check that a contract actually exists at the destination, so we do the same
+      // Note we do this check prior to measuring gas so REQUIRED_GAS_FOR_ROUTING (our "cushion")
+      // doesn't need to account for it.
+      if iszero(extcodesize(receiver)) {
+        mstore(0x0, 0x00)
+        return(0x0, 0x20)
+      }
+
+      let g := gas()
+      // Compute g -= REQUIRED_GAS_FOR_ROUTING and check for underflow
+      // The gas actually passed to the callee is _min(gasAmount, 63//64*gas available).
+      // We want to ensure that we revert if gasAmount >  63//64*gas available
+      // as we do not want to provide them with less, however that check itself costs
+      // gas. REQUIRED_GAS_FOR_ROUTING ensures we have at least enough gas to be able
+      // to revert if gasAmount >  63//64*gas available.
+      if lt(g, REQUIRED_GAS_FOR_ROUTING) {
+        mstore(0x0, INSUFFICIENT_GAS_FOR_ROUTING_SIG)
+        revert(0x0, 0x4)
+      }
+      g := sub(g, REQUIRED_GAS_FOR_ROUTING)
+
+      // call and return whether we succeeded. ignore return data
+      // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
+      success := call(g, receiver, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
     }
+
+    if (success) {
+      s_transmissions[transmissionId].success = true;
+    }
+    return success;
   }
 
   function getTransmissionId(

@@ -36,6 +36,13 @@ contract KeystoneRouter_SetConfigTest is Test {
     s_router.removeForwarder(FORWARDER);
   }
 
+  function test_RemoveForwarder_Success() public {
+    vm.prank(ADMIN);
+    vm.expectEmit(true, false, false, false);
+    emit IRouter.ForwarderRemoved(FORWARDER);
+    s_router.removeForwarder(FORWARDER);
+  }
+
   function test_Route_RevertWhen_UnauthorizedForwarder() public {
     vm.prank(STRANGER);
     vm.expectRevert(IRouter.UnauthorizedForwarder.selector);

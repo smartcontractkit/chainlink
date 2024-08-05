@@ -4,6 +4,9 @@ pragma solidity 0.8.24;
 /// @title IRouter - delivers keystone reports to receiver
 interface IRouter {
   error UnauthorizedForwarder();
+  /// @dev Thrown when the gas limit is insufficient for handling state after
+  /// calling the receiver function.
+  error InsufficientGasForRouting(bytes32 transmissionId);
   error AlreadyAttempted(bytes32 transmissionId);
 
   event ForwarderAdded(address indexed forwarder);
