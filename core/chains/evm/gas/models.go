@@ -33,11 +33,11 @@ type EvmFeeEstimator interface {
 
 	// L1Oracle returns the L1 gas price oracle only if the chain has one, e.g. OP stack L2s and Arbitrum.
 	L1Oracle() rollups.L1Oracle
-	GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint64, err error)
+	GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, toAddress *common.Address, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint64, err error)
 	BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint64, maxFeePrice *assets.Wei, attempts []EvmPriorAttempt) (bumpedFee EvmFee, chainSpecificFeeLimit uint64, err error)
 
 	// GetMaxCost returns the total value = max price x fee units + transferred value
-	GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (*big.Int, error)
+	GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, toAddress *common.Address, opts ...feetypes.Opt) (*big.Int, error)
 }
 
 type feeEstimatorClient interface {
@@ -46,6 +46,7 @@ type feeEstimatorClient interface {
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	ConfiguredChainID() *big.Int
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
+	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
 }
 
 // NewEstimator returns the estimator for a given config
@@ -110,7 +111,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 			return NewFixedPriceEstimator(geCfg, ethClient, bh, lggr, l1Oracle)
 		}
 	}
-	return NewEvmFeeEstimator(lggr, newEstimator, df, geCfg), nil
+	return NewEvmFeeEstimator(lggr, newEstimator, df, geCfg, ethClient), nil
 }
 
 // DynamicFee encompasses both FeeCap and TipCap for EIP1559 transactions
@@ -181,17 +182,19 @@ type evmFeeEstimator struct {
 	EvmEstimator
 	EIP1559Enabled bool
 	geCfg          GasEstimatorConfig
+	ethClient      feeEstimatorClient
 }
 
 var _ EvmFeeEstimator = (*evmFeeEstimator)(nil)
 
-func NewEvmFeeEstimator(lggr logger.Logger, newEstimator func(logger.Logger) EvmEstimator, eip1559Enabled bool, geCfg GasEstimatorConfig) EvmFeeEstimator {
+func NewEvmFeeEstimator(lggr logger.Logger, newEstimator func(logger.Logger) EvmEstimator, eip1559Enabled bool, geCfg GasEstimatorConfig, ethClient feeEstimatorClient) EvmFeeEstimator {
 	lggr = logger.Named(lggr, "WrappedEvmEstimator")
 	return &evmFeeEstimator{
 		lggr:           lggr,
 		EvmEstimator:   newEstimator(lggr),
 		EIP1559Enabled: eip1559Enabled,
 		geCfg:          geCfg,
+		ethClient:      ethClient,
 	}
 }
 
@@ -261,7 +264,12 @@ func (e *evmFeeEstimator) L1Oracle() rollups.L1Oracle {
 	return e.EvmEstimator.L1Oracle()
 }
 
-func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint64, err error) {
+func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, toAddress *common.Address, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint64, err error) {
+	callMsg := ethereum.CallMsg{
+		To:   toAddress,
+		Data: calldata,
+	}
+
 	// get dynamic fee
 	if e.EIP1559Enabled {
 		var dynamicFee DynamicFee
@@ -269,9 +277,21 @@ func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit 
 		if err != nil {
 			return
 		}
-		chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
 		fee.DynamicFeeCap = dynamicFee.FeeCap
 		fee.DynamicTipCap = dynamicFee.TipCap
+		if e.geCfg.EstimateGasLimit() {
+			callMsg.Gas = feeLimit
+			callMsg.GasFeeCap = fee.DynamicFeeCap.ToInt()
+			callMsg.GasTipCap = fee.DynamicTipCap.ToInt()
+			estimatedGasLimit, estimateErr := e.ethClient.EstimateGas(ctx, callMsg)
+			if estimateErr != nil {
+				// Do not return error if estimating gas failed, we can still use the provided limit instead since it is an upper limit
+				e.lggr.Errorw("failed to estimate gas limit. falling back to provided gas limit.", "toAddress", toAddress, "data", calldata, "gasLimit", feeLimit, "error", estimateErr)
+			} else {
+				feeLimit = estimatedGasLimit
+			}
+		}
+		chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
 		return
 	}
 
@@ -280,13 +300,24 @@ func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit 
 	if err != nil {
 		return
 	}
+	if e.geCfg.EstimateGasLimit() {
+		callMsg.Gas = chainSpecificFeeLimit
+		callMsg.GasPrice = fee.Legacy.ToInt()
+		estimatedGasLimit, estimateErr := e.ethClient.EstimateGas(ctx, callMsg)
+		if estimateErr != nil {
+			// Do not return error if estimating gas failed, we can still use the provided limit instead since it is an upper limit
+			e.lggr.Errorw("failed to estimate gas limit. falling back to provided gas limit.", "toAddress", toAddress, "data", calldata, "gasLimit", chainSpecificFeeLimit, "error", estimateErr)
+		} else {
+			chainSpecificFeeLimit = estimatedGasLimit
+		}
+	}
 	chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(chainSpecificFeeLimit, e.geCfg.LimitMultiplier())
 
 	return
 }
 
-func (e *evmFeeEstimator) GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (*big.Int, error) {
-	fees, gasLimit, err := e.GetFee(ctx, calldata, feeLimit, maxFeePrice, opts...)
+func (e *evmFeeEstimator) GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, toAddress *common.Address, opts ...feetypes.Opt) (*big.Int, error) {
+	fees, gasLimit, err := e.GetFee(ctx, calldata, feeLimit, maxFeePrice, toAddress, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -358,6 +389,7 @@ type GasEstimatorConfig interface {
 	PriceMin() *assets.Wei
 	PriceMax() *assets.Wei
 	Mode() string
+	EstimateGasLimit() bool
 }
 
 type BlockHistoryConfig interface {

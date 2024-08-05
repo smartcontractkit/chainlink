@@ -186,7 +186,7 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 		return nil, fmt.Errorf("gas estimator not available")
 	}
 
-	fee, _, err := w.ge.GetFee(ctx, nil, 0, w.maxGasPrice)
+	fee, _, err := w.ge.GetFee(ctx, nil, 0, w.maxGasPrice, nil)
 	if err != nil {
 		return nil, err
 	}
