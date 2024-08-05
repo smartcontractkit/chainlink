@@ -127,7 +127,10 @@ func stepToState(step workflowStepRow) (*WorkflowExecutionStep, error) {
 			return nil, err
 		}
 
-		inputs = values.FromMapValueProto(vmProto)
+		inputs, err = values.FromMapValueProto(vmProto)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var (
@@ -146,7 +149,10 @@ func stepToState(step workflowStepRow) (*WorkflowExecutionStep, error) {
 			return nil, err
 		}
 
-		outputs = values.FromProto(vProto)
+		outputs, err = values.FromProto(vProto)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &WorkflowExecutionStep{

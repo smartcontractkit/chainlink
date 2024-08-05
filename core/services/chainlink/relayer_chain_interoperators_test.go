@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -174,9 +175,10 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	factory := chainlink.RelayerFactory{
-		Logger:       lggr,
-		LoopRegistry: plugins.NewLoopRegistry(lggr, nil),
-		GRPCOpts:     loop.GRPCOpts{},
+		Logger:               lggr,
+		LoopRegistry:         plugins.NewLoopRegistry(lggr, nil),
+		GRPCOpts:             loop.GRPCOpts{},
+		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 	}
 
 	testctx := testutils.Context(t)
