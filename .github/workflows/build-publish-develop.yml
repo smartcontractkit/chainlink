@@ -2,8 +2,8 @@ name: "Build and publish chainlink unsigned image"
 
 on:
   pull_request:
-    branches:
-      - '!release/**'
+    branches-ignore:
+      - 'release/**'
   push:
     branches:
       - develop
