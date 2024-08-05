@@ -68,8 +68,8 @@ func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, 
 	lggr.SetLogLevel(TestLogLevel)
 
 	ethBlockchain, transactor := setupBlockchain(t, 1000, 1*time.Second)
-	capabilitiesRegistryAddr := setupCapabilitiesRegistryContract(ctx, t, workflowDonInfo.peerIDs, triggerDonInfo.peerIDs, targetDonInfo.peerIDs, transactor, ethBlockchain)
-	forwarderAddr, _ := setupForwarderContract(t, workflowDonInfo.peerIDs, workflowDonInfo.ID, 1, workflowDonInfo.F, transactor, ethBlockchain)
+	capabilitiesRegistryAddr := setupCapabilitiesRegistryContract(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, transactor, ethBlockchain)
+	forwarderAddr, _ := setupForwarderContract(t, workflowDonInfo, transactor, ethBlockchain)
 	consumerAddr, consumer := setupConsumerContract(t, transactor, ethBlockchain, forwarderAddr, workflowOwnerID, workflowName)
 
 	var feedIDs []string
@@ -259,9 +259,10 @@ func createDonInfo(t *testing.T, don don) donInfo {
 
 	triggerDonInfo := donInfo{
 		DON: commoncap.DON{
-			ID:      don.id,
-			Members: donPeers,
-			F:       don.f,
+			ID:            don.id,
+			Members:       donPeers,
+			F:             don.f,
+			ConfigVersion: 1,
 		},
 		peerIDs:    peerIDs,
 		keys:       donKeys,
