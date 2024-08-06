@@ -1040,7 +1040,7 @@ jobs:
         id: getsha
         run: |
           cd solanapath
-          full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}})
+          full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}}^{}) # additional suffix allows handling tagged versions as well
           if [ -z "${full_sha}" ]; then
               echo "Error: could not get the full sha from the short sha using git, look above for error(s)"
               exit 1
@@ -1125,7 +1125,7 @@ jobs:
         uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@46b1311a5a83f33d08ffa8e1e0ab04f9ad51665d # node20 update on may 10, 2024
         with:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
-          image: projectserum/build
+          image: backpackapp/build
           image-version: ${{ needs.get_projectserum_version.outputs.projectserum_version }}
 
   solana-build-test-image:
