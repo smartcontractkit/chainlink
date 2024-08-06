@@ -42,7 +42,7 @@ func (h *headTrackerConfig) FinalityTagBypass() bool {
 func (h *headTrackerConfig) MaxAllowedFinalityDepth() uint32 {
 	return 10000
 }
-func (h *headTrackerConfig) HeadTelemetryEnabled() bool {
+func (h *headTrackerConfig) TelemetryEnabled() bool {
 	return false
 }
 

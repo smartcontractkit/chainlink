@@ -30,6 +30,6 @@ func (h *headTrackerConfig) MaxAllowedFinalityDepth() uint32 {
 	return *h.c.MaxAllowedFinalityDepth
 }
 
-func (h *headTrackerConfig) HeadTelemetryEnabled() bool {
-	return *h.c.HeadTelemetryEnabled
+func (h *headTrackerConfig) TelemetryEnabled() bool {
+	return *h.c.TelemetryEnabled
 }

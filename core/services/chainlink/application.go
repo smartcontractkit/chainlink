@@ -371,7 +371,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	promReporter := headreporter.NewPrometheusReporter(opts.DS, legacyEVMChains)
 	var headReporter *headreporter.HeadReporterService
 	if slices.ContainsFunc(legacyEVMChains.Slice(), func(chain legacyevm.Chain) bool {
-		return chain.Config().EVM().HeadTracker().HeadTelemetryEnabled()
+		return chain.Config().EVM().HeadTracker().TelemetryEnabled()
 	}) {
 		telemReporter := headreporter.NewTelemetryReporter(legacyEVMChains, telemetryManager)
 		headReporter = headreporter.NewHeadReporterService(opts.DS, globalLogger, promReporter, telemReporter)
@@ -380,7 +380,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	for _, chain := range legacyEVMChains.Slice() {
-		if chain.Config().EVM().HeadTracker().HeadTelemetryEnabled() {
+		if chain.Config().EVM().HeadTracker().TelemetryEnabled() {
 			chain.HeadBroadcaster().Subscribe(headReporter)
 		}
 		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)

@@ -370,7 +370,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-HeadTelemetryEnabled = false
+TelemetryEnabled = false
 
 [EVM.NodePool]
 PollFailureThreshold = 5
