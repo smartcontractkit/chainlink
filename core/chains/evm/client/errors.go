@@ -251,8 +251,8 @@ var zkEvm = ClientErrors{
 }
 
 var mantle = ClientErrors{
-	InsufficientEth: regexp.MustCompile(`(: |^)(failed to forward tx to sequencer, please try again. Error message: 'insufficient funds for gas * price + value")`),
-	Fatal:           regexp.MustCompile(`(: |^)failed to forward tx to sequencer, please try again. Error message: 'invalid sender"`),
+	InsufficientEth: regexp.MustCompile(`(: |^)'*insufficient funds for gas \* price \+ value`),
+	Fatal:           regexp.MustCompile(`(: |^)'*invalid sender`),
 }
 
 const TerminallyStuckMsg = "transaction terminally stuck"
