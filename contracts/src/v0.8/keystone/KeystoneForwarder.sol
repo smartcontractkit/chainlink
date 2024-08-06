@@ -49,7 +49,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   error InvalidConfig(uint64 configId);
 
   /// @notice This error is thrown whenever a signer address is not in the
-  /// configuration.
+  /// configuration or when trying to set a zero address as a signer.
   /// @param signer The signer address that was not in the configuration
   error InvalidSigner(address signer);
 
@@ -187,6 +187,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     for (uint256 i = 0; i < signers.length; ++i) {
       // assign indices, detect duplicates
       address signer = signers[i];
+      if (signer == address(0)) revert InvalidSigner(signer);
       if (s_configs[configId]._positions[signer] != 0) revert DuplicateSigner(signer);
       s_configs[configId]._positions[signer] = i + 1;
     }

@@ -2,7 +2,6 @@ package client
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -240,11 +239,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(fn func()) {
 
 // declareOutOfSync puts a node into OutOfSync state, disconnecting all current
 // clients and making it unavailable for use until back in-sync.
-func (n *node[CHAIN_ID, HEAD, RPC]) declareOutOfSync(isOutOfSync func(num int64, td *big.Int) bool) {
+func (n *node[CHAIN_ID, HEAD, RPC]) declareOutOfSync(syncIssues syncStatus) {
 	n.transitionToOutOfSync(func() {
-		n.lfcLog.Errorw("RPC Node is out of sync", "nodeState", n.state)
+		n.lfcLog.Errorw("RPC Node is out of sync", "nodeState", n.state, "syncIssues", syncIssues)
 		n.wg.Add(1)
-		go n.outOfSyncLoop(isOutOfSync)
+		go n.outOfSyncLoop(syncIssues)
 	})
 }
 

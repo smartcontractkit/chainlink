@@ -15,6 +15,14 @@ cp stdout compact.json
 exec jq . compact.json
 cmp stdout out.json
 
+exec chainlink --remote-node-url $NODEURL health -failing
+cmp stdout out-unhealthy.txt
+
+exec chainlink --remote-node-url $NODEURL health -f -json
+cp stdout compact.json
+exec jq . compact.json
+cmp stdout out-unhealthy.json
+
 -- testdb.txt --
 CL_DATABASE_URL
 -- testport.txt --
@@ -86,6 +94,10 @@ ok PromReporter
 ok Solana.Bar
 ok StarkNet.Baz
 ok TelemetryManager
+
+-- out-unhealthy.txt --
+!  EVM.1.HeadTracker.HeadListener
+	Listener is not connected
 
 -- out.json --
 {
@@ -313,6 +325,20 @@ ok TelemetryManager
         "name": "TelemetryManager",
         "status": "passing",
         "output": ""
+      }
+    }
+  ]
+}
+-- out-unhealthy.json --
+{
+  "data": [
+    {
+      "type": "checks",
+      "id": "EVM.1.HeadTracker.HeadListener",
+      "attributes": {
+        "name": "EVM.1.HeadTracker.HeadListener",
+        "status": "failing",
+        "output": "Listener is not connected"
       }
     }
   ]

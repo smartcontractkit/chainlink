@@ -102,7 +102,7 @@ type NodeClient[
 	SetAliveLoopSub(types.Subscription)
 	UnsubscribeAllExceptAliveLoop()
 	IsSyncing(ctx context.Context) (bool, error)
-	LatestFinalizedBlock(ctx context.Context) (HEAD, error)
+	SubscribeToFinalizedHeads(_ context.Context) (<-chan HEAD, types.Subscription, error)
 	// GetInterceptedChainInfo - returns latest and highest observed by application layer ChainInfo.
 	// latest ChainInfo is the most recent value received within a NodeClient's current lifecycle between Dial and DisconnectAll.
 	// highestUserObservations ChainInfo is the highest ChainInfo observed excluding health checks calls.

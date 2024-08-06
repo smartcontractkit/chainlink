@@ -49,6 +49,7 @@ type NodeConfig interface {
 
 type ChainConfig interface {
 	NodeNoNewHeadsThreshold() time.Duration
+	NoNewFinalizedHeadsThreshold() time.Duration
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
 	FinalizedBlockOffset() uint32

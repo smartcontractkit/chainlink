@@ -8,15 +8,20 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
@@ -160,6 +165,12 @@ func peerToNode(nopID uint32, p peer) (kcr.CapabilitiesRegistryNodeParams, error
 		P2pId:          peerIDB,
 		Signer:         sigb,
 	}, nil
+}
+
+func newCapabilityConfig() *capabilitiespb.CapabilityConfig {
+	return &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+	}
 }
 
 // Run expects the following environment variables to be set:
@@ -308,9 +319,16 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		panic(err)
 	}
 
+	cc := newCapabilityConfig()
+	ccb, err := proto.Marshal(cc)
+	if err != nil {
+		panic(err)
+	}
+
 	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: ocrid,
+			Config:       ccb,
 		},
 	}
 	_, err = reg.AddDON(env.Owner, ps, cfgs, true, true, 2)
@@ -324,11 +342,16 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		panic(err)
 	}
 
-	config := &remotetypes.RemoteTriggerConfig{
-		RegistrationRefreshMs: 20000,
-		RegistrationExpiryMs:  60000,
-		// F + 1
-		MinResponsesToAggregate: uint32(1) + 1,
+	config := &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+				RegistrationRefresh: durationpb.New(20 * time.Second),
+				RegistrationExpiry:  durationpb.New(60 * time.Second),
+				// F + 1
+				MinResponsesToAggregate: uint32(1) + 1,
+			},
+		},
 	}
 	configb, err := proto.Marshal(config)
 	if err != nil {
@@ -351,9 +374,22 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		panic(err)
 	}
 
+	targetCapabilityConfig := newCapabilityConfig()
+	targetCapabilityConfig.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
+		RemoteTargetConfig: &capabilitiespb.RemoteTargetConfig{
+			RequestHashExcludedAttributes: []string{"signed_report.Signatures"},
+		},
+	}
+
+	remoteTargetConfigBytes, err := proto.Marshal(targetCapabilityConfig)
+	if err != nil {
+		panic(err)
+	}
+
 	cfgs = []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: wid,
+			Config:       remoteTargetConfigBytes,
 		},
 	}
 	_, err = reg.AddDON(env.Owner, ps, cfgs, true, false, 1)

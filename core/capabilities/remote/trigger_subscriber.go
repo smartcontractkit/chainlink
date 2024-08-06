@@ -23,7 +23,7 @@ import (
 //
 // TriggerSubscriber communicates with corresponding TriggerReceivers on remote nodes.
 type triggerSubscriber struct {
-	config              *types.RemoteTriggerConfig
+	config              *capabilities.RemoteTriggerConfig
 	capInfo             commoncap.CapabilityInfo
 	capDonInfo          capabilities.DON
 	capDonMembers       map[p2ptypes.PeerID]struct{}
@@ -55,10 +55,14 @@ var _ services.Service = &triggerSubscriber{}
 // TODO makes this configurable with a default
 const defaultSendChannelBufferSize = 1000
 
-func NewTriggerSubscriber(config *types.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo capabilities.DON, localDonInfo capabilities.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
+func NewTriggerSubscriber(config *capabilities.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo capabilities.DON, localDonInfo capabilities.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
 	if aggregator == nil {
 		lggr.Warnw("no aggregator provided, using default MODE aggregator", "capabilityId", capInfo.ID)
 		aggregator = NewDefaultModeAggregator(uint32(capDonInfo.F + 1))
+	}
+	if config == nil {
+		lggr.Info("no config provided, using default values")
+		config = &capabilities.RemoteTriggerConfig{}
 	}
 	config.ApplyDefaults()
 	capDonMembers := make(map[p2ptypes.PeerID]struct{})
@@ -121,7 +125,7 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 
 func (s *triggerSubscriber) registrationLoop() {
 	defer s.wg.Done()
-	ticker := time.NewTicker(time.Duration(s.config.RegistrationRefreshMs) * time.Millisecond)
+	ticker := time.NewTicker(s.config.RegistrationRefresh)
 	defer ticker.Stop()
 	for {
 		select {
@@ -195,9 +199,9 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			nowMs := time.Now().UnixMilli()
 			s.mu.RLock()
 			creationTs := s.messageCache.Insert(key, sender, nowMs, msg.Payload)
-			ready, payloads := s.messageCache.Ready(key, s.config.MinResponsesToAggregate, nowMs-int64(s.config.MessageExpiryMs), true)
+			ready, payloads := s.messageCache.Ready(key, s.config.MinResponsesToAggregate, nowMs-s.config.MessageExpiry.Milliseconds(), true)
 			s.mu.RUnlock()
-			if nowMs-creationTs > int64(s.config.RegistrationExpiryMs) {
+			if nowMs-creationTs > s.config.RegistrationExpiry.Milliseconds() {
 				s.lggr.Warnw("received trigger event for an expired ID", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId, "sender", sender)
 				continue
 			}
@@ -219,7 +223,7 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 
 func (s *triggerSubscriber) eventCleanupLoop() {
 	defer s.wg.Done()
-	ticker := time.NewTicker(time.Duration(s.config.MessageExpiryMs) * time.Millisecond)
+	ticker := time.NewTicker(s.config.MessageExpiry)
 	defer ticker.Stop()
 	for {
 		select {
@@ -227,7 +231,7 @@ func (s *triggerSubscriber) eventCleanupLoop() {
 			return
 		case <-ticker.C:
 			s.mu.Lock()
-			s.messageCache.DeleteOlderThan(time.Now().UnixMilli() - int64(s.config.MessageExpiryMs))
+			s.messageCache.DeleteOlderThan(time.Now().UnixMilli() - s.config.MessageExpiry.Milliseconds())
 			s.mu.Unlock()
 		}
 	}
