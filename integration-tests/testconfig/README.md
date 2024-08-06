@@ -137,7 +137,9 @@ DefaultTransactionQueueDepth = 0
 """
 ```
 Note that you cannot override individual values in BaseConfigTOML. You must provide the entire configuration.
+This corresponds to [Config struct](../../core/services/chainlink/config.go) in Chainlink Node that excludes all chain-specific configuration, which is built based on selected_networks and either Chainlink Node's defaults for each network, or `ChainConfigTOMLByChainID` (if an entry with matching chain id is defined) or `CommonChainConfigTOML` (if no entry with matching chain id is defined).
 
+If BaseConfigTOML is empty, then default base config provided by the Chainlink Node is used. If tracing is enabled unique id will be generated and shared between all Chainlink nodes in the same test.
 
 To set base config for EVM chains use `NodeConfig.CommonChainConfigTOML`. Example:
 ```toml
@@ -153,12 +155,12 @@ FeeCapDefault = '200 gwei'
 """
 ```
 
-This is the default configuration used for all EVM chains unless ChainConfigTOMLByChainID is specified.
+This is the default configuration used for all EVM chains unless `ChainConfigTOMLByChainID` is specified. Do remember that if either `ChainConfigTOMLByChainID` or `CommonChainConfigTOML` is defined, it will override any defaults that Chainlink Node might have for the given network. Part of the configuration that defines blockchain node URLs is always dynamically generated based on the EVMNetwork configuration.
 
 To set custom per-chain config use `[NodeConfig.ChainConfigTOMLByChainID]`. Example:
 ```toml
 [NodeConfig.ChainConfigTOMLByChainID]
-# applicable for arbitrum-goerli chain
+# applicable only to arbitrum-goerli chain
 421613 = """
 [GasEstimator]
 PriceMax = '400 gwei'
@@ -170,7 +172,8 @@ BumpMin = '100 gwei'
 """
 ```
 
-For more examples see `example.toml` in product TOML configs like `testconfig/automation/example.toml`.
+For more examples see `example.toml` in product TOML configs like `testconfig/automation/example.toml`. If either ChainConfigTOMLByChainID or CommonChainConfigTOML is defined, it will override any defaults that Chainlink Node might have for the given network. Part of the configuration that defines blockchain node URLs is always dynamically generated based on the EVMNetwork configuration.
+Currently, all networks are treated as EVM networks. There's no way to provide Solana, Starknet, Cosmos or Aptos configuration yet.
 
 ### Setting env vars for Chainlink Node
 
