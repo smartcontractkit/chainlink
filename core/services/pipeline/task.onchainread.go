@@ -23,7 +23,7 @@ type OnChainRead struct {
 	RelayConfig     map[string]interface{} `json:"config"`
 	Relay           string                 `json:"relay"`
 
-	csrm contractStateReaderManager
+	csrm *contractReaderManager
 }
 
 var _ Task = (*OnChainRead)(nil)
@@ -76,8 +76,11 @@ func (t *OnChainRead) Run(ctx context.Context, _ logger.Logger, vars Vars, input
 	}
 
 	csr, err := t.csrm.Get(relayID, contractAddress.String(), methodName.String())
-	if errors.Is(err, CSRNotFoundErr) {
+	if err != nil && errors.Is(err, ContractReaderNotFound) {
 		csr, err = t.csrm.Create(relayID, contractAddress.String(), methodName.String(), crcb)
+		if err != nil {
+			return Result{Error: errors.Wrap(err, "task could not create contractStateReader")}, runInfo
+		}
 		err = csr.Bind(ctx, []types.BoundContract{{
 			Address: contractAddress.String(),
 			Name:    contractName.String(),
@@ -85,14 +88,16 @@ func (t *OnChainRead) Run(ctx context.Context, _ logger.Logger, vars Vars, input
 		if err != nil {
 			return Result{Error: err}, runInfo
 		}
-	} else {
+	} else if err != nil {
 		return Result{Error: err}, runInfo
 	}
 
 	methodParams := map[string]any{}
-	err = json.Unmarshal([]byte(t.Params), &methodParams)
-	if err != nil {
-		return Result{Error: err}, runInfo
+	if json.Valid([]byte(t.Params)) {
+		err = json.Unmarshal([]byte(t.Params), &methodParams)
+		if err != nil {
+			return Result{Error: err}, runInfo
+		}
 	}
 
 	var response any
@@ -101,9 +106,5 @@ func (t *OnChainRead) Run(ctx context.Context, _ logger.Logger, vars Vars, input
 		return Result{Error: err}, runInfo
 	}
 
-	b, err := json.Marshal(response)
-	if err != nil {
-		return Result{Error: err}, runInfo
-	}
-	return Result{Value: string(b)}, runInfo
+	return Result{Value: response}, runInfo
 }

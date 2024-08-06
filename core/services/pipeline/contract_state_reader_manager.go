@@ -4,92 +4,123 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
-var CSRNotFoundErr = errors.New("contractStateReader not found")
+var ContractReaderNotFound = errors.New("contractReader not found")
 
-type contractStateReaderManager struct {
-	ctx               context.Context
-	relayers          map[types.RelayID]loop.Relayer
-	csr               map[string]types.ContractStateReader
-	lggr              logger.Logger
-	heartBeatCh       chan string
-	lastHeartBeatTime map[string]time.Time
+type contractReaderManager struct {
+	services.Service
+	eng                    *services.Engine
+	ctx                    context.Context
+	relayers               map[types.RelayID]loop.Relayer
+	crs                    map[string]types.ContractReader
+	lggr                   logger.Logger
+	heartBeatCh            chan string
+	lastHeartBeatTime      map[string]time.Time
+	hearthBeatTimeout      time.Duration
+	heartBeatCheckInterval time.Duration
+
+	mu sync.RWMutex
 }
 
-func newContractStateReaderManager(ctx context.Context, relayers map[types.RelayID]loop.Relayer, lggr logger.Logger) contractStateReaderManager {
-	c := contractStateReaderManager{
-		ctx:               ctx,
-		relayers:          relayers,
-		csr:               make(map[string]types.ContractStateReader),
-		lggr:              lggr,
-		lastHeartBeatTime: make(map[string]time.Time),
-		heartBeatCh:       make(chan string),
+func newContractReaderManager(ctx context.Context, relayers map[types.RelayID]loop.Relayer, lggr logger.Logger) (*contractReaderManager, error) {
+	c := contractReaderManager{
+		ctx:                    ctx,
+		relayers:               relayers,
+		crs:                    make(map[string]types.ContractReader),
+		lggr:                   lggr,
+		lastHeartBeatTime:      make(map[string]time.Time),
+		heartBeatCh:            make(chan string),
+		heartBeatCheckInterval: time.Minute,
+		hearthBeatTimeout:      time.Minute * 5,
 	}
-	c.checkForUnusedClients(ctx)
-	return c
+	c.Service, c.eng = services.Config{
+		Name: "ContractReaderManager",
+	}.NewServiceEngine(lggr)
+	if err := c.Start(ctx); err != nil {
+		lggr.Errorw("Failed to start contractReaderManager", "err", err)
+		return nil, err
+	}
+
+	go c.checkForUnusedClients()
+	return &c, nil
 }
 
-func (c *contractStateReaderManager) Get(relayID types.RelayID, contractAddress string, methodName string) (types.ContractStateReader, error) {
+func (c *contractReaderManager) Get(relayID types.RelayID, contractAddress string, methodName string) (types.ContractReader, error) {
 	id, err := createID(relayID, contractAddress, methodName)
 	if err != nil {
 		return nil, err
 	}
-	csr, found := c.csr[id]
+	c.mu.RLock()
+	csr, found := c.crs[id]
+	c.mu.RUnlock()
 	if !found {
-		return nil, CSRNotFoundErr
+		return nil, ContractReaderNotFound
 	}
+	c.mu.Lock()
 	c.lastHeartBeatTime[id] = time.Now()
+	c.mu.Unlock()
 	return csr, nil
 }
-func (c *contractStateReaderManager) Create(relayID types.RelayID, contractAddress string, methodName string, config []byte) (types.ContractStateReader, error) {
+func (c *contractReaderManager) Create(relayID types.RelayID, contractAddress string, methodName string, config []byte) (types.ContractReader, error) {
 	id, err := createID(relayID, contractAddress, methodName)
 	if err != nil {
 		return nil, err
 	}
-	csr, found := c.csr[id]
+	c.mu.RLock()
+	csr, found := c.crs[id]
+	c.mu.RUnlock()
 	if found {
-		return nil, fmt.Errorf("contractStateReader already exists for network %q, chainID %q, contractAddress %q, methodName %q", relayID.Network, relayID.ChainID, contractAddress, methodName)
+		return nil, fmt.Errorf("contractReader already exists for network %q, chainID %q, contractAddress %q, methodName %q", relayID.Network, relayID.ChainID, contractAddress, methodName)
 	}
 
 	csr, err = c.create(relayID, contractAddress, methodName, config)
 	if err != nil {
 		return nil, err
 	}
-	csr.Start(c.ctx)
+	//crs.Start(c.ctx)
 	return csr, nil
 }
 
-func (c *contractStateReaderManager) checkForUnusedClients(ctx context.Context) {
+func (c *contractReaderManager) checkForUnusedClients() {
 	for {
 		select {
-		case <-ctx.Done():
+		case <-c.eng.StopChan:
+			c.lggr.Debug("closing contractReaderManager checkForUnusedClients loop")
 			return
-		case <-time.After(time.Minute):
+		case <-time.After(c.heartBeatCheckInterval):
 			for id, lastSeen := range c.lastHeartBeatTime {
 				diff := time.Now().Sub(lastSeen)
-				if diff > (time.Minute * 5) {
-					c.lggr.Infof("closing contractStateReader with ID %q", id)
-					_, found := c.csr[id]
+				if diff > c.hearthBeatTimeout {
+					c.lggr.Infof("closing contractReader with ID %q", id)
+
+					c.mu.Lock()
+					_, found := c.crs[id]
+					c.mu.Unlock()
+
 					if !found {
-						c.lggr.Errorf("contractStateReader with ID %q has timed out but cant be found in manager", id)
+						c.lggr.Errorf("contractReader with ID %q has timed out but cant be found in manager", id)
 						continue
 					}
-					c.csr[id].Close()
-					delete(c.csr, id)
+					//c.crs[id].Close()
+					c.mu.Lock()
+					delete(c.crs, id)
 					delete(c.lastHeartBeatTime, id)
+					c.mu.Unlock()
 				}
 			}
 		}
 	}
 }
 
-func (c *contractStateReaderManager) create(relayID types.RelayID, contractAddress string, methodName string, config []byte) (types.ContractStateReader, error) {
+func (c *contractReaderManager) create(relayID types.RelayID, contractAddress string, methodName string, config []byte) (types.ContractReader, error) {
 	r, found := c.relayers[relayID]
 	if !found {
 		return nil, fmt.Errorf("no relayer found for network %q and chainID %q", relayID.Network, relayID.ChainID)
@@ -100,12 +131,14 @@ func (c *contractStateReaderManager) create(relayID types.RelayID, contractAddre
 		return nil, err
 	}
 
-	csr, err := r.NewContractStateReader(c.ctx, config)
+	csr, err := r.NewContractReader(c.ctx, config)
 	if err != nil {
 		return nil, err
 	}
-
-	c.csr[id] = csr
+	c.mu.Lock()
+	c.crs[id] = csr
+	c.lastHeartBeatTime[id] = time.Now()
+	c.mu.Unlock()
 	return csr, nil
 }
 
@@ -129,7 +162,14 @@ func createID(relayID types.RelayID, contractAddress string, methodName string) 
 	return fmt.Sprintf("%s_%s_%s_%s", relayID.Network, relayID.ChainID, contractAddress, methodName), nil
 }
 
-/*TODO @george-dorin:
-- cleanup
-- add context
-*/
+func (c *contractReaderManager) Name() string {
+	return c.lggr.Name()
+}
+
+func (c *contractReaderManager) Healthy() error {
+	return nil
+}
+
+func (c *contractReaderManager) HealthReport() map[string]error {
+	return map[string]error{c.Name(): c.Healthy()}
+}

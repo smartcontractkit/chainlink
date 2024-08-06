@@ -560,6 +560,8 @@ type JobSpec interface {
 type CronJobSpec struct {
 	Schedule          string `toml:"schedule"`          // CRON job style schedule string
 	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
+	Relay             string `toml:"relay"`
+	RelayConfig       string `toml:"relayConfig"`
 }
 
 // Type is cron
@@ -570,9 +572,13 @@ func (c *CronJobSpec) String() (string, error) {
 	cronJobTemplateString := `type     = "cron"
 schemaVersion     = 1
 schedule          = "{{.Schedule}}"
+relay          	  = "{{.Relay}}"
 observationSource = """
 {{.ObservationSource}}
-"""`
+"""
+[relayConfig]
+{{.RelayConfig}}
+`
 	return MarshallTemplate(c, "CRON Job", cronJobTemplateString)
 }
 

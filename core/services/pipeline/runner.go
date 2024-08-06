@@ -77,7 +77,7 @@ type runner struct {
 	chStop services.StopChan
 	wgDone sync.WaitGroup
 
-	csrm contractStateReaderManager
+	csrm *contractReaderManager
 }
 
 var (
@@ -126,6 +126,11 @@ func NewRunner(
 
 	chStop := make(chan struct{})
 	ctx, _ := services.StopChan.NewCtx(chStop)
+
+	csrm, err := newContractReaderManager(ctx, relayers, lggr)
+	if err != nil {
+		lggr.Errorw("Could not start ContractStateReaderManger", "err", err)
+	}
 	r := &runner{
 		orm:                    orm,
 		btORM:                  bridges.NewCache(btORM, lggr, bridges.DefaultUpsertInterval),
@@ -140,7 +145,7 @@ func NewRunner(
 		lggr:                   lggr,
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
-		csrm:                   newContractStateReaderManager(ctx, relayers, lggr),
+		csrm:                   csrm,
 	}
 
 	r.runReaperWorker = commonutils.NewSleeperTask(
