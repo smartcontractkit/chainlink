@@ -11,6 +11,7 @@ import (
 
 	libocrtypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
@@ -35,15 +36,22 @@ func TestHomeChainReader(t *testing.T) {
 	p2pIDs := integrationhelpers.P2pIDsFromInts(arr)
 	uni.AddCapability(p2pIDs)
 	//==============================Apply configs to Capability Contract=================================
-	chainAConf := integrationhelpers.SetupConfigInfo(integrationhelpers.ChainA, p2pIDs, integrationhelpers.FChainA, []byte("ChainA"))
-	chainBConf := integrationhelpers.SetupConfigInfo(integrationhelpers.ChainB, p2pIDs[1:], integrationhelpers.FChainB, []byte("ChainB"))
-	chainCConf := integrationhelpers.SetupConfigInfo(integrationhelpers.ChainC, p2pIDs[2:], integrationhelpers.FChainC, []byte("ChainC"))
+	encodedChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
+		GasPriceDeviationPPB:    cciptypes.NewBigIntFromInt64(1000),
+		DAGasPriceDeviationPPB:  cciptypes.NewBigIntFromInt64(1_000_000),
+		FinalityDepth:           -1,
+		OptimisticConfirmations: 1,
+	})
+	require.NoError(t, err)
+	chainAConf := integrationhelpers.SetupConfigInfo(integrationhelpers.ChainA, p2pIDs, integrationhelpers.FChainA, encodedChainConfig)
+	chainBConf := integrationhelpers.SetupConfigInfo(integrationhelpers.ChainB, p2pIDs[1:], integrationhelpers.FChainB, encodedChainConfig)
+	chainCConf := integrationhelpers.SetupConfigInfo(integrationhelpers.ChainC, p2pIDs[2:], integrationhelpers.FChainC, encodedChainConfig)
 	inputConfig := []capcfg.CCIPConfigTypesChainConfigInfo{
 		chainAConf,
 		chainBConf,
 		chainCConf,
 	}
-	_, err := uni.CcipCfg.ApplyChainConfigUpdates(uni.Transactor, nil, inputConfig)
+	_, err = uni.CcipCfg.ApplyChainConfigUpdates(uni.Transactor, nil, inputConfig)
 	require.NoError(t, err)
 	uni.Backend.Commit()
 	//================================Setup HomeChainReader===============================
@@ -63,6 +71,7 @@ func TestHomeChainReader(t *testing.T) {
 		expectedChainConfigs[cciptypes.ChainSelector(c.ChainSelector)] = ccipreader.ChainConfig{
 			FChain:         int(c.ChainConfig.FChain),
 			SupportedNodes: toPeerIDs(c.ChainConfig.Readers),
+			Config:         mustDecodeChainConfig(t, c.ChainConfig.Config),
 		}
 	}
 	configs, err := homeChain.GetAllChainConfigs()
@@ -85,4 +94,10 @@ func toPeerIDs(readers [][32]byte) mapset.Set[libocrtypes.PeerID] {
 		peerIDs.Add(r)
 	}
 	return peerIDs
+}
+
+func mustDecodeChainConfig(t *testing.T, encodedChainConfig []byte) chainconfig.ChainConfig {
+	chainConfig, err := chainconfig.DecodeChainConfig(encodedChainConfig)
+	require.NoError(t, err)
+	return chainConfig
 }

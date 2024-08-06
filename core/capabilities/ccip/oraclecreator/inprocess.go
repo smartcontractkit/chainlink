@@ -18,6 +18,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
@@ -45,6 +46,10 @@ import (
 )
 
 var _ cctypes.OracleCreator = &inprocessOracleCreator{}
+
+const (
+	defaultCommitGasLimit = 500_000
+)
 
 // inprocessOracleCreator creates oracles that reference plugins running
 // in the same process as the chainlink node, i.e not LOOPPs.
@@ -148,6 +153,24 @@ func (i *inprocessOracleCreator) CreatePluginOracle(pluginType cctypes.PluginTyp
 	destChainFamily := relay.NetworkEVM
 	destRelayID := types.NewRelayID(destChainFamily, fmt.Sprintf("%d", destChainID))
 
+	configTracker := ocrimpls.NewConfigTracker(config)
+	publicConfig, err := configTracker.PublicConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
+	}
+	var execBatchGasLimit uint64
+	if pluginType == cctypes.PluginTypeCCIPExec {
+		execOffchainConfig, err2 := pluginconfig.DecodeExecuteOffchainConfig(publicConfig.ReportingPluginConfig)
+		if err2 != nil {
+			return nil, fmt.Errorf("failed to decode execute offchain config: %w, raw: %s",
+				err2, string(publicConfig.ReportingPluginConfig))
+		}
+		if execOffchainConfig.BatchGasLimit == 0 && destChainFamily == relay.NetworkEVM {
+			return nil, fmt.Errorf("BatchGasLimit not set in execute offchain config, must be > 0")
+		}
+		execBatchGasLimit = execOffchainConfig.BatchGasLimit
+	}
+
 	// this is so that we can use the msg hasher and report encoder from that dest chain relayer's provider.
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
 	chainWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
@@ -208,7 +231,12 @@ func (i *inprocessOracleCreator) CreatePluginOracle(pluginType cctypes.PluginTyp
 			chain.Client(),
 			chain.TxManager(),
 			chain.GasEstimator(),
-			evmconfig.ChainWriterConfigRaw(fromAddress, chain.Config().EVM().GasEstimator().PriceMaxKey(fromAddress)),
+			evmconfig.ChainWriterConfigRaw(
+				fromAddress,
+				chain.Config().EVM().GasEstimator().PriceMaxKey(fromAddress),
+				defaultCommitGasLimit,
+				execBatchGasLimit,
+			),
 		)
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", chain.ID(), err2)
@@ -297,7 +325,7 @@ func (i *inprocessOracleCreator) CreatePluginOracle(pluginType cctypes.PluginTyp
 		BinaryNetworkEndpointFactory: i.peerWrapper.Peer2,
 		Database:                     i.db,
 		V2Bootstrappers:              i.bootstrapperLocators,
-		ContractConfigTracker:        ocrimpls.NewConfigTracker(config),
+		ContractConfigTracker:        configTracker,
 		ContractTransmitter:          transmitter,
 		LocalConfig:                  defaultLocalConfig(),
 		Logger: ocrcommon.NewOCRWrapper(
