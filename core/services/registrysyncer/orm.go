@@ -25,7 +25,6 @@ type capabilitiesRegistryNodeInfo struct {
 }
 
 func (l *LocalRegistry) MarshalJSON() ([]byte, error) {
-
 	idsToNodes := make(map[p2ptypes.PeerID]capabilitiesRegistryNodeInfo)
 	for k, v := range l.IDsToNodes {
 		hashedCapabilityIds := make([]p2ptypes.PeerID, len(v.HashedCapabilityIds))
@@ -59,12 +58,10 @@ func (l *LocalRegistry) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
-	fmt.Println("MarshalJSON", string(b))
 	return b, nil
 }
 
 func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
-	fmt.Println("UnmarshalJSON", string(data))
 	temp := struct {
 		IDsToDONs         map[DonID]DON
 		IDsToNodes        map[p2ptypes.PeerID]capabilitiesRegistryNodeInfo
