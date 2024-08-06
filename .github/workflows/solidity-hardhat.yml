@@ -134,10 +134,10 @@ jobs:
       - name: Copy modified changesets
         if: ${{ needs.changes.outputs.changeset_changes == 'true' }}
         run: |
-          mkdir -p contracts/changesets/changesets
+          mkdir -p contracts/changesets
           for changeset in "${{ needs.changes.outputs.changeset_files }}"; do
             echo "::debug:: Copying $changeset"
-            cp $changeset contracts/changesets/changesets
+            cp $changeset contracts/changesets
           done
 
       - name: Generate basic info and modified contracts list
