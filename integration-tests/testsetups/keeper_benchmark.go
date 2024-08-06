@@ -62,9 +62,11 @@ type KeeperBenchmarkTest struct {
 	chainClient    *seth.Client
 	testConfig     tt.KeeperBenchmarkTestConfig
 
-	linkToken contracts.LinkToken
-	ethFeed   contracts.MockETHLINKFeed
-	gasFeed   contracts.MockGasFeed
+	linkToken     contracts.LinkToken
+	ethFeed       contracts.MockLINKETHFeed
+	gasFeed       contracts.MockGasFeed
+	nativeFeed    contracts.MockETHUSDFeed
+	wrappedNative contracts.WETHToken
 }
 
 // UpkeepConfig dictates details of how the test's upkeep contracts should be called and configured
@@ -163,10 +165,10 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Keep
 	}
 
 	if common.IsHexAddress(c.EthFeedAddress) {
-		_, err = contracts.LoadMockETHLINKFeed(k.chainClient, common.HexToAddress(c.EthFeedAddress))
+		_, err = contracts.LoadMockLINKETHFeed(k.chainClient, common.HexToAddress(c.EthFeedAddress))
 		require.NoError(k.t, err, "Loading ETH-Link feed Contract shouldn't fail")
 	} else {
-		k.ethFeed, err = contracts.DeployMockETHLINKFeed(k.chainClient, big.NewInt(2e18))
+		k.ethFeed, err = contracts.DeployMockLINKETHFeed(k.chainClient, big.NewInt(2e18))
 		require.NoError(k.t, err, "Deploying mock ETH-Link feed shouldn't fail")
 	}
 
