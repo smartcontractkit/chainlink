@@ -959,7 +959,7 @@ func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Rece
 // decision to give up). This is done in the EthResender.
 //
 // We will continue to try to fetch a receipt for these attempts until all
-// attempts are below the LatestFinalizedBlockNum from current head.
+// attempts are equal to or below the LatestFinalizedBlockNum from current head.
 func (o *evmTxStore) MarkAllConfirmedMissingReceipt(ctx context.Context, chainID *big.Int) (err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
@@ -1444,7 +1444,7 @@ ORDER BY nonce ASC
 
 // markOldTxesMissingReceiptAsErrored
 //
-// Once eth_tx has all of its attempts broadcast before latestFinalizedBlockNum
+// Once eth_tx has all of its attempts broadcast equal to or before latestFinalizedBlockNum
 // without receiving any receipts, we mark it as fatally errored (never sent).
 //
 // The job run will also be marked as errored in this case since we never got a
@@ -1453,8 +1453,8 @@ func (o *evmTxStore) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blo
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
-	// Any 'confirmed_missing_receipt' eth_tx with all attempts older than latestFinalizedBlockNum will be marked as errored
-	// We will not try to query for receipts for this transaction any more
+	// Any 'confirmed_missing_receipt' eth_tx with all attempts equal to or older than latestFinalizedBlockNum will be marked as errored
+	// We will not try to query for receipts for this transaction anymore
 	if latestFinalizedBlockNum <= 0 {
 		return nil
 	}
