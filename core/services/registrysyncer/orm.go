@@ -102,12 +102,6 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func to32Byte(slice []byte) [32]byte {
-	var b [32]byte
-	copy(b[:], slice[:32])
-	return b
-}
-
 type syncerORM struct {
 	ds   sqlutil.DataSource
 	lggr logger.Logger
