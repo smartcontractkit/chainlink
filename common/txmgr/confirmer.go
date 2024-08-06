@@ -314,7 +314,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	}
 
 	if latestFinalizedHead.BlockNumber() > head.BlockNumber() {
-		ec.lggr.Debugw("processHead receives old block", "latestFinalizedHead", latestFinalizedHead.BlockNumber(), "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
+		ec.lggr.Debugw("processHead received old block", "latestFinalizedHead", latestFinalizedHead.BlockNumber(), "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 	}
 
 	if err := ec.CheckForReceipts(ctx, head.BlockNumber(), latestFinalizedHead.BlockNumber()); err != nil {
