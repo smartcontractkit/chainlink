@@ -311,7 +311,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				}
 				b.l.Info().Msg("Finished shutting down LogStream")
 
-				if b.t.Failed() {
+				if b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect {
 					b.l.Info().Msg("Dump state of all Postgres DBs used by Chainlink Nodes")
 
 					dbDumpFolder := "db_dumps"
