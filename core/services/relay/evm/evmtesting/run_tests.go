@@ -12,10 +12,9 @@ import (
 
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTester[T]) {
@@ -74,6 +73,31 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 		assert.Equal(t, int32(3), latest.Field3)
 	})
 
+	t.Run("Filtering can be done on indexed topics that get hashed", func(t T) {
+		it.Setup(t)
+		it.dirtyContracts = true
+		triggerFourTopicsWithHashed(t, it, "1", [32]uint8{2}, [32]byte{5})
+		triggerFourTopicsWithHashed(t, it, "2", [32]uint8{2}, [32]byte{3})
+		triggerFourTopicsWithHashed(t, it, "1", [32]uint8{3}, [32]byte{3})
+
+		ctx := it.Helper.Context(t)
+		cr := it.GetChainReader(t)
+		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+		var latest struct {
+			Field3 [32]byte
+		}
+		params := struct {
+			Field1 string
+			Field2 [32]uint8
+			Field3 [32]byte
+		}{Field1: "1", Field2: [32]uint8{2}, Field3: [32]byte{5}}
+
+		time.Sleep(it.MaxWaitTimeForEvents())
+		require.NoError(t, cr.GetLatestValue(ctx, AnyContractName, triggerWithAllTopicsWithHashed, primitives.Unconfirmed, params, &latest))
+		// only checking Field3 topic makes sense since it isn't hashed, to check other fields we'd have to replicate solidity encoding and hashing
+		assert.Equal(t, [32]uint8{5}, latest.Field3)
+	})
+
 	t.Run("Bind returns error on missing contract at address", func(t T) {
 		it.Setup(t)
 
@@ -89,6 +113,15 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 
 func triggerFourTopics[T TestingT[T]](t T, it *EVMChainReaderInterfaceTester[T], i1, i2, i3 int32) {
 	tx, err := it.contractTesters[it.address].ChainReaderTesterTransactor.TriggerWithFourTopics(it.GetAuthWithGasSet(t), i1, i2, i3)
+	require.NoError(t, err)
+	require.NoError(t, err)
+	it.Helper.Commit()
+	it.IncNonce()
+	it.AwaitTx(t, tx)
+}
+
+func triggerFourTopicsWithHashed[T TestingT[T]](t T, it *EVMChainReaderInterfaceTester[T], i1 string, i2 [32]uint8, i3 [32]byte) {
+	tx, err := it.contractTesters[it.address].ChainReaderTesterTransactor.TriggerWithFourTopicsWithHashed(it.GetAuthWithGasSet(t), i1, i2, i3)
 	require.NoError(t, err)
 	require.NoError(t, err)
 	it.Helper.Commit()
