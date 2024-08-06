@@ -82,10 +82,16 @@ func generateState(t *testing.T) LocalRegistry {
 					capabilityIDStr: {
 						DefaultConfig:       values.EmptyMap(),
 						RemoteTriggerConfig: rtc,
+						RemoteTargetConfig: &capabilities.RemoteTargetConfig{
+							RequestHashExcludedAttributes: []string{"foo"},
+						},
 					},
 					capabilityID2Str: {
 						DefaultConfig:       values.EmptyMap(),
 						RemoteTriggerConfig: rtc,
+						RemoteTargetConfig: &capabilities.RemoteTargetConfig{
+							RequestHashExcludedAttributes: []string{"bar"},
+						},
 					},
 				},
 			},

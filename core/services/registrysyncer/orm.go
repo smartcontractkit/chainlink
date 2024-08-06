@@ -7,12 +7,25 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
+
+type capabilitiesDON struct {
+	capabilities.DON
+	CapabilityConfigurations map[string]capabilityConfiguration
+}
+
+type capabilityConfiguration struct {
+	DefaultConfig       values.Map
+	RemoteTriggerConfig capabilities.RemoteTriggerConfig
+	RemoteTargetConfig  capabilities.RemoteTargetConfig
+}
 
 type capabilitiesRegistryNodeInfo struct {
 	NodeOperatorId      uint32            `json:"nodeOperatorId"`
@@ -25,6 +38,22 @@ type capabilitiesRegistryNodeInfo struct {
 }
 
 func (l *LocalRegistry) MarshalJSON() ([]byte, error) {
+	idsToDONs := make(map[DonID]capabilitiesDON)
+	for k, v := range l.IDsToDONs {
+		capabilityConfigurations := make(map[string]capabilityConfiguration)
+		for k, v := range v.CapabilityConfigurations {
+			capabilityConfigurations[k] = capabilityConfiguration{
+				DefaultConfig:       *v.DefaultConfig,
+				RemoteTriggerConfig: *v.RemoteTriggerConfig,
+				RemoteTargetConfig:  *v.RemoteTargetConfig,
+			}
+		}
+		idsToDONs[k] = capabilitiesDON{
+			DON:                      v.DON,
+			CapabilityConfigurations: capabilityConfigurations,
+		}
+	}
+
 	idsToNodes := make(map[p2ptypes.PeerID]capabilitiesRegistryNodeInfo)
 	for k, v := range l.IDsToNodes {
 		hashedCapabilityIds := make([]p2ptypes.PeerID, len(v.HashedCapabilityIds))
@@ -47,11 +76,11 @@ func (l *LocalRegistry) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(&struct {
-		IDsToDONs         map[DonID]DON
+		IDsToDONs         map[DonID]capabilitiesDON
 		IDsToNodes        map[p2ptypes.PeerID]capabilitiesRegistryNodeInfo
 		IDsToCapabilities map[string]Capability
 	}{
-		IDsToDONs:         l.IDsToDONs,
+		IDsToDONs:         idsToDONs,
 		IDsToNodes:        idsToNodes,
 		IDsToCapabilities: l.IDsToCapabilities,
 	})
@@ -59,11 +88,11 @@ func (l *LocalRegistry) MarshalJSON() ([]byte, error) {
 
 func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 	temp := struct {
-		IDsToDONs         map[DonID]DON
+		IDsToDONs         map[DonID]capabilitiesDON
 		IDsToNodes        map[p2ptypes.PeerID]capabilitiesRegistryNodeInfo
 		IDsToCapabilities map[string]Capability
 	}{
-		IDsToDONs:         make(map[DonID]DON),
+		IDsToDONs:         make(map[DonID]capabilitiesDON),
 		IDsToNodes:        make(map[p2ptypes.PeerID]capabilitiesRegistryNodeInfo),
 		IDsToCapabilities: make(map[string]Capability),
 	}
@@ -72,8 +101,21 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("failed to unmarshal state: %w", err)
 	}
 
-	l.IDsToDONs = temp.IDsToDONs
-	l.IDsToCapabilities = temp.IDsToCapabilities
+	l.IDsToDONs = make(map[DonID]DON)
+	for donID, v := range temp.IDsToDONs {
+		capabilityConfigurations := make(map[string]capabilities.CapabilityConfiguration)
+		for k, v := range v.CapabilityConfigurations {
+			capabilityConfigurations[k] = capabilities.CapabilityConfiguration{
+				DefaultConfig:       &v.DefaultConfig,
+				RemoteTriggerConfig: &v.RemoteTriggerConfig,
+				RemoteTargetConfig:  &v.RemoteTargetConfig,
+			}
+		}
+		l.IDsToDONs[donID] = DON{
+			DON:                      v.DON,
+			CapabilityConfigurations: capabilityConfigurations,
+		}
+	}
 
 	l.IDsToNodes = make(map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo)
 	for peerID, v := range temp.IDsToNodes {
@@ -98,6 +140,8 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 			CapabilitiesDONIds:  capabilitiesDONIds,
 		}
 	}
+
+	l.IDsToCapabilities = temp.IDsToCapabilities
 
 	return nil
 }
