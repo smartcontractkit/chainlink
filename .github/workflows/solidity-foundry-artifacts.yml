@@ -50,6 +50,8 @@ jobs:
             ignored: &ignored
               - '!contracts/src/v0.8/**/test/**'
               - '!contracts/src/v0.8/**/tests/**'
+              - '!contracts/src/v0.8/**/mock/**'
+              - '!contracts/src/v0.8/**/mocks/**'
               - '!contracts/src/v0.8/**/*.t.sol'
               - '!contracts/src/v0.8/*.t.sol'
               - '!contracts/src/v0.8/**/testhelpers/**'
@@ -64,7 +66,7 @@ jobs:
               - 'contracts/src/v0.8/**/*.sol'
               - *ignored   
             product: &product
-              - 'contracts/src/v0.8/${{ inputs.product }}/**/*.sol'         
+              - 'contracts/src/v0.8/${{ inputs.product }}/**/*.sol'      
               - *ignored            
             included:
               - *product
@@ -81,13 +83,49 @@ jobs:
             changeset:
               - modified|added: 'contracts/.changeset/!(README)*.md'
 
+      # TODO remove when https://github.com/AurorNZ/paths-filter/issues/12 is fixed and we can use modifiers with it
+      - name: Check if changes are limited only to deleted files
+        if: ${{ steps.changes.outputs.sol == 'true' }}
+        shell: bash
+        run: |
+          echo "::debug::All modified contracts:"
+          echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n'
+          
+          type=$(git cat-file -t "${{ inputs.base_ref }}")
+          if echo "$type" | grep -q commit; then
+            # we do not know to which branch the base ref belongs, so we fetch all branches
+            git fetch --all --prune
+            ref_to_use="${{ inputs.base_ref }}"
+          elif  echo "$type" | grep -q tag; then
+            git fetch origin ${{ inputs.base_ref }}
+            ref_to_use="origin/${{ inputs.base_ref }}" 
+          else
+            # must be branch
+            echo "::debug:: Base reference type: $type"
+            git fetch origin ${{ inputs.base_ref }}
+            ref_to_use="origin/${{ inputs.base_ref }}" 
+          fi
+          
+          IFS=','
+          for file in ${{ steps.changes.outputs.sol_files }}; do          
+            status=$(git diff --name-status "$ref_to_use" HEAD -- "$file"  | awk '{ print $1 }')
+            if [ "$status" != "D" ]; then
+              exit 0
+            fi
+          done
+          
+          echo "::error:: All contract modifications are limited to deleted files. No artifacts will be generated."
+          echo "# Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
+          echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
+          echo "## Reason: Only deleted Solidity files found for ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
+          exit 1
+
       - name: Check for changes outside of artifact scope
         if: ${{ steps.changes.outputs.sol == 'true' }}
         shell: bash
         run: |
           echo "::debug::All modified contracts:"
-          echo ${{ steps.changes.outputs.all_sol_files }} | tr ',' '\n'          
-          echo "::debug::Filtered modified contracts:"
           echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n'
           excluded_paths_pattern="!/^contracts\/src\/v0\.8\/shared/ && !/^contracts\/src\/v0\.8\/${{ inputs.product }}/ && !/^contracts\/src\/v0\.8\/[^\/]+\.sol$/"
           echo "::debug::Excluded paths: $excluded_paths_pattern"
@@ -131,14 +169,14 @@ jobs:
         shell: bash
         run: |
           echo "# Warning!" >> $GITHUB_STEP_SUMMARY
-          echo "## Reason: Found No modified contracts for product ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Reason: Found no modified contracts for product ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
           echo "## Action required: Please check if you chose correct product and base reference" >> $GITHUB_STEP_SUMMARY
           echo "## Product: ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
           echo "## Base Ref: ${{ inputs.base_ref }}" >> $GITHUB_STEP_SUMMARY
 
   gather-basic-info:
     name: Gather basic info
-    if: ${{ steps.changes.outputs.product == 'true' || steps.changes.outputs.shared == 'true' }}
+    if: ${{ needs.changes.outputs.product_changes == 'true' || needs.changes.outputs.shared_changes == 'true' }}
     runs-on: ubuntu-22.04
     needs: [ changes ]
     steps:
@@ -151,10 +189,10 @@ jobs:
       - name: Copy modified changesets
         if: ${{ needs.changes.outputs.changeset_changes == 'true' }}
         run: |
-          mkdir -p contracts/changesets/changesets
+          mkdir -p contracts/changesets
           for changeset in "${{ needs.changes.outputs.changeset_files }}"; do
             echo "::debug:: Copying $changeset"
-            cp $changeset contracts/changesets/changesets
+            cp $changeset contracts/changesets
           done
 
       - name: Generate basic info and modified contracts list
@@ -223,7 +261,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
-          version: ${{ env.FOUNDRY_VERSION }}
+          version: ${{ inputs.FOUNDRY_VERSION }}
 
       # required for code coverage report generation
       - name: Setup LCOV
@@ -332,7 +370,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
-          version: ${{ env.FOUNDRY_VERSION }}
+          version: ${{ inputs.FOUNDRY_VERSION }}
 
       - name: Install Sol2uml
         run: |
@@ -388,7 +426,7 @@ jobs:
           validate_uml_diagrams: 'true'
           slither_reports_path: 'contracts/slither-reports'
           uml_diagrams_path: 'contracts/uml-diagrams'
-          sol_files: ${{ needs.changes.outputs.not_test_sol_modified_files }}
+          sol_files: ${{ needs.changes.outputs.files }}
           base_ref: ${{ inputs.base_ref }}
 
   gather-all-artifacts:
@@ -439,5 +477,7 @@ jobs:
           echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
           echo "## Reason: No modified Solidity files found for ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
-          echo "No modified Solidity files found between ${{ inputs.base_ref }} and ${{ github.sha }} commits or they are located outside of ./contracts/src/v0.8 folder" >> $GITHUB_STEP_SUMMARY
+          echo "* no modified Solidity files found between ${{ inputs.base_ref }} and ${{ github.sha }} commits" >> $GITHUB_STEP_SUMMARY
+          echo "* or they are located outside of ./contracts/src/v0.8 folder" >> $GITHUB_STEP_SUMMARY
+          echo "* or they were limited to test files" >> $GITHUB_STEP_SUMMARY
           exit 1
