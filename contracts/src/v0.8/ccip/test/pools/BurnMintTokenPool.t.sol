@@ -111,7 +111,7 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
     vm.startPrank(s_burnMintOffRamp);
 
     vm.expectEmit();
-    emit IERC20.Transfer(address(0), address(s_burnMintOffRamp), amount);
+    emit IERC20.Approval(address(s_pool), address(s_burnMintOffRamp), amount);
     s_pool.releaseOrMint(
       Pool.ReleaseOrMintInV1({
         originalSender: bytes(""),
@@ -125,7 +125,7 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
       })
     );
 
-    assertEq(s_burnMintERC677.balanceOf(s_burnMintOffRamp), amount);
+    assertEq(s_burnMintERC677.allowance(address(s_pool), s_burnMintOffRamp), amount);
   }
 
   function test_PoolMintNotHealthy_Revert() public {

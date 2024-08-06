@@ -860,7 +860,7 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
     // transfer them to the final receiver. We use the _callWithExactGasSafeReturnData function because
     // the token contracts are not considered trusted.
     (success, returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
-      abi.encodeCall(IERC20.transfer, (receiver, localAmount)),
+      abi.encodeCall(IERC20.transferFrom, (localPoolAddress, receiver, localAmount)),
       localToken,
       s_dynamicConfig.maxTokenTransferGas,
       Internal.GAS_FOR_CALL_EXACT_CHECK,
