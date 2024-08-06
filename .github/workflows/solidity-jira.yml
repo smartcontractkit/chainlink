@@ -3,7 +3,7 @@
 #
 # We still need to add "merge_group" event and noop so that we'll pass required workflow checks.
 #
-# I didn't add this to the "changeset.yml" workflow because the "changeset" job isnt required, and we'd need to add the "merge_group" event to the "changeset.yml" workflow. 
+# I didn't add this to the "changeset.yml" workflow because the "changeset" job isnt required, and we'd need to add the "merge_group" event to the "changeset.yml" workflow.
 # If we made the change to make it required.
 name: Solidity Jira
 
@@ -16,26 +16,28 @@ defaults:
     shell: bash
 
 jobs:
-  changes:
-    name: Detect changes
-    runs-on: ubuntu-latest
-    outputs:
-      changes: ${{ steps.ch.outputs.source_changes }}
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - name: Detect changes
-        id: ch
-        uses: ./.github/actions/detect-solidity-file-changes
-
   enforce-jira-issue:
-    needs: [changes]
-    if: needs.changes.outputs.changes == 'true' 
-    name: Enforce Jira Issue 
+    name: Enforce Jira Issue
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        # We don't use detect-solidity-file-changes here because we need to use the "every" predicate quantifier
+      - name: Filter paths
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changed_files
+        with:
+          list-files: "csv"
+          predicate-quantifier: 'every' 
+          filters: |
+            only_src_contracts:
+              - contracts/**/*.sol
+              - '!contracts/**/*.t.sol'
+      - name: Skip if no changes
+        if: ${{ steps.changed_files.outputs.only_src_contracts == 'false' }}
+        run: |
+          echo "Skipping Jira enforcement since there are no changes to contract sources"
+          exit 0
       - name: Skip if merge group
         if: ${{ github.event_name == 'merge_group' }}
         run: |
@@ -46,7 +48,7 @@ jobs:
       - name: Setup Jira
         working-directory: ./.github/scripts/jira
         run: pnpm i
-      - name: Enforce Jira Issue 
+      - name: Enforce Jira Issue
         working-directory: ./.github/scripts/jira
         run: |
           echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
@@ -63,9 +65,9 @@ jobs:
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
-          id: solidity-jira 
+          id: solidity-jira
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Enforce Jira Issue 
+          this-job-name: Enforce Jira Issue
         continue-on-error: true
