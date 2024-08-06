@@ -2,7 +2,6 @@ package registrysyncer
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -67,8 +66,6 @@ func generateState(t *testing.T) LocalRegistry {
 		RegistrationExpiry:      60 * time.Second,
 		MessageExpiry:           120 * time.Second,
 	}
-
-	fmt.Println(capabilityID2Str, capabilityIDStr)
 
 	return LocalRegistry{
 		IDsToDONs: map[DonID]DON{

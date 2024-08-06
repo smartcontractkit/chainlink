@@ -74,7 +74,6 @@ func New(
 	return &registrySyncer{
 		stopCh:          make(services.StopChan),
 		updateChan:      make(chan *LocalRegistry),
-		testUpdateChan:  make(chan bool),
 		lggr:            lggr.Named("RegistrySyncer"),
 		relayer:         relayer,
 		registryAddress: registryAddress,
@@ -82,6 +81,21 @@ func New(
 		orm:             &orm,
 		peerWrapper:     peerWrapper,
 	}, nil
+}
+
+func newTestSyncer(
+	lggr logger.Logger,
+	peerWrapper p2ptypes.PeerWrapper,
+	relayer contractReaderFactory,
+	registryAddress string,
+	ds sqlutil.DataSource,
+) (*registrySyncer, error) {
+	rs, err := New(lggr, peerWrapper, relayer, registryAddress, ds)
+	if err != nil {
+		return nil, err
+	}
+	rs.testUpdateChan = make(chan bool, 100)
+	return rs, nil
 }
 
 // NOTE: this can't be called while initializing the syncer and needs to be called in the sync loop.
@@ -189,13 +203,10 @@ func (s *registrySyncer) updateStateLoop() {
 			if err := s.orm.addLocalRegistry(ctx, *localRegistry); err != nil {
 				s.lggr.Errorw("failed to save state to local registry", "error", err)
 			}
-			go func() {
-				select {
-				case <-s.stopCh:
-					return
-				case s.testUpdateChan <- true:
-				}
-			}()
+			select {
+			case s.testUpdateChan <- true:
+			default:
+			}
 		}
 	}
 }

@@ -418,7 +418,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	wrapper := mocks.NewPeerWrapper(t)
 	factory := newContractReaderFactory(t, sim)
-	syncer, err := New(logger.TestLogger(t), wrapper, factory, regAddress.Hex(), db)
+	syncer, err := newTestSyncer(logger.TestLogger(t), wrapper, factory, regAddress.Hex(), db)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		syncer.Close()
