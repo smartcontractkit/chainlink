@@ -6,7 +6,7 @@ env:
   FOUNDRY_PROFILE: ci
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
-  base_ref: "1d81278edace2411f0d87b7e111321bd67b6b0a5"
+  base_ref: "invalid"
   product: "automation"
 
 jobs:
