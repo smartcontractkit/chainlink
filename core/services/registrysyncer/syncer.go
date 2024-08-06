@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -367,12 +368,80 @@ func (s *registrySyncer) sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	for _, h := range s.launchers {
-		if err := h.Launch(ctx, lr); err != nil {
+		lrCopy := deepCopyLocalRegistry(lr)
+		if err := h.Launch(ctx, &lrCopy); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 		}
 	}
 
 	return nil
+}
+
+func deepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
+	var lrCopy LocalRegistry
+	lrCopy.lggr = lr.lggr
+	lrCopy.peerWrapper = lr.peerWrapper
+	lrCopy.IDsToDONs = make(map[DonID]DON, len(lr.IDsToDONs))
+	for id, don := range lr.IDsToDONs {
+		d := capabilities.DON{
+			ID:               don.ID,
+			ConfigVersion:    don.ConfigVersion,
+			Members:          make([]p2ptypes.PeerID, len(don.Members)),
+			F:                don.F,
+			IsPublic:         don.IsPublic,
+			AcceptsWorkflows: don.AcceptsWorkflows,
+		}
+		copy(d.Members, don.Members)
+		capCfgs := make(map[string]capabilities.CapabilityConfiguration, len(don.CapabilityConfigurations))
+		for capID, capCfg := range don.CapabilityConfigurations {
+			cfg := capabilities.CapabilityConfiguration{
+				DefaultConfig:       nil,
+				RemoteTriggerConfig: nil,
+				RemoteTargetConfig:  nil,
+			}
+			if capCfg.DefaultConfig != nil {
+				defaultConfig := *capCfg.DefaultConfig
+				cfg.DefaultConfig = &defaultConfig
+			}
+			if capCfg.RemoteTriggerConfig != nil {
+				remoteTriggerConfig := *capCfg.RemoteTriggerConfig
+				cfg.RemoteTriggerConfig = &remoteTriggerConfig
+			}
+			if capCfg.RemoteTargetConfig != nil {
+				remoteTargetConfig := *capCfg.RemoteTargetConfig
+				cfg.RemoteTargetConfig = &remoteTargetConfig
+			}
+			capCfgs[capID] = cfg
+		}
+		lrCopy.IDsToDONs[id] = DON{
+			DON:                      d,
+			CapabilityConfigurations: capCfgs,
+		}
+	}
+
+	lrCopy.IDsToCapabilities = make(map[string]Capability, len(lr.IDsToCapabilities))
+	for id, capability := range lr.IDsToCapabilities {
+		cp := capability
+		lrCopy.IDsToCapabilities[id] = cp
+	}
+
+	lrCopy.IDsToNodes = make(map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo, len(lr.IDsToNodes))
+	for id, node := range lr.IDsToNodes {
+		nodeInfo := kcr.CapabilitiesRegistryNodeInfo{
+			NodeOperatorId:      node.NodeOperatorId,
+			ConfigCount:         node.ConfigCount,
+			WorkflowDONId:       node.WorkflowDONId,
+			Signer:              node.Signer,
+			P2pId:               node.P2pId,
+			HashedCapabilityIds: make([][32]byte, len(node.HashedCapabilityIds)),
+			CapabilitiesDONIds:  make([]*big.Int, len(node.CapabilitiesDONIds)),
+		}
+		copy(nodeInfo.HashedCapabilityIds, node.HashedCapabilityIds)
+		copy(nodeInfo.CapabilitiesDONIds, node.CapabilitiesDONIds)
+		lrCopy.IDsToNodes[id] = nodeInfo
+	}
+
+	return lrCopy
 }
 
 func toCapabilityType(capabilityType uint8) capabilities.CapabilityType {

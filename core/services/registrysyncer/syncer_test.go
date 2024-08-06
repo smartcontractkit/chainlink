@@ -432,14 +432,6 @@ func TestSyncer_DBIntegration(t *testing.T) {
 
 	err = syncer.sync(ctx, false) // should store the data into the DB
 	require.NoError(t, err)
-	for _, don := range l.localRegistry.IDsToDONs {
-		for capabilityID, cfg := range don.CapabilityConfigurations {
-			cfg.RemoteTargetConfig = &capabilities.RemoteTargetConfig{
-				RequestHashExcludedAttributes: []string{capabilityID},
-			}
-			don.CapabilityConfigurations[capabilityID] = cfg
-		}
-	}
 	s := l.localRegistry
 	<-syncer.testUpdateChan // wait for the update to be processed
 	st, err := syncer.orm.latestLocalRegistry(ctx)
