@@ -1,0 +1,68 @@
+# This is its own independent workflow since "solidity.yml" depends on "merge_group" and "push" events.
+# But for ensuring that JIRA tickets are always updated, we only care about "pull_request" events.
+#
+# We still need to add "merge_group" event and noop so that we'll pass required workflow checks.
+#
+# I didn't add this to the "changeset.yml" workflow because the "changeset" job isnt required, and we'd need to add the "merge_group" event to the "changeset.yml" workflow. 
+# If we made the change to make it required.
+name: Solidity Jira
+
+on:
+  merge_group:
+  pull_request:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.ch.outputs.source_changes }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Detect changes
+        id: ch
+        uses: ./.github/actions/detect-solidity-file-changes
+
+  enforce-jira-issue:
+    needs: [changes]
+    if: needs.changes.outputs.changes == 'true' 
+    name: Enforce Jira Issue 
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Skip if merge group
+        if: ${{ github.event_name == 'merge_group' }}
+        run: |
+          echo "Skipping Jira enforcement for merge group events"
+          exit 0
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: Enforce Jira Issue 
+        working-directory: ./.github/scripts/jira
+        run: |
+          echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
+          pnpm i && pnpm issue:enforce
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JIRA_HOST: ${{ secrets.JIRA_HOST }}
+          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: solidity-jira 
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Enforce Jira Issue 
+        continue-on-error: true
