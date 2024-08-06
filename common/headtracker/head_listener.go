@@ -29,14 +29,15 @@ var (
 	}, []string{"ChainID"})
 )
 
-// headHandler is a callback that handles incoming heads
-type headHandler[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] func(ctx context.Context, header H) error
+// HeadHandler is a callback that handles incoming heads
+type HeadHandler[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] func(ctx context.Context, header H) error
 
 // HeadListener is a chain agnostic interface that manages connection of Client that receives heads from the blockchain node
 type HeadListener[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
-	// ListenForNewHeads kicks off the listen loop (not thread safe)
-	// done() must be executed upon leaving ListenForNewHeads()
-	ListenForNewHeads(onSubscribe func(), handleNewHead headHandler[H, BLOCK_HASH], done func())
+	services.Service
+
+	// ListenForNewHeads runs the listen loop (not thread safe)
+	ListenForNewHeads(ctx context.Context)
 
 	// ReceivingHeads returns true if the listener is receiving heads (thread safe)
 	ReceivingHeads() bool
@@ -54,10 +55,13 @@ type headListener[
 	ID types.ID,
 	BLOCK_HASH types.Hashable,
 ] struct {
+	services.Service
+	eng *services.Engine
+
 	config           htrktypes.Config
 	client           htrktypes.Client[HTH, S, ID, BLOCK_HASH]
-	logger           logger.Logger
-	chStop           services.StopChan
+	onSubscription   func(context.Context)
+	handleNewHead    HeadHandler[HTH, BLOCK_HASH]
 	chHeaders        chan HTH
 	headSubscription types.Subscription
 	connected        atomic.Bool
@@ -74,38 +78,43 @@ func NewHeadListener[
 	lggr logger.Logger,
 	client CLIENT,
 	config htrktypes.Config,
-	chStop chan struct{},
+	onSubscription func(context.Context),
+	handleNewHead HeadHandler[HTH, BLOCK_HASH],
 ) HeadListener[HTH, BLOCK_HASH] {
-	return &headListener[HTH, S, ID, BLOCK_HASH]{
-		config: config,
-		client: client,
-		logger: logger.Named(lggr, "HeadListener"),
-		chStop: chStop,
+	hl := &headListener[HTH, S, ID, BLOCK_HASH]{
+		config:         config,
+		client:         client,
+		onSubscription: onSubscription,
+		handleNewHead:  handleNewHead,
 	}
+	hl.Service, hl.eng = services.Config{
+		Name:  "HeadListener",
+		Start: hl.start,
+	}.NewServiceEngine(lggr)
+	return hl
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) Name() string {
-	return hl.logger.Name()
+func (hl *headListener[HTH, S, ID, BLOCK_HASH]) start(context.Context) error {
+	hl.eng.Go(hl.ListenForNewHeads)
+	return nil
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) ListenForNewHeads(onSubscription func(), handleNewHead headHandler[HTH, BLOCK_HASH], done func()) {
-	defer done()
+func (hl *headListener[HTH, S, ID, BLOCK_HASH]) ListenForNewHeads(ctx context.Context) {
 	defer hl.unsubscribe()
-
-	ctx, cancel := hl.chStop.NewCtx()
-	defer cancel()
 
 	for {
 		if !hl.subscribe(ctx) {
 			break
 		}
 
-		onSubscription()
-		err := hl.receiveHeaders(ctx, handleNewHead)
+		if hl.onSubscription != nil {
+			hl.onSubscription(ctx)
+		}
+		err := hl.receiveHeaders(ctx, hl.handleNewHead)
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
-			hl.logger.Errorw("Error in new head subscription, unsubscribed", "err", err)
+			hl.eng.Errorw("Error in new head subscription, unsubscribed", "err", err)
 			continue
 		}
 		break
@@ -131,7 +140,7 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error 
 	return map[string]error{hl.Name(): err}
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) receiveHeaders(ctx context.Context, handleNewHead headHandler[HTH, BLOCK_HASH]) error {
+func (hl *headListener[HTH, S, ID, BLOCK_HASH]) receiveHeaders(ctx context.Context, handleNewHead HeadHandler[HTH, BLOCK_HASH]) error {
 	var noHeadsAlarmC <-chan time.Time
 	var noHeadsAlarmT *time.Ticker
 	noHeadsAlarmDuration := hl.config.BlockEmissionIdleWarningThreshold()
@@ -142,7 +151,7 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) receiveHeaders(ctx context.Conte
 
 	for {
 		select {
-		case <-hl.chStop:
+		case <-ctx.Done():
 			return nil
 
 		case blockHeader, open := <-hl.chHeaders:
@@ -158,13 +167,13 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) receiveHeaders(ctx context.Conte
 				return errors.New("head listener: chHeaders prematurely closed")
 			}
 			if !blockHeader.IsValid() {
-				hl.logger.Error("got nil block header")
+				hl.eng.Error("got nil block header")
 				continue
 			}
 
 			// Compare the chain ID of the block header to the chain ID of the client
 			if !blockHeader.HasChainID() || blockHeader.ChainID().String() != chainId.String() {
-				hl.logger.Panicf("head listener for %s received block header for %s", chainId, blockHeader.ChainID())
+				hl.eng.Panicf("head listener for %s received block header for %s", chainId, blockHeader.ChainID())
 			}
 			promNumHeadsReceived.WithLabelValues(chainId.String()).Inc()
 
@@ -184,7 +193,7 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) receiveHeaders(ctx context.Conte
 
 		case <-noHeadsAlarmC:
 			// We haven't received a head on the channel for a long time, log a warning
-			hl.logger.Warnf("have not received a head for %v", noHeadsAlarmDuration)
+			hl.eng.Warnf("have not received a head for %v", noHeadsAlarmDuration)
 			hl.receivingHeads.Store(false)
 		}
 	}
@@ -198,19 +207,19 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) subscribe(ctx context.Context) b
 	for {
 		hl.unsubscribe()
 
-		hl.logger.Debugf("Subscribing to new heads on chain %s", chainId.String())
+		hl.eng.Debugf("Subscribing to new heads on chain %s", chainId.String())
 
 		select {
-		case <-hl.chStop:
+		case <-ctx.Done():
 			return false
 
 		case <-time.After(subscribeRetryBackoff.Duration()):
 			err := hl.subscribeToHead(ctx)
 			if err != nil {
 				promEthConnectionErrors.WithLabelValues(chainId.String()).Inc()
-				hl.logger.Warnw("Failed to subscribe to heads on chain", "chainID", chainId.String(), "err", err)
+				hl.eng.Warnw("Failed to subscribe to heads on chain", "chainID", chainId.String(), "err", err)
 			} else {
-				hl.logger.Debugf("Subscribed to heads on chain %s", chainId.String())
+				hl.eng.Debugf("Subscribed to heads on chain %s", chainId.String())
 				return true
 			}
 		}
