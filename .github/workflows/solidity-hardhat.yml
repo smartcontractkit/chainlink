@@ -6,6 +6,8 @@ env:
   FOUNDRY_PROFILE: ci
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
+  product: "automation"
+  base_ref: "7d911da53a5c16335d6510f7a230a2fca1a9dba6"
 
 jobs:
   changes:
@@ -26,7 +28,7 @@ jobs:
         id: changes
         with:
           list-files: 'csv'
-          base: ${{ inputs.base_ref }}
+          base: ${{ env.base_ref }}
           filters: |
             ignored: &ignored
               - '!contracts/src/v0.8/**/test/**'
@@ -47,7 +49,7 @@ jobs:
               - 'contracts/src/v0.8/**/*.sol'
               - *ignored   
             product: &product
-              - 'contracts/src/v0.8/${{ inputs.product }}/**/*.sol'      
+              - 'contracts/src/v0.8/${{ env.product }}/**/*.sol'      
               - *ignored            
             included:
               - *product
@@ -59,7 +61,7 @@ jobs:
         id: changes-dorny
         with:
           list-files: 'shell'
-          base: ${{ inputs.base_ref }}
+          base: ${{ env.base_ref }}
           filters: |
             changeset:
               - modified|added: 'contracts/.changeset/!(README)*.md'
@@ -72,19 +74,19 @@ jobs:
           echo "::debug::All modified contracts:"
           echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n'
           
-          type=$(git cat-file -t "${{ inputs.base_ref }}")
+          type=$(git cat-file -t "${{ env.base_ref }}")
           if echo "$type" | grep -q commit; then
             # we do not know to which branch the base ref belongs, so we fetch all branches
             git fetch --all --prune
-            ref_to_use="${{ inputs.base_ref }}"
+            ref_to_use="${{ env.base_ref }}"
           elif  echo "$type" | grep -q tag; then
-            git fetch origin ${{ inputs.base_ref }}
-            ref_to_use="origin/${{ inputs.base_ref }}" 
+            git fetch origin ${{ env.base_ref }}
+            ref_to_use="origin/${{ env.base_ref }}" 
           else
             # must be branch
             echo "::debug:: Base reference type: $type"
-            git fetch origin ${{ inputs.base_ref }}
-            ref_to_use="origin/${{ inputs.base_ref }}" 
+            git fetch origin ${{ env.base_ref }}
+            ref_to_use="origin/${{ env.base_ref }}" 
           fi
           
           IFS=','
@@ -97,9 +99,9 @@ jobs:
           
           echo "::error:: All contract modifications are limited to deleted files. No artifacts will be generated."
           echo "# Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
-          echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Base Ref used: **${{ env.base_ref }}**" >> $GITHUB_STEP_SUMMARY
           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
-          echo "## Reason: Only deleted Solidity files found for ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Reason: Only deleted Solidity files found for ${{ env.product }}" >> $GITHUB_STEP_SUMMARY
           exit 1
 
       - name: Check for changes outside of artifact scope
@@ -108,7 +110,7 @@ jobs:
         run: |     
           echo "::debug::All modified contracts:"
           echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n'
-          excluded_paths_pattern="!/^contracts\/src\/v0\.8\/shared/ && !/^contracts\/src\/v0\.8\/${{ inputs.product }}/ && !/^contracts\/src\/v0\.8\/[^\/]+\.sol$/"
+          excluded_paths_pattern="!/^contracts\/src\/v0\.8\/shared/ && !/^contracts\/src\/v0\.8\/${{ env.product }}/ && !/^contracts\/src\/v0\.8\/[^\/]+\.sol$/"
           echo "::debug::Excluded paths: $excluded_paths_pattern"
           unexpected_files=$(echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n' | awk "$excluded_paths_pattern")
           set -e 
@@ -131,13 +133,13 @@ jobs:
             set +e 
             set +o pipefail
           
-            echo "Error: Found modified contracts outside of the expected scope: ${{ inputs.product }}, shared"
+            echo "Error: Found modified contracts outside of the expected scope: ${{ env.product }}, shared"
             echo "Files:"
             echo "$unexpected_files"
             echo "Action required: If you want to generate artifacts for other products ($productsStr) run this workflow again with updated configuration"
           
             echo "# Warning!" >> $GITHUB_STEP_SUMMARY
-            echo "## Reason: Found modified contracts outside of the expected scope: ${{ inputs.product }}, shared" >> $GITHUB_STEP_SUMMARY
+            echo "## Reason: Found modified contracts outside of the expected scope: ${{ env.product }}, shared" >> $GITHUB_STEP_SUMMARY
             echo "### Files:" >> $GITHUB_STEP_SUMMARY
             echo "$unexpected_files" >> $GITHUB_STEP_SUMMARY
             echo "## Action required: If you want to generate artifacts for other products ($productsStr) run this workflow again with updated configuration" >> $GITHUB_STEP_SUMMARY            
@@ -150,10 +152,10 @@ jobs:
         shell: bash
         run: |
           echo "# Warning!" >> $GITHUB_STEP_SUMMARY
-          echo "## Reason: Found no modified contracts for product ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Reason: Found no modified contracts for product ${{ env.product }}" >> $GITHUB_STEP_SUMMARY
           echo "## Action required: Please check if you chose correct product and base reference" >> $GITHUB_STEP_SUMMARY
-          echo "## Product: ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
-          echo "## Base Ref: ${{ inputs.base_ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Product: ${{ env.product }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Base Ref: ${{ env.base_ref }}" >> $GITHUB_STEP_SUMMARY
 
   gather-basic-info:
     name: Gather basic info
@@ -180,13 +182,13 @@ jobs:
         shell: bash
         run: |
           echo "Commit SHA used to generate artifacts: ${{ github.sha }}" > contracts/commit_sha_base_ref.txt
-          echo "Base reference SHA used to find modified contracts: ${{ inputs.base_ref }}" >> contracts/commit_sha_base_ref.txt     
+          echo "Base reference SHA used to find modified contracts: ${{ env.base_ref }}" >> contracts/commit_sha_base_ref.txt     
           
           IFS=',' read -r -a modified_files <<< "${{ needs.changes.outputs.files }}"
           echo "# Modified contracts:" > contracts/modified_contracts.md
           for file in "${modified_files[@]}"; do          
             # TODO remove this check when AurorNZ/paths-filter is fixed
-            status=$(git diff --name-status ${{ inputs.base_ref }} ${{ github.sha }} -- "$file"  | awk '{ print $1 }')
+            status=$(git diff --name-status ${{ env.base_ref }} ${{ github.sha }} -- "$file"  | awk '{ print $1 }')
             if [ "$status" == "D" ]; then
               echo "File $file was deleted, skipping."
               continue
@@ -242,7 +244,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
-          version: ${{ inputs.FOUNDRY_VERSION }}
+          version: ${{ env.FOUNDRY_VERSION }}
 
       # required for code coverage report generation
       - name: Setup LCOV
@@ -255,7 +257,7 @@ jobs:
           forge build
         working-directory: contracts
         env:
-          FOUNDRY_PROFILE: ${{ inputs.product }}
+          FOUNDRY_PROFILE: ${{ env.product }}
 
       - name: Run Forge build for shared contracts
         if: ${{ needs.changes.outputs.shared_changes == 'true' }}
@@ -267,11 +269,11 @@ jobs:
           FOUNDRY_PROFILE: "shared"
 
       - name: Run coverage for product contracts
-        if: ${{ !contains(fromJson(steps.prepare-exclusion-list.outputs.coverage_exclusions), inputs.product) && needs.changes.outputs.product_changes == 'true' }}
+        if: ${{ !contains(fromJson(steps.prepare-exclusion-list.outputs.coverage_exclusions), env.product) && needs.changes.outputs.product_changes == 'true' }}
         working-directory: contracts
-        run: forge coverage --report lcov --report-file code-coverage/lcov-${{ inputs.product }}.info
+        run: forge coverage --report lcov --report-file code-coverage/lcov-${{ env.product }}.info
         env:
-          FOUNDRY_PROFILE: ${{ inputs.product }}
+          FOUNDRY_PROFILE: ${{ env.product }}
 
       - name: Run coverage for shared contracts
         if: ${{ needs.changes.outputs.shared_changes == 'true' }}
@@ -281,9 +283,9 @@ jobs:
           FOUNDRY_PROFILE: "shared"
 
       - name: Generate Code Coverage HTML report for product contracts
-        if: ${{ !contains(fromJson(steps.prepare-exclusion-list.outputs.coverage_exclusions), inputs.product) && needs.changes.outputs.product_changes == 'true' }}
+        if: ${{ !contains(fromJson(steps.prepare-exclusion-list.outputs.coverage_exclusions), env.product) && needs.changes.outputs.product_changes == 'true' }}
         shell: bash
-        run: cd contracts && genhtml code-coverage/lcov-${{ inputs.product }}.info --branch-coverage --output-directory code-coverage/${{ inputs.product }}
+        run: cd contracts && genhtml code-coverage/lcov-${{ env.product }}.info --branch-coverage --output-directory code-coverage/${{ env.product }}
 
       - name: Generate Code Coverage HTML report for shared contracts
         if: ${{ needs.changes.outputs.shared_changes == 'true' }}
@@ -292,10 +294,10 @@ jobs:
 
       - name: Run Forge doc for product contracts
         if: ${{ needs.changes.outputs.product_changes == 'true' }}
-        run: forge doc --build -o docs/${{ inputs.product }}
+        run: forge doc --build -o docs/${{ env.product }}
         working-directory: contracts
         env:
-          FOUNDRY_PROFILE: ${{ inputs.product }}
+          FOUNDRY_PROFILE: ${{ env.product }}
 
       - name: Run Forge doc for shared contracts
         if: ${{ needs.changes.outputs.shared_changes == 'true' }}
@@ -310,11 +312,11 @@ jobs:
         timeout-minutes: 2
         continue-on-error: true
         with:
-          name: tmp-${{ inputs.product }}-artifacts
+          name: tmp-${{ env.product }}-artifacts
           path: |
-            contracts/docs/${{ inputs.product }}
-            contracts/code-coverage/lcov-${{ inputs.product }}.info
-            contracts/code-coverage/${{ inputs.product }}
+            contracts/docs/${{ env.product }}
+            contracts/code-coverage/lcov-${{ env.product }}.info
+            contracts/code-coverage/${{ env.product }}
           retention-days: 7
 
       - name: Upload Artifacts for shared contracts
@@ -351,7 +353,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
-          version: ${{ inputs.FOUNDRY_VERSION }}
+          version: ${{ env.FOUNDRY_VERSION }}
 
       - name: Install Sol2uml
         run: |
@@ -381,6 +383,9 @@ jobs:
           mv remappings_modified.txt remappings.txt
           
           ./contracts/scripts/ci/generate_uml.sh "./" "contracts/uml-diagrams" "$contract_list"
+          
+          # TODO remove me
+          rm contracts/uml-diagrams/*.svg
 
       - name: Generate Slither Markdown reports
         run: |
@@ -408,7 +413,7 @@ jobs:
           slither_reports_path: 'contracts/slither-reports'
           uml_diagrams_path: 'contracts/uml-diagrams'
           sol_files: ${{ needs.changes.outputs.files }}
-          base_ref: ${{ inputs.base_ref }}
+          base_ref: ${{ env.base_ref }}
 
   gather-all-artifacts:
     name: Gather all artifacts
@@ -425,7 +430,7 @@ jobs:
       - name: Upload all artifacts as single package
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
-          name: review-artifacts-${{ inputs.product }}-${{ github.sha }}
+          name: review-artifacts-${{ env.product }}-${{ github.sha }}
           path: review_artifacts
 
       - name: Remove temporary artifacts
@@ -438,11 +443,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
-          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts-${{ inputs.product }}-${{ github.sha }}") | .id')
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts-${{ env.product }}-${{ github.sha }}") | .id')
           echo "Artifact ID: $ARTIFACT_ID"
           
           echo "# Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
-          echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Base Ref used: **${{ env.base_ref }}**" >> $GITHUB_STEP_SUMMARY
           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
           echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID)" >> $GITHUB_STEP_SUMMARY        
 
@@ -455,10 +460,10 @@ jobs:
         shell: bash
         run: |
           echo "# Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
-          echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Base Ref used: **${{ env.base_ref }}**" >> $GITHUB_STEP_SUMMARY
           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
-          echo "## Reason: No modified Solidity files found for ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
-          echo "* no modified Solidity files found between ${{ inputs.base_ref }} and ${{ github.sha }} commits" >> $GITHUB_STEP_SUMMARY
+          echo "## Reason: No modified Solidity files found for ${{ env.product }}" >> $GITHUB_STEP_SUMMARY
+          echo "* no modified Solidity files found between ${{ env.base_ref }} and ${{ github.sha }} commits" >> $GITHUB_STEP_SUMMARY
           echo "* or they are located outside of ./contracts/src/v0.8 folder" >> $GITHUB_STEP_SUMMARY
           echo "* or they were limited to test files" >> $GITHUB_STEP_SUMMARY
           exit 1
