@@ -423,6 +423,6 @@ jobs:
           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
           echo "## Reason: No modified Solidity files found for ${{ env.product }}" >> $GITHUB_STEP_SUMMARY
           echo "* no modified Solidity files found between ${{ env.base_ref }} and ${{ github.sha }} commits" >> $GITHUB_STEP_SUMMARY
-          echo "* or they are located outside of `./contracts/src/v0.8` folder" >> $GITHUB_STEP_SUMMARY
+          echo "* or they are located outside of ./contracts/src/v0.8 folder" >> $GITHUB_STEP_SUMMARY
           echo "* or they were limited to test files" >> $GITHUB_STEP_SUMMARY
           exit 1
