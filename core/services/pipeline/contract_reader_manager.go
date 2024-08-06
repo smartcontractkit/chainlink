@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -13,12 +12,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
-var ContractReaderNotFound = errors.New("contractReader not found")
+var ErrContractReaderNotFound = errors.New("contractReader not found")
 
 type contractReaderManager struct {
 	services.Service
 	eng                    *services.Engine
-	ctx                    context.Context
+	stopCh                 services.StopChan
 	relayers               map[types.RelayID]loop.Relayer
 	crs                    map[string]types.ContractReader
 	lggr                   logger.Logger
@@ -30,9 +29,9 @@ type contractReaderManager struct {
 	mu sync.RWMutex
 }
 
-func newContractReaderManager(ctx context.Context, relayers map[types.RelayID]loop.Relayer, lggr logger.Logger) (*contractReaderManager, error) {
+func newContractReaderManager(relayers map[types.RelayID]loop.Relayer, stopCh services.StopChan, lggr logger.Logger) (*contractReaderManager, error) {
 	c := contractReaderManager{
-		ctx:                    ctx,
+		stopCh:                 stopCh,
 		relayers:               relayers,
 		crs:                    make(map[string]types.ContractReader),
 		lggr:                   lggr,
@@ -44,6 +43,7 @@ func newContractReaderManager(ctx context.Context, relayers map[types.RelayID]lo
 	c.Service, c.eng = services.Config{
 		Name: "ContractReaderManager",
 	}.NewServiceEngine(lggr)
+	ctx, _ := stopCh.NewCtx()
 	if err := c.Start(ctx); err != nil {
 		lggr.Errorw("Failed to start contractReaderManager", "err", err)
 		return nil, err
@@ -62,7 +62,7 @@ func (c *contractReaderManager) Get(relayID types.RelayID, contractAddress strin
 	csr, found := c.crs[id]
 	c.mu.RUnlock()
 	if !found {
-		return nil, ContractReaderNotFound
+		return nil, ErrContractReaderNotFound
 	}
 	c.mu.Lock()
 	c.lastHeartBeatTime[id] = time.Now()
@@ -75,13 +75,13 @@ func (c *contractReaderManager) Create(relayID types.RelayID, contractAddress st
 		return nil, err
 	}
 	c.mu.RLock()
-	csr, found := c.crs[id]
+	_, found := c.crs[id]
 	c.mu.RUnlock()
 	if found {
 		return nil, fmt.Errorf("contractReader already exists for network %q, chainID %q, contractAddress %q, methodName %q", relayID.Network, relayID.ChainID, contractAddress, methodName)
 	}
 
-	csr, err = c.create(relayID, contractAddress, methodName, config)
+	csr, err := c.create(relayID, contractAddress, methodName, config)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (c *contractReaderManager) checkForUnusedClients() {
 			return
 		case <-time.After(c.heartBeatCheckInterval):
 			for id, lastSeen := range c.lastHeartBeatTime {
-				diff := time.Now().Sub(lastSeen)
+				diff := time.Since(lastSeen)
 				if diff > c.hearthBeatTimeout {
 					c.lggr.Infof("closing contractReader with ID %q", id)
 
@@ -131,7 +131,8 @@ func (c *contractReaderManager) create(relayID types.RelayID, contractAddress st
 		return nil, err
 	}
 
-	csr, err := r.NewContractReader(c.ctx, config)
+	ctx, _ := c.stopCh.NewCtx()
+	csr, err := r.NewContractReader(ctx, config)
 	if err != nil {
 		return nil, err
 	}

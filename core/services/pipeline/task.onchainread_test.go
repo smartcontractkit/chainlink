@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
@@ -49,7 +50,7 @@ func (f *fakeContractReader) HealthReport() map[string]error {
 }
 
 func (f *fakeContractReader) Name() string {
-	return "FakeContractStateReader"
+	return "FakeContractReader"
 }
 
 func (f *fakeContractReader) GetLatestValue(ctx context.Context, contractName, method string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
@@ -101,13 +102,14 @@ func TestOnChainReadTask(t *testing.T) {
 
 	r := mocks.NewRelayer(t)
 	fcsr := &fakeContractReader{}
-	r.On("NewContractStateReader", mock.Anything, mock.Anything).Return(fcsr, nil)
+	r.On("NewContractReader", mock.Anything, mock.Anything).Return(fcsr, nil)
 	relayers := map[types.RelayID]loop.Relayer{
 		types.NewRelayID("network", "chainID"): r,
 	}
 	lggr := logger.TestLogger(t)
 
-	csrm, err := newContractReaderManager(testutils.Context(t), relayers, lggr)
+	var chStop services.StopChan
+	csrm, err := newContractReaderManager(relayers, chStop, lggr)
 	require.NoError(t, err)
 	for _, test := range tests {
 		test := test

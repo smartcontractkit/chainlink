@@ -125,11 +125,10 @@ func NewRunner(
 	lggr = lggr.Named("PipelineRunner")
 
 	chStop := make(chan struct{})
-	ctx, _ := services.StopChan.NewCtx(chStop)
 
-	csrm, err := newContractReaderManager(ctx, relayers, lggr)
+	csrm, err := newContractReaderManager(relayers, chStop, lggr)
 	if err != nil {
-		lggr.Errorw("Could not start ContractStateReaderManger", "err", err)
+		lggr.Errorw("Could not start ContractReaderManger", "err", err)
 	}
 	r := &runner{
 		orm:                    orm,

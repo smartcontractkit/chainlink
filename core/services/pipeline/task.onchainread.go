@@ -76,10 +76,10 @@ func (t *OnChainRead) Run(ctx context.Context, _ logger.Logger, vars Vars, input
 	}
 
 	csr, err := t.csrm.Get(relayID, contractAddress.String(), methodName.String())
-	if err != nil && errors.Is(err, ContractReaderNotFound) {
+	if err != nil && errors.Is(err, ErrContractReaderNotFound) {
 		csr, err = t.csrm.Create(relayID, contractAddress.String(), methodName.String(), crcb)
 		if err != nil {
-			return Result{Error: errors.Wrap(err, "task could not create contractStateReader")}, runInfo
+			return Result{Error: errors.Wrap(err, "task could not create contractReader")}, runInfo
 		}
 		err = csr.Bind(ctx, []types.BoundContract{{
 			Address: contractAddress.String(),

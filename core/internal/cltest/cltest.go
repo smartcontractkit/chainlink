@@ -190,7 +190,7 @@ func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipeline
 	btORM := bridges.NewORM(db)
 	jrm := job.NewORM(db, prm, btORM, keyStore, lggr)
 	relayers := map[types2.RelayID]loop.Relayer{}
-	
+
 	pr := pipeline.NewRunner(prm, btORM, jpcfg, cfg, legacyChains, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient, relayers)
 	return JobPipelineV2TestHelper{
 		prm,
