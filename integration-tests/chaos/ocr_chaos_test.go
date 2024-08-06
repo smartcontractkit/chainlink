@@ -178,9 +178,7 @@ func TestOCRChaos(t *testing.T) {
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
-			ms, err := ctfClient.ConnectMockServer(testEnvironment)
-			require.NoError(t, err, "Creating mockserver clients shouldn't fail")
-
+			ms := ctfClient.ConnectMockServer(testEnvironment)
 			linkContract, err := contracts.DeployLinkTokenContract(l, seth)
 			require.NoError(t, err, "Error deploying link token contract")
 

@@ -149,6 +149,7 @@ jobs:
           artifacts_name: ${{ matrix.product.name }}-test-logs
           artifacts_location: |
             ./integration-tests/smoke/logs/
+            ./integration-tests/smoke/db_dumps/
             /tmp/gotest.log
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
