@@ -641,6 +641,7 @@ jobs:
           artifacts_name: ${{ env.TEST_LOG_NAME }}
           artifacts_location: |
             ./integration-tests/smoke/logs/
+            ./integration-tests/smoke/db_dumps/      
             /tmp/gotest.log
           publish_check_name: ${{ matrix.evm_node.product }}-${{ matrix.evm_node.eth_implementation }}
           token: ${{ secrets.GITHUB_TOKEN }}

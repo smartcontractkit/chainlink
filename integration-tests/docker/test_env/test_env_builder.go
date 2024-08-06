@@ -3,9 +3,11 @@ package test_env
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -255,7 +257,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			b.t.Cleanup(func() {
 				b.l.Info().Msg("Shutting down LogStream")
 				logPath, err := osutil.GetAbsoluteFolderPath("logs")
-				if err != nil {
+				if err == nil {
 					b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
 				}
 
@@ -281,7 +283,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				LogScanningLoop:
 					for i := 0; i < b.clNodesCount; i++ {
 						// if something went wrong during environment setup we might not have all nodes, and we don't want an NPE
-						if b == nil || b.te == nil || b.te.ClCluster == nil || b.te.ClCluster.Nodes == nil || b.te.ClCluster.Nodes[i] == nil || len(b.te.ClCluster.Nodes)-1 < i {
+						if b == nil || b.te == nil || b.te.ClCluster == nil || b.te.ClCluster.Nodes == nil || len(b.te.ClCluster.Nodes)-1 < i || b.te.ClCluster.Nodes[i] == nil {
 							continue
 						}
 						// ignore count return, because we are only interested in the error
@@ -308,6 +310,43 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 					b.te.LogStream.SaveLogLocationInTestSummary()
 				}
 				b.l.Info().Msg("Finished shutting down LogStream")
+
+				if b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect {
+					b.l.Info().Msg("Dump state of all Postgres DBs used by Chainlink Nodes")
+
+					dbDumpFolder := "db_dumps"
+					dbDumpPath := fmt.Sprintf("%s/%s-%s", dbDumpFolder, b.t.Name(), time.Now().Format("2006-01-02T15-04-05"))
+					if err := os.MkdirAll(dbDumpPath, os.ModePerm); err != nil {
+						b.l.Error().Err(err).Msg("Error creating folder for Postgres DB dump")
+						return
+					}
+
+					absDbDumpPath, err := osutil.GetAbsoluteFolderPath(dbDumpFolder)
+					if err == nil {
+						b.l.Info().Str("Absolute path", absDbDumpPath).Msg("PostgresDB dump folder location")
+					}
+
+					for i := 0; i < b.clNodesCount; i++ {
+						// if something went wrong during environment setup we might not have all nodes, and we don't want an NPE
+						if b == nil || b.te == nil || b.te.ClCluster == nil || b.te.ClCluster.Nodes == nil || len(b.te.ClCluster.Nodes)-1 < i || b.te.ClCluster.Nodes[i] == nil || b.te.ClCluster.Nodes[i].PostgresDb == nil {
+							continue
+						}
+
+						filePath := filepath.Join(dbDumpPath, fmt.Sprintf("postgres_db_dump_%s.sql", b.te.ClCluster.Nodes[i].ContainerName))
+						localDbDumpFile, err := os.Create(filePath)
+						if err != nil {
+							b.l.Error().Err(err).Msg("Error creating localDbDumpFile for Postgres DB dump")
+							_ = localDbDumpFile.Close()
+							continue
+						}
+
+						if err := b.te.ClCluster.Nodes[i].PostgresDb.ExecPgDumpFromContainer(localDbDumpFile); err != nil {
+							b.l.Error().Err(err).Msg("Error dumping Postgres DB")
+						}
+						_ = localDbDumpFile.Close()
+					}
+					b.l.Info().Msg("Finished dumping state of all Postgres DBs used by Chainlink Nodes")
+				}
 			})
 		} else {
 			b.l.Warn().Msg("LogStream won't be cleaned up, because either test instance is not set or cleanup type is set to none")
