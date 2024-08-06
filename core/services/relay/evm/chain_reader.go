@@ -450,39 +450,3 @@ func confidenceToConfirmations(confirmationsMapping map[primitives.ConfidenceLev
 	}
 	return confirmations, nil
 }
-
-func NewContractStateReader(ctx context.Context, lggr logger.Logger, client evmclient.Client, config types.ChainReaderConfig) (commontypes.ContractStateReader, error) {
-	cr := &chainReader{
-		lggr:     lggr.Named("ContractStateReader"),
-		client:   client,
-		bindings: bindings{contractBindings: make(map[string]*contractBinding)},
-		parsed:   &ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
-	}
-
-	var err error
-	if err = cr.init(config.Contracts); err != nil {
-		return nil, err
-	}
-
-	if cr.codec, err = cr.parsed.ToCodec(); err != nil {
-		return nil, err
-	}
-
-	cr.bindings.BatchCaller = NewDynamicLimitedBatchCaller(
-		cr.lggr,
-		cr.codec,
-		cr.client,
-		DefaultRpcBatchSizeLimit,
-		DefaultRpcBatchBackOffMultiplier,
-		DefaultMaxParallelRpcCalls,
-	)
-
-	err = cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
-		for _, rb := range cb.readBindings {
-			rb.SetCodec(cr.codec)
-		}
-		return nil
-	})
-
-	return cr, err
-}

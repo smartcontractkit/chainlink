@@ -1563,7 +1563,7 @@ func (d *Delegate) newServicesCCIPCommit(ctx context.Context, lggr logger.Sugare
 	if spec.Relay != relay.NetworkEVM {
 		return nil, fmt.Errorf("non evm chains are not supported for CCIP commit")
 	}
-	dstRid, err := spec.RelayID()
+	dstRid, err := jb.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
 	}
@@ -1630,7 +1630,7 @@ func (d *Delegate) ccipCommitGetDstProvider(ctx context.Context, jb job.Job, plu
 		return nil, fmt.Errorf("non evm chains are not supported for CCIP commit")
 	}
 
-	dstRid, err := spec.RelayID()
+	dstRid, err := jb.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
 	}
@@ -1729,7 +1729,7 @@ func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.Sug
 	if spec.Relay != relay.NetworkEVM {
 		return nil, fmt.Errorf("non evm chains are not supported for CCIP execution")
 	}
-	dstRid, err := spec.RelayID()
+	dstRid, err := jb.RelayID()
 
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
@@ -1789,7 +1789,7 @@ func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, plugi
 	if spec.Relay != relay.NetworkEVM {
 		return nil, fmt.Errorf("non evm chains are not supported for CCIP execution")
 	}
-	dstRid, err := spec.RelayID()
+	dstRid, err := jb.RelayID()
 
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}

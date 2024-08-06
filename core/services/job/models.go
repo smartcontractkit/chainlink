@@ -377,6 +377,8 @@ type OCR2OracleSpec struct {
 	UpdatedAt                         time.Time            `toml:"-"`
 	CaptureEATelemetry                bool                 `toml:"captureEATelemetry"`
 	CaptureAutomationCustomTelemetry  bool                 `toml:"captureAutomationCustomTelemetry"`
+	Relay                             string               `toml:"relay"`
+	RelayConfig                       JSONConfig           `toml:"relayConfig"`
 }
 
 func validateRelayID(id types.RelayID) error {

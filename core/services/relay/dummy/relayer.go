@@ -27,10 +27,6 @@ type relayer struct {
 	chainID string
 }
 
-func (r *relayer) NewContractStateReader(ctx context.Context, config []byte) (types.ContractStateReader, error) {
-	return nil, nil
-}
-
 func NewRelayer(lggr logger.Logger, chainID string) loop.Relayer {
 	return &relayer{lggr, chainID}
 }
