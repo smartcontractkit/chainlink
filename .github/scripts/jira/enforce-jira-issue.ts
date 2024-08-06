@@ -34,8 +34,7 @@ async function doesIssueExist(
 
     return true;
   } catch (e) {
-    core.debug(e);
-    core.setFailed(`JIRA issue ${issueNumber} not found`);
+    core.debug(e as any);
     return false;
   }
 }
@@ -51,7 +50,7 @@ async function main() {
   const issueNumber = parseIssueNumberFrom(prTitle, commitMessage, branchName);
   if (!issueNumber) {
     const msg =
-      "No JIRA issue number found in: PR title, commit message, or branch name. Please include the issue ID in one of these.";
+      "No JIRA issue number found in PR title, commit message, or branch name. This pull request must be associated with a JIRA issue.";
 
     core.setFailed(msg);
     return;
@@ -59,7 +58,7 @@ async function main() {
 
   const exists = await doesIssueExist(client, issueNumber, dryRun);
   if (!exists) {
-    core.setFailed(`JIRA issue ${issueNumber} not found`);
+    core.setFailed(`JIRA issue ${issueNumber} not found, this pull request must be associated with a JIRA issue.`);
     return;
   }
 }
@@ -69,9 +68,9 @@ async function run() {
     await main();
   } catch (error) {
     if (error instanceof Error) {
-      core.setFailed(error.message);
+      return core.setFailed(error.message);
     }
-    core.setFailed(error);
+    core.setFailed(error as any);
   }
 }
 
