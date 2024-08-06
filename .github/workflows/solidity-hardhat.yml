@@ -114,7 +114,7 @@ jobs:
         shell: bash
         run: |
           echo "# Warning!" >> $GITHUB_STEP_SUMMARY
-          echo "## Reason: Found No modified contracts for product ${{ env.product }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Reason: Found no modified contracts for product ${{ env.product }}" >> $GITHUB_STEP_SUMMARY
           echo "## Action required: Please check if you chose correct product and base reference" >> $GITHUB_STEP_SUMMARY
           echo "## Product: ${{ env.product }}" >> $GITHUB_STEP_SUMMARY
           echo "## Base Ref: ${{ env.base_ref }}" >> $GITHUB_STEP_SUMMARY
