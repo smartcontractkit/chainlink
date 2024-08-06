@@ -24,6 +24,10 @@ inputs:
 runs:
   using: composite
   steps:
+  - name: Fetch base ref
+    if: ${{ inputs.base_ref != '' }}
+    shell: bash
+    run: git fetch origin ${{ inputs.base_ref }}
   - name: Validate UML diagrams
     if: ${{ inputs.validate_uml_diagrams == 'true' }}
     shell: bash
@@ -33,8 +37,9 @@ runs:
       missing_svgs=()
       for file in "${modified_files[@]}"; do
         if [ "${{ inputs.base_ref }}" != "" ]; then
+          git branch -r | grep "${{ inputs.base_ref }}"
           # TODO remove this check when AurorNZ/paths-filter is fixed
-          status=$(git diff --name-status ${{ inputs.base_ref }} ${{ github.sha }} -- "$file"  | awk '{ print $1 }')
+          status=$(git diff --name-status ${{ inputs.base_ref }} HEAD -- "$file"  | awk '{ print $1 }')
           if [ "$status" == "D" ]; then
             echo "File $file was deleted, skipping validation"
             continue
