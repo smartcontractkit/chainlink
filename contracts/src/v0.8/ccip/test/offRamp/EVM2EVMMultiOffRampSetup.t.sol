@@ -73,10 +73,10 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     s_maybeRevertingPool = MaybeRevertingBurnMintTokenPool(s_destPoolByToken[s_destTokens[1]]);
     s_inboundNonceManager = new NonceManager(new address[](0));
 
-    _deployOffRamp(s_destRouter, s_mockRMN, s_inboundNonceManager);
+    _deployOffRamp(s_mockRMN, s_inboundNonceManager);
   }
 
-  function _deployOffRamp(Router router, IRMN rmnProxy, NonceManager nonceManager) internal {
+  function _deployOffRamp(IRMN rmnProxy, NonceManager nonceManager) internal {
     EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
       new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](0);
 
@@ -87,7 +87,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(nonceManager)
       }),
-      _generateDynamicMultiOffRampConfig(address(router), address(s_priceRegistry)),
+      _generateDynamicMultiOffRampConfig(address(s_priceRegistry)),
       sourceChainConfigs
     );
 
@@ -112,7 +112,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       transmitters: s_validTransmitters
     });
 
-    s_offRamp.setDynamicConfig(_generateDynamicMultiOffRampConfig(address(router), address(s_priceRegistry)));
+    s_offRamp.setDynamicConfig(_generateDynamicMultiOffRampConfig(address(s_priceRegistry)));
     s_offRamp.setOCR3Configs(ocrConfigs);
 
     address[] memory authorizedCallers = new address[](1);
@@ -175,16 +175,19 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
       new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](3);
     sourceChainConfigs[0] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
+      router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       onRamp: ON_RAMP_ADDRESS_1,
       isEnabled: true
     });
     sourceChainConfigs[1] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
+      router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_2,
       onRamp: ON_RAMP_ADDRESS_2,
       isEnabled: false
     });
     sourceChainConfigs[2] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
+      router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_3,
       onRamp: ON_RAMP_ADDRESS_3,
       isEnabled: true
@@ -226,13 +229,13 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     });
   }
 
-  function _generateDynamicMultiOffRampConfig(
-    address router,
-    address priceRegistry
-  ) internal pure returns (EVM2EVMMultiOffRamp.DynamicConfig memory) {
+  function _generateDynamicMultiOffRampConfig(address priceRegistry)
+    internal
+    pure
+    returns (EVM2EVMMultiOffRamp.DynamicConfig memory)
+  {
     return EVM2EVMMultiOffRamp.DynamicConfig({
       permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
-      router: router,
       priceRegistry: priceRegistry,
       messageValidator: address(0),
       maxPoolReleaseOrMintGas: MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS,
@@ -397,7 +400,8 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     EVM2EVMMultiOffRamp.DynamicConfig memory b
   ) public pure {
     assertEq(a.permissionLessExecutionThresholdSeconds, b.permissionLessExecutionThresholdSeconds);
-    assertEq(a.router, b.router);
+    assertEq(a.maxPoolReleaseOrMintGas, b.maxPoolReleaseOrMintGas);
+    assertEq(a.maxTokenTransferGas, b.maxTokenTransferGas);
     assertEq(a.messageValidator, b.messageValidator);
     assertEq(a.priceRegistry, b.priceRegistry);
   }
@@ -409,6 +413,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     assertEq(config1.isEnabled, config2.isEnabled);
     assertEq(config1.minSeqNr, config2.minSeqNr);
     assertEq(config1.onRamp, config2.onRamp);
+    assertEq(address(config1.router), address(config2.router));
   }
 
   function _getDefaultSourceTokenData(Client.EVMTokenAmount[] memory srcTokenAmounts)
@@ -442,7 +447,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
       }),
-      _generateDynamicMultiOffRampConfig(address(s_destRouter), address(s_priceRegistry)),
+      _generateDynamicMultiOffRampConfig(address(s_priceRegistry)),
       new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](0)
     );
 

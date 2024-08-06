@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import {IPoolV1} from "../../interfaces/IPool.sol";
+import {IRouter} from "../../interfaces/IRouter.sol";
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
@@ -38,7 +39,7 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistryFeeSetup {
     s_outboundMessageValidator = new MessageInterceptorHelper();
     s_outboundNonceManager = new NonceManager(new address[](0));
     (s_onRamp, s_metadataHash) = _deployOnRamp(
-      SOURCE_CHAIN_SELECTOR, address(s_sourceRouter), address(s_outboundNonceManager), address(s_tokenAdminRegistry)
+      SOURCE_CHAIN_SELECTOR, s_sourceRouter, address(s_outboundNonceManager), address(s_tokenAdminRegistry)
     );
 
     s_offRamps = new address[](2);
@@ -90,12 +91,12 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistryFeeSetup {
     );
   }
 
-  function _generateDynamicMultiOnRampConfig(
-    address router,
-    address priceRegistry
-  ) internal pure returns (EVM2EVMMultiOnRamp.DynamicConfig memory) {
+  function _generateDynamicMultiOnRampConfig(address priceRegistry)
+    internal
+    pure
+    returns (EVM2EVMMultiOnRamp.DynamicConfig memory)
+  {
     return EVM2EVMMultiOnRamp.DynamicConfig({
-      router: router,
       priceRegistry: priceRegistry,
       messageValidator: address(0),
       feeAggregator: FEE_AGGREGATOR
@@ -111,9 +112,20 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistryFeeSetup {
     return result;
   }
 
+  function _generateDestChainConfigArgs(IRouter router)
+    internal
+    pure
+    returns (EVM2EVMMultiOnRamp.DestChainConfigArgs[] memory)
+  {
+    EVM2EVMMultiOnRamp.DestChainConfigArgs[] memory destChainConfigs = new EVM2EVMMultiOnRamp.DestChainConfigArgs[](1);
+    destChainConfigs[0] =
+      EVM2EVMMultiOnRamp.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, router: router});
+    return destChainConfigs;
+  }
+
   function _deployOnRamp(
     uint64 sourceChainSelector,
-    address sourceRouter,
+    IRouter router,
     address nonceManager,
     address tokenAdminRegistry
   ) internal returns (EVM2EVMMultiOnRampHelper, bytes32 metadataHash) {
@@ -124,7 +136,8 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistryFeeSetup {
         nonceManager: nonceManager,
         tokenAdminRegistry: tokenAdminRegistry
       }),
-      _generateDynamicMultiOnRampConfig(sourceRouter, address(s_priceRegistry))
+      _generateDynamicMultiOnRampConfig(address(s_priceRegistry)),
+      _generateDestChainConfigArgs(router)
     );
 
     address[] memory authorizedCallers = new address[](1);
@@ -174,7 +187,6 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistryFeeSetup {
     EVM2EVMMultiOnRamp.DynamicConfig memory a,
     EVM2EVMMultiOnRamp.DynamicConfig memory b
   ) internal pure {
-    assertEq(a.router, b.router);
     assertEq(a.priceRegistry, b.priceRegistry);
   }
 }
