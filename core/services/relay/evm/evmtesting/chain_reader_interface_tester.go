@@ -82,6 +82,11 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 		}
 		it.cr = nil
 
+		if it.cw != nil {
+			_ = it.cw.Close()
+		}
+		it.cw = nil
+
 		if it.dirtyContracts {
 			it.contractTesters = nil
 		}
@@ -284,17 +289,6 @@ func (it *EVMChainReaderInterfaceTester[T]) SetBatchLatestValues(t T, batchCallE
 			it.sendTxWithTestStruct(t, nameToAddress[contractName], val, (*chain_reader_tester.ChainReaderTesterTransactor).AddTestStruct)
 		}
 	}
-}
-
-// SetUintLatestValue is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state
-func (it *EVMChainReaderInterfaceTester[T]) SetUintLatestValue(t T, val uint64, forCall ExpectedGetLatestValueArgs) {
-	cw, ok := it.client.(*ClientWithContractHistory)
-	if !ok {
-		require.True(t, ok, "SetUintLatestValue should always be used for tests involving finality")
-	}
-
-	it.sendTxWithUintVal(t, it.address, val, (*chain_reader_tester.ChainReaderTesterTransactor).SetAlterablePrimitiveValue)
-	require.NoError(t, cw.SetUintLatestValue(it.Helper.Context(t), val, forCall))
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) GetChainWriter(t T) clcommontypes.ChainWriter {

@@ -154,9 +154,12 @@ func TestChainReader(t *testing.T) {
 	t.Parallel()
 	it := &EVMChainReaderInterfaceTester[*testing.T]{Helper: &helper{}}
 	it.Helper.Init(t)
+	fmt.Println("test1")
 	// add new subtests here so that it can be run on real chains too
 	RunChainReaderEvmTests(t, it)
+	fmt.Println("test2")
 	RunChainReaderInterfaceTests[*testing.T](t, commontestutils.WrapChainReaderTesterForLoop(it))
+	fmt.Println("test3")
 }
 
 type helper struct {

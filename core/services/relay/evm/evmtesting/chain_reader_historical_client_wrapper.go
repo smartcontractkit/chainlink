@@ -91,15 +91,15 @@ func (cwh *ClientWithContractHistory) SetUintLatestValue(ctx context.Context, va
 		ExpectedGetLatestValueArgs: forCall,
 		val:                        val,
 	}
-	fmt.Println("ValsWithCall: ", cwh.valsWithCall[latestBlock.BlockNumber()].String())
-
 	return nil
 }
 
 // findValClosestToBlock returns the value that was added in block that is <= blockNumber, otherwise return empty valWithCall
 func (cwh *ClientWithContractHistory) findValClosestToBlock(blockNumber *big.Int) (val valWithCall) {
 	var valIsInBlock int64 = math.MaxInt64
+	fmt.Println("blockNumber: ", blockNumber)
 	for block, v := range cwh.valsWithCall {
+		fmt.Println("block adn value: ", block, v)
 		if block <= blockNumber.Int64() && block <= valIsInBlock {
 			valIsInBlock, val = block, v
 		}

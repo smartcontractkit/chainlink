@@ -25,7 +25,6 @@ func (e *encoder) Encode(_ context.Context, item any, itemType string) (res []by
 		}
 	}()
 	info, ok := e.Definitions[itemType]
-	fmt.Printf("definitions %s, itemType %s\n", e.Definitions, itemType)
 
 	if !ok {
 		return nil, fmt.Errorf("%w: cannot find definition for %s", commontypes.ErrInvalidType, itemType)
