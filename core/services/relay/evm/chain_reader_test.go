@@ -181,7 +181,7 @@ func (h *helper) Init(t *testing.T) {
 	h.Backend()
 	h.client = h.Client(t)
 
-	h.txm = h.TXM(t)
+	h.txm = h.TXM(t, h.client)
 	h.Commit()
 }
 
@@ -257,12 +257,10 @@ func (h *helper) MaxWaitTimeForEvents() time.Duration {
 	return maxWaitTime
 }
 
-func (h *helper) TXM(t *testing.T) evmtxmgr.TxManager {
+func (h *helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
 	if h.txm != nil {
 		return h.txm
 	}
-
-	client := h.Client(t)
 	db := h.db
 
 	clconfig := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {

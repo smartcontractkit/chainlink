@@ -54,7 +54,7 @@ type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 	MaxWaitTimeForEvents() time.Duration
 	GasPriceBufferPercent() int64
 	FromAddress() common.Address
-	TXM(T) evmtxmgr.TxManager
+	TXM(T, client.Client) evmtxmgr.TxManager
 }
 
 type EVMChainReaderInterfaceTester[T TestingT[T]] struct {
@@ -187,9 +187,8 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 			},
 		},
 	}
-
-	it.client = it.Helper.Client(t)
-	it.txm = it.Helper.TXM(t)
+	it.GetChainReader(t)
+	it.txm = it.Helper.TXM(t, it.client)
 
 	it.chainWriterConfig = types.ChainWriterConfig{
 		Contracts: map[string]*types.ContractConfig{
@@ -205,12 +204,17 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 						},
 					},
+					"setAlterablePrimitiveValue": {
+						ChainSpecificName: "setAlterablePrimitiveValue",
+						FromAddress:       it.Helper.FromAddress(),
+						GasLimit:          2_000_000,
+						Checker:           "simulate",
+					},
 				},
 			},
 		},
 		MaxGasPrice: assets.NewWei(big.NewInt(1000000000000000000)),
 	}
-
 	it.deployNewContracts(t)
 }
 
@@ -240,8 +244,8 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 		RpcBatchSize:             1,
 		KeepFinalizedBlocksDepth: 10000,
 	}
-	ht := headtracker.NewSimulatedHeadTracker(it.client, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(it.Helper.ChainID(), db, lggr), it.client, lggr, ht, lpOpts)
+	ht := headtracker.NewSimulatedHeadTracker(it.Helper.Client(t), lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(it.Helper.ChainID(), db, lggr), it.Helper.Client(t), lggr, ht, lpOpts)
 	require.NoError(t, lp.Start(ctx))
 
 	// encode and decode the config to ensure the test covers type issues
@@ -302,8 +306,8 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainWriter(t T) clcommontypes.Ch
 	cw, err := evm.NewChainWriterService(logger.NullLogger, it.client, it.txm, it.gasEstimator, it.chainWriterConfig)
 	require.NoError(t, err)
 	require.NoError(t, cw.Start(ctx))
-	it.cw = cw
-	return cw
+	it.cw = NewChainWriterHistoricalWrapper(cw, it.client.(*ClientWithContractHistory))
+	return it.cw
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) TriggerEvent(t T, testStruct *TestStruct) {

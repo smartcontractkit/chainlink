@@ -14,6 +14,7 @@ import (
 
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -90,6 +91,7 @@ func (cwh *ClientWithContractHistory) SetUintLatestValue(ctx context.Context, va
 		ExpectedGetLatestValueArgs: forCall,
 		val:                        val,
 	}
+	fmt.Println("ValsWithCall: ", cwh.valsWithCall[latestBlock.BlockNumber()].String())
 
 	return nil
 }
