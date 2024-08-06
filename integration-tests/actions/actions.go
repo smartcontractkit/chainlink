@@ -1216,7 +1216,7 @@ func RandBool() bool {
 	return rand.Intn(2) == 1
 }
 
-func ContinuouslyGenerateTXsOnChain(sethClient *seth.Client, stopChannel chan bool, l zerolog.Logger) (bool, error) {
+func ContinuouslyGenerateTXsOnChain(sethClient *seth.Client, stopChannel chan bool, wg *sync.WaitGroup, l zerolog.Logger) (bool, error) {
 	counterContract, err := contracts.DeployCounterContract(sethClient)
 	if err != nil {
 		return false, err
@@ -1230,6 +1230,10 @@ func ContinuouslyGenerateTXsOnChain(sethClient *seth.Client, stopChannel chan bo
 		select {
 		case <-stopChannel:
 			l.Info().Str("Number of generated transactions on chain", count.String()).Msg("Stopping generating txs on chain. Desired block number reached.")
+			sleepDuration := time.Second * 10
+			l.Info().Str("Waiting for", sleepDuration.String()).Msg("Waiting for transactions to be mined and avoid nonce issues")
+			time.Sleep(sleepDuration)
+			wg.Done()
 			return true, nil
 		default:
 			err = counterContract.Increment()

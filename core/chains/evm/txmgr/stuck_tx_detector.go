@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -37,8 +38,8 @@ type stuckTxDetectorTxStore interface {
 
 type stuckTxDetectorConfig interface {
 	Enabled() bool
-	Threshold() uint32
-	MinAttempts() uint32
+	Threshold() *uint32
+	MinAttempts() *uint32
 	DetectionApiUrl() *url.URL
 }
 
@@ -78,7 +79,7 @@ func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType chaintyp
 
 func (d *stuckTxDetector) LoadPurgeBlockNumMap(ctx context.Context, addresses []common.Address) error {
 	// Skip loading purge block num map if auto-purge feature disabled or Threshold is set to 0
-	if !d.cfg.Enabled() || d.cfg.Threshold() == 0 {
+	if !d.cfg.Enabled() || d.cfg.Threshold() == nil || *d.cfg.Threshold() == 0 {
 		return nil
 	}
 	d.purgeBlockNumLock.Lock()
@@ -172,6 +173,11 @@ func (d *stuckTxDetector) FindUnconfirmedTxWithLowestNonce(ctx context.Context, 
 // 4. If 3 is true, check if the latest attempt's gas price is higher than what our gas estimator's GetFee method returns
 // 5. If 4 is true, the transaction is likely stuck due to overflow
 func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, txs []Tx, blockNum int64) ([]Tx, error) {
+	if d.cfg.Threshold() == nil || d.cfg.MinAttempts() == nil {
+		err := errors.New("missing required configs for the stuck transaction heuristic. Transactions.AutoPurge.Threshold and Transactions.AutoPurge.MinAttempts are required")
+		d.lggr.Error(err.Error())
+		return txs, err
+	}
 	d.purgeBlockNumLock.RLock()
 	defer d.purgeBlockNumLock.RUnlock()
 	// Get gas price from internal gas estimator
@@ -187,17 +193,17 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 		d.purgeBlockNumLock.RLock()
 		lastPurgeBlockNum := d.purgeBlockNumMap[tx.FromAddress]
 		d.purgeBlockNumLock.RUnlock()
-		if lastPurgeBlockNum > blockNum-int64(d.cfg.Threshold()) {
+		if lastPurgeBlockNum > blockNum-int64(*d.cfg.Threshold()) {
 			continue
 		}
 		// Tx attempts are loaded from newest to oldest
 		oldestBroadcastAttempt, newestBroadcastAttempt, broadcastedAttemptsCount := findBroadcastedAttempts(tx)
 		// 2. Check if Threshold amount of blocks have passed since the oldest attempt's broadcast block num
-		if *oldestBroadcastAttempt.BroadcastBeforeBlockNum > blockNum-int64(d.cfg.Threshold()) {
+		if *oldestBroadcastAttempt.BroadcastBeforeBlockNum > blockNum-int64(*d.cfg.Threshold()) {
 			continue
 		}
 		// 3. Check if the transaction has at least MinAttempts amount of broadcasted attempts
-		if broadcastedAttemptsCount < d.cfg.MinAttempts() {
+		if broadcastedAttemptsCount < *d.cfg.MinAttempts() {
 			continue
 		}
 		// 4. Check if the newest broadcasted attempt's gas price is higher than what our gas estimator's GetFee method returns
@@ -278,6 +284,10 @@ func (d *stuckTxDetector) detectStuckTransactionsScroll(ctx context.Context, txs
 	if err != nil {
 		return nil, fmt.Errorf("failed to make new request with context: %w", err)
 	}
+
+	// Add Content-Type header
+	postReq.Header.Add("Content-Type", "application/json")
+
 	// Send request
 	resp, err := d.httpClient.Do(postReq)
 	if err != nil {
@@ -287,6 +297,7 @@ func (d *stuckTxDetector) detectStuckTransactionsScroll(ctx context.Context, txs
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("request failed with status %d", resp.StatusCode)
 	}
+
 	// Decode the response into expected type
 	scrollResp := new(scrollResponse)
 	err = json.NewDecoder(resp.Body).Decode(scrollResp)

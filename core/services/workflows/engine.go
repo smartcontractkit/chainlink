@@ -713,6 +713,10 @@ func (e *Engine) configForStep(ctx context.Context, executionID string, step *st
 		return step.config, nil
 	}
 
+	if capConfig.DefaultConfig == nil {
+		return step.config, nil
+	}
+
 	// Merge the configs for now; note that this means that a workflow can override
 	// all of the config set by the capability. This is probably not desirable in
 	// the long-term, but we don't know much about those use cases so stick to a simpler

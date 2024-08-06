@@ -121,6 +121,7 @@ type Feed struct {
 	baseBenchmarkPrice *big.Int
 	baseBid            *big.Int
 	baseAsk            *big.Int
+	baseMarketStatus   uint32
 }
 
 func randomFeedID(version uint16) [32]byte {
@@ -465,5 +466,99 @@ chainID = 1337
 		feedName,
 		linkFeedID,
 		nativeFeedID,
+	))
+}
+
+func addV4MercuryJob(
+	t *testing.T,
+	node Node,
+	i int,
+	verifierAddress common.Address,
+	bootstrapPeerID string,
+	bootstrapNodePort int,
+	bmBridge,
+	bidBridge,
+	askBridge,
+	marketStatusBridge string,
+	servers map[string]string,
+	clientPubKey ed25519.PublicKey,
+	feedName string,
+	feedID [32]byte,
+	linkFeedID [32]byte,
+	nativeFeedID [32]byte,
+) {
+	srvs := make([]string, 0, len(servers))
+	for u, k := range servers {
+		srvs = append(srvs, fmt.Sprintf("%q = %q", u, k))
+	}
+	serversStr := fmt.Sprintf("{ %s }", strings.Join(srvs, ", "))
+
+	node.AddJob(t, fmt.Sprintf(`
+type = "offchainreporting2"
+schemaVersion = 1
+name = "mercury-%[1]d-%[11]s"
+forwardingAllowed = false
+maxTaskDuration = "1s"
+contractID = "%[2]s"
+feedID = "0x%[10]x"
+contractConfigTrackerPollInterval = "1s"
+ocrKeyBundleID = "%[3]s"
+p2pv2Bootstrappers = [
+  "%[4]s"
+]
+relay = "evm"
+pluginType = "mercury"
+transmitterID = "%[9]x"
+observationSource = """
+	// Benchmark Price
+	price1          [type=bridge name="%[5]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
+	price1_parse    [type=jsonparse path="result"];
+	price1_multiply [type=multiply times=100000000 index=0];
+
+	price1 -> price1_parse -> price1_multiply;
+
+	// Bid
+	bid          [type=bridge name="%[6]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
+	bid_parse    [type=jsonparse path="result"];
+	bid_multiply [type=multiply times=100000000 index=1];
+
+	bid -> bid_parse -> bid_multiply;
+
+	// Ask
+	ask          [type=bridge name="%[7]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
+	ask_parse    [type=jsonparse path="result"];
+	ask_multiply [type=multiply times=100000000 index=2];
+
+	ask -> ask_parse -> ask_multiply;
+
+	// Market Status
+	marketstatus       [type=bridge name="%[14]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
+	marketstatus_parse [type=jsonparse path="result" index=3];
+
+	marketstatus -> marketstatus_parse;
+"""
+
+[pluginConfig]
+servers = %[8]s
+linkFeedID = "0x%[12]x"
+nativeFeedID = "0x%[13]x"
+
+[relayConfig]
+chainID = 1337
+		`,
+		i,
+		verifierAddress,
+		node.KeyBundle.ID(),
+		fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort),
+		bmBridge,
+		bidBridge,
+		askBridge,
+		serversStr,
+		clientPubKey,
+		feedID,
+		feedName,
+		linkFeedID,
+		nativeFeedID,
+		marketStatusBridge,
 	))
 }

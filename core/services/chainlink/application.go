@@ -214,16 +214,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), opts.DS, globalLogger)
 			signer := externalPeer
 			externalPeerWrapper = externalPeer
-			remoteDispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
-			srvcs = append(srvcs, remoteDispatcher)
-
-			dispatcher = remoteDispatcher
-		} else {
+			dispatcher = remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
+			srvcs = append(srvcs, externalPeerWrapper) // peer wrapper must be started before dispatcher
+			srvcs = append(srvcs, dispatcher)
+		} else { // tests only
 			dispatcher = opts.CapabilitiesDispatcher
 			externalPeerWrapper = opts.CapabilitiesPeerWrapper
+			srvcs = append(srvcs, externalPeerWrapper)
 		}
-
-		srvcs = append(srvcs, externalPeerWrapper)
 
 		rid := cfg.Capabilities().ExternalRegistry().RelayID()
 		registryAddress := cfg.Capabilities().ExternalRegistry().Address()
