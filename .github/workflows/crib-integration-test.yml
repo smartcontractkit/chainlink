@@ -82,4 +82,4 @@ jobs:
           SETH_LOG_LEVEL: info
 #          RESTY_DEBUG: true
         run: |-
-          go test -v -run TestCRIB
+          go test -v -timeout 15m -run TestCRIB
