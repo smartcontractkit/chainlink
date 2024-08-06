@@ -1354,7 +1354,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 		evmTxmCfg := txmgr.NewEvmTxmConfig(ccfg.EVM())
 		ec := evmtest.NewEthClientMockWithDefaultChain(t)
 		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, ccfg.EVM().Transactions(), nil, logger.Test(t), nil, nil,
-			nil, txStore, nil, nil, nil, nil)
+			nil, txStore, nil, nil, nil, nil, nil)
 		err := txMgr.XXXTestAbandon(fromAddress) // mark transaction as abandoned
 		require.NoError(t, err)
 
@@ -1842,4 +1842,61 @@ func AssertCountPerSubject(t *testing.T, txStore txmgr.TestEvmTxStore, expected 
 	count, err := txStore.CountTxesByStateAndSubject(tests.Context(t), "unstarted", subject)
 	require.NoError(t, err)
 	require.Equal(t, int(expected), count)
+}
+
+func TestORM_FindTransactionsByState(t *testing.T) {
+	t.Parallel()
+
+	ctx := tests.Context(t)
+	db := pgtest.NewSqlxDB(t)
+	txStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(t, db)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+	finalizedBlockNum := int64(100)
+
+	mustInsertUnstartedTx(t, txStore, fromAddress)
+	mustInsertInProgressEthTxWithAttempt(t, txStore, 0, fromAddress)
+	mustInsertUnconfirmedEthTxWithAttemptState(t, txStore, 1, fromAddress, txmgrtypes.TxAttemptBroadcast)
+	mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 2, finalizedBlockNum, time.Now(), fromAddress)
+	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 3, finalizedBlockNum+1)
+	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 4, finalizedBlockNum)
+	mustInsertFatalErrorEthTx(t, txStore, fromAddress)
+
+	receipts, err := txStore.FindConfirmedTxesReceipts(ctx, finalizedBlockNum, testutils.FixtureChainID)
+	require.NoError(t, err)
+	require.Len(t, receipts, 1)
+}
+
+func TestORM_UpdateTxesFinalized(t *testing.T) {
+	t.Parallel()
+
+	ctx := tests.Context(t)
+	db := pgtest.NewSqlxDB(t)
+	txStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(t, db)
+	broadcast := time.Now()
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	t.Run("successfully finalizes a confirmed transaction", func(t *testing.T) {
+		nonce := evmtypes.Nonce(0)
+		tx := &txmgr.Tx{
+			Sequence:           &nonce,
+			FromAddress:        fromAddress,
+			EncodedPayload:     []byte{1, 2, 3},
+			State:              txmgrcommon.TxConfirmed,
+			BroadcastAt:        &broadcast,
+			InitialBroadcastAt: &broadcast,
+		}
+		err := txStore.InsertTx(ctx, tx)
+		require.NoError(t, err)
+		attempt := newBroadcastLegacyEthTxAttempt(t, tx.ID)
+		err = txStore.InsertTxAttempt(ctx, &attempt)
+		require.NoError(t, err)
+		receipt := mustInsertEthReceipt(t, txStore, 100, testutils.NewHash(), attempt.Hash)
+		err = txStore.UpdateTxStatesToFinalizedUsingReceiptIds(ctx, []int64{receipt.ID}, testutils.FixtureChainID)
+		require.NoError(t, err)
+		etx, err := txStore.FindTxWithAttempts(ctx, tx.ID)
+		require.NoError(t, err)
+		require.Equal(t, txmgrcommon.TxFinalized, etx.State)
+	})
 }

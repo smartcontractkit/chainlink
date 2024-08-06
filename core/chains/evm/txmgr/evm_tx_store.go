@@ -44,6 +44,10 @@ type EvmTxStore interface {
 	// redeclare TxStore for mockery
 	txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
 	TxStoreWebApi
+
+	// methods used solely in EVM components
+	FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []Receipt, err error)
+	UpdateTxStatesToFinalizedUsingReceiptIds(ctx context.Context, etxIDs []int64, chainId *big.Int) error
 }
 
 // TxStoreWebApi encapsulates the methods that are not used by the txmgr and only used by the various web controllers, readers, or evm specific components
@@ -87,7 +91,7 @@ var _ TestEvmTxStore = (*evmTxStore)(nil)
 // Directly maps to columns of database table "evm.receipts".
 // Do not modify type unless you
 // intend to modify the database schema
-type dbReceipt struct {
+type DbReceipt struct {
 	ID               int64
 	TxHash           common.Hash
 	BlockHash        common.Hash
@@ -97,8 +101,8 @@ type dbReceipt struct {
 	CreatedAt        time.Time
 }
 
-func DbReceiptFromEvmReceipt(evmReceipt *evmtypes.Receipt) dbReceipt {
-	return dbReceipt{
+func DbReceiptFromEvmReceipt(evmReceipt *evmtypes.Receipt) DbReceipt {
+	return DbReceipt{
 		TxHash:           evmReceipt.TxHash,
 		BlockHash:        evmReceipt.BlockHash,
 		BlockNumber:      evmReceipt.BlockNumber.Int64(),
@@ -107,7 +111,7 @@ func DbReceiptFromEvmReceipt(evmReceipt *evmtypes.Receipt) dbReceipt {
 	}
 }
 
-func DbReceiptToEvmReceipt(receipt *dbReceipt) *evmtypes.Receipt {
+func DbReceiptToEvmReceipt(receipt *DbReceipt) *evmtypes.Receipt {
 	return &receipt.Receipt
 }
 
@@ -131,7 +135,7 @@ type dbReceiptPlus struct {
 	FailOnRevert bool             `db:"FailOnRevert"`
 }
 
-func fromDBReceipts(rs []dbReceipt) []*evmtypes.Receipt {
+func fromDBReceipts(rs []DbReceipt) []*evmtypes.Receipt {
 	receipts := make([]*evmtypes.Receipt, len(rs))
 	for i := 0; i < len(rs); i++ {
 		receipts[i] = DbReceiptToEvmReceipt(&rs[i])
@@ -675,7 +679,7 @@ func (o *evmTxStore) loadEthTxesAttemptsReceipts(ctx context.Context, etxs []*Tx
 			attemptHashes = append(attemptHashes, attempt.Hash.Bytes())
 		}
 	}
-	var rs []dbReceipt
+	var rs []DbReceipt
 	if err = o.q.SelectContext(ctx, &rs, `SELECT * FROM evm.receipts WHERE tx_hash = ANY($1)`, pq.Array(attemptHashes)); err != nil {
 		return pkgerrors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load evm.receipts")
 	}
@@ -698,7 +702,7 @@ func loadConfirmedAttemptsReceipts(ctx context.Context, q sqlutil.DataSource, at
 		byHash[attempt.Hash.String()] = &attempts[i]
 		hashes = append(hashes, attempt.Hash.Bytes())
 	}
-	var rs []dbReceipt
+	var rs []DbReceipt
 	if err := q.SelectContext(ctx, &rs, `SELECT * FROM evm.receipts WHERE tx_hash = ANY($1)`, pq.Array(hashes)); err != nil {
 		return pkgerrors.Wrap(err, "loadConfirmedAttemptsReceipts failed to load evm.receipts")
 	}
@@ -1116,7 +1120,7 @@ func updateEthTxAttemptUnbroadcast(ctx context.Context, orm *evmTxStore, attempt
 
 func updateEthTxUnconfirm(ctx context.Context, orm *evmTxStore, etx Tx) error {
 	if etx.State != txmgr.TxConfirmed {
-		return errors.New("expected eth_tx state to be confirmed")
+		return errors.New("expected tx state to be confirmed")
 	}
 	_, err := orm.q.ExecContext(ctx, `UPDATE evm.txes SET state = 'unconfirmed' WHERE id = $1`, etx.ID)
 	return pkgerrors.Wrap(err, "updateEthTxUnconfirm failed")
@@ -1203,24 +1207,6 @@ AND evm_chain_id = $1`, chainID.String()).Scan(&earliestUnconfirmedTxBlock)
 		return nil
 	})
 	return earliestUnconfirmedTxBlock, err
-}
-
-func (o *evmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID *big.Int) (finalized bool, err error) {
-	var cancel context.CancelFunc
-	ctx, cancel = o.stopCh.Ctx(ctx)
-	defer cancel()
-
-	var count int32
-	err = o.q.GetContext(ctx, &count, `
-    SELECT COUNT(evm.receipts.receipt) FROM evm.txes
-    INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
-    INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
-    WHERE evm.receipts.block_number <= ($1 - evm.txes.min_confirmations)
-    AND evm.txes.id = $2 AND evm.txes.evm_chain_id = $3`, blockHeight, txID, chainID.String())
-	if err != nil {
-		return false, fmt.Errorf("failed to retrieve transaction reciepts: %w", err)
-	}
-	return count > 0, nil
 }
 
 func (o *evmTxStore) saveAttemptWithNewState(ctx context.Context, attempt TxAttempt, broadcastAt time.Time) error {
@@ -1872,7 +1858,7 @@ id < (
 	return
 }
 
-func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {
+func (o *evmTxStore) ReapTxHistory(ctx context.Context, timeThreshold time.Time, chainID *big.Int) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
@@ -1885,19 +1871,18 @@ func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int
 		res, err := o.q.ExecContext(ctx, `
 WITH old_enough_receipts AS (
 	SELECT tx_hash FROM evm.receipts
-	WHERE block_number < $1
 	ORDER BY block_number ASC, id ASC
-	LIMIT $2
+	LIMIT $1
 )
 DELETE FROM evm.txes
 USING old_enough_receipts, evm.tx_attempts
 WHERE evm.tx_attempts.eth_tx_id = evm.txes.id
 AND evm.tx_attempts.hash = old_enough_receipts.tx_hash
-AND evm.txes.created_at < $3
-AND evm.txes.state = 'confirmed'
-AND evm_chain_id = $4`, minBlockNumberToKeep, limit, timeThreshold, chainID.String())
+AND evm.txes.created_at < $2
+AND evm.txes.state = 'finalized'
+AND evm_chain_id = $3`, limit, timeThreshold, chainID.String())
 		if err != nil {
-			return count, pkgerrors.Wrap(err, "ReapTxes failed to delete old confirmed evm.txes")
+			return count, pkgerrors.Wrap(err, "ReapTxes failed to delete old finalized evm.txes")
 		}
 		rowsAffected, err := res.RowsAffected()
 		if err != nil {
@@ -1906,7 +1891,7 @@ AND evm_chain_id = $4`, minBlockNumberToKeep, limit, timeThreshold, chainID.Stri
 		return uint(rowsAffected), err
 	}, batchSize)
 	if err != nil {
-		return pkgerrors.Wrap(err, "TxmReaper#reapEthTxes batch delete of confirmed evm.txes failed")
+		return pkgerrors.Wrap(err, "TxmReaper#reapEthTxes batch delete of finalized evm.txes failed")
 	}
 	// Delete old 'fatal_error' evm.txes
 	err = sqlutil.Batch(func(_, limit uint) (count uint, err error) {
@@ -1926,6 +1911,38 @@ AND evm_chain_id = $2`, timeThreshold, chainID.String())
 	}, batchSize)
 	if err != nil {
 		return pkgerrors.Wrap(err, "TxmReaper#reapEthTxes batch delete of fatally errored evm.txes failed")
+	}
+	// Delete old 'confirmed' evm.txes that were never finalized
+	// This query should never result in changes but added just in case transactions slip through the cracks
+	// to avoid them building up in the DB
+	err = sqlutil.Batch(func(_, limit uint) (count uint, err error) {
+		res, err := o.q.ExecContext(ctx, `
+WITH old_enough_receipts AS (
+	SELECT tx_hash FROM evm.receipts
+	ORDER BY block_number ASC, id ASC
+	LIMIT $1
+)
+DELETE FROM evm.txes
+USING old_enough_receipts, evm.tx_attempts
+WHERE evm.tx_attempts.eth_tx_id = evm.txes.id
+AND evm.tx_attempts.hash = old_enough_receipts.tx_hash
+AND evm.txes.created_at < $2
+AND evm.txes.state = 'confirmed'
+AND evm_chain_id = $3`, limit, timeThreshold, chainID.String())
+		if err != nil {
+			return count, pkgerrors.Wrap(err, "ReapTxes failed to delete old confirmed evm.txes")
+		}
+		rowsAffected, err := res.RowsAffected()
+		if err != nil {
+			return count, pkgerrors.Wrap(err, "ReapTxes failed to get rows affected")
+		}
+		if rowsAffected > 0 {
+			o.logger.Errorf("%d confirmed transactions were reaped before being marked as finalized. This should never happen unless the threshold is set too low or the transactions were lost track of", rowsAffected)
+		}
+		return uint(rowsAffected), err
+	}, batchSize)
+	if err != nil {
+		return pkgerrors.Wrap(err, "TxmReaper#reapEthTxes batch delete of confirmed evm.txes failed")
 	}
 
 	return nil
@@ -2053,5 +2070,44 @@ func (o *evmTxStore) UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context,
 	defer cancel()
 	sql := "UPDATE evm.tx_attempts SET broadcast_before_block_num = $1 WHERE eth_tx_id = $2"
 	_, err := o.q.ExecContext(ctx, sql, blockNum, id)
+	return err
+}
+
+// Returns all confirmed transactions with receipt block nums older than or equal to the finalized block number
+func (o *evmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []Receipt, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.stopCh.Ctx(ctx)
+	defer cancel()
+	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
+		sql := `SELECT evm.receipts.* FROM evm.receipts
+		INNER JOIN evm.tx_attempts ON evm.tx_attempts.hash = evm.receipts.tx_hash
+		INNER JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id
+		WHERE evm.txes.state = 'confirmed' AND evm.receipts.block_number <= $1 AND evm.txes.evm_chain_id = $2`
+		var dbReceipts []DbReceipt
+		err = o.q.SelectContext(ctx, &dbReceipts, sql, finalizedBlockNum, chainID.String())
+		if len(dbReceipts) == 0 {
+			return nil
+		}
+		receipts = dbReceipts
+		return nil
+	})
+	return receipts, err
+}
+
+// Mark transactions corresponding to receipt IDs as finalized
+func (o *evmTxStore) UpdateTxStatesToFinalizedUsingReceiptIds(ctx context.Context, receiptIDs []int64, chainId *big.Int) error {
+	if len(receiptIDs) == 0 {
+		return nil
+	}
+	var cancel context.CancelFunc
+	ctx, cancel = o.stopCh.Ctx(ctx)
+	defer cancel()
+	sql := `
+UPDATE evm.txes SET state = 'finalized' WHERE evm.txes.evm_chain_id = $1 AND evm.txes.id IN (SELECT evm.txes.id FROM evm.txes
+	INNER JOIN evm.tx_attempts ON evm.tx_attempts.eth_tx_id = evm.txes.id
+	INNER JOIN evm.receipts ON evm.receipts.tx_hash = evm.tx_attempts.hash
+	WHERE evm.receipts.id = ANY($2))
+`
+	_, err := o.q.ExecContext(ctx, sql, chainId.String(), pq.Array(receiptIDs))
 	return err
 }
