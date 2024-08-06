@@ -257,7 +257,7 @@ contract NonceManager_OnRampUpgrade is EVM2EVMMultiOnRampSetup {
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
 
     (s_onRamp, s_metadataHash) = _deployOnRamp(
-      SOURCE_CHAIN_SELECTOR, address(s_sourceRouter), address(s_outboundNonceManager), address(s_tokenAdminRegistry)
+      SOURCE_CHAIN_SELECTOR, s_sourceRouter, address(s_outboundNonceManager), address(s_tokenAdminRegistry)
     );
 
     vm.startPrank(address(s_sourceRouter));
@@ -370,16 +370,19 @@ contract NonceManager_OffRampUpgrade is EVM2EVMMultiOffRampSetup {
     EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
       new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](3);
     sourceChainConfigs[0] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
+      router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       isEnabled: true,
       onRamp: ON_RAMP_ADDRESS_1
     });
     sourceChainConfigs[1] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
+      router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_2,
       isEnabled: true,
       onRamp: ON_RAMP_ADDRESS_2
     });
     sourceChainConfigs[2] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
+      router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_3,
       isEnabled: true,
       onRamp: ON_RAMP_ADDRESS_3

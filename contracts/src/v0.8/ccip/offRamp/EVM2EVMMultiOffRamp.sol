@@ -89,14 +89,16 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
 
   /// @notice Per-chain source config (defining a lane from a Source Chain -> Dest OffRamp)
   struct SourceChainConfig {
-    bool isEnabled; // ──────────╮  Flag whether the source chain is enabled or not
+    IRouter router; // ──────────╮  Local router to use for messages coming from this source chain
+    bool isEnabled; //           |  Flag whether the source chain is enabled or not
     uint64 minSeqNr; // ─────────╯  The min sequence number expected for future messages
     bytes onRamp; // OnRamp address on the source chain
   }
 
   /// @notice SourceChainConfig update args scoped to one source chain
   struct SourceChainConfigArgs {
-    uint64 sourceChainSelector; //  ───╮  Source chain selector of the config to update
+    IRouter router; // ────────────────╮  Local router to use for messages coming from this source chain
+    uint64 sourceChainSelector; //     |  Source chain selector of the config to update
     bool isEnabled; // ────────────────╯  Flag whether the source chain is enabled or not
     bytes onRamp; // OnRamp address on the source chain
   }
@@ -104,12 +106,11 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @notice Dynamic offRamp config
   /// @dev since OffRampConfig is part of OffRampConfigChanged event, if changing it, we should update the ABI on Atlas
   struct DynamicConfig {
-    address router; // ─────────────────────────────────╮ Router address
+    address priceRegistry; // ──────────────────────────╮ Price registry address on the local chain
     uint32 permissionLessExecutionThresholdSeconds; //  │ Waiting time before manual execution is enabled
     uint32 maxTokenTransferGas; //                      │ Maximum amount of gas passed on to token `transfer` call
     uint32 maxPoolReleaseOrMintGas; // ─────────────────╯ Maximum amount of gas passed on to token pool when calling releaseOrMint
     address messageValidator; // Optional message validator to validate incoming messages (zero address = no validator)
-    address priceRegistry; // Price registry address on the local chain
   }
 
   /// @notice a sequenceNumber interval
@@ -534,9 +535,9 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
         || !message.receiver.supportsInterface(type(IAny2EVMMessageReceiver).interfaceId)
     ) return;
 
-    (bool success, bytes memory returnData,) = IRouter(s_dynamicConfig.router).routeMessage(
-      any2EvmMessage, Internal.GAS_FOR_CALL_EXACT_CHECK, message.gasLimit, message.receiver
-    );
+    (bool success, bytes memory returnData,) = s_sourceChainConfigs[message.header.sourceChainSelector]
+      .router
+      .routeMessage(any2EvmMessage, Internal.GAS_FOR_CALL_EXACT_CHECK, message.gasLimit, message.receiver);
     // If CCIP receiver execution is not successful, revert the call including token transfers
     if (!success) revert ReceiverError(returnData);
   }
@@ -729,6 +730,10 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
         revert ZeroChainSelectorNotAllowed();
       }
 
+      if (address(sourceConfigUpdate.router) == address(0)) {
+        revert ZeroAddressNotAllowed();
+      }
+
       SourceChainConfig storage currentConfig = s_sourceChainConfigs[sourceChainSelector];
       bytes memory currentOnRamp = currentConfig.onRamp;
       bytes memory newOnRamp = sourceConfigUpdate.onRamp;
@@ -746,8 +751,8 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
         revert InvalidStaticConfig(sourceChainSelector);
       }
 
-      // The only dynamic config is the isEnabled flag
       currentConfig.isEnabled = sourceConfigUpdate.isEnabled;
+      currentConfig.router = sourceConfigUpdate.router;
       emit SourceChainConfigSet(sourceChainSelector, currentConfig);
     }
   }
@@ -761,7 +766,7 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @notice Sets the dynamic config.
   /// @param dynamicConfig The dynamic config.
   function _setDynamicConfig(DynamicConfig memory dynamicConfig) internal {
-    if (dynamicConfig.priceRegistry == address(0) || dynamicConfig.router == address(0)) {
+    if (dynamicConfig.priceRegistry == address(0)) {
       revert ZeroAddressNotAllowed();
     }
 
