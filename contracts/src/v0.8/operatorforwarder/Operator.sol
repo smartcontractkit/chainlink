@@ -41,8 +41,6 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   // Tokens sent for requests that have not been fulfilled yet
   uint256 private s_tokensInEscrow = ONE_FOR_CONSISTENT_GAS_COST;
 
-  uint128 public testVar;
-
   event OracleRequest(
     bytes32 indexed specId,
     address requester,
