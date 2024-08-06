@@ -97,7 +97,8 @@ func NewCommitOffchainConfig(
 	ExecGasPriceDeviationPPB uint32,
 	TokenPriceHeartBeat config.Duration,
 	TokenPriceDeviationPPB uint32,
-	InflightCacheExpiry config.Duration) CommitOffchainConfig {
+	InflightCacheExpiry config.Duration,
+	priceReportingDisabled bool) CommitOffchainConfig {
 	return CommitOffchainConfig{v1_2_0.JSONCommitOffchainConfig{
 		GasPriceHeartBeat:        GasPriceHeartBeat,
 		DAGasPriceDeviationPPB:   DAGasPriceDeviationPPB,
@@ -105,6 +106,7 @@ func NewCommitOffchainConfig(
 		TokenPriceHeartBeat:      TokenPriceHeartBeat,
 		TokenPriceDeviationPPB:   TokenPriceDeviationPPB,
 		InflightCacheExpiry:      InflightCacheExpiry,
+		PriceReportingDisabled:   priceReportingDisabled,
 	}}
 }
 
@@ -124,23 +126,13 @@ type ExecOnchainConfig struct {
 	v1_5_0.ExecOnchainConfig
 }
 
-func NewExecOnchainConfig(
-	PermissionLessExecutionThresholdSeconds uint32,
-	Router common.Address,
-	PriceRegistry common.Address,
-	MaxNumberOfTokensPerMsg uint16,
-	MaxDataBytes uint32,
-	MaxPoolReleaseOrMintGas uint32,
-	MaxTokenTransferGas uint32,
-) ExecOnchainConfig {
+func NewExecOnchainConfig(PermissionLessExecutionThresholdSeconds uint32, Router common.Address, PriceRegistry common.Address, MaxNumberOfTokensPerMsg uint16, MaxDataBytes uint32) ExecOnchainConfig {
 	return ExecOnchainConfig{v1_5_0.ExecOnchainConfig{
 		PermissionLessExecutionThresholdSeconds: PermissionLessExecutionThresholdSeconds,
 		Router:                                  Router,
 		PriceRegistry:                           PriceRegistry,
 		MaxNumberOfTokensPerMsg:                 MaxNumberOfTokensPerMsg,
 		MaxDataBytes:                            MaxDataBytes,
-		MaxPoolReleaseOrMintGas:                 MaxPoolReleaseOrMintGas,
-		MaxTokenTransferGas:                     MaxTokenTransferGas,
 	}}
 }
 
@@ -323,8 +315,7 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 			MaxDataBytes:                      1e5,
 			MaxPerMsgGasLimit:                 4_000_000,
 			DefaultTokenFeeUSDCents:           50,
-			DefaultTokenDestGasOverhead:       34_000,
-			DefaultTokenDestBytesOverhead:     500,
+			DefaultTokenDestGasOverhead:       DefaultTokenDestGasOverhead,
 		},
 		evm_2_evm_onramp.RateLimiterConfig{
 			IsEnabled: true,
@@ -353,7 +344,7 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 				MinFeeUSDCents:            50,           // $0.5
 				MaxFeeUSDCents:            1_000_000_00, // $ 1 million
 				DeciBps:                   5_0,          // 5 bps
-				DestGasOverhead:           34_000,
+				DestGasOverhead:           110_000,
 				DestBytesOverhead:         32,
 				AggregateRateLimitEnabled: true,
 			},
@@ -1048,8 +1039,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			MaxDataBytes:                      1e5,
 			MaxPerMsgGasLimit:                 4_000_000,
 			DefaultTokenFeeUSDCents:           50,
-			DefaultTokenDestGasOverhead:       34_000,
-			DefaultTokenDestBytesOverhead:     500,
+			DefaultTokenDestGasOverhead:       DefaultTokenDestGasOverhead,
 		},
 		evm_2_evm_onramp.RateLimiterConfig{
 			IsEnabled: true,
@@ -1078,7 +1068,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 				MinFeeUSDCents:            50,           // $0.5
 				MaxFeeUSDCents:            1_000_000_00, // $ 1 million
 				DeciBps:                   5_0,          // 5 bps
-				DestGasOverhead:           34_000,
+				DestGasOverhead:           350_000,
 				DestBytesOverhead:         32,
 				AggregateRateLimitEnabled: true,
 			},

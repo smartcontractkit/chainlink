@@ -44,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
@@ -83,7 +82,7 @@ const (
 	ChaosGroupNetworkBCCIPGeth        = "CCIPNetworkBGeth"
 
 	defaultUSDCDestBytesOverhead = 640
-	defaultUSDCDestGasOverhead   = 120_000
+	defaultUSDCDestGasOverhead   = 150_000
 	DefaultDestinationGasLimit   = 600_000
 	// DefaultResubscriptionTimeout denotes the max backoff duration for resubscription for various watch events
 	// if the subscription keeps failing even after this duration, the test will fail
@@ -185,6 +184,7 @@ type CCIPCommon struct {
 	tokenPriceUpdateWatcher   map[common.Address]*big.Int // key - token; value - timestamp of update
 	gasUpdateWatcherMu        *sync.Mutex
 	gasUpdateWatcher          map[uint64]*big.Int // key - destchain id; value - timestamp of update
+	GasUpdateEvents           []contracts.GasUpdateEvent
 }
 
 // FreeUpUnusedSpace sets nil to various elements of ccipModule which are only used
@@ -524,6 +524,9 @@ func (ccipModule *CCIPCommon) WaitForPriceUpdates(
 	}
 }
 
+// WatchForPriceUpdates helps to ensure the price updates are happening in price registry by subscribing to a couple
+// of price update events and add the event details to watchers. It subscribes to 'UsdPerUnitGasUpdated'
+// and 'UsdPerTokenUpdated' event.
 func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context, lggr *zerolog.Logger) error {
 	gasUpdateEventLatest := make(chan *price_registry.PriceRegistryUsdPerUnitGasUpdated)
 	tokenUpdateEvent := make(chan *price_registry.PriceRegistryUsdPerTokenUpdated)
@@ -549,20 +552,28 @@ func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context, lggr *ze
 	if tokenUpdateSub == nil {
 		return fmt.Errorf("no event subscription found")
 	}
-	processEvent := func(timestamp *big.Int, destChainSelector uint64) error {
+	processEvent := func(value, timestamp *big.Int, destChainSelector uint64, raw types.Log) error {
 		destChain, err := chainselectors.ChainIdFromSelector(destChainSelector)
 		if err != nil {
 			return err
 		}
 		ccipModule.gasUpdateWatcherMu.Lock()
 		ccipModule.gasUpdateWatcher[destChain] = timestamp
+
+		ccipModule.GasUpdateEvents = append(ccipModule.GasUpdateEvents, contracts.GasUpdateEvent{
+			Sender:    raw.Address.Hex(),
+			Tx:        raw.TxHash.Hex(),
+			Value:     value,
+			DestChain: destChain,
+			Source:    ccipModule.ChainClient.GetNetworkName(),
+		})
 		ccipModule.gasUpdateWatcherMu.Unlock()
 		lggr.Info().
 			Uint64("chainSelector", destChainSelector).
-			Str("source_chain", ccipModule.ChainClient.GetNetworkName()).
 			Uint64("dest_chain", destChain).
 			Str("price_registry", ccipModule.PriceRegistry.Address()).
-			Msgf("UsdPerUnitGasUpdated event received for dest chain %d source chain %s",
+			Str("tx hash", raw.TxHash.Hex()).
+			Msgf("UsdPerUnitGasUpdated event received for dest chain: %d, source chain: %s",
 				destChain, ccipModule.ChainClient.GetNetworkName())
 		return nil
 	}
@@ -572,13 +583,14 @@ func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context, lggr *ze
 			tokenUpdateSub.Unsubscribe()
 			ccipModule.gasUpdateWatcher = nil
 			ccipModule.gasUpdateWatcherMu = nil
+			ccipModule.GasUpdateEvents = nil
 			ccipModule.tokenPriceUpdateWatcher = nil
 			ccipModule.tokenPriceUpdateWatcherMu = nil
 		}()
 		for {
 			select {
 			case e := <-gasUpdateEventLatest:
-				err := processEvent(e.Timestamp, e.DestChain)
+				err := processEvent(e.Value, e.Timestamp, e.DestChain, e.Raw)
 				if err != nil {
 					continue
 				}
@@ -2246,7 +2258,7 @@ func (destCCIP *DestCCIPModule) AssertNoExecutionStateChangedEventReceived(
 			destCCIP.ExecStateChangedWatcher.Range(func(_, value any) bool {
 				e, exists := value.(*contracts.EVM2EVMOffRampExecutionStateChanged)
 				if exists {
-					vLogs := e.Raw
+					vLogs := e.LogInfo
 					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(ctx, big.NewInt(int64(vLogs.BlockNumber)))
 					if err != nil {
 						return true
@@ -2292,7 +2304,7 @@ func (destCCIP *DestCCIPModule) AssertEventExecutionStateChanged(
 				if exists {
 					// if the value is processed, delete it from the map
 					destCCIP.ExecStateChangedWatcher.Delete(seqNum)
-					vLogs := e.Raw
+					vLogs := e.LogInfo
 					receivedAt := time.Now().UTC()
 					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(context.Background(), big.NewInt(int64(vLogs.BlockNumber)))
 					if err == nil {
@@ -2367,7 +2379,7 @@ func (destCCIP *DestCCIPModule) AssertEventReportAccepted(
 					// if the value is processed, delete it from the map
 					destCCIP.ReportAcceptedWatcher.Delete(seqNum)
 					receivedAt := time.Now().UTC()
-					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(context.Background(), big.NewInt(int64(reportAccepted.Raw.BlockNumber)))
+					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(context.Background(), big.NewInt(int64(reportAccepted.LogInfo.BlockNumber)))
 					if err == nil {
 						receivedAt = hdr.Timestamp
 					}
@@ -2386,7 +2398,7 @@ func (destCCIP *DestCCIPModule) AssertEventReportAccepted(
 							Msg("ReportAccepted event received before finalized timestamp")
 						totalTime = time.Second
 					}
-					receipt, err := destCCIP.Common.ChainClient.GetTxReceipt(reportAccepted.Raw.TxHash)
+					receipt, err := destCCIP.Common.ChainClient.GetTxReceipt(reportAccepted.LogInfo.TxHash)
 					if err != nil {
 						lggr.Warn().Msg("Failed to get receipt for ReportAccepted event")
 					}
@@ -2397,7 +2409,7 @@ func (destCCIP *DestCCIPModule) AssertEventReportAccepted(
 					reqStat.UpdateState(lggr, seqNum, testreporters.Commit, totalTime, testreporters.Success,
 						&testreporters.TransactionStats{
 							GasUsed:    gasUsed,
-							TxHash:     reportAccepted.Raw.TxHash.String(),
+							TxHash:     reportAccepted.LogInfo.TxHash.Hex(),
 							CommitRoot: fmt.Sprintf("%x", reportAccepted.MerkleRoot),
 						})
 					return reportAccepted, receivedAt, nil
@@ -2462,7 +2474,7 @@ func (destCCIP *DestCCIPModule) AssertReportBlessed(
 				value, ok = destCCIP.ReportBlessedBySeqNum.Load(seqNum)
 			}
 			if ok && value != nil {
-				vLogs, exists := value.(*types.Log)
+				vLogs, exists := value.(*contracts.LogInfo)
 				if exists {
 					// if the root is found, set the value for all the sequence numbers in the interval and delete the root from the map
 					if foundAsRoot {
@@ -2623,23 +2635,24 @@ func CCIPRequestFromTxHash(txHash common.Hash, chainClient blockchain.EVMClient)
 }
 
 type CCIPLane struct {
-	Test              *testing.T
-	Logger            *zerolog.Logger
-	SourceNetworkName string
-	DestNetworkName   string
-	SourceChain       blockchain.EVMClient
-	DestChain         blockchain.EVMClient
-	Source            *SourceCCIPModule
-	Dest              *DestCCIPModule
-	NumberOfReq       int
-	Reports           *testreporters.CCIPLaneStats
-	Balance           *BalanceSheet
-	SentReqs          map[common.Hash][]CCIPRequest
-	TotalFee          *big.Int // total fee for all the requests. Used for balance validation.
-	ValidationTimeout time.Duration
-	Context           context.Context
-	SrcNetworkLaneCfg *laneconfig.LaneConfig
-	DstNetworkLaneCfg *laneconfig.LaneConfig
+	Test                   *testing.T
+	Logger                 *zerolog.Logger
+	SourceNetworkName      string
+	DestNetworkName        string
+	SourceChain            blockchain.EVMClient
+	DestChain              blockchain.EVMClient
+	Source                 *SourceCCIPModule
+	Dest                   *DestCCIPModule
+	NumberOfReq            int
+	Reports                *testreporters.CCIPLaneStats
+	Balance                *BalanceSheet
+	SentReqs               map[common.Hash][]CCIPRequest
+	TotalFee               *big.Int // total fee for all the requests. Used for balance validation.
+	ValidationTimeout      time.Duration
+	Context                context.Context
+	SrcNetworkLaneCfg      *laneconfig.LaneConfig
+	DstNetworkLaneCfg      *laneconfig.LaneConfig
+	PriceReportingDisabled bool
 }
 
 func (lane *CCIPLane) TokenPricesConfig() (string, error) {
@@ -3034,13 +3047,12 @@ func (lane *CCIPLane) ExecuteManually(options ...ManualExecutionOption) error {
 // validationOptions are used in the ValidateRequests function to specify which phase is expected to fail and how
 type validationOptions struct {
 	phaseExpectedToFail  testreporters.Phase // the phase expected to fail
-	phaseShouldExist     bool                // for some phases, their lack of existence is a failure, for others their existence can also have a failure state
 	expectedErrorMessage string              // if provided, we're looking for a specific error message
 	timeout              time.Duration       // timeout for the validation
 }
 
 // ValidationOptionFunc is a function that can be passed to ValidateRequests to specify which phase is expected to fail
-type ValidationOptionFunc func(logger *zerolog.Logger, opts *validationOptions)
+type ValidationOptionFunc func(opts *validationOptions)
 
 // PhaseSpecificValidationOptionFunc can specify how exactly you want a phase to fail
 type PhaseSpecificValidationOptionFunc func(*validationOptions)
@@ -3059,38 +3071,18 @@ func WithTimeout(timeout time.Duration) PhaseSpecificValidationOptionFunc {
 	}
 }
 
-// ShouldExist specifies that a specific phase should exist, but be in a failed state. This is only applicable to the `ExecStateChanged` phase.
-func ShouldExist() PhaseSpecificValidationOptionFunc {
-	return func(opts *validationOptions) {
-		opts.phaseShouldExist = true
-	}
-}
-
 // ExpectPhaseToFail specifies that a specific phase is expected to fail.
 // You can optionally provide an expected error message, if you don't have one in mind, just pass an empty string.
 // shouldExist is used to specify whether the phase should exist or not, which is only applicable to the `ExecStateChanged` phase.
 // If you expect the `ExecStateChanged` events to be there, but in a "failed" state, set this to true.
 // It will otherwise be ignored.
 func ExpectPhaseToFail(phase testreporters.Phase, phaseSpecificOptions ...PhaseSpecificValidationOptionFunc) ValidationOptionFunc {
-	return func(logger *zerolog.Logger, opts *validationOptions) {
+	return func(opts *validationOptions) {
 		opts.phaseExpectedToFail = phase
 		for _, f := range phaseSpecificOptions {
 			if f != nil {
 				f(opts)
 			}
-		}
-		if phase == testreporters.ExecStateChanged {
-			if opts.expectedErrorMessage != "" {
-				logger.Warn().Msg("You are overriding the expected error message for the ExecStateChanged phase. This can cause unexpected behavior and is generally not recommended.")
-			} else if !opts.phaseShouldExist {
-				opts.expectedErrorMessage = "ExecutionStateChanged event not found for seq num"
-			} else {
-				opts.expectedErrorMessage = "ExecutionStateChanged event state - expected"
-			}
-		}
-		if phase != testreporters.ExecStateChanged && opts.phaseShouldExist {
-			logger.Warn().Msg("phaseShouldExist is only applicable to the ExecStateChanged phase. Ignoring for other phases.")
-			opts.phaseShouldExist = false
 		}
 	}
 }
@@ -3102,7 +3094,7 @@ func (lane *CCIPLane) ValidateRequests(validationOptionFuncs ...ValidationOption
 	var opts validationOptions
 	for _, f := range validationOptionFuncs {
 		if f != nil {
-			f(lane.Logger, &opts)
+			f(&opts)
 		}
 	}
 	for txHash, ccipReqs := range lane.SentReqs {
@@ -3337,8 +3329,11 @@ func (lane *CCIPLane) StartEventWatchers() error {
 							SequenceNumber: e.Message.SequenceNumber,
 							DataLength:     len(e.Message.Data),
 							NoOfTokens:     len(e.Message.TokenAmounts),
-							Raw:            e.Raw,
-							Fee:            e.Message.FeeTokenAmount,
+							LogInfo: contracts.LogInfo{
+								BlockNumber: e.Raw.BlockNumber,
+								TxHash:      e.Raw.TxHash,
+							},
+							Fee: e.Message.FeeTokenAmount,
 						}))
 				} else {
 					lane.Source.CCIPSendRequestedWatcher.Store(e.Raw.TxHash.Hex(), []*contracts.SendReqEventData{
@@ -3347,8 +3342,11 @@ func (lane *CCIPLane) StartEventWatchers() error {
 							SequenceNumber: e.Message.SequenceNumber,
 							DataLength:     len(e.Message.Data),
 							NoOfTokens:     len(e.Message.TokenAmounts),
-							Raw:            e.Raw,
-							Fee:            e.Message.FeeTokenAmount,
+							LogInfo: contracts.LogInfo{
+								BlockNumber: e.Raw.BlockNumber,
+								TxHash:      e.Raw.TxHash,
+							},
+							Fee: e.Message.FeeTokenAmount,
 						},
 					})
 				}
@@ -3382,7 +3380,10 @@ func (lane *CCIPLane) StartEventWatchers() error {
 						Min:        e.Report.Interval.Min,
 						Max:        e.Report.Interval.Max,
 						MerkleRoot: e.Report.MerkleRoot,
-						Raw:        e.Raw,
+						LogInfo: contracts.LogInfo{
+							BlockNumber: e.Raw.BlockNumber,
+							TxHash:      e.Raw.TxHash,
+						},
 					})
 				}
 				lane.Dest.ReportAcceptedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ReportAcceptedWatcher)
@@ -3411,7 +3412,10 @@ func (lane *CCIPLane) StartEventWatchers() error {
 				case e := <-reportBlessedEvent:
 					lane.Logger.Info().Msgf("TaggedRootBlessed event received for root %x", e.TaggedRoot.Root)
 					if e.TaggedRoot.CommitStore == lane.Dest.CommitStore.EthAddress {
-						lane.Dest.ReportBlessedWatcher.Store(e.TaggedRoot.Root, &e.Raw)
+						lane.Dest.ReportBlessedWatcher.Store(e.TaggedRoot.Root, &contracts.LogInfo{
+							BlockNumber: e.Raw.BlockNumber,
+							TxHash:      e.Raw.TxHash,
+						})
 					}
 					lane.Dest.ReportBlessedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ReportBlessedWatcher)
 				case <-lane.Context.Done():
@@ -3443,7 +3447,10 @@ func (lane *CCIPLane) StartEventWatchers() error {
 					MessageId:      e.MessageId,
 					State:          e.State,
 					ReturnData:     e.ReturnData,
-					Raw:            e.Raw,
+					LogInfo: contracts.LogInfo{
+						BlockNumber: e.Raw.BlockNumber,
+						TxHash:      e.Raw.TxHash,
+					},
 				})
 				lane.Dest.ExecStateChangedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ExecStateChangedWatcher)
 			case <-lane.Context.Done():
@@ -3651,7 +3658,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 
 	jobParams.P2PV2Bootstrappers = []string{p2pBootstrappersCommit.P2PV2Bootstrapper()}
 
-	err = SetOCR2Config(lane.Context, lane.Logger, *testConf, commitNodes, execNodes, *lane.Dest)
+	err = SetOCR2Config(lane.Context, lane.Logger, *testConf, commitNodes, execNodes, *lane.Dest, lane.PriceReportingDisabled)
 	if err != nil {
 		return fmt.Errorf("failed to set ocr2 config: %w", err)
 	}
@@ -3689,6 +3696,7 @@ func SetOCR2Config(
 	commitNodes,
 	execNodes []*client.CLNodesWithKeys,
 	destCCIP DestCCIPModule,
+	priceReportingDisabled bool,
 ) error {
 	inflightExpiryExec := commonconfig.MustNewDuration(InflightExpiryExec)
 	inflightExpiryCommit := commonconfig.MustNewDuration(InflightExpiryCommit)
@@ -3725,6 +3733,7 @@ func SetOCR2Config(
 		*commonconfig.MustNewDuration(5 * time.Second),
 		1e6,
 		*inflightExpiryCommit,
+		priceReportingDisabled,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create commit offchain config: %w", err)
@@ -3770,7 +3779,6 @@ func SetOCR2Config(
 			DefaultMaxNoOfTokensInMsg,
 			MaxDataBytes,
 			200_000,
-			50_000,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create exec onchain config: %w", err)

@@ -31,6 +31,7 @@ abstract contract TokenPool is IPoolV1, OwnerIsCreator {
   error ChainAlreadyExists(uint64 chainSelector);
   error InvalidSourcePoolAddress(bytes sourcePoolAddress);
   error InvalidToken(address token);
+  error Unauthorized(address caller);
 
   event Locked(address indexed sender, uint256 amount);
   event Burned(address indexed sender, uint256 amount);
@@ -87,6 +88,9 @@ abstract contract TokenPool is IPoolV1, OwnerIsCreator {
   /// @dev The chain selectors are in uint256 format because of the EnumerableSet implementation.
   EnumerableSet.UintSet internal s_remoteChainSelectors;
   mapping(uint64 remoteChainSelector => RemoteChainConfig) internal s_remoteChainConfigs;
+  /// @notice The address of the rate limiter admin.
+  /// @dev Can be address(0) if none is configured.
+  address internal s_rateLimitAdmin;
 
   constructor(IERC20 token, address[] memory allowlist, address rmnProxy, address router) {
     if (address(token) == address(0) || router == address(0) || rmnProxy == address(0)) revert ZeroAddressNotAllowed();
@@ -169,7 +173,7 @@ abstract contract TokenPool is IPoolV1, OwnerIsCreator {
   /// - if the source pool is valid
   /// - rate limit status
   /// @param releaseOrMintIn The input to validate.
-  /// @dev This function should always be called before executing a lock or burn. Not doing so would allow
+  /// @dev This function should always be called before executing a release or mint. Not doing so would allow
   /// for various exploits.
   function _validateReleaseOrMint(Pool.ReleaseOrMintInV1 memory releaseOrMintIn) internal {
     if (!isSupportedToken(releaseOrMintIn.localToken)) revert InvalidToken(releaseOrMintIn.localToken);
@@ -297,6 +301,18 @@ abstract contract TokenPool is IPoolV1, OwnerIsCreator {
   // │                        Rate limiting                         │
   // ================================================================
 
+  /// @notice Sets the rate limiter admin address.
+  /// @dev Only callable by the owner.
+  /// @param rateLimitAdmin The new rate limiter admin address.
+  function setRateLimitAdmin(address rateLimitAdmin) external onlyOwner {
+    s_rateLimitAdmin = rateLimitAdmin;
+  }
+
+  /// @notice Gets the rate limiter admin address.
+  function getRateLimitAdmin() external view returns (address) {
+    return s_rateLimitAdmin;
+  }
+
   /// @notice Consumes outbound rate limiting capacity in this pool
   function _consumeOutboundRateLimit(uint64 remoteChainSelector, uint256 amount) internal {
     s_remoteChainConfigs[remoteChainSelector].outboundRateLimiterConfig._consume(amount, address(i_token));
@@ -335,7 +351,9 @@ abstract contract TokenPool is IPoolV1, OwnerIsCreator {
     uint64 remoteChainSelector,
     RateLimiter.Config memory outboundConfig,
     RateLimiter.Config memory inboundConfig
-  ) external virtual onlyOwner {
+  ) external {
+    if (msg.sender != s_rateLimitAdmin && msg.sender != owner()) revert Unauthorized(msg.sender);
+
     _setRateLimitConfig(remoteChainSelector, outboundConfig, inboundConfig);
   }
 

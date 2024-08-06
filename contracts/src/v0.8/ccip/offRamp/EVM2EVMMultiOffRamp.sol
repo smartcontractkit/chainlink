@@ -33,7 +33,6 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   using ERC165Checker for address;
   using EnumerableMapAddresses for EnumerableMapAddresses.AddressToAddressMap;
 
-  error AlreadyAttempted(uint64 sourceChainSelector, uint64 sequenceNumber);
   error AlreadyExecuted(uint64 sourceChainSelector, uint64 sequenceNumber);
   error ZeroChainSelectorNotAllowed();
   error ExecutionError(bytes32 messageId, bytes err);
@@ -74,6 +73,7 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   event SourceChainSelectorAdded(uint64 sourceChainSelector);
   event SourceChainConfigSet(uint64 indexed sourceChainSelector, SourceChainConfig sourceConfig);
   event SkippedAlreadyExecutedMessage(uint64 sourceChainSelector, uint64 sequenceNumber);
+  event AlreadyAttempted(uint64 sourceChainSelector, uint64 sequenceNumber);
   /// @dev RMN depends on this event, if changing, please notify the RMN maintainers.
   event CommitReportAccepted(CommitReport report);
   event RootRemoved(bytes32 root);
@@ -375,13 +375,6 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
 
       Internal.MessageExecutionState originalState =
         getExecutionState(sourceChainSelector, message.header.sequenceNumber);
-      if (originalState == Internal.MessageExecutionState.SUCCESS) {
-        // If the message has already been executed, we skip it.  We want to not revert on race conditions between
-        // executing parties. This will allow us to open up manual exec while also attempting with the DON, without
-        // reverting an entire DON batch when a user manually executes while the tx is inflight.
-        emit SkippedAlreadyExecutedMessage(sourceChainSelector, message.header.sequenceNumber);
-        continue;
-      }
       // Two valid cases here, we either have never touched this message before, or we tried to execute
       // and failed. This check protects against reentry and re-execution because the other state is
       // IN_PROGRESS which should not be allowed to execute.
@@ -390,7 +383,13 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
           originalState == Internal.MessageExecutionState.UNTOUCHED
             || originalState == Internal.MessageExecutionState.FAILURE
         )
-      ) revert AlreadyExecuted(sourceChainSelector, message.header.sequenceNumber);
+      ) {
+        // If the message has already been executed, we skip it.  We want to not revert on race conditions between
+        // executing parties. This will allow us to open up manual exec while also attempting with the DON, without
+        // reverting an entire DON batch when a user manually executes while the tx is inflight.
+        emit SkippedAlreadyExecutedMessage(sourceChainSelector, message.header.sequenceNumber);
+        continue;
+      }
 
       if (manualExecution) {
         bool isOldCommitReport =
@@ -409,7 +408,8 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
         // DON can only execute a message once
         // Acceptable state transitions: UNTOUCHED->SUCCESS, UNTOUCHED->FAILURE
         if (originalState != Internal.MessageExecutionState.UNTOUCHED) {
-          revert AlreadyAttempted(sourceChainSelector, message.header.sequenceNumber);
+          emit AlreadyAttempted(sourceChainSelector, message.header.sequenceNumber);
+          continue;
         }
       }
 
@@ -618,7 +618,7 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
 
   /// @notice Returns the sequence number of the last price update.
   /// @return the latest price update sequence number.
-  function getLatestPriceSequenceNumber() public view returns (uint64) {
+  function getLatestPriceSequenceNumber() external view returns (uint64) {
     return s_latestPriceSequenceNumber;
   }
 

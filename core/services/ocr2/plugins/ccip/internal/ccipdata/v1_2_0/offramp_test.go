@@ -26,6 +26,7 @@ func TestExecOffchainConfig120_Encoding(t *testing.T) {
 		RelativeBoostPerWaitHour:    0.07,
 		InflightCacheExpiry:         *config.MustNewDuration(64 * time.Second),
 		RootSnoozeTime:              *config.MustNewDuration(128 * time.Minute),
+		BatchingStrategyID:          0,
 	}
 
 	tests := []struct {
@@ -79,6 +80,12 @@ func TestExecOffchainConfig120_Encoding(t *testing.T) {
 			}),
 			errPattern: "RootSnoozeTime",
 		},
+		{
+			name: "must set BatchingStrategyId",
+			want: modifyCopy(validConfig, func(c *JSONExecOffchainConfig) {
+				c.BatchingStrategyID = 1
+			}),
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -125,18 +132,42 @@ func TestExecOffchainConfig120_ParseRawJson(t *testing.T) {
 				"RootSnoozeTime": "128m"
 			}`),
 		},
+		{
+			name: "with BatchingStrategyId",
+			config: []byte(`{
+				"DestOptimisticConfirmations": 6,
+				"BatchGasLimit": 5000000,
+				"RelativeBoostPerWaitHour": 0.07,
+				"InflightCacheExpiry": "64s",
+				"RootSnoozeTime": "128m",
+				"BatchingStrategyId": 1
+			}`),
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			decoded, err := ccipconfig.DecodeOffchainConfig[JSONExecOffchainConfig](tc.config)
 			require.NoError(t, err)
-			require.Equal(t, JSONExecOffchainConfig{
-				DestOptimisticConfirmations: 6,
-				BatchGasLimit:               5_000_000,
-				RelativeBoostPerWaitHour:    0.07,
-				InflightCacheExpiry:         *config.MustNewDuration(64 * time.Second),
-				RootSnoozeTime:              *config.MustNewDuration(128 * time.Minute),
-			}, decoded)
+
+			if tc.name == "with BatchingStrategyId" {
+				require.Equal(t, JSONExecOffchainConfig{
+					DestOptimisticConfirmations: 6,
+					BatchGasLimit:               5_000_000,
+					RelativeBoostPerWaitHour:    0.07,
+					InflightCacheExpiry:         *config.MustNewDuration(64 * time.Second),
+					RootSnoozeTime:              *config.MustNewDuration(128 * time.Minute),
+					BatchingStrategyID:          1, // Actual value
+				}, decoded)
+			} else {
+				require.Equal(t, JSONExecOffchainConfig{
+					DestOptimisticConfirmations: 6,
+					BatchGasLimit:               5_000_000,
+					RelativeBoostPerWaitHour:    0.07,
+					InflightCacheExpiry:         *config.MustNewDuration(64 * time.Second),
+					RootSnoozeTime:              *config.MustNewDuration(128 * time.Minute),
+					BatchingStrategyID:          0, // Default
+				}, decoded)
+			}
 		})
 	}
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	cciptransmitter "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/transmitter"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -508,7 +509,7 @@ func (r *Relayer) NewCCIPExecProvider(rargs commontypes.RelayArgs, pargs commont
 	subjectID := chainToUUID(configWatcher.chain.ID())
 	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{
 		subjectID: &subjectID,
-	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0))
+	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0), WithExcludeSignatures())
 	if err != nil {
 		return nil, err
 	}
@@ -822,6 +823,17 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 			configWatcher.chain.TxManager(),
 			fromAddresses,
 			common.HexToAddress(rargs.ContractID),
+			gasLimit,
+			effectiveTransmitterAddress,
+			strategy,
+			checker,
+			configWatcher.chain.ID(),
+			ethKeystore,
+		)
+	case commontypes.CCIPExecution:
+		transmitter, err = cciptransmitter.NewTransmitterWithStatusChecker(
+			configWatcher.chain.TxManager(),
+			fromAddresses,
 			gasLimit,
 			effectiveTransmitterAddress,
 			strategy,

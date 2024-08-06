@@ -1,6 +1,3 @@
-# 377 warnings
-#./src/v0.8/automation
-
 # Ignore frozen Automation code
 ./src/v0.8/automation/v1_2
 ./src/v0.8/automation/interfaces/v1_2

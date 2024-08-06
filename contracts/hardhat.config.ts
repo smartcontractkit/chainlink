@@ -38,10 +38,8 @@ let config = {
   paths: {
     artifacts: './artifacts',
     cache: './cache',
-    // Only use sources relevant to CCIP, revert this when merging CCIP into the main repo.
     sources: './src/v0.8',
-    // Only test CCIP, revert this when merging CCIP into the main repo.
-    tests: './test/v0.8/ccip',
+    tests: './test/v0.8',
   },
   typechain: {
     outDir: './typechain',

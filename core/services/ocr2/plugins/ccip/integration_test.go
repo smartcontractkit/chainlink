@@ -629,8 +629,6 @@ func TestIntegration_CCIP(t *testing.T) {
 						PriceRegistry:                           ccipTH.Dest.PriceRegistry.Address(),
 						MaxDataBytes:                            1e5,
 						MaxNumberOfTokensPerMsg:                 5,
-						MaxPoolReleaseOrMintGas:                 200_000,
-						MaxTokenTransferGas:                     100_000,
 					})
 					node.EventuallyNodeUsesUpdatedPriceRegistry(t, ccipTH)
 				}

@@ -34,7 +34,6 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   using ERC165Checker for address;
   using EnumerableMapAddresses for EnumerableMapAddresses.AddressToAddressMap;
 
-  error AlreadyAttempted(uint64 sequenceNumber);
   error AlreadyExecuted(uint64 sequenceNumber);
   error ZeroAddressNotAllowed();
   error CommitStoreAlreadyInUse();
@@ -69,6 +68,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   event TokenAggregateRateLimitAdded(address sourceToken, address destToken);
   event TokenAggregateRateLimitRemoved(address sourceToken, address destToken);
   event SkippedAlreadyExecutedMessage(uint64 indexed sequenceNumber);
+  event AlreadyAttempted(uint64 sequenceNumber);
 
   /// @notice Static offRamp config
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
@@ -90,9 +90,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     uint32 maxDataBytes; //                             │ Maximum payload data size in bytes
     uint16 maxNumberOfTokensPerMsg; //                  │ Maximum number of ERC20 token transfers that can be included per message
     address router; // ─────────────────────────────────╯ Router address
-    address priceRegistry; // ──────────╮ Price registry address
-    uint32 maxPoolReleaseOrMintGas; //  │ Maximum amount of gas passed on to token pool `releaseOrMint` call
-    uint32 maxTokenTransferGas; // ─────╯ Maximum amount of gas passed on to token `transfer` call
+    address priceRegistry; //                             Price registry address
   }
 
   /// @notice RateLimitToken struct containing both the source and destination token addresses
@@ -278,13 +276,6 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     for (uint256 i = 0; i < numMsgs; ++i) {
       Internal.EVM2EVMMessage memory message = report.messages[i];
       Internal.MessageExecutionState originalState = getExecutionState(message.sequenceNumber);
-      if (originalState == Internal.MessageExecutionState.SUCCESS) {
-        // If the message has already been executed, we skip it.  We want to not revert on race conditions between
-        // executing parties. This will allow us to open up manual exec while also attempting with the DON, without
-        // reverting an entire DON batch when a user manually executes while the tx is inflight.
-        emit SkippedAlreadyExecutedMessage(message.sequenceNumber);
-        continue;
-      }
       // Two valid cases here, we either have never touched this message before, or we tried to execute
       // and failed. This check protects against reentry and re-execution because the other state is
       // IN_PROGRESS which should not be allowed to execute.
@@ -293,7 +284,13 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
           originalState == Internal.MessageExecutionState.UNTOUCHED
             || originalState == Internal.MessageExecutionState.FAILURE
         )
-      ) revert AlreadyExecuted(message.sequenceNumber);
+      ) {
+        // If the message has already been executed, we skip it.  We want to not revert on race conditions between
+        // executing parties. This will allow us to open up manual exec while also attempting with the DON, without
+        // reverting an entire DON batch when a user manually executes while the tx is inflight.
+        emit SkippedAlreadyExecutedMessage(message.sequenceNumber);
+        continue;
+      }
 
       if (manualExecution) {
         bool isOldCommitReport =
@@ -311,7 +308,10 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
       } else {
         // DON can only execute a message once
         // Acceptable state transitions: UNTOUCHED->SUCCESS, UNTOUCHED->FAILURE
-        if (originalState != Internal.MessageExecutionState.UNTOUCHED) revert AlreadyAttempted(message.sequenceNumber);
+        if (originalState != Internal.MessageExecutionState.UNTOUCHED) {
+          emit AlreadyAttempted(message.sequenceNumber);
+          continue;
+        }
       }
 
       if (message.nonce != 0) {
@@ -435,18 +435,9 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   ) internal returns (Internal.MessageExecutionState, bytes memory) {
     try this.executeSingleMessage(message, offchainTokenData) {}
     catch (bytes memory err) {
-      if (
-        ReceiverError.selector == bytes4(err) || TokenHandlingError.selector == bytes4(err)
-          || Internal.InvalidEVMAddress.selector == bytes4(err) || InvalidDataLength.selector == bytes4(err)
-          || CallWithExactGas.NoContract.selector == bytes4(err) || NotACompatiblePool.selector == bytes4(err)
-      ) {
-        // If CCIP receiver execution is not successful, bubble up receiver revert data,
-        // prepended by the 4 bytes of ReceiverError.selector, TokenHandlingError.selector or InvalidPoolAddress.selector.
-        // Max length of revert data is Router.MAX_RET_BYTES, max length of err is 4 + Router.MAX_RET_BYTES
-        return (Internal.MessageExecutionState.FAILURE, err);
-      }
-      // If revert is not caused by CCIP receiver, it is unexpected, bubble up the revert.
-      revert ExecutionError(err);
+      // return the message execution state as FAILURE and the revert data
+      // Max length of revert data is Router.MAX_RET_BYTES, max length of err is 4 + Router.MAX_RET_BYTES
+      return (Internal.MessageExecutionState.FAILURE, err);
     }
     // If message execution succeeded, no CCIP receiver return data is expected, return with empty bytes.
     return (Internal.MessageExecutionState.SUCCESS, "");
@@ -625,7 +616,8 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     // contains a contract. If it doesn't it reverts with a known error, which we catch gracefully.
     // We call the pool with exact gas to increase resistance against malicious tokens or token pools.
     // We protects against return data bombs by capping the return data size at MAX_RET_BYTES.
-    (bool success, bytes memory returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
+    (bool success, bytes memory returnData, uint256 gasUsedReleaseOrMint) = CallWithExactGas
+      ._callWithExactGasSafeReturnData(
       abi.encodeCall(
         IPoolV1.releaseOrMint,
         Pool.ReleaseOrMintInV1({
@@ -640,7 +632,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
         })
       ),
       localPoolAddress,
-      s_dynamicConfig.maxPoolReleaseOrMintGas,
+      sourceTokenData.destGasAmount,
       Internal.GAS_FOR_CALL_EXACT_CHECK,
       Internal.MAX_RET_BYTES
     );
@@ -659,7 +651,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     (success, returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
       abi.encodeCall(IERC20.transfer, (receiver, localAmount)),
       localToken,
-      s_dynamicConfig.maxTokenTransferGas,
+      sourceTokenData.destGasAmount - gasUsedReleaseOrMint,
       Internal.GAS_FOR_CALL_EXACT_CHECK,
       Internal.MAX_RET_BYTES
     );

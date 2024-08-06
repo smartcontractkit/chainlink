@@ -43,9 +43,7 @@ func (d ExecOnchainConfig) AbiString() string {
 				{"name": "maxDataBytes", "type": "uint32"},
 				{"name": "maxNumberOfTokensPerMsg", "type": "uint16"},
 				{"name": "router", "type": "address"},
-				{"name": "priceRegistry", "type": "address"},
-				{"name": "maxPoolReleaseOrMintGas", "type": "uint32"},
-				{"name": "maxTokenTransferGas", "type": "uint32"}
+				{"name": "priceRegistry", "type": "address"}
 			],
 			"type": "tuple"
 		}
@@ -64,12 +62,6 @@ func (d ExecOnchainConfig) Validate() error {
 	}
 	if d.MaxNumberOfTokensPerMsg == 0 {
 		return errors.New("must set MaxNumberOfTokensPerMsg")
-	}
-	if d.MaxPoolReleaseOrMintGas == 0 {
-		return errors.New("must set MaxPoolReleaseOrMintGas")
-	}
-	if d.MaxTokenTransferGas == 0 {
-		return errors.New("must set MaxTokenTransferGas")
 	}
 	return nil
 }
@@ -157,6 +149,7 @@ func (o *OffRamp) ChangeConfig(ctx context.Context, onchainConfigBytes []byte, o
 		InflightCacheExpiry:         offchainConfigParsed.InflightCacheExpiry,
 		RootSnoozeTime:              offchainConfigParsed.RootSnoozeTime,
 		MessageVisibilityInterval:   offchainConfigParsed.MessageVisibilityInterval,
+		BatchingStrategyID:          offchainConfigParsed.BatchingStrategyID,
 	}
 	onchainConfig := cciptypes.ExecOnchainConfig{
 		PermissionLessExecutionThresholdSeconds: time.Second * time.Duration(onchainConfigParsed.PermissionLessExecutionThresholdSeconds),

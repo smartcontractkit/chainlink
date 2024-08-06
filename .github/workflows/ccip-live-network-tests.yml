@@ -1,7 +1,8 @@
 name: CCIP On-Demand Live Network Tests
 on:
-  schedule:
-    - cron: '0 */6 * * *'
+#  Enable this when CCIP-2875 is addressed
+#  schedule:
+#    - cron: '0 */6 * * *'
   workflow_dispatch:
     inputs:
       base64_test_input : # base64 encoded toml for test input

@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
@@ -27,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/ccipdataprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
 )
 
 const (
@@ -63,6 +63,7 @@ type ExecutionPluginStaticConfig struct {
 	metricsCollector              ccip.PluginMetricsCollector
 	chainHealthcheck              cache.ChainHealthcheck
 	newReportingPluginRetryConfig ccipdata.RetryConfig
+	txmStatusChecker              statuschecker.CCIPTransactionStatusChecker
 }
 
 type ExecutionReportingPlugin struct {
@@ -72,6 +73,8 @@ type ExecutionReportingPlugin struct {
 	offchainConfig   cciptypes.ExecOffchainConfig
 	tokenDataWorker  tokendata.Worker
 	metricsCollector ccip.PluginMetricsCollector
+	batchingStrategy BatchingStrategy
+
 	// Source
 	gasPriceEstimator           prices.GasPriceEstimatorExec
 	sourcePriceRegistry         ccipdata.PriceRegistryReader
@@ -79,8 +82,8 @@ type ExecutionReportingPlugin struct {
 	sourcePriceRegistryLock     sync.RWMutex
 	sourceWrappedNativeToken    cciptypes.Address
 	onRampReader                ccipdata.OnRampReader
-	// Dest
 
+	// Dest
 	commitStoreReader      ccipdata.CommitStoreReader
 	destPriceRegistry      ccipdata.PriceRegistryReader
 	destWrappedNative      cciptypes.Address
@@ -140,10 +143,11 @@ func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp ty
 }
 
 func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context, lggr logger.Logger, inflight []InflightInternalExecutionReport) ([]ccip.ObservedMessage, error) {
-	unexpiredReports, err := r.getUnexpiredCommitReports(ctx, r.commitStoreReader, lggr)
+	unexpiredReports, err := r.commitRootsCache.RootsEligibleForExecution(ctx)
 	if err != nil {
 		return nil, err
 	}
+	r.metricsCollector.UnexpiredCommitRoots(len(unexpiredReports))
 
 	if len(unexpiredReports) == 0 {
 		return []ccip.ObservedMessage{}, nil
@@ -206,17 +210,11 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 				return nil, err
 			}
 
-			inflightAggregateValue, err := getInflightAggregateRateLimit(lggr, inflight, tokenExecData.destTokenPrices, tokenExecData.sourceToDestTokens)
-			if err != nil {
-				lggr.Errorw("Unexpected error computing inflight values", "err", err)
-				return []ccip.ObservedMessage{}, nil
-			}
-
 			batch, msgExecStates := r.buildBatch(
 				ctx,
+				inflight,
 				rootLggr,
 				rep,
-				inflightAggregateValue,
 				tokenExecData.rateLimiterTokenBucket.Tokens,
 				tokenExecData.sourceTokenPrices,
 				tokenExecData.destTokenPrices,
@@ -257,9 +255,9 @@ func (r *ExecutionReportingPlugin) getExecutedSeqNrsInRange(ctx context.Context,
 // profitability of execution.
 func (r *ExecutionReportingPlugin) buildBatch(
 	ctx context.Context,
+	inflight []InflightInternalExecutionReport,
 	lggr logger.Logger,
 	report commitReportWithSendRequests,
-	inflightAggregateValue *big.Int,
 	aggregateTokenLimit *big.Int,
 	sourceTokenPricesUSD map[cciptypes.Address]*big.Int,
 	destTokenPricesUSD map[cciptypes.Address]*big.Int,
@@ -277,174 +275,34 @@ func (r *ExecutionReportingPlugin) buildBatch(
 		return []ccip.ObservedMessage{}, []messageExecStatus{}
 	}
 
-	availableGas := uint64(r.offchainConfig.BatchGasLimit)
-	expectedNonces := make(map[cciptypes.Address]uint64)
-	availableDataLen := MaxDataLenPerBatch
-	tokenDataRemainingDuration := MaximumAllowedTokenDataWaitTimePerBatch
-	batchBuilder := newBatchBuildContainer(len(report.sendRequestsWithMeta))
-
-	for _, msg := range report.sendRequestsWithMeta {
-		msgLggr := lggr.With("messageID", hexutil.Encode(msg.MessageID[:]), "seqNr", msg.SequenceNumber)
-
-		if msg.Executed {
-			msgLggr.Infow("Skipping message - already executed")
-			batchBuilder.skip(msg, AlreadyExecuted)
-			continue
-		}
-
-		if len(msg.Data) > availableDataLen {
-			msgLggr.Infow("Skipping message - insufficient remaining batch data length", "msgDataLen", len(msg.Data), "availableBatchDataLen", availableDataLen)
-			batchBuilder.skip(msg, InsufficientRemainingBatchDataLength)
-			continue
-		}
-
-		messageMaxGas, err1 := calculateMessageMaxGas(
-			msg.GasLimit,
-			len(report.sendRequestsWithMeta),
-			len(msg.Data),
-			len(msg.TokenAmounts),
-		)
-		if err1 != nil {
-			msgLggr.Errorw("Skipping message - message max gas calculation error", "err", err1)
-			batchBuilder.skip(msg, MessageMaxGasCalcError)
-			continue
-		}
-
-		// Check sufficient gas in batch
-		if availableGas < messageMaxGas {
-			msgLggr.Infow("Skipping message - insufficient remaining batch gas limit", "availableGas", availableGas, "messageMaxGas", messageMaxGas)
-			batchBuilder.skip(msg, InsufficientRemainingBatchGas)
-			continue
-		}
-
-		if _, ok := expectedNonces[msg.Sender]; !ok {
-			nonce, ok1 := sendersNonce[msg.Sender]
-			if !ok1 {
-				msgLggr.Errorw("Skipping message - missing nonce", "sender", msg.Sender)
-				batchBuilder.skip(msg, MissingNonce)
-				continue
-			}
-			expectedNonces[msg.Sender] = nonce + 1
-		}
-
-		// Check expected nonce is valid for sequenced messages.
-		// Sequenced messages have non-zero nonces.
-		if msg.Nonce > 0 && msg.Nonce != expectedNonces[msg.Sender] {
-			msgLggr.Warnw("Skipping message - invalid nonce", "have", msg.Nonce, "want", expectedNonces[msg.Sender])
-			batchBuilder.skip(msg, InvalidNonce)
-			continue
-		}
-
-		msgValue, err1 := aggregateTokenValue(lggr, destTokenPricesUSD, sourceToDestToken, msg.TokenAmounts)
-		if err1 != nil {
-			msgLggr.Errorw("Skipping message - aggregate token value compute error", "err", err1)
-			batchBuilder.skip(msg, AggregateTokenValueComputeError)
-			continue
-		}
-
-		// if token limit is smaller than message value skip message
-		if tokensLeft, hasCapacity := hasEnoughTokens(aggregateTokenLimit, msgValue, inflightAggregateValue); !hasCapacity {
-			msgLggr.Warnw("Skipping message - aggregate token limit exceeded", "aggregateTokenLimit", tokensLeft.String(), "msgValue", msgValue.String())
-			batchBuilder.skip(msg, AggregateTokenLimitExceeded)
-			continue
-		}
-
-		tokenData, elapsed, err1 := r.getTokenDataWithTimeout(ctx, msg, tokenDataRemainingDuration)
-		tokenDataRemainingDuration -= elapsed
-		if err1 != nil {
-			if errors.Is(err1, tokendata.ErrNotReady) {
-				msgLggr.Warnw("Skipping message - token data not ready", "err", err1)
-				batchBuilder.skip(msg, TokenDataNotReady)
-				continue
-			}
-			msgLggr.Errorw("Skipping message - token data fetch error", "err", err1)
-			batchBuilder.skip(msg, TokenDataFetchError)
-			continue
-		}
-
-		dstWrappedNativePrice, exists := destTokenPricesUSD[r.destWrappedNative]
-		if !exists {
-			msgLggr.Errorw("Skipping message - token not in destination token prices", "token", r.destWrappedNative)
-			batchBuilder.skip(msg, TokenNotInDestTokenPrices)
-			continue
-		}
-
-		// calculating the source chain fee, dividing by 1e18 for denomination.
-		// For example:
-		// FeeToken=link; FeeTokenAmount=1e17 i.e. 0.1 link, price is 6e18 USD/link (1 USD = 1e18),
-		// availableFee is 1e17*6e18/1e18 = 6e17 = 0.6 USD
-		sourceFeeTokenPrice, exists := sourceTokenPricesUSD[msg.FeeToken]
-		if !exists {
-			msgLggr.Errorw("Skipping message - token not in source token prices", "token", msg.FeeToken)
-			batchBuilder.skip(msg, TokenNotInSrcTokenPrices)
-			continue
-		}
-
-		// Fee boosting
-		execCostUsd, err1 := r.gasPriceEstimator.EstimateMsgCostUSD(gasPrice, dstWrappedNativePrice, msg)
-		if err1 != nil {
-			msgLggr.Errorw("Failed to estimate message cost USD", "err", err1)
-			return []ccip.ObservedMessage{}, []messageExecStatus{}
-		}
-
-		availableFee := big.NewInt(0).Mul(msg.FeeTokenAmount, sourceFeeTokenPrice)
-		availableFee = availableFee.Div(availableFee, big.NewInt(1e18))
-		availableFeeUsd := waitBoostedFee(time.Since(msg.BlockTimestamp), availableFee, r.offchainConfig.RelativeBoostPerWaitHour)
-		if availableFeeUsd.Cmp(execCostUsd) < 0 {
-			msgLggr.Infow(
-				"Skipping message - insufficient remaining fee",
-				"availableFeeUsd", availableFeeUsd,
-				"execCostUsd", execCostUsd,
-				"sourceBlockTimestamp", msg.BlockTimestamp,
-				"waitTime", time.Since(msg.BlockTimestamp),
-				"boost", r.offchainConfig.RelativeBoostPerWaitHour,
-			)
-			batchBuilder.skip(msg, InsufficientRemainingFee)
-			continue
-		}
-
-		availableGas -= messageMaxGas
-		availableDataLen -= len(msg.Data)
-		aggregateTokenLimit.Sub(aggregateTokenLimit, msgValue)
-		expectedNonces[msg.Sender] = msg.Nonce + 1
-		batchBuilder.addToBatch(msg, tokenData)
-
-		msgLggr.Infow(
-			"Message added to execution batch",
-			"nonce", msg.Nonce,
-			"sender", msg.Sender,
-			"value", msgValue,
-			"availableAggrTokenLimit", aggregateTokenLimit,
-			"availableGas", availableGas,
-			"availableDataLen", availableDataLen,
-		)
+	inflightAggregateValue, err := getInflightAggregateRateLimit(lggr, inflight, destTokenPricesUSD, sourceToDestToken)
+	if err != nil {
+		lggr.Errorw("Unexpected error computing inflight values", "err", err)
+		return []ccip.ObservedMessage{}, nil
 	}
 
-	return batchBuilder.batch, batchBuilder.statuses
-}
-
-// getTokenDataWithCappedLatency gets the token data for the provided message.
-// Stops and returns an error if more than allowedWaitingTime is passed.
-func (r *ExecutionReportingPlugin) getTokenDataWithTimeout(
-	ctx context.Context,
-	msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta,
-	timeout time.Duration,
-) ([][]byte, time.Duration, error) {
-	if len(msg.TokenAmounts) == 0 {
-		return nil, 0, nil
+	batchCtx := &BatchContext{
+		report,
+		inflight,
+		inflightAggregateValue,
+		lggr,
+		MaxDataLenPerBatch,
+		uint64(r.offchainConfig.BatchGasLimit),
+		make(map[cciptypes.Address]uint64),
+		sendersNonce,
+		sourceTokenPricesUSD,
+		destTokenPricesUSD,
+		gasPrice,
+		sourceToDestToken,
+		aggregateTokenLimit,
+		MaximumAllowedTokenDataWaitTimePerBatch,
+		r.tokenDataWorker,
+		r.gasPriceEstimator,
+		r.destWrappedNative,
+		r.offchainConfig,
 	}
 
-	ctxTimeout, cf := context.WithTimeout(ctx, timeout)
-	defer cf()
-	tStart := time.Now()
-	tokenData, err := r.tokenDataWorker.GetMsgTokenData(ctxTimeout, msg)
-	tDur := time.Since(tStart)
-	return tokenData, tDur, err
-}
-
-func hasEnoughTokens(tokenLimit *big.Int, msgValue *big.Int, inflightValue *big.Int) (*big.Int, bool) {
-	tokensLeft := big.NewInt(0).Sub(tokenLimit, inflightValue)
-	return tokensLeft, tokensLeft.Cmp(msgValue) >= 0
+	return r.batchingStrategy.BuildBatch(ctx, batchCtx)
 }
 
 func calculateMessageMaxGas(gasLimit *big.Int, numRequests, dataLen, numTokens int) (uint64, error) {
@@ -544,20 +402,6 @@ func (r *ExecutionReportingPlugin) getReportsWithSendRequests(
 	}
 
 	return reportsWithSendReqs, nil
-}
-
-func aggregateTokenValue(lggr logger.Logger, destTokenPricesUSD map[cciptypes.Address]*big.Int, sourceToDest map[cciptypes.Address]cciptypes.Address, tokensAndAmount []cciptypes.TokenAmount) (*big.Int, error) {
-	sum := big.NewInt(0)
-	for i := 0; i < len(tokensAndAmount); i++ {
-		price, ok := destTokenPricesUSD[sourceToDest[tokensAndAmount[i].Token]]
-		if !ok {
-			// If we don't have a price for the token, we will assume it's worth 0.
-			lggr.Infof("No price for token %s, assuming 0", tokensAndAmount[i].Token)
-			continue
-		}
-		sum.Add(sum, new(big.Int).Quo(new(big.Int).Mul(price, tokensAndAmount[i].Amount), big.NewInt(1e18)))
-	}
-	return sum, nil
 }
 
 // Assumes non-empty report. Messages to execute can span more than one report, but are assumed to be in order of increasing
@@ -858,46 +702,6 @@ func getTokensPrices(ctx context.Context, priceRegistry ccipdata.PriceRegistryRe
 	}
 
 	return tokenPrices, nil
-}
-
-func (r *ExecutionReportingPlugin) getUnexpiredCommitReports(
-	ctx context.Context,
-	commitStoreReader ccipdata.CommitStoreReader,
-	lggr logger.Logger,
-) ([]cciptypes.CommitStoreReport, error) {
-	createdAfterTimestamp := r.commitRootsCache.OldestRootTimestamp()
-	lggr.Infow("Fetching unexpired commit roots from database", "createdAfterTimestamp", createdAfterTimestamp)
-	acceptedReports, err := commitStoreReader.GetAcceptedCommitReportsGteTimestamp(
-		ctx,
-		createdAfterTimestamp,
-		0,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	var reports []cciptypes.CommitStoreReport
-	for _, acceptedReport := range acceptedReports {
-		reports = append(reports, acceptedReport.CommitStoreReport)
-		r.commitRootsCache.AppendUnexecutedRoot(acceptedReport.MerkleRoot, time.UnixMilli(acceptedReport.TxMeta.BlockTimestampUnixMilli))
-	}
-
-	notSnoozedReports := make([]cciptypes.CommitStoreReport, 0)
-	for _, report := range reports {
-		if r.commitRootsCache.IsSkipped(report.MerkleRoot) {
-			lggr.Debugw("Skipping snoozed root",
-				"minSeqNr", report.Interval.Min,
-				"maxSeqNr", report.Interval.Max,
-				"root", hex.EncodeToString(report.MerkleRoot[:]),
-			)
-			continue
-		}
-		notSnoozedReports = append(notSnoozedReports, report)
-	}
-
-	r.metricsCollector.UnexpiredCommitRoots(len(notSnoozedReports))
-	lggr.Infow("Unexpired roots", "all", len(reports), "notSnoozed", len(notSnoozedReports))
-	return notSnoozedReports, nil
 }
 
 type execTokenData struct {

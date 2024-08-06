@@ -27,10 +27,6 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
   using USDPriceWith18Decimals for uint224;
 
   error CannotSendZeroTokens();
-  error InvalidExtraArgsTag();
-  error ExtraArgOutOfOrderExecutionMustBeTrue();
-  error OnlyCallableByOwnerOrAdmin();
-  error MessageGasLimitTooHigh();
   error UnsupportedToken(address token);
   error MustBeCalledByRouter();
   error RouterMustSetOriginalSender();
@@ -38,7 +34,6 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
   error CursedByRMN(uint64 sourceChainSelector);
   error GetSupportedTokensFunctionalityRemovedCheckAdminRegistry();
 
-  event AdminSet(address newAdmin);
   event ConfigSet(StaticConfig staticConfig, DynamicConfig dynamicConfig);
   event FeePaid(address indexed feeToken, uint256 feeValueJuels);
   event FeeTokenWithdrawn(address indexed feeAggregator, address indexed feeToken, uint256 amount);
@@ -75,8 +70,6 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
   /// @dev The address of the token admin registry
   address internal immutable i_tokenAdminRegistry;
   /// @dev the maximum number of nops that can be configured at the same time.
-  /// Used to bound gas for loops over nops.
-  uint256 private constant MAX_NUMBER_OF_NOPS = 64;
 
   // DYNAMIC CONFIG
   /// @dev The config for the onRamp
@@ -86,12 +79,6 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
   /// This is zero in the case where no messages have been sent yet.
   /// 0 is not a valid sequence number for any real transaction.
   mapping(uint64 destChainSelector => uint64 sequenceNumber) internal s_destChainSequenceNumbers;
-
-  // STATE
-  /// @dev The amount of LINK available to pay NOPS
-  uint96 internal s_nopFeesJuels;
-  /// @dev The combined weight of all NOPs weights
-  uint32 internal s_nopWeightsTotal;
 
   constructor(StaticConfig memory staticConfig, DynamicConfig memory dynamicConfig) {
     if (
