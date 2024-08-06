@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_optimism"
 
 	"github.com/smartcontractkit/seth"
@@ -544,5 +545,24 @@ func LoadVRFV2PlusWrapperOptimism(seth *seth.Client, addr string) (*EthereumVRFV
 		client:  seth,
 		Address: address,
 		wrapper: contract,
+	}, nil
+}
+
+func LoadVRFV2WrapperLoadTestConsumer(seth *seth.Client, addr string) (*EthereumVRFV2PlusWrapperLoadTestConsumer, error) {
+	address := common.HexToAddress(addr)
+	abi, err := vrfv2plus_wrapper_load_test_consumer.VRFV2PlusWrapperLoadTestConsumerMetaData.GetAbi()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get VRFV2PlusWrapperLoadTestConsumer ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("VRFV2PlusWrapperLoadTestConsumer", *abi)
+	seth.ContractStore.AddBIN("VRFV2PlusWrapperLoadTestConsumer", common.FromHex(vrfv2plus_wrapper_load_test_consumer.VRFV2PlusWrapperLoadTestConsumerMetaData.Bin))
+	contract, err := vrfv2plus_wrapper_load_test_consumer.NewVRFV2PlusWrapperLoadTestConsumer(address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate VRFV2PlusWrapperLoadTestConsumer instance: %w", err)
+	}
+	return &EthereumVRFV2PlusWrapperLoadTestConsumer{
+		client:   seth,
+		address:  address,
+		consumer: contract,
 	}, nil
 }
