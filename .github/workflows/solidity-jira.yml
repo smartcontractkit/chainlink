@@ -43,11 +43,14 @@ jobs:
           exit 0
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
+      - name: Setup Jira
+        working-directory: ./.github/scripts/jira
+        run: pnpm i
       - name: Enforce Jira Issue 
         working-directory: ./.github/scripts/jira
         run: |
           echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
-          pnpm i && pnpm issue:enforce
+          pnpm issue:enforce
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           JIRA_HOST: ${{ secrets.JIRA_HOST }}
