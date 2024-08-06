@@ -36,13 +36,13 @@ import (
 )
 
 const (
-	triggerWithDynamicTopic = "TriggeredEventWithDynamicTopic"
-	triggerWithAllTopics    = "TriggeredWithFourTopics"
-	finalityDepth           = 4
+	triggerWithDynamicTopic        = "TriggeredEventWithDynamicTopic"
+	triggerWithAllTopics           = "TriggeredWithFourTopics"
+	triggerWithAllTopicsWithHashed = "TriggeredWithFourTopicsWithHashed"
+	finalityDepth                  = 4
 )
 
 type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
-	SetupAuth(t T) *bind.TransactOpts
 	Init(t T)
 	Client(t T) client.Client
 	Commit()
@@ -50,10 +50,10 @@ type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 	ChainID() *big.Int
 	Context(t T) context.Context
 	GetDB(t T) *sqlx.DB
-	IncNonce()
 	MaxWaitTimeForEvents() time.Duration
 	GasPriceBufferPercent() int64
-	FromAddress() common.Address
+	FromAddress(int) common.Address
+	Accounts(t T) []*bind.TransactOpts
 	TXM(T, client.Client) evmtxmgr.TxManager
 }
 
@@ -65,13 +65,14 @@ type EVMChainReaderInterfaceTester[T TestingT[T]] struct {
 	contractTesters   map[string]*chain_reader_tester.ChainReaderTester
 	chainReaderConfig types.ChainReaderConfig
 	chainWriterConfig types.ChainWriterConfig
-	auth              *bind.TransactOpts
+	deployerAuth      *bind.TransactOpts
+	senderAuth        *bind.TransactOpts
+	dirtyContracts    bool
 	evmTest           *chain_reader_tester.ChainReaderTester
 	cr                evm.ChainReaderService
 	cw                evm.ChainWriterService
 	txm               evmtxmgr.TxManager
 	gasEstimator      gas.EvmFeeEstimator
-	dirtyContracts    bool
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
@@ -87,9 +88,7 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 		}
 		it.cw = nil
 
-		if it.dirtyContracts {
-			it.contractTesters = nil
-		}
+		it.contractTesters = nil
 	})
 
 	// can re-use the same chain for tests, just make new contract for each test
@@ -98,7 +97,11 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 		return
 	}
 
-	it.auth = it.Helper.SetupAuth(t)
+	// Need to seperate accounts to ensure the nonce doesn't get misaligned after the
+	// contract deployments.
+	accounts := it.Helper.Accounts(t)
+	it.deployerAuth = accounts[0]
+	it.senderAuth = accounts[1]
 
 	testStruct := CreateTestStruct[T](0, it)
 
@@ -114,7 +117,7 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 			AnyContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
 				ContractPollingFilter: types.ContractPollingFilter{
-					GenericEventNames: []string{EventName, EventWithFilterName},
+					GenericEventNames: []string{EventName, EventWithFilterName, triggerWithAllTopicsWithHashed},
 				},
 				Configs: map[string]*types.ChainReaderDefinition{
 					MethodTakingLatestParamsReturningTestStruct: &methodTakingLatestParamsReturningTestStructConfig,
@@ -163,6 +166,13 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 						// These float values can map to different finality concepts across chains.
 						ConfidenceConfirmations: map[string]int{"0.0": int(evmtypes.Unconfirmed), "1.0": int(evmtypes.Finalized)},
 					},
+					triggerWithAllTopicsWithHashed: {
+						ChainSpecificName: triggerWithAllTopicsWithHashed,
+						ReadType:          types.Event,
+						EventDefinitions: &types.EventDefinitions{
+							InputFields: []string{"Field1", "Field2", "Field3"},
+						},
+					},
 					MethodReturningSeenStruct: {
 						ChainSpecificName: "returnSeen",
 						InputModifications: codec.ModifiersConfig{
@@ -202,7 +212,7 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 				Configs: map[string]*types.ChainWriterDefinition{
 					"addTestStruct": {
 						ChainSpecificName: "addTestStruct",
-						FromAddress:       it.Helper.FromAddress(),
+						FromAddress:       it.Helper.FromAddress(1),
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
 						InputModifications: codec.ModifiersConfig{
@@ -211,9 +221,18 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 					},
 					"setAlterablePrimitiveValue": {
 						ChainSpecificName: "setAlterablePrimitiveValue",
-						FromAddress:       it.Helper.FromAddress(),
+						FromAddress:       it.Helper.FromAddress(1),
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
+					},
+					"triggerEvent": {
+						ChainSpecificName: "triggerEvent",
+						FromAddress:       it.Helper.FromAddress(1),
+						GasLimit:          2_000_000,
+						Checker:           "simulate",
+						InputModifications: codec.ModifiersConfig{
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+						},
 					},
 				},
 			},
@@ -241,7 +260,7 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	}
 
 	lggr := logger.NullLogger
-	db := it.Helper.GetDB(t)
+	db := it.Helper.GetDB(t)	
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            finalityDepth,
@@ -304,10 +323,6 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainWriter(t T) clcommontypes.Ch
 	return it.cw
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) TriggerEvent(t T, testStruct *TestStruct) {
-	it.sendTxWithTestStruct(t, it.address, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).TriggerEvent)
-}
-
 // GenerateBlocksTillConfidenceLevel is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state
 func (it *EVMChainReaderInterfaceTester[T]) GenerateBlocksTillConfidenceLevel(t T, contractName, readName string, confidenceLevel primitives.ConfidenceLevel) {
 	contractCfg, ok := it.chainReaderConfig.Contracts[contractName]
@@ -338,21 +353,6 @@ func (it *EVMChainReaderInterfaceTester[T]) GetBindings(_ T) []clcommontypes.Bou
 
 type uintFn = func(*chain_reader_tester.ChainReaderTesterTransactor, *bind.TransactOpts, uint64) (*gethtypes.Transaction, error)
 
-// sendTxWithUintVal is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state
-func (it *EVMChainReaderInterfaceTester[T]) sendTxWithUintVal(t T, contractAddress string, val uint64, fn uintFn) {
-	tx, err := fn(
-		&it.contractTesters[contractAddress].ChainReaderTesterTransactor,
-		it.GetAuthWithGasSet(t),
-		val,
-	)
-
-	require.NoError(t, err)
-	it.Helper.Commit()
-	it.IncNonce()
-	it.AwaitTx(t, tx)
-	it.dirtyContracts = true
-}
-
 type testStructFn = func(*chain_reader_tester.ChainReaderTesterTransactor, *bind.TransactOpts, int32, string, uint8, [32]uint8, common.Address, []common.Address, *big.Int, chain_reader_tester.MidLevelTestStruct) (*gethtypes.Transaction, error)
 
 func (it *EVMChainReaderInterfaceTester[T]) sendTxWithTestStruct(t T, contractAddress string, testStruct *TestStruct, fn testStructFn) {
@@ -372,7 +372,6 @@ func (it *EVMChainReaderInterfaceTester[T]) sendTxWithTestStruct(t T, contractAd
 	it.Helper.Commit()
 	it.IncNonce()
 	it.AwaitTx(t, tx)
-	it.dirtyContracts = true
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) GetAuthWithGasSet(t T) *bind.TransactOpts {
@@ -380,15 +379,15 @@ func (it *EVMChainReaderInterfaceTester[T]) GetAuthWithGasSet(t T) *bind.Transac
 	require.NoError(t, err)
 	extra := new(big.Int).Mul(gasPrice, big.NewInt(it.Helper.GasPriceBufferPercent()))
 	extra = extra.Div(extra, big.NewInt(100))
-	it.auth.GasPrice = gasPrice.Add(gasPrice, extra)
-	return it.auth
+	it.deployerAuth.GasPrice = gasPrice.Add(gasPrice, extra)
+	return it.deployerAuth
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) IncNonce() {
-	if it.auth.Nonce == nil {
-		it.auth.Nonce = big.NewInt(1)
+	if it.deployerAuth.Nonce == nil {
+		it.deployerAuth.Nonce = big.NewInt(1)
 	} else {
-		it.auth.Nonce = it.auth.Nonce.Add(it.auth.Nonce, big.NewInt(1))
+		it.deployerAuth.Nonce = it.deployerAuth.Nonce.Add(it.deployerAuth.Nonce, big.NewInt(1))
 	}
 }
 
@@ -405,6 +404,8 @@ func (it *EVMChainReaderInterfaceTester[T]) deployNewContracts(t T) {
 		it.contractTesters = make(map[string]*chain_reader_tester.ChainReaderTester, 2)
 		address, ts1 := it.deployNewContract(t)
 		address2, ts2 := it.deployNewContract(t)
+		fmt.Printf("deploying new contract, address: %s\n", address)
+
 		it.address, it.address2 = address, address2
 		it.contractTesters[it.address] = ts1
 		it.contractTesters[it.address2] = ts2
@@ -414,7 +415,7 @@ func (it *EVMChainReaderInterfaceTester[T]) deployNewContracts(t T) {
 func (it *EVMChainReaderInterfaceTester[T]) deployNewContract(t T) (string, *chain_reader_tester.ChainReaderTester) {
 	// 105528 was in the error: gas too low: have 0, want 105528
 	// Not sure if there's a better way to get it.
-	it.auth.GasLimit = 10552800
+	it.deployerAuth.GasLimit = 10552800
 
 	address, tx, ts, err := chain_reader_tester.DeployChainReaderTester(it.GetAuthWithGasSet(t), it.Helper.Backend())
 	require.NoError(t, err)

@@ -1,0 +1,22 @@
+2024-08-08 16:27:22.123 EDT [9317] LOG:  starting PostgreSQL 14.11 on aarch64-apple-darwin23.4.0, compiled by Apple clang version 15.0.0 (clang-1500.3.9.4), 64-bit
+2024-08-08 16:27:22.125 EDT [9317] LOG:  listening on IPv6 address "::1", port 5432
+2024-08-08 16:27:22.125 EDT [9317] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2024-08-08 16:27:22.126 EDT [9317] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2024-08-08 16:27:22.136 EDT [9318] LOG:  database system was shut down at 2024-08-08 16:25:08 EDT
+2024-08-08 16:27:22.143 EDT [9317] LOG:  database system is ready to accept connections
+2024-08-08 16:27:35.757 EDT [10033] ERROR:  relation "ocr2_oracle_specs" does not exist at character 22
+2024-08-08 16:27:35.757 EDT [10033] STATEMENT:  SELECT COUNT(*) FROM ocr2_oracle_specs WHERE plugin_type = 'mercury'
+2024-08-08 16:27:35.758 EDT [10033] ERROR:  relation "goose_migrations" does not exist at character 32
+2024-08-08 16:27:35.758 EDT [10033] STATEMENT:  SELECT tstamp, is_applied FROM goose_migrations WHERE version_id=$1 ORDER BY tstamp DESC LIMIT 1
+2024-08-08 16:27:35.763 EDT [10033] ERROR:  relation "migrations" does not exist at character 16
+2024-08-08 16:27:35.763 EDT [10033] STATEMENT:  SELECT id FROM migrations
+2024-08-08 16:27:36.291 EDT [10033] WARNING:  there is already a transaction in progress
+2024-08-08 16:27:36.292 EDT [10033] WARNING:  there is no transaction in progress
+2024-08-08 16:27:36.686 EDT [10162] WARNING:  there is already a transaction in progress
+2024-08-08 16:27:36.688 EDT [10162] WARNING:  there is no transaction in progress
+2024-08-08 16:27:37.012 EDT [10162] ERROR:  relation "migrations" does not exist at character 16
+2024-08-08 16:27:37.012 EDT [10162] STATEMENT:  SELECT id FROM migrations
+2024-08-08 16:27:37.374 EDT [10162] WARNING:  there is already a transaction in progress
+2024-08-08 16:27:37.376 EDT [10162] WARNING:  there is no transaction in progress
+2024-08-08 16:43:41.901 EDT [75018] LOG:  could not receive data from client: Connection reset by peer
+2024-08-08 16:48:30.363 EDT [75543] LOG:  unexpected EOF on client connection with an open transaction

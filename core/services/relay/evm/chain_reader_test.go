@@ -153,31 +153,28 @@ func TestChainReaderEventsInitValidation(t *testing.T) {
 func TestChainReader(t *testing.T) {
 	t.Parallel()
 	it := &EVMChainReaderInterfaceTester[*testing.T]{Helper: &helper{}}
+
 	it.Helper.Init(t)
-	fmt.Println("test1")
+
 	// add new subtests here so that it can be run on real chains too
 	RunChainReaderEvmTests(t, it)
-	fmt.Println("test2")
 	RunChainReaderInterfaceTests[*testing.T](t, commontestutils.WrapChainReaderTesterForLoop(it))
-	fmt.Println("test3")
 }
 
 type helper struct {
-	sim    *backends.SimulatedBackend
-	auth   *bind.TransactOpts
-	pKey   *ecdsa.PrivateKey
-	txm    evmtxmgr.TxManager
-	client client.Client
-	db     *sqlx.DB
+	sim         *backends.SimulatedBackend
+	accounts    []*bind.TransactOpts
+	deployerKey *ecdsa.PrivateKey
+	senderKey   *ecdsa.PrivateKey
+	txm         evmtxmgr.TxManager
+	client      client.Client
+	db          *sqlx.DB
 }
 
 func (h *helper) Init(t *testing.T) {
-	privateKey, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	h.pKey = privateKey
+	h.SetupKeys(t)
 
-	h.auth, err = bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(1337))
-	require.NoError(t, err)
+	h.accounts = h.Accounts(t)
 
 	h.db = pgtest.NewSqlxDB(t)
 
@@ -188,6 +185,29 @@ func (h *helper) Init(t *testing.T) {
 	h.Commit()
 }
 
+func (h *helper) SetupKeys(t *testing.T) {
+	deployerPkey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	h.deployerKey = deployerPkey
+
+	senderPkey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	h.senderKey = senderPkey
+}
+
+func (h *helper) Accounts(t *testing.T) []*bind.TransactOpts {
+	if h.accounts != nil {
+		return h.accounts
+	}
+	deployer, err := bind.NewKeyedTransactorWithChainID(h.deployerKey, big.NewInt(1337))
+	require.NoError(t, err)
+
+	sender, err := bind.NewKeyedTransactorWithChainID(h.senderKey, big.NewInt(1337))
+	require.NoError(t, err)
+
+	return []*bind.TransactOpts{deployer, sender}
+}
+
 func (h *helper) MustGenerateRandomKey(t *testing.T) ethkey.KeyV2 {
 	return cltest.MustGenerateRandomKey(t)
 }
@@ -196,14 +216,10 @@ func (h *helper) GasPriceBufferPercent() int64 {
 	return 0
 }
 
-func (h *helper) SetupAuth(t *testing.T) *bind.TransactOpts {
-	return h.auth
-}
-
 func (h *helper) Backend() bind.ContractBackend {
 	if h.sim == nil {
 		h.sim = backends.NewSimulatedBackend(
-			core.GenesisAlloc{h.auth.From: {Balance: big.NewInt(math.MaxInt64)}}, commonGasLimitOnEvms*5000)
+			core.GenesisAlloc{h.accounts[0].From: {Balance: big.NewInt(math.MaxInt64)}, h.accounts[1].From: {Balance: big.NewInt(math.MaxInt64)}}, commonGasLimitOnEvms*5000)
 		cltest.Mine(h.sim, 1*time.Second)
 	}
 
@@ -226,23 +242,15 @@ func (h *helper) ChainID() *big.Int {
 }
 
 func (h *helper) GetDB(t *testing.T) *sqlx.DB {
-	return h.db
-}
-
-func (h *helper) IncNonce() {
-	if h.auth.Nonce == nil {
-		h.auth.Nonce = big.NewInt(1)
-	} else {
-		h.auth.Nonce = h.auth.Nonce.Add(h.auth.Nonce, big.NewInt(1))
-	}
+	return pgtest.NewSqlxDB(t)
 }
 
 func (h *helper) Context(t *testing.T) context.Context {
 	return testutils.Context(t)
 }
 
-func (h *helper) FromAddress() common.Address {
-	return h.auth.From
+func (h *helper) FromAddress(index int) common.Address {
+	return h.accounts[index].From
 }
 
 func (h *helper) MaxWaitTimeForEvents() time.Duration {
@@ -256,7 +264,6 @@ func (h *helper) MaxWaitTimeForEvents() time.Duration {
 		}
 		maxWaitTime = time.Second * time.Duration(waitS)
 	}
-
 	return maxWaitTime
 }
 
@@ -275,9 +282,13 @@ func (h *helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
 	app.Start(h.Context(t))
 	keyStore := app.KeyStore.Eth()
 
-	keyStore.XXXTestingOnlyAdd(h.Context(t), keytypes.FromPrivateKey(h.pKey))
-	require.NoError(t, keyStore.Add(h.Context(t), h.FromAddress(), h.ChainID()))
-	require.NoError(t, keyStore.Enable(h.Context(t), h.FromAddress(), h.ChainID()))
+	keyStore.XXXTestingOnlyAdd(h.Context(t), keytypes.FromPrivateKey(h.deployerKey))
+	require.NoError(t, keyStore.Add(h.Context(t), h.FromAddress(0), h.ChainID()))
+	require.NoError(t, keyStore.Enable(h.Context(t), h.FromAddress(0), h.ChainID()))
+
+	keyStore.XXXTestingOnlyAdd(h.Context(t), keytypes.FromPrivateKey(h.senderKey))
+	require.NoError(t, keyStore.Add(h.Context(t), h.FromAddress(1), h.ChainID()))
+	require.NoError(t, keyStore.Enable(h.Context(t), h.FromAddress(1), h.ChainID()))
 
 	chain, err := app.GetRelayers().LegacyEVMChains().Get((*big.Int)(h.ChainID()).String())
 	require.NoError(t, err)

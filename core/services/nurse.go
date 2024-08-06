@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -19,22 +20,21 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Nurse struct {
-	services.StateMachine
+	services.Service
+	eng *services.Engine
 
 	cfg Config
-	log logger.Logger
 
 	checks   map[string]CheckFunc
 	checksMu sync.RWMutex
 
 	chGather chan gatherRequest
-	chStop   chan struct{}
-	wgDone   sync.WaitGroup
 }
 
 type Config interface {
@@ -66,85 +66,63 @@ const (
 )
 
 func NewNurse(cfg Config, log logger.Logger) *Nurse {
-	return &Nurse{
+	n := &Nurse{
 		cfg:      cfg,
-		log:      log.Named("Nurse"),
 		checks:   make(map[string]CheckFunc),
 		chGather: make(chan gatherRequest, 1),
-		chStop:   make(chan struct{}),
 	}
+	n.Service, n.eng = services.Config{
+		Name:  "Nurse",
+		Start: n.start,
+	}.NewServiceEngine(log)
+
+	return n
 }
 
-func (n *Nurse) Start() error {
-	return n.StartOnce("Nurse", func() error {
-		// This must be set *once*, and it must occur as early as possible
-		if n.cfg.MemProfileRate() != runtime.MemProfileRate {
-			runtime.MemProfileRate = n.cfg.BlockProfileRate()
-		}
+func (n *Nurse) start(_ context.Context) error {
+	// This must be set *once*, and it must occur as early as possible
+	if n.cfg.MemProfileRate() != runtime.MemProfileRate {
+		runtime.MemProfileRate = n.cfg.BlockProfileRate()
+	}
 
-		n.log.Debugf("Starting nurse with config %+v", n.cfg)
-		runtime.SetCPUProfileRate(n.cfg.CPUProfileRate())
-		runtime.SetBlockProfileRate(n.cfg.BlockProfileRate())
-		runtime.SetMutexProfileFraction(n.cfg.MutexProfileFraction())
+	n.eng.Debugf("Starting nurse with config %+v", n.cfg)
+	runtime.SetCPUProfileRate(n.cfg.CPUProfileRate())
+	runtime.SetBlockProfileRate(n.cfg.BlockProfileRate())
+	runtime.SetMutexProfileFraction(n.cfg.MutexProfileFraction())
 
-		err := utils.EnsureDirAndMaxPerms(n.cfg.ProfileRoot(), 0744)
-		if err != nil {
-			return err
-		}
+	err := utils.EnsureDirAndMaxPerms(n.cfg.ProfileRoot(), 0744)
+	if err != nil {
+		return err
+	}
 
-		n.AddCheck("mem", n.checkMem)
-		n.AddCheck("goroutines", n.checkGoroutines)
+	n.AddCheck("mem", n.checkMem)
+	n.AddCheck("goroutines", n.checkGoroutines)
 
-		n.wgDone.Add(1)
-		// Checker
-		go func() {
-			defer n.wgDone.Done()
-			for {
-				select {
-				case <-n.chStop:
-					return
-				case <-time.After(n.cfg.PollInterval().Duration()):
-				}
-
-				func() {
-					n.checksMu.RLock()
-					defer n.checksMu.RUnlock()
-					for reason, checkFunc := range n.checks {
-						if unwell, meta := checkFunc(); unwell {
-							n.GatherVitals(reason, meta)
-							break
-						}
-					}
-				}()
+	// Checker
+	n.eng.GoTick(timeutil.NewTicker(n.cfg.PollInterval().Duration), func(ctx context.Context) {
+		n.checksMu.RLock()
+		defer n.checksMu.RUnlock()
+		for reason, checkFunc := range n.checks {
+			if unwell, meta := checkFunc(); unwell {
+				n.GatherVitals(ctx, reason, meta)
+				break
 			}
-		}()
+		}
+	})
 
-		n.wgDone.Add(1)
-		// Responder
-		go func() {
-			defer n.wgDone.Done()
-			for {
-				select {
-				case <-n.chStop:
-					return
-				case req := <-n.chGather:
-					n.gatherVitals(req.reason, req.meta)
-				}
+	// Responder
+	n.eng.Go(func(ctx context.Context) {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case req := <-n.chGather:
+				n.gatherVitals(req.reason, req.meta)
 			}
-		}()
-
-		return nil
+		}
 	})
-}
 
-func (n *Nurse) Close() error {
-	return n.StopOnce("Nurse", func() error {
-		n.log.Debug("Nurse closing...")
-		defer n.log.Debug("Nurse closed")
-		close(n.chStop)
-		n.wgDone.Wait()
-		return nil
-	})
+	return nil
 }
 
 func (n *Nurse) AddCheck(reason string, checkFunc CheckFunc) {
@@ -153,9 +131,9 @@ func (n *Nurse) AddCheck(reason string, checkFunc CheckFunc) {
 	n.checks[reason] = checkFunc
 }
 
-func (n *Nurse) GatherVitals(reason string, meta Meta) {
+func (n *Nurse) GatherVitals(ctx context.Context, reason string, meta Meta) {
 	select {
-	case <-n.chStop:
+	case <-ctx.Done():
 	case n.chGather <- gatherRequest{reason, meta}:
 	default:
 	}
@@ -189,14 +167,14 @@ func (n *Nurse) checkGoroutines() (bool, Meta) {
 func (n *Nurse) gatherVitals(reason string, meta Meta) {
 	loggerFields := (logger.Fields{"reason": reason}).Merge(logger.Fields(meta))
 
-	n.log.Debugw("Nurse is gathering vitals", loggerFields.Slice()...)
+	n.eng.Debugw("Nurse is gathering vitals", loggerFields.Slice()...)
 
 	size, err := n.totalProfileBytes()
 	if err != nil {
-		n.log.Errorw("could not fetch total profile bytes", loggerFields.With("err", err).Slice()...)
+		n.eng.Errorw("could not fetch total profile bytes", loggerFields.With("err", err).Slice()...)
 		return
 	} else if size >= uint64(n.cfg.MaxProfileSize()) {
-		n.log.Warnw("cannot write pprof profile, total profile size exceeds configured PPROF_MAX_PROFILE_SIZE",
+		n.eng.Warnw("cannot write pprof profile, total profile size exceeds configured PPROF_MAX_PROFILE_SIZE",
 			loggerFields.With("total", size, "max", n.cfg.MaxProfileSize()).Slice()...,
 		)
 		return
@@ -206,7 +184,7 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 
 	err = n.appendLog(now, reason, meta)
 	if err != nil {
-		n.log.Warnw("cannot write pprof profile", loggerFields.With("err", err).Slice()...)
+		n.eng.Warnw("cannot write pprof profile", loggerFields.With("err", err).Slice()...)
 		return
 	}
 	var wg sync.WaitGroup
@@ -227,7 +205,7 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 		wg.Add(1)
 		go n.gather("heap", now, &wg)
 	} else {
-		n.log.Info("skipping heap collection because runtime.MemProfileRate = 0")
+		n.eng.Info("skipping heap collection because runtime.MemProfileRate = 0")
 	}
 
 	wg.Add(1)
@@ -236,15 +214,13 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 	go n.gather("threadcreate", now, &wg)
 
 	ch := make(chan struct{})
-	n.wgDone.Add(1)
-	go func() {
-		defer n.wgDone.Done()
+	n.eng.Go(func(ctx context.Context) {
 		defer close(ch)
 		wg.Wait()
-	}()
+	})
 
 	select {
-	case <-n.chStop:
+	case <-n.eng.StopChan:
 	case <-ch:
 	}
 }
@@ -252,7 +228,7 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
 	filename := filepath.Join(n.cfg.ProfileRoot(), "nurse.log")
 
-	n.log.Debugf("creating nurse log %s", filename)
+	n.eng.Debugf("creating nurse log %s", filename)
 	file, err := os.Create(filename)
 
 	if err != nil {
@@ -288,34 +264,34 @@ func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
 
 func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
-	n.log.Debugf("gather cpu %d ...", now.UnixMicro())
-	defer n.log.Debugf("gather cpu %d done", now.UnixMicro())
+	n.eng.Debugf("gather cpu %d ...", now.UnixMicro())
+	defer n.eng.Debugf("gather cpu %d done", now.UnixMicro())
 	wc, err := n.createFile(now, cpuProfName, false)
 	if err != nil {
-		n.log.Errorw("could not write cpu profile", "err", err)
+		n.eng.Errorw("could not write cpu profile", "err", err)
 		return
 	}
 	defer wc.Close()
 
 	err = pprof.StartCPUProfile(wc)
 	if err != nil {
-		n.log.Errorw("could not start cpu profile", "err", err)
+		n.eng.Errorw("could not start cpu profile", "err", err)
 		return
 	}
 
 	select {
-	case <-n.chStop:
-		n.log.Debug("gather cpu received stop")
+	case <-n.eng.StopChan:
+		n.eng.Debug("gather cpu received stop")
 
 	case <-time.After(n.cfg.GatherDuration().Duration()):
-		n.log.Debugf("gather cpu duration elapsed %s. stoping profiling.", n.cfg.GatherDuration().Duration().String())
+		n.eng.Debugf("gather cpu duration elapsed %s. stoping profiling.", n.cfg.GatherDuration().Duration().String())
 	}
 
 	pprof.StopCPUProfile()
 
 	err = wc.Close()
 	if err != nil {
-		n.log.Errorw("could not close cpu profile", "err", err)
+		n.eng.Errorw("could not close cpu profile", "err", err)
 		return
 	}
 }
@@ -323,23 +299,23 @@ func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	n.log.Debugf("gather trace %d ...", now.UnixMicro())
-	defer n.log.Debugf("gather trace %d done", now.UnixMicro())
+	n.eng.Debugf("gather trace %d ...", now.UnixMicro())
+	defer n.eng.Debugf("gather trace %d done", now.UnixMicro())
 	wc, err := n.createFile(now, traceProfName, true)
 	if err != nil {
-		n.log.Errorw("could not write trace profile", "err", err)
+		n.eng.Errorw("could not write trace profile", "err", err)
 		return
 	}
 	defer wc.Close()
 
 	err = trace.Start(wc)
 	if err != nil {
-		n.log.Errorw("could not start trace profile", "err", err)
+		n.eng.Errorw("could not start trace profile", "err", err)
 		return
 	}
 
 	select {
-	case <-n.chStop:
+	case <-n.eng.StopChan:
 	case <-time.After(n.cfg.GatherTraceDuration().Duration()):
 	}
 
@@ -347,7 +323,7 @@ func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
 
 	err = wc.Close()
 	if err != nil {
-		n.log.Errorw("could not close trace profile", "err", err)
+		n.eng.Errorw("could not close trace profile", "err", err)
 		return
 	}
 }
@@ -355,18 +331,18 @@ func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
 func (n *Nurse) gather(typ string, now time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	n.log.Debugf("gather %s %d ...", typ, now.UnixMicro())
-	n.log.Debugf("gather %s %d done", typ, now.UnixMicro())
+	n.eng.Debugf("gather %s %d ...", typ, now.UnixMicro())
+	n.eng.Debugf("gather %s %d done", typ, now.UnixMicro())
 
 	p := pprof.Lookup(typ)
 	if p == nil {
-		n.log.Errorf("Invariant violation: pprof type '%v' does not exist", typ)
+		n.eng.Errorf("Invariant violation: pprof type '%v' does not exist", typ)
 		return
 	}
 
 	p0, err := collectProfile(p)
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not collect %v profile", typ), "err", err)
+		n.eng.Errorw(fmt.Sprintf("could not collect %v profile", typ), "err", err)
 		return
 	}
 
@@ -374,14 +350,14 @@ func (n *Nurse) gather(typ string, now time.Time, wg *sync.WaitGroup) {
 	defer t.Stop()
 
 	select {
-	case <-n.chStop:
+	case <-n.eng.StopChan:
 		return
 	case <-t.C:
 	}
 
 	p1, err := collectProfile(p)
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not collect %v profile", typ), "err", err)
+		n.eng.Errorw(fmt.Sprintf("could not collect %v profile", typ), "err", err)
 		return
 	}
 	ts := p1.TimeNanos
@@ -391,7 +367,7 @@ func (n *Nurse) gather(typ string, now time.Time, wg *sync.WaitGroup) {
 
 	p1, err = profile.Merge([]*profile.Profile{p0, p1})
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not compute delta for %v profile", typ), "err", err)
+		n.eng.Errorw(fmt.Sprintf("could not compute delta for %v profile", typ), "err", err)
 		return
 	}
 
@@ -400,19 +376,19 @@ func (n *Nurse) gather(typ string, now time.Time, wg *sync.WaitGroup) {
 
 	wc, err := n.createFile(now, typ, false)
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not write %v profile", typ), "err", err)
+		n.eng.Errorw(fmt.Sprintf("could not write %v profile", typ), "err", err)
 		return
 	}
 	defer wc.Close()
 
 	err = p1.Write(wc)
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not write %v profile", typ), "err", err)
+		n.eng.Errorw(fmt.Sprintf("could not write %v profile", typ), "err", err)
 		return
 	}
 	err = wc.Close()
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not close file for %v profile", typ), "err", err)
+		n.eng.Errorw(fmt.Sprintf("could not close file for %v profile", typ), "err", err)
 		return
 	}
 }
@@ -437,7 +413,7 @@ func (n *Nurse) createFile(now time.Time, typ string, shouldGzip bool) (*utils.D
 		filename += ".gz"
 	}
 	fullpath := filepath.Join(n.cfg.ProfileRoot(), filename)
-	n.log.Debugf("creating file %s", fullpath)
+	n.eng.Debugf("creating file %s", fullpath)
 
 	file, err := os.Create(fullpath)
 	if err != nil {

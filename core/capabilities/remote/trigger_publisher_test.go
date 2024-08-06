@@ -42,7 +42,7 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	}
 
 	dispatcher := remoteMocks.NewDispatcher(t)
-	config := capabilities.RemoteTriggerConfig{
+	config := &capabilities.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
 		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
