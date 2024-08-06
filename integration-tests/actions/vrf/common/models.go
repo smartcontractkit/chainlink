@@ -55,6 +55,7 @@ type VRFContracts struct {
 	VRFV2PlusConsumer      []contracts.VRFv2PlusLoadTestConsumer
 	LinkToken              contracts.LinkToken
 	MockETHLINKFeed        contracts.VRFMockETHLINKFeed
+	LinkNativeFeedAddress  string
 }
 
 type VRFOwnerConfig struct {
