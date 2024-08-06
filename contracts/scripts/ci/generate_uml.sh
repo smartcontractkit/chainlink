@@ -61,7 +61,7 @@ flatten_and_generate_uml() {
     rm "$FLATTENED_FILE"
 }
 
-flatten_contracts_in_directory() {
+process_all_files_in_directory() {
     local SOURCE_DIR=$1
     local TARGET_DIR=$2
 
@@ -72,7 +72,7 @@ flatten_contracts_in_directory() {
     done
 }
 
-process_files() {
+process_selected_files() {
     local SOURCE_DIR=$1
     local TARGET_DIR=$2
     local FILES=(${3//,/ })  # Split the comma-separated list into an array
@@ -101,10 +101,11 @@ process_files() {
     done
 }
 
+# if FILES is empty, process all files in the directory, otherwise process only the selected files
 if [ -z "$FILES" ]; then
-    flatten_contracts_in_directory "$SOURCE_DIR" "$TARGET_DIR"
+    process_all_files_in_directory "$SOURCE_DIR" "$TARGET_DIR"
 else
-    process_files "$SOURCE_DIR" "$TARGET_DIR" "$FILES"
+    process_selected_files "$SOURCE_DIR" "$TARGET_DIR" "$FILES"
 fi
 
 if [ "${#FAILED_FILES[@]}" -gt 0 ]; then
