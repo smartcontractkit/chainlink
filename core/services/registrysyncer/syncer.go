@@ -417,7 +417,9 @@ func (s *registrySyncer) Close() error {
 	return s.StopOnce("RegistrySyncer", func() error {
 		close(s.stopCh)
 		close(s.updateChan)
-		close(s.testUpdateChan)
+		if s.testUpdateChan != nil {
+			close(s.testUpdateChan)
+		}
 		s.wg.Wait()
 		return nil
 	})
