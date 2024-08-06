@@ -31,7 +31,7 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	var states []LocalRegistry
 	for i := 0; i < 11; i++ {
 		state := generateState(t)
-		err := orm.addState(ctx, state)
+		err := orm.addLocalRegistry(ctx, state)
 		require.NoError(t, err)
 		states = append(states, state)
 	}
@@ -41,7 +41,7 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 10, count)
 
-	state, err := orm.latestState(ctx)
+	state, err := orm.latestLocalRegistry(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, states[10], *state)
 }

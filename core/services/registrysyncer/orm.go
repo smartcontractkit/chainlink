@@ -9,10 +9,9 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/smartcontractkit/libocr/ragep2p/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/libocr/ragep2p/types"
 
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -48,9 +47,9 @@ type capabilitiesRegistryCapabilityInfo struct {
 	CapabilityType int    `json:"capabilityType"`
 }
 
-func (t *LocalRegistry) MarshalJSON() ([]byte, error) {
+func (l *LocalRegistry) MarshalJSON() ([]byte, error) {
 	idsToDONs := make(map[string]capabilitiesRegistryDONInfo)
-	for k, v := range t.IDsToDONs {
+	for k, v := range l.IDsToDONs {
 		members := make([]string, len(v.Members))
 		for i, id := range v.Members {
 			members[i] = hex.EncodeToString(id[:])
@@ -76,7 +75,7 @@ func (t *LocalRegistry) MarshalJSON() ([]byte, error) {
 	}
 
 	idsToNodes := make(map[string]capabilitiesRegistryNodeInfo)
-	for k, v := range t.IDsToNodes {
+	for k, v := range l.IDsToNodes {
 		hashedCapabilityIds := make([]string, len(v.HashedCapabilityIds))
 		for i, id := range v.HashedCapabilityIds {
 			hashedCapabilityIds[i] = hex.EncodeToString(id[:])
@@ -97,7 +96,7 @@ func (t *LocalRegistry) MarshalJSON() ([]byte, error) {
 	}
 
 	idsToCapabilities := make(map[string]capabilitiesRegistryCapabilityInfo)
-	for k, v := range t.IDsToCapabilities {
+	for k, v := range l.IDsToCapabilities {
 		idsToCapabilities[k] = capabilitiesRegistryCapabilityInfo{
 			ID:             v.ID,
 			CapabilityType: int(v.CapabilityType),
@@ -115,7 +114,7 @@ func (t *LocalRegistry) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (t *LocalRegistry) UnmarshalJSON(data []byte) error {
+func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 	temp := struct {
 		IDsToDONs         map[string]capabilitiesRegistryDONInfo
 		IDsToNodes        map[string]capabilitiesRegistryNodeInfo
@@ -130,7 +129,7 @@ func (t *LocalRegistry) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("failed to unmarshal state: %w", err)
 	}
 
-	t.IDsToDONs = make(map[DonID]DON)
+	l.IDsToDONs = make(map[DonID]DON)
 	for k, v := range temp.IDsToDONs {
 		id, err := strconv.ParseUint(k, 10, 32)
 		if err != nil {
@@ -151,7 +150,7 @@ func (t *LocalRegistry) UnmarshalJSON(data []byte) error {
 				RemoteTriggerConfig: c.RemoteTriggerConfig,
 			}
 		}
-		t.IDsToDONs[DonID(id)] = DON{
+		l.IDsToDONs[DonID(id)] = DON{
 			DON: capabilities.DON{
 				ID:               v.ID,
 				ConfigVersion:    v.ConfigVersion,
@@ -164,7 +163,7 @@ func (t *LocalRegistry) UnmarshalJSON(data []byte) error {
 		}
 	}
 
-	t.IDsToNodes = make(map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo)
+	l.IDsToNodes = make(map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo)
 	for k, v := range temp.IDsToNodes {
 		key, err := hex.DecodeString(k)
 		if err != nil {
@@ -196,7 +195,7 @@ func (t *LocalRegistry) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return fmt.Errorf("failed to decode p2pId: %w", err)
 		}
-		t.IDsToNodes[peerID] = kcr.CapabilitiesRegistryNodeInfo{
+		l.IDsToNodes[peerID] = kcr.CapabilitiesRegistryNodeInfo{
 			NodeOperatorId:      v.NodeOperatorId,
 			ConfigCount:         v.ConfigCount,
 			WorkflowDONId:       v.WorkflowDONId,
@@ -207,9 +206,9 @@ func (t *LocalRegistry) UnmarshalJSON(data []byte) error {
 		}
 	}
 
-	t.IDsToCapabilities = make(map[string]Capability)
+	l.IDsToCapabilities = make(map[string]Capability)
 	for k, v := range temp.IDsToCapabilities {
-		t.IDsToCapabilities[k] = Capability{
+		l.IDsToCapabilities[k] = Capability{
 			ID:             k,
 			CapabilityType: capabilities.CapabilityType(v.CapabilityType),
 		}
@@ -237,7 +236,7 @@ func newORM(ds sqlutil.DataSource, lggr logger.Logger) syncerORM {
 	}
 }
 
-func (orm syncerORM) addState(ctx context.Context, localRegistry LocalRegistry) error {
+func (orm syncerORM) addLocalRegistry(ctx context.Context, localRegistry LocalRegistry) error {
 	return sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
 		localRegistryJSON, err := localRegistry.MarshalJSON()
 		if err != nil {
@@ -262,7 +261,7 @@ WHERE data_hash NOT IN (
 	})
 }
 
-func (orm syncerORM) latestState(ctx context.Context) (*LocalRegistry, error) {
+func (orm syncerORM) latestLocalRegistry(ctx context.Context) (*LocalRegistry, error) {
 	var localRegistry LocalRegistry
 	var localRegistryJSON string
 	err := orm.ds.GetContext(ctx, &localRegistryJSON, `SELECT data FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)

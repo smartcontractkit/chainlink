@@ -48,8 +48,8 @@ type registrySyncer struct {
 
 	orm *syncerORM
 
-	updateChan chan *LocalRegistry
-	dbMu       sync.RWMutex
+	updateChan     chan *LocalRegistry
+	testUpdateChan chan bool
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -70,12 +70,11 @@ func New(
 	registryAddress string,
 	ds sqlutil.DataSource,
 ) (*registrySyncer, error) {
-	stopCh := make(services.StopChan)
-	updateChan := make(chan *LocalRegistry)
 	orm := newORM(ds, lggr)
 	return &registrySyncer{
-		stopCh:          stopCh,
-		updateChan:      updateChan,
+		stopCh:          make(services.StopChan),
+		updateChan:      make(chan *LocalRegistry),
+		testUpdateChan:  make(chan bool),
 		lggr:            lggr.Named("RegistrySyncer"),
 		relayer:         relayer,
 		registryAddress: registryAddress,
@@ -187,11 +186,16 @@ func (s *registrySyncer) updateStateLoop() {
 				// channel has been closed, terminating.
 				return
 			}
-			s.dbMu.Lock()
-			if err := s.orm.addState(ctx, *localRegistry); err != nil {
+			if err := s.orm.addLocalRegistry(ctx, *localRegistry); err != nil {
 				s.lggr.Errorw("failed to save state to local registry", "error", err)
 			}
-			s.dbMu.Unlock()
+			go func() {
+				select {
+				case <-s.stopCh:
+					return
+				case s.testUpdateChan <- true:
+				}
+			}()
 		}
 	}
 }
@@ -323,7 +327,7 @@ func (s *registrySyncer) sync(ctx context.Context, isInitialSync bool) error {
 
 	if isInitialSync {
 		s.lggr.Debug("syncing with local registry")
-		lr, err = s.orm.latestState(ctx)
+		lr, err = s.orm.latestLocalRegistry(ctx)
 		if err != nil {
 			s.lggr.Errorw("failed to sync with local registry, using remote registry instead", "error", err)
 		} else {
@@ -402,6 +406,7 @@ func (s *registrySyncer) Close() error {
 	return s.StopOnce("RegistrySyncer", func() error {
 		close(s.stopCh)
 		close(s.updateChan)
+		close(s.testUpdateChan)
 		s.wg.Wait()
 		return nil
 	})
