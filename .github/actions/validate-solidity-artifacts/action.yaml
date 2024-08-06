@@ -14,7 +14,7 @@ inputs:
     description: Whether UML diagrams should be validated
     required: true
   sol_files:
-    description: Comma-separated list of Solidity files to check
+    description: Comma-separated (CSV) or space-separated (shell) list of Solidity files to check
     required: true
   # remove this when AurorNZ/paths-filter is fixed
   base_ref:
@@ -28,12 +28,50 @@ runs:
     if: ${{ inputs.base_ref != '' }}
     shell: bash
     run: git fetch origin ${{ inputs.base_ref }}
+  - name: Transform input array
+    id: transform_input_array
+    shell: bash
+    run: |
+      is_csv_format() {
+        local input="$1"
+        if [[ "$input" =~ "," ]]; then
+          return 0
+        else
+          return 1
+        fi
+      }
+      
+      is_space_separated_string() {
+        local input="$1"
+        if [[ "$input" =~ ^[^[:space:]]+([[:space:]][^[:space:]]+)*$ ]]; then
+          return 0
+        else
+          return 1
+        fi
+      }
+      
+      array="contracts/src/v0.8/functions/v1_3_0/FunctionsBillingNew.sol"
+      
+      if is_csv_format "$array"; then
+        echo "sol_files=$array"
+        exit 0
+      fi
+      
+      if is_space_separated_string "$array"; then
+        csv_array="${array// /,}"
+        echo "sol_files=$csv_array"
+        exit 0
+      fi
+      
+      echo "Error: Invalid input format for sol_files. Please provide a comma-separated (CSV) or space-separated (shell) list of Solidity files"
+      exit 1
+
   - name: Validate UML diagrams
     if: ${{ inputs.validate_uml_diagrams == 'true' }}
     shell: bash
     run: |
       echo "Validating UML diagrams"
-      IFS=',' read -r -a modified_files <<< "${{ inputs.sol_files }}"
+      IFS=',' read -r -a modified_files <<< "${{ steps.transform_input_array.outputs.sol_files }}"
       missing_svgs=()
       for file in "${modified_files[@]}"; do
         if [ "${{ inputs.base_ref }}" != "" ]; then
@@ -69,7 +107,7 @@ runs:
     shell: bash
     run: |
       echo "Validating Slither reports"
-      IFS=',' read -r -a modified_files <<< "${{ inputs.sol_files }}"
+      IFS=',' read -r -a modified_files <<< "${{ steps.transform_input_array.outputs.sol_files }}"
       missing_reports=()
       for file in "${modified_files[@]}"; do
         if [ "${{ inputs.base_ref }}" != "" ]; then
