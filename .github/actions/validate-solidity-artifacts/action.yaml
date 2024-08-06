@@ -38,7 +38,7 @@ runs:
       for file in "${modified_files[@]}"; do
         if [ "${{ inputs.base_ref }}" != "" ]; then
           # TODO remove this check when AurorNZ/paths-filter is fixed
-          status=$(git diff --name-status ${{ inputs.base_ref }} HEAD -- "$file"  | awk '{ print $1 }')
+          status=$(git diff --name-status origin/${{ inputs.base_ref }} HEAD -- "$file"  | awk '{ print $1 }')
           if [ "$status" == "D" ]; then
             echo "File $file was deleted, skipping validation"
             continue
