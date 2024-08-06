@@ -1,7 +1,6 @@
 package synchronization_test
 
 import (
-	"sync"
 	"testing"
 	"time"
 
@@ -22,11 +21,8 @@ func TestTelemetryIngressWorker_BuildTelemBatchReq(t *testing.T) {
 	chTelemetry := make(chan synchronization.TelemPayload, 10)
 	worker := synchronization.NewTelemetryIngressBatchWorker(
 		uint(maxTelemBatchSize),
-		time.Millisecond*1,
 		time.Second,
 		mocks.NewTelemClient(t),
-		&sync.WaitGroup{},
-		make(chan struct{}),
 		chTelemetry,
 		"0xa",
 		synchronization.OCR,
