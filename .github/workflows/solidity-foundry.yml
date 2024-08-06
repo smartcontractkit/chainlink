@@ -282,6 +282,9 @@ jobs:
             fi
             ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "." "$FILE" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
           done
+          
+          #TODO remove me
+          rm -rf contracts/slither-reports/*.md
 
       - name: Print Slither summary
         shell: bash
