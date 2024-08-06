@@ -20,6 +20,7 @@ contract AuthorizedCallers_setup is BaseTest {
 
 contract AuthorizedCallers_constructor is AuthorizedCallers_setup {
   event AuthorizedCallerAdded(address caller);
+  event AuthorizedCallerAdded2(address caller);
 
   function test_constructor_Success() public {
     for (uint256 i = 0; i < s_callers.length; ++i) {

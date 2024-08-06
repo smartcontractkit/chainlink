@@ -73,7 +73,6 @@ runs:
       missing_reports=()
       for file in "${modified_files[@]}"; do
         if [ "${{ inputs.base_ref }}" != "" ]; then
-          git branch -r | grep "${{ inputs.base_ref }}"
           # TODO remove this check when AurorNZ/paths-filter is fixed
           status=$(git diff --name-status origin/${{ inputs.base_ref }} HEAD -- "$file"  | awk '{ print $1 }')
           if [ "$status" == "D" ]; then
