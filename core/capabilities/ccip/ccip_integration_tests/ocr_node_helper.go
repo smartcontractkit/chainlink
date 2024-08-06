@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -131,9 +132,10 @@ func setupNodeOCR3(
 		CSAETHKeystore: kStore,
 	}
 	relayerFactory := chainlink.RelayerFactory{
-		Logger:       lggr,
-		LoopRegistry: plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing()),
-		GRPCOpts:     loop.GRPCOpts{},
+		Logger:               lggr,
+		LoopRegistry:         plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing()),
+		GRPCOpts:             loop.GRPCOpts{},
+		CapabilitiesRegistry: coretypes.NewCapabilitiesRegistry(t),
 	}
 	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(testutils.Context(t), relayerFactory, evmOpts)}
 	rci, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
