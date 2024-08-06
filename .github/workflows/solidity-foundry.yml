@@ -40,10 +40,6 @@ jobs:
           matrix=$(cat matrix.json | jq -c .)
           echo "matrix=$matrix" >> $GITHUB_OUTPUT
 
-# TODO
-# add back to non_src
-# - '.github/workflows/solidity-foundry.yml'
-
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
@@ -63,7 +59,8 @@ jobs:
         with:
           list-files: 'shell'
           filters: |
-            non_src:             
+            non_src:
+              - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
               - 'contracts/package.json'
@@ -282,9 +279,6 @@ jobs:
             fi
             ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "." "$FILE" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
           done
-          
-          #TODO remove me
-          rm -rf contracts/slither-reports/*.md
 
       - name: Print Slither summary
         shell: bash
