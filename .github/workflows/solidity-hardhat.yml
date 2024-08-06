@@ -393,6 +393,9 @@ jobs:
           
           echo "::debug::Processing contracts: $contract_list"
           ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/configs/slither/.slither.config-artifacts.json "." "$contract_list" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
+          
+          #TODO remove
+          rm contracts/slither-reports/*.md 
 
       - name: Upload UMLs and Slither reports
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
