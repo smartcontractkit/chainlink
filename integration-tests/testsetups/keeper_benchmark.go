@@ -62,11 +62,11 @@ type KeeperBenchmarkTest struct {
 	chainClient    *seth.Client
 	testConfig     tt.KeeperBenchmarkTestConfig
 
-	linkToken     contracts.LinkToken
-	ethFeed       contracts.MockLINKETHFeed
-	gasFeed       contracts.MockGasFeed
-	nativeFeed    contracts.MockETHUSDFeed
-	wrappedNative contracts.WETHToken
+	linkToken contracts.LinkToken
+	ethFeed   contracts.MockLINKETHFeed
+	gasFeed   contracts.MockGasFeed
+	//nativeFeed    contracts.MockETHUSDFeed
+	//wrappedNative contracts.WETHToken
 }
 
 // UpkeepConfig dictates details of how the test's upkeep contracts should be called and configured
