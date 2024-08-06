@@ -60,11 +60,12 @@ func NewTxm(
 	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
 	stuckTxDetector := NewStuckTxDetector(lggr, client.ConfiguredChainID(), chainConfig.ChainType(), fCfg.PriceMax(), txConfig.AutoPurge(), estimator, txStore, client)
 	evmConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr, stuckTxDetector, headTracker)
+	evmFinalizer := NewEvmFinalizer(lggr, client.ConfiguredChainID(), chainConfig.RPCDefaultBatchSize(), txStore, client, headTracker)
 	var evmResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
 		evmResender = NewEvmResender(lggr, txStore, txmClient, evmTracker, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
 	}
-	txm = NewEvmTxm(chainID, txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, evmBroadcaster, evmConfirmer, evmResender, evmTracker)
+	txm = NewEvmTxm(chainID, txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, evmBroadcaster, evmConfirmer, evmResender, evmTracker, evmFinalizer)
 	return txm, nil
 }
 
@@ -83,8 +84,9 @@ func NewEvmTxm(
 	confirmer *Confirmer,
 	resender *Resender,
 	tracker *Tracker,
+	finalizer Finalizer,
 ) *Txm {
-	return txmgr.NewTxm(chainId, cfg, txCfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, broadcaster, confirmer, resender, tracker, client.NewTxError)
+	return txmgr.NewTxm(chainId, cfg, txCfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, broadcaster, confirmer, resender, tracker, finalizer, client.NewTxError)
 }
 
 // NewEvmResender creates a new concrete EvmResender
@@ -102,8 +104,8 @@ func NewEvmResender(
 }
 
 // NewEvmReaper instantiates a new EVM-specific reaper object
-func NewEvmReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper[*big.Int], config EvmReaperConfig, txConfig txmgrtypes.ReaperTransactionsConfig, chainID *big.Int) *Reaper {
-	return txmgr.NewReaper(lggr, store, config, txConfig, chainID)
+func NewEvmReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper[*big.Int], txConfig txmgrtypes.ReaperTransactionsConfig, chainID *big.Int) *Reaper {
+	return txmgr.NewReaper(lggr, store, txConfig, chainID)
 }
 
 // NewEvmConfirmer instantiates a new EVM confirmer

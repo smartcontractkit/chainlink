@@ -490,13 +490,19 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 	config.SetFinalityDepth(uint32(42))
-	config.RpcDefaultBatchSize = uint32(4)
 
+	evmConfig.RpcDefaultBatchSize = uint32(4)
 	evmConfig.ResendAfterThreshold = 1 * time.Hour
 	evmConfig.ReaperThreshold = 1 * time.Hour
 	evmConfig.ReaperInterval = 1 * time.Hour
 
 	kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return([]common.Address{}, nil)
+
+	head := cltest.Head(42)
+	finalizedHead := cltest.Head(0)
+
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(finalizedHead, nil).Once()
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
@@ -506,7 +512,6 @@ func TestTxm_Lifecycle(t *testing.T) {
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst)
 	require.NoError(t, err)
 
-	head := cltest.Head(42)
 	// It should not hang or panic
 	txm.OnNewLongestChain(tests.Context(t), head)
 
@@ -608,6 +613,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 	gcfg := configtest.NewTestGeneralConfig(t)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
+<<<<<<< HEAD
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
@@ -619,6 +625,8 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 	require.NoError(t, err)
 	servicetest.Run(t, txm)
 
+=======
+>>>>>>> 2312827156f24fa4a6e420aec12e5a3aeac81e2b
 	head := &evmtypes.Head{
 		Hash:   utils.NewHash(),
 		Number: 100,
@@ -628,6 +636,19 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 			IsFinalized: true,
 		},
 	}
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head.Parent, nil).Once()
+	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
+	feeEstimator.On("Start", mock.Anything).Return(nil).Once()
+	feeEstimator.On("Close", mock.Anything).Return(nil).Once()
+	feeEstimator.On("OnNewLongestChain", mock.Anything, mock.Anything).Once()
+	txm, err := makeTestEvmTxm(t, db, ethClient, feeEstimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), gcfg.Database(), gcfg.Database().Listener(), ethKeyStore)
+	require.NoError(t, err)
+	servicetest.Run(t, txm)
+
 	txm.OnNewLongestChain(ctx, head)
 
 	t.Run("returns error if transaction not found", func(t *testing.T) {
@@ -717,11 +738,40 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
 		err = txStore.InsertTxAttempt(ctx, &attempt)
 		require.NoError(t, err)
-		// Insert receipt for finalized block num
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, head.ParentHash, attempt.Hash)
+		// Insert receipt for unfinalized block num
+		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, attempt.Hash)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
 		require.Equal(t, commontypes.Unconfirmed, state)
+	})
+
+	t.Run("returns finalized for finalized state", func(t *testing.T) {
+		idempotencyKey := uuid.New().String()
+		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		nonce := evmtypes.Nonce(0)
+		broadcast := time.Now()
+		tx := &txmgr.Tx{
+			Sequence:           &nonce,
+			IdempotencyKey:     &idempotencyKey,
+			FromAddress:        fromAddress,
+			EncodedPayload:     []byte{1, 2, 3},
+			FeeLimit:           feeLimit,
+			State:              txmgrcommon.TxFinalized,
+			BroadcastAt:        &broadcast,
+			InitialBroadcastAt: &broadcast,
+		}
+		err := txStore.InsertTx(ctx, tx)
+		require.NoError(t, err)
+		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
+		require.NoError(t, err)
+		attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
+		err = txStore.InsertTxAttempt(ctx, &attempt)
+		require.NoError(t, err)
+		// Insert receipt for finalized block num
+		mustInsertEthReceipt(t, txStore, head.Parent.Number, head.Parent.Hash, attempt.Hash)
+		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
+		require.NoError(t, err)
+		require.Equal(t, commontypes.Finalized, state)
 	})
 
 	t.Run("returns unconfirmed for confirmed missing receipt state", func(t *testing.T) {
@@ -1018,6 +1068,12 @@ func mustCreateUnstartedTxFromEvmTxRequest(t testing.TB, txStore txmgr.EvmTxStor
 	require.NoError(t, err)
 
 	return tx
+}
+
+func mustInsertUnstartedTx(t testing.TB, txStore txmgr.TestEvmTxStore, fromAddress common.Address) {
+	etx := cltest.NewEthTx(fromAddress)
+	ctx := tests.Context(t)
+	require.NoError(t, txStore.InsertTx(ctx, &etx))
 }
 
 func txRequestWithStrategy(strategy txmgrtypes.TxStrategy) func(*txmgr.TxRequest) {
