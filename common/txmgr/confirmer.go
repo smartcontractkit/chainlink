@@ -136,7 +136,7 @@ type Confirmer[
 	isStarted    bool
 	isReceiptNil func(R) bool
 
-	confirmerHeadTracker confirmerHeadTracker[HEAD, BLOCK_HASH]
+	headTracker confirmerHeadTracker[HEAD, BLOCK_HASH]
 }
 
 func NewConfirmer[
@@ -164,21 +164,21 @@ func NewConfirmer[
 ) *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Confirmer")
 	return &Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
-		txStore:              txStore,
-		lggr:                 logger.Sugared(lggr),
-		client:               client,
-		TxAttemptBuilder:     txAttemptBuilder,
-		resumeCallback:       nil,
-		chainConfig:          chainConfig,
-		feeConfig:            feeConfig,
-		txConfig:             txConfig,
-		dbConfig:             dbConfig,
-		chainID:              client.ConfiguredChainID(),
-		ks:                   keystore,
-		mb:                   mailbox.NewSingle[HEAD](),
-		isReceiptNil:         isReceiptNil,
-		stuckTxDetector:      stuckTxDetector,
-		confirmerHeadTracker: headTracker,
+		txStore:          txStore,
+		lggr:             logger.Sugared(lggr),
+		client:           client,
+		TxAttemptBuilder: txAttemptBuilder,
+		resumeCallback:   nil,
+		chainConfig:      chainConfig,
+		feeConfig:        feeConfig,
+		txConfig:         txConfig,
+		dbConfig:         dbConfig,
+		chainID:          client.ConfiguredChainID(),
+		ks:               keystore,
+		mb:               mailbox.NewSingle[HEAD](),
+		isReceiptNil:     isReceiptNil,
+		stuckTxDetector:  stuckTxDetector,
+		headTracker:      headTracker,
 	}
 }
 
@@ -295,7 +295,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 		return fmt.Errorf("CheckConfirmedMissingReceipt failed: %w", err)
 	}
 
-	_, latestFinalizedHead, err := ec.confirmerHeadTracker.LatestAndFinalizedBlock(ctx)
+	_, latestFinalizedHead, err := ec.headTracker.LatestAndFinalizedBlock(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve latest finalized head: %w", err)
 	}
