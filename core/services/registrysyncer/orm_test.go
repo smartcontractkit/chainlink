@@ -61,7 +61,7 @@ func generateState(t *testing.T) LocalRegistry {
 	capabilityID2 := randomWord()
 	capabilityIDStr := hex.EncodeToString(capabilityID[:])
 	capabilityID2Str := hex.EncodeToString(capabilityID2[:])
-	rtc := capabilities.RemoteTriggerConfig{
+	rtc := &capabilities.RemoteTriggerConfig{
 		RegistrationRefresh:     20 * time.Second,
 		MinResponsesToAggregate: 2,
 		RegistrationExpiry:      60 * time.Second,
