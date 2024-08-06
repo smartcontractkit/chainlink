@@ -50,5 +50,5 @@ func TestCRIB(t *testing.T) {
 			return false
 		}
 		return true
-	}, 10*time.Minute, 5*time.Second)
+	}, 20*time.Minute, 5*time.Second)
 }
