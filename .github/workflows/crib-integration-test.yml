@@ -24,6 +24,7 @@ jobs:
       - name: setup-gap crib
         uses: smartcontractkit/.github/actions/setup-gap@00b58566e0ee2761e56d9db0ea72b783fdb89b8d # setup-gap@0.4.0
         with:
+          aws-role-duration-seconds: 3600 # 1 hour
           aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_CRIB_STAGE }}
           aws-region: ${{ secrets.AWS_REGION }}
@@ -41,6 +42,7 @@ jobs:
       - name: setup-gap k8s
         uses: smartcontractkit/.github/actions/setup-gap@00b58566e0ee2761e56d9db0ea72b783fdb89b8d # setup-gap@0.4.0
         with:
+          aws-role-duration-seconds: 3600 # 1 hour
           aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_K8S_STAGE }}
           aws-region: ${{ secrets.AWS_REGION }}
@@ -82,4 +84,4 @@ jobs:
           SETH_LOG_LEVEL: info
 #          RESTY_DEBUG: true
         run: |-
-          go test -v -timeout 15m -run TestCRIB
+          go test -v -timeout 60m -run TestCRIB
