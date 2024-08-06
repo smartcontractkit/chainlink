@@ -1,6 +1,9 @@
 package crib
 
 import (
+	"context"
+	"github.com/smartcontractkit/havoc/k8schaos"
+	"os"
 	"testing"
 	"time"
 
@@ -30,22 +33,24 @@ func TestCRIB(t *testing.T) {
 	err = actions.WatchNewOCRRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), 5*time.Minute)
 	require.NoError(t, err, "Error watching for new OCR round")
 
-	//ch, err := rebootCLNamespace(
-	//	1*time.Second,
-	//	os.Getenv("CRIB_NAMESPACE"),
-	//)
-	//ch.Create(context.Background())
-	//ch.AddListener(k8schaos.NewChaosLogger(l))
-	//t.Cleanup(func() {
-	//	err := ch.Delete(context.Background())
-	//	require.NoError(t, err)
-	//})
-	require.Eventually(t, func() bool {
-		err = actions.WatchNewOCRRound(l, sethClient, 3, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), 5*time.Minute)
-		if err != nil {
-			l.Info().Err(err).Msg("OCR round is not there yet")
-			return false
-		}
-		return true
-	}, 60*time.Minute, 5*time.Second)
+	if os.Getenv("TEST_PERSISTENCE") != "" {
+		ch, err := rebootCLNamespace(
+			1*time.Second,
+			os.Getenv("CRIB_NAMESPACE"),
+		)
+		ch.Create(context.Background())
+		ch.AddListener(k8schaos.NewChaosLogger(l))
+		t.Cleanup(func() {
+			err := ch.Delete(context.Background())
+			require.NoError(t, err)
+		})
+		require.Eventually(t, func() bool {
+			err = actions.WatchNewOCRRound(l, sethClient, 3, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), 5*time.Minute)
+			if err != nil {
+				l.Info().Err(err).Msg("OCR round is not there yet")
+				return false
+			}
+			return true
+		}, 20*time.Minute, 5*time.Second)
+	}
 }
