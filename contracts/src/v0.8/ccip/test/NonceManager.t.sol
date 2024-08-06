@@ -7,15 +7,17 @@ import {Client} from "../libraries/Client.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {Pool} from "../libraries/Pool.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
-import {OffRamp} from "../offRamp/OffRamp.sol";
+import {EVM2EVMMultiOffRamp} from "../offRamp/EVM2EVMMultiOffRamp.sol";
+import {EVM2EVMMultiOnRamp} from "../onRamp/EVM2EVMMultiOnRamp.sol";
 import {EVM2EVMOnRamp} from "../onRamp/EVM2EVMOnRamp.sol";
-import {OnRamp} from "../onRamp/OnRamp.sol";
+
 import {BaseTest} from "./BaseTest.t.sol";
+import {EVM2EVMMultiOnRampHelper} from "./helpers/EVM2EVMMultiOnRampHelper.sol";
 import {EVM2EVMOffRampHelper} from "./helpers/EVM2EVMOffRampHelper.sol";
 import {EVM2EVMOnRampHelper} from "./helpers/EVM2EVMOnRampHelper.sol";
 import {MockCommitStore} from "./mocks/MockCommitStore.sol";
-import {OffRampSetup} from "./offRamp/OffRampSetup.t.sol";
-import {OnRampSetup} from "./onRamp/OnRampSetup.t.sol";
+import {EVM2EVMMultiOffRampSetup} from "./offRamp/EVM2EVMMultiOffRampSetup.t.sol";
+import {EVM2EVMMultiOnRampSetup} from "./onRamp/EVM2EVMMultiOnRampSetup.t.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract NonceManager_typeAndVersion is Test {
@@ -86,7 +88,7 @@ contract NonceManager_NonceIncrementation is BaseTest {
   }
 }
 
-contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
+contract NonceManager_applyPreviousRampsUpdates is EVM2EVMMultiOnRampSetup {
   function test_SingleRampUpdate() public {
     address prevOnRamp = makeAddr("prevOnRamp");
     address prevOffRamp = makeAddr("prevOffRamp");
@@ -188,7 +190,7 @@ contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
   }
 }
 
-contract NonceManager_OnRampUpgrade is OnRampSetup {
+contract NonceManager_OnRampUpgrade is EVM2EVMMultiOnRampSetup {
   uint256 internal constant FEE_AMOUNT = 1234567890;
   EVM2EVMOnRampHelper internal s_prevOnRamp;
 
@@ -212,7 +214,7 @@ contract NonceManager_OnRampUpgrade is OnRampSetup {
       minFeeUSDCents: 1_00, // 1 USD
       maxFeeUSDCents: 1000_00, // 1,000 USD
       deciBps: 2_5, // 2.5 bps, or 0.025%
-      destGasOverhead: 140_000,
+      destGasOverhead: 40_000,
       destBytesOverhead: uint32(Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES),
       aggregateRateLimitEnabled: true
     });
@@ -265,7 +267,7 @@ contract NonceManager_OnRampUpgrade is OnRampSetup {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     vm.expectEmit();
-    emit OnRamp.CCIPSendRequested(DEST_CHAIN_SELECTOR, _messageToEvent(message, 1, 1, FEE_AMOUNT, OWNER));
+    emit EVM2EVMMultiOnRamp.CCIPSendRequested(DEST_CHAIN_SELECTOR, _messageToEvent(message, 1, 1, FEE_AMOUNT, OWNER));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, FEE_AMOUNT, OWNER);
   }
 
@@ -292,14 +294,18 @@ contract NonceManager_OnRampUpgrade is OnRampSetup {
 
     // new onramp nonce should start from 2, while sequence number start from 1
     vm.expectEmit();
-    emit OnRamp.CCIPSendRequested(DEST_CHAIN_SELECTOR, _messageToEvent(message, 1, startNonce + 2, FEE_AMOUNT, OWNER));
+    emit EVM2EVMMultiOnRamp.CCIPSendRequested(
+      DEST_CHAIN_SELECTOR, _messageToEvent(message, 1, startNonce + 2, FEE_AMOUNT, OWNER)
+    );
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, FEE_AMOUNT, OWNER);
 
     assertEq(startNonce + 2, s_outboundNonceManager.getOutboundNonce(DEST_CHAIN_SELECTOR, OWNER));
 
     // after another send, nonce should be 3, and sequence number be 2
     vm.expectEmit();
-    emit OnRamp.CCIPSendRequested(DEST_CHAIN_SELECTOR, _messageToEvent(message, 2, startNonce + 3, FEE_AMOUNT, OWNER));
+    emit EVM2EVMMultiOnRamp.CCIPSendRequested(
+      DEST_CHAIN_SELECTOR, _messageToEvent(message, 2, startNonce + 3, FEE_AMOUNT, OWNER)
+    );
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, FEE_AMOUNT, OWNER);
 
     assertEq(startNonce + 3, s_outboundNonceManager.getOutboundNonce(DEST_CHAIN_SELECTOR, OWNER));
@@ -314,12 +320,14 @@ contract NonceManager_OnRampUpgrade is OnRampSetup {
     address newSender = address(1234567);
     // new onramp nonce should start from 1 for new sender
     vm.expectEmit();
-    emit OnRamp.CCIPSendRequested(DEST_CHAIN_SELECTOR, _messageToEvent(message, 1, 1, FEE_AMOUNT, newSender));
+    emit EVM2EVMMultiOnRamp.CCIPSendRequested(
+      DEST_CHAIN_SELECTOR, _messageToEvent(message, 1, 1, FEE_AMOUNT, newSender)
+    );
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, FEE_AMOUNT, newSender);
   }
 }
 
-contract NonceManager_OffRampUpgrade is OffRampSetup {
+contract NonceManager_OffRampUpgrade is EVM2EVMMultiOffRampSetup {
   EVM2EVMOffRampHelper internal s_prevOffRamp;
   EVM2EVMOffRampHelper[] internal s_nestedPrevOffRamps;
 
@@ -359,20 +367,21 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     );
     s_inboundNonceManager.applyPreviousRampsUpdates(previousRamps);
 
-    OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](3);
-    sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
+    EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
+      new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](3);
+    sourceChainConfigs[0] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       isEnabled: true,
       onRamp: ON_RAMP_ADDRESS_1
     });
-    sourceChainConfigs[1] = OffRamp.SourceChainConfigArgs({
+    sourceChainConfigs[1] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_2,
       isEnabled: true,
       onRamp: ON_RAMP_ADDRESS_2
     });
-    sourceChainConfigs[2] = OffRamp.SourceChainConfigArgs({
+    sourceChainConfigs[2] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_3,
       isEnabled: true,
@@ -388,16 +397,16 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
   function test_Upgraded_Success() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
-
-    vm.recordLogs();
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
-    assertExecutionStateChangedEventLogs(
+    vm.expectEmit();
+    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
+
+    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
   }
 
   function test_NoPrevOffRampForChain_Success() public {
@@ -405,9 +414,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
     uint64 startNonceChain3 =
       s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_3, abi.encode(messages[0].sender));
-    s_prevOffRamp.execute(
-      _generateSingleLaneRampReportFromMessages(messages), new EVM2EVMOffRampHelper.GasLimitOverride[](0)
-    );
+    s_prevOffRamp.execute(_generateSingleLaneRampReportFromMessages(messages), new uint256[](0));
 
     // Nonce unchanged for chain 3
     assertEq(
@@ -416,13 +423,8 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
 
     Internal.Any2EVMRampMessage[] memory messagesChain3 =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_3, ON_RAMP_ADDRESS_3);
-
-    vm.recordLogs();
-
-    s_offRamp.executeSingleReport(
-      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messagesChain3), new uint256[](0)
-    );
-    assertExecutionStateChangedEventLogs(
+    vm.expectEmit();
+    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
       SOURCE_CHAIN_SELECTOR_3,
       messagesChain3[0].header.sequenceNumber,
       messagesChain3[0].header.messageId,
@@ -430,6 +432,9 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       ""
     );
 
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messagesChain3), new uint256[](0)
+    );
     assertEq(
       startNonceChain3 + 1, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_3, messagesChain3[0].sender)
     );
@@ -441,9 +446,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     uint64 startNonce = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(messages[0].sender));
 
     for (uint64 i = 1; i < 4; ++i) {
-      s_prevOffRamp.execute(
-        _generateSingleLaneRampReportFromMessages(messages), new EVM2EVMOffRampHelper.GasLimitOverride[](0)
-      );
+      s_prevOffRamp.execute(_generateSingleLaneRampReportFromMessages(messages), new uint256[](0));
 
       // messages contains a single message - update for the next execution
       messages[0].nonce++;
@@ -462,9 +465,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     uint64 startNonce = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_2, abi.encode(messages[0].sender));
 
     for (uint64 i = 1; i < 4; ++i) {
-      s_nestedPrevOffRamps[0].execute(
-        _generateSingleLaneRampReportFromMessages(messages), new EVM2EVMOffRampHelper.GasLimitOverride[](0)
-      );
+      s_nestedPrevOffRamps[0].execute(_generateSingleLaneRampReportFromMessages(messages), new uint256[](0));
 
       // messages contains a single message - update for the next execution
       messages[0].nonce++;
@@ -483,9 +484,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
 
     uint64 startNonce = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(messages[0].sender));
-    s_prevOffRamp.execute(
-      _generateSingleLaneRampReportFromMessages(messages), new EVM2EVMOffRampHelper.GasLimitOverride[](0)
-    );
+    s_prevOffRamp.execute(_generateSingleLaneRampReportFromMessages(messages), new uint256[](0));
 
     assertEq(
       startNonce + 1, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(messages[0].sender))
@@ -497,13 +496,8 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     messagesMultiRamp[0].header.nonce++;
     messagesMultiRamp[0].header.messageId = Internal._hash(messagesMultiRamp[0], ON_RAMP_ADDRESS_1);
 
-    vm.recordLogs();
-
-    s_offRamp.executeSingleReport(
-      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messagesMultiRamp), new uint256[](0)
-    );
-
-    assertExecutionStateChangedEventLogs(
+    vm.expectEmit();
+    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
       SOURCE_CHAIN_SELECTOR_1,
       messagesMultiRamp[0].header.sequenceNumber,
       messagesMultiRamp[0].header.messageId,
@@ -511,6 +505,9 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       ""
     );
 
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messagesMultiRamp), new uint256[](0)
+    );
     assertEq(
       startNonce + 2, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messagesMultiRamp[0].sender)
     );
@@ -519,11 +516,8 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     messagesMultiRamp[0].header.sequenceNumber++;
     messagesMultiRamp[0].header.messageId = Internal._hash(messagesMultiRamp[0], ON_RAMP_ADDRESS_1);
 
-    vm.recordLogs();
-    s_offRamp.executeSingleReport(
-      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messagesMultiRamp), new uint256[](0)
-    );
-    assertExecutionStateChangedEventLogs(
+    vm.expectEmit();
+    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
       SOURCE_CHAIN_SELECTOR_1,
       messagesMultiRamp[0].header.sequenceNumber,
       messagesMultiRamp[0].header.messageId,
@@ -531,6 +525,9 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       ""
     );
 
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messagesMultiRamp), new uint256[](0)
+    );
     assertEq(
       startNonce + 3, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messagesMultiRamp[0].sender)
     );
@@ -540,9 +537,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     Internal.EVM2EVMMessage[] memory messages =
       _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
 
-    s_prevOffRamp.execute(
-      _generateSingleLaneRampReportFromMessages(messages), new EVM2EVMOffRampHelper.GasLimitOverride[](0)
-    );
+    s_prevOffRamp.execute(_generateSingleLaneRampReportFromMessages(messages), new uint256[](0));
 
     Internal.Any2EVMRampMessage[] memory messagesMultiRamp =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
@@ -551,18 +546,19 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     messagesMultiRamp[0].sender = newSender;
     messagesMultiRamp[0].header.messageId = Internal._hash(messagesMultiRamp[0], ON_RAMP_ADDRESS_1);
 
-    // new sender nonce in new offramp should go from 0 -> 1
-    assertEq(s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, newSender), 0);
-    vm.recordLogs();
-    s_offRamp.executeSingleReport(
-      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messagesMultiRamp), new uint256[](0)
-    );
-    assertExecutionStateChangedEventLogs(
+    vm.expectEmit();
+    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
       SOURCE_CHAIN_SELECTOR_1,
       messagesMultiRamp[0].header.sequenceNumber,
       messagesMultiRamp[0].header.messageId,
       Internal.MessageExecutionState.SUCCESS,
       ""
+    );
+
+    // new sender nonce in new offramp should go from 0 -> 1
+    assertEq(s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, newSender), 0);
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messagesMultiRamp), new uint256[](0)
     );
     assertEq(s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, newSender), 1);
   }
@@ -593,9 +589,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     messagesSingleLane[0].messageId = Internal._hash(messagesSingleLane[0], s_prevOffRamp.metadataHash());
 
     // previous offramp executes msg and increases nonce
-    s_prevOffRamp.execute(
-      _generateSingleLaneRampReportFromMessages(messagesSingleLane), new EVM2EVMOffRampHelper.GasLimitOverride[](0)
-    );
+    s_prevOffRamp.execute(_generateSingleLaneRampReportFromMessages(messagesSingleLane), new uint256[](0));
     assertEq(
       startNonce + 1,
       s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(messagesSingleLane[0].sender))
@@ -605,15 +599,16 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     messages[0].header.messageId = Internal._hash(messages[0], ON_RAMP_ADDRESS_1);
 
     // new offramp is able to execute
-    vm.recordLogs();
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
-    assertExecutionStateChangedEventLogs(
+    vm.expectEmit();
+    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
+
+    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
     assertEq(startNonce + 2, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender));
   }
 

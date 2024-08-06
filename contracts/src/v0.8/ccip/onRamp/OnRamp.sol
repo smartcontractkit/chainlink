@@ -20,10 +20,10 @@ import {USDPriceWith18Decimals} from "../libraries/USDPriceWith18Decimals.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @notice The OnRamp is a contract that handles lane-specific fee logic
-/// @dev The OnRamp and OffRamp form an xchain upgradeable unit. Any change to one of them
-/// results in an onchain upgrade of all 3.
-contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
+/// @notice The EVM2EVMMultiOnRamp is a contract that handles lane-specific fee logic
+/// @dev The EVM2EVMMultiOnRamp, MultiCommitStore and EVM2EVMMultiOffRamp form an xchain upgradeable unit. Any change to one of them
+/// results an onchain upgrade of all 3.
+contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   using SafeERC20 for IERC20;
   using USDPriceWith18Decimals for uint224;
 
@@ -47,13 +47,13 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// RMN depends on this struct, if changing, please notify the RMN maintainers.
   // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
-    uint64 chainSelector; // ─────╮ Source chain selector
-    address rmnProxy; // ─────────╯ RMN proxy address
-    address nonceManager; // Nonce manager address
+    uint64 chainSelector; // ─────╮ Source chainSelector
+    address rmnProxy; // ─────────╯ Address of RMN proxy
+    address nonceManager; // Address of the nonce manager
     address tokenAdminRegistry; // Token admin registry address
   }
 
-  /// @dev Struct that contains the dynamic configuration
+  /// @dev Struct to contains the dynamic configuration
   // solhint-disable-next-line gas-struct-packing
   struct DynamicConfig {
     address priceRegistry; // Price registry address
@@ -63,7 +63,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
 
   /// @dev Struct to hold the configs for a destination chain
   struct DestChainConfig {
-    // The last used sequence number. This is zero in the case where no messages have yet been sent.
+    // The last used sequence number. This is zero in the case where no messages has been sent yet.
     // 0 is not a valid sequence number for any real transaction.
     uint64 sequenceNumber;
     // This is the local router address that is allowed to send messages to the destination chain.
@@ -80,7 +80,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   }
 
   // STATIC CONFIG
-  string public constant override typeAndVersion = "OnRamp 1.6.0-dev";
+  string public constant override typeAndVersion = "EVM2EVMMultiOnRamp 1.6.0-dev";
   /// @dev The chain ID of the source chain that this contract is deployed to
   uint64 internal immutable i_chainSelector;
   /// @dev The address of the rmn proxy
@@ -89,9 +89,10 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   address internal immutable i_nonceManager;
   /// @dev The address of the token admin registry
   address internal immutable i_tokenAdminRegistry;
+  /// @dev the maximum number of nops that can be configured at the same time.
 
   // DYNAMIC CONFIG
-  /// @dev The dynamic config for the onRamp
+  /// @dev The config for the onRamp
   DynamicConfig internal s_dynamicConfig;
 
   /// @dev The destination chain specific configs
@@ -124,7 +125,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
 
   /// @notice Gets the next sequence number to be used in the onRamp
   /// @param destChainSelector The destination chain selector
-  /// @return nextSequenceNumber The next sequence number to be used
+  /// @return the next sequence number to be used
   function getExpectedNextSequenceNumber(uint64 destChainSelector) external view returns (uint64) {
     return s_destChainConfigs[destChainSelector].sequenceNumber + 1;
   }
@@ -183,7 +184,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
       tokenAmounts: new Internal.RampTokenAmount[](message.tokenAmounts.length)
     });
 
-    // Lock / burn the tokens as last step. TokenPools may not always be trusted.
+    // Lock the tokens as last step. TokenPools may not always be trusted.
     // There should be no state changes after external call to TokenPools.
     for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
       newMessage.tokenAmounts[i] =
@@ -191,13 +192,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     }
 
     // Validate pool return data after it is populated (view function - no state changes)
-    bytes[] memory destExecDataPerToken = IPriceRegistry(s_dynamicConfig.priceRegistry).processPoolReturnData(
+    IPriceRegistry(s_dynamicConfig.priceRegistry).validatePoolReturnData(
       destChainSelector, newMessage.tokenAmounts, message.tokenAmounts
     );
-
-    for (uint256 i = 0; i < newMessage.tokenAmounts.length; ++i) {
-      newMessage.tokenAmounts[i].destExecData = destExecDataPerToken[i];
-    }
 
     // Override extraArgs with latest version
     newMessage.extraArgs = convertedExtraArgs;
@@ -219,10 +216,10 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
 
   /// @notice Uses a pool to lock or burn a token
   /// @param tokenAndAmount Token address and amount to lock or burn
-  /// @param destChainSelector Target destination chain selector of the message
+  /// @param destChainSelector Target dest chain selector of the message
   /// @param receiver Message receiver
   /// @param originalSender Message sender
-  /// @return rampTokenAmount Ramp token and amount data
+  /// @return rampTokenAndAmount Ramp token and amount data
   function _lockOrBurnSingleToken(
     Client.EVMTokenAmount memory tokenAndAmount,
     uint64 destChainSelector,
@@ -255,8 +252,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
       sourcePoolAddress: abi.encode(sourcePool),
       destTokenAddress: poolReturnData.destTokenAddress,
       extraData: poolReturnData.destPoolData,
-      amount: tokenAndAmount.amount,
-      destExecData: "" // This is set in the processPoolReturnData function
+      amount: tokenAndAmount.amount
     });
   }
 
@@ -265,8 +261,8 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   // ================================================================
 
   /// @notice Returns the static onRamp config.
-  /// @dev RMN depends on this function, if modified, please notify the RMN maintainers.
-  /// @return staticConfig the static configuration.
+  /// @dev RMN depends on this function, if changing, please notify the RMN maintainers.
+  /// @return the configuration.
   function getStaticConfig() external view returns (StaticConfig memory) {
     return StaticConfig({
       chainSelector: i_chainSelector,
@@ -277,7 +273,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   }
 
   /// @notice Returns the dynamic onRamp config.
-  /// @return dynamicConfig the dynamic configuration.
+  /// @return dynamicConfig the configuration.
   function getDynamicConfig() external view returns (DynamicConfig memory dynamicConfig) {
     return s_dynamicConfig;
   }
@@ -312,8 +308,8 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     );
   }
 
-  /// @notice Updates destination chains specific configs.
-  /// @param destChainConfigArgs Array of destination chain specific configs.
+  /// @notice Updates the destination chain specific config.
+  /// @param destChainConfigArgs Array of source chain specific configs.
   function applyDestChainConfigUpdates(DestChainConfigArgs[] memory destChainConfigArgs) external onlyOwner {
     _applyDestChainConfigUpdates(destChainConfigArgs);
   }
