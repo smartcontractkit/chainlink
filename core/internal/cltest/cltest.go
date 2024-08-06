@@ -446,10 +446,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 		initOps = append(initOps, chainlink.InitAptos(testCtx, relayerFactory, aptosCfg))
 	}
-<<<<<<< HEAD
 
-=======
->>>>>>> 185b4d510b (Add missing initialization code for Aptos)
 	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {
 		t.Fatal(err)
