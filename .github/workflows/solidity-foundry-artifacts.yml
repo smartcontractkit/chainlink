@@ -344,18 +344,13 @@ jobs:
           python-version: '3.8'
 
       - name: Install solc-select and solc
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-pip
-          pip3 install solc-select
-          sudo ln -s /usr/local/bin/solc-select /usr/bin/solc-select
-          solc-select install 0.8.19
-          solc-select use 0.8.19
+        uses: ./.github/actions/setup-solc-select
+        with:
+          to_install: '0.8.19'
+          to_use: '0.8.19'
 
       - name: Install Slither
-        run: |
-          python -m pip install --upgrade pip
-          pip install slither-analyzer
+        uses: ./.github/actions/setup-slither
 
       - name: Generate UML
         shell: bash
@@ -386,57 +381,15 @@ jobs:
             contracts/slither-reports
           retention-days: 7
 
-      - name: Validate UMLs and Slither reports
-        if: ${{ needs.changes.outputs.product_changes == 'true' || needs.changes.outputs.shared_changes == 'true' }}
-        run: |
-          echo "Validating UMLs and Slither reports"
-          IFS=',' read -r -a modified_files <<< "${{ needs.changes.outputs.files }}"
-          missing_svgs=()
-          missing_reports=()
-          for file in "${modified_files[@]}"; do      
-            # TODO remove this check when AurorNZ/paths-filter is fixed
-            status=$(git diff --name-status ${{ inputs.base_ref }} ${{ github.sha }} -- "$file"  | awk '{ print $1 }')
-            if [ "$status" == "D" ]; then
-              echo "File $file was deleted, skipping validation"
-              continue
-            fi
-          
-            svg_file="$(basename "${file%.sol}").svg"
-            if [ ! -f "contracts/uml-diagrams/$svg_file" ]; then
-              echo "Error: UML diagram for $file not found"
-              missing_svgs+=("$file")
-            fi
-          
-            report_file="$(basename "${file%.sol}")-slither-report.md"            
-            if [ ! -f "contracts/slither-reports/$report_file" ]; then
-              echo "Error: Slither report for $file not found"
-              missing_reports+=("$file")
-            fi
-          done
-          
-          if [ ${#missing_svgs[@]} -gt 0 ]; then
-              echo "Error: Missing UML diagrams for files: ${missing_svgs[@]}"
-              echo "# Warning!" >> $GITHUB_STEP_SUMMARY
-              echo "## Reason: Missing UML diagrams for files:" >> $GITHUB_STEP_SUMMARY
-              for file in "${missing_svgs[@]}"; do
-                echo " $file" >> $GITHUB_STEP_SUMMARY
-              done
-              echo "## Action required: Please try to generate artifacts for them locally or using a different tool" >> $GITHUB_STEP_SUMMARY
-          else 
-              echo "All UML diagrams generated successfully"
-          fi
-          
-          if [ ${#missing_reports[@]} -gt 0 ]; then
-              echo "Error: Missing Slither reports for files: ${missing_reports[@]}"
-              echo "# Warning!" >> $GITHUB_STEP_SUMMARY
-              echo "## Reason: Missing Slither reports for files:" >> $GITHUB_STEP_SUMMARY
-              for file in "${missing_reports[@]}"; do
-                echo " $file" >> $GITHUB_STEP_SUMMARY
-              done
-              echo "## Action required: Please try to generate artifacts for them locally" >> $GITHUB_STEP_SUMMARY
-          else 
-             echo "All Slither reports generated successfully"
-          fi
+      - name: Validate if all Slither run for all contracts
+        uses: ./.github/actions/validate-solidity-artifacts
+        with:
+          validate_slither_reports: 'true'
+          validate_uml_diagrams: 'true'
+          slither_reports_path: 'contracts/slither-reports'
+          uml_diagrams_path: 'contracts/uml-diagrams'
+          sol_files: ${{ needs.changes.outputs.not_test_sol_modified_files }}
+          base_ref: ${{ inputs.base_ref }}
 
   gather-all-artifacts:
     name: Gather all artifacts
