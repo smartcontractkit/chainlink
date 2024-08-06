@@ -165,12 +165,21 @@ func unmarshalCapabilityConfig(data []byte) (capabilities.CapabilityConfiguratio
 		return capabilities.CapabilityConfiguration{}, err
 	}
 
-	var rtc capabilities.RemoteTriggerConfig
-	if prtc := cconf.GetRemoteTriggerConfig(); prtc != nil {
-		rtc.RegistrationRefresh = prtc.RegistrationRefresh.AsDuration()
-		rtc.RegistrationExpiry = prtc.RegistrationExpiry.AsDuration()
-		rtc.MinResponsesToAggregate = prtc.MinResponsesToAggregate
-		rtc.MessageExpiry = prtc.MessageExpiry.AsDuration()
+	var remoteTriggerConfig *capabilities.RemoteTriggerConfig
+	var remoteTargetConfig *capabilities.RemoteTargetConfig
+
+	switch cconf.GetRemoteConfig().(type) {
+	case *capabilitiespb.CapabilityConfig_RemoteTriggerConfig:
+		prtc := cconf.GetRemoteTriggerConfig()
+		remoteTriggerConfig = &capabilities.RemoteTriggerConfig{}
+		remoteTriggerConfig.RegistrationRefresh = prtc.RegistrationRefresh.AsDuration()
+		remoteTriggerConfig.RegistrationExpiry = prtc.RegistrationExpiry.AsDuration()
+		remoteTriggerConfig.MinResponsesToAggregate = prtc.MinResponsesToAggregate
+		remoteTriggerConfig.MessageExpiry = prtc.MessageExpiry.AsDuration()
+	case *capabilitiespb.CapabilityConfig_RemoteTargetConfig:
+		prtc := cconf.GetRemoteTargetConfig()
+		remoteTargetConfig = &capabilities.RemoteTargetConfig{}
+		remoteTargetConfig.RequestHashExcludedAttributes = prtc.RequestHashExcludedAttributes
 	}
 
 	dc, err := values.FromMapValueProto(cconf.DefaultConfig)
@@ -180,7 +189,8 @@ func unmarshalCapabilityConfig(data []byte) (capabilities.CapabilityConfiguratio
 
 	return capabilities.CapabilityConfiguration{
 		DefaultConfig:       dc,
-		RemoteTriggerConfig: rtc,
+		RemoteTriggerConfig: remoteTriggerConfig,
+		RemoteTargetConfig:  remoteTargetConfig,
 	}, nil
 }
 
@@ -222,8 +232,6 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 			if innerErr != nil {
 				return nil, innerErr
 			}
-
-			cconf.RemoteTriggerConfig.ApplyDefaults()
 
 			cc[cid] = cconf
 		}

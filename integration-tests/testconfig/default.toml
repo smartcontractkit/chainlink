@@ -413,3 +413,155 @@ gas_price_estimation_enabled = true
 gas_price_estimation_blocks = 100
 # priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
 gas_price_estimation_tx_priority = "standard"
+
+
+[[Seth.networks]]
+name = "Nexon Mainnet"
+transaction_timeout = "3m"
+eip_1559_dynamic_fees = true
+transfer_gas_fee = 21_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 30_000_000_000
+
+# EIP-1559 transactions
+gas_fee_cap = 30_000_000_000
+gas_tip_cap = 1_800_000_000
+
+
+[Network.EVMNetworks.NEXON_MAINNET]
+evm_name = "NEXON_MAINNET"
+#evm_urls = ["rpc ws endpoint"]
+#evm_http_urls = ["rpc http endpoint"]
+client_implementation = "Ethereum"
+#evm_keys = ["private keys you want to use"]
+evm_simulated = false
+evm_chainlink_transaction_limit = 5000
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 10000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_chain_id = 60118
+
+[[Seth.networks]]
+name = "Nexon Stage"
+transaction_timeout = "3m"
+eip_1559_dynamic_fees = true
+transfer_gas_fee = 21_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 30_000_000_000
+
+# EIP-1559 transactions
+gas_fee_cap = 30_000_000_000
+gas_tip_cap = 1_800_000_000
+
+
+[Network.EVMNetworks.NEXON_STAGE]
+evm_name = "NEXON_STAGE"
+#evm_urls = ["rpc ws endpoint"]
+#evm_http_urls = ["rpc http endpoint"]
+client_implementation = "Ethereum"
+#evm_keys = ["private keys you want to use"]
+evm_simulated = false
+evm_chainlink_transaction_limit = 5000
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 10000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_chain_id = 847799
+
+
+####
+
+[[Seth.networks]]
+name = "Nexon QA"
+transaction_timeout = "3m"
+eip_1559_dynamic_fees = true
+transfer_gas_fee = 21_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 30_000_000_000
+
+# EIP-1559 transactions
+gas_fee_cap = 30_000_000_000
+gas_tip_cap = 1_800_000_000
+
+
+[Network.EVMNetworks.NEXON_QA]
+evm_name = "NEXON_QA"
+#evm_urls = ["rpc ws endpoint"]
+#evm_http_urls = ["rpc http endpoint"]
+client_implementation = "Ethereum"
+#evm_keys = ["private keys you want to use"]
+evm_simulated = false
+evm_chainlink_transaction_limit = 5000
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 10000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_chain_id = 807424
+
+#####
+
+[[Seth.networks]]
+name = "Nexon Test"
+transaction_timeout = "3m"
+eip_1559_dynamic_fees = true
+transfer_gas_fee = 21_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 30_000_000_000
+
+# EIP-1559 transactions
+gas_fee_cap = 30_000_000_000
+gas_tip_cap = 1_800_000_000
+
+
+[Network.EVMNetworks.NEXON_TEST]
+evm_name = "NEXON_TEST"
+#evm_urls = ["rpc ws endpoint"]
+#evm_http_urls = ["rpc http endpoint"]
+client_implementation = "Ethereum"
+#evm_keys = ["private keys you want to use"]
+evm_simulated = false
+evm_chainlink_transaction_limit = 5000
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 10000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_chain_id = 595581
+
+#####
+[[Seth.networks]]
+name = "Nexon Dev"
+transaction_timeout = "3m"
+eip_1559_dynamic_fees = true
+transfer_gas_fee = 21_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 30_000_000_000
+
+# EIP-1559 transactions
+gas_fee_cap = 30_000_000_000
+gas_tip_cap = 1_800_000_000
+
+
+[Network.EVMNetworks.NEXON_DEV]
+evm_name = "NEXON_DEV"
+#evm_urls = ["rpc ws endpoint"]
+#evm_http_urls = ["rpc http endpoint"]
+client_implementation = "Ethereum"
+#evm_keys = ["private keys you want to use"]
+evm_simulated = false
+evm_chainlink_transaction_limit = 5000
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 10000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_chain_id = 5668
