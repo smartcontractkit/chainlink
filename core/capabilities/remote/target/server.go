@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"sync"
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -24,7 +26,9 @@ import (
 // server communicates with corresponding client on remote nodes.
 type server struct {
 	services.StateMachine
-	lggr         logger.Logger
+	lggr logger.Logger
+
+	config       *commoncap.RemoteTargetConfig
 	peerID       p2ptypes.PeerID
 	underlying   commoncap.TargetCapability
 	capInfo      commoncap.CapabilityInfo
@@ -51,9 +55,14 @@ type requestAndMsgID struct {
 	messageID string
 }
 
-func NewServer(peerID p2ptypes.PeerID, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON,
+func NewServer(config *commoncap.RemoteTargetConfig, peerID p2ptypes.PeerID, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON,
 	workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) *server {
+	if config == nil {
+		lggr.Info("no config provided, using default values")
+		config = &commoncap.RemoteTargetConfig{}
+	}
 	return &server{
+		config:       config,
 		underlying:   underlying,
 		peerID:       peerID,
 		capInfo:      capInfo,
@@ -126,11 +135,16 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		return
 	}
 
+	msgHash, err := r.getMessageHash(msg)
+	if err != nil {
+		r.lggr.Errorw("failed to get message hash", "err", err)
+		return
+	}
+
 	// A request is uniquely identified by the message id and the hash of the payload to prevent a malicious
 	// actor from sending a different payload with the same message id
 	messageId := GetMessageID(msg)
-	hash := sha256.Sum256(msg.Payload)
-	requestID := messageId + hex.EncodeToString(hash[:])
+	requestID := messageId + hex.EncodeToString(msgHash[:])
 
 	if requestIDs, ok := r.messageIDToRequestIDsCount[messageId]; ok {
 		requestIDs[requestID] = requestIDs[requestID] + 1
@@ -161,10 +175,30 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 
 	reqAndMsgID := r.requestIDToRequest[requestID]
 
-	err := reqAndMsgID.request.OnMessage(ctx, msg)
+	err = reqAndMsgID.request.OnMessage(ctx, msg)
 	if err != nil {
 		r.lggr.Errorw("request failed to OnMessage new message", "request", reqAndMsgID, "err", err)
 	}
+}
+
+func (r *server) getMessageHash(msg *types.MessageBody) ([32]byte, error) {
+	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
+	}
+
+	for _, path := range r.config.RequestHashExcludedAttributes {
+		if !req.Inputs.DeleteAtPath(path) {
+			return [32]byte{}, fmt.Errorf("failed to delete attribute from map at path: %s", path)
+		}
+	}
+
+	reqBytes, err := pb.MarshalCapabilityRequest(req)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to marshal capability request: %w", err)
+	}
+	hash := sha256.Sum256(reqBytes)
+	return hash, nil
 }
 
 func GetMessageID(msg *types.MessageBody) string {

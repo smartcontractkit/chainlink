@@ -22,7 +22,7 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240731184516-249ef7ad0cdc
+	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240805160614-501c4f40b98c
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7
 	github.com/spf13/cobra v1.8.0
@@ -60,7 +60,7 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.12.1 // indirect
 	github.com/XSAM/otelsql v0.27.0 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
-	github.com/avast/retry-go/v4 v4.5.1 // indirect
+	github.com/avast/retry-go/v4 v4.6.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -273,7 +273,7 @@ require (
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240801131703-fd75761c982f // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240710170203-5b41615da827 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240712132946-267a37c5ac6e // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240709043547-03612098f799 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 // indirect

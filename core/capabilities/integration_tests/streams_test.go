@@ -22,8 +22,8 @@ func Test_AllAtOnceTransmissionSchedule(t *testing.T) {
 
 	// The don IDs set in the below calls are inferred from the order in which the dons are added to the capabilities registry
 	// in the setupCapabilitiesRegistryContract function, should this order change the don IDs will need updating.
-	workflowDonInfo := createDonInfo(t, don{id: 1, numNodes: 5, f: 1})
-	triggerDonInfo := createDonInfo(t, don{id: 2, numNodes: 7, f: 1})
+	workflowDonInfo := createDonInfo(t, don{id: 1, numNodes: 7, f: 2})
+	triggerDonInfo := createDonInfo(t, don{id: 2, numNodes: 7, f: 2})
 	targetDonInfo := createDonInfo(t, don{id: 3, numNodes: 4, f: 1})
 
 	consumer, feedIDs, triggerSink := setupStreamDonsWithTransmissionSchedule(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, 3,
@@ -45,8 +45,8 @@ func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
 
 	// The don IDs set in the below calls are inferred from the order in which the dons are added to the capabilities registry
 	// in the setupCapabilitiesRegistryContract function, should this order change the don IDs will need updating.
-	workflowDonInfo := createDonInfo(t, don{id: 1, numNodes: 5, f: 1})
-	triggerDonInfo := createDonInfo(t, don{id: 2, numNodes: 7, f: 1})
+	workflowDonInfo := createDonInfo(t, don{id: 1, numNodes: 7, f: 2})
+	triggerDonInfo := createDonInfo(t, don{id: 2, numNodes: 7, f: 2})
 	targetDonInfo := createDonInfo(t, don{id: 3, numNodes: 4, f: 1})
 
 	consumer, feedIDs, triggerSink := setupStreamDonsWithTransmissionSchedule(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, 3,
