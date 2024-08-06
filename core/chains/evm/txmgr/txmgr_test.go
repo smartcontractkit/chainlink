@@ -613,20 +613,6 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 	gcfg := configtest.NewTestGeneralConfig(t)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
-<<<<<<< HEAD
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
-	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
-	feeEstimator.On("Start", mock.Anything).Return(nil).Once()
-	feeEstimator.On("Close", mock.Anything).Return(nil).Once()
-	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
-	feeEstimator.On("OnNewLongestChain", mock.Anything, mock.Anything).Once()
-	txm, err := makeTestEvmTxm(t, db, ethClient, feeEstimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), gcfg.Database(), gcfg.Database().Listener(), ethKeyStore)
-	require.NoError(t, err)
-	servicetest.Run(t, txm)
-
-=======
->>>>>>> 2312827156f24fa4a6e420aec12e5a3aeac81e2b
 	head := &evmtypes.Head{
 		Hash:   utils.NewHash(),
 		Number: 100,
@@ -641,6 +627,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head.Parent, nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil)
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	feeEstimator.On("Start", mock.Anything).Return(nil).Once()
 	feeEstimator.On("Close", mock.Anything).Return(nil).Once()
