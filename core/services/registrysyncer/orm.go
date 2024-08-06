@@ -39,17 +39,27 @@ type capabilitiesRegistryNodeInfo struct {
 
 func (l *LocalRegistry) MarshalJSON() ([]byte, error) {
 	idsToDONs := make(map[DonID]capabilitiesDON)
-	for k, v := range l.IDsToDONs {
+	for donID, don := range l.IDsToDONs {
 		capabilityConfigurations := make(map[string]capabilityConfiguration)
-		for k, v := range v.CapabilityConfigurations {
-			capabilityConfigurations[k] = capabilityConfiguration{
-				DefaultConfig:       *v.DefaultConfig,
-				RemoteTriggerConfig: *v.RemoteTriggerConfig,
-				RemoteTargetConfig:  *v.RemoteTargetConfig,
+		for k, v := range don.CapabilityConfigurations {
+			cfg := capabilityConfiguration{
+				DefaultConfig:       *values.EmptyMap(),
+				RemoteTriggerConfig: capabilities.RemoteTriggerConfig{},
+				RemoteTargetConfig:  capabilities.RemoteTargetConfig{},
 			}
+			if v.DefaultConfig != nil {
+				cfg.DefaultConfig = *v.DefaultConfig
+			}
+			if v.RemoteTriggerConfig != nil {
+				cfg.RemoteTriggerConfig = *v.RemoteTriggerConfig
+			}
+			if v.RemoteTargetConfig != nil {
+				cfg.RemoteTargetConfig = *v.RemoteTargetConfig
+			}
+			capabilityConfigurations[k] = cfg
 		}
-		idsToDONs[k] = capabilitiesDON{
-			DON:                      v.DON,
+		idsToDONs[donID] = capabilitiesDON{
+			DON:                      don.DON,
 			CapabilityConfigurations: capabilityConfigurations,
 		}
 	}
