@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	sync "sync"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -114,7 +114,11 @@ func (d *dispatcher) SetReceiver(capabilityId string, donId uint32, rec remotety
 			case <-ctx.Done():
 				return
 			case msg := <-receiverCh:
-				rec.Receive(ctx, msg)
+				if msg != nil {
+					rec.Receive(ctx, msg)
+				} else {
+					d.lggr.Warn("failed to send message to receiver :: received nil message")
+				}
 			}
 		}
 	}()

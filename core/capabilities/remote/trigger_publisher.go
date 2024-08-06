@@ -77,10 +77,6 @@ func (p *triggerPublisher) Start(ctx context.Context) error {
 }
 
 func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
-	if msg == nil {
-		p.lggr.Errorw("received nil message on publisher::Receive()", "capabilityId", p.capInfo.ID)
-		return
-	}
 	sender := ToPeerID(msg.Sender)
 	if msg.Method == types.MethodRegisterTrigger {
 		req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
