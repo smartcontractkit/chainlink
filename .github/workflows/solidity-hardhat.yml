@@ -66,13 +66,49 @@ jobs:
             changeset:
               - modified|added: 'contracts/.changeset/!(README)*.md'
 
-      - name: Check for changes outside of artifact scope
+      # TODO remove when https://github.com/AurorNZ/paths-filter/issues/12 is fixed and we can use modifiers with it
+      - name: Check if changes are limited only to deleted files
         if: ${{ steps.changes.outputs.sol == 'true' }}
         shell: bash
         run: |
           echo "::debug::All modified contracts:"
-          echo ${{ steps.changes.outputs.all_sol_files }} | tr ',' '\n'          
-          echo "::debug::Filtered modified contracts:"
+          echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n'
+          
+          type=$(git cat-file -t "${{ env.base_ref }}")
+          if echo "$type" | grep -q commit; then
+            # we do not know to which branch the base ref belongs, so we fetch all branches
+            git fetch --all --prune
+            ref_to_use="${{ env.base_ref }}"
+          elif  echo "$type" | grep -q tag; then
+            git fetch origin ${{ env.base_ref }}
+            ref_to_use="origin/${{ env.base_ref }}" 
+          else
+            # must be branch
+            echo "::debug:: Base reference type: $type"
+            git fetch origin ${{ env.base_ref }}
+            ref_to_use="origin/${{ env.base_ref }}" 
+          fi
+          
+          IFS=','
+          for file in ${{ steps.changes.outputs.sol_files }}; do          
+            status=$(git diff --name-status "$ref_to_use" HEAD -- "$file"  | awk '{ print $1 }')
+            if [ "$status" != "D" ]; then
+              exit 0
+            fi
+          done
+          
+          echo "::error:: All contract modifications are limited to deleted files. No artifacts will be generated."
+          echo "# Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
+          echo "Base Ref used: **${{ env.base_ref }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
+          echo "## Reason: Only deleted Solidity files found for ${{ env.product }}" >> $GITHUB_STEP_SUMMARY
+          exit 1
+
+      - name: Check for changes outside of artifact scope
+        if: ${{ steps.changes.outputs.sol == 'true' }}
+        shell: bash
+        run: |     
+          echo "::debug::All modified contracts:"
           echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n'
           excluded_paths_pattern="!/^contracts\/src\/v0\.8\/shared/ && !/^contracts\/src\/v0\.8\/${{ env.product }}/ && !/^contracts\/src\/v0\.8\/[^\/]+\.sol$/"
           echo "::debug::Excluded paths: $excluded_paths_pattern"
