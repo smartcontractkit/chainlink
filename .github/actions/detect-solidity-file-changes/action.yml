@@ -2,11 +2,8 @@ name: 'Detect Solidity File Changes Composite Action'
 description: 'Detects changes in solidity files and outputs the result.'
 outputs:
   changes:
-    description: 'Whether or not changes were detected across any solidity related files'
+    description: 'Whether or not changes were detected'
     value: ${{ steps.changed_files.outputs.src }}
-  source_changes:
-    description: 'Whether or not changes were detected across any solidity source files'
-    value: ${{ steps.changed_files.outputs.only_src_contracts }}
 runs:
   using: 'composite'
   steps:
@@ -22,6 +19,3 @@ runs:
             - '.github/workflows/solidity.yml'
             - '.github/workflows/solidity-foundry.yml'
             - '.github/workflows/solidity-wrappers.yml'
-          only_src_contracts:
-            - contracts/**/*.sol
-            - '!contracts/**/*.t.sol'
