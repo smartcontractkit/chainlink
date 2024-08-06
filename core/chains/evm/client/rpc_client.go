@@ -85,15 +85,14 @@ type rawclient struct {
 }
 
 type RpcClient struct {
-	cfg                        config.NodePool
-	rpcLog                     logger.SugaredLogger
-	name                       string
-	id                         int32
-	chainID                    *big.Int
-	tier                       commonclient.NodeTier
-	largePayloadRpcTimeout     time.Duration
-	rpcTimeout                 time.Duration
-	finalizedBlockPollInterval time.Duration
+	cfg                    config.NodePool
+	rpcLog                 logger.SugaredLogger
+	name                   string
+	id                     int32
+	chainID                *big.Int
+	tier                   commonclient.NodeTier
+	largePayloadRpcTimeout time.Duration
+	rpcTimeout             time.Duration
 
 	ws   rawclient
 	http *rawclient

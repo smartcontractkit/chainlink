@@ -148,7 +148,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			n.finalizedBlockSub = nil
 			n.stateMu.Unlock()
 		}()
-
 	}
 
 	localHighestChainInfo, _ := n.rpc.GetInterceptedChainInfo()
@@ -364,11 +363,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) onNewHead(lggr logger.SugaredLogger, chainIn
 	}
 
 	return true
-}
-
-func (n *node[CHAIN_ID, HEAD, RPC]) isOutOfSync(num int64, td *big.Int) (outOfSync bool) {
-	outOfSync, _ = n.syncStatus(num, td)
-	return
 }
 
 // syncStatus returns outOfSync true if num or td is more than SyncThresold behind the best node.
