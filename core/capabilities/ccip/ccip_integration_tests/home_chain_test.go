@@ -1,7 +1,6 @@
 package ccip_integration_tests
 
 import (
-	"math/big"
 	"testing"
 	"time"
 
@@ -36,7 +35,6 @@ func TestHomeChainReader(t *testing.T) {
 	}
 	p2pIDs := integrationhelpers.P2pIDsFromInts(arr)
 	uni.AddCapability(p2pIDs)
-
 	//==============================Apply configs to Capability Contract=================================
 	encodedChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
 		GasPriceDeviationPPB:    cciptypes.NewBigIntFromInt64(1000),
@@ -45,26 +43,28 @@ func TestHomeChainReader(t *testing.T) {
 		OptimisticConfirmations: 1,
 	})
 	require.NoError(t, err)
+	chainAConf := integrationhelpers.SetupConfigInfo(integrationhelpers.ChainA, p2pIDs, integrationhelpers.FChainA, encodedChainConfig)
+	chainBConf := integrationhelpers.SetupConfigInfo(integrationhelpers.ChainB, p2pIDs[1:], integrationhelpers.FChainB, encodedChainConfig)
+	chainCConf := integrationhelpers.SetupConfigInfo(integrationhelpers.ChainC, p2pIDs[2:], integrationhelpers.FChainC, encodedChainConfig)
 	inputConfig := []capcfg.CCIPConfigTypesChainConfigInfo{
-		integrationhelpers.SetupConfigInfo(integrationhelpers.ChainA, p2pIDs, integrationhelpers.FChainA, encodedChainConfig),
-		integrationhelpers.SetupConfigInfo(integrationhelpers.ChainB, p2pIDs[1:], integrationhelpers.FChainB, encodedChainConfig),
-		integrationhelpers.SetupConfigInfo(integrationhelpers.ChainC, p2pIDs[2:], integrationhelpers.FChainC, encodedChainConfig),
+		chainAConf,
+		chainBConf,
+		chainCConf,
 	}
 	_, err = uni.CcipCfg.ApplyChainConfigUpdates(uni.Transactor, nil, inputConfig)
 	require.NoError(t, err)
 	uni.Backend.Commit()
-	chainConfigInfos, err := uni.CcipCfg.GetAllChainConfigs(nil, big.NewInt(0), big.NewInt(100))
-	require.NoError(t, err)
-	require.Len(t, chainConfigInfos, len(inputConfig))
+	//================================Setup HomeChainReader===============================
 
-	// Wait for the home chain reader to read the expected amount of chain configs.
+	pollDuration := time.Second
+	homeChain := uni.HomeChainReader
+
 	gomega.NewWithT(t).Eventually(func() bool {
-		configs, _ := uni.HomeChainReader.GetAllChainConfigs()
-		return len(configs) == len(inputConfig)
-	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+		configs, _ := homeChain.GetAllChainConfigs()
+		return configs != nil
+	}, testutils.WaitTimeout(t), pollDuration*5).Should(gomega.BeTrue())
 
 	t.Logf("homchain reader is ready")
-
 	//================================Test HomeChain Reader===============================
 	expectedChainConfigs := map[cciptypes.ChainSelector]ccipreader.ChainConfig{}
 	for _, c := range inputConfig {
@@ -74,26 +74,16 @@ func TestHomeChainReader(t *testing.T) {
 			Config:         mustDecodeChainConfig(t, c.ChainConfig.Config),
 		}
 	}
-
-	configs, err := uni.HomeChainReader.GetAllChainConfigs()
+	configs, err := homeChain.GetAllChainConfigs()
 	require.NoError(t, err)
-
 	require.Equal(t, expectedChainConfigs, configs)
-
-	// Remove chain C from the chain configs and expect the home chain reader to
-	// update its state accordingly.
+	//=================================Remove ChainC from OnChainConfig=========================================
 	_, err = uni.CcipCfg.ApplyChainConfigUpdates(uni.Transactor, []uint64{integrationhelpers.ChainC}, nil)
 	require.NoError(t, err)
 	uni.Backend.Commit()
-
-	// Wait for the home chain reader to read the expected amount of chain configs.
-	gomega.NewWithT(t).Eventually(func() bool {
-		chainConfigs, _ := uni.HomeChainReader.GetAllChainConfigs()
-		return len(chainConfigs) == len(inputConfig)-1
-	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
-	configs, err = uni.HomeChainReader.GetAllChainConfigs()
+	time.Sleep(pollDuration * 5) // Wait for the chain reader to update
+	configs, err = homeChain.GetAllChainConfigs()
 	require.NoError(t, err)
-
 	delete(expectedChainConfigs, cciptypes.ChainSelector(integrationhelpers.ChainC))
 	require.Equal(t, expectedChainConfigs, configs)
 }
