@@ -33,6 +33,8 @@ jobs:
             ignored: &ignored
               - '!contracts/src/v0.8/**/test/**'
               - '!contracts/src/v0.8/**/tests/**'
+              - '!contracts/src/v0.8/**/mock/**'
+              - '!contracts/src/v0.8/**/mocks/**'
               - '!contracts/src/v0.8/**/*.t.sol'
               - '!contracts/src/v0.8/*.t.sol'
               - '!contracts/src/v0.8/**/testhelpers/**'
