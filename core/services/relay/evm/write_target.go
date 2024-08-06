@@ -46,6 +46,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, err
 	}
 
+	var gasLimit uint64 = 400_000
 	chainWriterConfig := relayevmtypes.ChainWriterConfig{
 		Contracts: map[string]*relayevmtypes.ContractConfig{
 			"forwarder": {
@@ -55,7 +56,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 						ChainSpecificName: "report",
 						Checker:           "simulate",
 						FromAddress:       config.FromAddress().Address(),
-						GasLimit:          1_000_000,
+						GasLimit:          gasLimit,
 					},
 				},
 			},
@@ -73,5 +74,5 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, err
 	}
 
-	return targets.NewWriteTarget(lggr, id, cr, cw, config.ForwarderAddress().String()), nil
+	return targets.NewWriteTarget(lggr.Named("WriteTarget"), id, cr, cw, config.ForwarderAddress().String(), gasLimit), nil
 }
