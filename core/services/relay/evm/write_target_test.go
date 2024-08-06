@@ -106,7 +106,6 @@ func TestEvmWrite(t *testing.T) {
 	mockCall, err := newMockedEncodeTransmissionInfo()
 	require.NoError(t, err)
 	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockCall, nil).Maybe()
-
 	evmClient.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return([]byte("test"), nil)
 
 	chain.On("ID").Return(big.NewInt(11155111))
@@ -118,6 +117,7 @@ func TestEvmWrite(t *testing.T) {
 	chain.On("HeadTracker").Return(ht)
 
 	chain.On("Client").Return(evmClient)
+
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		a := testutils.NewAddress()
 		addr, err2 := types.NewEIP55Address(a.Hex())
