@@ -65,7 +65,7 @@ func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, lgg
 		Start: bm.start,
 		Close: bm.close,
 	}.NewServiceEngine(lggr)
-	bm.sleeperTask = utils.NewSleeperTask(&worker{bm: bm}) //TODO convert to sub-service?
+	bm.sleeperTask = utils.NewSleeperTask(&worker{bm: bm})
 	return bm
 }
 
@@ -81,16 +81,14 @@ func (bm *balanceMonitor) close() error {
 }
 
 // OnNewLongestChain checks the balance for each key
-func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head *evmtypes.Head) {
-	ok := bm.sleeperTask.IfStarted(func() {
-		bm.checkBalance(head)
-	})
+func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {
+	ok := bm.sleeperTask.IfStarted(bm.checkBalances)
 	if !ok {
 		bm.eng.Debugw("BalanceMonitor: ignoring OnNewLongestChain call, balance monitor is not started", "state", bm.sleeperTask.State())
 	}
 }
 
-func (bm *balanceMonitor) checkBalance(head *evmtypes.Head) {
+func (bm *balanceMonitor) checkBalances() {
 	bm.eng.Debugw("BalanceMonitor: signalling balance worker")
 	bm.sleeperTask.WakeUp()
 }

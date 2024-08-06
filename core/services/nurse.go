@@ -79,7 +79,7 @@ func NewNurse(cfg Config, log logger.Logger) *Nurse {
 	return n
 }
 
-func (n *Nurse) start(ctx context.Context) error {
+func (n *Nurse) start(_ context.Context) error {
 	// This must be set *once*, and it must occur as early as possible
 	if n.cfg.MemProfileRate() != runtime.MemProfileRate {
 		runtime.MemProfileRate = n.cfg.BlockProfileRate()
