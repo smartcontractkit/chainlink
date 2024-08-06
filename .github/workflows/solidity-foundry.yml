@@ -40,11 +40,16 @@ jobs:
           matrix=$(cat matrix.json | jq -c .)
           echo "matrix=$matrix" >> $GITHUB_OUTPUT
 
+# TODO
+# add back to non_src
+# - '.github/workflows/solidity-foundry.yml'
+
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
       non_src_changes: ${{ steps.changes.outputs.non_src }}
+      non_src_files: ${{ steps.changes.outputs.non_src_files }}
       sol_modified: ${{ steps.changes.outputs.sol }}
       sol_modified_files: ${{ steps.changes.outputs.sol_files }}
       not_test_sol_modified: ${{ steps.changes.outputs.not_test_sol }}
@@ -58,8 +63,7 @@ jobs:
         with:
           list-files: 'shell'
           filters: |
-            non_src:
-              - '.github/workflows/solidity-foundry.yml'
+            non_src:             
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
               - 'contracts/package.json'
