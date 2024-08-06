@@ -1,4 +1,4 @@
-name: "Build Chainlink and Publish"
+name: "Build, Sign and Publish Chainlink"
 
 on:
   # Mimics old circleci behaviour
