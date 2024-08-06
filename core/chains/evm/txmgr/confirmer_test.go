@@ -2689,6 +2689,13 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	gconfig, config := newTestChainScopedConfig(t)
 	ec := newEthConfirmer(t, txStore, ethClient, gconfig, config, ethKeyStore, nil)
 
+	latestFinalizedHead := evmtypes.Head{
+		Number:      8,
+		Hash:        testutils.NewHash(),
+		Parent:      nil,
+		IsFinalized: false, // We are guaranteed to receive a latestFinalizedHead.
+	}
+
 	head := evmtypes.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
@@ -2703,14 +2710,14 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		},
 	}
 	t.Run("does nothing if there aren't any transactions", func(t *testing.T) {
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
 	})
 
 	t.Run("does nothing to unconfirmed transactions", func(t *testing.T) {
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2722,7 +2729,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2735,7 +2742,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		mustInsertEthReceipt(t, txStore, head.Parent.Parent.Number-1, testutils.NewHash(), etx.TxAttempts[0].Hash)
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2756,7 +2763,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2779,7 +2786,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 			commonclient.Successful, nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2814,7 +2821,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2834,7 +2841,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		// Add receipt that is higher than head
 		mustInsertEthReceipt(t, txStore, head.Number+1, testutils.NewHash(), attempt.Hash)
 
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)

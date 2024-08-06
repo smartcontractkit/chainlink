@@ -33,6 +33,14 @@ const (
 	// processHeadTimeout represents a sanity limit on how long ProcessHead
 	// should take to complete
 	processHeadTimeout = 10 * time.Minute
+
+	// logAfterNConsecutiveBlocksChainTooShort logs a warning if we go at least
+	// this many consecutive blocks with a re-org protection chain that is too
+	// short
+	//
+	// we don't log every time because on startup it can be lower, only if it
+	// persists does it indicate a serious problem
+	logAfterNConsecutiveBlocksChainTooShort = 10
 )
 
 var (
@@ -129,12 +137,13 @@ type Confirmer[
 	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	enabledAddresses []ADDR
 
-	mb           *mailbox.Mailbox[HEAD]
-	stopCh       services.StopChan
-	wg           sync.WaitGroup
-	initSync     sync.Mutex
-	isStarted    bool
-	isReceiptNil func(R) bool
+	mb                              *mailbox.Mailbox[HEAD]
+	stopCh                          services.StopChan
+	wg                              sync.WaitGroup
+	initSync                        sync.Mutex
+	isStarted                       bool
+	nConsecutiveBlocksChainTooShort int
+	isReceiptNil                    func(R) bool
 
 	headTracker confirmerHeadTracker[HEAD, BLOCK_HASH]
 }
@@ -329,7 +338,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	ec.lggr.Debugw("Finished RebroadcastWhereNecessary", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 	mark = time.Now()
 
-	if err := ec.EnsureConfirmedTransactionsInLongestChain(ctx, head); err != nil {
+	if err := ec.EnsureConfirmedTransactionsInLongestChain(ctx, head, latestFinalizedHead.BlockNumber()); err != nil {
 		return fmt.Errorf("EnsureConfirmedTransactionsInLongestChain failed: %w", err)
 	}
 
@@ -1021,7 +1030,31 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head types.Head[BLOCK_HASH]) error {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head types.Head[BLOCK_HASH], latestFinalizedHeadNumber int64) error {
+	logArgs := []interface{}{
+		"chainLength", head.ChainLength(), "latestFinalizedHead number", latestFinalizedHeadNumber,
+	}
+
+	if head.BlockNumber() < latestFinalizedHeadNumber {
+		errMsg := "current head is shorter than latest finalized head"
+		ec.lggr.Errorw(errMsg, append(logArgs, "head block number", head.BlockNumber())...)
+		return errors.New(errMsg)
+	}
+
+	calculatedFinalityDepth := uint32(head.BlockNumber() - latestFinalizedHeadNumber)
+	if head.ChainLength() < calculatedFinalityDepth {
+		if ec.nConsecutiveBlocksChainTooShort > logAfterNConsecutiveBlocksChainTooShort {
+			warnMsg := "Chain length supplied for re-org detection was shorter than actual finality depth. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
+			ec.lggr.Warnw(warnMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
+		} else {
+			logMsg := "Chain length supplied for re-org detection was shorter than actual finality depth"
+			ec.lggr.Debugw(logMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
+		}
+		ec.nConsecutiveBlocksChainTooShort++
+	} else {
+		ec.nConsecutiveBlocksChainTooShort = 0
+	}
+
 	etxs, err := ec.txStore.FindTransactionsConfirmedInBlockRange(ctx, head.BlockNumber(), head.EarliestHeadInChain().BlockNumber(), ec.chainID)
 	if err != nil {
 		return fmt.Errorf("findTransactionsConfirmedInBlockRange failed: %w", err)
