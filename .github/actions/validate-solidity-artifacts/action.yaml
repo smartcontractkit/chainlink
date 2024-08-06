@@ -34,35 +34,38 @@ runs:
     run: |
       is_csv_format() {
         local input="$1"
-        if [[ "$input" =~ ^[^,]+(,[^,]+)*$ ]]; then
-          return 0 
-        else
-          return 1
-        fi
-      }
-      
-      is_shell_array_format() {
-        declare -p "$1" &>/dev/null
-        if [[ $? -eq 0 ]]; then
+        if [[ "$input" =~ "," ]]; then
           return 0
         else
           return 1
         fi
       }
-           
-      array="${{ inputs.sol_files }}"           
-      if is_csv_format "$csv_array"; then
+      
+      is_space_separated_string() {
+        local input="$1"
+        if [[ "$input" =~ ^[^[:space:]]+([[:space:]][^[:space:]]+)*$ ]]; then
+          return 0
+        else
+          return 1
+        fi
+      }
+      
+      array="${{ inputs.sol_files }}"
+            
+      if is_csv_format "$array"; then
+        echo "::debug::CSV format detected, nothing to do"
         echo "sol_files=$array" >> $GITHUB_OUTPUT
-        return
-      fi
-           
-      if is_shell_array_format "$array"; then
-        local csv_array="${array// /,}"
-        echo "sol_files=$csv_array" >> $GITHUB_OUTPUT
-        return
+        exit 0
       fi
       
-      echo "Error: Invalid input format for sol_files. Please provide a comma-separated (CSV) or space-separated (shell) list of Solidity files"
+      if is_space_separated_string "$array"; then
+        echo "::debug::Space-separated format detected, converting to CSV"
+        csv_array="${array// /,}"
+        echo "sol_files=$csv_array" >> $GITHUB_OUTPUT
+        exit 0
+      fi
+      
+      echo "::error::Invalid input format for sol_files. Please provide a comma-separated (CSV) or space-separated (shell) list of Solidity files"
       exit 1
 
   - name: Validate UML diagrams
