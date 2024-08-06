@@ -12,8 +12,9 @@ RPCDefaultBatchSize = 100
 MaxQueued = 5000
 
 [GasEstimator]
-PriceDefault = '1 gwei'
+PriceDefault = '25 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '25 gwei'
 BumpMin = '20 gwei'
 BumpThreshold = 5
 

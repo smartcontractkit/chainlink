@@ -12,6 +12,8 @@ MaxQueued = 5000
 [GasEstimator]
 EIP1559DynamicFees = true
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceDefault = '25 gwei'
+PriceMin = '25 gwei'
 BumpMin = '20 gwei'
 BumpThreshold = 5
 
