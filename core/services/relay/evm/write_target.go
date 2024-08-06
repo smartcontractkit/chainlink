@@ -55,7 +55,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 						ChainSpecificName: "report",
 						Checker:           "simulate",
 						FromAddress:       config.FromAddress().Address(),
-						GasLimit:          200_000,
+						GasLimit:          400_000,
 					},
 				},
 			},
