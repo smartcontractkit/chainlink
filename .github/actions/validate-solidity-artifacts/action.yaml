@@ -29,11 +29,17 @@ runs:
       id: fetch_base_ref
       shell: bash
       run: |
-        if git cat-file -t "${{ inputs.base_ref }}" 2>/dev/null | grep -q commit; then
+        type=$(git cat-file -t "${{ inputs.base_ref }}")
+        if echo "$type" | grep -q commit; then
           # we do not know to which branch the base ref belongs, so we fetch all branches
           git fetch --all --prune 
           echo "ref_to_use=${{ inputs.base_ref }}" >> $GITHUB_OUTPUT
+        elif  echo "$type" | grep -q tag; then
+          git fetch origin ${{ inputs.base_ref }}
+          echo "ref_to_use=${{ inputs.base_ref }}" >> $GITHUB_OUTPUT
         else
+          # must be branch
+          echo "::debug:: Base reference type: $type"
           git fetch origin ${{ inputs.base_ref }}
           echo "ref_to_use=origin/${{ inputs.base_ref }}" >> $GITHUB_OUTPUT
         fi
