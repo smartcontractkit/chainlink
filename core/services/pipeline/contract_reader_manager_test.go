@@ -33,7 +33,7 @@ func TestCheckForUnusedClients(t *testing.T) {
 	relayer1.On("NewContractStateReader", mock.Anything, mock.Anything).Return(nil, nil)
 	relayer2.On("NewContractStateReader", mock.Anything, mock.Anything).Return(nil, nil)
 	relayer3.On("NewContractStateReader", mock.Anything, mock.Anything).Return(nil, nil)
-	c, err := newContractStateReaderManager(ctx, relayers, lggr)
+	c, err := newContractReaderManager(ctx, relayers, lggr)
 	require.NoError(t, err)
 	c.heartBeatCheckInterval = time.Second
 	c.hearthBeatTimeout = time.Second * 3
@@ -81,7 +81,7 @@ func TestCSRM(t *testing.T) {
 	relayer1.On("NewContractStateReader", mock.Anything, mock.Anything).Return(nil, nil)
 	relayer2.On("NewContractStateReader", mock.Anything, mock.Anything).Return(nil, nil)
 
-	csrm, err := newContractStateReaderManager(tests.Context(t), relayers, logger.TestLogger(t))
+	csrm, err := newContractReaderManager(tests.Context(t), relayers, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	//Manager not created for contract + method

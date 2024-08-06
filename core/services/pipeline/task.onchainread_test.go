@@ -11,44 +11,53 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-var _ types.ContractStateReader = (*fakeContractStateReader)(nil)
+var _ types.ContractReader = (*fakeContractReader)(nil)
 
-type fakeContractStateReader struct {
+type fakeContractReader struct {
 	returnValue any
 	returnError error
 }
 
-func (f *fakeContractStateReader) Start(ctx context.Context) error {
+func (f *fakeContractReader) BatchGetLatestValues(ctx context.Context, request types.BatchGetLatestValuesRequest) (types.BatchGetLatestValuesResult, error) {
+	return nil, nil
+}
+
+func (f *fakeContractReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]types.Sequence, error) {
+	return nil, nil
+}
+
+func (f *fakeContractReader) Start(ctx context.Context) error {
 	return nil
 }
 
-func (f *fakeContractStateReader) Close() error {
+func (f *fakeContractReader) Close() error {
 	return nil
 }
 
-func (f *fakeContractStateReader) Ready() error {
+func (f *fakeContractReader) Ready() error {
 	return nil
 }
 
-func (f *fakeContractStateReader) HealthReport() map[string]error {
+func (f *fakeContractReader) HealthReport() map[string]error {
 	return nil
 }
 
-func (f *fakeContractStateReader) Name() string {
+func (f *fakeContractReader) Name() string {
 	return "FakeContractStateReader"
 }
 
-func (f *fakeContractStateReader) GetLatestValue(ctx context.Context, contractName, method string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
+func (f *fakeContractReader) GetLatestValue(ctx context.Context, contractName, method string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
 	returnVal = f.returnValue
 	return f.returnError
 }
 
-func (f *fakeContractStateReader) Bind(ctx context.Context, bindings []types.BoundContract) error {
+func (f *fakeContractReader) Bind(ctx context.Context, bindings []types.BoundContract) error {
 	return nil
 }
 
@@ -91,7 +100,7 @@ func TestOnChainReadTask(t *testing.T) {
 	}
 
 	r := mocks.NewRelayer(t)
-	fcsr := &fakeContractStateReader{}
+	fcsr := &fakeContractReader{}
 	r.On("NewContractStateReader", mock.Anything, mock.Anything).Return(fcsr, nil)
 	relayers := map[types.RelayID]loop.Relayer{
 		types.NewRelayID("network", "chainID"): r,
