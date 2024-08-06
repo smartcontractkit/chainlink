@@ -24,6 +24,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
       - name: Validate GIT_REF
+        if: ${{ github.event.inputs.git_ref }}
         run: |
           if ! git rev-parse --verify "${{ env.GIT_REF }}" > /dev/null 2>&1; then
             echo "Invalid GIT_REF: ${{ env.GIT_REF }}"
