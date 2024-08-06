@@ -141,6 +141,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   /// specific message that was sent on source.
   function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
     external
+    virtual
     override
     returns (Pool.ReleaseOrMintOutV1 memory)
   {
@@ -155,8 +156,8 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     if (!i_messageTransmitter.receiveMessage(msgAndAttestation.message, msgAndAttestation.attestation)) {
       revert UnlockingUSDCFailed();
     }
-    // Since the tokens are minted to the pool, the pool has to send it to the offRamp
-    getToken().safeTransfer(msg.sender, releaseOrMintIn.amount);
+    // Since the tokens are minted to the pool, the pool has to approve it for the offRamp
+    getToken().approve(msg.sender, releaseOrMintIn.amount);
 
     emit Minted(msg.sender, releaseOrMintIn.receiver, releaseOrMintIn.amount);
     return Pool.ReleaseOrMintOutV1({destinationAmount: releaseOrMintIn.amount});
