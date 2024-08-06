@@ -309,7 +309,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 		return fmt.Errorf("failed to retrieve latest finalized head: %w", err)
 	}
 
-	if types.Head[BLOCK_HASH](latestFinalizedHead) == nil || !latestFinalizedHead.IsValid() {
+	if !latestFinalizedHead.IsValid() {
 		return fmt.Errorf("latest finalized head is not valid")
 	}
 
