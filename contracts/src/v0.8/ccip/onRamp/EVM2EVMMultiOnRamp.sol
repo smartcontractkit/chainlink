@@ -8,6 +8,7 @@ import {INonceManager} from "../interfaces/INonceManager.sol";
 import {IPoolV1} from "../interfaces/IPool.sol";
 import {IPriceRegistry} from "../interfaces/IPriceRegistry.sol";
 import {IRMN} from "../interfaces/IRMN.sol";
+import {IRouter} from "../interfaces/IRouter.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
@@ -33,8 +34,10 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
   error InvalidConfig();
   error CursedByRMN(uint64 sourceChainSelector);
   error GetSupportedTokensFunctionalityRemovedCheckAdminRegistry();
+  error InvalidDestChainConfig(uint64 sourceChainSelector);
 
   event ConfigSet(StaticConfig staticConfig, DynamicConfig dynamicConfig);
+  event DestChainConfigSet(uint64 indexed destChainSelector, DestChainConfig destChainConfig);
   event FeePaid(address indexed feeToken, uint256 feeValueJuels);
   event FeeTokenWithdrawn(address indexed feeAggregator, address indexed feeToken, uint256 amount);
   /// RMN depends on this event, if changing, please notify the RMN maintainers.
@@ -53,10 +56,27 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
   /// @dev Struct to contains the dynamic configuration
   // solhint-disable-next-line gas-struct-packing
   struct DynamicConfig {
-    address router; // Router address
     address priceRegistry; // Price registry address
     address messageValidator; // Optional message validator to validate outbound messages (zero address = no validator)
     address feeAggregator; // Fee aggregator address
+  }
+
+  /// @dev Struct to hold the configs for a destination chain
+  struct DestChainConfig {
+    // The last used sequence number. This is zero in the case where no messages has been sent yet.
+    // 0 is not a valid sequence number for any real transaction.
+    uint64 sequenceNumber;
+    // This is the local router address that is allowed to send messages to the destination chain.
+    // This is NOT the receiving router address on the destination chain.
+    IRouter router;
+  }
+
+  /// @dev Same as DestChainConfig but with the destChainSelector so that an array of these
+  /// can be passed in the constructor and the applyDestChainConfigUpdates function
+  //solhint-disable gas-struct-packing
+  struct DestChainConfigArgs {
+    uint64 destChainSelector; // Destination chain selector
+    IRouter router; // Source router address
   }
 
   // STATIC CONFIG
@@ -75,12 +95,14 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
   /// @dev The config for the onRamp
   DynamicConfig internal s_dynamicConfig;
 
-  /// @dev Last used sequence number per destination chain.
-  /// This is zero in the case where no messages have been sent yet.
-  /// 0 is not a valid sequence number for any real transaction.
-  mapping(uint64 destChainSelector => uint64 sequenceNumber) internal s_destChainSequenceNumbers;
+  /// @dev The destination chain specific configs
+  mapping(uint64 destChainSelector => DestChainConfig destChainConfig) internal s_destChainConfigs;
 
-  constructor(StaticConfig memory staticConfig, DynamicConfig memory dynamicConfig) {
+  constructor(
+    StaticConfig memory staticConfig,
+    DynamicConfig memory dynamicConfig,
+    DestChainConfigArgs[] memory destChainConfigArgs
+  ) {
     if (
       staticConfig.chainSelector == 0 || staticConfig.rmnProxy == address(0) || staticConfig.nonceManager == address(0)
         || staticConfig.tokenAdminRegistry == address(0)
@@ -94,6 +116,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
     i_tokenAdminRegistry = staticConfig.tokenAdminRegistry;
 
     _setDynamicConfig(dynamicConfig);
+    _applyDestChainConfigUpdates(destChainConfigArgs);
   }
 
   // ================================================================
@@ -104,7 +127,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
   /// @param destChainSelector The destination chain selector
   /// @return the next sequence number to be used
   function getExpectedNextSequenceNumber(uint64 destChainSelector) external view returns (uint64) {
-    return s_destChainSequenceNumbers[destChainSelector] + 1;
+    return s_destChainConfigs[destChainSelector].sequenceNumber + 1;
   }
 
   /// @inheritdoc IEVM2AnyOnRampClient
@@ -114,15 +137,20 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
     uint256 feeTokenAmount,
     address originalSender
   ) external returns (bytes32) {
+    DestChainConfig storage destChainConfig = s_destChainConfigs[destChainSelector];
+
     // NOTE: assumes the message has already been validated through the getFee call
     // Validate message sender is set and allowed. Not validated in `getFee` since it is not user-driven.
     if (originalSender == address(0)) revert RouterMustSetOriginalSender();
     // Router address may be zero intentionally to pause.
-    if (msg.sender != s_dynamicConfig.router) revert MustBeCalledByRouter();
+    if (msg.sender != address(destChainConfig.router)) revert MustBeCalledByRouter();
 
-    address messageValidator = s_dynamicConfig.messageValidator;
-    if (messageValidator != address(0)) {
-      IMessageInterceptor(messageValidator).onOutboundMessage(destChainSelector, message);
+    {
+      // scoped to reduce stack usage
+      address messageValidator = s_dynamicConfig.messageValidator;
+      if (messageValidator != address(0)) {
+        IMessageInterceptor(messageValidator).onOutboundMessage(destChainSelector, message);
+      }
     }
 
     // Convert message fee to juels and retrieve converted args
@@ -139,7 +167,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
         sourceChainSelector: i_chainSelector,
         destChainSelector: destChainSelector,
         // We need the next available sequence number so we increment before we use the value
-        sequenceNumber: ++s_destChainSequenceNumbers[destChainSelector],
+        sequenceNumber: ++destChainConfig.sequenceNumber,
         // Only bump nonce for messages that specify allowOutOfOrderExecution == false. Otherwise, we
         // may block ordered message nonces, which is not what we want.
         nonce: isOutOfOrderExecution
@@ -256,9 +284,15 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
     _setDynamicConfig(dynamicConfig);
   }
 
+  /// @notice Gets the source router for a destination chain
+  /// @param destChainSelector The destination chain selector
+  /// @return router the router for the provided destination chain
+  function getRouter(uint64 destChainSelector) external view returns (IRouter) {
+    return s_destChainConfigs[destChainSelector].router;
+  }
+
   /// @notice Internal version of setDynamicConfig to allow for reuse in the constructor.
   function _setDynamicConfig(DynamicConfig memory dynamicConfig) internal {
-    // We permit router to be set to zero as a way to pause the contract.
     if (dynamicConfig.priceRegistry == address(0) || dynamicConfig.feeAggregator == address(0)) revert InvalidConfig();
 
     s_dynamicConfig = dynamicConfig;
@@ -272,6 +306,32 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
       }),
       dynamicConfig
     );
+  }
+
+  /// @notice Updates the destination chain specific config.
+  /// @param destChainConfigArgs Array of source chain specific configs.
+  function applyDestChainConfigUpdates(DestChainConfigArgs[] memory destChainConfigArgs) external onlyOwner {
+    _applyDestChainConfigUpdates(destChainConfigArgs);
+  }
+
+  /// @notice Internal version of applyDestChainConfigUpdates.
+  function _applyDestChainConfigUpdates(DestChainConfigArgs[] memory destChainConfigArgs) internal {
+    for (uint256 i = 0; i < destChainConfigArgs.length; ++i) {
+      DestChainConfigArgs memory destChainConfigArg = destChainConfigArgs[i];
+      uint64 destChainSelector = destChainConfigArgs[i].destChainSelector;
+
+      if (destChainSelector == 0) {
+        revert InvalidDestChainConfig(destChainSelector);
+      }
+
+      DestChainConfig memory newDestChainConfig = DestChainConfig({
+        sequenceNumber: s_destChainConfigs[destChainSelector].sequenceNumber,
+        router: destChainConfigArg.router
+      });
+      s_destChainConfigs[destChainSelector] = newDestChainConfig;
+
+      emit DestChainConfigSet(destChainSelector, newDestChainConfig);
+    }
   }
 
   // ================================================================
