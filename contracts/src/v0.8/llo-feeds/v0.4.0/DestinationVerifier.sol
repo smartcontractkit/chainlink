@@ -84,9 +84,6 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
   /// @notice This error is thrown whenever a config does not exist
   error DonConfigDoesNotExist();
 
-  /// @notice this error is thrown when the verifierProxy is incorrect when initialising
-  error VerifierProxyInvalid();
-
   /// @notice This error is thrown when the activation time is either in the future or less than the current configs
   error BadActivationTime();
 
@@ -105,7 +102,8 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     bytes24 indexed donConfigId,
     address[] signers,
     uint8 f,
-    Common.AddressAndWeight[] recipientAddressesAndWeights
+    Common.AddressAndWeight[] recipientAddressesAndWeights,
+    uint16 donConfigIndex
   );
 
   /// @notice This event is emitted when a new fee manager is set
@@ -315,13 +313,16 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
 
     // We may want to register these later or skip this step in the unlikely scenario they've previously been registered in the RewardsManager
     if (recipientAddressesAndWeights.length != 0) {
+      if(s_feeManager == address(0)) {
+        revert FeeManagerInvalid();
+      }
       IDestinationFeeManager(s_feeManager).setFeeRecipients(donConfigId, recipientAddressesAndWeights);
     }
 
     // push the DonConfig
     s_donConfigs.push(DonConfig(donConfigId, f, true, activationTime));
 
-    emit ConfigSet(donConfigId, signers, f, recipientAddressesAndWeights);
+    emit ConfigSet(donConfigId, signers, f, recipientAddressesAndWeights, uint16(donConfigLength));
   }
 
   /// @inheritdoc IDestinationVerifier
