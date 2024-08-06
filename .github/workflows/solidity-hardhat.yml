@@ -6,7 +6,7 @@ env:
   FOUNDRY_PROFILE: ci
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
-  base_ref: "f5e0bd614a6c42d195c4ad74a10f7070970d01d5"
+  base_ref: "1b4cb83bae78c398ad8ae6e47dbbe747ff93133e"
   product: "keystone"
 
 jobs:
@@ -47,7 +47,7 @@ jobs:
               - 'contracts/src/v0.8/**/*.sol'
               - *ignored   
             product: &product
-              - 'contracts/src/v0.8/${{ env.product }}/**/*.sol'         
+              - 'contracts/src/v0.8/${{ env.product }}/**/*.sol'      
               - *ignored            
             included:
               - *product
@@ -422,5 +422,7 @@ jobs:
           echo "Base Ref used: **${{ env.base_ref }}**" >> $GITHUB_STEP_SUMMARY
           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
           echo "## Reason: No modified Solidity files found for ${{ env.product }}" >> $GITHUB_STEP_SUMMARY
-          echo "No modified Solidity files found between ${{ env.base_ref }} and ${{ github.sha }} commits or they are located outside of ./contracts/src/v0.8 folder" >> $GITHUB_STEP_SUMMARY
+          echo "* no modified Solidity files found between ${{ env.base_ref }} and ${{ github.sha }} commits" >> $GITHUB_STEP_SUMMARY
+          echo "* or they are located outside of `./contracts/src/v0.8` folder" >> $GITHUB_STEP_SUMMARY
+          echo "* or they were limited to test files" >> $GITHUB_STEP_SUMMARY
           exit 1

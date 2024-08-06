@@ -26,8 +26,17 @@ runs:
   steps:
     - name: Fetch base ref
       if: ${{ inputs.base_ref != '' }}
+      id: fetch_base_ref
       shell: bash
-      run: git fetch origin ${{ inputs.base_ref }}
+      run: |
+        if git cat-file -t "${{ inputs.base_ref }}" 2>/dev/null | grep -q commit; then
+          # we do not know to which branch the base ref belongs, so we fetch all branches
+          git fetch --all --prune 
+          echo "ref_to_use=${{ inputs.base_ref }}" >> $GITHUB_OUTPUT
+        else
+          git fetch origin ${{ inputs.base_ref }}
+          echo "ref_to_use=origin/${{ inputs.base_ref }}" >> $GITHUB_OUTPUT
+        fi
     - name: Transform input array
       id: transform_input_array
       shell: bash
@@ -72,13 +81,13 @@ runs:
       if: ${{ inputs.validate_uml_diagrams == 'true' }}
       shell: bash
       run: |
-        echo "Validating UML diagrams"
+        echo "Validating UML diagrams"        
         IFS=',' read -r -a modified_files <<< "${{ steps.transform_input_array.outputs.sol_files }}"
-        missing_svgs=()
+        missing_svgs=()        
         for file in "${modified_files[@]}"; do
           if [ "${{ inputs.base_ref }}" != "" ]; then
             # TODO remove this check when AurorNZ/paths-filter is fixed
-            status=$(git diff --name-status origin/${{ inputs.base_ref }} HEAD -- "$file"  | awk '{ print $1 }')
+            status=$(git diff --name-status "${{ steps.fetch_base_ref.outputs.ref_to_use }}" HEAD -- "$file"  | awk '{ print $1 }')
             if [ "$status" == "D" ]; then
               echo "File $file was deleted, skipping validation"
               continue
@@ -114,7 +123,7 @@ runs:
         for file in "${modified_files[@]}"; do
           if [ "${{ inputs.base_ref }}" != "" ]; then
             # TODO remove this check when AurorNZ/paths-filter is fixed
-            status=$(git diff --name-status origin/${{ inputs.base_ref }} HEAD -- "$file"  | awk '{ print $1 }')
+            status=$(git diff --name-status "${{ steps.fetch_base_ref.outputs.ref_to_use }}" HEAD -- "$file"  | awk '{ print $1 }')
             if [ "$status" == "D" ]; then
               echo "File $file was deleted, skipping validation"
               continue

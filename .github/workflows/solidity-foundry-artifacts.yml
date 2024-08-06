@@ -140,7 +140,7 @@ jobs:
 
   gather-basic-info:
     name: Gather basic info
-    if: ${{ steps.changes.outputs.product == 'true' || steps.changes.outputs.shared == 'true' }}
+    if: ${{ needs.changes.outputs.product_changes == 'true' || needs.changes.outputs.shared_changes == 'true' }}
     runs-on: ubuntu-22.04
     needs: [ changes ]
     steps:
