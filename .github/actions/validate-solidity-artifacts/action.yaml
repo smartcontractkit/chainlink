@@ -24,6 +24,10 @@ inputs:
 runs:
   using: composite
   steps:
+  - name: Fetch base ref
+    if: ${{ inputs.base_ref != '' }}
+    shell: bash
+    run: git fetch origin ${{ inputs.base_ref }}
   - name: Validate UML diagrams
     if: ${{ inputs.validate_uml_diagrams == 'true' }}
     shell: bash
