@@ -6,6 +6,7 @@ import (
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
@@ -24,16 +25,7 @@ func (c *configTracker) LatestBlockHeight(ctx context.Context) (blockHeight uint
 
 // LatestConfig implements types.ContractConfigTracker.
 func (c *configTracker) LatestConfig(ctx context.Context, changedInBlock uint64) (types.ContractConfig, error) {
-	return types.ContractConfig{
-		ConfigDigest:          c.cfg.ConfigDigest,
-		ConfigCount:           c.cfg.ConfigCount,
-		Signers:               toOnchainPublicKeys(c.cfg.Config.Signers),
-		Transmitters:          toOCRAccounts(c.cfg.Config.Transmitters),
-		F:                     c.cfg.Config.F,
-		OnchainConfig:         []byte{},
-		OffchainConfigVersion: c.cfg.Config.OffchainConfigVersion,
-		OffchainConfig:        c.cfg.Config.OffchainConfig,
-	}, nil
+	return c.contractConfig(), nil
 }
 
 // LatestConfigDetails implements types.ContractConfigTracker.
@@ -44,6 +36,25 @@ func (c *configTracker) LatestConfigDetails(ctx context.Context) (changedInBlock
 // Notify implements types.ContractConfigTracker.
 func (c *configTracker) Notify() <-chan struct{} {
 	return nil
+}
+
+func (c *configTracker) contractConfig() types.ContractConfig {
+	return types.ContractConfig{
+		ConfigDigest:          c.cfg.ConfigDigest,
+		ConfigCount:           c.cfg.ConfigCount,
+		Signers:               toOnchainPublicKeys(c.cfg.Config.Signers),
+		Transmitters:          toOCRAccounts(c.cfg.Config.Transmitters),
+		F:                     c.cfg.Config.F,
+		OnchainConfig:         []byte{},
+		OffchainConfigVersion: c.cfg.Config.OffchainConfigVersion,
+		OffchainConfig:        c.cfg.Config.OffchainConfig,
+	}
+}
+
+// PublicConfig returns the OCR configuration as a PublicConfig so that we can
+// access ReportingPluginConfig and other fields prior to launching the plugins.
+func (c *configTracker) PublicConfig() (ocr3confighelper.PublicConfig, error) {
+	return ocr3confighelper.PublicConfigFromContractConfig(false, c.contractConfig())
 }
 
 func toOnchainPublicKeys(signers [][]byte) []types.OnchainPublicKey {
