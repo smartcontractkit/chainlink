@@ -669,6 +669,9 @@ func (o *evmTxStore) loadEthTxAttemptsReceipts(ctx context.Context, etx *Tx) (er
 	return o.loadEthTxesAttemptsReceipts(ctx, []*Tx{etx})
 }
 
+// initEthTxesAttempts takes an input txes slice, return initialized an attempt map and attemptHashes slice, as well as
+//
+//	a third value indicate if the input slice is empty
 func initEthTxesAttempts(etxs []*Tx) (map[common.Hash]*TxAttempt, [][]byte, bool) {
 	if len(etxs) == 0 {
 		return nil, nil, true
@@ -687,8 +690,8 @@ func initEthTxesAttempts(etxs []*Tx) (map[common.Hash]*TxAttempt, [][]byte, bool
 }
 
 func (o *evmTxStore) loadEthTxesAttemptsReceipts(ctx context.Context, etxs []*Tx) (err error) {
-	attemptHashM, attemptHashes, empty := initEthTxesAttempts(etxs)
-	if empty {
+	attemptHashM, attemptHashes, isEmpty := initEthTxesAttempts(etxs)
+	if isEmpty {
 		return nil
 	}
 
@@ -710,8 +713,8 @@ func (o *evmTxStore) loadEthTxesAttemptsReceipts(ctx context.Context, etxs []*Tx
 
 // loadEthTxesAttemptsPartialReceipts loads ethTxes with partial attempts values for optimization
 func (o *evmTxStore) loadEthTxesAttemptsPartialReceipts(ctx context.Context, etxs []*Tx) (err error) {
-	attemptHashM, attemptHashes, empty := initEthTxesAttempts(etxs)
-	if empty {
+	attemptHashM, attemptHashes, isEmpty := initEthTxesAttempts(etxs)
+	if isEmpty {
 		return nil
 	}
 
