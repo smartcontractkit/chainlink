@@ -123,7 +123,7 @@ func (t testConfigProvider) ConfigForCapability(ctx context.Context, capabilityI
 		return t.configForCapability(ctx, capabilityID, donID)
 	}
 
-	return capabilities.CapabilityConfiguration{DefaultConfig: values.EmptyMap()}, nil
+	return capabilities.CapabilityConfiguration{}, nil
 }
 
 // newTestEngine creates a new engine with some test defaults.
@@ -1062,4 +1062,55 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, m.(map[string]any)["deltaStage"], "1s")
 	assert.Equal(t, m.(map[string]any)["schedule"], "allAtOnce")
+}
+
+func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	writeID := "write_polygon-testnet-mumbai@1.0.0"
+
+	gotConfig := values.EmptyMap()
+	target := newMockCapability(
+		// Create a remote capability so we don't use the local transmission protocol.
+		capabilities.MustNewRemoteCapabilityInfo(
+			writeID,
+			capabilities.CapabilityTypeTarget,
+			"a write capability targeting polygon testnet",
+			&capabilities.DON{ID: 1},
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			gotConfig = req.Config
+
+			return capabilities.CapabilityResponse{
+				Value: req.Inputs,
+			}, nil
+		},
+	)
+	require.NoError(t, reg.Add(ctx, target))
+
+	eng, testHooks := newTestEngine(
+		t,
+		reg,
+		simpleWorkflow,
+	)
+	reg.SetLocalRegistry(testConfigProvider{})
+
+	servicetest.Run(t, eng)
+
+	eid := getExecutionId(t, eng, testHooks)
+
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, state.Status, store.StatusCompleted)
+
+	m, err := values.Unwrap(gotConfig)
+	require.NoError(t, err)
+	// The write target config contains three keys
+	assert.Len(t, m.(map[string]any), 3)
 }

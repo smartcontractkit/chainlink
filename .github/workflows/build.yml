@@ -21,7 +21,6 @@ jobs:
               - '!common/**'
               - '!contracts/**'
               - '!core/**'
-              - '!crib/**'
               - '!dashboard-lib/**'
               - '!fuzz/**'
               - '!integration-tests/**'
