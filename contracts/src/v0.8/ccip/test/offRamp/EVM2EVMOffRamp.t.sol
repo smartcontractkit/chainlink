@@ -235,13 +235,17 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
     amounts[1] = uint256(tokenAmount);
 
     Internal.EVM2EVMMessage memory message = _generateAny2EVMMessageWithTokens(1, amounts);
-    // console.log(message.length);
     message.data = messageData;
 
     IERC20 dstToken0 = IERC20(s_destTokens[0]);
     uint256 startingBalance = dstToken0.balanceOf(message.receiver);
 
-    vm.expectCall(s_destTokens[0], abi.encodeWithSelector(IERC20.transfer.selector, address(s_receiver), amounts[0]));
+    vm.expectCall(
+      address(dstToken0),
+      abi.encodeWithSelector(
+        IERC20.transferFrom.selector, s_destPoolByToken[address(dstToken0)], address(s_receiver), amounts[0]
+      )
+    );
 
     (Internal.MessageExecutionState newState, bytes memory err) =
       s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
@@ -1548,7 +1552,7 @@ contract EVM2EVMOffRamp__releaseOrMintToken is EVM2EVMOffRampSetup {
 
     bytes memory revertData = "call reverted :o";
 
-    vm.mockCallRevert(destToken, abi.encodeWithSelector(IERC20.transfer.selector, receiver, amount), revertData);
+    vm.mockCallRevert(destToken, abi.encodeWithSelector(IERC20.approve.selector, s_offRamp, amount), revertData);
 
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.TokenHandlingError.selector, revertData));
     s_offRamp.releaseOrMintToken(amount, originalSender, receiver, sourceTokenData, offchainTokenData);
@@ -1595,7 +1599,6 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
 
   function test_releaseOrMintTokens_destDenominatedDecimals_Success() public {
     Client.EVMTokenAmount[] memory srcTokenAmounts = getCastedSourceEVMTokenAmountsWithZeroAmounts();
-    address destToken = s_destFeeToken;
     uint256 amount = 100;
     uint256 destinationDenominationMultiplier = 1000;
     srcTokenAmounts[0].amount = amount;
@@ -1605,24 +1608,29 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
     bytes[] memory encodedSourceTokenData = _getDefaultSourceTokenData(srcTokenAmounts);
     Internal.SourceTokenData memory sourceTokenData = abi.decode(encodedSourceTokenData[0], (Internal.SourceTokenData));
 
-    // Since the pool call is mocked, we manually release funds to the offRamp
-    deal(destToken, address(s_offRamp), amount * destinationDenominationMultiplier);
+    address pool = s_destPoolBySourceToken[srcTokenAmounts[0].token];
+    address destToken = s_destTokenBySourceToken[srcTokenAmounts[0].token];
+
+    // Since the pool call is mocked, we manually approve funds to the offRamp
+    deal(destToken, pool, amount * destinationDenominationMultiplier);
+    vm.startPrank(pool);
+    IERC20(destToken).approve(address(s_offRamp), amount * destinationDenominationMultiplier);
+    vm.startPrank(OWNER);
+
+    Pool.ReleaseOrMintInV1 memory releaseOrMintIn = Pool.ReleaseOrMintInV1({
+      originalSender: originalSender,
+      receiver: OWNER,
+      amount: amount,
+      localToken: destToken,
+      remoteChainSelector: SOURCE_CHAIN_SELECTOR,
+      sourcePoolAddress: sourceTokenData.sourcePoolAddress,
+      sourcePoolData: sourceTokenData.extraData,
+      offchainTokenData: offchainTokenData[0]
+    });
 
     vm.mockCall(
-      s_destPoolBySourceToken[srcTokenAmounts[0].token],
-      abi.encodeWithSelector(
-        LockReleaseTokenPool.releaseOrMint.selector,
-        Pool.ReleaseOrMintInV1({
-          originalSender: originalSender,
-          receiver: OWNER,
-          amount: amount,
-          localToken: s_destTokenBySourceToken[srcTokenAmounts[0].token],
-          remoteChainSelector: SOURCE_CHAIN_SELECTOR,
-          sourcePoolAddress: sourceTokenData.sourcePoolAddress,
-          sourcePoolData: sourceTokenData.extraData,
-          offchainTokenData: offchainTokenData[0]
-        })
-      ),
+      pool,
+      abi.encodeWithSelector(LockReleaseTokenPool.releaseOrMint.selector, releaseOrMintIn),
       abi.encode(amount * destinationDenominationMultiplier)
     );
 

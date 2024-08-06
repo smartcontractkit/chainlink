@@ -649,7 +649,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     // transfer them to the final receiver. We use the _callWithExactGasSafeReturnData function because
     // the token contracts are not considered trusted.
     (success, returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
-      abi.encodeCall(IERC20.transfer, (receiver, localAmount)),
+      abi.encodeCall(IERC20.transferFrom, (localPoolAddress, receiver, localAmount)),
       localToken,
       sourceTokenData.destGasAmount - gasUsedReleaseOrMint,
       Internal.GAS_FOR_CALL_EXACT_CHECK,
