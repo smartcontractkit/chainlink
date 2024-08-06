@@ -7,7 +7,7 @@ import (
 	"time"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"go.uber.org/multierr"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -19,7 +19,6 @@ import (
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
@@ -43,10 +42,10 @@ func New(
 		p2pID:                  p2pID,
 		lggr:                   lggr,
 		homeChainReader:        homeChainReader,
-		regState: registrysyncer.State{
-			IDsToDONs:         make(map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo),
+		regState: registrysyncer.LocalRegistry{
+			IDsToDONs:         make(map[registrysyncer.DonID]registrysyncer.DON),
 			IDsToNodes:        make(map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo),
-			IDsToCapabilities: make(map[registrysyncer.HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo),
+			IDsToCapabilities: make(map[string]registrysyncer.Capability),
 		},
 		oracleCreator: oracleCreator,
 		dons:          make(map[registrysyncer.DonID]*ccipDeployment),
@@ -65,9 +64,9 @@ type launcher struct {
 	homeChainReader        ccipreader.HomeChain
 	stopChan               chan struct{}
 	// latestState is the latest capability registry state received from the syncer.
-	latestState registrysyncer.State
+	latestState registrysyncer.LocalRegistry
 	// regState is the latest capability registry state that we have successfully processed.
-	regState      registrysyncer.State
+	regState      registrysyncer.LocalRegistry
 	oracleCreator cctypes.OracleCreator
 	lock          sync.RWMutex
 	wg            sync.WaitGroup
@@ -80,15 +79,15 @@ type launcher struct {
 }
 
 // Launch implements registrysyncer.Launcher.
-func (l *launcher) Launch(ctx context.Context, state registrysyncer.State) error {
+func (l *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegistry) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	l.lggr.Debugw("Received new state from syncer", "dons", state.IDsToDONs)
-	l.latestState = state
+	l.latestState = *state
 	return nil
 }
 
-func (l *launcher) getLatestState() registrysyncer.State {
+func (l *launcher) getLatestState() registrysyncer.LocalRegistry {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
 	return l.latestState
@@ -183,14 +182,14 @@ func (l *launcher) processDiff(diff diffResult) error {
 	return err
 }
 
-func (l *launcher) processUpdate(updated map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo) error {
+func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer.DON) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
 	for donID, don := range updated {
-		prevDeployment, ok := l.dons[registrysyncer.DonID(don.Id)]
+		prevDeployment, ok := l.dons[registrysyncer.DonID(don.ID)]
 		if !ok {
-			return fmt.Errorf("invariant violation: expected to find CCIP DON %d in the map of running deployments", don.Id)
+			return fmt.Errorf("invariant violation: expected to find CCIP DON %d in the map of running deployments", don.ID)
 		}
 
 		futDeployment, err := updateDON(
@@ -213,13 +212,14 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]kcr.Capabiliti
 		l.dons[donID] = futDeployment
 		// update the state with the latest config.
 		// this way if one of the starts errors, we don't retry all of them.
-		l.regState.IDsToDONs[donID] = updated[donID]
+		//TODO: Boda
+		//l.regState.IDsToDONs[donID] = updated[donID]
 	}
 
 	return nil
 }
 
-func (l *launcher) processAdded(added map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo) error {
+func (l *launcher) processAdded(added map[registrysyncer.DonID]registrysyncer.DON) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
@@ -250,13 +250,14 @@ func (l *launcher) processAdded(added map[registrysyncer.DonID]kcr.CapabilitiesR
 		l.dons[donID] = dep
 		// update the state with the latest config.
 		// this way if one of the starts errors, we don't retry all of them.
-		l.regState.IDsToDONs[donID] = added[donID]
+		//TODO: Boda
+		//l.regState.IDsToDONs[donID] = added[donID]
 	}
 
 	return nil
 }
 
-func (l *launcher) processRemoved(removed map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo) error {
+func (l *launcher) processRemoved(removed map[registrysyncer.DonID]registrysyncer.DON) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
@@ -289,34 +290,34 @@ func updateDON(
 	homeChainReader ccipreader.HomeChain,
 	oracleCreator cctypes.OracleCreator,
 	prevDeployment ccipDeployment,
-	don kcr.CapabilitiesRegistryDONInfo,
+	don registrysyncer.DON,
 ) (futDeployment *ccipDeployment, err error) {
 	if !isMemberOfDON(don, p2pID) {
-		lggr.Infow("Not a member of this DON, skipping", "donId", don.Id, "p2pId", p2pID.String())
+		lggr.Infow("Not a member of this DON, skipping", "donId", don.ID, "p2pId", p2pID.String())
 		return nil, nil
 	}
 
 	// this should be a retryable error.
-	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.Id, uint8(cctypes.PluginTypeCCIPCommit))
+	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.ID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP commit plugin (don id: %d) from home chain config contract: %w",
-			don.Id, err)
+			don.ID, err)
 	}
 
-	execOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.Id, uint8(cctypes.PluginTypeCCIPExec))
+	execOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.ID, uint8(cctypes.PluginTypeCCIPExec))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP exec plugin (don id: %d) from home chain config contract: %w",
-			don.Id, err)
+			don.ID, err)
 	}
 
 	commitBgd, err := createFutureBlueGreenDeployment(prevDeployment, commitOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPCommit)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create future blue-green deployment for CCIP commit plugin: %w, don id: %d", err, don.Id)
+		return nil, fmt.Errorf("failed to create future blue-green deployment for CCIP commit plugin: %w, don id: %d", err, don.ID)
 	}
 
 	execBgd, err := createFutureBlueGreenDeployment(prevDeployment, execOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPExec)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create future blue-green deployment for CCIP exec plugin: %w, don id: %d", err, don.Id)
+		return nil, fmt.Errorf("failed to create future blue-green deployment for CCIP exec plugin: %w, don id: %d", err, don.ID)
 	}
 
 	return &ccipDeployment{
@@ -362,33 +363,33 @@ func createDON(
 	p2pID ragep2ptypes.PeerID,
 	homeChainReader ccipreader.HomeChain,
 	oracleCreator cctypes.OracleCreator,
-	don kcr.CapabilitiesRegistryDONInfo,
+	don registrysyncer.DON,
 ) (*ccipDeployment, error) {
 	if !isMemberOfDON(don, p2pID) {
-		lggr.Infow("Not a member of this DON, skipping", "donId", don.Id, "p2pId", p2pID.String())
+		lggr.Infow("Not a member of this DON, skipping", "donId", don.ID, "p2pId", p2pID.String())
 		return nil, nil
 	}
 
 	// this should be a retryable error.
-	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.Id, uint8(cctypes.PluginTypeCCIPCommit))
+	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.ID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP commit plugin (don id: %d) from home chain config contract: %w",
-			don.Id, err)
+			don.ID, err)
 	}
 
-	execOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.Id, uint8(cctypes.PluginTypeCCIPExec))
+	execOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.ID, uint8(cctypes.PluginTypeCCIPExec))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP exec plugin (don id: %d) from home chain config contract: %w",
-			don.Id, err)
+			don.ID, err)
 	}
 
 	// upon creation we should only have one OCR config per plugin type.
 	if len(commitOCRConfigs) != 1 {
-		return nil, fmt.Errorf("expected exactly one OCR config for CCIP commit plugin (don id: %d), got %d", don.Id, len(commitOCRConfigs))
+		return nil, fmt.Errorf("expected exactly one OCR config for CCIP commit plugin (don id: %d), got %d", don.ID, len(commitOCRConfigs))
 	}
 
 	if len(execOCRConfigs) != 1 {
-		return nil, fmt.Errorf("expected exactly one OCR config for CCIP exec plugin (don id: %d), got %d", don.Id, len(execOCRConfigs))
+		return nil, fmt.Errorf("expected exactly one OCR config for CCIP exec plugin (don id: %d), got %d", don.ID, len(execOCRConfigs))
 	}
 
 	commitOracle, commitBootstrap, err := createOracle(p2pID, oracleCreator, cctypes.PluginTypeCCIPCommit, commitOCRConfigs)
