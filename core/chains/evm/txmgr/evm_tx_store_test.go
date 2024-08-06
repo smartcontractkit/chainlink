@@ -680,7 +680,7 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 1, fromAddress)
 
 	// Search evm.txes table for tx requiring callback
-	receiptsPlus, err := txStore.FindTxesPendingCallback(tests.Context(t), head.Number, ethClient.ConfiguredChainID())
+	receiptsPlus, err := txStore.FindTxesPendingCallback(tests.Context(t), ethClient.ConfiguredChainID())
 	require.NoError(t, err)
 	assert.Len(t, receiptsPlus, 2)
 	assert.Equal(t, tr1.ID, receiptsPlus[0].ID)
