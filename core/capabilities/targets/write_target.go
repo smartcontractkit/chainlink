@@ -172,7 +172,6 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		}
 	default:
 		panic(fmt.Sprintf("unexpected transmission state: %v", transmissionInfo.State))
-
 	}
 
 	txID, err := uuid.NewUUID() // NOTE: CW expects us to generate an ID, rather than return one
