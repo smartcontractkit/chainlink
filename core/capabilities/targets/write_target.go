@@ -35,6 +35,15 @@ type WriteTarget struct {
 	bound bool
 }
 
+type TransmissionInfo struct {
+	GasLimit        *big.Int
+	InvalidReceiver bool
+	State           uint8
+	Success         bool
+	TransmissionId  [32]byte
+	Transmitter     common.Address
+}
+
 func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string) *WriteTarget {
 	info := capabilities.MustNewCapabilityInfo(
 		id,
@@ -131,11 +140,13 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		WorkflowExecutionID: rawExecutionID,
 		ReportId:            inputs.ID,
 	}
-	var transmitter common.Address
-	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", primitives.Unconfirmed, queryInputs, &transmitter); err != nil {
-		return nil, fmt.Errorf("failed to getTransmitter latest value: %w", err)
+	var transmissionInfo TransmissionInfo
+	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmissionInfo", primitives.Unconfirmed, queryInputs, &transmissionInfo); err != nil {
+		return nil, fmt.Errorf("failed to getTransmissionInfo latest value: %w", err)
 	}
-	if transmitter != common.HexToAddress("0x0") {
+
+	// TODO: Check if transmission state is failed AND recorded transmission gas limit is less than TX limit - 100k gas (approx. forwarder logic cost)
+	if transmissionInfo.Transmitter != common.HexToAddress("0x0") {
 		cap.lggr.Infow("WriteTarget report already onchain - returning without a tranmission attempt", "executionID", request.Metadata.WorkflowExecutionID)
 		return success(), nil
 	}

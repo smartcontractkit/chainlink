@@ -31,8 +31,8 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 			"forwarder": {
 				ContractABI: forwarder.KeystoneForwarderABI,
 				Configs: map[string]*relayevmtypes.ChainReaderDefinition{
-					"getTransmitter": {
-						ChainSpecificName: "getTransmitter",
+					"getTransmissionInfo": {
+						ChainSpecificName: "getTransmissionInfo",
 					},
 				},
 			},
