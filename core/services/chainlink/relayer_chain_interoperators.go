@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
+	relay "github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
@@ -119,6 +119,7 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 		if err2 != nil {
 			return fmt.Errorf("failed to setup EVM relayer: %w", err2)
 		}
+
 		legacyMap := make(map[string]legacyevm.Chain)
 		for id, a := range adapters {
 			// adapter is a service

@@ -10,6 +10,7 @@ import (
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -21,7 +22,7 @@ type (
 	}
 )
 
-func NewTelemetryReporter(chainContainer legacyevm.LegacyChainContainer, monitoringEndpointGen telemetry.MonitoringEndpointGenerator) HeadReporter {
+func NewTelemetryReporter(chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, monitoringEndpointGen telemetry.MonitoringEndpointGenerator) HeadReporter {
 	endpoints := make(map[uint64]commontypes.MonitoringEndpoint)
 	for _, chain := range chainContainer.Slice() {
 		endpoints[chain.ID().Uint64()] = monitoringEndpointGen.GenMonitoringEndpoint("EVM", chain.ID().String(), "", synchronization.HeadReport)

@@ -351,14 +351,9 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				assert.Equal(t, cnt, len(allChainsStats))
 				assert.Len(t, cr.Slice(), expectedChainCnt)
 
-				// should be one relayer per chain
+				// should be one relayer per chain and one service per relayer
 				assert.Len(t, cr.Slice(), expectedChainCnt)
-				// if we have evm chain, then we have head_reporter as extra service
-				if tt.expectedEVMChainCnt > 0 {
-					assert.Len(t, cr.Services(), expectedChainCnt+1)
-				} else {
-					assert.Len(t, cr.Services(), expectedChainCnt)
-				}
+				assert.Len(t, cr.Services(), expectedChainCnt)
 
 				expectedNodeCnt := tt.expectedEVMNodeCnt + tt.expectedCosmosNodeCnt + tt.expectedSolanaNodeCnt + tt.expectedStarknetNodeCnt
 				allNodeStats, cnt, err := cr.NodeStatuses(testctx, 0, 0)

@@ -15,5 +15,4 @@ type HeadTrackerConfig interface {
 	SamplingInterval() time.Duration
 	FinalityTagBypass() bool
 	MaxAllowedFinalityDepth() uint32
-	TelemetryEnabled() bool
 }

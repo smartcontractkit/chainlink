@@ -75,7 +75,6 @@ type HeadTracker interface {
 	SamplingInterval() time.Duration
 	FinalityTagBypass() bool
 	MaxAllowedFinalityDepth() uint32
-	TelemetryEnabled() bool
 }
 
 type BalanceMonitor interface {

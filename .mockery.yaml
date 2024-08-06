@@ -262,6 +262,11 @@ packages:
       ORM:
       Runner:
       PipelineParamUnmarshaler:
+  github.com/smartcontractkit/chainlink/v2/core/services/promreporter:
+    config:
+      dir: core/internal/mocks
+    interfaces:
+      PrometheusBackend:
   github.com/smartcontractkit/chainlink/v2/core/services/relay/evm:
     interfaces:
       BatchCaller:
@@ -278,15 +283,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types:
     interfaces:
       LogPollerWrapper:
-  github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/headreporter:
-    config:
-      dir: "{{ .InterfaceDir }}"
-      filename: "mock_{{ .InterfaceName | snakecase }}_test.go"
-      inpackage: true
-      mockname: "Mock{{ .InterfaceName | camelcase }}"
-    interfaces:
-      HeadReporter:
-      PrometheusBackend:
   github.com/smartcontractkit/chainlink/v2/core/services/s4:
     interfaces:
       ORM:
@@ -305,11 +301,6 @@ packages:
     interfaces:
       Config:
       FeeConfig:
-  github.com/smartcontractkit/chainlink/v2/core/services/telemetry:
-    config:
-      dir: "{{ .InterfaceDir }}/../../internal/mocks"
-    interfaces:
-      MonitoringEndpointGenerator:
   github.com/smartcontractkit/chainlink/v2/core/services/webhook:
     interfaces:
       ExternalInitiatorManager:

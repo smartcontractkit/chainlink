@@ -334,8 +334,6 @@ FinalityTagBypass = true # Default
 # If actual finality depth exceeds this number, HeadTracker aborts backfill and returns an error.
 # Has no effect if `FinalityTagsEnabled` = false
 MaxAllowedFinalityDepth = 10000 # Default
-# TelemetryEnabled controls if it collects information about new blocks from blockchain
-TelemetryEnabled = false # Default
 
 [[EVM.KeySpecific]]
 # Key is the account to apply these settings to

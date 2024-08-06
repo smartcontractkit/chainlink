@@ -1768,6 +1768,19 @@ TransmitTimeout controls how long the transmitter will wait for a response
 when sending a message to the mercury server, before aborting and considering
 the transmission to be failed.
 
+## HeadReport
+```toml
+[HeadReport]
+TelemetryEnabled = false # Default
+```
+
+
+### TelemetryEnabled
+```toml
+TelemetryEnabled = false # Default
+```
+TelemetryEnabled controls if it collects information about new blocks from blockchain
+
 ## EVM
 EVM defaults depend on ChainID:
 
@@ -1839,7 +1852,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -1934,7 +1946,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2029,7 +2040,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2124,7 +2134,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2220,7 +2229,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2315,7 +2323,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2410,7 +2417,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2506,7 +2512,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2601,7 +2606,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2695,7 +2699,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2789,7 +2792,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2884,7 +2886,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2980,7 +2981,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3075,7 +3075,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3170,7 +3169,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3265,7 +3263,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3360,7 +3357,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3455,7 +3451,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3550,7 +3545,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3645,7 +3639,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3740,7 +3733,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3835,7 +3827,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3931,7 +3922,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4026,7 +4016,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4120,7 +4109,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4215,7 +4203,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4310,7 +4297,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4405,7 +4391,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4500,7 +4485,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4594,7 +4578,6 @@ MaxBufferSize = 100
 SamplingInterval = '0s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4689,7 +4672,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4784,7 +4766,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4879,7 +4860,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4974,7 +4954,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5068,7 +5047,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5163,7 +5141,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5258,7 +5235,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5544,7 +5520,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5639,7 +5614,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5734,7 +5708,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5829,7 +5802,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5924,7 +5896,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6018,7 +5989,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6112,7 +6082,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6206,7 +6175,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6301,7 +6269,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6396,7 +6363,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6490,7 +6456,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6585,7 +6550,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6680,7 +6644,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6776,7 +6739,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6872,7 +6834,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6967,7 +6928,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7062,7 +7022,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7157,7 +7116,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7252,7 +7210,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7347,7 +7304,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7442,7 +7398,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7537,7 +7492,6 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
-TelemetryEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -8193,7 +8147,6 @@ MaxBufferSize = 3 # Default
 SamplingInterval = '1s' # Default
 FinalityTagBypass = true # Default
 MaxAllowedFinalityDepth = 10000 # Default
-TelemetryEnabled = false # Default
 ```
 The head tracker continually listens for new heads from the chain.
 
@@ -8239,12 +8192,6 @@ MaxAllowedFinalityDepth = 10000 # Default
 MaxAllowedFinalityDepth - defines maximum number of blocks between the most recent head and the latest finalized block.
 If actual finality depth exceeds this number, HeadTracker aborts backfill and returns an error.
 Has no effect if `FinalityTagsEnabled` = false
-
-### TelemetryEnabled
-```toml
-TelemetryEnabled = false # Default
-```
-TelemetryEnabled controls if it collects information about new blocks from blockchain
 
 ## EVM.KeySpecific
 ```toml

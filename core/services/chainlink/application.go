@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
-	"slices"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,8 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 
@@ -52,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -329,6 +327,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	srvcs = append(srvcs, mailMon)
 	srvcs = append(srvcs, relayerChainInterops.Services()...)
+	headReporter := headreporter.NewHeadReporterService(cfg.HeadReport(), opts.DS, legacyEVMChains, globalLogger, telemetryManager)
+	srvcs = append(srvcs, headReporter)
 
 	// Initialize Local Users ORM and Authentication Provider specified in config
 	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
@@ -368,21 +368,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		workflowORM    = workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewRealClock())
 	)
 
-	promReporter := headreporter.NewPrometheusReporter(opts.DS, legacyEVMChains)
-	var headReporter *headreporter.HeadReporterService
-	if slices.ContainsFunc(legacyEVMChains.Slice(), func(chain legacyevm.Chain) bool {
-		return chain.Config().EVM().HeadTracker().TelemetryEnabled()
-	}) {
-		telemReporter := headreporter.NewTelemetryReporter(legacyEVMChains, telemetryManager)
-		headReporter = headreporter.NewHeadReporterService(opts.DS, globalLogger, promReporter, telemReporter)
-	} else {
-		headReporter = headreporter.NewHeadReporterService(opts.DS, globalLogger, promReporter)
-	}
-
 	for _, chain := range legacyEVMChains.Slice() {
-		if chain.Config().EVM().HeadTracker().TelemetryEnabled() {
-			chain.HeadBroadcaster().Subscribe(headReporter)
-		}
+		chain.HeadBroadcaster().Subscribe(headReporter)
 		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
 	}
 
