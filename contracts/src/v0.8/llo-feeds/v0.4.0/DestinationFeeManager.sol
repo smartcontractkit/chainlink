@@ -19,8 +19,6 @@ import {IDestinationFeeManager} from "./interfaces/IDestinationFeeManager.sol";
  * @notice This contract is used for the handling of fees required for users verifying reports.
  */
 contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAndVersionInterface {
-  uint256 public testVar;
-
   using SafeERC20 for IERC20;
 
   /// @notice list of subscribers and their discounts subscriberDiscounts[subscriber][feedId][token]
