@@ -840,6 +840,12 @@ func TestORM_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 		assert.Equal(t, etxes[0].Sequence, etx_8.Sequence)
 		assert.Equal(t, etxes[1].Sequence, etx_9.Sequence)
 	})
+
+	t.Run("return no error when no transactions in range found", func(t *testing.T) {
+		etxes, err := txStore.FindTransactionsConfirmedInBlockRange(tests.Context(t), 0, 0, ethClient.ConfiguredChainID())
+		require.NoError(t, err)
+		assert.Len(t, etxes, 0)
+	})
 }
 
 func TestORM_FindEarliestUnconfirmedBroadcastTime(t *testing.T) {
