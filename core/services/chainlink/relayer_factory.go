@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
@@ -19,7 +19,6 @@ import (
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	starkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -314,7 +313,7 @@ func (r *RelayerFactory) NewAptos(ks keystore.Aptos, chainCfgs RawConfigs) (map[
 	return r.NewLOOPRelayer("Aptos", corerelay.NetworkAptos, plugin, loopKs, chainCfgs)
 }
 
-func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.Plugin, ks core.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.Plugin, ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
 	relayers := make(map[types.RelayID]loop.Relayer)
 	lggr := r.Logger.Named(name)
 
@@ -333,33 +332,34 @@ func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.
 			continue
 		}
 
-		lggr := lggr.Named(relayID.ChainID)
+		lggr2 := lggr.Named(relayID.ChainID)
 
-		if cmdName := plugin.Cmd.Get(); cmdName != "" {
-			// setup the relayer as a LOOP
-			cfgTOML, err := toml.Marshal(chainCfg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal configs: %w", err)
-			}
-
-			envVars, err := plugins.ParseEnvFile(plugin.Env.Get())
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse env file: %w", err)
-			}
-			cmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-				ID:  relayID.Name(),
-				Cmd: cmdName,
-				Env: envVars,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to create LOOP command: %w", err)
-			}
-			// the relayer service has a delicate keystore dependency. the value that is passed to NewRelayerService must
-			// be compatible with instantiating a starknet transaction manager KeystoreAdapter within the LOOPp executable.
-			relayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, cmdFn, string(cfgTOML), ks, r.CapabilitiesRegistry)
-		} else {
+		cmdName := plugin.Cmd.Get()
+		if cmdName == "" {
 			return nil, fmt.Errorf("plugin not defined: %s", "")
 		}
+
+		// setup the relayer as a LOOP
+		cfgTOML, err := toml.Marshal(chainCfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal configs: %w", err)
+		}
+
+		envVars, err := plugins.ParseEnvFile(plugin.Env.Get())
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse env file: %w", err)
+		}
+		cmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
+			ID:  relayID.Name(),
+			Cmd: cmdName,
+			Env: envVars,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create LOOP command: %w", err)
+		}
+		// the relayer service has a delicate keystore dependency. the value that is passed to NewRelayerService must
+		// be compatible with instantiating a starknet transaction manager KeystoreAdapter within the LOOPp executable.
+		relayers[relayID] = loop.NewRelayerService(lggr2, r.GRPCOpts, cmdFn, string(cfgTOML), ks, r.CapabilitiesRegistry)
 	}
 	return relayers, nil
 }
