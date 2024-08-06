@@ -1771,13 +1771,13 @@ the transmission to be failed.
 ## HeadReport
 ```toml
 [HeadReport]
-TelemetryEnabled = false # Default
+TelemetryEnabled = true # Default
 ```
 
 
 ### TelemetryEnabled
 ```toml
-TelemetryEnabled = false # Default
+TelemetryEnabled = true # Default
 ```
 TelemetryEnabled controls if it collects information about new blocks from blockchain
 

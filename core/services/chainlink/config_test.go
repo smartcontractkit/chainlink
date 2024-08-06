@@ -734,7 +734,7 @@ func TestConfig_Marshal(t *testing.T) {
 		VerboseLogging: ptr(true),
 	}
 	full.HeadReport = toml.HeadReport{
-		TelemetryEnabled: ptr(true),
+		TelemetryEnabled: ptr(false),
 	}
 	for _, tt := range []struct {
 		name   string
@@ -1208,7 +1208,7 @@ TransmitQueueMaxSize = 123
 TransmitTimeout = '3m54s'
 `},
 		{"HeadReport", Config{Core: toml.Core{HeadReport: full.HeadReport}}, `[HeadReport]
-TelemetryEnabled = true
+TelemetryEnabled = false
 `},
 		{"full", full, fullTOML},
 		{"multi-chain", multiChain, multiChainTOML},

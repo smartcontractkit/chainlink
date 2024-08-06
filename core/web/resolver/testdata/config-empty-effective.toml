@@ -238,7 +238,7 @@ TransmitQueueMaxSize = 10000
 TransmitTimeout = '5s'
 
 [HeadReport]
-TelemetryEnabled = false
+TelemetryEnabled = true
 
 [Capabilities]
 [Capabilities.Peering]

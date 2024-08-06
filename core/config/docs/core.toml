@@ -654,4 +654,4 @@ TransmitTimeout = "5s" # Default
 
 [HeadReport]
 # TelemetryEnabled controls if it collects information about new blocks from blockchain
-TelemetryEnabled = false # Default
+TelemetryEnabled = true # Default

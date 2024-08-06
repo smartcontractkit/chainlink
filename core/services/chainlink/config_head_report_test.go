@@ -14,5 +14,5 @@ func TestHeadReportConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	hr := cfg.HeadReport()
-	require.True(t, hr.TelemetryEnabled())
+	require.False(t, hr.TelemetryEnabled())
 }
