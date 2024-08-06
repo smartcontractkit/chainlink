@@ -29,6 +29,14 @@ inputs:
     description: The docker registry
     default: localhost:5001
     required: false
+  docker-image-name:
+    description: The docker image name
+    default: chainlink-develop
+    required: false
+  docker-image-tag:
+    description: The docker image tag
+    default: develop
+    required: false
   # snapshot inputs
   enable-goreleaser-snapshot:
     description: Enable goreleaser build / release snapshot
@@ -105,6 +113,8 @@ runs:
         ENABLE_GORELEASER_SNAPSHOT: ${{ inputs.enable-goreleaser-snapshot }}
         ENABLE_DOCKER_PUBLISH: ${{ inputs.enable-docker-publish }}
         IMAGE_PREFIX: ${{ inputs.docker-registry }}
+        IMAGE_NAME: ${{ inputs.docker-image-name }}
+        IMAGE_TAG: ${{ inputs.docker-image-tag }}
         GORELEASER_EXEC: ${{ inputs.goreleaser-exec }}
         GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
         COSIGN_PASSWORD: ${{ inputs.cosign-password }}
