@@ -153,7 +153,6 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		return nil, fmt.Errorf("failed to getTransmissionInfo latest value: %w", err)
 	}
 
-	// TODO: Check if transmission state is failed AND recorded transmission gas limit is less than TX limit - 100k gas (approx. forwarder logic cost)
 	switch {
 	case transmissionInfo.State == 0: // NOT_ATTEMPTED
 		cap.lggr.Infow("non-empty report - tranasmission not attempted - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
@@ -171,7 +170,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 			cap.lggr.Infow("non-empty report - retrying a failed transmission - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", cap.receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
 		}
 	default:
-		panic(fmt.Sprintf("unexpected transmission state: %v", transmissionInfo.State))
+		return nil, fmt.Errorf("unexpected transmission state: %v", transmissionInfo.State)
 	}
 
 	txID, err := uuid.NewUUID() // NOTE: CW expects us to generate an ID, rather than return one
