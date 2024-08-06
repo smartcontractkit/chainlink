@@ -112,17 +112,23 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 	}
 
 	l.IDsToDONs = make(map[DonID]DON)
-	for donID, v := range temp.IDsToDONs {
-		capabilityConfigurations := make(map[string]capabilities.CapabilityConfiguration)
-		for k, v := range v.CapabilityConfigurations {
-			capabilityConfigurations[k] = capabilities.CapabilityConfiguration{
-				DefaultConfig:       &v.DefaultConfig,
-				RemoteTriggerConfig: &v.RemoteTriggerConfig,
-				RemoteTargetConfig:  &v.RemoteTargetConfig,
+	for donID, don := range temp.IDsToDONs {
+		capabilityConfigurations := make(map[string]capabilities.CapabilityConfiguration, len(don.CapabilityConfigurations))
+		for capID, capCfg := range don.CapabilityConfigurations {
+			newDefaultConfig := new(values.Map)
+			*newDefaultConfig = capCfg.DefaultConfig
+			newRemoteTriggerConfig := new(capabilities.RemoteTriggerConfig) // Replace 'typeOfRemoteTriggerConfig' with the actual type
+			*newRemoteTriggerConfig = capCfg.RemoteTriggerConfig
+			newRemoteTargetConfig := new(capabilities.RemoteTargetConfig) // Replace 'typeOfRemoteTargetConfig' with the actual type
+			*newRemoteTargetConfig = capCfg.RemoteTargetConfig
+			capabilityConfigurations[capID] = capabilities.CapabilityConfiguration{
+				DefaultConfig:       newDefaultConfig,
+				RemoteTriggerConfig: newRemoteTriggerConfig,
+				RemoteTargetConfig:  newRemoteTargetConfig,
 			}
 		}
 		l.IDsToDONs[donID] = DON{
-			DON:                      v.DON,
+			DON:                      don.DON,
 			CapabilityConfigurations: capabilityConfigurations,
 		}
 	}
