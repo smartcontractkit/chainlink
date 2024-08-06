@@ -117,9 +117,9 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 		for capID, capCfg := range don.CapabilityConfigurations {
 			newDefaultConfig := new(values.Map)
 			*newDefaultConfig = capCfg.DefaultConfig
-			newRemoteTriggerConfig := new(capabilities.RemoteTriggerConfig) // Replace 'typeOfRemoteTriggerConfig' with the actual type
+			newRemoteTriggerConfig := new(capabilities.RemoteTriggerConfig)
 			*newRemoteTriggerConfig = capCfg.RemoteTriggerConfig
-			newRemoteTargetConfig := new(capabilities.RemoteTargetConfig) // Replace 'typeOfRemoteTargetConfig' with the actual type
+			newRemoteTargetConfig := new(capabilities.RemoteTargetConfig)
 			*newRemoteTargetConfig = capCfg.RemoteTargetConfig
 			capabilityConfigurations[capID] = capabilities.CapabilityConfiguration{
 				DefaultConfig:       newDefaultConfig,
