@@ -56,18 +56,20 @@ jobs:
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-      #      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      #        name: Checkout CRIB repository
-      #        with:
-      #          repository: 'smartcontractkit/crib'
-      #          ref: 'main'
-      #      - name: Generate Short UUID
-      #        id: uuid
-      #        run: echo "CRIB_NAMESPACE=$(uuidgen | cut -c1-5)" >> $GITHUB_ENV
-      #      - name: Create a new CRIB environment
-      #        run: |-
-      #          devspace use namespace $CRIB_NAMESPACE
-      #          devspace deploy --profile local-dev-simulated-core-ocr1
+
+
+      - name: Deploy and validate CRIB Environment for Core
+        uses: smartcontractkit/.github/actions/setup-crib-environment@fb4c26ad00aab4121a26c55a67acb0c8057bb4a7
+        id: deploy-crib
+        with:
+          disable-environment-teardown: true
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_K8S_STAGE }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
+          ecr-private-registry-stage: ${{ secrets.AWS_ACCOUNT_ID_STAGE }}
+          ecr-private-registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+          ingress-base-domain: ${{ secrets.INGRESS_BASE_DOMAIN_STAGE }}
+          k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
@@ -77,7 +79,7 @@ jobs:
         working-directory: integration-tests/crib
         env:
           K8S_STAGING_INGRESS_SUFFIX: ${{ secrets.K8S_STAGING_INGRESS_SUFFIX }}
-          CRIB_NAMESPACE: crib-skudasov
+          CRIB_NAMESPACE: ${{ steps.deploy-crib.outputs.devspace-namespace }}
           CRIB_NETWORK: geth
           CRIB_NODES: 5
           GAP_URL: ${{ secrets.GAP_URL }}
