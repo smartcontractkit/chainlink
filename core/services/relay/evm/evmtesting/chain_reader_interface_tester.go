@@ -32,9 +32,10 @@ import (
 )
 
 const (
-	triggerWithDynamicTopic = "TriggeredEventWithDynamicTopic"
-	triggerWithAllTopics    = "TriggeredWithFourTopics"
-	finalityDepth           = 4
+	triggerWithDynamicTopic        = "TriggeredEventWithDynamicTopic"
+	triggerWithAllTopics           = "TriggeredWithFourTopics"
+	triggerWithAllTopicsWithHashed = "TriggeredWithFourTopicsWithHashed"
+	finalityDepth                  = 4
 )
 
 type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
@@ -96,7 +97,7 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 			AnyContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
 				ContractPollingFilter: types.ContractPollingFilter{
-					GenericEventNames: []string{EventName, EventWithFilterName},
+					GenericEventNames: []string{EventName, EventWithFilterName, triggerWithAllTopicsWithHashed},
 				},
 				Configs: map[string]*types.ChainReaderDefinition{
 					MethodTakingLatestParamsReturningTestStruct: &methodTakingLatestParamsReturningTestStructConfig,
@@ -144,6 +145,13 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 						// Keys which are string float values(confidence levels) are chain agnostic and should be reused across chains.
 						// These float values can map to different finality concepts across chains.
 						ConfidenceConfirmations: map[string]int{"0.0": int(evmtypes.Unconfirmed), "1.0": int(evmtypes.Finalized)},
+					},
+					triggerWithAllTopicsWithHashed: {
+						ChainSpecificName: triggerWithAllTopicsWithHashed,
+						ReadType:          types.Event,
+						EventDefinitions: &types.EventDefinitions{
+							InputFields: []string{"Field1", "Field2", "Field3"},
+						},
 					},
 					MethodReturningSeenStruct: {
 						ChainSpecificName: "returnSeen",
