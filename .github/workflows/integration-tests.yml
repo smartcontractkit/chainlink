@@ -366,6 +366,13 @@ jobs:
             os: ubuntu-latest
             file: ccip
             run: -run ^TestSmokeCCIPOffRampAggRateLimit$
+          - name: ccip-smoke-leader-lane
+            nodes: 15
+            dir: ccip-tests/smoke
+            os: ubuntu-latest
+            file: ccip
+            run: -run ^TestSmokeCCIPForBidirectionalLane$
+            config_path: ./integration-tests/ccip-tests/testconfig/tomls/leader-lane.toml
           - name: runlog
             id: runlog
             nodes: 2

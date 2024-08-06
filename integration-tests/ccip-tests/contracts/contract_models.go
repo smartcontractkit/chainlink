@@ -61,6 +61,15 @@ type Version struct {
 	semver.Version
 }
 
+// GasUpdateEvent holds the event details of Gas price update
+type GasUpdateEvent struct {
+	Sender    string
+	Tx        string
+	Value     *big.Int
+	DestChain uint64
+	Source    string
+}
+
 // MustVersion creates a new Version object from a semver string and panics if it fails
 func MustVersion(version string) Version {
 	v := semver.MustParse(version)
