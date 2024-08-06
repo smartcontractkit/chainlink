@@ -23,11 +23,11 @@ async function doesIssueExist(
      */
     const issue = await client.issues.getIssue(payload);
     core.debug(
-      `JIRA issue id ${issue.id} found while querying for ${issueNumber}`
+      `JIRA issue id:${issue.id} key: ${issue.key} found while querying for ${issueNumber}`
     );
     if (issue.key !== issueNumber) {
       core.error(
-        `JIRA issue ${issueNumber} not found, but found issue ${issue.key} instead`
+        `JIRA issue key ${issueNumber} not found, but found issue key ${issue.key} instead`
       );
       return false;
     }
