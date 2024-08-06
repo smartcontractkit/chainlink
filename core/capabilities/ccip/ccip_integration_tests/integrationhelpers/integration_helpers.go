@@ -82,6 +82,8 @@ const (
 	CcipCapabilityVersion      = "v1.0"
 )
 
+var CapabilityID = fmt.Sprintf("%s@%s", CcipCapabilityLabelledName, CcipCapabilityVersion)
+
 type TestUniverse struct {
 	Transactor      *bind.TransactOpts
 	Backend         *backends.SimulatedBackend
