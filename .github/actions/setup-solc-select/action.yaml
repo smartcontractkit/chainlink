@@ -15,7 +15,6 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y python3-pip
         pip3 install solc-select
         sudo ln -s /usr/local/bin/solc-select /usr/bin/solc-select
                 

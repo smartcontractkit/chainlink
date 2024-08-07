@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -euo pipefail
 
 if [ "$#" -ne 2 ]; then
     >&2 echo "Usage: $0 <directory_prefix> <remappings_file>"
