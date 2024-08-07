@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
