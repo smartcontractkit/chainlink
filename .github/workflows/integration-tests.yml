@@ -529,13 +529,6 @@ jobs:
       fail-fast: false
       matrix:
         product:
-# LM Smoke Test is disabled since project is paused
-#          - name: ccip-lm-smoke
-#            nodes: 1
-#            os: ubuntu-latest
-#            file: lm
-#            dir: ccip-tests/smoke
-#            run: -run ^TestLmBasic$
           - name: ccip-smoke
             nodes: 1
             os: ubuntu-latest
