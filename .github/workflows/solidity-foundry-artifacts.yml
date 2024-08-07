@@ -41,11 +41,12 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Find modified contracts
-        uses: AurorNZ/paths-filter@3b1f3abc3371cca888d8eb03dfa70bc8a9867629 # v4.0.0
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
           list-files: 'csv'
           base: ${{ inputs.base_ref }}
+          predicate-quantifier: every
           filters: |
             ignored: &ignored
               - '!contracts/src/v0.8/**/test/**'
@@ -58,70 +59,17 @@ jobs:
               - '!contracts/src/v0.8/testhelpers/**'
               - '!contracts/src/v0.8/vendor/**'
             other_shared:
-              - 'contracts/src/v0.8/interfaces/**/*.sol'
-              - 'contracts/src/v0.8/*.sol'
+              - modified|added: 'contracts/src/v0.8/interfaces/**/*.sol'
+              - modified|added: 'contracts/src/v0.8/*.sol'
               - *ignored
             sol:
-              - 'contracts/src/v0.8/**/*.sol'
+              - modified|added: 'contracts/src/v0.8/**/*.sol'
               - *ignored   
             product: &product
-              - 'contracts/src/v0.8/${{ inputs.product }}/**/*.sol'      
+              - modified|added: 'contracts/src/v0.8/${{ inputs.product }}/**/*.sol'      
               - *ignored
-
-      - name: Find modified changesets
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: changes-dorny
-        with:
-          list-files: 'shell'
-          base: ${{ inputs.base_ref }}
-          filters: |
             changeset:
-              - modified|added: 'contracts/.changeset/!(README)*.md'
-
-      # TODO remove when https://github.com/AurorNZ/paths-filter/issues/12 is fixed and we can use modifiers with it
-      - name: Get reference to compare to
-        id: get-base-ref
-        shell: bash
-        run: |
-          type=$(git cat-file -t "${{ inputs.base_ref }}")
-          if echo "$type" | grep -q commit; then
-              # we do not know to which branch the base ref belongs, so we fetch all branches
-              git fetch --all --prune
-              ref_to_use="${{ inputs.base_ref }}"
-          elif  echo "$type" | grep -q tag; then
-              git fetch origin ${{ inputs.base_ref }}
-              ref_to_use="origin/${{ inputs.base_ref }}" 
-          else
-              # must be branch
-              echo "::debug:: Base reference type: $type"
-              git fetch origin ${{ inputs.base_ref }}
-              ref_to_use="origin/${{ inputs.base_ref }}" 
-          fi
-          echo "ref_to_use=$ref_to_use" >> $GITHUB_OUTPUT
-
-      - name: Check if changes are not limited only to deleted files
-        if: ${{ steps.changes.outputs.sol == 'true' }}
-        shell: bash
-        run: |
-          echo "::debug::All modified contracts:"
-          echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n'                 
-          
-          IFS=','
-          for file in ${{ steps.changes.outputs.sol_files }}; do
-            # TODO remove when https://github.com/AurorNZ/paths-filter/issues/12 is fixed and we can use modifiers with it
-            status=$(git diff --name-status "${{ steps.get-base-ref.outputs.ref_to_use }}" HEAD -- "$file"  | awk '{ print $1 }')
-            if [ "$status" != "D" ]; then
-              exit 0
-            fi
-          done
-          
-          echo "::error:: All contract modifications are limited to deleted files. No artifacts will be generated."
-          echo "# Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
-          echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
-          echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
-          echo "## Reason: Only deleted Solidity files found for ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
-          
-          exit 1
+              - modified|added: 'contracts/.changeset/!(README)*.md' 
 
       - name: Check for changes outside of artifact scope
         if: ${{ steps.changes.outputs.sol == 'true' }}
@@ -146,11 +94,6 @@ jobs:
             echo "Files: ${files[@]}"
           
             for file in "${files[@]}"; do
-              # TODO remove when https://github.com/AurorNZ/paths-filter/issues/12 is fixed and we can use modifiers with it
-              status=$(git diff --name-status "${{ steps.get-base-ref.outputs.ref_to_use }}" HEAD -- "$file"  | awk '{ print $1 }')
-              if [ "$status" == "D" ]; then
-                continue
-              fi
               missing_files+="$file"
           
               product=$(echo "$file" | awk -F'src/v0.8/' '{if ($2 ~ /\//) print substr($2, 1, index($2, "/")-1); else print "shared"}')
