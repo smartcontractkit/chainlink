@@ -61,8 +61,8 @@ jobs:
         id: token
         uses: smartcontractkit/.github/actions/setup-github-token@main
         with:
-          aws-role-arn: ${{ secrets.AWS_ROLE_ARN_GLOBAL_READ_ONLY }}
-          aws-lambda-url: ${{ secrets.GATI_LAMBDA_RELENG_URL }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
           aws-region: ${{ secrets.AWS_REGION }}
           aws-role-duration-seconds: "1800"
 
@@ -70,7 +70,7 @@ jobs:
         uses: smartcontractkit/.github/actions/setup-crib-environment@fb4c26ad00aab4121a26c55a67acb0c8057bb4a7
         id: deploy-crib
         with:
-          github_token: ${{ steps.token.outputs.access-token }}
+          github-token: ${{ steps.token.outputs.access-token }}
           disable-environment-teardown: true
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_K8S_STAGE }}
           aws-region: ${{ secrets.AWS_REGION }}
