@@ -65,9 +65,14 @@ jobs:
           aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
           aws-region: ${{ secrets.AWS_REGION }}
           aws-role-duration-seconds: "1800"
+      - name: Debug workspace dir
+        shell: bash
+        run: |
+          echo ${{ github.workspace }}
+          echo $GITHUB_WORKSPACE
 
       - name: Deploy and validate CRIB Environment for Core
-        uses: smartcontractkit/.github/actions/setup-crib-environment@fda734ff95d585f3c7a990aadf0b9c4765d8f7e3
+        uses: smartcontractkit/.github/actions/setup-crib-environment@1fc88731538c4abae81ff65f7cd37832da431d7d
         id: deploy-crib
         with:
           github-token: ${{ steps.token.outputs.access-token }}
