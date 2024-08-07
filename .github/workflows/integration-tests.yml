@@ -360,6 +360,7 @@ jobs:
           artifacts_location: |
             ./integration-tests/smoke/logs/
             ./integration-tests/smoke/db_dumps/
+            ./integration-tests/smoke/seth_artifacts/
             /tmp/gotest.log
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -396,6 +397,10 @@ jobs:
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+
+      - name: Render transaction graphs
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-failed-tx-graph@bcc4d248d31d5bed439a5d0eaed3b0863618d908 # v2.3.25
 
   eth-smoke-tests-matrix-log-poller:
     if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') || inputs.distinct_run_name != '' }}
@@ -474,8 +479,8 @@ jobs:
           artifacts_location: |
             ./integration-tests/smoke/logs/
             ./integration-tests/smoke/db_dumps/
+            ./integration-tests/smoke/seth_artifacts/
             /tmp/gotest.log
-            ./integration-tests/smoke/dot_graphs/
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
@@ -512,6 +517,9 @@ jobs:
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
 
+      - name: Render transaction graphs
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-failed-tx-graph@bcc4d248d31d5bed439a5d0eaed3b0863618d908 # v2.3.25
 
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
@@ -713,6 +721,7 @@ jobs:
           artifacts_location: |
             ./integration-tests/smoke/logs/
             ./integration-tests/smoke/db_dumps/
+            ./integration-tests/smoke/seth_artifacts/
             /tmp/gotest.log
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -782,6 +791,10 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
         with:
           test_directories: ./integration-tests/smoke/
+
+      - name: Render transaction graphs
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-failed-tx-graph@bcc4d248d31d5bed439a5d0eaed3b0863618d908 # v2.3.25
 
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:
