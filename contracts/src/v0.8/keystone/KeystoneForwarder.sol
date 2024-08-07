@@ -95,7 +95,6 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   /// @dev The gas we require to revert in case of a revert in the call to the
   /// receiver. This is more than enough and does not attempt to be exact.
   uint256 internal constant REQUIRED_GAS_FOR_ROUTING = 40_000;
-  bytes4 internal constant INSUFFICIENT_GAS_FOR_ROUTING_SIG = 0x0bfecd63;
 
   // ================================================================
   // │                          Router                              │
