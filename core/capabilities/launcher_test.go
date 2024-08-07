@@ -323,7 +323,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	// The below state describes a Workflow DON (AcceptsWorkflows = true),
 	// which exposes the streams-trigger and write_chain capabilities.
 	// We expect receivers to be wired up and both capabilities to be added to the registry.
-	var rtc capabilities.RemoteTriggerConfig
+	rtc := &capabilities.RemoteTriggerConfig{}
 	rtc.ApplyDefaults()
 
 	state := &registrysyncer.LocalRegistry{

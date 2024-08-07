@@ -5,11 +5,11 @@ on:
       base64Config:
         description: base64-ed config
         required: true
-        type: string  
+        type: string
       test_secrets_override_key:
         description: 'Key to run tests with custom test secrets'
         required: false
-        type: string              
+        type: string
 
 jobs:
   vrfv2plus_smoke_test:
@@ -24,7 +24,7 @@ jobs:
     env:
       TEST_LOG_LEVEL: debug
       REF_NAME: ${{ github.head_ref || github.ref_name }}
-    steps:            
+    steps:
       - name: Checkout code
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
@@ -48,7 +48,7 @@ jobs:
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY
           echo "### Execution client used" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.ETH2_EL_CLIENT }}\`" >>$GITHUB_STEP_SUMMARY              
+          echo "\`${{ env.ETH2_EL_CLIENT }}\`" >>$GITHUB_STEP_SUMMARY
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
         with:
@@ -59,12 +59,14 @@ jobs:
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: vrfplus-test-logs
-          artifacts_location: ./integration-tests/smoke/logs/
+          artifacts_location: |
+            ./integration-tests/smoke/logs/
+            ./integration-tests/smoke/db_dumps/
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
           should_cleanup: false
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}          
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
           DEFAULT_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
           DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
