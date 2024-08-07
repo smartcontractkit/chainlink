@@ -703,7 +703,7 @@ jobs:
           fi
           # if the matrix.product.run is set, use it for a different command
           if [ "${{ matrix.product.run }}" != "" ]; then
-            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
+            echo "run_command=${{ matrix.product.run }} ./${dir}/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
           else
             echo "run_command=./${dir}/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
           fi
