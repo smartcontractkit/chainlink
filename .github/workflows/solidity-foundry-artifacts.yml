@@ -34,7 +34,7 @@ jobs:
     outputs:
       changes: ${{ steps.changes.outputs.sol }}
       product_changes: ${{ steps.changes-transform.outputs.product_changes }}
-      files: ${{ steps.changes.changes-transform.product_files }}
+      files: ${{ steps.changes-transform.outputs.product_files }}
       changeset_changes: ${{ steps.changes-dorny.outputs.changeset }}
       changeset_files: ${{ steps.changes-dorny.outputs.changeset_files }}
     steps:
@@ -79,31 +79,37 @@ jobs:
               - modified|added: 'contracts/.changeset/!(README)*.md'
 
       # TODO remove when https://github.com/AurorNZ/paths-filter/issues/12 is fixed and we can use modifiers with it
+      - name: Get reference to compare to
+        id: get-base-ref
+        shell: bash
+        run: |
+          type=$(git cat-file -t "${{ inputs.base_ref }}")
+          if echo "$type" | grep -q commit; then
+              # we do not know to which branch the base ref belongs, so we fetch all branches
+              git fetch --all --prune
+              ref_to_use="${{ inputs.base_ref }}"
+          elif  echo "$type" | grep -q tag; then
+              git fetch origin ${{ inputs.base_ref }}
+              ref_to_use="origin/${{ inputs.base_ref }}" 
+          else
+              # must be branch
+              echo "::debug:: Base reference type: $type"
+              git fetch origin ${{ inputs.base_ref }}
+              ref_to_use="origin/${{ inputs.base_ref }}" 
+          fi
+          echo "ref_to_use=$ref_to_use" >> $GITHUB_OUTPUT
+
       - name: Check if changes are not limited only to deleted files
         if: ${{ steps.changes.outputs.sol == 'true' }}
         shell: bash
         run: |
           echo "::debug::All modified contracts:"
-          echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n'
-          
-          type=$(git cat-file -t "${{ inputs.base_ref }}")
-          if echo "$type" | grep -q commit; then
-            # we do not know to which branch the base ref belongs, so we fetch all branches
-            git fetch --all --prune
-            ref_to_use="${{ inputs.base_ref }}"
-          elif  echo "$type" | grep -q tag; then
-            git fetch origin ${{ inputs.base_ref }}
-            ref_to_use="origin/${{ inputs.base_ref }}" 
-          else
-            # must be branch
-            echo "::debug:: Base reference type: $type"
-            git fetch origin ${{ inputs.base_ref }}
-            ref_to_use="origin/${{ inputs.base_ref }}" 
-          fi
+          echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n'                 
           
           IFS=','
-          for file in ${{ steps.changes.outputs.sol_files }}; do          
-            status=$(git diff --name-status "$ref_to_use" HEAD -- "$file"  | awk '{ print $1 }')
+          for file in ${{ steps.changes.outputs.sol_files }}; do
+            # TODO remove when https://github.com/AurorNZ/paths-filter/issues/12 is fixed and we can use modifiers with it
+            status=$(git diff --name-status "${{ steps.get-base-ref.outputs.ref_to_use }}" HEAD -- "$file"  | awk '{ print $1 }')
             if [ "$status" != "D" ]; then
               exit 0
             fi
@@ -114,6 +120,7 @@ jobs:
           echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
           echo "## Reason: Only deleted Solidity files found for ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
+          
           exit 1
 
       - name: Check for changes outside of artifact scope
@@ -125,10 +132,11 @@ jobs:
           if [ "${{ inputs.product }}" = "shared" ]; then
             excluded_paths_pattern="!/^contracts\/src\/v0\.8\/interfaces/ && !/^contracts\/src\/v0\.8\/${{ inputs.product }}/ && !/^contracts\/src\/v0\.8\/[^\/]+\.sol$/"
           else
-            excluded_paths_pattern="!/^contracts\/src\/v0\.8\/${{ inputs.product }}/ && !/^contracts\/src\/v0\.8\/[^\/]+\.sol$/"
+            excluded_paths_pattern="!/^contracts\/src\/v0\.8\/${{ inputs.product }}/"
           fi
           echo "::debug::Excluded paths: $excluded_paths_pattern"
           unexpected_files=$(echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n' | awk "$excluded_paths_pattern")
+          missing_files=""
           set -e 
           set -o pipefail
           if [[ -n "$unexpected_files" ]]; then
@@ -138,7 +146,14 @@ jobs:
             echo "Files: ${files[@]}"
           
             for file in "${files[@]}"; do
-              product=$(echo "$file" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
+              # TODO remove when https://github.com/AurorNZ/paths-filter/issues/12 is fixed and we can use modifiers with it
+              status=$(git diff --name-status "${{ steps.get-base-ref.outputs.ref_to_use }}" HEAD -- "$file"  | awk '{ print $1 }')
+              if [ "$status" == "D" ]; then
+                continue
+              fi
+              missing_files+="$file"
+          
+              product=$(echo "$file" | awk -F'src/v0.8/' '{if ($2 ~ /\//) print substr($2, 1, index($2, "/")-1); else print "shared"}')
               if [[ ! " ${products[@]} " =~ " ${product} " ]]; then
                 products+=("$product")
                 productsStr+="$product, "
@@ -149,15 +164,17 @@ jobs:
             set +e 
             set +o pipefail
           
+            missing_files=$(echo $missing_files | tr ',' '\n')
+          
             echo "Error: Found modified contracts outside of the expected scope: ${{ inputs.product }}"
             echo "Files:"
-            echo "$unexpected_files"
+            echo "$missing_files"
             echo "Action required: If you want to generate artifacts for other products ($productsStr) run this workflow again with updated configuration"
           
             echo "# Warning!" >> $GITHUB_STEP_SUMMARY
             echo "## Reason: Found modified contracts outside of the expected scope: ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
             echo "### Files:" >> $GITHUB_STEP_SUMMARY
-            echo "$unexpected_files" >> $GITHUB_STEP_SUMMARY
+            echo "$missing_files" >> $GITHUB_STEP_SUMMARY
             echo "## Action required: If you want to generate artifacts for other products ($productsStr) run this workflow again with updated configuration" >> $GITHUB_STEP_SUMMARY            
           else
             echo "No unexpected files found."
@@ -170,18 +187,18 @@ jobs:
         run: |
           if [ "${{ inputs.product }}" = "shared" ]; then
             echo "::debug:: Product is shared, transforming changes"
-            if [[ "${{ steps.changes.outputs.product }} == 'true' && "${{ steps.changes.outputs.other_shared }}" == 'true' ]]; then
+            if [[ "${{ steps.changes.outputs.product }}" == "true" && "${{ steps.changes.outputs.other_shared }}" == "true" ]]; then
               echo "::debug:: Changes were found in 'shared' folder and in 'interfaces' and root folders"
               echo "product_changes=true" >> $GITHUB_OUTPUT
               echo "product_files=${{ steps.changes.outputs.product_files }},${{ steps.changes.outputs.other_shared_files }}" >> $GITHUB_OUTPUT
-            elif [[ "${{ steps.changes.outputs.product }} == 'false' && "${{ steps.changes.outputs.other_shared }}" == 'true' ]]; then
+            elif [[ "${{ steps.changes.outputs.product }}" == "false" && "${{ steps.changes.outputs.other_shared }}" == "true" ]]; then
               echo "::debug:: Only contracts in' interfaces' and root folders were modified"
               echo "product_changes=true" >> $GITHUB_OUTPUT
               echo "product_files=${{ steps.changes.outputs.other_shared_files }}" >> $GITHUB_OUTPUT
-            elif [[ "${{ steps.changes.outputs.product }} == 'true' && "${{ steps.changes.outputs.other_shared }}" == 'false' ]]; then
+            elif [[ "${{ steps.changes.outputs.product }}" == "true" && "${{ steps.changes.outputs.other_shared }}" == "false" ]]; then
               echo "::debug:: Only contracts in 'shared' folder were modified"
               echo "product_changes=true" >> $GITHUB_OUTPUT
-              echo "product_files=${{ steps.changes.outputs.product_files }}" >> $GITHUB_OUTPUT"
+              echo "product_files=${{ steps.changes.outputs.product_files }}" >> $GITHUB_OUTPUT
             else
               echo "::debug:: No contracts were modified"
               echo "product_changes=false" >> $GITHUB_OUTPUT
@@ -189,7 +206,7 @@ jobs:
             fi
           else
            echo "product_changes=${{ steps.changes.outputs.product }}" >> $GITHUB_OUTPUT
-           echo "product_files=${{ steps.changes.outputs.product_files }}" >> $GITHUB_OUTPUT"
+           echo "product_files=${{ steps.changes.outputs.product_files }}" >> $GITHUB_OUTPUT
           fi
 
   gather-basic-info:
@@ -459,3 +476,4 @@ jobs:
           echo "* or they are located outside of ./contracts/src/v0.8 folder" >> $GITHUB_STEP_SUMMARY
           echo "* or they were limited to test files" >> $GITHUB_STEP_SUMMARY
           exit 1
+
