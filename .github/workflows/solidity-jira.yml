@@ -18,13 +18,16 @@ defaults:
 jobs:
   skip-enforce-jira-issue:
     name: Skip Enforce Jira Issue
-    if: ${{ github.event_name != 'merge_group' }}
+    # We want to skip merge_group events, and any release branches
+    # Since we only want to enforce Jira issues on pull requests related to feature branches
+    if: ${{ github.event_name != 'merge_group' && !startsWith(github.ref_name, 'release/') || !startsWith(github.head_ref, 'release/')  }}
     outputs:
-      should-enforce: ${{ steps.changed_files.outputs.only_src_contracts }} 
-    runs-on: ubuntu-latest 
+      should-enforce: ${{ steps.changed_files.outputs.only_src_contracts }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
         # We don't use detect-solidity-file-changes here because we need to use the "every" predicate quantifier
       - name: Filter paths
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -32,11 +35,12 @@ jobs:
         with:
           list-files: "csv"
           # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
-          predicate-quantifier: 'every' 
+          predicate-quantifier: "every"
           filters: |
             only_src_contracts:
               - contracts/**/*.sol
               - '!contracts/**/*.t.sol'
+
       - name: Collect Metrics
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
@@ -45,24 +49,31 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Skip Enforce Jira Issue 
+          this-job-name: Skip Enforce Jira Issue
         continue-on-error: true
 
   enforce-jira-issue:
     name: Enforce Jira Issue
     runs-on: ubuntu-latest
     needs: [skip-enforce-jira-issue]
+    # Along with only running on solidity related PRs,
+    # We want to skip merge_group events, and any release branches
+    # Since we only want to enforce Jira issues on pull requests related to feature branches
+    #
     # Note: A job that is skipped will report its status as "Success".
     # It will not prevent a pull request from merging, even if it is a required check.
-    if: ${{ github.event_name != 'merge_group' && needs.skip-enforce-jira-issue.outputs.should-enforce == 'true' }}
+    if: ${{ github.event_name != 'merge_group' && !startsWith(github.ref_name, 'release/') || !startsWith(github.head_ref, 'release/') && needs.skip-enforce-jira-issue.outputs.should-enforce == 'true'  }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
+
       - name: Setup Jira
         working-directory: ./.github/scripts/jira
         run: pnpm i
+
       - name: Enforce Jira Issue
         working-directory: ./.github/scripts/jira
         run: |
