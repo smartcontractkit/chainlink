@@ -5,6 +5,6 @@ import (
 )
 
 type VRFV2PlusWrapperContracts struct {
-	VRFV2PlusWrapper  contracts.VRFV2PlusWrapper
-	LoadTestConsumers []contracts.VRFv2PlusWrapperLoadTestConsumer
+	VRFV2PlusWrapper contracts.VRFV2PlusWrapper
+	WrapperConsumers []contracts.VRFv2PlusWrapperLoadTestConsumer
 }
