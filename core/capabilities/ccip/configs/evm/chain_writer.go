@@ -20,8 +20,13 @@ var (
 	offrampABI = evmtypes.MustGetABI(evm_2_evm_multi_offramp.EVM2EVMMultiOffRampABI)
 )
 
-func MustChainWriterConfig(fromAddress common.Address, maxGasPrice *assets.Wei) []byte {
-	rawConfig := ChainWriterConfigRaw(fromAddress, maxGasPrice)
+func MustChainWriterConfig(
+	fromAddress common.Address,
+	maxGasPrice *assets.Wei,
+	commitGasLimit,
+	execBatchGasLimit uint64,
+) []byte {
+	rawConfig := ChainWriterConfigRaw(fromAddress, maxGasPrice, commitGasLimit, execBatchGasLimit)
 	encoded, err := json.Marshal(rawConfig)
 	if err != nil {
 		panic(fmt.Errorf("failed to marshal ChainWriterConfig: %w", err))
@@ -31,7 +36,12 @@ func MustChainWriterConfig(fromAddress common.Address, maxGasPrice *assets.Wei) 
 }
 
 // ChainWriterConfigRaw returns a ChainWriterConfig that can be used to transmit commit and execute reports.
-func ChainWriterConfigRaw(fromAddress common.Address, maxGasPrice *assets.Wei) evmrelaytypes.ChainWriterConfig {
+func ChainWriterConfigRaw(
+	fromAddress common.Address,
+	maxGasPrice *assets.Wei,
+	commitGasLimit,
+	execBatchGasLimit uint64,
+) evmrelaytypes.ChainWriterConfig {
 	return evmrelaytypes.ChainWriterConfig{
 		Contracts: map[string]*evmrelaytypes.ContractConfig{
 			consts.ContractNameOffRamp: {
@@ -40,14 +50,12 @@ func ChainWriterConfigRaw(fromAddress common.Address, maxGasPrice *assets.Wei) e
 					consts.MethodCommit: {
 						ChainSpecificName: mustGetMethodName("commit", offrampABI),
 						FromAddress:       fromAddress,
-						// TODO: inject this into the method, should be fetched from the OCR config.
-						GasLimit: 500_000,
+						GasLimit:          commitGasLimit,
 					},
 					consts.MethodExecute: {
 						ChainSpecificName: mustGetMethodName("execute", offrampABI),
 						FromAddress:       fromAddress,
-						// TODO: inject this into the method, should be fetched from the OCR config.
-						GasLimit: 6_500_000,
+						GasLimit:          execBatchGasLimit,
 					},
 				},
 			},
