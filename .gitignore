@@ -74,6 +74,7 @@ integration-tests/**/traces/
 benchmark_report.csv
 benchmark_summary.json
 integration-tests/citool/output.csv
+secrets.toml
 
 # goreleaser builds
 cosign.*
