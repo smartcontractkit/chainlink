@@ -83,7 +83,7 @@ jobs:
               echo "$line" >> $GITHUB_STEP_SUMMARY
             fi
           done < output.txt
-          cat $GITHUB_STEP_SUMMARY
+          echo $GITHUB_STEP_SUMMARY
 
       - name: Collect Metrics
         if: always()
