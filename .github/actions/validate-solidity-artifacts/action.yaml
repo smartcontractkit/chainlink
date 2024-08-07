@@ -29,17 +29,25 @@ runs:
       id: fetch_base_ref
       shell: bash
       run: |
-        git fetch --all --prune         
-        type=$(git cat-file -t "${{ inputs.base_ref }}")
-        echo "::debug:: Base reference type: $type"
-        if echo "$type" | grep -q commit; then
-          # we do not know to which branch the base ref belongs, so we fetch all branches
-          echo "ref_to_use=${{ inputs.base_ref }}" >> $GITHUB_OUTPUT
-        elif  echo "$type" | grep -q tag; then
-          echo "ref_to_use=${{ inputs.base_ref }}" >> $GITHUB_OUTPUT
+        git fetch --all --prune
+        base_ref="${{ inputs.base_ref }}"
+        set -u
+        
+        if type=$(git cat-file -t "$base_ref" 2>/dev/null); then
+          echo "::debug::Found base_ref: $base_ref of type $type"
         else
-          echo "ref_to_use=origin/${{ inputs.base_ref }}" >> $GITHUB_OUTPUT
+          base_ref="origin/$base_ref"
+          if type=$(git cat-file -t "$base_ref" 2>/dev/null); then
+            echo "::debug::Found base_ref: $base_ref of type $type"
+          else
+            echo "::error::$base_ref is not a valid git object"
+            exit 1
+          fi
         fi
+        
+        set -euo pipefail
+        echo "::debug:: Will use base reference: $base_ref"
+        echo "ref_to_use=$base_ref" >> $GITHUB_OUTPUT
     - name: Transform input array
       id: transform_input_array
       shell: bash
