@@ -56,7 +56,6 @@ type Core struct {
 	Insecure         Insecure         `toml:",omitempty"`
 	Tracing          Tracing          `toml:",omitempty"`
 	Mercury          Mercury          `toml:",omitempty"`
-	HeadReport       HeadReport       `toml:",omitempty"`
 	Capabilities     Capabilities     `toml:",omitempty"`
 }
 
@@ -77,7 +76,6 @@ func (c *Core) SetFrom(f *Core) {
 	c.TelemetryIngress.setFrom(&f.TelemetryIngress)
 	c.AuditLogger.SetFrom(&f.AuditLogger)
 	c.Log.setFrom(&f.Log)
-	c.HeadReport.setFrom(&f.HeadReport)
 
 	c.WebServer.setFrom(&f.WebServer)
 	c.JobPipeline.setFrom(&f.JobPipeline)
@@ -484,16 +482,6 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	}
 	if v := f.Endpoints; v != nil {
 		t.Endpoints = v
-	}
-}
-
-type HeadReport struct {
-	TelemetryEnabled *bool
-}
-
-func (t *HeadReport) setFrom(f *HeadReport) {
-	if v := f.TelemetryEnabled; v != nil {
-		t.TelemetryEnabled = v
 	}
 }
 

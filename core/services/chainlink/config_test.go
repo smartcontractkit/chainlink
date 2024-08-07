@@ -733,9 +733,6 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 		VerboseLogging: ptr(true),
 	}
-	full.HeadReport = toml.HeadReport{
-		TelemetryEnabled: ptr(false),
-	}
 	for _, tt := range []struct {
 		name   string
 		config Config
@@ -1206,9 +1203,6 @@ CertFile = '/path/to/cert.pem'
 [Mercury.Transmitter]
 TransmitQueueMaxSize = 123
 TransmitTimeout = '3m54s'
-`},
-		{"HeadReport", Config{Core: toml.Core{HeadReport: full.HeadReport}}, `[HeadReport]
-TelemetryEnabled = false
 `},
 		{"full", full, fullTOML},
 		{"multi-chain", multiChain, multiChainTOML},

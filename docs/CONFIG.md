@@ -1768,19 +1768,6 @@ TransmitTimeout controls how long the transmitter will wait for a response
 when sending a message to the mercury server, before aborting and considering
 the transmission to be failed.
 
-## HeadReport
-```toml
-[HeadReport]
-TelemetryEnabled = true # Default
-```
-
-
-### TelemetryEnabled
-```toml
-TelemetryEnabled = true # Default
-```
-TelemetryEnabled controls if it collects information about new blocks from blockchain
-
 ## EVM
 EVM defaults depend on ChainID:
 
