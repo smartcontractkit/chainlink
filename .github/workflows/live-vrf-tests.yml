@@ -120,7 +120,7 @@ jobs:
     needs: [build-chainlink, build-tests]
     strategy:
       fail-fast: false
-      matrix: 
+      matrix:
         network: ${{fromJson(needs.build-tests.outputs.matrix)}}
     name: Smoke Tests on ${{ matrix.network }}
     runs-on: ubuntu-latest
@@ -190,4 +190,4 @@ jobs:
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
         with:
-          test_directory: "./"
+          test_directories: "./"
