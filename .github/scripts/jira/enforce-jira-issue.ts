@@ -35,7 +35,6 @@ async function doesIssueExist(
     return true;
   } catch (e) {
     core.debug(e as any);
-    core.setFailed(`JIRA issue ${issueNumber} not found`);
     return false;
   }
 }
@@ -69,9 +68,9 @@ async function run() {
     await main();
   } catch (error) {
     if (error instanceof Error) {
-      core.setFailed(error.message);
+      return core.setFailed(error.message);
     }
-    core.setFailed(error);
+    core.setFailed(error as any);
   }
 }
 
