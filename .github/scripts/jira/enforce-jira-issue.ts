@@ -50,7 +50,7 @@ async function main() {
   const issueNumber = parseIssueNumberFrom(prTitle, commitMessage, branchName);
   if (!issueNumber) {
     const msg =
-      "No JIRA issue number found in: PR title, commit message, or branch name. Please include the issue ID in one of these.";
+      "No JIRA issue number found in PR title, commit message, or branch name. This pull request must be associated with a JIRA issue.";
 
     core.setFailed(msg);
     return;
