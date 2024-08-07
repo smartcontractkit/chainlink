@@ -3778,6 +3778,7 @@ func SetOCR2Config(
 			DefaultMaxNoOfTokensInMsg,
 			MaxDataBytes,
 			200_000,
+			50_000,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create exec onchain config: %w", err)
