@@ -24,30 +24,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Fetch base ref
-      if: ${{ inputs.base_ref != '' }}
-      id: fetch_base_ref
-      shell: bash
-      run: |
-        git fetch --all --prune
-        base_ref="${{ inputs.base_ref }}"
-        set -u
-        
-        if type=$(git cat-file -t "$base_ref" 2>/dev/null); then
-          echo "::debug::Found base_ref: $base_ref of type $type"
-        else
-          base_ref="origin/$base_ref"
-          if type=$(git cat-file -t "$base_ref" 2>/dev/null); then
-            echo "::debug::Found base_ref: $base_ref of type $type"
-          else
-            echo "::error::$base_ref is not a valid git object"
-            exit 1
-          fi
-        fi
-        
-        set -euo pipefail
-        echo "::debug:: Will use base reference: $base_ref"
-        echo "ref_to_use=$base_ref" >> $GITHUB_OUTPUT
     - name: Transform input array
       id: transform_input_array
       shell: bash
@@ -97,12 +73,6 @@ runs:
         missing_svgs=()        
         for file in "${modified_files[@]}"; do
           if [ "${{ inputs.base_ref }}" != "" ]; then
-            # TODO remove this check when AurorNZ/paths-filter is fixed
-            status=$(git diff --name-status "${{ steps.fetch_base_ref.outputs.ref_to_use }}" HEAD -- "$file"  | awk '{ print $1 }')
-            if [ "$status" == "D" ]; then
-              echo "File $file was deleted, skipping validation"
-              continue
-            fi
           fi
         
           svg_file="$(basename "${file%.sol}").svg"
