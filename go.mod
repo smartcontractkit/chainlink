@@ -43,7 +43,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.5
 	github.com/hdevalence/ed25519consensus v0.1.0
 	github.com/jackc/pgconn v1.14.3
-	github.com/jackc/pgtype v1.14.0
+	github.com/jackc/pgtype v1.14.3
 	github.com/jackc/pgx/v4 v4.18.2
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/jonboulle/clockwork v0.4.0
