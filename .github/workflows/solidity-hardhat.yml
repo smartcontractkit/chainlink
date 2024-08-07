@@ -108,7 +108,7 @@ jobs:
           if [ "${{ env.product }}" = "shared" ]; then
             excluded_paths_pattern="!/^contracts\/src\/v0\.8\/interfaces/ && !/^contracts\/src\/v0\.8\/${{ env.product }}/ && !/^contracts\/src\/v0\.8\/[^\/]+\.sol$/"
           else
-            excluded_paths_pattern="!/^contracts\/src\/v0\.8\/${{ env.product }}/ && !/^contracts\/src\/v0\.8\/[^\/]+\.sol$/"
+            excluded_paths_pattern="!/^contracts\/src\/v0\.8\/${{ env.product }}/"
           fi
           echo "::debug::Excluded paths: $excluded_paths_pattern"
           unexpected_files=$(echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n' | awk "$excluded_paths_pattern")
@@ -121,7 +121,7 @@ jobs:
             echo "Files: ${files[@]}"
           
             for file in "${files[@]}"; do
-              product=$(echo "$file" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
+              product=$(echo "$file" | awk -F'src/v0.8/' '{if ($2 ~ /\//) print substr($2, 1, index($2, "/")-1); else print "shared"}')
               if [[ ! " ${products[@]} " =~ " ${product} " ]]; then
                 products+=("$product")
                 productsStr+="$product, "
