@@ -108,7 +108,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 
 	cfg := d.capabilityConfig
 	rid := cfg.ExternalRegistry().RelayID()
-	registryAddress := cfg.ExternalRegistry().Address()
 	relayer, err := d.relayers.Get(rid)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
@@ -119,7 +118,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			return p2ptypes.PeerID(p2pID.PeerID()), nil
 		},
 		relayer,
-		registryAddress,
+		cfg.ExternalRegistry().Address(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not configure syncer: %w", err)

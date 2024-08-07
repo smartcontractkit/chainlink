@@ -87,7 +87,7 @@ func compareDONs(
 
 // filterCCIPDONs filters the CCIP DONs from the given state.
 func filterCCIPDONs(
-	ccipCapability registrysyncer.Capability, // This will change to registrysyncer.Capability
+	ccipCapability registrysyncer.Capability,
 	state registrysyncer.LocalRegistry,
 ) (map[registrysyncer.DonID]registrysyncer.DON, error) {
 	ccipDONs := make(map[registrysyncer.DonID]registrysyncer.DON)
@@ -101,8 +101,8 @@ func filterCCIPDONs(
 	return ccipDONs, nil
 }
 
-// checkCapabilityPresence checks if the capability with the given version and
-// labelled name is present in the given capability registry state.
+// checkCapabilityPresence checks if the capability with the given capabilityID
+// is present in the given capability registry state.
 func checkCapabilityPresence(
 	capabilityID string,
 	state registrysyncer.LocalRegistry,

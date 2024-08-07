@@ -17,7 +17,6 @@ import (
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
@@ -329,7 +328,7 @@ func updateDON(
 // All other cases are invalid. This is enforced in the ccip config contract.
 func createFutureBlueGreenDeployment(
 	prevDeployment ccipDeployment,
-	ocrConfigs []ccipreaderpkg.OCR3ConfigWithMeta,
+	ocrConfigs []ccipreader.OCR3ConfigWithMeta,
 	oracleCreator cctypes.OracleCreator,
 	pluginType cctypes.PluginType,
 ) (blueGreenDeployment, error) {
@@ -415,7 +414,7 @@ func createOracle(
 	p2pID ragep2ptypes.PeerID,
 	oracleCreator cctypes.OracleCreator,
 	pluginType cctypes.PluginType,
-	ocrConfigs []ccipreaderpkg.OCR3ConfigWithMeta,
+	ocrConfigs []ccipreader.OCR3ConfigWithMeta,
 ) (pluginOracle, bootstrapOracle cctypes.CCIPOracle, err error) {
 	pluginOracle, err = oracleCreator.CreatePluginOracle(pluginType, cctypes.OCR3ConfigWithMeta(ocrConfigs[0]))
 	if err != nil {

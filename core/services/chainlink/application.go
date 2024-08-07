@@ -17,23 +17,20 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/static"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -63,6 +60,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
@@ -72,6 +70,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 

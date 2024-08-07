@@ -1,12 +1,9 @@
 package launcher
 
 import (
-	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -17,40 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
-
-const (
-	ccipCapVersion    = "v1.0.0"
-	ccipCapNewVersion = "v1.1.0"
-	ccipCapName       = "ccip"
-)
-
-var defaultCapability = getCapability(ccipCapName, ccipCapVersion)
-var newCapability = getCapability(ccipCapName, ccipCapNewVersion)
-
-func getDON(id uint32, members []ragep2ptypes.PeerID, cfgVersion uint32) capabilities.DON {
-	return capabilities.DON{
-		ID:               id,
-		ConfigVersion:    cfgVersion,
-		F:                uint8(1),
-		IsPublic:         true,
-		AcceptsWorkflows: true,
-		Members:          members,
-	}
-}
-func getP2PID(id uint32) ragep2ptypes.PeerID {
-	return ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(id))).PeerID())
-}
-
-var p2pID1 = getP2PID(1)
-var p2pID2 = getP2PID(2)
-
-var defaultCapCfgs = map[string]registrysyncer.CapabilityConfiguration{
-	defaultCapability.ID: registrysyncer.CapabilityConfiguration{},
-}
-var defaultRegistryDon = registrysyncer.DON{
-	DON:                      getDON(1, []ragep2ptypes.PeerID{p2pID1}, 0),
-	CapabilityConfigurations: defaultCapCfgs,
-}
 
 func Test_diff(t *testing.T) {
 	type args struct {
@@ -386,12 +349,4 @@ func Test_isMemberOfBootstrapSubcommittee(t *testing.T) {
 	}
 	require.True(t, isMemberOfBootstrapSubcommittee(bootstrapKeys, p2pID1))
 	require.False(t, isMemberOfBootstrapSubcommittee(bootstrapKeys, getP2PID(5)))
-}
-
-func getCapability(ccipCapName, ccipCapVersion string) registrysyncer.Capability {
-	id := fmt.Sprintf("%s@%s", ccipCapName, ccipCapVersion)
-	return registrysyncer.Capability{
-		CapabilityType: capabilities.CapabilityTypeTarget,
-		ID:             id,
-	}
 }
