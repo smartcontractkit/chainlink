@@ -1,0 +1,20 @@
+[CCIP]
+[CCIP.Env]
+TTL = '15h'
+
+[CCIP.Groups]
+[CCIP.Groups.load]
+KeepEnvAlive = true
+PhaseTimeout = '50m'
+NodeFunding = 1000.0
+
+
+[CCIP.Groups.load.LoadProfile]
+RequestPerUnitTime = [1]
+TimeUnit = '1m'
+TestDuration = '30m'
+SendMaxDataInEveryMsgCount = 0
+
+
+
+
