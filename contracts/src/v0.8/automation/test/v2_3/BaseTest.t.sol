@@ -355,13 +355,27 @@ contract BaseTest is Test {
     );
   }
 
-  function _transmit(uint256 id, Registry registry, bytes4 selector) internal {
+  // tests single upkeep, expects success
+  function _transmit(uint256 id, Registry registry) internal {
     uint256[] memory ids = new uint256[](1);
     ids[0] = id;
-    _transmit(ids, registry, selector);
+    _handleTransmit(ids, registry, bytes4(0));
   }
 
-  function _transmit(uint256[] memory ids, Registry registry, bytes4 selector) internal {
+  // tests multiple upkeeps, expects success
+  function _transmit(uint256[] memory ids, Registry registry) internal {
+    _handleTransmit(ids, registry, bytes4(0));
+  }
+
+  // tests single upkeep, expects revert
+  function _transmitAndExpectRevert(uint256 id, Registry registry, bytes4 selector) internal {
+    uint256[] memory ids = new uint256[](1);
+    ids[0] = id;
+    _handleTransmit(ids, registry, selector);
+  }
+
+  // private function not exposed to actual testing contract
+  function _handleTransmit(uint256[] memory ids, Registry registry, bytes4 selector) private {
     bytes memory reportBytes;
     {
       uint256[] memory upkeepIds = new uint256[](ids.length);

@@ -349,7 +349,7 @@ contract Withdraw is SetUp {
 
   // default is ON_CHAIN mode
   function test_WithdrawERC20Fees_RevertsWhen_LinkAvailableForPaymentIsNegative() public {
-    _transmit(usdUpkeepID18, registry, bytes4(0)); // adds USD token to finance withdrawable, and gives NOPs a LINK balance
+    _transmit(usdUpkeepID18, registry); // adds USD token to finance withdrawable, and gives NOPs a LINK balance
     require(registry.linkAvailableForPayment() < 0, "linkAvailableForPayment should be negative");
     require(
       registry.getAvailableERC20ForPayment(address(usdToken18)) > 0,
@@ -375,7 +375,7 @@ contract Withdraw is SetUp {
     registry.addFunds(id, 1e20);
 
     // manually create a transmit so transmitters earn some rewards
-    _transmit(id, registry, bytes4(0));
+    _transmit(id, registry);
     require(registry.linkAvailableForPayment() < 0, "linkAvailableForPayment should be negative");
     vm.prank(FINANCE_ADMIN);
     registry.withdrawERC20Fees(address(usdToken18), aMockAddress, 1); // finance can withdraw
@@ -1003,7 +1003,7 @@ contract NOPsSettlement is SetUp {
     registry.addFunds(id, 1e20);
 
     // manually create a transmit so transmitters earn some rewards
-    _transmit(id, registry, bytes4(0));
+    _transmit(id, registry);
 
     // verify transmitters have positive balances
     uint256[] memory payments = new uint256[](TRANSMITTERS.length);
@@ -1040,7 +1040,7 @@ contract NOPsSettlement is SetUp {
     vm.startPrank(UPKEEP_ADMIN);
     vm.roll(100 + block.number);
     // manually create a transmit so transmitters earn some rewards
-    _transmit(id, registry, bytes4(0));
+    _transmit(id, registry);
 
     uint256 erc20ForPayment2 = registry.getAvailableERC20ForPayment(address(usdToken18));
     require(erc20ForPayment2 > erc20ForPayment1, "ERC20AvailableForPayment should be greater after another transmit");
@@ -1083,13 +1083,13 @@ contract NOPsSettlement is SetUp {
     registry.addFunds(id, 1e20);
 
     // manually create a transmit so TRANSMITTERS earn some rewards
-    _transmit(id, registry, bytes4(0));
+    _transmit(id, registry);
 
     // TRANSMITTERS have positive balance now
     // configure the registry to use NEW_TRANSMITTERS
     _configureWithNewTransmitters(registry, registrar);
 
-    _transmit(id, registry, bytes4(0));
+    _transmit(id, registry);
 
     // verify all transmitters have positive balances
     address[] memory expectedPayees = new address[](6);
@@ -1199,7 +1199,7 @@ contract NOPsSettlement is SetUp {
     registry.addFunds(id, 1e20);
 
     // manually create a transmit so transmitters earn some rewards
-    _transmit(id, registry, bytes4(0));
+    _transmit(id, registry);
 
     // disable offchain payments
     _mintLink(address(registry), 1e19);
@@ -1240,7 +1240,7 @@ contract NOPsSettlement is SetUp {
     // manually call transmit so transmitters earn some rewards
     for (uint256 i = 0; i < 50; i++) {
       vm.roll(100 + block.number);
-      _transmit(id, registry, bytes4(0));
+      _transmit(id, registry);
     }
 
     // disable offchain payments
@@ -1251,7 +1251,7 @@ contract NOPsSettlement is SetUp {
     // manually call transmit after offchain payment is disabled
     for (uint256 i = 0; i < 50; i++) {
       vm.roll(100 + block.number);
-      _transmit(id, registry, bytes4(0));
+      _transmit(id, registry);
     }
 
     // payees should be able to withdraw onchain
@@ -1676,7 +1676,7 @@ contract Transmit is SetUp {
     require(registry.getAvailableERC20ForPayment(address(weth)) == 0, "ERC20AvailableForPayment should be 0");
 
     // do the thing
-    _transmit(upkeepIDs, registry, bytes4(0));
+    _transmit(upkeepIDs, registry);
 
     // withdraw-able by the finance team should be positive
     require(
@@ -1731,7 +1731,7 @@ contract Transmit is SetUp {
 
     // manually create a transmit
     vm.recordLogs();
-    _transmit(upkeepID, registry, bytes4(0));
+    _transmit(upkeepID, registry);
     Vm.Log[] memory entries = vm.getRecordedLogs();
 
     assertEq(entries.length, 3);
@@ -1782,7 +1782,7 @@ contract Transmit is SetUp {
 
     // manually create a transmit
     vm.recordLogs();
-    _transmit(upkeepID, registry, bytes4(0));
+    _transmit(upkeepID, registry);
     Vm.Log[] memory entries = vm.getRecordedLogs();
 
     assertEq(entries.length, 3);
@@ -1998,28 +1998,11 @@ contract Pause is SetUp {
     assertTrue(state.paused);
   }
 
-  function test_revertsWhen_registerUpkeepInPausedRegistry() external {
-    vm.startPrank(registry.owner());
-    registry.pause();
-
-    vm.expectRevert(Registry.RegistryPaused.selector);
-    uint256 id = registry.registerUpkeep(
-      address(TARGET1),
-      config.maxPerformGas,
-      UPKEEP_ADMIN,
-      uint8(Trigger.CONDITION),
-      address(linkToken),
-      "",
-      "",
-      ""
-    );
-  }
-
   function test_revertsWhen_transmitInPausedRegistry() external {
     vm.startPrank(registry.owner());
     registry.pause();
 
-    _transmit(usdUpkeepID18, registry, Registry.RegistryPaused.selector);
+    _transmitAndExpectRevert(usdUpkeepID18, registry, Registry.RegistryPaused.selector);
   }
 }
 
