@@ -535,7 +535,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			loopRegistrarConfig,
 			pipelineRunner,
 			opts.RelayerChainInteroperators.LegacyEVMChains(),
-			capabilityRegistrySyncer,
+			relayerChainInterops,
 			opts.KeyStore,
 			opts.DS,
 			peerWrapper,
