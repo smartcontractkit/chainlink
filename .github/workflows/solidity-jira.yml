@@ -31,6 +31,7 @@ jobs:
         id: changed_files
         with:
           list-files: "csv"
+          # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
           predicate-quantifier: 'every' 
           filters: |
             only_src_contracts:
@@ -43,7 +44,7 @@ jobs:
     needs: [skip-enforce-jira-issue]
     # Note: A job that is skipped will report its status as "Success".
     # It will not prevent a pull request from merging, even if it is a required check.
-    if: ${{ github.event_name != 'merge_group' }} && ${{ needs.skip-enforce-jira-issue.outputs.should-enforce == 'true' }}
+    if: ${{ github.event_name != 'merge_group' && needs.skip-enforce-jira-issue.outputs.should-enforce == 'true' }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2

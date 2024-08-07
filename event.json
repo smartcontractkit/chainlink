@@ -1,0 +1,11 @@
+{
+  "pull_request": {
+    "number": 14054,
+    "head": {
+      "ref": "origin/RE-2859-make-jira-ticket-linkage-obligatory-in-p-rs-with-solidity-changes"
+    },
+    "base": {
+      "ref": "origin/develop"
+    }
+  }
+}
