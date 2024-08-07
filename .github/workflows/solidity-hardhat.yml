@@ -4,7 +4,7 @@ on:
 
 env:
   FOUNDRY_PROFILE: ci
-  product: "automation"
+  product: "shared"
   base_ref: "7b7b9ddac6de536bc84b3b45bd6104948bbf2650"
 
 jobs:
@@ -38,9 +38,9 @@ jobs:
               - '!contracts/src/v0.8/**/testhelpers/**'
               - '!contracts/src/v0.8/testhelpers/**'
               - '!contracts/src/v0.8/vendor/**'
+            # fix me, this doesn't work, because it's and &&; need to to express it as a single one, or use a different step, but with any?            
             other_shared:
-              - modified|added: 'contracts/src/v0.8/interfaces/**/*.sol'
-              - modified|added: 'contracts/src/v0.8/*.sol'
+              - modified|added: 'contracts/src/v0.8/(interfaces/**/*.sol|*.sol)'
               - *ignored
             sol:
               - modified|added: 'contracts/src/v0.8/**/*.sol'
