@@ -210,6 +210,7 @@ func TestReader_Integration(t *testing.T) {
 				RegistrationExpiry:  durationpb.New(60 * time.Second),
 				// F + 1
 				MinResponsesToAggregate: uint32(1) + 1,
+				MessageExpiry:           durationpb.New(120 * time.Second),
 			},
 		},
 	}
@@ -256,7 +257,7 @@ func TestReader_Integration(t *testing.T) {
 	}, gotCap)
 
 	assert.Len(t, s.IDsToDONs, 1)
-	rtc := capabilities.RemoteTriggerConfig{
+	rtc := &capabilities.RemoteTriggerConfig{
 		RegistrationRefresh:     20 * time.Second,
 		MinResponsesToAggregate: 2,
 		RegistrationExpiry:      60 * time.Second,

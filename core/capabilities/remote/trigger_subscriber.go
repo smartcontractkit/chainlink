@@ -23,7 +23,7 @@ import (
 //
 // TriggerSubscriber communicates with corresponding TriggerReceivers on remote nodes.
 type triggerSubscriber struct {
-	config              capabilities.RemoteTriggerConfig
+	config              *capabilities.RemoteTriggerConfig
 	capInfo             commoncap.CapabilityInfo
 	capDonInfo          capabilities.DON
 	capDonMembers       map[p2ptypes.PeerID]struct{}
@@ -55,10 +55,14 @@ var _ services.Service = &triggerSubscriber{}
 // TODO makes this configurable with a default
 const defaultSendChannelBufferSize = 1000
 
-func NewTriggerSubscriber(config capabilities.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo capabilities.DON, localDonInfo capabilities.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
+func NewTriggerSubscriber(config *capabilities.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo capabilities.DON, localDonInfo capabilities.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
 	if aggregator == nil {
 		lggr.Warnw("no aggregator provided, using default MODE aggregator", "capabilityId", capInfo.ID)
 		aggregator = NewDefaultModeAggregator(uint32(capDonInfo.F + 1))
+	}
+	if config == nil {
+		lggr.Info("no config provided, using default values")
+		config = &capabilities.RemoteTriggerConfig{}
 	}
 	config.ApplyDefaults()
 	capDonMembers := make(map[p2ptypes.PeerID]struct{})
