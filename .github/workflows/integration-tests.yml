@@ -763,6 +763,14 @@ jobs:
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
           docker logs otel-collector
+      
+      - name: Set Override Config
+        id: set_override_config
+        run: |
+          # if the matrix.product.config_path is set, use it as the override config
+          if [ "${{ matrix.product.config_path }}" != "" ]; then
+            echo "base_64_override=$(base64 -w 0 -i ${{ matrix.product.config_path }})" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
