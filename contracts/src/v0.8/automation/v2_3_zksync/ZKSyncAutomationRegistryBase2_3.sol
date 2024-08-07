@@ -313,7 +313,6 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
    * @member performSuccess whether the perform was successful
    * @member triggerType the type of trigger
    * @member gasUsed gasUsed by this upkeep in perform
-   * @member calldataWeight weight assigned to this upkeep for its contribution to calldata. It is used to split L1 fee
    * @member dedupID unique ID used to dedup an upkeep/trigger combo
    */
   struct UpkeepTransmitInfo {
@@ -322,7 +321,6 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
     bool performSuccess;
     Trigger triggerType;
     uint256 gasUsed;
-    uint256 calldataWeight;
     bytes32 dedupID;
   }
 
@@ -739,7 +737,6 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
     uint256 nativeUSD,
     IERC20 billingToken
   ) internal view returns (uint96) {
-    uint256 maxL1Fee;
     uint256 maxGasOverhead;
 
     {
@@ -758,7 +755,6 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
         (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1)) +
         ((REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD + chainModulePerByteOverhead) * maxCalldataSize) +
         chainModuleFixedOverhead;
-      maxL1Fee = hotVars.gasCeilingMultiplier * hotVars.chainModule.getMaxL1Fee(maxCalldataSize);
     }
 
     BillingTokenPaymentParams memory paymentParams = _getBillingTokenPaymentParams(hotVars, billingToken);
@@ -774,7 +770,7 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
       PaymentParams({
         gasLimit: performGas,
         gasOverhead: maxGasOverhead,
-        l1CostWei: maxL1Fee,
+        l1CostWei: 0,
         fastGasWei: fastGasWei,
         linkUSD: linkUSD,
         nativeUSD: nativeUSD,

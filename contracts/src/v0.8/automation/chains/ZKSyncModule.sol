@@ -7,10 +7,6 @@ import {SYSTEM_CONTEXT_CONTRACT} from "../interfaces/zksync/ISystemContext.sol";
 contract ZKSyncModule is ChainModuleBase {
   uint256 private constant FIXED_GAS_OVERHEAD = 5_000;
 
-  function getMaxL1Fee(uint256 gasLimit) external view override returns (uint256) {
-    return gasLimit * SYSTEM_CONTEXT_CONTRACT.gasPrice();
-  }
-
   function getGasOverhead()
     external
     pure
