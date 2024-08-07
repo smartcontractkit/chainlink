@@ -59,7 +59,7 @@ jobs:
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
           enable-docker-publish: "true"
-          docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
+          docker-registry: ${{ secrets.AWS_DEVELOP_ECR_HOSTNAME }}
           docker-image-name: chainlink
           enable-goreleaser-snapshot: "true"
           goreleaser-exec: ./tools/bin/goreleaser_wrapper
@@ -73,8 +73,8 @@ jobs:
           METADATA: ${{ steps.goreleaser-build-publish.outputs.goreleaser-metadata }}
           ARTIFACTS: ${{ steps.goreleaser-build-publish.outputs.goreleaser-artifacts }}
         run: |
-          echo "$METADATA"
-          echo "$ARTIFACTS"
+          echo "${{ steps.goreleaser-build-publish.outputs.goreleaser-metadata }}"
+          echo "${{ steps.goreleaser-build-publish.outputs.goreleaser-artifacts }}"
           echo "### Docker Images" >> $GITHUB_STEP_SUMMARY
           echo "$ARTIFACTS" | jq -r '.[] | select(.type == "Archive") | "`\(.goarch)-digest`: \(.extra.Checksum)"' >> output.txt
           while read -r line; do
