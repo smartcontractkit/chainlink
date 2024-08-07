@@ -44,8 +44,8 @@ func getP2PID(id uint32) ragep2ptypes.PeerID {
 var p2pID1 = getP2PID(1)
 var p2pID2 = getP2PID(2)
 
-var defaultCapCfgs = map[string]capabilities.CapabilityConfiguration{
-	defaultCapability.ID: {},
+var defaultCapCfgs = map[string]registrysyncer.CapabilityConfiguration{
+	defaultCapability.ID: registrysyncer.CapabilityConfiguration{},
 }
 var defaultRegistryDon = registrysyncer.DON{
 	DON:                      getDON(1, []ragep2ptypes.PeerID{p2pID1}, 0),
@@ -282,7 +282,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
 						1: {
 							DON: getDON(1, []ragep2ptypes.PeerID{p2pID1}, 0),
-							CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
+							CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
 								defaultCapability.ID: {},
 								newCapability.ID:     {},
 							},
@@ -293,7 +293,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 			map[registrysyncer.DonID]registrysyncer.DON{
 				1: {
 					DON: getDON(1, []ragep2ptypes.PeerID{p2pID1}, 0),
-					CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
+					CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
 						defaultCapability.ID: {},
 						newCapability.ID:     {},
 					},
