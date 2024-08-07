@@ -240,9 +240,9 @@ ok TelemetryManager
     },
     {
       "type": "checks",
-      "id": "HeadReporterService",
+      "id": "HeadReporter",
       "attributes": {
-        "name": "HeadReporterService",
+        "name": "HeadReporter",
         "status": "passing",
         "output": ""
       }
