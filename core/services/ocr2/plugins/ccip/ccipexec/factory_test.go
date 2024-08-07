@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	ccip2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	ccipdataprovidermocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/ccipdataprovider/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
@@ -23,6 +24,8 @@ import (
 // retries a sufficient number of times to get through the transient errors and eventually succeed.
 func TestNewReportingPluginRetriesUntilSuccess(t *testing.T) {
 	execConfig := ExecutionPluginStaticConfig{}
+	execConfig.lggr = logger.TestLogger(t)
+	execConfig.metricsCollector = ccip2.NoopMetricsCollector
 
 	// For this unit test, ensure that there is no delay between retries
 	execConfig.newReportingPluginRetryConfig = ccipdata.RetryConfig{

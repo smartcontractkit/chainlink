@@ -127,14 +127,19 @@ func SelectorToBytes(chainSelector uint64) [16]byte {
 	return b
 }
 
-// RetryUntilSuccess repeatedly calls fn until it returns a nil error. After each failed call there is an exponential
-// backoff applied, between initialDelay and maxDelay.
-func RetryUntilSuccess[T any](fn func() (T, error), initialDelay time.Duration, maxDelay time.Duration) (T, error) {
+// RetryUntilSuccess repeatedly calls fn until it returns a nil error or retries have been exhausted. After each failed
+// call there is an exponential backoff applied, between initialDelay and maxDelay.
+func RetryUntilSuccess[T any](
+	fn func() (T, error),
+	initialDelay time.Duration,
+	maxDelay time.Duration,
+	maxRetries uint,
+) (T, error) {
 	return retry.DoWithData(
 		fn,
 		retry.Delay(initialDelay),
 		retry.MaxDelay(maxDelay),
 		retry.DelayType(retry.BackOffDelay),
-		retry.UntilSucceeded(),
+		retry.Attempts(maxRetries),
 	)
 }

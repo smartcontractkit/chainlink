@@ -71,8 +71,11 @@ type reportingPluginAndInfo struct {
 func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
 	initialRetryDelay := rf.config.newReportingPluginRetryConfig.InitialDelay
 	maxDelay := rf.config.newReportingPluginRetryConfig.MaxDelay
+	maxRetries := rf.config.newReportingPluginRetryConfig.MaxRetries
 
-	pluginAndInfo, err := ccipcommon.RetryUntilSuccess(rf.NewReportingPluginFn(config), initialRetryDelay, maxDelay)
+	pluginAndInfo, err := ccipcommon.RetryUntilSuccess(
+		rf.NewReportingPluginFn(config), initialRetryDelay, maxDelay, maxRetries,
+	)
 	if err != nil {
 		return nil, types.ReportingPluginInfo{}, err
 	}
@@ -83,7 +86,7 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.Repor
 // retried via RetryUntilSuccess. NewReportingPlugin must return successfully in order for the Exec plugin to function,
 // hence why we can only keep retrying it until it succeeds.
 func (rf *ExecutionReportingPluginFactory) NewReportingPluginFn(config types.ReportingPluginConfig) func() (reportingPluginAndInfo, error) {
-	return func() (reportingPluginAndInfo, error) {
+	newReportingPluginFn := func() (reportingPluginAndInfo, error) {
 		ctx := context.Background() // todo: consider setting a timeout
 
 		destPriceRegistry, destWrappedNative, err := rf.config.offRampReader.ChangeConfig(ctx, config.OnchainConfig, config.OffchainConfig)
@@ -160,5 +163,15 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPluginFn(config types.Rep
 		}
 
 		return reportingPluginAndInfo{plugin, pluginInfo}, nil
+	}
+
+	return func() (reportingPluginAndInfo, error) {
+		result, err := newReportingPluginFn()
+		if err != nil {
+			rf.config.lggr.Errorw("NewReportingPlugin failed", "err", err)
+			rf.config.metricsCollector.NewReportingPluginError()
+		}
+
+		return result, err
 	}
 }

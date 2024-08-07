@@ -46,7 +46,13 @@ var (
 	tokenDataWorkerNumWorkers = 5
 )
 
-var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{InitialDelay: time.Second, MaxDelay: 5 * time.Minute}
+var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{
+	InitialDelay: time.Second,
+	MaxDelay:     10 * time.Minute,
+	// Retry for approximately 4hrs (MaxDelay of 10m = 6 times per hour, times 4 hours, plus 10 because the first
+	// 10 retries only take 20 minutes due to an initial retry of 1s and exponential backoff)
+	MaxRetries: (6 * 4) + 10,
+}
 
 func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcProvider types.CCIPExecProvider, dstProvider types.CCIPExecProvider, srcChainID int64, dstChainID int64, new bool, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string)) ([]job.ServiceCtx, error) {
 	if jb.OCR2OracleSpec == nil {

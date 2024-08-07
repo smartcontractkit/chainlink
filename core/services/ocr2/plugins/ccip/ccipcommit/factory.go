@@ -74,8 +74,11 @@ type reportingPluginAndInfo struct {
 func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
 	initialRetryDelay := rf.config.newReportingPluginRetryConfig.InitialDelay
 	maxDelay := rf.config.newReportingPluginRetryConfig.MaxDelay
+	maxRetries := rf.config.newReportingPluginRetryConfig.MaxRetries
 
-	pluginAndInfo, err := ccipcommon.RetryUntilSuccess(rf.NewReportingPluginFn(config), initialRetryDelay, maxDelay)
+	pluginAndInfo, err := ccipcommon.RetryUntilSuccess(
+		rf.NewReportingPluginFn(config), initialRetryDelay, maxDelay, maxRetries,
+	)
 	if err != nil {
 		return nil, types.ReportingPluginInfo{}, err
 	}
@@ -86,35 +89,35 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 // retried via RetryUntilSuccess. NewReportingPlugin must return successfully in order for the Commit plugin to
 // function, hence why we can only keep retrying it until it succeeds.
 func (rf *CommitReportingPluginFactory) NewReportingPluginFn(config types.ReportingPluginConfig) func() (reportingPluginAndInfo, error) {
-	return func() (reportingPluginAndInfo, error) {
+	newReportingPluginFn := func() (reportingPluginAndInfo, error) {
 		ctx := context.Background() // todo: consider adding some timeout
 
 		destPriceReg, err := rf.config.commitStore.ChangeConfig(ctx, config.OnchainConfig, config.OffchainConfig)
 		if err != nil {
-			return reportingPluginAndInfo{}, err
+			return reportingPluginAndInfo{}, fmt.Errorf("commitStore.ChangeConfig error: %w", err)
 		}
 
 		priceRegEvmAddr, err := ccipcalc.GenericAddrToEvm(destPriceReg)
 		if err != nil {
-			return reportingPluginAndInfo{}, err
+			return reportingPluginAndInfo{}, fmt.Errorf("GenericAddrToEvm error: %w", err)
 		}
 		if err = rf.UpdateDynamicReaders(ctx, priceRegEvmAddr); err != nil {
-			return reportingPluginAndInfo{}, err
+			return reportingPluginAndInfo{}, fmt.Errorf("UpdateDynamicReaders error: %w", err)
 		}
 
 		pluginOffChainConfig, err := rf.config.commitStore.OffchainConfig(ctx)
 		if err != nil {
-			return reportingPluginAndInfo{}, err
+			return reportingPluginAndInfo{}, fmt.Errorf("commitStore.OffchainConfig error: %w", err)
 		}
 
 		gasPriceEstimator, err := rf.config.commitStore.GasPriceEstimator(ctx)
 		if err != nil {
-			return reportingPluginAndInfo{}, err
+			return reportingPluginAndInfo{}, fmt.Errorf("commitStore.GasPriceEstimator error: %w", err)
 		}
 
 		err = rf.config.priceService.UpdateDynamicConfig(ctx, gasPriceEstimator, rf.destPriceRegReader)
 		if err != nil {
-			return reportingPluginAndInfo{}, err
+			return reportingPluginAndInfo{}, fmt.Errorf("priceService.UpdateDynamicConfig error: %w", err)
 		}
 
 		lggr := rf.config.lggr.Named("CommitReportingPlugin")
@@ -146,5 +149,15 @@ func (rf *CommitReportingPluginFactory) NewReportingPluginFn(config types.Report
 		}
 
 		return reportingPluginAndInfo{plugin, pluginInfo}, nil
+	}
+
+	return func() (reportingPluginAndInfo, error) {
+		result, err := newReportingPluginFn()
+		if err != nil {
+			rf.config.lggr.Errorw("NewReportingPlugin failed", "err", err)
+			rf.config.metricsCollector.NewReportingPluginError()
+		}
+
+		return result, err
 	}
 }
