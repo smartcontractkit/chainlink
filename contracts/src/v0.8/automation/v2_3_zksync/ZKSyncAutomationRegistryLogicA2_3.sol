@@ -7,7 +7,7 @@ import {ZKSyncAutomationRegistryBase2_3} from "./ZKSyncAutomationRegistryBase2_3
 import {ZKSyncAutomationRegistryLogicC2_3} from "./ZKSyncAutomationRegistryLogicC2_3.sol";
 import {ZKSyncAutomationRegistryLogicB2_3} from "./ZKSyncAutomationRegistryLogicB2_3.sol";
 import {Chainable} from "../Chainable.sol";
-import {AutomationForwarder} from "../AutomationForwarder.sol";
+import {ZKSyncAutomationForwarder} from "../ZKSyncAutomationForwarder.sol";
 import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
 import {UpkeepTranscoderInterfaceV2} from "../interfaces/UpkeepTranscoderInterfaceV2.sol";
 import {MigratableKeeperRegistryInterfaceV2} from "../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
@@ -91,7 +91,7 @@ contract ZKSyncAutomationRegistryLogicA2_3 is ZKSyncAutomationRegistryBase2_3, C
     if (!target.isContract()) revert NotAContract();
     id = _createID(triggerType);
     IAutomationForwarder forwarder = IAutomationForwarder(
-      address(new AutomationForwarder(target, address(this), i_automationForwarderLogic))
+      address(new ZKSyncAutomationForwarder(target, address(this), i_automationForwarderLogic))
     );
     _createUpkeep(
       id,
@@ -266,7 +266,7 @@ contract ZKSyncAutomationRegistryLogicA2_3 is ZKSyncAutomationRegistryBase2_3, C
     for (uint256 idx = 0; idx < ids.length; idx++) {
       if (address(upkeeps[idx].forwarder) == ZERO_ADDRESS) {
         upkeeps[idx].forwarder = IAutomationForwarder(
-          address(new AutomationForwarder(targets[idx], address(this), i_automationForwarderLogic))
+          address(new ZKSyncAutomationForwarder(targets[idx], address(this), i_automationForwarderLogic))
         );
       }
       _createUpkeep(
