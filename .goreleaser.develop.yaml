@@ -58,54 +58,6 @@ builds:
 
 # See https://goreleaser.com/customization/docker/
 dockers:
-  - id: root-linux-amd64
-    dockerfile: core/chainlink.goreleaser.Dockerfile
-    use: buildx
-    goos: linux
-    goarch: amd64
-    extra_files:
-      - tmp/linux_amd64/libs
-      - tmp/linux_amd64/plugins
-      - tools/bin/ldd_fix
-    build_flag_templates:
-      - "--platform=linux/amd64"
-      - "--pull"
-      - "--build-arg=COMMIT_SHA={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.description={{ .Env.IMAGE_LABEL_DESCRIPTION }}"
-      - "--label=org.opencontainers.image.licenses={{ .Env.IMAGE_LABEL_LICENSES }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
-      - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
-    image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-root-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-root-amd64"
-  - id: root-linux-arm64
-    dockerfile: core/chainlink.goreleaser.Dockerfile
-    use: buildx
-    goos: linux
-    goarch: arm64
-    extra_files:
-      - tmp/linux_arm64/libs
-      - tmp/linux_arm64/plugins
-      - tools/bin/ldd_fix
-    build_flag_templates:
-      - "--platform=linux/arm64"
-      - "--pull"
-      - "--build-arg=COMMIT_SHA={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.description={{ .Env.IMAGE_LABEL_DESCRIPTION }}"
-      - "--label=org.opencontainers.image.licenses={{ .Env.IMAGE_LABEL_LICENSES }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
-      - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
-    image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-root-arm64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-root-arm64"
   - id: linux-amd64
     dockerfile: core/chainlink.goreleaser.Dockerfile
     use: buildx
@@ -159,14 +111,6 @@ dockers:
 
 # See https://goreleaser.com/customization/docker_manifest/
 docker_manifests:
-  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-root"
-    image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-root-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-root-arm64"
-  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-root"
-    image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-root-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-root-arm64"
   - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-amd64"
