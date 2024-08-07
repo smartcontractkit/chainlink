@@ -705,7 +705,7 @@ jobs:
           if [ "${{ matrix.product.run }}" != "" ]; then
             echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
           else
-            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
+            echo "run_command=./${dir}/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
           fi
       - name: Check for "enable tracing" label
         id: check-label
