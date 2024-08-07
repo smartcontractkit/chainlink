@@ -25,12 +25,12 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
-	orm := newORM(db, lggr)
+	orm := NewORM(db, lggr)
 
 	var states []LocalRegistry
 	for i := 0; i < 11; i++ {
 		state := generateState(t)
-		err := orm.addLocalRegistry(ctx, state)
+		err := orm.AddLocalRegistry(ctx, state)
 		require.NoError(t, err)
 		states = append(states, state)
 	}
@@ -40,7 +40,7 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 10, count)
 
-	state, err := orm.latestLocalRegistry(ctx)
+	state, err := orm.LatestLocalRegistry(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, states[10], *state)
 }

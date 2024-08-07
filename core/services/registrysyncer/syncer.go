@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -47,7 +46,7 @@ type registrySyncer struct {
 	registryAddress string
 	peerWrapper     p2ptypes.PeerWrapper
 
-	orm *syncerORM
+	orm ORM
 
 	updateChan     chan *LocalRegistry
 	testUpdateChan chan bool
@@ -69,9 +68,8 @@ func New(
 	peerWrapper p2ptypes.PeerWrapper,
 	relayer contractReaderFactory,
 	registryAddress string,
-	ds sqlutil.DataSource,
+	orm ORM,
 ) (*registrySyncer, error) {
-	orm := newORM(ds, lggr)
 	return &registrySyncer{
 		stopCh:          make(services.StopChan),
 		updateChan:      make(chan *LocalRegistry),
@@ -79,7 +77,7 @@ func New(
 		relayer:         relayer,
 		registryAddress: registryAddress,
 		initReader:      newReader,
-		orm:             &orm,
+		orm:             orm,
 		peerWrapper:     peerWrapper,
 	}, nil
 }
@@ -89,9 +87,9 @@ func newTestSyncer(
 	peerWrapper p2ptypes.PeerWrapper,
 	relayer contractReaderFactory,
 	registryAddress string,
-	ds sqlutil.DataSource,
+	orm ORM,
 ) (*registrySyncer, error) {
-	rs, err := New(lggr, peerWrapper, relayer, registryAddress, ds)
+	rs, err := New(lggr, peerWrapper, relayer, registryAddress, orm)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +199,7 @@ func (s *registrySyncer) updateStateLoop() {
 				// channel has been closed, terminating.
 				return
 			}
-			if err := s.orm.addLocalRegistry(ctx, *localRegistry); err != nil {
+			if err := s.orm.AddLocalRegistry(ctx, *localRegistry); err != nil {
 				s.lggr.Errorw("failed to save state to local registry", "error", err)
 			}
 			select {
@@ -339,7 +337,7 @@ func (s *registrySyncer) sync(ctx context.Context, isInitialSync bool) error {
 
 	if isInitialSync {
 		s.lggr.Debug("syncing with local registry")
-		lr, err = s.orm.latestLocalRegistry(ctx)
+		lr, err = s.orm.LatestLocalRegistry(ctx)
 		if err != nil {
 			s.lggr.Errorw("failed to sync with local registry, using remote registry instead", "error", err)
 		} else {

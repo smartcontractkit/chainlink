@@ -241,7 +241,8 @@ func TestReader_Integration(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	wrapper := mocks.NewPeerWrapper(t)
 	factory := newContractReaderFactory(t, sim)
-	syncer, err := New(logger.TestLogger(t), wrapper, factory, regAddress.Hex(), db)
+	syncerORM := NewORM(db, logger.TestLogger(t))
+	syncer, err := New(logger.TestLogger(t), wrapper, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
 
 	l := &launcher{}
@@ -416,7 +417,8 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	wrapper := mocks.NewPeerWrapper(t)
 	factory := newContractReaderFactory(t, sim)
-	syncer, err := newTestSyncer(logger.TestLogger(t), wrapper, factory, regAddress.Hex(), db)
+	syncerORM := NewORM(db, logger.TestLogger(t))
+	syncer, err := newTestSyncer(logger.TestLogger(t), wrapper, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		syncer.Close()
@@ -434,7 +436,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	require.NoError(t, err)
 	s := l.localRegistry
 	<-syncer.testUpdateChan // wait for the update to be processed
-	st, err := syncer.orm.latestLocalRegistry(ctx)
+	st, err := syncer.orm.LatestLocalRegistry(ctx)
 	require.NoError(t, err)
 	st.peerWrapper = syncer.peerWrapper
 	st.lggr = syncer.lggr

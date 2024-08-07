@@ -107,20 +107,27 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type syncerORM struct {
+type ORM interface {
+	AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry) error
+	LatestLocalRegistry(ctx context.Context) (*LocalRegistry, error)
+}
+
+type orm struct {
 	ds   sqlutil.DataSource
 	lggr logger.Logger
 }
 
-func newORM(ds sqlutil.DataSource, lggr logger.Logger) syncerORM {
+var _ ORM = (*orm)(nil)
+
+func NewORM(ds sqlutil.DataSource, lggr logger.Logger) orm {
 	namedLogger := lggr.Named("RegistrySyncerORM")
-	return syncerORM{
+	return orm{
 		ds:   ds,
 		lggr: namedLogger,
 	}
 }
 
-func (orm syncerORM) addLocalRegistry(ctx context.Context, localRegistry LocalRegistry) error {
+func (orm orm) AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry) error {
 	return sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
 		localRegistryJSON, err := localRegistry.MarshalJSON()
 		if err != nil {
@@ -145,7 +152,7 @@ WHERE data_hash NOT IN (
 	})
 }
 
-func (orm syncerORM) latestLocalRegistry(ctx context.Context) (*LocalRegistry, error) {
+func (orm orm) LatestLocalRegistry(ctx context.Context) (*LocalRegistry, error) {
 	var localRegistry LocalRegistry
 	var localRegistryJSON string
 	err := orm.ds.GetContext(ctx, &localRegistryJSON, `SELECT data FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
