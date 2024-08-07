@@ -56,21 +56,6 @@ func Test_Eth_Errors(t *testing.T) {
 		}
 	})
 
-	t.Run("IsInvalidSender", func(t *testing.T) {
-		tests := []errorCase{
-			{"invalid chain id for signer", true, "Treasure"},
-		}
-
-		for _, test := range tests {
-			t.Run(test.network, func(t *testing.T) {
-				err = evmclient.NewSendErrorS(test.message)
-				assert.Equal(t, err.IsInvalidSenderError(clientErrors), test.expect)
-				err = newSendErrorWrapped(test.message)
-				assert.Equal(t, err.IsInvalidSenderError(clientErrors), test.expect)
-			})
-		}
-	})
-
 	t.Run("IsNonceTooHigh", func(t *testing.T) {
 		tests := []errorCase{
 			{"call failed: NonceGap", true, "Nethermind"},

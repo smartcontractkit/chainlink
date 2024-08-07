@@ -62,7 +62,6 @@ const (
 	Fatal
 	ServiceUnavailable
 	TerminallyStuck
-	InvalidSender
 )
 
 type ClientErrors map[int]*regexp.Regexp
@@ -164,18 +163,7 @@ var arbitrum = ClientErrors{
 
 // Treasure
 // Derived from Arbitrum config due to similar behaviour
-var treasureFatal = regexp.MustCompile(`(: |^)(invalid message format|forbidden sender address)$|(: |^)(execution reverted)(:|$)`)
-var treasure = ClientErrors{
-	NonceTooLow:           regexp.MustCompile(`(: |^)invalid transaction nonce$|(: |^)nonce too low(:|$)`),
-	NonceTooHigh:          regexp.MustCompile(`(: |^)nonce too high(:|$)`),
-	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gas price too low$`),
-	InsufficientEth:       regexp.MustCompile(`(: |^)(not enough funds for gas|insufficient funds for gas \* price \+ value)`),
-	Fatal:                 treasureFatal,
-	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
-	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
-	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
-	InvalidSender:         regexp.MustCompile(`(: |^)invalid chain id for signer(:|$)`),
-}
+var treasureFatal = regexp.MustCompile(`((: |^)(invalid message format|forbidden sender address)$|(: |^)(execution reverted)(:|$)|(: |^)invalid chain id for signer(:|$))`)
 
 var celo = ClientErrors{
 	TxFeeExceedsCap:       regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ of currency celo\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
@@ -273,7 +261,7 @@ var internal = ClientErrors{
 	TerminallyStuck: regexp.MustCompile(TerminallyStuckMsg),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, internal, treasure}
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, internal}
 
 // ClientErrorRegexes returns a map of compiled regexes for each error type
 func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
@@ -347,10 +335,6 @@ func (s *SendError) IsTemporarilyUnderpriced(configErrors *ClientErrors) bool {
 
 func (s *SendError) IsInsufficientEth(configErrors *ClientErrors) bool {
 	return s.is(InsufficientEth, configErrors)
-}
-
-func (s *SendError) IsInvalidSenderError(configErrors *ClientErrors) bool {
-	return s.is(InvalidSender, configErrors)
 }
 
 // IsTxFeeExceedsCap returns true if the transaction and gas price are combined in
