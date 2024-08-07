@@ -529,6 +529,89 @@ jobs:
       fail-fast: false
       matrix:
         product:
+# LM Smoke Test is disabled since project is paused
+#          - name: ccip-lm-smoke
+#            nodes: 1
+#            os: ubuntu-latest
+#            file: lm
+#            dir: ccip-tests/smoke
+#            run: -run ^TestLmBasic$
+          - name: ccip-smoke
+            nodes: 1
+            os: ubuntu-latest
+            file: ccip
+            dir: ccip-tests/smoke
+            run: -run ^TestSmokeCCIPForBidirectionalLane$
+          - name: ccip-smoke-1.4-pools
+            nodes: 1
+            os: ubuntu-latest
+            file: ccip
+            dir: ccip-tests/smoke
+            run: -run ^TestSmokeCCIPForBidirectionalLane$
+            config_path: ./integration-tests/ccip-tests/testconfig/tomls/contract-version1.4.toml
+          - name: ccip-smoke-usdc
+            nodes: 1
+            os: ubuntu-latest
+            file: ccip
+            dir: ccip-tests/smoke
+            run: -run ^TestSmokeCCIPForBidirectionalLane$
+            config_path: ./integration-tests/ccip-tests/testconfig/tomls/usdc_mock_deployment.toml
+          - name: ccip-smoke-db-compatibility
+            nodes: 1
+            os: ubuntu-latest
+            file: ccip
+            dir: ccip-tests/smoke
+            run: -run ^TestSmokeCCIPForBidirectionalLane$
+            config_path: ./integration-tests/ccip-tests/testconfig/tomls/db-compatibility.toml
+          - name: ccip-smoke-rate-limit
+            nodes: 1
+            dir: ccip-tests/smoke
+            os: ubuntu-latest
+            file: ccip
+            run: -run ^TestSmokeCCIPRateLimit$
+          - name: ccip-smoke-rate-limit
+            nodes: 1
+            dir: ccip-tests/smoke
+            os: ubuntu-latest
+            file: ccip
+            run: -run ^TestSmokeCCIPTokenPoolRateLimits$
+          - name: ccip-smoke-multicall
+            nodes: 1
+            dir: ccip-tests/smoke
+            os: ubuntu-latest
+            file: ccip
+            run: -run ^TestSmokeCCIPMulticall$
+          - name: ccip-smoke-manual-exec
+            nodes: 1
+            dir: ccip-tests/smoke
+            os: ubuntu-latest
+            file: ccip
+            run: -run ^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$
+          - name: ccip-smoke-on-ramp-limits
+            nodes: 1
+            dir: ccip-tests/smoke
+            os: ubuntu-latest
+            file: ccip
+            run: -run ^TestSmokeCCIPOnRampLimits$
+          - name: ccip-smoke-off-ramp-capacity
+            nodes: 1
+            dir: ccip-tests/smoke
+            os: ubuntu-latest
+            file: ccip
+            run: -run ^TestSmokeCCIPOffRampCapacityLimit$
+          - name: ccip-smoke-off-ramp-agg-rate-limit
+            nodes: 1
+            dir: ccip-tests/smoke
+            os: ubuntu-latest
+            file: ccip
+            run: -run ^TestSmokeCCIPOffRampAggRateLimit$
+          - name: ccip-smoke-leader-lane
+            nodes: 15
+            dir: ccip-tests/smoke
+            os: ubuntu-latest
+            file: ccip
+            run: -run ^TestSmokeCCIPForBidirectionalLane$
+            config_path: ./integration-tests/ccip-tests/testconfig/tomls/leader-lane.toml
           - name: runlog
             id: runlog
             nodes: 2
@@ -619,6 +702,12 @@ jobs:
       - name: Build Go Test Command
         id: build-go-test-command
         run: |
+          # if dir is provided use it, otherwise use the smoke dir
+          if [ "${{ matrix.product.dir }}" != "" ]; then
+            dir=${{ matrix.product.dir }}
+          else
+            dir=smoke
+          fi
           # if the matrix.product.run is set, use it for a different command
           if [ "${{ matrix.product.run }}" != "" ]; then
             echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
