@@ -73,7 +73,9 @@ runs:
     - name: Set up qemu
       uses: docker/setup-qemu-action@68827325e0b33c7199eb31dd4e31fbe9023e06e3 # v3.0.0
     - name: Setup go
-      uses: ./.github/actions/setup-go
+      uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+      with:
+        go-version-file: "go.mod"
     - name: Setup goreleaser
       uses: goreleaser/goreleaser-action@7ec5c2b0c6cdda6e8bbb49444bc797dd33d74dd8 # v5.0.0
       with:

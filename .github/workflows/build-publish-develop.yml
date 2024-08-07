@@ -71,18 +71,11 @@ jobs:
         shell: bash
         run: |
           echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
+          jq -r '.[] | select(.type == "Docker Image") | "`\(.goarch)-image`: \(.name)"' dist/artifacts.json >> output.txt
           jq -r '.[] | select(.type == "Archive") | "`\(.goarch)-digest`: \(.extra.Checksum)"' dist/artifacts.json >> output.txt
           while read -r line; do
-            if [[ $line == *"amd64-digest"* ]]; then
-              echo "\`amd64-image\`: ${private_sdlc}/chainlink:${GIT_REF}-amd64" | tee -a "$GITHUB_STEP_SUMMARY"
-              echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
-            fi
-            if [[ $line == *"arm64-digest"* ]]; then
-              echo "\`arm64-image\`: ${private_sdlc}/chainlink:${GIT_REF}-arm64" | tee -a "$GITHUB_STEP_SUMMARY"
-              echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
-            fi
+            echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
           done < output.txt
-          echo "$GITHUB_STEP_SUMMARY"
 
       - name: Collect Metrics
         if: always()
