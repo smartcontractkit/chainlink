@@ -40,6 +40,8 @@ jobs:
           matrix=$(cat matrix.json | jq -c .)
           echo "matrix=$matrix" >> $GITHUB_OUTPUT
 
+#              - '.github/workflows/solidity-foundry.yml'
+
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
@@ -60,7 +62,6 @@ jobs:
           list-files: 'shell'
           filters: |
             non_src:
-              - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
               - 'contracts/package.json'

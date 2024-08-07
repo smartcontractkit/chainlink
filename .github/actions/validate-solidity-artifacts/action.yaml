@@ -29,18 +29,15 @@ runs:
       id: fetch_base_ref
       shell: bash
       run: |
+        git fetch --all --prune         
         type=$(git cat-file -t "${{ inputs.base_ref }}")
+        echo "::debug:: Base reference type: $type"
         if echo "$type" | grep -q commit; then
           # we do not know to which branch the base ref belongs, so we fetch all branches
-          git fetch --all --prune 
           echo "ref_to_use=${{ inputs.base_ref }}" >> $GITHUB_OUTPUT
         elif  echo "$type" | grep -q tag; then
-          git fetch origin ${{ inputs.base_ref }}
           echo "ref_to_use=${{ inputs.base_ref }}" >> $GITHUB_OUTPUT
         else
-          # must be branch
-          echo "::debug:: Base reference type: $type"
-          git fetch origin ${{ inputs.base_ref }}
           echo "ref_to_use=origin/${{ inputs.base_ref }}" >> $GITHUB_OUTPUT
         fi
     - name: Transform input array
