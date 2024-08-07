@@ -69,14 +69,12 @@ jobs:
 
       - name: Output image name and digest
         shell: sh
-        env:
-          METADATA: ${{ steps.goreleaser-build-publish.outputs.goreleaser-metadata }}
-          ARTIFACTS: ${{ steps.goreleaser-build-publish.outputs.goreleaser-artifacts }}
         run: |
-          echo "${{ steps.goreleaser-build-publish.outputs.goreleaser-metadata }}"
-          echo "${{ steps.goreleaser-build-publish.outputs.goreleaser-artifacts }}"
+          ls -al
+          cat dist/artifacts.json
+          cat dist/metadata.json
           echo "### Docker Images" >> $GITHUB_STEP_SUMMARY
-          echo "$ARTIFACTS" | jq -r '.[] | select(.type == "Archive") | "`\(.goarch)-digest`: \(.extra.Checksum)"' >> output.txt
+          jq -r '.[] | select(.type == "Archive") | "`\(.goarch)-digest`: \(.extra.Checksum)"' dist/artifacts.json >> output.txt
           while read -r line; do
             if [[ $line == *"amd64-digest"* ]]; then
               echo "`amd64-image`: ${private_sdlc}/chainlink:${GIT_REF}-amd64" >> $GITHUB_STEP_SUMMARY

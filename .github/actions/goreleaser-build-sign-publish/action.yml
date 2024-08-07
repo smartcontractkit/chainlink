@@ -65,13 +65,6 @@ inputs:
   cosign-password:
     description: The password to decrypt the cosign private key needed to sign the image
     required: false
-outputs:
-  goreleaser-metadata:
-    description: "Build result metadata"
-    value: ${{ steps.goreleaser.outputs.metadata }}
-  goreleaser-artifacts:
-    description: "Build result artifacts"
-    value: ${{ steps.goreleaser.outputs.artifacts }}
 runs:
   using: composite
   steps:
@@ -106,7 +99,6 @@ runs:
       with:
         registry: ${{ inputs.docker-registry }}
     - name: Goreleaser release
-      id: goreleaser
       shell: bash
       env:
         ENABLE_COSIGN: ${{ inputs.enable-cosign }}
