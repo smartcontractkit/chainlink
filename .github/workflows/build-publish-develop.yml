@@ -54,7 +54,7 @@ jobs:
           mask-aws-account-id: true
           role-session-name: goreleaser-build-publish-chainlink
 
-      - name: Build, sign, and publish image
+      - name: Build and publish images
         id: goreleaser-build-publish
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
@@ -70,9 +70,12 @@ jobs:
       - name: Output image name and digest
         shell: sh
         env:
+          METADATA: ${{ steps.goreleaser-build-publish.outputs.goreleaser-metadata }}
           ARTIFACTS: ${{ steps.goreleaser-build-publish.outputs.goreleaser-artifacts }}
         run: |
-          echo '### Docker Images' >> $GITHUB_STEP_SUMMARY
+          echo "$METADATA"
+          echo "$ARTIFACTS"
+          echo "### Docker Images" >> $GITHUB_STEP_SUMMARY
           echo "$ARTIFACTS" | jq -r '.[] | select(.type == "Archive") | "`\(.goarch)-digest`: \(.extra.Checksum)"' >> output.txt
           while read -r line; do
             if [[ $line == *"amd64-digest"* ]]; then
@@ -94,5 +97,5 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: build-publish-chainlink-develop
+          this-job-name: goreleaser-build-publish-chainlink
         continue-on-error: true
