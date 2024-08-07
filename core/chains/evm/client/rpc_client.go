@@ -405,12 +405,14 @@ func (r *rpcClient) BatchCallContext(rootCtx context.Context, b []rpc.BatchElem)
 	// Astar's finality tags provide weaker finality guarantees than we require.
 	// Fetch latest finalized block using Astar's custom requests and populate it after batch request completes
 	var astarRawLatestFinalizedBlock json.RawMessage
+	var requestedFinalizedBlock bool
 	if r.chainType == chaintype.ChainAstar {
 		for _, el := range b {
 			if !isRequestingFinalizedBlock(el) {
 				continue
 			}
 
+			requestedFinalizedBlock = true
 			err := r.astarLatestFinalizedBlock(rootCtx, &astarRawLatestFinalizedBlock)
 			if err != nil {
 				return fmt.Errorf("failed to get astar latest finalized block")
@@ -439,8 +441,8 @@ func (r *rpcClient) BatchCallContext(rootCtx context.Context, b []rpc.BatchElem)
 		return err
 	}
 
-	// populated requested finalized block with correct value
-	if r.chainType == chaintype.ChainAstar {
+	if r.chainType == chaintype.ChainAstar && requestedFinalizedBlock {
+		// populate requested finalized block with correct value
 		for _, el := range b {
 			if !isRequestingFinalizedBlock(el) {
 				continue
