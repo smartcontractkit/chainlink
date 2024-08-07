@@ -47,6 +47,8 @@ runner-test-matrix:
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
     test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_config_override_required: true
+    test_secrets_required: true    
     test_inputs:
       test_suite: soak
 
