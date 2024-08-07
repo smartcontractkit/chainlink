@@ -12,8 +12,6 @@ uint256 constant PERFORM_GAS_CUSHION = 5_000;
  * want to programmatically interact with the registry (ie top up funds) can do so.
  */
 contract ZKSyncAutomationForwarder {
-  error InvalidCaller(address);
-
   /// @notice the user's target contract address
   address private immutable i_target;
 
@@ -65,8 +63,7 @@ contract ZKSyncAutomationForwarder {
     return i_target;
   }
 
-  // solhint-disable-next-line no-complex-fallback
-  fallback() external payable {
+  fallback() external {
     // copy to memory for assembly access
     address logic = i_logic;
     // copied directly from OZ's Proxy contract
