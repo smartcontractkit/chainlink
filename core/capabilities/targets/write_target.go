@@ -28,7 +28,7 @@ type WriteTarget struct {
 	cr               commontypes.ContractReader
 	cw               commontypes.ChainWriter
 	forwarderAddress string
-	// The minimum amount of gas that the receiver contract mush get to process the forwarder report
+	// The minimum amount of gas that the receiver contract must get to process the forwarder report
 	receiverGasMinimum uint64
 	capabilities.CapabilityInfo
 
