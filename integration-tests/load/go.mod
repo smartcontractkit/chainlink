@@ -372,7 +372,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.10 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240801131703-fd75761c982f // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240710170203-5b41615da827 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240712132946-267a37c5ac6e // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240709043547-03612098f799 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.0-20240405215812-5a72bc9af239 // indirect
 	github.com/smartcontractkit/havoc/k8schaos v0.0.0-20240409145249-e78d20847e37 // indirect
