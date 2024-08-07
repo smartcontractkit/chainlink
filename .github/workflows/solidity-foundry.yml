@@ -235,11 +235,6 @@ jobs:
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
 
-      - name: Install semver
-        shell: bash
-        run: |
-          npm install -g semver
-
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:

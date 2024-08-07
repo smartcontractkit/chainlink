@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 function check_chainlink_dir() {
   local param_dir="chainlink"
@@ -6,7 +6,7 @@ function check_chainlink_dir() {
 
   current_base=$(basename "$current_dir")
 
-  if [ "$current_base" != "$param_dir" ]; then
+  if [[ "$current_base" != "$param_dir" ]]; then
     >&2 echo "The script must be run from the root of $param_dir directory"
     exit 1
   fi
