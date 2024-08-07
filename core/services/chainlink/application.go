@@ -14,9 +14,10 @@ import (
 	"github.com/grafana/pyroscope-go"
 	"github.com/jonboulle/clockwork"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -207,44 +208,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
-	var peerWrapper *ocrcommon.SingletonPeerWrapper
-	if !cfg.OCR().Enabled() && !cfg.OCR2().Enabled() {
-		globalLogger.Debug("P2P stack not needed")
-	} else if cfg.P2P().Enabled() {
-		if err := ocrcommon.ValidatePeerWrapperConfig(cfg.P2P()); err != nil {
-			return nil, err
-		}
-		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), opts.DS, globalLogger)
-		srvcs = append(srvcs, peerWrapper)
-	} else {
-		return nil, fmt.Errorf("P2P stack required for OCR or OCR2")
-	}
-
-	var capabilityRegistrySyncer registrysyncer.Syncer
-
-	if cfg.Capabilities().ExternalRegistry().Address() != "" {
-		rid := cfg.Capabilities().ExternalRegistry().RelayID()
-		registryAddress := cfg.Capabilities().ExternalRegistry().Address()
-		relayer, err := relayerChainInterops.Get(rid)
-		if err != nil {
-			return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
-		}
-		registrySyncer, err := registrysyncer.New(
-			globalLogger,
-			func() (p2ptypes.PeerID, error) {
-				return p2ptypes.PeerID(peerWrapper.PeerID), nil
-			},
-			relayer,
-			registryAddress,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("could not configure syncer: %w", err)
-		}
-
-		capabilityRegistrySyncer = registrySyncer
-		srvcs = append(srvcs, capabilityRegistrySyncer)
-	}
-
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	if cfg.Capabilities().Peering().Enabled() {
 		var dispatcher remotetypes.Dispatcher
@@ -261,41 +224,42 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			externalPeerWrapper = opts.CapabilitiesPeerWrapper
 		}
 
-		srvcs = append(srvcs, externalPeerWrapper)
+		srvcs = append(srvcs, externalPeerWrapper, dispatcher)
 
-		rid := cfg.Capabilities().ExternalRegistry().RelayID()
-		registryAddress := cfg.Capabilities().ExternalRegistry().Address()
-		relayer, err := relayerChainInterops.Get(rid)
-		if err != nil {
-			return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
+		if cfg.Capabilities().ExternalRegistry().Address() != "" {
+			rid := cfg.Capabilities().ExternalRegistry().RelayID()
+			registryAddress := cfg.Capabilities().ExternalRegistry().Address()
+			relayer, err := relayerChainInterops.Get(rid)
+			if err != nil {
+				return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
+			}
+			registrySyncer, err := registrysyncer.New(
+				globalLogger,
+				func() (p2ptypes.PeerID, error) {
+					p := externalPeerWrapper.GetPeer()
+					if p == nil {
+						return p2ptypes.PeerID{}, errors.New("could not get peer")
+					}
+
+					return p.ID(), nil
+				},
+				relayer,
+				registryAddress,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("could not configure syncer: %w", err)
+			}
+
+			wfLauncher := capabilities.NewLauncher(
+				globalLogger,
+				externalPeerWrapper,
+				dispatcher,
+				opts.CapabilitiesRegistry,
+			)
+			registrySyncer.AddLauncher(wfLauncher)
+
+			srvcs = append(srvcs, wfLauncher, registrySyncer)
 		}
-
-		registrySyncer, err := registrysyncer.New(
-			globalLogger,
-			func() (p2ptypes.PeerID, error) {
-				p := externalPeerWrapper.GetPeer()
-				if p == nil {
-					return p2ptypes.PeerID{}, errors.New("could not get peer")
-				}
-
-				return p.ID(), nil
-			},
-			relayer,
-			registryAddress,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("could not configure syncer: %w", err)
-		}
-
-		wfLauncher := capabilities.NewLauncher(
-			globalLogger,
-			externalPeerWrapper,
-			dispatcher,
-			opts.CapabilitiesRegistry,
-		)
-		registrySyncer.AddLauncher(wfLauncher)
-
-		srvcs = append(srvcs, dispatcher, wfLauncher, registrySyncer)
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
@@ -502,6 +466,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			legacyEVMChains,
 			globalLogger,
 		)
+	}
+
+	var peerWrapper *ocrcommon.SingletonPeerWrapper
+	if !cfg.OCR().Enabled() && !cfg.OCR2().Enabled() {
+		globalLogger.Debug("P2P stack not needed")
+	} else if cfg.P2P().Enabled() {
+		if err := ocrcommon.ValidatePeerWrapperConfig(cfg.P2P()); err != nil {
+			return nil, err
+		}
+		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), opts.DS, globalLogger)
+		srvcs = append(srvcs, peerWrapper)
+	} else {
+		return nil, fmt.Errorf("P2P stack required for OCR or OCR2")
 	}
 
 	if cfg.OCR().Enabled() {
