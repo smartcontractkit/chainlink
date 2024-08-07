@@ -380,7 +380,7 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"Failed to serialize transaction: max priority fee per gas higher than 2^64-1", true, "zkSync"},
 		{"Failed to serialize transaction: oversized data. max: 1000000; actual: 1000000", true, "zkSync"},
 
-		{"failed to forward tx to sequencer, please try again. Error message: 'invalid sender\"", true, "Mantle"},
+		{"failed to forward tx to sequencer, please try again. Error message: 'invalid sender'", true, "Mantle"},
 
 		{"client error fatal", true, "tomlConfig"},
 	}
