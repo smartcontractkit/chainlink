@@ -47,6 +47,8 @@ runner-test-matrix:
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
     test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_config_override_required: true
+    test_secrets_required: true    
     test_inputs:
       test_suite: soak
 
@@ -543,15 +545,37 @@ runner-test-matrix:
       chainlink_upgrade_version: develop
     pyroscope_env: ci-smoke-automation-upgrade-tests
 
-  - id: integration-tests/reorg/automation_reorg_test.go
+  - id: integration-tests/reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_0
     path: integration-tests/reorg/automation_reorg_test.go
     runs_on: ubuntu-latest
-    test_env_type: k8s-remote-runner
+    test_env_type: docker
     test_inputs:
       test_suite: reorg
     workflows:
       - Run Automation On Demand Tests (TEST WORKFLOW)
-    test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg$ -test.parallel=7 -timeout 60m -count=1 -json
+    test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_0 -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope_env: ci-automation-on-demand-reorg
+
+  - id: integration-tests/reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_1
+    path: integration-tests/reorg/automation_reorg_test.go
+    runs_on: ubuntu-latest
+    test_env_type: docker
+    test_inputs:
+      test_suite: reorg
+    workflows:
+      - Run Automation On Demand Tests (TEST WORKFLOW)
+    test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_1 -test.parallel=2 -timeout 30m -count=1 -json
+    pyroscope_env: ci-automation-on-demand-reorg
+
+  - id: integration-tests/reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_2
+    path: integration-tests/reorg/automation_reorg_test.go
+    runs_on: ubuntu-latest
+    test_env_type: docker
+    test_inputs:
+      test_suite: reorg
+    workflows:
+      - Run Automation On Demand Tests (TEST WORKFLOW)
+    test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_2 -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
 
   - id: integration-tests/chaos/automation_chaos_test.go
@@ -560,7 +584,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     workflows:
       - Run Automation On Demand Tests (TEST WORKFLOW)
-    test_cmd: cd integration-tests/chaos && DETACH_RUNNER=false go test -v -test.run ^TestAutomationChaos$ -test.parallel=15 -timeout 60m -count=1 -json
+    test_cmd: cd integration-tests/chaos && DETACH_RUNNER=false go test -v -test.run ^TestAutomationChaos$ -test.parallel=20 -timeout 60m -count=1 -json
     pyroscope_env: ci-automation-on-demand-chaos
     test_inputs:
       test_suite: chaos
