@@ -60,32 +60,37 @@ jobs:
             changeset:
               - modified|added: 'contracts/.changeset/!(README)*.md'
 
+      - name: Get reference to compare to
+        id: get-base-ref
+        shell: bash
+        run: |
+          type=$(git cat-file -t "${{ env.base_ref }}")
+          if echo "$type" | grep -q commit; then
+              # we do not know to which branch the base ref belongs, so we fetch all branches
+              git fetch --all --prune
+              ref_to_use="${{ env.base_ref }}"
+          elif  echo "$type" | grep -q tag; then
+              git fetch origin ${{ env.base_ref }}
+              ref_to_use="origin/${{ env.base_ref }}" 
+          else
+              # must be branch
+              echo "::debug:: Base reference type: $type"
+              git fetch origin ${{ env.base_ref }}
+              ref_to_use="origin/${{ env.base_ref }}" 
+          fi
+          echo "ref_to_use=$ref_to_use" >> $GITHUB_OUTPUT
+
       # TODO remove when https://github.com/AurorNZ/paths-filter/issues/12 is fixed and we can use modifiers with it
       - name: Check if changes are not limited only to deleted files
         if: ${{ steps.changes.outputs.sol == 'true' }}
         shell: bash
         run: |
           echo "::debug::All modified contracts:"
-          echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n'
-          
-          type=$(git cat-file -t "${{ env.base_ref }}")
-          if echo "$type" | grep -q commit; then
-            # we do not know to which branch the base ref belongs, so we fetch all branches
-            git fetch --all --prune
-            ref_to_use="${{ env.base_ref }}"
-          elif  echo "$type" | grep -q tag; then
-            git fetch origin ${{ env.base_ref }}
-            ref_to_use="origin/${{ env.base_ref }}" 
-          else
-            # must be branch
-            echo "::debug:: Base reference type: $type"
-            git fetch origin ${{ env.base_ref }}
-            ref_to_use="origin/${{ env.base_ref }}" 
-          fi
+          echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n'                 
           
           IFS=','
           for file in ${{ steps.changes.outputs.sol_files }}; do          
-            status=$(git diff --name-status "$ref_to_use" HEAD -- "$file"  | awk '{ print $1 }')
+            status=$(git diff --name-status "${{ steps.get-base-ref.outputs.ref_to_use }}" HEAD -- "$file"  | awk '{ print $1 }')
             if [ "$status" != "D" ]; then
               exit 0
             fi
@@ -112,6 +117,7 @@ jobs:
           fi
           echo "::debug::Excluded paths: $excluded_paths_pattern"
           unexpected_files=$(echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n' | awk "$excluded_paths_pattern")
+          missing_files=""
           set -e 
           set -o pipefail
           if [[ -n "$unexpected_files" ]]; then
@@ -121,6 +127,12 @@ jobs:
             echo "Files: ${files[@]}"
           
             for file in "${files[@]}"; do
+              status=$(git diff --name-status "${{ steps.get-base-ref.outputs.ref_to_use }}" HEAD -- "$file"  | awk '{ print $1 }')
+              if [ "$status" == "D" ]; then
+                continue
+              fi
+              missing_files+="$file"
+          
               product=$(echo "$file" | awk -F'src/v0.8/' '{if ($2 ~ /\//) print substr($2, 1, index($2, "/")-1); else print "shared"}')
               if [[ ! " ${products[@]} " =~ " ${product} " ]]; then
                 products+=("$product")
@@ -132,15 +144,17 @@ jobs:
             set +e 
             set +o pipefail
           
+            missing_files=$(echo $missing_files | tr ',' '\n')
+          
             echo "Error: Found modified contracts outside of the expected scope: ${{ env.product }}"
             echo "Files:"
-            echo "$unexpected_files"
+            echo "$missing_files"
             echo "Action required: If you want to generate artifacts for other products ($productsStr) run this workflow again with updated configuration"
           
             echo "# Warning!" >> $GITHUB_STEP_SUMMARY
             echo "## Reason: Found modified contracts outside of the expected scope: ${{ env.product }}" >> $GITHUB_STEP_SUMMARY
             echo "### Files:" >> $GITHUB_STEP_SUMMARY
-            echo "$unexpected_files" >> $GITHUB_STEP_SUMMARY
+            echo "$missing_files" >> $GITHUB_STEP_SUMMARY
             echo "## Action required: If you want to generate artifacts for other products ($productsStr) run this workflow again with updated configuration" >> $GITHUB_STEP_SUMMARY            
           else
             echo "No unexpected files found."
