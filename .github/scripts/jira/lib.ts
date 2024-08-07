@@ -17,7 +17,9 @@ export function parseIssueNumberFrom(
     return str?.toUpperCase().match(jiraIssueRegex)?.[0];
   }
 
+  core.debug(`Parsing issue number from: ${inputs.join(", ")}`);
   const parsed: string[] = inputs.map(parse).filter((x) => x !== undefined);
+  core.debug(`Found issue number: ${parsed[0]}`);
 
   return parsed[0];
 }

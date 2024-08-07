@@ -34,7 +34,7 @@ async function doesIssueExist(
 
     return true;
   } catch (e) {
-    core.debug(e);
+    core.debug(e as any);
     core.setFailed(`JIRA issue ${issueNumber} not found`);
     return false;
   }
