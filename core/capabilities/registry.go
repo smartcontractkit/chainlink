@@ -30,6 +30,8 @@ type Registry struct {
 }
 
 func (r *Registry) LocalNode(ctx context.Context) (capabilities.Node, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	if r.metadataRegistry == nil {
 		return capabilities.Node{}, errors.New("metadataRegistry information not available")
 	}

@@ -119,7 +119,9 @@ func TestEvmWrite(t *testing.T) {
 
 		req := capabilities.CapabilityRequest{
 			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
+				WorkflowID:          "test-id",
+				WorkflowExecutionID: "dd3709ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751",
+				WorkflowDonID:       1,
 			},
 			Config: config,
 			Inputs: inputs,
@@ -151,7 +153,9 @@ func TestEvmWrite(t *testing.T) {
 
 		req := capabilities.CapabilityRequest{
 			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
+				WorkflowID:          "test-id",
+				WorkflowExecutionID: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751",
+				WorkflowDonID:       1,
 			},
 			Config: config,
 			Inputs: inputs,
@@ -183,7 +187,9 @@ func TestEvmWrite(t *testing.T) {
 
 		req := capabilities.CapabilityRequest{
 			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
+				WorkflowID:          "test-id",
+				WorkflowExecutionID: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751",
+				WorkflowDonID:       1,
 			},
 			Config: invalidConfig,
 			Inputs: inputs,
@@ -215,7 +221,9 @@ func TestEvmWrite(t *testing.T) {
 
 		req := capabilities.CapabilityRequest{
 			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
+				WorkflowID:          "test-id",
+				WorkflowExecutionID: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751",
+				WorkflowDonID:       1,
 			},
 			Config: config,
 			Inputs: inputs,
