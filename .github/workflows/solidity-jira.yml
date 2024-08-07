@@ -20,7 +20,7 @@ jobs:
     name: Skip Enforce Jira Issue
     # We want to skip merge_group events, and any release branches
     # Since we only want to enforce Jira issues on pull requests related to feature branches
-    if: ${{ github.event_name != 'merge_group' && (!startsWith(github.ref_name, 'release/') || !startsWith(github.head_ref, 'release/'))  }}
+    if: ${{ github.event_name != 'merge_group' && !startsWith(github.head_ref, 'release/')  }}
     outputs:
       should-enforce: ${{ steps.changed_files.outputs.only_src_contracts }}
     runs-on: ubuntu-latest
@@ -55,14 +55,15 @@ jobs:
   enforce-jira-issue:
     name: Enforce Jira Issue
     runs-on: ubuntu-latest
-    needs: [skip-enforce-jira-issue]
-    # Along with only running on solidity related PRs,
-    # We want to skip merge_group events, and any release branches
+    # If a needs job is skipped, this job will be skipped and counted as successful 
+    # The job skips on merge_group events, and any release branches
     # Since we only want to enforce Jira issues on pull requests related to feature branches
+    needs: [skip-enforce-jira-issue]
+    # In addition to the above conditions, we only want to running on solidity related PRs.
     #
     # Note: A job that is skipped will report its status as "Success".
     # It will not prevent a pull request from merging, even if it is a required check.
-    if: ${{ github.event_name != 'merge_group' && (!startsWith(github.ref_name, 'release/') || !startsWith(github.head_ref, 'release/')) && needs.skip-enforce-jira-issue.outputs.should-enforce == 'true'  }}
+    if: ${{ needs.skip-enforce-jira-issue.outputs.should-enforce == 'true'  }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
