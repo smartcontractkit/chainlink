@@ -400,7 +400,7 @@ jobs:
 
       - name: Render transaction graphs
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-failed-tx-graph@bcc4d248d31d5bed439a5d0eaed3b0863618d908 # v2.3.25
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-failed-tx-graph@59934eee6fe569a1ecc0bb664f7ff4e0504d44c6 # v2.3.25
 
   eth-smoke-tests-matrix-log-poller:
     if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') || inputs.distinct_run_name != '' }}
@@ -519,7 +519,7 @@ jobs:
 
       - name: Render transaction graphs
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-failed-tx-graph@bcc4d248d31d5bed439a5d0eaed3b0863618d908 # v2.3.25
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-failed-tx-graph@59934eee6fe569a1ecc0bb664f7ff4e0504d44c6 # v2.3.25
 
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
@@ -794,7 +794,7 @@ jobs:
 
       - name: Render transaction graphs
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-failed-tx-graph@bcc4d248d31d5bed439a5d0eaed3b0863618d908 # v2.3.25
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-failed-tx-graph@59934eee6fe569a1ecc0bb664f7ff4e0504d44c6 # v2.3.25
 
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:
