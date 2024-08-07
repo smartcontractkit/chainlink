@@ -265,12 +265,20 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/headreporter:
     config:
       dir: "{{ .InterfaceDir }}"
-      filename: "mock_{{ .InterfaceName | snakecase }}_test.go"
+      filename: "{{ .InterfaceName | snakecase }}_mock.go"
       inpackage: true
       mockname: "Mock{{ .InterfaceName | camelcase }}"
     interfaces:
       HeadReporter:
       PrometheusBackend:
+  github.com/smartcontractkit/libocr/commontypes:
+    config:
+      dir: "common/types/mocks"
+#      filename: "{{ .InterfaceName | snakecase }}.go"
+#      inpackage: true
+      mockname: "Mock{{ .InterfaceName | camelcase }}"
+    interfaces:
+      MonitoringEndpoint:
   github.com/smartcontractkit/chainlink/v2/core/services/relay/evm:
     interfaces:
       BatchCaller:
@@ -305,6 +313,15 @@ packages:
     interfaces:
       Config:
       FeeConfig:
+  github.com/smartcontractkit/chainlink/v2/core/services/telemetry:
+    config:
+      dir: "{{ .InterfaceDir }}"
+      filename: "{{ .InterfaceName | snakecase }}_mock.go"
+      inpackage: true
+      mockname: "Mock{{ .InterfaceName | camelcase }}"
+    interfaces:
+      MonitoringEndpointGenerator:
+      IngressAgent:
   github.com/smartcontractkit/chainlink/v2/core/services/webhook:
     interfaces:
       ExternalInitiatorManager:

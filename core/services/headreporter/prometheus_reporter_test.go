@@ -1,4 +1,4 @@
-package headreporter
+package headreporter_test
 
 import (
 	"math/big"
@@ -6,37 +6,36 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 )
 
 func Test_PrometheusReporter(t *testing.T) {
 	t.Run("with nothing in the database", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 
-		backend := NewMockPrometheusBackend(t)
+		backend := headreporter.NewMockPrometheusBackend(t)
 		backend.On("SetUnconfirmedTransactions", big.NewInt(0), int64(0)).Return()
 		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), float64(0)).Return()
 		backend.On("SetMaxUnconfirmedBlocks", big.NewInt(0), int64(0)).Return()
 
-		reporter := NewPrometheusReporter(db, newLegacyChainContainer(t, db))
+		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainer(t, db))
 		reporter.SetBackend(backend)
 
-		head := NewHead()
+		head := headreporter.NewHead()
 		err := reporter.ReportNewHead(testutils.Context(t), &head)
 		require.NoError(t, err)
 
@@ -57,17 +56,17 @@ func Test_PrometheusReporter(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
 		require.NoError(t, txStore.UpdateTxAttemptBroadcastBeforeBlockNum(testutils.Context(t), etx.ID, 7))
 
-		backend := NewMockPrometheusBackend(t)
+		backend := headreporter.NewMockPrometheusBackend(t)
 		backend.On("SetUnconfirmedTransactions", big.NewInt(0), int64(3)).Return()
 		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), mock.MatchedBy(func(s float64) bool {
 			return s > 0
 		})).Return()
 		backend.On("SetMaxUnconfirmedBlocks", big.NewInt(0), int64(35)).Return()
 
-		reporter := NewPrometheusReporter(db, newLegacyChainContainer(t, db))
+		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainer(t, db))
 		reporter.SetBackend(backend)
 
-		head := NewHead()
+		head := headreporter.NewHead()
 		err := reporter.ReportNewHead(testutils.Context(t), &head)
 		require.NoError(t, err)
 
@@ -86,15 +85,15 @@ func Test_PrometheusReporter(t *testing.T) {
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 2)
 
-		backend := NewMockPrometheusBackend(t)
+		backend := headreporter.NewMockPrometheusBackend(t)
 		backend.On("SetUnconfirmedTransactions", big.NewInt(0), int64(0)).Return()
 		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), float64(0)).Return()
 		backend.On("SetMaxUnconfirmedBlocks", big.NewInt(0), int64(0)).Return()
 
-		reporter := NewPrometheusReporter(db, newLegacyChainContainer(t, db))
+		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainer(t, db))
 		reporter.SetBackend(backend)
 
-		head := NewHead()
+		head := headreporter.NewHead()
 		err := reporter.ReportNewHead(testutils.Context(t), &head)
 		require.NoError(t, err)
 

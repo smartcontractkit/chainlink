@@ -84,7 +84,7 @@ ok EVM.1.Txm.Broadcaster
 ok EVM.1.Txm.Confirmer
 ok EVM.1.Txm.Finalizer
 ok EVM.1.Txm.WrappedEvmEstimator
-ok HeadReporterService
+ok HeadReporter
 ok JobSpawner
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool

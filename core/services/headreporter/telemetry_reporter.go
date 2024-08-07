@@ -15,11 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 )
 
-type (
-	telemetryReporter struct {
-		endpoints map[uint64]commontypes.MonitoringEndpoint
-	}
-)
+type telemetryReporter struct {
+	endpoints map[uint64]commontypes.MonitoringEndpoint
+}
 
 func NewTelemetryReporter(chainContainer legacyevm.LegacyChainContainer, monitoringEndpointGen telemetry.MonitoringEndpointGenerator) HeadReporter {
 	endpoints := make(map[uint64]commontypes.MonitoringEndpoint)

@@ -31,7 +31,7 @@ fj293fbBnlQ!f9vNs
 HTTPPort = $PORT
 
 -- out.txt --
-ok HeadReporterService
+ok HeadReporter
 ok JobSpawner
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
