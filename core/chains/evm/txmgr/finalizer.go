@@ -25,6 +25,7 @@ var _ Finalizer = (*evmFinalizer)(nil)
 const processHeadTimeout = 10 * time.Minute
 
 type finalizerTxStore interface {
+	// FindConfirmedTxesReceipts fetch the txes with partially loaded receipts for performance reason
 	FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) ([]Receipt, error)
 	UpdateTxStatesToFinalizedUsingReceiptIds(ctx context.Context, txs []int64, chainId *big.Int) error
 }
