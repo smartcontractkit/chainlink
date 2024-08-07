@@ -16,7 +16,7 @@ jobs:
     outputs:
       changes: ${{ steps.changes.outputs.sol }}
       product_changes: ${{ steps.changes-transform.outputs.product_changes }}
-      files: ${{ steps.changes.changes-transform.product_files }}
+      files: ${{ steps.changes-transform.outputs.product_files }}
       changeset_changes: ${{ steps.changes-dorny.outputs.changeset }}
       changeset_files: ${{ steps.changes-dorny.outputs.changeset_files }}
     steps:
@@ -96,6 +96,7 @@ jobs:
           echo "Base Ref used: **${{ env.base_ref }}**" >> $GITHUB_STEP_SUMMARY
           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
           echo "## Reason: Only deleted Solidity files found for ${{ env.product }}" >> $GITHUB_STEP_SUMMARY
+          
           exit 1
 
       - name: Check for changes outside of artifact scope
