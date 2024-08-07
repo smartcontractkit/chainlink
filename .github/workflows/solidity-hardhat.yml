@@ -60,6 +60,7 @@ jobs:
             changeset:
               - modified|added: 'contracts/.changeset/!(README)*.md'
 
+      # TODO remove when https://github.com/AurorNZ/paths-filter/issues/12 is fixed and we can use modifiers with it
       - name: Get reference to compare to
         id: get-base-ref
         shell: bash
@@ -80,7 +81,6 @@ jobs:
           fi
           echo "ref_to_use=$ref_to_use" >> $GITHUB_OUTPUT
 
-      # TODO remove when https://github.com/AurorNZ/paths-filter/issues/12 is fixed and we can use modifiers with it
       - name: Check if changes are not limited only to deleted files
         if: ${{ steps.changes.outputs.sol == 'true' }}
         shell: bash
@@ -89,7 +89,8 @@ jobs:
           echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n'                 
           
           IFS=','
-          for file in ${{ steps.changes.outputs.sol_files }}; do          
+          for file in ${{ steps.changes.outputs.sol_files }}; do
+            # TODO remove when https://github.com/AurorNZ/paths-filter/issues/12 is fixed and we can use modifiers with it
             status=$(git diff --name-status "${{ steps.get-base-ref.outputs.ref_to_use }}" HEAD -- "$file"  | awk '{ print $1 }')
             if [ "$status" != "D" ]; then
               exit 0
@@ -127,6 +128,7 @@ jobs:
             echo "Files: ${files[@]}"
           
             for file in "${files[@]}"; do
+              # TODO remove when https://github.com/AurorNZ/paths-filter/issues/12 is fixed and we can use modifiers with it
               status=$(git diff --name-status "${{ steps.get-base-ref.outputs.ref_to_use }}" HEAD -- "$file"  | awk '{ print $1 }')
               if [ "$status" == "D" ]; then
                 continue
