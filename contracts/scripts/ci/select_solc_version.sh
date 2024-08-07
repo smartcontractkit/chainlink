@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 function check_chainlink_dir() {
   local param_dir="chainlink"
