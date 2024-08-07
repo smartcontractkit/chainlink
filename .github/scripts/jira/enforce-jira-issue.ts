@@ -58,7 +58,7 @@ async function main() {
 
   const exists = await doesIssueExist(client, issueNumber, dryRun);
   if (!exists) {
-    core.setFailed(`JIRA issue ${issueNumber} not found`);
+    core.setFailed(`JIRA issue ${issueNumber} not found, this pull request must be associated with a JIRA issue.`);
     return;
   }
 }
