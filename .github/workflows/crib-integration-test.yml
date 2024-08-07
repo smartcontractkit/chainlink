@@ -67,7 +67,7 @@ jobs:
           aws-role-duration-seconds: "1800"
 
       - name: Deploy and validate CRIB Environment for Core
-        uses: smartcontractkit/.github/actions/setup-crib-environment@334a434a4a1334042ac299b69c4778cbc849b48c
+        uses: smartcontractkit/.github/actions/setup-crib-environment@1fae13b7a996eb7a2c86c1e507c9ac667dff82eb
         id: deploy-crib
         with:
           github-token: ${{ steps.token.outputs.access-token }}
