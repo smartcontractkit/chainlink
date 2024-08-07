@@ -4,7 +4,7 @@ on:
 
 env:
   FOUNDRY_PROFILE: ci
-  product: "shared"
+  product: "automation"
   base_ref: "7b7b9ddac6de536bc84b3b45bd6104948bbf2650"
 
 jobs:

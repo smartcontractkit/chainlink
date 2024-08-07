@@ -73,7 +73,7 @@ runs:
           echo "Files: ${files[@]}"
         
           for file in "${files[@]}"; do
-            missing_files+="$file"
+            missing_files+="$file,"
         
             product=$(echo "$file" | awk -F'src/v0.8/' '{if ($2 ~ /\//) print substr($2, 1, index($2, "/")-1); else print "shared"}')
             if [[ ! " ${products[@]} " =~ " ${product} " ]]; then
