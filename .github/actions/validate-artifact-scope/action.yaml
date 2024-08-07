@@ -2,8 +2,8 @@ name: Validate Artifact Scope
 description: Checks there are any modified Solidity files outside of the specified scope. If so, it prints a warning message, but does not fail the workflow.
 inputs:
   product:
-      description: The product for which the artifacts are being generated
-      required: true
+    description: The product for which the artifacts are being generated
+    required: true
   sol_files:
     description: Comma-separated (CSV) or space-separated (shell) list of Solidity files to check
     required: true
