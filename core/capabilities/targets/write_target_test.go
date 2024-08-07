@@ -134,10 +134,10 @@ func TestWriteTarget(t *testing.T) {
 	})
 
 	t.Run("fails with invalid config", func(t *testing.T) {
-		invalidConfig, err := values.NewMap(map[string]any{
+		invalidConfig, err2 := values.NewMap(map[string]any{
 			"Address": "invalid-address",
 		})
-		require.NoError(t, err)
+		require.NoError(t, err2)
 
 		req := capabilities.CapabilityRequest{
 			Metadata: capabilities.RequestMetadata{
@@ -146,7 +146,31 @@ func TestWriteTarget(t *testing.T) {
 			Config: invalidConfig,
 			Inputs: validInputs,
 		}
-		_, err = writeTarget.Execute(ctx, req)
-		require.Error(t, err)
+		_, err2 = writeTarget.Execute(ctx, req)
+		require.Error(t, err2)
+	})
+
+	t.Run("fails with nil config", func(t *testing.T) {
+		req := capabilities.CapabilityRequest{
+			Metadata: capabilities.RequestMetadata{
+				WorkflowID: "test-id",
+			},
+			Config: nil,
+			Inputs: validInputs,
+		}
+		_, err2 := writeTarget.Execute(ctx, req)
+		require.Error(t, err2)
+	})
+
+	t.Run("fails with nil inputs", func(t *testing.T) {
+		req := capabilities.CapabilityRequest{
+			Metadata: capabilities.RequestMetadata{
+				WorkflowID: "test-id",
+			},
+			Config: config,
+			Inputs: nil,
+		}
+		_, err2 := writeTarget.Execute(ctx, req)
+		require.Error(t, err2)
 	})
 }
