@@ -7,19 +7,21 @@ import (
 	"time"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+
 	"go.uber.org/multierr"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 var (

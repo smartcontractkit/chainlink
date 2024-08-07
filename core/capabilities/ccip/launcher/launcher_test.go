@@ -181,7 +181,7 @@ func Test_createDON(t *testing.T) {
 			"success, no bootstrap",
 			args{
 				logger.TestLogger(t),
-				ragep2ptypes.PeerID(p2pID1),
+				p2pID1,
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
 				defaultRegistryDon,
@@ -341,7 +341,7 @@ func Test_launcher_processDiff(t *testing.T) {
 			"don added success",
 			fields{
 				lggr:  logger.TestLogger(t),
-				p2pID: ragep2ptypes.PeerID(p2pID1),
+				p2pID: p2pID1,
 				homeChainReader: newMock(t, func(t *testing.T) *mocks.HomeChainReader {
 					return mocks.NewHomeChainReader(t)
 				}, func(m *mocks.HomeChainReader) {
@@ -384,7 +384,7 @@ func Test_launcher_processDiff(t *testing.T) {
 			"don updated new green instance success",
 			fields{
 				lggr:  logger.TestLogger(t),
-				p2pID: ragep2ptypes.PeerID(p2pID1),
+				p2pID: p2pID1,
 				homeChainReader: newMock(t, func(t *testing.T) *mocks.HomeChainReader {
 					return mocks.NewHomeChainReader(t)
 				}, func(m *mocks.HomeChainReader) {

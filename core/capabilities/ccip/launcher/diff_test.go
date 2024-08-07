@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	capcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/stretchr/testify/require"
 
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -394,12 +394,4 @@ func getCapability(ccipCapName, ccipCapVersion string) registrysyncer.Capability
 		CapabilityType: capabilities.CapabilityTypeTarget,
 		ID:             id,
 	}
-}
-
-func mustHashedCapabilityID(capabilityLabelledName, capabilityVersion string) [32]byte {
-	r, err := capcommon.HashedCapabilityID(capabilityLabelledName, capabilityVersion)
-	if err != nil {
-		panic(fmt.Errorf("failed to hash capability id (labelled name: %s, version: %s): %w", capabilityLabelledName, capabilityVersion, err))
-	}
-	return r
 }

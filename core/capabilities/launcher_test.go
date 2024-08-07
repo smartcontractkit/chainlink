@@ -332,7 +332,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 
 	cfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
 		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-			&capabilitiespb.RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
 				RegistrationRefresh: durationpb.New(1 * time.Second),
 			},
 		},
