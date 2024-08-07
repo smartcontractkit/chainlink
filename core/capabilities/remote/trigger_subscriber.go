@@ -189,7 +189,7 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			registration, found := s.registeredWorkflows[workflowId]
 			s.mu.RUnlock()
 			if !found {
-				s.lggr.Errorw("received message for unregistered workflow", "capabilityId", s.capInfo.ID, "workflowID", workflowId, "sender", sender)
+				s.lggr.Errorw("received message for unregistered workflow", "capabilityId", s.capInfo.ID, "workflowID", SanitizeLogString(workflowId), "sender", sender)
 				continue
 			}
 			key := triggerEventKey{
@@ -217,7 +217,7 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			}
 		}
 	} else {
-		s.lggr.Errorw("received trigger event with unknown method", "method", msg.Method, "sender", sender)
+		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender)
 	}
 }
 
