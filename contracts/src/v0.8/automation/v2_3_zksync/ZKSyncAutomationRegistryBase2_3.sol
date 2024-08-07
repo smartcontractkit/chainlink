@@ -747,14 +747,8 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
       } else {
         revert InvalidTriggerType();
       }
-      uint256 maxCalldataSize = s_storage.maxPerformDataSize +
-        TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD +
-        (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
-      (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) = s_hotVars.chainModule.getGasOverhead();
-      maxGasOverhead +=
-        (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1)) +
-        ((REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD + chainModulePerByteOverhead) * maxCalldataSize) +
-        chainModuleFixedOverhead;
+      (uint256 chainModuleFixedOverhead, ) = s_hotVars.chainModule.getGasOverhead();
+      maxGasOverhead += (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1)) + chainModuleFixedOverhead;
     }
 
     BillingTokenPaymentParams memory paymentParams = _getBillingTokenPaymentParams(hotVars, billingToken);

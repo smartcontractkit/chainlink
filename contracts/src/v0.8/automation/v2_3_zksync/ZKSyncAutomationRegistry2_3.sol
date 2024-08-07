@@ -132,6 +132,7 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
     });
 
     uint256 blocknumber = hotVars.chainModule.blockNumber();
+    uint256 gasOverhead;
 
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];
@@ -160,15 +161,23 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
 
       // Store last perform block number / deduping key for upkeep
       _updateTriggerMarker(report.upkeepIds[i], blocknumber, upkeepTransmitInfo[i]);
+
+      if (upkeepTransmitInfo[i].triggerType == Trigger.CONDITION) {
+        gasOverhead += REGISTRY_CONDITIONAL_OVERHEAD;
+      } else {
+        gasOverhead += REGISTRY_LOG_OVERHEAD;
+      }
     }
     // No upkeeps to be performed in this report
     if (transmitVars.numUpkeepsPassedChecks == 0) {
       return;
     }
 
-    // This is the overall gas overhead that will be split across performed upkeeps
-    // Take upper bound of 16 gas per callData bytes
-    uint256 gasOverhead = (16 * msg.data.length) + ACCOUNTING_FIXED_GAS_OVERHEAD;
+    (uint256 chainModuleFixedOverhead, ) = s_hotVars.chainModule.getGasOverhead();
+    gasOverhead +=
+      ACCOUNTING_FIXED_GAS_OVERHEAD +
+      (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1)) +
+      chainModuleFixedOverhead;
     gasOverhead = gasOverhead / transmitVars.numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
 
     {
