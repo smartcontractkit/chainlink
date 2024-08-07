@@ -33,7 +33,7 @@ contract ZKSyncAutomationForwarder {
    * @return success indicating whether the target call succeeded or failed
    */
   function forward(uint256 gasAmount, bytes memory data) external returns (bool success, uint256 gasUsed) {
-    if (msg.sender != address(s_registry)) revert InvalidCaller(msg.sender);
+    if (msg.sender != address(s_registry)) revert ();
     address target = i_target;
     gasUsed = gasleft();
     assembly {
