@@ -1403,6 +1403,39 @@ func (_c *Service_SyncNodeInfo_Call) RunAndReturn(run func(context.Context, int6
 	return _c
 }
 
+// Unsafe_SetConnectionsManager provides a mock function with given fields: _a0
+func (_m *Service) Unsafe_SetConnectionsManager(_a0 feeds.ConnectionsManager) {
+	_m.Called(_a0)
+}
+
+// Service_Unsafe_SetConnectionsManager_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Unsafe_SetConnectionsManager'
+type Service_Unsafe_SetConnectionsManager_Call struct {
+	*mock.Call
+}
+
+// Unsafe_SetConnectionsManager is a helper method to define mock.On call
+//   - _a0 feeds.ConnectionsManager
+func (_e *Service_Expecter) Unsafe_SetConnectionsManager(_a0 interface{}) *Service_Unsafe_SetConnectionsManager_Call {
+	return &Service_Unsafe_SetConnectionsManager_Call{Call: _e.mock.On("Unsafe_SetConnectionsManager", _a0)}
+}
+
+func (_c *Service_Unsafe_SetConnectionsManager_Call) Run(run func(_a0 feeds.ConnectionsManager)) *Service_Unsafe_SetConnectionsManager_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(feeds.ConnectionsManager))
+	})
+	return _c
+}
+
+func (_c *Service_Unsafe_SetConnectionsManager_Call) Return() *Service_Unsafe_SetConnectionsManager_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *Service_Unsafe_SetConnectionsManager_Call) RunAndReturn(run func(feeds.ConnectionsManager)) *Service_Unsafe_SetConnectionsManager_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateChainConfig provides a mock function with given fields: ctx, cfg
 func (_m *Service) UpdateChainConfig(ctx context.Context, cfg feeds.ChainConfig) (int64, error) {
 	ret := _m.Called(ctx, cfg)

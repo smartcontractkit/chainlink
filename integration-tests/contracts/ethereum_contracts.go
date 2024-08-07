@@ -770,12 +770,12 @@ func DeployLinkTokenContract(l zerolog.Logger, client *seth.Client) (*EthereumLi
 }
 
 func LoadLinkTokenContract(l zerolog.Logger, client *seth.Client, address common.Address) (*EthereumLinkToken, error) {
-	abi, err := link_token_interface.LinkTokenMetaData.GetAbi()
+	linkABI, err := link_token_interface.LinkTokenMetaData.GetAbi()
 	if err != nil {
 		return &EthereumLinkToken{}, fmt.Errorf("failed to get LinkToken ABI: %w", err)
 	}
 
-	client.ContractStore.AddABI("LinkToken", *abi)
+	client.ContractStore.AddABI("LinkToken", *linkABI)
 	client.ContractStore.AddBIN("LinkToken", common.FromHex(link_token_interface.LinkTokenMetaData.Bin))
 
 	linkToken, err := link_token_interface.NewLinkToken(address, wrappers.MustNewWrappedContractBackend(nil, client))

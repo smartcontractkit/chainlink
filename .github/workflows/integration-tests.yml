@@ -359,6 +359,7 @@ jobs:
           artifacts_name: ${{ matrix.product.name }}-test-logs
           artifacts_location: |
             ./integration-tests/smoke/logs/
+            ./integration-tests/smoke/db_dumps/
             /tmp/gotest.log
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -472,6 +473,7 @@ jobs:
           artifacts_name: ${{ matrix.product.name }}-test-logs
           artifacts_location: |
             ./integration-tests/smoke/logs/
+            ./integration-tests/smoke/db_dumps/
             /tmp/gotest.log
             ./integration-tests/smoke/dot_graphs/
           publish_check_name: ${{ matrix.product.name }}
@@ -710,6 +712,7 @@ jobs:
           artifacts_name: ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}-test-logs
           artifacts_location: |
             ./integration-tests/smoke/logs/
+            ./integration-tests/smoke/db_dumps/
             /tmp/gotest.log
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -979,7 +982,7 @@ jobs:
           DEFAULT_GRAFANA_BASE_URL: "http://localhost:8080/primary"
           DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
           DEFAULT_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-          
+
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         timeout-minutes: 2
@@ -1038,7 +1041,7 @@ jobs:
         id: getsha
         run: |
           cd solanapath
-          full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}})
+          full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}}^{}) # additional suffix allows handling tagged versions as well
           if [ -z "${full_sha}" ]; then
               echo "Error: could not get the full sha from the short sha using git, look above for error(s)"
               exit 1
@@ -1123,7 +1126,7 @@ jobs:
         uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@46b1311a5a83f33d08ffa8e1e0ab04f9ad51665d # node20 update on may 10, 2024
         with:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
-          image: projectserum/build
+          image: backpackapp/build
           image-version: ${{ needs.get_projectserum_version.outputs.projectserum_version }}
 
   solana-build-test-image:

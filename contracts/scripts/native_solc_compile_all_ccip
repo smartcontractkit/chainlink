@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │          Compiling CCIP contracts...         │"
+echo " └──────────────────────────────────────────────┘"
+
+SOLC_VERSION="0.8.24"
+OPTIMIZE_RUNS=26000
+OPTIMIZE_RUNS_OFFRAMP=18000
+OPTIMIZE_RUNS_ONRAMP=4100
+OPTIMIZE_RUNS_MULTI_OFFRAMP=2500
+
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
+
+compileContract () {
+  local contract
+  contract=$(basename "$1" ".sol")
+
+  local optimize_runs=$OPTIMIZE_RUNS
+
+  case $1 in
+    "ccip/offRamp/EVM2EVMOffRamp.sol")
+    echo "OffRamp uses $OPTIMIZE_RUNS_OFFRAMP optimizer runs."
+      optimize_runs=$OPTIMIZE_RUNS_OFFRAMP
+      ;;
+    "ccip/offRamp/EVM2EVMMultiOffRamp.sol")
+    echo "MultiOffRamp uses $OPTIMIZE_RUNS_MULTI_OFFRAMP optimizer runs."
+      optimize_runs=$OPTIMIZE_RUNS_MULTI_OFFRAMP
+      ;;
+    "ccip/onRamp/EVM2EVMOnRamp.sol")
+    echo "OnRamp uses $OPTIMIZE_RUNS_ONRAMP optimizer runs."
+      optimize_runs=$OPTIMIZE_RUNS_ONRAMP
+      ;;
+  esac
+
+  solc --overwrite --optimize --optimize-runs $optimize_runs --metadata-hash none \
+      -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
+      --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8 \
+      --evm-version paris \
+      "$ROOT"/contracts/src/v0.8/"$1"
+}
+
+
+# Solc produces and overwrites intermediary contracts.
+# Contracts should be ordered in reverse-import-complexity-order to minimize overwrite risks.
+compileContract ccip/offRamp/EVM2EVMOffRamp.sol
+compileContract ccip/offRamp/EVM2EVMMultiOffRamp.sol
+compileContract ccip/applications/PingPongDemo.sol
+compileContract ccip/applications/SelfFundedPingPong.sol
+compileContract ccip/applications/EtherSenderReceiver.sol
+compileContract ccip/onRamp/EVM2EVMMultiOnRamp.sol
+compileContract ccip/onRamp/EVM2EVMOnRamp.sol
+compileContract ccip/CommitStore.sol
+compileContract ccip/MultiAggregateRateLimiter.sol
+compileContract ccip/Router.sol
+compileContract ccip/PriceRegistry.sol
+compileContract ccip/pools/LockReleaseTokenPool.sol
+compileContract ccip/pools/BurnMintTokenPool.sol
+compileContract ccip/pools/BurnFromMintTokenPool.sol
+compileContract ccip/pools/BurnWithFromMintTokenPool.sol
+compileContract ccip/pools/LockReleaseTokenPoolAndProxy.sol
+compileContract ccip/pools/BurnMintTokenPoolAndProxy.sol
+compileContract ccip/pools/TokenPool.sol
+compileContract shared/token/ERC677/BurnMintERC677.sol
+compileContract ccip/RMN.sol
+compileContract ccip/ARMProxy.sol
+compileContract ccip/tokenAdminRegistry/TokenAdminRegistry.sol
+compileContract ccip/tokenAdminRegistry/RegistryModuleOwnerCustom.sol
+compileContract ccip/capability/CCIPConfig.sol
+compileContract ccip/capability/interfaces/IOCR3ConfigEncoder.sol
+compileContract ccip/NonceManager.sol
+
+# Test helpers
+compileContract ccip/test/helpers/BurnMintERC677Helper.sol
+compileContract ccip/test/helpers/CommitStoreHelper.sol
+compileContract ccip/test/helpers/MessageHasher.sol
+compileContract ccip/test/helpers/ReportCodec.sol
+compileContract ccip/test/helpers/receivers/MaybeRevertMessageReceiver.sol
+compileContract ccip/test/helpers/MultiOCR3Helper.sol
+compileContract ccip/test/mocks/MockRMN1_0.sol
+compileContract ccip/test/mocks/MockE2EUSDCTokenMessenger.sol
+compileContract ccip/test/mocks/MockE2EUSDCTransmitter.sol
+compileContract ccip/test/WETH9.sol
+
+# Customer contracts
+compileContract ccip/pools/USDC/USDCTokenPool.sol
+
+compileContract tests/MockV3Aggregator.sol

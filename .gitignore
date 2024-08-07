@@ -69,6 +69,7 @@ ztarrepo.tar.gz
 **/test-ledger/*
 __debug_bin*
 .test_summary/
+db_dumps/
 .run.id
 integration-tests/**/traces/
 benchmark_report.csv
