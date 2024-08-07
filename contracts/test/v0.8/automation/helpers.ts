@@ -170,10 +170,10 @@ export const deployRegistry23 = async (
   link: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[0],
   linkUSD: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[1],
   nativeUSD: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[2],
-  fastgas: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[2],
+  fastgas: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[3],
   allowedReadOnlyAddress: Parameters<
     AutomationRegistryLogicC2_3Factory['deploy']
-  >[3],
+  >[5],
   payoutMode: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[6],
   wrappedNativeTokenAddress: Parameters<
     AutomationRegistryLogicC2_3Factory['deploy']
