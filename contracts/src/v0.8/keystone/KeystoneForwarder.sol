@@ -68,7 +68,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
 
   /// @notice Contains the configuration for each DON ID
   // @param configId (uint64(donId) << 32) | configVersion
-  mapping(uint64 configId => OracleSet) internal s_configs;
+  mapping(uint64 configId => OracleSet oracleSet) internal s_configs;
 
   event ConfigSet(uint32 indexed donId, uint32 indexed configVersion, uint8 f, address[] signers);
 
@@ -100,8 +100,8 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   // │                          Router                              │
   // ================================================================
 
-  mapping(address forwarder => bool) internal s_forwarders;
-  mapping(bytes32 transmissionId => Transmission) internal s_transmissions;
+  mapping(address forwarder => bool isForwarder) internal s_forwarders;
+  mapping(bytes32 transmissionId => Transmission transmission) internal s_transmissions;
 
   function addForwarder(address forwarder) external onlyOwner {
     s_forwarders[forwarder] = true;
