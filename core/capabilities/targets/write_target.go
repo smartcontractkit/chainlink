@@ -25,8 +25,6 @@ var (
 // required field of target's config in the workflow spec
 const signedReportField = "signed_report"
 
-const REPORT_V1_METADATA_LENGTH = 109
-
 // The gas cost of the forwarder contract logic, including state updates and event emission.
 // This is a rough estimate and should be updated if the forwarder contract logic changes.
 // TODO: Make this part of the on-chain capability configuration
@@ -96,14 +94,22 @@ func (rm ReportV1Metadata) Bytes() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func (rm ReportV1Metadata) Length() int {
+	bytes, err := rm.Bytes()
+	if err != nil {
+		return 0
+	}
+	return len(bytes)
+}
+
 func decodeReportMetadata(reportPayload []byte) (ReportV1Metadata, error) {
 	var metadata ReportV1Metadata
 
-	if len(reportPayload) < REPORT_V1_METADATA_LENGTH {
+	if len(reportPayload) < metadata.Length() {
 		return metadata, fmt.Errorf("reportPayload too short: %d bytes", len(reportPayload))
 	}
 
-	reportPayload = reportPayload[:REPORT_V1_METADATA_LENGTH]
+	reportPayload = reportPayload[:metadata.Length()]
 
 	buffer := bytes.NewReader(reportPayload)
 
