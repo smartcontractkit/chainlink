@@ -20,7 +20,7 @@ jobs:
     name: Skip Enforce Jira Issue
     # We want to skip merge_group events, and any release branches
     # Since we only want to enforce Jira issues on pull requests related to feature branches
-    if: ${{ github.event_name != 'merge_group' && !startsWith(github.ref_name, 'release/') || !startsWith(github.head_ref, 'release/')  }}
+    if: ${{ github.event_name != 'merge_group' && (!startsWith(github.ref_name, 'release/') || !startsWith(github.head_ref, 'release/'))  }}
     outputs:
       should-enforce: ${{ steps.changed_files.outputs.only_src_contracts }}
     runs-on: ubuntu-latest
@@ -62,7 +62,7 @@ jobs:
     #
     # Note: A job that is skipped will report its status as "Success".
     # It will not prevent a pull request from merging, even if it is a required check.
-    if: ${{ github.event_name != 'merge_group' && !startsWith(github.ref_name, 'release/') || !startsWith(github.head_ref, 'release/') && needs.skip-enforce-jira-issue.outputs.should-enforce == 'true'  }}
+    if: ${{ github.event_name != 'merge_group' && (!startsWith(github.ref_name, 'release/') || !startsWith(github.head_ref, 'release/')) && needs.skip-enforce-jira-issue.outputs.should-enforce == 'true'  }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
