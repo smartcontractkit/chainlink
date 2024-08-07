@@ -24,8 +24,8 @@ on:
 
 env:
   FOUNDRY_PROFILE: ci
-  # Has to match the `make foundry` version.
-  FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
+  # Empty, because it's extracted from contracts/GNUMakefile
+  FOUNDRY_VERSION: ""
 
 jobs:
   changes:
@@ -34,7 +34,7 @@ jobs:
     outputs:
       changes: ${{ steps.changes.outputs.sol }}
       product_changes: ${{ steps.changes-transform.outputs.product_changes }}
-      files: ${{ steps.changes-transform.outputs.product_files }}
+      product_files: ${{ steps.changes-transform.outputs.product_files }}
       changeset_changes: ${{ steps.changes-dorny.outputs.changeset }}
       changeset_files: ${{ steps.changes-dorny.outputs.changeset_files }}
     steps:
@@ -72,56 +72,10 @@ jobs:
               - modified|added: 'contracts/.changeset/!(README)*.md' 
 
       - name: Check for changes outside of artifact scope
-        if: ${{ steps.changes.outputs.sol == 'true' }}
-        shell: bash
-        run: |
-          echo "::debug::All modified contracts:"
-          echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n'
-          if [ "${{ inputs.product }}" = "shared" ]; then
-            excluded_paths_pattern="!/^contracts\/src\/v0\.8\/interfaces/ && !/^contracts\/src\/v0\.8\/${{ inputs.product }}/ && !/^contracts\/src\/v0\.8\/[^\/]+\.sol$/"
-          else
-            excluded_paths_pattern="!/^contracts\/src\/v0\.8\/${{ inputs.product }}/"
-          fi
-          echo "::debug::Excluded paths: $excluded_paths_pattern"
-          unexpected_files=$(echo ${{ steps.changes.outputs.sol_files }} | tr ',' '\n' | awk "$excluded_paths_pattern")
-          missing_files=""
-          set -e 
-          set -o pipefail
-          if [[ -n "$unexpected_files" ]]; then
-            products=()
-            productsStr=""
-            IFS=$'\n' read -r -d '' -a files <<< "$unexpected_files" || true
-            echo "Files: ${files[@]}"
-          
-            for file in "${files[@]}"; do
-              missing_files+="$file"
-          
-              product=$(echo "$file" | awk -F'src/v0.8/' '{if ($2 ~ /\//) print substr($2, 1, index($2, "/")-1); else print "shared"}')
-              if [[ ! " ${products[@]} " =~ " ${product} " ]]; then
-                products+=("$product")
-                productsStr+="$product, "
-              fi
-            done
-            productsStr=${productsStr%, }
-          
-            set +e 
-            set +o pipefail
-          
-            missing_files=$(echo $missing_files | tr ',' '\n')
-          
-            echo "Error: Found modified contracts outside of the expected scope: ${{ inputs.product }}"
-            echo "Files:"
-            echo "$missing_files"
-            echo "Action required: If you want to generate artifacts for other products ($productsStr) run this workflow again with updated configuration"
-          
-            echo "# Warning!" >> $GITHUB_STEP_SUMMARY
-            echo "## Reason: Found modified contracts outside of the expected scope: ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
-            echo "### Files:" >> $GITHUB_STEP_SUMMARY
-            echo "$missing_files" >> $GITHUB_STEP_SUMMARY
-            echo "## Action required: If you want to generate artifacts for other products ($productsStr) run this workflow again with updated configuration" >> $GITHUB_STEP_SUMMARY            
-          else
-            echo "No unexpected files found."
-          fi
+        uses: ./.github/actions/validate-artifact-scope
+        with:
+          sol_files: ${{ steps.changes.outputs.sol_files }}
+          product: ${{ inputs.product }}
 
       # Manual transformation needed, because shared contracts have a different folder structure
       - name: Transform modified files
@@ -161,8 +115,20 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          submodules: recursive
           fetch-depth: 0
+
+      - name: Extract Foundry version
+        id: extract-foundry-version
+        shell: bash
+        working-directory: contracts
+        run: |
+          foundry_version=$(grep -Eo "foundryup --version [^ ]+" GNUmakefile | awk '{print $3}')
+          if [ -z "$foundry_version" ]; then
+            echo "Error: Foundry version not found in GNUmakefile"
+            exit 1
+          fi
+          echo "Foundry version found: $foundry_version"
+          echo "FOUNDRY_VERSION=$foundry_version" >> $GITHUB_OUTPUT
 
       - name: Copy modified changesets
         if: ${{ needs.changes.outputs.changeset_changes == 'true' }}
@@ -179,7 +145,7 @@ jobs:
           echo "Commit SHA used to generate artifacts: ${{ github.sha }}" > contracts/commit_sha_base_ref.txt
           echo "Base reference SHA used to find modified contracts: ${{ inputs.base_ref }}" >> contracts/commit_sha_base_ref.txt     
           
-          IFS=',' read -r -a modified_files <<< "${{ needs.changes.outputs.files }}"
+          IFS=',' read -r -a modified_files <<< "${{ needs.changes.outputs.product_files }}"
           echo "# Modified contracts:" > contracts/modified_contracts.md
           for file in "${modified_files[@]}"; do          
             # TODO remove this check when AurorNZ/paths-filter is fixed
@@ -202,7 +168,7 @@ jobs:
           path: |
             contracts/modified_contracts.md
             contracts/modified_contracts.txt
-            contracts/commit_sha_base_ref.txt            
+            contracts/commit_sha_base_ref.txt
             contracts/changesets
           retention-days: 7
 
@@ -225,8 +191,6 @@ jobs:
 
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          submodules: recursive
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -239,7 +203,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
-          version: ${{ inputs.FOUNDRY_VERSION }}
+          version: ${{ env.FOUNDRY_VERSION }}
 
       # required for code coverage report generation
       - name: Setup LCOV
@@ -257,18 +221,19 @@ jobs:
       - name: Run coverage for product contracts
         if: ${{ !contains(fromJson(steps.prepare-exclusion-list.outputs.coverage_exclusions), inputs.product) && needs.changes.outputs.product_changes == 'true' }}
         working-directory: contracts
-        run: forge coverage --report lcov --report-file code-coverage/lcov-${{ inputs.product }}.info
+        run: forge coverage --report lcov --report-file code-coverage/lcov.info
         env:
           FOUNDRY_PROFILE: ${{ inputs.product }}
 
       - name: Generate Code Coverage HTML report for product contracts
         if: ${{ !contains(fromJson(steps.prepare-exclusion-list.outputs.coverage_exclusions), inputs.product) && needs.changes.outputs.product_changes == 'true' }}
         shell: bash
-        run: cd contracts && genhtml code-coverage/lcov-${{ inputs.product }}.info --branch-coverage --output-directory code-coverage/${{ inputs.product }}
+        working-directory: contracts
+        run: genhtml code-coverage/lcov.info --branch-coverage --output-directory code-coverage
 
       - name: Run Forge doc for product contracts
         if: ${{ needs.changes.outputs.product_changes == 'true' }}
-        run: forge doc --build -o docs/${{ inputs.product }}
+        run: forge doc --build -o docs
         working-directory: contracts
         env:
           FOUNDRY_PROFILE: ${{ inputs.product }}
@@ -281,9 +246,9 @@ jobs:
         with:
           name: tmp-${{ inputs.product }}-artifacts
           path: |
-            contracts/docs/${{ inputs.product }}
-            contracts/code-coverage/lcov-${{ inputs.product }}.info
-            contracts/code-coverage/${{ inputs.product }}
+            contracts/docs
+            contracts/code-coverage/lcov-.info
+            contracts/code-coverage
           retention-days: 7
 
   # Generates UML diagrams and Slither reports for modified contracts
@@ -293,12 +258,11 @@ jobs:
     runs-on: ubuntu-22.04
     needs: [changes]
     env:
-      GH_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - name: Setup NodeJS
@@ -307,7 +271,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
-          version: ${{ inputs.FOUNDRY_VERSION }}
+          version: ${{ env.FOUNDRY_VERSION }}
 
       - name: Install Sol2uml
         run: |
@@ -330,7 +294,7 @@ jobs:
       - name: Generate UML
         shell: bash
         run: |
-          contract_list="${{ needs.changes.outputs.files }}"
+          contract_list="${{ needs.changes.outputs.product_files }}"
           
           # modify remappings so that solc can find dependencies
           ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
@@ -340,7 +304,7 @@ jobs:
 
       - name: Generate Slither Markdown reports
         run: |
-          contract_list="${{ needs.changes.outputs.files }}"
+          contract_list="${{ needs.changes.outputs.product_files }}"
           
           echo "::debug::Processing contracts: $contract_list"
           ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/configs/slither/.slither.config-artifacts.json "." "$contract_list" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
@@ -363,7 +327,7 @@ jobs:
           validate_uml_diagrams: 'true'
           slither_reports_path: 'contracts/slither-reports'
           uml_diagrams_path: 'contracts/uml-diagrams'
-          sol_files: ${{ needs.changes.outputs.files }}
+          sol_files: ${{ needs.changes.outputs.product_files }}
           base_ref: ${{ inputs.base_ref }}
 
   gather-all-artifacts:
@@ -392,7 +356,7 @@ jobs:
 
       - name: Print Artifact URL in job summary
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
           ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts-${{ inputs.product }}-${{ github.sha }}") | .id')
@@ -401,7 +365,7 @@ jobs:
           echo "# Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
           echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
-          echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID)" >> $GITHUB_STEP_SUMMARY        
+          echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID)" >> $GITHUB_STEP_SUMMARY
 
   notify-no-changes:
     if: ${{ needs.changes.outputs.product_changes == 'false' }}
