@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 
 	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
@@ -434,7 +435,7 @@ func (b *EventBinding) derefTopics(topics []any) error {
 func (b *EventBinding) makeTopics(params []any) ([]common.Hash, error) {
 	// make topic value for non-fixed bytes array manually because geth MakeTopics doesn't support it
 	for i, topic := range params {
-		if abiArg := e.inputInfo.Args()[i]; abiArg.Type.T == abi.ArrayTy && (abiArg.Type.Elem != nil && abiArg.Type.Elem.T == abi.UintTy) {
+		if abiArg := b.inputInfo.Args()[i]; abiArg.Type.T == abi.ArrayTy && (abiArg.Type.Elem != nil && abiArg.Type.Elem.T == abi.UintTy) {
 			packed, err := abi.Arguments{abiArg}.Pack(topic)
 			if err != nil {
 				return nil, err
