@@ -72,7 +72,7 @@ jobs:
           echo $GITHUB_WORKSPACE
 
       - name: Deploy and validate CRIB Environment for Core
-        uses: smartcontractkit/.github/actions/setup-crib-environment@6c800885ebd68c610328f23fa2f808e067861113
+        uses: smartcontractkit/.github/actions/setup-crib-environment@f616649d75bd97266f1446a89b54eb3ccd127bfc
         id: deploy-crib
         with:
           github-token: ${{ steps.token.outputs.access-token }}
