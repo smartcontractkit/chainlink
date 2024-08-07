@@ -255,29 +255,17 @@ func TestReader_Integration(t *testing.T) {
 	}, gotCap)
 
 	assert.Len(t, s.IDsToDONs, 1)
-	rtc := &capabilities.RemoteTriggerConfig{
-		RegistrationRefresh:     20 * time.Second,
-		MinResponsesToAggregate: 2,
-		RegistrationExpiry:      60 * time.Second,
-		MessageExpiry:           120 * time.Second,
+	expectedDON := capabilities.DON{
+		ID:               1,
+		ConfigVersion:    1,
+		IsPublic:         true,
+		AcceptsWorkflows: true,
+		F:                1,
+		Members:          toPeerIDs(nodeSet),
 	}
-	expectedDON := DON{
-		DON: capabilities.DON{
-			ID:               1,
-			ConfigVersion:    1,
-			IsPublic:         true,
-			AcceptsWorkflows: true,
-			F:                1,
-			Members:          toPeerIDs(nodeSet),
-		},
-		CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
-			cid: {
-				DefaultConfig:       values.EmptyMap(),
-				RemoteTriggerConfig: rtc,
-			},
-		},
-	}
-	assert.Equal(t, expectedDON, s.IDsToDONs[1])
+	gotDon := s.IDsToDONs[1]
+	assert.Equal(t, expectedDON, gotDon.DON)
+	assert.Equal(t, configb, gotDon.CapabilityConfigurations[cid].Config)
 
 	nodesInfo := []kcr.CapabilitiesRegistryNodeInfo{
 		{

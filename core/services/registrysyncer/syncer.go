@@ -7,14 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -158,42 +154,6 @@ func (s *registrySyncer) syncLoop() {
 	}
 }
 
-func unmarshalCapabilityConfig(data []byte) (capabilities.CapabilityConfiguration, error) {
-	cconf := &capabilitiespb.CapabilityConfig{}
-	err := proto.Unmarshal(data, cconf)
-	if err != nil {
-		return capabilities.CapabilityConfiguration{}, err
-	}
-
-	var remoteTriggerConfig *capabilities.RemoteTriggerConfig
-	var remoteTargetConfig *capabilities.RemoteTargetConfig
-
-	switch cconf.GetRemoteConfig().(type) {
-	case *capabilitiespb.CapabilityConfig_RemoteTriggerConfig:
-		prtc := cconf.GetRemoteTriggerConfig()
-		remoteTriggerConfig = &capabilities.RemoteTriggerConfig{}
-		remoteTriggerConfig.RegistrationRefresh = prtc.RegistrationRefresh.AsDuration()
-		remoteTriggerConfig.RegistrationExpiry = prtc.RegistrationExpiry.AsDuration()
-		remoteTriggerConfig.MinResponsesToAggregate = prtc.MinResponsesToAggregate
-		remoteTriggerConfig.MessageExpiry = prtc.MessageExpiry.AsDuration()
-	case *capabilitiespb.CapabilityConfig_RemoteTargetConfig:
-		prtc := cconf.GetRemoteTargetConfig()
-		remoteTargetConfig = &capabilities.RemoteTargetConfig{}
-		remoteTargetConfig.RequestHashExcludedAttributes = prtc.RequestHashExcludedAttributes
-	}
-
-	dc, err := values.FromMapValueProto(cconf.DefaultConfig)
-	if err != nil {
-		return capabilities.CapabilityConfiguration{}, err
-	}
-
-	return capabilities.CapabilityConfiguration{
-		DefaultConfig:       dc,
-		RemoteTriggerConfig: remoteTriggerConfig,
-		RemoteTargetConfig:  remoteTargetConfig,
-	}, nil
-}
-
 func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, error) {
 	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
 	err := s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getCapabilities", primitives.Unconfirmed, nil, &caps)
@@ -221,21 +181,16 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 
 	idsToDONs := map[DonID]DON{}
 	for _, d := range dons {
-		cc := map[string]capabilities.CapabilityConfiguration{}
+		cc := map[string]CapabilityConfiguration{}
 		for _, dc := range d.CapabilityConfigurations {
 			cid, ok := hashedIDsToCapabilityIDs[dc.CapabilityId]
 			if !ok {
 				return nil, fmt.Errorf("invariant violation: could not find full ID for hashed ID %s", dc.CapabilityId)
 			}
 
-			cconf, innerErr := unmarshalCapabilityConfig(dc.Config)
-			if innerErr != nil {
-				return nil, innerErr
+			cc[cid] = CapabilityConfiguration{
+				Config: dc.Config,
 			}
-
-			cconf.RemoteTriggerConfig.ApplyDefaults()
-
-			cc[cid] = cconf
 		}
 
 		idsToDONs[DonID(d.Id)] = DON{

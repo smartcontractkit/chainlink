@@ -16,7 +16,11 @@ type DonID uint32
 
 type DON struct {
 	capabilities.DON
-	CapabilityConfigurations map[string]capabilities.CapabilityConfiguration
+	CapabilityConfigurations map[string]CapabilityConfiguration
+}
+
+type CapabilityConfiguration struct {
+	Config []byte
 }
 
 type Capability struct {
@@ -69,15 +73,15 @@ func (l *LocalRegistry) LocalNode(ctx context.Context) (capabilities.Node, error
 	}, nil
 }
 
-func (l *LocalRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+func (l *LocalRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (CapabilityConfiguration, error) {
 	d, ok := l.IDsToDONs[DonID(donID)]
 	if !ok {
-		return capabilities.CapabilityConfiguration{}, fmt.Errorf("could not find don %d", donID)
+		return CapabilityConfiguration{}, fmt.Errorf("could not find don %d", donID)
 	}
 
 	cc, ok := d.CapabilityConfigurations[capabilityID]
 	if !ok {
-		return capabilities.CapabilityConfiguration{}, fmt.Errorf("could not find capability configuration for capability %s and donID %d", capabilityID, donID)
+		return CapabilityConfiguration{}, fmt.Errorf("could not find capability configuration for capability %s and donID %d", capabilityID, donID)
 	}
 
 	return cc, nil
