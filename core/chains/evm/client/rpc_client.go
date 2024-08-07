@@ -415,7 +415,7 @@ func (r *rpcClient) BatchCallContext(rootCtx context.Context, b []rpc.BatchElem)
 			requestedFinalizedBlock = true
 			err := r.astarLatestFinalizedBlock(rootCtx, &astarRawLatestFinalizedBlock)
 			if err != nil {
-				return fmt.Errorf("failed to get astar latest finalized block")
+				return fmt.Errorf("failed to get astar latest finalized block: %w", err)
 			}
 
 			break
@@ -706,7 +706,7 @@ func (r *rpcClient) astarLatestFinalizedBlock(ctx context.Context, result interf
 	}
 
 	if astarHead.Number == nil {
-		return fmt.Errorf("expected non empty head number of finalized block")
+		return r.wrapRPCClientError(fmt.Errorf("expected non empty head number of finalized block"))
 	}
 
 	err = r.ethGetBlockByNumber(ctx, astarHead.Number.String(), result)
