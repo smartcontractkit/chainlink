@@ -13,7 +13,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
+	ctf_config_types "github.com/smartcontractkit/chainlink-testing-framework/config/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 
@@ -256,7 +257,7 @@ func DeployLocalCluster(
 ) (*test_env.CLClusterTestEnv, func() error) {
 	selectedNetworks := testInputs.SelectedNetworks
 
-	privateEthereumNetworks := []*ctfconfig.EthereumNetworkConfig{}
+	privateEthereumNetworks := []*ctf_config.EthereumNetworkConfig{}
 	for _, network := range testInputs.EnvInput.PrivateEthereumNetworks {
 		privateEthereumNetworks = append(privateEthereumNetworks, network)
 
@@ -286,16 +287,16 @@ func DeployLocalCluster(
 		}
 
 		for _, network := range missing {
-			chainConfig := &ctfconfig.EthereumChainConfig{}
+			chainConfig := &ctf_config.EthereumChainConfig{}
 			err := chainConfig.Default()
 			if err != nil {
 				require.NoError(t, err, "failed to get default chain config: %w", err)
 			} else {
 				chainConfig.ChainID = int(network.ChainID)
-				eth1 := ctfconfig.EthereumVersion_Eth1
-				geth := ctfconfig.ExecutionLayer_Geth
+				eth1 := ctf_config_types.EthereumVersion_Eth1
+				geth := ctf_config_types.ExecutionLayer_Geth
 
-				privateEthereumNetworks = append(privateEthereumNetworks, &ctfconfig.EthereumNetworkConfig{
+				privateEthereumNetworks = append(privateEthereumNetworks, &ctf_config.EthereumNetworkConfig{
 					EthereumVersion:     &eth1,
 					ExecutionLayer:      &geth,
 					EthereumChainConfig: chainConfig,
