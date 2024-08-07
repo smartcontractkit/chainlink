@@ -16,9 +16,12 @@ defaults:
     shell: bash
 
 jobs:
-  enforce-jira-issue:
-    name: Enforce Jira Issue
-    runs-on: ubuntu-latest
+  skip-enforce-jira-issue:
+    name: Skip Enforce Jira Issue
+    if: ${{ github.event_name != 'merge_group' }}
+    outputs:
+      should-enforce: ${{ steps.changed_files.outputs.only_src_contracts }} 
+    runs-on: ubuntu-latest 
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -33,16 +36,17 @@ jobs:
             only_src_contracts:
               - contracts/**/*.sol
               - '!contracts/**/*.t.sol'
-      - name: Skip if no changes
-        if: ${{ steps.changed_files.outputs.only_src_contracts == 'false' }}
-        run: |
-          echo "Skipping Jira enforcement since there are no changes to contract sources"
-          exit 0
-      - name: Skip if merge group
-        if: ${{ github.event_name == 'merge_group' }}
-        run: |
-          echo "Skipping Jira enforcement for merge group events"
-          exit 0
+
+  enforce-jira-issue:
+    name: Enforce Jira Issue
+    runs-on: ubuntu-latest
+    needs: [skip-enforce-jira-issue]
+    # Note: A job that is skipped will report its status as "Success".
+    # It will not prevent a pull request from merging, even if it is a required check.
+    if: ${{ github.event_name != 'merge_group' }} && ${{ needs.skip-enforce-jira-issue.outputs.should-enforce == 'true' }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - name: Setup Jira
