@@ -24,8 +24,6 @@ on:
 
 env:
   FOUNDRY_PROFILE: ci
-  # Empty, because it's extracted from contracts/GNUMakefile
-  FOUNDRY_VERSION: ""
 
 jobs:
   changes:
@@ -59,8 +57,7 @@ jobs:
               - '!contracts/src/v0.8/testhelpers/**'
               - '!contracts/src/v0.8/vendor/**'
             other_shared:
-              - modified|added: 'contracts/src/v0.8/interfaces/**/*.sol'
-              - modified|added: 'contracts/src/v0.8/*.sol'
+              - modified|added: 'contracts/src/v0.8/(interfaces/**/*.sol|*.sol)'
               - *ignored
             sol:
               - modified|added: 'contracts/src/v0.8/**/*.sol'
@@ -70,12 +67,6 @@ jobs:
               - *ignored
             changeset:
               - modified|added: 'contracts/.changeset/!(README)*.md' 
-
-      - name: Check for changes outside of artifact scope
-        uses: ./.github/actions/validate-artifact-scope
-        with:
-          sol_files: ${{ steps.changes.outputs.sol_files }}
-          product: ${{ inputs.product }}
 
       # Manual transformation needed, because shared contracts have a different folder structure
       - name: Transform modified files
@@ -106,11 +97,20 @@ jobs:
            echo "product_files=${{ steps.changes.outputs.product_files }}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Check for changes outside of artifact scope
+        uses: ./.github/actions/validate-artifact-scope
+        if: ${{ steps.changes.outputs.sol == 'true' }}
+        with:
+          sol_files: ${{ steps.changes.outputs.sol_files }}
+          product: ${{ inputs.product }}
+
   gather-basic-info:
     name: Gather basic info
     if: ${{ needs.changes.outputs.product_changes == 'true' }}
     runs-on: ubuntu-22.04
     needs: [ changes ]
+    outputs:
+      foundry_version: ${{ steps.extract-foundry-version.outputs.foundry_version }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -128,13 +128,15 @@ jobs:
             exit 1
           fi
           echo "Foundry version found: $foundry_version"
-          echo "FOUNDRY_VERSION=$foundry_version" >> $GITHUB_OUTPUT
+          echo "foundry_version=$foundry_version" >> $GITHUB_OUTPUT
 
       - name: Copy modified changesets
         if: ${{ needs.changes.outputs.changeset_changes == 'true' }}
         run: |
           mkdir -p contracts/changesets
-          for changeset in "${{ needs.changes.outputs.changeset_files }}"; do
+          files="${{ needs.changes.outputs.changeset_files }}"
+          IFS=",'
+          for changeset in $files; do
             echo "::debug:: Copying $changeset"
             cp $changeset contracts/changesets
           done
@@ -178,7 +180,7 @@ jobs:
     if: ${{ needs.changes.outputs.product_changes == 'true' }}
     name: Generate Docs and Code Coverage reports
     runs-on: ubuntu-22.04
-    needs: [changes]
+    needs: [changes, gather-basic-info]
     steps:
       - name: Prepare exclusion list
         id: prepare-exclusion-list
@@ -203,7 +205,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
-          version: ${{ env.FOUNDRY_VERSION }}
+          version: ${{ needs.gather-basic-info.outputs.foundry_version }}
 
       # required for code coverage report generation
       - name: Setup LCOV
@@ -256,7 +258,7 @@ jobs:
     if: ${{ needs.changes.outputs.product_changes == 'true' }}
     name: Generate UML and Slither reports for modified contracts
     runs-on: ubuntu-22.04
-    needs: [changes]
+    needs: [changes, gather-basic-info]
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -271,7 +273,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
-          version: ${{ env.FOUNDRY_VERSION }}
+          version: ${{ needs.gather-basic-info.outputs.foundry_version }}
 
       - name: Install Sol2uml
         run: |
@@ -328,7 +330,6 @@ jobs:
           slither_reports_path: 'contracts/slither-reports'
           uml_diagrams_path: 'contracts/uml-diagrams'
           sol_files: ${{ needs.changes.outputs.product_files }}
-          base_ref: ${{ inputs.base_ref }}
 
   gather-all-artifacts:
     name: Gather all artifacts
@@ -383,4 +384,3 @@ jobs:
           echo "* or they are located outside of ./contracts/src/v0.8 folder" >> $GITHUB_STEP_SUMMARY
           echo "* or they were limited to test files" >> $GITHUB_STEP_SUMMARY
           exit 1
-

@@ -2,8 +2,8 @@ name: Validate Artifact Scope
 description: Checks there are any modified Solidity files outside of the specified scope. If so, it prints a warning message, but does not fail the workflow.
 inputs:
   product:
-      description: The product for which the artifacts are being generated
-      required: true
+    description: The product for which the artifacts are being generated
+    required: true
   sol_files:
     description: Comma-separated (CSV) or space-separated (shell) list of Solidity files to check
     required: true
@@ -52,7 +52,6 @@ runs:
         exit 1
 
     - name: Check for changes outside of artifact scope
-      if: ${{ steps.changes.outputs.sol == 'true' }}
       shell: bash
       run: |
         echo "::debug::All modified contracts:"
@@ -74,7 +73,7 @@ runs:
           echo "Files: ${files[@]}"
         
           for file in "${files[@]}"; do
-            missing_files+="$file"
+            missing_files+="$file,"
         
             product=$(echo "$file" | awk -F'src/v0.8/' '{if ($2 ~ /\//) print substr($2, 1, index($2, "/")-1); else print "shared"}')
             if [[ ! " ${products[@]} " =~ " ${product} " ]]; then
