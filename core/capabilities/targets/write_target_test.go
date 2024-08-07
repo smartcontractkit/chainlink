@@ -63,7 +63,7 @@ func TestWriteTarget(t *testing.T) {
 		ReportID:            [2]byte{1, 2},
 	}
 
-	reportMetadataBytes, err := reportMetadata.Bytes()
+	reportMetadataBytes, err := reportMetadata.Encode()
 	require.NoError(t, err)
 
 	validInputs, err := values.NewMap(map[string]any{

@@ -85,7 +85,7 @@ type ReportV1Metadata struct {
 	ReportID            [2]byte
 }
 
-func (rm ReportV1Metadata) Bytes() ([]byte, error) {
+func (rm ReportV1Metadata) Encode() ([]byte, error) {
 	buf := new(bytes.Buffer)
 	err := binary.Write(buf, binary.BigEndian, rm)
 	if err != nil {
@@ -95,7 +95,7 @@ func (rm ReportV1Metadata) Bytes() ([]byte, error) {
 }
 
 func (rm ReportV1Metadata) Length() int {
-	bytes, err := rm.Bytes()
+	bytes, err := rm.Encode()
 	if err != nil {
 		return 0
 	}
@@ -160,8 +160,6 @@ func decodeReportMetadata(reportPayload []byte) (ReportV1Metadata, error) {
 
 	return metadata, nil
 }
-
-// TODO: Encode
 
 type Config struct {
 	// Address of the contract that will get the forwarded report
