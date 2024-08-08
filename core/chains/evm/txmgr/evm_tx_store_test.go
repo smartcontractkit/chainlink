@@ -649,7 +649,7 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	etx1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 	attempt1 := etx1.TxAttempts[0]
-	mustInsertEthReceipt(t, txStore, head.BlockNumber(), head.Hash, attempt1.Hash)
+	receipt1 := mustInsertEthReceipt(t, txStore, head.BlockNumber(), head.Hash, attempt1.Hash)
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr1.ID, etx1.ID)
 
 	// Callback to pipeline service completed. Should be ignored
@@ -668,7 +668,7 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	etx3 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 5, 1, fromAddress)
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": false}'`)
 	attempt3 := etx3.TxAttempts[0]
-	mustInsertEthReceipt(t, txStore, head.Number, head.Hash, attempt3.Hash)
+	receipt3 := mustInsertEthReceipt(t, txStore, head.Number, head.Hash, attempt3.Hash)
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr3.ID, etx3.ID)
 
 	// Tx not marked for callback. Should be ignore
@@ -678,6 +678,12 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 
 	// Unconfirmed Tx without receipts. Should be ignored
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 1, fromAddress)
+
+	// update txes state to be 'finalized' using finalizer
+	err := txStore.UpdateTxStatesToFinalizedUsingReceiptIds(tests.Context(t), []int64{receipt1.ID}, testutils.FixtureChainID)
+	require.NoError(t, err)
+	err = txStore.UpdateTxStatesToFinalizedUsingReceiptIds(tests.Context(t), []int64{receipt3.ID}, testutils.FixtureChainID)
+	require.NoError(t, err)
 
 	// Search evm.txes table for tx requiring callback
 	receiptsPlus, err := txStore.FindTxesPendingCallback(tests.Context(t), ethClient.ConfiguredChainID())
