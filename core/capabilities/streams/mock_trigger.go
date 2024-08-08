@@ -212,7 +212,7 @@ func (o *MockTriggerService) RegisterTrigger(ctx context.Context, req capabiliti
 		}
 
 	// Only start the producer once a workflow is registered
-	o.producer = NewMockDataProducer(o, o.lggr)
+	o.producer = NewMockDataProducer(o, config.FeedIDs, o.lggr)
 	if err := o.producer.Start(ctx); err != nil {
 		return nil, err
 	}
@@ -390,15 +390,17 @@ type mockDataProducer struct {
 	trigger *MockTriggerService
 	wg      sync.WaitGroup
 	closeCh chan struct{}
+	feedIDs []string
 	lggr    logger.Logger
 }
 
 var _ services.Service = &mockDataProducer{}
 
-func NewMockDataProducer(trigger *MockTriggerService, lggr logger.Logger) *mockDataProducer {
+func NewMockDataProducer(trigger *MockTriggerService, feedIDs []string, lggr logger.Logger) *mockDataProducer {
 	return &mockDataProducer{
 		trigger: trigger,
 		closeCh: make(chan struct{}),
+		feedIDs: feedIDs,
 		lggr:    lggr,
 	}
 }
@@ -432,25 +434,14 @@ func (m *mockDataProducer) loop() {
 		// TODO: shouldn't we increment round rather than epoch?
 		reportCtx := ocrTypes.ReportContext{ReportTimestamp: ocrTypes.ReportTimestamp{Epoch: uint32(baseTimestamp + j)}}
 
-		reports := []datastreams.FeedReport{
-			{
-				FeedID:               "0x1111111111111111111100000000000000000000000000000000000000000000",
-				FullReport:           newReport(m.lggr, common.HexToHash("0x1111111111111111111100000000000000000000000000000000000000000000"), big.NewInt(prices[0]), timestamp),
+		reports := []datastreams.FeedReport{}
+		for _, feedID := range m.feedIDs {
+			reports = append(reports, datastreams.FeedReport{
+				FeedID:               feedID,
+				FullReport:           newReport(m.lggr, common.HexToHash(feedID), big.NewInt(prices[0]), timestamp),
 				ReportContext:        rawReportContext(reportCtx),
 				ObservationTimestamp: timestamp,
-			},
-			{
-				FeedID:               "0x2222222222222222222200000000000000000000000000000000000000000000",
-				FullReport:           newReport(m.lggr, common.HexToHash("0x2222222222222222222200000000000000000000000000000000000000000000"), big.NewInt(prices[1]), timestamp),
-				ReportContext:        rawReportContext(reportCtx),
-				ObservationTimestamp: timestamp,
-			},
-			{
-				FeedID:               "0x3333333333333333333300000000000000000000000000000000000000000000",
-				FullReport:           newReport(m.lggr, common.HexToHash("0x3333333333333333333300000000000000000000000000000000000000000000"), big.NewInt(prices[2]), timestamp),
-				ReportContext:        rawReportContext(reportCtx),
-				ObservationTimestamp: timestamp,
-			},
+			})
 		}
 
 		m.lggr.Infow("New set of Mock reports", "timestamp", time.Now().Unix(), "payload", reports)
