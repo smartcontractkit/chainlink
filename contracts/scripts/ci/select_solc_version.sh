@@ -47,7 +47,7 @@ extract_pragma() {
     return 1
   fi
   SOLCVER="$(echo "$SOLCVER" | sed 's/[^0-9\.^]//g')"
-  echo "::debug::Detected Solidity version in pragma: $SOLCVER"
+  >&2 echo "::debug::Detected Solidity version in pragma: $SOLCVER"
   echo "$SOLCVER"
 }
 

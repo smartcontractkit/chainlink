@@ -57,6 +57,10 @@ run_slither() {
 
     echo "# Summary for $FILE" > "$SLITHER_OUTPUT_FILE"
     echo "$output" >> "$SLITHER_OUTPUT_FILE"
+
+    if [[ -z "$output" ]]; then
+        echo "No issues found." >> "$SLITHER_OUTPUT_FILE"
+    fi
 }
 
 process_files() {
