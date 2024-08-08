@@ -18,6 +18,7 @@
 ./src/v0.8/automation/libraries/internal/Cron.sol
 ./src/v0.8/automation/AutomationForwarder.sol
 ./src/v0.8/automation/AutomationForwarderLogic.sol
+./src/v0.8/automation/ZKSyncAutomationForwarder.sol
 ./src/v0.8/automation/interfaces/v2_2/IAutomationRegistryMaster.sol
 ./src/v0.8/automation/interfaces/v2_3/IAutomationRegistryMaster2_3.sol
 

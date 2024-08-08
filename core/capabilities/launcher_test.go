@@ -4,14 +4,18 @@ import (
 	"context"
 	"crypto/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
@@ -121,7 +125,7 @@ func TestLauncher_WiresUpExternalCapabilities(t *testing.T) {
 					AcceptsWorkflows: true,
 					Members:          nodes,
 				},
-				CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
+				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
 					fullTriggerCapID: {},
 					fullTargetID:     {},
 				},
@@ -223,7 +227,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 					AcceptsWorkflows: true,
 					Members:          nodes,
 				},
-				CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
+				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
 					triggerID: {},
 					targetID:  {},
 				},
@@ -326,6 +330,15 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	rtc := &capabilities.RemoteTriggerConfig{}
 	rtc.ApplyDefaults()
 
+	cfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+				RegistrationRefresh: durationpb.New(1 * time.Second),
+			},
+		},
+	})
+	require.NoError(t, err)
+
 	state := &registrysyncer.LocalRegistry{
 		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
 			registrysyncer.DonID(dID): {
@@ -347,12 +360,12 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 					AcceptsWorkflows: false,
 					Members:          capabilityDonNodes,
 				},
-				CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
+				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
 					fullTriggerCapID: {
-						RemoteTriggerConfig: rtc,
+						Config: cfg,
 					},
 					fullTargetID: {
-						RemoteTriggerConfig: rtc,
+						Config: cfg,
 					},
 				},
 			},
@@ -496,7 +509,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 					AcceptsWorkflows: false,
 					Members:          capabilityDonNodes,
 				},
-				CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
+				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
 					fullTriggerCapID: {},
 				},
 			},
@@ -509,7 +522,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 					AcceptsWorkflows: false,
 					Members:          capabilityDonNodes,
 				},
-				CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
+				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
 					fullTargetID: {},
 				},
 			},
@@ -653,7 +666,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 					AcceptsWorkflows: false,
 					Members:          capabilityDonNodes,
 				},
-				CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
+				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
 					fullTriggerCapID: {},
 				},
 			},
