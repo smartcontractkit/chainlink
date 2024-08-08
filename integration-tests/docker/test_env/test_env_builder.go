@@ -2,6 +2,8 @@ package test_env
 
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink-testing-framework/testsummary"
+	"github.com/smartcontractkit/seth"
 	"os"
 	"path/filepath"
 	"slices"
@@ -346,6 +348,10 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 						_ = localDbDumpFile.Close()
 					}
 					b.l.Info().Msg("Finished dumping state of all Postgres DBs used by Chainlink Nodes")
+				}
+
+				if b.testConfig.GetSethConfig() != nil && ((b.t.Failed() && slices.Contains(b.testConfig.GetSethConfig().TraceOutputs, seth.TraceOutput_DOT) && b.testConfig.GetSethConfig().TracingLevel != seth.TracingLevel_None) || (!b.t.Failed() && slices.Contains(b.testConfig.GetSethConfig().TraceOutputs, seth.TraceOutput_DOT) && b.testConfig.GetSethConfig().TracingLevel == seth.TracingLevel_All)) {
+					_ = testsummary.AddEntry(b.t.Name(), "dot_graphs", "true")
 				}
 			})
 		} else {
