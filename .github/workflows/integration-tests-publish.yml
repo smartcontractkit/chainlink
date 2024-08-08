@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu22.04-16cores-64GB
     steps:
       - name: Collect Metrics
+        if: ${{ 'true' == 'false' }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
@@ -31,15 +32,18 @@ jobs:
           this-job-name: Publish Integration Test Image
         continue-on-error: true
       - name: Checkout the repo
+        if: ${{ 'true' == 'false' }}
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Setup Other Tags If Not Workflow Dispatch
         id: tags
-        if: github.event_name != 'workflow_dispatch'
+        # if: github.event_name != 'workflow_dispatch'
+        if: ${{ 'true' == 'false' }}
         run: |
           echo "other_tags=${ECR_TAG}" >> $GITHUB_OUTPUT
       - name: Build Image
+        if: ${{ 'true' == 'false' }}
         uses: ./.github/actions/build-test-image
         with:
           other_tags: ${{ steps.tags.outputs.other_tags }}
@@ -47,14 +51,15 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Notify Slack
+        if: always()
         # Only run this notification for merge to develop failures
-        if: failure() && github.event_name != 'workflow_dispatch'
+        # if: failure() && github.event_name != 'workflow_dispatch'
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
         with:
           channel-id: "#team-test-tooling-internal"
-          slack-message: ":x: :mild-panic-intensifies: Publish Integration Test Image failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
+          slack-message: ":x: :mild-panic-intensifies: Publish Integration Test Image failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}\n${{ format('Notifying <!subteam^{0}|{0}>', secrets.GUARDIAN_SLACK_NOTIFICATION_HANDLE)}}"
   build-chainlink-image:
     environment: integration
     # Only run this build for workflow_dispatch
