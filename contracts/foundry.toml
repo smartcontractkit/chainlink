@@ -30,7 +30,7 @@ optimizer_runs = 3_600
 evm_version = 'paris'
 
 [profile.functions]
-solc_version = '0.8.19'
+solc_version = '0.8.26'
 src = 'src/v0.8/functions/dev/v1_X'
 test = 'src/v0.8/functions/tests/v1_X'
 gas_price = 3_000_000_000 # 3 gwei
