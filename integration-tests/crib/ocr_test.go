@@ -2,10 +2,11 @@ package crib
 
 import (
 	"context"
-	"github.com/smartcontractkit/havoc/k8schaos"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/havoc/k8schaos"
 
 	"github.com/stretchr/testify/require"
 

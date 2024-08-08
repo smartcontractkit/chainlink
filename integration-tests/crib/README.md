@@ -1,4 +1,4 @@
-### CRIB Health Check Test
+### Example e2e product test using CRIB
 
 ## Setup CRIB
 This is a simple smoke + chaos test for CRIB deployment.
@@ -21,3 +21,6 @@ export CRIB_NODES=5 # min 5 nodes
 export GAP_URL=https://localhost:8080/primary # only applicable in CI, unset the var to connect locally
 go test -v -run TestCRIB
 ```
+
+## Configuring CI workflow
+We are using GAP and GATI to access the infrastructure, please follow [configuration guide](https://smartcontract-it.atlassian.net/wiki/spaces/CRIB/pages/909967436/CRIB+CI+Integration)
