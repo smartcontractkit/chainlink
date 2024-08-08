@@ -1027,7 +1027,7 @@ func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, chainID *big.I
 	INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
 	INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
 	WHERE evm.txes.pipeline_task_run_id IS NOT NULL AND evm.txes.signal_callback = TRUE AND evm.txes.callback_completed = FALSE
-	AND evm.txes.state = 'confirmed' AND evm.txes.evm_chain_id = $1
+	AND evm.txes.state = 'finalized' AND evm.txes.evm_chain_id = $1
 	`, chainID.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve transactions pending pipeline resume callback: %w", err)
