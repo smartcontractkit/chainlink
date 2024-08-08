@@ -1,0 +1,35 @@
+ChainID = '5003'
+ChainType = 'optimismBedrock'
+FinalityDepth = 500
+LogPollInterval = '2s'
+NoNewHeadsThreshold = '0'
+MinIncomingConfirmations = 1
+
+[Transactions]
+ResendAfterThreshold = '30s'
+
+[NodePool]
+SyncThreshold = 10
+
+[OCR]
+ContractConfirmations = 1
+
+[HeadTracker]
+HistoryDepth = 1300
+
+[GasEstimator]
+EIP1559DynamicFees = false
+Mode = 'BlockHistory'
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 wei'
+PriceMin = '22 mwei'
+PriceMax = '200 gwei'
+LimitDefault = 4294967295
+LimitMax = 4294967295
+TipCapDefault = '0 wei'
+TipCapMin = '0 wei'
+FeeCapDefault = '200 gwei' 
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 1300 
