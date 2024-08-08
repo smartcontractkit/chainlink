@@ -39,28 +39,16 @@ func TestWriteTarget(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// type ReportV1Metadata struct {
-	// 	Version             uint8
-	// 	WorkflowExecutionID [32]byte
-	// 	Timestamp           uint32
-	// 	DonID               uint32
-	// 	DonConfigVersion    uint32
-	// 	WorkflowCID         [32]byte
-	// 	WorkflowName        [10]byte
-	// 	WorkflowOwner       [20]byte
-	// 	ReportID            [2]byte
-	// }
-
 	reportMetadata := targets.ReportV1Metadata{
 		Version:             1,
-		WorkflowExecutionID: [32]byte{1, 2, 3},
+		WorkflowExecutionID: [32]byte{},
 		Timestamp:           0,
 		DonID:               0,
 		DonConfigVersion:    0,
-		WorkflowCID:         [32]byte{1, 2, 3},
-		WorkflowName:        [10]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
-		WorkflowOwner:       [20]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
-		ReportID:            [2]byte{1, 2},
+		WorkflowCID:         [32]byte{},
+		WorkflowName:        [10]byte{},
+		WorkflowOwner:       [20]byte{},
+		ReportID:            [2]byte{},
 	}
 
 	reportMetadataBytes, err := reportMetadata.Encode()
