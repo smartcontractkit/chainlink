@@ -367,7 +367,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	)
 
 	promReporter := headreporter.NewPrometheusReporter(opts.DS, legacyEVMChains)
-	telemReporter := headreporter.NewTelemetryReporter(legacyEVMChains, telemetryManager)
+	chainIDs := make([]*big.Int, legacyEVMChains.Len())
+	for i, chain := range legacyEVMChains.Slice() {
+		chainIDs[i] = chain.ID()
+	}
+	telemReporter := headreporter.NewTelemetryReporter(telemetryManager, chainIDs...)
 	headReporter := headreporter.NewHeadReporterService(opts.DS, globalLogger, promReporter, telemReporter)
 	srvcs = append(srvcs, headReporter)
 	for _, chain := range legacyEVMChains.Slice() {

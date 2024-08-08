@@ -12,8 +12,6 @@ import (
 	mocks2 "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
@@ -22,11 +20,6 @@ import (
 )
 
 func Test_TelemetryReporter_NewHead(t *testing.T) {
-	chain := mocks.NewChain(t)
-	chain.On("ID").Return(big.NewInt(100))
-
-	chains := legacyevm.NewLegacyChains(map[string]legacyevm.Chain{"100": chain}, nil)
-
 	head := evmtypes.Head{
 		Number:      42,
 		EVMChainID:  ubig.NewI(100),
@@ -61,18 +54,13 @@ func Test_TelemetryReporter_NewHead(t *testing.T) {
 	monitoringEndpointGen.
 		On("GenMonitoringEndpoint", "EVM", "100", "", synchronization.HeadReport).
 		Return(monitoringEndpoint)
-	reporter := headreporter.NewTelemetryReporter(chains, monitoringEndpointGen)
+	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, big.NewInt(100))
 
 	err = reporter.ReportNewHead(testutils.Context(t), &head)
 	assert.NoError(t, err)
 }
 
 func Test_TelemetryReporter_NewHeadMissingFinalized(t *testing.T) {
-	chain := mocks.NewChain(t)
-	chain.On("ID").Return(big.NewInt(100))
-
-	chains := legacyevm.NewLegacyChains(map[string]legacyevm.Chain{"100": chain}, nil)
-
 	head := evmtypes.Head{
 		Number:      42,
 		EVMChainID:  ubig.NewI(100),
@@ -96,24 +84,19 @@ func Test_TelemetryReporter_NewHeadMissingFinalized(t *testing.T) {
 	monitoringEndpointGen.
 		On("GenMonitoringEndpoint", "EVM", "100", "", synchronization.HeadReport).
 		Return(monitoringEndpoint)
-	reporter := headreporter.NewTelemetryReporter(chains, monitoringEndpointGen)
+	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, big.NewInt(100))
 
 	err = reporter.ReportNewHead(testutils.Context(t), &head)
 	assert.Errorf(t, err, "No finalized block was found for chain_id=100")
 }
 
 func Test_TelemetryReporter_NewHead_MissingEndpoint(t *testing.T) {
-	chain := mocks.NewChain(t)
-	chain.On("ID").Return(big.NewInt(100))
-
-	chains := legacyevm.NewLegacyChains(map[string]legacyevm.Chain{"100": chain}, nil)
-
 	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)
 	monitoringEndpointGen.
 		On("GenMonitoringEndpoint", "EVM", "100", "", synchronization.HeadReport).
 		Return(nil)
 
-	reporter := headreporter.NewTelemetryReporter(chains, monitoringEndpointGen)
+	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, big.NewInt(100))
 
 	head := evmtypes.Head{Number: 42, EVMChainID: ubig.NewI(100)}
 

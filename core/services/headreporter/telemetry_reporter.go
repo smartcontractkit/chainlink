@@ -2,6 +2,7 @@ package headreporter
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/pkg/errors"
 
@@ -9,7 +10,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -19,10 +19,10 @@ type telemetryReporter struct {
 	endpoints map[uint64]commontypes.MonitoringEndpoint
 }
 
-func NewTelemetryReporter(chainContainer legacyevm.LegacyChainContainer, monitoringEndpointGen telemetry.MonitoringEndpointGenerator) HeadReporter {
+func NewTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEndpointGenerator, chainIDs ...*big.Int) HeadReporter {
 	endpoints := make(map[uint64]commontypes.MonitoringEndpoint)
-	for _, chain := range chainContainer.Slice() {
-		endpoints[chain.ID().Uint64()] = monitoringEndpointGen.GenMonitoringEndpoint("EVM", chain.ID().String(), "", synchronization.HeadReport)
+	for _, chainID := range chainIDs {
+		endpoints[chainID.Uint64()] = monitoringEndpointGen.GenMonitoringEndpoint("EVM", chainID.String(), "", synchronization.HeadReport)
 	}
 	return &telemetryReporter{endpoints: endpoints}
 }
