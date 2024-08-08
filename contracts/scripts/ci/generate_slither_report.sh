@@ -8,7 +8,7 @@ function check_chainlink_dir() {
 
   current_base=$(basename "$current_dir")
 
-  if [ "$current_base" != "$param_dir" ]; then
+  if [[ "$current_base" != "$param_dir" ]]; then
     >&2 echo "The script must be run from the root of $param_dir directory"
     exit 1
   fi
@@ -19,7 +19,7 @@ check_chainlink_dir
 if [ "$#" -lt 5 ]; then
   >&2 echo "Generates Markdown Slither reports and saves them to a target directory."
   >&2 echo "Usage: $0 <https://github.com/ORG/REPO/blob/COMMIT/> <config-file> <root-directory-with–contracts> <comma-separated list of contracts> <where-to-save-reports> [slither extra params]"
-exit 1
+  exit 1
 fi
 
 REPO_URL=$1
@@ -33,16 +33,18 @@ run_slither() {
     local FILE=$1
     local TARGET_DIR=$2
 
-    if [ ! -f "$FILE" ]; then
+    if [[ ! -f "$FILE" ]]; then
       >&2 echo "::error:File not found: $FILE"
-      exit 1
+      return 1
     fi
 
+    set +e
     source ./contracts/scripts/ci/select_solc_version.sh "$FILE"
-    if [ $? -ne 0 ]; then
+    if [[ $? -ne 0 ]]; then
         >&2 echo "::error::Failed to select Solc version for $FILE"
-        exit 1
+        return 1
     fi
+    set -e
 
     SLITHER_OUTPUT_FILE="$TARGET_DIR/$(basename "${FILE%.sol}")-slither-report.md"
 
@@ -70,9 +72,10 @@ process_files() {
     done
 }
 
+set +e
 process_files "$SOURCE_DIR" "$TARGET_DIR" "${FILES[@]}"
 
-if [ $? -ne 0 ]; then
+if [[ $? -ne 0 ]]; then
     >&2 echo "::error::Failed to generate Slither reports"
     exit 1
 fi
