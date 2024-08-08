@@ -72,7 +72,7 @@ jobs:
           echo $GITHUB_WORKSPACE
 
       - name: Deploy and validate CRIB Environment for Core
-        uses: smartcontractkit/.github/actions/crib-deploy-environment@c0b38e6c40d72d01b8d2f24f92623a2538b3dedb
+        uses: smartcontractkit/.github/actions/crib-deploy-environment@c0b38e6c40d72d01b8d2f24f92623a2538b3dedb # crib-deploy-environment@0.5.0
         id: deploy-crib
         with:
           github-token: ${{ steps.token.outputs.access-token }}
@@ -105,6 +105,6 @@ jobs:
       - name: Destroy CRIB Environment
         id: destroy
         if: always() && steps.deploy-crib.outputs.devspace-namespace != ''
-        uses: smartcontractkit/.github/actions/crib-purge-environment@c0b38e6c40d72d01b8d2f24f92623a2538b3dedb
+        uses: smartcontractkit/.github/actions/crib-purge-environment@c0b38e6c40d72d01b8d2f24f92623a2538b3dedb # crib-purge-environment@0.1.0
         with:
           namespace: ${{ steps.deploy-crib.outputs.devspace-namespace }}
