@@ -25,11 +25,6 @@ var (
 // required field of target's config in the workflow spec
 const signedReportField = "signed_report"
 
-// The gas cost of the forwarder contract logic, including state updates and event emission.
-// This is a rough estimate and should be updated if the forwarder contract logic changes.
-// TODO: Make this part of the on-chain capability configuration
-const FORWARDER_CONTRACT_LOGIC_GAS_COST = 100_000
-
 type WriteTarget struct {
 	cr               commontypes.ContractReader
 	cw               commontypes.ChainWriter
@@ -51,6 +46,11 @@ type TransmissionInfo struct {
 	TransmissionId  [32]byte
 	Transmitter     common.Address
 }
+
+// The gas cost of the forwarder contract logic, including state updates and event emission.
+// This is a rough estimate and should be updated if the forwarder contract logic changes.
+// TODO: Make this part of the on-chain capability configuration
+const FORWARDER_CONTRACT_LOGIC_GAS_COST = 100_000
 
 func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string, txGasLimit uint64) *WriteTarget {
 	info := capabilities.MustNewCapabilityInfo(
