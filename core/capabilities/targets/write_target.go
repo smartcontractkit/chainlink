@@ -28,6 +28,8 @@ type WriteTarget struct {
 	cr               commontypes.ContractReader
 	cw               commontypes.ChainWriter
 	forwarderAddress string
+	// The minimum amount of gas that the receiver contract must get to process the forwarder report
+	receiverGasMinimum uint64
 	capabilities.CapabilityInfo
 
 	lggr logger.Logger
@@ -35,7 +37,21 @@ type WriteTarget struct {
 	bound bool
 }
 
-func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string) *WriteTarget {
+type TransmissionInfo struct {
+	GasLimit        *big.Int
+	InvalidReceiver bool
+	State           uint8
+	Success         bool
+	TransmissionId  [32]byte
+	Transmitter     common.Address
+}
+
+// The gas cost of the forwarder contract logic, including state updates and event emission.
+// This is a rough estimate and should be updated if the forwarder contract logic changes.
+// TODO: Make this part of the on-chain capability configuration
+const FORWARDER_CONTRACT_LOGIC_GAS_COST = 100_000
+
+func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string, txGasLimit uint64) *WriteTarget {
 	info := capabilities.MustNewCapabilityInfo(
 		id,
 		capabilities.CapabilityTypeTarget,
@@ -48,6 +64,7 @@ func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader
 		cr,
 		cw,
 		forwarderAddress,
+		txGasLimit - FORWARDER_CONTRACT_LOGIC_GAS_COST,
 		info,
 		logger,
 		false,
@@ -131,16 +148,31 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		WorkflowExecutionID: rawExecutionID,
 		ReportId:            inputs.ID,
 	}
-	var transmitter common.Address
-	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", primitives.Unconfirmed, queryInputs, &transmitter); err != nil {
-		return nil, fmt.Errorf("failed to getTransmitter latest value: %w", err)
-	}
-	if transmitter != common.HexToAddress("0x0") {
-		cap.lggr.Infow("WriteTarget report already onchain - returning without a tranmission attempt", "executionID", request.Metadata.WorkflowExecutionID)
-		return success(), nil
+	var transmissionInfo TransmissionInfo
+	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmissionInfo", primitives.Unconfirmed, queryInputs, &transmissionInfo); err != nil {
+		return nil, fmt.Errorf("failed to getTransmissionInfo latest value: %w", err)
 	}
 
-	cap.lggr.Infow("WriteTarget non-empty report - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
+	switch {
+	case transmissionInfo.State == 0: // NOT_ATTEMPTED
+		cap.lggr.Infow("non-empty report - tranasmission not attempted - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
+	case transmissionInfo.State == 1: // SUCCEEDED
+		cap.lggr.Infow("returning without a tranmission attempt - report already onchain ", "executionID", request.Metadata.WorkflowExecutionID)
+		return success(), nil
+	case transmissionInfo.State == 2: // INVALID_RECEIVER
+		cap.lggr.Infow("returning without a tranmission attempt - transmission already attempted, receiver was marked as invalid", "executionID", request.Metadata.WorkflowExecutionID)
+		return success(), nil
+	case transmissionInfo.State == 3: // FAILED
+		if transmissionInfo.GasLimit.Uint64() > cap.receiverGasMinimum {
+			cap.lggr.Infow("returning without a tranmission attempt - transmission already attempted and failed, sufficient gas was provided", "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", cap.receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
+			return success(), nil
+		} else {
+			cap.lggr.Infow("non-empty report - retrying a failed transmission - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", cap.receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
+		}
+	default:
+		return nil, fmt.Errorf("unexpected transmission state: %v", transmissionInfo.State)
+	}
+
 	txID, err := uuid.NewUUID() // NOTE: CW expects us to generate an ID, rather than return one
 	if err != nil {
 		return nil, err
