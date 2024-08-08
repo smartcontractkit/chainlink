@@ -166,6 +166,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"max fee per gas less than block base fee", true, "zkSync"},
 			{"virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price", true, "zkSync"},
 			{"client error terminally underpriced", true, "tomlConfig"},
+			{"gas price less than block base fee", true, "aStar"},
 		}
 
 		for _, test := range tests {
