@@ -76,6 +76,10 @@ type EvmConfig struct {
 }
 
 func parseConfig(rawConfig *values.Map) (config EvmConfig, err error) {
+	if rawConfig == nil {
+		return config, fmt.Errorf("missing config field")
+	}
+
 	if err := rawConfig.UnwrapTo(&config); err != nil {
 		return config, err
 	}
@@ -115,6 +119,10 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	reqConfig, err := parseConfig(request.Config)
 	if err != nil {
 		return nil, err
+	}
+
+	if request.Inputs == nil {
+		return nil, fmt.Errorf("missing inputs field")
 	}
 
 	signedReport, ok := request.Inputs.Underlying[signedReportField]
