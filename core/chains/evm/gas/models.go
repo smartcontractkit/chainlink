@@ -265,6 +265,7 @@ func (e *evmFeeEstimator) L1Oracle() rollups.L1Oracle {
 }
 
 func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, toAddress *common.Address, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint64, err error) {
+	// Create call msg for gas limit estimation, if needed
 	callMsg := ethereum.CallMsg{
 		To:   toAddress,
 		Data: calldata,
@@ -279,30 +280,22 @@ func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit 
 		}
 		fee.DynamicFeeCap = dynamicFee.FeeCap
 		fee.DynamicTipCap = dynamicFee.TipCap
-		if e.geCfg.EstimateGasLimit() {
-			callMsg.Gas = feeLimit
-			callMsg.GasFeeCap = fee.DynamicFeeCap.ToInt()
-			callMsg.GasTipCap = fee.DynamicTipCap.ToInt()
-			estimatedGasLimit, estimateErr := e.ethClient.EstimateGas(ctx, callMsg)
-			if estimateErr != nil {
-				// Do not return error if estimating gas failed, we can still use the provided limit instead since it is an upper limit
-				e.lggr.Errorw("failed to estimate gas limit. falling back to provided gas limit.", "toAddress", toAddress, "data", calldata, "gasLimit", feeLimit, "error", estimateErr)
-			} else {
-				feeLimit = estimatedGasLimit
-			}
+		chainSpecificFeeLimit = feeLimit
+		// Set call msg fields with dynamic fee fields for gas limit estimation, if needed
+		callMsg.GasFeeCap = fee.DynamicFeeCap.ToInt()
+		callMsg.GasTipCap = fee.DynamicTipCap.ToInt()
+	} else {
+		// get legacy fee
+		fee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.GetLegacyGas(ctx, calldata, feeLimit, maxFeePrice, opts...)
+		if err != nil {
+			return
 		}
-		chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
-		return
+		// Set call msg fields with legacy fee field for gas limit estimation, if needed
+		callMsg.GasPrice = fee.Legacy.ToInt()
 	}
 
-	// get legacy fee
-	fee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.GetLegacyGas(ctx, calldata, feeLimit, maxFeePrice, opts...)
-	if err != nil {
-		return
-	}
 	if e.geCfg.EstimateGasLimit() {
 		callMsg.Gas = chainSpecificFeeLimit
-		callMsg.GasPrice = fee.Legacy.ToInt()
 		estimatedGasLimit, estimateErr := e.ethClient.EstimateGas(ctx, callMsg)
 		if estimateErr != nil {
 			// Do not return error if estimating gas failed, we can still use the provided limit instead since it is an upper limit
@@ -311,8 +304,8 @@ func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit 
 			chainSpecificFeeLimit = estimatedGasLimit
 		}
 	}
-	chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(chainSpecificFeeLimit, e.geCfg.LimitMultiplier())
 
+	chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(chainSpecificFeeLimit, e.geCfg.LimitMultiplier())
 	return
 }
 
