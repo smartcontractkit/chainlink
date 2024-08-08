@@ -27,7 +27,7 @@ async function doesIssueExist(
     );
     if (issue.key !== issueNumber) {
       core.error(
-        `JIRA issue key ${issueNumber} not found, but found issue key ${issue.key} instead`
+        `JIRA issue key ${issueNumber} not found, but found issue key ${issue.key} instead. This can happen if the identifier doesn't match an issue, in which case a case-insensitive search and check for moved issues is performed. Make sure the issue key is correct.`
       );
       return false;
     }
