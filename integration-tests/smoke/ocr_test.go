@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -99,7 +98,7 @@ func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 	evmNetwork, err := env.GetFirstEvmNetwork()
 	require.NoError(t, err, "Error getting first evm network")
 
-	sethClient, err := seth_utils.GetChainClientWithConfigFunction(config, *evmNetwork, utils.DynamicArtifactDirConfigFn(t))
+	sethClient, err := utils.TestAwareSethClient(t, config, evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
 
 	nodeClients := env.ClCluster.NodeAPIs()
