@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.24;
 
 /// @notice Interface for capability configuration contract. It MUST be
 /// implemented for a contract to be used as a capability configuration.

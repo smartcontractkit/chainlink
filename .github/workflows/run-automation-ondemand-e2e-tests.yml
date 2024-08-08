@@ -116,10 +116,18 @@ jobs:
           # Run reorg tests if enabled
           if [[ "${{ github.event.inputs.enableReorg }}" == 'true' ]]; then
           cat >> test_list.yaml <<EOF
-          - id: integration-tests/reorg/automation_reorg_test.go
+          - id: integration-tests/reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_0
             test_inputs:
               chainlink_image: ${{ steps.determine-build.outputs.image }}
               chainlink_version: ${{ steps.determine-build.outputs.version }}
+          - id: integration-tests/reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_1
+            test_inputs:
+              chainlink_image: ${{ steps.determine-build.outputs.image }}
+              chainlink_version: ${{ steps.determine-build.outputs.version }}              
+          - id: integration-tests/reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_2
+            test_inputs:
+              chainlink_image: ${{ steps.determine-build.outputs.image }}
+              chainlink_version: ${{ steps.determine-build.outputs.version }}              
           EOF
           fi
 

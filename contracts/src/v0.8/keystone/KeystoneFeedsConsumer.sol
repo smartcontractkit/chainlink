@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {IReceiver} from "./interfaces/IReceiver.sol";
+import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
+import {IReceiver} from "./interfaces/IReceiver.sol";
 
-contract KeystoneFeedsConsumer is IReceiver, OwnerIsCreator {
+contract KeystoneFeedsConsumer is IReceiver, OwnerIsCreator, IERC165 {
   event FeedReceived(bytes32 indexed feedId, uint224 price, uint32 timestamp);
 
   error UnauthorizedSender(address sender);
@@ -96,5 +97,9 @@ contract KeystoneFeedsConsumer is IReceiver, OwnerIsCreator {
   function getPrice(bytes32 feedId) external view returns (uint224, uint32) {
     StoredFeedReport memory report = s_feedReports[feedId];
     return (report.Price, report.Timestamp);
+  }
+
+  function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
+    return interfaceId == this.onReport.selector;
   }
 }

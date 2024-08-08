@@ -11,8 +11,10 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
@@ -22,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
@@ -101,7 +104,7 @@ func newTestDBStore(t *testing.T, clock clockwork.Clock) store.Store {
 
 type testConfigProvider struct {
 	localNode           func(ctx context.Context) (capabilities.Node, error)
-	configForCapability func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error)
+	configForCapability func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error)
 }
 
 func (t testConfigProvider) LocalNode(ctx context.Context) (capabilities.Node, error) {
@@ -118,12 +121,12 @@ func (t testConfigProvider) LocalNode(ctx context.Context) (capabilities.Node, e
 	}, nil
 }
 
-func (t testConfigProvider) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+func (t testConfigProvider) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
 	if t.configForCapability != nil {
 		return t.configForCapability(ctx, capabilityID, donID)
 	}
 
-	return capabilities.CapabilityConfiguration{DefaultConfig: values.EmptyMap()}, nil
+	return registrysyncer.CapabilityConfiguration{}, nil
 }
 
 // newTestEngine creates a new engine with some test defaults.
@@ -1028,11 +1031,9 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 		simpleWorkflow,
 	)
 	reg.SetLocalRegistry(testConfigProvider{
-		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
 			if capabilityID != writeID {
-				return capabilities.CapabilityConfiguration{
-					DefaultConfig: values.EmptyMap(),
-				}, nil
+				return registrysyncer.CapabilityConfiguration{}, nil
 			}
 
 			cm, err := values.WrapMap(map[string]any{
@@ -1040,12 +1041,15 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 				"schedule":   "allAtOnce",
 			})
 			if err != nil {
-				return capabilities.CapabilityConfiguration{}, err
+				return registrysyncer.CapabilityConfiguration{}, err
 			}
 
-			return capabilities.CapabilityConfiguration{
-				DefaultConfig: cm,
-			}, nil
+			cb, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+				DefaultConfig: values.ProtoMap(cm),
+			})
+			return registrysyncer.CapabilityConfiguration{
+				Config: cb,
+			}, err
 		},
 	})
 
@@ -1062,4 +1066,55 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, m.(map[string]any)["deltaStage"], "1s")
 	assert.Equal(t, m.(map[string]any)["schedule"], "allAtOnce")
+}
+
+func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	writeID := "write_polygon-testnet-mumbai@1.0.0"
+
+	gotConfig := values.EmptyMap()
+	target := newMockCapability(
+		// Create a remote capability so we don't use the local transmission protocol.
+		capabilities.MustNewRemoteCapabilityInfo(
+			writeID,
+			capabilities.CapabilityTypeTarget,
+			"a write capability targeting polygon testnet",
+			&capabilities.DON{ID: 1},
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			gotConfig = req.Config
+
+			return capabilities.CapabilityResponse{
+				Value: req.Inputs,
+			}, nil
+		},
+	)
+	require.NoError(t, reg.Add(ctx, target))
+
+	eng, testHooks := newTestEngine(
+		t,
+		reg,
+		simpleWorkflow,
+	)
+	reg.SetLocalRegistry(testConfigProvider{})
+
+	servicetest.Run(t, eng)
+
+	eid := getExecutionId(t, eng, testHooks)
+
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, state.Status, store.StatusCompleted)
+
+	m, err := values.Unwrap(gotConfig)
+	require.NoError(t, err)
+	// The write target config contains three keys
+	assert.Len(t, m.(map[string]any), 3)
 }

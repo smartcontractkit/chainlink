@@ -63,7 +63,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	})
 
 	// register trigger
-	config := capabilities.RemoteTriggerConfig{
+	config := &capabilities.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
 		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
