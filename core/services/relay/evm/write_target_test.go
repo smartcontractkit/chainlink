@@ -1,7 +1,9 @@
 package evm_test
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -9,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -36,16 +39,72 @@ import (
 
 var forwardABI = types.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
+func newMockedEncodeTransmissionInfo() ([]byte, error) {
+	info := targets.TransmissionInfo{
+		GasLimit:        big.NewInt(0),
+		InvalidReceiver: false,
+		State:           0,
+		Success:         false,
+		TransmissionId:  [32]byte{},
+		Transmitter:     common.HexToAddress("0x0"),
+	}
+
+	var buffer bytes.Buffer
+	gasLimitBytes := info.GasLimit.Bytes()
+	if len(gasLimitBytes) > 80 {
+		return nil, fmt.Errorf("GasLimit too large")
+	}
+	paddedGasLimit := make([]byte, 80-len(gasLimitBytes))
+	buffer.Write(paddedGasLimit)
+	buffer.Write(gasLimitBytes)
+
+	// Encode InvalidReceiver (as uint8)
+	if info.InvalidReceiver {
+		buffer.WriteByte(1)
+	} else {
+		buffer.WriteByte(0)
+	}
+
+	// Padding for InvalidReceiver to fit into 32 bytes
+	padInvalidReceiver := make([]byte, 31)
+	buffer.Write(padInvalidReceiver)
+
+	// Encode State (as uint8)
+	buffer.WriteByte(info.State)
+
+	// Padding for State to fit into 32 bytes
+	padState := make([]byte, 31)
+	buffer.Write(padState)
+
+	// Encode Success (as uint8)
+	if info.Success {
+		buffer.WriteByte(1)
+	} else {
+		buffer.WriteByte(0)
+	}
+
+	// Padding for Success to fit into 32 bytes
+	padSuccess := make([]byte, 31)
+	buffer.Write(padSuccess)
+
+	// Encode TransmissionId (as bytes32)
+	buffer.Write(info.TransmissionId[:])
+
+	// Encode Transmitter (as address)
+	buffer.Write(info.Transmitter.Bytes())
+
+	return buffer.Bytes(), nil
+}
+
 func TestEvmWrite(t *testing.T) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	evmClient := evmclimocks.NewClient(t)
 
-	// This probably isn't the best way to do this, but couldn't find a simpler way to mock the CallContract response
-	var mockCall []byte
-	for i := 0; i < 32; i++ {
-		mockCall = append(mockCall, byte(0))
-	}
+	// This is a very error-prone way to mock an on-chain response to a GetLatestValue("getTransmissionInfo") call
+	// It's a bit of a hack, but it's the best way to do it without a lot of refactoring
+	mockCall, err := newMockedEncodeTransmissionInfo()
+	require.NoError(t, err)
 	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockCall, nil).Maybe()
 	evmClient.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return([]byte("test"), nil)
 
