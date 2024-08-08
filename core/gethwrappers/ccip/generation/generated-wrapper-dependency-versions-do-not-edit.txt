@@ -1,5 +1,5 @@
 GETH_VERSION: 1.13.8
-arm_contract: ../../../contracts/solc/v0.8.24/RMN/RMN.abi ../../../contracts/solc/v0.8.24/RMN/RMN.bin 1a0abacf84def916519013f713b667f106434a091af8b9f441e12cc90aa2cdf8
+arm_contract: ../../../contracts/solc/v0.8.24/RMN/RMN.abi ../../../contracts/solc/v0.8.24/RMN/RMN.bin 763c7d81e782d7c286d4a5892aeebe71984a1f999a50a051c87f5b8f9c70cc26
 arm_proxy_contract: ../../../contracts/solc/v0.8.24/ARMProxy/ARMProxy.abi ../../../contracts/solc/v0.8.24/ARMProxy/ARMProxy.bin b048d8e752e3c41113ebb305c1efa06737ad36b4907b93e627fb0a3113023454
 burn_from_mint_token_pool: ../../../contracts/solc/v0.8.24/BurnFromMintTokenPool/BurnFromMintTokenPool.abi ../../../contracts/solc/v0.8.24/BurnFromMintTokenPool/BurnFromMintTokenPool.bin 02e37792e25155ab4e7e4b4211002180789d0c1559cad1e38d3bd70efe0fb7d6
 burn_mint_token_pool: ../../../contracts/solc/v0.8.24/BurnMintTokenPool/BurnMintTokenPool.abi ../../../contracts/solc/v0.8.24/BurnMintTokenPool/BurnMintTokenPool.bin 4b1b468de62a7e9adffd4d8ccb3621a7e0658ae453a4bfa72493ae25362e9693
