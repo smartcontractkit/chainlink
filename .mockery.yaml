@@ -274,8 +274,6 @@ packages:
   github.com/smartcontractkit/libocr/commontypes:
     config:
       dir: "common/types/mocks"
-#      filename: "{{ .InterfaceName | snakecase }}.go"
-#      inpackage: true
       mockname: "Mock{{ .InterfaceName | camelcase }}"
     interfaces:
       MonitoringEndpoint:

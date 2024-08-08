@@ -733,6 +733,7 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 		VerboseLogging: ptr(true),
 	}
+
 	for _, tt := range []struct {
 		name   string
 		config Config
