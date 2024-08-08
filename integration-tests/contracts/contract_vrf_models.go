@@ -76,6 +76,8 @@ type VRFCoordinatorV2 interface {
 	WaitForConfigSetEvent(timeout time.Duration) (*CoordinatorConfigSet, error)
 	OracleWithdraw(recipient common.Address, amount *big.Int) error
 	GetBlockHashStoreAddress(ctx context.Context) (common.Address, error)
+	GetLinkAddress(ctx context.Context) (common.Address, error)
+	GetLinkNativeFeed(ctx context.Context) (common.Address, error)
 }
 
 type VRFCoordinatorV2_5 interface {
@@ -121,6 +123,8 @@ type VRFCoordinatorV2_5 interface {
 	ParseRandomWordsFulfilled(log types.Log) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForConfigSetEvent(timeout time.Duration) (*CoordinatorConfigSet, error)
 	GetBlockHashStoreAddress(ctx context.Context) (common.Address, error)
+	GetLinkAddress(ctx context.Context) (common.Address, error)
+	GetLinkNativeFeed(ctx context.Context) (common.Address, error)
 }
 
 type VRFCoordinatorV2PlusUpgradedVersion interface {

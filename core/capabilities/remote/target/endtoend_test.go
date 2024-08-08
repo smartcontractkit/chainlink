@@ -226,7 +226,7 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
-		capabilityNode := target.NewServer(capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
+		capabilityNode := target.NewServer(&commoncap.RemoteTargetConfig{RequestHashExcludedAttributes: []string{}}, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
 			capabilityNodeResponseTimeout, lggr)
 		servicetest.Run(t, capabilityNode)
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)

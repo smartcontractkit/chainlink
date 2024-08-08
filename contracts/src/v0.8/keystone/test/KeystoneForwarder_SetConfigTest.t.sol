@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.24;
 
 import {BaseTest} from "./KeystoneForwarderBaseTest.t.sol";
 import {KeystoneForwarder} from "../KeystoneForwarder.sol";
@@ -38,6 +38,14 @@ contract KeystoneForwarder_SetConfigTest is BaseTest {
     signers[1] = signers[0];
 
     vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.DuplicateSigner.selector, signers[0]));
+    s_forwarder.setConfig(DON_ID, CONFIG_VERSION, F, signers);
+  }
+
+  function test_RevertWhen_ProvidingZeroAddressSigner() public {
+    address[] memory signers = _getSignerAddresses();
+    signers[1] = address(0);
+
+    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidSigner.selector, signers[1]));
     s_forwarder.setConfig(DON_ID, CONFIG_VERSION, F, signers);
   }
 

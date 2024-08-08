@@ -261,6 +261,7 @@ func TestConfig_Marshal(t *testing.T) {
 		FeedsManager: ptr(true),
 		LogPoller:    ptr(true),
 		UICSAKeys:    ptr(true),
+		CCIP:         ptr(true),
 	}
 	full.Database = toml.Database{
 		DefaultIdleInTxSessionTimeout: commoncfg.MustNewDuration(time.Minute),
@@ -771,6 +772,7 @@ Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and 
 FeedsManager = true
 LogPoller = true
 UICSAKeys = true
+CCIP = true
 `},
 		{"Database", Config{Core: toml.Core{Database: full.Database}}, `[Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
@@ -1302,7 +1304,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 10 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Foo): must be one of arbitrum, celo, gnosis, kroma, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync or omitted
+			- ChainType: invalid value (Foo): must be one of arbitrum, celo, gnosis, hedera, kroma, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be greater than or equal to FinalizedBlockOffset
 			- GasEstimator.BumpThreshold: invalid value (0): cannot be 0 if auto-purge feature is enabled for Foo
 			- Transactions.AutoPurge.Threshold: missing: needs to be set if auto-purge feature is enabled for Foo
@@ -1315,7 +1317,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Arbitrum): must be one of arbitrum, celo, gnosis, kroma, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync or omitted
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, celo, gnosis, hedera, kroma, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3.Nodes: 5 errors:

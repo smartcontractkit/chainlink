@@ -37,6 +37,8 @@ func (r *Registry) LocalNode(ctx context.Context) (capabilities.Node, error) {
 }
 
 func (r *Registry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	if r.metadataRegistry == nil {
 		return capabilities.CapabilityConfiguration{}, errors.New("metadataRegistry information not available")
 	}
