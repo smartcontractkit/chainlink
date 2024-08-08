@@ -23,4 +23,4 @@ runs:
           exit 1
         fi
         echo "Foundry version found: $foundry_version"
-        echo "foundry-version=$foundry_version" >> $GITHUB_OUTPUT          
+        echo "foundry-version=$foundry_version" >> $GITHUB_OUTPUT
