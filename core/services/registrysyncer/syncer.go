@@ -474,8 +474,10 @@ func (s *registrySyncer) AddLauncher(launchers ...Launcher) {
 
 func (s *registrySyncer) Close() error {
 	return s.StopOnce("RegistrySyncer", func() error {
-		close(s.updateChan)
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		close(s.stopCh)
+		close(s.updateChan)
 		s.wg.Wait()
 		return nil
 	})
