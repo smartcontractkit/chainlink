@@ -72,7 +72,7 @@ jobs:
           echo $GITHUB_WORKSPACE
 
       - name: Deploy and validate CRIB Environment for Core
-        uses: smartcontractkit/.github/actions/setup-crib-environment@f7ce0546f0c2b9bd76d9b445dcd6042bd6cc760c
+        uses: smartcontractkit/.github/actions/setup-crib-environment@828ff604e500769fdd891ed6b09ffe69895a4054
         id: deploy-crib
         with:
           github-token: ${{ steps.token.outputs.access-token }}
@@ -84,6 +84,7 @@ jobs:
           ecr-private-registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
           ingress-base-domain: ${{ secrets.INGRESS_BASE_DOMAIN_STAGE }}
           k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
+          devspace-profiles: "local-dev-simulated-core-ocr1"
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
