@@ -6,8 +6,11 @@ import (
 	"testing"
 	"time"
 
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -61,12 +64,21 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 	capabilityID2 := randomWord()
 	capabilityIDStr := hex.EncodeToString(capabilityID[:])
 	capabilityID2Str := hex.EncodeToString(capabilityID2[:])
-	rtc := &capabilities.RemoteTriggerConfig{
-		RegistrationRefresh:     20 * time.Second,
-		MinResponsesToAggregate: 2,
-		RegistrationExpiry:      60 * time.Second,
-		MessageExpiry:           120 * time.Second,
+
+	config := &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+				RegistrationRefresh: durationpb.New(20 * time.Second),
+				RegistrationExpiry:  durationpb.New(60 * time.Second),
+				// F + 1
+				MinResponsesToAggregate: uint32(1) + 1,
+				MessageExpiry:           durationpb.New(120 * time.Second),
+			},
+		},
 	}
+	configb, err := proto.Marshal(config)
+	require.NoError(t, err)
 
 	return registrysyncer.LocalRegistry{
 		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
@@ -79,20 +91,12 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 					AcceptsWorkflows: true,
 					Members:          toPeerIDs(nodes),
 				},
-				CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
+				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
 					capabilityIDStr: {
-						DefaultConfig:       values.EmptyMap(),
-						RemoteTriggerConfig: rtc,
-						RemoteTargetConfig: &capabilities.RemoteTargetConfig{
-							RequestHashExcludedAttributes: []string{"foo"},
-						},
+						Config: configb,
 					},
 					capabilityID2Str: {
-						DefaultConfig:       values.EmptyMap(),
-						RemoteTriggerConfig: rtc,
-						RemoteTargetConfig: &capabilities.RemoteTargetConfig{
-							RequestHashExcludedAttributes: []string{"bar"},
-						},
+						Config: configb,
 					},
 				},
 			},

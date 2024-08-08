@@ -9,9 +9,12 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"google.golang.org/protobuf/proto"
 
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -325,7 +328,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 			s.lggr.Errorw("failed to sync with local registry, using remote registry instead", "error", err)
 		} else {
 			lr.lggr = s.lggr
-			lr.peerWrapper = s.peerWrapper
+			lr.getPeerID = s.getPeerID
 		}
 	}
 
@@ -363,7 +366,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 func deepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 	var lrCopy LocalRegistry
 	lrCopy.lggr = lr.lggr
-	lrCopy.peerWrapper = lr.peerWrapper
+	lrCopy.getPeerID = lr.getPeerID
 	lrCopy.IDsToDONs = make(map[DonID]DON, len(lr.IDsToDONs))
 	for id, don := range lr.IDsToDONs {
 		d := capabilities.DON{
@@ -375,26 +378,11 @@ func deepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 			AcceptsWorkflows: don.AcceptsWorkflows,
 		}
 		copy(d.Members, don.Members)
-		capCfgs := make(map[string]capabilities.CapabilityConfiguration, len(don.CapabilityConfigurations))
+		capCfgs := make(map[string]CapabilityConfiguration, len(don.CapabilityConfigurations))
 		for capID, capCfg := range don.CapabilityConfigurations {
-			cfg := capabilities.CapabilityConfiguration{
-				DefaultConfig:       nil,
-				RemoteTriggerConfig: nil,
-				RemoteTargetConfig:  nil,
+			capCfgs[capID] = CapabilityConfiguration{
+				Config: capCfg.Config[:],
 			}
-			if capCfg.DefaultConfig != nil {
-				defaultConfig := *capCfg.DefaultConfig
-				cfg.DefaultConfig = &defaultConfig
-			}
-			if capCfg.RemoteTriggerConfig != nil {
-				remoteTriggerConfig := *capCfg.RemoteTriggerConfig
-				cfg.RemoteTriggerConfig = &remoteTriggerConfig
-			}
-			if capCfg.RemoteTargetConfig != nil {
-				remoteTargetConfig := *capCfg.RemoteTargetConfig
-				cfg.RemoteTargetConfig = &remoteTargetConfig
-			}
-			capCfgs[capID] = cfg
 		}
 		lrCopy.IDsToDONs[id] = DON{
 			DON:                      d,

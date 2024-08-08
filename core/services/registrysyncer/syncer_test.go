@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -242,7 +241,6 @@ func TestReader_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	db := pgtest.NewSqlxDB(t)
-	wrapper := mocks.NewPeerWrapper(t)
 	factory := newContractReaderFactory(t, sim)
 	syncerORM := registrysyncer.NewORM(db, logger.TestLogger(t))
 	syncer, err := registrysyncer.New(logger.TestLogger(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
@@ -405,10 +403,9 @@ func TestSyncer_DBIntegration(t *testing.T) {
 
 	require.NoError(t, err)
 
-	wrapper := mocks.NewPeerWrapper(t)
 	factory := newContractReaderFactory(t, sim)
 	syncerORM := syncerMocks.NewORM(t)
-	syncer, err := newTestSyncer(logger.TestLogger(t), wrapper, factory, regAddress.Hex(), syncerORM)
+	syncer, err := newTestSyncer(logger.TestLogger(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
 	require.NoError(t, syncer.Start(ctx))
 	t.Cleanup(func() {
@@ -505,12 +502,12 @@ func TestSyncer_LocalNode(t *testing.T) {
 
 func newTestSyncer(
 	lggr logger.Logger,
-	peerWrapper p2ptypes.PeerWrapper,
+	getPeerID func() (p2ptypes.PeerID, error),
 	relayer registrysyncer.ContractReaderFactory,
 	registryAddress string,
 	orm *syncerMocks.ORM,
 ) (registrysyncer.RegistrySyncer, error) {
-	rs, err := registrysyncer.New(lggr, peerWrapper, relayer, registryAddress, orm)
+	rs, err := registrysyncer.New(lggr, getPeerID, relayer, registryAddress, orm)
 	if err != nil {
 		return nil, err
 	}

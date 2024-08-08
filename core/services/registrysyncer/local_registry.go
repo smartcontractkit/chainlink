@@ -38,14 +38,14 @@ type LocalRegistry struct {
 
 func NewLocalRegistry(
 	lggr logger.Logger,
-	peerWrapper p2ptypes.PeerWrapper,
+	getPeerID func() (p2ptypes.PeerID, error),
 	IDsToDONs map[DonID]DON,
 	IDsToNodes map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo,
 	IDsToCapabilities map[string]Capability,
 ) LocalRegistry {
 	return LocalRegistry{
 		lggr:              lggr,
-		peerWrapper:       peerWrapper,
+		getPeerID:         getPeerID,
 		IDsToDONs:         IDsToDONs,
 		IDsToNodes:        IDsToNodes,
 		IDsToCapabilities: IDsToCapabilities,
