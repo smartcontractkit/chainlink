@@ -28,7 +28,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240808022937-113323c3ddc7
+	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240808143317-6b16fc28887d
 	github.com/smartcontractkit/chainlink-testing-framework v1.34.2
 	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.0-20240405215812-5a72bc9af239
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
