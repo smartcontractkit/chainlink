@@ -28,7 +28,7 @@ contract EVM2EVMMultiOffRampHelper is EVM2EVMMultiOffRamp, IgnoreContractSize {
   }
 
   function releaseOrMintSingleToken(
-    Internal.RampTokenAmount memory sourceTokenAmount,
+    Internal.RampTokenAmount calldata sourceTokenAmount,
     bytes calldata originalSender,
     address receiver,
     uint64 sourceChainSelector,
@@ -39,8 +39,8 @@ contract EVM2EVMMultiOffRampHelper is EVM2EVMMultiOffRamp, IgnoreContractSize {
   }
 
   function releaseOrMintTokens(
-    Internal.RampTokenAmount[] memory sourceTokenAmounts,
-    bytes memory originalSender,
+    Internal.RampTokenAmount[] calldata sourceTokenAmounts,
+    bytes calldata originalSender,
     address receiver,
     uint64 sourceChainSelector,
     bytes[] calldata offchainTokenData
