@@ -173,7 +173,7 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
       return;
     }
 
-    gasOverhead += ACCOUNTING_FIXED_GAS_OVERHEAD + (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1));
+    gasOverhead += 16 * msg.data.length + ACCOUNTING_FIXED_GAS_OVERHEAD + (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1));
     gasOverhead = gasOverhead / transmitVars.numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
 
     {
