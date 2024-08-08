@@ -547,7 +547,6 @@ func (o *OCRSoakTest) LoadState() error {
 	}
 
 	o.mockServer = ctf_client.ConnectMockServerURL(testState.MockServerURL)
-
 	return err
 }
 

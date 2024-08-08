@@ -341,37 +341,37 @@ jobs:
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
 
-      - name: Set SonarQube Report Paths
-        id: sonarqube_report_paths
+      - name: Check and Set SonarQube Report Paths
         shell: bash
         run: |
-          echo "sonarqube_tests_report_paths=$(find go_core_tests_logs -name output.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
-          echo "sonarqube_coverage_report_paths=$(find go_core_tests_logs -name coverage.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
-          echo "sonarqube_lint_report_paths=$(find golangci-lint-report -name golangci-lint-report.xml | paste -sd "," -)" >> $GITHUB_OUTPUT
+          sonarqube_tests_report_paths=$(find go_core_tests_logs -name output.txt | paste -sd "," -)
+          sonarqube_coverage_report_paths=$(find go_core_tests_logs -name coverage.txt | paste -sd "," -)
+          sonarqube_lint_report_paths=$(find golangci-lint-report -name golangci-lint-report.xml | paste -sd "," -)
 
-      - name: Check SonarQube Report Paths
-        id: check_sonarqube_paths
-        run: |
           ARGS=""
 
-          if [[ -z "${{ steps.sonarqube_report_paths.outputs.sonarqube_tests_report_paths }}" ]]; then
+          if [[ -z "$sonarqube_tests_report_paths" ]]; then
             echo "::warning::No test report paths found, will not pass to sonarqube"
           else
-            ARGS="$ARGS -Dsonar.go.tests.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_tests_report_paths }}"
+            echo "Found test report paths: $sonarqube_tests_report_paths"
+            ARGS="$ARGS -Dsonar.go.tests.reportPaths=$sonarqube_tests_report_paths"
           fi
 
-          if [[ -z "${{ steps.sonarqube_report_paths.outputs.sonarqube_coverage_report_paths }}" ]]; then
+          if [[ -z "$sonarqube_coverage_report_paths" ]]; then
             echo "::warning::No coverage report paths found, will not pass to sonarqube"
           else
-            ARGS="$ARGS -Dsonar.go.coverage.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_coverage_report_paths }}"
+            echo "Found coverage report paths: $sonarqube_coverage_report_paths"
+            ARGS="$ARGS -Dsonar.go.coverage.reportPaths=$sonarqube_coverage_report_paths"
           fi
 
-          if [[ -z "${{ steps.sonarqube_report_paths.outputs.sonarqube_lint_report_paths }}" ]]; then
+          if [[ -z "$sonarqube_lint_report_paths" ]]; then
             echo "::warning::No lint report paths found, will not pass to sonarqube"
           else
-            ARGS="$ARGS -Dsonar.go.golangci-lint.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_lint_report_paths }}"
+            echo "Found lint report paths: $sonarqube_lint_report_paths"
+            ARGS="$ARGS -Dsonar.go.golangci-lint.reportPaths=$sonarqube_lint_report_paths"
           fi
 
+          echo "Final SONARQUBE_ARGS: $ARGS"
           echo "SONARQUBE_ARGS=$ARGS" >> $GITHUB_ENV
 
       - name: SonarQube Scan
