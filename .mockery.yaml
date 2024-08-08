@@ -549,3 +549,6 @@ packages:
       Reader:
         config:
           mockname: "Mock{{ .InterfaceName }}"
+  github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer:
+    interfaces:
+      ORM:

@@ -32,8 +32,18 @@ type Syncer interface {
 	AddLauncher(h ...Launcher)
 }
 
-type contractReaderFactory interface {
+type ContractReaderFactory interface {
 	NewContractReader(context.Context, []byte) (types.ContractReader, error)
+}
+
+type RegistrySyncer interface {
+	Sync(ctx context.Context, isInitialSync bool) error
+	AddLauncher(launchers ...Launcher)
+	Start(ctx context.Context) error
+	Close() error
+	Ready() error
+	HealthReport() map[string]error
+	Name() string
 }
 
 type registrySyncer struct {
@@ -41,15 +51,14 @@ type registrySyncer struct {
 	stopCh          services.StopChan
 	launchers       []Launcher
 	reader          types.ContractReader
-	initReader      func(ctx context.Context, lggr logger.Logger, relayer contractReaderFactory, registryAddress string) (types.ContractReader, error)
-	relayer         contractReaderFactory
+	initReader      func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, registryAddress string) (types.ContractReader, error)
+	relayer         ContractReaderFactory
 	registryAddress string
 	peerWrapper     p2ptypes.PeerWrapper
 
 	orm ORM
 
-	updateChan     chan *LocalRegistry
-	testUpdateChan chan bool
+	updateChan chan *LocalRegistry
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -66,10 +75,10 @@ var (
 func New(
 	lggr logger.Logger,
 	peerWrapper p2ptypes.PeerWrapper,
-	relayer contractReaderFactory,
+	relayer ContractReaderFactory,
 	registryAddress string,
 	orm ORM,
-) (*registrySyncer, error) {
+) (RegistrySyncer, error) {
 	return &registrySyncer{
 		stopCh:          make(services.StopChan),
 		updateChan:      make(chan *LocalRegistry),
@@ -82,25 +91,10 @@ func New(
 	}, nil
 }
 
-func newTestSyncer(
-	lggr logger.Logger,
-	peerWrapper p2ptypes.PeerWrapper,
-	relayer contractReaderFactory,
-	registryAddress string,
-	orm ORM,
-) (*registrySyncer, error) {
-	rs, err := New(lggr, peerWrapper, relayer, registryAddress, orm)
-	if err != nil {
-		return nil, err
-	}
-	rs.testUpdateChan = make(chan bool, 100)
-	return rs, nil
-}
-
 // NOTE: this can't be called while initializing the syncer and needs to be called in the sync loop.
 // This is because Bind() makes an onchain call to verify that the contract address exists, and if
 // called during initialization, this results in a "no live nodes" error.
-func newReader(ctx context.Context, lggr logger.Logger, relayer contractReaderFactory, remoteRegistryAddress string) (types.ContractReader, error) {
+func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, remoteRegistryAddress string) (types.ContractReader, error) {
 	contractReaderConfig := evmrelaytypes.ChainReaderConfig{
 		Contracts: map[string]evmrelaytypes.ChainContractReader{
 			"CapabilitiesRegistry": {
@@ -167,7 +161,7 @@ func (s *registrySyncer) syncLoop() {
 	// sync immediately once spinning up syncLoop, as by default a ticker will
 	// fire for the first time at T+N, where N is the interval.
 	s.lggr.Debug("starting initial sync with remote registry")
-	err := s.sync(ctx, true)
+	err := s.Sync(ctx, true)
 	if err != nil {
 		s.lggr.Errorw("failed to sync with remote registry", "error", err)
 	}
@@ -178,7 +172,7 @@ func (s *registrySyncer) syncLoop() {
 			return
 		case <-ticker.C:
 			s.lggr.Debug("starting regular sync with the remote registry")
-			err := s.sync(ctx, false)
+			err := s.Sync(ctx, false)
 			if err != nil {
 				s.lggr.Errorw("failed to sync with remote registry", "error", err)
 			}
@@ -201,10 +195,6 @@ func (s *registrySyncer) updateStateLoop() {
 			}
 			if err := s.orm.AddLocalRegistry(ctx, *localRegistry); err != nil {
 				s.lggr.Errorw("failed to save state to local registry", "error", err)
-			}
-			select {
-			case s.testUpdateChan <- true:
-			default:
 			}
 		}
 	}
@@ -314,7 +304,7 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 	}, nil
 }
 
-func (s *registrySyncer) sync(ctx context.Context, isInitialSync bool) error {
+func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -356,6 +346,8 @@ func (s *registrySyncer) sync(ctx context.Context, isInitialSync bool) error {
 		// Attempt to send local registry to the update channel without blocking
 		// This is to prevent the tests from hanging if they are not calling `Start()` on the syncer
 		select {
+		case <-s.stopCh:
+			s.lggr.Debug("sync cancelled, stopping")
 		case s.updateChan <- lr:
 			// Successfully sent state
 			s.lggr.Debug("remote registry update triggered successfully")
@@ -482,11 +474,8 @@ func (s *registrySyncer) AddLauncher(launchers ...Launcher) {
 
 func (s *registrySyncer) Close() error {
 	return s.StopOnce("RegistrySyncer", func() error {
-		close(s.stopCh)
 		close(s.updateChan)
-		if s.testUpdateChan != nil {
-			close(s.testUpdateChan)
-		}
+		close(s.stopCh)
 		s.wg.Wait()
 		return nil
 	})

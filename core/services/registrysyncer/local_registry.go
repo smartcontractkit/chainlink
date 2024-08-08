@@ -32,6 +32,22 @@ type LocalRegistry struct {
 	IDsToCapabilities map[string]Capability
 }
 
+func NewLocalRegistry(
+	lggr logger.Logger,
+	peerWrapper p2ptypes.PeerWrapper,
+	IDsToDONs map[DonID]DON,
+	IDsToNodes map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo,
+	IDsToCapabilities map[string]Capability,
+) LocalRegistry {
+	return LocalRegistry{
+		lggr:              lggr,
+		peerWrapper:       peerWrapper,
+		IDsToDONs:         IDsToDONs,
+		IDsToNodes:        IDsToNodes,
+		IDsToCapabilities: IDsToCapabilities,
+	}
+}
+
 func (l *LocalRegistry) LocalNode(ctx context.Context) (capabilities.Node, error) {
 	// Load the current nodes PeerWrapper, this gets us the current node's
 	// PeerID, allowing us to contextualize registry information in terms of DON ownership

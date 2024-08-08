@@ -1,4 +1,4 @@
-package registrysyncer
+package registrysyncer_test
 
 import (
 	"encoding/hex"
@@ -19,15 +19,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
-	orm := NewORM(db, lggr)
+	orm := registrysyncer.NewORM(db, lggr)
 
-	var states []LocalRegistry
+	var states []registrysyncer.LocalRegistry
 	for i := 0; i < 11; i++ {
 		state := generateState(t)
 		err := orm.AddLocalRegistry(ctx, state)
@@ -45,7 +46,7 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	assert.Equal(t, states[10], *state)
 }
 
-func generateState(t *testing.T) LocalRegistry {
+func generateState(t *testing.T) registrysyncer.LocalRegistry {
 	dID := uint32(1)
 	var pid ragetypes.PeerID
 	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
@@ -67,9 +68,9 @@ func generateState(t *testing.T) LocalRegistry {
 		MessageExpiry:           120 * time.Second,
 	}
 
-	return LocalRegistry{
-		IDsToDONs: map[DonID]DON{
-			DonID(dID): {
+	return registrysyncer.LocalRegistry{
+		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+			registrysyncer.DonID(dID): {
 				DON: capabilities.DON{
 					ID:               dID,
 					ConfigVersion:    uint32(0),
@@ -96,7 +97,7 @@ func generateState(t *testing.T) LocalRegistry {
 				},
 			},
 		},
-		IDsToCapabilities: map[string]Capability{
+		IDsToCapabilities: map[string]registrysyncer.Capability{
 			capabilityIDStr: {
 				ID:             capabilityIDStr,
 				CapabilityType: 0,

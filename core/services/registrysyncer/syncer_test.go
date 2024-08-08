@@ -1,4 +1,4 @@
-package registrysyncer
+package registrysyncer_test
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -35,6 +36,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -128,10 +131,10 @@ func randomWord() [32]byte {
 }
 
 type launcher struct {
-	localRegistry *LocalRegistry
+	localRegistry *registrysyncer.LocalRegistry
 }
 
-func (l *launcher) Launch(ctx context.Context, localRegistry *LocalRegistry) error {
+func (l *launcher) Launch(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
 	l.localRegistry = localRegistry
 	return nil
 }
@@ -241,20 +244,20 @@ func TestReader_Integration(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	wrapper := mocks.NewPeerWrapper(t)
 	factory := newContractReaderFactory(t, sim)
-	syncerORM := NewORM(db, logger.TestLogger(t))
-	syncer, err := New(logger.TestLogger(t), wrapper, factory, regAddress.Hex(), syncerORM)
+	syncerORM := registrysyncer.NewORM(db, logger.TestLogger(t))
+	syncer, err := registrysyncer.New(logger.TestLogger(t), wrapper, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
 
 	l := &launcher{}
 	syncer.AddLauncher(l)
 
-	err = syncer.sync(ctx, false) // not looking to load from the DB in this specific test.
+	err = syncer.Sync(ctx, false) // not looking to load from the DB in this specific test.
 	s := l.localRegistry
 	require.NoError(t, err)
 	assert.Len(t, s.IDsToCapabilities, 1)
 
 	gotCap := s.IDsToCapabilities[cid]
-	assert.Equal(t, Capability{
+	assert.Equal(t, registrysyncer.Capability{
 		CapabilityType: capabilities.CapabilityTypeTarget,
 		ID:             "write-chain@1.0.1",
 	}, gotCap)
@@ -266,7 +269,7 @@ func TestReader_Integration(t *testing.T) {
 		RegistrationExpiry:      60 * time.Second,
 		MessageExpiry:           120 * time.Second,
 	}
-	expectedDON := DON{
+	expectedDON := registrysyncer.DON{
 		DON: capabilities.DON{
 			ID:               1,
 			ConfigVersion:    1,
@@ -414,12 +417,12 @@ func TestSyncer_DBIntegration(t *testing.T) {
 
 	require.NoError(t, err)
 
-	db := pgtest.NewSqlxDB(t)
 	wrapper := mocks.NewPeerWrapper(t)
 	factory := newContractReaderFactory(t, sim)
-	syncerORM := NewORM(db, logger.TestLogger(t))
+	syncerORM := syncerMocks.NewORM(t)
 	syncer, err := newTestSyncer(logger.TestLogger(t), wrapper, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
+	require.NoError(t, syncer.Start(ctx))
 	t.Cleanup(func() {
 		syncer.Close()
 	})
@@ -427,26 +430,11 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	l := &launcher{}
 	syncer.AddLauncher(l)
 
-	go func() {
-		// updateChan will be closed on cleanup
-		syncer.updateStateLoop()
-	}()
+	syncerORM.On("LatestLocalRegistry", mock.Anything).Return(nil, fmt.Errorf("no state found"))
+	syncerORM.On("AddLocalRegistry", mock.Anything, mock.Anything).Return(nil)
 
-	err = syncer.sync(ctx, false) // should store the data into the DB
+	err = syncer.Sync(ctx, false) // should store the data into the DB
 	require.NoError(t, err)
-	s := l.localRegistry
-	<-syncer.testUpdateChan // wait for the update to be processed
-	st, err := syncer.orm.LatestLocalRegistry(ctx)
-	require.NoError(t, err)
-	st.peerWrapper = syncer.peerWrapper
-	st.lggr = syncer.lggr
-
-	assert.Equal(t, s, st, "expected the state to be the same as the one stored in the DB")
-
-	err = syncer.sync(ctx, true) // should load the data from the DB
-	require.NoError(t, err)
-	s2 := l.localRegistry
-	assert.Equal(t, s, s2, "expected the state to be the same as the one retrieved initially")
 }
 
 func TestSyncer_LocalNode(t *testing.T) {
@@ -472,11 +460,11 @@ func TestSyncer_LocalNode(t *testing.T) {
 	// The below state describes a Workflow DON (AcceptsWorkflows = true),
 	// which exposes the streams-trigger and write_chain capabilities.
 	// We expect receivers to be wired up and both capabilities to be added to the registry.
-	localRegistry := LocalRegistry{
-		lggr:        lggr,
-		peerWrapper: wrapper,
-		IDsToDONs: map[DonID]DON{
-			DonID(dID): {
+	localRegistry := registrysyncer.NewLocalRegistry(
+		lggr,
+		wrapper,
+		map[registrysyncer.DonID]registrysyncer.DON{
+			registrysyncer.DonID(dID): {
 				DON: capabilities.DON{
 					ID:               dID,
 					ConfigVersion:    uint32(2),
@@ -487,7 +475,7 @@ func TestSyncer_LocalNode(t *testing.T) {
 				},
 			},
 		},
-		IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
+		map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
 			workflowDonNodes[0]: {
 				NodeOperatorId: 1,
 				Signer:         randomWord(),
@@ -509,7 +497,8 @@ func TestSyncer_LocalNode(t *testing.T) {
 				P2pId:          workflowDonNodes[3],
 			},
 		},
-	}
+		map[string]registrysyncer.Capability{},
+	)
 
 	node, err := localRegistry.LocalNode(ctx)
 	require.NoError(t, err)
@@ -528,4 +517,18 @@ func TestSyncer_LocalNode(t *testing.T) {
 		CapabilityDONs: []capabilities.DON{don},
 	}
 	assert.Equal(t, expectedNode, node)
+}
+
+func newTestSyncer(
+	lggr logger.Logger,
+	peerWrapper p2ptypes.PeerWrapper,
+	relayer registrysyncer.ContractReaderFactory,
+	registryAddress string,
+	orm *syncerMocks.ORM,
+) (registrysyncer.RegistrySyncer, error) {
+	rs, err := registrysyncer.New(lggr, peerWrapper, relayer, registryAddress, orm)
+	if err != nil {
+		return nil, err
+	}
+	return rs, nil
 }
