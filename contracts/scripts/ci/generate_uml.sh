@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 function check_chainlink_dir() {
   local param_dir="chainlink"
   current_dir=$(pwd)
@@ -29,6 +31,7 @@ flatten_and_generate_uml() {
     local FILE=$1
     local TARGET_DIR=$2
 
+    set +e
     FLATTENED_FILE="$TARGET_DIR/flattened_$(basename "$FILE")"
     echo "::debug::Flattening $FILE to $FLATTENED_FILE"
     forge flatten "$FILE" -o "$FLATTENED_FILE" --root contracts
@@ -59,6 +62,7 @@ flatten_and_generate_uml() {
     fi
 
     rm "$FLATTENED_FILE"
+    set -e
 }
 
 process_all_files_in_directory() {

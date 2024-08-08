@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 function check_chainlink_dir() {
   local param_dir="chainlink"
   current_dir=$(pwd)
@@ -31,16 +33,14 @@ run_slither() {
     local FILE=$1
     local TARGET_DIR=$2
 
-    # needed, because the action we use returns all modified files, also deleted ones and we must skip those
     if [ ! -f "$FILE" ]; then
-      echo "Warning: File not found: $FILE"
-      echo "Skipping..."
-      return
+      >&2 echo "::error:File not found: $FILE"
+      exit 1
     fi
 
     source ./contracts/scripts/ci/select_solc_version.sh "$FILE"
     if [ $? -ne 0 ]; then
-        >&2 echo "Error: Failed to select Solc version for $FILE"
+        >&2 echo "::error::Failed to select Solc version for $FILE"
         exit 1
     fi
 
@@ -48,7 +48,7 @@ run_slither() {
 
     output=$(slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL" --fail-none $SLITHER_EXTRA_PARAMS)
     if [ $? -ne 0 ]; then
-        >&2 echo "Slither failed for $FILE"
+        >&2 echo "::error::Slither failed for $FILE"
         exit 1
     fi
     output=$(echo "$output" | sed '/\*\*THIS CHECKLIST IS NOT COMPLETE\*\*. Use `--show-ignored-findings` to show all the results./d'  | sed '/Summary/d')
@@ -73,7 +73,7 @@ process_files() {
 process_files "$SOURCE_DIR" "$TARGET_DIR" "${FILES[@]}"
 
 if [ $? -ne 0 ]; then
-    >&2 echo "Error: Failed to generate Slither reports"
+    >&2 echo "::error::Failed to generate Slither reports"
     exit 1
 fi
 
