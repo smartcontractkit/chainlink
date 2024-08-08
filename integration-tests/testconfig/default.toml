@@ -135,7 +135,7 @@ FeeCapDefault = '200 gwei'
 # controls which transactions are decoded/traced. Possbile values are: none, all, reverted (default).
 # if transaction level doesn't match, then calling Decode() does nothing. It's advised to keep it set
 # to 'reverted' to limit noise.
-tracing_level = "all"
+tracing_level = "reverted"
 # saves each decoding/tracing results to DOT files; what exactly is saved depends on what we
 # were able te decode, we try to save maximum information possible. It can either be:
 # just tx hash, decoded transaction or call trace. Which transactions traces are saved depends
