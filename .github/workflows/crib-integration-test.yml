@@ -17,7 +17,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
-      - uses: cachix/install-nix-action@v18 # v18
+      - uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
         with:
           nix_path: nixpkgs=channel:nixos-unstable
 
@@ -59,7 +59,7 @@ jobs:
 
       - name: Setup GitHub token using GATI
         id: token
-        uses: smartcontractkit/.github/actions/setup-github-token@main # main
+        uses: smartcontractkit/.github/actions/setup-github-token@c0b38e6c40d72d01b8d2f24f92623a2538b3dedb # main
         with:
           aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
