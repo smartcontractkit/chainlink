@@ -22,9 +22,6 @@ var (
 	_ capabilities.ActionCapability = &WriteTarget{}
 )
 
-// required field of target's config in the workflow spec
-const signedReportField = "signed_report"
-
 type WriteTarget struct {
 	cr               commontypes.ContractReader
 	cw               commontypes.ChainWriter
@@ -124,61 +121,53 @@ type Request struct {
 	Inputs   Inputs
 }
 
-func evaluate(request capabilities.CapabilityRequest) (*Request, error) {
-	if request.Config == nil {
-		return nil, fmt.Errorf("missing config field")
+func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) {
+	r.Metadata = rawRequest.Metadata
+
+	if rawRequest.Config == nil {
+		return r, fmt.Errorf("missing config field")
 	}
 
-	// Validate and unwrap Config
-	config := Config{}
-	if err := request.Config.UnwrapTo(&config); err != nil {
-		return nil, err
+	if err = rawRequest.Config.UnwrapTo(&r.Config); err != nil {
+		return r, err
 	}
 
-	if !common.IsHexAddress(config.Address) {
-		return nil, fmt.Errorf("'%v' is not a valid address", config.Address)
+	if !common.IsHexAddress(r.Config.Address) {
+		return r, fmt.Errorf("'%v' is not a valid address", r.Config.Address)
 	}
 
-	// Validate and unwrap Inputs
-	if request.Inputs == nil {
-		return nil, fmt.Errorf("missing inputs field")
+	if rawRequest.Inputs == nil {
+		return r, fmt.Errorf("missing inputs field")
 	}
 
-	signedReport, ok := request.Inputs.Underlying[signedReportField]
+	// required field of target's config in the workflow spec
+	const signedReportField = "signed_report"
+	signedReport, ok := rawRequest.Inputs.Underlying[signedReportField]
 	if !ok {
-		return nil, fmt.Errorf("missing required field %s", signedReportField)
+		return r, fmt.Errorf("missing required field %s", signedReportField)
 	}
 
-	report := types.SignedReport{}
-	if err := signedReport.UnwrapTo(&report); err != nil {
-		return nil, err
+	if err = signedReport.UnwrapTo(&r.Inputs.SignedReport); err != nil {
+		return r, err
 	}
 
-	// TODO: Is this properly EVM decoding? In the error, should explain that it
-	// might be due to different report encoding.
-	reportMetadata, err := decodeReportMetadata(report.Report)
+	reportMetadata, err := decodeReportMetadata(r.Inputs.SignedReport.Report)
 	if err != nil {
-		return nil, err
+		return r, err
 	}
 
 	if reportMetadata.Version != 1 {
-		return nil, fmt.Errorf("unsupported report version: %d", reportMetadata.Version)
+		return r, fmt.Errorf("unsupported report version: %d", reportMetadata.Version)
 	}
 
-	if hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]) != request.Metadata.WorkflowExecutionID ||
-		hex.EncodeToString(reportMetadata.WorkflowOwner[:]) != request.Metadata.WorkflowOwner ||
-		hex.EncodeToString(reportMetadata.WorkflowName[:]) != request.Metadata.WorkflowName ||
-		hex.EncodeToString(reportMetadata.WorkflowCID[:]) != request.Metadata.WorkflowID {
-		return nil, fmt.Errorf("report metadata does not match request metadata. reportMetadata: %+v, requestMetadata: %+v", reportMetadata, request.Metadata)
+	if hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]) != rawRequest.Metadata.WorkflowExecutionID ||
+		hex.EncodeToString(reportMetadata.WorkflowOwner[:]) != rawRequest.Metadata.WorkflowOwner ||
+		hex.EncodeToString(reportMetadata.WorkflowName[:]) != rawRequest.Metadata.WorkflowName ||
+		hex.EncodeToString(reportMetadata.WorkflowCID[:]) != rawRequest.Metadata.WorkflowID {
+		return r, fmt.Errorf("report metadata does not match request metadata. reportMetadata: %+v, requestMetadata: %+v", reportMetadata, rawRequest.Metadata)
 	}
 
-	return &Request{
-		Metadata: request.Metadata,
-		Config:   config,
-		Inputs: Inputs{
-			SignedReport: report,
-		},
-	}, nil
+	return r, nil
 }
 
 func success() <-chan capabilities.CapabilityResponse {
@@ -212,8 +201,6 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
 	rawExecutionID, err := hex.DecodeString(request.Metadata.WorkflowExecutionID)
 	if err != nil {
