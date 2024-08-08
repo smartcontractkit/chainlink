@@ -32,7 +32,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
@@ -83,7 +83,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Chainlink Image
         uses: ./.github/actions/build-chainlink-image
@@ -118,7 +118,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Build Test Image
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
@@ -210,7 +210,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Set Override Config
         id: set_override_config
@@ -325,7 +325,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          repository: smartcontractkit/ccip
+          repository: smartcontractkit/chainlink
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Download LaneConfig From Last Release
         uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
