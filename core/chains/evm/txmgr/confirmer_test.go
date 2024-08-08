@@ -2980,7 +2980,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("processes eth_txes with receipts older than minConfirmations", func(t *testing.T) {
+	t.Run("processes eth_txes that's finalized", func(t *testing.T) {
 		ch := make(chan interface{})
 		nonce := evmtypes.Nonce(3)
 		var err error
@@ -2999,6 +2999,8 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		receipt := mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr.ID, etx.ID)
+
+		// set tx state to be finalized
 		err = txStore.UpdateTxStatesToFinalizedUsingReceiptIds(tests.Context(t), []int64{receipt.ID}, testutils.FixtureChainID)
 		require.NoError(t, err)
 
