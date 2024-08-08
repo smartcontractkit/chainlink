@@ -496,7 +496,10 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   /// its execution and enforce atomicity among successful message processing and token transfer.
   /// @dev We use ERC-165 to check for the ccipReceive interface to permit sending tokens to contracts
   /// (for example smart contract wallets) without an associated message.
-  function executeSingleMessage(Internal.Any2EVMRampMessage memory message, bytes[] memory offchainTokenData) external {
+  function executeSingleMessage(
+    Internal.Any2EVMRampMessage calldata message,
+    bytes[] calldata offchainTokenData
+  ) external {
     if (msg.sender != address(this)) revert CanOnlySelfCall();
     Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](0);
     if (message.tokenAmounts.length > 0) {
@@ -804,11 +807,11 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @param offchainTokenData Data fetched offchain by the DON.
   /// @return destTokenAmount local token address with amount
   function _releaseOrMintSingleToken(
-    Internal.RampTokenAmount memory sourceTokenAmount,
-    bytes memory originalSender,
+    Internal.RampTokenAmount calldata sourceTokenAmount,
+    bytes calldata originalSender,
     address receiver,
     uint64 sourceChainSelector,
-    bytes memory offchainTokenData
+    bytes calldata offchainTokenData
   ) internal returns (Client.EVMTokenAmount memory destTokenAmount) {
     // We need to safely decode the token address from the sourceTokenData, as it could be wrong,
     // in which case it doesn't have to be a valid EVM address.
@@ -883,11 +886,11 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   /// any non-rate limiting errors that may occur. If we encounter a rate limiting related error
   /// we bubble it up. If we encounter a non-rate limiting error we wrap it in a TokenHandlingError.
   function _releaseOrMintTokens(
-    Internal.RampTokenAmount[] memory sourceTokenAmounts,
-    bytes memory originalSender,
+    Internal.RampTokenAmount[] calldata sourceTokenAmounts,
+    bytes calldata originalSender,
     address receiver,
     uint64 sourceChainSelector,
-    bytes[] memory offchainTokenData
+    bytes[] calldata offchainTokenData
   ) internal returns (Client.EVMTokenAmount[] memory destTokenAmounts) {
     destTokenAmounts = new Client.EVMTokenAmount[](sourceTokenAmounts.length);
     for (uint256 i = 0; i < sourceTokenAmounts.length; ++i) {
