@@ -9,12 +9,9 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"google.golang.org/protobuf/proto"
 
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -197,42 +194,6 @@ func (s *registrySyncer) updateStateLoop() {
 			}
 		}
 	}
-}
-
-func unmarshalCapabilityConfig(data []byte) (capabilities.CapabilityConfiguration, error) {
-	cconf := &capabilitiespb.CapabilityConfig{}
-	err := proto.Unmarshal(data, cconf)
-	if err != nil {
-		return capabilities.CapabilityConfiguration{}, err
-	}
-
-	var remoteTriggerConfig *capabilities.RemoteTriggerConfig
-	var remoteTargetConfig *capabilities.RemoteTargetConfig
-
-	switch cconf.GetRemoteConfig().(type) {
-	case *capabilitiespb.CapabilityConfig_RemoteTriggerConfig:
-		prtc := cconf.GetRemoteTriggerConfig()
-		remoteTriggerConfig = &capabilities.RemoteTriggerConfig{}
-		remoteTriggerConfig.RegistrationRefresh = prtc.RegistrationRefresh.AsDuration()
-		remoteTriggerConfig.RegistrationExpiry = prtc.RegistrationExpiry.AsDuration()
-		remoteTriggerConfig.MinResponsesToAggregate = prtc.MinResponsesToAggregate
-		remoteTriggerConfig.MessageExpiry = prtc.MessageExpiry.AsDuration()
-	case *capabilitiespb.CapabilityConfig_RemoteTargetConfig:
-		prtc := cconf.GetRemoteTargetConfig()
-		remoteTargetConfig = &capabilities.RemoteTargetConfig{}
-		remoteTargetConfig.RequestHashExcludedAttributes = prtc.RequestHashExcludedAttributes
-	}
-
-	dc, err := values.FromMapValueProto(cconf.DefaultConfig)
-	if err != nil {
-		return capabilities.CapabilityConfiguration{}, err
-	}
-
-	return capabilities.CapabilityConfiguration{
-		DefaultConfig:       dc,
-		RemoteTriggerConfig: remoteTriggerConfig,
-		RemoteTargetConfig:  remoteTargetConfig,
-	}, nil
 }
 
 func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, error) {
