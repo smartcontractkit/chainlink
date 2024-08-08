@@ -106,9 +106,7 @@ func decodeReportMetadata(data []byte) (metadata ReportV1Metadata, err error) {
 	if len(data) < metadata.Length() {
 		return metadata, fmt.Errorf("data too short: %d bytes", len(data))
 	}
-	data = data[:metadata.Length()]
-	buffer := bytes.NewReader(data)
-	return metadata, binary.Read(buffer, binary.BigEndian, &metadata)
+	return metadata, binary.Read(bytes.NewReader(data[:metadata.Length()]), binary.BigEndian, &metadata)
 }
 
 type Config struct {
