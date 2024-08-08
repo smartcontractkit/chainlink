@@ -26,6 +26,7 @@ type triggerPublisher struct {
 	capInfo       commoncap.CapabilityInfo
 	capDonInfo    commoncap.DON
 	workflowDONs  map[uint32]commoncap.DON
+	membersCache  map[uint32]map[p2ptypes.PeerID]bool
 	dispatcher    types.Dispatcher
 	messageCache  *messageCache[registrationKey, p2ptypes.PeerID]
 	registrations map[registrationKey]*pubRegState
@@ -54,12 +55,21 @@ func NewTriggerPublisher(config *capabilities.RemoteTriggerConfig, underlying co
 		config = &capabilities.RemoteTriggerConfig{}
 	}
 	config.ApplyDefaults()
+	membersCache := make(map[uint32]map[p2ptypes.PeerID]bool)
+	for id, don := range workflowDONs {
+		cache := make(map[p2ptypes.PeerID]bool)
+		for _, member := range don.Members {
+			cache[member] = true
+		}
+		membersCache[id] = cache
+	}
 	return &triggerPublisher{
 		config:        config,
 		underlying:    underlying,
 		capInfo:       capInfo,
 		capDonInfo:    capDonInfo,
 		workflowDONs:  workflowDONs,
+		membersCache:  membersCache,
 		dispatcher:    dispatcher,
 		messageCache:  NewMessageCache[registrationKey, p2ptypes.PeerID](),
 		registrations: make(map[registrationKey]*pubRegState),
@@ -86,6 +96,10 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		callerDon, ok := p.workflowDONs[msg.CallerDonId]
 		if !ok {
 			p.lggr.Errorw("received a message from unsupported workflow DON", "capabilityId", p.capInfo.ID, "callerDonId", msg.CallerDonId)
+			return
+		}
+		if !p.membersCache[msg.CallerDonId][sender] {
+			p.lggr.Errorw("sender not a member of its workflow DON", "capabilityId", p.capInfo.ID, "callerDonId", msg.CallerDonId, "sender", sender)
 			return
 		}
 		p.lggr.Debugw("received trigger registration", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "sender", sender)

@@ -3,6 +3,7 @@ package targets_test
 import (
 	"context"
 	"errors"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -29,7 +30,7 @@ func TestWriteTarget(t *testing.T) {
 	forwarderA := testutils.NewAddress()
 	forwarderAddr := forwarderA.Hex()
 
-	writeTarget := targets.NewWriteTarget(lggr, "test-write-target@1.0.0", cr, cw, forwarderAddr)
+	writeTarget := targets.NewWriteTarget(lggr, "test-write-target@1.0.0", cr, cw, forwarderAddr, 400_000)
 	require.NotNil(t, writeTarget)
 
 	config, err := values.NewMap(map[string]any{
@@ -52,9 +53,16 @@ func TestWriteTarget(t *testing.T) {
 		},
 	}).Return(nil)
 
-	cr.On("GetLatestValue", mock.Anything, "forwarder", "getTransmitter", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		transmitter := args.Get(5).(*common.Address)
-		*transmitter = common.HexToAddress("0x0")
+	cr.On("GetLatestValue", mock.Anything, "forwarder", "getTransmissionInfo", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		transmissionInfo := args.Get(5).(*targets.TransmissionInfo)
+		*transmissionInfo = targets.TransmissionInfo{
+			GasLimit:        big.NewInt(0),
+			InvalidReceiver: false,
+			State:           0,
+			Success:         false,
+			TransmissionId:  [32]byte{},
+			Transmitter:     common.HexToAddress("0x0"),
+		}
 	}).Once()
 
 	cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, mock.Anything, mock.Anything).Return(nil).Once()
@@ -105,7 +113,7 @@ func TestWriteTarget(t *testing.T) {
 			Config: config,
 			Inputs: validInputs,
 		}
-		cr.On("GetLatestValue", mock.Anything, "forwarder", "getTransmitter", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("reader error"))
+		cr.On("GetLatestValue", mock.Anything, "forwarder", "getTransmissionInfo", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("reader error"))
 
 		_, err = writeTarget.Execute(ctx, req)
 		require.Error(t, err)
@@ -126,10 +134,10 @@ func TestWriteTarget(t *testing.T) {
 	})
 
 	t.Run("fails with invalid config", func(t *testing.T) {
-		invalidConfig, err := values.NewMap(map[string]any{
+		invalidConfig, err2 := values.NewMap(map[string]any{
 			"Address": "invalid-address",
 		})
-		require.NoError(t, err)
+		require.NoError(t, err2)
 
 		req := capabilities.CapabilityRequest{
 			Metadata: capabilities.RequestMetadata{
@@ -138,7 +146,31 @@ func TestWriteTarget(t *testing.T) {
 			Config: invalidConfig,
 			Inputs: validInputs,
 		}
-		_, err = writeTarget.Execute(ctx, req)
-		require.Error(t, err)
+		_, err2 = writeTarget.Execute(ctx, req)
+		require.Error(t, err2)
+	})
+
+	t.Run("fails with nil config", func(t *testing.T) {
+		req := capabilities.CapabilityRequest{
+			Metadata: capabilities.RequestMetadata{
+				WorkflowID: "test-id",
+			},
+			Config: nil,
+			Inputs: validInputs,
+		}
+		_, err2 := writeTarget.Execute(ctx, req)
+		require.Error(t, err2)
+	})
+
+	t.Run("fails with nil inputs", func(t *testing.T) {
+		req := capabilities.CapabilityRequest{
+			Metadata: capabilities.RequestMetadata{
+				WorkflowID: "test-id",
+			},
+			Config: config,
+			Inputs: nil,
+		}
+		_, err2 := writeTarget.Execute(ctx, req)
+		require.Error(t, err2)
 	})
 }

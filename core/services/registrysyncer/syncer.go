@@ -8,14 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -54,7 +50,7 @@ type registrySyncer struct {
 	initReader      func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, registryAddress string) (types.ContractReader, error)
 	relayer         ContractReaderFactory
 	registryAddress string
-	peerWrapper     p2ptypes.PeerWrapper
+	getPeerID       func() (p2ptypes.PeerID, error)
 
 	orm ORM
 
@@ -74,7 +70,7 @@ var (
 // New instantiates a new RegistrySyncer
 func New(
 	lggr logger.Logger,
-	peerWrapper p2ptypes.PeerWrapper,
+	getPeerID func() (p2ptypes.PeerID, error),
 	relayer ContractReaderFactory,
 	registryAddress string,
 	orm ORM,
@@ -87,7 +83,7 @@ func New(
 		registryAddress: registryAddress,
 		initReader:      newReader,
 		orm:             orm,
-		peerWrapper:     peerWrapper,
+		getPeerID:       getPeerID,
 	}, nil
 }
 
@@ -263,19 +259,16 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 
 	idsToDONs := map[DonID]DON{}
 	for _, d := range dons {
-		cc := map[string]capabilities.CapabilityConfiguration{}
+		cc := map[string]CapabilityConfiguration{}
 		for _, dc := range d.CapabilityConfigurations {
 			cid, ok := hashedIDsToCapabilityIDs[dc.CapabilityId]
 			if !ok {
 				return nil, fmt.Errorf("invariant violation: could not find full ID for hashed ID %s", dc.CapabilityId)
 			}
 
-			cconf, innerErr := unmarshalCapabilityConfig(dc.Config)
-			if innerErr != nil {
-				return nil, innerErr
+			cc[cid] = CapabilityConfiguration{
+				Config: dc.Config,
 			}
-
-			cc[cid] = cconf
 		}
 
 		idsToDONs[DonID(d.Id)] = DON{
@@ -297,7 +290,7 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 
 	return &LocalRegistry{
 		lggr:              s.lggr,
-		peerWrapper:       s.peerWrapper,
+		getPeerID:         s.getPeerID,
 		IDsToDONs:         idsToDONs,
 		IDsToCapabilities: idsToCapabilities,
 		IDsToNodes:        idsToNodes,
