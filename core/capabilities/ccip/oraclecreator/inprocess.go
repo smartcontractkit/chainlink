@@ -234,7 +234,7 @@ func (i *inprocessOracleCreator) CreatePluginOracle(pluginType cctypes.PluginTyp
 		}
 
 		// TODO: this is evm specific, make it chain agnostic.
-		chainIDU64, err2 := strconv.ParseUint(relayID.String(), 10, 64)
+		chainIDU64, err2 := strconv.ParseUint(relayID.ChainID, 10, 64)
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to parse chain ID %s: %w", relayID.String(), err2)
 		}
