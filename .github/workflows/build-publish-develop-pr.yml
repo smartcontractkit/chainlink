@@ -2,53 +2,39 @@ name: "Build and Publish Chainlink"
 
 on:
   pull_request:
-    branches-ignore:
-      - 'release/**'
   push:
     branches:
       - develop
-  workflow_dispatch:
-    inputs:
-      git_ref:
-        description: "Git ref (commit SHA, branch name, tag name, etc.) to checkout"
-        required: true
-
-env:
-  GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
 
 jobs:
-  validate-git-ref:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-
-      - name: Validate GIT_REF
-        if: ${{ github.event.inputs.git_ref }}
-        run: |
-          if ! git rev-parse --verify "${{ env.GIT_REF }}" > /dev/null 2>&1; then
-            echo "Invalid GIT_REF: ${{ env.GIT_REF }}"
-            exit 1
-          fi
-
   goreleaser-build-publish-chainlink:
-    needs: [validate-git-ref]
     runs-on:
       labels: ubuntu22.04-16cores-64GB
-    environment: build-develop
     permissions:
       id-token: write
       contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          ref: ${{ env.GIT_REF }}
+
+      - name: Get image tag
+        id: get-image-tag
+        run: |
+          short_sha=$(git rev-parse --short HEAD)
+          if [[ ${{ github.event }} == 'pull_request' ]]; then
+            if [[ ${{ github.head_ref }} == 'release/'* ]]; then
+              echo "image-tag=release-${short_sha}" >> $GITHUB_OUTPUT
+            else
+              echo "image-tag=pr-${{ github.event.number }}-${short_sha}" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "image-tag=develop-${short_sha}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
           role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
           mask-aws-account-id: true
@@ -61,6 +47,7 @@ jobs:
           enable-docker-publish: "true"
           docker-registry: ${{ secrets.AWS_DEVELOP_ECR_HOSTNAME }}
           docker-image-name: chainlink
+          docker-image-tag: ${{ steps.get-image-tag.outputs.image-tag }}
           enable-goreleaser-snapshot: "true"
           goreleaser-exec: ./tools/bin/goreleaser_wrapper
           goreleaser-config: .goreleaser.develop.yaml

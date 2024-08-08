@@ -31,7 +31,7 @@ inputs:
     required: false
   docker-image-name:
     description: The docker image name
-    default: chainlink-develop
+    default: chainlink
     required: false
   docker-image-tag:
     description: The docker image tag
