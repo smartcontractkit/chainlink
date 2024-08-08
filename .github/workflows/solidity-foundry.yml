@@ -3,8 +3,6 @@ on: [pull_request]
 
 env:
   FOUNDRY_PROFILE: ci
-  # Has to match the `make foundry` version in `contracts/GNUmakefile`
-  FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
 
 # Making changes:
 # * use the top-level matrix to decide, which checks should run for each product.
@@ -16,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
+      foundry-version: ${{ steps.extract-foundry-version.outputs.foundry-version }}
     steps:
       - name: Define test matrix
         id: define-matrix
@@ -40,7 +39,13 @@ jobs:
           matrix=$(cat matrix.json | jq -c .)
           echo "matrix=$matrix" >> $GITHUB_OUTPUT
 
-#              - '.github/workflows/solidity-foundry.yml'
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Extract Foundry version
+        uses: ./.github/actions/detect-solidity-foundry-version
+        with:
+          working-directory: contracts
 
   changes:
     name: Detect changes
@@ -132,7 +137,7 @@ jobs:
           || needs.changes.outputs.non_src_changes == 'true' }}
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
-          version: ${{ env.FOUNDRY_VERSION }}
+          version: ${{ needs.define-matrix.outputs.foundry-version }}
 
       - name: Run Forge build
         if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
@@ -224,7 +229,7 @@ jobs:
         continue-on-error: true
 
   analyze:
-    needs: [ changes ]
+    needs: [ changes, define-matrix ]
     name: Run static analysis
     if: needs.changes.outputs.not_test_sol_modified == 'true'
     runs-on: ubuntu-22.04
@@ -240,7 +245,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
-          version: ${{ env.FOUNDRY_VERSION }}
+          version: ${{ needs.define-matrix.outputs.foundry-version }}
 
       - name: Set up Python
         uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f #v5.1.1
@@ -338,7 +343,7 @@ jobs:
         if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
-          version: ${{ env.FOUNDRY_VERSION }}
+          version: ${{ needs.define-matrix.outputs.foundry-version }}
 
       - name: Run Forge fmt
         if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
