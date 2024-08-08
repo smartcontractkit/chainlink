@@ -213,6 +213,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), opts.DS, globalLogger)
 			signer := externalPeer
 			externalPeerWrapper = externalPeer
+			srvcs = append(srvcs, externalPeerWrapper) // peer wrapper must be started before dispatcher
 			remoteDispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
 			srvcs = append(srvcs, remoteDispatcher)
 
