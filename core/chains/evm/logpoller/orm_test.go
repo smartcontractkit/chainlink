@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 
@@ -642,7 +643,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(lgs))
 
-	blockRangeFilter := func(start, end uint64, topicIdx uint64, topicValues []uint64) query.KeyFilter {
+	blockRangeFilter := func(start, end string, topicIdx uint64, topicValues []uint64) query.KeyFilter {
 		return query.KeyFilter{
 			Expressions: []query.Expression{
 				logpoller.NewAddressFilter(addr),
@@ -658,7 +659,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lgs))
 
-	lgs, err = o1.FilteredLogs(ctx, blockRangeFilter(1, 1, 1, []uint64{1}), limiter, "")
+	lgs, err = o1.FilteredLogs(ctx, blockRangeFilter("1", "1", 1, []uint64{1}), limiter, "")
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lgs))
 
@@ -666,7 +667,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lgs))
 
-	lgs, err = o1.FilteredLogs(ctx, blockRangeFilter(1, 2, 1, []uint64{2}), limiter, "")
+	lgs, err = o1.FilteredLogs(ctx, blockRangeFilter("1", "2", 1, []uint64{2}), limiter, "")
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lgs))
 
@@ -674,7 +675,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lgs))
 
-	lgs, err = o1.FilteredLogs(ctx, blockRangeFilter(1, 2, 1, []uint64{1}), limiter, "")
+	lgs, err = o1.FilteredLogs(ctx, blockRangeFilter("1", "2", 1, []uint64{1}), limiter, "")
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(lgs))
 
@@ -682,7 +683,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid index for topic: 0")
 
-	_, err = o1.FilteredLogs(ctx, blockRangeFilter(1, 2, 0, []uint64{1}), limiter, "")
+	_, err = o1.FilteredLogs(ctx, blockRangeFilter("1", "2", 0, []uint64{1}), limiter, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid index for topic: 0")
 
@@ -690,7 +691,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid index for topic: 4")
 
-	_, err = o1.FilteredLogs(ctx, blockRangeFilter(1, 2, 4, []uint64{1}), limiter, "")
+	_, err = o1.FilteredLogs(ctx, blockRangeFilter("1", "2", 4, []uint64{1}), limiter, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid index for topic: 4")
 
@@ -1042,7 +1043,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 	}
 	require.NoError(t, o1.InsertLogs(ctx, inputLogs))
 
-	filter := func(sigs []common.Hash, startBlock, endBlock int64) query.KeyFilter {
+	filter := func(sigs []common.Hash, startBlock, endBlock string) query.KeyFilter {
 		filters := []query.Expression{
 			logpoller.NewAddressFilter(sourceAddr),
 		}
@@ -1064,8 +1065,8 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 		filters = append(filters, query.Expression{
 			BoolExpression: query.BoolExpression{
 				Expressions: []query.Expression{
-					query.Block(uint64(startBlock), primitives.Gte),
-					query.Block(uint64(endBlock), primitives.Lte),
+					query.Block(startBlock, primitives.Gte),
+					query.Block(endBlock, primitives.Lte),
 				},
 				BoolOperator: query.AND,
 			},
@@ -1097,8 +1098,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 	})
 
 	assertion(t, logs, err, startBlock, endBlock)
-
-	logs, err = th.ORM.FilteredLogs(ctx, filter([]common.Hash{topic, topic2}, startBlock, endBlock), limiter, "")
+	logs, err = th.ORM.FilteredLogs(ctx, filter([]common.Hash{topic, topic2}, strconv.Itoa(int(startBlock)), strconv.Itoa(int(endBlock))), limiter, "")
 
 	assertion(t, logs, err, startBlock, endBlock)
 }
@@ -1160,7 +1160,7 @@ func TestLogPoller_Logs(t *testing.T) {
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000005", lgs[4].BlockHash.String())
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000005", lgs[5].BlockHash.String())
 
-	logFilter := func(start, end uint64, address common.Address) query.KeyFilter {
+	logFilter := func(start, end string, address common.Address) query.KeyFilter {
 		return query.KeyFilter{
 			Expressions: []query.Expression{
 				logpoller.NewAddressFilter(address),
@@ -1181,7 +1181,7 @@ func TestLogPoller_Logs(t *testing.T) {
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000005", lgs[1].BlockHash.String())
 	assert.Equal(t, address1, lgs[1].Address)
 
-	lgs, err = th.ORM.FilteredLogs(ctx, logFilter(1, 3, address1), query.LimitAndSort{
+	lgs, err = th.ORM.FilteredLogs(ctx, logFilter("1", "3", address1), query.LimitAndSort{
 		SortBy: []query.SortBy{query.NewSortBySequence(query.Asc)},
 	}, "")
 	require.NoError(t, err)
@@ -1201,7 +1201,7 @@ func TestLogPoller_Logs(t *testing.T) {
 	assert.Equal(t, address2, lgs[0].Address)
 	assert.Equal(t, event1.Bytes(), lgs[0].Topics[0])
 
-	lgs, err = th.ORM.FilteredLogs(ctx, logFilter(2, 2, address2), query.LimitAndSort{
+	lgs, err = th.ORM.FilteredLogs(ctx, logFilter("2", "2", address2), query.LimitAndSort{
 		SortBy: []query.SortBy{query.NewSortBySequence(query.Asc)},
 	}, "")
 	require.NoError(t, err)
