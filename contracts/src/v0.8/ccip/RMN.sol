@@ -32,7 +32,7 @@ contract RMN is IRMN, OwnerIsCreator, ITypeAndVersion {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   // STATIC CONFIG
-  string public constant override typeAndVersion = "RMN 1.5.0-dev";
+  string public constant override typeAndVersion = "RMN 1.5.0";
 
   uint256 private constant MAX_NUM_VOTERS = 16;
 
