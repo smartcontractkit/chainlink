@@ -5,14 +5,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/urfave/cli"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
-type deleteWorkflows struct {
-}
+type deleteWorkflows struct{}
 
 func NewDeleteWorkflowsCommand() *deleteWorkflows {
 	return &deleteWorkflows{}
@@ -23,7 +23,20 @@ func (g *deleteWorkflows) Name() string {
 }
 
 func (g *deleteWorkflows) Run(args []string) {
-	nodes := downloadNodeAPICredentialsDefault()
+	fs := flag.NewFlagSet(g.Name(), flag.ExitOnError)
+	nodeList := fs.String("nodes", "", "Custom node list location")
+
+	err := fs.Parse(args)
+	if err != nil {
+		fs.Usage()
+		os.Exit(1)
+	}
+
+	if *nodeList == "" {
+		*nodeList = defaultNodeList
+	}
+
+	nodes := downloadNodeAPICredentials(*nodeList)
 
 	for _, node := range nodes {
 		output := &bytes.Buffer{}

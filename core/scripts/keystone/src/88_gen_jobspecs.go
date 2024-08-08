@@ -34,7 +34,7 @@ func genSpecs(
 	ocrConfigContractAddress string,
 ) donHostSpec {
 	nodes := downloadNodeAPICredentials(nodeListPath)
-	nca := downloadNodePubKeys(chainID, pubkeysPath)
+	nca := downloadNodePubKeys(nodeListPath, chainID, pubkeysPath)
 	bootstrapNode := nca[0]
 
 	bootstrapSpecLines, err := readLines(filepath.Join(templatesDir, bootstrapSpecTemplate))

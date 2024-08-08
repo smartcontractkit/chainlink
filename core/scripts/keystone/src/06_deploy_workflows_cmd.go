@@ -12,8 +12,7 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
-type deployWorkflows struct {
-}
+type deployWorkflows struct{}
 
 func NewDeployWorkflowsCommand() *deployWorkflows {
 	return &deployWorkflows{}
@@ -26,15 +25,19 @@ func (g *deployWorkflows) Name() string {
 func (g *deployWorkflows) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
 	workflowFile := fs.String("workflow", "workflow.yml", "path to workflow file")
+	nodeList := fs.String("nodes", "", "Custom node list location")
 	err := fs.Parse(args)
 	if err != nil || workflowFile == nil || *workflowFile == "" {
 		fs.Usage()
 		os.Exit(1)
 	}
+	if *nodeList == "" {
+		*nodeList = defaultNodeList
+	}
 	fmt.Println("Deploying workflows")
 
 	// use a separate list
-	nodes := downloadNodeAPICredentialsDefault()
+	nodes := downloadNodeAPICredentials(*nodeList)
 
 	if _, err = os.Stat(*workflowFile); err != nil {
 		PanicErr(errors.New("toml file does not exist"))
