@@ -2,6 +2,7 @@ package evm_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -146,14 +147,53 @@ func TestEvmWrite(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	reportMetadata := targets.ReportV1Metadata{
+		Version:             1,
+		WorkflowExecutionID: [32]byte{},
+		Timestamp:           0,
+		DonID:               0,
+		DonConfigVersion:    0,
+		WorkflowCID:         [32]byte{},
+		WorkflowName:        [10]byte{},
+		WorkflowOwner:       [20]byte{},
+		ReportID:            [2]byte{},
+	}
+
+	reportMetadataBytes, err := reportMetadata.Encode()
+	require.NoError(t, err)
+
+	signatures := [][]byte{}
+
+	validInputs, err := values.NewMap(map[string]any{
+		"signed_report": map[string]any{
+			"report":     reportMetadataBytes,
+			"signatures": signatures,
+			"context":    []byte{4, 5},
+			"id":         []byte{9, 9},
+		},
+	})
+	require.NoError(t, err)
+
+	validMetadata := capabilities.RequestMetadata{
+		WorkflowID:          hex.EncodeToString(reportMetadata.WorkflowCID[:]),
+		WorkflowOwner:       hex.EncodeToString(reportMetadata.WorkflowOwner[:]),
+		WorkflowName:        hex.EncodeToString(reportMetadata.WorkflowName[:]),
+		WorkflowExecutionID: hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]),
+	}
+
+	validConfig, err := values.NewMap(map[string]any{
+		"Address": evmCfg.EVM().Workflow().ForwarderAddress().String(),
+	})
+	require.NoError(t, err)
+
 	txManager.On("CreateTransaction", mock.Anything, mock.Anything).Return(txmgr.Tx{}, nil).Run(func(args mock.Arguments) {
 		req := args.Get(1).(txmgr.TxRequest)
 		payload := make(map[string]any)
 		method := forwardABI.Methods["report"]
 		err = method.Inputs.UnpackIntoMap(payload, req.EncodedPayload[4:])
 		require.NoError(t, err)
-		require.Equal(t, []byte{0x1, 0x2, 0x3}, payload["rawReport"])
-		require.Equal(t, [][]byte{}, payload["signatures"])
+		require.Equal(t, reportMetadataBytes, payload["rawReport"])
+		require.Equal(t, signatures, payload["signatures"])
 	}).Once()
 
 	t.Run("succeeds with valid report", func(t *testing.T) {
@@ -161,59 +201,10 @@ func TestEvmWrite(t *testing.T) {
 		capability, err := evm.NewWriteTarget(ctx, relayer, chain, lggr)
 		require.NoError(t, err)
 
-		config, err := values.NewMap(map[string]any{
-			"Address": evmCfg.EVM().Workflow().ForwarderAddress().String(),
-		})
-		require.NoError(t, err)
-
-		inputs, err := values.NewMap(map[string]any{
-			"signed_report": map[string]any{
-				"report":     []byte{1, 2, 3},
-				"signatures": [][]byte{},
-				"context":    []byte{4, 5},
-				"id":         []byte{9, 9},
-			},
-		})
-		require.NoError(t, err)
-
 		req := capabilities.CapabilityRequest{
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
-			},
-			Config: config,
-			Inputs: inputs,
-		}
-
-		ch, err := capability.Execute(ctx, req)
-		require.NoError(t, err)
-
-		response := <-ch
-		require.Nil(t, response.Err)
-	})
-
-	t.Run("succeeds with empty report", func(t *testing.T) {
-		ctx := testutils.Context(t)
-		capability, err := evm.NewWriteTarget(ctx, relayer, chain, logger.TestLogger(t))
-		require.NoError(t, err)
-
-		config, err := values.NewMap(map[string]any{
-			"Address": evmCfg.EVM().Workflow().ForwarderAddress().String(),
-		})
-		require.NoError(t, err)
-
-		inputs, err := values.NewMap(map[string]any{
-			"signed_report": map[string]any{
-				"report": nil,
-			},
-		})
-		require.NoError(t, err)
-
-		req := capabilities.CapabilityRequest{
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
-			},
-			Config: config,
-			Inputs: inputs,
+			Metadata: validMetadata,
+			Config:   validConfig,
+			Inputs:   validInputs,
 		}
 
 		ch, err := capability.Execute(ctx, req)
@@ -233,19 +224,10 @@ func TestEvmWrite(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		inputs, err := values.NewMap(map[string]any{
-			"signed_report": map[string]any{
-				"report": nil,
-			},
-		})
-		require.NoError(t, err)
-
 		req := capabilities.CapabilityRequest{
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
-			},
-			Config: invalidConfig,
-			Inputs: inputs,
+			Metadata: validMetadata,
+			Config:   invalidConfig,
+			Inputs:   validInputs,
 		}
 
 		_, err = capability.Execute(ctx, req)
@@ -257,27 +239,10 @@ func TestEvmWrite(t *testing.T) {
 		capability, err := evm.NewWriteTarget(ctx, relayer, chain, logger.TestLogger(t))
 		require.NoError(t, err)
 
-		config, err := values.NewMap(map[string]any{
-			"Address": evmCfg.EVM().Workflow().ForwarderAddress().String(),
-		})
-		require.NoError(t, err)
-
-		inputs, err := values.NewMap(map[string]any{
-			"signed_report": map[string]any{
-				"report":     []byte{1, 2, 3},
-				"signatures": [][]byte{},
-				"context":    []byte{4, 5},
-				"id":         []byte{9, 9},
-			},
-		})
-		require.NoError(t, err)
-
 		req := capabilities.CapabilityRequest{
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
-			},
-			Config: config,
-			Inputs: inputs,
+			Metadata: validMetadata,
+			Config:   validConfig,
+			Inputs:   validInputs,
 		}
 
 		txManager.On("CreateTransaction", mock.Anything, mock.Anything).Return(txmgr.Tx{}, errors.New("TXM error"))
