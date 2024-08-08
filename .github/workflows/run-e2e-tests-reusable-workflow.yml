@@ -55,10 +55,6 @@ on:
         description: 'Name of the slack notification'
         required: false
         type: string
-      slack_notification_after_tests_recipient_handle:
-        description: 'Slack handle of the person or group to notify'
-        required: false
-        type: string
       test_log_upload_on_failure:
         description: 'Set to "true" to upload the test log on failure as Github artifact'
         required: false
@@ -654,7 +650,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "${{ inputs.slack_notification_after_tests_name }} - ${{ steps.combine_results.outputs.result == 'failure' && 'Failed :x:' || steps.combine_results.outputs.result == 'cancelled' && 'Cancelled :warning:' || 'Passed :white_check_mark:' }}${{ inputs.slack_notification_after_tests_recipient_handle != '' && format('\nNotifying {0}', inputs.slack_notification_after_tests_recipient_handle) }}"
+                    "text": "${{ inputs.slack_notification_after_tests_name }} - ${{ steps.combine_results.outputs.result == 'failure' && 'Failed :x:' || steps.combine_results.outputs.result == 'cancelled' && 'Cancelled :warning:' || 'Passed :white_check_mark:' }}"
                   }
                 },
                 {

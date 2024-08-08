@@ -15,12 +15,12 @@ on:
       test_secrets_override_key:
         description: 'Enter the secret key to override test secrets'
         required: false
-        type: string
-      # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392
+        type: string 
+      # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
       # test_config_override_base64:
       #   required: false
       #   description: The base64-encoded test config override
-      #   type: string
+      #   type: string        
       enable_check_test_configurations:
         description: 'Set to "true" to enable check-test-configurations job'
         required: false
@@ -29,16 +29,14 @@ on:
       with_existing_remote_runner_version:
         description: 'Use the existing remote runner version for k8s tests. Example: "d3bf5044af33e08be788a2df31c4a745cf69d787"'
         required: false
-        type: string
+        type: string         
       workflow_run_name:
         description: 'Enter the name of the workflow run'
         default: 'Run E2E Tests'
         required: false
         type: string
-
+        
 run-name: ${{ inputs.workflow_run_name }}
-env:
-  SLACK_HANDLE: ${{ secrets.GUARDIAN_SLACK_NOTIFICATION_HANDLE }}
 
 jobs:
   call-run-e2e-tests-workflow:
@@ -47,15 +45,11 @@ jobs:
     with:
       chainlink_version: ${{ github.event.inputs.chainlink_version }}
       test_ids: ${{ github.event.inputs.test_ids }}
-      # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392
+      # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
       # test_config_override_base64: ${{ github.event.inputs.test_config_override_base64 }}
       with_existing_remote_runner_version: ${{ github.event.inputs.with_existing_remote_runner_version }}
       # Use fromJSON to convert string to boolean. More info: https://github.com/actions/runner/issues/2206#issuecomment-1532246677
       enable_check_test_configurations: ${{ fromJSON(github.event.inputs.enable_check_test_configurations) }}
-      slack_notification_after_tests: true
-      slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
-      slack_notification_after_tests_name: "Selected E2E Tests"
-      slack_notification_after_tests_recipient_handle: ${{ format('<!subteam^{0}|{0}>', env.SLACK_HANDLE) }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -67,7 +61,7 @@ jobs:
       GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
       AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
