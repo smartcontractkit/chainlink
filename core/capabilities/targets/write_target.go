@@ -102,63 +102,13 @@ func (rm ReportV1Metadata) Length() int {
 	return len(bytes)
 }
 
-func decodeReportMetadata(reportPayload []byte) (ReportV1Metadata, error) {
-	var metadata ReportV1Metadata
-
-	if len(reportPayload) < metadata.Length() {
-		return metadata, fmt.Errorf("reportPayload too short: %d bytes", len(reportPayload))
+func decodeReportMetadata(data []byte) (metadata ReportV1Metadata, err error) {
+	if len(data) < metadata.Length() {
+		return metadata, fmt.Errorf("data too short: %d bytes", len(data))
 	}
-
-	reportPayload = reportPayload[:metadata.Length()]
-
-	buffer := bytes.NewReader(reportPayload)
-
-	// Reading Version (1 byte)
-	if err := binary.Read(buffer, binary.BigEndian, &metadata.Version); err != nil {
-		return metadata, err
-	}
-
-	// Reading WorkflowExecutionID (32 bytes)
-	if err := binary.Read(buffer, binary.BigEndian, &metadata.WorkflowExecutionID); err != nil {
-		return metadata, err
-	}
-
-	// Reading Timestamp (4 bytes)
-	if err := binary.Read(buffer, binary.BigEndian, &metadata.Timestamp); err != nil {
-		return metadata, err
-	}
-
-	// Reading DonID (4 bytes)
-	if err := binary.Read(buffer, binary.BigEndian, &metadata.DonID); err != nil {
-		return metadata, err
-	}
-
-	// Reading DonConfigVersion (4 bytes)
-	if err := binary.Read(buffer, binary.BigEndian, &metadata.DonConfigVersion); err != nil {
-		return metadata, err
-	}
-
-	// Reading WorkflowCID (32 bytes)
-	if err := binary.Read(buffer, binary.BigEndian, &metadata.WorkflowCID); err != nil {
-		return metadata, err
-	}
-
-	// Reading WorkflowName (10 bytes)
-	if err := binary.Read(buffer, binary.BigEndian, &metadata.WorkflowName); err != nil {
-		return metadata, err
-	}
-
-	// Reading WorkflowOwner (20 bytes)
-	if err := binary.Read(buffer, binary.BigEndian, &metadata.WorkflowOwner); err != nil {
-		return metadata, err
-	}
-
-	// Reading ReportID (2 bytes)
-	if err := binary.Read(buffer, binary.BigEndian, &metadata.ReportID); err != nil {
-		return metadata, err
-	}
-
-	return metadata, nil
+	data = data[:metadata.Length()]
+	buffer := bytes.NewReader(data)
+	return metadata, binary.Read(buffer, binary.BigEndian, &metadata)
 }
 
 type Config struct {
