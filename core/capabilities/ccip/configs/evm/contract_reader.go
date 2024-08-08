@@ -183,6 +183,17 @@ func SourceReaderConfig() evmrelaytypes.ChainReaderConfig {
 	}
 }
 
+// HomeChainReaderConfig returns a ChainReaderConfig that can be used to read from the home chain.
+func HomeChainReaderConfig() []byte {
+	rawConfig := HomeChainReaderConfigRaw()
+	encoded, err := json.Marshal(rawConfig)
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal ChainReaderConfig into JSON: %w", err))
+	}
+
+	return encoded
+}
+
 // HomeChainReaderConfigRaw returns a ChainReaderConfig that can be used to read from the home chain.
 func HomeChainReaderConfigRaw() evmrelaytypes.ChainReaderConfig {
 	return evmrelaytypes.ChainReaderConfig{

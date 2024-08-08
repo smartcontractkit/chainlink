@@ -3,12 +3,14 @@ package oraclecreator
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -25,6 +27,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
@@ -32,15 +35,12 @@ import (
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 )
@@ -56,7 +56,7 @@ const (
 type inprocessOracleCreator struct {
 	ocrKeyBundles         map[string]ocr2key.KeyBundle
 	transmitters          map[types.RelayID][]string
-	chains                legacyevm.LegacyChainContainer
+	relayers              map[types.RelayID]loop.Relayer
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	externalJobID         uuid.UUID
 	jobID                 int32
@@ -72,7 +72,7 @@ type inprocessOracleCreator struct {
 func New(
 	ocrKeyBundles map[string]ocr2key.KeyBundle,
 	transmitters map[types.RelayID][]string,
-	chains legacyevm.LegacyChainContainer,
+	relayers map[types.RelayID]loop.Relayer,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	externalJobID uuid.UUID,
 	jobID int32,
@@ -87,7 +87,7 @@ func New(
 	return &inprocessOracleCreator{
 		ocrKeyBundles:         ocrKeyBundles,
 		transmitters:          transmitters,
-		chains:                chains,
+		relayers:              relayers,
 		peerWrapper:           peerWrapper,
 		externalJobID:         externalJobID,
 		jobID:                 jobID,
@@ -174,30 +174,21 @@ func (i *inprocessOracleCreator) CreatePluginOracle(pluginType cctypes.PluginTyp
 	// this is so that we can use the msg hasher and report encoder from that dest chain relayer's provider.
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
 	chainWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
-	for _, chain := range i.chains.Slice() {
-		var chainReaderConfig evmrelaytypes.ChainReaderConfig
-		if chain.ID().Uint64() == destChainID {
-			chainReaderConfig = evmconfig.DestReaderConfig()
+	for relayID, relayer := range i.relayers {
+		var chainReaderConfig []byte
+		if relayID == destRelayID {
+			chainReaderConfig = evmconfig.MustDestReaderConfig()
 		} else {
-			chainReaderConfig = evmconfig.SourceReaderConfig()
+			chainReaderConfig = evmconfig.MustSourceReaderConfig()
 		}
-		cr, err2 := evm.NewChainReaderService(
-			context.Background(),
-			i.lggr.
-				Named("EVMChainReaderService").
-				Named(chain.ID().String()).
-				Named(pluginType.String()),
-			chain.LogPoller(),
-			chain.HeadTracker(),
-			chain.Client(),
-			chainReaderConfig,
-		)
+		cr, err2 := relayer.NewContractReader(context.Background(), chainReaderConfig)
 		if err2 != nil {
-			return nil, fmt.Errorf("failed to create contract reader for chain %s: %w", chain.ID(), err2)
+			return nil, fmt.Errorf("failed to create contract reader for chain %s: %w", relayID.String(), err2)
 		}
 
-		if chain.ID().Uint64() == destChainID {
+		if relayID == destRelayID {
 			// bind the chain reader to the dest chain's offramp.
+			// TODO: this is a chain specific address (EVM), how to make it chain agnostic?
 			offrampAddressHex := common.BytesToAddress(config.Config.OfframpAddress).Hex()
 			err3 := cr.Bind(context.Background(), []types.BoundContract{
 				{
@@ -206,7 +197,7 @@ func (i *inprocessOracleCreator) CreatePluginOracle(pluginType cctypes.PluginTyp
 				},
 			})
 			if err3 != nil {
-				return nil, fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", chain.ID(), offrampAddressHex, err3)
+				return nil, fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", relayID.String(), offrampAddressHex, err3)
 			}
 		}
 
@@ -214,44 +205,42 @@ func (i *inprocessOracleCreator) CreatePluginOracle(pluginType cctypes.PluginTyp
 		// maybe from the plugin directly?
 		err2 = cr.Start(context.Background())
 		if err2 != nil {
-			return nil, fmt.Errorf("failed to start contract reader for chain %s: %w", chain.ID(), err2)
+			return nil, fmt.Errorf("failed to start contract reader for chain %s: %w", relayID.String(), err2)
 		}
 
 		// Even though we only write to the dest chain, we need to create chain writers for all chains
 		// we know about in order to post gas prices on the dest.
 		var fromAddress common.Address
-		transmitter, ok := i.transmitters[types.NewRelayID(relay.NetworkEVM, chain.ID().String())]
+		transmitter, ok := i.transmitters[relayID]
 		if ok {
 			fromAddress = common.HexToAddress(transmitter[0])
 		}
-		cw, err2 := evm.NewChainWriterService(
-			i.lggr.Named("EVMChainWriterService").
-				Named(chain.ID().String()).
-				Named(pluginType.String()),
-			chain.Client(),
-			chain.TxManager(),
-			chain.GasEstimator(),
-			evmconfig.ChainWriterConfigRaw(
+		cw, err2 := relayer.NewChainWriter(context.Background(),
+			evmconfig.MustChainWriterConfig(
 				fromAddress,
-				chain.Config().EVM().GasEstimator().PriceMaxKey(fromAddress),
+				assets.GWei(1000), // TODO: how to get the correct max gas price?
 				defaultCommitGasLimit,
 				execBatchGasLimit,
-			),
-		)
+			))
 		if err2 != nil {
-			return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", chain.ID(), err2)
+			return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", relayID.String(), err2)
 		}
 
 		// TODO: figure out shutdown.
 		// maybe from the plugin directly?
 		err2 = cw.Start(context.Background())
 		if err2 != nil {
-			return nil, fmt.Errorf("failed to start chain writer for chain %s: %w", chain.ID(), err2)
+			return nil, fmt.Errorf("failed to start chain writer for chain %s: %w", relayID.String(), err2)
 		}
 
-		chainSelector, ok := chainsel.EvmChainIdToChainSelector()[chain.ID().Uint64()]
+		// TODO: this is evm specific, make it chain agnostic.
+		chainIDU64, err2 := strconv.ParseUint(relayID.String(), 10, 64)
+		if err2 != nil {
+			return nil, fmt.Errorf("failed to parse chain ID %s: %w", relayID.String(), err2)
+		}
+		chainSelector, ok := chainsel.EvmChainIdToChainSelector()[chainIDU64]
 		if !ok {
-			return nil, fmt.Errorf("failed to get chain selector from chain ID %s", chain.ID())
+			return nil, fmt.Errorf("failed to get chain selector from chain ID %s", relayID.String())
 		}
 
 		contractReaders[cciptypes.ChainSelector(chainSelector)] = cr
