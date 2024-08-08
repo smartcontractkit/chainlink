@@ -156,7 +156,7 @@ func NewCommitServices(ctx context.Context, ds sqlutil.DataSource, srcProvider c
 		onRampAddress,
 	)
 
-	orm, err := cciporm.NewORM(ds)
+	orm, err := cciporm.NewObservedORM(ds, lggr)
 	if err != nil {
 		return nil, err
 	}
