@@ -2,8 +2,6 @@ package test_env
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/testsummary"
-	"github.com/smartcontractkit/seth"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,8 +11,9 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
@@ -23,10 +22,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/testsummary"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 type CleanUpType string
