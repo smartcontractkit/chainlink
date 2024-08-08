@@ -47,7 +47,7 @@ func Test_TelemetryReporter_NewHead(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	monitoringEndpoint := mocks2.NewMockMonitoringEndpoint(t)
+	monitoringEndpoint := mocks2.NewMonitoringEndpoint(t)
 	monitoringEndpoint.On("SendLog", requestBytes).Return()
 
 	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)
@@ -77,7 +77,7 @@ func Test_TelemetryReporter_NewHeadMissingFinalized(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	monitoringEndpoint := mocks2.NewMockMonitoringEndpoint(t)
+	monitoringEndpoint := mocks2.NewMonitoringEndpoint(t)
 	monitoringEndpoint.On("SendLog", requestBytes).Return()
 
 	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)
