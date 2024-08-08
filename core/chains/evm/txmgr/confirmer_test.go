@@ -2999,6 +2999,8 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		receipt := mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr.ID, etx.ID)
+		err = txStore.UpdateTxStatesToFinalizedUsingReceiptIds(tests.Context(t), []int64{receipt.ID}, testutils.FixtureChainID)
+		require.NoError(t, err)
 
 		done := make(chan struct{})
 		t.Cleanup(func() { <-done })

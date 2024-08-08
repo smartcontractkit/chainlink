@@ -133,6 +133,7 @@ type dbReceiptPlus struct {
 	ID           uuid.UUID        `db:"pipeline_task_run_id"`
 	Receipt      evmtypes.Receipt `db:"receipt"`
 	FailOnRevert bool             `db:"FailOnRevert"`
+	State        string           `db:"state"`
 }
 
 func fromDBReceipts(rs []DbReceipt) []*evmtypes.Receipt {
@@ -1023,11 +1024,11 @@ func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, chainID *big.I
 	defer cancel()
 
 	err = o.q.SelectContext(ctx, &rs, `
-	SELECT evm.txes.pipeline_task_run_id, evm.receipts.receipt, COALESCE((evm.txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM evm.txes
+	SELECT evm.txes.state, evm.txes.pipeline_task_run_id, evm.receipts.receipt, COALESCE((evm.txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM evm.txes
 	INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
 	INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
 	WHERE evm.txes.pipeline_task_run_id IS NOT NULL AND evm.txes.signal_callback = TRUE AND evm.txes.callback_completed = FALSE
-	AND evm.txes.state = 'finalized' AND evm.txes.evm_chain_id = $1
+    AND evm.txes.evm_chain_id = $1
 	`, chainID.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve transactions pending pipeline resume callback: %w", err)
@@ -1094,7 +1095,7 @@ func (o *evmTxStore) FindTxWithSequence(ctx context.Context, fromAddress common.
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
 		var dbEtx DbEthTx
 		err = orm.q.GetContext(ctx, &dbEtx, `
-SELECT * FROM evm.txes WHERE from_address = $1 AND nonce = $2 AND state IN ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
+SELECT * FROM evm.txes WHERE from_address = $1 AND nonce = $2 AND state IN ('confirmed', 'confirmed_missing_receipt', 'unconfirmed', 'finalized')
 `, fromAddress, nonce.Int64())
 		if err != nil {
 			return pkgerrors.Wrap(err, "FindEthTxWithNonce failed to load evm.txes")
