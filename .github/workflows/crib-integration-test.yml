@@ -17,7 +17,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
-      - uses: cachix/install-nix-action@v18
+      - uses: cachix/install-nix-action@v18 # v18
         with:
           nix_path: nixpkgs=channel:nixos-unstable
 
@@ -59,7 +59,7 @@ jobs:
 
       - name: Setup GitHub token using GATI
         id: token
-        uses: smartcontractkit/.github/actions/setup-github-token@main
+        uses: smartcontractkit/.github/actions/setup-github-token@main # main
         with:
           aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
@@ -97,8 +97,8 @@ jobs:
           CRIB_NETWORK: geth
           CRIB_NODES: 5
           GAP_URL: ${{ secrets.GAP_URL }}
-          SETH_LOG_LEVEL: debug
-          RESTY_DEBUG: true
+#          SETH_LOG_LEVEL: debug
+#          RESTY_DEBUG: true
 #          TEST_PERSISTENCE: true
         run: |-
           go test -v -run TestCRIB
