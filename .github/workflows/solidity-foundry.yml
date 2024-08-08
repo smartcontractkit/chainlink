@@ -43,6 +43,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
       - name: Extract Foundry version
+        id: extract-foundry-version
         uses: ./.github/actions/detect-solidity-foundry-version
         with:
           working-directory: contracts
