@@ -21,14 +21,14 @@ jobs:
         id: get-image-tag
         run: |
           short_sha=$(git rev-parse --short HEAD)
-          if [[ ${{ github.event }} == 'pull_request' ]]; then
+          if [[ ${{ github.event_name }} == 'push' ]]; then
+            echo "image-tag=develop-${short_sha}" >> $GITHUB_OUTPUT
+          else
             if [[ ${{ github.head_ref }} == 'release/'* ]]; then
               echo "image-tag=release-${short_sha}" >> $GITHUB_OUTPUT
             else
               echo "image-tag=pr-${{ github.event.number }}-${short_sha}" >> $GITHUB_OUTPUT
             fi
-          else
-            echo "image-tag=develop-${short_sha}" >> $GITHUB_OUTPUT
           fi
 
       - name: Configure aws credentials
