@@ -1,0 +1,47 @@
+name: CI Scripts
+
+on:
+  merge_group:
+  pull_request:
+
+jobs:
+  lint-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Golang Lint
+        uses: ./.github/actions/golangci-lint
+        with:
+          id: scripts
+          name: lint-scripts
+          go-directory: core/scripts
+          go-version-file: core/scripts/go.mod
+          go-module-file: core/scripts/go.sum
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+
+  test-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          go-version-file: core/scripts/go.mod
+          go-module-file: core/scripts/go.sum
+      - name: Run Tests
+        shell: bash
+        working-directory: core/scripts
+        run: go test ./...
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: ci-test-scripts
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: test-scripts
+        continue-on-error: true

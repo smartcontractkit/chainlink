@@ -1,0 +1,57 @@
+name: Dependency Vulnerability Check
+
+on:
+  push:
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.changes.outputs.src }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes
+        with:
+          filters: |
+            src:
+              - '**/*go.sum'
+              - '**/*go.mod'
+              - '.github/workflows/dependency-check.yml'
+  Go:
+    runs-on: ubuntu-latest
+    needs: [changes]
+    steps:
+      - name: Check out code
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Set up Go
+        if: needs.changes.outputs.src == 'true'
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          go-version-file: 'go.mod'
+        id: go
+
+      - name: Write Go Modules list
+        if: needs.changes.outputs.src == 'true'
+        run: go list -json -m all > go.list
+
+      - name: Check vulnerabilities
+        if: needs.changes.outputs.src == 'true'
+        uses: sonatype-nexus-community/nancy-github-action@726e338312e68ecdd4b4195765f174d3b3ce1533 # v1.0.3
+        with:
+          nancyVersion: "v1.0.39"
+
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: dependency-vulnerability-check
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Go
+        continue-on-error: true
