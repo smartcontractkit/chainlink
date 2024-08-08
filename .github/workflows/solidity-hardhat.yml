@@ -93,7 +93,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: [ changes ]
     outputs:
-      foundry_version: ${{ steps.extract-foundry-version.outputs.foundry_version }}
+      foundry_version: ${{ steps.extract-foundry-version.outputs.foundry-version }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -101,17 +101,10 @@ jobs:
           fetch-depth: 0
 
       - name: Extract Foundry version
+        uses: ./.github/actions/detect-solidity-foundry-version
         id: extract-foundry-version
-        shell: bash
-        working-directory: contracts
-        run: |
-          foundry_version=$(grep -Eo "foundryupZ --version [^ ]+" GNUmakefile | awk '{print $3}')
-          if [ -z "$foundry_version" ]; then
-            echo "Error: Foundry version not found in GNUmakefile"
-            exit 1
-          fi
-          echo "Foundry version found: $foundry_version"
-          echo "foundry_version=$foundry_version" >> $GITHUB_OUTPUT
+        with:
+          working-directory: contracts
 
       - name: Copy modified changesets
         if: ${{ needs.changes.outputs.changeset_changes == 'true' }}
