@@ -34,5 +34,5 @@ router: ../../../contracts/solc/v0.8.24/Router/Router.abi ../../../contracts/sol
 self_funded_ping_pong: ../../../contracts/solc/v0.8.24/SelfFundedPingPong/SelfFundedPingPong.abi ../../../contracts/solc/v0.8.24/SelfFundedPingPong/SelfFundedPingPong.bin 86e169636e5633854ed0b709c804066b615040bceba25aa5137450fbe6f76fa3
 token_admin_registry: ../../../contracts/solc/v0.8.24/TokenAdminRegistry/TokenAdminRegistry.abi ../../../contracts/solc/v0.8.24/TokenAdminRegistry/TokenAdminRegistry.bin 479ad5c02997f48f7029b937b1b3e053f731d8db44ecc45441cf7f37111a0c35
 token_pool: ../../../contracts/solc/v0.8.24/TokenPool/TokenPool.abi ../../../contracts/solc/v0.8.24/TokenPool/TokenPool.bin 7c01fd89f5153baa4d7409d14beabb3f861abfbf8880d3c6d06802cc398570f9
-usdc_token_pool: ../../../contracts/solc/v0.8.24/USDCTokenPool/USDCTokenPool.abi ../../../contracts/solc/v0.8.24/USDCTokenPool/USDCTokenPool.bin 4ca8b09185820ecfa89c4d87a38a66ccd8c3dadb82652782067a3827ec949aa1
+usdc_token_pool: ../../../contracts/solc/v0.8.24/USDCTokenPool/USDCTokenPool.abi ../../../contracts/solc/v0.8.24/USDCTokenPool/USDCTokenPool.bin 230d8f375087b236cf60a9cc7b8601f944586e9c1893514a64803a8d98727507
 weth9: ../../../contracts/solc/v0.8.24/WETH9/WETH9.abi ../../../contracts/solc/v0.8.24/WETH9/WETH9.bin 2970d79a0ca6dd6279cde130de45e56c8790ed695eae477fb5ba4c1bb75b720d
