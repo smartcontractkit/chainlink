@@ -41,17 +41,17 @@ func init() {
 	}
 	for _, fe := range fes {
 		path := filepath.Join("defaults", fe.Name())
-		b, err := defaultsFS.ReadFile(path)
-		if err != nil {
-			log.Fatalf("failed to read %q: %v", path, err)
+		b, err2 := defaultsFS.ReadFile(path)
+		if err2 != nil {
+			log.Fatalf("failed to read %q: %v", path, err2)
 		}
 		var config = struct {
 			ChainID *big.Big
 			Chain
 		}{}
 
-		if err := cconfig.DecodeTOML(bytes.NewReader(b), &config); err != nil {
-			log.Fatalf("failed to decode %q: %v", path, err)
+		if err3 := cconfig.DecodeTOML(bytes.NewReader(b), &config); err3 != nil {
+			log.Fatalf("failed to decode %q: %v", path, err3)
 		}
 		if fe.Name() == "fallback.toml" {
 			if config.ChainID != nil {
@@ -132,7 +132,6 @@ func init() {
 		}
 		customDefaults[id] = config.Chain
 	}
-
 }
 
 // DefaultsNamed returns the default Chain values, optionally for the given chainID, as well as a name if the chainID is known.
