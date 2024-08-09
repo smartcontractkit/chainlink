@@ -50,7 +50,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     uint32 sourceDomain;
   }
 
-  string public constant override typeAndVersion = "USDCTokenPool 1.4.0";
+  string public constant override typeAndVersion = "USDCTokenPool 1.5.0";
 
   // We restrict to the first version. New pool may be required for subsequent versions.
   uint32 public constant SUPPORTED_USDC_VERSION = 0;
