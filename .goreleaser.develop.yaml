@@ -131,6 +131,9 @@ checksum:
 snapshot:
   name_template: "{{ .Env.CHAINLINK_VERSION }}-{{ .ShortCommit }}"
 
+partial:
+  by: target
+
 changelog:
   sort: asc
   filters:
