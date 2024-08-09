@@ -311,7 +311,7 @@ func setupOffRampV1_5_0(t *testing.T, user *bind.TransactOpts, bc *client.Simula
 		Context: testutils.Context(t),
 	})
 	require.NoError(t, err)
-	require.Equal(t, "EVM2EVMOffRamp 1.5.0-dev", tav)
+	require.Equal(t, "EVM2EVMOffRamp 1.5.0", tav)
 	return offRampAddr
 }
 
@@ -353,7 +353,7 @@ func deployCommitStore(
 	}
 	tav, err := cs.TypeAndVersion(callOpts)
 	require.NoError(t, err)
-	require.Equal(t, "CommitStore 1.5.0-dev", tav)
+	require.Equal(t, "CommitStore 1.5.0", tav)
 	return csAddr
 }
 

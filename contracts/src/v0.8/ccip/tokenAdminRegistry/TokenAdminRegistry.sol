@@ -26,8 +26,6 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
   event PoolSet(address indexed token, address indexed previousPool, address indexed newPool);
   event AdministratorTransferRequested(address indexed token, address indexed currentAdmin, address indexed newAdmin);
   event AdministratorTransferred(address indexed token, address indexed newAdmin);
-  event DisableReRegistrationSet(address indexed token, bool disabled);
-  event RemovedAdministrator(address token);
   event RegistryModuleAdded(address module);
   event RegistryModuleRemoved(address indexed module);
 
@@ -39,7 +37,7 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
     address tokenPool; // the token pool for this token. Can be address(0) if not deployed or not configured.
   }
 
-  string public constant override typeAndVersion = "TokenAdminRegistry 1.5.0-dev";
+  string public constant override typeAndVersion = "TokenAdminRegistry 1.5.0";
 
   // Mapping of token address to token configuration
   mapping(address token => TokenConfig) internal s_tokenConfig;
