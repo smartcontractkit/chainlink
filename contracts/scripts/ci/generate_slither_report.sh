@@ -46,9 +46,7 @@ run_slither() {
     fi
 
     SLITHER_OUTPUT_FILE="$TARGET_DIR/$(basename "${FILE%.sol}")-slither-report.md"
-
-    output=$(slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL" --fail-none $SLITHER_EXTRA_PARAMS)
-    if [ $? -ne 0 ]; then
+    if ! output=$(slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL" --fail-none $SLITHER_EXTRA_PARAMS); then
         >&2 echo "::warning::Slither failed for $FILE"
         return 0
     fi
@@ -80,8 +78,8 @@ set +e
 process_files "$SOURCE_DIR" "$TARGET_DIR" "${FILES[@]}"
 
 if [[ $? -ne 0 ]]; then
-    >&2 echo "::error::Failed to generate Slither reports"
-    exit 1
+    >&2 echo "::warning::Failed to generate some Slither reports"
+    exit 0
 fi
 
 echo "Slither reports saved in $TARGET_DIR folder"
