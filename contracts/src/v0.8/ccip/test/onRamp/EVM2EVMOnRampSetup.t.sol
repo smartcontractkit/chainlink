@@ -65,7 +65,7 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
         minFeeUSDCents: 1_00, // 1 USD
         maxFeeUSDCents: 1000_00, // 1,000 USD
         deciBps: 2_5, // 2.5 bps, or 0.025%
-        destGasOverhead: 140_000,
+        destGasOverhead: 84_000,
         destBytesOverhead: uint32(Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES),
         aggregateRateLimitEnabled: true
       })
@@ -76,7 +76,7 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
         minFeeUSDCents: 2_00, // 1 USD
         maxFeeUSDCents: 500_00, // 500 USD
         deciBps: 10_0, // 10 bps, or 0.1%
-        destGasOverhead: 130_000,
+        destGasOverhead: 83_000,
         destBytesOverhead: 200,
         aggregateRateLimitEnabled: true
       })

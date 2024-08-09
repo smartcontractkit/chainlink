@@ -29,7 +29,7 @@ contract EVM2EVMOffRampHelper is EVM2EVMOffRamp, IgnoreContractSize {
   }
 
   function releaseOrMintTokens(
-    Client.EVMTokenAmount[] memory sourceTokenAmounts,
+    Client.EVMTokenAmount[] calldata sourceTokenAmounts,
     bytes calldata originalSender,
     address receiver,
     bytes[] calldata sourceTokenData,

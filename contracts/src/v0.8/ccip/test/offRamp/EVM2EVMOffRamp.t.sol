@@ -240,12 +240,7 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
     IERC20 dstToken0 = IERC20(s_destTokens[0]);
     uint256 startingBalance = dstToken0.balanceOf(message.receiver);
 
-    vm.expectCall(
-      address(dstToken0),
-      abi.encodeWithSelector(
-        IERC20.transferFrom.selector, s_destPoolByToken[address(dstToken0)], address(s_receiver), amounts[0]
-      )
-    );
+    vm.expectCall(address(dstToken0), abi.encodeWithSelector(IERC20.transfer.selector, address(s_receiver), amounts[0]));
 
     (Internal.MessageExecutionState newState, bytes memory err) =
       s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
@@ -1459,7 +1454,7 @@ contract EVM2EVMOffRamp__releaseOrMintToken is EVM2EVMOffRampSetup {
     uint256 amount = 123123;
     address token = s_sourceTokens[0];
     bytes memory originalSender = abi.encode(OWNER);
-    bytes memory offchainTokenData = abi.encode(keccak256("offchainTokenData"));
+    bytes memory offchainTokenData = "";
 
     IERC20 dstToken1 = IERC20(s_destTokenBySourceToken[token]);
     uint256 startingBalance = dstToken1.balanceOf(OWNER);
@@ -1493,13 +1488,107 @@ contract EVM2EVMOffRamp__releaseOrMintToken is EVM2EVMOffRampSetup {
     assertEq(startingBalance + amount, dstToken1.balanceOf(OWNER));
   }
 
+  function test_releaseOrMintToken_InvalidDataLength_Revert() public {
+    uint256 amount = 123123;
+    address token = s_sourceTokens[0];
+
+    Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
+      sourcePoolAddress: abi.encode(s_sourcePoolByToken[token]),
+      destTokenAddress: abi.encode(s_destTokenBySourceToken[token]),
+      extraData: "",
+      destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
+    });
+
+    // Mock the call so returns 2 slots of data
+    vm.mockCall(
+      s_destTokenBySourceToken[token], abi.encodeWithSelector(IERC20.balanceOf.selector, OWNER), abi.encode(0, 0)
+    );
+
+    vm.expectRevert(
+      abi.encodeWithSelector(EVM2EVMOffRamp.InvalidDataLength.selector, Internal.MAX_BALANCE_OF_RET_BYTES, 64)
+    );
+
+    s_offRamp.releaseOrMintToken(amount, abi.encode(OWNER), OWNER, sourceTokenData, "");
+  }
+
+  function test_releaseOrMintToken_TokenHandlingError_BalanceOf_Revert() public {
+    uint256 amount = 123123;
+    address token = s_sourceTokens[0];
+
+    Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
+      sourcePoolAddress: abi.encode(s_sourcePoolByToken[token]),
+      destTokenAddress: abi.encode(s_destTokenBySourceToken[token]),
+      extraData: "",
+      destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
+    });
+
+    bytes memory revertData = "failed to balanceOf";
+
+    // Mock the call so returns 2 slots of data
+    vm.mockCallRevert(
+      s_destTokenBySourceToken[token], abi.encodeWithSelector(IERC20.balanceOf.selector, OWNER), revertData
+    );
+
+    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.TokenHandlingError.selector, revertData));
+
+    s_offRamp.releaseOrMintToken(amount, abi.encode(OWNER), OWNER, sourceTokenData, "");
+  }
+
+  function test_releaseOrMintToken_ReleaseOrMintBalanceMismatch_Revert() public {
+    uint256 amount = 123123;
+    address token = s_sourceTokens[0];
+    uint256 mockedStaticBalance = 50000;
+
+    Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
+      sourcePoolAddress: abi.encode(s_sourcePoolByToken[token]),
+      destTokenAddress: abi.encode(s_destTokenBySourceToken[token]),
+      extraData: "",
+      destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
+    });
+
+    vm.mockCall(
+      s_destTokenBySourceToken[token],
+      abi.encodeWithSelector(IERC20.balanceOf.selector, OWNER),
+      abi.encode(mockedStaticBalance)
+    );
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        EVM2EVMOffRamp.ReleaseOrMintBalanceMismatch.selector, amount, mockedStaticBalance, mockedStaticBalance
+      )
+    );
+
+    s_offRamp.releaseOrMintToken(amount, abi.encode(OWNER), OWNER, sourceTokenData, "");
+  }
+
+  function test_releaseOrMintToken_skip_ReleaseOrMintBalanceMismatch_if_pool_Revert() public {
+    uint256 amount = 123123;
+    address token = s_sourceTokens[0];
+    uint256 mockedStaticBalance = 50000;
+
+    Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
+      sourcePoolAddress: abi.encode(s_sourcePoolByToken[token]),
+      destTokenAddress: abi.encode(s_destTokenBySourceToken[token]),
+      extraData: "",
+      destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
+    });
+
+    // This should make the call fail if it does not skip the check
+    vm.mockCall(
+      s_destTokenBySourceToken[token],
+      abi.encodeWithSelector(IERC20.balanceOf.selector, OWNER),
+      abi.encode(mockedStaticBalance)
+    );
+
+    s_offRamp.releaseOrMintToken(amount, abi.encode(OWNER), s_destPoolBySourceToken[token], sourceTokenData, "");
+  }
+
   function test__releaseOrMintToken_NotACompatiblePool_Revert() public {
     uint256 amount = 123123;
     address token = s_sourceTokens[0];
     address destToken = s_destTokenBySourceToken[token];
     vm.label(destToken, "destToken");
     bytes memory originalSender = abi.encode(OWNER);
-    bytes memory offchainTokenData = abi.encode(keccak256("offchainTokenData"));
 
     Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(s_sourcePoolByToken[token]),
@@ -1519,7 +1608,7 @@ contract EVM2EVMOffRamp__releaseOrMintToken is EVM2EVMOffRampSetup {
 
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.NotACompatiblePool.selector, returnedPool));
 
-    s_offRamp.releaseOrMintToken(amount, originalSender, OWNER, sourceTokenData, offchainTokenData);
+    s_offRamp.releaseOrMintToken(amount, originalSender, OWNER, sourceTokenData, "");
 
     // A contract that doesn't support the interface should also revert
     returnedPool = address(s_offRamp);
@@ -1532,10 +1621,10 @@ contract EVM2EVMOffRamp__releaseOrMintToken is EVM2EVMOffRampSetup {
 
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.NotACompatiblePool.selector, returnedPool));
 
-    s_offRamp.releaseOrMintToken(amount, originalSender, OWNER, sourceTokenData, offchainTokenData);
+    s_offRamp.releaseOrMintToken(amount, originalSender, OWNER, sourceTokenData, "");
   }
 
-  function test__releaseOrMintToken_TokenHandlingError_revert_Revert() public {
+  function test__releaseOrMintToken_TokenHandlingError_transfer_Revert() public {
     address receiver = makeAddr("receiver");
     uint256 amount = 123123;
     address token = s_sourceTokens[0];
@@ -1552,7 +1641,7 @@ contract EVM2EVMOffRamp__releaseOrMintToken is EVM2EVMOffRampSetup {
 
     bytes memory revertData = "call reverted :o";
 
-    vm.mockCallRevert(destToken, abi.encodeWithSelector(IERC20.approve.selector, s_offRamp, amount), revertData);
+    vm.mockCallRevert(destToken, abi.encodeWithSelector(IERC20.transfer.selector, receiver, amount), revertData);
 
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.TokenHandlingError.selector, revertData));
     s_offRamp.releaseOrMintToken(amount, originalSender, receiver, sourceTokenData, offchainTokenData);
@@ -1601,44 +1690,21 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
     Client.EVMTokenAmount[] memory srcTokenAmounts = getCastedSourceEVMTokenAmountsWithZeroAmounts();
     uint256 amount = 100;
     uint256 destinationDenominationMultiplier = 1000;
-    srcTokenAmounts[0].amount = amount;
+    srcTokenAmounts[1].amount = amount;
 
     bytes memory originalSender = abi.encode(OWNER);
     bytes[] memory offchainTokenData = new bytes[](srcTokenAmounts.length);
     bytes[] memory encodedSourceTokenData = _getDefaultSourceTokenData(srcTokenAmounts);
-    Internal.SourceTokenData memory sourceTokenData = abi.decode(encodedSourceTokenData[0], (Internal.SourceTokenData));
+    address pool = s_destPoolBySourceToken[srcTokenAmounts[1].token];
+    address destToken = s_destTokenBySourceToken[srcTokenAmounts[1].token];
 
-    address pool = s_destPoolBySourceToken[srcTokenAmounts[0].token];
-    address destToken = s_destTokenBySourceToken[srcTokenAmounts[0].token];
-
-    // Since the pool call is mocked, we manually approve funds to the offRamp
-    deal(destToken, pool, amount * destinationDenominationMultiplier);
-    vm.startPrank(pool);
-    IERC20(destToken).approve(address(s_offRamp), amount * destinationDenominationMultiplier);
-    vm.startPrank(OWNER);
-
-    Pool.ReleaseOrMintInV1 memory releaseOrMintIn = Pool.ReleaseOrMintInV1({
-      originalSender: originalSender,
-      receiver: OWNER,
-      amount: amount,
-      localToken: destToken,
-      remoteChainSelector: SOURCE_CHAIN_SELECTOR,
-      sourcePoolAddress: sourceTokenData.sourcePoolAddress,
-      sourcePoolData: sourceTokenData.extraData,
-      offchainTokenData: offchainTokenData[0]
-    });
-
-    vm.mockCall(
-      pool,
-      abi.encodeWithSelector(LockReleaseTokenPool.releaseOrMint.selector, releaseOrMintIn),
-      abi.encode(amount * destinationDenominationMultiplier)
-    );
+    MaybeRevertingBurnMintTokenPool(pool).setReleaseOrMintMultiplier(destinationDenominationMultiplier);
 
     Client.EVMTokenAmount[] memory destTokenAmounts =
       s_offRamp.releaseOrMintTokens(srcTokenAmounts, originalSender, OWNER, encodedSourceTokenData, offchainTokenData);
 
-    assertEq(destTokenAmounts[0].amount, amount * destinationDenominationMultiplier);
-    assertEq(destTokenAmounts[0].token, destToken);
+    assertEq(destTokenAmounts[1].amount, amount * destinationDenominationMultiplier);
+    assertEq(destTokenAmounts[1].token, destToken);
   }
 
   function test_OverValueWithARLOff_Success() public {
