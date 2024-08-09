@@ -50,7 +50,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         with:
-          cl_repo: smartcontractkit/chainlink-ccip
+          cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ env.CHAINLINK_VERSION }}
           push_tag: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ env.CHAINLINK_VERSION }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}

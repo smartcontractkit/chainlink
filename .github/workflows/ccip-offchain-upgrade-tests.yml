@@ -225,7 +225,7 @@ jobs:
           runId: ${{ github.run_id }}
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           selectedNetworks: SIMULATED_1,SIMULATED_2
-          chainlinkImage: ${{ env.AWS_ECR_REPO_PUBLIC_REGISTRY }}/w0i8p0z9/chainlink-ccip
+          chainlinkImage: ${{ env.AWS_ECR_REPO_PUBLIC_REGISTRY }}/chainlink/chainlink
           chainlinkVersion: ${{ env.RELEASE_TAG }}
           lokiEndpoint: ${{ secrets.LOKI_URL_CI }}
           lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
@@ -250,7 +250,7 @@ jobs:
         with:
           test_command_to_run: cd ./integration-tests/ccip-tests && go test -timeout 30m -count=1 -json -run ${{ matrix.product.run }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.AWS_ECR_REPO_PUBLIC_REGISTRY }}/w0i8p0z9/chainlink-ccip # releases are published to public registry
+          cl_repo: ${{ env.AWS_ECR_REPO_PUBLIC_REGISTRY }}/chainlink/chainlink # releases are published to public registry
           cl_image_tag: ${{ env.RELEASE_TAG }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}-test-logs
