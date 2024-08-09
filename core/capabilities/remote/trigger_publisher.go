@@ -163,7 +163,7 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 			return
 		case <-ticker.C:
 			now := time.Now().UnixMilli()
-			p.mu.RLock()
+			p.mu.Lock()
 			for key, req := range p.registrations {
 				callerDon := p.workflowDONs[key.callerDonId]
 				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-p.config.RegistrationExpiry.Milliseconds(), false)
@@ -178,7 +178,7 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 					p.messageCache.Delete(key)
 				}
 			}
-			p.mu.RUnlock()
+			p.mu.Unlock()
 		}
 	}
 }
