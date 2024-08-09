@@ -1,0 +1,372 @@
+name: Solidity Foundry Artifact Generation
+on:
+  workflow_dispatch:
+    inputs:
+      product:
+        type: choice
+        description: 'product for which to generate artifacts; should be the same as Foundry profile'
+        required: true
+        options:
+          - "automation"
+          - "ccip"
+          - "functions"
+          - "keystone"
+          - "l2ep"
+          - "liquiditymanager"
+          - "llo-feeds"
+          - "operatorforwarder"
+          - "shared"
+          - "transmission"
+          - "vrf"
+      base_ref:
+        description: 'commit or tag to be used as base reference, when looking for modified Solidity files'
+        required: true
+
+env:
+  FOUNDRY_PROFILE: ci
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.changes.outputs.sol }}
+      product_changes: ${{ steps.changes-transform.outputs.product_changes }}
+      product_files: ${{ steps.changes-transform.outputs.product_files }}
+      changeset_changes: ${{ steps.changes-dorny.outputs.changeset }}
+      changeset_files: ${{ steps.changes-dorny.outputs.changeset_files }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Find modified contracts
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes
+        with:
+          list-files: 'csv'
+          base: ${{ inputs.base_ref }}
+          predicate-quantifier: every
+          filters: |
+            ignored: &ignored
+              - '!contracts/src/v0.8/**/test/**'
+              - '!contracts/src/v0.8/**/tests/**'
+              - '!contracts/src/v0.8/**/mock/**'
+              - '!contracts/src/v0.8/**/mocks/**'
+              - '!contracts/src/v0.8/**/*.t.sol'
+              - '!contracts/src/v0.8/*.t.sol'
+              - '!contracts/src/v0.8/**/testhelpers/**'
+              - '!contracts/src/v0.8/testhelpers/**'
+              - '!contracts/src/v0.8/vendor/**'
+            other_shared:
+              - modified|added: 'contracts/src/v0.8/(interfaces/**/*.sol|*.sol)'
+              - *ignored
+            sol:
+              - modified|added: 'contracts/src/v0.8/**/*.sol'
+              - *ignored   
+            product: &product
+              - modified|added: 'contracts/src/v0.8/${{ inputs.product }}/**/*.sol'      
+              - *ignored
+            changeset:
+              - modified|added: 'contracts/.changeset/!(README)*.md' 
+
+      # Manual transformation needed, because shared contracts have a different folder structure
+      - name: Transform modified files
+        id: changes-transform
+        shell: bash
+        run: |
+          if [ "${{ inputs.product }}" = "shared" ]; then
+            echo "::debug:: Product is shared, transforming changes"
+            if [[ "${{ steps.changes.outputs.product }}" == "true" && "${{ steps.changes.outputs.other_shared }}" == "true" ]]; then
+              echo "::debug:: Changes were found in 'shared' folder and in 'interfaces' and root folders"
+              echo "product_changes=true" >> $GITHUB_OUTPUT
+              echo "product_files=${{ steps.changes.outputs.product_files }},${{ steps.changes.outputs.other_shared_files }}" >> $GITHUB_OUTPUT
+            elif [[ "${{ steps.changes.outputs.product }}" == "false" && "${{ steps.changes.outputs.other_shared }}" == "true" ]]; then
+              echo "::debug:: Only contracts in' interfaces' and root folders were modified"
+              echo "product_changes=true" >> $GITHUB_OUTPUT
+              echo "product_files=${{ steps.changes.outputs.other_shared_files }}" >> $GITHUB_OUTPUT
+            elif [[ "${{ steps.changes.outputs.product }}" == "true" && "${{ steps.changes.outputs.other_shared }}" == "false" ]]; then
+              echo "::debug:: Only contracts in 'shared' folder were modified"
+              echo "product_changes=true" >> $GITHUB_OUTPUT
+              echo "product_files=${{ steps.changes.outputs.product_files }}" >> $GITHUB_OUTPUT
+            else
+              echo "::debug:: No contracts were modified"
+              echo "product_changes=false" >> $GITHUB_OUTPUT
+              echo "product_files=" >> $GITHUB_OUTPUT
+            fi
+          else
+           echo "product_changes=${{ steps.changes.outputs.product }}" >> $GITHUB_OUTPUT
+           echo "product_files=${{ steps.changes.outputs.product_files }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for changes outside of artifact scope
+        uses: ./.github/actions/validate-artifact-scope
+        if: ${{ steps.changes.outputs.sol == 'true' }}
+        with:
+          sol_files: ${{ steps.changes.outputs.sol_files }}
+          product: ${{ inputs.product }}
+
+  gather-basic-info:
+    name: Gather basic info
+    if: ${{ needs.changes.outputs.product_changes == 'true' }}
+    runs-on: ubuntu-22.04
+    needs: [ changes ]
+    outputs:
+      foundry_version: ${{ steps.extract-foundry-version.outputs.foundry-version }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          fetch-depth: 0
+
+      - name: Extract Foundry version
+        id: extract-foundry-version
+        uses: ./.github/actions/detect-solidity-foundry-version
+        with:
+          working-directory: contracts
+
+      - name: Copy modified changesets
+        if: ${{ needs.changes.outputs.changeset_changes == 'true' }}
+        run: |
+          mkdir -p contracts/changesets
+          files="${{ needs.changes.outputs.changeset_files }}"
+          IFS=",'
+          for changeset in $files; do
+            echo "::debug:: Copying $changeset"
+            cp $changeset contracts/changesets
+          done
+
+      - name: Generate basic info and modified contracts list
+        shell: bash
+        run: |
+          echo "Commit SHA used to generate artifacts: ${{ github.sha }}" > contracts/commit_sha_base_ref.txt
+          echo "Base reference SHA used to find modified contracts: ${{ inputs.base_ref }}" >> contracts/commit_sha_base_ref.txt     
+          
+          IFS=',' read -r -a modified_files <<< "${{ needs.changes.outputs.product_files }}"
+          echo "# Modified contracts:" > contracts/modified_contracts.md
+          for file in "${modified_files[@]}"; do
+            echo " - [$file](${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/$file)" >> contracts/modified_contracts.md
+            echo "$file" >> contracts/modified_contracts.txt
+          done
+
+      - name: Upload basic info and modified contracts list
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: tmp-basic-info
+          path: |
+            contracts/modified_contracts.md
+            contracts/modified_contracts.txt
+            contracts/commit_sha_base_ref.txt
+            contracts/changesets
+          retention-days: 7
+
+  # some of the artifacts can only be generated on product level, and we cannot scope them to single contracts
+  # some product-level modifications might also require shared contracts changes, so if these happened we need to generate artifacts for shared contracts as well
+  coverage-and-book:
+    if: ${{ needs.changes.outputs.product_changes == 'true' }}
+    name: Generate Docs and Code Coverage reports
+    runs-on: ubuntu-22.04
+    needs: [changes, gather-basic-info]
+    steps:
+      - name: Prepare exclusion list
+        id: prepare-exclusion-list
+        run: |
+          cat <<EOF > coverage_exclusions.json
+           ["automation", "functions", "vrf"]
+          EOF
+          coverage_exclusions=$(cat coverage_exclusions.json | jq -c .)
+          echo "coverage_exclusions=$coverage_exclusions" >> $GITHUB_OUTPUT
+
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Create directories
+        shell: bash
+        run: |
+          mkdir -p contracts/code-coverage  
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          version: ${{ needs.gather-basic-info.outputs.foundry_version }}
+
+      # required for code coverage report generation
+      - name: Setup LCOV
+        uses: hrishikesh-kadam/setup-lcov@f5da1b26b0dcf5d893077a3c4f29cf78079c841d # v1.0.0
+
+      - name: Run Forge build for product contracts
+        if: ${{ needs.changes.outputs.product_changes == 'true' }}
+        run: |
+          forge --version
+          forge build
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ inputs.product }}
+
+      - name: Run coverage for product contracts
+        if: ${{ !contains(fromJson(steps.prepare-exclusion-list.outputs.coverage_exclusions), inputs.product) && needs.changes.outputs.product_changes == 'true' }}
+        working-directory: contracts
+        run: forge coverage --report lcov --report-file code-coverage/lcov.info
+        env:
+          FOUNDRY_PROFILE: ${{ inputs.product }}
+
+      - name: Generate Code Coverage HTML report for product contracts
+        if: ${{ !contains(fromJson(steps.prepare-exclusion-list.outputs.coverage_exclusions), inputs.product) && needs.changes.outputs.product_changes == 'true' }}
+        shell: bash
+        working-directory: contracts
+        run: genhtml code-coverage/lcov.info --branch-coverage --output-directory code-coverage
+
+      - name: Run Forge doc for product contracts
+        if: ${{ needs.changes.outputs.product_changes == 'true' }}
+        run: forge doc --build -o docs
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ inputs.product }}
+
+      - name: Upload Artifacts for product contracts
+        if: ${{ needs.changes.outputs.product_changes == 'true' }}
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: tmp-${{ inputs.product }}-artifacts
+          path: |
+            contracts/docs
+            contracts/code-coverage/lcov-.info
+            contracts/code-coverage
+          retention-days: 7
+
+  # Generates UML diagrams and Slither reports for modified contracts
+  uml-static-analysis:
+    if: ${{ needs.changes.outputs.product_changes == 'true' }}
+    name: Generate UML and Slither reports for modified contracts
+    runs-on: ubuntu-22.04
+    needs: [changes, gather-basic-info]
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          fetch-depth: 0
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          version: ${{ needs.gather-basic-info.outputs.foundry_version }}
+
+      - name: Install Sol2uml
+        run: |
+          npm link sol2uml --only=production
+
+      - name: Set up Python
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f #v5.1.1
+        with:
+          python-version: '3.8'
+
+      - name: Install solc-select and solc
+        uses: ./.github/actions/setup-solc-select
+        with:
+          to_install: '0.8.19'
+          to_use: '0.8.19'
+
+      - name: Install Slither
+        uses: ./.github/actions/setup-slither
+
+      - name: Generate UML
+        shell: bash
+        run: |
+          contract_list="${{ needs.changes.outputs.product_files }}"
+          
+          # modify remappings so that solc can find dependencies
+          ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
+          mv remappings_modified.txt remappings.txt
+          
+          ./contracts/scripts/ci/generate_uml.sh "./" "contracts/uml-diagrams" "$contract_list"
+
+      - name: Generate Slither Markdown reports
+        run: |
+          contract_list="${{ needs.changes.outputs.product_files }}"
+          
+          echo "::debug::Processing contracts: $contract_list"
+          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/configs/slither/.slither.config-artifacts.json "." "$contract_list" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
+
+      - name: Upload UMLs and Slither reports
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 10
+        continue-on-error: true
+        with:
+          name: tmp-contracts-artifacts
+          path: |
+            contracts/uml-diagrams
+            contracts/slither-reports
+          retention-days: 7
+
+      - name: Validate if all Slither run for all contracts
+        uses: ./.github/actions/validate-solidity-artifacts
+        with:
+          validate_slither_reports: 'true'
+          validate_uml_diagrams: 'true'
+          slither_reports_path: 'contracts/slither-reports'
+          uml_diagrams_path: 'contracts/uml-diagrams'
+          sol_files: ${{ needs.changes.outputs.product_files }}
+
+  gather-all-artifacts:
+    name: Gather all artifacts
+    if: ${{ needs.changes.outputs.product_changes == 'true' }}
+    runs-on: ubuntu-latest
+    needs: [coverage-and-book, uml-static-analysis, gather-basic-info, changes]
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        with:
+          path: review_artifacts
+          merge-multiple: true
+
+      - name: Upload all artifacts as single package
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        with:
+          name: review-artifacts-${{ inputs.product }}-${{ github.sha }}
+          path: review_artifacts
+          retention-days: 60
+
+      - name: Remove temporary artifacts
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: tmp-*
+
+      - name: Print Artifact URL in job summary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts-${{ inputs.product }}-${{ github.sha }}") | .id')
+          echo "Artifact ID: $ARTIFACT_ID"
+          
+          echo "# Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
+          echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
+          echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID)" >> $GITHUB_STEP_SUMMARY
+
+  notify-no-changes:
+    if: ${{ needs.changes.outputs.product_changes == 'false' }}
+    needs: [changes]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print warning in job summary
+        shell: bash
+        run: |
+          echo "# Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
+          echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
+          echo "## Reason: No modified Solidity files found for ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
+          echo "* no modified Solidity files found between ${{ inputs.base_ref }} and ${{ github.sha }} commits" >> $GITHUB_STEP_SUMMARY
+          echo "* or they are located outside of ./contracts/src/v0.8 folder" >> $GITHUB_STEP_SUMMARY
+          echo "* or they were limited to test files" >> $GITHUB_STEP_SUMMARY
+          exit 1

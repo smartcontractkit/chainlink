@@ -13,7 +13,7 @@ func TestGenerateCribConfig(t *testing.T) {
 	forwarderAddress := "0x1234567890abcdef"
 	publicKeysPath := "./testdata/PublicKeys.json"
 
-	lines := generateCribConfig(publicKeysPath, &chainID, templatesDir, forwarderAddress)
+	lines := generateCribConfig(defaultNodeList, publicKeysPath, &chainID, templatesDir, forwarderAddress)
 
 	snaps.MatchSnapshot(t, strings.Join(lines, "\n"))
 }

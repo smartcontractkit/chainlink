@@ -11,6 +11,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -129,9 +130,14 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 
-	r.lggr.Debugw("received request for msg", "msgId", msg.MessageId)
 	if msg.Method != types.MethodExecute {
-		r.lggr.Errorw("received request for unsupported method type", "method", msg.Method)
+		r.lggr.Errorw("received request for unsupported method type", "method", remote.SanitizeLogString(msg.Method))
+		return
+	}
+
+	messageId, err := GetMessageID(msg)
+	if err != nil {
+		r.lggr.Errorw("invalid message id", "err", err, "id", remote.SanitizeLogString(string(msg.MessageId)))
 		return
 	}
 
@@ -143,8 +149,9 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 
 	// A request is uniquely identified by the message id and the hash of the payload to prevent a malicious
 	// actor from sending a different payload with the same message id
-	messageId := GetMessageID(msg)
 	requestID := messageId + hex.EncodeToString(msgHash[:])
+
+	r.lggr.Debugw("received request", "msgId", msg.MessageId, "requestID", requestID)
 
 	if requestIDs, ok := r.messageIDToRequestIDsCount[messageId]; ok {
 		requestIDs[requestID] = requestIDs[requestID] + 1
@@ -156,7 +163,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	if len(requestIDs) > 1 {
 		// This is a potential attack vector as well as a situation that will occur if the client is sending non-deterministic payloads
 		// so a warning is logged
-		r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageId, "requestIDToCount", requestIDs)
+		r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageId, "lenRequestIDs", len(requestIDs))
 	}
 
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
@@ -177,7 +184,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 
 	err = reqAndMsgID.request.OnMessage(ctx, msg)
 	if err != nil {
-		r.lggr.Errorw("request failed to OnMessage new message", "request", reqAndMsgID, "err", err)
+		r.lggr.Errorw("request failed to OnMessage new message", "messageID", reqAndMsgID.messageID, "err", err)
 	}
 }
 
@@ -201,8 +208,12 @@ func (r *server) getMessageHash(msg *types.MessageBody) ([32]byte, error) {
 	return hash, nil
 }
 
-func GetMessageID(msg *types.MessageBody) string {
-	return string(msg.MessageId)
+func GetMessageID(msg *types.MessageBody) (string, error) {
+	idStr := string(msg.MessageId)
+	if !remote.IsValidID(idStr) {
+		return "", fmt.Errorf("invalid message id")
+	}
+	return idStr, nil
 }
 
 func (r *server) Ready() error {
