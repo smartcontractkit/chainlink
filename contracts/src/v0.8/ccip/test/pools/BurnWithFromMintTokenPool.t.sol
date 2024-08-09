@@ -30,7 +30,7 @@ contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup 
     assertEq(address(s_mockRMN), s_pool.getRmnProxy());
     assertEq(false, s_pool.getAllowListEnabled());
     assertEq(type(uint256).max, s_burnMintERC677.allowance(address(s_pool), address(s_pool)));
-    assertEq("BurnWithFromMintTokenPool 1.5.0-dev", s_pool.typeAndVersion());
+    assertEq("BurnWithFromMintTokenPool 1.5.0", s_pool.typeAndVersion());
   }
 
   function test_PoolBurn_Success() public {

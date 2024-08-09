@@ -22,7 +22,7 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
 
   event LiquidityTransferred(address indexed from, uint256 amount);
 
-  string public constant override typeAndVersion = "LockReleaseTokenPool 1.5.0-dev";
+  string public constant override typeAndVersion = "LockReleaseTokenPool 1.5.0";
 
   /// @dev Whether or not the pool accepts liquidity.
   /// External liquidity is not required when there is one canonical token deployed to a chain,

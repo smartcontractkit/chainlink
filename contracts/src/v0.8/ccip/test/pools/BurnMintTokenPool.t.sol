@@ -32,7 +32,7 @@ contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
     assertEq(address(s_burnMintERC677), address(s_pool.getToken()));
     assertEq(address(s_mockRMN), s_pool.getRmnProxy());
     assertEq(false, s_pool.getAllowListEnabled());
-    assertEq("BurnMintTokenPool 1.5.0-dev", s_pool.typeAndVersion());
+    assertEq("BurnMintTokenPool 1.5.0", s_pool.typeAndVersion());
   }
 
   function test_PoolBurn_Success() public {
