@@ -2,6 +2,7 @@ package targets_test
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"math/big"
 	"testing"
@@ -38,13 +39,35 @@ func TestWriteTarget(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	reportMetadata := targets.ReportV1Metadata{
+		Version:             1,
+		WorkflowExecutionID: [32]byte{},
+		Timestamp:           0,
+		DonID:               0,
+		DonConfigVersion:    0,
+		WorkflowCID:         [32]byte{},
+		WorkflowName:        [10]byte{},
+		WorkflowOwner:       [20]byte{},
+		ReportID:            [2]byte{},
+	}
+
+	reportMetadataBytes, err := reportMetadata.Encode()
+	require.NoError(t, err)
+
 	validInputs, err := values.NewMap(map[string]any{
 		"signed_report": map[string]any{
-			"report":     []byte{1, 2, 3},
+			"report":     reportMetadataBytes,
 			"signatures": [][]byte{},
 		},
 	})
 	require.NoError(t, err)
+
+	validMetadata := capabilities.RequestMetadata{
+		WorkflowID:          hex.EncodeToString(reportMetadata.WorkflowCID[:]),
+		WorkflowOwner:       hex.EncodeToString(reportMetadata.WorkflowOwner[:]),
+		WorkflowName:        hex.EncodeToString(reportMetadata.WorkflowName[:]),
+		WorkflowExecutionID: hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]),
+	}
 
 	cr.On("Bind", mock.Anything, []types.BoundContract{
 		{
@@ -69,11 +92,9 @@ func TestWriteTarget(t *testing.T) {
 
 	t.Run("succeeds with valid report", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
-			},
-			Config: config,
-			Inputs: validInputs,
+			Metadata: validMetadata,
+			Config:   config,
+			Inputs:   validInputs,
 		}
 
 		ch, err2 := writeTarget.Execute(ctx, req)
@@ -82,36 +103,11 @@ func TestWriteTarget(t *testing.T) {
 		require.NotNil(t, response)
 	})
 
-	t.Run("succeeds with empty report", func(t *testing.T) {
-		emptyInputs, err2 := values.NewMap(map[string]any{
-			"signed_report": map[string]any{
-				"report": []byte{},
-			},
-			"signatures": [][]byte{},
-		})
-
-		require.NoError(t, err2)
-		req := capabilities.CapabilityRequest{
-			Metadata: capabilities.RequestMetadata{
-				WorkflowExecutionID: "test-id",
-			},
-			Config: config,
-			Inputs: emptyInputs,
-		}
-
-		ch, err2 := writeTarget.Execute(ctx, req)
-		require.NoError(t, err2)
-		response := <-ch
-		require.Nil(t, response.Value)
-	})
-
 	t.Run("fails when ChainReader's GetLatestValue returns error", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
-			},
-			Config: config,
-			Inputs: validInputs,
+			Metadata: validMetadata,
+			Config:   config,
+			Inputs:   validInputs,
 		}
 		cr.On("GetLatestValue", mock.Anything, "forwarder", "getTransmissionInfo", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("reader error"))
 
@@ -121,11 +117,9 @@ func TestWriteTarget(t *testing.T) {
 
 	t.Run("fails when ChainWriter's SubmitTransaction returns error", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
-			},
-			Config: config,
-			Inputs: validInputs,
+			Metadata: validMetadata,
+			Config:   config,
+			Inputs:   validInputs,
 		}
 		cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, mock.Anything, mock.Anything).Return(errors.New("writer error"))
 
@@ -152,11 +146,9 @@ func TestWriteTarget(t *testing.T) {
 
 	t.Run("fails with nil config", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
-			},
-			Config: nil,
-			Inputs: validInputs,
+			Metadata: validMetadata,
+			Config:   nil,
+			Inputs:   validInputs,
 		}
 		_, err2 := writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
@@ -164,11 +156,9 @@ func TestWriteTarget(t *testing.T) {
 
 	t.Run("fails with nil inputs", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
-			},
-			Config: config,
-			Inputs: nil,
+			Metadata: validMetadata,
+			Config:   config,
+			Inputs:   nil,
 		}
 		_, err2 := writeTarget.Execute(ctx, req)
 		require.Error(t, err2)

@@ -96,10 +96,10 @@ func mustReadConfig(fileName string) (output TopLevelConfigSource) {
 	return mustParseJSON[TopLevelConfigSource](fileName)
 }
 
-func generateOCR3Config(configFile string, chainID int64, pubKeysPath string) orc2drOracleConfig {
+func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKeysPath string) orc2drOracleConfig {
 	topLevelCfg := mustReadConfig(configFile)
 	cfg := topLevelCfg.OracleConfig
-	nca := downloadNodePubKeys(chainID, pubKeysPath)
+	nca := downloadNodePubKeys(nodeList, chainID, pubKeysPath)
 
 	onchainPubKeys := []common.Address{}
 	for _, n := range nca {
