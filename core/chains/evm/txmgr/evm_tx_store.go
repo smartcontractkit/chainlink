@@ -133,7 +133,6 @@ type dbReceiptPlus struct {
 	ID           uuid.UUID        `db:"pipeline_task_run_id"`
 	Receipt      evmtypes.Receipt `db:"receipt"`
 	FailOnRevert bool             `db:"FailOnRevert"`
-	State        string           `db:"state"`
 }
 
 func fromDBReceipts(rs []DbReceipt) []*evmtypes.Receipt {
@@ -1086,7 +1085,7 @@ func (o *evmTxStore) FindTxWithIdempotencyKey(ctx context.Context, idempotencyKe
 	return
 }
 
-// FindTxWithSequence returns any broadcast ethtx with the given nonce
+// FindTxWithSequenceForRebroadcast returns any broadcast ethtx with the given nonce
 func (o *evmTxStore) FindTxWithSequenceForRebroadcast(ctx context.Context, fromAddress common.Address, nonce evmtypes.Nonce) (etx *Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
@@ -1095,7 +1094,7 @@ func (o *evmTxStore) FindTxWithSequenceForRebroadcast(ctx context.Context, fromA
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
 		var dbEtx DbEthTx
 		err = orm.q.GetContext(ctx, &dbEtx, `
-SELECT * FROM evm.txes WHERE from_address = $1 AND nonce = $2 AND state IN ('confirmed', 'confirmed_missing_receipt', 'unconfirmed', 'finalized')
+SELECT * FROM evm.txes WHERE from_address = $1 AND nonce = $2 AND state IN ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
 `, fromAddress, nonce.Int64())
 		if err != nil {
 			return pkgerrors.Wrap(err, "FindEthTxWithNonce failed to load evm.txes")
