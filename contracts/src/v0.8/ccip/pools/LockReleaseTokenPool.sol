@@ -67,8 +67,8 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
   {
     _validateReleaseOrMint(releaseOrMintIn);
 
-    // Release to the offRamp, which forwards it to the recipient
-    getToken().approve(msg.sender, releaseOrMintIn.amount);
+    // Release to the recipient
+    getToken().safeTransfer(releaseOrMintIn.receiver, releaseOrMintIn.amount);
 
     emit Released(msg.sender, releaseOrMintIn.receiver, releaseOrMintIn.amount);
 

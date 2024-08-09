@@ -75,8 +75,11 @@ abstract contract LegacyPoolWrapper is TokenPool {
   /// @dev Since extraData has never been used in LockRelease or MintBurn token pools, we can safely ignore it.
   function _releaseOrMintLegacy(Pool.ReleaseOrMintInV1 memory releaseOrMintIn) internal {
     s_previousPool.releaseOrMint(
-      releaseOrMintIn.originalSender, address(this), releaseOrMintIn.amount, releaseOrMintIn.remoteChainSelector, ""
+      releaseOrMintIn.originalSender,
+      releaseOrMintIn.receiver,
+      releaseOrMintIn.amount,
+      releaseOrMintIn.remoteChainSelector,
+      ""
     );
-    i_token.approve(msg.sender, releaseOrMintIn.amount);
   }
 }
