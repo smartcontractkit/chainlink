@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # for run-test variables and environment
+  # TODO: TT-1470 - Update image names as we solidify new realease strategy
   ECR_TAG: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip-tests:ccip-develop
   ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip-tests
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -158,6 +158,7 @@ jobs:
       - name: find last release
         id: fetch_last_release
         shell: bash
+        # TODO: TT-1470 - Update image names as we solidify new realease strategy
         run: |
           release_name=$(curl --header "Authorization: token ${{ secrets.GITHUB_TOKEN }}" --request GET https://api.github.com/repos/${{ github.repository }}/releases | jq -r --arg SUFFIX "release" '.[] | select(.tag_name | endswith("release"))  | .tag_name' | sort -V | tail -n 1)
           release_tag_name="${release_name:1}"

@@ -17,6 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # TODO: TT-1470 - Update image names as we solidify new realease strategy
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   CHAINLINK_VERSION: ${{ github.sha}}
   INPUT_CHAINLINK_TEST_VERSION: ${{ github.sha}}
