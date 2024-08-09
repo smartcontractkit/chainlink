@@ -8,12 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -49,7 +50,7 @@ func TestFluxBasic(t *testing.T) {
 	evmNetwork, err := env.GetFirstEvmNetwork()
 	require.NoError(t, err, "Error getting first evm network")
 
-	sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
+	sethClient, err := utils.TestAwareSethClient(t, config, evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
 
 	adapterUUID := uuid.NewString()
