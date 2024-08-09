@@ -9,8 +9,7 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
-type generateCribClusterOverrides struct {
-}
+type generateCribClusterOverrides struct{}
 
 func NewGenerateCribClusterOverridesCommand() *generateCribClusterOverrides {
 	return &generateCribClusterOverrides{}
@@ -24,25 +23,39 @@ func (g *generateCribClusterOverrides) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
 	chainID := fs.Int64("chainid", 11155111, "chain id")
 	outputPath := fs.String("outpath", "../crib", "the path to output the generated overrides")
+	publicKeys := fs.String("publickeys", "", "Custom public keys json location")
+	nodeList := fs.String("nodes", "", "Custom node list location")
+	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
 
-	deployedContracts, err := LoadDeployedContracts()
-	helpers.PanicErr(err)
 	templatesDir := "templates"
-	err = fs.Parse(args)
+	err := fs.Parse(args)
 	if err != nil || outputPath == nil || *outputPath == "" || chainID == nil || *chainID == 0 {
 		fs.Usage()
 		os.Exit(1)
 	}
 
-	lines := generateCribConfig(".cache/PublicKeys.json", chainID, templatesDir, deployedContracts.ForwarderContract.Hex())
+	if *artefactsDir == "" {
+		*artefactsDir = defaultArtefactsDir
+	}
+	if *publicKeys == "" {
+		*publicKeys = defaultPublicKeys
+	}
+	if *nodeList == "" {
+		*nodeList = defaultNodeList
+	}
+
+	deployedContracts, err := LoadDeployedContracts(*artefactsDir)
+	helpers.PanicErr(err)
+
+	lines := generateCribConfig(*nodeList, *publicKeys, chainID, templatesDir, deployedContracts.ForwarderContract.Hex())
 
 	cribOverridesStr := strings.Join(lines, "\n")
 	err = os.WriteFile(filepath.Join(*outputPath, "crib-cluster-overrides.yaml"), []byte(cribOverridesStr), 0600)
 	helpers.PanicErr(err)
 }
 
-func generateCribConfig(pubKeysPath string, chainID *int64, templatesDir string, forwarderAddress string) []string {
-	nca := downloadNodePubKeys(*chainID, pubKeysPath)
+func generateCribConfig(nodeList string, pubKeysPath string, chainID *int64, templatesDir string, forwarderAddress string) []string {
+	nca := downloadNodePubKeys(nodeList, *chainID, pubKeysPath)
 	nodeAddresses := []string{}
 
 	for _, node := range nca[1:] {

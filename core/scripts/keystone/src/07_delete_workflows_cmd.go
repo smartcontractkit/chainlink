@@ -12,40 +12,19 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
-type deleteJobs struct{}
+type deleteWorkflows struct{}
 
-type OCRSpec struct {
-	ContractID string
+func NewDeleteWorkflowsCommand() *deleteWorkflows {
+	return &deleteWorkflows{}
 }
 
-type BootSpec struct {
-	ContractID string
+func (g *deleteWorkflows) Name() string {
+	return "delete-workflows"
 }
 
-type WorkflowSpec struct {
-	WorkflowID string
-}
-
-type JobSpec struct {
-	Id                           string
-	Name                         string
-	BootstrapSpec                BootSpec
-	OffChainReporting2OracleSpec OCRSpec
-	WorkflowSpec                 WorkflowSpec
-}
-
-func NewDeleteJobsCommand() *deleteJobs {
-	return &deleteJobs{}
-}
-
-func (g *deleteJobs) Name() string {
-	return "delete-ocr3-jobs"
-}
-
-func (g *deleteJobs) Run(args []string) {
-	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
+func (g *deleteWorkflows) Run(args []string) {
+	fs := flag.NewFlagSet(g.Name(), flag.ExitOnError)
 	nodeList := fs.String("nodes", "", "Custom node list location")
-	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
 
 	err := fs.Parse(args)
 	if err != nil {
@@ -53,15 +32,10 @@ func (g *deleteJobs) Run(args []string) {
 		os.Exit(1)
 	}
 
-	if *artefactsDir == "" {
-		*artefactsDir = defaultArtefactsDir
-	}
 	if *nodeList == "" {
 		*nodeList = defaultNodeList
 	}
 
-	deployedContracts, err := LoadDeployedContracts(*artefactsDir)
-	helpers.PanicErr(err)
 	nodes := downloadNodeAPICredentials(*nodeList)
 
 	for _, node := range nodes {
@@ -85,9 +59,8 @@ func (g *deleteJobs) Run(args []string) {
 		helpers.PanicErr(err)
 
 		for _, jobSpec := range parsed {
-			if jobSpec.BootstrapSpec.ContractID == deployedContracts.OCRContract.String() ||
-				jobSpec.OffChainReporting2OracleSpec.ContractID == deployedContracts.OCRContract.String() {
-				fmt.Println("Deleting OCR3 job ID:", jobSpec.Id, "name:", jobSpec.Name)
+			if jobSpec.WorkflowSpec.WorkflowID != "" {
+				fmt.Println("Deleting workflow job ID:", jobSpec.Id, "name:", jobSpec.Name)
 				set := flag.NewFlagSet("test", flag.ExitOnError)
 				err = set.Parse([]string{jobSpec.Id})
 				helpers.PanicErr(err)
