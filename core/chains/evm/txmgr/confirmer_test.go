@@ -3027,8 +3027,8 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 				return
 			}
 			// Retrieve Tx to check if callback completed flag was set to true
-			txs, err := txStore.FindTxesByFromAddressAndNonce(tests.Context(t), fromAddress, int64(nonce))
-			assert.Nil(t, err)
+			txs, err3 := txStore.FindTxesByFromAddressAndNonce(tests.Context(t), fromAddress, int64(nonce))
+			assert.Nil(t, err3)
 			assert.Equal(t, 1, len(txs))
 			assert.Equal(t, true, txs[0].CallbackCompleted)
 		}()
