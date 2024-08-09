@@ -661,7 +661,7 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	mustInsertEthReceipt(t, txStore, head.BlockNumber()-2, head.Hash, attempt2.Hash)
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE, callback_completed = TRUE WHERE id = $2`, &tr2.ID, etx2.ID)
 
-	// Suspend run after head block number. Should be ignored
+	// Suspend not yet finalized run. Should be ignored
 	run3 := cltest.MustInsertPipelineRun(t, db)
 	tr3 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run3.ID)
 	pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run3.ID)
