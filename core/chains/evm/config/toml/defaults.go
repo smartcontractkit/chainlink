@@ -3,7 +3,10 @@ package toml
 import (
 	"bytes"
 	"embed"
+	"fmt"
+	"io"
 	"log"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -15,17 +18,23 @@ import (
 )
 
 var (
+	CUSTOM_DEFAULTS_ENV_KEY = "CL_CHAIN_DEFAULTS"
+
 	//go:embed defaults/*.toml
 	defaultsFS   embed.FS
 	fallback     Chain
 	defaults     = map[string]Chain{}
 	defaultNames = map[string]string{}
 
+	customDefaults = map[string]Chain{}
+
 	// DefaultIDs is the set of chain ids which have defaults.
 	DefaultIDs []*big.Big
 )
 
 func init() {
+	// read the defaults first
+
 	fes, err := defaultsFS.ReadDir("defaults")
 	if err != nil {
 		log.Fatalf("failed to read defaults/: %v", err)
@@ -65,6 +74,65 @@ func init() {
 	slices.SortFunc(DefaultIDs, func(a, b *big.Big) int {
 		return a.Cmp(b)
 	})
+
+	// read the custom defaults overrides
+	dir := os.Getenv(CUSTOM_DEFAULTS_ENV_KEY)
+	if dir == "" {
+		// short-circuit; no default overrides provided
+		return
+	}
+
+	// Read directory contents
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		fmt.Println("Error reading directory:", err)
+		return
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			// Skip directories
+			continue
+		}
+
+		path := dir + "/" + entry.Name()
+		file, err := os.Open(path)
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			continue
+		}
+
+		// Read file contents
+		b, err := io.ReadAll(file)
+		if err != nil {
+			fmt.Println("Error reading file:", err)
+			file.Close()
+			continue
+		}
+		file.Close()
+
+		var config = struct {
+			ChainID *big.Big
+			Chain
+		}{}
+
+		if err := cconfig.DecodeTOML(bytes.NewReader(b), &config); err != nil {
+			log.Fatalf("failed to decode %q: %v", path, err)
+		}
+
+		if config.ChainID == nil {
+			log.Fatalf("missing ChainID: %s", path)
+		}
+
+		id := config.ChainID.String()
+		// these custom defaults are only meant to be overrides on existing chains;
+		// if the chain does not exist already in defaults error out
+		if _, ok := defaults[id]; !ok {
+			log.Fatalf("%q does not contain ChainID: %s", path, id)
+		}
+		customDefaults[id] = config.Chain
+	}
+
 }
 
 // DefaultsNamed returns the default Chain values, optionally for the given chainID, as well as a name if the chainID is known.
@@ -77,6 +145,9 @@ func DefaultsNamed(chainID *big.Big) (c Chain, name string) {
 	if d, ok := defaults[s]; ok {
 		c.SetFrom(&d)
 		name = defaultNames[s]
+	}
+	if overrides, ok := customDefaults[s]; ok {
+		c.SetFrom(&overrides)
 	}
 	return
 }
