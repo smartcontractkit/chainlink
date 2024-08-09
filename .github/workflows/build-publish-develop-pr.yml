@@ -2,9 +2,12 @@ name: "Build and Publish Chainlink"
 
 on:
   pull_request:
+    types:
+      - labeled
   push:
     branches:
       - develop
+      - "release/**"
 
 jobs:
   goreleaser-build-publish-chainlink:
@@ -21,17 +24,24 @@ jobs:
         id: get-image-tag
         run: |
           short_sha=$(git rev-parse --short HEAD)
+          echo "build-publish=false" | tee -a $GITHUB_OUTPUT
           if [[ ${{ github.event_name }} == 'push' ]]; then
-            echo "image-tag=develop-${short_sha}" >> $GITHUB_OUTPUT
-          else
-            if [[ ${{ github.head_ref }} == 'release/'* ]]; then
-              echo "image-tag=release-${short_sha}" >> $GITHUB_OUTPUT
+            if [[ ${{ github.ref_name }} == 'release/'* ]]; then
+              echo "image-tag=release-${short_sha}" | tee -a $GITHUB_OUTPUT
+              echo "build-publish=true" | tee -a $GITHUB_OUTPUT
             else
-              echo "image-tag=pr-${{ github.event.number }}-${short_sha}" >> $GITHUB_OUTPUT
+              echo "image-tag=develop-${short_sha}" | tee -a $GITHUB_OUTPUT
+              echo "build-publish=true" | tee -a $GITHUB_OUTPUT
+            fi
+          else
+            if [[ ${{ github.event.label.name }} == 'build-publish' ]]; then
+              echo "image-tag=pr-${{ github.event.number }}-${short_sha}" | tee -a $GITHUB_OUTPUT
+              echo "build-publish=true" | tee -a $GITHUB_OUTPUT
             fi
           fi
 
       - name: Configure aws credentials
+        if: steps.get-image-tag.outputs.build-publish == 'true'
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
@@ -40,7 +50,7 @@ jobs:
           role-session-name: goreleaser-build-publish-chainlink
 
       - name: Build and publish images
-        id: goreleaser-build-publish
+        if: steps.get-image-tag.outputs.build-publish == 'true'
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
           enable-docker-publish: "true"
@@ -54,6 +64,7 @@ jobs:
           zig-version: 0.11.0
 
       - name: Output image name and digest
+        if: steps.get-image-tag.outputs.build-publish == 'true'
         shell: bash
         run: |
           echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
