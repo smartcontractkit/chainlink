@@ -555,6 +555,66 @@ func (_c *TxStore_FindEarliestUnconfirmedTxAttemptBlock_Call[ADDR, CHAIN_ID, TX_
 	return _c
 }
 
+// FindFinalizedTxWithSequence provides a mock function with given fields: ctx, fromAddress, seq
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindFinalizedTxWithSequence(ctx context.Context, fromAddress ADDR, seq SEQ) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+	ret := _m.Called(ctx, fromAddress, seq)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindFinalizedTxWithSequence")
+	}
+
+	var r0 *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR, SEQ) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
+		return rf(ctx, fromAddress, seq)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR, SEQ) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
+		r0 = rf(ctx, fromAddress, seq)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, ADDR, SEQ) error); ok {
+		r1 = rf(ctx, fromAddress, seq)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// TxStore_FindFinalizedTxWithSequence_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindFinalizedTxWithSequence'
+type TxStore_FindFinalizedTxWithSequence_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
+	*mock.Call
+}
+
+// FindFinalizedTxWithSequence is a helper method to define mock.On call
+//   - ctx context.Context
+//   - fromAddress ADDR
+//   - seq SEQ
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindFinalizedTxWithSequence(ctx interface{}, fromAddress interface{}, seq interface{}) *TxStore_FindFinalizedTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_FindFinalizedTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("FindFinalizedTxWithSequence", ctx, fromAddress, seq)}
+}
+
+func (_c *TxStore_FindFinalizedTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, fromAddress ADDR, seq SEQ)) *TxStore_FindFinalizedTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(ADDR), args[2].(SEQ))
+	})
+	return _c
+}
+
+func (_c *TxStore_FindFinalizedTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) *TxStore_FindFinalizedTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	_c.Call.Return(etx, err)
+	return _c
+}
+
+func (_c *TxStore_FindFinalizedTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, ADDR, SEQ) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)) *TxStore_FindFinalizedTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FindLatestSequence provides a mock function with given fields: ctx, fromAddress, chainId
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx context.Context, fromAddress ADDR, chainId CHAIN_ID) (SEQ, error) {
 	ret := _m.Called(ctx, fromAddress, chainId)
@@ -974,12 +1034,12 @@ func (_c *TxStore_FindTxWithIdempotencyKey_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_H
 	return _c
 }
 
-// FindTxWithSequence provides a mock function with given fields: ctx, fromAddress, seq
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithSequence(ctx context.Context, fromAddress ADDR, seq SEQ) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+// FindTxWithSequenceForRebroadcast provides a mock function with given fields: ctx, fromAddress, seq
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithSequenceForRebroadcast(ctx context.Context, fromAddress ADDR, seq SEQ) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	ret := _m.Called(ctx, fromAddress, seq)
 
 	if len(ret) == 0 {
-		panic("no return value specified for FindTxWithSequence")
+		panic("no return value specified for FindTxWithSequenceForRebroadcast")
 	}
 
 	var r0 *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -1004,32 +1064,32 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithS
 	return r0, r1
 }
 
-// TxStore_FindTxWithSequence_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindTxWithSequence'
-type TxStore_FindTxWithSequence_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
+// TxStore_FindTxWithSequenceForRebroadcast_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindTxWithSequenceForRebroadcast'
+type TxStore_FindTxWithSequenceForRebroadcast_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
 	*mock.Call
 }
 
-// FindTxWithSequence is a helper method to define mock.On call
+// FindTxWithSequenceForRebroadcast is a helper method to define mock.On call
 //   - ctx context.Context
 //   - fromAddress ADDR
 //   - seq SEQ
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithSequence(ctx interface{}, fromAddress interface{}, seq interface{}) *TxStore_FindTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_FindTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("FindTxWithSequence", ctx, fromAddress, seq)}
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithSequenceForRebroadcast(ctx interface{}, fromAddress interface{}, seq interface{}) *TxStore_FindTxWithSequenceForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_FindTxWithSequenceForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("FindTxWithSequenceForRebroadcast", ctx, fromAddress, seq)}
 }
 
-func (_c *TxStore_FindTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, fromAddress ADDR, seq SEQ)) *TxStore_FindTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_FindTxWithSequenceForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, fromAddress ADDR, seq SEQ)) *TxStore_FindTxWithSequenceForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(ADDR), args[2].(SEQ))
 	})
 	return _c
 }
 
-func (_c *TxStore_FindTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) *TxStore_FindTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_FindTxWithSequenceForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) *TxStore_FindTxWithSequenceForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(etx, err)
 	return _c
 }
 
-func (_c *TxStore_FindTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, ADDR, SEQ) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)) *TxStore_FindTxWithSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_FindTxWithSequenceForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, ADDR, SEQ) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)) *TxStore_FindTxWithSequenceForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
 }

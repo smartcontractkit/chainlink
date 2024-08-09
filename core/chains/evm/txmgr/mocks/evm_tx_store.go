@@ -620,6 +620,66 @@ func (_c *EvmTxStore_FindEarliestUnconfirmedTxAttemptBlock_Call) RunAndReturn(ru
 	return _c
 }
 
+// FindFinalizedTxWithSequence provides a mock function with given fields: ctx, fromAddress, seq
+func (_m *EvmTxStore) FindFinalizedTxWithSequence(ctx context.Context, fromAddress common.Address, seq evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, fromAddress, seq)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindFinalizedTxWithSequence")
+	}
+
+	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, fromAddress, seq)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, evmtypes.Nonce) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, fromAddress, seq)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, evmtypes.Nonce) error); ok {
+		r1 = rf(ctx, fromAddress, seq)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// EvmTxStore_FindFinalizedTxWithSequence_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindFinalizedTxWithSequence'
+type EvmTxStore_FindFinalizedTxWithSequence_Call struct {
+	*mock.Call
+}
+
+// FindFinalizedTxWithSequence is a helper method to define mock.On call
+//   - ctx context.Context
+//   - fromAddress common.Address
+//   - seq evmtypes.Nonce
+func (_e *EvmTxStore_Expecter) FindFinalizedTxWithSequence(ctx interface{}, fromAddress interface{}, seq interface{}) *EvmTxStore_FindFinalizedTxWithSequence_Call {
+	return &EvmTxStore_FindFinalizedTxWithSequence_Call{Call: _e.mock.On("FindFinalizedTxWithSequence", ctx, fromAddress, seq)}
+}
+
+func (_c *EvmTxStore_FindFinalizedTxWithSequence_Call) Run(run func(ctx context.Context, fromAddress common.Address, seq evmtypes.Nonce)) *EvmTxStore_FindFinalizedTxWithSequence_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Address), args[2].(evmtypes.Nonce))
+	})
+	return _c
+}
+
+func (_c *EvmTxStore_FindFinalizedTxWithSequence_Call) Return(etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindFinalizedTxWithSequence_Call {
+	_c.Call.Return(etx, err)
+	return _c
+}
+
+func (_c *EvmTxStore_FindFinalizedTxWithSequence_Call) RunAndReturn(run func(context.Context, common.Address, evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindFinalizedTxWithSequence_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FindLatestSequence provides a mock function with given fields: ctx, fromAddress, chainId
 func (_m *EvmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.Address, chainId *big.Int) (evmtypes.Nonce, error) {
 	ret := _m.Called(ctx, fromAddress, chainId)
@@ -1273,12 +1333,12 @@ func (_c *EvmTxStore_FindTxWithIdempotencyKey_Call) RunAndReturn(run func(contex
 	return _c
 }
 
-// FindTxWithSequence provides a mock function with given fields: ctx, fromAddress, seq
-func (_m *EvmTxStore) FindTxWithSequence(ctx context.Context, fromAddress common.Address, seq evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+// FindTxWithSequenceForRebroadcast provides a mock function with given fields: ctx, fromAddress, seq
+func (_m *EvmTxStore) FindTxWithSequenceForRebroadcast(ctx context.Context, fromAddress common.Address, seq evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, fromAddress, seq)
 
 	if len(ret) == 0 {
-		panic("no return value specified for FindTxWithSequence")
+		panic("no return value specified for FindTxWithSequenceForRebroadcast")
 	}
 
 	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
@@ -1303,32 +1363,32 @@ func (_m *EvmTxStore) FindTxWithSequence(ctx context.Context, fromAddress common
 	return r0, r1
 }
 
-// EvmTxStore_FindTxWithSequence_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindTxWithSequence'
-type EvmTxStore_FindTxWithSequence_Call struct {
+// EvmTxStore_FindTxWithSequenceForRebroadcast_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindTxWithSequenceForRebroadcast'
+type EvmTxStore_FindTxWithSequenceForRebroadcast_Call struct {
 	*mock.Call
 }
 
-// FindTxWithSequence is a helper method to define mock.On call
+// FindTxWithSequenceForRebroadcast is a helper method to define mock.On call
 //   - ctx context.Context
 //   - fromAddress common.Address
 //   - seq evmtypes.Nonce
-func (_e *EvmTxStore_Expecter) FindTxWithSequence(ctx interface{}, fromAddress interface{}, seq interface{}) *EvmTxStore_FindTxWithSequence_Call {
-	return &EvmTxStore_FindTxWithSequence_Call{Call: _e.mock.On("FindTxWithSequence", ctx, fromAddress, seq)}
+func (_e *EvmTxStore_Expecter) FindTxWithSequenceForRebroadcast(ctx interface{}, fromAddress interface{}, seq interface{}) *EvmTxStore_FindTxWithSequenceForRebroadcast_Call {
+	return &EvmTxStore_FindTxWithSequenceForRebroadcast_Call{Call: _e.mock.On("FindTxWithSequenceForRebroadcast", ctx, fromAddress, seq)}
 }
 
-func (_c *EvmTxStore_FindTxWithSequence_Call) Run(run func(ctx context.Context, fromAddress common.Address, seq evmtypes.Nonce)) *EvmTxStore_FindTxWithSequence_Call {
+func (_c *EvmTxStore_FindTxWithSequenceForRebroadcast_Call) Run(run func(ctx context.Context, fromAddress common.Address, seq evmtypes.Nonce)) *EvmTxStore_FindTxWithSequenceForRebroadcast_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(common.Address), args[2].(evmtypes.Nonce))
 	})
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxWithSequence_Call) Return(etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxWithSequence_Call {
+func (_c *EvmTxStore_FindTxWithSequenceForRebroadcast_Call) Return(etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) *EvmTxStore_FindTxWithSequenceForRebroadcast_Call {
 	_c.Call.Return(etx, err)
 	return _c
 }
 
-func (_c *EvmTxStore_FindTxWithSequence_Call) RunAndReturn(run func(context.Context, common.Address, evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxWithSequence_Call {
+func (_c *EvmTxStore_FindTxWithSequenceForRebroadcast_Call) RunAndReturn(run func(context.Context, common.Address, evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)) *EvmTxStore_FindTxWithSequenceForRebroadcast_Call {
 	_c.Call.Return(run)
 	return _c
 }
