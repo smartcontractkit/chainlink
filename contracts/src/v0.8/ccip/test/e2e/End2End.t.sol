@@ -90,7 +90,7 @@ contract E2E is EVM2EVMOnRampSetup, CommitStoreSetup, EVM2EVMOffRampSetup {
 
     Internal.ExecutionReport memory execReport = _generateReportFromMessages(messages);
     vm.resumeGasMetering();
-    s_offRamp.execute(execReport, new uint256[](0));
+    s_offRamp.execute(execReport, new EVM2EVMOffRamp.GasLimitOverride[](0));
   }
 
   function sendRequest(uint64 expectedSeqNum) public returns (Internal.EVM2EVMMessage memory) {

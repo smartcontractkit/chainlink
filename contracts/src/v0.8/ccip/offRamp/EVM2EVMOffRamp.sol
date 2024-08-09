@@ -45,7 +45,9 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   error UnsupportedNumberOfTokens(uint64 sequenceNumber);
   error ManualExecutionNotYetEnabled();
   error ManualExecutionGasLimitMismatch();
-  error InvalidManualExecutionGasLimit(uint256 index, uint256 newLimit);
+  error DestinationGasAmountCountMismatch(bytes32 messageId, uint64 sequenceNumber);
+  error InvalidManualExecutionGasLimit(bytes32 messageId, uint256 oldLimit, uint256 newLimit);
+  error InvalidTokenGasOverride(bytes32 messageId, uint256 tokenIndex, uint256 oldLimit, uint256 tokenGasOverride);
   error RootNotCommitted();
   error CanOnlySelfCall();
   error ReceiverError(bytes err);
@@ -98,6 +100,15 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   struct RateLimitToken {
     address sourceToken;
     address destToken;
+  }
+
+  /// @notice Gas overrides for manual exec, the number of token overrides must match the number of tokens in the msg.
+  struct GasLimitOverride {
+    /// @notice Overrides EVM2EVMMessage.gasLimit. A value of zero indicates no override and is valid.
+    uint256 receiverExecutionGasLimit;
+    /// @notice Overrides EVM2EVMMessage.sourceTokenData.destGasAmount. Must be same length as tokenAmounts. A value
+    /// of zero indicates no override and is valid.
+    uint32[] tokenGasOverrides;
   }
 
   // STATIC CONFIG
@@ -218,18 +229,44 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   /// @param gasLimitOverrides New gasLimit for each message in the report.
   /// @dev We permit gas limit overrides so that users may manually execute messages which failed due to
   /// insufficient gas provided.
-  function manuallyExecute(Internal.ExecutionReport memory report, uint256[] memory gasLimitOverrides) external {
+  function manuallyExecute(
+    Internal.ExecutionReport memory report,
+    GasLimitOverride[] memory gasLimitOverrides
+  ) external {
     // We do this here because the other _execute path is already covered OCR2BaseXXX.
     _checkChainForked();
 
     uint256 numMsgs = report.messages.length;
     if (numMsgs != gasLimitOverrides.length) revert ManualExecutionGasLimitMismatch();
     for (uint256 i = 0; i < numMsgs; ++i) {
-      uint256 newLimit = gasLimitOverrides[i];
+      Internal.EVM2EVMMessage memory message = report.messages[i];
+      GasLimitOverride memory gasLimitOverride = gasLimitOverrides[i];
+
+      uint256 newLimit = gasLimitOverride.receiverExecutionGasLimit;
       // Checks to ensure message cannot be executed with less gas than specified.
       if (newLimit != 0) {
-        if (newLimit < report.messages[i].gasLimit) {
-          revert InvalidManualExecutionGasLimit(i, newLimit);
+        if (newLimit < message.gasLimit) {
+          revert InvalidManualExecutionGasLimit(message.messageId, message.gasLimit, newLimit);
+        }
+      }
+
+      if (message.tokenAmounts.length != gasLimitOverride.tokenGasOverrides.length) {
+        revert DestinationGasAmountCountMismatch(message.messageId, message.sequenceNumber);
+      }
+
+      bytes[] memory encodedSourceTokenData = message.sourceTokenData;
+
+      for (uint256 j = 0; j < message.tokenAmounts.length; ++j) {
+        Internal.SourceTokenData memory sourceTokenData =
+          abi.decode(encodedSourceTokenData[i], (Internal.SourceTokenData));
+        uint256 tokenGasOverride = gasLimitOverride.tokenGasOverrides[j];
+
+        // The gas limit can not be lowered as that could cause the message to fail. If manual execution is done
+        // from an UNTOUCHED state and we would allow lower gas limit, anyone could grief by executing the message with
+        // lower gas limit than the DON would have used. This results in the message being marked FAILURE and the DON
+        // would not attempt it with the correct gas limit.
+        if (tokenGasOverride != 0 && tokenGasOverride < sourceTokenData.destGasAmount) {
+          revert InvalidTokenGasOverride(message.messageId, j, sourceTokenData.destGasAmount, tokenGasOverride);
         }
       }
     }
@@ -239,16 +276,17 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
 
   /// @notice Entrypoint for execution, called by the OCR network
   /// @dev Expects an encoded ExecutionReport
+  /// @dev Supplies no GasLimitOverrides as the DON will only execute with the original gas limits.
   function _report(bytes calldata report) internal override {
-    _execute(abi.decode(report, (Internal.ExecutionReport)), new uint256[](0));
+    _execute(abi.decode(report, (Internal.ExecutionReport)), new GasLimitOverride[](0));
   }
 
   /// @notice Executes a report, executing each message in order.
   /// @param report The execution report containing the messages and proofs.
-  /// @param manualExecGasLimits An array of gas limits to use for manual execution.
+  /// @param manualExecGasOverrides An array of gas limits to use for manual execution.
   /// @dev If called from the DON, this array is always empty.
   /// @dev If called from manual execution, this array is always same length as messages.
-  function _execute(Internal.ExecutionReport memory report, uint256[] memory manualExecGasLimits) internal {
+  function _execute(Internal.ExecutionReport memory report, GasLimitOverride[] memory manualExecGasOverrides) internal {
     if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(i_sourceChainSelector)))) revert CursedByRMN();
 
     uint256 numMsgs = report.messages.length;
@@ -267,13 +305,13 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
       // a message with an unexpected hash.
       if (hashedLeaves[i] != message.messageId) revert InvalidMessageId();
     }
+    bool manualExecution = manualExecGasOverrides.length != 0;
 
     // SECURITY CRITICAL CHECK
     uint256 timestampCommitted = ICommitStore(i_commitStore).verify(hashedLeaves, report.proofs, report.proofFlagBits);
     if (timestampCommitted == 0) revert RootNotCommitted();
 
     // Execute messages
-    bool manualExecution = manualExecGasLimits.length != 0;
     for (uint256 i = 0; i < numMsgs; ++i) {
       Internal.EVM2EVMMessage memory message = report.messages[i];
       Internal.MessageExecutionState originalState = getExecutionState(message.sequenceNumber);
@@ -292,8 +330,10 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
         emit SkippedAlreadyExecutedMessage(message.sequenceNumber);
         continue;
       }
+      uint32[] memory tokenGasOverrides;
 
       if (manualExecution) {
+        tokenGasOverrides = manualExecGasOverrides[i].tokenGasOverrides;
         bool isOldCommitReport =
           (block.timestamp - timestampCommitted) > s_dynamicConfig.permissionLessExecutionThresholdSeconds;
         // Manually execution is fine if we previously failed or if the commit report is just too old
@@ -303,8 +343,8 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
         }
 
         // Manual execution gas limit can override gas limit specified in the message. Value of 0 indicates no override.
-        if (manualExecGasLimits[i] != 0) {
-          message.gasLimit = manualExecGasLimits[i];
+        if (manualExecGasOverrides[i].receiverExecutionGasLimit != 0) {
+          message.gasLimit = manualExecGasOverrides[i].receiverExecutionGasLimit;
         }
       } else {
         // DON can only execute a message once
@@ -361,7 +401,8 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
       );
 
       _setExecutionState(message.sequenceNumber, Internal.MessageExecutionState.IN_PROGRESS);
-      (Internal.MessageExecutionState newState, bytes memory returnData) = _trialExecute(message, offchainTokenData);
+      (Internal.MessageExecutionState newState, bytes memory returnData) =
+        _trialExecute(message, offchainTokenData, tokenGasOverrides);
       _setExecutionState(message.sequenceNumber, newState);
 
       // Since it's hard to estimate whether manual execution will succeed, we
@@ -432,9 +473,10 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   /// @return revert data in bytes if CCIP receiver reverted during execution.
   function _trialExecute(
     Internal.EVM2EVMMessage memory message,
-    bytes[] memory offchainTokenData
+    bytes[] memory offchainTokenData,
+    uint32[] memory tokenGasOverrides
   ) internal returns (Internal.MessageExecutionState, bytes memory) {
-    try this.executeSingleMessage(message, offchainTokenData) {}
+    try this.executeSingleMessage(message, offchainTokenData, tokenGasOverrides) {}
     catch (bytes memory err) {
       if (
         ReceiverError.selector == bytes4(err) || TokenHandlingError.selector == bytes4(err)
@@ -460,12 +502,21 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   /// its execution and enforce atomicity among successful message processing and token transfer.
   /// @dev We use ERC-165 to check for the ccipReceive interface to permit sending tokens to contracts
   /// (for example smart contract wallets) without an associated message.
-  function executeSingleMessage(Internal.EVM2EVMMessage calldata message, bytes[] calldata offchainTokenData) external {
+  function executeSingleMessage(
+    Internal.EVM2EVMMessage calldata message,
+    bytes[] calldata offchainTokenData,
+    uint32[] memory tokenGasOverrides
+  ) external {
     if (msg.sender != address(this)) revert CanOnlySelfCall();
     Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](0);
     if (message.tokenAmounts.length > 0) {
       destTokenAmounts = _releaseOrMintTokens(
-        message.tokenAmounts, abi.encode(message.sender), message.receiver, message.sourceTokenData, offchainTokenData
+        message.tokenAmounts,
+        abi.encode(message.sender),
+        message.receiver,
+        message.sourceTokenData,
+        offchainTokenData,
+        tokenGasOverrides
       );
     }
     // There are three cases in which we skip calling the receiver:
@@ -710,19 +761,27 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     bytes memory originalSender,
     address receiver,
     bytes[] calldata encodedSourceTokenData,
-    bytes[] calldata offchainTokenData
+    bytes[] calldata offchainTokenData,
+    uint32[] memory tokenGasOverrides
   ) internal returns (Client.EVMTokenAmount[] memory destTokenAmounts) {
     // Creating a copy is more gas efficient than initializing a new array.
     destTokenAmounts = sourceTokenAmounts;
     uint256 value = 0;
     for (uint256 i = 0; i < sourceTokenAmounts.length; ++i) {
+      Internal.SourceTokenData memory sourceTokenData =
+        abi.decode(encodedSourceTokenData[i], (Internal.SourceTokenData));
+      if (tokenGasOverrides.length != 0) {
+        if (tokenGasOverrides[i] != 0) {
+          sourceTokenData.destGasAmount = tokenGasOverrides[i];
+        }
+      }
       destTokenAmounts[i] = _releaseOrMintToken(
         sourceTokenAmounts[i].amount,
         originalSender,
         receiver,
         // This should never revert as the onRamp encodes the sourceTokenData struct. Only the inner components from
         // this struct come from untrusted sources.
-        abi.decode(encodedSourceTokenData[i], (Internal.SourceTokenData)),
+        sourceTokenData,
         offchainTokenData[i]
       );
 
