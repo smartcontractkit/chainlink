@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/contracts-ccip",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Chainlink CCIP smart contracts",
   "author": "Chainlink devs",
   "license": "BUSL-1.1",
