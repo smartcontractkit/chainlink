@@ -74,7 +74,7 @@ func MatchContractVersionsOrAbove(requiredContractVersions map[Name]Version) err
 }
 
 // NeedTokenAdminRegistry checks if token admin registry is needed for the current version of ccip
-// if the version is less than 1.5.0-dev, then token admin registry is not needed
+// if the version is less than 1.5.0, then token admin registry is not needed
 func NeedTokenAdminRegistry() bool {
 	return MatchContractVersionsOrAbove(map[Name]Version{
 		TokenPoolContract: V1_5_0_dev,

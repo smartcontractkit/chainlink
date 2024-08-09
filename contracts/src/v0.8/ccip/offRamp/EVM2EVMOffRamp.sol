@@ -34,7 +34,6 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   using ERC165Checker for address;
   using EnumerableMapAddresses for EnumerableMapAddresses.AddressToAddressMap;
 
-  error AlreadyExecuted(uint64 sequenceNumber);
   error ZeroAddressNotAllowed();
   error CommitStoreAlreadyInUse();
   error ExecutionError(bytes err);
@@ -112,7 +111,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   }
 
   // STATIC CONFIG
-  string public constant override typeAndVersion = "EVM2EVMOffRamp 1.5.0-dev";
+  string public constant override typeAndVersion = "EVM2EVMOffRamp 1.5.0";
 
   /// @dev Commit store address on the destination chain
   address internal immutable i_commitStore;
