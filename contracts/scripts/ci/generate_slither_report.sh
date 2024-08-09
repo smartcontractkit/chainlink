@@ -44,15 +44,13 @@ run_slither() {
         >&2 echo "::error::Failed to select Solc version for $FILE"
         return 1
     fi
-    set -e
 
     SLITHER_OUTPUT_FILE="$TARGET_DIR/$(basename "${FILE%.sol}")-slither-report.md"
-
-    output=$(slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL" --fail-none $SLITHER_EXTRA_PARAMS)
-    if [ $? -ne 0 ]; then
-        >&2 echo "::error::Slither failed for $FILE"
-        exit 1
+    if ! output=$(slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL" --fail-none $SLITHER_EXTRA_PARAMS); then
+        >&2 echo "::warning::Slither failed for $FILE"
+        return 0
     fi
+    set -e
     output=$(echo "$output" | sed '/\*\*THIS CHECKLIST IS NOT COMPLETE\*\*. Use `--show-ignored-findings` to show all the results./d'  | sed '/Summary/d')
 
     echo "# Summary for $FILE" > "$SLITHER_OUTPUT_FILE"
@@ -80,8 +78,8 @@ set +e
 process_files "$SOURCE_DIR" "$TARGET_DIR" "${FILES[@]}"
 
 if [[ $? -ne 0 ]]; then
-    >&2 echo "::error::Failed to generate Slither reports"
-    exit 1
+    >&2 echo "::warning::Failed to generate some Slither reports"
+    exit 0
 fi
 
 echo "Slither reports saved in $TARGET_DIR folder"

@@ -88,7 +88,7 @@ process_selected_files() {
         MATCHES=($(find "$SOURCE_DIR" -type f -path "*/$FILE"))
 
         if [[ ${#MATCHES[@]} -gt 1 ]]; then
-            >&2 echo "Error: Multiple matches found for $FILE:"
+            >&2 echo "::error:: Multiple matches found for $FILE:"
             for MATCH in "${MATCHES[@]}"; do
                 >&2 echo "  $MATCH"
             done
