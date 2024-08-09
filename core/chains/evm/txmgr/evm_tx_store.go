@@ -76,6 +76,7 @@ type TestEvmTxStore interface {
 	GetAllTxAttempts(ctx context.Context) (attempts []TxAttempt, err error)
 	CountTxesByStateAndSubject(ctx context.Context, state txmgrtypes.TxState, subject uuid.UUID) (count int, err error)
 	FindTxesByFromAddressAndState(ctx context.Context, fromAddress common.Address, state string) (txes []*Tx, err error)
+	FindTxesByFromAddressAndNonce(ctx context.Context, fromAddress common.Address, nonce int64) (txes []*Tx, err error)
 	UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context, id int64, blockNum uint) error
 }
 
@@ -2058,6 +2059,18 @@ func (o *evmTxStore) FindTxesByFromAddressAndState(ctx context.Context, fromAddr
 	sql := "SELECT * FROM evm.txes WHERE from_address = $1 AND state = $2"
 	var dbEtxs []DbEthTx
 	err = o.q.SelectContext(ctx, &dbEtxs, sql, fromAddress, state)
+	txes = make([]*Tx, len(dbEtxs))
+	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+	return txes, err
+}
+
+func (o *evmTxStore) FindTxesByFromAddressAndNonce(ctx context.Context, fromAddress common.Address, nonce int64) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.stopCh.Ctx(ctx)
+	defer cancel()
+	sql := "SELECT * FROM evm.txes WHERE from_address = $1 AND nonce = $2"
+	var dbEtxs []DbEthTx
+	err = o.q.SelectContext(ctx, &dbEtxs, sql, fromAddress, nonce)
 	txes = make([]*Tx, len(dbEtxs))
 	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
 	return txes, err
