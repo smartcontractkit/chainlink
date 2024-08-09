@@ -16,6 +16,8 @@ library Internal {
   // malicious contracts from returning large amounts of data and causing
   // repeated out-of-gas scenarios.
   uint16 internal constant MAX_RET_BYTES = 4 + 4 * 32;
+  /// @dev The expected number of bytes returned by the balanceOf function.
+  uint256 internal constant MAX_BALANCE_OF_RET_BYTES = 32;
 
   /// @notice A collection of token price and gas price updates.
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
