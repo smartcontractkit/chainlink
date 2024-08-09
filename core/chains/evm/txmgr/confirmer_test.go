@@ -2998,7 +2998,57 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("processes eth_txes with receipt for finalized tx", func(t *testing.T) {
+	t.Run("processes eth_txes with receipts for finalized tx", func(t *testing.T) {
+		ch := make(chan interface{})
+		nonce := evmtypes.Nonce(3)
+		var err error
+		ec := newEthConfirmer(t, txStore, ethClient, config, evmcfg, ethKeyStore, func(ctx context.Context, id uuid.UUID, value interface{}, thisErr error) error {
+			err = thisErr
+			ch <- value
+			return nil
+		})
+
+		run := cltest.MustInsertPipelineRun(t, db)
+		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
+		pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
+
+		etx := cltest.MustInsertFinalizedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
+		receipt := mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
+
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr.ID, etx.ID)
+
+		done := make(chan struct{})
+		t.Cleanup(func() { <-done })
+		go func() {
+			defer close(done)
+			err2 := ec.ResumePendingTaskRuns(tests.Context(t))
+			if !assert.NoError(t, err2) {
+				return
+			}
+			// Retrieve Tx to check if callback completed flag was set to true
+			txs, err := txStore.FindTxesByFromAddressAndNonce(tests.Context(t), fromAddress, int64(nonce))
+			assert.Nil(t, err)
+			assert.Equal(t, 1, len(txs))
+			assert.Equal(t, true, txs[0].CallbackCompleted)
+		}()
+
+		select {
+		case data := <-ch:
+			assert.NoError(t, err)
+
+			require.IsType(t, &evmtypes.Receipt{}, data)
+			r := data.(*evmtypes.Receipt)
+			require.Equal(t, receipt.TxHash, r.TxHash)
+
+		case <-time.After(time.Second):
+			t.Fatal("no value received")
+		}
+	})
+
+	pgtest.MustExec(t, db, `DELETE FROM pipeline_runs`)
+
+	t.Run("processes eth_txes with receipt for finalized tx that reverted", func(t *testing.T) {
 		type data struct {
 			value any
 			error
