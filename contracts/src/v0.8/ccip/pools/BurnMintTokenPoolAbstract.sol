@@ -39,9 +39,8 @@ abstract contract BurnMintTokenPoolAbstract is TokenPool {
   {
     _validateReleaseOrMint(releaseOrMintIn);
 
-    // Mint to the offRamp, which forwards it to the recipient
-    IBurnMintERC20(address(i_token)).mint(address(this), releaseOrMintIn.amount);
-    IBurnMintERC20(address(i_token)).approve(msg.sender, releaseOrMintIn.amount);
+    // Mint to the receiver
+    IBurnMintERC20(address(i_token)).mint(releaseOrMintIn.receiver, releaseOrMintIn.amount);
 
     emit Minted(msg.sender, releaseOrMintIn.receiver, releaseOrMintIn.amount);
 

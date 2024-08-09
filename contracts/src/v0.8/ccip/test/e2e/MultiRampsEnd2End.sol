@@ -103,7 +103,7 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     _setupMultipleOffRampsFromConfigs(sourceChainConfigs);
   }
 
-  function test_E2E_3MessagesSuccess_gas() public {
+  function test_E2E_3MessagesMMultiOffRampSuccess_gas() public {
     vm.pauseGasMetering();
     IERC20 token0 = IERC20(s_sourceTokens[0]);
     IERC20 token1 = IERC20(s_sourceTokens[1]);

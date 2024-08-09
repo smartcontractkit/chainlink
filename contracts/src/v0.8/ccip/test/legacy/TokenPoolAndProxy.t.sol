@@ -478,10 +478,7 @@ contract TokenPoolAndProxy is EVM2EVMOnRampSetup {
     vm.startPrank(address(s_fakeOffRamp));
 
     vm.expectEmit(address(s_legacyPool));
-    emit Minted(address(s_pool), address(s_pool), amount);
-
-    vm.expectEmit(address(s_token));
-    emit IERC20.Approval(address(s_pool), address(s_fakeOffRamp), amount);
+    emit Minted(address(s_pool), address(OWNER), amount);
 
     s_pool.releaseOrMint(
       Pool.ReleaseOrMintInV1({
