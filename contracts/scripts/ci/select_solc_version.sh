@@ -66,7 +66,7 @@ set +e
 SOLCVER=$(extract_pragma "$FILE")
 
 if [[ $? -ne 0 ]]; then
-  echo "Error: Failed to extract the Solidity version from $FILE."
+  >&2 echo "::error:: Failed to extract the Solidity version from $FILE."
   return 1
 fi
 

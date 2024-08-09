@@ -118,6 +118,7 @@ jobs:
           fetch-depth: 0
 
       - name: Extract Foundry version
+        id: extract-foundry-version
         uses: ./.github/actions/detect-solidity-foundry-version
         with:
           working-directory: contracts
