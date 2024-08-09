@@ -59,7 +59,7 @@ contract EVM2EVMOnRamp_constructor is EVM2EVMOnRampSetup {
     assertEq(dynamicConfig.maxPerMsgGasLimit, gotDynamicConfig.maxPerMsgGasLimit);
 
     // Initial values
-    assertEq("EVM2EVMOnRamp 1.5.0-dev", s_onRamp.typeAndVersion());
+    assertEq("EVM2EVMOnRamp 1.5.0", s_onRamp.typeAndVersion());
     assertEq(OWNER, s_onRamp.owner());
     assertEq(1, s_onRamp.getExpectedNextSequenceNumber());
   }

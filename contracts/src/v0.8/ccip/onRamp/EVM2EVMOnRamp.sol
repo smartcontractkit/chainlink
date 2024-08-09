@@ -149,7 +149,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   }
 
   // STATIC CONFIG
-  string public constant override typeAndVersion = "EVM2EVMOnRamp 1.5.0-dev";
+  string public constant override typeAndVersion = "EVM2EVMOnRamp 1.5.0";
   /// @dev metadataHash is a lane-specific prefix for a message hash preimage which ensures global uniqueness
   /// Ensures that 2 identical messages sent to 2 different lanes will have a distinct hash.
   /// Must match the metadataHash used in computing leaf hashes offchain for the root committed in

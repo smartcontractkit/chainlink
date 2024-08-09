@@ -8,7 +8,7 @@ import {Pool} from "../libraries/Pool.sol";
 import {LegacyPoolWrapper} from "./LegacyPoolWrapper.sol";
 
 contract BurnMintTokenPoolAndProxy is ITypeAndVersion, LegacyPoolWrapper {
-  string public constant override typeAndVersion = "BurnMintTokenPoolAndProxy 1.5.0-dev";
+  string public constant override typeAndVersion = "BurnMintTokenPoolAndProxy 1.5.0";
 
   constructor(
     IBurnMintERC20 token,
