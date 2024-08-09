@@ -473,8 +473,6 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 
 	cfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
-		depth := uint32(0)
-		c.EVM[0].FinalityDepth = &depth
 	})
 	app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
 	b.Commit()
