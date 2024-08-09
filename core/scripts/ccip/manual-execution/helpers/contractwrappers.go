@@ -2,7 +2,6 @@ package helpers
 
 import (
 	"fmt"
-	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum"
@@ -178,7 +177,7 @@ func ManuallyExecute(
 	opts *bind.TransactOpts,
 	address string,
 	report InternalExecutionReport,
-	gasLimitOverrides []*big.Int,
+	gasLimitOverrides []*EVM2EVMOffRampGasLimitOverride,
 ) (*types.Transaction, error) {
 	offRampContract := common.HexToAddress(address)
 	abi, err := abi.JSON(strings.NewReader(OffRampABI))
