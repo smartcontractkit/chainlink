@@ -11,7 +11,7 @@ DIR_PREFIX=$1
 REMAPPINGS_FILE=$2
 
 if [ ! -f "$REMAPPINGS_FILE" ]; then
-    >&2 echo "Error: Remappings file '$REMAPPINGS_FILE' not found."
+    >&2 echo "::error:: Remappings file '$REMAPPINGS_FILE' not found."
     exit 1
 fi
 
