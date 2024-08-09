@@ -3013,7 +3013,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 				return
 			}
 			// Retrieve Tx to check if callback completed flag was set to true
-			updateTx, err3 := txStore.FindFinalizedTxWithSequence(tests.Context(t), fromAddress, nonce)
+			updateTx, err3 := txStore.FindTxWithSequence(tests.Context(t), fromAddress, nonce)
 			if assert.NoError(t, err3) {
 				assert.Equal(t, true, updateTx.CallbackCompleted)
 			}
@@ -3067,7 +3067,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 				return
 			}
 			// Retrieve Tx to check if callback completed flag was set to true
-			updateTx, err3 := txStore.FindTxWithSequenceForRebroadcast(tests.Context(t), fromAddress, nonce)
+			updateTx, err3 := txStore.FindTxWithSequence(tests.Context(t), fromAddress, nonce)
 			if assert.NoError(t, err3) {
 				assert.Equal(t, true, updateTx.CallbackCompleted)
 			}
@@ -3103,7 +3103,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		require.Error(t, err)
 
 		// Retrieve Tx to check if callback completed flag was left unchanged
-		updateTx, err := txStore.FindTxWithSequenceForRebroadcast(tests.Context(t), fromAddress, nonce)
+		updateTx, err := txStore.FindTxWithSequence(tests.Context(t), fromAddress, nonce)
 		require.NoError(t, err)
 		require.Equal(t, false, updateTx.CallbackCompleted)
 	})

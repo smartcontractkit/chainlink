@@ -1141,7 +1141,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) For
 	ec.lggr.Infof("ForceRebroadcast: will rebroadcast transactions for all sequences between %v and %v", seqs[0], seqs[len(seqs)-1])
 
 	for _, seq := range seqs {
-		etx, err := ec.txStore.FindTxWithSequenceForRebroadcast(ctx, address, seq)
+		etx, err := ec.txStore.FindTxWithSequence(ctx, address, seq)
 		if err != nil {
 			return fmt.Errorf("ForceRebroadcast failed: %w", err)
 		}

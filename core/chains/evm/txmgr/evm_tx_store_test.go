@@ -730,7 +730,7 @@ func TestORM_FindTxWithSequence(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	t.Run("returns nil if no results", func(t *testing.T) {
-		etx, err := txStore.FindTxWithSequenceForRebroadcast(tests.Context(t), fromAddress, evmtypes.Nonce(777))
+		etx, err := txStore.FindTxWithSequence(tests.Context(t), fromAddress, evmtypes.Nonce(777))
 		require.NoError(t, err)
 		assert.Nil(t, etx)
 	})
@@ -739,7 +739,7 @@ func TestORM_FindTxWithSequence(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 777, 1, fromAddress)
 		require.Equal(t, evmtypes.Nonce(777), *etx.Sequence)
 
-		res, err := txStore.FindTxWithSequenceForRebroadcast(tests.Context(t), fromAddress, evmtypes.Nonce(777))
+		res, err := txStore.FindTxWithSequence(tests.Context(t), fromAddress, evmtypes.Nonce(777))
 		require.NoError(t, err)
 		assert.Equal(t, etx.Sequence, res.Sequence)
 	})

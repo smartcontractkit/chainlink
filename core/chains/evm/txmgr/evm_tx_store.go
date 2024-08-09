@@ -1023,7 +1023,7 @@ func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, chainID *big.I
 	defer cancel()
 
 	err = o.q.SelectContext(ctx, &rs, `
-	SELECT evm.txes.state, evm.txes.pipeline_task_run_id, evm.receipts.receipt, COALESCE((evm.txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM evm.txes
+	SELECT evm.txes.pipeline_task_run_id, evm.receipts.receipt, COALESCE((evm.txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM evm.txes
 	INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
 	INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
 	WHERE evm.txes.pipeline_task_run_id IS NOT NULL AND evm.txes.signal_callback = TRUE AND evm.txes.callback_completed = FALSE
@@ -1085,8 +1085,8 @@ func (o *evmTxStore) FindTxWithIdempotencyKey(ctx context.Context, idempotencyKe
 	return
 }
 
-// FindTxWithSequenceForRebroadcast returns any broadcast ethtx with the given nonce
-func (o *evmTxStore) FindTxWithSequenceForRebroadcast(ctx context.Context, fromAddress common.Address, nonce evmtypes.Nonce) (etx *Tx, err error) {
+// FindTxWithSequence returns any broadcast ethtx with the given nonce
+func (o *evmTxStore) FindTxWithSequence(ctx context.Context, fromAddress common.Address, nonce evmtypes.Nonce) (etx *Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
@@ -1095,30 +1095,6 @@ func (o *evmTxStore) FindTxWithSequenceForRebroadcast(ctx context.Context, fromA
 		var dbEtx DbEthTx
 		err = orm.q.GetContext(ctx, &dbEtx, `
 SELECT * FROM evm.txes WHERE from_address = $1 AND nonce = $2 AND state IN ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
-`, fromAddress, nonce.Int64())
-		if err != nil {
-			return pkgerrors.Wrap(err, "FindEthTxWithNonce failed to load evm.txes")
-		}
-		dbEtx.ToTx(etx)
-		err = orm.loadTxAttemptsAtomic(ctx, etx)
-		return pkgerrors.Wrap(err, "FindEthTxWithNonce failed to load evm.tx_attempts")
-	})
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	return
-}
-
-// FindFinalizedTxWithSequence returns finalized ethtx with the given nonce
-func (o *evmTxStore) FindFinalizedTxWithSequence(ctx context.Context, fromAddress common.Address, nonce evmtypes.Nonce) (etx *Tx, err error) {
-	var cancel context.CancelFunc
-	ctx, cancel = o.stopCh.Ctx(ctx)
-	defer cancel()
-	etx = new(Tx)
-	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
-		var dbEtx DbEthTx
-		err = orm.q.GetContext(ctx, &dbEtx, `
-SELECT * FROM evm.txes WHERE from_address = $1 AND nonce = $2 AND state = 'finalized'
 `, fromAddress, nonce.Int64())
 		if err != nil {
 			return pkgerrors.Wrap(err, "FindEthTxWithNonce failed to load evm.txes")
