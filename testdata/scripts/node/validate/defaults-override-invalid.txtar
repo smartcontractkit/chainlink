@@ -1,0 +1,34 @@
+# test with default override
+mkdir default_overrides
+env CL_CHAIN_DEFAULTS=default_overrides
+! exec chainlink node -c config.toml -s secrets.toml validate
+cmp stderr err.txt
+
+-- default_overrides/Ethereum_Mainnet.toml --
+ChainID = '1'
+FinalityTagEnabled = true
+
+-- default_overrides/Ethereum_FakeChain.toml --
+ChainID = '999'
+FinalityTagEnabled = true
+
+-- config.toml --
+Log.Level = 'debug'
+
+[[EVM]]
+ChainID = '1'
+
+[[EVM.Nodes]]
+Name = 'fake'
+WSURL = 'wss://foo.bar/ws'
+HTTPURL = 'https://foo.bar'
+
+-- secrets.toml --
+[Database]
+URL = 'postgresql://user:pass1234567890abcd@localhost:5432/dbname?sslmode=disable'
+
+[Password]
+Keystore = 'keystore_pass'
+
+-- err.txt --
+does not contain ChainID: 999
