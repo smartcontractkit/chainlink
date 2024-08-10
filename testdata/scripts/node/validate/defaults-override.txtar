@@ -1,7 +1,13 @@
+# test with default override
 mkdir default_overrides
 env CL_CHAIN_DEFAULTS=default_overrides
 exec chainlink node -c config.toml -s secrets.toml validate
 cmp stdout out.txt
+
+# remove override, FinalityTagEnabled should no longer match
+env CL_CHAIN_DEFAULTS=
+exec chainlink node -c config.toml -s secrets.toml validate
+! cmp stdout out.txt
 
 -- default_overrides/Ethereum_Mainnet.toml --
 ChainID = '1'
