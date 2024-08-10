@@ -473,6 +473,10 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 
 	cfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
+		finalityTagEnabled := true
+		FinalityTagBypass := false
+		c.EVM[0].HeadTracker.FinalityTagBypass = &FinalityTagBypass
+		c.EVM[0].FinalityTagEnabled = &finalityTagEnabled
 	})
 	app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
 	b.Commit()

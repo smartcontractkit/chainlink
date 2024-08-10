@@ -703,7 +703,15 @@ func (c *SimulatedBackendClient) ethGetHeaderByNumber(ctx context.Context, resul
 }
 
 func (c *SimulatedBackendClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
-	block := c.b.Blockchain().CurrentFinalBlock()
+	var block *types.Header
+	if blk := c.b.Blockchain().CurrentFinalBlock(); blk != nil {
+		block = blk
+	} else if blk = c.b.Blockchain().CurrentBlock(); blk != nil {
+		block = blk
+	} else {
+		return nil, fmt.Errorf("SimulatedBackendClient failed to find latest finalized block")
+	}
+
 	return &evmtypes.Head{
 		EVMChainID: ubig.NewI(c.chainId.Int64()),
 		Hash:       block.Hash(),
