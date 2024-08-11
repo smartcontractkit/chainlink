@@ -43,7 +43,7 @@ var (
 )
 
 var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(testreporters.NewAllowedLogMessage(
-	"Got very old block with number",
+	"Got very old block.",
 	"It is expected, because we are causing reorgs",
 	zapcore.DPanicLevel,
 	testreporters.WarnAboutAllowedMsgs_No,

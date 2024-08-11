@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -210,6 +209,7 @@ func TestReader_Integration(t *testing.T) {
 				RegistrationExpiry:  durationpb.New(60 * time.Second),
 				// F + 1
 				MinResponsesToAggregate: uint32(1) + 1,
+				MessageExpiry:           durationpb.New(120 * time.Second),
 			},
 		},
 	}
@@ -236,9 +236,8 @@ func TestReader_Integration(t *testing.T) {
 
 	require.NoError(t, err)
 
-	wrapper := mocks.NewPeerWrapper(t)
 	factory := newContractReaderFactory(t, sim)
-	syncer, err := New(logger.TestLogger(t), wrapper, factory, regAddress.Hex())
+	syncer, err := New(logger.TestLogger(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex())
 	require.NoError(t, err)
 
 	l := &launcher{}
@@ -256,29 +255,17 @@ func TestReader_Integration(t *testing.T) {
 	}, gotCap)
 
 	assert.Len(t, s.IDsToDONs, 1)
-	rtc := capabilities.RemoteTriggerConfig{
-		RegistrationRefresh:     20 * time.Second,
-		MinResponsesToAggregate: 2,
-		RegistrationExpiry:      60 * time.Second,
-		MessageExpiry:           120 * time.Second,
+	expectedDON := capabilities.DON{
+		ID:               1,
+		ConfigVersion:    1,
+		IsPublic:         true,
+		AcceptsWorkflows: true,
+		F:                1,
+		Members:          toPeerIDs(nodeSet),
 	}
-	expectedDON := DON{
-		DON: capabilities.DON{
-			ID:               1,
-			ConfigVersion:    1,
-			IsPublic:         true,
-			AcceptsWorkflows: true,
-			F:                1,
-			Members:          toPeerIDs(nodeSet),
-		},
-		CapabilityConfigurations: map[string]capabilities.CapabilityConfiguration{
-			cid: {
-				DefaultConfig:       values.EmptyMap(),
-				RemoteTriggerConfig: rtc,
-			},
-		},
-	}
-	assert.Equal(t, expectedDON, s.IDsToDONs[1])
+	gotDon := s.IDsToDONs[1]
+	assert.Equal(t, expectedDON, gotDon.DON)
+	assert.Equal(t, configb, gotDon.CapabilityConfigurations[cid].Config)
 
 	nodesInfo := []kcr.CapabilitiesRegistryNodeInfo{
 		{
@@ -328,10 +315,6 @@ func TestSyncer_LocalNode(t *testing.T) {
 	var pid p2ptypes.PeerID
 	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
 	require.NoError(t, err)
-	peer := mocks.NewPeer(t)
-	peer.On("ID").Return(pid)
-	wrapper := mocks.NewPeerWrapper(t)
-	wrapper.On("GetPeer").Return(peer)
 
 	workflowDonNodes := []p2ptypes.PeerID{
 		pid,
@@ -345,8 +328,8 @@ func TestSyncer_LocalNode(t *testing.T) {
 	// which exposes the streams-trigger and write_chain capabilities.
 	// We expect receivers to be wired up and both capabilities to be added to the registry.
 	localRegistry := LocalRegistry{
-		lggr:        lggr,
-		peerWrapper: wrapper,
+		lggr:      lggr,
+		getPeerID: func() (p2ptypes.PeerID, error) { return pid, nil },
 		IDsToDONs: map[DonID]DON{
 			DonID(dID): {
 				DON: capabilities.DON{

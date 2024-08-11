@@ -88,18 +88,20 @@ func (s *streamsTrigger) RegisterTrigger(ctx context.Context, request capabiliti
 
 	responseCh := make(chan capabilities.CapabilityResponse)
 
-	ctxWithCancel, cancel := context.WithCancel(ctx)
+	ctxWithCancel, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		select {
-		case <-s.stopCh:
-			return
-		case <-ctxWithCancel.Done():
-			return
-		case resp := <-s.toSend:
-			responseCh <- resp
+		for {
+			select {
+			case <-s.stopCh:
+				return
+			case <-ctxWithCancel.Done():
+				return
+			case resp := <-s.toSend:
+				responseCh <- resp
+			}
 		}
 	}()
 

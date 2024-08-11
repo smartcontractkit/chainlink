@@ -5,14 +5,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/urfave/cli"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
-type deleteJobs struct {
-}
+type deleteJobs struct{}
 
 type OCRSpec struct {
 	ContractID string
@@ -22,11 +22,16 @@ type BootSpec struct {
 	ContractID string
 }
 
+type WorkflowSpec struct {
+	WorkflowID string
+}
+
 type JobSpec struct {
 	Id                           string
 	Name                         string
 	BootstrapSpec                BootSpec
 	OffChainReporting2OracleSpec OCRSpec
+	WorkflowSpec                 WorkflowSpec
 }
 
 func NewDeleteJobsCommand() *deleteJobs {
@@ -38,9 +43,26 @@ func (g *deleteJobs) Name() string {
 }
 
 func (g *deleteJobs) Run(args []string) {
-	deployedContracts, err := LoadDeployedContracts()
+	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
+	nodeList := fs.String("nodes", "", "Custom node list location")
+	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
+
+	err := fs.Parse(args)
+	if err != nil {
+		fs.Usage()
+		os.Exit(1)
+	}
+
+	if *artefactsDir == "" {
+		*artefactsDir = defaultArtefactsDir
+	}
+	if *nodeList == "" {
+		*nodeList = defaultNodeList
+	}
+
+	deployedContracts, err := LoadDeployedContracts(*artefactsDir)
 	helpers.PanicErr(err)
-	nodes := downloadNodeAPICredentialsDefault()
+	nodes := downloadNodeAPICredentials(*nodeList)
 
 	for _, node := range nodes {
 		output := &bytes.Buffer{}

@@ -23,7 +23,7 @@ import (
 //
 // TriggerSubscriber communicates with corresponding TriggerReceivers on remote nodes.
 type triggerSubscriber struct {
-	config              capabilities.RemoteTriggerConfig
+	config              *capabilities.RemoteTriggerConfig
 	capInfo             commoncap.CapabilityInfo
 	capDonInfo          capabilities.DON
 	capDonMembers       map[p2ptypes.PeerID]struct{}
@@ -55,10 +55,14 @@ var _ services.Service = &triggerSubscriber{}
 // TODO makes this configurable with a default
 const defaultSendChannelBufferSize = 1000
 
-func NewTriggerSubscriber(config capabilities.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo capabilities.DON, localDonInfo capabilities.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
+func NewTriggerSubscriber(config *capabilities.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo capabilities.DON, localDonInfo capabilities.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
 	if aggregator == nil {
 		lggr.Warnw("no aggregator provided, using default MODE aggregator", "capabilityId", capInfo.ID)
 		aggregator = NewDefaultModeAggregator(uint32(capDonInfo.F + 1))
+	}
+	if config == nil {
+		lggr.Info("no config provided, using default values")
+		config = &capabilities.RemoteTriggerConfig{}
 	}
 	config.ApplyDefaults()
 	capDonMembers := make(map[p2ptypes.PeerID]struct{})
@@ -185,7 +189,7 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			registration, found := s.registeredWorkflows[workflowId]
 			s.mu.RUnlock()
 			if !found {
-				s.lggr.Errorw("received message for unregistered workflow", "capabilityId", s.capInfo.ID, "workflowID", workflowId, "sender", sender)
+				s.lggr.Errorw("received message for unregistered workflow", "capabilityId", s.capInfo.ID, "workflowID", SanitizeLogString(workflowId), "sender", sender)
 				continue
 			}
 			key := triggerEventKey{
@@ -213,7 +217,7 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			}
 		}
 	} else {
-		s.lggr.Errorw("received trigger event with unknown method", "method", msg.Method, "sender", sender)
+		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender)
 	}
 }
 

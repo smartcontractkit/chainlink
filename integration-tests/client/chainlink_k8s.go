@@ -2,7 +2,6 @@
 package client
 
 import (
-	"os"
 	"regexp"
 
 	"github.com/rs/zerolog/log"
@@ -23,13 +22,9 @@ type ChainlinkK8sClient struct {
 
 // NewChainlink creates a new Chainlink model using a provided config
 func NewChainlinkK8sClient(c *ChainlinkConfig, podName, chartName string) (*ChainlinkK8sClient, error) {
-	rc, err := initRestyClient(c.URL, c.Email, c.Password, c.HTTPTimeout)
+	rc, err := initRestyClient(c.URL, c.Email, c.Password, c.Headers, c.HTTPTimeout)
 	if err != nil {
 		return nil, err
-	}
-	_, isSet := os.LookupEnv("CL_CLIENT_DEBUG")
-	if isSet {
-		rc.SetDebug(true)
 	}
 	return &ChainlinkK8sClient{
 		ChainlinkClient: &ChainlinkClient{

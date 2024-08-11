@@ -1,6 +1,7 @@
 package streams
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -33,6 +34,9 @@ func (c *codec) Unwrap(wrapped values.Value) ([]datastreams.FeedReport, error) {
 		decoded, err2 := v3Codec.Decode(report.FullReport)
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to decode: %v", err2)
+		}
+		if decoded.FeedId != id.Bytes() {
+			return nil, fmt.Errorf("feed ID mismatch: FeedID: %s, FullReport.FeedId: %s", id, hex.EncodeToString(decoded.FeedId[:]))
 		}
 		dest[i].BenchmarkPrice = decoded.BenchmarkPrice.Bytes()
 		dest[i].ObservationTimestamp = int64(decoded.ObservationsTimestamp)
