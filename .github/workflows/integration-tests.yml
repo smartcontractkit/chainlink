@@ -288,16 +288,12 @@ jobs:
 
       - name: Send slack notification for failed migration tests
         if: steps.check_results.outputs.node_migration_tests_failed == 'true' && github.event_name != 'workflow_dispatch'
-        run: echo ${{ steps.check_results.outputs.node_migration_tests_failed }}
-  
-      # - name: Send slack notification for failed migration tests
-      #   if: ${{ steps.check_results.outputs.node_migration_tests_failed == 'true' }} && github.event_name != 'workflow_dispatch'
-      #   uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
-      #   env:
-      #     SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
-      #   with:
-      #     channel-id: "#team-test-tooling-internal"
-      #     slack-message: ":x: :mild-panic-intensifies: Node Migration Tests Failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}\n${{ format('Notifying <!subteam^{0}|{0}>', secrets.GUARDIAN_SLACK_NOTIFICATION_HANDLE) }}"
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+        with:
+          channel-id: "#team-test-tooling-internal"
+          slack-message: ":x: :mild-panic-intensifies: Node Migration Tests Failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}\n${{ format('Notifying <!subteam^{0}|{0}>', secrets.GUARDIAN_SLACK_NOTIFICATION_HANDLE) }}"
 
   # eth-smoke-tests-matrix-automation:
   #   if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
