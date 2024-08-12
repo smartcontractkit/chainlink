@@ -133,8 +133,8 @@ dockers:
       - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-amd64-plugins"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-amd64-plugins"
+      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-plugins-amd64"
+      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-plugins-amd64"
   - id: linux-arm64-plugins
     dockerfile: core/chainlink.goreleaser.Dockerfile
     use: buildx
@@ -162,8 +162,8 @@ dockers:
       - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-arm64-plugins"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-arm64-plugins"
+      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-plugins-arm64"
+      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-plugins-arm64"
 
 # See https://goreleaser.com/customization/docker_manifest/
 docker_manifests:
@@ -177,12 +177,12 @@ docker_manifests:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-arm64"
   - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-plugins"
     image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-amd64-plugins"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-arm64-plugins"
+      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-plugins-amd64"
+      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-plugins-arm64"
   - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-plugins"
     image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-amd64-plugins"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-arm64-plugins"
+      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-plugins-amd64"
+      - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-plugins-arm64"
 
 # See https://goreleaser.com/customization/docker_sign/
 docker_signs:
