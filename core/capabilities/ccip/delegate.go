@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+	"golang.org/x/exp/maps"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
@@ -14,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
-	"golang.org/x/exp/maps"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
