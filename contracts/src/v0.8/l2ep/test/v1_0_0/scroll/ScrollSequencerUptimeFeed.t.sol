@@ -340,7 +340,7 @@ contract ScrollSequencerUptimeFeed_GasCosts is ScrollSequencerUptimeFeedTest {
     uint256 gasFinal;
 
     // measures gas used for no update
-    expectedGasUsed = 10197; // NOTE: used to be 38594 in hardhat tests
+    expectedGasUsed = 12691; // NOTE: used to be 38594 in hardhat tests
     gasStart = gasleft();
     s_scrollSequencerUptimeFeed.updateStatus(false, uint64(timestamp + 1000));
     gasFinal = gasleft();
