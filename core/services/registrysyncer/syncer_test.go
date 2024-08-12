@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -131,9 +132,12 @@ func randomWord() [32]byte {
 
 type launcher struct {
 	localRegistry *registrysyncer.LocalRegistry
+	mu            sync.RWMutex
 }
 
 func (l *launcher) Launch(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.localRegistry = localRegistry
 	return nil
 }
