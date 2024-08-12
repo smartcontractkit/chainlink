@@ -212,7 +212,7 @@ func (o *MockTriggerService) RegisterTrigger(ctx context.Context, req capabiliti
 		}
 
 	// Only start the producer once a workflow is registered
-	o.producer = NewMockDataProducer(o, config.FeedIDs, o.lggr)
+	o.producer = NewMockDataProducer(o, o.meta, o.signers, config.FeedIDs, o.lggr)
 	if err := o.producer.Start(ctx); err != nil {
 		return nil, err
 	}
@@ -298,21 +298,6 @@ func (o *MockTriggerService) process(timestamp int64) {
 
 			// use 32-byte-padded timestamp as EventID (human-readable)
 			eventID := fmt.Sprintf("streams_%024s", strconv.FormatInt(timestamp, 10))
-			// ---
-			// sign reports with mock signers
-			for i := range reportList {
-				report := reportList[i]
-				sigData := append(crypto.Keccak256(report.FullReport), report.ReportContext...)
-				hash := crypto.Keccak256(sigData)
-				for n := 0; n < o.meta.MinRequiredSignatures; n++ {
-					sig, err := crypto.Sign(hash, o.signers[n])
-					if err != nil {
-						panic(err)
-					}
-					reportList[i].Signatures = append(reportList[i].Signatures, sig)
-				}
-			}
-			// ---
 			capabilityResponse, err := wrapReports(reportList, eventID, timestamp, o.meta)
 
 			if err != nil {
@@ -390,16 +375,20 @@ type mockDataProducer struct {
 	trigger *MockTriggerService
 	wg      sync.WaitGroup
 	closeCh chan struct{}
+	meta    datastreams.SignersMetadata
+	signers []*ecdsa.PrivateKey
 	feedIDs []string
 	lggr    logger.Logger
 }
 
 var _ services.Service = &mockDataProducer{}
 
-func NewMockDataProducer(trigger *MockTriggerService, feedIDs []string, lggr logger.Logger) *mockDataProducer {
+func NewMockDataProducer(trigger *MockTriggerService, meta datastreams.SignersMetadata, signers []*ecdsa.PrivateKey, feedIDs []string, lggr logger.Logger) *mockDataProducer {
 	return &mockDataProducer{
 		trigger: trigger,
 		closeCh: make(chan struct{}),
+		meta:    meta,
+		signers: signers,
 		feedIDs: feedIDs,
 		lggr:    lggr,
 	}
@@ -436,12 +425,24 @@ func (m *mockDataProducer) loop() {
 
 		reports := []datastreams.FeedReport{}
 		for _, feedID := range m.feedIDs {
-			reports = append(reports, datastreams.FeedReport{
+			report := datastreams.FeedReport{
 				FeedID:               feedID,
 				FullReport:           newReport(m.lggr, common.HexToHash(feedID), big.NewInt(prices[0]), timestamp),
 				ReportContext:        rawReportContext(reportCtx),
 				ObservationTimestamp: timestamp,
-			})
+			}
+			// sign report with mock signers
+			sigData := append(crypto.Keccak256(report.FullReport), report.ReportContext...)
+			hash := crypto.Keccak256(sigData)
+			for n := 0; n < m.meta.MinRequiredSignatures; n++ {
+				sig, err := crypto.Sign(hash, m.signers[n])
+				if err != nil {
+					panic(err)
+				}
+				report.Signatures = append(report.Signatures, sig)
+			}
+
+			reports = append(reports, report)
 		}
 
 		m.lggr.Infow("New set of Mock reports", "timestamp", time.Now().Unix(), "payload", reports)
