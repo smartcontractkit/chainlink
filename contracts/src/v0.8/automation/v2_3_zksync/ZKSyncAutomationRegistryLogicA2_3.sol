@@ -29,17 +29,17 @@ contract ZKSyncAutomationRegistryLogicA2_3 is ZKSyncAutomationRegistryBase2_3, C
    * @dev we cast the contract to logicC in order to call logicC functions (via fallback)
    */
   constructor(
-    ZKSyncAutomationRegistryLogicC2_3 logicB
+    ZKSyncAutomationRegistryLogicB2_3 logicB
   )
     ZKSyncAutomationRegistryBase2_3(
-      logicB.getLinkAddress(),
-      logicB.getLinkUSDFeedAddress(),
-      logicB.getNativeUSDFeedAddress(),
-      logicB.getFastGasFeedAddress(),
-      logicB.getAutomationForwarderLogic(),
-      logicB.getAllowedReadOnlyAddress(),
-      logicB.getPayoutMode(),
-      logicB.getWrappedNativeTokenAddress()
+      ZKSyncAutomationRegistryLogicC2_3(address(logicB)).getLinkAddress(),
+      ZKSyncAutomationRegistryLogicC2_3(address(logicB)).getLinkUSDFeedAddress(),
+      ZKSyncAutomationRegistryLogicC2_3(address(logicB)).getNativeUSDFeedAddress(),
+      ZKSyncAutomationRegistryLogicC2_3(address(logicB)).getFastGasFeedAddress(),
+      ZKSyncAutomationRegistryLogicC2_3(address(logicB)).getAutomationForwarderLogic(),
+      ZKSyncAutomationRegistryLogicC2_3(address(logicB)).getAllowedReadOnlyAddress(),
+      ZKSyncAutomationRegistryLogicC2_3(address(logicB)).getPayoutMode(),
+      ZKSyncAutomationRegistryLogicC2_3(address(logicB)).getWrappedNativeTokenAddress()
     )
     Chainable(address(logicB))
   {}
