@@ -671,15 +671,23 @@ jobs:
         with:
           path: test_results
           pattern: test_result_*
-          merge-multiple: true
 
       - name: Set test results output
         id: set_test_results
         run: |
-          ls -R test_results
-          jq -s add test_results/test_result_*.json > combined_results.json
-          jq . combined_results.json
-          echo "combined_results=$(jq -c . combined_results.json)" >> $GITHUB_OUTPUT
+          if [ -d "test_results" ]; then
+            cd test_results
+            ls -R .
+            # Combine JSON files into one
+            find . -name '*.json' -exec cat {} + | jq -s '.' > combined_results.json
+            # Display the combined JSON
+            jq . combined_results.json
+            # Set the combined results as an output
+            echo "combined_results=$(jq -c . combined_results.json)" >> $GITHUB_OUTPUT
+          else
+            echo "No test results directory found."
+            echo "combined_results=[]" >> $GITHUB_OUTPUT
+          fi
 
       - name: Determine combined job results
         id: combine_results
