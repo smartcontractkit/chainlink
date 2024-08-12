@@ -508,6 +508,7 @@ func TestIntegration_AsyncEthTx(t *testing.T) {
 	t.Parallel()
 	operatorContracts := setupOperatorContracts(t)
 	b := operatorContracts.sim
+	b.Blockchain().SetFinalized(b.Blockchain().CurrentBlock())
 
 	t.Run("with FailOnRevert enabled, run succeeds when transaction is successful", func(t *testing.T) {
 		app, sendingAddr, o := setupAppForEthTx(t, operatorContracts)
@@ -536,6 +537,8 @@ observationSource   = """
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
+		time.Sleep(1 * time.Second)
+		b.Blockchain().SetFinalized(b.Blockchain().CurrentBlock())
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
 		testutils.WaitForLogMessage(t, o, "Resume run success")
@@ -582,6 +585,8 @@ observationSource   = """
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
+		time.Sleep(1 * time.Second)
+		b.Blockchain().SetFinalized(b.Blockchain().CurrentBlock())
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
 		testutils.WaitForLogMessage(t, o, "Resume run success")
@@ -620,6 +625,8 @@ observationSource   = """
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
+		time.Sleep(1 * time.Second)
+		b.Blockchain().SetFinalized(b.Blockchain().CurrentBlock())
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
 		testutils.WaitForLogMessage(t, o, "Resume run success")

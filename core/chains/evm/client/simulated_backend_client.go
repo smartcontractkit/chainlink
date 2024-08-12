@@ -703,22 +703,17 @@ func (c *SimulatedBackendClient) ethGetHeaderByNumber(ctx context.Context, resul
 }
 
 func (c *SimulatedBackendClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
-	var block *types.Header
-	if blk := c.b.Blockchain().CurrentFinalBlock(); blk != nil {
-		block = blk
-	} else if blk = c.b.Blockchain().CurrentBlock(); blk != nil {
-		block = blk
-	} else {
-		return nil, fmt.Errorf("SimulatedBackendClient failed to find latest finalized block")
+	if block := c.b.Blockchain().CurrentFinalBlock(); block != nil {
+		return &evmtypes.Head{
+			EVMChainID: ubig.NewI(c.chainId.Int64()),
+			Hash:       block.Hash(),
+			Number:     block.Number.Int64(),
+			ParentHash: block.ParentHash,
+			Timestamp:  time.Unix(int64(block.Time), 0),
+		}, nil
 	}
 
-	return &evmtypes.Head{
-		EVMChainID: ubig.NewI(c.chainId.Int64()),
-		Hash:       block.Hash(),
-		Number:     block.Number.Int64(),
-		ParentHash: block.ParentHash,
-		Timestamp:  time.Unix(int64(block.Time), 0),
-	}, nil
+	return nil, fmt.Errorf("SimulatedBackendClient failed to find latest finalized block")
 }
 
 func (c *SimulatedBackendClient) ethGetLogs(ctx context.Context, result interface{}, args ...interface{}) error {
