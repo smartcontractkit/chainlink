@@ -34,8 +34,8 @@ import (
 
 var (
 	ErrKeyNotUpdated = errors.New("evmTxStore: Key not updated")
-	// ErrCouldNotGetReceipt is the error string we save if we reach our finality depth for a confirmed transaction without ever getting a receipt
-	// This most likely happened because an external wallet used the account for this nonce
+	// ErrCouldNotGetReceipt is the error string we save if we reach our LatestFinalizedBlockNum for a confirmed transaction
+	// without ever getting a receipt. This most likely happened because an external wallet used the account for this nonce
 	ErrCouldNotGetReceipt = "could not get receipt"
 )
 
@@ -959,11 +959,11 @@ func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Rece
 // NOTE: We continue to attempt to resend evm.txes in this state on
 // every head to guard against the extremely rare scenario of nonce gap due to
 // reorg that excludes the transaction (from another wallet) that had this
-// nonce (until finality depth is reached, after which we make the explicit
+// nonce (until LatestFinalizedBlockNum is reached, after which we make the explicit
 // decision to give up). This is done in the EthResender.
 //
 // We will continue to try to fetch a receipt for these attempts until all
-// attempts are below the finality depth from current head.
+// attempts are equal to or below the LatestFinalizedBlockNum from current head.
 func (o *evmTxStore) MarkAllConfirmedMissingReceipt(ctx context.Context, chainID *big.Int) (err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
@@ -1430,23 +1430,18 @@ ORDER BY nonce ASC
 
 // markOldTxesMissingReceiptAsErrored
 //
-// Once eth_tx has all of its attempts broadcast before some cutoff threshold
+// Once eth_tx has all of its attempts broadcast equal to or before latestFinalizedBlockNum
 // without receiving any receipts, we mark it as fatally errored (never sent).
 //
 // The job run will also be marked as errored in this case since we never got a
 // receipt and thus cannot pass on any transaction hash
-func (o *evmTxStore) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID *big.Int) error {
+func (o *evmTxStore) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, latestFinalizedBlockNum int64, chainID *big.Int) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
-	// cutoffBlockNum is a block height
-	// Any 'confirmed_missing_receipt' eth_tx with all attempts older than this block height will be marked as errored
-	// We will not try to query for receipts for this transaction any more
-	cutoff := blockNum - int64(finalityDepth)
-	if cutoff <= 0 {
-		return nil
-	}
-	if cutoff <= 0 {
+	// Any 'confirmed_missing_receipt' eth_tx with all attempts equal to or older than latestFinalizedBlockNum will be marked as errored
+	// We will not try to query for receipts for this transaction anymore
+	if latestFinalizedBlockNum <= 0 {
 		return nil
 	}
 	// note: if QOpt passes in a sql.Tx this will reuse it
@@ -1466,12 +1461,12 @@ FROM (
 		WHERE e2.state = 'confirmed_missing_receipt'
 		AND e2.evm_chain_id = $3
 		GROUP BY e2.id
-		HAVING max(evm.tx_attempts.broadcast_before_block_num) < $2
+		HAVING max(evm.tx_attempts.broadcast_before_block_num) <= $2
 	)
 	FOR UPDATE OF e1
 ) e0
 WHERE e0.id = evm.txes.id
-RETURNING e0.id, e0.nonce`, ErrCouldNotGetReceipt, cutoff, chainID.String())
+RETURNING e0.id, e0.nonce`, ErrCouldNotGetReceipt, latestFinalizedBlockNum, chainID.String())
 
 		if err != nil {
 			return pkgerrors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to query")

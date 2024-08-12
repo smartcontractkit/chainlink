@@ -1,0 +1,30 @@
+name: Setup Solc Select
+description: Installs Solc Select, required versions and selects the version to use. Requires Python 3.6 or higher.
+inputs:
+  to_install:
+    description: Comma-separated list of solc versions to install
+    required: true
+  to_use:
+    description: Solc version to use
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install solc-select and solc
+      shell: bash
+      run: |
+        pip3 install solc-select
+        sudo ln -s /usr/local/bin/solc-select /usr/bin/solc-select
+                
+        IFS=',' read -ra versions <<< "${{ inputs.to_install }}"
+        for version in "${versions[@]}"; do
+          solc-select install $version
+          if [ $? -ne 0 ]; then
+            echo "Failed to install Solc $version"
+            exit 1
+          fi
+        done
+        
+        solc-select install ${{ inputs.to_use }}
+        solc-select use ${{ inputs.to_use }}

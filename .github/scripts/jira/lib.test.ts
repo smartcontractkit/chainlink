@@ -1,5 +1,5 @@
 import { expect, describe, it } from "vitest";
-import { parseIssueNumberFrom, tagsToLabels } from "./update-jira-issue";
+import { parseIssueNumberFrom, tagsToLabels } from "./lib";
 
 describe("parseIssueNumberFrom", () => {
   it("should return the first JIRA issue number found", () => {
@@ -16,6 +16,17 @@ describe("parseIssueNumberFrom", () => {
     // handle lower case
     r = parseIssueNumberFrom("core-123", "CORE-456", "CORE-789");
     expect(r).to.equal("CORE-123");
+  });
+
+  it("works with multiline commit bodies", () => {
+    const r = parseIssueNumberFrom(
+      `This is a multiline commit body
+
+CORE-1011`,
+      "CORE-456",
+      "CORE-789"
+    );
+    expect(r).to.equal("CORE-1011");
   });
 
   it("should return undefined if no JIRA issue number is found", () => {
