@@ -6,7 +6,7 @@ import {IRMN} from "./interfaces/IRMN.sol";
 
 import {OwnerIsCreator} from "./../shared/access/OwnerIsCreator.sol";
 
-import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSet} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
 // An active curse on this subject will cause isCursed() to return true. Use this subject if there is an issue with a
 // remote chain, for which there exists a legacy lane contract deployed on the same chain as this RMN contract is
