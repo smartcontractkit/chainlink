@@ -1216,7 +1216,7 @@ ORDER BY nonce ASC
 			return pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load evm.tx_attempts")
 		}
 
-		// retrieve tx with attempts which contain attempts and partial receipts values for optimization purpose
+		// retrieve tx with attempts and partial receipt values for optimization purpose
 		err = orm.loadEthTxesAttemptsWithPartialReceipts(ctx, etxs)
 		return pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load evm.receipts")
 	})
