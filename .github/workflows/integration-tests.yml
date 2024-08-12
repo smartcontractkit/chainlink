@@ -515,7 +515,7 @@ jobs:
   #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@70ccaef155381025e411cf7cd1fa5ef8f668ed75 # v2.3.25
 
   call-run-e2e-tests-workflow:
-    name: ETH smoke tests
+    name: Run E2E Tests
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     # environment: integration
     permissions:
@@ -527,9 +527,6 @@ jobs:
     needs: [build-chainlink, changes]
     # needs: [build-chainlink, changes, build-lint-integration-tests]
     # env:
-    #   SELECTED_NETWORKS: SIMULATED
-    #   CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
-    #   CHAINLINK_ENV_USER: ${{ github.actor }}
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
