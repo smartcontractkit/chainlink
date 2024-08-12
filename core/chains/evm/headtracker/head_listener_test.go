@@ -196,9 +196,8 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 				sub2.On("Err").Return(chSubErr2)
 				subscribeAwaiter2 := testutils.NewAwaiter()
 
-				var headsCh2 chan<- *evmtypes.Head
-				ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *types.Head")).Return(sub2, nil).Once().Run(func(args mock.Arguments) {
-					headsCh2 = args.Get(1).(chan<- *evmtypes.Head)
+				headsCh2 := make(chan *evmtypes.Head)
+				ethClient.On("SubscribeNewHead", mock.Anything).Return((<-chan *evmtypes.Head)(headsCh2), sub2, nil).Once().Run(func(args mock.Arguments) {
 					subscribeAwaiter2.ItHappened()
 				})
 

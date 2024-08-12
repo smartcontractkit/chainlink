@@ -376,7 +376,9 @@ func (r *RpcClient) Close() {
 	}()
 	r.cancelInflightRequests()
 	r.UnsubscribeAllExcept()
+	r.stateMu.Lock()
 	r.latestChainInfo = commonclient.ChainInfo{}
+	r.stateMu.Unlock()
 }
 
 // cancelInflightRequests closes and replaces the chStopInFlight
