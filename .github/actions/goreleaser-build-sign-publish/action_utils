@@ -28,8 +28,12 @@ _publish_snapshot_manifests() {
   local docker_manifest_extra_args=$DOCKER_MANIFEST_EXTRA_ARGS
   local full_sha=$(git rev-parse HEAD)
   local images=$(docker images --filter "label=org.opencontainers.image.revision=$full_sha" --format "{{.Repository}}:{{.Tag}}" | sort)
-  local arches=(amd64 arm64)
   local raw_manifest_lists=""
+  if [[ $ENABLE_GORELEASER_SPLIT == "true" ]]; then
+    local arches=(${GOARCH:-""})
+  else
+    local arches=(amd64 arm64)
+  fi
   for image in $images; do
     for arch in "${arches[@]}"; do
       image=${image%"-$arch"}
