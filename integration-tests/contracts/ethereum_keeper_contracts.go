@@ -150,6 +150,7 @@ type KeeperRegistrySettings struct {
 	MaxPerformGas        uint32   // max gas allowed for an upkeep within perform
 	FallbackGasPrice     *big.Int // gas price used if the gas price feed is stale
 	FallbackLinkPrice    *big.Int // LINK price used if the LINK price feed is stale
+	FallbackNativePrice  *big.Int // Native price used if the Native price feed is stale
 	MaxCheckDataSize     uint32
 	MaxPerformDataSize   uint32
 	MaxRevertDataSize    uint32
