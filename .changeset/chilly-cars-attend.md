@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-add error handle for gnosis chaidao for seen tx #added
+add error handle for gnosis chiado for seen tx #added
