@@ -37,11 +37,6 @@ inputs:
     description: The docker image tag
     default: develop
     required: false
-  # snapshot inputs
-  enable-goreleaser-snapshot:
-    description: Enable goreleaser build / release snapshot
-    default: "false"
-    required: false
   # goreleaser inputs
   goreleaser-exec:
     description: "The goreleaser executable, can invoke wrapper script"
@@ -50,6 +45,17 @@ inputs:
   goreleaser-config:
     description: "The goreleaser configuration yaml"
     default: ".goreleaser.yaml"
+    required: false
+  enable-goreleaser-snapshot:
+    description: Enable goreleaser build / release snapshot
+    default: "false"
+    required: false
+  enable-goreleaser-split:
+    description: Enable goreleaser split and merge builds
+    default: "false"
+    required: false
+  goreleaser-split-arch:
+    description: The architecture to split the goreleaser build
     required: false
   # signing inputs
   enable-cosign:
@@ -98,11 +104,17 @@ runs:
       uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
       with:
         registry: ${{ inputs.docker-registry }}
-    - name: Goreleaser release
+    - name: Set goreleaser split env
+      if: inputs.enable-goreleaser-split == 'true'
+      run: |
+        echo "GOOS=linux" | tee -a $GITHUB_ENV
+        echo "GOARCH=${{ inputs.goreleaser-split-arch }}" | tee -a $GITHUB_ENV
+    - name: Run goreleaser release
       shell: bash
       env:
         ENABLE_COSIGN: ${{ inputs.enable-cosign }}
         ENABLE_GORELEASER_SNAPSHOT: ${{ inputs.enable-goreleaser-snapshot }}
+        ENABLE_GORELEASER_SPLIT: ${{ inputs.enable-goreleaser-split }}
         ENABLE_DOCKER_PUBLISH: ${{ inputs.enable-docker-publish }}
         IMAGE_PREFIX: ${{ inputs.docker-registry }}
         IMAGE_NAME: ${{ inputs.docker-image-name }}
