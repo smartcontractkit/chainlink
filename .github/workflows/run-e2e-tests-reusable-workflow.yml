@@ -65,6 +65,11 @@ on:
         required: false
         type: number
         default: 3
+      test_log_level:
+        description: 'Set the log level for the tests. Default is "debug"'
+        required: false
+        type: string
+        default: debug  
     secrets:
       TEST_SECRETS_OVERRIDE_BASE64:
         required: false
@@ -107,7 +112,7 @@ env:
   CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
   SELECTED_NETWORKS: SIMULATED
   MOD_CACHE_VERSION: 1
-  TEST_LOG_LEVEL: debug
+  TEST_LOG_LEVEL: ${{ inputs.test_log_level }}
 
 jobs:
   validate-inputs:
@@ -553,7 +558,6 @@ jobs:
           # We can comment these out when we have a stable soak test and aren't worried about resource consumption
           TEST_UPLOAD_CPU_PROFILE: true
           TEST_UPLOAD_MEM_PROFILE: true
-          TEST_LOG_LEVEL: debug
           REF_NAME: ${{ github.head_ref || github.ref_name }}
         with:
           test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs

@@ -524,12 +524,12 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes, build-lint-integration-tests]
+    needs: [build-chainlink, changes]
+    # needs: [build-chainlink, changes, build-lint-integration-tests]
     # env:
     #   SELECTED_NETWORKS: SIMULATED
     #   CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
     #   CHAINLINK_ENV_USER: ${{ github.actor }}
-    #   TEST_LOG_LEVEL: debug
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
@@ -537,22 +537,22 @@ jobs:
       # slack_notification_after_tests: true
       # slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
       # slack_notification_after_tests_name: Nightly E2E Tests
-    secrets: inherit
-      # QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      # QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-      # QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-      # QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-      # QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-      # QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      # GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-      # GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-      # GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-      # GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-      # GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
-      # AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      # AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
-      # AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}    
-      # SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}    
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       
   # eth-smoke-tests-matrix:
   #   if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
