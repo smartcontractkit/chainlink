@@ -536,8 +536,8 @@ observationSource   = """
 		assert.Equal(t, []*string(nil), run.Errors)
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
-		b.Commit() // Needs at least two confirmations
-		time.Sleep(1 * time.Second)
+		b.Commit()                        // Needs at least two confirmations
+		time.Sleep(10 * time.Millisecond) // wait for finalizer to process confirmed tx
 		b.Blockchain().SetFinalized(b.Blockchain().CurrentBlock())
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
@@ -584,8 +584,8 @@ observationSource   = """
 		assert.Equal(t, []*string(nil), run.Errors)
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
-		b.Commit() // Needs at least two confirmations
-		time.Sleep(1 * time.Second)
+		b.Commit()                        // Needs at least two confirmations
+		time.Sleep(10 * time.Millisecond) // wait for finalizer to process confirmed tx
 		b.Blockchain().SetFinalized(b.Blockchain().CurrentBlock())
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
@@ -625,7 +625,7 @@ observationSource   = """
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
-		time.Sleep(1 * time.Second)
+		time.Sleep(10 * time.Millisecond)
 		b.Blockchain().SetFinalized(b.Blockchain().CurrentBlock())
 		b.Commit() // Needs at least two confirmations
 		b.Commit() // Needs at least two confirmations
