@@ -8,6 +8,10 @@ on:
         description: 'Enter Chainlink version to use for the tests. Example: "v2.10.0" or sha'
         required: false
         type: string
+      chainlink_upgrade_version:
+        description: 'Enter Chainlink version to upgrade to for upgrade tests. Example: "v2.10.0" or sha'
+        required: false
+        type: string
       test_ids:
         description: 'Run tests by test ids separated by commas. Example: "run_all_in_ocr_tests_go,run_TestOCRv2Request_in_ocr2_test_go". Check all test IDs in .github/e2e-tests.yml'
         required: false
@@ -425,7 +429,7 @@ jobs:
           # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392
           # test_config_override_base64: ${{ inputs.test_config_override_base64 }}
           test_config_chainlink_version: ${{ matrix.tests.test_inputs.chainlink_version || inputs.chainlink_version || github.sha }}
-          test_config_chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlink_upgrade_version }}
+          test_config_chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlink_upgrade_version || inputs.chainlink_upgrade_version || github.sha }}
           test_config_chainlink_postgres_version: ${{ matrix.tests.test_inputs.chainlink_postgres_version }}
           test_config_selected_networks: ${{ matrix.tests.test_inputs.selected_networks || env.SELECTED_NETWORKS}}
           test_config_logging_run_id: ${{ github.run_id }}
