@@ -73,6 +73,7 @@ jobs:
         shell: bash
         run: |
           ls -al dist
+          ls -al dist/linux_${{ matrix.goarch }}
           # need to check if artifacts.json exists because goreleaser splits the build
           if [[ -f dist/artifacts.json ]]; then
             echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
