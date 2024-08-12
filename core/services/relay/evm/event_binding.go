@@ -254,6 +254,15 @@ func (e *eventBinding) getLatestValueWithFilters(
 }
 
 func createTopicFilters(filtersAndIndices []common.Hash) query.Expression {
+	// If there's only one filter, return a simple expression without a boolean combination.
+	if len(filtersAndIndices) == 1 {
+		value := filtersAndIndices[0]
+		return logpoller.NewEventByTopicFilter(1, []primitives.ValueComparator{
+			{Value: value.Hex(), Operator: primitives.Eq},
+		})
+	}
+
+	// For multiple filters, create a boolean expression.
 	topicFilters := query.BoolExpression{
 		Expressions:  make([]query.Expression, len(filtersAndIndices)),
 		BoolOperator: query.OR,
