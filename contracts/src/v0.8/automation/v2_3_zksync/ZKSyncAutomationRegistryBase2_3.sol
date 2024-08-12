@@ -86,17 +86,17 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
   EnumerableSet.AddressSet internal s_registrars;
   mapping(address => Transmitter) internal s_transmitters;
   mapping(address => Signer) internal s_signers;
-  address[] internal s_signersList; // s_signersList contains the signing address of each oracle
-  address[] internal s_transmittersList; // s_transmittersList contains the transmission address of each oracle
+  address[] public s_signersList; // s_signersList contains the signing address of each oracle
+  address[] public s_transmittersList; // s_transmittersList contains the transmission address of each oracle
   EnumerableSet.AddressSet internal s_deactivatedTransmitters;
   mapping(address => address) internal s_transmitterPayees; // s_payees contains the mapping from transmitter to payee.
   mapping(address => address) internal s_proposedPayee; // proposed payee for a transmitter
   bytes32 internal s_latestConfigDigest; // Read on transmit path in case of signature verification
-  HotVars internal s_hotVars; // Mixture of config and state, used in transmit
-  Storage internal s_storage; // Mixture of config and state, not used in transmit
-  uint256 internal s_fallbackGasPrice;
-  uint256 internal s_fallbackLinkPrice;
-  uint256 internal s_fallbackNativePrice;
+  HotVars public s_hotVars; // Mixture of config and state, used in transmit
+  Storage public s_storage; // Mixture of config and state, not used in transmit
+  uint256 public s_fallbackGasPrice;
+  uint256 public s_fallbackLinkPrice;
+  uint256 public s_fallbackNativePrice;
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
   mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
@@ -104,10 +104,10 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
   mapping(address => bytes) internal s_adminPrivilegeConfig; // general config set by an administrative role for an admin
   // billing
   mapping(IERC20 billingToken => uint256 reserveAmount) internal s_reserveAmounts; // unspent user deposits + unwithdrawn NOP payments
-  mapping(IERC20 billingToken => BillingConfig billingConfig) internal s_billingConfigs; // billing configurations for different tokens
+  mapping(IERC20 billingToken => BillingConfig billingConfig) public s_billingConfigs; // billing configurations for different tokens
   mapping(uint256 upkeepID => BillingOverrides billingOverrides) internal s_billingOverrides; // billing overrides for specific upkeeps
-  IERC20[] internal s_billingTokens; // list of billing tokens
-  PayoutMode internal s_payoutMode;
+  IERC20[] public s_billingTokens; // list of billing tokens
+  PayoutMode public s_payoutMode;
 
   error ArrayHasNoEntries();
   error CannotCancel();

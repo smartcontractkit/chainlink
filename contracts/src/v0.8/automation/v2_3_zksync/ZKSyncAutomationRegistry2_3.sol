@@ -50,17 +50,17 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
    * @dev we cast the contract to logicC in order to call logicC functions (via fallback)
    */
   constructor(
-    ZKSyncAutomationRegistryLogicA2_3 logicA
+    ZKSyncAutomationRegistryLogicC2_3 logicA
   )
     ZKSyncAutomationRegistryBase2_3(
-      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getLinkAddress(),
-      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getLinkUSDFeedAddress(),
-      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getNativeUSDFeedAddress(),
-      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getFastGasFeedAddress(),
-      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getAutomationForwarderLogic(),
-      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getAllowedReadOnlyAddress(),
-      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getPayoutMode(),
-      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getWrappedNativeTokenAddress()
+      logicA.getLinkAddress(),
+      logicA.getLinkUSDFeedAddress(),
+      logicA.getNativeUSDFeedAddress(),
+      logicA.getFastGasFeedAddress(),
+      logicA.getAutomationForwarderLogic(),
+      logicA.getAllowedReadOnlyAddress(),
+      logicA.getPayoutMode(),
+      logicA.getWrappedNativeTokenAddress()
     )
     Chainable(address(logicA))
   {}
