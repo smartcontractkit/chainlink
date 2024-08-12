@@ -72,12 +72,15 @@ jobs:
         if: steps.get-image-tag.outputs.build-publish == 'true'
         shell: bash
         run: |
-          echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
-          jq -r '.[] | select(.type == "Docker Image") | "`\(.goarch)-image`: \(.name)"' dist/artifacts.json >> output.txt
-          jq -r '.[] | select(.type == "Archive") | "`\(.goarch)-digest`: \(.extra.Checksum)"' dist/artifacts.json >> output.txt
-          while read -r line; do
-            echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
-          done < output.txt
+          # need to check if artifacts.json exists because goreleaser splits the build
+          if [[ -f dist/artifacts.json ]]; then
+            echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
+            jq -r '.[] | select(.type == "Docker Image") | "`\(.goarch)-image`: \(.name)"' dist/artifacts.json >> output.txt
+            jq -r '.[] | select(.type == "Archive") | "`\(.goarch)-digest`: \(.extra.Checksum)"' dist/artifacts.json >> output.txt
+            while read -r line; do
+              echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
+            done < output.txt
+          end
 
       - name: Collect Metrics
         if: always()
@@ -88,5 +91,5 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: goreleaser-build-publish-chainlink-${{ matrix.goarch }}
+          this-job-name: goreleaser-build-publish-chainlink (${{ matrix.goarch }})
         continue-on-error: true
