@@ -1853,17 +1853,17 @@ func (_c *TxStore_MarkAllConfirmedMissingReceipt_Call[ADDR, CHAIN_ID, TX_HASH, B
 	return _c
 }
 
-// MarkOldTxesMissingReceiptAsErrored provides a mock function with given fields: ctx, blockNum, finalityDepth, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID CHAIN_ID) error {
-	ret := _m.Called(ctx, blockNum, finalityDepth, chainID)
+// MarkOldTxesMissingReceiptAsErrored provides a mock function with given fields: ctx, blockNum, latestFinalizedBlockNum, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, latestFinalizedBlockNum int64, chainID CHAIN_ID) error {
+	ret := _m.Called(ctx, blockNum, latestFinalizedBlockNum, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for MarkOldTxesMissingReceiptAsErrored")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, uint32, CHAIN_ID) error); ok {
-		r0 = rf(ctx, blockNum, finalityDepth, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, CHAIN_ID) error); ok {
+		r0 = rf(ctx, blockNum, latestFinalizedBlockNum, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1879,15 +1879,15 @@ type TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR types.Hashable, CHAIN_
 // MarkOldTxesMissingReceiptAsErrored is a helper method to define mock.On call
 //   - ctx context.Context
 //   - blockNum int64
-//   - finalityDepth uint32
+//   - latestFinalizedBlockNum int64
 //   - chainID CHAIN_ID
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkOldTxesMissingReceiptAsErrored(ctx interface{}, blockNum interface{}, finalityDepth interface{}, chainID interface{}) *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("MarkOldTxesMissingReceiptAsErrored", ctx, blockNum, finalityDepth, chainID)}
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkOldTxesMissingReceiptAsErrored(ctx interface{}, blockNum interface{}, latestFinalizedBlockNum interface{}, chainID interface{}) *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("MarkOldTxesMissingReceiptAsErrored", ctx, blockNum, latestFinalizedBlockNum, chainID)}
 }
 
-func (_c *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, blockNum int64, finalityDepth uint32, chainID CHAIN_ID)) *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, blockNum int64, latestFinalizedBlockNum int64, chainID CHAIN_ID)) *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(int64), args[2].(uint32), args[3].(CHAIN_ID))
+		run(args[0].(context.Context), args[1].(int64), args[2].(int64), args[3].(CHAIN_ID))
 	})
 	return _c
 }
@@ -1897,7 +1897,7 @@ func (_c *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HAS
 	return _c
 }
 
-func (_c *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, int64, uint32, CHAIN_ID) error) *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, int64, int64, CHAIN_ID) error) *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
 }

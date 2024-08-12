@@ -134,7 +134,7 @@ func (e *ServerRequest) executeRequest(ctx context.Context, payload []byte) erro
 		return fmt.Errorf("failed to marshal capability response: %w", err)
 	}
 
-	e.lggr.Debugw("received execution results", "metadata", capabilityRequest.Metadata, "error", capResponse.Err)
+	e.lggr.Debugw("received execution results", "workflowExecutionID", capabilityRequest.Metadata.WorkflowExecutionID, "error", capResponse.Err)
 	e.setResult(responsePayload)
 	return nil
 }

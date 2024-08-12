@@ -11,7 +11,9 @@ import (
 )
 
 const (
-	artefactsDir          = "artefacts"
+	defaultArtefactsDir   = "artefacts"
+	defaultPublicKeys     = ".cache/PublicKeys.json"
+	defaultNodeList       = ".cache/NodeList.txt"
 	deployedContractsJSON = "deployed_contracts.json"
 	bootstrapSpecTemplate = "bootstrap.toml"
 	cribOverrideTemplate  = "crib-overrides.yaml"

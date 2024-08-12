@@ -2213,17 +2213,17 @@ func (_c *EvmTxStore_MarkAllConfirmedMissingReceipt_Call) RunAndReturn(run func(
 	return _c
 }
 
-// MarkOldTxesMissingReceiptAsErrored provides a mock function with given fields: ctx, blockNum, finalityDepth, chainID
-func (_m *EvmTxStore) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID *big.Int) error {
-	ret := _m.Called(ctx, blockNum, finalityDepth, chainID)
+// MarkOldTxesMissingReceiptAsErrored provides a mock function with given fields: ctx, blockNum, latestFinalizedBlockNum, chainID
+func (_m *EvmTxStore) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, latestFinalizedBlockNum int64, chainID *big.Int) error {
+	ret := _m.Called(ctx, blockNum, latestFinalizedBlockNum, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for MarkOldTxesMissingReceiptAsErrored")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, uint32, *big.Int) error); ok {
-		r0 = rf(ctx, blockNum, finalityDepth, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) error); ok {
+		r0 = rf(ctx, blockNum, latestFinalizedBlockNum, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -2239,15 +2239,15 @@ type EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call struct {
 // MarkOldTxesMissingReceiptAsErrored is a helper method to define mock.On call
 //   - ctx context.Context
 //   - blockNum int64
-//   - finalityDepth uint32
+//   - latestFinalizedBlockNum int64
 //   - chainID *big.Int
-func (_e *EvmTxStore_Expecter) MarkOldTxesMissingReceiptAsErrored(ctx interface{}, blockNum interface{}, finalityDepth interface{}, chainID interface{}) *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call {
-	return &EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call{Call: _e.mock.On("MarkOldTxesMissingReceiptAsErrored", ctx, blockNum, finalityDepth, chainID)}
+func (_e *EvmTxStore_Expecter) MarkOldTxesMissingReceiptAsErrored(ctx interface{}, blockNum interface{}, latestFinalizedBlockNum interface{}, chainID interface{}) *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call {
+	return &EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call{Call: _e.mock.On("MarkOldTxesMissingReceiptAsErrored", ctx, blockNum, latestFinalizedBlockNum, chainID)}
 }
 
-func (_c *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call) Run(run func(ctx context.Context, blockNum int64, finalityDepth uint32, chainID *big.Int)) *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call {
+func (_c *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call) Run(run func(ctx context.Context, blockNum int64, latestFinalizedBlockNum int64, chainID *big.Int)) *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(int64), args[2].(uint32), args[3].(*big.Int))
+		run(args[0].(context.Context), args[1].(int64), args[2].(int64), args[3].(*big.Int))
 	})
 	return _c
 }
@@ -2257,7 +2257,7 @@ func (_c *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call) Return(_a0 error) 
 	return _c
 }
 
-func (_c *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call) RunAndReturn(run func(context.Context, int64, uint32, *big.Int) error) *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call {
+func (_c *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call) RunAndReturn(run func(context.Context, int64, int64, *big.Int) error) *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call {
 	_c.Call.Return(run)
 	return _c
 }

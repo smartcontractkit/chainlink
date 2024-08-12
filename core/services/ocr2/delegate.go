@@ -772,7 +772,7 @@ func (d *Delegate) newServicesGenericPlugin(
 				}
 				keyBundles[name] = os
 			}
-			onchainKeyringAdapter, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, lggr)
+			onchainKeyringAdapter, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, kb.PublicKey(), lggr)
 			if err != nil {
 				return nil, err
 			}

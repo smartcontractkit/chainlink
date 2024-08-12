@@ -21,6 +21,11 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+const (
+	workflowID1          = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
+	workflowExecutionID1 = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
+)
+
 func Test_Client_DonTopologies(t *testing.T) {
 	ctx := testutils.Context(t)
 
@@ -192,8 +197,8 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 			responseCh, err := caller.Execute(ctx,
 				commoncap.CapabilityRequest{
 					Metadata: commoncap.RequestMetadata{
-						WorkflowID:          "workflowID",
-						WorkflowExecutionID: "workflowExecutionID",
+						WorkflowID:          workflowID1,
+						WorkflowExecutionID: workflowExecutionID1,
 					},
 					Config: transmissionSchedule,
 					Inputs: executeInputs,
@@ -234,7 +239,10 @@ func (t *clientTestServer) Receive(_ context.Context, msg *remotetypes.MessageBo
 	defer t.mux.Unlock()
 
 	sender := toPeerID(msg.Sender)
-	messageID := target.GetMessageID(msg)
+	messageID, err := target.GetMessageID(msg)
+	if err != nil {
+		panic(err)
+	}
 
 	if t.messageIDToSenders[messageID] == nil {
 		t.messageIDToSenders[messageID] = make(map[p2ptypes.PeerID]bool)

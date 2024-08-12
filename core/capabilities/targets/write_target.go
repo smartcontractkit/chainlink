@@ -1,7 +1,9 @@
 package targets
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -13,16 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var (
 	_ capabilities.ActionCapability = &WriteTarget{}
 )
-
-// required field of target's config in the workflow spec
-const signedReportField = "signed_report"
 
 type WriteTarget struct {
 	cr               commontypes.ContractReader
@@ -71,22 +69,105 @@ func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader
 	}
 }
 
-type EvmConfig struct {
+// Note: This should be a shared type that the OCR3 package validates as well
+type ReportV1Metadata struct {
+	Version             uint8
+	WorkflowExecutionID [32]byte
+	Timestamp           uint32
+	DonID               uint32
+	DonConfigVersion    uint32
+	WorkflowCID         [32]byte
+	WorkflowName        [10]byte
+	WorkflowOwner       [20]byte
+	ReportID            [2]byte
+}
+
+func (rm ReportV1Metadata) Encode() ([]byte, error) {
+	buf := new(bytes.Buffer)
+	err := binary.Write(buf, binary.BigEndian, rm)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (rm ReportV1Metadata) Length() int {
+	bytes, err := rm.Encode()
+	if err != nil {
+		return 0
+	}
+	return len(bytes)
+}
+
+func decodeReportMetadata(data []byte) (metadata ReportV1Metadata, err error) {
+	if len(data) < metadata.Length() {
+		return metadata, fmt.Errorf("data too short: %d bytes", len(data))
+	}
+	return metadata, binary.Read(bytes.NewReader(data[:metadata.Length()]), binary.BigEndian, &metadata)
+}
+
+type Config struct {
+	// Address of the contract that will get the forwarded report
 	Address string
 }
 
-func parseConfig(rawConfig *values.Map) (config EvmConfig, err error) {
-	if rawConfig == nil {
-		return config, fmt.Errorf("missing config field")
+type Inputs struct {
+	SignedReport types.SignedReport
+}
+
+type Request struct {
+	Metadata capabilities.RequestMetadata
+	Config   Config
+	Inputs   Inputs
+}
+
+func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) {
+	r.Metadata = rawRequest.Metadata
+
+	if rawRequest.Config == nil {
+		return r, fmt.Errorf("missing config field")
 	}
 
-	if err := rawConfig.UnwrapTo(&config); err != nil {
-		return config, err
+	if err = rawRequest.Config.UnwrapTo(&r.Config); err != nil {
+		return r, err
 	}
-	if !common.IsHexAddress(config.Address) {
-		return config, fmt.Errorf("'%v' is not a valid address", config.Address)
+
+	if !common.IsHexAddress(r.Config.Address) {
+		return r, fmt.Errorf("'%v' is not a valid address", r.Config.Address)
 	}
-	return config, nil
+
+	if rawRequest.Inputs == nil {
+		return r, fmt.Errorf("missing inputs field")
+	}
+
+	// required field of target's config in the workflow spec
+	const signedReportField = "signed_report"
+	signedReport, ok := rawRequest.Inputs.Underlying[signedReportField]
+	if !ok {
+		return r, fmt.Errorf("missing required field %s", signedReportField)
+	}
+
+	if err = signedReport.UnwrapTo(&r.Inputs.SignedReport); err != nil {
+		return r, err
+	}
+
+	reportMetadata, err := decodeReportMetadata(r.Inputs.SignedReport.Report)
+	if err != nil {
+		return r, err
+	}
+
+	if reportMetadata.Version != 1 {
+		return r, fmt.Errorf("unsupported report version: %d", reportMetadata.Version)
+	}
+
+	if hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]) != rawRequest.Metadata.WorkflowExecutionID ||
+		hex.EncodeToString(reportMetadata.WorkflowOwner[:]) != rawRequest.Metadata.WorkflowOwner ||
+		hex.EncodeToString(reportMetadata.WorkflowName[:]) != rawRequest.Metadata.WorkflowName ||
+		hex.EncodeToString(reportMetadata.WorkflowCID[:]) != rawRequest.Metadata.WorkflowID {
+		return r, fmt.Errorf("report metadata does not match request metadata. reportMetadata: %+v, requestMetadata: %+v", reportMetadata, rawRequest.Metadata)
+	}
+
+	return r, nil
 }
 
 func success() <-chan capabilities.CapabilityResponse {
@@ -98,7 +179,7 @@ func success() <-chan capabilities.CapabilityResponse {
 	return callback
 }
 
-func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
 	// Bind to the contract address on the write path.
 	// Bind() requires a connection to the node's RPCs and
 	// cannot be run during initialization.
@@ -114,47 +195,27 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		cap.bound = true
 	}
 
-	cap.lggr.Debugw("Execute", "request", request)
+	cap.lggr.Debugw("Execute", "rawRequest", rawRequest)
 
-	reqConfig, err := parseConfig(request.Config)
+	request, err := evaluate(rawRequest)
 	if err != nil {
 		return nil, err
 	}
-
-	if request.Inputs == nil {
-		return nil, fmt.Errorf("missing inputs field")
-	}
-
-	signedReport, ok := request.Inputs.Underlying[signedReportField]
-	if !ok {
-		return nil, fmt.Errorf("missing required field %s", signedReportField)
-	}
-
-	inputs := types.SignedReport{}
-	if err = signedReport.UnwrapTo(&inputs); err != nil {
-		return nil, err
-	}
-
-	if len(inputs.Report) == 0 {
-		// We received any empty report -- this means we should skip transmission.
-		cap.lggr.Debugw("Skipping empty report", "request", request)
-		return success(), nil
-	}
-	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
 	rawExecutionID, err := hex.DecodeString(request.Metadata.WorkflowExecutionID)
 	if err != nil {
 		return nil, err
 	}
+
 	// Check whether value was already transmitted on chain
 	queryInputs := struct {
 		Receiver            string
 		WorkflowExecutionID []byte
 		ReportId            []byte
 	}{
-		Receiver:            reqConfig.Address,
+		Receiver:            request.Config.Address,
 		WorkflowExecutionID: rawExecutionID,
-		ReportId:            inputs.ID,
+		ReportId:            request.Inputs.SignedReport.ID,
 	}
 	var transmissionInfo TransmissionInfo
 	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmissionInfo", primitives.Unconfirmed, queryInputs, &transmissionInfo); err != nil {
@@ -163,7 +224,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 
 	switch {
 	case transmissionInfo.State == 0: // NOT_ATTEMPTED
-		cap.lggr.Infow("non-empty report - tranasmission not attempted - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
+		cap.lggr.Infow("non-empty report - tranasmission not attempted - attempting to push to txmgr", "request", request, "reportLen", len(request.Inputs.SignedReport.Report), "reportContextLen", len(request.Inputs.SignedReport.Context), "nSignatures", len(request.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
 	case transmissionInfo.State == 1: // SUCCEEDED
 		cap.lggr.Infow("returning without a tranmission attempt - report already onchain ", "executionID", request.Metadata.WorkflowExecutionID)
 		return success(), nil
@@ -175,7 +236,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 			cap.lggr.Infow("returning without a tranmission attempt - transmission already attempted and failed, sufficient gas was provided", "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", cap.receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
 			return success(), nil
 		} else {
-			cap.lggr.Infow("non-empty report - retrying a failed transmission - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", cap.receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
+			cap.lggr.Infow("non-empty report - retrying a failed transmission - attempting to push to txmgr", "request", request, "reportLen", len(request.Inputs.SignedReport.Report), "reportContextLen", len(request.Inputs.SignedReport.Context), "nSignatures", len(request.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", cap.receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
 		}
 	default:
 		return nil, fmt.Errorf("unexpected transmission state: %v", transmissionInfo.State)
@@ -194,7 +255,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		RawReport     []byte
 		ReportContext []byte
 		Signatures    [][]byte
-	}{reqConfig.Address, inputs.Report, inputs.Context, inputs.Signatures}
+	}{request.Config.Address, request.Inputs.SignedReport.Report, request.Inputs.SignedReport.Context, request.Inputs.SignedReport.Signatures}
 
 	if req.RawReport == nil {
 		req.RawReport = make([]byte, 0)
