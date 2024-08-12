@@ -191,7 +191,6 @@ docker_signs:
 
 checksum:
   name_template: "checksums.txt"
-  split: true
 
 snapshot:
   name_template: "{{ .Env.CHAINLINK_VERSION }}-{{ .ShortCommit }}"
