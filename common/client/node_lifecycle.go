@@ -103,15 +103,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		return
 	}
 
-	n.stateMu.Lock()
-	n.aliveLoopSub = headsSub.sub
-	n.stateMu.Unlock()
-	defer func() {
-		defer headsSub.sub.Unsubscribe()
-		n.stateMu.Lock()
-		n.aliveLoopSub = nil
-		n.stateMu.Unlock()
-	}()
+	defer n.unsubscribeHealthChecks()
 
 	var pollCh <-chan time.Time
 	if pollInterval > 0 {
@@ -138,16 +130,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			n.declareUnreachable()
 			return
 		}
-
-		n.stateMu.Lock()
-		n.finalizedBlockSub = finalizedHeadsSub.sub
-		n.stateMu.Unlock()
-		defer func() {
-			finalizedHeadsSub.Unsubscribe()
-			n.stateMu.Lock()
-			n.finalizedBlockSub = nil
-			n.stateMu.Unlock()
-		}()
 	}
 
 	localHighestChainInfo, _ := n.rpc.GetInterceptedChainInfo()
@@ -187,7 +169,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				return
 			}
 			_, latestChainInfo := n.StateAndLatest()
-			if outOfSync, liveNodes := n.syncStatus(latestChainInfo.BlockNumber, latestChainInfo.TotalDifficulty); outOfSync {
+			if outOfSync, liveNodes := n.isOutOfSyncWithPool(latestChainInfo); outOfSync {
 				// note: there must be another live node for us to be out of sync
 				lggr.Errorw("RPC endpoint has fallen behind", "blockNumber", latestChainInfo.BlockNumber, "totalDifficulty", latestChainInfo.TotalDifficulty, "nodeState", n.getCachedState())
 				if liveNodes < 2 {
@@ -232,17 +214,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				n.declareUnreachable()
 				return
 			}
-			if !latestFinalized.IsValid() {
-				lggr.Warn("Latest finalized block is not valid")
-				continue
-			}
 
-			latestFinalizedBN := latestFinalized.BlockNumber()
-			if latestFinalizedBN > localHighestChainInfo.FinalizedBlockNumber {
-				promPoolRPCNodeHighestFinalizedBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(latestFinalizedBN))
-				localHighestChainInfo.FinalizedBlockNumber = latestFinalizedBN
+			receivedNewHead := n.onNewFinalizedHead(lggr, &localHighestChainInfo, latestFinalized)
+			if receivedNewHead && noNewFinalizedBlocksTimeoutThreshold > 0 {
+				finalizedHeadsSub.ResetTimer(noNewFinalizedBlocksTimeoutThreshold)
 			}
-
 		case <-finalizedHeadsSub.NoNewHeads:
 			// We haven't received a finalized head on the channel for at least the
 			// threshold amount of time, mark it broken
@@ -264,6 +240,15 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			return
 		}
 	}
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) unsubscribeHealthChecks() {
+	n.stateMu.Lock()
+	for _, sub := range n.healthCheckSubs {
+		sub.Unsubscribe()
+	}
+	n.healthCheckSubs = []types.Subscription{}
+	n.stateMu.Unlock()
 }
 
 type headSubscription[HEAD any] struct {
@@ -299,11 +284,10 @@ func (n *node[CHAIN_ID, HEAD, PRC]) registerNewSubscription(ctx context.Context,
 	result.Errors = sub.Err()
 	lggr.Debug("Successfully subscribed")
 
-	// TODO: will be removed as part of merging effort with BCI-2875
 	result.sub = sub
-	//n.stateMu.Lock()
-	//n.healthCheckSubs = append(n.healthCheckSubs, sub)
-	//n.stateMu.Unlock()
+	n.stateMu.Lock()
+	n.healthCheckSubs = append(n.healthCheckSubs, sub)
+	n.stateMu.Unlock()
 
 	result.cleanUpTasks = append(result.cleanUpTasks, sub.Unsubscribe)
 
@@ -363,31 +347,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) onNewHead(lggr logger.SugaredLogger, chainIn
 	}
 
 	return true
-}
-
-// syncStatus returns outOfSync true if num or td is more than SyncThresold behind the best node.
-// Always returns outOfSync false for SyncThreshold 0.
-// liveNodes is only included when outOfSync is true.
-func (n *node[CHAIN_ID, HEAD, RPC]) syncStatus(num int64, td *big.Int) (outOfSync bool, liveNodes int) {
-	if n.poolInfoProvider == nil {
-		return // skip for tests
-	}
-	threshold := n.nodePoolCfg.SyncThreshold()
-	if threshold == 0 {
-		return // disabled
-	}
-	// Check against best node
-	ln, ci := n.poolInfoProvider.LatestChainInfo()
-	mode := n.nodePoolCfg.SelectionMode()
-	switch mode {
-	case NodeSelectionModeHighestHead, NodeSelectionModeRoundRobin, NodeSelectionModePriorityLevel:
-		return num < ci.BlockNumber-int64(threshold), ln
-	case NodeSelectionModeTotalDifficulty:
-		bigThreshold := big.NewInt(int64(threshold))
-		return td.Cmp(bigmath.Sub(ci.TotalDifficulty, bigThreshold)) < 0, ln
-	default:
-		panic("unrecognized NodeSelectionMode: " + mode)
-	}
 }
 
 const (
@@ -462,8 +421,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 		return
 	}
 
+	defer n.unsubscribeHealthChecks()
+
 	lggr.Tracew("Successfully subscribed to heads feed on out-of-sync RPC node")
-	defer headsSub.Unsubscribe()
 
 	noNewFinalizedBlocksTimeoutThreshold := n.chainCfg.NoNewFinalizedHeadsThreshold()
 	var finalizedHeadsSub headSubscription[HEAD]
@@ -477,7 +437,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 		}
 
 		lggr.Tracew("Successfully subscribed to finalized heads feed on out-of-sync RPC node")
-		defer finalizedHeadsSub.Unsubscribe()
 	}
 
 	_, localHighestChainInfo := n.rpc.GetInterceptedChainInfo()

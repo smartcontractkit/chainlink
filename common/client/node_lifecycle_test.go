@@ -408,12 +408,12 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			return float64(expectedBlock) == m.Gauge.GetValue()
 		})
 	})
-	t.Run("Logs warning if failed to subscrive to latest finalized blocks", func(t *testing.T) {
+	t.Run("Logs warning if failed to subscribe to latest finalized blocks", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockRPCClient[types.ID, Head](t)
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return(nil).Maybe()
-		sub.On("Unsubscribe")
+		sub.On("Unsubscribe").Once()
 		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Once()
 		expectedError := errors.New("failed to subscribe to finalized heads")
 		rpc.On("SubscribeToFinalizedHeads", mock.Anything).Return(nil, sub, expectedError).Once()

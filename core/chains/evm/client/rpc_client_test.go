@@ -95,8 +95,8 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 
 		assertHighestUserObservations(highestUserObservations)
 
-		// UnsubscribeAllExcept resets latest
-		rpc.UnsubscribeAllExcept()
+		// Close resets latest
+		rpc.Close()
 
 		latest, highestUserObservations = rpc.GetInterceptedChainInfo()
 		assert.Equal(t, int64(0), latest.BlockNumber)
@@ -290,8 +290,8 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	assert.Equal(t, int64(0), latest.BlockNumber)
 	assert.Equal(t, int64(256), latest.FinalizedBlockNumber)
 
-	// DisconnectAll resets latest ChainInfo
-	rpc.UnsubscribeAllExcept()
+	// Close resets latest ChainInfo
+	rpc.Close()
 	latest, highestUserObservations = rpc.GetInterceptedChainInfo()
 	assert.Equal(t, int64(0), highestUserObservations.BlockNumber)
 	assert.Equal(t, int64(128), highestUserObservations.FinalizedBlockNumber)

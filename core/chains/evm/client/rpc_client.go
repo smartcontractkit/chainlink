@@ -226,7 +226,6 @@ func (r *RpcClient) UnsubscribeAllExcept(subs ...commontypes.Subscription) {
 			sub.Unsubscribe()
 		}
 	}
-	r.latestChainInfo = commonclient.ChainInfo{}
 }
 
 // Not thread-safe, pure dial.
@@ -293,6 +292,8 @@ func (r *RpcClient) Close() {
 		}
 	}()
 	r.cancelInflightRequests()
+	r.UnsubscribeAllExcept()
+	r.latestChainInfo = commonclient.ChainInfo{}
 }
 
 // cancelInflightRequests closes and replaces the chStopInFlight
@@ -365,13 +366,6 @@ func (r *RpcClient) registerSub(sub ethereum.Subscription, stopInFLightCh chan s
 	// TODO: BCI-3358 - delete sub when caller unsubscribes.
 	r.subs = append(r.subs, sub)
 	return nil
-}
-
-// SubscribersCount returns the number of client subscribed to the node
-func (r *RpcClient) SubscribersCount() int32 {
-	r.stateMu.RLock()
-	defer r.stateMu.RUnlock()
-	return int32(len(r.subs))
 }
 
 // RPC wrappers
@@ -526,11 +520,7 @@ func (r *RpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 }
 
 func (r *RpcClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
-	head, err := r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
-	if err != nil {
-		return nil, err
-	}
-	return head, nil
+	return r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
 }
 
 func (r *RpcClient) BlockByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
