@@ -230,58 +230,95 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           dep_evm_sha: ${{ inputs.evm-ref }}
 
-  compare-tests:
-    needs: [changes]
-    runs-on: ubuntu-latest
-    name: Compare/Build Automation Test List
-    outputs:
-      automation-matrix: ${{ env.AUTOMATION_JOB_MATRIX_JSON }}
-      lp-matrix: ${{ env.LP_JOB_MATRIX_JSON }}
-    steps:
-      - name: Check for Skip Tests Label
-        if: contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')
-        run: |
-          echo "## \`skip-smoke-tests\` label is active, skipping E2E smoke tests" >>$GITHUB_STEP_SUMMARY
-          exit 0
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref }}
-      - name: Compare Test Lists
-        run: |
-          cd ./integration-tests
-          ./scripts/compareTestList.sh ./smoke/automation_test.go
-          ./scripts/compareTestList.sh ./smoke/keeper_test.go
-          ./scripts/compareTestList.sh ./smoke/log_poller_test.go
-      - name: Build Test Matrix Lists
-        id: build-test-matrix-list
-        run: |
-          cd ./integration-tests
-          MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu-latest 1)
-          MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu-latest 1)
-          COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
-          echo "combined array = ${COMBINED_ARRAY}"
-          echo "event name = $GITHUB_EVENT_NAME"
+  # compare-tests:
+  #   needs: [changes]
+  #   runs-on: ubuntu-latest
+  #   name: Compare/Build Automation Test List
+  #   outputs:
+  #     automation-matrix: ${{ env.AUTOMATION_JOB_MATRIX_JSON }}
+  #     lp-matrix: ${{ env.LP_JOB_MATRIX_JSON }}
+  #   steps:
+  #     - name: Check for Skip Tests Label
+  #       if: contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')
+  #       run: |
+  #         echo "## \`skip-smoke-tests\` label is active, skipping E2E smoke tests" >>$GITHUB_STEP_SUMMARY
+  #         exit 0
+  #     - name: Checkout the repo
+  #       uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+  #       with:
+  #         repository: smartcontractkit/chainlink
+  #         ref: ${{ inputs.cl_ref }}
+  #     - name: Compare Test Lists
+  #       run: |
+  #         cd ./integration-tests
+  #         ./scripts/compareTestList.sh ./smoke/automation_test.go
+  #         ./scripts/compareTestList.sh ./smoke/keeper_test.go
+  #         ./scripts/compareTestList.sh ./smoke/log_poller_test.go
+  #     - name: Build Test Matrix Lists
+  #       id: build-test-matrix-list
+  #       run: |
+  #         cd ./integration-tests
+  #         MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu-latest 1)
+  #         MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu-latest 1)
+  #         COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
+  #         echo "combined array = ${COMBINED_ARRAY}"
+  #         echo "event name = $GITHUB_EVENT_NAME"
 
-          LOG_POLLER_MATRIX_JSON=$(./scripts/buildTestMatrixList.sh ./smoke/log_poller_test.go log_poller ubuntu-latest 1)
-          echo "LP_JOB_MATRIX_JSON=${LOG_POLLER_MATRIX_JSON}" >> $GITHUB_ENV
+  #         LOG_POLLER_MATRIX_JSON=$(./scripts/buildTestMatrixList.sh ./smoke/log_poller_test.go log_poller ubuntu-latest 1)
+  #         echo "LP_JOB_MATRIX_JSON=${LOG_POLLER_MATRIX_JSON}" >> $GITHUB_ENV
 
-          # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
-          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
-            echo "We are in a merge_group event, run both automation and keepers tests"
-            echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
-          else
-            echo "we are not in a merge_group event, if this is a PR to develop run only automation tests, otherwise run everything because we could be running against a release branch"
-            target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.base.ref)
-            if [[ "$target_branch" == "develop" ]]; then
-              echo "only run automation tests"
-              echo "AUTOMATION_JOB_MATRIX_JSON=${MATRIX_JSON_AUTOMATION}" >> $GITHUB_ENV
-            else
-              echo "run both automation and keepers tests"
-              echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
-            fi
-          fi
+  #         # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
+  #         if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
+  #           echo "We are in a merge_group event, run both automation and keepers tests"
+  #           echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+  #         else
+  #           echo "we are not in a merge_group event, if this is a PR to develop run only automation tests, otherwise run everything because we could be running against a release branch"
+  #           target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.base.ref)
+  #           if [[ "$target_branch" == "develop" ]]; then
+  #             echo "only run automation tests"
+  #             echo "AUTOMATION_JOB_MATRIX_JSON=${MATRIX_JSON_AUTOMATION}" >> $GITHUB_ENV
+  #           else
+  #             echo "run both automation and keepers tests"
+  #             echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+  #           fi
+  #         fi
+
+  call-run-e2e-tests-workflow:
+    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+    # environment: integration
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    # needs: [build-chainlink, changes, build-lint-integration-tests]
+    # env:
+    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
+    with:
+      chainlink_version: ${{ inputs.evm-ref || github.sha }}
+      chainlink_upgrade_version: ${{ github.sha }}
+      test_workflow: Run PR E2E Tests 2
+      # slack_notification_after_tests: true
+      # slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
+      # slack_notification_after_tests_name: Nightly E2E Tests
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}    
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}          
 
   # eth-smoke-tests-matrix-automation:
   #   if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
@@ -513,43 +550,6 @@ jobs:
   #     - name: Print failed test summary
   #       if: always()
   #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@70ccaef155381025e411cf7cd1fa5ef8f668ed75 # v2.3.25
-
-  call-run-e2e-tests-workflow:
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
-    # environment: integration
-    permissions:
-      actions: read
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, changes]
-    # needs: [build-chainlink, changes, build-lint-integration-tests]
-    # env:
-    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
-    with:
-      chainlink_version: ${{ inputs.evm-ref || github.sha }}
-      chainlink_upgrade_version: ${{ github.sha }}
-      test_workflow: Run PR E2E Tests 2
-      # slack_notification_after_tests: true
-      # slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
-      # slack_notification_after_tests_name: Nightly E2E Tests
-    secrets:
-      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-      QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
-      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
-      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}    
-      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       
   # eth-smoke-tests-matrix:
   #   if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
