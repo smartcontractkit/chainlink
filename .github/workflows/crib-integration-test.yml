@@ -1,5 +1,6 @@
 name: CRIB Integration Tests
 on:
+  push:
   schedule:
     - cron: "0 1 * * *"
   workflow_call:
@@ -98,9 +99,9 @@ jobs:
           CRIB_NETWORK: geth
           CRIB_NODES: 5
           GAP_URL: ${{ secrets.GAP_URL }}
-#          SETH_LOG_LEVEL: debug
-#          RESTY_DEBUG: true
-#          TEST_PERSISTENCE: true
+          SETH_LOG_LEVEL: debug
+          RESTY_DEBUG: true
+          TEST_PERSISTENCE: true
         run: |-
           go test -v -run TestCRIB
       - name: Destroy CRIB Environment
