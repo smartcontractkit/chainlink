@@ -6,7 +6,6 @@ import (
 	sync "sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -23,11 +22,11 @@ import (
 //
 // TriggerSubscriber communicates with corresponding TriggerReceivers on remote nodes.
 type triggerSubscriber struct {
-	config              *capabilities.RemoteTriggerConfig
+	config              *commoncap.RemoteTriggerConfig
 	capInfo             commoncap.CapabilityInfo
-	capDonInfo          capabilities.DON
+	capDonInfo          commoncap.DON
 	capDonMembers       map[p2ptypes.PeerID]struct{}
-	localDonInfo        capabilities.DON
+	localDonInfo        commoncap.DON
 	dispatcher          types.Dispatcher
 	aggregator          types.Aggregator
 	messageCache        *messageCache[triggerEventKey, p2ptypes.PeerID]
@@ -53,16 +52,19 @@ var _ types.Receiver = &triggerSubscriber{}
 var _ services.Service = &triggerSubscriber{}
 
 // TODO makes this configurable with a default
-const defaultSendChannelBufferSize = 1000
+const (
+	defaultSendChannelBufferSize = 1000
+	maxBatchedWorkflowIDs        = 1000
+)
 
-func NewTriggerSubscriber(config *capabilities.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo capabilities.DON, localDonInfo capabilities.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
+func NewTriggerSubscriber(config *commoncap.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, localDonInfo commoncap.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
 	if aggregator == nil {
 		lggr.Warnw("no aggregator provided, using default MODE aggregator", "capabilityId", capInfo.ID)
 		aggregator = NewDefaultModeAggregator(uint32(capDonInfo.F + 1))
 	}
 	if config == nil {
 		lggr.Info("no config provided, using default values")
-		config = &capabilities.RemoteTriggerConfig{}
+		config = &commoncap.RemoteTriggerConfig{}
 	}
 	config.ApplyDefaults()
 	capDonMembers := make(map[p2ptypes.PeerID]struct{})
@@ -184,6 +186,10 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			s.lggr.Errorw("received message with invalid trigger metadata", "capabilityId", s.capInfo.ID, "sender", sender)
 			return
 		}
+		if len(meta.WorkflowIds) > maxBatchedWorkflowIDs {
+			s.lggr.Errorw("received message with too many workflow IDs - truncating", "capabilityId", s.capInfo.ID, "nWorkflows", len(meta.WorkflowIds), "sender", sender)
+			meta.WorkflowIds = meta.WorkflowIds[:maxBatchedWorkflowIDs]
+		}
 		for _, workflowId := range meta.WorkflowIds {
 			s.mu.RLock()
 			registration, found := s.registeredWorkflows[workflowId]
@@ -197,10 +203,10 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 				workflowId:     workflowId,
 			}
 			nowMs := time.Now().UnixMilli()
-			s.mu.RLock()
+			s.mu.Lock()
 			creationTs := s.messageCache.Insert(key, sender, nowMs, msg.Payload)
 			ready, payloads := s.messageCache.Ready(key, s.config.MinResponsesToAggregate, nowMs-s.config.MessageExpiry.Milliseconds(), true)
-			s.mu.RUnlock()
+			s.mu.Unlock()
 			if nowMs-creationTs > s.config.RegistrationExpiry.Milliseconds() {
 				s.lggr.Warnw("received trigger event for an expired ID", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId, "sender", sender)
 				continue
