@@ -247,7 +247,7 @@ jobs:
     with:
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
       chainlink_upgrade_version: ${{ github.sha }}
-      test_workflow: Run PR E2E Tests 2
+      test_workflow: Run PR E2E Tests 3
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       # slack_notification_after_tests: true
@@ -268,7 +268,14 @@ jobs:
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
       AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}    
-      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}          
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}    
+      
+  send-slack-notification-for-migration-tests:
+    name: Send Slack Notification for Migration Tests
+    runs-on: ubuntu-latest
+    needs: call-run-e2e-tests-workflow
+    steps:
+      - run: echo ${{ needs.call-run-e2e-tests-workflow.outputs.test_results }}
 
   # eth-smoke-tests-matrix-automation:
   #   if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}

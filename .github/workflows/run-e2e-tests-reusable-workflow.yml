@@ -83,6 +83,10 @@ on:
         description: 'Prefix for the Chainlink node coverage artifact'
         required: false
         type: string  
+    outputs:
+      test_results:
+        description: 'Test results from all executed tests'
+        value: ${{ jobs.after_tests.outputs.test_results }}        
     secrets:
       TEST_SECRETS_OVERRIDE_BASE64:
         required: false
@@ -430,6 +434,7 @@ jobs:
           duplicate-authorization-header: "true"
 
       - name: Run tests
+        id: run_tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fdaf56b1df7248d18e30ad09982d03ec67d6b71c # v2.3.29
         env:
           DETACH_RUNNER: true
@@ -494,6 +499,20 @@ jobs:
           name: ${{ inputs.upload_cl_node_coverage_artifact_prefix }}${{ matrix.tests.id_sanitized }}
           path: .covdata
           retention-days: 1
+
+      - name: Record test result
+        if: ${{ always() }}
+        run: |
+          id=${{ matrix.tests.id_sanitized }}
+          result="${{ steps.run_tests.outcome }}"
+          echo "{\"id\": \"$id\", \"result\": \"$result\"}" > test_result.json
+
+      - name: Upload test result as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: test_result_${{ matrix.tests.id_sanitized }}
+          path: test_result.json        
+  
 
       # TODO: move to run-tests GHA
       - name: Print failed test summary
@@ -579,6 +598,7 @@ jobs:
           echo "Remote Runner Version: ${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}"
 
       - name: Run tests
+        id: run_tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fdaf56b1df7248d18e30ad09982d03ec67d6b71c # v2.3.29
         env:
           DETACH_RUNNER: true
@@ -643,8 +663,25 @@ jobs:
     if: always()
     name: After tests notifications
     runs-on: ubuntu-latest
+    outputs:
+      test_results: ${{ steps.set_test_results.outputs.combined_results }}    
     steps:
-      - name: Determine combined test results
+      - name: Download all test result artifacts
+        uses: actions/download-artifact@9c19ed7fe5d278cd354c7dfd5d3b88589c7e2395 # v4.1.6
+        with:
+          path: test_results
+          pattern: test_result_*
+          merge-multiple: true
+
+      - name: Set test results output
+        id: set_test_results
+        run: |
+          ls -R test_results
+          jq -s add test_results/test_result_*.json > combined_results.json
+          jq . combined_results.json
+          echo "combined_results=$(jq -c . combined_results.json)" >> $GITHUB_OUTPUT
+
+      - name: Determine combined job results
         id: combine_results
         run: |
           docker_result="${{ needs.run-docker-tests.result }}"
