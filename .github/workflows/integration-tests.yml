@@ -284,6 +284,7 @@ jobs:
   #         fi
 
   call-run-e2e-tests-workflow:
+    name: Run E2E Tests
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     # environment: integration
     permissions:
