@@ -369,7 +369,7 @@ CCIPOwnerTokens = false # if true, the test will use deploy the tokens by the CC
 
 # Uncomment the following if you want to run your tests with updated OCR params
 # otherwise test will use default OCR params from -
-# https://github.com/smartcontractkit/ccip/blob/ccip-develop/integration-tests/ccip-tests/contracts/contract_deployer.go#L729-L751
+# https://github.com/smartcontractkit/chainlink/blob/develop/integration-tests/ccip-tests/contracts/contract_deployer.go#L729-L751
 ## OCR Params
 #CommitInflightExpiry = '2m'
 #ExecInflightExpiry = '2m'

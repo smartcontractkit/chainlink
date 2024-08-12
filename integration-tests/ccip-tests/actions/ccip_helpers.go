@@ -4022,7 +4022,6 @@ func (c *CCIPTestEnv) ConnectToExistingNodes(envConfig *testconfig.Common) error
 		if err != nil {
 			return fmt.Errorf("failed to create chainlink client: %w for node %d config %v", err, i+1, cfg)
 		}
-		clClient.ChainlinkClient.WithRetryCount(3)
 		c.CLNodes = append(c.CLNodes, clClient)
 		c.nodeMutexes = append(c.nodeMutexes, &sync.Mutex{})
 	}
@@ -4036,7 +4035,7 @@ func (c *CCIPTestEnv) ConnectToDeployedNodes() error {
 		for _, chainlinkNode := range c.LocalCluster.ClCluster.Nodes {
 			c.nodeMutexes = append(c.nodeMutexes, &sync.Mutex{})
 			c.CLNodes = append(c.CLNodes, &client.ChainlinkK8sClient{
-				ChainlinkClient: chainlinkNode.API.WithRetryCount(3),
+				ChainlinkClient: chainlinkNode.API,
 			})
 		}
 	} else {
@@ -4050,17 +4049,12 @@ func (c *CCIPTestEnv) ConnectToDeployedNodes() error {
 			return fmt.Errorf("no CL node found")
 		}
 
-		for i := range chainlinkK8sNodes {
-			chainlinkK8sNodes[i].ChainlinkClient.WithRetryCount(3)
+		for range chainlinkK8sNodes {
 			c.nodeMutexes = append(c.nodeMutexes, &sync.Mutex{})
 		}
 		c.CLNodes = chainlinkK8sNodes
 		if _, exists := c.K8Env.URLs[mockserver.InternalURLsKey]; exists {
-			mockServer, err := ctfClient.ConnectMockServer(c.K8Env)
-			if err != nil {
-				return fmt.Errorf("failed to connect to mock server: %w", err)
-			}
-			c.MockServer = mockServer
+			c.MockServer = ctfClient.ConnectMockServer(c.K8Env)
 		}
 	}
 	return nil
