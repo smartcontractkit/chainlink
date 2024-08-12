@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -313,34 +314,29 @@ type Exp struct {
 	ShouldDelete bool
 }
 
+// DeleteExpiredLogs removes any logs which either:
+//   - don't match any currently registered filters, or
+//   - have a timestamp older than any matching filter's retention, UNLESS there is at
+//     least one matching filter with retention=0
 func (o *DSORM) DeleteExpiredLogs(ctx context.Context, limit int64) (int64, error) {
 	var err error
 	var result sql.Result
-	if limit > 0 {
-		result, err = o.ds.ExecContext(ctx, `
-		DELETE FROM evm.logs
+	query := `DELETE FROM evm.logs
 		WHERE (evm_chain_id, address, event_sig, block_number) IN (
 			SELECT l.evm_chain_id, l.address, l.event_sig, l.block_number
 			FROM evm.logs l
-			INNER JOIN (
-				SELECT address, event, MAX(retention) AS retention
+			LEFT JOIN (
+				SELECT address, event, CASE WHEN MIN(retention) = 0 THEN 0 ELSE MAX(retention) END AS retention
 				FROM evm.log_poller_filters
 				WHERE evm_chain_id = $1
 				GROUP BY evm_chain_id, address, event
-				HAVING NOT 0 = ANY(ARRAY_AGG(retention))
 			) r ON l.evm_chain_id = $1 AND l.address = r.address AND l.event_sig = r.event
-			AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')
-			LIMIT $2
-		)`, ubig.New(o.chainID), limit)
+			WHERE r.retention IS NULL OR (r.retention != 0 AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')) %s)`
+
+	if limit > 0 {
+		result, err = o.ds.ExecContext(ctx, fmt.Sprintf(query, "LIMIT $2"), ubig.New(o.chainID), limit)
 	} else {
-		result, err = o.ds.ExecContext(ctx, `WITH r AS
-		( SELECT address, event, MAX(retention) AS retention
-			FROM evm.log_poller_filters WHERE evm_chain_id=$1 
-			GROUP BY evm_chain_id,address, event HAVING NOT 0 = ANY(ARRAY_AGG(retention))
-		) DELETE FROM evm.logs l USING r
-			WHERE l.evm_chain_id = $1 AND l.address=r.address AND l.event_sig=r.event
-			AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')`, // retention is in nanoseconds (time.Duration aka BIGINT)
-			ubig.New(o.chainID))
+		result, err = o.ds.ExecContext(ctx, fmt.Sprintf(query, ""), ubig.New(o.chainID))
 	}
 
 	if err != nil {

@@ -1,0 +1,100 @@
+# This is its own independent workflow since "solidity.yml" depends on "merge_group" and "push" events.
+# But for ensuring that JIRA tickets are always updated, we only care about "pull_request" events.
+#
+# We still need to add "merge_group" event and noop so that we'll pass required workflow checks.
+#
+# I didn't add this to the "changeset.yml" workflow because the "changeset" job isnt required, and we'd need to add the "merge_group" event to the "changeset.yml" workflow.
+# If we made the change to make it required.
+name: Solidity Jira
+
+on:
+  merge_group:
+  pull_request:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  skip-enforce-jira-issue:
+    name: Should Skip 
+    # We want to skip merge_group events, and any release branches
+    # Since we only want to enforce Jira issues on pull requests related to feature branches
+    if: ${{ github.event_name != 'merge_group' && !startsWith(github.head_ref, 'release/')  }}
+    outputs:
+      should-enforce: ${{ steps.changed_files.outputs.only_src_contracts }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+        # We don't use detect-solidity-file-changes here because we need to use the "every" predicate quantifier
+      - name: Filter paths
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changed_files
+        with:
+          list-files: "csv"
+          # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
+          predicate-quantifier: "every"
+          filters: |
+            only_src_contracts:
+              - contracts/**/*.sol
+              - '!contracts/**/*.t.sol'
+
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: solidity-jira
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Should Skip 
+        continue-on-error: true
+
+  enforce-jira-issue:
+    name: Enforce Jira Issue
+    runs-on: ubuntu-latest
+    # If a needs job is skipped, this job will be skipped and counted as successful 
+    # The job skips on merge_group events, and any release branches
+    # Since we only want to enforce Jira issues on pull requests related to feature branches
+    needs: [skip-enforce-jira-issue]
+    # In addition to the above conditions, we only want to running on solidity related PRs.
+    #
+    # Note: A job that is skipped will report its status as "Success".
+    # It will not prevent a pull request from merging, even if it is a required check.
+    if: ${{ needs.skip-enforce-jira-issue.outputs.should-enforce == 'true'  }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Setup Jira
+        working-directory: ./.github/scripts/jira
+        run: pnpm i
+
+      - name: Enforce Jira Issue
+        working-directory: ./.github/scripts/jira
+        run: |
+          echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
+          pnpm issue:enforce
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JIRA_HOST: ${{ secrets.JIRA_HOST }}
+          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: solidity-jira
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Enforce Jira Issue
+        continue-on-error: true

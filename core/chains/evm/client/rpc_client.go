@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -29,6 +30,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -93,6 +95,7 @@ type RpcClient struct {
 	tier                   commonclient.NodeTier
 	largePayloadRpcTimeout time.Duration
 	rpcTimeout             time.Duration
+	chainType              chaintype.ChainType
 
 	ws   rawclient
 	http *rawclient
@@ -128,10 +131,12 @@ func NewRPCClient(
 	tier commonclient.NodeTier,
 	largePayloadRpcTimeout time.Duration,
 	rpcTimeout time.Duration,
+	chainType chaintype.ChainType,
 ) *RpcClient {
 	r := &RpcClient{
 		largePayloadRpcTimeout: largePayloadRpcTimeout,
 		rpcTimeout:             rpcTimeout,
+		chainType:              chainType,
 	}
 	r.cfg = cfg
 	r.name = name
@@ -153,6 +158,84 @@ func NewRPCClient(
 	r.rpcLog = logger.Sugared(lggr).Named("RPC")
 
 	return r
+}
+
+func (r *RpcClient) BatchCallContext(rootCtx context.Context, b []rpc.BatchElem) error {
+	// Astar's finality tags provide weaker finality guarantees than we require.
+	// Fetch latest finalized block using Astar's custom requests and populate it after batch request completes
+	var astarRawLatestFinalizedBlock json.RawMessage
+	var requestedFinalizedBlock bool
+	if r.chainType == chaintype.ChainAstar {
+		for _, el := range b {
+			if !isRequestingFinalizedBlock(el) {
+				continue
+			}
+
+			requestedFinalizedBlock = true
+			err := r.astarLatestFinalizedBlock(rootCtx, &astarRawLatestFinalizedBlock)
+			if err != nil {
+				return fmt.Errorf("failed to get astar latest finalized block: %w", err)
+			}
+
+			break
+		}
+	}
+
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(rootCtx, r.largePayloadRpcTimeout)
+	defer cancel()
+	lggr := r.newRqLggr().With("nBatchElems", len(b), "batchElems", b)
+
+	lggr.Trace("RPC call: evmclient.Client#BatchCallContext")
+	start := time.Now()
+	var err error
+	if http != nil {
+		err = r.wrapHTTP(http.rpc.BatchCallContext(ctx, b))
+	} else {
+		err = r.wrapWS(ws.rpc.BatchCallContext(ctx, b))
+	}
+	duration := time.Since(start)
+
+	r.logResult(lggr, err, duration, r.getRPCDomain(), "BatchCallContext")
+	if err != nil {
+		return err
+	}
+
+	if r.chainType == chaintype.ChainAstar && requestedFinalizedBlock {
+		// populate requested finalized block with correct value
+		for _, el := range b {
+			if !isRequestingFinalizedBlock(el) {
+				continue
+			}
+
+			el.Error = nil
+			err = json.Unmarshal(astarRawLatestFinalizedBlock, el.Result)
+			if err != nil {
+				el.Error = fmt.Errorf("failed to unmarshal astar finalized block into provided struct: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func isRequestingFinalizedBlock(el rpc.BatchElem) bool {
+	isGetBlock := el.Method == "eth_getBlockByNumber" && len(el.Args) > 0
+	if !isGetBlock {
+		return false
+	}
+
+	if el.Args[0] == rpc.FinalizedBlockNumber {
+		return true
+	}
+
+	switch arg := el.Args[0].(type) {
+	case string:
+		return arg == rpc.FinalizedBlockNumber.String()
+	case fmt.Stringer:
+		return arg.String() == rpc.FinalizedBlockNumber.String()
+	default:
+		return false
+	}
 }
 
 func (r *RpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.Head, sub commontypes.Subscription, err error) {
@@ -394,26 +477,6 @@ func (r *RpcClient) CallContext(ctx context.Context, result interface{}, method 
 	return err
 }
 
-func (r *RpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRpcTimeout)
-	defer cancel()
-	lggr := r.newRqLggr().With("nBatchElems", len(b), "batchElems", b)
-
-	lggr.Trace("RPC call: evmclient.Client#BatchCallContext")
-	start := time.Now()
-	var err error
-	if http != nil {
-		err = r.wrapHTTP(http.rpc.BatchCallContext(ctx, b))
-	} else {
-		err = r.wrapWS(ws.rpc.BatchCallContext(ctx, b))
-	}
-	duration := time.Since(start)
-
-	r.logResult(lggr, err, duration, r.getRPCDomain(), "BatchCallContext")
-
-	return err
-}
-
 // GethClient wrappers
 
 func (r *RpcClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *evmtypes.Receipt, err error) {
@@ -519,17 +582,84 @@ func (r *RpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 	return
 }
 
-func (r *RpcClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
-	return r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
+func (r *RpcClient) LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error) {
+	// capture chStopInFlight to ensure we are not updating chainInfo with observations related to previous life cycle
+	ctx, cancel, chStopInFlight, _, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
+	defer cancel()
+	if r.chainType == chaintype.ChainAstar {
+		// astar's finality tags provide weaker guarantee. Use their custom request to request latest finalized block
+		err = r.astarLatestFinalizedBlock(ctx, &head)
+	} else {
+		err = r.ethGetBlockByNumber(ctx, rpc.FinalizedBlockNumber.String(), &head)
+	}
+
+	if err != nil {
+		return
+	}
+
+	if head == nil {
+		err = r.wrapRPCClientError(ethereum.NotFound)
+		return
+	}
+
+	head.EVMChainID = ubig.New(r.chainID)
+
+	r.onNewFinalizedHead(ctx, chStopInFlight, head)
+	return
+}
+
+func (r *RpcClient) astarLatestFinalizedBlock(ctx context.Context, result interface{}) (err error) {
+	var hashResult string
+	err = r.CallContext(ctx, &hashResult, "chain_getFinalizedHead")
+	if err != nil {
+		return fmt.Errorf("failed to get astar latest finalized hash: %w", err)
+	}
+
+	var astarHead struct {
+		Number *hexutil.Big `json:"number"`
+	}
+	err = r.CallContext(ctx, &astarHead, "chain_getHeader", hashResult, false)
+	if err != nil {
+		return fmt.Errorf("failed to get astar head by hash: %w", err)
+	}
+
+	if astarHead.Number == nil {
+		return r.wrapRPCClientError(fmt.Errorf("expected non empty head number of finalized block"))
+	}
+
+	err = r.ethGetBlockByNumber(ctx, astarHead.Number.String(), result)
+	if err != nil {
+		return fmt.Errorf("failed to get astar finalized block: %w", err)
+	}
+
+	return nil
 }
 
 func (r *RpcClient) BlockByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
-	hex := ToBlockNumArg(number)
-	return r.blockByNumber(ctx, hex)
+	ctx, cancel, chStopInFlight, _, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
+	defer cancel()
+	hexNumber := ToBlockNumArg(number)
+	err = r.ethGetBlockByNumber(ctx, hexNumber, &head)
+	if err != nil {
+		return
+	}
+
+	if head == nil {
+		err = r.wrapRPCClientError(ethereum.NotFound)
+		return
+	}
+
+	head.EVMChainID = ubig.New(r.chainID)
+
+	if hexNumber == rpc.LatestBlockNumber.String() {
+		r.onNewHead(ctx, chStopInFlight, head)
+	}
+
+	return
 }
 
-func (r *RpcClient) blockByNumber(ctx context.Context, number string) (head *evmtypes.Head, err error) {
-	ctx, cancel, chStopInFlight, ws, http := r.acquireQueryCtx(ctx, r.rpcTimeout)
+func (r *RpcClient) ethGetBlockByNumber(ctx context.Context, number string, result interface{}) (err error) {
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	const method = "eth_getBlockByNumber"
 	args := []interface{}{number, false}
@@ -541,30 +671,14 @@ func (r *RpcClient) blockByNumber(ctx context.Context, number string) (head *evm
 	lggr.Debug("RPC call: evmclient.Client#CallContext")
 	start := time.Now()
 	if http != nil {
-		err = r.wrapHTTP(http.rpc.CallContext(ctx, &head, method, args...))
+		err = r.wrapHTTP(http.rpc.CallContext(ctx, result, method, args...))
 	} else {
-		err = r.wrapWS(ws.rpc.CallContext(ctx, &head, method, args...))
+		err = r.wrapWS(ws.rpc.CallContext(ctx, result, method, args...))
 	}
 	duration := time.Since(start)
 
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "CallContext")
-	if err != nil {
-		return nil, err
-	}
-	if head == nil {
-		err = r.wrapRPCClientError(ethereum.NotFound)
-		return
-	}
-	head.EVMChainID = ubig.New(r.chainID)
-
-	switch number {
-	case rpc.FinalizedBlockNumber.String():
-		r.onNewFinalizedHead(ctx, chStopInFlight, head)
-	case rpc.LatestBlockNumber.String():
-		r.onNewHead(ctx, chStopInFlight, head)
-	}
-
-	return
+	return err
 }
 
 func (r *RpcClient) BlockByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error) {
