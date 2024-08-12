@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/superfakes"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -310,6 +311,8 @@ func (i *inprocessOracleCreator) CreatePluginOracle(pluginType cctypes.PluginTyp
 			ccipevm.NewExecutePluginCodecV1(),
 			ccipevm.NewMessageHasherV1(),
 			i.homeChainReader,
+			superfakes.NewNilTokenDataReader(),
+			ccipevm.NewGasEstimateProvider(), // TODO: this works for evm only, how about non-evm?
 			contractReaders,
 			chainWriters,
 		)
