@@ -344,12 +344,23 @@ jobs:
       - name: Check and Set SonarQube Report Paths
         shell: bash
         run: |
-          sonarqube_tests_report_paths=$(find go_core_tests_logs -name output.txt | paste -sd "," -)
-          sonarqube_coverage_report_paths=$(find go_core_tests_logs -name coverage.txt | paste -sd "," -)
-          sonarqube_lint_report_paths=$(find golangci-lint-report -name golangci-lint-report.xml | paste -sd "," -)
+          # Check and assign paths for coverage/test reports
+          if [ -d "go_core_tests_logs" ]; then
+            sonarqube_coverage_report_paths=$(find go_core_tests_logs -name coverage.txt | paste -sd "," -)
+            sonarqube_tests_report_paths=$(find go_core_tests_logs -name output.txt | paste -sd "," -)
+          else
+            sonarqube_coverage_report_paths=""
+            sonarqube_tests_report_paths=""
+          fi
+
+          # Check and assign paths for lint reports
+          if [ -d "golangci-lint-report" ]; then
+            sonarqube_lint_report_paths=$(find golangci-lint-report -name golangci-lint-report.xml | paste -sd "," -)
+          else
+            sonarqube_lint_report_paths=""
+          fi
 
           ARGS=""
-
           if [[ -z "$sonarqube_tests_report_paths" ]]; then
             echo "::warning::No test report paths found, will not pass to sonarqube"
           else

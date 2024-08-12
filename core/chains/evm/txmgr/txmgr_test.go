@@ -627,6 +627,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head.Parent, nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil)
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	feeEstimator.On("Start", mock.Anything).Return(nil).Once()
 	feeEstimator.On("Close", mock.Anything).Return(nil).Once()
