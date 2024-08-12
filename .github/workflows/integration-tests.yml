@@ -270,12 +270,34 @@ jobs:
       AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}    
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}    
       
-  send-slack-notification-for-migration-tests:
-    name: Send Slack Notification for Migration Tests
+  check-e2e-test-results:
+    name: Check E2E test results
     runs-on: ubuntu-latest
     needs: call-run-e2e-tests-workflow
     steps:
-      - run: echo ${{ needs.call-run-e2e-tests-workflow.outputs.test_results }}
+      - name: Check test results
+        id: check_results
+        run: |
+          test_results='${{ needs.call-run-e2e-tests-workflow.outputs.test_results }}'
+          echo "Test Results: $test_results"
+
+          # Use jq to determine if notification should be sent
+          result=$(echo $test_results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
+          echo "send_node_migration_tests_failed_notification=$result" >> $GITHUB_OUTPUT
+
+      - name: Send slack notification for failed migration tests
+        if: ${{ steps.check_results.outputs.send_node_migration_tests_failed_notification == 'true' }}
+        run: |
+          echo "Sending notification due to test failure"
+  #     - name: Notify Slack
+  #       if: failure() && github.event_name != 'workflow_dispatch'
+  #       uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+  #       env:
+  #         SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+  #       with:
+  #         channel-id: "#team-test-tooling-internal"
+  #         slack-message: ":x: :mild-panic-intensifies: Node Migration Tests Failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}\n${{ format('Notifying <!subteam^{0}|{0}>', secrets.GUARDIAN_SLACK_NOTIFICATION_HANDLE) }}"
+
 
   # eth-smoke-tests-matrix-automation:
   #   if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
