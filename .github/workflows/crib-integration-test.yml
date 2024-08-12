@@ -99,8 +99,8 @@ jobs:
           CRIB_NETWORK: geth
           CRIB_NODES: 5
           GAP_URL: ${{ secrets.GAP_URL }}
-          SETH_LOG_LEVEL: debug
-          RESTY_DEBUG: true
+          SETH_LOG_LEVEL: info
+#          RESTY_DEBUG: true
           TEST_PERSISTENCE: true
         run: |-
           go test -v -run TestCRIB
