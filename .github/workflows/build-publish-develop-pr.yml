@@ -74,11 +74,10 @@ jobs:
         run: |
           # need to check if artifacts.json exists because goreleaser splits the build
           if [[ -f dist/artifacts.json ]]; then
-            ls dist
             artifact_path="dist/artifacts.json"
           else
-            ls dist/linux_${{ matrix.goarch }}
             artifact_path="dist/linux_${{ matrix.goarch }}/artifacts.json"
+            cat dist/linux_${{ matrix.goarch }}/artifacts.json
           fi
           echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
           jq -r '.[] | select(.type == "Docker Image") | "`\(.goarch)-image`: \(.name)"' ${artifact_path} >> output.txt
