@@ -56,9 +56,10 @@ type registrySyncer struct {
 
 	updateChan chan *LocalRegistry
 
-	wg   sync.WaitGroup
-	lggr logger.Logger
-	mu   sync.RWMutex
+	wg       sync.WaitGroup
+	lggr     logger.Logger
+	mu       sync.RWMutex
+	readerMu sync.RWMutex
 }
 
 var _ services.Service = &registrySyncer{}
@@ -197,6 +198,9 @@ func (s *registrySyncer) updateStateLoop() {
 }
 
 func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, error) {
+	s.readerMu.RLock()
+	defer s.readerMu.RUnlock()
+
 	var caps []kcr.CapabilitiesRegistryCapabilityInfo
 	err := s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getCapabilities", primitives.Unconfirmed, nil, &caps)
 	if err != nil {
@@ -270,6 +274,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		return nil
 	}
 
+	s.readerMu.Lock()
 	if s.reader == nil {
 		reader, err := s.initReader(ctx, s.lggr, s.relayer, s.registryAddress)
 		if err != nil {
@@ -278,6 +283,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 
 		s.reader = reader
 	}
+	s.readerMu.Unlock()
 
 	var lr *LocalRegistry
 	var err error
@@ -286,7 +292,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		s.lggr.Debug("syncing with local registry")
 		lr, err = s.orm.LatestLocalRegistry(ctx)
 		if err != nil {
-			s.lggr.Errorw("failed to sync with local registry, using remote registry instead", "error", err)
+			s.lggr.Warnw("failed to sync with local registry, using remote registry instead", "error", err)
 		} else {
 			lr.lggr = s.lggr
 			lr.getPeerID = s.getPeerID
@@ -416,9 +422,9 @@ func (s *registrySyncer) AddLauncher(launchers ...Launcher) {
 
 func (s *registrySyncer) Close() error {
 	return s.StopOnce("RegistrySyncer", func() error {
+		close(s.stopCh)
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		close(s.stopCh)
 		close(s.updateChan)
 		s.wg.Wait()
 		return nil

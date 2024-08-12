@@ -409,7 +409,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, syncer.Start(ctx))
 	t.Cleanup(func() {
-		syncer.Close()
+		require.NoError(t, syncer.Close())
 	})
 
 	l := &launcher{}

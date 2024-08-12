@@ -44,7 +44,7 @@ func NewLocalRegistry(
 	IDsToCapabilities map[string]Capability,
 ) LocalRegistry {
 	return LocalRegistry{
-		lggr:              lggr,
+		lggr:              lggr.Named("LocalRegistry"),
 		getPeerID:         getPeerID,
 		IDsToDONs:         IDsToDONs,
 		IDsToNodes:        IDsToNodes,
