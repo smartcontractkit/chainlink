@@ -265,7 +265,7 @@ func createTopicFilters(filtersAndIndices []common.Hash) query.Expression {
 	// For multiple filters, create a boolean expression.
 	topicFilters := query.BoolExpression{
 		Expressions:  make([]query.Expression, len(filtersAndIndices)),
-		BoolOperator: query.OR,
+		BoolOperator: query.AND,
 	}
 
 	// Every index represents a topic, and the underlying value represents what we want to match.
