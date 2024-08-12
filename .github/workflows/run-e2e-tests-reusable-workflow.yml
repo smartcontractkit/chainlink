@@ -491,7 +491,7 @@ jobs:
         timeout-minutes: 2
         continue-on-error: true
         with:
-          name: ${{ inputs.upload_cl_node_coverage_artifact_prefix }}-${{ matrix.tests.id_sanitized }}
+          name: ${{ inputs.upload_cl_node_coverage_artifact_prefix }}${{ matrix.tests.id_sanitized }}
           path: .covdata
           retention-days: 1
 

@@ -249,7 +249,7 @@ jobs:
       chainlink_upgrade_version: ${{ github.sha }}
       test_workflow: Run PR E2E Tests 2
       upload_cl_node_coverage_artifact: true
-      upload_cl_node_coverage_artifact_prefix: cl-node-coverage-data
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       # slack_notification_after_tests: true
       # slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
       # slack_notification_after_tests_name: Nightly E2E Tests
@@ -778,11 +778,11 @@ jobs:
       - name: Download All Artifacts
         uses: actions/download-artifact@9c19ed7fe5d278cd354c7dfd5d3b88589c7e2395 # v4.1.6
         with:
-          path: cl-node-coverage-data
-          pattern: cl-node-coverage-data-*
+          path: cl_node_coverage_data
+          pattern: cl_node_coverage_data_*
           merge-multiple: true
       - name: Show Coverage
-        run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/cl-node-coverage-data/*/merged"
+        run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/cl_node_coverage_data/*/merged"
 
   # Run the setup if the matrix finishes but this time save the cache if we have a cache hit miss
   # this will also only run if both of the matrix jobs pass
@@ -1218,7 +1218,7 @@ jobs:
         timeout-minutes: 2
         continue-on-error: true
         with:
-          name: cl-node-coverage-data-solana-tests
+          name: cl_node_coverage_data_solana_tests
           path: .covdata
           retention-days: 1
 
