@@ -1,8 +1,7 @@
 name: CCIP On-Demand Live Network Tests
 on:
-#  Enable this when CCIP-2875 is addressed
-#  schedule:
-#    - cron: '0 */6 * * *'
+  schedule:
+    - cron: '0 */6 * * *'
   workflow_dispatch:
     inputs:
       base64_test_input : # base64 encoded toml for test input
@@ -145,6 +144,10 @@ jobs:
       - name: Prepare Base64 TOML override
         shell: bash
         run: |
+        # this key secrets.QA_SHARED_803C_KEY has a story behind it. To know more, see CCIP-2875 and SECHD-16575 tickets.
+          BASE64_NETWORK_CONFIG=$(echo $BASE64_NETWORK_CONFIG | base64 -w 0 -d | sed -e 's/evm_key/${{ secrets.QA_SHARED_803C_KEY }}/g' | base64 -w 0)
+          echo ::add-mask::$BASE64_NETWORK_CONFIG
+          echo "BASE64_NETWORK_CONFIG=$BASE64_NETWORK_CONFIG" >> "$GITHUB_ENV"
           SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
           echo ::add-mask::$SLACK_USER
           echo "SLACK_USER=$SLACK_USER" >> "$GITHUB_ENV"
@@ -248,6 +251,9 @@ jobs:
       - name: Prepare Base64 TOML override
         shell: bash
         run: |
+          BASE64_NETWORK_CONFIG=$(echo $BASE64_NETWORK_CONFIG | base64 -w 0 -d | sed -e 's/evm_key/${{ secrets.QA_SHARED_803C_KEY }}/g' | base64 -w 0)
+          echo ::add-mask::$BASE64_NETWORK_CONFIG
+          echo "BASE64_NETWORK_CONFIG=$BASE64_NETWORK_CONFIG" >> "$GITHUB_ENV"
           SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
           echo ::add-mask::$SLACK_USER
           echo "SLACK_USER=$SLACK_USER" >> "$GITHUB_ENV"
