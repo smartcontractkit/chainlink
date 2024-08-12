@@ -106,6 +106,7 @@ runs:
         registry: ${{ inputs.docker-registry }}
     - name: Set goreleaser split env
       if: inputs.enable-goreleaser-split == 'true'
+      shell: bash
       run: |
         echo "GOOS=linux" | tee -a $GITHUB_ENV
         echo "GOARCH=${{ inputs.goreleaser-split-arch }}" | tee -a $GITHUB_ENV
