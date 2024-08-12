@@ -129,3 +129,9 @@ Run soak/ocr_test.go with RPC network chaos by bringing down network to RPC node
 ```bash
 make test_soak_ocr_rpc_down_half_cl_nodes
 ```
+
+### Debugging HTTP and RPC clients
+```bash
+export SETH_LOG_LEVEL=debug
+export RESTY_DEBUG=true
+```

@@ -39,8 +39,8 @@ func Test_Server_ExcludesNonDeterministicInputAttributes(t *testing.T) {
 		_, err = caller.Execute(context.Background(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
-					WorkflowID:          "workflowID",
-					WorkflowExecutionID: "workflowExecutionID",
+					WorkflowID:          workflowID1,
+					WorkflowExecutionID: workflowExecutionID1,
 				},
 				Inputs: inputs,
 			})
@@ -67,8 +67,8 @@ func Test_Server_RespondsAfterSufficientRequests(t *testing.T) {
 		_, err := caller.Execute(context.Background(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
-					WorkflowID:          "workflowID",
-					WorkflowExecutionID: "workflowExecutionID",
+					WorkflowID:          workflowID1,
+					WorkflowExecutionID: workflowExecutionID1,
 				},
 			})
 		require.NoError(t, err)
@@ -94,8 +94,8 @@ func Test_Server_InsufficientCallers(t *testing.T) {
 		_, err := caller.Execute(context.Background(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
-					WorkflowID:          "workflowID",
-					WorkflowExecutionID: "workflowExecutionID",
+					WorkflowID:          workflowID1,
+					WorkflowExecutionID: workflowExecutionID1,
 				},
 			})
 		require.NoError(t, err)
@@ -121,8 +121,8 @@ func Test_Server_CapabilityError(t *testing.T) {
 		_, err := caller.Execute(context.Background(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
-					WorkflowID:          "workflowID",
-					WorkflowExecutionID: "workflowExecutionID",
+					WorkflowID:          workflowID1,
+					WorkflowExecutionID: workflowExecutionID1,
 				},
 			})
 		require.NoError(t, err)

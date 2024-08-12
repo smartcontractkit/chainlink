@@ -197,18 +197,6 @@ func (o *OCR2OnchainSigningStrategy) IsMultiChain() bool {
 	return o.StrategyName == "multi-chain"
 }
 
-func (o *OCR2OnchainSigningStrategy) PublicKey() (string, error) {
-	pk, ok := o.Config["publicKey"]
-	if !ok {
-		return "", nil
-	}
-	pkString, ok := pk.(string)
-	if !ok {
-		return "", fmt.Errorf("expected string publicKey value, but got: %T", pk)
-	}
-	return pkString, nil
-}
-
 func (o *OCR2OnchainSigningStrategy) ConfigCopy() job.JSONConfig {
 	copiedConfig := make(job.JSONConfig)
 	for k, v := range o.Config {
@@ -250,13 +238,6 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 		err = json.Unmarshal(spec.OnchainSigningStrategy.Bytes(), &onchainSigningStrategy)
 		if err != nil {
 			return err
-		}
-		pk, ossErr := onchainSigningStrategy.PublicKey()
-		if ossErr != nil {
-			return ossErr
-		}
-		if pk == "" {
-			return errors.New("generic config invalid: must provide public key for the onchain signing strategy")
 		}
 	}
 
