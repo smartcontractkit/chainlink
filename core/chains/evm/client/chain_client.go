@@ -160,9 +160,13 @@ func (c *chainClient) BalanceAt(ctx context.Context, account common.Address, blo
 	return c.multiNode.BalanceAt(ctx, account, blockNumber)
 }
 
+// BatchCallContext - sends all given requests as a single batch.
 // Request specific errors for batch calls are returned to the individual BatchElem.
 // Ensure the same BatchElem slice provided by the caller is passed through the call stack
 // to ensure the caller has access to the errors.
+// Note: some chains (e.g Astar) have custom finality requests, so even when FinalityTagEnabled=true, finality tag
+// might not be properly handled and returned results might have weaker finality guarantees. It's highly recommended
+// to use HeadTracker to identify latest finalized block.
 func (c *chainClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return c.multiNode.BatchCallContext(ctx, b)
 }

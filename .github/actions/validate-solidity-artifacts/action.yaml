@@ -16,33 +16,10 @@ inputs:
   sol_files:
     description: Comma-separated (CSV) or space-separated (shell) list of Solidity files to check
     required: true
-  # remove this when AurorNZ/paths-filter is fixed
-  base_ref:
-    description: Base reference for comparison (skip if your list doesn't contain deleted files)
-    required: false
 
 runs:
   using: composite
   steps:
-    - name: Fetch base ref
-      if: ${{ inputs.base_ref != '' }}
-      id: fetch_base_ref
-      shell: bash
-      run: |
-        type=$(git cat-file -t "${{ inputs.base_ref }}")
-        if echo "$type" | grep -q commit; then
-          # we do not know to which branch the base ref belongs, so we fetch all branches
-          git fetch --all --prune 
-          echo "ref_to_use=${{ inputs.base_ref }}" >> $GITHUB_OUTPUT
-        elif  echo "$type" | grep -q tag; then
-          git fetch origin ${{ inputs.base_ref }}
-          echo "ref_to_use=${{ inputs.base_ref }}" >> $GITHUB_OUTPUT
-        else
-          # must be branch
-          echo "::debug:: Base reference type: $type"
-          git fetch origin ${{ inputs.base_ref }}
-          echo "ref_to_use=origin/${{ inputs.base_ref }}" >> $GITHUB_OUTPUT
-        fi
     - name: Transform input array
       id: transform_input_array
       shell: bash
@@ -91,15 +68,6 @@ runs:
         IFS=',' read -r -a modified_files <<< "${{ steps.transform_input_array.outputs.sol_files }}"
         missing_svgs=()        
         for file in "${modified_files[@]}"; do
-          if [ "${{ inputs.base_ref }}" != "" ]; then
-            # TODO remove this check when AurorNZ/paths-filter is fixed
-            status=$(git diff --name-status "${{ steps.fetch_base_ref.outputs.ref_to_use }}" HEAD -- "$file"  | awk '{ print $1 }')
-            if [ "$status" == "D" ]; then
-              echo "File $file was deleted, skipping validation"
-              continue
-            fi
-          fi
-        
           svg_file="$(basename "${file%.sol}").svg"
           if [ ! -f "${{ inputs.uml_diagrams_path }}/$svg_file" ]; then
             echo "Error: UML diagram for $file not found"
@@ -127,15 +95,6 @@ runs:
         IFS=',' read -r -a modified_files <<< "${{ steps.transform_input_array.outputs.sol_files }}"
         missing_reports=()
         for file in "${modified_files[@]}"; do
-          if [ "${{ inputs.base_ref }}" != "" ]; then
-            # TODO remove this check when AurorNZ/paths-filter is fixed
-            status=$(git diff --name-status "${{ steps.fetch_base_ref.outputs.ref_to_use }}" HEAD -- "$file"  | awk '{ print $1 }')
-            if [ "$status" == "D" ]; then
-              echo "File $file was deleted, skipping validation"
-              continue
-            fi
-          fi
-        
           report_file="$(basename "${file%.sol}")-slither-report.md"            
           if [ ! -f "${{ inputs.slither_reports_path }}/$report_file" ]; then
             echo "Error: Slither report for $file not found"

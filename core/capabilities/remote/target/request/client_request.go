@@ -170,7 +170,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			}
 		}
 	} else {
-		c.lggr.Warnw("received error response", "error", msg.ErrorMsg)
+		c.lggr.Warnw("received error response", "error", remote.SanitizeLogString(msg.ErrorMsg))
 		c.errorCount[msg.ErrorMsg]++
 		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {
 			c.sendResponse(commoncap.CapabilityResponse{Err: errors.New(msg.ErrorMsg)})
