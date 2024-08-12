@@ -234,6 +234,38 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 						},
 					},
+					"triggerEventWithDynamicTopic": {
+						ChainSpecificName: "triggerEventWithDynamicTopic",
+						FromAddress:       it.Helper.FromAddress(1),
+						GasLimit:          2_000_000,
+						Checker:           "simulate",
+					},
+					"triggerWithFourTopics": {
+						ChainSpecificName: "triggerWithFourTopics",
+						FromAddress:       it.Helper.FromAddress(1),
+						GasLimit:          2_000_000,
+						Checker:           "simulate",
+					},
+					"triggerWithFourTopicsWithHashed": {
+						ChainSpecificName: "triggerWithFourTopicsWithHashed",
+						FromAddress:       it.Helper.FromAddress(1),
+						GasLimit:          2_000_000,
+						Checker:           "simulate",
+					},
+				},
+			},
+			AnySecondContractName: {
+				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
+				Configs: map[string]*types.ChainWriterDefinition{
+					"addTestStruct": {
+						ChainSpecificName: "addTestStruct",
+						FromAddress:       it.Helper.FromAddress(1),
+						GasLimit:          2_000_000,
+						Checker:           "simulate",
+						InputModifications: codec.ModifiersConfig{
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+						},
+					},
 				},
 			},
 		},
@@ -260,7 +292,7 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	}
 
 	lggr := logger.NullLogger
-	db := it.Helper.GetDB(t)	
+	db := it.Helper.GetDB(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            finalityDepth,
@@ -404,8 +436,6 @@ func (it *EVMChainReaderInterfaceTester[T]) deployNewContracts(t T) {
 		it.contractTesters = make(map[string]*chain_reader_tester.ChainReaderTester, 2)
 		address, ts1 := it.deployNewContract(t)
 		address2, ts2 := it.deployNewContract(t)
-		fmt.Printf("deploying new contract, address: %s\n", address)
-
 		it.address, it.address2 = address, address2
 		it.contractTesters[it.address] = ts1
 		it.contractTesters[it.address2] = ts2

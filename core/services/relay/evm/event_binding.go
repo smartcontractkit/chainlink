@@ -231,6 +231,7 @@ func (e *eventBinding) getLatestValueWithFilters(
 	remainingFilters := filtersAndIndices[1:]
 
 	logs, err := e.lp.IndexedLogs(ctx, e.hash, e.address, 1, []common.Hash{fai}, confs)
+	fmt.Println("LOGS: ", logs)
 	if err != nil {
 		return wrapInternalErr(err)
 	}
@@ -242,6 +243,7 @@ func (e *eventBinding) getLatestValueWithFilters(
 	var logToUse *logpoller.Log
 	for _, log := range logs {
 		tmp := log
+		fmt.Println("tmp: ", tmp)
 		if compareLogs(&tmp, logToUse) > 0 && matchesRemainingFilters(&tmp, remainingFilters) {
 			// copy so that it's not pointing to the changing variable
 			logToUse = &tmp
