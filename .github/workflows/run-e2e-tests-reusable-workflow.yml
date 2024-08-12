@@ -381,7 +381,7 @@ jobs:
 
   # Run Docker tests
   run-docker-tests:
-    name: Run docker tests ${{ matrix.tests.id }}
+    name: Run ${{ matrix.tests.id }}
     needs: [load-test-configurations, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr, get_latest_chainlink_release_version]
     # Run when none of the needed jobs fail or are cancelled (skipped or successful jobs are ok)
     if: ${{ needs.load-test-configurations.outputs.run-docker-tests == 'true' && always() && !failure() && !cancelled() }}
@@ -484,13 +484,8 @@ jobs:
           path: /tmp/gotest.log
           retention-days: ${{ inputs.test_log_upload_retention_days }}
         continue-on-error: true
-
-      # TODO: move to run-tests GHA
-      - name: Print failed test summary
-        if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@70ccaef155381025e411cf7cd1fa5ef8f668ed75 # v2.3.25
-
-      - name: Upload CL Node Coverage Data Artifacts
+        
+      - name: Upload cl node coverage data as Github artifact
         if: inputs.upload_cl_node_coverage_artifact
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         timeout-minutes: 2
@@ -499,6 +494,12 @@ jobs:
           name: ${{ inputs.upload_cl_node_coverage_artifact_prefix }}-${{ matrix.tests.id_sanitized }}
           path: .covdata
           retention-days: 1
+
+      # TODO: move to run-tests GHA
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@70ccaef155381025e411cf7cd1fa5ef8f668ed75 # v2.3.25
+
 
   # Run K8s tests using old remote runner
 
@@ -540,7 +541,7 @@ jobs:
   run-k8s-runner-tests:
     needs: [load-test-configurations, prepare-remote-runner-test-image, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr, get_latest_chainlink_release_version]
     if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }}
-    name: Run k8s tests ${{ matrix.tests.id }}
+    name: Run ${{ matrix.tests.id }}
     runs-on: ${{ matrix.tests.runs_on }}
     strategy:
       fail-fast: false
