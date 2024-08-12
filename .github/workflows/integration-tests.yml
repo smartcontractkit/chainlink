@@ -230,59 +230,6 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           dep_evm_sha: ${{ inputs.evm-ref }}
 
-  # compare-tests:
-  #   needs: [changes]
-  #   runs-on: ubuntu-latest
-  #   name: Compare/Build Automation Test List
-  #   outputs:
-  #     automation-matrix: ${{ env.AUTOMATION_JOB_MATRIX_JSON }}
-  #     lp-matrix: ${{ env.LP_JOB_MATRIX_JSON }}
-  #   steps:
-  #     - name: Check for Skip Tests Label
-  #       if: contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')
-  #       run: |
-  #         echo "## \`skip-smoke-tests\` label is active, skipping E2E smoke tests" >>$GITHUB_STEP_SUMMARY
-  #         exit 0
-  #     - name: Checkout the repo
-  #       uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-  #       with:
-  #         repository: smartcontractkit/chainlink
-  #         ref: ${{ inputs.cl_ref }}
-  #     - name: Compare Test Lists
-  #       run: |
-  #         cd ./integration-tests
-  #         ./scripts/compareTestList.sh ./smoke/automation_test.go
-  #         ./scripts/compareTestList.sh ./smoke/keeper_test.go
-  #         ./scripts/compareTestList.sh ./smoke/log_poller_test.go
-  #     - name: Build Test Matrix Lists
-  #       id: build-test-matrix-list
-  #       run: |
-  #         cd ./integration-tests
-  #         MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu-latest 1)
-  #         MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu-latest 1)
-  #         COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
-  #         echo "combined array = ${COMBINED_ARRAY}"
-  #         echo "event name = $GITHUB_EVENT_NAME"
-
-  #         LOG_POLLER_MATRIX_JSON=$(./scripts/buildTestMatrixList.sh ./smoke/log_poller_test.go log_poller ubuntu-latest 1)
-  #         echo "LP_JOB_MATRIX_JSON=${LOG_POLLER_MATRIX_JSON}" >> $GITHUB_ENV
-
-  #         # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
-  #         if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
-  #           echo "We are in a merge_group event, run both automation and keepers tests"
-  #           echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
-  #         else
-  #           echo "we are not in a merge_group event, if this is a PR to develop run only automation tests, otherwise run everything because we could be running against a release branch"
-  #           target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.base.ref)
-  #           if [[ "$target_branch" == "develop" ]]; then
-  #             echo "only run automation tests"
-  #             echo "AUTOMATION_JOB_MATRIX_JSON=${MATRIX_JSON_AUTOMATION}" >> $GITHUB_ENV
-  #           else
-  #             echo "run both automation and keepers tests"
-  #             echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
-  #           fi
-  #         fi
-
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
@@ -433,10 +380,6 @@ jobs:
   #         path: .covdata
   #         retention-days: 1
 
-  #     - name: Print failed test summary
-  #       if: always()
-  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@70ccaef155381025e411cf7cd1fa5ef8f668ed75 # v2.3.25
-
   # eth-smoke-tests-matrix-log-poller:
   #   if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') || inputs.distinct_run_name != '' }}
   #   environment: integration
@@ -548,10 +491,6 @@ jobs:
   #         path: .covdata
   #         retention-days: 1
 
-  #     - name: Print failed test summary
-  #       if: always()
-  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@70ccaef155381025e411cf7cd1fa5ef8f668ed75 # v2.3.25
-      
   # eth-smoke-tests-matrix:
   #   if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
   #   environment: integration
@@ -816,39 +755,6 @@ jobs:
   #       with:
   #         name: trace-data
   #         path: ./integration-tests/smoke/traces/trace-data.json
-
-  #     - name: Print failed test summary
-  #       if: always()
-  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@70ccaef155381025e411cf7cd1fa5ef8f668ed75 # v2.3.25
-  #       with:
-  #         test_directories: ./integration-tests/smoke/
-
-  ### Used to check the required checks box when the matrix completes
-  # eth-smoke-tests:
-  #   if: always()
-  #   runs-on: ubuntu-latest
-  #   name: ETH Smoke Tests
-  #   needs: [eth-smoke-tests-matrix, eth-smoke-tests-matrix-automation, eth-smoke-tests-matrix-log-poller]
-  #   steps:
-  #     - name: Check smoke test matrix status
-  #       if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-automation.result != 'success' || needs.eth-smoke-tests-matrix-log-poller.result != 'success'
-  #       run: |
-  #         echo "ETH Smoke Tests: ${{ needs.eth-smoke-tests-matrix.result }}"
-  #         echo "Automation: ${{ needs.eth-smoke-tests-matrix-automation.result }}"
-  #         echo "Log Poller: ${{ needs.eth-smoke-tests-matrix-log-poller.result }}"
-  #         exit 1
-  #     - name: Collect Metrics
-  #       if: always()
-  #       id: collect-gha-metrics
-  #       uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-  #       with:
-  #         id: ${{ env.COLLECTION_ID }}-matrix-results
-  #         org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-  #         basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-  #         hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-  #         this-job-name: ETH Smoke Tests
-  #         matrix-aggregator-status: ${{ needs.eth-smoke-tests-matrix.result }}
-  #       continue-on-error: true
 
   cleanup:
     name: Clean up integration environment deployments

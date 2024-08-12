@@ -118,6 +118,7 @@ env:
   SELECTED_NETWORKS: SIMULATED
   MOD_CACHE_VERSION: 1
   TEST_LOG_LEVEL: ${{ inputs.test_log_level }}
+  METRICS_COLLECTION_ID: chainlink-e2e-tests
 
 jobs:
   validate-inputs:
@@ -475,6 +476,11 @@ jobs:
           retention-days: ${{ inputs.test_log_upload_retention_days }}
         continue-on-error: true
 
+      # TODO: move to run-tests GHA
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@70ccaef155381025e411cf7cd1fa5ef8f668ed75 # v2.3.25
+
   # Run K8s tests using old remote runner
 
   prepare-remote-runner-test-image:
@@ -607,6 +613,11 @@ jobs:
           retention-days: ${{ inputs.test_log_upload_retention_days }}
         continue-on-error: true
 
+      # TODO: move to run-tests GHA
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@70ccaef155381025e411cf7cd1fa5ef8f668ed75 # v2.3.25        
+
   after_tests:
     needs: [run-docker-tests, run-k8s-runner-tests]
     if: always()
@@ -643,6 +654,19 @@ jobs:
           else
             echo "result=success" >> $GITHUB_OUTPUT
           fi
+
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: ${{ env.METRICS_COLLECTION_ID }}-matrix-results
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: E2E Tests
+          matrix-aggregator-status: ${{ steps.combine_results.outputs.result }}
+        continue-on-error: true          
 
       - name: Send Slack notification
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
