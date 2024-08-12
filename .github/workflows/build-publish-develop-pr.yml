@@ -80,7 +80,7 @@ jobs:
             while read -r line; do
               echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
             done < output.txt
-          end
+          fi
 
       - name: Collect Metrics
         if: always()
