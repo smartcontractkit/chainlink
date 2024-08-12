@@ -217,6 +217,7 @@ func (db *DbEthTx) FromTx(tx *Tx) {
 	db.Meta = tx.Meta
 	db.Subject = tx.Subject
 	db.PipelineTaskRunID = tx.PipelineTaskRunID
+	db.MinConfirmations = tx.MinConfirmations
 	db.TransmitChecker = tx.TransmitChecker
 	db.InitialBroadcastAt = tx.InitialBroadcastAt
 	db.SignalCallback = tx.SignalCallback
