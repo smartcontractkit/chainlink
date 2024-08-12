@@ -7,7 +7,7 @@ import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 
-import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice This contract stores the token pool configuration for all CCIP enabled tokens. It works
 /// on a self-serve basis, where tokens can be registered without intervention from the CCIP owner.

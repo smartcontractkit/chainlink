@@ -19,7 +19,7 @@ import {USDPriceWith18Decimals} from "../libraries/USDPriceWith18Decimals.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
-import {EnumerableMap} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableMap.sol";
+import {EnumerableMap} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableMap.sol";
 
 /// @notice The onRamp is a contract that handles lane-specific fee logic, NOP payments and
 /// bridgeable token support.
