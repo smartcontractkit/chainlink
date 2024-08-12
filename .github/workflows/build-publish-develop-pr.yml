@@ -72,6 +72,7 @@ jobs:
         if: steps.get-image-tag.outputs.build-publish == 'true'
         shell: bash
         run: |
+          ls -al dist
           # need to check if artifacts.json exists because goreleaser splits the build
           if [[ -f dist/artifacts.json ]]; then
             echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
