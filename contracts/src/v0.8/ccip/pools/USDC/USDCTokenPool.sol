@@ -97,7 +97,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   /// @dev emits ITokenMessenger.DepositForBurn
   /// @dev Assumes caller has validated destinationReceiver
   function lockOrBurn(Pool.LockOrBurnInV1 calldata lockOrBurnIn)
-    external
+    public
     virtual
     override
     returns (Pool.LockOrBurnOutV1 memory)
@@ -139,7 +139,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   /// non-reverting offchainTokenData that can be supplied is a valid attestation for the
   /// specific message that was sent on source.
   function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
-    external
+    public
     virtual
     override
     returns (Pool.ReleaseOrMintOutV1 memory)
