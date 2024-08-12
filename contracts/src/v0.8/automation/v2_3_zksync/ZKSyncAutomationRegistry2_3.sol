@@ -115,8 +115,12 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
     }
   }
 
-  function updateOverhead(uint256 newOverhead) external {
+  function updateAccountingOverhead(uint256 newOverhead) external {
     ACCOUNTING_FIXED_GAS_OVERHEAD = newOverhead;
+  }
+
+  function updatePerUpkeepOverhead(uint256 newOverhead) external {
+    ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = newOverhead;
   }
 
   /**
