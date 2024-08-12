@@ -18,11 +18,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
-      - uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
-        with:
-          nix_path: nixpkgs=channel:nixos-unstable
-
-      - name: setup-gap crib
+      - name: Setup GAP for accesing CRIB services
         uses: smartcontractkit/.github/actions/setup-gap@00b58566e0ee2761e56d9db0ea72b783fdb89b8d # setup-gap@0.4.0
         with:
           aws-role-duration-seconds: 3600 # 1 hour
@@ -35,24 +31,6 @@ jobs:
           use-private-ecr-registry: true
           use-tls: true
           proxy-port: 8080
-          metrics-job-name: "test"
-          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-
-      - name: setup-gap k8s
-        uses: smartcontractkit/.github/actions/setup-gap@00b58566e0ee2761e56d9db0ea72b783fdb89b8d # setup-gap@0.4.0
-        with:
-          aws-role-duration-seconds: 3600 # 1 hour
-          aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
-          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_K8S_STAGE }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          ecr-private-registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
-          k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
-          gap-name: k8s
-          use-private-ecr-registry: true
-          use-k8s: true
-          proxy-port: 8443
           metrics-job-name: "test"
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -85,11 +63,13 @@ jobs:
           ingress-base-domain: ${{ secrets.INGRESS_BASE_DOMAIN_STAGE }}
           k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
           devspace-profiles: "local-dev-simulated-core-ocr1"
+
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           go-version-file: "go.mod"
+
       - name: Run CRIB integration test
         working-directory: integration-tests/crib
         env:
@@ -98,11 +78,12 @@ jobs:
           CRIB_NETWORK: geth
           CRIB_NODES: 5
           GAP_URL: ${{ secrets.GAP_URL }}
-#          SETH_LOG_LEVEL: debug
-#          RESTY_DEBUG: true
-#          TEST_PERSISTENCE: true
+        # SETH_LOG_LEVEL: debug
+        # RESTY_DEBUG: true
+        # TEST_PERSISTENCE: true
         run: |-
           go test -v -run TestCRIB
+
       - name: Destroy CRIB Environment
         id: destroy
         if: always() && steps.deploy-crib.outputs.devspace-namespace != ''
