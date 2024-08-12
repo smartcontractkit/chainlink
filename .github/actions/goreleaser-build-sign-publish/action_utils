@@ -65,7 +65,6 @@ goreleaser_release() {
   fi
   if [[ $ENABLE_GORELEASER_SPLIT == "true" ]]; then
     goreleaser_flags+=("--split")
-    goreleaser_flags+=("--single-target")
   fi
   flags=$(printf "%s " "${goreleaser_flags[@]}")
   flags=$(echo "$flags" | sed 's/ *$//')
