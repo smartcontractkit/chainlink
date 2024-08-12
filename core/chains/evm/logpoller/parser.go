@@ -199,7 +199,7 @@ func (v *pgDSLParser) VisitConfirmationsFilter(p *confirmationsFilter) {
 	}
 }
 
-func makeComp(comp primitives.ValueComparator, args *queryArgs, field, subfield, pattern string) (string, error) {
+func makeComp(comp primitives.ValueComparator, _ *queryArgs, _, subfield, pattern string) (string, error) {
 	cmp, err := cmpOpToString(comp.Operator)
 	if err != nil {
 		return "", err
@@ -209,7 +209,8 @@ func makeComp(comp primitives.ValueComparator, args *queryArgs, field, subfield,
 		pattern,
 		subfield,
 		cmp,
-		args.withIndexedField(field, common.HexToHash(comp.Value)),
+		// TODO at this point the value should already be in hash form
+		//args.withIndexedField(field, common.HexToHash(comp.Value)),
 	), nil
 }
 
@@ -499,6 +500,7 @@ type eventByWordFilter struct {
 }
 
 func NewEventByWordFilter(eventSig common.Hash, wordIndex uint8, valueComparers []primitives.ValueComparator) query.Expression {
+	// TODO hash values
 	return query.Expression{Primitive: &eventByWordFilter{
 		EventSig:       eventSig,
 		WordIndex:      wordIndex,
