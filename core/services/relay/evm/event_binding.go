@@ -227,32 +227,47 @@ func (e *eventBinding) getLatestValueWithFilters(
 		return err
 	}
 
-	fai := filtersAndIndices[0]
-	remainingFilters := filtersAndIndices[1:]
-
-	logs, err := e.lp.IndexedLogs(ctx, e.hash, e.address, 1, []common.Hash{fai}, confs)
+	// Create limiter and filter for the query.
+	limiter := query.NewLimitAndSort(query.CountLimit(1), query.NewSortBySequence(query.Desc))
+	filter, err := query.Where(
+		e.address.String(),
+		logpoller.NewAddressFilter(e.address),
+		logpoller.NewEventSigFilter(e.hash),
+		logpoller.NewConfirmationsFilter(confs),
+		createTopicFilters(filtersAndIndices),
+	)
 	if err != nil {
 		return wrapInternalErr(err)
 	}
 
-	// TODO Use filtered logs here BCF-3316
-	// TODO: there should be a better way to ask log poller to filter these
-	// First, you should be able to ask for as many topics to match
-	// Second, you should be able to get the latest only
-	var logToUse *logpoller.Log
-	for _, log := range logs {
-		tmp := log
-		if compareLogs(&tmp, logToUse) > 0 && matchesRemainingFilters(&tmp, remainingFilters) {
-			// copy so that it's not pointing to the changing variable
-			logToUse = &tmp
-		}
+	// Gets the latest log that matches the filter and limiter.
+	logs, err := e.lp.FilteredLogs(ctx, filter, limiter, e.contractName+"-"+e.eventName)
+	if err != nil {
+		return wrapInternalErr(err)
 	}
 
-	if logToUse == nil {
+	if len(logs) == 0 {
 		return fmt.Errorf("%w: no events found", commontypes.ErrNotFound)
 	}
 
-	return e.decodeLog(ctx, logToUse, into)
+	return e.decodeLog(ctx, &logs[0], into)
+}
+
+func createTopicFilters(filtersAndIndices []common.Hash) query.Expression {
+	topicFilters := query.BoolExpression{
+		Expressions:  make([]query.Expression, len(filtersAndIndices)),
+		BoolOperator: query.OR,
+	}
+
+	// Every index represents a topic, and the underlying value represents what we want to match.
+	for idx, value := range filtersAndIndices {
+		// The topic index is 1-based, so we add 1.
+		topicFilters.Expressions[idx] = logpoller.NewEventByTopicFilter(uint64(idx)+1, []primitives.ValueComparator{
+			{Value: value.Hex(), Operator: primitives.Eq},
+		})
+	}
+
+	return query.Expression{BoolExpression: topicFilters}
 }
 
 // convertToOffChainType creates a struct based on contract abi with applied codec modifiers.
@@ -268,28 +283,6 @@ func (e *eventBinding) convertToOffChainType(params any) (any, error) {
 	}
 
 	return offChain, nil
-}
-
-func compareLogs(log, use *logpoller.Log) int64 {
-	if use == nil {
-		return 1
-	}
-
-	if log.BlockNumber != use.BlockNumber {
-		return log.BlockNumber - use.BlockNumber
-	}
-
-	return log.LogIndex - use.LogIndex
-}
-
-func matchesRemainingFilters(log *logpoller.Log, filters []common.Hash) bool {
-	for i, rfai := range filters {
-		if !reflect.DeepEqual(rfai[:], log.Topics[i+2]) {
-			return false
-		}
-	}
-
-	return true
 }
 
 // encodeParams accepts nativeParams and encodes them to match onchain topics.
