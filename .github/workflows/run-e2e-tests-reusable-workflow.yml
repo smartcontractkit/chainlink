@@ -74,6 +74,15 @@ on:
         required: false
         type: string
         default: debug  
+      upload_cl_node_coverage_artifact:
+        description: 'Set to "true" to upload Chainlink node coverage artifact to as Github artifact'
+        required: false
+        type: boolean
+        default: false
+      upload_cl_node_coverage_artifact_prefix:
+        description: 'Prefix for the Chainlink node coverage artifact'
+        required: false
+        type: string  
     secrets:
       TEST_SECRETS_OVERRIDE_BASE64:
         required: false
@@ -480,6 +489,16 @@ jobs:
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@70ccaef155381025e411cf7cd1fa5ef8f668ed75 # v2.3.25
+
+      - name: Upload CL Node Coverage Data Artifacts
+        if: inputs.upload_cl_node_coverage_artifact
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: ${{ inputs.upload_cl_node_coverage_artifact_prefix }}-${{ matrix.tests.id_sanitized }}
+          path: .covdata
+          retention-days: 1
 
   # Run K8s tests using old remote runner
 
