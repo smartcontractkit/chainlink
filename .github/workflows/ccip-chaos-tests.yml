@@ -14,6 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # TODO: TT-1470 - Update image names as we solidify new realease strategy
   CL_ECR: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip-tests:${{ github.sha }}
   MOD_CACHE_VERSION: 1
@@ -43,7 +44,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         with:
-          cl_repo: smartcontractkit/chainlink-ccip
+          cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
           push_tag: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ github.sha }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
