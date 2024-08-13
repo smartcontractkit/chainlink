@@ -404,10 +404,6 @@ jobs:
         env:
           OPEN_API_KEY: ${{ secrets.OPEN_AI_SLITHER_API_KEY }}
         run: |
-          echo "Current Slither reports:"
-          ls -al contracts/slither-reports-current
-          echo "Base Slither reports:"
-          ls -al contracts/slither-reports-base-ref
           for base_report in contracts/slither-reports-base-ref/*.md; do
             filename=$(basename "$base_report")
             current_report="contracts/slither-reports-current/$filename"
@@ -423,9 +419,6 @@ jobs:
                 echo "No difference detected between $base_report and $current_report reports. Won't include any of them."
                 rm $current_report
               fi
-            
-              #TODO remove me
-              rm $new_issues_report
           
             else
               echo "Failed to find current report for $base_report (file $current_file doesn't exist, but should have been generated). Please check Slither logs."
