@@ -23,7 +23,7 @@ type reportsSink struct {
 	wg     sync.WaitGroup
 }
 
-func newReportsSink() *reportsSink {
+func NewReportsSink() *reportsSink {
 	return &reportsSink{
 		stopCh: make(services.StopChan),
 	}
@@ -43,7 +43,7 @@ func (r *reportsSink) Close() error {
 	})
 }
 
-func (r *reportsSink) sendReports(reportList []*datastreams.FeedReport) {
+func (r *reportsSink) SendReports(reportList []*datastreams.FeedReport) {
 	for _, trigger := range r.triggers {
 		resp, err := wrapReports(reportList, "1", 12, datastreams.SignersMetadata{})
 		if err != nil {
@@ -53,7 +53,7 @@ func (r *reportsSink) sendReports(reportList []*datastreams.FeedReport) {
 	}
 }
 
-func (r *reportsSink) getNewTrigger(t *testing.T) *streamsTrigger {
+func (r *reportsSink) GetNewTrigger(t *testing.T) *streamsTrigger {
 	trigger := streamsTrigger{t: t, toSend: make(chan capabilities.CapabilityResponse, 1000),
 		wg: &r.wg, stopCh: r.stopCh}
 	r.triggers = append(r.triggers, trigger)

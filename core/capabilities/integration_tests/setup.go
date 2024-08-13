@@ -77,7 +77,7 @@ func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, 
 		feedIDs = append(feedIDs, newFeedID(t))
 	}
 
-	sink := newReportsSink()
+	sink := NewReportsSink()
 
 	libocr := newMockLibOCR(t, workflowDonInfo.F, 1*time.Second)
 	workflowDonNodes, _, _ := createDons(ctx, t, lggr, sink,
@@ -115,7 +115,7 @@ func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSi
 		}
 
 		capabilityRegistry := capabilities.NewRegistry(lggr)
-		trigger := reportsSink.getNewTrigger(t)
+		trigger := reportsSink.GetNewTrigger(t)
 		err := capabilityRegistry.Add(ctx, trigger)
 		require.NoError(t, err)
 
