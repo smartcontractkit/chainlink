@@ -49,10 +49,9 @@ type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 	Backend() bind.ContractBackend
 	ChainID() *big.Int
 	Context(t T) context.Context
-	GetDB(t T) *sqlx.DB
+	NewSqlxDB(t T) *sqlx.DB
 	MaxWaitTimeForEvents() time.Duration
 	GasPriceBufferPercent() int64
-	FromAddress(int) common.Address
 	Accounts(t T) []*bind.TransactOpts
 	TXM(T, client.Client) evmtxmgr.TxManager
 }
@@ -212,7 +211,7 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 				Configs: map[string]*types.ChainWriterDefinition{
 					"addTestStruct": {
 						ChainSpecificName: "addTestStruct",
-						FromAddress:       it.Helper.FromAddress(1),
+						FromAddress:       it.Helper.Accounts(t)[1].From,
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
 						InputModifications: codec.ModifiersConfig{
@@ -221,13 +220,13 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 					},
 					"setAlterablePrimitiveValue": {
 						ChainSpecificName: "setAlterablePrimitiveValue",
-						FromAddress:       it.Helper.FromAddress(1),
+						FromAddress:       it.Helper.Accounts(t)[1].From,
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
 					},
 					"triggerEvent": {
 						ChainSpecificName: "triggerEvent",
-						FromAddress:       it.Helper.FromAddress(1),
+						FromAddress:       it.Helper.Accounts(t)[1].From,
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
 						InputModifications: codec.ModifiersConfig{
@@ -236,19 +235,19 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 					},
 					"triggerEventWithDynamicTopic": {
 						ChainSpecificName: "triggerEventWithDynamicTopic",
-						FromAddress:       it.Helper.FromAddress(1),
+						FromAddress:       it.Helper.Accounts(t)[1].From,
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
 					},
 					"triggerWithFourTopics": {
 						ChainSpecificName: "triggerWithFourTopics",
-						FromAddress:       it.Helper.FromAddress(1),
+						FromAddress:       it.Helper.Accounts(t)[1].From,
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
 					},
 					"triggerWithFourTopicsWithHashed": {
 						ChainSpecificName: "triggerWithFourTopicsWithHashed",
-						FromAddress:       it.Helper.FromAddress(1),
+						FromAddress:       it.Helper.Accounts(t)[1].From,
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
 					},
@@ -259,7 +258,7 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 				Configs: map[string]*types.ChainWriterDefinition{
 					"addTestStruct": {
 						ChainSpecificName: "addTestStruct",
-						FromAddress:       it.Helper.FromAddress(1),
+						FromAddress:       it.Helper.Accounts(t)[1].From,
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
 						InputModifications: codec.ModifiersConfig{
@@ -292,7 +291,7 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	}
 
 	lggr := logger.NullLogger
-	db := it.Helper.GetDB(t)
+	db := it.Helper.NewSqlxDB(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            finalityDepth,

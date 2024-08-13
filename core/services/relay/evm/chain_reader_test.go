@@ -13,7 +13,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jmoiron/sqlx"
@@ -241,16 +240,12 @@ func (h *helper) ChainID() *big.Int {
 	return testutils.SimulatedChainID
 }
 
-func (h *helper) GetDB(t *testing.T) *sqlx.DB {
+func (h *helper) NewSqlxDB(t *testing.T) *sqlx.DB {
 	return pgtest.NewSqlxDB(t)
 }
 
 func (h *helper) Context(t *testing.T) context.Context {
 	return testutils.Context(t)
-}
-
-func (h *helper) FromAddress(index int) common.Address {
-	return h.accounts[index].From
 }
 
 func (h *helper) MaxWaitTimeForEvents() time.Duration {
@@ -283,12 +278,12 @@ func (h *helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
 	keyStore := app.KeyStore.Eth()
 
 	keyStore.XXXTestingOnlyAdd(h.Context(t), keytypes.FromPrivateKey(h.deployerKey))
-	require.NoError(t, keyStore.Add(h.Context(t), h.FromAddress(0), h.ChainID()))
-	require.NoError(t, keyStore.Enable(h.Context(t), h.FromAddress(0), h.ChainID()))
+	require.NoError(t, keyStore.Add(h.Context(t), h.accounts[0].From, h.ChainID()))
+	require.NoError(t, keyStore.Enable(h.Context(t), h.accounts[0].From, h.ChainID()))
 
 	keyStore.XXXTestingOnlyAdd(h.Context(t), keytypes.FromPrivateKey(h.senderKey))
-	require.NoError(t, keyStore.Add(h.Context(t), h.FromAddress(1), h.ChainID()))
-	require.NoError(t, keyStore.Enable(h.Context(t), h.FromAddress(1), h.ChainID()))
+	require.NoError(t, keyStore.Add(h.Context(t), h.accounts[1].From, h.ChainID()))
+	require.NoError(t, keyStore.Enable(h.Context(t), h.accounts[1].From, h.ChainID()))
 
 	chain, err := app.GetRelayers().LegacyEVMChains().Get((*big.Int)(h.ChainID()).String())
 	require.NoError(t, err)

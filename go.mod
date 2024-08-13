@@ -75,7 +75,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.10
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240806144315-04ac101e9c95
-	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240808143317-6b16fc28887d
+	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240813134206-c8b4aef56fcf
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240801131703-fd75761c982f
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240710170203-5b41615da827
@@ -362,7 +362,4 @@ replace (
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
-
-	// Until common PR is merged
-	github.com/smartcontractkit/chainlink-common => ../chainlink-common/
 )
