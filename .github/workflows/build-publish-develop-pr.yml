@@ -2,12 +2,17 @@ name: "Build and Publish Chainlink"
 
 on:
   pull_request:
-    types:
-      - labeled
   push:
     branches:
       - develop
       - "release/**"
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "The git ref to check out"
+        required: true
+env:
+  GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
 
 jobs:
   goreleaser-build-publish-chainlink:
@@ -21,6 +26,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ env.GIT_REF }}
 
       - name: Get image tag
         id: get-image-tag
@@ -36,9 +43,11 @@ jobs:
               echo "build-publish=true" | tee -a $GITHUB_OUTPUT
             fi
           else
-            if [[ ${{ github.event.label.name }} == 'build-publish' ]]; then
+            if [[ ${{ github.event }} == "pull_request" ]]; then
               echo "image-tag=pr-${{ github.event.number }}-${short_sha}" | tee -a $GITHUB_OUTPUT
-              echo "build-publish=true" | tee -a $GITHUB_OUTPUT
+              if [[ contains( github.event.pull_request.labels.*.name, 'build-publish') ]]; then
+                echo "build-publish=true" | tee -a $GITHUB_OUTPUT
+              fi
             fi
           fi
 
@@ -52,10 +61,9 @@ jobs:
           role-session-name: goreleaser-build-publish-chainlink
 
       - name: Build and publish images
-        if: steps.get-image-tag.outputs.build-publish == 'true'
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
-          enable-docker-publish: "true"
+          enable-docker-publish: ${{ steps.get-image-tag.outputs.build-publish }}
           docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
           docker-image-name: chainlink
           docker-image-tag: ${{ steps.get-image-tag.outputs.image-tag }}
