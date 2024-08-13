@@ -38,6 +38,7 @@ const (
 	BlockhashStore          Type = (Type)(pipeline.BlockhashStoreJobType)
 	Bootstrap               Type = (Type)(pipeline.BootstrapJobType)
 	Cron                    Type = (Type)(pipeline.CronJobType)
+	CCIP                    Type = (Type)(pipeline.CCIPJobType)
 	DirectRequest           Type = (Type)(pipeline.DirectRequestJobType)
 	FluxMonitor             Type = (Type)(pipeline.FluxMonitorJobType)
 	Gateway                 Type = (Type)(pipeline.GatewayJobType)
@@ -78,6 +79,7 @@ var (
 		BlockhashStore:          false,
 		Bootstrap:               false,
 		Cron:                    true,
+		CCIP:                    false,
 		DirectRequest:           true,
 		FluxMonitor:             true,
 		Gateway:                 false,
@@ -97,6 +99,7 @@ var (
 		BlockhashStore:          false,
 		Bootstrap:               false,
 		Cron:                    true,
+		CCIP:                    false,
 		DirectRequest:           true,
 		FluxMonitor:             false,
 		Gateway:                 false,
@@ -116,6 +119,7 @@ var (
 		BlockhashStore:          1,
 		Bootstrap:               1,
 		Cron:                    1,
+		CCIP:                    1,
 		DirectRequest:           1,
 		FluxMonitor:             1,
 		Gateway:                 1,
@@ -156,6 +160,7 @@ type Job struct {
 	BlockhashStoreSpec            *BlockhashStoreSpec
 	BlockHeaderFeederSpecID       *int32
 	BlockHeaderFeederSpec         *BlockHeaderFeederSpec
+	BALSpecID                     *int32
 	LegacyGasStationServerSpecID  *int32
 	LegacyGasStationServerSpec    *LegacyGasStationServerSpec
 	LegacyGasStationSidecarSpecID *int32
@@ -175,6 +180,7 @@ type Job struct {
 	StandardCapabilitiesSpecID    *int32
 	StandardCapabilitiesSpec      *StandardCapabilitiesSpec
 	CCIPSpecID                    *int32
+	CCIPSpec                      *CCIPSpec
 	CCIPBootstrapSpecID           *int32
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
@@ -352,7 +358,7 @@ type ocr2Config interface {
 	SimulateTransactions() bool
 }
 
-var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.DKG, types.OCR2VRF, types.OCR2Keeper, types.Functions}
+var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.OCR2Keeper, types.Functions}
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
@@ -908,4 +914,49 @@ func (w *StandardCapabilitiesSpec) SetID(value string) error {
 	}
 	w.ID = int32(ID)
 	return nil
+}
+
+type CCIPSpec struct {
+	ID        int32
+	CreatedAt time.Time `toml:"-"`
+	UpdatedAt time.Time `toml:"-"`
+
+	// P2PV2Bootstrappers is a list of "peer_id@ip_address:port" strings that are used to
+	// identify the bootstrap nodes of the P2P network.
+	// These bootstrappers will be used to bootstrap all CCIP DONs.
+	P2PV2Bootstrappers pq.StringArray `toml:"p2pV2Bootstrappers" db:"p2pv2_bootstrappers"`
+
+	// CapabilityVersion is the semantic version of the CCIP capability.
+	// This capability version must exist in the onchain capability registry.
+	CapabilityVersion string `toml:"capabilityVersion" db:"capability_version"`
+
+	// CapabilityLabelledName is the labelled name of the CCIP capability.
+	// Corresponds to the labelled name of the capability in the onchain capability registry.
+	CapabilityLabelledName string `toml:"capabilityLabelledName" db:"capability_labelled_name"`
+
+	// OCRKeyBundleIDs is a mapping from chain type to OCR key bundle ID.
+	// These are explicitly specified here so that we don't run into strange errors auto-detecting
+	// the valid bundle, since nops can create as many bundles as they want.
+	// This will most likely never change for a particular CCIP capability version,
+	// since new chain families will likely require a new capability version.
+	// {"evm": "evm_key_bundle_id", "solana": "solana_key_bundle_id", ... }
+	OCRKeyBundleIDs JSONConfig `toml:"ocrKeyBundleIDs" db:"ocr_key_bundle_ids"`
+
+	// RelayConfigs consists of relay specific configuration.
+	// Chain reader configurations are stored here, and are defined on a chain family basis, e.g
+	// we will have one chain reader config for EVM, one for solana, starknet, etc.
+	// Chain writer configurations are also stored here, and are also defined on a chain family basis,
+	// e.g we will have one chain writer config for EVM, one for solana, starknet, etc.
+	// See tests for examples of relay configs in TOML.
+	// { "evm": {"chainReader": {...}, "chainWriter": {...}}, "solana": {...}, ... }
+	// see core/services/relay/evm/types/types.go for EVM configs.
+	RelayConfigs JSONConfig `toml:"relayConfigs" db:"relay_configs"`
+
+	// P2PKeyID is the ID of the P2P key of the node.
+	// This must be present in the capability registry otherwise the job will not start correctly.
+	P2PKeyID string `toml:"p2pKeyID" db:"p2p_key_id"`
+
+	// PluginConfig contains plugin-specific config, like token price pipelines
+	// and RMN network info for offchain blessing.
+	PluginConfig JSONConfig `toml:"pluginConfig"`
 }

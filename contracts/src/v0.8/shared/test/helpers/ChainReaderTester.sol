@@ -40,8 +40,12 @@ contract ChainReaderTester {
   // First topic is event hash
   event TriggeredWithFourTopics(int32 indexed field1, int32 indexed field2, int32 indexed field3);
 
+  // first topic is event hash, second and third topics get hashed before getting stored
+  event TriggeredWithFourTopicsWithHashed(string indexed field1, uint8[32] indexed field2, bytes32 indexed field3);
+
   TestStruct[] private s_seen;
   uint64[] private s_arr;
+  uint64 private s_value;
 
   constructor() {
     // See chain_reader_interface_tests.go in chainlink-relay
@@ -60,6 +64,10 @@ contract ChainReaderTester {
     MidLevelTestStruct calldata nestedStruct
   ) public {
     s_seen.push(TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct));
+  }
+
+  function setAlterablePrimitiveValue(uint64 value) public {
+    s_value = value;
   }
 
   function returnSeen(
@@ -83,6 +91,11 @@ contract ChainReaderTester {
   function getPrimitiveValue() public pure returns (uint64) {
     // See chain_reader_interface_tests.go in chainlink-relay
     return 3;
+  }
+
+  function getAlterablePrimitiveValue() public view returns (uint64) {
+    // See chain_reader_interface_tests.go in chainlink-relay
+    return s_value;
   }
 
   function getDifferentPrimitiveValue() public pure returns (uint64) {
@@ -114,5 +127,10 @@ contract ChainReaderTester {
   // first topic is the event signature
   function triggerWithFourTopics(int32 field1, int32 field2, int32 field3) public {
     emit TriggeredWithFourTopics(field1, field2, field3);
+  }
+
+  // first topic is event hash, second and third topics get hashed before getting stored
+  function triggerWithFourTopicsWithHashed(string memory field1, uint8[32] memory field2, bytes32 field3) public {
+    emit TriggeredWithFourTopicsWithHashed(field1, field2, field3);
   }
 }

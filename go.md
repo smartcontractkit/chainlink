@@ -28,6 +28,8 @@ flowchart LR
   click chain-selectors href "https://github.com/smartcontractkit/chain-selectors"
   chainlink/v2 --> chainlink-automation
   click chainlink-automation href "https://github.com/smartcontractkit/chainlink-automation"
+  chainlink/v2 --> chainlink-ccip
+  click chainlink-ccip href "https://github.com/smartcontractkit/chainlink-ccip"
   chainlink/v2 --> chainlink-common
   click chainlink-common href "https://github.com/smartcontractkit/chainlink-common"
   chainlink/v2 --> chainlink-cosmos
@@ -40,8 +42,6 @@ flowchart LR
   click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
   chainlink/v2 --> chainlink-starknet/relayer
   click chainlink-starknet/relayer href "https://github.com/smartcontractkit/chainlink-starknet"
-  chainlink/v2 --> chainlink-vrf
-  click chainlink-vrf href "https://github.com/smartcontractkit/chainlink-vrf"
   chainlink/v2 --> libocr
   click libocr href "https://github.com/smartcontractkit/libocr"
   chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
@@ -52,10 +52,11 @@ flowchart LR
   click wsrpc href "https://github.com/smartcontractkit/wsrpc"
   chainlink-automation --> chainlink-common
   chainlink-automation --> libocr
+  chainlink-ccip --> chainlink-common
+  chainlink-ccip --> libocr
   chainlink-common --> libocr
   chainlink-cosmos --> chainlink-common
   chainlink-cosmos --> libocr
-  chainlink-data-streams --> chain-selectors
   chainlink-data-streams --> chainlink-common
   chainlink-data-streams --> libocr
   chainlink-feeds --> chainlink-common
@@ -64,7 +65,6 @@ flowchart LR
   chainlink-solana --> libocr
   chainlink-starknet/relayer --> chainlink-common
   chainlink-starknet/relayer --> libocr
-  chainlink-vrf --> libocr
   tdh2/go/ocr2/decryptionplugin --> libocr
   tdh2/go/ocr2/decryptionplugin --> tdh2/go/tdh2
 ```

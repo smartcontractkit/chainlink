@@ -1,37 +1,72 @@
 [Logging]
+# set to true to flush logs to selected target regardless of test result; otherwise logs are only flushed if test failed
 test_log_collect = false
 
 [Logging.LogStream]
+# supported targets: file, loki, in-memory. if empty no logs will be persisted
 log_targets = ["file"]
+# context timeout for starting log producer and also time-frame for requesting logs
 log_producer_timeout = "10s"
+# number of retries before log producer gives up and stops listening to logs
 log_producer_retry_limit = 10
 
 [ChainlinkImage]
+# postgres version to use
 postgres_version = "15.6"
+# chainlink image to use
 image = "public.ecr.aws/chainlink/chainlink"
+# chainlink image tag to use
 version = "2.12.0"
 
 [Common]
+# chainlink node funding in native token
 chainlink_node_funding = 0.5
 
 [Network]
+# slice of networks to use; at lesat one network must be selected; each selected network must either be already defined in the CTF as a known network, or be defined in
+# TOML test files as a new network
 selected_networks = ["simulated"]
 
 [PrivateEthereumNetwork]
+# ethereum version to use; eth1 or eth2 (post-merge)
 ethereum_version = "eth1"
+# execution layer to use; geth, besu, nethermind, erigon or reth
 execution_layer = "geth"
 
 [PrivateEthereumNetwork.EthereumChainConfig]
+# duration of single slot, lower => faster block production, must be >= 3
 seconds_per_slot = 3
+# number of slots in epoch, lower => faster epoch finalisation, must be >= 2
 slots_per_epoch = 2
+# extra genesis delay, no need to modify, but it should be after all validators/beacon chain starts
 genesis_delay = 15
+# number of validators in the network
 validator_count = 4
+# chain id to use
 chain_id = 1337
+# slice of addresses that will be funded with native token in genesis
 addresses_to_fund = ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"]
 
+# map of hard fork epochs for each network; key is fork name, value is hard fork epoch
+# keep in mind that this depends on the specific version of eth2 client you are using
+# this configuration is fault-tolerant and incorrect forks will be ignored
 [PrivateEthereumNetwork.EthereumChainConfig.HardForkEpochs]
 Deneb = 500
 
+# General config of the Chainklink node corresponding to core/services/chainlink/config.go (Config struct) that excludes
+# all chain-specific configuration, which is built based on selected_networks and either Chainlink Node's defaults for
+# each network, or ChainConfigTOMLByChainID (if an entry with matching chain id is defined) or CommonChainConfigTOML (if no
+# entry with matching chain id is defined).
+#
+# Please remember that if either ChainConfigTOMLByChainID or CommonChainConfigTOML is defined, it will override any defaults
+# that Chainlink Node might have for the given network. Part of the configuration that defines blockchain node URLs is always
+# dynamically generated based on the EVMNetwork configuration.
+#
+# Last, but not least, currently all selected networks are treated as EVM networks. There's no way to provide Solana, Starknet,
+# Cosmos or Aptos configuration yet.
+#
+# If BaseConfigTOML is empty, then default base config provided by the Chainlink Node is used.
+# Also, if tracing is enabled unique id will be generated and shared between all Chainlink nodes in the same test.
 [NodeConfig]
 BaseConfigTOML = """
 [Feature]
@@ -78,12 +113,18 @@ DeltaDial = '500ms'
 DeltaReconcile = '5s'
 """
 
-# override config toml related to EVMNode configs for chainlink nodes; applicable to all EVM node configs in chainlink toml
+# Overrides default config TOML related to EVMNode configs for chainlink nodes; applicable to all EVM node configs in chainlink TOML.
+# Do not use it, if you want the default values to be used. Passing blockchain nodes URLs here will have no effect.
 CommonChainConfigTOML = """
+"""
+
+[NodeConfig.ChainConfigTOMLByChainID]
+# Chain-specific EVMNode config TOML for chainlink nodes; applicable to all EVM node configs in chainlink TOML. It takes precedence
+# over CommonChainConfigTOML and Chainlink Node's defaults. Passing blockchain nodes URLs here will have no effect.
+1337 = """
 AutoCreateKey = true
 FinalityDepth = 1
 MinContractPayment = 0
-
 [GasEstimator]
 PriceMax = '200 gwei'
 LimitDefault = 6000000
@@ -93,13 +134,13 @@ FeeCapDefault = '200 gwei'
 [Seth]
 # controls which transactions are decoded/traced. Possbile values are: none, all, reverted (default).
 # if transaction level doesn't match, then calling Decode() does nothing. It's advised to keep it set
-# to 'reverted' to limit noise. If you combine it with 'trace_to_json' it will save all possible data
-# in JSON files for reverted transactions.
+# to 'reverted' to limit noise.
 tracing_level = "reverted"
-# saves each decoding/tracing results to JSON files; what exactly is saved depends on what we
+# saves each decoding/tracing results to DOT files; what exactly is saved depends on what we
 # were able te decode, we try to save maximum information possible. It can either be:
 # just tx hash, decoded transaction or call trace. Which transactions traces are saved depends
 # on 'tracing_level'.
+trace_outputs = ["dot", "console"]
 
 # number of addresses to be generated and runtime, if set to 0, no addresses will be generated
 # each generated address will receive a proportion of native tokens from root private key's balance
@@ -409,3 +450,155 @@ gas_price_estimation_enabled = true
 gas_price_estimation_blocks = 100
 # priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
 gas_price_estimation_tx_priority = "standard"
+
+
+[[Seth.networks]]
+name = "Nexon Mainnet"
+transaction_timeout = "3m"
+eip_1559_dynamic_fees = true
+transfer_gas_fee = 21_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 30_000_000_000
+
+# EIP-1559 transactions
+gas_fee_cap = 30_000_000_000
+gas_tip_cap = 1_800_000_000
+
+
+[Network.EVMNetworks.NEXON_MAINNET]
+evm_name = "NEXON_MAINNET"
+#evm_urls = ["rpc ws endpoint"]
+#evm_http_urls = ["rpc http endpoint"]
+client_implementation = "Ethereum"
+#evm_keys = ["private keys you want to use"]
+evm_simulated = false
+evm_chainlink_transaction_limit = 5000
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 10000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_chain_id = 60118
+
+[[Seth.networks]]
+name = "Nexon Stage"
+transaction_timeout = "3m"
+eip_1559_dynamic_fees = true
+transfer_gas_fee = 21_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 30_000_000_000
+
+# EIP-1559 transactions
+gas_fee_cap = 30_000_000_000
+gas_tip_cap = 1_800_000_000
+
+
+[Network.EVMNetworks.NEXON_STAGE]
+evm_name = "NEXON_STAGE"
+#evm_urls = ["rpc ws endpoint"]
+#evm_http_urls = ["rpc http endpoint"]
+client_implementation = "Ethereum"
+#evm_keys = ["private keys you want to use"]
+evm_simulated = false
+evm_chainlink_transaction_limit = 5000
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 10000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_chain_id = 847799
+
+
+####
+
+[[Seth.networks]]
+name = "Nexon QA"
+transaction_timeout = "3m"
+eip_1559_dynamic_fees = true
+transfer_gas_fee = 21_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 30_000_000_000
+
+# EIP-1559 transactions
+gas_fee_cap = 30_000_000_000
+gas_tip_cap = 1_800_000_000
+
+
+[Network.EVMNetworks.NEXON_QA]
+evm_name = "NEXON_QA"
+#evm_urls = ["rpc ws endpoint"]
+#evm_http_urls = ["rpc http endpoint"]
+client_implementation = "Ethereum"
+#evm_keys = ["private keys you want to use"]
+evm_simulated = false
+evm_chainlink_transaction_limit = 5000
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 10000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_chain_id = 807424
+
+#####
+
+[[Seth.networks]]
+name = "Nexon Test"
+transaction_timeout = "3m"
+eip_1559_dynamic_fees = true
+transfer_gas_fee = 21_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 30_000_000_000
+
+# EIP-1559 transactions
+gas_fee_cap = 30_000_000_000
+gas_tip_cap = 1_800_000_000
+
+
+[Network.EVMNetworks.NEXON_TEST]
+evm_name = "NEXON_TEST"
+#evm_urls = ["rpc ws endpoint"]
+#evm_http_urls = ["rpc http endpoint"]
+client_implementation = "Ethereum"
+#evm_keys = ["private keys you want to use"]
+evm_simulated = false
+evm_chainlink_transaction_limit = 5000
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 10000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_chain_id = 595581
+
+#####
+[[Seth.networks]]
+name = "Nexon Dev"
+transaction_timeout = "3m"
+eip_1559_dynamic_fees = true
+transfer_gas_fee = 21_000
+
+# manual settings, used when gas_price_estimation_enabled is false or when it fails
+# legacy transactions
+gas_price = 30_000_000_000
+
+# EIP-1559 transactions
+gas_fee_cap = 30_000_000_000
+gas_tip_cap = 1_800_000_000
+
+
+[Network.EVMNetworks.NEXON_DEV]
+evm_name = "NEXON_DEV"
+#evm_urls = ["rpc ws endpoint"]
+#evm_http_urls = ["rpc http endpoint"]
+client_implementation = "Ethereum"
+#evm_keys = ["private keys you want to use"]
+evm_simulated = false
+evm_chainlink_transaction_limit = 5000
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 10000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_chain_id = 5668

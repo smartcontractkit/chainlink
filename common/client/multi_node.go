@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -347,7 +346,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 
 	c.report(nodeStates)
 
-	monitor := time.NewTicker(utils.WithJitter(c.reportInterval))
+	monitor := services.NewTicker(c.reportInterval)
 	defer monitor.Stop()
 
 	for {
@@ -821,6 +820,14 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		return s, err
 	}
 	return n.RPC().SubscribeNewHead(ctx, channel)
+}
+
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) SubscribeToHeads(ctx context.Context) (ch <-chan HEAD, sub types.Subscription, err error) {
+	n, err := c.selectNode()
+	if err != nil {
+		return nil, nil, err
+	}
+	return n.RPC().SubscribeToHeads(ctx)
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) TokenBalance(ctx context.Context, account ADDR, tokenAddr ADDR) (b *big.Int, err error) {

@@ -94,7 +94,7 @@ jobs:
         working-directory: ./.github/scripts/jira
         run: |
           echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
-          pnpm install && node update-jira-issue.js
+          pnpm install && pnpm issue:update 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           JIRA_HOST: ${{ secrets.JIRA_HOST }}

@@ -2,6 +2,7 @@ package remote_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -20,7 +21,7 @@ import (
 const (
 	peerID1     = "12D3KooWF3dVeJ6YoT5HFnYhmwQWWMoEwVFzJQ5kKCMX3ZityxMC"
 	peerID2     = "12D3KooWQsmok6aD8PZqt3RnJhQRrNzKHLficq7zYFRp7kZ1hHP8"
-	workflowID1 = "workflowID1"
+	workflowID1 = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
 )
 
 var (
@@ -61,11 +62,11 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	})
 
 	// register trigger
-	config := &remotetypes.RemoteTriggerConfig{
-		RegistrationRefreshMs:   100,
-		RegistrationExpiryMs:    100,
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
-		MessageExpiryMs:         100_000,
+		MessageExpiry:           100 * time.Second,
 	}
 	subscriber := remote.NewTriggerSubscriber(config, capInfo, capDonInfo, workflowDonInfo, dispatcher, nil, lggr)
 	require.NoError(t, subscriber.Start(ctx))

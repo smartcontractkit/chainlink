@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/rand"
 	"strings"
 	"sync"
 	"testing"
@@ -137,11 +138,12 @@ func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, e
 
 // todo - move to CTF
 func WaitForBlockNumberToBe(
+	ctx context.Context,
 	waitForBlockNumberToBe uint64,
 	client *seth.Client,
 	wg *sync.WaitGroup,
+	desiredBlockNumberReached chan<- bool,
 	timeout time.Duration,
-	t testing.TB,
 	l zerolog.Logger,
 ) (uint64, error) {
 	blockNumberChannel := make(chan uint64)
@@ -160,7 +162,7 @@ func WaitForBlockNumberToBe(
 					waitForBlockNumberToBe, latestBlockNumber)
 		case <-ticker.C:
 			go func() {
-				currentBlockNumber, err := client.Client.BlockNumber(testcontext.Get(t))
+				currentBlockNumber, err := client.Client.BlockNumber(ctx)
 				if err != nil {
 					errorChannel <- err
 				}
@@ -174,6 +176,9 @@ func WaitForBlockNumberToBe(
 			if latestBlockNumber >= waitForBlockNumberToBe {
 				ticker.Stop()
 				wg.Done()
+				if desiredBlockNumberReached != nil {
+					desiredBlockNumberReached <- true
+				}
 				l.Info().
 					Uint64("Latest Block Number", latestBlockNumber).
 					Uint64("Desired Block Number", waitForBlockNumberToBe).
@@ -805,7 +810,7 @@ func DeployOCRContractsForwarderFlow(
 	return setupAnyOCRv1Contracts(logger, seth, ocrContractsConfig, linkTokenContractAddress, workerNodes, transmitterPayeesFn, transmitterAddressesFn)
 }
 
-// SetupOCRv1Contracts deploys and funds a certain number of offchain aggregator contracts
+// SetupOCRv1Contracts deploys and funds a certain number of offchain aggregator contracts or uses existing ones and returns a slice of contract wrappers.
 func SetupOCRv1Contracts(
 	logger zerolog.Logger,
 	seth *seth.Client,
@@ -816,9 +821,9 @@ func SetupOCRv1Contracts(
 	transmitterPayeesFn := func() (transmitters []string, payees []string, err error) {
 		transmitters = make([]string, 0)
 		payees = make([]string, 0)
-		for _, node := range workerNodes {
+		for _, n := range workerNodes {
 			var addr string
-			addr, err = node.PrimaryEthAddress()
+			addr, err = n.PrimaryEthAddress()
 			if err != nil {
 				err = fmt.Errorf("error getting node's primary ETH address: %w", err)
 				return
@@ -832,8 +837,8 @@ func SetupOCRv1Contracts(
 
 	transmitterAddressesFn := func() ([]common.Address, error) {
 		transmitterAddresses := make([]common.Address, 0)
-		for _, node := range workerNodes {
-			primaryAddress, err := node.PrimaryEthAddress()
+		for _, n := range workerNodes {
+			primaryAddress, err := n.PrimaryEthAddress()
 			if err != nil {
 				return nil, err
 			}
@@ -1223,4 +1228,48 @@ func BuildTOMLNodeConfigForK8s(testConfig ctfconfig.GlobalTestConfig, testNetwor
 	}
 
 	return string(asStr), nil
+}
+
+func IsOPStackChain(chainID int64) bool {
+	return chainID == 8453 || //BASE MAINNET
+		chainID == 84532 || //BASE SEPOLIA
+		chainID == 10 || //OPTIMISM MAINNET
+		chainID == 11155420 //OPTIMISM SEPOLIA
+}
+
+func RandBool() bool {
+	return rand.Intn(2) == 1
+}
+
+func ContinuouslyGenerateTXsOnChain(sethClient *seth.Client, stopChannel chan bool, wg *sync.WaitGroup, l zerolog.Logger) (bool, error) {
+	counterContract, err := contracts.DeployCounterContract(sethClient)
+	if err != nil {
+		return false, err
+	}
+	err = counterContract.Reset()
+	if err != nil {
+		return false, err
+	}
+	var count *big.Int
+	for {
+		select {
+		case <-stopChannel:
+			l.Info().Str("Number of generated transactions on chain", count.String()).Msg("Stopping generating txs on chain. Desired block number reached.")
+			sleepDuration := time.Second * 10
+			l.Info().Str("Waiting for", sleepDuration.String()).Msg("Waiting for transactions to be mined and avoid nonce issues")
+			time.Sleep(sleepDuration)
+			wg.Done()
+			return true, nil
+		default:
+			err = counterContract.Increment()
+			if err != nil {
+				return false, err
+			}
+			count, err = counterContract.Count()
+			if err != nil {
+				return false, err
+			}
+			l.Info().Str("Count", count.String()).Msg("Number of generated transactions on chain")
+		}
+	}
 }

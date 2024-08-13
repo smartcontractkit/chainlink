@@ -169,6 +169,10 @@ func NewApp(s *Shell) *cli.App {
 			Action: s.Health,
 			Flags: []cli.Flag{
 				cli.BoolFlag{
+					Name:  "failing, f",
+					Usage: "filter for failing services",
+				},
+				cli.BoolFlag{
 					Name:  "json, j",
 					Usage: "json output",
 				},
@@ -195,8 +199,6 @@ func NewApp(s *Shell) *cli.App {
 				keysCommand("Solana", NewSolanaKeysClient(s)),
 				keysCommand("StarkNet", NewStarkNetKeysClient(s)),
 				keysCommand("Aptos", NewAptosKeysClient(s)),
-				keysCommand("DKGSign", NewDKGSignKeysClient(s)),
-				keysCommand("DKGEncrypt", NewDKGEncryptKeysClient(s)),
 
 				initVRFKeysSubCmd(s),
 			},

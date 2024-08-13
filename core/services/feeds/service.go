@@ -36,9 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
-//go:generate mockery --quiet --name Service --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --dir ./proto --name FeedsManagerClient --output ./mocks/ --case=underscore
-
 var (
 	ErrOCR2Disabled         = errors.New("ocr2 is disabled")
 	ErrOCRDisabled          = errors.New("ocr is disabled")
@@ -110,6 +107,9 @@ type Service interface {
 	ListSpecsByJobProposalIDs(ctx context.Context, ids []int64) ([]JobProposalSpec, error)
 	RejectSpec(ctx context.Context, id int64) error
 	UpdateSpecDefinition(ctx context.Context, id int64, spec string) error
+
+	// Unsafe_SetConnectionsManager Only for testing
+	Unsafe_SetConnectionsManager(ConnectionsManager)
 }
 
 type service struct {
@@ -1108,6 +1108,16 @@ func (s *service) observeJobProposalCounts(ctx context.Context) error {
 	return nil
 }
 
+// Unsafe_SetConnectionsManager sets the ConnectionsManager on the service.
+//
+// We need to be able to inject a mock for the client to facilitate integration
+// tests.
+//
+// ONLY TO BE USED FOR TESTING.
+func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
+	s.connMgr = connMgr
+}
+
 // findExistingJobForOCR2 looks for existing job for OCR2
 func findExistingJobForOCR2(ctx context.Context, j *job.Job, tx job.ORM) (int32, error) {
 	var contractID string
@@ -1504,5 +1514,6 @@ func (ns NullService) IsJobManaged(ctx context.Context, jobID int64) (bool, erro
 func (ns NullService) UpdateSpecDefinition(ctx context.Context, id int64, spec string) error {
 	return ErrFeedsManagerDisabled
 }
+func (ns NullService) Unsafe_SetConnectionsManager(_ ConnectionsManager) {}
 
 //revive:enable

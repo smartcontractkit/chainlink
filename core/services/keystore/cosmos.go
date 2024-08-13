@@ -10,8 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
 
-//go:generate mockery --quiet --name Cosmos --output ./mocks/ --case=underscore --filename cosmos.go
-
 type Cosmos interface {
 	Get(id string) (cosmoskey.Key, error)
 	GetAll() ([]cosmoskey.Key, error)

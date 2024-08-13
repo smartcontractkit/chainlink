@@ -502,7 +502,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       NodeOperator memory nodeOperator = nodeOperators[i];
       if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
-      if (msg.sender != nodeOperator.admin && msg.sender != owner) revert AccessForbidden(msg.sender);
+      if (msg.sender != currentNodeOperator.admin && msg.sender != owner) revert AccessForbidden(msg.sender);
 
       if (
         currentNodeOperator.admin != nodeOperator.admin ||
@@ -611,11 +611,12 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     bool isOwner = msg.sender == owner();
     for (uint256 i; i < nodes.length; ++i) {
       NodeParams memory node = nodes[i];
-      NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
+      Node storage storedNode = s_nodes[node.p2pId];
+      NodeOperator memory nodeOperator = s_nodeOperators[storedNode.nodeOperatorId];
+
+      if (storedNode.signer == bytes32("")) revert NodeDoesNotExist(node.p2pId);
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
-      Node storage storedNode = s_nodes[node.p2pId];
-      if (storedNode.signer == bytes32("")) revert NodeDoesNotExist(node.p2pId);
       if (node.signer == bytes32("")) revert InvalidNodeSigner();
 
       bytes32 previousSigner = storedNode.signer;
@@ -960,6 +961,11 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
       donCapabilityConfig.capabilityIds.push(configuration.capabilityId);
       donCapabilityConfig.capabilityConfigs[configuration.capabilityId] = configuration.config;
 
+      s_dons[donParams.id].isPublic = donParams.isPublic;
+      s_dons[donParams.id].acceptsWorkflows = donParams.acceptsWorkflows;
+      s_dons[donParams.id].f = donParams.f;
+      s_dons[donParams.id].configCount = donParams.configCount;
+
       _setDONCapabilityConfig(
         donParams.id,
         donParams.configCount,
@@ -968,10 +974,6 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
         configuration.config
       );
     }
-    s_dons[donParams.id].isPublic = donParams.isPublic;
-    s_dons[donParams.id].acceptsWorkflows = donParams.acceptsWorkflows;
-    s_dons[donParams.id].f = donParams.f;
-    s_dons[donParams.id].configCount = donParams.configCount;
     emit ConfigSet(donParams.id, donParams.configCount);
   }
 

@@ -9,6 +9,7 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -42,7 +43,7 @@ var _ services.Service = &client{}
 func NewClient(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration, lggr logger.Logger) *client {
 	return &client{
-		lggr:                     lggr,
+		lggr:                     lggr.Named("TargetClient"),
 		remoteCapabilityInfo:     remoteCapabilityInfo,
 		localDONInfo:             localDonInfo,
 		dispatcher:               dispatcher,
@@ -130,6 +131,8 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 		return nil, fmt.Errorf("failed to get message ID for request: %w", err)
 	}
 
+	c.lggr.Debugw("executing remote target", "messageID", messageID)
+
 	if _, ok := c.messageIDToCallerRequest[messageID]; ok {
 		return nil, fmt.Errorf("request for message ID %s already exists", messageID)
 	}
@@ -149,7 +152,13 @@ func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	messageID := GetMessageID(msg)
+	messageID, err := GetMessageID(msg)
+	if err != nil {
+		c.lggr.Errorw("invalid message ID", "err", err, "id", remote.SanitizeLogString(string(msg.MessageId)))
+		return
+	}
+
+	c.lggr.Debugw("Remote client target receiving message", "messageID", messageID)
 
 	req := c.messageIDToCallerRequest[messageID]
 	if req == nil {
@@ -163,8 +172,8 @@ func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
 }
 
 func GetMessageIDForRequest(req commoncap.CapabilityRequest) (string, error) {
-	if req.Metadata.WorkflowID == "" || req.Metadata.WorkflowExecutionID == "" {
-		return "", errors.New("workflow ID and workflow execution ID must be set in request metadata")
+	if !remote.IsValidWorkflowOrExecutionID(req.Metadata.WorkflowID) || !remote.IsValidWorkflowOrExecutionID(req.Metadata.WorkflowExecutionID) {
+		return "", errors.New("workflow ID and workflow execution ID in request metadata are invalid")
 	}
 
 	return req.Metadata.WorkflowID + req.Metadata.WorkflowExecutionID, nil
