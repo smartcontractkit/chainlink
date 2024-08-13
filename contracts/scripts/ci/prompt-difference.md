@@ -14,6 +14,6 @@ For each issue include original description text from the report together with s
 Group the issues by their type, which is defined as Heading 2 (##).
 
 Output your response starting from**New Issues** in escaped, markdown text that can be sent as http body to API. Do not wrap output in code blocks.
-Extract the name of the file from the first line of the report and title the new report with it in a following way: "# Slither diff report for: <file_name>"
+Extract the name of the file from the first line of the report and title the new report with it in a following way: "# Slither's new issues in: <file_name>"
 
 Format **New Issues** as Heading 2 using double sharp characters (##). Otherwise, do not include any another preamble and postamble to your answer.
