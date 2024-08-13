@@ -522,7 +522,7 @@ contract VRFV2Plus is BaseTest {
     // Store the previous block's blockhash, and assert that it is as expected.
     vm.roll(requestBlock + 1);
     s_bhs.store(requestBlock);
-    assertEq(hex"0000000000000000000000000000000000000000000000000000000000000014", s_bhs.getBlockhash(requestBlock));
+    assertEq(hex"731dc163f73d31d8c68f9917ce4ff967753939f70432973c04fd2c2a48148607", s_bhs.getBlockhash(requestBlock));
 
     // Fulfill the request.
     // Proof generated via the generate-proof-v2-plus script command. Example usage:
