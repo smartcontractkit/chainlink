@@ -166,6 +166,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"max fee per gas less than block base fee", true, "zkSync"},
 			{"virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price", true, "zkSync"},
 			{"client error terminally underpriced", true, "tomlConfig"},
+			{"gas price less than block base fee", true, "aStar"},
 		}
 
 		for _, test := range tests {
@@ -214,6 +215,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"insufficient funds for gas + value. balance: 42719769622667482000, fee: 48098250000000, value: 42719769622667482000", true, "celo"},
 			{"client error insufficient eth", true, "tomlConfig"},
 			{"transaction would cause overdraft", true, "Geth"},
+			{"failed to forward tx to sequencer, please try again. Error message: 'insufficient funds for gas * price + value'", true, "Mantle"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -378,6 +380,8 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"Failed to serialize transaction: max fee per pubdata byte higher than 2^64-1", true, "zkSync"},
 		{"Failed to serialize transaction: max priority fee per gas higher than 2^64-1", true, "zkSync"},
 		{"Failed to serialize transaction: oversized data. max: 1000000; actual: 1000000", true, "zkSync"},
+
+		{"failed to forward tx to sequencer, please try again. Error message: 'invalid sender'", true, "Mantle"},
 
 		{"client error fatal", true, "tomlConfig"},
 	}

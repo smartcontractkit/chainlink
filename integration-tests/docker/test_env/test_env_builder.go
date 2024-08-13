@@ -11,8 +11,9 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
@@ -21,10 +22,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/testsummary"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 type CleanUpType string
@@ -346,6 +347,10 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 						_ = localDbDumpFile.Close()
 					}
 					b.l.Info().Msg("Finished dumping state of all Postgres DBs used by Chainlink Nodes")
+				}
+
+				if b.testConfig.GetSethConfig() != nil && ((b.t.Failed() && slices.Contains(b.testConfig.GetSethConfig().TraceOutputs, seth.TraceOutput_DOT) && b.testConfig.GetSethConfig().TracingLevel != seth.TracingLevel_None) || (!b.t.Failed() && slices.Contains(b.testConfig.GetSethConfig().TraceOutputs, seth.TraceOutput_DOT) && b.testConfig.GetSethConfig().TracingLevel == seth.TracingLevel_All)) {
+					_ = testsummary.AddEntry(b.t.Name(), "dot_graphs", "true")
 				}
 			})
 		} else {

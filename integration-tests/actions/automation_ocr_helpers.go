@@ -438,7 +438,7 @@ func deployRegistry(
 	wethToken contracts.WETHToken,
 	ethUSDFeed contracts.MockETHUSDFeed,
 ) contracts.KeeperRegistry {
-	ef, err := contracts.DeployMockETHLINKFeed(client, big.NewInt(2e18))
+	ef, err := contracts.DeployMockLINKETHFeed(client, big.NewInt(2e18))
 	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
 	gf, err := contracts.DeployMockGASFeed(client, big.NewInt(2e11))
 	require.NoError(t, err, "Deploying mock gas feed shouldn't fail")

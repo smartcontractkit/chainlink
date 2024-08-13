@@ -118,3 +118,26 @@ func TestDefaultModeAggregator_Aggregate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, res, capResponse1)
 }
+
+func TestSanitizeLogString(t *testing.T) {
+	require.Equal(t, "hello", remote.SanitizeLogString("hello"))
+	require.Equal(t, "[UNPRINTABLE] 0a", remote.SanitizeLogString("\n"))
+
+	longString := ""
+	for i := 0; i < 100; i++ {
+		longString += "aa-aa-aa-"
+	}
+	require.Equal(t, longString[:256]+" [TRUNCATED]", remote.SanitizeLogString(longString))
+}
+
+func TestIsValidWorkflowID(t *testing.T) {
+	require.False(t, remote.IsValidWorkflowOrExecutionID("too_short"))
+	require.False(t, remote.IsValidWorkflowOrExecutionID("nothex--95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"))
+	require.True(t, remote.IsValidWorkflowOrExecutionID("15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"))
+}
+
+func TestIsValidTriggerEventID(t *testing.T) {
+	require.False(t, remote.IsValidID(""))
+	require.False(t, remote.IsValidID("\n\n"))
+	require.True(t, remote.IsValidID("id_id_2"))
+}
