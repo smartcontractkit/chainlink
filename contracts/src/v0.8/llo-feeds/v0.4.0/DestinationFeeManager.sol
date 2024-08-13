@@ -11,6 +11,7 @@ import {Math} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/ma
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IDestinationRewardManager} from "./interfaces/IDestinationRewardManager.sol";
 import {IDestinationFeeManager} from "./interfaces/IDestinationFeeManager.sol";
+import {IDestinationVerifierFeeManager} from "./interfaces/IDestinationVerifierFeeManager.sol";
 
 /**
  * @title FeeManager
@@ -18,7 +19,7 @@ import {IDestinationFeeManager} from "./interfaces/IDestinationFeeManager.sol";
  * @author Austin Born
  * @notice This contract is used for the handling of fees required for users verifying reports.
  */
-contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAndVersionInterface {
+contract DestinationFeeManager is IDestinationFeeManager, IDestinationVerifierFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   using SafeERC20 for IERC20;
 
   /// @notice list of subscribers and their discounts subscriberDiscounts[subscriber][feedId][token]
@@ -167,21 +168,10 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
 
   /// @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-    //for each function in IDestinationFeeManager we need to check if it matches the selector
-    return
-      interfaceId == this.getFeeAndReward.selector ||
-      interfaceId == this.setNativeSurcharge.selector ||
-      interfaceId == this.updateSubscriberDiscount.selector ||
-      interfaceId == this.withdraw.selector ||
-      interfaceId == this.linkAvailableForPayment.selector ||
-      interfaceId == this.payLinkDeficit.selector ||
-      interfaceId == this.addVerifier.selector ||
-      interfaceId == this.removeVerifier.selector ||
-      interfaceId == this.processFee.selector ||
-      interfaceId == this.processFeeBulk.selector ||
-      interfaceId == this.setFeeRecipients.selector;
+    return interfaceId == type(IDestinationFeeManager).interfaceId || interfaceId == type(IDestinationVerifierFeeManager).interfaceId;
   }
 
+  /// @inheritdoc IDestinationVerifierFeeManager
   function processFee(
     bytes32 recipient,
     bytes calldata payload,
@@ -209,7 +199,7 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     }
   }
 
-  /// @inheritdoc IDestinationFeeManager
+  /// @inheritdoc IDestinationVerifierFeeManager
   function processFeeBulk(
     bytes32[] memory poolIds,
     bytes[] calldata payloads,
@@ -326,11 +316,11 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     return (fee, reward, discount);
   }
 
-  /// @inheritdoc IDestinationFeeManager
+  /// @inheritdoc IDestinationVerifierFeeManager
   function setFeeRecipients(
     bytes32 configDigest,
     Common.AddressAndWeight[] calldata rewardRecipientAndWeights
-  ) external onlyOwnerOrVerifier {
+  ) external onlyVerifier {
     i_rewardManager.setRewardRecipients(configDigest, rewardRecipientAndWeights);
   }
 
@@ -550,6 +540,11 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
   /// @inheritdoc IDestinationFeeManager
   function setRewardManager(address rewardManagerAddress) external onlyOwner {
     if (rewardManagerAddress == address(0)) revert InvalidAddress();
+
+    if (!IERC165(rewardManagerAddress).supportsInterface(type(IDestinationRewardManager).interfaceId)) {
+      revert InvalidAddress();
+    }
+
     IERC20(i_linkAddress).approve(address(i_rewardManager), 0);
     i_rewardManager = IDestinationRewardManager(rewardManagerAddress);
     IERC20(i_linkAddress).approve(address(i_rewardManager), type(uint256).max);

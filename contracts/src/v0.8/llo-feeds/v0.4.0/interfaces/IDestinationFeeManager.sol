@@ -72,44 +72,6 @@ interface IDestinationFeeManager is IERC165 {
   function setRewardManager(address rewardManager) external;
 
   /**
-   * @notice Handles fees for a report from the subscriber and manages rewards
-   * @param poolId pool id of the pool to pay into
-   * @param payload report to process the fee for
-   * @param parameterPayload fee payload
-   * @param subscriber address of the fee will be applied
-   */
-  function processFee(
-    bytes32 poolId,
-    bytes calldata payload,
-    bytes calldata parameterPayload,
-    address subscriber
-  ) external payable;
-
-  /**
-   * @notice Processes the fees for each report in the payload, billing the subscriber and paying the reward manager
-   * @param poolIds pool ids of the pool to pay into
-   * @param payloads reports to process
-   * @param parameterPayload fee payload
-   * @param subscriber address of the user to process fee for
-   */
-  function processFeeBulk(
-    bytes32[] memory poolIds,
-    bytes[] calldata payloads,
-    bytes calldata parameterPayload,
-    address subscriber
-  ) external payable;
-
-  /**
-   * @notice Sets the fee recipients according to the fee manager
-   * @param configDigest digest of the configuration
-   * @param rewardRecipientAndWeights the address and weights of all the recipients to receive rewards
-   */
-  function setFeeRecipients(
-    bytes32 configDigest,
-    Common.AddressAndWeight[] calldata rewardRecipientAndWeights
-  ) external;
-
-  /**
    * @notice The structure to hold a fee and reward to verify a report
    * @param digest the digest linked to the fee and reward
    * @param fee the fee paid to verify the report

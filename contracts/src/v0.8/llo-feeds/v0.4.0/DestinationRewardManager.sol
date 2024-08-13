@@ -80,15 +80,7 @@ contract DestinationRewardManager is IDestinationRewardManager, ConfirmedOwner, 
 
   // @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-    return
-      interfaceId == this.claimRewards.selector ||
-      interfaceId == this.setRewardRecipients.selector ||
-      interfaceId == this.updateRewardRecipients.selector ||
-      interfaceId == this.payRecipients.selector ||
-      interfaceId == this.addFeeManager.selector ||
-      interfaceId == this.removeFeeManager.selector ||
-      interfaceId == this.getAvailableRewardPoolIds.selector ||
-      interfaceId == this.onFeePaid.selector;
+    return interfaceId == type(IDestinationRewardManager).interfaceId;
   }
 
   modifier onlyOwnerOrFeeManager() {

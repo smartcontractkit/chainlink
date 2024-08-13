@@ -9,6 +9,8 @@ import {Common} from "../libraries/Common.sol";
 import {IAccessController} from "../../shared/interfaces/IAccessController.sol";
 import {IDestinationVerifierProxy} from "./interfaces/IDestinationVerifierProxy.sol";
 import {IDestinationFeeManager} from "./interfaces/IDestinationFeeManager.sol";
+import {IDestinationVerifierProxyVerifier} from "./interfaces/IDestinationVerifierProxyVerifier.sol";
+import {IDestinationVerifierFeeManager} from "./interfaces/IDestinationVerifierFeeManager.sol";
 
 // OCR2 standard
 uint256 constant MAX_NUM_ORACLES = 31;
@@ -18,7 +20,7 @@ uint256 constant MAX_NUM_ORACLES = 31;
  * @author Michael Fletcher
  * @notice This contract will be used to verify reports based on the oracle signatures. This is not the source verifier which required individual fee configurations, instead, this checks that a report has been signed by one of the configured oracles.
  */
-contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVersionInterface, IERC165 {
+contract DestinationVerifier is IDestinationVerifier, IDestinationVerifierProxyVerifier, ConfirmedOwner, TypeAndVersionInterface {
   /// @notice The list of DON configurations by hash(address|donConfigId) - set to true if the signer is part of the config
   mapping(bytes32 => bool) private s_signerByAddressAndDonConfigId;
 
@@ -135,7 +137,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     i_verifierProxy = IDestinationVerifierProxy(verifierProxy);
   }
 
-  /// @inheritdoc IDestinationVerifier
+  /// @inheritdoc IDestinationVerifierProxyVerifier
   function verify(
     bytes calldata signedReport,
     bytes calldata parameterPayload,
@@ -146,7 +148,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     address fm = s_feeManager;
     if (fm != address(0)) {
       //process the fee and catch the error
-      try IDestinationFeeManager(fm).processFee{value: msg.value}(donConfigId, signedReport, parameterPayload, sender) {
+      try IDestinationVerifierFeeManager(fm).processFee{value: msg.value}(donConfigId, signedReport, parameterPayload, sender) {
         //do nothing
       } catch {
         // we purposefully obfuscate the error here to prevent information leaking leading to free verifications
@@ -157,7 +159,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     return verifierResponse;
   }
 
-  /// @inheritdoc IDestinationVerifier
+  /// @inheritdoc IDestinationVerifierProxyVerifier
   function verifyBulk(
     bytes[] calldata signedReports,
     bytes calldata parameterPayload,
@@ -176,7 +178,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     if (fm != address(0)) {
       //process the fee and catch the error
       try
-        IDestinationFeeManager(fm).processFeeBulk{value: msg.value}(donConfigs, signedReports, parameterPayload, sender)
+      IDestinationVerifierFeeManager(fm).processFeeBulk{value: msg.value}(donConfigs, signedReports, parameterPayload, sender)
       {
         //do nothing
       } catch {
@@ -316,7 +318,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
       if(s_feeManager == address(0)) {
         revert FeeManagerInvalid();
       }
-      IDestinationFeeManager(s_feeManager).setFeeRecipients(donConfigId, recipientAddressesAndWeights);
+      IDestinationVerifierFeeManager(s_feeManager).setFeeRecipients(donConfigId, recipientAddressesAndWeights);
     }
 
     // push the DonConfig
@@ -328,9 +330,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
   /// @inheritdoc IDestinationVerifier
   function setFeeManager(address feeManager) external override onlyOwner {
     if (
-      !IERC165(feeManager).supportsInterface(IDestinationFeeManager.processFee.selector) ||
-      !IERC165(feeManager).supportsInterface(IDestinationFeeManager.processFeeBulk.selector) ||
-      !IERC165(feeManager).supportsInterface(IDestinationFeeManager.setFeeRecipients.selector)
+      !IERC165(feeManager).supportsInterface(type(IDestinationVerifierFeeManager).interfaceId)
     ) revert FeeManagerInvalid();
 
     address oldFeeManager = s_feeManager;
@@ -416,16 +416,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
 
   /// @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
-    return
-      interfaceId == this.verify.selector ||
-      interfaceId == this.verifyBulk.selector ||
-      interfaceId == this.s_accessController.selector ||
-      interfaceId == this.s_feeManager.selector ||
-      interfaceId == this.setConfig.selector ||
-      interfaceId == this.setConfigWithActivationTime.selector ||
-      interfaceId == this.setFeeManager.selector ||
-      interfaceId == this.setAccessController.selector ||
-      interfaceId == this.setConfigActive.selector;
+    return interfaceId == type(IDestinationVerifier).interfaceId || interfaceId == type(IDestinationVerifierProxyVerifier).interfaceId;
   }
 
   /// @inheritdoc TypeAndVersionInterface

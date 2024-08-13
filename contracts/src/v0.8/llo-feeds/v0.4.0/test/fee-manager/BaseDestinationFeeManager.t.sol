@@ -108,7 +108,7 @@ contract BaseDestinationFeeManagerTest is Test {
     );
 
     //link the feeManager to the proxy
-    feeManagerProxy.setDestinationFeeManager(feeManager);
+    feeManagerProxy.setDestinationFeeManager(address(feeManager));
 
     //link the feeManager to the reward manager
     rewardManager.addFeeManager(address(feeManager));
