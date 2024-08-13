@@ -75,7 +75,7 @@ contract DestinationRewardManager is IDestinationRewardManager, ConfirmedOwner, 
 
   // @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "RewardManager 1.0.0";
+    return "DestinationRewardManager 0.4.0";
   }
 
   // @inheritdoc IERC165
@@ -84,12 +84,12 @@ contract DestinationRewardManager is IDestinationRewardManager, ConfirmedOwner, 
   }
 
   modifier onlyOwnerOrFeeManager() {
-    if (msg.sender != owner() && msg.sender != s_feeManagerAddressList[msg.sender]) revert Unauthorized();
+    if (msg.sender != s_feeManagerAddressList[msg.sender] && msg.sender != owner()) revert Unauthorized();
     _;
   }
 
   modifier onlyOwnerOrRecipientInPool(bytes32 poolId) {
-    if (msg.sender != owner() && s_rewardRecipientWeights[poolId][msg.sender] == 0) revert Unauthorized();
+    if (s_rewardRecipientWeights[poolId][msg.sender] == 0 && msg.sender != owner()) revert Unauthorized();
     _;
   }
 

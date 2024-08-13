@@ -18,7 +18,7 @@ contract DestinationVerifierConstructorTest is BaseTest {
     DestinationVerifier v = new DestinationVerifier(address(s_verifierProxy));
     assertEq(v.owner(), ADMIN);
     string memory typeAndVersion = s_verifier.typeAndVersion();
-    assertEq(typeAndVersion, "DestinationVerifier 1.0.0");
+    assertEq(typeAndVersion, "DestinationVerifier 0.4.0");
   }
 
   function test_falseIfIsNotCorrectInterface() public view {

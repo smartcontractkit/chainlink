@@ -151,11 +151,6 @@ contract DestinationFeeManager is IDestinationFeeManager, IDestinationVerifierFe
     IERC20(i_linkAddress).approve(address(i_rewardManager), type(uint256).max);
   }
 
-  modifier onlyOwnerOrVerifier() {
-    if (msg.sender != s_verifierAddressList[msg.sender] && msg.sender != owner()) revert Unauthorized();
-    _;
-  }
-
   modifier onlyVerifier() {
     if (msg.sender != s_verifierAddressList[msg.sender]) revert Unauthorized();
     _;
@@ -163,7 +158,7 @@ contract DestinationFeeManager is IDestinationFeeManager, IDestinationVerifierFe
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "DestinationFeeManager 1.0.0";
+    return "DestinationFeeManager 0.4.0";
   }
 
   /// @inheritdoc IERC165
@@ -545,8 +540,10 @@ contract DestinationFeeManager is IDestinationFeeManager, IDestinationVerifierFe
       revert InvalidAddress();
     }
 
-    IERC20(i_linkAddress).approve(address(i_rewardManager), 0);
+    address linkAddress = i_linkAddress;
+
+    IERC20(linkAddress).approve(address(i_rewardManager), 0);
     i_rewardManager = IDestinationRewardManager(rewardManagerAddress);
-    IERC20(i_linkAddress).approve(address(i_rewardManager), type(uint256).max);
+    IERC20(linkAddress).approve(address(rewardManagerAddress), type(uint256).max);
   }
 }

@@ -142,7 +142,7 @@ contract DestinationVerifier is IDestinationVerifier, IDestinationVerifierProxyV
     bytes calldata signedReport,
     bytes calldata parameterPayload,
     address sender
-  ) external payable override checkValidProxy checkAccess(sender) returns (bytes memory) {
+  ) external payable override onlyProxy checkAccess(sender) returns (bytes memory) {
     (bytes memory verifierResponse, bytes32 donConfigId) = _verify(signedReport, sender);
 
     address fm = s_feeManager;
@@ -164,7 +164,7 @@ contract DestinationVerifier is IDestinationVerifier, IDestinationVerifierProxyV
     bytes[] calldata signedReports,
     bytes calldata parameterPayload,
     address sender
-  ) external payable override checkValidProxy checkAccess(sender) returns (bytes[] memory) {
+  ) external payable override onlyProxy checkAccess(sender) returns (bytes[] memory) {
     bytes[] memory verifierResponses = new bytes[](signedReports.length);
     bytes32[] memory donConfigs = new bytes32[](signedReports.length);
 
@@ -276,7 +276,7 @@ contract DestinationVerifier is IDestinationVerifier, IDestinationVerifierProxyV
     uint8 f,
     Common.AddressAndWeight[] memory recipientAddressesAndWeights,
     uint32 activationTime
-  ) internal checkConfigValid(signers.length, f) onlyOwner {
+  ) internal {
     // Duplicate addresses would break protocol rules
     if (Common._hasDuplicateAddresses(signers)) {
       revert NonUniqueSignatures();
@@ -401,7 +401,7 @@ contract DestinationVerifier is IDestinationVerifier, IDestinationVerifierProxyV
     _;
   }
 
-  modifier checkValidProxy() {
+  modifier onlyProxy() {
     if (address(i_verifierProxy) != msg.sender) {
       revert AccessForbidden();
     }
@@ -421,6 +421,6 @@ contract DestinationVerifier is IDestinationVerifier, IDestinationVerifierProxyV
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "DestinationVerifier 1.0.0";
+    return "DestinationVerifier 0.4.0";
   }
 }

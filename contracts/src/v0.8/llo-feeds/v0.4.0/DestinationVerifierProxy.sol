@@ -27,7 +27,7 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "DestinationVerifierProxy 1.0.0";
+    return "DestinationVerifierProxy 0.4.0";
   }
 
   /// @inheritdoc IDestinationVerifierProxy
