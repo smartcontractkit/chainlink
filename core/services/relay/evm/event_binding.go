@@ -254,29 +254,14 @@ func (e *eventBinding) getLatestValueWithFilters(
 }
 
 func createTopicFilters(filtersAndIndices []common.Hash) query.Expression {
-	// If there's only one filter, return a simple expression without a boolean combination.
-	if len(filtersAndIndices) == 1 {
-		value := filtersAndIndices[0]
-		return logpoller.NewEventByTopicFilter(1, []primitives.ValueComparator{
-			{Value: value.Hex(), Operator: primitives.Eq},
-		})
+	var expressions []query.Expression
+	for topicID, fai := range filtersAndIndices {
+		// first topic index is 1-based, so we add 1.
+		expressions = append(expressions, logpoller.NewEventByTopicFilter(
+			uint64(topicID+1), []primitives.ValueComparator{{Value: fai.Hex(), Operator: primitives.Eq}},
+		))
 	}
-
-	// For multiple filters, create a boolean expression.
-	topicFilters := query.BoolExpression{
-		Expressions:  make([]query.Expression, len(filtersAndIndices)),
-		BoolOperator: query.AND,
-	}
-
-	// Every index represents a topic, and the underlying value represents what we want to match.
-	for idx, value := range filtersAndIndices {
-		// The topic index is 1-based, so we add 1.
-		topicFilters.Expressions[idx] = logpoller.NewEventByTopicFilter(uint64(idx)+1, []primitives.ValueComparator{
-			{Value: value.Hex(), Operator: primitives.Eq},
-		})
-	}
-
-	return query.Expression{BoolExpression: topicFilters}
+	return query.And(expressions...)
 }
 
 // convertToOffChainType creates a struct based on contract abi with applied codec modifiers.
