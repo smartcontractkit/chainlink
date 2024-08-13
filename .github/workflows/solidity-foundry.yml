@@ -419,11 +419,11 @@ jobs:
                   rm $current_report
                 fi
               else
-                echo "::warning::Failed to find new issues for $base_report using an LLM model, will use full report."
+                echo "::warning::Failed to generate a diff report with new issues for $base_report using an LLM model, will use full report."
               fi
           
             else
-              echo "::error::Failed to find current report for $base_report (file $current_file doesn't exist, but should have been generated). Please check Slither logs."
+              echo "::error::Failed to find current commit's equivalent of $base_report (file $current_file doesn't exist, but should have been generated). Please check Slither logs."
               exit 1
             fi
           done

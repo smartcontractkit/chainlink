@@ -23,8 +23,8 @@ else
   validation_prompt_path=""
 fi
 
-first_report_content=$(cat "$first_report_path" | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
-second_report_content=$(cat "$second_report_path" | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
+first_report_content=$(cat "$first_report_path" | sed 's/"/\\"/g' | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
+second_report_content=$(cat "$second_report_path" | sed 's/"/\\"/g' | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
 openai_prompt=$(cat "$report_prompt_path" | sed 's/"/\\"/g' | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
 openai_model="gpt-4o"
 openai_result=$(echo '{
@@ -57,7 +57,7 @@ echo "$new_issues_report_content" > "$new_issues_report_path"
 
 if [[ -n "$validation_prompt_path" ]]; then
   echo "::debug::Validating the diff report using the validation prompt"
-  report_input=$(echo "$new_issues_report_content" | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
+  report_input=$(echo "$new_issues_report_content" | sed 's/"/\\"/g' | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
   validation_prompt_content=$(cat "$validation_prompt_path" | sed 's/"/\\"/g' | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
   validation_result=$(echo '{
     "model": "'$openai_model'",
