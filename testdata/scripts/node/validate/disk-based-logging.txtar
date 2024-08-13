@@ -336,6 +336,13 @@ AuthTimestampToleranceSec = 0
 ID = ''
 URL = ''
 
+[Telemetry]
+Enabled = false
+CACertFile = ''
+Endpoint = ''
+InsecureConnection = false
+TraceSampleRatio = 0.01
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true
