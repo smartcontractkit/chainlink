@@ -11,8 +11,7 @@ on:
 
 jobs:
   goreleaser-build-publish-chainlink:
-    runs-on:
-      labels: ubuntu22.04-16cores-64GB
+    runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
