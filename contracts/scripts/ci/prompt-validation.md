@@ -27,5 +27,7 @@ If the count for given issue type is higher in the second report than in the fir
 Your report should include only a single section titled "Confidence level".
 Your evaluation of the completeness of the new issues report should be displayed as a Heading 3 using triple sharp characters (###). In a new line a brief explanation of the scale used, with minimum and maximum possible values.
 
+Remember that it might be possible that second report does not introduce any new issues. In such case, confidence rating should be 5.
+
 Output your response as escaped, markdown text that can be sent as http body to API. Do not wrap output in code blocks. Do not include any partial results or statistics regarding the number of new and resolved issues in any of the reports.
 Format **Confidence level** as Heading 2 using double sharp characters (##). Otherwise, do not include any another preamble and postamble to your answer.
