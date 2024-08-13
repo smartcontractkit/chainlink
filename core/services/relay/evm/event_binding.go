@@ -230,7 +230,7 @@ func (e *eventBinding) getLatestValueWithFilters(
 	// Create limiter and filter for the query.
 	limiter := query.NewLimitAndSort(query.CountLimit(1), query.NewSortBySequence(query.Desc))
 	filter, err := query.Where(
-		e.address.String(),
+		"",
 		logpoller.NewAddressFilter(e.address),
 		logpoller.NewEventSigFilter(e.hash),
 		logpoller.NewConfirmationsFilter(confs),
