@@ -169,7 +169,7 @@ func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, lim
 	}
 	remapped.Expressions = append(defaultExpressions, remapped.Expressions...)
 
-	logs, err := e.lp.FilteredLogs(ctx, remapped, limitAndSort, e.contractName+"-"+e.eventName)
+	logs, err := e.lp.FilteredLogs(ctx, remapped.Expressions, limitAndSort, e.contractName+"-"+e.eventName)
 	if err != nil {
 		return nil, err
 	}

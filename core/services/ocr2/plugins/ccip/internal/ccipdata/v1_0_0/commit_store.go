@@ -349,7 +349,7 @@ func (c *CommitStore) GetAcceptedCommitReportsGteTimestamp(ctx context.Context, 
 
 	logs, err := c.lp.FilteredLogs(
 		ctx,
-		reportsQuery,
+		reportsQuery.Expressions,
 		query.NewLimitAndSort(query.Limit{}, query.NewSortBySequence(query.Asc)),
 		"GetAcceptedCommitReportsGteTimestamp",
 	)
