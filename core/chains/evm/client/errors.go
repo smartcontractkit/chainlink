@@ -250,6 +250,19 @@ var zkEvm = ClientErrors{
 	TerminallyStuck: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
 }
 
+var aStar = ClientErrors{
+	TerminallyUnderpriced: regexp.MustCompile(`(?:: |^)(gas price less than block base fee)$`),
+}
+
+var mantle = ClientErrors{
+	InsufficientEth: regexp.MustCompile(`(: |^)'*insufficient funds for gas \* price \+ value`),
+	Fatal:           regexp.MustCompile(`(: |^)'*invalid sender`),
+}
+
+var gnosis = ClientErrors{
+	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(alreadyknown)`),
+}
+
 const TerminallyStuckMsg = "transaction terminally stuck"
 
 // Tx.Error messages that are set internally so they are not chain or client specific
@@ -257,7 +270,7 @@ var internal = ClientErrors{
 	TerminallyStuck: regexp.MustCompile(TerminallyStuckMsg),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, internal}
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, mantle, aStar, gnosis, internal}
 
 // ClientErrorRegexes returns a map of compiled regexes for each error type
 func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
