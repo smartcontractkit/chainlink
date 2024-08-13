@@ -214,8 +214,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			signer := externalPeer
 			externalPeerWrapper = externalPeer
 			remoteDispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
-			srvcs = append(srvcs, remoteDispatcher)
-
 			dispatcher = remoteDispatcher
 		} else {
 			dispatcher = opts.CapabilitiesDispatcher

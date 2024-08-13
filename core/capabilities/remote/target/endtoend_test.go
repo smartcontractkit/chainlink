@@ -261,8 +261,8 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 			responseCh, err := caller.Execute(ctx,
 				commoncap.CapabilityRequest{
 					Metadata: commoncap.RequestMetadata{
-						WorkflowID:          "workflowID",
-						WorkflowExecutionID: "workflowExecutionID",
+						WorkflowID:          workflowID1,
+						WorkflowExecutionID: workflowExecutionID1,
 					},
 					Config: transmissionSchedule,
 					Inputs: executeInputs,

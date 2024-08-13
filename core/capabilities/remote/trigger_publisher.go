@@ -102,6 +102,10 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			p.lggr.Errorw("sender not a member of its workflow DON", "capabilityId", p.capInfo.ID, "callerDonId", msg.CallerDonId, "sender", sender)
 			return
 		}
+		if !IsValidWorkflowOrExecutionID(req.Metadata.WorkflowID) {
+			p.lggr.Errorw("received trigger request with invalid workflow ID", "capabilityId", p.capInfo.ID, "workflowId", SanitizeLogString(req.Metadata.WorkflowID))
+			return
+		}
 		p.lggr.Debugw("received trigger registration", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "sender", sender)
 		key := registrationKey{msg.CallerDonId, req.Metadata.WorkflowID}
 		nowMs := time.Now().UnixMilli()
@@ -145,7 +149,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			p.lggr.Errorw("failed to register trigger", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "err", err)
 		}
 	} else {
-		p.lggr.Errorw("received trigger request with unknown method", "method", msg.Method, "sender", sender)
+		p.lggr.Errorw("received trigger request with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender)
 	}
 }
 
@@ -159,7 +163,7 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 			return
 		case <-ticker.C:
 			now := time.Now().UnixMilli()
-			p.mu.RLock()
+			p.mu.Lock()
 			for key, req := range p.registrations {
 				callerDon := p.workflowDONs[key.callerDonId]
 				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-p.config.RegistrationExpiry.Milliseconds(), false)
@@ -174,7 +178,7 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 					p.messageCache.Delete(key)
 				}
 			}
-			p.mu.RUnlock()
+			p.mu.Unlock()
 		}
 	}
 }
