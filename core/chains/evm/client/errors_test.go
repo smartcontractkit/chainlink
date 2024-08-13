@@ -136,6 +136,7 @@ func Test_Eth_Errors(t *testing.T) {
 			// This seems to be an erroneous message from the zkSync client, we'll have to match it anyway
 			{"ErrorObject { code: ServerError(3), message: \\\"known transaction. transaction with hash 0xf016…ad63 is already in the system\\\", data: Some(RawValue(\\\"0x\\\")) }", true, "zkSync"},
 			{"client error transaction already in mempool", true, "tomlConfig"},
+			{"alreadyknown", true, "Gnosis"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
