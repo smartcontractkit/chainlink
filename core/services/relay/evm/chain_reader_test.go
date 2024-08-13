@@ -220,7 +220,7 @@ func (h *helper) Backend() bind.ContractBackend {
 	if h.sim == nil {
 		h.sim = backends.NewSimulatedBackend(
 			core.GenesisAlloc{h.accounts[0].From: {Balance: big.NewInt(math.MaxInt64)}, h.accounts[1].From: {Balance: big.NewInt(math.MaxInt64)}}, commonGasLimitOnEvms*5000)
-		cltest.Mine(h.sim, 500*time.Millisecond)
+		cltest.Mine(h.sim, 1*time.Second)
 	}
 
 	return h.sim

@@ -23,14 +23,12 @@ func NewChainWriterHistoricalWrapper(cw commontypes.ChainWriter, cwh *ClientWith
 
 func (cwhw *ChainWriterHistoricalWrapper) SubmitTransaction(ctx context.Context, contractName, method string, args any, transactionID string, toAddress string, meta *commontypes.TxMeta, value *big.Int) error {
 	if primArgs, ok := args.(interfacetesttypes.PrimitiveArgs); ok {
-		var returnVal1 uint64
-
 		callArgs := interfacetesttypes.ExpectedGetLatestValueArgs{
 			ContractName:    contractName,
 			ReadName:        "GetAlterablePrimitiveValue",
 			ConfidenceLevel: primitives.Unconfirmed,
 			Params:          nil,
-			ReturnVal:       returnVal1,
+			ReturnVal:       nil,
 		}
 		cwhw.cwh.SetUintLatestValue(ctx, primArgs.Value, callArgs)
 	}
