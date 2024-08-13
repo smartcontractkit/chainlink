@@ -53,7 +53,7 @@ jobs:
           else
             if [[ ${{ github.event_name }} == "pull_request" ]]; then
               echo "image-tag=pr-${{ github.event.number }}-${short_sha}" | tee -a $GITHUB_OUTPUT
-              if [[ contains(${{ github.event.pull_request.labels.*.name }}, 'build-publish') ]]; then
+              if [[ ${{ contains(github.event.pull_request.labels.*.name, 'build-publish') }} ]]; then
                 echo "build-publish=true" | tee -a $GITHUB_OUTPUT
               fi
             fi
