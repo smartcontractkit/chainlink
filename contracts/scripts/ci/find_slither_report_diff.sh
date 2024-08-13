@@ -27,6 +27,18 @@ first_report_content=$(cat "$first_report_path" | sed -E 's/\\+$//g' | sed -E 's
 second_report_content=$(cat "$second_report_path" | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
 openai_prompt=$(cat "$report_prompt_path" | sed 's/"/\\"/g' | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
 openai_model="gpt-4o"
+
+echo '{
+  "model": "'$openai_model'",
+  "temperature": 0.1,
+  "messages": [
+    {
+      "role": "system",
+      "content": "'$openai_prompt' \nreport1:\n```'$first_report_content'```\nreport2:\n```'$second_report_content'```"
+    }
+  ]
+}' | envsubst > prompt_request.json
+
 openai_result=$(echo '{
   "model": "'$openai_model'",
   "temperature": 0.1,
