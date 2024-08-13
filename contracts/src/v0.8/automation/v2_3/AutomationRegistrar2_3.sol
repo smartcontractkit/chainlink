@@ -439,30 +439,4 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     }
     return false;
   }
-
-  function _callWithExactGasEvenIfTargetIsNoContract(
-    bytes memory payload,
-    address target,
-    uint256 gasLimit,
-    uint16 gasForCallExactCheck
-  ) internal returns (bool success, bool sufficientGas) {
-    assembly {
-      let g := gas()
-    // Compute g -= CALL_WITH_EXACT_GAS_CUSHION and check for underflow. We
-    // need the cushion since the logic following the above call to gas also
-    // costs gas which we cannot account for exactly. So cushion is a
-    // conservative upper bound for the cost of this logic.
-      if iszero(lt(g, gasForCallExactCheck)) {
-        g := sub(g, gasForCallExactCheck)
-      // If g - g//64 <= gasAmount, we don't have enough gas. We subtract g//64 because of EIP-150.
-        if gt(sub(g, div(g, 64)), gasLimit) {
-        // Call and ignore success/return data. Note that we did not check
-        // whether a contract actually exists at the target address.
-          success := call(gasLimit, target, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
-          sufficientGas := true
-        }
-      }
-    }
-    return (success, sufficientGas);
-  }
 }

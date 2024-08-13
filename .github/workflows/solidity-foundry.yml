@@ -8,10 +8,6 @@ env:
 # * use the top-level matrix to decide, which checks should run for each product.
 # * when enabling code coverage, remember to adjust the minimum code coverage as it's set to 98.5% by default.
 
-# Making changes:
-# * use the top-level matrix to decide, which checks should run for each product.
-# * when enabling code coverage, remember to adjust the minimum code coverage as it's set to 98.5% by default.
-
 jobs:
   define-matrix:
     name: Define test matrix
