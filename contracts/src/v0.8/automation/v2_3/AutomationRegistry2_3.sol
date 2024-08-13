@@ -45,8 +45,10 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
    */
   string public constant override typeAndVersion = "AutomationRegistry 2.3.0";
 
-  /**
-   * @param logicA the address of the first logic contract
+  uint256 public mietek;
+
+/**
+ * @param logicA the address of the first logic contract
    * @dev we cast the contract to logicC in order to call logicC functions (via fallback)
    */
   constructor(

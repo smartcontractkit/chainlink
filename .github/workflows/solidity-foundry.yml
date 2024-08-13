@@ -423,6 +423,10 @@ jobs:
                 echo "No difference detected between $base_report and $current_report reports. Won't include any of them."
                 rm $current_report
               fi
+            
+              #TODO remove me
+              rm $new_issues_report
+          
             else
               echo "Failed to find current report for $base_report (file $current_file doesn't exist, but should have been generated). Please check Slither logs."
               exit 1
