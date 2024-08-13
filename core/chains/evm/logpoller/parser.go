@@ -493,18 +493,23 @@ func (f *eventSigFilter) Accept(visitor primitives.Visitor) {
 	}
 }
 
-type eventByWordFilter struct {
-	EventSig       common.Hash
-	WordIndex      uint8
-	ValueComparers []primitives.ValueComparator
+type HashedValueComparator struct {
+	Value    common.Hash
+	Operator primitives.ComparisonOperator
 }
 
-func NewEventByWordFilter(eventSig common.Hash, wordIndex uint8, valueComparers []primitives.ValueComparator) query.Expression {
+type eventByWordFilter struct {
+	EventSig             common.Hash
+	WordIndex            uint8
+	HashedValueComparers []HashedValueComparator
+}
+
+func NewEventByWordFilter(eventSig common.Hash, wordIndex uint8, valueComparers []HashedValueComparator) query.Expression {
 	// TODO hash values
 	return query.Expression{Primitive: &eventByWordFilter{
-		EventSig:       eventSig,
-		WordIndex:      wordIndex,
-		ValueComparers: valueComparers,
+		EventSig:             eventSig,
+		WordIndex:            wordIndex,
+		HashedValueComparers: valueComparers,
 	}}
 }
 
