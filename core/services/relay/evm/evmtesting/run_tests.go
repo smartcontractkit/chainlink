@@ -53,14 +53,15 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 
 	t.Run("Multiple topics can filter together", func(t T) {
 		it.Setup(t)
+		ctx := it.Helper.Context(t)
+		cr := it.GetChainReader(t)
+		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+
 		triggerFourTopics(t, it, int32(1), int32(2), int32(3))
 		triggerFourTopics(t, it, int32(2), int32(2), int32(3))
 		triggerFourTopics(t, it, int32(1), int32(3), int32(3))
 		triggerFourTopics(t, it, int32(1), int32(2), int32(4))
 
-		ctx := it.Helper.Context(t)
-		cr := it.GetChainReader(t)
-		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
 		var latest struct{ Field1, Field2, Field3 int32 }
 		params := struct{ Field1, Field2, Field3 int32 }{Field1: 1, Field2: 2, Field3: 3}
 
@@ -74,13 +75,14 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 
 	t.Run("Filtering can be done on indexed topics that get hashed", func(t T) {
 		it.Setup(t)
+		cr := it.GetChainReader(t)
+		ctx := it.Helper.Context(t)
+		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+
 		triggerFourTopicsWithHashed(t, it, "1", [32]uint8{2}, [32]byte{5})
 		triggerFourTopicsWithHashed(t, it, "2", [32]uint8{2}, [32]byte{3})
 		triggerFourTopicsWithHashed(t, it, "1", [32]uint8{3}, [32]byte{3})
 
-		ctx := it.Helper.Context(t)
-		cr := it.GetChainReader(t)
-		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
 		var latest struct {
 			Field3 [32]byte
 		}
