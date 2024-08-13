@@ -27,18 +27,6 @@ first_report_content=$(cat "$first_report_path" | sed -E 's/\\+$//g' | sed -E 's
 second_report_content=$(cat "$second_report_path" | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
 openai_prompt=$(cat "$report_prompt_path" | sed 's/"/\\"/g' | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
 openai_model="gpt-4o"
-
-echo '{
-  "model": "'$openai_model'",
-  "temperature": 0.1,
-  "messages": [
-    {
-      "role": "system",
-      "content": "'$openai_prompt' \nreport1:\n```'$first_report_content'```\nreport2:\n```'$second_report_content'```"
-    }
-  ]
-}' | envsubst > prompt_request.json
-
 openai_result=$(echo '{
   "model": "'$openai_model'",
   "temperature": 0.1,
@@ -59,7 +47,7 @@ openai_result=$(echo '{
 # throw error openai_result when is not 200
 if [ "$openai_result" != '200' ]; then
   echo "::error::OpenAI API call failed with status $openai_result: $(cat prompt_response.json)"
-  exit 1
+  return 1
 fi
 
 # replace lines starting with ' -' (1space) with '  -' (2spaces)
@@ -91,7 +79,7 @@ if [[ -n "$validation_prompt_path" ]]; then
   # throw error openai_result when is not 200
   if [ "$validation_result" != '200' ]; then
     echo "::error::OpenAI API call failed with status $validation_result: $(cat prompt_validation_response.json)"
-    exit 1
+    return 1
   fi
 
   # replace lines starting with ' -' (1space) with '  -' (2spaces)
