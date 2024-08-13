@@ -56,10 +56,9 @@ type registrySyncer struct {
 
 	updateChan chan *LocalRegistry
 
-	wg       sync.WaitGroup
-	lggr     logger.Logger
-	mu       sync.RWMutex
-	readerMu sync.RWMutex
+	wg   sync.WaitGroup
+	lggr logger.Logger
+	mu   sync.RWMutex
 }
 
 var _ services.Service = &registrySyncer{}
@@ -198,9 +197,6 @@ func (s *registrySyncer) updateStateLoop() {
 }
 
 func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, error) {
-	s.readerMu.RLock()
-	defer s.readerMu.RUnlock()
-
 	var caps []kcr.CapabilitiesRegistryCapabilityInfo
 	err := s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getCapabilities", primitives.Unconfirmed, nil, &caps)
 	if err != nil {
@@ -274,7 +270,6 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		return nil
 	}
 
-	s.readerMu.Lock()
 	if s.reader == nil {
 		reader, err := s.initReader(ctx, s.lggr, s.relayer, s.registryAddress)
 		if err != nil {
@@ -283,7 +278,6 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 
 		s.reader = reader
 	}
-	s.readerMu.Unlock()
 
 	var lr *LocalRegistry
 	var err error

@@ -142,6 +142,38 @@ func (l *launcher) Launch(ctx context.Context, localRegistry *registrysyncer.Loc
 	return nil
 }
 
+type orm struct {
+	ormMock               *syncerMocks.ORM
+	latestLocalRegistryCh chan struct{}
+	addLocalRegistryCh    chan struct{}
+}
+
+func newORM(t *testing.T) *orm {
+	t.Helper()
+
+	return &orm{
+		ormMock:               syncerMocks.NewORM(t),
+		latestLocalRegistryCh: make(chan struct{}, 1),
+		addLocalRegistryCh:    make(chan struct{}, 1),
+	}
+}
+
+func (o *orm) Cleanup() {
+	close(o.latestLocalRegistryCh)
+	close(o.addLocalRegistryCh)
+}
+
+func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registrysyncer.LocalRegistry) error {
+	o.addLocalRegistryCh <- struct{}{}
+	err := o.ormMock.AddLocalRegistry(ctx, localRegistry)
+	return err
+}
+
+func (o *orm) LatestLocalRegistry(ctx context.Context) (*registrysyncer.LocalRegistry, error) {
+	o.latestLocalRegistryCh <- struct{}{}
+	return o.ormMock.LatestLocalRegistry(ctx)
+}
+
 func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
 	var pids []p2ptypes.PeerID
 	for _, id := range ids {
@@ -408,22 +440,35 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	factory := newContractReaderFactory(t, sim)
-	syncerORM := syncerMocks.NewORM(t)
+	syncerORM := newORM(t)
+	syncerORM.ormMock.On("LatestLocalRegistry", mock.Anything).Return(nil, fmt.Errorf("no state found"))
+	syncerORM.ormMock.On("AddLocalRegistry", mock.Anything, mock.Anything).Return(nil)
 	syncer, err := newTestSyncer(logger.TestLogger(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
 	require.NoError(t, syncer.Start(ctx))
 	t.Cleanup(func() {
+		syncerORM.Cleanup()
 		require.NoError(t, syncer.Close())
 	})
 
 	l := &launcher{}
 	syncer.AddLauncher(l)
 
-	syncerORM.On("LatestLocalRegistry", mock.Anything).Return(nil, fmt.Errorf("no state found"))
-	syncerORM.On("AddLocalRegistry", mock.Anything, mock.Anything).Return(nil)
+	var latestLocalRegistryCalled, addLocalRegistryCalled bool
+	timeout := time.After(500 * time.Millisecond)
 
-	err = syncer.Sync(ctx, false) // should store the data into the DB
-	require.NoError(t, err)
+	for !latestLocalRegistryCalled || !addLocalRegistryCalled {
+		select {
+		case val := <-syncerORM.latestLocalRegistryCh:
+			assert.Equal(t, struct{}{}, val)
+			latestLocalRegistryCalled = true
+		case val := <-syncerORM.addLocalRegistryCh:
+			assert.Equal(t, struct{}{}, val)
+			addLocalRegistryCalled = true
+		case <-timeout:
+			t.Fatal("test timed out; channels did not received data")
+		}
+	}
 }
 
 func TestSyncer_LocalNode(t *testing.T) {
@@ -509,7 +554,7 @@ func newTestSyncer(
 	getPeerID func() (p2ptypes.PeerID, error),
 	relayer registrysyncer.ContractReaderFactory,
 	registryAddress string,
-	orm *syncerMocks.ORM,
+	orm *orm,
 ) (registrysyncer.RegistrySyncer, error) {
 	rs, err := registrysyncer.New(lggr, getPeerID, relayer, registryAddress, orm)
 	if err != nil {
