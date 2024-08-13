@@ -511,9 +511,6 @@ jobs:
 
       - name: Print failed test summary
         if: always()
-<<<<<<< HEAD
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@70ccaef155381025e411cf7cd1fa5ef8f668ed75 # v2.3.25
-=======
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
 
   eth-smoke-tests-matrix-ccip:
@@ -831,7 +828,6 @@ jobs:
         with:
           test_directories: ./integration-tests/smoke/
 
->>>>>>> 92111d036103b923d30e829d8b9819cce8cdb4ed
 
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}

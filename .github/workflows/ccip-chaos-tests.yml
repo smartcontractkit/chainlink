@@ -3,7 +3,7 @@ on:
   workflow_run:
     workflows: [ CCIP Load Test ]
     types: [ completed ]
-    branches: [ ccip-develop ]
+    branches: [ develop ]
   workflow_dispatch:
 
 

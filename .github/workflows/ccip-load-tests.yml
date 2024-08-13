@@ -2,7 +2,7 @@ name: CCIP Load Test
 on: 
   push:
     branches:
-      - ccip-develop
+      - develop
     tags:
       - '*'
   workflow_dispatch:
