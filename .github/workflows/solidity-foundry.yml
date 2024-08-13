@@ -8,6 +8,11 @@ env:
 # * use the top-level matrix to decide, which checks should run for each product.
 # * when enabling code coverage, remember to adjust the minimum code coverage as it's set to 98.5% by default.
 
+# This pipeline will run product tests only if product-specific contracts were modified or if broad-impact changes were made (e.g. changes to this pipeline, Foundry configuration, etc.)
+# For modified contracts we use a LLM to extract new issues introduced by the changes. For new contracts full report is delivered.
+# Slither has a default configuration, but also supports per-product configuration. If a product-specific configuration is not found, the default one is used.
+# Changes to test files do not trigger static analysis or formatting checks.
+
 jobs:
   define-matrix:
     name: Define test matrix
@@ -203,7 +208,6 @@ jobs:
           || needs.changes.outputs.non_src_changes == 'true')
           && matrix.product.setup.run-coverage }}
         run: |
-          sudo apt-get install lcov
           ./contracts/scripts/lcov_prune ${{ matrix.product.name }} ./contracts/lcov.info ./contracts/lcov.info.pruned
 
       - name: Report code coverage for ${{ matrix.product.name }}
@@ -233,6 +237,7 @@ jobs:
           this-job-name: Foundry Tests ${{ matrix.product.name }}
         continue-on-error: true
 
+  # runs only if non-test contracts were modified; scoped only to modified or added contracts
   analyze:
     needs: [ changes, define-matrix ]
     name: Run static analysis
@@ -289,17 +294,19 @@ jobs:
             ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "." "$FILE" "contracts/slither-reports-current" "--solc-remaps @=contracts/node_modules/@"
           done
 
+      # all the actions below, up to printing results, run only if any existing contracts were modified
+      # in that case we extract new issues introduced by the changes by using an LLM model
       - name: Upload Slither results for current branch
         if: needs.changes.outputs.sol_mod_only == 'true'
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         timeout-minutes: 2
         continue-on-error: true
         with:
-          name: tmp-slither-reports-current-${{ github.sha }}
+          name: slither-reports-current-${{ github.sha }}
           path: contracts/slither-reports-current
           retention-days: 7
 
-      # we need to do that in case base_ref doesn't have the scripts or they are in different version
+      # we need to upload scripts and configuration in case base_ref doesn't have the scripts, or they are in different version
       - name: Upload Slither scripts
         if: needs.changes.outputs.sol_mod_only == 'true'
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
@@ -340,8 +347,9 @@ jobs:
           name: tmp-configs-${{ github.sha }}
           path: contracts/configs
 
-      # install node dependencies again, so that we can compile contracts
+      # since we have just checked out the repository again, we lose NPM dependencies installs previously, we need to install them again to compile contracts
       - name: Setup NodeJS
+        if: needs.changes.outputs.sol_mod_only == 'true'
         uses: ./.github/actions/setup-nodejs
 
       - name: Run Slither for base reference
@@ -373,14 +381,13 @@ jobs:
             ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "." "$FILE" "contracts/slither-reports-base-ref" "--solc-remaps @=contracts/node_modules/@"
           done          
 
-      # TODO remove after testing
       - name: Upload Slither report
         if: needs.changes.outputs.sol_mod_only == 'true'
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         timeout-minutes: 10
         continue-on-error: true
         with:
-          name: tmp-slither-reports-base-${{ github.sha }}
+          name: slither-reports-base-${{ github.sha }}
           path: |
             contracts/slither-reports-base-ref
           retention-days: 7
@@ -389,7 +396,7 @@ jobs:
         if: needs.changes.outputs.sol_mod_only == 'true'
         uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
         with:
-          name: tmp-slither-reports-current-${{ github.sha }}
+          name: slither-reports-current-${{ github.sha }}
           path: contracts/slither-reports-current
 
       - name: Generate diff of Slither reports for modified files
@@ -420,8 +427,9 @@ jobs:
               echo "Failed to find current report for $base_report (file $current_file doesn't exist, but should have been generated). Please check Slither logs."
               exit 1
             fi
-          done          
+          done
 
+      # actions that execute only if any existing contracts were modified end here
       - name: Print Slither summary
         shell: bash
         run: |
@@ -439,7 +447,7 @@ jobs:
           slither_reports_path: 'contracts/slither-reports-current'
           sol_files: ${{ needs.changes.outputs.not_test_sol_modified_files }}
 
-      - name: Upload Slither report
+      - name: Upload Slither reports
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         timeout-minutes: 10
         continue-on-error: true
