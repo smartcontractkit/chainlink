@@ -34,6 +34,11 @@ jobs:
         with:
           ref: ${{ env.GIT_REF }}
 
+      # This gets the image tag and whether to publish the image based on the event type
+      # PR builds: pr-<pr_number>-<short_sha> (if label 'build-publish' is present publishes the image)
+      # develop builds: develop-<short_sha>
+      # release builds: release-<short_sha>
+      # manual builds: <short_sha> (if build-publish is true publishes the image)
       - name: Get image tag
         id: get-image-tag
         run: |
