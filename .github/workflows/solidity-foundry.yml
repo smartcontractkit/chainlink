@@ -428,17 +428,6 @@ jobs:
             fi
           done
 
-      - name: Upload debug
-        if: always() && needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
-        timeout-minutes: 10
-        continue-on-error: true
-        with:
-          name: chatgpt-debug
-          path: |
-            prompt*.json
-          retention-days: 7
-
       # actions that execute only if any existing contracts were modified end here
       - name: Print Slither summary
         shell: bash
