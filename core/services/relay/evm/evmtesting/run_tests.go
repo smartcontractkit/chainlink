@@ -101,6 +101,15 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 
 		ctx := it.Helper.Context(t)
 		cr := it.GetChainReader(t)
+		bindings := it.GetBindings(t)
+
+		var bound types.BoundContract
+		for idx := range bindings {
+			if bindings[idx].Name == AnyContractName {
+				bound = bindings[idx]
+			}
+		}
+
 		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
 		var latest struct {
 			Field3 [32]byte
@@ -112,7 +121,7 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 		}{Field1: "1", Field2: [32]uint8{2}, Field3: [32]byte{5}}
 
 		time.Sleep(it.MaxWaitTimeForEvents())
-		require.NoError(t, cr.GetLatestValue(ctx, AnyContractName, triggerWithAllTopicsWithHashed, primitives.Unconfirmed, params, &latest))
+		require.NoError(t, cr.GetLatestValue(ctx, bound.ReadIdentifier(triggerWithAllTopicsWithHashed), primitives.Unconfirmed, params, &latest))
 		// only checking Field3 topic makes sense since it isn't hashed, to check other fields we'd have to replicate solidity encoding and hashing
 		assert.Equal(t, [32]uint8{5}, latest.Field3)
 	})

@@ -241,20 +241,22 @@ func (it *EVMChainReaderInterfaceTester[T]) SetTestStructLatestValue(t T, testSt
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) SetBatchLatestValues(t T, batchCallEntry BatchCallEntry) {
-	nameToAddress := make(map[string]string)
-	boundContracts := it.GetBindings(t)
-	for _, bc := range boundContracts {
-		nameToAddress[bc.Name] = bc.Address
+	addressToName := make(map[string]string)
+
+	for _, bc := range it.GetBindings(t) {
+		addressToName[bc.Address] = bc.Name
 	}
 
-	for contractName, contractBatch := range batchCallEntry {
-		require.Contains(t, nameToAddress, contractName)
+	for binding, contractBatch := range batchCallEntry {
+		require.Contains(t, addressToName, binding.Address)
+
 		for _, readEntry := range contractBatch {
 			val, isOk := readEntry.ReturnValue.(*TestStruct)
 			if !isOk {
-				require.Fail(t, "expected *TestStruct for contract: %s read: %s, but received %T", contractName, readEntry.Name, readEntry.ReturnValue)
+				require.Fail(t, "expected *TestStruct for contract: %s read: %s, but received %T", binding.Name, readEntry.Name, readEntry.ReturnValue)
 			}
-			it.sendTxWithTestStruct(t, nameToAddress[contractName], val, (*chain_reader_tester.ChainReaderTesterTransactor).AddTestStruct)
+
+			it.sendTxWithTestStruct(t, binding.Address, val, (*chain_reader_tester.ChainReaderTesterTransactor).AddTestStruct)
 		}
 	}
 }

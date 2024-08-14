@@ -50,8 +50,8 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	var gasLimit uint64 = 400_000
 	if err := cr.Bind(ctx, []commontypes.BoundContract{
 		{
-			Address:  config.ForwarderAddress().String(),
-			Contract: "forwarder",
+			Name:    "forwarder",
+			Address: config.ForwarderAddress().String(),
 		},
 	}); err != nil {
 		return nil, err

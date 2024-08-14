@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
@@ -134,15 +133,15 @@ func (b *NamedBindings) BatchGetLatestValues(ctx context.Context, request common
 
 	var batchCall BatchCall
 
-	for contractName, contractBatch := range request {
-		cb := b.contractBindings[contractName]
+	for binding, contractBatch := range request {
+		cb := b.contractBindings[binding.Name]
 
 		for i := range contractBatch {
 			req := contractBatch[i]
 
-			values, ok := b.contractLookup.getContractForReadName(req.ReadIdentifier)
+			values, ok := b.contractLookup.getContractForReadName(binding.ReadIdentifier(req.ReadName))
 			if !ok {
-				return nil, fmt.Errorf("%w: no method for read name %s", commontypes.ErrInvalidType, req.ReadIdentifier)
+				return nil, fmt.Errorf("%w: no method for read name %s", commontypes.ErrInvalidType, binding.ReadIdentifier(req.ReadName))
 			}
 
 			rdr, exists := cb.GetReaderNamed(values.method)
@@ -168,17 +167,23 @@ func (b *NamedBindings) BatchGetLatestValues(ctx context.Context, request common
 	// reconstruct results from batchCall and filteredLogs into common type while maintaining order from request.
 	batchGetLatestValuesResults := make(commontypes.BatchGetLatestValuesResult)
 	for contractName, contractResult := range results {
-		batchGetLatestValuesResults[contractName] = commontypes.ContractBatchResults{}
 		for _, methodResult := range contractResult {
+			binding := commontypes.BoundContract{
+				Name:    contractName,
+				Address: methodResult.Address,
+			}
+
 			brr := commontypes.BatchReadResult{
-				ReadIdentifier: types.BoundContract{
-					Address: methodResult.Address,
-					Name:    contractName,
-				}.ReadIdentifier(methodResult.MethodName),
+				ReadName: methodResult.MethodName,
 			}
 
 			brr.SetResult(methodResult.ReturnValue, methodResult.Err)
-			batchGetLatestValuesResults[contractName] = append(batchGetLatestValuesResults[contractName], brr)
+
+			if _, ok := batchGetLatestValuesResults[binding]; !ok {
+				batchGetLatestValuesResults[binding] = make(commontypes.ContractBatchResults, 0)
+			}
+
+			batchGetLatestValuesResults[binding] = append(batchGetLatestValuesResults[binding], brr)
 		}
 	}
 
