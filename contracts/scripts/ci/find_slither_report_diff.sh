@@ -47,7 +47,7 @@ openai_result=$(echo '{
 # throw error openai_result when is not 200
 if [ "$openai_result" != '200' ]; then
   echo "::error::OpenAI API call failed with status $openai_result: $(cat prompt_response.json)"
-  return 1
+  exit 1
 fi
 
 # replace lines starting with ' -' (1space) with '  -' (2spaces)
@@ -80,7 +80,7 @@ if [[ -n "$validation_prompt_path" ]]; then
   # throw error openai_result when is not 200
   if [ "$validation_result" != '200' ]; then
     echo "::error::OpenAI API call failed with status $validation_result: $(cat prompt_validation_response.json)"
-    return 1
+    exit 1
   fi
 
   # replace lines starting with ' -' (1space) with '  -' (2spaces)
