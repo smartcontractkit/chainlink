@@ -190,8 +190,11 @@ jobs:
           ref: main
           fetch-depth: 0
           path: ctf        
-      # - name: Setup Go
-      #   uses: ./.github/actions/setup-go
+      - name: Setup Go for citool
+        uses: ./.github/actions/setup-go
+        with:
+          go-module-file: ctf/tools/citool/go.mod
+          go-version-file: ctf/tools/citool/go.mod
       - name: Run Check Tests Command
         run: |
           cd ctf/tools/citool/
@@ -238,8 +241,11 @@ jobs:
           ref: main
           fetch-depth: 0
           path: ctf             
-      # - name: Setup Go
-      #   uses: ./.github/actions/setup-go
+      - name: Setup Go for citool
+        uses: ./.github/actions/setup-go
+        with:
+          go-module-file: ctf/tools/citool/go.mod
+          go-version-file: ctf/tools/citool/go.mod
       - name: Install jq
         run: sudo apt-get install jq
       - name: Generate Docker Tests Matrix
