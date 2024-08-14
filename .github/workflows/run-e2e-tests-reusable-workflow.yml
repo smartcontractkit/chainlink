@@ -583,7 +583,6 @@ jobs:
           path: test_result.json        
           retention-days: 1
 
-      # TODO: move to run-tests GHA
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@70ccaef155381025e411cf7cd1fa5ef8f668ed75 # v2.3.25
