@@ -44,8 +44,9 @@ openai_result=$(echo '{
               -d @-
 )
 
+# TODO change me to != 200
 # throw error openai_result when is not 200
-if [ "$openai_result" != '200' ]; then
+if [ "$openai_result" == '200' ]; then
   echo "::error::OpenAI API call failed with status $openai_result: $(cat prompt_response.json)"
   exit 1
 fi
