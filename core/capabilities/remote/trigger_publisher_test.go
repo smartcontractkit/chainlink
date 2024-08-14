@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -42,7 +41,7 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	}
 
 	dispatcher := remoteMocks.NewDispatcher(t)
-	config := &capabilities.RemoteTriggerConfig{
+	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
 		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
@@ -73,6 +72,12 @@ func TestTriggerPublisher_Register(t *testing.T) {
 		Payload:     marshaled,
 	}
 	publisher.Receive(ctx, regEvent)
+	// node p1 is not a member of the workflow DON so registration shoudn't happen
+	require.Empty(t, underlying.registrationsCh)
+
+	regEvent.Sender = p2[:]
+	publisher.Receive(ctx, regEvent)
+	require.NotEmpty(t, underlying.registrationsCh)
 	forwarded := <-underlying.registrationsCh
 	require.Equal(t, capRequest.Metadata.WorkflowID, forwarded.Metadata.WorkflowID)
 
