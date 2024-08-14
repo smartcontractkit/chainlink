@@ -39,6 +39,13 @@ import (
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
+const (
+	CapabilityTypeTrigger   = 0
+	CapabilityTypeAction    = 1
+	CapabilityTypeConsensus = 2
+	CapabilityTypeTarget    = 3
+)
+
 type peer struct {
 	PeerID string
 	Signer string
@@ -101,7 +108,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	streamsTrigger := kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "streams-trigger",
 		Version:        "1.0.0",
-		CapabilityType: 0, // Trigger
+		CapabilityType: CapabilityTypeTrigger,
 	}
 	sid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, streamsTrigger.LabelledName, streamsTrigger.Version)
 	require.NoError(t, err)
@@ -110,7 +117,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		LabelledName: "write_geth-testnet",
 		Version:      "1.0.0",
 
-		CapabilityType: 3, // Target
+		CapabilityType: CapabilityTypeTarget,
 	}
 	wid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, writeChain.LabelledName, writeChain.Version)
 	if err != nil {
@@ -120,7 +127,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	ocr := kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "offchain_reporting",
 		Version:        "1.0.0",
-		CapabilityType: 2, // Consensus
+		CapabilityType: CapabilityTypeConsensus,
 	}
 	ocrid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, ocr.LabelledName, ocr.Version)
 	require.NoError(t, err)
