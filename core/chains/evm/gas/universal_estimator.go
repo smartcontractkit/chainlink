@@ -262,7 +262,7 @@ func (u *UniversalEstimator) FetchDynamicPrice() (fee DynamicFee, err error) {
 	// eth_feeHistory may return less results than BlockHistorySize so we need to divide by the length of the result
 	maxPriorityFeePerGas := assets.NewWei(priorityFee.Div(priorityFee, big.NewInt(int64(len(feeHistory.Reward)))))
 	// baseFeeBufferPercentage is used as a safety to catch fluctuations in the next block.
-	maxFeePerGas := baseFee.AddPercentage(BaseFeeBufferPercentage).Add((maxPriorityFeePerGas))
+	maxFeePerGas := baseFee.AddPercentage(BaseFeeBufferPercentage).Add(maxPriorityFeePerGas)
 
 	promUniversalEstimatorBaseFee.WithLabelValues(u.chainID.String()).Set(float64(baseFee.Int64()))
 	promUniversalEstimatorMaxPriorityFeePerGas.WithLabelValues(u.chainID.String()).Set(float64(maxPriorityFeePerGas.Int64()))
@@ -314,8 +314,9 @@ func (u *UniversalEstimator) BumpLegacyGas(ctx context.Context, originalGasPrice
 }
 
 // BumpDynamicFee provides a bumped dynamic fee by bumping the previous one by BumpPercent.
-// If the original values are higher than the max price it returns an error as there is no room for bumping. Both maxFeePerGas
-// as well as maxPriorityFerPergas need to be bumped otherwise the RPC won't accept the transaction and throw an error.
+// If the original values are higher than the max price it returns an error as there is no room for bumping. If maxPriorityFeePerGas is bumped
+// above the priority fee threshold then there is a good chance there is a connectivity issue and we shouldn't bump.
+// Both maxFeePerGas as well as maxPriorityFerPergas need to be bumped otherwise the RPC won't accept the transaction and throw an error.
 // See: https://github.com/ethereum/go-ethereum/issues/24284
 // It aggregates the market, bumped, and max price to provide a correct value, for both maxFeePerGas as well as maxPriorityFerPergas.
 func (u *UniversalEstimator) BumpDynamicFee(ctx context.Context, originalFee DynamicFee, maxPrice *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, err error) {
