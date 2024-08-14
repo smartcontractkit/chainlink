@@ -38,11 +38,11 @@ contract UpkeepCounterNew {
     performGasToBurn = 5000000;
   }
 
-  function setPerformGasToBurn(uint256 value) public {
+  function setPerformGasToBurn(uint256 value) external {
     performGasToBurn = value;
   }
 
-  function setCheckGasToBurn(uint256 value) public {
+  function setCheckGasToBurn(uint256 value) external {
     checkGasToBurn = value;
   }
 
