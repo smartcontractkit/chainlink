@@ -775,7 +775,9 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param nodes The nodes making up the DON
   /// @param capabilityConfigurations The list of configurations for the
   /// capabilities supported by the DON
-  /// @param isPublic True if the DON is public
+  /// @param isPublic True if the DON is can accept external capability requests
+  /// @param acceptsWorkflows True if the DON can accept workflows
+  /// @param f The maximum number of faulty nodes the DON can tolerate
   function addDON(
     bytes32[] calldata nodes,
     CapabilityConfiguration[] calldata capabilityConfigurations,
@@ -797,24 +799,32 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// the admin to reconfigure the list of capabilities supported
   /// by the DON, the list of nodes that make up the DON as well
   /// as whether or not the DON can accept external workflows
+  /// @param donId The ID of the DON to update
   /// @param nodes The nodes making up the DON
   /// @param capabilityConfigurations The list of configurations for the
   /// capabilities supported by the DON
-  /// @param isPublic True if the DON is can accept external workflows
+  /// @param isPublic True if the DON is can accept external capability requests
+  /// @param f The maximum number of nodes that can fail
   function updateDON(
     uint32 donId,
     bytes32[] calldata nodes,
     CapabilityConfiguration[] calldata capabilityConfigurations,
     bool isPublic,
-    bool acceptsWorkflows,
     uint8 f
   ) external onlyOwner {
-    uint32 configCount = s_dons[donId].configCount;
+    DON storage don = s_dons[donId];
+    uint32 configCount = don.configCount;
     if (configCount == 0) revert DONDoesNotExist(donId);
     _setDONConfig(
       nodes,
       capabilityConfigurations,
-      DONParams({id: donId, configCount: ++configCount, isPublic: isPublic, acceptsWorkflows: acceptsWorkflows, f: f})
+      DONParams({
+        id: donId,
+        configCount: ++configCount,
+        isPublic: isPublic,
+        acceptsWorkflows: don.acceptsWorkflows,
+        f: f
+      })
     );
   }
 
