@@ -591,6 +591,10 @@ func (g *TestGasEstimatorConfig) BlockHistory() evmconfig.BlockHistory {
 	return &TestBlockHistoryConfig{}
 }
 
+func (g *TestGasEstimatorConfig) Universal() evmconfig.Universal {
+	return &TestUniversalConfig{}
+}
+
 func (g *TestGasEstimatorConfig) EIP1559DynamicFees() bool   { return false }
 func (g *TestGasEstimatorConfig) LimitDefault() uint64       { return 1e6 }
 func (g *TestGasEstimatorConfig) BumpPercent() uint16        { return 2 }
@@ -637,6 +641,10 @@ func (b *TestBlockHistoryConfig) BlockDelay() uint16                { return 42 
 func (b *TestBlockHistoryConfig) BlockHistorySize() uint16          { return 42 }
 func (b *TestBlockHistoryConfig) EIP1559FeeCapBufferBlocks() uint16 { return 42 }
 func (b *TestBlockHistoryConfig) TransactionPercentile() uint16     { return 42 }
+
+type TestUniversalConfig struct {
+	evmconfig.Universal
+}
 
 type transactionsConfig struct {
 	evmconfig.Transactions
