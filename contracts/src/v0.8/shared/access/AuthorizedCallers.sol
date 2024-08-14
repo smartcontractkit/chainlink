@@ -15,6 +15,8 @@ contract AuthorizedCallers is OwnerIsCreator {
   error UnauthorizedCaller(address caller);
   error ZeroAddressNotAllowed();
 
+  error NotNeededAnymore();
+
   /// @notice Update args for changing the authorized callers
   struct AuthorizedCallerArgs {
     address[] addedCallers;
