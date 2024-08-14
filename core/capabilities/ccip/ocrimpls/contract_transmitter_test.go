@@ -613,8 +613,8 @@ func (g *TestGasEstimatorConfig) LimitJobType() evmconfig.LimitJobType {
 func (g *TestGasEstimatorConfig) PriceMaxKey(addr common.Address) *assets.Wei {
 	return assets.GWei(1)
 }
-func (g *TestGasEstimatorConfig) EstimateGasLimit() bool { return false }
-func (g *TestGasEstimatorConfig) EstimatedGasBuffer() float32 { return 1.25}
+func (g *TestGasEstimatorConfig) EstimateGasLimit() bool      { return false }
+func (g *TestGasEstimatorConfig) EstimatedGasBuffer() float32 { return 1.25 }
 
 func (e *TestEvmConfig) GasEstimator() evmconfig.GasEstimator {
 	return &TestGasEstimatorConfig{bumpThreshold: e.BumpThreshold}
