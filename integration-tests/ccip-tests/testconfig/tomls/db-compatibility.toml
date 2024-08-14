@@ -1,0 +1,34 @@
+[CCIP]
+[CCIP.Env]
+[CCIP.Env.NewCLCluster]
+NoOfNodes = 6
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node1'
+DBImage = 'postgres'
+DBTag = '13.14'
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node2'
+DBImage = 'postgres'
+DBTag = '12.18'
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node3'
+DBImage = 'postgres'
+DBTag = '14.11'
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node4'
+DBImage = 'postgres'
+DBTag = '14.8'
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node5'
+DBImage = 'postgres'
+DBTag = '15.6'
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node6'
+DBImage = 'postgres'
+DBTag = '15.6'
