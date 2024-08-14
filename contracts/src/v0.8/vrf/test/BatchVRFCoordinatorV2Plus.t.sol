@@ -63,6 +63,7 @@ contract BatchVRFCoordinatorV2PlusTest is FixtureVRFCoordinatorV2_5 {
     // 3rd step: copy the output from the 1st step and update the command below, then run the command
     // and copy the command output in the proof section below
     /*
+       Run from this folder: chainlink/core/scripts/vrfv2plus/testnet
        go run . generate-proof-v2-plus \
          -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
          -pre-seed 4430852740828987645228960511496023658059009607317025880962658187812299131155 \
@@ -136,6 +137,7 @@ contract BatchVRFCoordinatorV2PlusTest is FixtureVRFCoordinatorV2_5 {
     // 3rd step: copy the output from the 1st step and update the command below, then run the command
     // and copy the command output in the proof section below
     /*
+       Run from this folder: chainlink/core/scripts/vrfv2plus/testnet
        go run . generate-proof-v2-plus \
          -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
          -pre-seed 14541556911652758131165474365357244907354309169650401973525070879190071151266 \

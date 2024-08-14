@@ -532,6 +532,7 @@ contract VRFV2Plus is BaseTest {
     // export ACCOUNT_KEY=<your test EOA private key>
     // 4th step: run the command and copy the command output in the proof section below.
     /*
+        Run from this folder: chainlink/core/scripts/vrfv2plus/testnet
         go run . generate-proof-v2-plus \
         -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
         -pre-seed 77134414723242246520332717536018735794426514244521954002798799849127623496871 \
@@ -627,6 +628,7 @@ contract VRFV2Plus is BaseTest {
     // export ACCOUNT_KEY=<your test EOA private key>
     // 4th step: run the command and copy the command output in the proof section below.
     /*
+       Run from this folder: chainlink/core/scripts/vrfv2plus/testnet
        go run . generate-proof-v2-plus \
         -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
         -pre-seed 88177119495082281213609405072572269421661478022189589823108119237563684383163 \
@@ -761,26 +763,26 @@ contract VRFV2Plus is BaseTest {
     (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
 
-    // The cost of fulfillRandomWords is approximately 86_700 gas.
+    // The cost of fulfillRandomWords is approximately 89_100 gas.
     // gasAfterPaymentCalculation is 50_000.
     //
     // The cost of the VRF fulfillment charged to the user is:
     // paymentNoFee = (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft() + l1CostWei) / link_native_ratio)
     // network gas price is capped at gas lane max gas (5000 gwei)
-    // paymentNoFee = (5e12 * (50_000 + 86_700 + 0)) / .5
-    // paymentNoFee = 1.367e+18
+    // paymentNoFee = (5e12 * (50_000 + 89_100 + 0)) / .5
+    // paymentNoFee = 1.391e+18
     // flatFeeWei = 1e12 * (fulfillmentFlatFeeNativePPM - fulfillmentFlatFeeLinkDiscountPPM)
     // flatFeeWei = 1e12 * (500_000 - 100_000)
     // flatFeeJuels = 1e18 * flatFeeWei / link_native_ratio
     // flatFeeJuels = 4e17 / 0.5 = 8e17
     // billed_fee = paymentNoFee * (10 / 100) + 8e17
-    // billed_fee = 1.367e+18 * 0.1 + 8e17
-    // billed_fee = 9.367e+17
+    // billed_fee = 1.391e+18 * 0.1 + 8e17
+    // billed_fee = 9.391e+17
     // note: delta is doubled from the native test to account for more variance due to the link/native ratio
     (uint96 linkBalanceAfter, , , , ) = s_testCoordinator.getSubscription(subId);
     // 1e15 is less than 1 percent discrepancy
-    assertApproxEqAbs(payment, 9.367 * 1e17, 1e15);
-    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 9.367 * 1e17, 1e15);
+    assertApproxEqAbs(payment, 9.391 * 1e17, 1e15);
+    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 9.391 * 1e17, 1e15);
     assertFalse(s_testCoordinator.pendingRequestExists(subId));
   }
 
@@ -864,6 +866,7 @@ contract VRFV2Plus is BaseTest {
     // export ACCOUNT_KEY=<your test EOA private key>
     // 4th step: run the command and copy the command output in the proof section below.
     /*
+      Run from this folder: chainlink/core/scripts/vrfv2plus/testnet
       go run . generate-proof-v2-plus \
       -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
       -pre-seed 78857362017365444144484359594634073685493503942324326290718892836953423263381 \
@@ -1019,6 +1022,7 @@ contract VRFV2Plus is BaseTest {
     // export ACCOUNT_KEY=<your test EOA private key>
     // 4th step: run the command and copy the command output in the proof section below.
     /*
+      Run from this folder: chainlink/core/scripts/vrfv2plus/testnet
       go run . generate-proof-v2-plus \
       -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
       -pre-seed 78857362017365444144484359594634073685493503942324326290718892836953423263381 \
@@ -1074,6 +1078,7 @@ contract VRFV2Plus is BaseTest {
     // export ACCOUNT_KEY=<your test EOA private key>
     // 4th step: run the command and copy the command output in the proof section below.
     /*
+      Run from this folder: chainlink/core/scripts/vrfv2plus/testnet
       go run . generate-proof-v2-plus \
       -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
       -pre-seed 53330100288105770463016865504321558518073051667771993294213115153676065708950 \
