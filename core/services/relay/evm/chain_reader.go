@@ -40,6 +40,7 @@ type chainReader struct {
 	bindings
 	codec commontypes.RemoteCodec
 	commonservices.StateMachine
+	isStarted bool
 }
 
 var _ ChainReaderService = (*chainReader)(nil)
@@ -49,12 +50,13 @@ var _ commontypes.ContractTypeProvider = &chainReader{}
 // Note that the ChainReaderService returned does not support anonymous events.
 func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, ht logpoller.HeadTracker, client evmclient.Client, config types.ChainReaderConfig) (ChainReaderService, error) {
 	cr := &chainReader{
-		lggr:     lggr.Named("ChainReader"),
-		ht:       ht,
-		lp:       lp,
-		client:   client,
-		bindings: bindings{contractBindings: make(map[string]*contractBinding)},
-		parsed:   &ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
+		lggr:      lggr.Named("ChainReader"),
+		ht:        ht,
+		lp:        lp,
+		client:    client,
+		bindings:  bindings{contractBindings: make(map[string]*contractBinding)},
+		parsed:    &ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
+		isStarted: false,
 	}
 
 	var err error
@@ -142,7 +144,7 @@ func (cr *chainReader) Name() string { return cr.lggr.Name() }
 // Start registers polling filters if contracts are already bound.
 func (cr *chainReader) Start(ctx context.Context) error {
 	return cr.StartOnce("ChainReader", func() error {
-		return cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+		err := cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
 			for _, rb := range cb.readBindings {
 				if err := rb.Register(ctx); err != nil {
 					return err
@@ -150,6 +152,10 @@ func (cr *chainReader) Start(ctx context.Context) error {
 			}
 			return cb.Register(ctx, cr.lp)
 		})
+		if err == nil {
+			cr.isStarted = true
+		}
+		return err
 	})
 }
 
@@ -158,7 +164,7 @@ func (cr *chainReader) Close() error {
 	return cr.StopOnce("ChainReader", func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		return cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+		err := cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
 			for _, rb := range cb.readBindings {
 				if err := rb.Unregister(ctx); err != nil {
 					return err
@@ -166,6 +172,10 @@ func (cr *chainReader) Close() error {
 			}
 			return cb.Unregister(ctx, cr.lp)
 		})
+		if err == nil {
+			cr.isStarted = false
+		}
+		return err
 	})
 }
 
@@ -176,6 +186,10 @@ func (cr *chainReader) HealthReport() map[string]error {
 }
 
 func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
+	if !cr.isStarted {
+		return errors.New("service not started")
+	}
+
 	b, err := cr.bindings.GetReadBinding(contractName, method)
 	if err != nil {
 		return err
@@ -185,14 +199,26 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method 
 }
 
 func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
+	if !cr.isStarted {
+		return nil, errors.New("service not started")
+	}
+
 	return cr.bindings.BatchGetLatestValues(ctx, request)
 }
 
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
+	if !cr.isStarted {
+		return errors.New("service not started")
+	}
+
 	return cr.bindings.Bind(ctx, cr.lp, bindings)
 }
 
 func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	if !cr.isStarted {
+		return nil, errors.New("service not started")
+	}
+
 	b, err := cr.bindings.GetReadBinding(contractName, filter.Key)
 	if err != nil {
 		return nil, err
