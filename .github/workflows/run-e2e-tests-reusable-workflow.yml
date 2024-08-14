@@ -191,7 +191,7 @@ jobs:
           fetch-depth: 0
           path: ctf        
       - name: Setup Go for citool
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@993454cbeedac2ee60fa37854614b521b51f0d26 # v2.3.30
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@4f7b63c45f08b91f6a244a36cbbf6c71992712e9 # v2.3.30
         with:
           cache_key_id: ctf
           cache_builds: true
@@ -244,7 +244,7 @@ jobs:
           fetch-depth: 0
           path: ctf             
       - name: Setup Go for citool
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@993454cbeedac2ee60fa37854614b521b51f0d26 # v2.3.30
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@4f7b63c45f08b91f6a244a36cbbf6c71992712e9 # v2.3.30
         with:
           cache_key_id: ctf
           cache_builds: true
@@ -499,7 +499,7 @@ jobs:
 
       - name: Run tests
         id: run_tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@993454cbeedac2ee60fa37854614b521b51f0d26 # v2.3.30
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@4f7b63c45f08b91f6a244a36cbbf6c71992712e9 # v2.3.30
         env:
           DETACH_RUNNER: true
         with:
@@ -679,7 +679,7 @@ jobs:
 
       - name: Run tests
         id: run_tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@993454cbeedac2ee60fa37854614b521b51f0d26 # v2.3.29
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@4f7b63c45f08b91f6a244a36cbbf6c71992712e9 # v2.3.29
         env:
           DETACH_RUNNER: true
           RR_MEM: ${{ matrix.tests.remote_runner_memory }}
