@@ -34,16 +34,16 @@ contract UpkeepCounterNew {
     useMoreCheckGas = false;
     useMorePerformData = false;
     useMorePerformGas = false;
-    checkGasToBurn = 5000000;
-    performGasToBurn = 5000000;
+    checkGasToBurn = 9700000;
+    performGasToBurn = 7700000;
   }
 
-  function setPerformGasToBurn(uint256 value) external {
-    performGasToBurn = value;
+  function setPerformGasToBurn(uint256 _performGasToBurn) external {
+    performGasToBurn = _performGasToBurn;
   }
 
-  function setCheckGasToBurn(uint256 value) external {
-    checkGasToBurn = value;
+  function setCheckGasToBurn(uint256 _checkGasToBurn) external {
+    checkGasToBurn = _checkGasToBurn;
   }
 
   function setUseMoreCheckGas(bool _useMoreCheckGas) external {
