@@ -529,11 +529,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				return tx.Nonce() == uint64(346) && tx.Value().Cmp(big.NewInt(243)) == 0
 			}), fromAddress).Return(commonclient.Fatal, errors.New(terminallyStuckError)).Once()
 
-			// Do the thing
+			// Start processing unstarted transactions
 			retryable, err := eb.ProcessUnstartedTxs(tests.Context(t), fromAddress)
 			assert.NoError(t, err)
 			assert.False(t, retryable)
-		
+
 			dbTx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 			require.NoError(t, err)
 			assert.Equal(t, txmgrcommon.TxFatalError, dbTx.State)

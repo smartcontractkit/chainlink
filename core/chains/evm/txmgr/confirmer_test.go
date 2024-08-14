@@ -2713,7 +2713,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyStuckError(t *testing.
 			return tx.Nonce() == uint64(*etx.Sequence)
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
-		// Do the thing
+		// Start processing transactions for rebroadcast
 		require.NoError(t, ec.RebroadcastWhereNecessary(tests.Context(t), currentHead))
 		var err error
 		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)

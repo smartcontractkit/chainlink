@@ -1001,7 +1001,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		return ec.txStore.DeleteInProgressAttempt(ctx, attempt)
 	case client.TerminallyStuck:
 		// A transaction could broadcast successfully but then be considered terminally stuck on another attempt
-		// Even though the transaction can succeeed under different circumstances, we want to purge this transaction as soon as we get this error
+		// Even though the transaction can succeed under different circumstances, we want to purge this transaction as soon as we get this error
 		lggr.Errorw("terminally stuck transaction detected", "err", sendError.Error())
 		ec.SvcErrBuffer.Append(sendError)
 		// Create a purge attempt for tx
