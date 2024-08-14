@@ -209,7 +209,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	triggerCapabilityConfig := newCapabilityConfig()
 	triggerCapabilityConfig.RemoteConfig = &pb.CapabilityConfig_RemoteTriggerConfig{
 		RemoteTriggerConfig: &pb.RemoteTriggerConfig{
-			RegistrationRefresh: durationpb.New(60000 * time.Millisecond),
+			RegistrationRefresh: durationpb.New(1000 * time.Millisecond),
 			RegistrationExpiry:  durationpb.New(60000 * time.Millisecond),
 			// F + 1
 			MinResponsesToAggregate: uint32(triggerDon.F) + 1,
