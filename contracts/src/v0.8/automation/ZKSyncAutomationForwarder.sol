@@ -14,6 +14,7 @@ uint256 constant PERFORM_GAS_CUSHION = 5_000;
  */
 contract ZKSyncAutomationForwarder {
   error InvalidCaller(address);
+  event GasDetails(uint256 executionGas, uint256 gasPrice, uint256 pubdataGasSpent);
 
   /// @notice the user's target contract address
   address private immutable i_target;
@@ -49,7 +50,9 @@ contract ZKSyncAutomationForwarder {
     if (success) {
       (, pubdataGasSpent) = abi.decode(returnData, (bytes, uint256));
     }
-    gasUsed = g1 - gasleft() + pubdataGasSpent;
+    uint256 executionGas = g1 - gasleft();
+    gasUsed = executionGas + pubdataGasSpent;
+    emit GasDetails(executionGas, tx.gasprice, pubdataGasSpent);
     if (gasUsed > gasAmount) {
       return (false, gasUsed);
     }
