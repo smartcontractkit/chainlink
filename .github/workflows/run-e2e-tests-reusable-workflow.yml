@@ -191,10 +191,11 @@ jobs:
           fetch-depth: 0
           path: ctf        
       - name: Setup Go for citool
-        uses: ./.github/actions/setup-go
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@993454cbeedac2ee60fa37854614b521b51f0d26 # v2.3.30
         with:
-          go-module-file: ctf/tools/citool/go.mod
-          go-version-file: ctf/tools/citool/go.mod
+          cache_key_id: ctf
+          go_mod_path: ctf/tools/citool/go.mod
+          should_tidy: false
       - name: Run Check Tests Command
         run: |
           cd ctf/tools/citool/
@@ -242,10 +243,12 @@ jobs:
           fetch-depth: 0
           path: ctf             
       - name: Setup Go for citool
-        uses: ./.github/actions/setup-go
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@993454cbeedac2ee60fa37854614b521b51f0d26 # v2.3.30
         with:
-          go-module-file: ctf/tools/citool/go.mod
-          go-version-file: ctf/tools/citool/go.mod
+          cache_key_id: ctf
+          go_mod_path: ctf/tools/citool/go.mod
+          should_tidy: false
+
       - name: Install jq
         run: sudo apt-get install jq
       - name: Generate Docker Tests Matrix
@@ -450,8 +453,6 @@ jobs:
         run: sudo apt-get install -y jq
       - name: Show test configuration
         run: echo '${{ toJson(matrix.tests) }}' | jq .
-      - name: Setup Go
-        uses: ./.github/actions/setup-go
 
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
@@ -496,7 +497,7 @@ jobs:
 
       - name: Run tests
         id: run_tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fdaf56b1df7248d18e30ad09982d03ec67d6b71c # v2.3.29
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@993454cbeedac2ee60fa37854614b521b51f0d26 # v2.3.30
         env:
           DETACH_RUNNER: true
         with:
@@ -676,7 +677,7 @@ jobs:
 
       - name: Run tests
         id: run_tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fdaf56b1df7248d18e30ad09982d03ec67d6b71c # v2.3.29
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@993454cbeedac2ee60fa37854614b521b51f0d26 # v2.3.29
         env:
           DETACH_RUNNER: true
           RR_MEM: ${{ matrix.tests.remote_runner_memory }}
