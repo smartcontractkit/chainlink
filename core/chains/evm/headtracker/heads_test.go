@@ -172,3 +172,27 @@ func BenchmarkEarliestHeadInChain(b *testing.B) {
 		assert.NotEqual(b, latest.BlockHash(), earliest.BlockHash())
 	}
 }
+
+// BenchmarkSimulated_Backfill - benchmarks AddHeads & MarkFinalized as if it was performed by HeadTracker's backfill
+func BenchmarkHeads_SimulatedBackfill(b *testing.B) {
+	makeHash := func(n int64) common.Hash {
+		return common.BigToHash(big.NewInt(n))
+	}
+	makeHead := func(n int64) *evmtypes.Head {
+		return &evmtypes.Head{Number: n, Hash: makeHash(n), ParentHash: makeHash(n - 1)}
+	}
+
+	const finalityDepth = 16_000 // observed value on Arbitrum
+	// populate with initial values
+	heads := headtracker.NewHeads()
+	for i := int64(1); i <= finalityDepth; i++ {
+		heads.AddHeads(makeHead(i))
+	}
+	heads.MarkFinalized(makeHash(1), 1)
+	// focus benchmark on processing of a new latest block
+	b.ResetTimer()
+	for i := int64(1); i <= int64(b.N); i++ {
+		heads.AddHeads(makeHead(finalityDepth + int64(i)))
+		heads.MarkFinalized(makeHash(i), i)
+	}
+}

@@ -35,7 +35,6 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
@@ -1271,49 +1270,6 @@ func TestHeadTracker_LatestAndFinalizedBlock(t *testing.T) {
 		assert.Equal(t, actualL.Number, h13.Number)
 		assert.Equal(t, actualLF.Number, h10.Number)
 	})
-}
-
-// BenchmarkHeadTracker_Backfill - benchmarks HeadTracker's Backfill with focus on efficiency after initial
-// backfill on start up
-func BenchmarkHeadTracker_Backfill(b *testing.B) {
-	const finalityDepth = 16_000 // observed value on Arbitrum
-	evmcfg := testutils.NewTestChainScopedConfig(b, func(c *toml.EVMConfig) {
-		c.FinalityTagEnabled = ptr(true)
-		c.HeadTracker.FinalityTagBypass = ptr(false)
-		c.HeadTracker.MaxAllowedFinalityDepth = ptr(uint32(finalityDepth))
-	})
-	db := pgtest.NewSqlxDB(b)
-	chainID := big.NewInt(evmclient.NullClientChainID)
-	orm := headtracker.NewORM(*chainID, db)
-	ethClient := evmclimocks.NewClient(b)
-	ethClient.On("ConfiguredChainID").Return(chainID)
-	ht := createHeadTracker(b, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm)
-	ctx := tests.Context(b)
-	makeHash := func(n int64) common.Hash {
-		return common.BigToHash(big.NewInt(n))
-	}
-	makeBlock := func(n int64) *evmtypes.Head {
-		return &evmtypes.Head{Number: n, Hash: makeHash(n), ParentHash: makeHash(n - 1)}
-	}
-	latest := makeBlock(finalityDepth)
-	finalized := makeBlock(1)
-	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(func(_ context.Context, hash common.Hash) (*evmtypes.Head, error) {
-		number := hash.Big().Int64()
-		return makeBlock(number), nil
-	})
-	ethClient.On("LatestFinalizedBlock", mock.Anything).Return(finalized, nil).Once()
-	// run initial backfill to populate the database
-	err := ht.headTracker.Backfill(ctx, latest)
-	require.NoError(b, err)
-	b.ResetTimer()
-	// focus benchmark on processing of a new latest block
-	for i := 0; i < b.N; i++ {
-		latest = makeBlock(int64(finalityDepth + i))
-		finalized = makeBlock(int64(i + 1))
-		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(finalized, nil).Once()
-		err := ht.headTracker.Backfill(ctx, latest)
-		require.NoError(b, err)
-	}
 }
 
 func createHeadTracker(t testing.TB, ethClient *evmclimocks.Client, config commontypes.Config, htConfig commontypes.HeadTrackerConfig, orm headtracker.ORM) *headTrackerUniverse {
