@@ -493,13 +493,13 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		errType, err = eb.validateOnChainSequence(ctx, lgr, errType, err, etx, retryCount)
 	}
 
-	if errType != client.Fatal {
+	if errType != client.Fatal && errType != client.TerminallyStuck {
 		etx.InitialBroadcastAt = &initialBroadcastAt
 		etx.BroadcastAt = &initialBroadcastAt
 	}
 
 	switch errType {
-	case client.Fatal:
+	case client.Fatal, client.TerminallyStuck:
 		eb.SvcErrBuffer.Append(err)
 		etx.Error = null.StringFrom(err.Error())
 		return eb.saveFatallyErroredTransaction(lgr, &etx), true
