@@ -5459,6 +5459,10 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
+[GasEstimator.Universal]
+CacheTimeout = '10s'
+HasMempool = true
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -5553,6 +5557,10 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.Universal]
+CacheTimeout = '10s'
+HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
