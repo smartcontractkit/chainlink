@@ -333,7 +333,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 		return err
 	}
 
-	t.config = tc
+	t.config.Store(tc)
 
 	triggerRegRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
@@ -343,7 +343,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 			WorkflowName:             e.workflow.name,
 			WorkflowOwner:            e.workflow.owner,
 		},
-		Config: tc,
+		Config: t.config.Load(),
 		Inputs: triggerInputs,
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
@@ -713,6 +713,10 @@ func (e *Engine) configForStep(ctx context.Context, executionID string, step *st
 		return step.config, nil
 	}
 
+	if capConfig.DefaultConfig == nil {
+		return step.config, nil
+	}
+
 	// Merge the configs for now; note that this means that a workflow can override
 	// all of the config set by the capability. This is probably not desirable in
 	// the long-term, but we don't know much about those use cases so stick to a simpler
@@ -788,7 +792,7 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 			WorkflowOwner:            e.workflow.owner,
 		},
 		Inputs: triggerInputs,
-		Config: t.config,
+		Config: t.config.Load(),
 	}
 
 	// if t.trigger == nil, then we haven't initialized the workflow

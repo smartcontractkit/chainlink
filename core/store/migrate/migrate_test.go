@@ -618,3 +618,14 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 		require.NoError(b, err)
 	}
 }
+
+func TestRollback_247_TxStateEnumUpdate(t *testing.T) {
+	ctx := testutils.Context(t)
+	_, db := heavyweight.FullTestDBV2(t, nil)
+	p, err := migrate.NewProvider(ctx, db.DB)
+	require.NoError(t, err)
+	_, err = p.DownTo(ctx, 54)
+	require.NoError(t, err)
+	_, err = p.UpTo(ctx, 247)
+	require.NoError(t, err)
+}

@@ -340,6 +340,30 @@ func (v *EthereumVRFCoordinatorV2_5) GetBlockHashStoreAddress(ctx context.Contex
 	return blockHashStoreAddress, nil
 }
 
+func (v *EthereumVRFCoordinatorV2_5) GetLinkAddress(ctx context.Context) (common.Address, error) {
+	opts := &bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}
+	address, err := v.coordinator.LINK(opts)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return address, nil
+}
+
+func (v *EthereumVRFCoordinatorV2_5) GetLinkNativeFeed(ctx context.Context) (common.Address, error) {
+	opts := &bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}
+	address, err := v.coordinator.LINKNATIVEFEED(opts)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return address, nil
+}
+
 // OwnerCancelSubscription cancels subscription by Coordinator owner
 // return funds to sub owner,
 // does not check if pending requests for a sub exist

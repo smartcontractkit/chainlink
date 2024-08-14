@@ -11,9 +11,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
+
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -373,8 +374,14 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		panic(err)
 	}
 
-	cc = newCapabilityConfig()
-	ccb, err = proto.Marshal(cc)
+	targetCapabilityConfig := newCapabilityConfig()
+	targetCapabilityConfig.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
+		RemoteTargetConfig: &capabilitiespb.RemoteTargetConfig{
+			RequestHashExcludedAttributes: []string{"signed_report.Signatures"},
+		},
+	}
+
+	remoteTargetConfigBytes, err := proto.Marshal(targetCapabilityConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -382,7 +389,7 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 	cfgs = []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: wid,
-			Config:       ccb,
+			Config:       remoteTargetConfigBytes,
 		},
 	}
 	_, err = reg.AddDON(env.Owner, ps, cfgs, true, false, 1)
