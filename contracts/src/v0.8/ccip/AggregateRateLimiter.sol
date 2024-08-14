@@ -52,7 +52,7 @@ contract AggregateRateLimiter is OwnerIsCreator {
     return pricePerToken._calcUSDValueFromTokenAmount(tokenAmount.amount);
   }
 
-    /// @notice Gets the token bucket with its values for the block it was requested at.
+  /// @notice Gets the token bucket with its values for the block it was requested at.
   /// @return The token bucket.
   function currentRateLimiterState() external view returns (RateLimiter.TokenBucket memory) {
     return s_rateLimiter._currentTokenBucketState();
