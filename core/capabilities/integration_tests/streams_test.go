@@ -35,7 +35,7 @@ func Test_AllAtOnceTransmissionSchedule(t *testing.T) {
 		createFeedReport(t, big.NewInt(2), 6, feedIDs[2], triggerDonInfo.keyBundles),
 	}
 
-	triggerSink.sendReports(reports)
+	triggerSink.SendReports(reports)
 
 	waitForConsumerReports(ctx, t, consumer, reports)
 }
@@ -58,7 +58,7 @@ func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
 		createFeedReport(t, big.NewInt(2), 6, feedIDs[2], triggerDonInfo.keyBundles),
 	}
 
-	triggerSink.sendReports(reports)
+	triggerSink.SendReports(reports)
 
 	waitForConsumerReports(ctx, t, consumer, reports)
 }

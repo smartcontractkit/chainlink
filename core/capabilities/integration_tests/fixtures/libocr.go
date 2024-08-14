@@ -1,4 +1,4 @@
-package integration_tests
+package fixtures
 
 import (
 	"bytes"
@@ -26,9 +26,9 @@ type libocrNode struct {
 	key ocr2key.KeyBundle
 }
 
-// mockLibOCR is a mock libocr implementation for testing purposes that simulates libocr protocol rounds without having
+// LibOCR is a mock libocr implementation for testing purposes that simulates libocr protocol rounds without having
 // to setup the libocr network
-type mockLibOCR struct {
+type LibOCR struct {
 	services.StateMachine
 	t *testing.T
 
@@ -43,8 +43,8 @@ type mockLibOCR struct {
 	wg     sync.WaitGroup
 }
 
-func newMockLibOCR(t *testing.T, f uint8, protocolRoundInterval time.Duration) *mockLibOCR {
-	return &mockLibOCR{
+func NewLibOCR(t *testing.T, f uint8, protocolRoundInterval time.Duration) *LibOCR {
+	return &LibOCR{
 		t: t,
 		f: f, outcomeCtx: ocr3types.OutcomeContext{
 			SeqNr:           0,
@@ -57,8 +57,8 @@ func newMockLibOCR(t *testing.T, f uint8, protocolRoundInterval time.Duration) *
 	}
 }
 
-func (m *mockLibOCR) Start(ctx context.Context) error {
-	return m.StartOnce("mockLibOCR", func() error {
+func (m *LibOCR) Start(ctx context.Context) error {
+	return m.StartOnce("LibOCR", func() error {
 		m.wg.Add(1)
 		go func() {
 			defer m.wg.Done()
@@ -84,19 +84,19 @@ func (m *mockLibOCR) Start(ctx context.Context) error {
 	})
 }
 
-func (m *mockLibOCR) Close() error {
-	return m.StopOnce("mockLibOCR", func() error {
+func (m *LibOCR) Close() error {
+	return m.StopOnce("LibOCR", func() error {
 		close(m.stopCh)
 		m.wg.Wait()
 		return nil
 	})
 }
 
-func (m *mockLibOCR) AddNode(plugin ocr3types.ReportingPlugin[[]byte], transmitter *ocr3.ContractTransmitter, key ocr2key.KeyBundle) {
+func (m *LibOCR) AddNode(plugin ocr3types.ReportingPlugin[[]byte], transmitter *ocr3.ContractTransmitter, key ocr2key.KeyBundle) {
 	m.nodes = append(m.nodes, &libocrNode{plugin, transmitter, key})
 }
 
-func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
+func (m *LibOCR) simulateProtocolRound(ctx context.Context) error {
 	// randomly select a leader
 	leader := m.nodes[rand.Intn(len(m.nodes))]
 

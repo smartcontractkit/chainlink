@@ -1,4 +1,4 @@
-package integration_tests
+package fixtures
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 
 const triggerID = "streams-trigger@1.0.0"
 
-type reportsSink struct {
+type ReportsSink struct {
 	services.StateMachine
 	triggers []streamsTrigger
 
@@ -23,27 +23,27 @@ type reportsSink struct {
 	wg     sync.WaitGroup
 }
 
-func newReportsSink() *reportsSink {
-	return &reportsSink{
+func NewReportsSink() *ReportsSink {
+	return &ReportsSink{
 		stopCh: make(services.StopChan),
 	}
 }
 
-func (r *reportsSink) Start(ctx context.Context) error {
-	return r.StartOnce("reportsSink", func() error {
+func (r *ReportsSink) Start(ctx context.Context) error {
+	return r.StartOnce("ReportsSink", func() error {
 		return nil
 	})
 }
 
-func (r *reportsSink) Close() error {
-	return r.StopOnce("reportsSink", func() error {
+func (r *ReportsSink) Close() error {
+	return r.StopOnce("ReportsSink", func() error {
 		close(r.stopCh)
 		r.wg.Wait()
 		return nil
 	})
 }
 
-func (r *reportsSink) sendReports(reportList []*datastreams.FeedReport) {
+func (r *ReportsSink) SendReports(reportList []*datastreams.FeedReport) {
 	for _, trigger := range r.triggers {
 		resp, err := wrapReports(reportList, "1", 12, datastreams.SignersMetadata{})
 		if err != nil {
@@ -53,7 +53,7 @@ func (r *reportsSink) sendReports(reportList []*datastreams.FeedReport) {
 	}
 }
 
-func (r *reportsSink) getNewTrigger(t *testing.T) *streamsTrigger {
+func (r *ReportsSink) GetNewTrigger(t *testing.T) *streamsTrigger {
 	trigger := streamsTrigger{t: t, toSend: make(chan capabilities.CapabilityResponse, 1000),
 		wg: &r.wg, stopCh: r.stopCh}
 	r.triggers = append(r.triggers, trigger)
