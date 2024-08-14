@@ -214,11 +214,18 @@ jobs:
         env:
           FOUNDRY_PROFILE: ${{ inputs.product }}
 
+      - name: Prune lcov report
+        if: ${{ !contains(fromJson(steps.prepare-exclusion-list.outputs.coverage_exclusions), inputs.product) && needs.changes.outputs.product_changes == 'true' }}
+        shell: bash
+        working-directory: contracts
+        run: |
+          ./scripts/lcov_prune  ${{ inputs.product }} ./code-coverage/lcov.info ./code-coverage/lcov.info.pruned          
+
       - name: Generate Code Coverage HTML report for product contracts
         if: ${{ !contains(fromJson(steps.prepare-exclusion-list.outputs.coverage_exclusions), inputs.product) && needs.changes.outputs.product_changes == 'true' }}
         shell: bash
         working-directory: contracts
-        run: genhtml code-coverage/lcov.info --branch-coverage --output-directory code-coverage
+        run: genhtml code-coverage/lcov.info.pruned --branch-coverage --output-directory code-coverage
 
       - name: Run Forge doc for product contracts
         if: ${{ needs.changes.outputs.product_changes == 'true' }}
