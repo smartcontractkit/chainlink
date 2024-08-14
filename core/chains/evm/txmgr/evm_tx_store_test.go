@@ -1123,13 +1123,14 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	latestFinalizedBlockNum := int64(8)
 
 	// tx state should be confirmed missing receipt
-	// attempt should be broadcast before cutoff time
+	// attempt should be before latestFinalizedBlockNum
 	t.Run("successfully mark errored transactions", func(t *testing.T) {
 		etx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)
 
-		err := txStore.MarkOldTxesMissingReceiptAsErrored(tests.Context(t), 10, 2, ethClient.ConfiguredChainID())
+		err := txStore.MarkOldTxesMissingReceiptAsErrored(tests.Context(t), 10, latestFinalizedBlockNum, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 
 		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
@@ -1139,7 +1140,7 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 
 	t.Run("successfully mark errored transactions w/ qopt passing in sql.Tx", func(t *testing.T) {
 		etx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)
-		err := txStore.MarkOldTxesMissingReceiptAsErrored(tests.Context(t), 10, 2, ethClient.ConfiguredChainID())
+		err := txStore.MarkOldTxesMissingReceiptAsErrored(tests.Context(t), 10, latestFinalizedBlockNum, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 
 		// must run other query outside of postgres transaction so changes are committed
