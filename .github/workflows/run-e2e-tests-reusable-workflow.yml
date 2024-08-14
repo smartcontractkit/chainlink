@@ -242,7 +242,7 @@ jobs:
           repository: smartcontractkit/chainlink-testing-framework
           ref: main
           fetch-depth: 0
-          path: ctf             
+          path: ctf
       - name: Setup Go for citool
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@4f7b63c45f08b91f6a244a36cbbf6c71992712e9 # v2.3.30
         with:
