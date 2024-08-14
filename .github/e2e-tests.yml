@@ -177,13 +177,14 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu22.04-16cores-64GB
     workflows:
-      - Run PR E2E Tests
+      - Run PR E2E Tests 3
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/ocr2_test.go -timeout 30m -count=1 -test.parallel=6 -json
     pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
     test_inputs:
       # chainlink_version: '{{ env.GITHUB_SHA_PLUGINS }}' # This is the chainlink version that has the plugins
       chainlink_version: develop-plugins
+      enable_otel_traces: true
 
   # END: OCR tests
 
