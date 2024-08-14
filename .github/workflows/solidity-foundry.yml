@@ -55,13 +55,14 @@ jobs:
       non_src_changes: ${{ steps.changes.outputs.non_src }}
       sol_modified: ${{ steps.changes.outputs.sol }}
       sol_modified_files: ${{ steps.changes.outputs.sol_files }}
-      not_test_sol_modified: ${{ steps.changes.outputs.not_test_sol }}
-      not_test_sol_modified_files: ${{ steps.changes.outputs.not_test_sol_files }}
+      not_test_sol_modified: ${{ steps.changes-non-test.outputs.not_test_sol }}
+      not_test_sol_modified_files: ${{ steps.changes-non-test.outputs.not_test_sol_files }}
       all_changes: ${{ steps.changes.outputs.changes }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      - name: Detect changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
           list-files: 'shell'
@@ -74,7 +75,7 @@ jobs:
             sol:
               - modified|added: 'contracts/src/v0.8/**/*.sol'
             not_test_sol:
-              - modified|added: 'contracts/src/v0.8/**/!(*.t).sol'            
+              - modified|added: 'contracts/src/v0.8/**/!(*.t).sol'
             automation:
               - 'contracts/src/v0.8/automation/**/*.sol'
             ccip:
@@ -101,6 +102,24 @@ jobs:
               - 'contracts/src/v0.8/vendor/**/*.sol'
             transmission:
               - 'contracts/src/v0.8/transmission/**/*.sol'
+      - name: Detect non-test changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes-non-test
+        with:
+          list-files: 'shell'
+          predicate-quantifier: every
+          filters: |
+            not_test_sol:
+              - modified|added: 'contracts/src/v0.8/**/!(*.t).sol'
+              - '!contracts/src/v0.8/**/test/**'
+              - '!contracts/src/v0.8/**/tests/**'
+              - '!contracts/src/v0.8/**/mock/**'
+              - '!contracts/src/v0.8/**/mocks/**'
+              - '!contracts/src/v0.8/**/*.t.sol'
+              - '!contracts/src/v0.8/*.t.sol'
+              - '!contracts/src/v0.8/**/testhelpers/**'
+              - '!contracts/src/v0.8/testhelpers/**'
+              - '!contracts/src/v0.8/vendor/**'     
 
   tests:
     if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified == 'true' }}
@@ -189,7 +208,7 @@ jobs:
           || needs.changes.outputs.non_src_changes == 'true')
           && matrix.product.setup.run-coverage }}
         working-directory: contracts
-        run: forge coverage --report lcov
+        run: forge coverage --report lcov --no-match-coverage "(ExactGas)"
         env:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
