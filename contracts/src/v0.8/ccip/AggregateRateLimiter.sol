@@ -52,18 +52,6 @@ contract AggregateRateLimiter is OwnerIsCreator {
     return pricePerToken._calcUSDValueFromTokenAmount(tokenAmount.amount);
   }
 
-  fallback() external {
-    // copied directly from OZ's Proxy contract
-    assembly {
-    // Copy msg.data. We take full control of memory in this inline assembly
-    // block because it will not return to Solidity code. We overwrite the
-    // Solidity scratch pad at memory position 0.
-      calldatacopy(0, 0, calldatasize())
-
-      return(0, returndatasize())
-    }
-  }
-
     /// @notice Gets the token bucket with its values for the block it was requested at.
   /// @return The token bucket.
   function currentRateLimiterState() external view returns (RateLimiter.TokenBucket memory) {

@@ -91,6 +91,18 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     return s_config;
   }
 
+  fallback() external {
+    // copied directly from OZ's Proxy contract
+    assembly {
+    // Copy msg.data. We take full control of memory in this inline assembly
+    // block because it will not return to Solidity code. We overwrite the
+    // Solidity scratch pad at memory position 0.
+      calldatacopy(0, 0, calldatasize())
+
+      return(0, returndatasize())
+    }
+  }
+
   /// @notice Sets the Chainlink Coordinator's billing configuration
   /// @param config - See the contents of the FunctionsBillingConfig struct in IFunctionsBilling.sol for more information
   function updateConfig(FunctionsBillingConfig memory config) public {
