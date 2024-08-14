@@ -158,6 +158,7 @@ type MockGasEstimatorConfig struct {
 	LimitMaxF           uint64
 	ModeF               string
 	EstimateGasLimitF   bool
+	EstimatedGasBufferF float32
 }
 
 func NewMockGasConfig() *MockGasEstimatorConfig {
@@ -218,4 +219,8 @@ func (m *MockGasEstimatorConfig) Mode() string {
 
 func (m *MockGasEstimatorConfig) EstimateGasLimit() bool {
 	return m.EstimateGasLimitF
+}
+
+func (m *MockGasEstimatorConfig) EstimatedGasBuffer() float32 {
+	return m.EstimatedGasBufferF
 }

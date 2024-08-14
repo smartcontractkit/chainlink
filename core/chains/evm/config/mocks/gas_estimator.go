@@ -343,6 +343,51 @@ func (_c *GasEstimator_EstimateGasLimit_Call) RunAndReturn(run func() bool) *Gas
 	return _c
 }
 
+// EstimatedGasBuffer provides a mock function with given fields:
+func (_m *GasEstimator) EstimatedGasBuffer() float32 {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for EstimatedGasBuffer")
+	}
+
+	var r0 float32
+	if rf, ok := ret.Get(0).(func() float32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(float32)
+	}
+
+	return r0
+}
+
+// GasEstimator_EstimatedGasBuffer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EstimatedGasBuffer'
+type GasEstimator_EstimatedGasBuffer_Call struct {
+	*mock.Call
+}
+
+// EstimatedGasBuffer is a helper method to define mock.On call
+func (_e *GasEstimator_Expecter) EstimatedGasBuffer() *GasEstimator_EstimatedGasBuffer_Call {
+	return &GasEstimator_EstimatedGasBuffer_Call{Call: _e.mock.On("EstimatedGasBuffer")}
+}
+
+func (_c *GasEstimator_EstimatedGasBuffer_Call) Run(run func()) *GasEstimator_EstimatedGasBuffer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GasEstimator_EstimatedGasBuffer_Call) Return(_a0 float32) *GasEstimator_EstimatedGasBuffer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GasEstimator_EstimatedGasBuffer_Call) RunAndReturn(run func() float32) *GasEstimator_EstimatedGasBuffer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FeeCapDefault provides a mock function with given fields:
 func (_m *GasEstimator) FeeCapDefault() *assets.Wei {
 	ret := _m.Called()

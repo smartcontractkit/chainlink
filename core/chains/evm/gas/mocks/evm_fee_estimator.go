@@ -219,8 +219,8 @@ func (_c *EvmFeeEstimator_GetFee_Call) Run(run func(ctx context.Context, calldat
 	return _c
 }
 
-func (_c *EvmFeeEstimator_GetFee_Call) Return(fee gas.EvmFee, chainSpecificFeeLimit uint64, err error) *EvmFeeEstimator_GetFee_Call {
-	_c.Call.Return(fee, chainSpecificFeeLimit, err)
+func (_c *EvmFeeEstimator_GetFee_Call) Return(fee gas.EvmFee, estimatedFeeLimit uint64, err error) *EvmFeeEstimator_GetFee_Call {
+	_c.Call.Return(fee, estimatedFeeLimit, err)
 	return _c
 }
 

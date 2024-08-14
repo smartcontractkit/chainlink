@@ -33,7 +33,7 @@ type EvmFeeEstimator interface {
 
 	// L1Oracle returns the L1 gas price oracle only if the chain has one, e.g. OP stack L2s and Arbitrum.
 	L1Oracle() rollups.L1Oracle
-	GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, toAddress *common.Address, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint64, err error)
+	GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, toAddress *common.Address, opts ...feetypes.Opt) (fee EvmFee, estimatedFeeLimit uint64, err error)
 	BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint64, maxFeePrice *assets.Wei, attempts []EvmPriorAttempt) (bumpedFee EvmFee, chainSpecificFeeLimit uint64, err error)
 
 	// GetMaxCost returns the total value = max price x fee units + transferred value
@@ -71,6 +71,8 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		"tipCapMin", geCfg.TipCapMin(),
 		"priceMax", geCfg.PriceMax(),
 		"priceMin", geCfg.PriceMin(),
+		"estimateGasLimit", geCfg.EstimateGasLimit(),
+		"estimatedGasBuffer", geCfg.EstimatedGasBuffer(),
 	)
 	df := geCfg.EIP1559DynamicFees()
 
@@ -264,13 +266,10 @@ func (e *evmFeeEstimator) L1Oracle() rollups.L1Oracle {
 	return e.EvmEstimator.L1Oracle()
 }
 
-func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, toAddress *common.Address, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint64, err error) {
-	// Create call msg for gas limit estimation, if needed
-	callMsg := ethereum.CallMsg{
-		To:   toAddress,
-		Data: calldata,
-	}
-
+// GetFee returns an initial estimated gas price and gas limit for a transaction
+// The gas limit provided by the caller can be adjusted by gas estimation or for 2D fees
+func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, toAddress *common.Address, opts ...feetypes.Opt) (fee EvmFee, estimatedFeeLimit uint64, err error) {
+	var chainSpecificFeeLimit uint64
 	// get dynamic fee
 	if e.EIP1559Enabled {
 		var dynamicFee DynamicFee
@@ -281,31 +280,15 @@ func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit 
 		fee.DynamicFeeCap = dynamicFee.FeeCap
 		fee.DynamicTipCap = dynamicFee.TipCap
 		chainSpecificFeeLimit = feeLimit
-		// Set call msg fields with dynamic fee fields for gas limit estimation, if needed
-		callMsg.GasFeeCap = fee.DynamicFeeCap.ToInt()
-		callMsg.GasTipCap = fee.DynamicTipCap.ToInt()
 	} else {
 		// get legacy fee
 		fee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.GetLegacyGas(ctx, calldata, feeLimit, maxFeePrice, opts...)
 		if err != nil {
 			return
 		}
-		// Set call msg fields with legacy fee field for gas limit estimation, if needed
-		callMsg.GasPrice = fee.Legacy.ToInt()
 	}
 
-	if e.geCfg.EstimateGasLimit() {
-		callMsg.Gas = chainSpecificFeeLimit
-		estimatedGasLimit, estimateErr := e.ethClient.EstimateGas(ctx, callMsg)
-		if estimateErr != nil {
-			// Do not return error if estimating gas failed, we can still use the provided limit instead since it is an upper limit
-			e.lggr.Errorw("failed to estimate gas limit. falling back to provided gas limit.", "toAddress", toAddress, "data", calldata, "gasLimit", chainSpecificFeeLimit, "error", estimateErr)
-		} else {
-			chainSpecificFeeLimit = estimatedGasLimit
-		}
-	}
-
-	chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(chainSpecificFeeLimit, e.geCfg.LimitMultiplier())
+	estimatedFeeLimit, err = e.estimateFeeLimit(ctx, fee, chainSpecificFeeLimit, calldata, toAddress)
 	return
 }
 
@@ -361,6 +344,56 @@ func (e *evmFeeEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLi
 	return
 }
 
+func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, fee EvmFee, feeLimit uint64, calldata []byte, toAddress *common.Address) (estimatedFeeLimit uint64, err error) {
+	// Use provided fee limit by default is EstimateGasLimit is disabled
+	if !e.geCfg.EstimateGasLimit() {
+		return commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
+	}
+
+	// Create call msg for gas limit estimation
+	// Skip setting Gas to avoid capping the results of the estimation
+	callMsg := ethereum.CallMsg{
+		To:   toAddress,
+		Data: calldata,
+	}
+	if e.EIP1559Enabled {
+		callMsg.GasFeeCap = fee.DynamicFeeCap.ToInt()
+		callMsg.GasTipCap = fee.DynamicTipCap.ToInt()
+	} else {
+		// Set call msg fields with legacy fee field for gas limit estimation, if needed
+		callMsg.GasPrice = fee.Legacy.ToInt()
+	}
+	e.lggr.Debugw("estimating gas limit", "callMsg", callMsg)
+	gasUsed, estimateErr := e.ethClient.EstimateGas(ctx, callMsg)
+	if estimateErr != nil {
+		// Do not return error if estimate gas failed, we can still use the provided limit instead since it is an upper limit
+		e.lggr.Errorw("failed to estimate gas limit. falling back to provided gas limit.", "callMsg", callMsg, "providedGasLimit", feeLimit, "error", estimateErr)
+		estimatedFeeLimit, err = commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
+		return
+	}
+	// Return error if estimated gas without the buffer exceeds the provided gas limit
+	// Transaction is destined to run out of gas and fail
+	if gasUsed > feeLimit {
+		e.lggr.Errorw("estimated gas limit exceeds provided limit", "estimatedGasLimit", gasUsed, "providedGasLimit", feeLimit)
+		return estimatedFeeLimit, commonfee.ErrFeeLimitTooLow
+	}
+	// Apply EstimatedGasBuffer multiplier to the estimated gas limit
+	estimatedFeeLimit, err = commonfee.ApplyMultiplier(gasUsed, e.geCfg.EstimatedGasBuffer())
+	if err != nil {
+		return
+	}
+
+	// Fallback to the provided gas limit if the buffer causes the estimated gas limit to exceed it
+	// The provided gas limit should be used as an upper bound to avoid unexpected behavior for products
+	if estimatedFeeLimit > feeLimit {
+		e.lggr.Debugw("estimated gas limit with buffer exceeds provided limit. falling back to the provided gas limit", "estimatedGasLimit", estimatedFeeLimit, "providedGasLimit", feeLimit)
+		estimatedFeeLimit = feeLimit
+	}
+
+	estimatedFeeLimit, err = commonfee.ApplyMultiplier(estimatedFeeLimit, e.geCfg.LimitMultiplier())
+	return
+}
+
 // Config defines an interface for configuration in the gas package
 type Config interface {
 	ChainType() chaintype.ChainType
@@ -383,6 +416,7 @@ type GasEstimatorConfig interface {
 	PriceMax() *assets.Wei
 	Mode() string
 	EstimateGasLimit() bool
+	EstimatedGasBuffer() float32
 }
 
 type BlockHistoryConfig interface {

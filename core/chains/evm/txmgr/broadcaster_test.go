@@ -29,8 +29,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	commmonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -1644,6 +1646,72 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		// TEARDOWN: Clear out the unsent tx before the next test
 		pgtest.MustExec(t, db, `DELETE FROM evm.txes WHERE nonce = $1`, localNextNonce)
+	})
+}
+
+func TestEthBroadcaster_ProcessUnstartedEthTxs_GasEstimationError(t *testing.T) {
+	toAddress := testutils.NewAddress()
+	value := big.Int(assets.NewEthValue(142))
+	gasLimit := uint64(242)
+	encodedPayload := []byte{0, 1}
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	cfg.EVMConfigs()[0].GasEstimator.EstimateGasLimit = ptr(true) // Enabled gas limit estimation
+	txStore := cltest.NewTestTxStore(t, db)
+
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+
+	config := evmtest.NewChainScopedConfig(t, cfg)
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
+	lggr := logger.Test(t)
+	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
+	nonceTracker := txmgr.NewNonceTracker(lggr, txStore, txmClient)
+	ge := config.EVM().GasEstimator()
+	estimator := gas.NewEvmFeeEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
+		return gas.NewFixedPriceEstimator(ge, nil, ge.BlockHistory(), lggr, nil)
+	}, ge.EIP1559DynamicFees(), ge, ethClient)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, estimator)
+	eb := txmgrcommon.NewBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(config.EVM().GasEstimator()), config.EVM().Transactions(), cfg.Database().Listener(), ethKeyStore, txBuilder, nonceTracker, lggr, &testCheckerFactory{}, false, "")
+
+	// Mark instance as test
+	eb.XXXTestDisableUnstartedTxAutoProcessing()
+	servicetest.Run(t, eb)
+	ctx := tests.Context(t)
+	t.Run("gas limit lowered after estimation", func(t *testing.T) {
+		estimatedGasLimit := uint64(100)
+		estimatedGasBuffer := float32(1.25)
+		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
+		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGasLimit, nil).Once()
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == uint64(0)
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
+
+		// Do the thing
+		retryable, err := eb.ProcessUnstartedTxs(ctx, fromAddress)
+		assert.NoError(t, err)
+		assert.False(t, retryable)
+
+		dbEtx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
+		require.NoError(t, err)
+		attempt := dbEtx.TxAttempts[0]
+		require.Equal(t, uint64(float32(estimatedGasLimit)*estimatedGasBuffer), attempt.ChainSpecificFeeLimit)
+	})
+	t.Run("provided gas limit too low, transaction marked as fatal error", func(t *testing.T) {
+		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
+		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(gasLimit+1, nil).Once()
+
+		// Do the thing
+		retryable, err := eb.ProcessUnstartedTxs(ctx, fromAddress)
+		assert.NoError(t, err)
+		assert.False(t, retryable)
+
+		dbEtx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
+		require.NoError(t, err)
+		require.Equal(t, txmgrcommon.TxFatalError, dbEtx.State)
+		require.Equal(t, commmonfee.ErrFeeLimitTooLow.Error(), dbEtx.Error.String)
 	})
 }
 
