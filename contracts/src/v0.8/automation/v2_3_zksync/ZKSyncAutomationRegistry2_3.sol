@@ -65,8 +65,6 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
     Chainable(address(logicA))
   {}
 
-  string public stefan;
-
   /**
    * @notice holds the variables used in the transmit function, necessary to avoid stack too deep errors
    */
