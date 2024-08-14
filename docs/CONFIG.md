@@ -7942,7 +7942,7 @@ LimitMax = 500_000 # Default
 LimitMultiplier = '1.0' # Default
 LimitTransfer = 21_000 # Default
 EstimateGasLimit = false # Default
-EstimatedGasBuffer = 1.25 # Default
+EstimatedGasBuffer = '1.25' # Default
 BumpMin = '5 gwei' # Default
 BumpPercent = 20 # Default
 BumpThreshold = 3 # Default
@@ -8045,7 +8045,7 @@ EstimateGasLimit enables estimating gas limits for transactions. This feature re
 
 ### EstimatedGasBuffer
 ```toml
-EstimatedGasBuffer = 1.25 # Default
+EstimatedGasBuffer = '1.25' # Default
 ```
 EstimatedGasBuffer is a multiplier applied to estimated gas limits when the EstimateGasLimit feature is enabled. This buffer is added for safety in case the gas used for a transaction changes between estimation and broadcasting.
 
