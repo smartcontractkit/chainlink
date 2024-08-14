@@ -1,4 +1,4 @@
-package integration_tests
+package fixtures
 
 import (
 	"context"
@@ -31,7 +31,7 @@ type testAsyncMessageBroker struct {
 	mux sync.Mutex
 }
 
-func newTestAsyncMessageBroker(t *testing.T, chanBufferSize int) *testAsyncMessageBroker {
+func NewTestAsyncMessageBroker(t *testing.T, chanBufferSize int) *testAsyncMessageBroker {
 	return &testAsyncMessageBroker{
 		t:                  t,
 		stopCh:             make(services.StopChan),

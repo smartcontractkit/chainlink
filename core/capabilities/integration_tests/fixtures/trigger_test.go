@@ -1,7 +1,6 @@
-package integration_tests
+package fixtures
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,8 +18,6 @@ func Test_MockTriggerMessageDistribution(t *testing.T) {
 	sink := NewReportsSink()
 	servicetest.Run(t, sink)
 
-	triggerDonInfo := createDonInfo(t, don{id: 1, numNodes: 7, f: 2})
-
 	trigger1 := sink.GetNewTrigger(t)
 	trigger2 := sink.GetNewTrigger(t)
 	trigger3 := sink.GetNewTrigger(t)
@@ -31,8 +28,8 @@ func Test_MockTriggerMessageDistribution(t *testing.T) {
 	require.NoError(t, err)
 
 	sink.SendReports([]*datastreams.FeedReport{
-		createFeedReport(t, big.NewInt(1), 5, "DEADBEEF11", triggerDonInfo.keyBundles),
-		createFeedReport(t, big.NewInt(3), 7, "DEADBEEF22", triggerDonInfo.keyBundles),
+		{FeedID: "DEADBEEF11"},
+		{FeedID: "DEADBEEF22"},
 	})
 
 	tr1 := <-trigger1Ch
@@ -52,8 +49,8 @@ func Test_MockTriggerMessageDistribution(t *testing.T) {
 	assert.Equal(t, "DEADBEEF22", getFeedID(t, tr3, 1))
 
 	sink.SendReports([]*datastreams.FeedReport{
-		createFeedReport(t, big.NewInt(1), 5, "DEADBEEF33", triggerDonInfo.keyBundles),
-		createFeedReport(t, big.NewInt(3), 7, "DEADBEEF44", triggerDonInfo.keyBundles),
+		{FeedID: "DEADBEEF33"},
+		{FeedID: "DEADBEEF44"},
 	})
 
 	tr1 = <-trigger1Ch

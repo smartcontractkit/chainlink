@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/fixtures"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -63,7 +64,7 @@ type donInfo struct {
 }
 
 func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, workflowDonInfo donInfo, triggerDonInfo donInfo, targetDonInfo donInfo,
-	feedCount int, deltaStage string, schedule string) (*feeds_consumer.KeystoneFeedsConsumer, []string, *reportsSink) {
+	feedCount int, deltaStage string, schedule string) (*feeds_consumer.KeystoneFeedsConsumer, []string, *fixtures.ReportsSink) {
 	lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(TestLogLevel)
 
@@ -77,9 +78,9 @@ func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, 
 		feedIDs = append(feedIDs, newFeedID(t))
 	}
 
-	sink := NewReportsSink()
+	sink := fixtures.NewReportsSink()
 
-	libocr := newMockLibOCR(t, workflowDonInfo.F, 1*time.Second)
+	libocr := fixtures.NewLibOCR(t, workflowDonInfo.F, 1*time.Second)
 	workflowDonNodes, _, _ := createDons(ctx, t, lggr, sink,
 		workflowDonInfo, triggerDonInfo, targetDonInfo,
 		ethBlockchain, capabilitiesRegistryAddr, forwarderAddr,
@@ -94,7 +95,7 @@ func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, 
 	return consumer, feedIDs, sink
 }
 
-func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSink *reportsSink,
+func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSink *fixtures.ReportsSink,
 	workflowDon donInfo,
 	triggerDon donInfo,
 	targetDon donInfo,
@@ -103,9 +104,9 @@ func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSi
 	forwarderAddr common.Address,
 	workflowNodeKeyBundles []ocr2key.KeyBundle,
 	transactor *bind.TransactOpts,
-	libocr *mockLibOCR,
+	libocr *fixtures.LibOCR,
 ) ([]*cltest.TestApplication, []*cltest.TestApplication, []*cltest.TestApplication) {
-	broker := newTestAsyncMessageBroker(t, 1000)
+	broker := fixtures.NewTestAsyncMessageBroker(t, 1000)
 
 	var triggerNodes []*cltest.TestApplication
 	for i, triggerPeer := range triggerDon.Members {
