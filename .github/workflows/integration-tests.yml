@@ -232,17 +232,13 @@ jobs:
 
   run-e2e-tests-workflow:
     name: Run E2E Tests
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
-    # environment: integration
     permissions:
       actions: read
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes]
-    # needs: [build-chainlink, changes, build-lint-integration-tests]
-    # env:
+    needs: [build-chainlink, changes, build-lint-integration-tests]
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
@@ -325,7 +321,7 @@ jobs:
           this-job-name: Clean up integration environment deployments
         continue-on-error: true
 
-  show-coverage:
+  show-chainlink-node-coverage:
     name: Show Chainlink Node Go Coverage
     if: always()
     needs: [cleanup]
