@@ -137,7 +137,8 @@ jobs:
       - name: Generate basic info and modified contracts list
         shell: bash
         run: |
-          echo "Commit SHA used to generate artifacts: ${{ github.sha }}" > contracts/commit_sha_base_ref.txt
+          echo "Product: ${{ inputs.product }}" > contracts/commit_sha_base_ref.txt
+          echo "Commit SHA used to generate artifacts: ${{ github.sha }}" >> contracts/commit_sha_base_ref.txt
           echo "Base reference SHA used to find modified contracts: ${{ inputs.base_ref }}" >> contracts/commit_sha_base_ref.txt     
           
           IFS=',' read -r -a modified_files <<< "${{ needs.changes.outputs.product_files }}"
@@ -350,6 +351,7 @@ jobs:
           echo "Artifact ID: $ARTIFACT_ID"
           
           echo "# Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
+          echo "Product: **${{ inputs.product }}**" >> $GITHUB_STEP_SUMMARY
           echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
           echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
           echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID)" >> $GITHUB_STEP_SUMMARY
