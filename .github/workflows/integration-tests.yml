@@ -277,7 +277,6 @@ jobs:
           echo "$test_results" | jq .
 
           node_migration_tests_failed=$(echo $test_results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
-          echo "node_migration_tests_failed=$node_migration_tests_failed"
           echo "node_migration_tests_failed=$node_migration_tests_failed" >> $GITHUB_OUTPUT
 
       - name: Send slack notification for failed migration tests
