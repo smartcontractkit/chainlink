@@ -118,7 +118,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	// since all queries are scoped by config digest.
 	ocrDB := ocr2.NewDB(d.ds, spec.ID, 0, d.lggr)
 
-	homeChainContractReader, err := d.getHomeChainContractReader(
+	homeChainContractReader, ccipConfigBinding, err := d.getHomeChainContractReader(
 		ctx,
 		d.chains,
 		spec.CCIPSpec.CapabilityLabelledName,
@@ -131,6 +131,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		homeChainContractReader,
 		d.lggr.Named("HomeChainReader"),
 		100*time.Millisecond,
+		ccipConfigBinding,
 	)
 
 	oracleCreator := oraclecreator.New(
@@ -223,13 +224,13 @@ func (d *Delegate) getHomeChainContractReader(
 	chains legacyevm.LegacyChainContainer,
 	capabilityLabelledName,
 	capabilityVersion string,
-) (types.ContractReader, error) {
+) (types.ContractReader, types.BoundContract, error) {
 	// home chain is where the capability registry is deployed,
 	// which should be set correctly in toml config.
 	homeChainRelayID := d.capabilityConfig.ExternalRegistry().RelayID()
 	homeChain, err := chains.Get(homeChainRelayID.ChainID)
 	if err != nil {
-		return nil, fmt.Errorf("home chain relayer not found, chain id: %s, err: %w", homeChainRelayID.String(), err)
+		return nil, types.BoundContract{}, fmt.Errorf("home chain relayer not found, chain id: %s, err: %w", homeChainRelayID.String(), err)
 	}
 
 	reader, err := evm.NewChainReaderService(
@@ -241,35 +242,36 @@ func (d *Delegate) getHomeChainContractReader(
 		configsevm.HomeChainReaderConfigRaw(),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create home chain contract reader: %w", err)
+		return nil, types.BoundContract{}, fmt.Errorf("failed to create home chain contract reader: %w", err)
 	}
 
-	reader, err = bindReader(ctx, reader, d.capabilityConfig.ExternalRegistry().Address(), capabilityLabelledName, capabilityVersion)
+	reader, ccipConfigBinding, err := bindReader(ctx, reader, d.capabilityConfig.ExternalRegistry().Address(), capabilityLabelledName, capabilityVersion)
 	if err != nil {
-		return nil, fmt.Errorf("failed to bind home chain contract reader: %w", err)
+		return nil, types.BoundContract{}, fmt.Errorf("failed to bind home chain contract reader: %w", err)
 	}
 
-	return reader, nil
+	return reader, ccipConfigBinding, nil
 }
 
 func bindReader(ctx context.Context,
 	reader types.ContractReader,
 	capRegAddress,
 	capabilityLabelledName,
-	capabilityVersion string) (types.ContractReader, error) {
-	err := reader.Bind(ctx, []types.BoundContract{
+	capabilityVersion string,
+) (boundReader types.ContractReader, ccipConfigBinding types.BoundContract, err error) {
+	err = reader.Bind(ctx, []types.BoundContract{
 		{
 			Address: capRegAddress,
 			Name:    consts.ContractNameCapabilitiesRegistry,
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to bind home chain contract reader: %w", err)
+		return nil, types.BoundContract{}, fmt.Errorf("failed to bind home chain contract reader: %w", err)
 	}
 
 	hid, err := common.HashedCapabilityID(capabilityLabelledName, capabilityVersion)
 	if err != nil {
-		return nil, fmt.Errorf("failed to hash capability id: %w", err)
+		return nil, types.BoundContract{}, fmt.Errorf("failed to hash capability id: %w", err)
 	}
 
 	var ccipCapabilityInfo kcr.CapabilitiesRegistryCapabilityInfo
@@ -277,19 +279,18 @@ func bindReader(ctx context.Context,
 		"hashedId": hid,
 	}, &ccipCapabilityInfo)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get CCIP capability info from chain reader: %w", err)
+		return nil, types.BoundContract{}, fmt.Errorf("failed to get CCIP capability info from chain reader: %w", err)
 	}
 
 	// bind the ccip capability configuration contract
-	err = reader.Bind(ctx, []types.BoundContract{
-		{
-			Address: ccipCapabilityInfo.ConfigurationContract.String(),
-			Name:    consts.ContractNameCCIPConfig,
-		},
-	})
+	ccipConfigBinding = types.BoundContract{
+		Address: ccipCapabilityInfo.ConfigurationContract.String(),
+		Name:    consts.ContractNameCCIPConfig,
+	}
+	err = reader.Bind(ctx, []types.BoundContract{ccipConfigBinding})
 	if err != nil {
-		return nil, fmt.Errorf("failed to bind CCIP capability configuration contract: %w", err)
+		return nil, types.BoundContract{}, fmt.Errorf("failed to bind CCIP capability configuration contract: %w", err)
 	}
 
-	return reader, nil
+	return reader, ccipConfigBinding, nil
 }
