@@ -18,12 +18,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
-      - uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
-        with:
-          nix_path: nixpkgs=channel:nixos-unstable
-
-      - name: setup-gap crib
-        uses: smartcontractkit/.github/actions/setup-gap@00b58566e0ee2761e56d9db0ea72b783fdb89b8d # setup-gap@0.4.0
+      - name: Setup GAP for accessing CRIB
+        uses: smartcontractkit/.github/actions/setup-gap@da1c0099f3bab236660ccc10328a29e06950c69f # setup-gap@0.5.0
         with:
           aws-role-duration-seconds: 3600 # 1 hour
           aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
@@ -40,8 +36,8 @@ jobs:
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
 
-      - name: setup-gap k8s
-        uses: smartcontractkit/.github/actions/setup-gap@00b58566e0ee2761e56d9db0ea72b783fdb89b8d # setup-gap@0.4.0
+      - name: Setup GAP for accessing Kubernetes API
+        uses: smartcontractkit/.github/actions/setup-gap@da1c0099f3bab236660ccc10328a29e06950c69f # setup-gap@0.5.0
         with:
           aws-role-duration-seconds: 3600 # 1 hour
           aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
@@ -73,7 +69,7 @@ jobs:
           echo $GITHUB_WORKSPACE
 
       - name: Deploy and validate CRIB Environment for Core
-        uses: smartcontractkit/.github/actions/crib-deploy-environment@c0b38e6c40d72d01b8d2f24f92623a2538b3dedb # crib-deploy-environment@0.5.0
+        uses: smartcontractkit/.github/actions/crib-deploy-environment@da1c0099f3bab236660ccc10328a29e06950c69f # crib-deploy-environment@0.6.0
         id: deploy-crib
         with:
           github-token: ${{ steps.token.outputs.access-token }}
@@ -90,6 +86,7 @@ jobs:
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           go-version-file: "go.mod"
+
       - name: Run CRIB integration test
         working-directory: integration-tests/crib
         env:
@@ -103,9 +100,10 @@ jobs:
           TEST_PERSISTENCE: true
         run: |-
           go test -v -run TestCRIB
+
       - name: Destroy CRIB Environment
         id: destroy
         if: always() && steps.deploy-crib.outputs.devspace-namespace != ''
-        uses: smartcontractkit/.github/actions/crib-purge-environment@c0b38e6c40d72d01b8d2f24f92623a2538b3dedb # crib-purge-environment@0.1.0
+        uses: smartcontractkit/.github/actions/crib-purge-environment@da1c0099f3bab236660ccc10328a29e06950c69f # crib-purge-environment@0.2.0
         with:
           namespace: ${{ steps.deploy-crib.outputs.devspace-namespace }}
