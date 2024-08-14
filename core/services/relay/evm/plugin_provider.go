@@ -5,10 +5,9 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type pluginProvider struct {

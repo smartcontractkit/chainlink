@@ -13,9 +13,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var (
@@ -56,15 +56,13 @@ func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader
 		"Write target.",
 	)
 
-	logger := lggr.Named("WriteTarget")
-
 	return &WriteTarget{
 		cr,
 		cw,
 		forwarderAddress,
 		txGasLimit - FORWARDER_CONTRACT_LOGIC_GAS_COST,
 		info,
-		logger,
+		logger.Named(lggr, "WriteTarget"),
 		false,
 	}
 }
