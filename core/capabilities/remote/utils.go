@@ -19,7 +19,6 @@ import (
 
 const (
 	maxLoggedStringLen = 256
-	validWorkflowIDLen = 64
 	maxIDLen           = 128
 )
 
@@ -114,15 +113,6 @@ func SanitizeLogString(s string) string {
 		}
 	}
 	return s + tooLongSuffix
-}
-
-// Workflow IDs and Execution IDs are 32-byte hex-encoded strings
-func IsValidWorkflowOrExecutionID(id string) bool {
-	if len(id) != validWorkflowIDLen {
-		return false
-	}
-	_, err := hex.DecodeString(id)
-	return err == nil
 }
 
 // Trigger event IDs and message IDs can only contain printable characters and must be non-empty
