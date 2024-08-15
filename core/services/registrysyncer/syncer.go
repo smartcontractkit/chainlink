@@ -234,6 +234,11 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 			return err
 		}
 
+		err = reader.Start(ctx)
+		if err != nil {
+			return err
+		}
+
 		s.reader = reader
 	}
 
