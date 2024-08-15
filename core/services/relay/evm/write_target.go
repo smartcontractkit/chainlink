@@ -46,6 +46,11 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, err
 	}
 
+	err = cr.Start(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	var gasLimit uint64 = 400_000
 	chainWriterConfig := relayevmtypes.ChainWriterConfig{
 		Contracts: map[string]*relayevmtypes.ContractConfig{
