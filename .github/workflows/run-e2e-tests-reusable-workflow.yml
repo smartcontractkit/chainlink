@@ -735,7 +735,7 @@ jobs:
   after_tests:
     needs: [run-docker-tests, run-k8s-runner-tests]
     if: always()
-    name: After tests notifications
+    name: After tests
     runs-on: ubuntu-latest
     outputs:
       test_results: ${{ steps.set_test_results.outputs.combined_results }}    
@@ -794,19 +794,6 @@ jobs:
             echo "result=success" >> $GITHUB_OUTPUT
           fi
 
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: ${{ env.METRICS_COLLECTION_ID }}-matrix-results
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: E2E Tests
-          matrix-aggregator-status: ${{ steps.combine_results.outputs.result }}
-        continue-on-error: true          
-
       - name: Send Slack notification
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         if: ${{ inputs.slack_notification_after_tests }}
@@ -835,7 +822,6 @@ jobs:
               ]
             }
 
-            
   # Run K8s tests using new remote runner
   # remote-runner-k8s-tests:
   #   runs-on: ubuntu-latest
