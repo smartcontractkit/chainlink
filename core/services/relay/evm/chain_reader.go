@@ -207,10 +207,6 @@ func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commont
 }
 
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
-	if !cr.isStarted {
-		return errors.New("service not started")
-	}
-
 	return cr.bindings.Bind(ctx, cr.lp, bindings)
 }
 
