@@ -187,7 +187,7 @@ func (cr *chainReader) HealthReport() map[string]error {
 
 func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
 	if !cr.isStarted {
-		return errors.New("service not started")
+		return errors.New("ContractReader service not started")
 	}
 
 	b, err := cr.bindings.GetReadBinding(contractName, method)
@@ -200,7 +200,7 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method 
 
 func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
 	if !cr.isStarted {
-		return nil, errors.New("service not started")
+		return nil, errors.New("ContractReader service not started")
 	}
 
 	return cr.bindings.BatchGetLatestValues(ctx, request)
@@ -212,7 +212,7 @@ func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundCon
 
 func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
 	if !cr.isStarted {
-		return nil, errors.New("service not started")
+		return nil, errors.New("ContractReader service not started")
 	}
 
 	b, err := cr.bindings.GetReadBinding(contractName, filter.Key)
