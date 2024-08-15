@@ -191,7 +191,7 @@ jobs:
           fetch-depth: 0
           path: ctf        
       - name: Setup Go for citool
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@c4b57aed6e5fabcce950067f1f7aaa8ee0256bd5 # v2.3.30
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@75a6c77c7132bd92b05dd103da06e67ac9dae6e7 # v2.3.30
         with:
           cache_key_id: ctf
           cache_builds: true
@@ -244,7 +244,7 @@ jobs:
           fetch-depth: 0
           path: ctf
       - name: Setup Go for citool
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@c4b57aed6e5fabcce950067f1f7aaa8ee0256bd5 # v2.3.30
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@75a6c77c7132bd92b05dd103da06e67ac9dae6e7 # v2.3.30
         with:
           cache_key_id: ctf
           cache_builds: true
@@ -499,12 +499,12 @@ jobs:
 
       - name: Run tests
         id: run_tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c4b57aed6e5fabcce950067f1f7aaa8ee0256bd5 # v2.3.30
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@75a6c77c7132bd92b05dd103da06e67ac9dae6e7 # v2.3.30
         env:
           DETACH_RUNNER: true
         with:
           test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_download_vendor_packages_command: cd $(dirname ${{ matrix.tests.path }}) && go mod download
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
           # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392
           # test_config_override_base64: ${{ inputs.test_config_override_base64 }}
@@ -679,7 +679,7 @@ jobs:
 
       - name: Run tests
         id: run_tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c4b57aed6e5fabcce950067f1f7aaa8ee0256bd5 # v2.3.29
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@75a6c77c7132bd92b05dd103da06e67ac9dae6e7 # v2.3.29
         env:
           DETACH_RUNNER: true
           RR_MEM: ${{ matrix.tests.remote_runner_memory }}
