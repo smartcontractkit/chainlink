@@ -4,7 +4,7 @@ pragma solidity ^0.8.16;
 import {IAutomationRegistryConsumer} from "./interfaces/IAutomationRegistryConsumer.sol";
 import {GAS_BOUND_CALLER, IGasBoundCaller} from "./interfaces/zksync/IGasBoundCaller.sol";
 
-uint256 constant PERFORM_GAS_CUSHION = 5_000;
+uint256 constant PERFORM_GAS_CUSHION = 50_000;
 
 /**
  * @title ZKSyncAutomationForwarder is a relayer that sits between the registry and the customer's target contract
@@ -14,7 +14,10 @@ uint256 constant PERFORM_GAS_CUSHION = 5_000;
  */
 contract ZKSyncAutomationForwarder {
   error InvalidCaller(address);
+  event GasBoundCallFailed(address target, bytes data);
+  event GasBoundCallSucceeded(address target, bytes data);
   event GasDetails(uint256 executionGas, uint256 gasPrice, uint256 pubdataGasSpent);
+  event CheckNeeded(bool gasNotEnough, uint256 gasUsed, uint256 gasAmount);
 
   /// @notice the user's target contract address
   address private immutable i_target;
@@ -41,19 +44,43 @@ contract ZKSyncAutomationForwarder {
     if (msg.sender != address(s_registry)) revert InvalidCaller(msg.sender);
 
     uint256 g1 = gasleft();
+    address target = i_target;
+
+    assembly {
+      let g := gas()
+      // Compute g -= PERFORM_GAS_CUSHION and check for underflow
+      if lt(g, PERFORM_GAS_CUSHION) {
+        revert(0, 0)
+      }
+      g := sub(g, PERFORM_GAS_CUSHION)
+      // if g - g//64 <= gasAmount, revert
+      // (we subtract g//64 because of EIP-150)
+      if iszero(gt(sub(g, div(g, 64)), gasAmount)) {
+        revert(0, 0)
+      }
+      // solidity calls check that a contract actually exists at the destination, so we do the same
+      if iszero(extcodesize(target)) {
+        revert(0, 0)
+      }
+    }
+
     bytes memory returnData;
     // solhint-disable-next-line avoid-low-level-calls
     (success, returnData) = GAS_BOUND_CALLER.delegatecall{gas: gasAmount}(
-      abi.encodeWithSelector(IGasBoundCaller.gasBoundCall.selector, i_target, gasAmount, data)
+      abi.encodeWithSelector(IGasBoundCaller.gasBoundCall.selector, target, gasAmount, data)
     );
     uint256 pubdataGasSpent;
     if (success) {
       (, pubdataGasSpent) = abi.decode(returnData, (bytes, uint256));
+      emit GasBoundCallSucceeded(target, returnData);
+    } else {
+      emit GasBoundCallFailed(target, returnData);
     }
     uint256 executionGas = g1 - gasleft();
     gasUsed = executionGas + pubdataGasSpent;
     emit GasDetails(executionGas, tx.gasprice, pubdataGasSpent);
     if (gasUsed > gasAmount) {
+      emit CheckNeeded(true, gasUsed, gasAmount);
       return (false, gasUsed);
     }
     return (success, gasUsed);

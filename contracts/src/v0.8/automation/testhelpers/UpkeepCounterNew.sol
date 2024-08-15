@@ -9,6 +9,7 @@ contract UpkeepCounterNew {
     uint256 previousBlock,
     uint256 counter
   );
+  error InvalidCaller(address caller, address forwarder);
 
   uint256 public testRange;
   uint256 public interval;
@@ -23,6 +24,8 @@ contract UpkeepCounterNew {
   uint256 public performGasToBurn;
   bytes public data;
   bytes public dataCopy;
+  bool public trickSimulation = false;
+  address public forwarder;
 
   constructor() {
     testRange = 1000000;
@@ -68,10 +71,25 @@ contract UpkeepCounterNew {
       while (startGas - gasleft() < checkGasToBurn) {} // burn gas
     }
 
-    return (eligible(), data);
+    if (useMorePerformData) {
+      return (eligible(), data);
+    }
+    return (eligible(), "");
+  }
+
+  function setTrickSimulation(bool _trickSimulation) external {
+    trickSimulation = _trickSimulation;
   }
 
   function performUpkeep(bytes calldata performData) external {
+    if (trickSimulation && tx.origin == address(0)) {
+      return;
+    }
+
+    if (msg.sender != forwarder) {
+      revert InvalidCaller(msg.sender, forwarder);
+    }
+
     if (useMorePerformGas) {
       uint256 startGas = gasleft();
       while (startGas - gasleft() < performGasToBurn) {} // burn gas
@@ -100,5 +118,9 @@ contract UpkeepCounterNew {
     interval = _interval;
     initialTimestamp = 0;
     counter = 0;
+  }
+
+  function setForwarder(address _forwarder) external {
+    forwarder = _forwarder;
   }
 }
