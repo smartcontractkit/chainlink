@@ -109,6 +109,14 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer contractReaderFa
 			Name:    "CapabilitiesRegistry",
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = cr.Start(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	return cr, err
 }
