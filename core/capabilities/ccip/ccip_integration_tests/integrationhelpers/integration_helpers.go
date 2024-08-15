@@ -51,6 +51,7 @@ func NewReader(
 ) types.ContractReader {
 	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.TestLogger(t), logPoller, headTracker, client, chainReaderConfig)
 	require.NoError(t, err)
+	require.NoError(t, cr.Start(testutils.Context(t)))
 	err = cr.Bind(testutils.Context(t), []types.BoundContract{
 		{
 			Address: address.String(),
@@ -58,7 +59,6 @@ func NewReader(
 		},
 	})
 	require.NoError(t, err)
-	require.NoError(t, cr.Start(testutils.Context(t)))
 	for {
 		if err := cr.Ready(); err == nil {
 			break
