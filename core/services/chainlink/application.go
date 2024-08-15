@@ -241,6 +241,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				},
 				relayer,
 				registryAddress,
+				registrysyncer.NewORM(opts.DS, globalLogger),
 			)
 			if err != nil {
 				return nil, fmt.Errorf("could not configure syncer: %w", err)
