@@ -24,7 +24,7 @@ THE SOFTWARE.
 
 
 *All content residing under (1) “/contracts/src/v0.8/ccip”; (2)
-“/core/gethwrappers/ccip”; (3) “/core/services/ocr2/plugins/ccip” are licensed
+“/core/gethwrappers/ccip”; (3) “/core/services/ocr2/plugins/ccip”; (4) "/core/capabilities/ccip" are licensed
 under “Business Source License 1.1” with a Change Date of May 23, 2027 and
 Change License to “MIT License”
 

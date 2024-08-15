@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 var (
@@ -16,7 +17,7 @@ var (
 
 type metadataRegistry interface {
 	LocalNode(ctx context.Context) (capabilities.Node, error)
-	ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error)
+	ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error)
 }
 
 // Registry is a struct for the registry of capabilities.
@@ -37,11 +38,18 @@ func (r *Registry) LocalNode(ctx context.Context) (capabilities.Node, error) {
 }
 
 func (r *Registry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	if r.metadataRegistry == nil {
 		return capabilities.CapabilityConfiguration{}, errors.New("metadataRegistry information not available")
 	}
 
-	return r.metadataRegistry.ConfigForCapability(ctx, capabilityID, donID)
+	cfc, err := r.metadataRegistry.ConfigForCapability(ctx, capabilityID, donID)
+	if err != nil {
+		return capabilities.CapabilityConfiguration{}, err
+	}
+
+	return unmarshalCapabilityConfig(cfc.Config)
 }
 
 // SetLocalRegistry sets a local copy of the offchain registry for the registry to use.
