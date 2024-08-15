@@ -98,7 +98,6 @@ jobs:
         id: goreleaser-build-sign-publish
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
-          # enable-docker-publish: "true"
           docker-registry: ${{ env.ECR_HOSTNAME}}
           docker-image-name: ${{ env.ECR_IMAGE_NAME }}
           docker-image-tag: ${{ github.ref_name }}
