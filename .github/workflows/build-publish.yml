@@ -107,7 +107,7 @@ jobs:
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
           zig-version: 0.11.0
           enable-cosign: "true"
-          cosign-version: 3.4.0
+          cosign-version: "v2.4.0"
           cosign-password: ${{ secrets.COSIGN_PASSWORD }}
           cosign-public-key: ${{ secrets.COSIGN_PUBLIC_KEY }}
           cosign-private-key: ${{ secrets.COSIGN_PRIVATE_KEY }}
