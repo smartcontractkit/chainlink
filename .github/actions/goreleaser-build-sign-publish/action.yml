@@ -122,6 +122,7 @@ runs:
         IMAGE_TAG: ${{ inputs.docker-image-tag }}
         GORELEASER_EXEC: ${{ inputs.goreleaser-exec }}
         GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
+        GORELEASER_KEY: ${{ inputs.goreleaser-key }}
         COSIGN_PASSWORD: ${{ inputs.cosign-password }}
         COSIGN_PUBLIC_KEY: ${{ inputs.cosign-public-key }}
         COSIGN_PRIVATE_KEY: ${{ inputs.cosign-private-key }}
