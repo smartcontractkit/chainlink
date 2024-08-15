@@ -270,6 +270,11 @@ func (d *Delegate) getHomeChainContractReader(
 		return nil, fmt.Errorf("failed to create home chain contract reader: %w", err)
 	}
 
+	err = reader.Start(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	reader, err = bindReader(ctx, reader, d.capabilityConfig.ExternalRegistry().Address(), capabilityLabelledName, capabilityVersion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bind home chain contract reader: %w", err)
