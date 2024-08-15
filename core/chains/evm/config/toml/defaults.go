@@ -15,10 +15,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 )
 
 var (
-	CUSTOM_DEFAULTS_ENV_KEY = "CL_CHAIN_DEFAULTS"
 
 	//go:embed defaults/*.toml
 	defaultsFS   embed.FS
@@ -76,7 +76,7 @@ func init() {
 	})
 
 	// read the custom defaults overrides
-	dir := os.Getenv(CUSTOM_DEFAULTS_ENV_KEY)
+	dir := os.Getenv(string(env.CustomDefaultsEnvKey))
 	if dir == "" {
 		// short-circuit; no default overrides provided
 		return
