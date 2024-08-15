@@ -804,6 +804,7 @@ type ClientErrors struct {
 	TransactionAlreadyMined           *string `toml:",omitempty"`
 	Fatal                             *string `toml:",omitempty"`
 	ServiceUnavailable                *string `toml:",omitempty"`
+	TooManyResults                    *string `toml:",omitempty"`
 }
 
 func (r *ClientErrors) setFrom(f *ClientErrors) bool {
@@ -848,6 +849,9 @@ func (r *ClientErrors) setFrom(f *ClientErrors) bool {
 	}
 	if v := f.ServiceUnavailable; v != nil {
 		r.ServiceUnavailable = v
+	}
+	if v := f.TooManyResults; v != nil {
+		r.TooManyResults = v
 	}
 	return true
 }

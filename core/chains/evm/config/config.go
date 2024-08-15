@@ -96,6 +96,7 @@ type ClientErrors interface {
 	TransactionAlreadyMined() string
 	Fatal() string
 	ServiceUnavailable() string
+	TooManyResults() string
 }
 
 type Transactions interface {

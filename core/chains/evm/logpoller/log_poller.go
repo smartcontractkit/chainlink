@@ -28,6 +28,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
@@ -112,6 +114,7 @@ type logPoller struct {
 	backfillBatchSize        int64         // batch size to use when backfilling finalized logs
 	rpcBatchSize             int64         // batch size to use for fallback RPC calls made in GetBlocks
 	logPrunePageSize         int64
+	clientErrors             config.ClientErrors
 	backupPollerNextBlock    int64 // next block to be processed by Backup LogPoller
 	backupPollerBlockDelay   int64 // how far behind regular LogPoller should BackupLogPoller run. 0 = disabled
 
@@ -142,6 +145,7 @@ type Opts struct {
 	KeepFinalizedBlocksDepth int64
 	BackupPollerBlockDelay   int64
 	LogPrunePageSize         int64
+	ClientErrors             config.ClientErrors
 }
 
 // NewLogPoller creates a log poller. Note there is an assumption
@@ -171,6 +175,7 @@ func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, headTracker HeadTracke
 		rpcBatchSize:             opts.RpcBatchSize,
 		keepFinalizedBlocksDepth: opts.KeepFinalizedBlocksDepth,
 		logPrunePageSize:         opts.LogPrunePageSize,
+		clientErrors:             opts.ClientErrors,
 		filters:                  make(map[string]Filter),
 		filterDirty:              true, // Always build Filter on first call to cache an empty filter if nothing registered yet.
 		finalityViolated:         new(atomic.Bool),
@@ -793,29 +798,6 @@ func (lp *logPoller) blocksFromLogs(ctx context.Context, logs []types.Log, endBl
 	return lp.GetBlocksRange(ctx, numbers)
 }
 
-// Defined as "failure to create transaction" in some references, but implemented as "results too large" in geth
-// See: https://github.com/ethereum/go-ethereum/blob/master/rpc/errors.go#L63
-const jsonRpcResultsTooLarge = -32003
-
-// This one is not implemented in geth by default, but is defined in EIP 1474 and is implemented by infura and many other
-// 3rd party rpc servers who do rate limiting. See: https://community.infura.io/t/getlogs-error-query-returned-more-than-1000-results/358/5
-const jsonRpcLimitExceeded = -32005 // See also: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1474.md
-
-func isRequestTooLargeError(err error) bool {
-	var rpcErr rpc.Error
-	if !pkgerrors.As(err, &rpcErr) {
-		return false
-	}
-
-	switch rpcErr.ErrorCode() {
-	case jsonRpcLimitExceeded:
-		fallthrough
-	case jsonRpcResultsTooLarge:
-		return true
-	}
-	return false
-}
-
 // backfill will query FilterLogs in batches for logs in the
 // block range [start, end] and save them to the db.
 // Retries until ctx cancelled. Will return an error if cancelled
@@ -827,7 +809,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 
 		gethLogs, err := lp.ec.FilterLogs(ctx, lp.Filter(big.NewInt(from), big.NewInt(to), nil))
 		if err != nil {
-			if !isRequestTooLargeError(err) {
+			if !client.IsTooManyResults(err, lp.clientErrors) {
 				lp.lggr.Errorw("Unable to query for logs", "err", err, "from", from, "to", to)
 				return err
 			}
