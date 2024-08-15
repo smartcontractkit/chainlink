@@ -412,8 +412,8 @@ func (c *Chain) ValidateConfig() (err error) {
 					err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.DetectionApiUrl", Value: c.Transactions.AutoPurge.DetectionApiUrl.Scheme, Msg: "must be http or https"})
 				}
 			}
-		case chaintype.ChainZkEvm:
-			// MinAttempts is an optional config that can be used to delay the stuck tx detection for zkEVM
+		case chaintype.ChainZkEvm, chaintype.ChainXLayer:
+			// MinAttempts is an optional config that can be used to delay the stuck tx detection for zkEVM or XLayer
 			// If MinAttempts is set, BumpThreshold cannot be 0
 			if c.Transactions.AutoPurge.MinAttempts != nil && *c.Transactions.AutoPurge.MinAttempts != 0 {
 				if c.GasEstimator.BumpThreshold == nil {

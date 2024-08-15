@@ -128,7 +128,7 @@ func (d *stuckTxDetector) DetectStuckTransactions(ctx context.Context, enabledAd
 	switch d.chainType {
 	case chaintype.ChainScroll:
 		return d.detectStuckTransactionsScroll(ctx, txs)
-	case chaintype.ChainZkEvm:
+	case chaintype.ChainZkEvm, chaintype.ChainXLayer:
 		return d.detectStuckTransactionsZkEVM(ctx, txs)
 	default:
 		return d.detectStuckTransactionsHeuristic(ctx, txs, blockNum)
