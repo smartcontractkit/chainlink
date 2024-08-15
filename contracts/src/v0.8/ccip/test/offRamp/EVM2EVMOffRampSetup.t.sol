@@ -230,7 +230,7 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
 
   function _getGasLimitsFromMessages(Internal.EVM2EVMMessage[] memory messages)
     internal
-    view
+    pure
     returns (EVM2EVMOffRamp.GasLimitOverride[] memory)
   {
     EVM2EVMOffRamp.GasLimitOverride[] memory gasLimitOverrides = new EVM2EVMOffRamp.GasLimitOverride[](messages.length);

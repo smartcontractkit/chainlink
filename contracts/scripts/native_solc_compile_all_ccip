@@ -91,7 +91,6 @@ compileContract ccip/test/helpers/CCIPReaderTester.sol
 compileContract ccip/test/helpers/ReportCodec.sol
 compileContract ccip/test/helpers/receivers/MaybeRevertMessageReceiver.sol
 compileContract ccip/test/helpers/MultiOCR3Helper.sol
-compileContract ccip/test/mocks/MockRMN1_0.sol
 compileContract ccip/test/mocks/MockE2EUSDCTokenMessenger.sol
 compileContract ccip/test/mocks/MockE2EUSDCTransmitter.sol
 compileContract ccip/test/WETH9.sol
