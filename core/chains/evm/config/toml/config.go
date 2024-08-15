@@ -413,7 +413,15 @@ func (c *Chain) ValidateConfig() (err error) {
 				}
 			}
 		case chaintype.ChainZkEvm:
-			// No other configs are needed
+			// MinAttempts is an optional config that can be used to delay the stuck tx detection for zkEVM
+			// If MinAttempts is set, BumpThreshold cannot be 0
+			if c.Transactions.AutoPurge.MinAttempts != nil && *c.Transactions.AutoPurge.MinAttempts != 0 {
+				if c.GasEstimator.BumpThreshold == nil {
+					err = multierr.Append(err, commonconfig.ErrMissing{Name: "GasEstimator.BumpThreshold", Msg: fmt.Sprintf("must be set if Transactions.AutoPurge.MinAttempts is set for %s", chainType)})
+				} else if *c.GasEstimator.BumpThreshold == 0 {
+					err = multierr.Append(err, commonconfig.ErrInvalid{Name: "GasEstimator.BumpThreshold", Value: 0, Msg: fmt.Sprintf("cannot be 0 if Transactions.AutoPurge.MinAttempts is set for %s", chainType)})
+				}
+			}
 		default:
 			// Bump Threshold is required because the stuck tx heuristic relies on a minimum number of bump attempts to exist
 			if c.GasEstimator.BumpThreshold == nil {
