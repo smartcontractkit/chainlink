@@ -13,7 +13,7 @@ contract MaliciousConfigurationContract is ICapabilityConfiguration, ERC165, Con
     s_capabilityWithConfigurationContractId = capabilityWithConfigContractId;
   }
 
-  function getCapabilityConfiguration(uint32) external view returns (bytes memory configuration) {
+  function getCapabilityConfiguration(uint32) external pure returns (bytes memory configuration) {
     return bytes("");
   }
 
