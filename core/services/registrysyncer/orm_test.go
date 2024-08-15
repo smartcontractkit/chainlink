@@ -104,11 +104,11 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 		IDsToCapabilities: map[string]registrysyncer.Capability{
 			capabilityIDStr: {
 				ID:             capabilityIDStr,
-				CapabilityType: 0,
+				CapabilityType: capabilities.CapabilityTypeAction,
 			},
 			capabilityID2Str: {
 				ID:             capabilityID2Str,
-				CapabilityType: 3,
+				CapabilityType: capabilities.CapabilityTypeConsensus,
 			},
 		},
 		IDsToNodes: map[types.PeerID]kcr.CapabilitiesRegistryNodeInfo{
