@@ -20,7 +20,7 @@ import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../t
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
 import { MockZKSyncSystemContext__factory as MockZKSyncSystemContextFactory } from '../../../typechain/factories/MockZKSyncSystemContext__factory'
-import { ZKSyncModule__factory as ZKSyncModuleFactory } from '../../../typechain/factories/ZKSyncModule__factory'
+import { ChainModuleBase__factory as ChainModuleBaseFactory } from '../../../typechain/factories/ChainModuleBase__factory'
 import { MockGasBoundCaller__factory as MockGasBoundCallerFactory } from '../../../typechain/factories/MockGasBoundCaller__factory'
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
 import { AutomationCompatibleUtils } from '../../../typechain/AutomationCompatibleUtils'
@@ -28,7 +28,7 @@ import { StreamsLookupUpkeep } from '../../../typechain/StreamsLookupUpkeep'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { MockGasBoundCaller } from '../../../typechain/MockGasBoundCaller'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
-import { ZKSyncModule } from '../../../typechain/ZKSyncModule'
+import { ChainModuleBase } from '../../../typechain/ChainModuleBase'
 import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
 import { MockZKSyncSystemContext } from '../../../typechain/MockZKSyncSystemContext'
 import { IChainModule, UpkeepAutoFunder } from '../../../typechain'
@@ -145,7 +145,7 @@ let mockV3AggregatorFactory: MockV3AggregatorFactory
 let mockGasBoundCallerFactory: MockGasBoundCallerFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
-let zksyncModuleFactory: ZKSyncModuleFactory
+let moduleBaseFactory: ChainModuleBaseFactory
 let mockZKSyncSystemContextFactory: MockZKSyncSystemContextFactory
 let streamsLookupUpkeepFactory: StreamsLookupUpkeepFactory
 let personas: Personas
@@ -161,7 +161,7 @@ let mock: UpkeepMock
 let autoFunderUpkeep: UpkeepAutoFunder
 let ltUpkeep: MockContract
 let transcoder: UpkeepTranscoder
-let zksyncModule: ZKSyncModule
+let moduleBase: ChainModuleBase
 let mockGasBoundCaller: MockGasBoundCaller
 let mockZKSyncSystemContext: MockZKSyncSystemContext
 let streamsLookupUpkeep: StreamsLookupUpkeep
@@ -426,7 +426,7 @@ describe('ZKSyncAutomationRegistry2_3', () => {
     upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
     upkeepAutoFunderFactory =
       await ethers.getContractFactory('UpkeepAutoFunder')
-    zksyncModuleFactory = await ethers.getContractFactory('ZKSyncModule')
+    moduleBaseFactory = await ethers.getContractFactory('ChainModuleBase')
     streamsLookupUpkeepFactory = await ethers.getContractFactory(
       'StreamsLookupUpkeep',
     )
@@ -832,7 +832,7 @@ describe('ZKSyncAutomationRegistry2_3', () => {
       .connect(owner)
       .deploy()
     mockGasBoundCaller = await mockGasBoundCallerFactory.connect(owner).deploy()
-    zksyncModule = await zksyncModuleFactory.connect(owner).deploy()
+    moduleBase = await moduleBaseFactory.connect(owner).deploy()
     streamsLookupUpkeep = await streamsLookupUpkeepFactory
       .connect(owner)
       .deploy(
@@ -875,7 +875,7 @@ describe('ZKSyncAutomationRegistry2_3', () => {
       transcoder: transcoder.address,
       registrars: [],
       upkeepPrivilegeManager: upkeepManager,
-      chainModule: zksyncModule.address,
+      chainModule: moduleBase.address,
       reorgProtectionEnabled: true,
       financeAdmin: financeAdminAddress,
     }
@@ -1989,7 +1989,7 @@ describe('ZKSyncAutomationRegistry2_3', () => {
       //         const upkeepSuccessArray = [true, false]
       //         const performGasArray = [5000, performGas]
       //         const performDataArray = ['0x', longBytes]
-      //         const chainModuleOverheads = await zksyncModule.getGasOverhead()
+      //         const chainModuleOverheads = await moduleBase.getGasOverhead()
       //
       //         for (const i in upkeepSuccessArray) {
       //           for (const j in performGasArray) {
@@ -2149,7 +2149,7 @@ describe('ZKSyncAutomationRegistry2_3', () => {
       //         // exactly 1 Upkeep Performed should be emitted
       //         assert.equal(upkeepPerformedLogs.length, 1)
       //         const upkeepPerformedLog = upkeepPerformedLogs[0]
-      //         const chainModuleOverheads = await zksyncModule.getGasOverhead()
+      //         const chainModuleOverheads = await moduleBase.getGasOverhead()
       //
       //         const upkeepGasUsed = upkeepPerformedLog.args.gasUsed
       //         const chargedGasOverhead = upkeepPerformedLog.args.gasOverhead
@@ -3224,11 +3224,11 @@ describe('ZKSyncAutomationRegistry2_3', () => {
 
   describe('#getMaxPaymentForGas', () => {
     itMaybe('calculates the max fee appropriately in ZKSync', async () => {
-      await verifyMaxPayment(registry, zksyncModule)
+      await verifyMaxPayment(registry, moduleBase)
     })
 
     it('uses the fallback gas price if the feed has issues in ZKSync', async () => {
-      const chainModuleOverheads = await zksyncModule.getGasOverhead()
+      const chainModuleOverheads = await moduleBase.getGasOverhead()
       const expectedFallbackMaxPayment = linkForGas(
         performGas,
         registryConditionalOverhead
@@ -3302,7 +3302,7 @@ describe('ZKSyncAutomationRegistry2_3', () => {
     })
 
     it('uses the fallback link price if the feed has issues in ZKSync', async () => {
-      const chainModuleOverheads = await zksyncModule.getGasOverhead()
+      const chainModuleOverheads = await moduleBase.getGasOverhead()
       const expectedFallbackMaxPayment = linkForGas(
         performGas,
         registryConditionalOverhead
@@ -3413,7 +3413,7 @@ describe('ZKSyncAutomationRegistry2_3', () => {
       transcoder: newTranscoder,
       registrars: newRegistrars,
       upkeepPrivilegeManager: upkeepManager,
-      chainModule: zksyncModule.address,
+      chainModule: moduleBase.address,
       reorgProtectionEnabled: true,
       financeAdmin: financeAdminAddress,
     }
@@ -3863,7 +3863,7 @@ describe('ZKSyncAutomationRegistry2_3', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
-              chainModule: zksyncModule.address,
+              chainModule: moduleBase.address,
               reorgProtectionEnabled: true,
               financeAdmin: financeAdminAddress,
             },
@@ -3930,7 +3930,7 @@ describe('ZKSyncAutomationRegistry2_3', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
-              chainModule: zksyncModule.address,
+              chainModule: moduleBase.address,
               reorgProtectionEnabled: true,
               financeAdmin: financeAdminAddress,
             },
@@ -3992,7 +3992,7 @@ describe('ZKSyncAutomationRegistry2_3', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
-              chainModule: zksyncModule.address,
+              chainModule: moduleBase.address,
               reorgProtectionEnabled: true,
               financeAdmin: financeAdminAddress,
             },
