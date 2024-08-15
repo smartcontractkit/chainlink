@@ -34,7 +34,7 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 
 		cr := it.GetChainReader(t)
 		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
-		require.NoError(t, cr.Start(ctx))
+		it.StartChainReader(t)
 
 		input := struct{ Field string }{Field: anyString}
 		tp := cr.(clcommontypes.ContractTypeProvider)
@@ -63,7 +63,7 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 		ctx := it.Helper.Context(t)
 		cr := it.GetChainReader(t)
 		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
-		require.NoError(t, cr.Start(ctx))
+		it.StartChainReader(t)
 		var latest struct{ Field1, Field2, Field3 int32 }
 		params := struct{ Field1, Field2, Field3 int32 }{Field1: 1, Field2: 2, Field3: 3}
 
@@ -85,7 +85,7 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 		ctx := it.Helper.Context(t)
 		cr := it.GetChainReader(t)
 		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
-		require.NoError(t, cr.Start(ctx))
+		it.StartChainReader(t)
 		var latest struct {
 			Field3 [32]byte
 		}

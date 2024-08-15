@@ -235,6 +235,10 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	return cr
 }
 
+func (it *EVMChainReaderInterfaceTester[T]) StartChainReader(t T) {
+	require.NoError(t, it.cr.Start(it.Helper.Context(t)))
+}
+
 func (it *EVMChainReaderInterfaceTester[T]) SetTestStructLatestValue(t T, testStruct *TestStruct) {
 	it.sendTxWithTestStruct(t, it.address, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).AddTestStruct)
 }
