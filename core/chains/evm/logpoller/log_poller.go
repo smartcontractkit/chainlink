@@ -794,8 +794,6 @@ func (lp *logPoller) blocksFromLogs(ctx context.Context, logs []types.Log, endBl
 	return lp.GetBlocksRange(ctx, numbers)
 }
 
-const jsonRpcLimitExceeded = -32005 // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1474.md
-
 // backfill will query FilterLogs in batches for logs in the
 // block range [start, end] and save them to the db.
 // Retries until ctx cancelled. Will return an error if cancelled
@@ -817,10 +815,9 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 				lp.lggr.Warnw("Too many log results, halving block range batch size.  Consider increasing LogBackfillBatchSize if this happens frequently", "err", err, "from", from, "to", to, "newBatchSize", batchSize, "LogBackfillBatchSize", lp.backfillBatchSize)
 				from -= batchSize // counteract +=batchSize on next loop iteration, so starting block does not change
 				continue
-			} else {
-				lp.lggr.Errorw("Unable to query for logs", "err", err, "from", from, "to", to)
-				return err
 			}
+			lp.lggr.Errorw("Unable to query for logs", "err", err, "from", from, "to", to)
+			return err
 		}
 		if len(gethLogs) == 0 {
 			continue
