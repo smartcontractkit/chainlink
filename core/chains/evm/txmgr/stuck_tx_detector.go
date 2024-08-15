@@ -44,7 +44,7 @@ type stuckTxDetectorConfig interface {
 }
 
 type stuckTxDetector struct {
-	lggr      logger.Logger
+	lggr      logger.SugaredLogger
 	chainID   *big.Int
 	chainType chaintype.ChainType
 	maxPrice  *assets.Wei
@@ -64,7 +64,7 @@ func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType chaintyp
 	t.DisableCompression = true
 	httpClient := &http.Client{Transport: t}
 	return &stuckTxDetector{
-		lggr:             lggr,
+		lggr:             logger.Sugared(lggr),
 		chainID:          chainID,
 		chainType:        chainType,
 		maxPrice:         maxPrice,
@@ -157,6 +157,7 @@ func (d *stuckTxDetector) FindUnconfirmedTxWithLowestNonce(ctx context.Context, 
 	var stuckTxs []Tx
 	for _, tx := range lowestNonceTxMap {
 		if len(tx.TxAttempts) == 0 {
+			d.lggr.AssumptionViolationw("encountered an unconfirmed transaction without an attempt", "tx", tx)
 			continue
 		}
 		// Check the transaction's attempts in case any are already marked for purge or if any are not broadcasted
