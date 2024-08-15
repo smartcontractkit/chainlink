@@ -491,12 +491,6 @@ jobs:
             --user "$(id -u):$(id -g)" \
             -p 4317:4317 otel/opentelemetry-collector:0.88.0 --config=/etc/otel-collector.yaml
 
-      - name: Show Otel-Collector Logs
-        if: inputs.enable_otel_traces_for_ocr2_plugins && matrix.tests.test_inputs.enable_otel_traces == 'true'
-        run: |
-          echo "VOLUME_PATH=$(docker volume inspect --format '{{ .Mountpoint }}' otel-traces)" >> $GITHUB_OUTPUT
-          docker logs otel-collector        
-
       - name: Run tests
         id: run_tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@75a6c77c7132bd92b05dd103da06e67ac9dae6e7 # v2.3.30
