@@ -11,6 +11,7 @@ import {Client} from "../../libraries/Client.sol";
 import {Pool} from "../../libraries/Pool.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {BurnMintTokenPoolAndProxy} from "../../pools/BurnMintTokenPoolAndProxy.sol";
+import {BurnWithFromMintTokenPoolAndProxy} from "../../pools/BurnWithFromMintTokenPoolAndProxy.sol";
 import {LockReleaseTokenPoolAndProxy} from "../../pools/LockReleaseTokenPoolAndProxy.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
 import {TokenSetup} from "../TokenSetup.t.sol";
@@ -352,6 +353,19 @@ contract TokenPoolAndProxy is EVM2EVMOnRampSetup {
 
   function test_lockOrBurn_burnMint_Success() public {
     s_pool = new BurnMintTokenPoolAndProxy(s_token, new address[](0), address(s_mockRMN), address(s_sourceRouter));
+    _configurePool();
+    _deployOldPool();
+    _assertLockOrBurnCorrect();
+
+    vm.startPrank(OWNER);
+    BurnMintTokenPoolAndProxy(address(s_pool)).setPreviousPool(IPoolPriorTo1_5(address(0)));
+
+    _assertReleaseOrMintCorrect();
+  }
+
+  function test_lockOrBurn_burnWithFromMint_Success() public {
+    s_pool =
+      new BurnWithFromMintTokenPoolAndProxy(s_token, new address[](0), address(s_mockRMN), address(s_sourceRouter));
     _configurePool();
     _deployOldPool();
     _assertLockOrBurnCorrect();
