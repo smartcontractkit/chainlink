@@ -518,6 +518,25 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			assert.True(t, ethTx.Error.Valid)
 			assert.Equal(t, "transaction reverted during simulation: json-rpc error { Code = 42, Message = 'oh no, it reverted', Data = 'KqYi' }", ethTx.Error.String)
 		})
+
+		t.Run("terminally stuck transaction is marked as fatal", func(t *testing.T) {
+			terminallyStuckError := "failed to add tx to the pool: not enough step counters to continue the execution"
+			etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, []byte{42, 42, 0}, gasLimit, big.Int(assets.NewEthValue(243)), testutils.FixtureChainID)
+			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+				return tx.Nonce() == uint64(346) && tx.Value().Cmp(big.NewInt(243)) == 0
+			}), fromAddress).Return(commonclient.Fatal, errors.New(terminallyStuckError)).Once()
+
+			// Start processing unstarted transactions
+			retryable, err := eb.ProcessUnstartedTxs(tests.Context(t), fromAddress)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+
+			dbTx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
+			require.NoError(t, err)
+			assert.Equal(t, txmgrcommon.TxFatalError, dbTx.State)
+			assert.True(t, dbTx.Error.Valid)
+			assert.Equal(t, terminallyStuckError, dbTx.Error.String)
+		})
 	})
 }
 

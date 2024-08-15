@@ -2656,6 +2656,58 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	})
 }
 
+func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyStuckError(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].GasEstimator.PriceMax = assets.GWei(500)
+	})
+	txStore := cltest.NewTestTxStore(t, db)
+	ctx := tests.Context(t)
+
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+
+	// Use a mock keystore for this test
+	ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
+	currentHead := int64(30)
+	oldEnough := int64(19)
+	nonce := int64(0)
+	terminallyStuckError := "failed to add tx to the pool: not enough step counters to continue the execution"
+
+	t.Run("terminally stuck transaction replaced with purge attempt", func(t *testing.T) {
+		originalBroadcastAt := time.Unix(1616509100, 0)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress, originalBroadcastAt)
+		nonce++
+		attempt1_1 := etx.TxAttempts[0]
+		var dbAttempt txmgr.DbEthTxAttempt
+		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
+
+		// Return terminally stuck error on first rebroadcast
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return tx.Nonce() == uint64(*etx.Sequence)
+		}), fromAddress).Return(commonclient.TerminallyStuck, errors.New(terminallyStuckError)).Once()
+		// Return successful for purge attempt
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return tx.Nonce() == uint64(*etx.Sequence)
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
+
+		// Start processing transactions for rebroadcast
+		require.NoError(t, ec.RebroadcastWhereNecessary(tests.Context(t), currentHead))
+		var err error
+		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
+		require.NoError(t, err)
+
+		require.Len(t, etx.TxAttempts, 2)
+		purgeAttempt := etx.TxAttempts[0]
+		require.True(t, purgeAttempt.IsPurgeAttempt)
+	})
+}
+
 func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	t.Parallel()
 

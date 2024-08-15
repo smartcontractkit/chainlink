@@ -583,6 +583,11 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 		)
 		return commonclient.ExceedsMaxFee
 	}
+	if sendError.IsTerminallyStuckConfigError(configErrors) {
+		lggr.Warnw("Transaction that would have been terminally stuck in the mempool detected on send. Marking as fatal error.", "err", sendError, "etx", tx)
+		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
+		return commonclient.TerminallyStuck
+	}
 	lggr.Criticalw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
 	return commonclient.Unknown
 }

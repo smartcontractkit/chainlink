@@ -747,6 +747,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 	t.Run("returns fatal for fatal error state with terminally stuck error", func(t *testing.T) {
 		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		// Test the internal terminally stuck error returns Fatal
 		nonce := evmtypes.Nonce(0)
 		broadcast := time.Now()
 		tx := &txmgr.Tx{
@@ -763,6 +764,27 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		err := txStore.InsertTx(ctx, tx)
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
+		require.Equal(t, commontypes.Fatal, state)
+		require.Error(t, err, evmclient.TerminallyStuckMsg)
+
+		// Test a terminally stuck client error returns Fatal
+		nonce = evmtypes.Nonce(1)
+		idempotencyKey = uuid.New().String()
+		terminallyStuckClientError := "failed to add tx to the pool: not enough step counters to continue the execution"
+		tx = &txmgr.Tx{
+			Sequence:           &nonce,
+			IdempotencyKey:     &idempotencyKey,
+			FromAddress:        fromAddress,
+			EncodedPayload:     []byte{1, 2, 3},
+			FeeLimit:           feeLimit,
+			State:              txmgrcommon.TxFatalError,
+			Error:              null.NewString(terminallyStuckClientError, true),
+			BroadcastAt:        &broadcast,
+			InitialBroadcastAt: &broadcast,
+		}
+		err = txStore.InsertTx(ctx, tx)
+		require.NoError(t, err)
+		state, err = txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.Equal(t, commontypes.Fatal, state)
 		require.Error(t, err, evmclient.TerminallyStuckMsg)
 	})

@@ -471,7 +471,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 		go func(tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
 			defer wg.Done()
 			lggr := tx.GetLogger(ec.lggr)
-			// Create an purge attempt for tx
+			// Create a purge attempt for tx
 			purgeAttempt, err := ec.TxAttemptBuilder.NewPurgeTxAttempt(ctx, tx, lggr)
 			if err != nil {
 				errMu.Lock()
@@ -975,6 +975,21 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		ec.SvcErrBuffer.Append(sendError)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
 		return ec.txStore.DeleteInProgressAttempt(ctx, attempt)
+	case client.TerminallyStuck:
+		// A transaction could broadcast successfully but then be considered terminally stuck on another attempt
+		// Even though the transaction can succeed under different circumstances, we want to purge this transaction as soon as we get this error
+		lggr.Warnw("terminally stuck transaction detected", "err", sendError.Error())
+		ec.SvcErrBuffer.Append(sendError)
+		// Create a purge attempt for tx
+		purgeAttempt, err := ec.TxAttemptBuilder.NewPurgeTxAttempt(ctx, etx, lggr)
+		if err != nil {
+			return fmt.Errorf("NewPurgeTxAttempt failed: %w", err)
+		}
+		// Replace the in progress attempt with the purge attempt
+		if err := ec.txStore.SaveReplacementInProgressAttempt(ctx, attempt, &purgeAttempt); err != nil {
+			return fmt.Errorf("saveReplacementInProgressAttempt failed: %w", err)
+		}
+		return ec.handleInProgressAttempt(ctx, lggr, etx, purgeAttempt, blockHeight)
 	case client.TransactionAlreadyKnown:
 		// Sequence too low indicated that a transaction at this sequence was confirmed already.
 		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt

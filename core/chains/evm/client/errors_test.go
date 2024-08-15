@@ -285,7 +285,7 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("Metis gas price errors", func(t *testing.T) {
-		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.metis.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
+		err = evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.metis.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
 		assert.True(t, err.L2FeeTooLow(clientErrors))
 		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.metis.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
 		assert.True(t, err.L2FeeTooLow(clientErrors))
@@ -297,7 +297,7 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("moonriver errors", func(t *testing.T) {
-		err := evmclient.NewSendErrorS("primary http (http://***REDACTED***:9933) call failed: submit transaction to pool failed: Pool(Stale)")
+		err = evmclient.NewSendErrorS("primary http (http://***REDACTED***:9933) call failed: submit transaction to pool failed: Pool(Stale)")
 		assert.True(t, err.IsNonceTooLowError(clientErrors))
 		assert.False(t, err.IsTransactionAlreadyInMempool(clientErrors))
 		assert.False(t, err.Fatal(clientErrors))
@@ -305,6 +305,24 @@ func Test_Eth_Errors(t *testing.T) {
 		assert.True(t, err.IsTransactionAlreadyInMempool(clientErrors))
 		assert.False(t, err.IsNonceTooLowError(clientErrors))
 		assert.False(t, err.Fatal(clientErrors))
+	})
+
+	t.Run("IsTerminallyStuck", func(t *testing.T) {
+		tests := []errorCase{
+			{"failed to add tx to the pool: not enough step counters to continue the execution", true, "zkEVM"},
+			{"failed to add tx to the pool: not enough step counters to continue the execution", true, "Xlayer"},
+			{"failed to add tx to the pool: not enough keccak counters to continue the execution", true, "zkEVM"},
+			{"failed to add tx to the pool: not enough keccak counters to continue the execution", true, "Xlayer"},
+		}
+
+		for _, test := range tests {
+			t.Run(test.network, func(t *testing.T) {
+				err = evmclient.NewSendErrorS(test.message)
+				assert.Equal(t, err.IsTerminallyStuckConfigError(clientErrors), test.expect)
+				err = newSendErrorWrapped(test.message)
+				assert.Equal(t, err.IsTerminallyStuckConfigError(clientErrors), test.expect)
+			})
+		}
 	})
 }
 
