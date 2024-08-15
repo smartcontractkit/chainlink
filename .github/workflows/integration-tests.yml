@@ -340,32 +340,6 @@ jobs:
       - name: Show Coverage
         run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/cl_node_coverage_data/*/merged"
 
-  # Run the setup if the matrix finishes but this time save the cache if we have a cache hit miss
-  # this will also only run if both of the matrix jobs pass
-  eth-smoke-go-mod-cache:
-    environment: integration
-    needs: [run-e2e-tests-workflow]
-    runs-on: ubuntu-latest
-    name: ETH Smoke Tests Go Mod Cache
-    continue-on-error: true
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Run Setup
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
-        with:
-          test_download_vendor_packages_command: |
-            cd ./integration-tests
-            go mod download
-            # force download of test dependencies
-            go test -run=NonExistentTest ./smoke/... || echo "ignore expected test failure"
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "false"
-
   ## Solana Section
   get_solana_sha:
     # We don't directly merge dependabot PRs, so let's not waste the resources
