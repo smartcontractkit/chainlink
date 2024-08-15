@@ -262,7 +262,8 @@ func toCapabilityType(capabilityType uint8) capabilities.CapabilityType {
 	case 3:
 		return capabilities.CapabilityTypeTarget
 	default:
-		return capabilities.CapabilityTypeUnknown
+		// Not found
+		return capabilities.CapabilityType(-1)
 	}
 }
 
