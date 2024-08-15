@@ -198,6 +198,9 @@ snapshot:
 partial:
   by: target
 
+release:
+  skip_upload: true
+
 changelog:
   sort: asc
   filters:
