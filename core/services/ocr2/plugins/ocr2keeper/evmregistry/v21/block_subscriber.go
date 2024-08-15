@@ -235,7 +235,7 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 	// head parent is a linked list with EVM finality depth
 	// when re-org happens, new heads will have pointers to the new blocks
 	i := int64(0)
-	for cp := h; cp != nil; cp = cp.Parent {
+	for cp := h; cp != nil; cp = cp.Parent.Load() {
 		// we don't stop when a matching (block number/hash) entry is seen in the map because parent linked list may be
 		// cut short during a re-org if head broadcaster backfill is not complete. This can cause some re-orged blocks
 		// left in the map. for example, re-org happens for block 98, 99, 100. next head 101 from broadcaster has parent list

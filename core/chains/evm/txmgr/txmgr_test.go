@@ -620,12 +620,13 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 	head := &evmtypes.Head{
 		Hash:   utils.NewHash(),
 		Number: 100,
-		Parent: &evmtypes.Head{
-			Hash:        utils.NewHash(),
-			Number:      99,
-			IsFinalized: true,
-		},
 	}
+	parent := &evmtypes.Head{
+		Hash:   utils.NewHash(),
+		Number: 99,
+	}
+	parent.IsFinalized.Store(true)
+	head.Parent.Store(parent)
 	txm.OnNewLongestChain(ctx, head)
 
 	t.Run("returns error if transaction not found", func(t *testing.T) {
@@ -716,7 +717,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		err = txStore.InsertTxAttempt(ctx, &attempt)
 		require.NoError(t, err)
 		// Insert receipt for finalized block num
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, head.ParentHash, attempt.Hash)
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, head.ParentHash, attempt.Hash)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
 		require.Equal(t, commontypes.Unconfirmed, state)

@@ -301,7 +301,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	ec := evmclimocks.NewClient(t)
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(context.Context, *big.Int) (*evmtypes.Head, error) {
-		headCopy := head
+		headCopy := evmtypes.Head{Number: head.Number}
 		return &headCopy, nil
 	})
 	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Once()
@@ -318,7 +318,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 
 	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(func(ctx context.Context) (*evmtypes.Head, *evmtypes.Head, error) {
-		headCopy := head
+		headCopy := evmtypes.Head{Number: head.Number}
 		finalized := &evmtypes.Head{Number: headCopy.Number - lpOpts.FinalityDepth}
 		return &headCopy, finalized, nil
 	})
@@ -565,7 +565,8 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 	})
 	t.Run("headTracker returns valid chain", func(t *testing.T) {
 		headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-		finalizedBlock := &evmtypes.Head{Number: 2, IsFinalized: true}
+		finalizedBlock := &evmtypes.Head{Number: 2}
+		finalizedBlock.IsFinalized.Store(true)
 		head := &evmtypes.Head{Number: 10}
 		headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalizedBlock, nil)
 

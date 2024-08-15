@@ -13,14 +13,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 func NewHeadTracker(
 	lggr logger.Logger,
-	ethClient evmclient.Client,
+	ethClient httypes.Client,
 	config commontypes.Config,
 	htConfig commontypes.HeadTrackerConfig,
 	headBroadcaster httypes.HeadBroadcaster,

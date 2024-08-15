@@ -332,16 +332,15 @@ func TestMercury_Observe(t *testing.T) {
 		t.Run("when chain is too short", func(t *testing.T) {
 			h4 := &evmtypes.Head{
 				Number: 4,
-				Parent: nil,
 			}
 			h5 := &evmtypes.Head{
 				Number: 5,
-				Parent: h4,
 			}
+			h5.Parent.Store(h4)
 			h6 := &evmtypes.Head{
 				Number: 6,
-				Parent: h5,
 			}
+			h6.Parent.Store(h5)
 
 			ht2 := htmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 			ht2.On("LatestChain").Return(h6)
@@ -362,7 +361,7 @@ func TestMercury_Observe(t *testing.T) {
 			for i := range heads {
 				heads[i] = &evmtypes.Head{Number: int64(i)}
 				if i > 0 {
-					heads[i].Parent = heads[i-1]
+					heads[i].Parent.Store(heads[i-1])
 				}
 			}
 

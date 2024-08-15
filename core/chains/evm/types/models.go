@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -16,6 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/ugorji/go/codec"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
@@ -34,7 +37,7 @@ type Head struct {
 	Number           int64
 	L1BlockNumber    sql.NullInt64
 	ParentHash       common.Hash
-	Parent           *Head
+	Parent           atomic.Pointer[Head]
 	EVMChainID       *ubig.Big
 	Timestamp        time.Time
 	CreatedAt        time.Time
@@ -44,7 +47,7 @@ type Head struct {
 	StateRoot        common.Hash
 	Difficulty       *big.Int
 	TotalDifficulty  *big.Int
-	IsFinalized      bool
+	IsFinalized      atomic.Bool
 }
 
 var _ commontypes.Head[common.Hash] = &Head{}
@@ -74,10 +77,11 @@ func (h *Head) GetParentHash() common.Hash {
 }
 
 func (h *Head) GetParent() commontypes.Head[common.Hash] {
-	if h.Parent == nil {
-		return nil
+	if parent := h.Parent.Load(); parent != nil {
+		return parent
 	}
-	return h.Parent
+	// explicitly return nil to avoid *Head(nil)
+	return nil
 }
 
 func (h *Head) GetTimestamp() time.Time {
@@ -90,10 +94,49 @@ func (h *Head) BlockDifficulty() *big.Int {
 
 // EarliestInChain recurses through parents until it finds the earliest one
 func (h *Head) EarliestInChain() *Head {
-	for h.Parent != nil {
-		h = h.Parent
+	var earliestInChain *Head
+	h.forEach(func(h *Head) bool {
+		earliestInChain = h
+		return true
+	})
+	return earliestInChain
+}
+
+// forEach - go through the chain linked list. Stops when do returns false or h is nil
+func (h *Head) forEach(do func(h *Head) bool) {
+	cur := h
+	fast := h // use Floyd's Cycle-Finding Algo
+	start := time.Now()
+	for cur != nil {
+		if !do(cur) {
+			return
+		}
+
+		if fast != nil {
+			skip := fast.Parent.Load()
+			if skip != nil {
+				fast = skip.Parent.Load()
+			} else {
+				fast = nil
+			}
+		}
+
+		cur = cur.Parent.Load()
+
+		// if there is a circular reference eventually `fast` will catch up with `cur`.
+		// As .Parent can be modified by another goroutine, it's possible that
+		// cycle will be created after `fast` reached end of the list. To prevent infinite loop, we use duration based validation
+		if (cur != nil && cur == fast) || time.Since(start) > 10*time.Second {
+			// we should log the issue instead of panicking to avoid killing whole node.
+			// we can switch to panic, after full transition to loops.
+			lggr, _ := logger.New()
+			logger.Sugared(lggr).Criticalw("Detected cycle in chain structure. Aborting iteration.",
+				"cur", cur,
+				"fast", fast,
+				"timeSinceStart", time.Since(start))
+			return
+		}
 	}
-	return h
 }
 
 // EarliestHeadInChain recurses through parents until it finds the earliest one
@@ -103,16 +146,12 @@ func (h *Head) EarliestHeadInChain() commontypes.Head[common.Hash] {
 
 // IsInChain returns true if the given hash matches the hash of a head in the chain
 func (h *Head) IsInChain(blockHash common.Hash) bool {
-	for {
-		if h.Hash == blockHash {
-			return true
-		}
-		if h.Parent == nil {
-			break
-		}
-		h = h.Parent
-	}
-	return false
+	isInChain := false
+	h.forEach(func(h *Head) bool {
+		isInChain = h.Hash == blockHash
+		return !isInChain // if found stop, otherwise keep looking
+	})
+	return isInChain
 }
 
 // HashAtHeight returns the hash of the block at the given height, if it is in the chain.
@@ -127,12 +166,17 @@ func (h *Head) HashAtHeight(blockNum int64) common.Hash {
 }
 
 func (h *Head) HeadAtHeight(blockNum int64) (commontypes.Head[common.Hash], error) {
-	for h != nil {
-		if h.Number == blockNum {
-			return h, nil
+	var headAtHeight *Head
+	h.forEach(func(h *Head) bool {
+		if h.Number != blockNum {
+			return true
 		}
 
-		h = h.Parent
+		headAtHeight = h
+		return false
+	})
+	if headAtHeight != nil {
+		return headAtHeight, nil
 	}
 	return nil, fmt.Errorf("failed to find head at height %d", blockNum)
 }
@@ -142,48 +186,39 @@ func (h *Head) ChainLength() uint32 {
 	if h == nil {
 		return 0
 	}
-	l := uint32(1)
-
-	for {
-		if h.Parent == nil {
-			break
-		}
+	l := uint32(0)
+	h.forEach(func(h *Head) bool {
 		l++
-		if h == h.Parent {
-			panic("circular reference detected")
-		}
-		h = h.Parent
-	}
+		return true
+	})
 	return l
 }
 
 // ChainHashes returns an array of block hashes by recursively looking up parents
 func (h *Head) ChainHashes() []common.Hash {
 	var hashes []common.Hash
-
-	for {
+	h.forEach(func(h *Head) bool {
 		hashes = append(hashes, h.Hash)
-		if h.Parent == nil {
-			break
-		}
-		if h == h.Parent {
-			panic("circular reference detected")
-		}
-		h = h.Parent
-	}
+		return true
+	})
+
 	return hashes
 }
 
 func (h *Head) LatestFinalizedHead() commontypes.Head[common.Hash] {
-	for h != nil {
-		if h.IsFinalized {
-			return h
+	var latestFinalized *Head
+	h.forEach(func(h *Head) bool {
+		if !h.IsFinalized.Load() {
+			return true
 		}
-
-		h = h.Parent
+		latestFinalized = h
+		return false
+	})
+	// explicitly return nil, so that returned value is nil instead of *Head(nil)
+	if latestFinalized == nil {
+		return nil
 	}
-
-	return nil
+	return latestFinalized
 }
 
 func (h *Head) ChainID() *big.Int {
@@ -200,18 +235,14 @@ func (h *Head) IsValid() bool {
 
 func (h *Head) ChainString() string {
 	var sb strings.Builder
-
-	for {
+	h.forEach(func(h *Head) bool {
+		if sb.Len() > 0 {
+			sb.WriteString("->")
+		}
 		sb.WriteString(h.String())
-		if h.Parent == nil {
-			break
-		}
-		if h == h.Parent {
-			panic("circular reference detected")
-		}
-		sb.WriteString("->")
-		h = h.Parent
-	}
+		return true
+	})
+
 	sb.WriteString("->nil")
 	return sb.String()
 }
@@ -255,12 +286,11 @@ func (h *Head) AsSlice(k int) (heads []*Head) {
 	if k < 1 || h == nil {
 		return
 	}
-	heads = make([]*Head, 1)
-	heads[0] = h
-	for len(heads) < k && h.Parent != nil {
-		h = h.Parent
+	heads = make([]*Head, 0, k)
+	h.forEach(func(h *Head) bool {
 		heads = append(heads, h)
-	}
+		return len(heads) < k
+	})
 	return
 }
 

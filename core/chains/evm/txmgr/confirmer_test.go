@@ -145,19 +145,20 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	// Can't start an already started instance
 	err = ec.Start(ctx)
 	require.Error(t, err)
+	h8 := &evmtypes.Head{
+		Number: 8,
+		Hash:   testutils.NewHash(),
+	}
+	h9 := &evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 9,
+	}
+	h9.Parent.Store(h8)
 	head := evmtypes.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
-		Parent: &evmtypes.Head{
-			Hash:   testutils.NewHash(),
-			Number: 9,
-			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   testutils.NewHash(),
-				Parent: nil,
-			},
-		},
 	}
+	head.Parent.Store(h9)
 	err = ec.ProcessHead(ctx, &head)
 	require.NoError(t, err)
 	// Can successfully close once
@@ -2672,19 +2673,20 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	gconfig, config := newTestChainScopedConfig(t)
 	ec := newEthConfirmer(t, txStore, ethClient, gconfig, config, ethKeyStore, nil)
 
+	h8 := &evmtypes.Head{
+		Number: 8,
+		Hash:   testutils.NewHash(),
+	}
+	h9 := &evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 9,
+	}
+	h9.Parent.Store(h8)
 	head := evmtypes.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
-		Parent: &evmtypes.Head{
-			Hash:   testutils.NewHash(),
-			Number: 9,
-			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   testutils.NewHash(),
-				Parent: nil,
-			},
-		},
 	}
+	head.Parent.Store(h9)
 
 	t.Run("does nothing if there aren't any transactions", func(t *testing.T) {
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
@@ -2716,7 +2718,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	t.Run("does nothing to confirmed transactions that only have receipts older than the start of the chain", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
 		// Add receipt that is older than the lowest block of the chain
-		mustInsertEthReceipt(t, txStore, head.Parent.Parent.Number-1, testutils.NewHash(), etx.TxAttempts[0].Hash)
+		mustInsertEthReceipt(t, txStore, h8.Number-1, testutils.NewHash(), etx.TxAttempts[0].Hash)
 
 		// Do the thing
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
@@ -2730,7 +2732,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 1, fromAddress)
 		attempt := etx.TxAttempts[0]
 		// Include one within head height but a different block hash
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, testutils.NewHash(), attempt.Hash)
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, testutils.NewHash(), attempt.Hash)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			atx, err := txmgr.GetGethSignedTx(attempt.SignedRawTx)
@@ -2755,9 +2757,9 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		attempt := etx.TxAttempts[0]
 		attemptHash := attempt.Hash
 		// Add receipt that is older than the lowest block of the chain
-		mustInsertEthReceipt(t, txStore, head.Parent.Parent.Number-1, testutils.NewHash(), attemptHash)
+		mustInsertEthReceipt(t, txStore, h8.Number-1, testutils.NewHash(), attemptHash)
 		// Include one within head height but a different block hash
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, testutils.NewHash(), attemptHash)
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, testutils.NewHash(), attemptHash)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
 			commonclient.Successful, nil).Once()
@@ -2787,9 +2789,9 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt3))
 
 		// Receipt is within head height but a different block hash
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, testutils.NewHash(), attempt2.Hash)
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, testutils.NewHash(), attempt2.Hash)
 		// Receipt is within head height but a different block hash
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, testutils.NewHash(), attempt3.Hash)
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, testutils.NewHash(), attempt3.Hash)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			s, err := txmgr.GetGethSignedTx(attempt3.SignedRawTx)
@@ -2945,19 +2947,20 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
 
+	h8 := &evmtypes.Head{
+		Number: 8,
+		Hash:   testutils.NewHash(),
+	}
+	h9 := &evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 9,
+	}
+	h9.Parent.Store(h8)
 	head := evmtypes.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
-		Parent: &evmtypes.Head{
-			Hash:   testutils.NewHash(),
-			Number: 9,
-			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   testutils.NewHash(),
-				Parent: nil,
-			},
-		},
 	}
+	head.Parent.Store(h9)
 
 	minConfirmations := int64(2)
 

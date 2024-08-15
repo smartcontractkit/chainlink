@@ -9,6 +9,11 @@ import (
 
 func TestHead_LatestFinalizedHead(t *testing.T) {
 	t.Parallel()
+	newFinalizedHead := func(num int64) *Head {
+		result := &Head{Number: num}
+		result.IsFinalized.Store(true)
+		return result
+	}
 	cases := []struct {
 		Name      string
 		Head      *Head
@@ -21,17 +26,17 @@ func TestHead_LatestFinalizedHead(t *testing.T) {
 		},
 		{
 			Name:      "Chain without finalized returns nil",
-			Head:      &Head{Parent: &Head{Parent: &Head{}}},
+			Head:      sliceToChain(&Head{}, &Head{}, &Head{}),
 			Finalized: nil,
 		},
 		{
 			Name:      "Returns head if it's finalized",
-			Head:      &Head{Number: 2, IsFinalized: true, Parent: &Head{Number: 1, IsFinalized: true}},
+			Head:      sliceToChain(newFinalizedHead(2), newFinalizedHead(1)),
 			Finalized: &Head{Number: 2},
 		},
 		{
 			Name:      "Returns first block in chain if it's finalized",
-			Head:      &Head{Number: 3, IsFinalized: false, Parent: &Head{Number: 2, IsFinalized: true, Parent: &Head{Number: 1, IsFinalized: true}}},
+			Head:      sliceToChain(&Head{Number: 3}, newFinalizedHead(2), newFinalizedHead(1)),
 			Finalized: &Head{Number: 2},
 		},
 	}
@@ -47,4 +52,93 @@ func TestHead_LatestFinalizedHead(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHead_ChainString(t *testing.T) {
+	cases := []struct {
+		Name           string
+		Chain          *Head
+		ExpectedResult string
+	}{
+		{
+			Name:           "Empty chain",
+			ExpectedResult: "->nil",
+		},
+		{
+			Name:           "Single head",
+			Chain:          &Head{Number: 1},
+			ExpectedResult: "Head{Number: 1, Hash: 0x0000000000000000000000000000000000000000000000000000000000000000, ParentHash: 0x0000000000000000000000000000000000000000000000000000000000000000}->nil",
+		},
+		{
+			Name:           "Multiple heads",
+			Chain:          sliceToChain(&Head{Number: 1}, &Head{Number: 2}, &Head{Number: 3}),
+			ExpectedResult: "Head{Number: 1, Hash: 0x0000000000000000000000000000000000000000000000000000000000000000, ParentHash: 0x0000000000000000000000000000000000000000000000000000000000000000}->Head{Number: 2, Hash: 0x0000000000000000000000000000000000000000000000000000000000000000, ParentHash: 0x0000000000000000000000000000000000000000000000000000000000000000}->Head{Number: 3, Hash: 0x0000000000000000000000000000000000000000000000000000000000000000, ParentHash: 0x0000000000000000000000000000000000000000000000000000000000000000}->nil",
+		},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			assert.Equal(t, testCase.ExpectedResult, testCase.Chain.ChainString())
+		})
+	}
+}
+
+func TestHead_CycleDetection(t *testing.T) {
+	cases := []struct {
+		Name       string
+		BuildChain func() *Head
+	}{
+		{
+			Name: "Single head chain with self reference",
+			BuildChain: func() *Head {
+				head := &Head{Number: 1}
+				head.Parent.Store(head)
+				return head
+			},
+		},
+		{
+			Name: "Multi head chain with self reference",
+			BuildChain: func() *Head {
+				heads := []*Head{{Number: 1}, {Number: 2}, {Number: 3}}
+				head := sliceToChain(heads...)
+				heads[len(heads)-1].Parent.Store(heads[len(heads)-1])
+				return head
+			},
+		},
+		{
+			Name: "Cycle ends at the start",
+			BuildChain: func() *Head {
+				heads := []*Head{{Number: 1}, {Number: 2}, {Number: 3}}
+				head := sliceToChain(heads...)
+				heads[len(heads)-1].Parent.Store(head)
+				return head
+			},
+		},
+		{
+			Name: "Cycle ends in the middle",
+			BuildChain: func() *Head {
+				heads := []*Head{{Number: 1}, {Number: 2}, {Number: 3}}
+				head := sliceToChain(heads...)
+				heads[len(heads)-1].Parent.Store(heads[len(heads)-2])
+				return head
+			},
+		},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			// if we fail to detect cycle, the test should time out
+			_ = testCase.BuildChain()
+		})
+	}
+}
+
+func sliceToChain(heads ...*Head) *Head {
+	if len(heads) == 0 {
+		return nil
+	}
+
+	for i := 1; i < len(heads); i++ {
+		heads[i-1].Parent.Store(heads[i])
+	}
+
+	return heads[0]
 }

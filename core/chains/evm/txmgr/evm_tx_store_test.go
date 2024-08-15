@@ -628,19 +628,20 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	pgtest.MustExec(t, db, `SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 
-	head := evmtypes.Head{
-		Hash:   utils.NewHash(),
-		Number: 10,
-		Parent: &evmtypes.Head{
-			Hash:   utils.NewHash(),
-			Number: 9,
-			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   utils.NewHash(),
-				Parent: nil,
-			},
-		},
+	h8 := &evmtypes.Head{
+		Number: 8,
+		Hash:   testutils.NewHash(),
 	}
+	h9 := &evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 9,
+	}
+	h9.Parent.Store(h8)
+	head := evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 10,
+	}
+	head.Parent.Store(h9)
 
 	minConfirmations := int64(2)
 
@@ -816,19 +817,20 @@ func TestORM_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
-	head := evmtypes.Head{
-		Hash:   utils.NewHash(),
-		Number: 10,
-		Parent: &evmtypes.Head{
-			Hash:   utils.NewHash(),
-			Number: 9,
-			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   utils.NewHash(),
-				Parent: nil,
-			},
-		},
+	h8 := &evmtypes.Head{
+		Number: 8,
+		Hash:   testutils.NewHash(),
 	}
+	h9 := &evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 9,
+	}
+	h9.Parent.Store(h8)
+	head := evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 10,
+	}
+	head.Parent.Store(h9)
 
 	t.Run("find all transactions confirmed in range", func(t *testing.T) {
 		etx_8 := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 700, 8)

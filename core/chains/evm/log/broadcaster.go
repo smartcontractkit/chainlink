@@ -590,7 +590,7 @@ func (b *broadcaster) onNewHeads() {
 					b.logger.Errorf("Failed to query for log broadcasts, %v", err)
 					return
 				}
-				b.registrations.sendLogs(ctx, logs, *latestHead, broadcasts, b.orm)
+				b.registrations.sendLogs(ctx, logs, latestHead, broadcasts, b.orm)
 				if err := b.orm.SetPendingMinBlock(ctx, nil); err != nil {
 					b.logger.Errorw("Failed to set pending broadcasts number null", "err", err)
 				}
@@ -605,7 +605,7 @@ func (b *broadcaster) onNewHeads() {
 					return
 				}
 
-				b.registrations.sendLogs(ctx, logs, *latestHead, broadcasts, b.orm)
+				b.registrations.sendLogs(ctx, logs, latestHead, broadcasts, b.orm)
 			}
 			newMin := b.logPool.deleteOlderLogs(keptDepth)
 			if err := b.orm.SetPendingMinBlock(ctx, newMin); err != nil {
