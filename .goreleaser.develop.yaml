@@ -198,8 +198,9 @@ snapshot:
 partial:
   by: target
 
+# See https://goreleaser.com/customization/release/
 release:
-  skip_upload: true
+  disable: true
 
 changelog:
   sort: asc
