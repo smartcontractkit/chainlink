@@ -78,7 +78,7 @@ goreleaser_release() {
     MACOS_SDK_DIR=$(echo "$(cd "$(dirname "$MACOS_SDK_DIR")" || exit; pwd)/$(basename "$MACOS_SDK_DIR")")
   fi
 
-  $GORELEASER_EXEC release ${flags} --config "$GORELEASER_CONFIG" "$@" --skip=validate
+  $GORELEASER_EXEC release ${flags} --config "$GORELEASER_CONFIG" "$@"
 
   if [[ $ENABLE_DOCKER_PUBLISH == "true" ]]; then
       _publish_snapshot_images

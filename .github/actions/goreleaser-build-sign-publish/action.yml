@@ -123,7 +123,6 @@ runs:
         GORELEASER_EXEC: ${{ inputs.goreleaser-exec }}
         GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
         GORELEASER_KEY: ${{ inputs.goreleaser-key }}
-        GORELEASER_CURRENT_TAG: "v2.14.7" # TODO: remove this line
         GITHUB_TOKEN: ${{ github.token }}
         COSIGN_PASSWORD: ${{ inputs.cosign-password }}
         COSIGN_PUBLIC_KEY: ${{ inputs.cosign-public-key }}
