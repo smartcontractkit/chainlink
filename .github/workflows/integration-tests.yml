@@ -101,6 +101,9 @@ jobs:
               - 'core/**/migrations/*.sql'
               - 'core/**/config/**/*.toml'
               - 'integration-tests/**/*.toml'
+            ccip-changes:
+              - '**/*ccip*'
+              - '**/*ccip*/**'
       - name: Ignore Filter On Workflow Dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
@@ -514,7 +517,7 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
 
   eth-smoke-tests-matrix-ccip:
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+    if: steps.changes.outputs.ccip-changes == 'true' && ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }} 
     environment: integration
     permissions:
       actions: read
