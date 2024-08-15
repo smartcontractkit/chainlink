@@ -366,7 +366,6 @@ func testSetup(ctx context.Context, t *testing.T, readerChain, destChain cciptyp
 
 	cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, cfg)
 	require.NoError(t, err)
-	require.NoError(t, cr.Start(ctx))
 
 	extendedCr := contractreader.NewExtendedContractReader(cr)
 	err = extendedCr.Bind(ctx, []types.BoundContract{
@@ -375,6 +374,9 @@ func testSetup(ctx context.Context, t *testing.T, readerChain, destChain cciptyp
 			Name:    contractNames[0],
 		},
 	})
+	require.NoError(t, err)
+
+	err = cr.Start(ctx)
 	require.NoError(t, err)
 
 	contractReaders := map[cciptypes.ChainSelector]contractreader.Extended{readerChain: extendedCr}
