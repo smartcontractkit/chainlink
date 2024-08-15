@@ -794,9 +794,8 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   // │                      Tokens and pools                        │
   // ================================================================
 
-  /// @notice Uses a pool to release or mint a token to a receiver address in two steps. First, the pool is called
-  /// to release the tokens to the offRamp, then the offRamp calls the token contract to transfer the tokens to the
-  /// receiver. This is done to ensure the exact number of tokens, the pool claims to release are actually transferred.
+  /// @notice Uses a pool to release or mint a token to a receiver address, with balance checks before and after the
+  /// transfer. This is done to ensure the exact number of tokens the pool claims to release are actually transferred.
   /// @dev The local token address is validated through the TokenAdminRegistry. If, due to some misconfiguration, the
   /// token is unknown to the registry, the offRamp will revert. The tx, and the tokens, can be retrieved by
   /// registering the token on this chain, and re-trying the msg.
