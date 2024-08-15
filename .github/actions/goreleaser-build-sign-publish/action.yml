@@ -123,6 +123,7 @@ runs:
         GORELEASER_EXEC: ${{ inputs.goreleaser-exec }}
         GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
         GORELEASER_KEY: ${{ inputs.goreleaser-key }}
+        GITHUB_TOKEN: ${{ github.token }}
         COSIGN_PASSWORD: ${{ inputs.cosign-password }}
         COSIGN_PUBLIC_KEY: ${{ inputs.cosign-public-key }}
         COSIGN_PRIVATE_KEY: ${{ inputs.cosign-private-key }}
