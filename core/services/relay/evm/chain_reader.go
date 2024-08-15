@@ -143,6 +143,10 @@ func (cr *chainReader) Name() string { return cr.lggr.Name() }
 
 // Start registers polling filters if contracts are already bound.
 func (cr *chainReader) Start(ctx context.Context) error {
+	if cr.isStarted {
+		return nil
+	}
+
 	return cr.StartOnce("ChainReader", func() error {
 		err := cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
 			for _, rb := range cb.readBindings {
@@ -161,6 +165,10 @@ func (cr *chainReader) Start(ctx context.Context) error {
 
 // Close unregisters polling filters for bound contracts.
 func (cr *chainReader) Close() error {
+	if !cr.isStarted {
+		return nil
+	}
+
 	return cr.StopOnce("ChainReader", func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
