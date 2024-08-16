@@ -20,27 +20,6 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test smoke/ocr_test.go -timeout 30m -count=1 -test.parallel=2 -json
     pyroscope_env: ci-smoke-ocr-evm-simulated
 
-  # Example of 2 separate runners for the same test file but different tests. Can be used if tests if are too heavy to run on the same runner
-  - id: integration-tests/smoke/ocr2_test.go:^TestOCRv2Request$
-    path: integration-tests/smoke/ocr2_test.go
-    test_env_type: docker
-    runs_on: ubuntu-latest
-    workflows:
-      - Run PR E2E Tests
-      - Run Nightly E2E Tests
-    test_cmd: cd integration-tests/ && go test smoke/ocr2_test.go -test.run ^TestOCRv2Request$ -test.parallel=1 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-ocr2-evm-simulated-nightly
-
-  - id: integration-tests/smoke/ocr2_test.go:^TestOCRv2Basic$
-    path: integration-tests/smoke/ocr2_test.go
-    test_env_type: docker
-    runs_on: ubuntu-latest
-    workflows:
-      - Run PR E2E Tests
-      - Run Nightly E2E Tests
-    test_cmd: cd integration-tests/ && go test smoke/ocr2_test.go -test.run ^TestOCRv2Basic$ -test.parallel=1 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-ocr2-evm-simulated-nightly
-
   # Example of a configuration for running a single soak test in Kubernetes Remote Runner
   - id: integration-tests/soak/ocr_test.go:^TestOCRv1Soak$
     path: integration-tests/soak/ocr_test.go
