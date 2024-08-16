@@ -1,7 +1,7 @@
 ChainID = '295'
 ChainType = 'hedera'
-#considering the 3-5 (6 including a buffer) seconds of finality and 2 seconds block production
-#we set the depth to 6/2 = 3 blocks, setting to 10 for safety
+# Considering the 3-5 (6 including a buffer) seconds of finality and 2 seconds block production
+# we set the depth to 6/2 = 3 blocks, setting to 10 for safety
 FinalityDepth = 10
 #Hedera has high TPS, so polling less often 
 LogPollInterval = '10s'
@@ -16,7 +16,7 @@ Enabled = true
 Mode = 'SuggestedPrice'
 # since Hedera dont have mempool and there's no way for a node to front run or a user to bribe a node to submit the transaction earlier than it's consensus timestamp
 # but they have automated congesting pricing throttling which would mean at high sustained level the gasPrice itself could be increased to prevent malicious behaviour.
-# # disabling the Bumpthreshold as TXM now implicity handles the bumping after checking on-chain nonce & re-broadcast for Hedera chain type
+# disabling the Bumpthreshold as TXM now implicity handles the bumping after checking on-chain nonce & re-broadcast for Hedera chain type
 BumpThreshold = 0
 BumpMin = '10 gwei'
 BumpPercent = 20
