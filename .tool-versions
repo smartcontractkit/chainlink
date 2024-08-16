@@ -7,3 +7,4 @@ helm 3.10.3
 zig 0.11.0
 golangci-lint 1.59.1
 protoc 25.1
+python 3.10.5
