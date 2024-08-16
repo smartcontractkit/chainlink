@@ -16,7 +16,7 @@ contract OptimismModule is ChainModuleBase {
   uint256 private constant FIXED_GAS_OVERHEAD = 60_000;
   uint256 private constant PER_CALLDATA_BYTE_GAS_OVERHEAD = 270;
 
-  function getCurrentL1Fee() external view override returns (uint256) {
+  function getCurrentL1Fee(uint256) external view override returns (uint256) {
     return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(msg.data, OP_L1_DATA_FEE_PADDING));
   }
 
