@@ -177,7 +177,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu22.04-16cores-64GB
     workflows:
-      - Run PR E2E Tests 3
+      - Run PR E2E Tests
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/ocr2_test.go -timeout 30m -count=1 -test.parallel=6 -json
     pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
@@ -305,7 +305,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - Run PR E2E Tests 2
+      - Run PR E2E Tests
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationPauseRegistry$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated  
@@ -315,7 +315,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - Run PR E2E Tests 2
+      - Run PR E2E Tests
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationKeeperNodesDown$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated  
@@ -325,7 +325,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - Run PR E2E Tests 2
+      - Run PR E2E Tests
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationPerformSimulation$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated  
@@ -335,7 +335,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - Run PR E2E Tests 2
+      - Run PR E2E Tests
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationCheckPerformGasLimit$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated  
@@ -345,7 +345,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - Run PR E2E Tests 2
+      - Run PR E2E Tests
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestUpdateCheckData$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated  
@@ -679,7 +679,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - Run PR E2E Tests 3
+      - Run PR E2E Tests
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/vrf_test.go -timeout 30m -count=1 -test.parallel=2 -json
     pyroscope_env: ci-smoke-vrf-evm-simulated
@@ -689,7 +689,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - Run PR E2E Tests 2
+      - Run PR E2E Tests
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/vrfv2_test.go -timeout 30m -count=1 -test.parallel=6 -json
     pyroscope_env: ci-smoke-vrf2-evm-simulated
@@ -699,7 +699,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - Run PR E2E Tests 2
+      - Run PR E2E Tests
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/vrfv2plus_test.go -timeout 30m -count=1 -test.parallel=9 -json
     pyroscope_env: ci-smoke-vrf2plus-evm-simulated
@@ -733,7 +733,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - Run PR E2E Tests 2
+      - Run PR E2E Tests
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerWithChaosFixedDepth$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-log_poller-evm-simulated
@@ -743,7 +743,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - Run PR E2E Tests 2
+      - Run PR E2E Tests
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerWithChaosFinalityTag$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-log_poller-evm-simulated
@@ -797,7 +797,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - Run PR E2E Tests 2
+      - Run PR E2E Tests
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/runlog_test.go -timeout 30m -test.parallel=2 -count=1 -json
     pyroscope_env: ci-smoke-runlog-evm-simulated
@@ -827,7 +827,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - Run PR E2E Tests 2
+      - Run PR E2E Tests
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/reorg_above_finality_test.go -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-reorg-above-finality-evm-simulated
@@ -837,7 +837,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - Run PR E2E Tests 3
+      - Run PR E2E Tests
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/migration && go test upgrade_version_test.go -timeout 30m -count=1 -test.parallel=2 -json
     test_inputs:
