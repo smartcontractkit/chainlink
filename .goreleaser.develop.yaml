@@ -186,14 +186,7 @@ docker_manifests:
 
 # See https://goreleaser.com/customization/docker_sign/
 docker_signs:
-  - cmd: cosign
-    env:
-    - COSIGN_EXPERIMENTAL=1
-    artifacts: all
-    args:
-      - 'sign'
-      - '--oidc-issuer=https://token.actions.githubusercontent.com'
-      - 'artifact'
+  - artifacts: all
     # stdin: "{{ .Env.COSIGN_PASSWORD }}"
 
 checksum:
