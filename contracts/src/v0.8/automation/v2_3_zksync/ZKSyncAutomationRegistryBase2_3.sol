@@ -34,8 +34,6 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
   bytes4 internal constant CHECK_LOG_SELECTOR = ILogAutomation.checkLog.selector;
   uint256 internal constant PERFORM_GAS_MIN = 2_300;
   uint256 internal constant CANCELLATION_DELAY = 50;
-  uint256 internal constant PERFORM_GAS_CUSHION = 5_000;
-  uint256 internal constant PPB_BASE = 1_000_000_000;
   uint32 internal constant UINT32_MAX = type(uint32).max;
   // The first byte of the mask can be 0, because we only ever have 31 oracles
   uint256 internal constant ORACLE_MASK = 0x0001010101010101010101010101010101010101010101010101010101010101;
@@ -47,13 +45,6 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
   uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 98_200; // Fixed gas overhead for conditional upkeeps
   uint256 internal constant REGISTRY_LOG_OVERHEAD = 122_500; // Fixed gas overhead for log upkeeps
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 5_600; // Value scales with f
-  uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 24; // Per perform data byte overhead
-
-  // The overhead (in bytes) in addition to perform data for upkeep sent in calldata
-  // This includes overhead for all struct encoding as well as report signatures
-  // There is a fixed component and a per signer component. This is calculated exactly by doing abi encoding
-  uint256 internal constant TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD = 932;
-  uint256 internal constant TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD = 64;
 
   // Next block of constants are used in actual payment calculation. We calculate the exact gas used within the
   // tx itself, but since payment processing itself takes gas, and it needs the overhead as input, we use fixed constants
