@@ -67,6 +67,7 @@ func TestChainWriter(t *testing.T) {
 			status commontypes.TransactionStatus
 		}{
 			{uuid.NewString(), commontypes.Unknown},
+			{uuid.NewString(), commontypes.Pending},
 			{uuid.NewString(), commontypes.Unconfirmed},
 			{uuid.NewString(), commontypes.Finalized},
 			{uuid.NewString(), commontypes.Failed},

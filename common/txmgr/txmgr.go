@@ -655,7 +655,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTransac
 	switch tx.State {
 	case TxUnconfirmed, TxConfirmedMissingReceipt:
 		// Return unconfirmed for ConfirmedMissingReceipt since a receipt is required to determine if it is finalized
-		return commontypes.Unconfirmed, nil
+		return commontypes.Pending, nil
 	case TxConfirmed:
 		// Return unconfirmed for confirmed transactions because they are not yet finalized
 		return commontypes.Unconfirmed, nil

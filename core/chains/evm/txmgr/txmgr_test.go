@@ -681,7 +681,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		require.Equal(t, commontypes.Unknown, state)
 	})
 
-	t.Run("returns unconfirmed for unconfirmed state", func(t *testing.T) {
+	t.Run("returns pending for unconfirmed state", func(t *testing.T) {
 		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		nonce := evmtypes.Nonce(0)
@@ -700,7 +700,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
-		require.Equal(t, commontypes.Unconfirmed, state)
+		require.Equal(t, commontypes.Pending, state)
 	})
 
 	t.Run("returns unconfirmed for confirmed state", func(t *testing.T) {
@@ -761,7 +761,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		require.Equal(t, commontypes.Finalized, state)
 	})
 
-	t.Run("returns unconfirmed for confirmed missing receipt state", func(t *testing.T) {
+	t.Run("returns pending for confirmed missing receipt state", func(t *testing.T) {
 		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		nonce := evmtypes.Nonce(0)
@@ -780,7 +780,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
-		require.Equal(t, commontypes.Unconfirmed, state)
+		require.Equal(t, commontypes.Pending, state)
 	})
 
 	t.Run("returns fatal for fatal error state with terminally stuck error", func(t *testing.T) {
