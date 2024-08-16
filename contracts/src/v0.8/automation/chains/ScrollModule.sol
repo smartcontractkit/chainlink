@@ -18,7 +18,7 @@ contract ScrollModule is ChainModuleBase {
   uint256 private constant FIXED_GAS_OVERHEAD = 45_000;
   uint256 private constant PER_CALLDATA_BYTE_GAS_OVERHEAD = 170;
 
-  function getCurrentL1Fee() external view override returns (uint256) {
+  function getCurrentL1Fee(uint256) external view override returns (uint256) {
     return SCROLL_ORACLE.getL1Fee(bytes.concat(msg.data, SCROLL_L1_FEE_DATA_PADDING));
   }
 

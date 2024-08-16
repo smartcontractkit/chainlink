@@ -30,8 +30,8 @@ contract OptimismModuleV2 is ChainModuleBase, ConfirmedOwner {
 
   constructor() ConfirmedOwner(msg.sender) {}
 
-  function getCurrentL1Fee() external view override returns (uint256) {
-    return (s_l1FeeCoefficient * _getL1Fee(msg.data.length)) / 100;
+  function getCurrentL1Fee(uint256 dataSize) external view override returns (uint256) {
+    return (s_l1FeeCoefficient * _getL1Fee(dataSize)) / 100;
   }
 
   function getMaxL1Fee(uint256 dataSize) external view override returns (uint256) {
