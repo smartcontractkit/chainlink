@@ -4,16 +4,16 @@ FinalityTagEnabled = true
 MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '0'
 
-[EVM.GasEstimator]
+[GasEstimator]
 Mode = 'SuggestedPrice'
 PriceMin = '0'
 LimitDefault = 8000000
 
-[EVM.GasEstimator.BlockHistory]
+[GasEstimator.BlockHistory]
 BlockHistorySize = 0
 
-[EVM.NodePool]
+[NodePool]
 SyncThreshold = 10
 
-[EVM.OCR]
+[OCR]
 ContractConfirmations = 1
