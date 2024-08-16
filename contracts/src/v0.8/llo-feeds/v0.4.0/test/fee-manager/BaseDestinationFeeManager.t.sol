@@ -147,6 +147,18 @@ contract BaseDestinationFeeManagerTest is Test {
     changePrank(originalAddr);
   }
 
+  function setSubscriberGlobalDiscount(address subscriber, address token, uint256 discount, address sender) public {
+    //record the current address and switch to the recipient
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    //set the discount
+    feeManager.updateSubscriberGlobalDiscount(subscriber, token, uint64(discount));
+
+    //change back to the original address
+    changePrank(originalAddr);
+  }
+
   function setNativeSurcharge(uint256 surcharge, address sender) public {
     //record the current address and switch to the recipient
     address originalAddr = msg.sender;
