@@ -55,6 +55,11 @@ abstract contract LegacyPoolWrapper is TokenPool {
     emit LegacyPoolChanged(oldPrevPool, prevPool);
   }
 
+  /// @notice Returns the address of the previous pool.
+  function getPreviousPool() external view returns (address) {
+    return address(s_previousPool);
+  }
+
   function _hasLegacyPool() internal view returns (bool) {
     return address(s_previousPool) != address(0);
   }
