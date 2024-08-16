@@ -265,6 +265,7 @@ var hedera = ClientErrors{
 	NonceTooHigh:          regexp.MustCompile(`Nonce too high`),
 	TerminallyUnderpriced: regexp.MustCompile(`(Gas price '(\d+)' is below configured minimum gas price '(\d+)')|(Gas price too low)`),
 	InsufficientEth:       regexp.MustCompile(`Insufficient funds for transfer| failed precheck with status INSUFFICIENT_PAYER_BALANCE`),
+	ServiceUnavailable:    regexp.MustCompile(`Transaction execution returns a null value for transaction`),
 	Fatal:                 hederaFatal,
 }
 

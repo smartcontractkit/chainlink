@@ -238,6 +238,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"i/o timeout", true, "Arbitrum"},
 			{"network is unreachable", true, "Arbitrum"},
 			{"client error service unavailable", true, "tomlConfig"},
+			{"[Request ID: 825608a8-fd8a-4b5b-aea7-92999509306d] Error invoking RPC: [Request ID: 825608a8-fd8a-4b5b-aea7-92999509306d] Transaction execution returns a null value for transaction", true, "hedera"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
