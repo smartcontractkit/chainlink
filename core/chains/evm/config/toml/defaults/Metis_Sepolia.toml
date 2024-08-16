@@ -1,16 +1,19 @@
 ChainID = '59902'
-ChainType = 'metis'
-FinalityDepth = 10
+ChainType = 'optimismBedrock'
+FinalityTagEnabled = true
 MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '0'
-OCR.ContractConfirmations = 1
 
-[GasEstimator]
+[EVM.GasEstimator]
 Mode = 'SuggestedPrice'
 PriceMin = '0'
+LimitDefault = 8000000
 
-[GasEstimator.BlockHistory]
+[EVM.GasEstimator.BlockHistory]
 BlockHistorySize = 0
 
-[NodePool]
+[EVM.NodePool]
 SyncThreshold = 10
+
+[EVM.OCR]
+ContractConfirmations = 1
