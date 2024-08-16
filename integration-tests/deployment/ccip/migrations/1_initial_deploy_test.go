@@ -2,6 +2,7 @@ package migrations
 
 import (
 	"context"
+	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -18,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
@@ -196,10 +197,10 @@ func Test0001_InitialDeploy(t *testing.T) {
 			srcChain := srcChain
 			dstChain := dstChain
 			wg.Add(1)
-			go func(src, dest deployment.Chain) {
+			go func(src, dest uint64) {
 				defer wg.Done()
-				waitForExecWithSeqNr(t, src, dest, state.EvmOffRampsV160[dest.Selector], 1)
-			}(srcChain, dstChain)
+				waitForExecWithSeqNr(t, srcChain, dstChain, state.EvmOffRampsV160[dest], 1)
+			}(src, dest)
 		}
 	}
 	wg.Wait()
@@ -210,7 +211,8 @@ func Test0001_InitialDeploy(t *testing.T) {
 func ReplayAllLogs(nodes map[string]memory.Node, chains map[uint64]deployment.Chain) error {
 	for _, node := range nodes {
 		for sel := range chains {
-			if err := node.ReplayLogs(map[uint64]uint64{sel: 1}); err != nil {
+			chainID, _ := chainsel.ChainIdFromSelector(sel)
+			if err := node.App.ReplayFromBlock(big.NewInt(int64(chainID)), 1, false); err != nil {
 				return err
 			}
 		}
@@ -222,10 +224,10 @@ func waitForCommitWithInterval(
 	t *testing.T,
 	src deployment.Chain,
 	dest deployment.Chain,
-	offRamp *offramp.OffRamp,
+	offRamp *evm_2_evm_multi_offramp.EVM2EVMMultiOffRamp,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
 ) {
-	sink := make(chan *offramp.OffRampCommitReportAccepted)
+	sink := make(chan *evm_2_evm_multi_offramp.EVM2EVMMultiOffRampCommitReportAccepted)
 	subscription, err := offRamp.WatchCommitReportAccepted(&bind.WatchOpts{
 		Context: context.Background(),
 	}, sink)
@@ -263,7 +265,7 @@ func waitForCommitWithInterval(
 
 func waitForExecWithSeqNr(t *testing.T,
 	source, dest deployment.Chain,
-	offramp *offramp.OffRamp,
+	offramp *evm_2_evm_multi_offramp.EVM2EVMMultiOffRamp,
 	expectedSeqNr uint64) {
 	tick := time.NewTicker(5 * time.Second)
 	defer tick.Stop()

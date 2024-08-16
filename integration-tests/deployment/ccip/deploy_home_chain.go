@@ -12,6 +12,8 @@ import (
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
+	deployment2 "github.com/smartcontractkit/ccip/integration-tests/deployment"
+
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -21,8 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
@@ -62,7 +64,7 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 				chain.Client,
 			)
 			return ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
-				Address: crAddr, Contract: cr, Tv: deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
+				Address: crAddr, Contract: cr, TvStr: CapabilitiesRegistry_1_0_0, Tx: tx, Err: err2,
 			}
 		})
 	if err != nil {
@@ -79,7 +81,7 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 				capReg.Address,
 			)
 			return ContractDeploy[*ccip_config.CCIPConfig]{
-				Address: ccAddr, Tv: deployment.NewTypeAndVersion(CCIPConfig, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: cc,
+				Address: ccAddr, TvStr: CCIPConfig_1_6_0, Tx: tx, Err: err2, Contract: cc,
 			}
 		})
 	if err != nil {
@@ -182,10 +184,12 @@ func AddChainConfig(
 		chainConfig,
 	}
 	tx, err := ccipConfig.ApplyChainConfigUpdates(h.DeployerKey, nil, inputConfig)
-	if err := deployment.ConfirmIfNoError(h, tx, err); err != nil {
+	if err != nil {
 		return ccip_config.CCIPConfigTypesChainConfigInfo{}, err
 	}
-	lggr.Infow("Applied chain config updates", "chainConfig", chainConfig)
+	if err := h.Confirm(tx.Hash()); err != nil {
+		return ccip_config.CCIPConfigTypesChainConfigInfo{}, err
+	}
 	return chainConfig, nil
 }
 
@@ -194,13 +198,13 @@ func AddDON(
 	ccipCapabilityID [32]byte,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipConfig *ccip_config.CCIPConfig,
-	offRamp *offramp.OffRamp,
+	offRamp *evm_2_evm_multi_offramp.EVM2EVMMultiOffRamp,
 	dest deployment.Chain,
 	home deployment.Chain,
 	f uint8,
 	bootstrapP2PID [32]byte,
 	p2pIDs [][32]byte,
-	nodes []deployment.Node,
+	nodes []deployment2.Node,
 ) error {
 	sortP2PIDS(p2pIDs)
 	// Get OCR3 Config from helper
@@ -279,7 +283,7 @@ func AddDON(
 		transmittersBytes := make([][]byte, len(transmitters))
 		for i, transmitter := range transmitters {
 			parsed, err2 := common.ParseHexOrString(string(transmitter))
-			if err2 != nil {
+			if err != nil {
 				return err2
 			}
 			transmittersBytes[i] = parsed
@@ -306,6 +310,10 @@ func AddDON(
 
 	// Trim first four bytes to remove function selector.
 	encodedConfigs := encodedCall[4:]
+
+	// commit so that we have an empty block to filter events from
+	// TODO: required?
+	//h.backend.Commit()
 
 	tx, err := capReg.AddDON(home.DeployerKey, p2pIDs, []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 		{
@@ -349,7 +357,7 @@ func AddDON(
 	}
 
 	// get the config digest from the ccip config contract and set config on the offramp.
-	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
+	var offrampOCR3Configs []evm_2_evm_multi_offramp.MultiOCR3BaseOCRConfigArgs
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
 		ocrConfig, err2 := ccipConfig.GetOCRConfig(&bind.CallOpts{
 			Context: context.Background(),
@@ -361,7 +369,7 @@ func AddDON(
 			return errors.New("expected exactly one OCR3 config")
 		}
 
-		offrampOCR3Configs = append(offrampOCR3Configs, offramp.MultiOCR3BaseOCRConfigArgs{
+		offrampOCR3Configs = append(offrampOCR3Configs, evm_2_evm_multi_offramp.MultiOCR3BaseOCRConfigArgs{
 			ConfigDigest:                   ocrConfig[0].ConfigDigest,
 			OcrPluginType:                  uint8(pluginType),
 			F:                              f,
@@ -370,6 +378,8 @@ func AddDON(
 			Transmitters:                   transmitterAddresses,
 		})
 	}
+
+	//uni.backend.Commit()
 
 	tx, err = offRamp.SetOCR3Configs(dest.DeployerKey, offrampOCR3Configs)
 	if err := deployment.ConfirmIfNoError(dest, tx, err); err != nil {
@@ -384,8 +394,7 @@ func AddDON(
 			//return err
 			return deployment.MaybeDataErr(err)
 		}
-		// TODO: assertions to be done as part of full state
-		// resprentation validation CCIP-3047
+		// TODO: assertions
 		//require.Equalf(t, offrampOCR3Configs[pluginType].ConfigDigest, ocrConfig.ConfigInfo.ConfigDigest, "%s OCR3 config digest mismatch", pluginType.String())
 		//require.Equalf(t, offrampOCR3Configs[pluginType].F, ocrConfig.ConfigInfo.F, "%s OCR3 config F mismatch", pluginType.String())
 		//require.Equalf(t, offrampOCR3Configs[pluginType].IsSignatureVerificationEnabled, ocrConfig.ConfigInfo.IsSignatureVerificationEnabled, "%s OCR3 config signature verification mismatch", pluginType.String())
