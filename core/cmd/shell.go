@@ -208,6 +208,13 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		}
 		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, starkCfg))
 	}
+	if cfg.AptosEnabled() {
+		aptosCfg := chainlink.AptosFactoryConfig{
+			Keystore:    keyStore.Aptos(),
+			TOMLConfigs: cfg.AptosConfigs(),
+		}
+		initOps = append(initOps, chainlink.InitAptos(ctx, relayerFactory, aptosCfg))
+	}
 
 	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {
@@ -248,6 +255,9 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 	var err error
 	// Set up the versioning Configs
 	verORM := versioning.NewORM(db, appLggr)
+	ibhr := services.NewStartUpHealthReport(healthReportPort, appLggr)
+	ibhr.Start()
+	defer ibhr.Stop()
 
 	if static.Version != static.Unset {
 		var appv, dbv *semver.Version
@@ -312,9 +322,6 @@ func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbacku
 
 	//Because backups can take a long time we must start a "fake" health report to prevent
 	//node shutdown because of healthcheck fail/timeout
-	ibhr := services.NewInBackupHealthReport(healthReportPort, lggr)
-	ibhr.Start()
-	defer ibhr.Stop()
 	err = databaseBackup.RunBackup(appv.String())
 	return err
 }

@@ -1,0 +1,243 @@
+{
+  "lane_configs": {
+    "Arbitrum Mainnet": {
+      "fee_token": "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
+      "bridge_tokens": [
+        "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"
+      ],
+      "bridge_tokens_pools": [
+        ""
+      ],
+      "arm": "0xe06b0e8c4bd455153e8794ad7Ea8Ff5A14B64E4b",
+      "router": "0xE92634289A1841A979C11C2f618B33D376e4Ba85",
+      "price_registry": "0xeBec5Cb8651FCD0Fd86Bd1BBb8562f5028D5102E",
+      "wrapped_native": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+      "src_contracts": {
+        "Ethereum Mainnet": {
+          "on_ramp": "0x98dd9E9b8AE458225119Ab5B8c947A9d1cd0B648",
+          "deployed_at": 126471491
+        }
+      },
+      "dest_contracts": {
+        "Ethereum Mainnet": {
+          "off_ramp": "0x7b1f908ceBf41d5829D0134c7dfD6aa0f163C97d",
+          "commit_store": "0x8E2adA223f8514C2E6E6Fb0877a19018B67256fF",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        }
+      }
+    },
+    "Avalanche Mainnet": {
+      "fee_token": "0x5947BB275c521040051D82396192181b413227A3",
+      "bridge_tokens": [
+        "0x5947BB275c521040051D82396192181b413227A3"
+      ],
+      "bridge_tokens_pools": [
+        "0x8A3e8D8614189d7ad0CF3f1a0D787Da79eBCEc17"
+      ],
+      "arm": "0xdFD6C0dc67666DE3bB36b31eec5c7B1542A82C1E",
+      "router": "0x27F39D0af3303703750D4001fCc1844c6491563c",
+      "price_registry": "0x2d3b38E0a4DFFDad2A613f7760bE1683F272eA18",
+      "wrapped_native": "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7",
+      "src_contracts": {
+        "Ethereum Mainnet": {
+          "on_ramp": "0x3D3817270db2b89e9F68bA27297fb4672082f942",
+          "deployed_at": 32263102
+        },
+        "Polygon Mainnet": {
+          "on_ramp": "0x2d306510FE83Cdb33Ff1658c71C181e9567F0009",
+          "deployed_at": 32562460
+        }
+      },
+      "dest_contracts": {
+        "Ethereum Mainnet": {
+          "off_ramp": "0x2BF2611a07e2cA880b814d53325e9b2ee0BbfD2f",
+          "commit_store": "0x5eBE880c4d340892dA1b0F32798a7A28e17e6E65",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        },
+        "Polygon Mainnet": {
+          "off_ramp": "0xC65F15b8178c2Fd653183130C6E003d196C39eC2",
+          "commit_store": "0xa9DC27fAc318fdDCa08E215ca157Fa5C7A832d80",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        }
+      }
+    },
+    "Base Mainnet": {
+      "fee_token": "0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196",
+      "arm": "0x38660c8CC222c0192b635c2ac09687B4F25cCE5F",
+      "router": "0x673AA85efd75080031d44fcA061575d1dA427A28",
+      "price_registry": "0x1bA15c57c8b74cD32443D7583E7f6d7c638aCf46",
+      "wrapped_native": "0x4200000000000000000000000000000000000006",
+      "src_contracts": {
+        "Ethereum Mainnet": {
+          "on_ramp": "0xD44371bFDe87f2db3eA6Df242091351A06c2e181",
+          "deployed_at": 3316617
+        }
+      },
+      "dest_contracts": {
+        "Ethereum Mainnet": {
+          "off_ramp": "0x391B9B016C3bBA61F02e7ddd345130415908B9c7",
+          "commit_store": "0x398d2164a3F61353B4619814A31cC74A7741612E",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        }
+      }
+    },
+    "BSC Mainnet": {
+      "fee_token": "0x404460C6A5EdE2D891e8297795264fDe62ADBB75",
+      "bridge_tokens": [
+        "0x404460C6A5EdE2D891e8297795264fDe62ADBB75"
+      ],
+      "bridge_tokens_pools": [
+        ""
+      ],
+      "arm": "0x3DB43b96B2625F4232e9Df900d464dd2c64C0021",
+      "router": "0x536d7E53D0aDeB1F20E7c81fea45d02eC9dBD698",
+      "price_registry": "0x18C3D917D55Bc1784a3d4729AA3e2C1ecd662fFd",
+      "wrapped_native": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+      "src_contracts": {
+        "Ethereum Mainnet": {
+          "on_ramp": "0x1f17D464652f5Bd74a03446FeA20590CCfB3332D",
+          "deployed_at": 31312405
+        }
+      },
+      "dest_contracts": {
+        "Ethereum Mainnet": {
+          "off_ramp": "0xEcaa7473b57956647C8Cff5a909520e7A0A4a5f6",
+          "commit_store": "0x9C68a868db2C27E9A7Ce43b73272A5d7ecFB5865",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        }
+      }
+    },
+    "Ethereum Mainnet": {
+      "fee_token": "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+      "bridge_tokens": [
+        "0x514910771AF9Ca656af840dff83E8264EcF986CA"
+      ],
+      "bridge_tokens_pools": [
+        "0xC2291992A08eBFDfedfE248F2CCD34Da63570DF4"
+      ],
+      "arm": "0x8B63b3DE93431C0f756A493644d128134291fA1b",
+      "router": "0xE561d5E02207fb5eB32cca20a699E0d8919a1476",
+      "price_registry": "0x020082A7a9c2510e1921116001152DEE4da81985",
+      "wrapped_native": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "src_contracts": {
+        "Arbitrum Mainnet": {
+          "on_ramp": "0x333f976915195ba9044fD0cd603cEcE936f6264e",
+          "deployed_at": 18029393
+        },
+        "Avalanche Mainnet": {
+          "on_ramp": "0xd0B5Fc9790a6085b048b8Aa1ED26ca2b3b282CF2",
+          "deployed_at": 17636709
+        },
+        "BSC Mainnet": {
+          "on_ramp": "0xdF1d7FD22aC3aB5171E275796f123224039f3b24",
+          "deployed_at": 18029385
+        },
+        "Base Mainnet": {
+          "on_ramp": "0xe2Eb229e88F56691e96bb98256707Bc62160FE73",
+          "deployed_at": 18029431
+        },
+        "Optimism Mainnet": {
+          "on_ramp": "0xCC19bC4D43d17eB6859F0d22BA300967C97780b0",
+          "deployed_at": 17636647
+        },
+        "Polygon Mainnet": {
+          "on_ramp": "0x0f27c8532457b66D6037141DEB0ed479Dad04B3c",
+          "deployed_at": 17636734
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Mainnet": {
+          "off_ramp": "0x61135E701a2214C170c5F596D0067798FEfbaaE4",
+          "commit_store": "0x3d3467e1036Ee25F6F4aa15e3Abf77443A23144C",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        },
+        "Avalanche Mainnet": {
+          "off_ramp": "0x1C207dabc46902dF9028b27D6d301c3849b2D12c",
+          "commit_store": "0x40c558575093eC1099CC21B020d9b8D13c74417F",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        },
+        "BSC Mainnet": {
+          "off_ramp": "0xC7176620daf49A39a17FF9A6C2DE1eAA6033EE94",
+          "commit_store": "0x7986C9892389854cAAbAC785ff18123B0070a5Fd",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        },
+        "Base Mainnet": {
+          "off_ramp": "0xfF51C00546AA3d9051a4B96Ae81346E14709CD24",
+          "commit_store": "0x2D1708ff2a15adbE313eA8C6035aA24d0FBA1c77",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        },
+        "Optimism Mainnet": {
+          "off_ramp": "0x41627a90f2c6238f2BADAB72D5aB050B857fdAb5",
+          "commit_store": "0x8bEFCa744c6f2b567b1863dcF055C593afdC11A0",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        },
+        "Polygon Mainnet": {
+          "off_ramp": "0xBDd822f3bC2EAB6818CfA3053107831D4E93fE72",
+          "commit_store": "0x20718EfbC25Dba60FD51c2c81362b83f7C411A6D",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        }
+      }
+    },
+    "Optimism Mainnet": {
+      "fee_token": "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6",
+      "bridge_tokens": [
+        "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
+      ],
+      "bridge_tokens_pools": [
+        "0x841b32B5309ba30cFbf4534667fC3D99EdF05B7A"
+      ],
+      "arm": "0x8C7C2C3362a42308BB5c368677Ad321D11693b81",
+      "router": "0x261c05167db67B2b619f9d312e0753f3721ad6E8",
+      "price_registry": "0x9270AAA75F4B9038f4c25fEc665B02a150a90361",
+      "wrapped_native": "0x4200000000000000000000000000000000000006",
+      "src_contracts": {
+        "Ethereum Mainnet": {
+          "on_ramp": "0xad1b1F2A6DD55627e3893B771A00Cd43F69DcE35",
+          "deployed_at": 106535110
+        }
+      },
+      "dest_contracts": {
+        "Ethereum Mainnet": {
+          "off_ramp": "0x032F957BfbB8C535a1b2048f8b4FA27E1F2018Fd",
+          "commit_store": "0xa4D34ca38244F6c8AB640315d7257221408B6596",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        }
+      }
+    },
+    "Polygon Mainnet": {
+      "fee_token": "0xb0897686c545045aFc77CF20eC7A532E3120E0F1",
+      "bridge_tokens": [
+        "0xb0897686c545045aFc77CF20eC7A532E3120E0F1"
+      ],
+      "bridge_tokens_pools": [
+        "0x086892015567fb8764d02c6845C85C25C8FcA389"
+      ],
+      "arm": "0xD7AcF65dA1E1f34b663aB199a474F209bF2b0523",
+      "router": "0x3C3D92629A02a8D95D5CB9650fe49C3544f69B43",
+      "price_registry": "0x68590799942eed65f9f1fB2277B9F6584A5957B8",
+      "wrapped_native": "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270",
+      "src_contracts": {
+        "Avalanche Mainnet": {
+          "on_ramp": "0x47D945f7bbb814B65775a89c71F5D2229BE96CE9",
+          "deployed_at": 45041759
+        },
+        "Ethereum Mainnet": {
+          "on_ramp": "0xAE0e486Fa6577188d586A8e4c12360FB82E2a386",
+          "deployed_at": 44762064
+        }
+      },
+      "dest_contracts": {
+        "Avalanche Mainnet": {
+          "off_ramp": "0xd59A3770c3e05479152b8581Ae0839f51b315E6A",
+          "commit_store": "0xC2870bF94E24657f7f5E75cF458e391D23CD84B5",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        },
+        "Ethereum Mainnet": {
+          "off_ramp": "0xa73bf37F78CD1629ff11Fa2B397CED39F49F6efe",
+          "commit_store": "0x779cA414cAC21c76AbE9213861b1bE9187d495F9",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        }
+      }
+    }
+  }
+}

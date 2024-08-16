@@ -14,6 +14,14 @@ type TelemClient struct {
 	mock.Mock
 }
 
+type TelemClient_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *TelemClient) EXPECT() *TelemClient_Expecter {
+	return &TelemClient_Expecter{mock: &_m.Mock}
+}
+
 // Telem provides a mock function with given fields: ctx, in
 func (_m *TelemClient) Telem(ctx context.Context, in *telem.TelemRequest) (*telem.TelemResponse, error) {
 	ret := _m.Called(ctx, in)
@@ -44,6 +52,35 @@ func (_m *TelemClient) Telem(ctx context.Context, in *telem.TelemRequest) (*tele
 	return r0, r1
 }
 
+// TelemClient_Telem_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Telem'
+type TelemClient_Telem_Call struct {
+	*mock.Call
+}
+
+// Telem is a helper method to define mock.On call
+//   - ctx context.Context
+//   - in *telem.TelemRequest
+func (_e *TelemClient_Expecter) Telem(ctx interface{}, in interface{}) *TelemClient_Telem_Call {
+	return &TelemClient_Telem_Call{Call: _e.mock.On("Telem", ctx, in)}
+}
+
+func (_c *TelemClient_Telem_Call) Run(run func(ctx context.Context, in *telem.TelemRequest)) *TelemClient_Telem_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*telem.TelemRequest))
+	})
+	return _c
+}
+
+func (_c *TelemClient_Telem_Call) Return(_a0 *telem.TelemResponse, _a1 error) *TelemClient_Telem_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *TelemClient_Telem_Call) RunAndReturn(run func(context.Context, *telem.TelemRequest) (*telem.TelemResponse, error)) *TelemClient_Telem_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // TelemBatch provides a mock function with given fields: ctx, in
 func (_m *TelemClient) TelemBatch(ctx context.Context, in *telem.TelemBatchRequest) (*telem.TelemResponse, error) {
 	ret := _m.Called(ctx, in)
@@ -72,6 +109,35 @@ func (_m *TelemClient) TelemBatch(ctx context.Context, in *telem.TelemBatchReque
 	}
 
 	return r0, r1
+}
+
+// TelemClient_TelemBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TelemBatch'
+type TelemClient_TelemBatch_Call struct {
+	*mock.Call
+}
+
+// TelemBatch is a helper method to define mock.On call
+//   - ctx context.Context
+//   - in *telem.TelemBatchRequest
+func (_e *TelemClient_Expecter) TelemBatch(ctx interface{}, in interface{}) *TelemClient_TelemBatch_Call {
+	return &TelemClient_TelemBatch_Call{Call: _e.mock.On("TelemBatch", ctx, in)}
+}
+
+func (_c *TelemClient_TelemBatch_Call) Run(run func(ctx context.Context, in *telem.TelemBatchRequest)) *TelemClient_TelemBatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*telem.TelemBatchRequest))
+	})
+	return _c
+}
+
+func (_c *TelemClient_TelemBatch_Call) Return(_a0 *telem.TelemResponse, _a1 error) *TelemClient_TelemBatch_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *TelemClient_TelemBatch_Call) RunAndReturn(run func(context.Context, *telem.TelemBatchRequest) (*telem.TelemResponse, error)) *TelemClient_TelemBatch_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewTelemClient creates a new instance of TelemClient. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

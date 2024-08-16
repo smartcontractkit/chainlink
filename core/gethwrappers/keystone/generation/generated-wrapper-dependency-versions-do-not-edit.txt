@@ -1,4 +1,5 @@
 GETH_VERSION: 1.13.8
-capabilities_registry: ../../../contracts/solc/v0.8.24/CapabilitiesRegistry/CapabilitiesRegistry.abi ../../../contracts/solc/v0.8.24/CapabilitiesRegistry/CapabilitiesRegistry.bin 3a082f0307411f41c30db26e61d59adcd5b003141a5aa8fe79d7779619028e26
-forwarder: ../../../contracts/solc/v0.8.24/KeystoneForwarder/KeystoneForwarder.abi ../../../contracts/solc/v0.8.24/KeystoneForwarder/KeystoneForwarder.bin dc98a86a3775ead987b79d5b6079ee0e26f31c0626032bdd6508f986e2423227
+capabilities_registry: ../../../contracts/solc/v0.8.24/CapabilitiesRegistry/CapabilitiesRegistry.abi ../../../contracts/solc/v0.8.24/CapabilitiesRegistry/CapabilitiesRegistry.bin 7e95d72f24940f08ada0ee3b85d894d6bfccfd6c8a3e0ceeff65bae52c899d54
+feeds_consumer: ../../../contracts/solc/v0.8.24/KeystoneFeedsConsumer/KeystoneFeedsConsumer.abi ../../../contracts/solc/v0.8.24/KeystoneFeedsConsumer/KeystoneFeedsConsumer.bin 8c3a2b18a80be41e7c40d2bc3a4c8d1b5e18d55c1fd20ad5af68cebb66109fc5
+forwarder: ../../../contracts/solc/v0.8.24/KeystoneForwarder/KeystoneForwarder.abi ../../../contracts/solc/v0.8.24/KeystoneForwarder/KeystoneForwarder.bin 45d9b866c64b41c1349a90b6764aee42a6d078b454d38f369b5fe02b23b9d16e
 ocr3_capability: ../../../contracts/solc/v0.8.24/OCR3Capability/OCR3Capability.abi ../../../contracts/solc/v0.8.24/OCR3Capability/OCR3Capability.bin 8bf0f53f222efce7143dea6134552eb26ea1eef845407b4475a0d79b7d7ba9f8

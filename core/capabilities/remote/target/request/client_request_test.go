@@ -20,6 +20,11 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+const (
+	workflowID1          = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
+	workflowExecutionID1 = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
+)
+
 func Test_ClientRequest_MessageValidation(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
@@ -68,8 +73,8 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 	capabilityRequest := commoncap.CapabilityRequest{
 		Metadata: commoncap.RequestMetadata{
-			WorkflowID:          "workflowID",
-			WorkflowExecutionID: "workflowExecutionID",
+			WorkflowID:          workflowID1,
+			WorkflowExecutionID: workflowExecutionID1,
 		},
 		Inputs: executeInputs,
 		Config: transmissionSchedule,
@@ -309,6 +314,26 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 type clientRequestTestDispatcher struct {
 	msgs chan *types.MessageBody
+}
+
+func (t *clientRequestTestDispatcher) Name() string {
+	return "clientRequestTestDispatcher"
+}
+
+func (t *clientRequestTestDispatcher) Start(ctx context.Context) error {
+	return nil
+}
+
+func (t *clientRequestTestDispatcher) Close() error {
+	return nil
+}
+
+func (t *clientRequestTestDispatcher) Ready() error {
+	return nil
+}
+
+func (t *clientRequestTestDispatcher) HealthReport() map[string]error {
+	return nil
 }
 
 func (t *clientRequestTestDispatcher) SetReceiver(capabilityId string, donId uint32, receiver types.Receiver) error {

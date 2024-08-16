@@ -13,8 +13,6 @@ import (
 )
 
 // TxStore is a superset of all the needed persistence layer methods
-//
-//go:generate mockery --quiet --name TxStore --output ./mocks/ --case=underscore
 type TxStore[
 	// Represents an account address, in native chain format.
 	ADDR types.Hashable,
@@ -91,7 +89,7 @@ type TransactionStore[
 	HasInProgressTransaction(ctx context.Context, account ADDR, chainID CHAIN_ID) (exists bool, err error)
 	LoadTxAttempts(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 	MarkAllConfirmedMissingReceipt(ctx context.Context, chainID CHAIN_ID) (err error)
-	MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID CHAIN_ID) error
+	MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, latestFinalizedBlockNum int64, chainID CHAIN_ID) error
 	PreloadTxes(ctx context.Context, attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 	SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error
 	SaveInProgressAttempt(ctx context.Context, attempt *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
@@ -107,11 +105,10 @@ type TransactionStore[
 	UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 	UpdateTxFatalError(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 	UpdateTxForRebroadcast(ctx context.Context, etx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], etxAttempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
-	IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID CHAIN_ID) (finalized bool, err error)
 }
 
 type TxHistoryReaper[CHAIN_ID types.ID] interface {
-	ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error
+	ReapTxHistory(ctx context.Context, timeThreshold time.Time, chainID CHAIN_ID) error
 }
 
 type UnstartedTxQueuePruner interface {
@@ -134,4 +131,5 @@ type ChainReceipt[TX_HASH, BLOCK_HASH types.Hashable] interface {
 	GetFeeUsed() uint64
 	GetTransactionIndex() uint
 	GetBlockHash() BLOCK_HASH
+	GetRevertReason() *string
 }
