@@ -115,14 +115,6 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
     }
   }
 
-  function updateAccountingOverhead(uint256 newOverhead) external {
-    ACCOUNTING_FIXED_GAS_OVERHEAD = newOverhead;
-  }
-
-  function updatePerUpkeepOverhead(uint256 newOverhead) external {
-    ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = newOverhead;
-  }
-
   /**
    * @notice handles the report by performing the upkeeps and updating the state
    * @param hotVars the hot variables of the registry
