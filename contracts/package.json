@@ -18,7 +18,7 @@
     "prepare": "chmod +x .husky/prepare.sh && ./.husky/prepare.sh",
     "prepublishOnly": "pnpm compile && ./scripts/prepublish_generate_abi_folder",
     "publish-beta": "pnpm publish --tag beta",
-    "publish-prod": "npm dist-tag add @chainlink/contracts-ccip@1.2.1 latest",
+    "publish-prod": "npm dist-tag add @chainlink/contracts-ccip@1.5.0 latest",
     "solhint:ccip": "solhint --max-warnings 0 \"./src/v0.8/ccip/**/*.sol\"",
     "solhint": "solhint --max-warnings 0 \"./src/v0.8/**/*.sol\""
   },
