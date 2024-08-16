@@ -137,7 +137,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) start(startCtx context.Context) {
 
 	promPoolRPCNodeTransitionsToAlive.WithLabelValues(s.chainID.String(), s.name).Inc()
 	s.setState(NodeStateAlive)
-	s.log.Infow("Sendonly RPC Node is online", "NodeState", s.state)
+	s.log.Infow("Sendonly RPC Node is online", "nodeState", s.state)
 }
 
 func (s *sendOnlyNode[CHAIN_ID, RPC]) Close() error {
