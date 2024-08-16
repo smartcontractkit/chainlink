@@ -75,7 +75,7 @@ func init() {
 	})
 
 	// read the custom defaults overrides
-	dir := os.Getenv(string(env.CustomDefaultsEnvKey))
+	dir := env.CustomDefaults.Get()
 	if dir == "" {
 		// short-circuit; no default overrides provided
 		return
@@ -97,14 +97,14 @@ func init() {
 		path := dir + "/" + entry.Name()
 		file, err := os.Open(path)
 		if err != nil {
-			log.Printf("error opening file (name: %v) in custom defaults override directory: %w", entry.Name(), err)
+			log.Printf("error opening file (name: %v) in custom defaults override directory: %v", entry.Name(), err)
 			continue
 		}
 
 		// Read file contents
 		b, err := io.ReadAll(file)
 		if err != nil {
-			log.Printf("error reading file (name: %v) contents in custom defaults override directory: %w", entry.Name(), err)
+			log.Printf("error reading file (name: %v) contents in custom defaults override directory: %v", entry.Name(), err)
 			file.Close()
 			continue
 		}
