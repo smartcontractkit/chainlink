@@ -1365,7 +1365,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 2 errors:
 			- ChainID: missing: required for all chains
 			- Nodes: missing: must have at least one node
-	- Aptos.0.Enabled: invalid value (1): expected *bool`},
+	- Aptos.0.Enabled: invalid value (1): expected bool`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config

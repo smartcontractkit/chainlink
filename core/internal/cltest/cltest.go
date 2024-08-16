@@ -439,6 +439,13 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 		initOps = append(initOps, chainlink.InitStarknet(testCtx, relayerFactory, starkCfg))
 	}
+	if cfg.AptosEnabled() {
+		aptosCfg := chainlink.AptosFactoryConfig{
+			Keystore:    keyStore.Aptos(),
+			TOMLConfigs: cfg.AptosConfigs(),
+		}
+		initOps = append(initOps, chainlink.InitAptos(testCtx, relayerFactory, aptosCfg))
+	}
 
 	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {
