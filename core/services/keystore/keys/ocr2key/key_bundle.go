@@ -48,7 +48,7 @@ var _ KeyBundle = &keyBundle[*aptosKeyring]{}
 var curve = secp256k1.S256()
 
 // New returns key bundle based on the chain type
-func New(chainType chaintype.ChainType) (KeyBundle, error) {
+func New(chainType chaintype.ChainType) (KeyBundle, error) { //TODO too inflexible
 	switch chainType {
 	case chaintype.EVM:
 		return newKeyBundleRand(chaintype.EVM, newEVMKeyring)

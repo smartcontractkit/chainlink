@@ -1,0 +1,15 @@
+exec chainlink node setup --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink node setup - Setup a Chainlink node
+
+USAGE:
+   chainlink node setup [command options] [arguments...]
+
+OPTIONS:
+   --password value, -p value       text file holding the password for the node's account
+   --vrfpassword value, --vp value  text file holding the password for the vrf keys; enables Chainlink VRF oracle
+   --chain value                    chain family to generate key for [evm, solana, starknet, cosmos, aptos]
+

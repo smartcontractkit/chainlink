@@ -177,7 +177,7 @@ func (ks ocr2) getAllOfType(chainType chaintype.ChainType) ([]ocr2key.KeyBundle,
 }
 
 func (ks ocr2) create(ctx context.Context, chainType chaintype.ChainType) (ocr2key.KeyBundle, error) {
-	if !chaintype.IsSupportedChainType(chainType) {
+	if !chaintype.IsSupportedChainType(chainType) { //TODO too restrictive
 		return nil, chaintype.NewErrInvalidChainType(chainType)
 	}
 	key, err := ocr2key.New(chainType)

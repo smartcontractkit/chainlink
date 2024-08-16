@@ -24,6 +24,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/lib/pq"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
@@ -33,6 +34,9 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -58,6 +62,25 @@ var ErrProfileTooLong = errors.New("requested profile duration too large")
 
 func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 	return []cli.Command{
+		{
+			Name: "setup",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "password, p",
+					Usage: "text file holding the password for the node's account",
+				},
+				cli.StringFlag{
+					Name:  "vrfpassword, vp",
+					Usage: "text file holding the password for the vrf keys; enables Chainlink VRF oracle",
+				},
+				cli.StringFlag{
+					Name:  "chain",
+					Usage: "chain family to generate key for [evm, solana, starknet, cosmos, aptos]",
+				},
+			},
+			Usage:  "Setup a Chainlink node",
+			Action: s.Setup,
+		},
 		{
 			Name:    "start",
 			Aliases: []string{"node", "n"},
@@ -284,6 +307,113 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 // ownerPermsMask are the file permission bits reserved for owner.
 const ownerPermsMask = os.FileMode(0o700)
 
+// Setup Chainlink core.
+func (s *Shell) Setup(c *cli.Context) error {
+	lggr := logger.Sugared(s.Logger.Named("Setup"))
+
+	passwords, err := readPasswords(c)
+	if err != nil {
+		return err
+	}
+
+	s.Config.SetPasswords(passwords.node, passwords.vrf)
+
+	if err := s.ensureRootDir(); err != nil {
+		return err
+	}
+
+	cfg := s.Config
+	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
+
+	ctx := s.handleShutdown(lggr, ldb)
+
+	// Try opening DB connection and acquiring DB locks at once
+	if err := ldb.Open(ctx); err != nil {
+		// If not successful, we know neither locks nor connection remains opened
+		return s.errorOut(errors.Wrap(err, "opening db"))
+	}
+	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
+
+	// From now on, DB locks and DB connection will be released on every return.
+	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
+
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, ldb.DB())
+	if err != nil {
+		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
+	}
+
+	keyStore := app.GetKeyStore()
+	if err = s.KeyStoreAuthenticator.authenticate(ctx, keyStore, s.Config.Password()); err != nil {
+		return errors.Wrap(err, "error authenticating keystore")
+	}
+
+	if err = keyStore.OCR().EnsureKey(ctx); err != nil {
+		return errors.Wrap(err, "failed to ensure ocr key")
+	}
+
+	var setup chainlink.Setup
+	if chain := chaintype.ChainType(c.String("chain")); chain != "" {
+		ocr2 := keyStore.OCR2()
+		if err = ocr2.EnsureKeys(ctx, chain); err != nil {
+			return errors.Wrap(err, "failed to ensure ocr2 key")
+		}
+		keys, err := ocr2.GetAllOfType(chain)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get key bundle for chain %s", chain)
+		}
+		if len(keys) != 1 {
+			return errors.Errorf("expected single key bundle but found %d", len(keys))
+		}
+		id, err := models.Sha256HashFromHex(keys[0].ID())
+		if err != nil {
+			return errors.Wrap(err, "failed to decode sha256 hex")
+		}
+		setup.OCR2.KeyBundleID = &id
+	}
+
+	if err = keyStore.P2P().EnsureKey(ctx); err != nil {
+		return errors.Wrap(err, "failed to ensure p2p key")
+	}
+
+	if err = keyStore.CSA().EnsureKey(ctx); err != nil {
+		return errors.Wrap(err, "failed to ensure CSA key")
+	}
+
+	p2pKey, err := keyStore.P2P().GetOrFirst(p2pkey.PeerID{})
+	if err != nil {
+		return errors.Wrap(err, "failed to get p2p key")
+	}
+	peerID := p2pKey.PeerID()
+
+	setup.P2P.PeerID = &peerID
+
+	b, err := toml.Marshal(setup)
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal setup toml")
+	}
+	//TODO print leading comment?
+	fmt.Println(string(b))
+
+	return nil
+}
+
+func (s *Shell) handleShutdown(lggr logger.Logger, ldb pg.LockedDB) context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	go shutdown.HandleShutdown(func(sig string) {
+		cancel()
+		lggr.Info("received signal to stop - closing the database and releasing lock")
+
+		if cErr := ldb.Close(); cErr != nil {
+			lggr.Criticalf("Failed to close LockedDB: %v", cErr)
+		}
+
+		if cErr := s.CloseLogger(); cErr != nil {
+			log.Printf("Failed to close Logger: %v", cErr)
+		}
+	})
+	return ctx
+}
+
 // RunNode starts the Chainlink core.
 func (s *Shell) RunNode(c *cli.Context) error {
 	if err := s.runNode(c); err != nil {
@@ -292,27 +422,47 @@ func (s *Shell) RunNode(c *cli.Context) error {
 	return nil
 }
 
-func (s *Shell) runNode(c *cli.Context) error {
-	ctx := s.ctx()
-	lggr := logger.Sugared(s.Logger.Named("RunNode"))
+type passwords struct {
+	node *string
+	vrf  *string
+}
 
-	var pwd, vrfpwd *string
+func readPasswords(c *cli.Context) (passwords, error) {
+	var ps passwords
 	if passwordFile := c.String("password"); passwordFile != "" {
 		p, err := utils.PasswordFromFile(passwordFile)
 		if err != nil {
-			return errors.Wrap(err, "error reading password from file")
+			return passwords{}, fmt.Errorf("error reading password from file %s: %w", passwordFile, err)
 		}
-		pwd = &p
+		ps.node = &p
 	}
 	if vrfPasswordFile := c.String("vrfpassword"); len(vrfPasswordFile) != 0 {
 		p, err := utils.PasswordFromFile(vrfPasswordFile)
 		if err != nil {
-			return errors.Wrapf(err, "error reading VRF password from vrfpassword file \"%s\"", vrfPasswordFile)
+			return passwords{}, fmt.Errorf("error reading VRF password from file %s: %w", vrfPasswordFile, err)
 		}
-		vrfpwd = &p
+		ps.vrf = &p
+	}
+	return ps, nil
+}
+
+func (s *Shell) ensureRootDir() error {
+	if err := utils.EnsureDirAndMaxPerms(s.Config.RootDir(), os.FileMode(0700)); err != nil {
+		return fmt.Errorf("failed to create root directory %q: %w", s.Config.RootDir(), err)
+	}
+	return nil
+}
+
+func (s *Shell) runNode(c *cli.Context) error {
+	ctx := s.ctx()
+	lggr := logger.Sugared(s.Logger.Named("RunNode"))
+
+	passWords, err := readPasswords(c)
+	if err != nil {
+		return err
 	}
 
-	s.Config.SetPasswords(pwd, vrfpwd)
+	s.Config.SetPasswords(passWords.node, passWords.vrf)
 
 	s.Config.LogConfiguration(lggr.Debugf, lggr.Warnf)
 
@@ -326,8 +476,8 @@ func (s *Shell) runNode(c *cli.Context) error {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
 
-	if err := utils.EnsureDirAndMaxPerms(s.Config.RootDir(), os.FileMode(0700)); err != nil {
-		return fmt.Errorf("failed to create root directory %q: %w", s.Config.RootDir(), err)
+	if err := s.ensureRootDir(); err != nil {
+		return err
 	}
 
 	cfg := s.Config
@@ -386,8 +536,6 @@ func (s *Shell) runNode(c *cli.Context) error {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
-	// Local shell initialization always uses local auth users table for admin auth
-	authProviderORM := app.BasicAdminUsersORM()
 	keyStore := app.GetKeyStore()
 	err = s.KeyStoreAuthenticator.authenticate(rootCtx, keyStore, s.Config.Password())
 	if err != nil {
@@ -404,7 +552,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		for _, ch := range chainList {
 			if ch.Config().EVM().AutoCreateKey() {
 				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", ch.ID())
-				err2 := app.GetKeyStore().Eth().EnsureKeys(rootCtx, ch.ID())
+				err2 := keyStore.Eth().EnsureKeys(rootCtx, ch.ID())
 				if err2 != nil {
 					return errors.Wrap(err2, "failed to ensure keystore keys")
 				}
@@ -415,7 +563,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	}
 
 	if s.Config.OCR().Enabled() {
-		err2 := app.GetKeyStore().OCR().EnsureKey(rootCtx)
+		err2 := keyStore.OCR().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
@@ -437,31 +585,31 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if s.Config.AptosEnabled() {
 			enabledChains = append(enabledChains, chaintype.Aptos)
 		}
-		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
+		err2 := keyStore.OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure ocr key")
+			return errors.Wrap(err2, "failed to ensure ocr2 key")
 		}
 	}
 	if s.Config.P2P().Enabled() {
-		err2 := app.GetKeyStore().P2P().EnsureKey(rootCtx)
+		err2 := keyStore.P2P().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure p2p key")
 		}
 	}
 	if s.Config.CosmosEnabled() {
-		err2 := app.GetKeyStore().Cosmos().EnsureKey(rootCtx)
+		err2 := keyStore.Cosmos().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure cosmos key")
 		}
 	}
 	if s.Config.SolanaEnabled() {
-		err2 := app.GetKeyStore().Solana().EnsureKey(rootCtx)
+		err2 := keyStore.Solana().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure solana key")
 		}
 	}
 	if s.Config.StarkNetEnabled() {
-		err2 := app.GetKeyStore().StarkNet().EnsureKey(rootCtx)
+		err2 := keyStore.StarkNet().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure starknet key")
 		}
@@ -473,7 +621,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 
-	err2 := app.GetKeyStore().CSA().EnsureKey(rootCtx)
+	err2 := keyStore.CSA().EnsureKey(rootCtx)
 	if err2 != nil {
 		return errors.Wrap(err2, "failed to ensure CSA key")
 	}
@@ -482,6 +630,8 @@ func (s *Shell) runNode(c *cli.Context) error {
 		lggr.Warn(e)
 	}
 
+	// Local shell initialization always uses local auth users table for admin auth
+	authProviderORM := app.BasicAdminUsersORM()
 	var user sessions.User
 	if user, err = NewFileAPIInitializer(c.String("api")).Initialize(ctx, authProviderORM, lggr); err != nil {
 		if !errors.Is(err, ErrNoCredentialFile) {
@@ -1245,19 +1395,7 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 
 	lggr := logger.Sugared(s.Logger.Named("RemoveBlocks"))
 	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
-	ctx, cancel := context.WithCancel(context.Background())
-	go shutdown.HandleShutdown(func(sig string) {
-		cancel()
-		lggr.Info("received signal to stop - closing the database and releasing lock")
-
-		if cErr := ldb.Close(); cErr != nil {
-			lggr.Criticalf("Failed to close LockedDB: %v", cErr)
-		}
-
-		if cErr := s.CloseLogger(); cErr != nil {
-			log.Printf("Failed to close Logger: %v", cErr)
-		}
-	})
+	ctx := s.handleShutdown(lggr, ldb)
 
 	if err = ldb.Open(ctx); err != nil {
 		// If not successful, we know neither locks nor connection remains opened
