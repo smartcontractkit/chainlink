@@ -99,6 +99,7 @@ type ChainReaderDefinition chainReaderDefinitionFields
 type EventDefinitions struct {
 	// GenericTopicNames helps QueryingKeys not rely on EVM specific topic names. Key is chain specific name, value is generic name.
 	// This helps us translate chain agnostic querying key "transfer-value" to EVM specific "evmTransferEvent-weiAmountTopic".
+	// GenericTopicNames requires InputFields to be defined for every generic topic mapping.
 	GenericTopicNames map[string]string `json:"genericTopicNames,omitempty"`
 	// key is a predefined generic name for evm log event data word
 	// for e.g. first evm data word(32bytes) of USDC log event is value so the key can be called value

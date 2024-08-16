@@ -135,6 +135,12 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 					EventName: {
 						ChainSpecificName: "Triggered",
 						ReadType:          types.Event,
+						EventDefinitions: &types.EventDefinitions{
+							GenericTopicNames: map[string]string{"field": "Field"},
+							InputFields:       []string{"Field"},
+							// TODO does it have to be in form of "NestedStruct.FixedBytes", how does that work with chain agnosticism? At the same time its weird to allow just an identifier since they can collide
+							GenericDataWordNames: map[string]uint8{"nestedStruct.FixedBytes": 0},
+						},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 						},

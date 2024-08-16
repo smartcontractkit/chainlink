@@ -151,11 +151,11 @@ func (v *pgDSLParser) nestedConfQuery(finalized bool, confs uint64) string {
 }
 
 func (v *pgDSLParser) VisitEventByWordFilter(p *eventByWordFilter) {
-	if len(p.ValueComparers) > 0 {
+	if len(p.HashedValueComparers) > 0 {
 		wordIdx := v.args.withIndexedField("word_index", p.WordIndex)
 
-		comps := make([]string, len(p.ValueComparers))
-		for idx, comp := range p.ValueComparers {
+		comps := make([]string, len(p.HashedValueComparers))
+		for idx, comp := range p.HashedValueComparers {
 			comps[idx], v.err = makeComp(comp, v.args, "word_value", wordIdx, "substring(data from 32*:%s+1 for 32) %s :%s")
 			if v.err != nil {
 				return
@@ -199,7 +199,7 @@ func (v *pgDSLParser) VisitConfirmationsFilter(p *confirmationsFilter) {
 	}
 }
 
-func makeComp(comp primitives.ValueComparator, _ *queryArgs, _, subfield, pattern string) (string, error) {
+func makeComp(comp HashedValueComparator, args *queryArgs, field, subfield, pattern string) (string, error) {
 	cmp, err := cmpOpToString(comp.Operator)
 	if err != nil {
 		return "", err
@@ -209,8 +209,7 @@ func makeComp(comp primitives.ValueComparator, _ *queryArgs, _, subfield, patter
 		pattern,
 		subfield,
 		cmp,
-		// TODO at this point the value should already be in hash form
-		//args.withIndexedField(field, common.HexToHash(comp.Value)),
+		args.withIndexedField(field, comp.Value),
 	), nil
 }
 
@@ -499,15 +498,12 @@ type HashedValueComparator struct {
 }
 
 type eventByWordFilter struct {
-	EventSig             common.Hash
 	WordIndex            uint8
 	HashedValueComparers []HashedValueComparator
 }
 
-func NewEventByWordFilter(eventSig common.Hash, wordIndex uint8, valueComparers []HashedValueComparator) query.Expression {
-	// TODO hash values
+func NewEventByWordFilter(wordIndex uint8, valueComparers []HashedValueComparator) query.Expression {
 	return query.Expression{Primitive: &eventByWordFilter{
-		EventSig:             eventSig,
 		WordIndex:            wordIndex,
 		HashedValueComparers: valueComparers,
 	}}
@@ -522,10 +518,10 @@ func (f *eventByWordFilter) Accept(visitor primitives.Visitor) {
 
 type eventByTopicFilter struct {
 	Topic          uint64
-	ValueComparers []primitives.ValueComparator
+	ValueComparers []HashedValueComparator
 }
 
-func NewEventByTopicFilter(topicIndex uint64, valueComparers []primitives.ValueComparator) query.Expression {
+func NewEventByTopicFilter(topicIndex uint64, valueComparers []HashedValueComparator) query.Expression {
 	return query.Expression{Primitive: &eventByTopicFilter{
 		Topic:          topicIndex,
 		ValueComparers: valueComparers,
