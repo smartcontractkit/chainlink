@@ -187,6 +187,10 @@ docker_manifests:
 # See https://goreleaser.com/customization/docker_sign/
 docker_signs:
   - artifacts: all
+    args:
+      - "sign"
+      - "${artifact}"
+      - "--yes"
     # stdin: "{{ .Env.COSIGN_PASSWORD }}"
 
 checksum:
