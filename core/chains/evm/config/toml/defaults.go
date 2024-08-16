@@ -3,7 +3,6 @@ package toml
 import (
 	"bytes"
 	"embed"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -85,7 +84,7 @@ func init() {
 	// Read directory contents
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		fmt.Println("Error reading directory:", err)
+		log.Printf("error reading custom defaults override directory: %v", err)
 		return
 	}
 
@@ -98,14 +97,14 @@ func init() {
 		path := dir + "/" + entry.Name()
 		file, err := os.Open(path)
 		if err != nil {
-			fmt.Println("Error opening file:", err)
+			log.Printf("error opening file (name: %v) in custom defaults override directory: %w", entry.Name(), err)
 			continue
 		}
 
 		// Read file contents
 		b, err := io.ReadAll(file)
 		if err != nil {
-			fmt.Println("Error reading file:", err)
+			log.Printf("error reading file (name: %v) contents in custom defaults override directory: %w", entry.Name(), err)
 			file.Close()
 			continue
 		}
@@ -117,19 +116,14 @@ func init() {
 		}{}
 
 		if err := cconfig.DecodeTOML(bytes.NewReader(b), &config); err != nil {
-			log.Fatalf("failed to decode %q: %v", path, err)
+			log.Fatalf("failed to decode %q in custom defaults override directory: %v", path, err)
 		}
 
 		if config.ChainID == nil {
-			log.Fatalf("missing ChainID: %s", path)
+			log.Fatalf("missing ChainID in: %s in custom defaults override directory. exiting", path)
 		}
 
 		id := config.ChainID.String()
-		// these custom defaults are only meant to be overrides on existing chains;
-		// if the chain does not exist already in defaults error out
-		if _, ok := defaults[id]; !ok {
-			log.Fatalf("%q does not contain ChainID: %s", path, id)
-		}
 		customDefaults[id] = config.Chain
 	}
 }
