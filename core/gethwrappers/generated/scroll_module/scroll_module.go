@@ -29,8 +29,8 @@ var (
 )
 
 var ScrollModuleMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"n\",\"type\":\"uint256\"}],\"name\":\"blockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"blockNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurrentL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"chainModuleFixedOverhead\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"chainModulePerByteOverhead\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"dataSize\",\"type\":\"uint256\"}],\"name\":\"getMaxL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b5061050c806100206000396000f3fe608060405234801561001057600080fd5b50600436106100675760003560e01c806357e871e71161005057806357e871e71461009a57806385df51fd146100a0578063de9ee35e146100b357600080fd5b8063125441401461006c57806318b8f61314610092575b600080fd5b61007f61007a3660046102e8565b6100c9565b6040519081526020015b60405180910390f35b61007f6101ea565b4361007f565b61007f6100ae3660046102e8565b6102bb565b6040805161afc8815260aa602082015201610089565b6000806100d7836004610330565b67ffffffffffffffff8111156100ef576100ef61034d565b6040519080825280601f01601f191660200182016040528015610119576020820181803683370190505b50905073530000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff166349948e0e826040518060c00160405280608c8152602001610474608c91396040516020016101779291906103a0565b6040516020818303038152906040526040518263ffffffff1660e01b81526004016101a291906103cf565b602060405180830381865afa1580156101bf573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906101e39190610420565b9392505050565b600073530000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff166349948e0e6000366040518060c00160405280608c8152602001610474608c913960405160200161024a93929190610439565b6040516020818303038152906040526040518263ffffffff1660e01b815260040161027591906103cf565b602060405180830381865afa158015610292573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906102b69190610420565b905090565b600043821015806102d657506101006102d48343610460565b115b156102e357506000919050565b504090565b6000602082840312156102fa57600080fd5b5035919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b808202811582820484141761034757610347610301565b92915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b60005b8381101561039757818101518382015260200161037f565b50506000910152565b600083516103b281846020880161037c565b8351908301906103c681836020880161037c565b01949350505050565b60208152600082518060208401526103ee81604085016020870161037c565b601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169190910160400192915050565b60006020828403121561043257600080fd5b5051919050565b82848237600083820160008152835161045681836020880161037c565b0195945050505050565b818103818111156103475761034761030156feffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa164736f6c6343000813000a",
+	ABI: "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"n\",\"type\":\"uint256\"}],\"name\":\"blockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"blockNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"getCurrentL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"chainModuleFixedOverhead\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"chainModulePerByteOverhead\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"dataSize\",\"type\":\"uint256\"}],\"name\":\"getMaxL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b50610512806100206000396000f3fe608060405234801561001057600080fd5b50600436106100675760003560e01c80637810d12a116100505780637810d12a1461009857806385df51fd146100ab578063de9ee35e146100be57600080fd5b8063125441401461006c57806357e871e714610092575b600080fd5b61007f61007a3660046102f4565b6100d4565b6040519081526020015b60405180910390f35b4361007f565b61007f6100a63660046102f4565b6101f5565b61007f6100b93660046102f4565b6102c7565b6040805161afc8815260aa602082015201610089565b6000806100e283600461033c565b67ffffffffffffffff8111156100fa576100fa610353565b6040519080825280601f01601f191660200182016040528015610124576020820181803683370190505b50905073530000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff166349948e0e826040518060c00160405280608c815260200161047a608c91396040516020016101829291906103a6565b6040516020818303038152906040526040518263ffffffff1660e01b81526004016101ad91906103d5565b602060405180830381865afa1580156101ca573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906101ee9190610426565b9392505050565b600073530000000000000000000000000000000000000273ffffffffffffffffffffffffffffffffffffffff166349948e0e6000366040518060c00160405280608c815260200161047a608c91396040516020016102559392919061043f565b6040516020818303038152906040526040518263ffffffff1660e01b815260040161028091906103d5565b602060405180830381865afa15801561029d573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906102c19190610426565b92915050565b600043821015806102e257506101006102e08343610466565b115b156102ef57506000919050565b504090565b60006020828403121561030657600080fd5b5035919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b80820281158282048414176102c1576102c161030d565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b60005b8381101561039d578181015183820152602001610385565b50506000910152565b600083516103b8818460208801610382565b8351908301906103cc818360208801610382565b01949350505050565b60208152600082518060208401526103f4816040850160208701610382565b601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169190910160400192915050565b60006020828403121561043857600080fd5b5051919050565b82848237600083820160008152835161045c818360208801610382565b0195945050505050565b818103818111156102c1576102c161030d56feffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa164736f6c6343000813000a",
 }
 
 var ScrollModuleABI = ScrollModuleMetaData.ABI
@@ -213,9 +213,9 @@ func (_ScrollModule *ScrollModuleCallerSession) BlockNumber() (*big.Int, error) 
 	return _ScrollModule.Contract.BlockNumber(&_ScrollModule.CallOpts)
 }
 
-func (_ScrollModule *ScrollModuleCaller) GetCurrentL1Fee(opts *bind.CallOpts) (*big.Int, error) {
+func (_ScrollModule *ScrollModuleCaller) GetCurrentL1Fee(opts *bind.CallOpts, arg0 *big.Int) (*big.Int, error) {
 	var out []interface{}
-	err := _ScrollModule.contract.Call(opts, &out, "getCurrentL1Fee")
+	err := _ScrollModule.contract.Call(opts, &out, "getCurrentL1Fee", arg0)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -227,12 +227,12 @@ func (_ScrollModule *ScrollModuleCaller) GetCurrentL1Fee(opts *bind.CallOpts) (*
 
 }
 
-func (_ScrollModule *ScrollModuleSession) GetCurrentL1Fee() (*big.Int, error) {
-	return _ScrollModule.Contract.GetCurrentL1Fee(&_ScrollModule.CallOpts)
+func (_ScrollModule *ScrollModuleSession) GetCurrentL1Fee(arg0 *big.Int) (*big.Int, error) {
+	return _ScrollModule.Contract.GetCurrentL1Fee(&_ScrollModule.CallOpts, arg0)
 }
 
-func (_ScrollModule *ScrollModuleCallerSession) GetCurrentL1Fee() (*big.Int, error) {
-	return _ScrollModule.Contract.GetCurrentL1Fee(&_ScrollModule.CallOpts)
+func (_ScrollModule *ScrollModuleCallerSession) GetCurrentL1Fee(arg0 *big.Int) (*big.Int, error) {
+	return _ScrollModule.Contract.GetCurrentL1Fee(&_ScrollModule.CallOpts, arg0)
 }
 
 func (_ScrollModule *ScrollModuleCaller) GetGasOverhead(opts *bind.CallOpts) (GetGasOverhead,
@@ -301,7 +301,7 @@ type ScrollModuleInterface interface {
 
 	BlockNumber(opts *bind.CallOpts) (*big.Int, error)
 
-	GetCurrentL1Fee(opts *bind.CallOpts) (*big.Int, error)
+	GetCurrentL1Fee(opts *bind.CallOpts, arg0 *big.Int) (*big.Int, error)
 
 	GetGasOverhead(opts *bind.CallOpts) (GetGasOverhead,
 

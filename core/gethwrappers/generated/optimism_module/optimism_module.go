@@ -29,8 +29,8 @@ var (
 )
 
 var OptimismModuleMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"n\",\"type\":\"uint256\"}],\"name\":\"blockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"blockNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurrentL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"chainModuleFixedOverhead\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"chainModulePerByteOverhead\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"dataSize\",\"type\":\"uint256\"}],\"name\":\"getMaxL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b506104d1806100206000396000f3fe608060405234801561001057600080fd5b50600436106100675760003560e01c806357e871e71161005057806357e871e71461009a57806385df51fd146100a0578063de9ee35e146100b357600080fd5b8063125441401461006c57806318b8f61314610092575b600080fd5b61007f61007a3660046102e9565b6100ca565b6040519081526020015b60405180910390f35b61007f6101eb565b4361007f565b61007f6100ae3660046102e9565b6102bc565b6040805161ea60815261010e602082015201610089565b6000806100d8836004610331565b67ffffffffffffffff8111156100f0576100f061034e565b6040519080825280601f01601f19166020018201604052801561011a576020820181803683370190505b50905073420000000000000000000000000000000000000f73ffffffffffffffffffffffffffffffffffffffff166349948e0e82604051806080016040528060508152602001610475605091396040516020016101789291906103a1565b6040516020818303038152906040526040518263ffffffff1660e01b81526004016101a391906103d0565b602060405180830381865afa1580156101c0573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906101e49190610421565b9392505050565b600073420000000000000000000000000000000000000f73ffffffffffffffffffffffffffffffffffffffff166349948e0e6000366040518060800160405280605081526020016104756050913960405160200161024b9392919061043a565b6040516020818303038152906040526040518263ffffffff1660e01b815260040161027691906103d0565b602060405180830381865afa158015610293573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906102b79190610421565b905090565b600043821015806102d757506101006102d58343610461565b115b156102e457506000919050565b504090565b6000602082840312156102fb57600080fd5b5035919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b808202811582820484141761034857610348610302565b92915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b60005b83811015610398578181015183820152602001610380565b50506000910152565b600083516103b381846020880161037d565b8351908301906103c781836020880161037d565b01949350505050565b60208152600082518060208401526103ef81604085016020870161037d565b601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169190910160400192915050565b60006020828403121561043357600080fd5b5051919050565b82848237600083820160008152835161045781836020880161037d565b0195945050505050565b818103818111156103485761034861030256feffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa164736f6c6343000813000a",
+	ABI: "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"n\",\"type\":\"uint256\"}],\"name\":\"blockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"blockNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"getCurrentL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"chainModuleFixedOverhead\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"chainModulePerByteOverhead\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"dataSize\",\"type\":\"uint256\"}],\"name\":\"getMaxL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b506104d7806100206000396000f3fe608060405234801561001057600080fd5b50600436106100675760003560e01c80637810d12a116100505780637810d12a1461009857806385df51fd146100ab578063de9ee35e146100be57600080fd5b8063125441401461006c57806357e871e714610092575b600080fd5b61007f61007a3660046102f5565b6100d5565b6040519081526020015b60405180910390f35b4361007f565b61007f6100a63660046102f5565b6101f6565b61007f6100b93660046102f5565b6102c8565b6040805161ea60815261010e602082015201610089565b6000806100e383600461033d565b67ffffffffffffffff8111156100fb576100fb610354565b6040519080825280601f01601f191660200182016040528015610125576020820181803683370190505b50905073420000000000000000000000000000000000000f73ffffffffffffffffffffffffffffffffffffffff166349948e0e8260405180608001604052806050815260200161047b605091396040516020016101839291906103a7565b6040516020818303038152906040526040518263ffffffff1660e01b81526004016101ae91906103d6565b602060405180830381865afa1580156101cb573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906101ef9190610427565b9392505050565b600073420000000000000000000000000000000000000f73ffffffffffffffffffffffffffffffffffffffff166349948e0e60003660405180608001604052806050815260200161047b6050913960405160200161025693929190610440565b6040516020818303038152906040526040518263ffffffff1660e01b815260040161028191906103d6565b602060405180830381865afa15801561029e573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906102c29190610427565b92915050565b600043821015806102e357506101006102e18343610467565b115b156102f057506000919050565b504090565b60006020828403121561030757600080fd5b5035919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b80820281158282048414176102c2576102c261030e565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b60005b8381101561039e578181015183820152602001610386565b50506000910152565b600083516103b9818460208801610383565b8351908301906103cd818360208801610383565b01949350505050565b60208152600082518060208401526103f5816040850160208701610383565b601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169190910160400192915050565b60006020828403121561043957600080fd5b5051919050565b82848237600083820160008152835161045d818360208801610383565b0195945050505050565b818103818111156102c2576102c261030e56feffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa164736f6c6343000813000a",
 }
 
 var OptimismModuleABI = OptimismModuleMetaData.ABI
@@ -213,9 +213,9 @@ func (_OptimismModule *OptimismModuleCallerSession) BlockNumber() (*big.Int, err
 	return _OptimismModule.Contract.BlockNumber(&_OptimismModule.CallOpts)
 }
 
-func (_OptimismModule *OptimismModuleCaller) GetCurrentL1Fee(opts *bind.CallOpts) (*big.Int, error) {
+func (_OptimismModule *OptimismModuleCaller) GetCurrentL1Fee(opts *bind.CallOpts, arg0 *big.Int) (*big.Int, error) {
 	var out []interface{}
-	err := _OptimismModule.contract.Call(opts, &out, "getCurrentL1Fee")
+	err := _OptimismModule.contract.Call(opts, &out, "getCurrentL1Fee", arg0)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -227,12 +227,12 @@ func (_OptimismModule *OptimismModuleCaller) GetCurrentL1Fee(opts *bind.CallOpts
 
 }
 
-func (_OptimismModule *OptimismModuleSession) GetCurrentL1Fee() (*big.Int, error) {
-	return _OptimismModule.Contract.GetCurrentL1Fee(&_OptimismModule.CallOpts)
+func (_OptimismModule *OptimismModuleSession) GetCurrentL1Fee(arg0 *big.Int) (*big.Int, error) {
+	return _OptimismModule.Contract.GetCurrentL1Fee(&_OptimismModule.CallOpts, arg0)
 }
 
-func (_OptimismModule *OptimismModuleCallerSession) GetCurrentL1Fee() (*big.Int, error) {
-	return _OptimismModule.Contract.GetCurrentL1Fee(&_OptimismModule.CallOpts)
+func (_OptimismModule *OptimismModuleCallerSession) GetCurrentL1Fee(arg0 *big.Int) (*big.Int, error) {
+	return _OptimismModule.Contract.GetCurrentL1Fee(&_OptimismModule.CallOpts, arg0)
 }
 
 func (_OptimismModule *OptimismModuleCaller) GetGasOverhead(opts *bind.CallOpts) (GetGasOverhead,
@@ -301,7 +301,7 @@ type OptimismModuleInterface interface {
 
 	BlockNumber(opts *bind.CallOpts) (*big.Int, error)
 
-	GetCurrentL1Fee(opts *bind.CallOpts) (*big.Int, error)
+	GetCurrentL1Fee(opts *bind.CallOpts, arg0 *big.Int) (*big.Int, error)
 
 	GetGasOverhead(opts *bind.CallOpts) (GetGasOverhead,
 
