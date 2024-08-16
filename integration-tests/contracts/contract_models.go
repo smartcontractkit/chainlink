@@ -224,7 +224,7 @@ type JobByInstance struct {
 	Instance string
 }
 
-type MockETHLINKFeed interface {
+type MockLINKETHFeed interface {
 	Address() string
 	LatestRoundData() (*big.Int, error)
 	LatestRoundDataUpdatedAt() (*big.Int, error)

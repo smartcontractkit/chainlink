@@ -92,7 +92,8 @@ func AggregateModeRaw(elemList [][]byte, minIdenticalResponses uint32) ([]byte, 
 		hashToCount[sha]++
 		if hashToCount[sha] >= minIdenticalResponses {
 			found = elem
-			break
+			// update in case we find another elem with an even higher count
+			minIdenticalResponses = hashToCount[sha]
 		}
 	}
 	if found == nil {

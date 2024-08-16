@@ -28,6 +28,7 @@ const (
 	OCR3CCIPCommit    TelemetryType = "ocr3-ccip-commit"
 	OCR3CCIPExec      TelemetryType = "ocr3-ccip-exec"
 	OCR3CCIPBootstrap TelemetryType = "ocr3-bootstrap"
+	HeadReport        TelemetryType = "head-report"
 )
 
 type TelemPayload struct {

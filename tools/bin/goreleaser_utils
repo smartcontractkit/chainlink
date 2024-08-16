@@ -68,11 +68,13 @@ before_hook() {
   install_remote_plugins "linux" "amd64" "$gobin"/linux_amd64/
   mkdir -p "$lib_path/linux_amd64/plugins"
   cp "$gobin"/linux_amd64/chainlink* "$lib_path/linux_amd64/plugins"
+  cp "$gobin"/chainlink* "$lib_path/linux_amd64/plugins"
 
   install_local_plugins  "linux" "arm64" "$gobin"/linux_arm64/
   install_remote_plugins "linux" "arm64" "$gobin"/linux_arm64/
   mkdir -p "$lib_path/linux_arm64/plugins"
   cp "$gobin"/linux_arm64/chainlink* "$lib_path/linux_arm64/plugins"
+  cp "$gobin"/chainlink* "$lib_path/linux_arm64/plugins"
 }
 
 install_local_plugins() {
@@ -94,10 +96,10 @@ get_remote_plugin_paths() {
   )
 
   for plugin in "${plugins[@]}"; do
-   plugin_dep_name=$(echo "$plugin" | cut -d"|" -f1)
-   plugin_main=$(echo "$plugin" | cut -d"|" -f2)
+    plugin_dep_name=$(echo "$plugin" | cut -d"|" -f1)
+    plugin_main=$(echo "$plugin" | cut -d"|" -f2)
 
-   full_plugin_path=$(go list -m -f "{{.Dir}}" "$plugin_dep_name")"$plugin_main"
+    full_plugin_path=$(go list -m -f "{{.Dir}}" "$plugin_dep_name")"$plugin_main"
     echo "$full_plugin_path"
   done
 }
