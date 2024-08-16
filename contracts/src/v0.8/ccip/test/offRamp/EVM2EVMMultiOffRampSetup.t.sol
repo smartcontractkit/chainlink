@@ -229,6 +229,9 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     });
   }
 
+  uint32 internal constant MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS = 200_000;
+  uint32 internal constant MAX_TOKEN_POOL_TRANSFER_GAS = 50_000;
+
   function _generateDynamicMultiOffRampConfig(address priceRegistry)
     internal
     pure
