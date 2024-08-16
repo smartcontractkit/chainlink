@@ -1,40 +1,28 @@
-package promreporter
+package headreporter
 
 import (
 	"context"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type (
-	promReporter struct {
-		services.StateMachine
-		ds           sqlutil.DataSource
-		chains       legacyevm.LegacyChainContainer
-		lggr         logger.Logger
-		backend      PrometheusBackend
-		newHeads     *mailbox.Mailbox[*evmtypes.Head]
-		chStop       services.StopChan
-		wgDone       sync.WaitGroup
-		reportPeriod time.Duration
+	prometheusReporter struct {
+		ds      sqlutil.DataSource
+		chains  legacyevm.LegacyChainContainer
+		backend PrometheusBackend
 	}
 
 	PrometheusBackend interface {
@@ -71,103 +59,15 @@ var (
 	})
 )
 
-func (defaultBackend) SetUnconfirmedTransactions(evmChainID *big.Int, n int64) {
-	promUnconfirmedTransactions.WithLabelValues(evmChainID.String()).Set(float64(n))
-}
-
-func (defaultBackend) SetMaxUnconfirmedAge(evmChainID *big.Int, s float64) {
-	promMaxUnconfirmedAge.WithLabelValues(evmChainID.String()).Set(s)
-}
-
-func (defaultBackend) SetMaxUnconfirmedBlocks(evmChainID *big.Int, n int64) {
-	promMaxUnconfirmedBlocks.WithLabelValues(evmChainID.String()).Set(float64(n))
-}
-
-func (defaultBackend) SetPipelineRunsQueued(n int) {
-	promPipelineTaskRunsQueued.Set(float64(n))
-}
-
-func (defaultBackend) SetPipelineTaskRunsQueued(n int) {
-	promPipelineRunsQueued.Set(float64(n))
-}
-
-func NewPromReporter(ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, opts ...interface{}) *promReporter {
-	var backend PrometheusBackend = defaultBackend{}
-	period := 15 * time.Second
-	for _, opt := range opts {
-		switch v := opt.(type) {
-		case time.Duration:
-			period = v
-		case PrometheusBackend:
-			backend = v
-		}
-	}
-
-	chStop := make(chan struct{})
-	return &promReporter{
-		ds:           ds,
-		chains:       chainContainer,
-		lggr:         lggr.Named("PromReporter"),
-		backend:      backend,
-		newHeads:     mailbox.NewSingle[*evmtypes.Head](),
-		chStop:       chStop,
-		reportPeriod: period,
+func NewPrometheusReporter(ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer) *prometheusReporter {
+	return &prometheusReporter{
+		ds:      ds,
+		chains:  chainContainer,
+		backend: defaultBackend{},
 	}
 }
 
-// Start starts PromReporter.
-func (pr *promReporter) Start(context.Context) error {
-	return pr.StartOnce("PromReporter", func() error {
-		pr.wgDone.Add(1)
-		go pr.eventLoop()
-		return nil
-	})
-}
-
-func (pr *promReporter) Close() error {
-	return pr.StopOnce("PromReporter", func() error {
-		close(pr.chStop)
-		pr.wgDone.Wait()
-		return nil
-	})
-}
-func (pr *promReporter) Name() string {
-	return pr.lggr.Name()
-}
-
-func (pr *promReporter) HealthReport() map[string]error {
-	return map[string]error{pr.Name(): pr.Healthy()}
-}
-
-func (pr *promReporter) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
-	pr.newHeads.Deliver(head)
-}
-
-func (pr *promReporter) eventLoop() {
-	pr.lggr.Debug("Starting event loop")
-	defer pr.wgDone.Done()
-	ctx, cancel := pr.chStop.NewCtx()
-	defer cancel()
-	for {
-		select {
-		case <-pr.newHeads.Notify():
-			head, exists := pr.newHeads.Retrieve()
-			if !exists {
-				continue
-			}
-			pr.reportHeadMetrics(ctx, head)
-		case <-time.After(pr.reportPeriod):
-			if err := errors.Wrap(pr.reportPipelineRunStats(ctx), "reportPipelineRunStats failed"); err != nil {
-				pr.lggr.Errorw("Error reporting prometheus metrics", "err", err)
-			}
-
-		case <-pr.chStop:
-			return
-		}
-	}
-}
-
-func (pr *promReporter) getTxm(evmChainID *big.Int) (txmgr.TxManager, error) {
+func (pr *prometheusReporter) getTxm(evmChainID *big.Int) (txmgr.TxManager, error) {
 	chain, err := pr.chains.Get(evmChainID.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain: %w", err)
@@ -175,20 +75,16 @@ func (pr *promReporter) getTxm(evmChainID *big.Int) (txmgr.TxManager, error) {
 	return chain.TxManager(), nil
 }
 
-func (pr *promReporter) reportHeadMetrics(ctx context.Context, head *evmtypes.Head) {
+func (pr *prometheusReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) error {
 	evmChainID := head.EVMChainID.ToInt()
-	err := multierr.Combine(
+	return multierr.Combine(
 		errors.Wrap(pr.reportPendingEthTxes(ctx, evmChainID), "reportPendingEthTxes failed"),
 		errors.Wrap(pr.reportMaxUnconfirmedAge(ctx, evmChainID), "reportMaxUnconfirmedAge failed"),
 		errors.Wrap(pr.reportMaxUnconfirmedBlocks(ctx, head), "reportMaxUnconfirmedBlocks failed"),
 	)
-
-	if err != nil && ctx.Err() == nil {
-		pr.lggr.Errorw("Error reporting prometheus metrics", "err", err)
-	}
 }
 
-func (pr *promReporter) reportPendingEthTxes(ctx context.Context, evmChainID *big.Int) (err error) {
+func (pr *prometheusReporter) reportPendingEthTxes(ctx context.Context, evmChainID *big.Int) (err error) {
 	txm, err := pr.getTxm(evmChainID)
 	if err != nil {
 		return fmt.Errorf("failed to get txm: %w", err)
@@ -202,7 +98,7 @@ func (pr *promReporter) reportPendingEthTxes(ctx context.Context, evmChainID *bi
 	return nil
 }
 
-func (pr *promReporter) reportMaxUnconfirmedAge(ctx context.Context, evmChainID *big.Int) (err error) {
+func (pr *prometheusReporter) reportMaxUnconfirmedAge(ctx context.Context, evmChainID *big.Int) (err error) {
 	txm, err := pr.getTxm(evmChainID)
 	if err != nil {
 		return fmt.Errorf("failed to get txm: %w", err)
@@ -221,7 +117,7 @@ func (pr *promReporter) reportMaxUnconfirmedAge(ctx context.Context, evmChainID 
 	return nil
 }
 
-func (pr *promReporter) reportMaxUnconfirmedBlocks(ctx context.Context, head *evmtypes.Head) (err error) {
+func (pr *prometheusReporter) reportMaxUnconfirmedBlocks(ctx context.Context, head *evmtypes.Head) (err error) {
 	txm, err := pr.getTxm(head.EVMChainID.ToInt())
 	if err != nil {
 		return fmt.Errorf("failed to get txm: %w", err)
@@ -240,7 +136,11 @@ func (pr *promReporter) reportMaxUnconfirmedBlocks(ctx context.Context, head *ev
 	return nil
 }
 
-func (pr *promReporter) reportPipelineRunStats(ctx context.Context) (err error) {
+func (pr *prometheusReporter) ReportPeriodic(ctx context.Context) error {
+	return errors.Wrap(pr.reportPipelineRunStats(ctx), "reportPipelineRunStats failed")
+}
+
+func (pr *prometheusReporter) reportPipelineRunStats(ctx context.Context) (err error) {
 	rows, err := pr.ds.QueryContext(ctx, `
 SELECT pipeline_run_id FROM pipeline_task_runs WHERE finished_at IS NULL
 `)
@@ -270,4 +170,24 @@ SELECT pipeline_run_id FROM pipeline_task_runs WHERE finished_at IS NULL
 	pr.backend.SetPipelineRunsQueued(pipelineRunsQueued)
 
 	return nil
+}
+
+func (defaultBackend) SetUnconfirmedTransactions(evmChainID *big.Int, n int64) {
+	promUnconfirmedTransactions.WithLabelValues(evmChainID.String()).Set(float64(n))
+}
+
+func (defaultBackend) SetMaxUnconfirmedAge(evmChainID *big.Int, s float64) {
+	promMaxUnconfirmedAge.WithLabelValues(evmChainID.String()).Set(s)
+}
+
+func (defaultBackend) SetMaxUnconfirmedBlocks(evmChainID *big.Int, n int64) {
+	promMaxUnconfirmedBlocks.WithLabelValues(evmChainID.String()).Set(float64(n))
+}
+
+func (defaultBackend) SetPipelineRunsQueued(n int) {
+	promPipelineTaskRunsQueued.Set(float64(n))
+}
+
+func (defaultBackend) SetPipelineTaskRunsQueued(n int) {
+	promPipelineRunsQueued.Set(float64(n))
 }
