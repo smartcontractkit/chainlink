@@ -507,6 +507,19 @@ contract TokenPoolAndProxy is EVM2EVMOnRampSetup {
       })
     );
   }
+
+  function test_setPreviousPool_Success() public {
+    LockReleaseTokenPoolAndProxy pool =
+      new LockReleaseTokenPoolAndProxy(s_token, new address[](0), address(s_mockRMN), true, address(s_sourceRouter));
+
+    assertEq(pool.getPreviousPool(), address(0));
+
+    address newLegacyPool = makeAddr("new_legacy_pool");
+
+    vm.startPrank(OWNER);
+    pool.setPreviousPool(IPoolPriorTo1_5(newLegacyPool));
+    assertEq(pool.getPreviousPool(), address(newLegacyPool));
+  }
 }
 
 ////
