@@ -653,12 +653,13 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 	}
 
 	blocks := make(map[int64]evmtypes.Block)
+	earliestInChain := head.EarliestInChain()
 	for _, block := range b.getBlocks() {
 		// Make a best-effort to be re-org resistant using the head
 		// chain, refetch blocks that got re-org'd out.
 		// NOTE: Any blocks in the history that are older than the oldest block
 		// in the provided chain will be assumed final.
-		if block.Number < head.EarliestInChain().BlockNumber() {
+		if block.Number < earliestInChain.BlockNumber() {
 			blocks[block.Number] = block
 		} else if head.IsInChain(block.Hash) {
 			blocks[block.Number] = block
