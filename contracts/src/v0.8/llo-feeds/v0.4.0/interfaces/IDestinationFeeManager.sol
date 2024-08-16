@@ -34,6 +34,14 @@ interface IDestinationFeeManager is IERC165 {
   function updateSubscriberDiscount(address subscriber, bytes32 feedId, address token, uint64 discount) external;
 
   /**
+   * @notice Adds a subscriber to the fee manager
+   * @param subscriber address of the subscriber
+   * @param token token to apply the discount to
+   * @param discount discount to be applied to the fee
+   */
+  function updateSubscriberGlobalDiscount(address subscriber, address token, uint64 discount) external;
+
+  /**
    * @notice Withdraws any native or LINK rewards to the owner address
    * @param assetAddress address of the asset to withdraw
    * @param recipientAddress address to withdraw to
