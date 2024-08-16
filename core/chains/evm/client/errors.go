@@ -162,8 +162,7 @@ var arbitrum = ClientErrors{
 }
 
 // Treasure
-// Derived from Arbitrum config due to similar behaviour
-var treasureFatal = regexp.MustCompile(`((: |^)(invalid message format|forbidden sender address)$|(: |^)(execution reverted)(:|$)|(: |^)invalid chain id for signer(:|$))`)
+var treasureFatal = regexp.MustCompile(`(: |^)invalid chain id for signer(:|$)`)
 var treasure = ClientErrors{
 	Fatal: treasureFatal,
 }
