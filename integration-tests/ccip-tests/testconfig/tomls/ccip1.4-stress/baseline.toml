@@ -1,5 +1,5 @@
 ## Baseline performance test on simulated environment (with chaos)
-## 40 chains / 400 lanes
+## 30 chains / 300 lanes
 ## historyDepth 200 / finalityDepth 200
 ## block_time = 1s
 ## throughput 1msg / 5s
@@ -19,7 +19,7 @@ TokenPool = '1.4.0'
 CommitStore = '1.2.0'
 
 [CCIP.Env]
-TTL = '8h'
+TTL = '10h'
 
 [CCIP.Env.Network]
 selected_networks= ['PRIVATE-CHAIN-1', 'PRIVATE-CHAIN-2']
@@ -66,7 +66,7 @@ block_time = 1
 [CCIP.Env.NewCLCluster]
 NoOfNodes = 17
 NodeMemory = '10Gi'
-NodeCPU = '6'
+NodeCPU = '4'
 DBMemory = '16Gi'
 DBCPU = '4'
 DBStorageClass = 'gp3'
@@ -139,9 +139,9 @@ KeepEnvAlive = true
 NoOfCommitNodes = 16
 PhaseTimeout = '40m'
 NodeFunding = 1000.0
-NoOfRoutersPerPair = 2
-NoOfNetworks = 40
-MaxNoOfLanes = 400
+NoOfRoutersPerPair = 1
+NoOfNetworks = 30
+MaxNoOfLanes = 300
 
 [CCIP.Groups.load.OffRampConfig]
 BatchGasLimit = 11000000
@@ -154,7 +154,7 @@ DynamicPriceUpdateInterval ='15s'
 CCIPOwnerTokens = true
 
 [CCIP.Groups.load.LoadProfile]
-TestDuration = '4h'
+TestDuration = '6h'
 TimeUnit = '5s'
 RequestPerUnitTime = [1]
 OptimizeSpace = true
