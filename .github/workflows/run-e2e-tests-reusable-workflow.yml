@@ -578,7 +578,7 @@ jobs:
       - name: Record test result
         if: ${{ always() }}
         run: |
-          id=${{ matrix.tests.id }}
+          id="${{ matrix.tests.id }}"
           result="${{ steps.run_tests.outcome }}"
           echo "{\"id\": \"$id\", \"result\": \"$result\"}" > test_result.json
 

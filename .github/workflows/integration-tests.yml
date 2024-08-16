@@ -265,6 +265,7 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}    
       
   check-e2e-test-results:
+    if: always()
     name: Check E2E test results
     runs-on: ubuntu-latest
     needs: run-e2e-tests-workflow
