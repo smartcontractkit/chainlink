@@ -74,6 +74,8 @@ db_dumps/
 integration-tests/**/traces/
 benchmark_report.csv
 benchmark_summary.json
+secrets.toml
+tmp_laneconfig/
 
 # goreleaser builds
 cosign.*
