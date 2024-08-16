@@ -7,7 +7,6 @@ on:
       - "v*"
     branches:
       - "release/**"
-      - "re-2756/build-sign-publish-gha-goreleaser"
 
 env:
   ECR_HOSTNAME: public.ecr.aws
@@ -27,51 +26,51 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-  # build-sign-publish-chainlink:
-  #   needs: [checks]
-  #   if: ${{ ! startsWith(github.ref_name, 'release/') }}
-  #   runs-on: ubuntu-20.04
-  #   environment: build-publish
-  #   permissions:
-  #     id-token: write
-  #     contents: read
-  #   outputs:
-  #     docker-image-tag: ${{ steps.build-sign-publish.outputs.docker-image-tag }}
-  #     docker-image-digest: ${{ steps.build-sign-publish.outputs.docker-image-digest }}
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+  build-sign-publish-chainlink:
+    needs: [checks]
+    if: ${{ ! startsWith(github.ref_name, 'release/') }}
+    runs-on: ubuntu-20.04
+    environment: build-publish
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      docker-image-tag: ${{ steps.build-sign-publish.outputs.docker-image-tag }}
+      docker-image-digest: ${{ steps.build-sign-publish.outputs.docker-image-digest }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
-  #     - name: Build, sign and publish chainlink image
-  #       id: build-sign-publish
-  #       uses: ./.github/actions/build-sign-publish-chainlink
-  #       with:
-  #         publish: true
-  #         aws-role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
-  #         aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
-  #         aws-region: ${{ secrets.AWS_REGION }}
-  #         ecr-hostname: ${{ env.ECR_HOSTNAME }}
-  #         ecr-image-name: ${{ env.ECR_IMAGE_NAME }}
-  #         sign-images: true
-  #         sign-method: "keypair"
-  #         cosign-private-key: ${{ secrets.COSIGN_PRIVATE_KEY }}
-  #         cosign-public-key: ${{ secrets.COSIGN_PUBLIC_KEY }}
-  #         cosign-password: ${{ secrets.COSIGN_PASSWORD }}
-  #         dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-  #         dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-  #         verify-signature: true
+      - name: Build, sign and publish chainlink image
+        id: build-sign-publish
+        uses: ./.github/actions/build-sign-publish-chainlink
+        with:
+          publish: true
+          aws-role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
+          aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          ecr-hostname: ${{ env.ECR_HOSTNAME }}
+          ecr-image-name: ${{ env.ECR_IMAGE_NAME }}
+          sign-images: true
+          sign-method: "keypair"
+          cosign-private-key: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          cosign-public-key: ${{ secrets.COSIGN_PUBLIC_KEY }}
+          cosign-password: ${{ secrets.COSIGN_PASSWORD }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          verify-signature: true
 
-  #     - name: Collect Metrics
-  #       if: always()
-  #       id: collect-gha-metrics
-  #       uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-  #       with:
-  #         id: build-chainlink-publish
-  #         org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-  #         basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-  #         hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-  #         this-job-name: build-sign-publish-chainlink
-  #       continue-on-error: true
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: build-chainlink-publish
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: build-sign-publish-chainlink
+        continue-on-error: true
 
   goreleaser-build-sign-publish-chainlink:
     needs: [checks]
@@ -107,9 +106,6 @@ jobs:
           zig-version: 0.11.0
           enable-cosign: "true"
           cosign-version: "v2.4.0"
-          cosign-password: ${{ secrets.COSIGN_PASSWORD }}
-          cosign-public-key: ${{ secrets.COSIGN_PUBLIC_KEY }}
-          cosign-private-key: ${{ secrets.COSIGN_PRIVATE_KEY }}
 
       - name: Output image name and digest
         shell: sh
@@ -135,42 +131,42 @@ jobs:
         continue-on-error: true
 
   # Notify Slack channel for new git tags.
-  # slack-notify:
-  #   if: github.ref_type == 'tag'
-  #   needs: [build-sign-publish-chainlink]
-  #   runs-on: ubuntu-24.04
-  #   environment: build-publish
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-  #     - name: Notify Slack
-  #       uses: smartcontractkit/.github/actions/slack-notify-git-ref@7fa90bbeff35aa6ce3a9054f542bcf10b7d47cec # slack-notify-git-ref@0.1.0
-  #       with:
-  #         slack-channel-id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
-  #         slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }} # Releng Bot
-  #         git-ref: ${{ github.ref_name }}
-  #         git-ref-type: ${{ github.ref_type }}
-  #         changelog-url: >-
-  #           ${{
-  #             github.ref_type == 'tag' &&
-  #             format(
-  #               'https://github.com/{0}/blob/{1}/CHANGELOG.md',
-  #               github.repository,
-  #               github.ref_name
-  #             ) || ''
-  #           }}
-  #         docker-image-name: >-
-  #           ${{ 
-  #             github.ref_type == 'tag' && 
-  #             format(
-  #               '{0}/{1}:{2}', 
-  #               env.ECR_HOSTNAME, 
-  #               env.ECR_IMAGE_NAME, 
-  #               needs.build-sign-publish-chainlink.outputs.docker-image-tag
-  #             ) || ''
-  #           }}
-  #         docker-image-digest: >-
-  #           ${{ 
-  #             github.ref_type == 'tag' && 
-  #             needs.build-sign-publish-chainlink.outputs.docker-image-digest || ''
-  #           }}
+  slack-notify:
+    if: github.ref_type == 'tag'
+    needs: [build-sign-publish-chainlink]
+    runs-on: ubuntu-24.04
+    environment: build-publish
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Notify Slack
+        uses: smartcontractkit/.github/actions/slack-notify-git-ref@7fa90bbeff35aa6ce3a9054f542bcf10b7d47cec # slack-notify-git-ref@0.1.0
+        with:
+          slack-channel-id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }} # Releng Bot
+          git-ref: ${{ github.ref_name }}
+          git-ref-type: ${{ github.ref_type }}
+          changelog-url: >-
+            ${{
+              github.ref_type == 'tag' &&
+              format(
+                'https://github.com/{0}/blob/{1}/CHANGELOG.md',
+                github.repository,
+                github.ref_name
+              ) || ''
+            }}
+          docker-image-name: >-
+            ${{ 
+              github.ref_type == 'tag' && 
+              format(
+                '{0}/{1}:{2}', 
+                env.ECR_HOSTNAME, 
+                env.ECR_IMAGE_NAME, 
+                needs.build-sign-publish-chainlink.outputs.docker-image-tag
+              ) || ''
+            }}
+          docker-image-digest: >-
+            ${{ 
+              github.ref_type == 'tag' && 
+              needs.build-sign-publish-chainlink.outputs.docker-image-digest || ''
+            }}

@@ -62,15 +62,6 @@ inputs:
     description: Enable signing of docker images
     default: "false"
     required: false
-  cosign-private-key:
-    description: The private key to be used with cosign to sign the image
-    required: false
-  cosign-public-key:
-    description: The public key to be used with cosign for verification
-    required: false
-  cosign-password:
-    description: The password to decrypt the cosign private key needed to sign the image
-    required: false
 runs:
   using: composite
   steps:
@@ -113,7 +104,6 @@ runs:
     - name: Run goreleaser release
       shell: bash
       env:
-        # ENABLE_COSIGN: ${{ inputs.enable-cosign }}
         ENABLE_GORELEASER_SNAPSHOT: ${{ inputs.enable-goreleaser-snapshot }}
         ENABLE_GORELEASER_SPLIT: ${{ inputs.enable-goreleaser-split }}
         ENABLE_DOCKER_PUBLISH: ${{ inputs.enable-docker-publish }}
@@ -124,9 +114,6 @@ runs:
         GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
         GORELEASER_KEY: ${{ inputs.goreleaser-key }}
         GITHUB_TOKEN: ${{ github.token }}
-        # COSIGN_PASSWORD: ${{ inputs.cosign-password }}
-        # COSIGN_PUBLIC_KEY: ${{ inputs.cosign-public-key }}
-        # COSIGN_PRIVATE_KEY: ${{ inputs.cosign-private-key }}
         MACOS_SDK_DIR: ${{ inputs.macos-sdk-dir }}
       run: |
         # https://github.com/orgs/community/discussions/24950
