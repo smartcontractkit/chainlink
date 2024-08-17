@@ -1,11 +1,5 @@
-# This is its own independent workflow since "solidity.yml" depends on "merge_group" and "push" events.
-# But for ensuring that JIRA tickets are always updated, we only care about "pull_request" events.
-#
-# We still need to add "merge_group" event and noop so that we'll pass required workflow checks.
-#
-# I didn't add this to the "changeset.yml" workflow because the "changeset" job isnt required, and we'd need to add the "merge_group" event to the "changeset.yml" workflow.
-# If we made the change to make it required.
-name: Solidity Jira
+# This workflow handles the enforcement of code Traceability via changesets and jira issue linking for our Solidity codebase.
+name: Solidity Tracability
 
 on:
   merge_group:
@@ -16,57 +10,64 @@ defaults:
     shell: bash
 
 jobs:
-  skip-enforce-jira-issue:
-    name: Should Skip 
-    # We want to skip merge_group events, and any release branches
+  files-changed:
+    # The job skips on merge_group events, and any release branches, and forks
     # Since we only want to enforce Jira issues on pull requests related to feature branches
-    if: ${{ github.event_name != 'merge_group' && !startsWith(github.head_ref, 'release/')  }}
-    outputs:
-      should-enforce: ${{ steps.changed_files.outputs.only_src_contracts }}
+    if: ${{ github.event_name != 'merge_group' && !startsWith(github.head_ref, 'release/') && github.event.pull_request.head.repo.full_name == 'smartcontractkit/chainlink' }}
+    name: Detect Changes
     runs-on: ubuntu-latest
+    outputs:
+      source: ${{ steps.files-changed.outputs.source }}
+      changesets: ${{ steps.files-changed.outputs.changesets }}
+      changeset_files: ${{ steps.files-changed.outputs.changeset_files }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
-        # We don't use detect-solidity-file-changes here because we need to use the "every" predicate quantifier
       - name: Filter paths
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: changed_files
+        id: files-changed
         with:
-          list-files: "csv"
+          list-files: "json"
           # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
           predicate-quantifier: "every"
           filters: |
-            only_src_contracts:
+            source: 
               - contracts/**/*.sol
               - '!contracts/**/*.t.sol'
+            changesets:
+              - 'contracts/.changeset/**'
 
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: solidity-jira
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Should Skip 
-        continue-on-error: true
-
-  enforce-jira-issue:
-    name: Enforce Jira Issue
-    runs-on: ubuntu-latest
-    # If a needs job is skipped, this job will be skipped and counted as successful 
-    # The job skips on merge_group events, and any release branches
-    # Since we only want to enforce Jira issues on pull requests related to feature branches
-    needs: [skip-enforce-jira-issue]
-    # In addition to the above conditions, we only want to running on solidity related PRs.
-    #
+  enforce-traceability:
     # Note: A job that is skipped will report its status as "Success".
     # It will not prevent a pull request from merging, even if it is a required check.
-    if: ${{ needs.skip-enforce-jira-issue.outputs.should-enforce == 'true'  }}
+    needs: [files-changed]
+    # We only want to run this job if the source files have changed
+    if: ${{ needs.files-changed.outputs.source == 'true' }}
+    name: Enforce Traceability
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Make a comment
+        uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
+        with:
+          message: |
+            I see you updated files related to `contracts`. Please run `pnpm changeset` in the `contracts` directory to add a changeset.
+          reactions: eyes
+          comment_tag: changeset-contracts
+          # If the changeset is added, then we delete the comment, otherwise we add it.
+          mode: ${{ needs.files-changed.outputs.changeset == 'true' && 'delete' || 'upsert' }}
+          # We only create the comment if the changeset is not added
+          create_if_not_exists: ${{ needs.files-changed.outputs.changeset == 'true' && 'false' || 'true' }}
+
+      - name: Check for new changeset for contracts
+        if: ${{ needs.files-changed.outputs.changeset == 'false' }}
+        shell: bash
+        run: |
+          echo "Please run pnpm changeset to add a changeset for contracts."
+          exit 1
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -92,9 +93,9 @@ jobs:
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
-          id: solidity-jira
+          id: soldity-traceability
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Enforce Jira Issue
+          this-job-name: Enforce Traceability
         continue-on-error: true
