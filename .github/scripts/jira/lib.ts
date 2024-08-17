@@ -1,6 +1,6 @@
-
-import * as core from '@actions/core'
-import * as jira from 'jira.js'
+import { readFile } from "fs/promises";
+import * as core from "@actions/core";
+import * as jira from "jira.js";
 
 /**
  * Given a list of strings, this function will return the first JIRA issue number it finds.
@@ -23,6 +23,21 @@ export function parseIssueNumberFrom(
 
   return parsed[0];
 }
+
+export async function extractJiraIssueNumbersFrom(filePaths: string[]) {
+  const issueNumbers: string[] = [];
+
+  for (const path of filePaths) {
+    const content = await readFile(path, "utf-8");
+    const issueNumber = parseIssueNumberFrom(content);
+    if (issueNumber) {
+      issueNumbers.push(issueNumber);
+    }
+  }
+
+  return issueNumbers;
+}
+
 
 /**
  * Converts an array of tags to an array of labels.

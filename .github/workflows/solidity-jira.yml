@@ -76,18 +76,32 @@ jobs:
         working-directory: ./.github/scripts/jira
         run: pnpm i
 
-      - name: Enforce Jira Issue
+        # Because of our earlier checks, we know that both the source and changeset files have changed
+      - name: Enforce Traceability
         working-directory: ./.github/scripts/jira
         run: |
           echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
           pnpm issue:enforce
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHANGESET_FILES: ${{ needs.files-changed.outputs.changeset_files }}
+
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+
           JIRA_HOST: ${{ secrets.JIRA_HOST }}
           JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Commit appended changeset file back to repo
+      - uses: planetscale/ghcommit-action@v0.1.6
+        with:
+          commit_message: "Update changeset file with jira issue"
+          repo: ${{ github.repository }}
+          branch: ${{ github.head_ref }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Collect Metrics
         id: collect-gha-metrics
