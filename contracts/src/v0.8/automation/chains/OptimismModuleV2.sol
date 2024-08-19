@@ -39,7 +39,7 @@ contract OptimismModuleV2 is ChainModuleBase, ConfirmedOwner {
   }
 
   function _getL1Fee(uint256 dataSize) internal view returns (uint256) {
-    // getL1FeeUpperBound expects unsigned fully RLP-encoded transaction size so we have to account for paddding bytes as well
+    // getL1FeeUpperBound expects unsigned fully RLP-encoded transaction size so we have to account for padding bytes as well
     return OVM_GASPRICEORACLE.getL1FeeUpperBound(dataSize + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE);
   }
 
