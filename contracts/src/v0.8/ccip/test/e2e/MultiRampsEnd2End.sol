@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
+import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
 import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
 import "../helpers/MerkleHelper.sol";
 import "../offRamp/EVM2EVMMultiOffRampSetup.t.sol";
@@ -149,7 +150,7 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     });
 
     EVM2EVMMultiOffRamp.CommitReport memory report =
-      EVM2EVMMultiOffRamp.CommitReport({priceUpdates: getEmptyPriceUpdates(), merkleRoots: roots});
+      EVM2EVMMultiOffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots});
 
     vm.resumeGasMetering();
     _commit(report, ++s_latestSequenceNumber);
