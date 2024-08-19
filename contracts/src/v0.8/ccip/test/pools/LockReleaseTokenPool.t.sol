@@ -5,13 +5,10 @@ import {IPoolV1} from "../../interfaces/IPool.sol";
 
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 import {Router} from "../../Router.sol";
-import {Internal} from "../../libraries/Internal.sol";
 import {Pool} from "../../libraries/Pool.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
-import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
 import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
-import {BaseTest} from "../BaseTest.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/IERC165.sol";
@@ -47,8 +44,8 @@ contract LockReleaseTokenPoolSetup is RouterSetup {
       remotePoolAddress: abi.encode(s_destPoolAddress),
       remoteTokenAddress: abi.encode(address(2)),
       allowed: true,
-      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
-      inboundRateLimiterConfig: getInboundRateLimiterConfig()
+      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
 
     s_lockReleaseTokenPool.applyChainUpdates(chainUpdate);
@@ -80,7 +77,7 @@ contract LockReleaseTokenPool_setRebalancer is LockReleaseTokenPoolSetup {
 
 contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
   function test_Fuzz_LockOrBurnNoAllowList_Success(uint256 amount) public {
-    amount = bound(amount, 1, getOutboundRateLimiterConfig().capacity);
+    amount = bound(amount, 1, _getOutboundRateLimiterConfig().capacity);
     vm.startPrank(s_allowedOnRamp);
 
     vm.expectEmit();
@@ -179,8 +176,8 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
       remotePoolAddress: abi.encode(s_sourcePoolAddress),
       remoteTokenAddress: abi.encode(address(2)),
       allowed: true,
-      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
-      inboundRateLimiterConfig: getInboundRateLimiterConfig()
+      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
 
     s_lockReleaseTokenPool.applyChainUpdates(chainUpdate);
@@ -222,7 +219,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
     deal(address(s_token), address(s_lockReleaseTokenPool), amount);
     vm.startPrank(s_allowedOffRamp);
 
-    uint256 capacity = getInboundRateLimiterConfig().capacity;
+    uint256 capacity = _getInboundRateLimiterConfig().capacity;
     // Determine if we hit the rate limit or the txs should succeed.
     if (amount > capacity) {
       vm.expectRevert(
@@ -298,8 +295,8 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
         amount: 1e5,
         localToken: address(s_token),
         remoteChainSelector: SOURCE_CHAIN_SELECTOR,
-        sourcePoolAddress: generateSourceTokenData().sourcePoolAddress,
-        sourcePoolData: generateSourceTokenData().extraData,
+        sourcePoolAddress: _generateSourceTokenData().sourcePoolAddress,
+        sourcePoolData: _generateSourceTokenData().extraData,
         offchainTokenData: ""
       })
     );
