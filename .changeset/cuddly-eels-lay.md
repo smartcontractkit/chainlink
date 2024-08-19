@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-Improve TXM performance by optimize Confirmer and Finalizer queries to stop pulling EVM receipt. #internal
+Improve TXM performance by optimizing Confirmer and Finalizer queries to stop pulling EVM receipt. #internal
