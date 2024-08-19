@@ -105,20 +105,36 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
   }
 
   /// @notice Returns all the chain configurations.
-  /// @return The chain configurations.
-  // TODO: will this eventually hit the RPC max response size limit?
-  function getAllChainConfigs() external view returns (CCIPConfigTypes.ChainConfigInfo[] memory) {
+  /// @return paginatedChainConfigs chain configurations.
+  function getAllChainConfigs(
+    uint256 pageIndex,
+    uint256 pageSize
+  ) external view returns (CCIPConfigTypes.ChainConfigInfo[] memory) {
+    uint256 totalItems = s_remoteChainSelectors.length(); // Total number of chain selectors
+    uint256 startIndex = pageIndex * pageSize;
+
+    if (pageSize == 0 || startIndex >= totalItems) {
+      return new CCIPConfigTypes.ChainConfigInfo[](0); // Return an empty array if pageSize is 0 or pageIndex is out of bounds
+    }
+
+    uint256 endIndex = startIndex + pageSize;
+    if (endIndex > totalItems) {
+      endIndex = totalItems;
+    }
+
+    CCIPConfigTypes.ChainConfigInfo[] memory paginatedChainConfigs =
+      new CCIPConfigTypes.ChainConfigInfo[](endIndex - startIndex);
+
     uint256[] memory chainSelectors = s_remoteChainSelectors.values();
-    CCIPConfigTypes.ChainConfigInfo[] memory chainConfigs =
-      new CCIPConfigTypes.ChainConfigInfo[](s_remoteChainSelectors.length());
-    for (uint256 i = 0; i < chainSelectors.length; ++i) {
+    for (uint256 i = startIndex; i < endIndex; ++i) {
       uint64 chainSelector = uint64(chainSelectors[i]);
-      chainConfigs[i] = CCIPConfigTypes.ChainConfigInfo({
+      paginatedChainConfigs[i - startIndex] = CCIPConfigTypes.ChainConfigInfo({
         chainSelector: chainSelector,
         chainConfig: s_chainConfigurations[chainSelector]
       });
     }
-    return chainConfigs;
+
+    return paginatedChainConfigs;
   }
 
   /// @notice Returns the OCR configuration for the given don ID and plugin type.

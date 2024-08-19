@@ -17,7 +17,7 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-common v0.2.1-0.20240717132349-ee5af9b79834
-	github.com/smartcontractkit/chainlink-testing-framework v1.32.7
+	github.com/smartcontractkit/chainlink-testing-framework v1.33.0
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
 	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7
@@ -41,7 +41,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240813153644-0117f0e6569f // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240816163757-48726fd8165f // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45 // indirect
 	github.com/testcontainers/testcontainers-go v0.28.0 // indirect
 	k8s.io/apimachinery v0.30.2 // indirect
@@ -374,7 +374,7 @@ require (
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/smartcontractkit/chain-selectors v1.0.19 // indirect
+	github.com/smartcontractkit/chain-selectors v1.0.21 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240718160222-2dc0c8136bfa // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240710170203-5b41615da827 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240712132946-267a37c5ac6e // indirect
@@ -478,7 +478,7 @@ require (
 	k8s.io/component-base v0.30.2 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240709000822-3c01b740850f // indirect
-	k8s.io/kubectl v0.28.1 // indirect
+	k8s.io/kubectl v0.28.2 // indirect
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0 // indirect
 	nhooyr.io/websocket v1.8.10 // indirect
 	pgregory.net/rapid v1.1.0 // indirect
