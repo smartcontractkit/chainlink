@@ -1,435 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {IPriceRegistry} from "../../interfaces/IPriceRegistry.sol";
-import {ITokenAdminRegistry} from "../../interfaces/ITokenAdminRegistry.sol";
-
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
-import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {PriceRegistry} from "../../PriceRegistry.sol";
-
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {Pool} from "../../libraries/Pool.sol";
 import {USDPriceWith18Decimals} from "../../libraries/USDPriceWith18Decimals.sol";
-import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
-import {TokenPool} from "../../pools/TokenPool.sol";
-import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
-
-import {TokenSetup} from "../TokenSetup.t.sol";
-import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMintTokenPool.sol";
 import {PriceRegistryHelper} from "../helpers/PriceRegistryHelper.sol";
-
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {PriceRegistryFeeSetup, PriceRegistrySetup} from "./PriceRegistrySetup.t.sol";
 
 import {Vm} from "forge-std/Vm.sol";
-import {console} from "forge-std/console.sol";
-
-contract PriceRegistrySetup is TokenSetup {
-  uint112 internal constant USD_PER_GAS = 1e6; // 0.001 gwei
-  uint112 internal constant USD_PER_DATA_AVAILABILITY_GAS = 1e9; // 1 gwei
-
-  address internal constant CUSTOM_TOKEN = address(12345);
-  uint224 internal constant CUSTOM_TOKEN_PRICE = 1e17; // $0.1 CUSTOM
-
-  // Encode L1 gas price and L2 gas price into a packed price.
-  // L1 gas price is left-shifted to the higher-order bits.
-  uint224 internal constant PACKED_USD_PER_GAS =
-    (uint224(USD_PER_DATA_AVAILABILITY_GAS) << Internal.GAS_PRICE_BITS) + USD_PER_GAS;
-
-  PriceRegistryHelper internal s_priceRegistry;
-  // Cheat to store the price updates in storage since struct arrays aren't supported.
-  bytes internal s_encodedInitialPriceUpdates;
-  address internal s_weth;
-
-  address[] internal s_sourceFeeTokens;
-  uint224[] internal s_sourceTokenPrices;
-  address[] internal s_destFeeTokens;
-  uint224[] internal s_destTokenPrices;
-
-  PriceRegistry.PremiumMultiplierWeiPerEthArgs[] internal s_priceRegistryPremiumMultiplierWeiPerEthArgs;
-  PriceRegistry.TokenTransferFeeConfigArgs[] internal s_priceRegistryTokenTransferFeeConfigArgs;
-
-  mapping(address token => address dataFeedAddress) internal s_dataFeedByToken;
-
-  function setUp() public virtual override {
-    TokenSetup.setUp();
-
-    _deployTokenPriceDataFeed(s_sourceFeeToken, 8, 1e8);
-
-    s_weth = s_sourceRouter.getWrappedNative();
-    _deployTokenPriceDataFeed(s_weth, 8, 1e11);
-
-    address[] memory sourceFeeTokens = new address[](3);
-    sourceFeeTokens[0] = s_sourceTokens[0];
-    sourceFeeTokens[1] = s_sourceTokens[1];
-    sourceFeeTokens[2] = s_sourceRouter.getWrappedNative();
-    s_sourceFeeTokens = sourceFeeTokens;
-
-    uint224[] memory sourceTokenPrices = new uint224[](3);
-    sourceTokenPrices[0] = 5e18;
-    sourceTokenPrices[1] = 2000e18;
-    sourceTokenPrices[2] = 2000e18;
-    s_sourceTokenPrices = sourceTokenPrices;
-
-    address[] memory destFeeTokens = new address[](3);
-    destFeeTokens[0] = s_destTokens[0];
-    destFeeTokens[1] = s_destTokens[1];
-    destFeeTokens[2] = s_destRouter.getWrappedNative();
-    s_destFeeTokens = destFeeTokens;
-
-    uint224[] memory destTokenPrices = new uint224[](3);
-    destTokenPrices[0] = 5e18;
-    destTokenPrices[1] = 2000e18;
-    destTokenPrices[2] = 2000e18;
-    s_destTokenPrices = destTokenPrices;
-
-    uint256 sourceTokenCount = sourceFeeTokens.length;
-    uint256 destTokenCount = destFeeTokens.length;
-    address[] memory pricedTokens = new address[](sourceTokenCount + destTokenCount);
-    uint224[] memory tokenPrices = new uint224[](sourceTokenCount + destTokenCount);
-    for (uint256 i = 0; i < sourceTokenCount; ++i) {
-      pricedTokens[i] = sourceFeeTokens[i];
-      tokenPrices[i] = sourceTokenPrices[i];
-    }
-    for (uint256 i = 0; i < destTokenCount; ++i) {
-      pricedTokens[i + sourceTokenCount] = destFeeTokens[i];
-      tokenPrices[i + sourceTokenCount] = destTokenPrices[i];
-    }
-
-    Internal.PriceUpdates memory priceUpdates = getPriceUpdatesStruct(pricedTokens, tokenPrices);
-    priceUpdates.gasPriceUpdates =
-      getSingleGasPriceUpdateStruct(DEST_CHAIN_SELECTOR, PACKED_USD_PER_GAS).gasPriceUpdates;
-
-    s_encodedInitialPriceUpdates = abi.encode(priceUpdates);
-
-    address[] memory priceUpdaters = new address[](1);
-    priceUpdaters[0] = OWNER;
-    address[] memory feeTokens = new address[](2);
-    feeTokens[0] = s_sourceTokens[0];
-    feeTokens[1] = s_weth;
-    PriceRegistry.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new PriceRegistry.TokenPriceFeedUpdate[](0);
-
-    s_priceRegistryPremiumMultiplierWeiPerEthArgs.push(
-      PriceRegistry.PremiumMultiplierWeiPerEthArgs({
-        token: s_sourceFeeToken,
-        premiumMultiplierWeiPerEth: 5e17 // 0.5x
-      })
-    );
-    s_priceRegistryPremiumMultiplierWeiPerEthArgs.push(
-      PriceRegistry.PremiumMultiplierWeiPerEthArgs({
-        token: s_sourceRouter.getWrappedNative(),
-        premiumMultiplierWeiPerEth: 2e18 // 2x
-      })
-    );
-
-    s_priceRegistryTokenTransferFeeConfigArgs.push();
-    s_priceRegistryTokenTransferFeeConfigArgs[0].destChainSelector = DEST_CHAIN_SELECTOR;
-    s_priceRegistryTokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs.push(
-      PriceRegistry.TokenTransferFeeConfigSingleTokenArgs({
-        token: s_sourceFeeToken,
-        tokenTransferFeeConfig: PriceRegistry.TokenTransferFeeConfig({
-          minFeeUSDCents: 1_00, // 1 USD
-          maxFeeUSDCents: 1000_00, // 1,000 USD
-          deciBps: 2_5, // 2.5 bps, or 0.025%
-          destGasOverhead: 40_000,
-          destBytesOverhead: 32,
-          isEnabled: true
-        })
-      })
-    );
-    s_priceRegistryTokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs.push(
-      PriceRegistry.TokenTransferFeeConfigSingleTokenArgs({
-        token: CUSTOM_TOKEN,
-        tokenTransferFeeConfig: PriceRegistry.TokenTransferFeeConfig({
-          minFeeUSDCents: 2_00, // 1 USD
-          maxFeeUSDCents: 2000_00, // 1,000 USD
-          deciBps: 10_0, // 10 bps, or 0.1%
-          destGasOverhead: 1,
-          destBytesOverhead: 200,
-          isEnabled: true
-        })
-      })
-    );
-
-    s_priceRegistry = new PriceRegistryHelper(
-      PriceRegistry.StaticConfig({
-        linkToken: s_sourceTokens[0],
-        maxFeeJuelsPerMsg: MAX_MSG_FEES_JUELS,
-        stalenessThreshold: uint32(TWELVE_HOURS)
-      }),
-      priceUpdaters,
-      feeTokens,
-      tokenPriceFeedUpdates,
-      s_priceRegistryTokenTransferFeeConfigArgs,
-      s_priceRegistryPremiumMultiplierWeiPerEthArgs,
-      _generatePriceRegistryDestChainConfigArgs()
-    );
-    s_priceRegistry.updatePrices(priceUpdates);
-  }
-
-  function _deployTokenPriceDataFeed(address token, uint8 decimals, int256 initialAnswer) internal returns (address) {
-    MockV3Aggregator dataFeed = new MockV3Aggregator(decimals, initialAnswer);
-    s_dataFeedByToken[token] = address(dataFeed);
-    return address(dataFeed);
-  }
-
-  function getPriceUpdatesStruct(
-    address[] memory tokens,
-    uint224[] memory prices
-  ) internal pure returns (Internal.PriceUpdates memory) {
-    uint256 length = tokens.length;
-
-    Internal.TokenPriceUpdate[] memory tokenPriceUpdates = new Internal.TokenPriceUpdate[](length);
-    for (uint256 i = 0; i < length; ++i) {
-      tokenPriceUpdates[i] = Internal.TokenPriceUpdate({sourceToken: tokens[i], usdPerToken: prices[i]});
-    }
-    Internal.PriceUpdates memory priceUpdates =
-      Internal.PriceUpdates({tokenPriceUpdates: tokenPriceUpdates, gasPriceUpdates: new Internal.GasPriceUpdate[](0)});
-
-    return priceUpdates;
-  }
-
-  function getEmptyPriceUpdates() internal pure returns (Internal.PriceUpdates memory priceUpdates) {
-    return Internal.PriceUpdates({
-      tokenPriceUpdates: new Internal.TokenPriceUpdate[](0),
-      gasPriceUpdates: new Internal.GasPriceUpdate[](0)
-    });
-  }
-
-  function getSingleTokenPriceFeedUpdateStruct(
-    address sourceToken,
-    address dataFeedAddress,
-    uint8 tokenDecimals
-  ) internal pure returns (PriceRegistry.TokenPriceFeedUpdate memory) {
-    return PriceRegistry.TokenPriceFeedUpdate({
-      sourceToken: sourceToken,
-      feedConfig: IPriceRegistry.TokenPriceFeedConfig({dataFeedAddress: dataFeedAddress, tokenDecimals: tokenDecimals})
-    });
-  }
-
-  function _initialiseSingleTokenPriceFeed() internal returns (address) {
-    PriceRegistry.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new PriceRegistry.TokenPriceFeedUpdate[](1);
-    tokenPriceFeedUpdates[0] =
-      getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
-    s_priceRegistry.updateTokenPriceFeeds(tokenPriceFeedUpdates);
-    return s_sourceTokens[0];
-  }
-
-  function _generateTokenTransferFeeConfigArgs(
-    uint256 destChainSelectorLength,
-    uint256 tokenLength
-  ) internal pure returns (PriceRegistry.TokenTransferFeeConfigArgs[] memory) {
-    PriceRegistry.TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs =
-      new PriceRegistry.TokenTransferFeeConfigArgs[](destChainSelectorLength);
-    for (uint256 i = 0; i < destChainSelectorLength; ++i) {
-      tokenTransferFeeConfigArgs[i].tokenTransferFeeConfigs =
-        new PriceRegistry.TokenTransferFeeConfigSingleTokenArgs[](tokenLength);
-    }
-    return tokenTransferFeeConfigArgs;
-  }
-
-  function _generatePriceRegistryDestChainConfigArgs()
-    internal
-    pure
-    returns (PriceRegistry.DestChainConfigArgs[] memory)
-  {
-    PriceRegistry.DestChainConfigArgs[] memory destChainConfigs = new PriceRegistry.DestChainConfigArgs[](1);
-    destChainConfigs[0] = PriceRegistry.DestChainConfigArgs({
-      destChainSelector: DEST_CHAIN_SELECTOR,
-      destChainConfig: PriceRegistry.DestChainConfig({
-        isEnabled: true,
-        maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
-        destGasOverhead: DEST_GAS_OVERHEAD,
-        destGasPerPayloadByte: DEST_GAS_PER_PAYLOAD_BYTE,
-        destDataAvailabilityOverheadGas: DEST_DATA_AVAILABILITY_OVERHEAD_GAS,
-        destGasPerDataAvailabilityByte: DEST_GAS_PER_DATA_AVAILABILITY_BYTE,
-        destDataAvailabilityMultiplierBps: DEST_GAS_DATA_AVAILABILITY_MULTIPLIER_BPS,
-        maxDataBytes: MAX_DATA_SIZE,
-        maxPerMsgGasLimit: MAX_GAS_LIMIT,
-        defaultTokenFeeUSDCents: DEFAULT_TOKEN_FEE_USD_CENTS,
-        defaultTokenDestGasOverhead: DEFAULT_TOKEN_DEST_GAS_OVERHEAD,
-        defaultTokenDestBytesOverhead: DEFAULT_TOKEN_BYTES_OVERHEAD,
-        defaultTxGasLimit: GAS_LIMIT,
-        gasMultiplierWeiPerEth: 5e17,
-        networkFeeUSDCents: 1_00,
-        enforceOutOfOrder: false,
-        chainFamilySelector: Internal.CHAIN_FAMILY_SELECTOR_EVM
-      })
-    });
-    return destChainConfigs;
-  }
-
-  function _assertTokenPriceFeedConfigEquality(
-    IPriceRegistry.TokenPriceFeedConfig memory config1,
-    IPriceRegistry.TokenPriceFeedConfig memory config2
-  ) internal pure virtual {
-    assertEq(config1.dataFeedAddress, config2.dataFeedAddress);
-    assertEq(config1.tokenDecimals, config2.tokenDecimals);
-  }
-
-  function _assertTokenPriceFeedConfigUnconfigured(IPriceRegistry.TokenPriceFeedConfig memory config)
-    internal
-    pure
-    virtual
-  {
-    _assertTokenPriceFeedConfigEquality(
-      config, IPriceRegistry.TokenPriceFeedConfig({dataFeedAddress: address(0), tokenDecimals: 0})
-    );
-  }
-
-  function _assertTokenTransferFeeConfigEqual(
-    PriceRegistry.TokenTransferFeeConfig memory a,
-    PriceRegistry.TokenTransferFeeConfig memory b
-  ) internal pure {
-    assertEq(a.minFeeUSDCents, b.minFeeUSDCents);
-    assertEq(a.maxFeeUSDCents, b.maxFeeUSDCents);
-    assertEq(a.deciBps, b.deciBps);
-    assertEq(a.destGasOverhead, b.destGasOverhead);
-    assertEq(a.destBytesOverhead, b.destBytesOverhead);
-    assertEq(a.isEnabled, b.isEnabled);
-  }
-
-  function _assertPriceRegistryStaticConfigsEqual(
-    PriceRegistry.StaticConfig memory a,
-    PriceRegistry.StaticConfig memory b
-  ) internal pure {
-    assertEq(a.linkToken, b.linkToken);
-    assertEq(a.maxFeeJuelsPerMsg, b.maxFeeJuelsPerMsg);
-  }
-
-  function _assertPriceRegistryDestChainConfigsEqual(
-    PriceRegistry.DestChainConfig memory a,
-    PriceRegistry.DestChainConfig memory b
-  ) internal pure {
-    assertEq(a.isEnabled, b.isEnabled);
-    assertEq(a.maxNumberOfTokensPerMsg, b.maxNumberOfTokensPerMsg);
-    assertEq(a.maxDataBytes, b.maxDataBytes);
-    assertEq(a.maxPerMsgGasLimit, b.maxPerMsgGasLimit);
-    assertEq(a.destGasOverhead, b.destGasOverhead);
-    assertEq(a.destGasPerPayloadByte, b.destGasPerPayloadByte);
-    assertEq(a.destDataAvailabilityOverheadGas, b.destDataAvailabilityOverheadGas);
-    assertEq(a.destGasPerDataAvailabilityByte, b.destGasPerDataAvailabilityByte);
-    assertEq(a.destDataAvailabilityMultiplierBps, b.destDataAvailabilityMultiplierBps);
-    assertEq(a.defaultTokenFeeUSDCents, b.defaultTokenFeeUSDCents);
-    assertEq(a.defaultTokenDestGasOverhead, b.defaultTokenDestGasOverhead);
-    assertEq(a.defaultTokenDestBytesOverhead, b.defaultTokenDestBytesOverhead);
-    assertEq(a.defaultTxGasLimit, b.defaultTxGasLimit);
-  }
-}
-
-contract PriceRegistryFeeSetup is PriceRegistrySetup {
-  uint224 internal s_feeTokenPrice;
-  uint224 internal s_wrappedTokenPrice;
-  uint224 internal s_customTokenPrice;
-
-  address internal s_selfServeTokenDefaultPricing = makeAddr("self-serve-token-default-pricing");
-
-  address internal s_destTokenPool = makeAddr("destTokenPool");
-  address internal s_destToken = makeAddr("destToken");
-
-  function setUp() public virtual override {
-    super.setUp();
-
-    s_feeTokenPrice = s_sourceTokenPrices[0];
-    s_wrappedTokenPrice = s_sourceTokenPrices[2];
-    s_customTokenPrice = CUSTOM_TOKEN_PRICE;
-
-    s_priceRegistry.updatePrices(getSingleTokenPriceUpdateStruct(CUSTOM_TOKEN, CUSTOM_TOKEN_PRICE));
-  }
-
-  function _generateEmptyMessage() public view returns (Client.EVM2AnyMessage memory) {
-    return Client.EVM2AnyMessage({
-      receiver: abi.encode(OWNER),
-      data: "",
-      tokenAmounts: new Client.EVMTokenAmount[](0),
-      feeToken: s_sourceFeeToken,
-      extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: GAS_LIMIT}))
-    });
-  }
-
-  function _generateSingleTokenMessage(
-    address token,
-    uint256 amount
-  ) public view returns (Client.EVM2AnyMessage memory) {
-    Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
-    tokenAmounts[0] = Client.EVMTokenAmount({token: token, amount: amount});
-
-    return Client.EVM2AnyMessage({
-      receiver: abi.encode(OWNER),
-      data: "",
-      tokenAmounts: tokenAmounts,
-      feeToken: s_sourceFeeToken,
-      extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: GAS_LIMIT}))
-    });
-  }
-
-  function _messageToEvent(
-    Client.EVM2AnyMessage memory message,
-    uint64 sourceChainSelector,
-    uint64 destChainSelector,
-    uint64 seqNum,
-    uint64 nonce,
-    uint256 feeTokenAmount,
-    address originalSender,
-    bytes32 metadataHash,
-    TokenAdminRegistry tokenAdminRegistry
-  ) internal view returns (Internal.EVM2AnyRampMessage memory) {
-    Client.EVMExtraArgsV2 memory extraArgs =
-      s_priceRegistry.parseEVMExtraArgsFromBytes(message.extraArgs, destChainSelector);
-
-    Internal.EVM2AnyRampMessage memory messageEvent = Internal.EVM2AnyRampMessage({
-      header: Internal.RampMessageHeader({
-        messageId: "",
-        sourceChainSelector: sourceChainSelector,
-        destChainSelector: destChainSelector,
-        sequenceNumber: seqNum,
-        nonce: extraArgs.allowOutOfOrderExecution ? 0 : nonce
-      }),
-      sender: originalSender,
-      data: message.data,
-      receiver: message.receiver,
-      extraArgs: Client._argsToBytes(extraArgs),
-      feeToken: message.feeToken,
-      feeTokenAmount: feeTokenAmount,
-      tokenAmounts: new Internal.RampTokenAmount[](message.tokenAmounts.length)
-    });
-
-    for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
-      messageEvent.tokenAmounts[i] = _getSourceTokenData(message.tokenAmounts[i], tokenAdminRegistry);
-    }
-
-    messageEvent.header.messageId = Internal._hash(messageEvent, metadataHash);
-    return messageEvent;
-  }
-
-  function _getSourceTokenData(
-    Client.EVMTokenAmount memory tokenAmount,
-    TokenAdminRegistry tokenAdminRegistry
-  ) internal view returns (Internal.RampTokenAmount memory) {
-    address destToken = s_destTokenBySourceToken[tokenAmount.token];
-
-    return Internal.RampTokenAmount({
-      sourcePoolAddress: abi.encode(tokenAdminRegistry.getTokenConfig(tokenAmount.token).tokenPool),
-      destTokenAddress: abi.encode(destToken),
-      extraData: "",
-      amount: tokenAmount.amount
-    });
-  }
-
-  function calcUSDValueFromTokenAmount(uint224 tokenPrice, uint256 tokenAmount) internal pure returns (uint256) {
-    return (tokenPrice * tokenAmount) / 1e18;
-  }
-
-  function applyBpsRatio(uint256 tokenAmount, uint16 ratio) internal pure returns (uint256) {
-    return (tokenAmount * ratio) / 1e5;
-  }
-
-  function configUSDCentToWei(uint256 usdCent) internal pure returns (uint256) {
-    return usdCent * 1e16;
-  }
-}
 
 contract PriceRegistry_constructor is PriceRegistrySetup {
   function test_Setup_Success() public virtual {
@@ -441,9 +23,9 @@ contract PriceRegistry_constructor is PriceRegistrySetup {
     feeTokens[1] = s_sourceTokens[1];
     PriceRegistry.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new PriceRegistry.TokenPriceFeedUpdate[](2);
     tokenPriceFeedUpdates[0] =
-      getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
+      _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
     tokenPriceFeedUpdates[1] =
-      getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[1], s_dataFeedByToken[s_sourceTokens[1]], 6);
+      _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[1], s_dataFeedByToken[s_sourceTokens[1]], 6);
 
     PriceRegistry.DestChainConfigArgs[] memory destChainConfigArgs = _generatePriceRegistryDestChainConfigArgs();
 
@@ -641,7 +223,7 @@ contract PriceRegistry_getValidatedTokenPrice is PriceRegistrySetup {
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 18, int256(uint256(type(uint224).max)));
 
     PriceRegistry.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new PriceRegistry.TokenPriceFeedUpdate[](1);
-    tokenPriceFeedUpdates[0] = getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 18);
+    tokenPriceFeedUpdates[0] = _getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 18);
     s_priceRegistry.updateTokenPriceFeeds(tokenPriceFeedUpdates);
 
     uint224 tokenPriceAnswer = s_priceRegistry.getValidatedTokenPrice(tokenAddress);
@@ -655,7 +237,7 @@ contract PriceRegistry_getValidatedTokenPrice is PriceRegistrySetup {
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 8, 1e8);
 
     PriceRegistry.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new PriceRegistry.TokenPriceFeedUpdate[](1);
-    tokenPriceFeedUpdates[0] = getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 6);
+    tokenPriceFeedUpdates[0] = _getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 6);
     s_priceRegistry.updateTokenPriceFeeds(tokenPriceFeedUpdates);
 
     uint224 tokenPriceAnswer = s_priceRegistry.getValidatedTokenPrice(tokenAddress);
@@ -669,7 +251,7 @@ contract PriceRegistry_getValidatedTokenPrice is PriceRegistrySetup {
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 8, 1e8);
 
     PriceRegistry.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new PriceRegistry.TokenPriceFeedUpdate[](1);
-    tokenPriceFeedUpdates[0] = getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 24);
+    tokenPriceFeedUpdates[0] = _getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 24);
     s_priceRegistry.updateTokenPriceFeeds(tokenPriceFeedUpdates);
 
     uint224 tokenPriceAnswer = s_priceRegistry.getValidatedTokenPrice(tokenAddress);
@@ -683,7 +265,7 @@ contract PriceRegistry_getValidatedTokenPrice is PriceRegistrySetup {
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 18, 1e18);
 
     PriceRegistry.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new PriceRegistry.TokenPriceFeedUpdate[](1);
-    tokenPriceFeedUpdates[0] = getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 18);
+    tokenPriceFeedUpdates[0] = _getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 18);
     s_priceRegistry.updateTokenPriceFeeds(tokenPriceFeedUpdates);
 
     uint224 tokenPriceAnswer = s_priceRegistry.getValidatedTokenPrice(tokenAddress);
@@ -697,7 +279,7 @@ contract PriceRegistry_getValidatedTokenPrice is PriceRegistrySetup {
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 0, 1e31);
 
     PriceRegistry.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new PriceRegistry.TokenPriceFeedUpdate[](1);
-    tokenPriceFeedUpdates[0] = getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 0);
+    tokenPriceFeedUpdates[0] = _getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 0);
     s_priceRegistry.updateTokenPriceFeeds(tokenPriceFeedUpdates);
 
     uint224 tokenPriceAnswer = s_priceRegistry.getValidatedTokenPrice(tokenAddress);
@@ -711,7 +293,7 @@ contract PriceRegistry_getValidatedTokenPrice is PriceRegistrySetup {
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 20, 1e18);
 
     PriceRegistry.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new PriceRegistry.TokenPriceFeedUpdate[](1);
-    tokenPriceFeedUpdates[0] = getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 20);
+    tokenPriceFeedUpdates[0] = _getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 20);
     s_priceRegistry.updateTokenPriceFeeds(tokenPriceFeedUpdates);
 
     uint224 tokenPriceAnswer = s_priceRegistry.getValidatedTokenPrice(tokenAddress);
@@ -738,7 +320,7 @@ contract PriceRegistry_getValidatedTokenPrice is PriceRegistrySetup {
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 18, int256(uint256(type(uint224).max) + 1));
 
     PriceRegistry.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new PriceRegistry.TokenPriceFeedUpdate[](1);
-    tokenPriceFeedUpdates[0] = getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 18);
+    tokenPriceFeedUpdates[0] = _getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 18);
     s_priceRegistry.updateTokenPriceFeeds(tokenPriceFeedUpdates);
 
     vm.expectRevert(PriceRegistry.DataFeedValueOutOfUint224Range.selector);
@@ -750,7 +332,7 @@ contract PriceRegistry_getValidatedTokenPrice is PriceRegistrySetup {
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 18, -1);
 
     PriceRegistry.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new PriceRegistry.TokenPriceFeedUpdate[](1);
-    tokenPriceFeedUpdates[0] = getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 18);
+    tokenPriceFeedUpdates[0] = _getSingleTokenPriceFeedUpdateStruct(tokenAddress, feedAddress, 18);
     s_priceRegistry.updateTokenPriceFeeds(tokenPriceFeedUpdates);
 
     vm.expectRevert(PriceRegistry.DataFeedValueOutOfUint224Range.selector);
@@ -1050,7 +632,7 @@ contract PriceRegistry_updateTokenPriceFeeds is PriceRegistrySetup {
   function test_SingleFeedUpdate_Success() public {
     PriceRegistry.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new PriceRegistry.TokenPriceFeedUpdate[](1);
     tokenPriceFeedUpdates[0] =
-      getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
+      _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
 
     _assertTokenPriceFeedConfigUnconfigured(
       s_priceRegistry.getTokenPriceFeedConfig(tokenPriceFeedUpdates[0].sourceToken)
@@ -1073,7 +655,7 @@ contract PriceRegistry_updateTokenPriceFeeds is PriceRegistrySetup {
 
     for (uint256 i = 0; i < 2; ++i) {
       tokenPriceFeedUpdates[i] =
-        getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[i], s_dataFeedByToken[s_sourceTokens[i]], 18);
+        _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[i], s_dataFeedByToken[s_sourceTokens[i]], 18);
 
       _assertTokenPriceFeedConfigUnconfigured(
         s_priceRegistry.getTokenPriceFeedConfig(tokenPriceFeedUpdates[i].sourceToken)
@@ -1102,7 +684,7 @@ contract PriceRegistry_updateTokenPriceFeeds is PriceRegistrySetup {
 
     PriceRegistry.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new PriceRegistry.TokenPriceFeedUpdate[](1);
     tokenPriceFeedUpdates[0] =
-      getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
+      _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
 
     s_priceRegistry.updateTokenPriceFeeds(tokenPriceFeedUpdates);
     _assertTokenPriceFeedConfigEquality(
@@ -1129,7 +711,7 @@ contract PriceRegistry_updateTokenPriceFeeds is PriceRegistrySetup {
   function test_FeedNotUpdated() public {
     PriceRegistry.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new PriceRegistry.TokenPriceFeedUpdate[](1);
     tokenPriceFeedUpdates[0] =
-      getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
+      _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
 
     s_priceRegistry.updateTokenPriceFeeds(tokenPriceFeedUpdates);
     s_priceRegistry.updateTokenPriceFeeds(tokenPriceFeedUpdates);
@@ -1144,7 +726,7 @@ contract PriceRegistry_updateTokenPriceFeeds is PriceRegistrySetup {
   function test_FeedUpdatedByNonOwner_Revert() public {
     PriceRegistry.TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates = new PriceRegistry.TokenPriceFeedUpdate[](1);
     tokenPriceFeedUpdates[0] =
-      getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
+      _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
 
     vm.startPrank(STRANGER);
     vm.expectRevert("Only callable by owner");
@@ -1713,7 +1295,7 @@ contract PriceRegistry_getTokenTransferCost is PriceRegistryFeeSetup {
     (uint256 feeUSDWei, uint32 destGasOverhead, uint32 destBytesOverhead) =
       s_priceRegistry.getTokenTransferCost(DEST_CHAIN_SELECTOR, message.feeToken, s_feeTokenPrice, message.tokenAmounts);
 
-    assertEq(configUSDCentToWei(transferFeeConfig.minFeeUSDCents), feeUSDWei);
+    assertEq(_configUSDCentToWei(transferFeeConfig.minFeeUSDCents), feeUSDWei);
     assertEq(transferFeeConfig.destGasOverhead, destGasOverhead);
     assertEq(transferFeeConfig.destBytesOverhead, destBytesOverhead);
   }
@@ -1726,7 +1308,7 @@ contract PriceRegistry_getTokenTransferCost is PriceRegistryFeeSetup {
     (uint256 feeUSDWei, uint32 destGasOverhead, uint32 destBytesOverhead) =
       s_priceRegistry.getTokenTransferCost(DEST_CHAIN_SELECTOR, message.feeToken, s_feeTokenPrice, message.tokenAmounts);
 
-    assertEq(configUSDCentToWei(transferFeeConfig.minFeeUSDCents), feeUSDWei);
+    assertEq(_configUSDCentToWei(transferFeeConfig.minFeeUSDCents), feeUSDWei);
     assertEq(transferFeeConfig.destGasOverhead, destGasOverhead);
     assertEq(transferFeeConfig.destBytesOverhead, destBytesOverhead);
   }
@@ -1739,7 +1321,7 @@ contract PriceRegistry_getTokenTransferCost is PriceRegistryFeeSetup {
     (uint256 feeUSDWei, uint32 destGasOverhead, uint32 destBytesOverhead) =
       s_priceRegistry.getTokenTransferCost(DEST_CHAIN_SELECTOR, message.feeToken, s_feeTokenPrice, message.tokenAmounts);
 
-    assertEq(configUSDCentToWei(transferFeeConfig.maxFeeUSDCents), feeUSDWei);
+    assertEq(_configUSDCentToWei(transferFeeConfig.maxFeeUSDCents), feeUSDWei);
     assertEq(transferFeeConfig.destGasOverhead, destGasOverhead);
     assertEq(transferFeeConfig.destBytesOverhead, destBytesOverhead);
   }
@@ -1754,8 +1336,8 @@ contract PriceRegistry_getTokenTransferCost is PriceRegistryFeeSetup {
     (uint256 feeUSDWei, uint32 destGasOverhead, uint32 destBytesOverhead) =
       s_priceRegistry.getTokenTransferCost(DEST_CHAIN_SELECTOR, message.feeToken, s_feeTokenPrice, message.tokenAmounts);
 
-    uint256 usdWei = calcUSDValueFromTokenAmount(s_feeTokenPrice, tokenAmount);
-    uint256 bpsUSDWei = applyBpsRatio(
+    uint256 usdWei = _calcUSDValueFromTokenAmount(s_feeTokenPrice, tokenAmount);
+    uint256 bpsUSDWei = _applyBpsRatio(
       usdWei, s_priceRegistryTokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[0].tokenTransferFeeConfig.deciBps
     );
 
@@ -1782,8 +1364,8 @@ contract PriceRegistry_getTokenTransferCost is PriceRegistryFeeSetup {
     (uint256 feeUSDWei, uint32 destGasOverhead, uint32 destBytesOverhead) =
       s_priceRegistry.getTokenTransferCost(DEST_CHAIN_SELECTOR, message.feeToken, s_feeTokenPrice, message.tokenAmounts);
 
-    uint256 usdWei = calcUSDValueFromTokenAmount(s_customTokenPrice, tokenAmount);
-    uint256 bpsUSDWei = applyBpsRatio(
+    uint256 usdWei = _calcUSDValueFromTokenAmount(s_customTokenPrice, tokenAmount);
+    uint256 bpsUSDWei = _applyBpsRatio(
       usdWei, s_priceRegistryTokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[1].tokenTransferFeeConfig.deciBps
     );
 
@@ -1816,7 +1398,9 @@ contract PriceRegistry_getTokenTransferCost is PriceRegistryFeeSetup {
 
     // if token charges 0 bps, it should cost minFee to transfer
     assertEq(
-      configUSDCentToWei(tokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[0].tokenTransferFeeConfig.minFeeUSDCents),
+      _configUSDCentToWei(
+        tokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[0].tokenTransferFeeConfig.minFeeUSDCents
+      ),
       feeUSDWei
     );
     assertEq(0, destGasOverhead);
@@ -1888,7 +1472,7 @@ contract PriceRegistry_getTokenTransferCost is PriceRegistryFeeSetup {
 
     uint256 expectedFeeUSDWei = 0;
     for (uint256 i = 0; i < testTokens.length; ++i) {
-      expectedFeeUSDWei += configUSDCentToWei(
+      expectedFeeUSDWei += _configUSDCentToWei(
         tokenTransferFeeConfigs[i].minFeeUSDCents == 0
           ? DEFAULT_TOKEN_FEE_USD_CENTS
           : tokenTransferFeeConfigs[i].minFeeUSDCents
@@ -1902,15 +1486,15 @@ contract PriceRegistry_getTokenTransferCost is PriceRegistryFeeSetup {
     // Set 1st token transfer to a meaningful amount so its bps fee is now between min and max fee
     message.tokenAmounts[0] = Client.EVMTokenAmount({token: testTokens[0], amount: 10000e18});
 
-    uint256 token0USDWei = applyBpsRatio(
-      calcUSDValueFromTokenAmount(tokenPrices[0], message.tokenAmounts[0].amount), tokenTransferFeeConfigs[0].deciBps
+    uint256 token0USDWei = _applyBpsRatio(
+      _calcUSDValueFromTokenAmount(tokenPrices[0], message.tokenAmounts[0].amount), tokenTransferFeeConfigs[0].deciBps
     );
-    uint256 token1USDWei = configUSDCentToWei(DEFAULT_TOKEN_FEE_USD_CENTS);
+    uint256 token1USDWei = _configUSDCentToWei(DEFAULT_TOKEN_FEE_USD_CENTS);
 
     (feeUSDWei, destGasOverhead, destBytesOverhead) = s_priceRegistry.getTokenTransferCost(
       DEST_CHAIN_SELECTOR, message.feeToken, s_wrappedTokenPrice, message.tokenAmounts
     );
-    expectedFeeUSDWei = token0USDWei + token1USDWei + configUSDCentToWei(tokenTransferFeeConfigs[2].minFeeUSDCents);
+    expectedFeeUSDWei = token0USDWei + token1USDWei + _configUSDCentToWei(tokenTransferFeeConfigs[2].minFeeUSDCents);
 
     assertEq(expectedFeeUSDWei, feeUSDWei, "wrong feeUSDWei 2");
     assertEq(expectedTotalGas, destGasOverhead, "wrong destGasOverhead 2");
@@ -1922,7 +1506,7 @@ contract PriceRegistry_getTokenTransferCost is PriceRegistryFeeSetup {
     (feeUSDWei, destGasOverhead, destBytesOverhead) = s_priceRegistry.getTokenTransferCost(
       DEST_CHAIN_SELECTOR, message.feeToken, s_wrappedTokenPrice, message.tokenAmounts
     );
-    expectedFeeUSDWei = token0USDWei + token1USDWei + configUSDCentToWei(tokenTransferFeeConfigs[2].maxFeeUSDCents);
+    expectedFeeUSDWei = token0USDWei + token1USDWei + _configUSDCentToWei(tokenTransferFeeConfigs[2].maxFeeUSDCents);
 
     assertEq(expectedFeeUSDWei, feeUSDWei, "wrong feeUSDWei 3");
     assertEq(expectedTotalGas, destGasOverhead, "wrong destGasOverhead 3");
@@ -1947,7 +1531,7 @@ contract PriceRegistry_getValidatedFee is PriceRegistryFeeSetup {
 
       uint256 gasUsed = GAS_LIMIT + DEST_GAS_OVERHEAD;
       uint256 gasFeeUSD = (gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS);
-      uint256 messageFeeUSD = (configUSDCentToWei(destChainConfig.networkFeeUSDCents) * premiumMultiplierWeiPerEth);
+      uint256 messageFeeUSD = (_configUSDCentToWei(destChainConfig.networkFeeUSDCents) * premiumMultiplierWeiPerEth);
       uint256 dataAvailabilityFeeUSD = s_priceRegistry.getDataAvailabilityCost(
         DEST_CHAIN_SELECTOR, USD_PER_DATA_AVAILABILITY_GAS, message.data.length, message.tokenAmounts.length, 0
       );
@@ -1972,7 +1556,7 @@ contract PriceRegistry_getValidatedFee is PriceRegistryFeeSetup {
 
     uint256 gasUsed = GAS_LIMIT + DEST_GAS_OVERHEAD;
     uint256 gasFeeUSD = (gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS);
-    uint256 messageFeeUSD = (configUSDCentToWei(destChainConfig.networkFeeUSDCents) * premiumMultiplierWeiPerEth);
+    uint256 messageFeeUSD = (_configUSDCentToWei(destChainConfig.networkFeeUSDCents) * premiumMultiplierWeiPerEth);
 
     uint256 totalPriceInFeeToken = (gasFeeUSD + messageFeeUSD) / s_feeTokenPrice;
     assertEq(totalPriceInFeeToken, feeAmount);
@@ -1999,7 +1583,7 @@ contract PriceRegistry_getValidatedFee is PriceRegistryFeeSetup {
       uint256 feeAmount = s_priceRegistry.getValidatedFee(DEST_CHAIN_SELECTOR, message);
       uint256 gasUsed = customGasLimit + DEST_GAS_OVERHEAD + customDataSize * DEST_GAS_PER_PAYLOAD_BYTE;
       uint256 gasFeeUSD = (gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS);
-      uint256 messageFeeUSD = (configUSDCentToWei(destChainConfig.networkFeeUSDCents) * premiumMultiplierWeiPerEth);
+      uint256 messageFeeUSD = (_configUSDCentToWei(destChainConfig.networkFeeUSDCents) * premiumMultiplierWeiPerEth);
       uint256 dataAvailabilityFeeUSD = s_priceRegistry.getDataAvailabilityCost(
         DEST_CHAIN_SELECTOR, USD_PER_DATA_AVAILABILITY_GAS, message.data.length, message.tokenAmounts.length, 0
       );

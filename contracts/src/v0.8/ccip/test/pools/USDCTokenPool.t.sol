@@ -57,7 +57,7 @@ contract USDCTokenPoolSetup is BaseTest {
     BurnMintERC677 usdcToken = new BurnMintERC677("LINK", "LNK", 18, 0);
     s_token = usdcToken;
     deal(address(s_token), OWNER, type(uint256).max);
-    setUpRamps();
+    _setUpRamps();
 
     s_mockUSDCTransmitter = new MockE2EUSDCTransmitter(0, DEST_DOMAIN_IDENTIFIER, address(s_token));
     s_mockUSDC = new MockUSDCTokenMessenger(0, address(s_mockUSDCTransmitter));
@@ -78,16 +78,16 @@ contract USDCTokenPoolSetup is BaseTest {
       remotePoolAddress: abi.encode(SOURCE_CHAIN_USDC_POOL),
       remoteTokenAddress: abi.encode(address(s_token)),
       allowed: true,
-      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
-      inboundRateLimiterConfig: getInboundRateLimiterConfig()
+      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
     chainUpdates[1] = TokenPool.ChainUpdate({
       remoteChainSelector: DEST_CHAIN_SELECTOR,
       remotePoolAddress: abi.encode(DEST_CHAIN_USDC_POOL),
       remoteTokenAddress: abi.encode(DEST_CHAIN_USDC_TOKEN),
       allowed: true,
-      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
-      inboundRateLimiterConfig: getInboundRateLimiterConfig()
+      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
 
     s_usdcTokenPool.applyChainUpdates(chainUpdates);
@@ -105,7 +105,7 @@ contract USDCTokenPoolSetup is BaseTest {
     s_usdcTokenPoolWithAllowList.setDomains(domains);
   }
 
-  function setUpRamps() internal {
+  function _setUpRamps() internal {
     s_router = new Router(address(s_token), address(s_mockRMN));
 
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](1);
@@ -176,7 +176,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
 
   function test_Fuzz_LockOrBurn_Success(bytes32 destinationReceiver, uint256 amount) public {
     vm.assume(destinationReceiver != bytes32(0));
-    amount = bound(amount, 1, getOutboundRateLimiterConfig().capacity);
+    amount = bound(amount, 1, _getOutboundRateLimiterConfig().capacity);
     s_token.transfer(address(s_usdcTokenPool), amount);
     vm.startPrank(s_routerAllowedOnRamp);
 
@@ -217,7 +217,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
 
   function test_Fuzz_LockOrBurnWithAllowList_Success(bytes32 destinationReceiver, uint256 amount) public {
     vm.assume(destinationReceiver != bytes32(0));
-    amount = bound(amount, 1, getOutboundRateLimiterConfig().capacity);
+    amount = bound(amount, 1, _getOutboundRateLimiterConfig().capacity);
     s_token.transfer(address(s_usdcTokenPoolWithAllowList), amount);
     vm.startPrank(s_routerAllowedOnRamp);
 
@@ -267,8 +267,8 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
       remotePoolAddress: abi.encode(address(1)),
       remoteTokenAddress: abi.encode(address(2)),
       allowed: true,
-      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
-      inboundRateLimiterConfig: getInboundRateLimiterConfig()
+      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
 
     s_usdcTokenPool.applyChainUpdates(chainUpdates);
@@ -336,7 +336,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
 
   function test_Fuzz_ReleaseOrMint_Success(address recipient, uint256 amount) public {
     vm.assume(recipient != address(0) && recipient != address(s_token));
-    amount = bound(amount, 0, getInboundRateLimiterConfig().capacity);
+    amount = bound(amount, 0, _getInboundRateLimiterConfig().capacity);
 
     USDCMessage memory usdcMessage = USDCMessage({
       version: 0,
@@ -493,7 +493,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
   }
 
   function test_TokenMaxCapacityExceeded_Revert() public {
-    uint256 capacity = getInboundRateLimiterConfig().capacity;
+    uint256 capacity = _getInboundRateLimiterConfig().capacity;
     uint256 amount = 10 * capacity;
     address recipient = address(1);
     vm.startPrank(s_routerAllowedOffRamp);

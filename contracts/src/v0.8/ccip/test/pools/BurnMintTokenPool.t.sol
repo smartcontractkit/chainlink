@@ -1,15 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {IPoolV1} from "../../interfaces/IPool.sol";
-
-import {Internal} from "../../libraries/Internal.sol";
 import {Pool} from "../../libraries/Pool.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
-import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
 import {BurnMintTokenPool} from "../../pools/BurnMintTokenPool.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
-import {BaseTest} from "../BaseTest.t.sol";
 import {BurnMintSetup} from "./BurnMintSetup.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -144,8 +139,8 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
         amount: 1e5,
         localToken: address(s_burnMintERC677),
         remoteChainSelector: DEST_CHAIN_SELECTOR,
-        sourcePoolAddress: generateSourceTokenData().sourcePoolAddress,
-        sourcePoolData: generateSourceTokenData().extraData,
+        sourcePoolAddress: _generateSourceTokenData().sourcePoolAddress,
+        sourcePoolData: _generateSourceTokenData().extraData,
         offchainTokenData: ""
       })
     );
@@ -164,8 +159,8 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
         amount: 1,
         localToken: address(s_burnMintERC677),
         remoteChainSelector: wrongChainSelector,
-        sourcePoolAddress: generateSourceTokenData().sourcePoolAddress,
-        sourcePoolData: generateSourceTokenData().extraData,
+        sourcePoolAddress: _generateSourceTokenData().sourcePoolAddress,
+        sourcePoolData: _generateSourceTokenData().extraData,
         offchainTokenData: ""
       })
     );
