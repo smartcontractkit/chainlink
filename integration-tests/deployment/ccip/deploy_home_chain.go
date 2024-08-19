@@ -283,7 +283,7 @@ func AddDON(
 		transmittersBytes := make([][]byte, len(transmitters))
 		for i, transmitter := range transmitters {
 			parsed, err2 := common.ParseHexOrString(string(transmitter))
-			if err != nil {
+			if err2 != nil {
 				return err2
 			}
 			transmittersBytes[i] = parsed
