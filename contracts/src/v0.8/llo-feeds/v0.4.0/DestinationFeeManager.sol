@@ -540,10 +540,8 @@ contract DestinationFeeManager is IDestinationFeeManager, IDestinationVerifierFe
       revert InvalidAddress();
     }
 
-    address linkAddress = i_linkAddress;
-
-    IERC20(linkAddress).approve(address(i_rewardManager), 0);
+    IERC20(i_linkAddress).approve(address(i_rewardManager), 0);
     i_rewardManager = IDestinationRewardManager(rewardManagerAddress);
-    IERC20(linkAddress).approve(address(rewardManagerAddress), type(uint256).max);
+    IERC20(i_linkAddress).approve(address(rewardManagerAddress), type(uint256).max);
   }
 }
