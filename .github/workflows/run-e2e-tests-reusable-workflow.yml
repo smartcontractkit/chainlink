@@ -240,7 +240,9 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           repository: smartcontractkit/chainlink-testing-framework
-          ref: main
+          # ref: main
+          # TODO: update
+          ref: update-testconfig-envs 
           fetch-depth: 0
           path: ctf
       - name: Setup Go for citool
@@ -250,6 +252,7 @@ jobs:
           cache_builds: true
           go_mod_path: ctf/tools/citool/go.mod
           should_tidy: false
+          test_download_vendor_packages_command: cd ctf/tools/citool && go mod download
 
       - name: Install jq
         run: sudo apt-get install jq
@@ -467,7 +470,7 @@ jobs:
 
       - name: Setup Grafana and OpenTelemetry
         id: docker-setup
-        if: inputs.enable_otel_traces_for_ocr2_plugins && matrix.tests.test_inputs.enable_otel_traces == 'true'
+        if: inputs.enable_otel_traces_for_ocr2_plugins && matrix.tests.test_env_vars.ENABLE_OTEL_TRACES == 'true'
         run: |
           # Create network
           docker network create --driver bridge tracing
@@ -496,16 +499,15 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@a3739daf24133394f9ac6de153972bbe084953c1 # v2.3.31
         env:
           DETACH_RUNNER: true
-          # TODO: taken from ${{ vars.TEST_LOG_COLLECT }}
-          # E2E_TEST_LOG_COLLECT: 
-          E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_inputs.chainlink_version || inputs.chainlink_version || github.sha }}
-          E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_inputs.chainlink_upgrade_version }}
-          E2E_TEST_CHAINLINK_POSTGRES_VERSION: ${{ matrix.tests.test_inputs.chainlink_postgres_version }}
-          E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_inputs.selected_networks || env.SELECTED_NETWORKS }}
+          E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || inputs.chainlink_version || github.sha }}
+          E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_VERSION }}
+          E2E_TEST_CHAINLINK_POSTGRES_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_POSTGRES_VERSION }}
+          E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_env_vars.E2E_TEST_SELECTED_NETWORK || env.SELECTED_NETWORKS }}
           E2E_TEST_LOGGING_RUN_ID: ${{ github.run_id }}
           E2E_TEST_LOG_STREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          E2E_TEST_CHAINLINK_IMAGE: ${{ matrix.tests.test_inputs.chainlink_image || env.CHAINLINK_IMAGE }}
-          E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.test_inputs.chainlink_upgrade_image }}
+          E2E_TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
+          E2E_TEST_CHAINLINK_IMAGE: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_IMAGE || env.CHAINLINK_IMAGE }}
+          E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
           E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -523,8 +525,8 @@ jobs:
           test_config_override_path: ${{ matrix.tests.test_config_override_path }}
           # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392
           # test_config_override_base64: ${{ inputs.test_config_override_base64 }}
-          test_type: ${{ matrix.tests.test_inputs.test_type }}
-          test_suite: ${{ matrix.tests.test_inputs.test_suite }}
+          test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
+          test_suite: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.tests.id_sanitized }}-test-logs
           artifacts_location: |
@@ -543,17 +545,17 @@ jobs:
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
 
       - name: Show Otel-Collector logs
-        if: inputs.enable_otel_traces_for_ocr2_plugins && matrix.tests.test_inputs.enable_otel_traces == 'true'
+        if: inputs.enable_otel_traces_for_ocr2_plugins && matrix.tests.test_env_vars.ENABLE_OTEL_TRACES == 'true'
         run: |
           docker logs otel-collector
 
       - name: Permissions on traces
-        if: inputs.enable_otel_traces_for_ocr2_plugins && matrix.tests.test_inputs.enable_otel_traces == 'true'
+        if: inputs.enable_otel_traces_for_ocr2_plugins && matrix.tests.test_env_vars.ENABLE_OTEL_TRACES == 'true'
         run: |
           ls -l ./integration-tests/smoke/traces
 
       - name: Upload trace data as Github artifact
-        if: inputs.enable_otel_traces_for_ocr2_plugins && matrix.tests.test_inputs.enable_otel_traces == 'true'
+        if: inputs.enable_otel_traces_for_ocr2_plugins && matrix.tests.test_env_vars.ENABLE_OTEL_TRACES == 'true'
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: trace-data
@@ -687,20 +689,31 @@ jobs:
           TEST_UPLOAD_CPU_PROFILE: true
           TEST_UPLOAD_MEM_PROFILE: true
           REF_NAME: ${{ github.head_ref || github.ref_name }}
+          E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || inputs.chainlink_version || github.sha }}
+          E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_VERSION }}
+          E2E_TEST_CHAINLINK_POSTGRES_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_POSTGRES_VERSION }}
+          E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_env_vars.E2E_TEST_SELECTED_NETWORK || env.SELECTED_NETWORKS }}
+          E2E_TEST_LOGGING_RUN_ID: ${{ github.run_id }}
+          E2E_TEST_LOG_STREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          E2E_TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
+          E2E_TEST_CHAINLINK_IMAGE: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_IMAGE || env.CHAINLINK_IMAGE }}
+          E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
+          E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          E2E_TEST_GRAFANA_BASE_URL: "http://localhost:8080/primary"
+          E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          E2E_TEST_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          E2E_TEST_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
+          E2E_TEST_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
+          E2E_TEST_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
+          E2E_TEST_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
         with:
           test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: make gomod
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
-          # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392
-          # test_config_override_base64: ${{ inputs.test_config_override_base64 }}
-          test_config_chainlink_version: ${{ matrix.tests.test_inputs.chainlink_version || inputs.chainlink_version || github.sha }}
-          test_config_chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlink_upgrade_version }}
-          test_config_chainlink_postgres_version: ${{ matrix.tests.test_inputs.chainlink_postgres_version }}
-          test_config_selected_networks: ${{ matrix.tests.test_inputs.selected_networks || env.SELECTED_NETWORKS}}
-          test_config_logging_run_id: ${{ github.run_id }}
-          test_config_logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          test_type: ${{ matrix.tests.test_inputs.test_type }}
-          test_suite: ${{ matrix.tests.test_inputs.test_suite }}
+          test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
+          test_suite: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
           token: ${{ secrets.GH_TOKEN }}
           should_cleanup: false
           cache_key_id: e2e-tests
@@ -708,18 +721,6 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-          DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.test_inputs.chainlink_image || env.CHAINLINK_IMAGE }}
-          DEFAULT_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.test_inputs.chainlink_upgrade_image }}
-          DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          DEFAULT_GRAFANA_BASE_URL: "http://localhost:8080/primary"
-          DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          DEFAULT_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-          DEFAULT_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
-          DEFAULT_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
-          DEFAULT_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
-          DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
 
       - name: Upload test log as Github artifact
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3

@@ -28,8 +28,8 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true    
-    test_inputs:
-      test_suite: soak
+    test_env_vars:
+      TEST_SUITE: soak
 
   - id: integration-tests/soak/ocr_test.go:^TestOCRv2Soak$
     path: integration-tests/soak/ocr_test.go
@@ -38,8 +38,8 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
-    test_inputs:
-      test_suite: soak
+    test_env_vars:
+      TEST_SUITE: soak
 
   - id: integration-tests/soak/ocr_test.go:^TestForwarderOCRv1Soak$
     path: integration-tests/soak/ocr_test.go
@@ -48,8 +48,8 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestForwarderOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
-    test_inputs:
-      test_suite: soak
+    test_env_vars:
+      TEST_SUITE: soak
 
   - id: integration-tests/soak/ocr_test.go:^TestForwarderOCRv2Soak$
     path: integration-tests/soak/ocr_test.go
@@ -58,8 +58,8 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestForwarderOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
-    test_inputs:
-      test_suite: soak
+    test_env_vars:
+      TEST_SUITE: soak
       
   - id: integration-tests/soak/ocr_test.go:^TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled$
     path: integration-tests/soak/ocr_test.go
@@ -68,8 +68,8 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
-    test_inputs:
-      test_suite: soak      
+    test_env_vars:
+      TEST_SUITE: soak      
 
   - id: integration-tests/soak/ocr_test.go:^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$
     path: integration-tests/soak/ocr_test.go
@@ -78,8 +78,8 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
-    test_inputs:
-      test_suite: soak      
+    test_env_vars:
+      TEST_SUITE: soak      
 
   - id: integration-tests/soak/ocr_test.go:^TestOCRSoak_GasSpike$
     path: integration-tests/soak/ocr_test.go
@@ -88,8 +88,8 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GasSpike$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
-    test_inputs:
-      test_suite: soak      
+    test_env_vars:
+      TEST_SUITE: soak      
 
   - id: integration-tests/soak/ocr_test.go:^TestOCRSoak_ChangeBlockGasLimit$
     path: integration-tests/soak/ocr_test.go
@@ -98,8 +98,8 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_ChangeBlockGasLimit$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
-    test_inputs:
-      test_suite: soak   
+    test_env_vars:
+      TEST_SUITE: soak   
 
   - id: integration-tests/soak/ocr_test.go:^TestOCRSoak_RPCDownForAllCLNodes$
     path: integration-tests/soak/ocr_test.go
@@ -108,8 +108,8 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_RPCDownForAllCLNodes$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
-    test_inputs:
-      test_suite: soak  
+    test_env_vars:
+      TEST_SUITE: soak  
 
   - id: integration-tests/soak/ocr_test.go:^TestOCRSoak_RPCDownForHalfCLNodes$
     path: integration-tests/soak/ocr_test.go
@@ -118,8 +118,8 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_RPCDownForHalfCLNodes$ -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
-    test_inputs:
-      test_suite: soak                             
+    test_env_vars:
+      TEST_SUITE: soak                             
 
   - id: integration-tests/smoke/forwarder_ocr_test.go:*
     path: integration-tests/smoke/forwarder_ocr_test.go
@@ -160,10 +160,10 @@ runner-test-matrix:
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/ocr2_test.go -timeout 30m -count=1 -test.parallel=6 -json
     pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
-    test_inputs:
-      # chainlink_version: '{{ env.GITHUB_SHA_PLUGINS }}' # This is the chainlink version that has the plugins
-      chainlink_version: develop-plugins
-      enable_otel_traces: true
+    test_env_vars:
+      # E2E_TEST_CHAINLINK_VERSION: '{{ env.GITHUB_SHA_PLUGINS }}' # This is the chainlink version that has the plugins
+      E2E_TEST_CHAINLINK_VERSION: develop-plugins
+      ENABLE_OTEL_TRACES: true
 
   # END: OCR tests
 
@@ -477,8 +477,8 @@ runner-test-matrix:
     remote_runner_memory: 4Gi
     test_config_override_required: true
     test_secrets_required: true
-    test_inputs:
-      test_suite: automationv2_1
+    test_env_vars:
+      TEST_SUITE: automationv2_1
     workflows:
       - Automation Load Test
     pyroscope_env: automation-load-test
@@ -490,9 +490,9 @@ runner-test-matrix:
     workflows:
       - Run Automation Product Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_0 -test.parallel=1 -timeout 60m -count=1 -json
-    test_inputs:
+    test_env_vars:
       chainlink_image: public.ecr.aws/chainlink/chainlink
-      chainlink_version: latest
+      E2E_TEST_CHAINLINK_VERSION: latest
       chainlink_upgrade_image: '{{ env.QA_CHAINLINK_IMAGE }}'
       chainlink_upgrade_version: develop
     pyroscope_env: ci-smoke-automation-upgrade-tests
@@ -504,9 +504,9 @@ runner-test-matrix:
     workflows:
       - Run Automation Product Nightly E2E Tests    
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_1 -test.parallel=5 -timeout 60m -count=1 -json
-    test_inputs:
+    test_env_vars:
       chainlink_image: public.ecr.aws/chainlink/chainlink
-      chainlink_version: latest
+      E2E_TEST_CHAINLINK_VERSION: latest
       chainlink_upgrade_image: '{{ env.QA_CHAINLINK_IMAGE }}'
       chainlink_upgrade_version: develop
     pyroscope_env: ci-smoke-automation-upgrade-tests
@@ -518,9 +518,9 @@ runner-test-matrix:
     workflows:
       - Run Automation Product Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_2 -test.parallel=5 -timeout 60m -count=1 -json
-    test_inputs:
+    test_env_vars:
       chainlink_image: public.ecr.aws/chainlink/chainlink
-      chainlink_version: latest
+      E2E_TEST_CHAINLINK_VERSION: latest
       chainlink_upgrade_image: '{{ env.QA_CHAINLINK_IMAGE }}'
       chainlink_upgrade_version: develop
     pyroscope_env: ci-smoke-automation-upgrade-tests
@@ -529,8 +529,8 @@ runner-test-matrix:
     path: integration-tests/reorg/automation_reorg_test.go
     runs_on: ubuntu-latest
     test_env_type: docker
-    test_inputs:
-      test_suite: reorg
+    test_env_vars:
+      TEST_SUITE: reorg
     workflows:
       - Run Automation On Demand Tests (TEST WORKFLOW)
     test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_0 -test.parallel=1 -timeout 30m -count=1 -json
@@ -540,8 +540,8 @@ runner-test-matrix:
     path: integration-tests/reorg/automation_reorg_test.go
     runs_on: ubuntu-latest
     test_env_type: docker
-    test_inputs:
-      test_suite: reorg
+    test_env_vars:
+      TEST_SUITE: reorg
     workflows:
       - Run Automation On Demand Tests (TEST WORKFLOW)
     test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_1 -test.parallel=2 -timeout 30m -count=1 -json
@@ -551,8 +551,8 @@ runner-test-matrix:
     path: integration-tests/reorg/automation_reorg_test.go
     runs_on: ubuntu-latest
     test_env_type: docker
-    test_inputs:
-      test_suite: reorg
+    test_env_vars:
+      TEST_SUITE: reorg
     workflows:
       - Run Automation On Demand Tests (TEST WORKFLOW)
     test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_2 -test.parallel=2 -timeout 30m -count=1 -json
@@ -566,8 +566,8 @@ runner-test-matrix:
       - Run Automation On Demand Tests (TEST WORKFLOW)
     test_cmd: cd integration-tests/chaos && DETACH_RUNNER=false go test -v -test.run ^TestAutomationChaos$ -test.parallel=20 -timeout 60m -count=1 -json
     pyroscope_env: ci-automation-on-demand-chaos
-    test_inputs:
-      test_suite: chaos
+    test_env_vars:
+      TEST_SUITE: chaos
 
   - id: integration-tests/benchmark/keeper_test.go:^TestAutomationBenchmark$
     path: integration-tests/benchmark/keeper_test.go
@@ -578,8 +578,8 @@ runner-test-matrix:
       # - Run Nightly E2E Tests
     test_cmd: cd integration-tests/benchmark && go test -v -test.run ^TestAutomationBenchmark$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-benchmark-automation-nightly
-    test_inputs:
-      test_suite: benchmark
+    test_env_vars:
+      TEST_SUITE: benchmark
 
   # END: Automation tests
 
@@ -602,8 +602,8 @@ runner-test-matrix:
     test_cmd: cd integration-tests/load/vrfv2plus && go test -v -test.run ^TestVRFV2PlusPerformance$ -test.parallel=1 -timeout 24h -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
-    test_inputs:
-      test_type: Smoke
+    test_env_vars:
+      TEST_TYPE: Smoke
     workflows:
       - On Demand VRFV2 Plus Performance Test          
 
@@ -614,8 +614,8 @@ runner-test-matrix:
     test_cmd: cd integration-tests/load/vrfv2plus && go test -v -test.run ^TestVRFV2PlusBHSPerformance$ -test.parallel=1 -timeout 24h -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
-    test_inputs:
-      test_type: Smoke
+    test_env_vars:
+      TEST_TYPE: Smoke
     workflows:
       - On Demand VRFV2 Plus Performance Test  
 
@@ -626,8 +626,8 @@ runner-test-matrix:
     test_cmd: cd integration-tests/load/vrfv2 && go test -v -test.run ^TestVRFV2Performance$ -test.parallel=1 -timeout 24h -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
-    test_inputs:
-      test_type: Smoke      
+    test_env_vars:
+      TEST_TYPE: Smoke      
     workflows:
       - On Demand VRFV2 Performance Test      
 
@@ -638,8 +638,8 @@ runner-test-matrix:
     test_cmd: cd integration-tests/load/vrfv2 && go test -v -test.run ^TestVRFV2PlusBHSPerformance$ -test.parallel=1 -timeout 24h -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
-    test_inputs:
-      test_type: Smoke
+    test_env_vars:
+      TEST_TYPE: Smoke
     workflows:
       - On Demand VRFV2 Performance Test
 
@@ -819,11 +819,11 @@ runner-test-matrix:
       - Run PR E2E Tests 2
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/migration && go test upgrade_version_test.go -timeout 30m -count=1 -test.parallel=2 -json
-    test_inputs:
-      chainlink_image: public.ecr.aws/chainlink/chainlink
-      chainlink_version: '{{ env.LATEST_CHAINLINK_RELEASE_VERSION }}'
-      chainlink_upgrade_image: '{{ env.QA_CHAINLINK_IMAGE }}'
-      chainlink_upgrade_version: '{{ env.GITHUB_SHA }}'
+    test_env_vars:
+      E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
+      E2E_TEST_CHAINLINK_VERSION: '{{ env.LATEST_CHAINLINK_RELEASE_VERSION }}'
+      E2E_TEST_CHAINLINK_UPGRADE_IMAGE: '{{ env.QA_CHAINLINK_IMAGE }}'
+      E2E_TEST_CHAINLINK_UPGRADE_VERSION: '{{ env.GITHUB_SHA }}'
 
   # END: Other tests
 
@@ -837,8 +837,8 @@ runner-test-matrix:
       - Run PR E2E Tests 2
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/leader-lane.toml
-    test_inputs:
-      selected_networks: SIMULATED_1,SIMULATED_2
  
   # END: CCIP tests
