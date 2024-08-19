@@ -242,7 +242,7 @@ runs:
 
     - if: inputs.sign-images == 'true'
       name: Install cosign
-      uses: sigstore/cosign-installer@e1523de7571e31dbe865fd2e80c5c7c23ae71eb4 # v3.4.0
+      uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
       with:
         cosign-release: "v2.4.0"
 
@@ -253,7 +253,7 @@ runs:
         COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
       run: |
         echo "${{ inputs.cosign-private-key }}" > cosign.key
-        cosign sign --key cosign.key "${{ env.root_image_digest }}"
+        cosign sign --key cosign.key "${{ env.root_image_name }}" --yes
         rm -f cosign.key
 
     - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keypair'
@@ -268,7 +268,7 @@ runs:
       name: Sign the published root Docker image using keyless method
       shell: sh
       run: |
-        cosign sign "${{ env.root_image_digest }}"
+        cosign sign "${{ env.root_image_name }}" --yes
 
     - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keyless'
       name: Verify the signature of the published root Docker image using keyless
@@ -285,7 +285,7 @@ runs:
         COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
       run: |
         echo "${{ inputs.cosign-private-key }}" > cosign.key
-        cosign sign --key cosign.key "${{ env.nonroot_image_digest }}"
+        cosign sign --key cosign.key "${{ env.nonroot_image_name }}" --yes
         rm -f cosign.key
 
     - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keypair'
@@ -300,7 +300,7 @@ runs:
       name: Sign the published non-root Docker image using keyless method
       shell: sh
       run: |
-        cosign sign "${{ env.nonroot_image_digest }}"
+        cosign sign "${{ env.nonroot_image_name }}" --yes
 
     - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keyless'
       name: Verify the signature of the published non-root Docker image using keyless

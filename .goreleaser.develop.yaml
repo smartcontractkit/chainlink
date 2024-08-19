@@ -191,7 +191,6 @@ docker_signs:
       - "sign"
       - "${artifact}"
       - "--yes"
-    # stdin: "{{ .Env.COSIGN_PASSWORD }}"
 
 checksum:
   name_template: "checksums.txt"
