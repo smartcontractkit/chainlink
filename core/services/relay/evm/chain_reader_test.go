@@ -32,6 +32,7 @@ import (
 	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -246,6 +247,18 @@ func (h *helper) NewSqlxDB(t *testing.T) *sqlx.DB {
 
 func (h *helper) Context(t *testing.T) context.Context {
 	return testutils.Context(t)
+}
+
+func (h *helper) ChainReaderEVMClient(t *testing.T, ctx context.Context, ht logpoller.HeadTracker, conf types.ChainReaderConfig) client.Client {
+	// wrap the client so that we can mock historical contract state
+	cwh := &ClientWithContractHistory{Client: h.Client(t), HT: ht}
+	require.NoError(t, cwh.Init(ctx, conf))
+	return cwh
+}
+
+func (h *helper) WrappedChainWriter(cw clcommontypes.ChainWriter, client client.Client) clcommontypes.ChainWriter {
+	cwhw := NewChainWriterHistoricalWrapper(cw, client.(*ClientWithContractHistory))
+	return cwhw
 }
 
 func (h *helper) MaxWaitTimeForEvents() time.Duration {

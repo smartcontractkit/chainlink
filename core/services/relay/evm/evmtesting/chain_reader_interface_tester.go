@@ -54,6 +54,9 @@ type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 	GasPriceBufferPercent() int64
 	Accounts(t T) []*bind.TransactOpts
 	TXM(T, client.Client) evmtxmgr.TxManager
+	// To enable the historical wrappers required for Simulated Backend tests.
+	ChainReaderEVMClient(t T, ctx context.Context, ht logpoller.HeadTracker, conf types.ChainReaderConfig) client.Client
+	WrappedChainWriter(cw clcommontypes.ChainWriter, client client.Client) clcommontypes.ChainWriter
 }
 
 type EVMChainReaderInterfaceTester[T TestingT[T]] struct {
@@ -310,9 +313,7 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	conf, err := types.ChainReaderConfigFromBytes(confBytes)
 	require.NoError(t, err)
 
-	// wrap the client so that we can mock historical contract state
-	cwh := &ClientWithContractHistory{Client: it.Helper.Client(t), HT: ht}
-	require.NoError(t, cwh.Init(ctx, conf))
+	cwh := it.Helper.ChainReaderEVMClient(t, ctx, ht, conf)
 	it.client = cwh
 
 	cr, err := evm.NewChainReaderService(ctx, lggr, lp, ht, it.client, conf)
@@ -349,8 +350,10 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainWriter(t T) clcommontypes.Ch
 
 	cw, err := evm.NewChainWriterService(logger.NullLogger, it.client, it.txm, it.gasEstimator, it.chainWriterConfig)
 	require.NoError(t, err)
+	it.cw = it.Helper.WrappedChainWriter(cw, it.client)
+
+	require.NoError(t, err)
 	require.NoError(t, cw.Start(ctx))
-	it.cw = NewChainWriterHistoricalWrapper(cw, it.client.(*ClientWithContractHistory))
 	return it.cw
 }
 
