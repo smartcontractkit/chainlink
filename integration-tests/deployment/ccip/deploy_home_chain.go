@@ -12,8 +12,6 @@ import (
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
-	deployment2 "github.com/smartcontractkit/ccip/integration-tests/deployment"
-
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -204,7 +202,7 @@ func AddDON(
 	f uint8,
 	bootstrapP2PID [32]byte,
 	p2pIDs [][32]byte,
-	nodes []deployment2.Node,
+	nodes []deployment.Node,
 ) error {
 	sortP2PIDS(p2pIDs)
 	// Get OCR3 Config from helper

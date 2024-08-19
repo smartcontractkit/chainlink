@@ -8,13 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
-	deployment2 "github.com/smartcontractkit/ccip/integration-tests/deployment"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_onramp"
@@ -118,7 +118,7 @@ type DeployCCIPContractConfig struct {
 // Deployment produces an address book of everything it deployed.
 func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (deployment.AddressBook, error) {
 	ab := deployment.NewMemoryAddressBook()
-	nodes, err := deployment2.NodeInfo(e.NodeIDs, e.Offchain)
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
 		e.Logger.Errorw("Failed to get node info", "err", err)
 		return ab, err
@@ -481,11 +481,11 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 			TokenPriceUpdates: []price_registry.InternalTokenPriceUpdate{
 				{
 					SourceToken: state.LinkTokens[from].Address(),
-					UsdPerToken: deployment2.E18Mult(20),
+					UsdPerToken: deployment.E18Mult(20),
 				},
 				{
 					SourceToken: state.Weth9s[from].Address(),
-					UsdPerToken: deployment2.E18Mult(4000),
+					UsdPerToken: deployment.E18Mult(4000),
 				},
 			},
 			GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
