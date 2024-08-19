@@ -8,18 +8,56 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 var (
 	ErrCapabilityAlreadyExists = errors.New("capability already exists")
 )
 
+type metadataRegistry interface {
+	LocalNode(ctx context.Context) (capabilities.Node, error)
+	ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error)
+}
+
 // Registry is a struct for the registry of capabilities.
 // Registry is safe for concurrent use.
 type Registry struct {
-	lggr logger.Logger
-	m    map[string]capabilities.BaseCapability
-	mu   sync.RWMutex
+	metadataRegistry metadataRegistry
+	lggr             logger.Logger
+	m                map[string]capabilities.BaseCapability
+	mu               sync.RWMutex
+}
+
+func (r *Registry) LocalNode(ctx context.Context) (capabilities.Node, error) {
+	if r.metadataRegistry == nil {
+		return capabilities.Node{}, errors.New("metadataRegistry information not available")
+	}
+
+	return r.metadataRegistry.LocalNode(ctx)
+}
+
+func (r *Registry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.metadataRegistry == nil {
+		return capabilities.CapabilityConfiguration{}, errors.New("metadataRegistry information not available")
+	}
+
+	cfc, err := r.metadataRegistry.ConfigForCapability(ctx, capabilityID, donID)
+	if err != nil {
+		return capabilities.CapabilityConfiguration{}, err
+	}
+
+	return unmarshalCapabilityConfig(cfc.Config)
+}
+
+// SetLocalRegistry sets a local copy of the offchain registry for the registry to use.
+// This is only public for testing purposes; the only production use should be from the CapabilitiesLauncher.
+func (r *Registry) SetLocalRegistry(lr metadataRegistry) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.metadataRegistry = lr
 }
 
 // Get gets a capability from the registry.

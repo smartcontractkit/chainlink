@@ -19,6 +19,7 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -41,6 +42,7 @@ func TestResolver_CronSpec(t *testing.T) {
 					Type: job.Cron,
 					CronSpec: &job.CronSpec{
 						CronSchedule: "CRON_TZ=UTC 0 0 1 1 *",
+						EVMChainID:   ubig.NewI(42),
 						CreatedAt:    f.Timestamp(),
 					},
 				}, nil)
@@ -53,6 +55,7 @@ func TestResolver_CronSpec(t *testing.T) {
 								__typename
 								... on CronSpec {
 									schedule
+									evmChainID
 									createdAt
 								}
 							}
@@ -66,6 +69,7 @@ func TestResolver_CronSpec(t *testing.T) {
 						"spec": {
 							"__typename": "CronSpec",
 							"schedule": "CRON_TZ=UTC 0 0 1 1 *",
+							"evmChainID": "42",
 							"createdAt": "2021-01-01T00:00:00Z"
 						}
 					}
@@ -486,7 +490,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						OCRKeyBundleID:                    null.StringFrom(keyBundleID.String()),
 						MonitoringEndpoint:                null.StringFrom("https://monitor.endpoint"),
 						P2PV2Bootstrappers:                pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
-						Relay:                             types.NetworkEVM,
+						Relay:                             relay.NetworkEVM,
 						RelayConfig:                       relayConfig,
 						TransmitterID:                     null.StringFrom(transmitterAddress.String()),
 						PluginType:                        types.Median,

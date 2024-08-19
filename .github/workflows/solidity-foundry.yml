@@ -4,43 +4,121 @@ on: [pull_request]
 env:
   FOUNDRY_PROFILE: ci
 
+# Making changes:
+# * use the top-level matrix to decide, which checks should run for each product.
+# * when enabling code coverage, remember to adjust the minimum code coverage as it's set to 98.5% by default.
+
 jobs:
+  define-matrix:
+    name: Define test matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.define-matrix.outputs.matrix }}
+      foundry-version: ${{ steps.extract-foundry-version.outputs.foundry-version }}
+    steps:
+      - name: Define test matrix
+        id: define-matrix
+        shell: bash
+        run: |
+          cat <<EOF > matrix.json
+          [
+            { "name": "automation", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }},
+            { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 98.5, "run-gas-snapshot": true, "run-forge-fmt": true }},
+            { "name": "functions", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "keystone", "setup": { "run-coverage": true, "min-coverage": 74.1, "run-gas-snapshot": false, "run-forge-fmt": false }},
+            { "name": "l2ep", "setup": { "run-coverage": true, "min-coverage": 65.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "liquiditymanager", "setup": { "run-coverage": true, "min-coverage": 46.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "llo-feeds", "setup": { "run-coverage": true, "min-coverage": 49.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "operatorforwarder", "setup": { "run-coverage": true, "min-coverage": 55.7, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "shared", "setup": { "run-coverage": true, "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "transmission", "setup": { "run-coverage": true, "min-coverage": 65.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "vrf", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }}
+          ]
+          EOF
+          
+          matrix=$(cat matrix.json | jq -c .)
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
+
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Extract Foundry version
+        id: extract-foundry-version
+        uses: ./.github/actions/detect-solidity-foundry-version
+        with:
+          working-directory: contracts
+
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
-      changes: ${{ steps.changes.outputs.src }}
+      non_src_changes: ${{ steps.changes.outputs.non_src }}
+      sol_modified: ${{ steps.changes.outputs.sol }}
+      sol_modified_files: ${{ steps.changes.outputs.sol_files }}
+      not_test_sol_modified: ${{ steps.changes.outputs.not_test_sol }}
+      not_test_sol_modified_files: ${{ steps.changes.outputs.not_test_sol_files }}
+      all_changes: ${{ steps.changes.outputs.changes }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
-          # Foundry is only used for Solidity v0.8 contracts, therefore we can ignore
-          # changes to older contracts.
+          list-files: 'shell'
           filters: |
-            src:
-              - 'contracts/src/v0.8/**/*'
+            non_src:
               - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
-              - 'contracts/foundry-lib/**/*'
-              - '.gitmodules'
+              - 'contracts/package.json'
+            sol:
+              - modified|added: 'contracts/src/v0.8/**/*.sol'
+            not_test_sol:
+              - modified|added: 'contracts/src/v0.8/**/!(*.t).sol'            
+            automation:
+              - 'contracts/src/v0.8/automation/**/*.sol'
+            ccip:
+              - 'contracts/src/v0.8/ccip/**/*.sol'
+            functions:
+              - 'contracts/src/v0.8/functions/**/*.sol'
+            keystone:
+              - 'contracts/src/v0.8/keystone/**/*.sol'
+            l2ep:
+              - 'contracts/src/v0.8/l2ep/**/*.sol'
+            liquiditymanager:
+              - 'contracts/src/v0.8/liquiditymanager/**/*.sol'
+            llo-feeds:
+              - 'contracts/src/v0.8/llo-feeds/**/*.sol'
+            operatorforwarder:
+              - 'contracts/src/v0.8/operatorforwarder/**/*.sol'
+            vrf:
+              - 'contracts/src/v0.8/vrf/**/*.sol'
+            shared:
+              - 'contracts/src/v0.8/shared/**/*.sol'
+              - 'contracts/src/v0.8/*.sol'
+              - 'contracts/src/v0.8/mocks/**/*.sol'
+              - 'contracts/src/v0.8/tests/**/*.sol'
+              - 'contracts/src/v0.8/vendor/**/*.sol'
+            transmission:
+              - 'contracts/src/v0.8/transmission/**/*.sol'
 
   tests:
+    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified == 'true' }}
     strategy:
       fail-fast: false
       matrix:
-        product: [automation, functions, keystone, l2ep, llo-feeds, operatorforwarder, shared, vrf]
-    needs: [changes]
-    name: Foundry Tests ${{ matrix.product }}
-    # See https://github.com/foundry-rs/foundry/issues/3827
+        product: ${{fromJson(needs.define-matrix.outputs.matrix)}}
+    needs: [define-matrix, changes]
+    name: Foundry Tests ${{ matrix.product.name }}
     runs-on: ubuntu-22.04
 
     # The if statements for steps after checkout repo is workaround for
     # passing required check for PRs that don't have filtered changes.
     steps:
       - name: Checkout the repo
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true' }}
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
@@ -49,52 +127,241 @@ jobs:
       # and not native Foundry. This is to make sure the dependencies
       # stay in sync.
       - name: Setup NodeJS
-        if: needs.changes.outputs.changes == 'true'
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
-        if: needs.changes.outputs.changes == 'true'
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true' }}
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
-          # Has to match the `make foundry` version.
-          version: nightly-de33b6af53005037b463318d2628b5cfcaf39916
+          version: ${{ needs.define-matrix.outputs.foundry-version }}
 
       - name: Run Forge build
-        if: needs.changes.outputs.changes == 'true'
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true' }}
         run: |
           forge --version
           forge build
         id: build
         working-directory: contracts
         env:
-          FOUNDRY_PROFILE: ${{ matrix.product }}
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
       - name: Run Forge tests
-        if: needs.changes.outputs.changes == 'true'
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true' }}
         run: |
           forge test -vvv
         id: test
         working-directory: contracts
         env:
-          FOUNDRY_PROFILE: ${{ matrix.product }}
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
       - name: Run Forge snapshot
-        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) && !contains(fromJson('["automation"]'), matrix.product) && !contains(fromJson('["keystone"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true')
+          && matrix.product.setup.run-gas-snapshot }}
         run: |
-          forge snapshot --nmt "testFuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product }}.gas-snapshot
+          forge snapshot --nmt "test_?Fuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product.name }}.gas-snapshot
         id: snapshot
         working-directory: contracts
         env:
-          FOUNDRY_PROFILE: ${{ matrix.product }}
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
+
+      # required for code coverage report generation
+      - name: Setup LCOV
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true')
+          && matrix.product.setup.run-coverage }}
+        uses: hrishikesh-kadam/setup-lcov@f5da1b26b0dcf5d893077a3c4f29cf78079c841d # v1.0.0
+
+      - name: Run coverage for ${{ matrix.product.name }}
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true')
+          && matrix.product.setup.run-coverage }}
+        working-directory: contracts
+        run: forge coverage --report lcov
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
+
+      - name: Prune lcov report
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true')
+          && matrix.product.setup.run-coverage }}
+        run: |
+          sudo apt-get install lcov
+          ./contracts/scripts/lcov_prune ${{ matrix.product.name }} ./contracts/lcov.info ./contracts/lcov.info.pruned
+
+      - name: Report code coverage for ${{ matrix.product.name }}
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true')
+          && matrix.product.setup.run-coverage }}
+        uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
+        with:
+          update-comment: false
+          coverage-files: ./contracts/lcov.info.pruned
+          minimum-coverage: ${{ matrix.product.min-coverage }}
+          artifact-name: code-coverage-report-${{ matrix.product.name }}
+          working-directory: ./contracts
 
       - name: Collect Metrics
-        if: needs.changes.outputs.changes == 'true'
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true' }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
-          id: solidity-foundry
+          id: ${{ matrix.product.name }}-solidity-foundry
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Foundry Tests ${{ matrix.product }}
+          this-job-name: Foundry Tests ${{ matrix.product.name }}
+        continue-on-error: true
+
+  analyze:
+    needs: [ changes, define-matrix ]
+    name: Run static analysis
+    if: needs.changes.outputs.not_test_sol_modified == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          submodules: recursive
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          version: ${{ needs.define-matrix.outputs.foundry-version }}
+
+      - name: Set up Python
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f #v5.1.1
+        with:
+          python-version: '3.8'
+
+      - name: Install solc-select and solc
+        uses: ./.github/actions/setup-solc-select
+        with:
+          to_install: '0.8.19'
+          to_use: '0.8.19'
+
+      - name: Install Slither
+        uses: ./.github/actions/setup-slither
+
+      - name: Run Slither
+        shell: bash
+        run: |          
+          # modify remappings so that solc can find dependencies
+          ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
+          mv remappings_modified.txt remappings.txt
+
+          FILES="${{ needs.changes.outputs.not_test_sol_modified_files }}"
+          
+          for FILE in $FILES; do
+            PRODUCT=$(echo "$FILE" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
+            echo "::debug::Running Slither for $FILE in $PRODUCT"
+            SLITHER_CONFIG="contracts/configs/slither/.slither.config-$PRODUCT-pr.json"
+            if [ ! -f $SLITHER_CONFIG ]; then
+              echo "::debug::No Slither config found for $PRODUCT, using default"
+              SLITHER_CONFIG="contracts/configs/slither/.slither.config-default-pr.json"
+            fi
+            ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "." "$FILE" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
+          done
+
+      - name: Print Slither summary
+        shell: bash
+        run: |
+          echo "# Static analysis results " >> $GITHUB_STEP_SUMMARY
+          for file in "contracts/slither-reports"/*.md; do
+            if [ -e "$file" ]; then
+              cat "$file" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      - name: Validate if all Slither run for all contracts
+        uses: ./.github/actions/validate-solidity-artifacts
+        with:
+          validate_slither_reports: 'true'
+          slither_reports_path: 'contracts/slither-reports'
+          sol_files: ${{ needs.changes.outputs.not_test_sol_modified_files }}
+
+      - name: Upload Slither report
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 10
+        continue-on-error: true
+        with:
+          name: slither-reports-${{ github.sha }}
+          path: |
+            contracts/slither-reports
+          retention-days: 7
+
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: solidity-foundry-slither
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Run static analysis
+        continue-on-error: true
+
+  solidity-forge-fmt:
+    name: Forge fmt ${{ matrix.product.name }}
+    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.not_test_sol_modified == 'true' }}
+    needs: [define-matrix, changes]
+    strategy:
+      fail-fast: false
+      matrix:
+        product: ${{fromJson(needs.define-matrix.outputs.matrix)}}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout the repo
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          submodules: recursive
+
+      - name: Setup NodeJS
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          version: ${{ needs.define-matrix.outputs.foundry-version }}
+
+      - name: Run Forge fmt
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
+        run: forge fmt --check
+        id: fmt
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
+
+      - name: Collect Metrics
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: solidity-forge-fmt-${{ matrix.product.name }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Forge fmt ${{ matrix.product.name }}
         continue-on-error: true

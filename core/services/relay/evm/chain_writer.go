@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
 
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -46,7 +45,7 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 
 		sendStrategy:    txmgr.NewSendEveryStrategy(),
 		contracts:       config.Contracts,
-		parsedContracts: &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
+		parsedContracts: &ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
 	}
 
 	if config.SendStrategy != nil {
@@ -58,7 +57,7 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 	}
 
 	var err error
-	if w.encoder, err = w.parsedContracts.toCodec(); err != nil {
+	if w.encoder, err = w.parsedContracts.ToCodec(); err != nil {
 		return nil, fmt.Errorf("%w: failed to create codec", err)
 	}
 
@@ -76,7 +75,7 @@ type chainWriter struct {
 
 	sendStrategy    txmgrtypes.TxStrategy
 	contracts       map[string]*types.ContractConfig
-	parsedContracts *parsedTypes
+	parsedContracts *ParsedTypes
 
 	encoder commontypes.Encoder
 }
@@ -101,7 +100,7 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		return fmt.Errorf("method config not found: %v", method)
 	}
 
-	calldata, err := w.encoder.Encode(ctx, args, wrapItemType(contract, method, true))
+	calldata, err := w.encoder.Encode(ctx, args, WrapItemType(contract, method, true))
 	if err != nil {
 		return fmt.Errorf("%w: failed to encode args", err)
 	}
@@ -111,14 +110,28 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		checker.CheckerType = txmgrtypes.TransmitCheckerType(methodConfig.Checker)
 	}
 
+	v := big.NewInt(0)
+	if value != nil {
+		v = value
+	}
+
+	var txMeta *txmgrtypes.TxMeta[common.Address, common.Hash]
+	if meta != nil && meta.WorkflowExecutionID != nil {
+		txMeta = &txmgrtypes.TxMeta[common.Address, common.Hash]{
+			WorkflowExecutionID: meta.WorkflowExecutionID,
+		}
+	}
+
 	req := evmtxmgr.TxRequest{
 		FromAddress:    methodConfig.FromAddress,
 		ToAddress:      common.HexToAddress(toAddress),
 		EncodedPayload: calldata,
 		FeeLimit:       methodConfig.GasLimit,
-		Meta:           &txmgrtypes.TxMeta[common.Address, common.Hash]{WorkflowExecutionID: meta.WorkflowExecutionID},
+		Meta:           txMeta,
+		IdempotencyKey: &transactionID,
 		Strategy:       w.sendStrategy,
 		Checker:        checker,
+		Value:          *v,
 	}
 
 	_, err = w.txm.CreateTransaction(ctx, req)
@@ -143,7 +156,7 @@ func (w *chainWriter) parseContracts() error {
 			}
 
 			// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
-			inputMod, err := methodConfig.InputModifications.ToModifier(evmDecoderHooks...)
+			inputMod, err := methodConfig.InputModifications.ToModifier(DecoderHooks...)
 			if err != nil {
 				return fmt.Errorf("%w: failed to create input mods", err)
 			}
@@ -154,15 +167,15 @@ func (w *chainWriter) parseContracts() error {
 				return fmt.Errorf("%w: failed to init codec entry for method %s", err, method)
 			}
 
-			w.parsedContracts.encoderDefs[wrapItemType(contract, method, true)] = input
+			w.parsedContracts.EncoderDefs[WrapItemType(contract, method, true)] = input
 		}
 	}
 
 	return nil
 }
 
-func (w *chainWriter) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (commontypes.TransactionStatus, error) {
-	return commontypes.Unknown, fmt.Errorf("not implemented")
+func (w *chainWriter) GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error) {
+	return w.txm.GetTransactionStatus(ctx, transactionID)
 }
 
 // GetFeeComponents the execution and data availability (L1Oracle) fees for the chain.
@@ -188,8 +201,8 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 	l1Oracle := w.ge.L1Oracle()
 	if l1Oracle == nil {
 		return &commontypes.ChainFeeComponents{
-			ExecutionFee:        *gasPrice,
-			DataAvailabilityFee: *big.NewInt(0),
+			ExecutionFee:        gasPrice,
+			DataAvailabilityFee: big.NewInt(0),
 		}, nil
 	}
 	l1OracleFee, err := l1Oracle.GasPrice(ctx)
@@ -198,8 +211,8 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 	}
 
 	return &commontypes.ChainFeeComponents{
-		ExecutionFee:        *gasPrice,
-		DataAvailabilityFee: *big.NewInt(l1OracleFee.Int64()),
+		ExecutionFee:        gasPrice,
+		DataAvailabilityFee: big.NewInt(l1OracleFee.Int64()),
 	}, nil
 }
 

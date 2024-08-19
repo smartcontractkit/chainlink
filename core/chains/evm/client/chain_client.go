@@ -20,12 +20,9 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-const queryTimeout = 10 * time.Second
 const BALANCE_OF_ADDRESS_FUNCTION_SELECTOR = "0x70a08231"
 
 var _ Client = (*chainClient)(nil)
-
-//go:generate mockery --quiet --name Client --output ./mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
@@ -60,6 +57,9 @@ type Client interface {
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
+	// LatestFinalizedBlock - returns the latest finalized block as it's returned from an RPC.
+	// CAUTION: Using this method might cause local finality violations. It's highly recommended
+	// to use HeadTracker to get latest finalized block.
 	LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error)
 
 	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error)
@@ -98,7 +98,7 @@ type Client interface {
 }
 
 func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc) {
-	return context.WithTimeout(context.Background(), queryTimeout)
+	return context.WithTimeout(context.Background(), commonclient.QueryTimeout)
 }
 
 type chainClient struct {
@@ -132,6 +132,7 @@ func NewChainClient(
 	chainID *big.Int,
 	chainType chaintype.ChainType,
 	clientErrors evmconfig.ClientErrors,
+	deathDeclarationDelay time.Duration,
 ) Client {
 	multiNode := commonclient.NewMultiNode(
 		lggr,
@@ -146,6 +147,7 @@ func NewChainClient(
 			return ClassifySendError(err, clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
 		},
 		0, // use the default value provided by the implementation
+		deathDeclarationDelay,
 	)
 	return &chainClient{
 		multiNode:    multiNode,
@@ -158,9 +160,13 @@ func (c *chainClient) BalanceAt(ctx context.Context, account common.Address, blo
 	return c.multiNode.BalanceAt(ctx, account, blockNumber)
 }
 
+// BatchCallContext - sends all given requests as a single batch.
 // Request specific errors for batch calls are returned to the individual BatchElem.
 // Ensure the same BatchElem slice provided by the caller is passed through the call stack
 // to ensure the caller has access to the errors.
+// Note: some chains (e.g Astar) have custom finality requests, so even when FinalityTagEnabled=true, finality tag
+// might not be properly handled and returned results might have weaker finality guarantees. It's highly recommended
+// to use HeadTracker to identify latest finalized block.
 func (c *chainClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return c.multiNode.BatchCallContext(ctx, b)
 }
@@ -306,12 +312,7 @@ func (c *chainClient) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 }
 
 func (c *chainClient) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
-	csf := newChainIDSubForwarder(c.ConfiguredChainID(), ch)
-	err := csf.start(c.multiNode.Subscribe(ctx, csf.srcCh, "newHeads"))
-	if err != nil {
-		return nil, err
-	}
-	return csf, nil
+	return c.multiNode.SubscribeNewHead(ctx, ch)
 }
 
 func (c *chainClient) SuggestGasPrice(ctx context.Context) (p *big.Int, err error) {

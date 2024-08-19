@@ -11,7 +11,7 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-// Raw represents the ETH private key
+// Raw represents the Solana private key
 type Raw []byte
 
 // Key gets the Key

@@ -265,12 +265,26 @@ type RouteUpdateSubscriber interface {
 }
 
 // A LogPoller wrapper that understands router proxy contracts
-//
-//go:generate mockery --quiet --name LogPollerWrapper --output ./mocks/ --case=underscore
 type LogPollerWrapper interface {
 	services.Service
 	LatestEvents(ctx context.Context) ([]OracleRequest, []OracleResponse, error)
 
 	// TODO (FUN-668): Remove from the LOOP interface and only use internally within the EVM relayer
 	SubscribeToUpdates(ctx context.Context, name string, subscriber RouteUpdateSubscriber)
+}
+
+// ChainReaderConfigFromBytes function applies json decoding on provided bytes to return a
+// valid ChainReaderConfig. If other unmarshaling or parsing techniques are required, place it
+// here.
+func ChainReaderConfigFromBytes(bts []byte) (ChainReaderConfig, error) {
+	decoder := json.NewDecoder(bytes.NewBuffer(bts))
+
+	decoder.UseNumber()
+
+	var cfg ChainReaderConfig
+	if err := decoder.Decode(&cfg); err != nil {
+		return cfg, fmt.Errorf("failed to unmarshal chain reader config err: %s", err)
+	}
+
+	return cfg, nil
 }

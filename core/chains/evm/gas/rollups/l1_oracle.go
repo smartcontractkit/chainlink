@@ -21,8 +21,6 @@ import (
 
 // L1Oracle provides interface for fetching L1-specific fee components if the chain is an L2.
 // For example, on Optimistic Rollups, this oracle can return rollup-specific l1BaseFee
-//
-//go:generate mockery --quiet --name L1Oracle --output ./mocks/ --case=underscore
 type L1Oracle interface {
 	services.Service
 
@@ -30,7 +28,6 @@ type L1Oracle interface {
 	GetGasCost(ctx context.Context, tx *types.Transaction, blockNum *big.Int) (*assets.Wei, error)
 }
 
-//go:generate mockery --quiet --name l1OracleClient --output ./mocks/ --case=underscore --structname L1OracleClient
 type l1OracleClient interface {
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -52,20 +49,24 @@ func IsRollupWithL1Support(chainType chaintype.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
 }
 
-func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType) L1Oracle {
+func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType) (L1Oracle, error) {
 	if !IsRollupWithL1Support(chainType) {
-		return nil
+		return nil, nil
 	}
 	var l1Oracle L1Oracle
+	var err error
 	switch chainType {
 	case chaintype.ChainOptimismBedrock, chaintype.ChainKroma, chaintype.ChainScroll:
-		l1Oracle = NewOpStackL1GasOracle(lggr, ethClient, chainType)
+		l1Oracle, err = NewOpStackL1GasOracle(lggr, ethClient, chainType)
 	case chaintype.ChainArbitrum:
-		l1Oracle = NewArbitrumL1GasOracle(lggr, ethClient)
+		l1Oracle, err = NewArbitrumL1GasOracle(lggr, ethClient)
 	case chaintype.ChainZkSync:
 		l1Oracle = NewZkSyncL1GasOracle(lggr, ethClient)
 	default:
-		panic(fmt.Sprintf("Received unspported chaintype %s", chainType))
+		return nil, fmt.Errorf("received unsupported chaintype %s", chainType)
 	}
-	return l1Oracle
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize L1 oracle for chaintype %s: %w", chainType, err)
+	}
+	return l1Oracle, nil
 }

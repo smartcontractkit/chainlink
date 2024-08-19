@@ -3,10 +3,10 @@ package llo
 import (
 	"context"
 	"crypto/ed25519"
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -15,9 +15,7 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
 // LLO Transmitter implementation, based on
@@ -99,52 +97,7 @@ func (t *transmitter) Transmit(
 	report ocr3types.ReportWithInfo[llotypes.ReportInfo],
 	sigs []types.AttributedOnchainSignature,
 ) (err error) {
-	var payload []byte
-
-	switch report.Info.ReportFormat {
-	case llotypes.ReportFormatJSON:
-		fallthrough
-	case llotypes.ReportFormatEVM:
-		payload, err = encodeEVM(digest, seqNr, report.Report, sigs)
-	default:
-		return fmt.Errorf("Transmit failed; unsupported report format: %q", report.Info.ReportFormat)
-	}
-
-	if err != nil {
-		return fmt.Errorf("Transmit: encode failed; %w", err)
-	}
-
-	req := &pb.TransmitRequest{
-		Payload:      payload,
-		ReportFormat: uint32(report.Info.ReportFormat),
-	}
-
-	// TODO: persistenceManager and queueing, error handling, retry etc
-	// https://smartcontract-it.atlassian.net/browse/MERC-3659
-	_, err = t.rpcClient.Transmit(ctx, req)
-	return err
-}
-
-func encodeEVM(digest types.ConfigDigest, seqNr uint64, report ocr2types.Report, sigs []types.AttributedOnchainSignature) ([]byte, error) {
-	var rs [][32]byte
-	var ss [][32]byte
-	var vs [32]byte
-	for i, as := range sigs {
-		r, s, v, err := evmutil.SplitSignature(as.Signature)
-		if err != nil {
-			return nil, fmt.Errorf("eventTransmit(ev): error in SplitSignature: %w", err)
-		}
-		rs = append(rs, r)
-		ss = append(ss, s)
-		vs[i] = v
-	}
-	rawReportCtx := ocr2key.RawReportContext3(digest, seqNr)
-
-	payload, err := PayloadTypes.Pack(rawReportCtx, []byte(report), rs, ss, vs)
-	if err != nil {
-		return nil, fmt.Errorf("abi.Pack failed; %w", err)
-	}
-	return payload, nil
+	return errors.New("not implemented")
 }
 
 // FromAccount returns the stringified (hex) CSA public key

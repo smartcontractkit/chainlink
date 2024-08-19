@@ -338,26 +338,28 @@ func (c *EVMConfig) TOMLString() (string, error) {
 }
 
 type Chain struct {
-	AutoCreateKey             *bool
-	BlockBackfillDepth        *uint32
-	BlockBackfillSkip         *bool
-	ChainType                 *chaintype.ChainTypeConfig
-	FinalityDepth             *uint32
-	FinalityTagEnabled        *bool
-	FlagsContractAddress      *types.EIP55Address
-	LinkContractAddress       *types.EIP55Address
-	LogBackfillBatchSize      *uint32
-	LogPollInterval           *commonconfig.Duration
-	LogKeepBlocksDepth        *uint32
-	LogPrunePageSize          *uint32
-	BackupLogPollerBlockDelay *uint64
-	MinIncomingConfirmations  *uint32
-	MinContractPayment        *commonassets.Link
-	NonceAutoSync             *bool
-	NoNewHeadsThreshold       *commonconfig.Duration
-	OperatorFactoryAddress    *types.EIP55Address
-	RPCDefaultBatchSize       *uint32
-	RPCBlockQueryDelay        *uint16
+	AutoCreateKey                *bool
+	BlockBackfillDepth           *uint32
+	BlockBackfillSkip            *bool
+	ChainType                    *chaintype.ChainTypeConfig
+	FinalityDepth                *uint32
+	FinalityTagEnabled           *bool
+	FlagsContractAddress         *types.EIP55Address
+	LinkContractAddress          *types.EIP55Address
+	LogBackfillBatchSize         *uint32
+	LogPollInterval              *commonconfig.Duration
+	LogKeepBlocksDepth           *uint32
+	LogPrunePageSize             *uint32
+	BackupLogPollerBlockDelay    *uint64
+	MinIncomingConfirmations     *uint32
+	MinContractPayment           *commonassets.Link
+	NonceAutoSync                *bool
+	NoNewHeadsThreshold          *commonconfig.Duration
+	OperatorFactoryAddress       *types.EIP55Address
+	RPCDefaultBatchSize          *uint32
+	RPCBlockQueryDelay           *uint16
+	FinalizedBlockOffset         *uint32
+	NoNewFinalizedHeadsThreshold *commonconfig.Duration
 
 	Transactions   Transactions      `toml:",omitempty"`
 	BalanceMonitor BalanceMonitor    `toml:",omitempty"`
@@ -389,6 +391,11 @@ func (c *Chain) ValidateConfig() (err error) {
 			Msg: "must be greater than or equal to 1"})
 	}
 
+	if *c.FinalizedBlockOffset > *c.HeadTracker.HistoryDepth {
+		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "HeadTracker.HistoryDepth", Value: *c.HeadTracker.HistoryDepth,
+			Msg: "must be greater than or equal to FinalizedBlockOffset"})
+	}
+
 	// AutoPurge configs depend on ChainType so handling validation on per chain basis
 	if c.Transactions.AutoPurge.Enabled != nil && *c.Transactions.AutoPurge.Enabled {
 		chainType := c.ChainType.ChainType()
@@ -405,8 +412,16 @@ func (c *Chain) ValidateConfig() (err error) {
 					err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.DetectionApiUrl", Value: c.Transactions.AutoPurge.DetectionApiUrl.Scheme, Msg: "must be http or https"})
 				}
 			}
-		case chaintype.ChainZkEvm:
-			// No other configs are needed
+		case chaintype.ChainZkEvm, chaintype.ChainXLayer:
+			// MinAttempts is an optional config that can be used to delay the stuck tx detection for zkEVM or XLayer
+			// If MinAttempts is set, BumpThreshold cannot be 0
+			if c.Transactions.AutoPurge.MinAttempts != nil && *c.Transactions.AutoPurge.MinAttempts != 0 {
+				if c.GasEstimator.BumpThreshold == nil {
+					err = multierr.Append(err, commonconfig.ErrMissing{Name: "GasEstimator.BumpThreshold", Msg: fmt.Sprintf("must be set if Transactions.AutoPurge.MinAttempts is set for %s", chainType)})
+				} else if *c.GasEstimator.BumpThreshold == 0 {
+					err = multierr.Append(err, commonconfig.ErrInvalid{Name: "GasEstimator.BumpThreshold", Value: 0, Msg: fmt.Sprintf("cannot be 0 if Transactions.AutoPurge.MinAttempts is set for %s", chainType)})
+				}
+			}
 		default:
 			// Bump Threshold is required because the stuck tx heuristic relies on a minimum number of bump attempts to exist
 			if c.GasEstimator.BumpThreshold == nil {
@@ -842,6 +857,8 @@ type NodePool struct {
 	NodeIsSyncingEnabled       *bool
 	FinalizedBlockPollInterval *commonconfig.Duration
 	Errors                     ClientErrors `toml:",omitempty"`
+	EnforceRepeatableRead      *bool
+	DeathDeclarationDelay      *commonconfig.Duration
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -865,6 +882,14 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 	if v := f.FinalizedBlockPollInterval; v != nil {
 		p.FinalizedBlockPollInterval = v
+	}
+
+	if v := f.EnforceRepeatableRead; v != nil {
+		p.EnforceRepeatableRead = v
+	}
+
+	if v := f.DeathDeclarationDelay; v != nil {
+		p.DeathDeclarationDelay = v
 	}
 	p.Errors.setFrom(&f.Errors)
 }

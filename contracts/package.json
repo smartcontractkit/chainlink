@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/contracts",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Chainlink smart contracts",
   "author": "Chainlink devs",
   "license": "MIT",
@@ -18,7 +18,7 @@
     "prepublishOnly": "pnpm compile && ./scripts/prepublish_generate_abi_folder",
     "publish-beta": "pnpm publish --tag beta",
     "publish-prod": "pnpm publish --tag latest",
-    "solhint": "solhint --max-warnings 2 \"./src/v0.8/**/*.sol\""
+    "solhint": "solhint --max-warnings 0 \"./src/v0.8/**/*.sol\""
   },
   "files": [
     "src/v0.8",
@@ -30,6 +30,10 @@
     "overrides": {
       "@ethersproject/logger": "5.0.6"
     }
+  },
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=9"
   },
   "devDependencies": {
     "@ethereum-waffle/mock-contract": "^3.4.4",
@@ -74,6 +78,8 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "@arbitrum/nitro-contracts": "1.1.1",
+    "@arbitrum/token-bridge-contracts": "1.1.2",
     "@changesets/changelog-github": "^0.5.0",
     "@changesets/cli": "~2.27.3",
     "@eth-optimism/contracts": "0.6.0",

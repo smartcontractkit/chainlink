@@ -37,6 +37,7 @@ contract FunctionsRouterSetup is BaseTest {
   int256 internal LINK_USD_RATE = 1_500_000_000;
   uint8 internal LINK_USD_DECIMALS = 8;
 
+  address public MOCK_PREVIOUS_TOS_ADDRESS = 0x746f730000000000000000000000000000000000;
   uint256 internal TOS_SIGNER_PRIVATE_KEY = 0x3;
   address internal TOS_SIGNER = vm.addr(TOS_SIGNER_PRIVATE_KEY);
 
@@ -57,7 +58,8 @@ contract FunctionsRouterSetup is BaseTest {
     s_termsOfServiceAllowList = new TermsOfServiceAllowList(
       getTermsOfServiceConfig(),
       initialAllowedSenders,
-      initialBlockedSenders
+      initialBlockedSenders,
+      MOCK_PREVIOUS_TOS_ADDRESS
     );
   }
 
@@ -93,7 +95,8 @@ contract FunctionsRouterSetup is BaseTest {
         fallbackNativePerUnitLink: 5000000000000000,
         fallbackUsdPerUnitLink: 1400000000,
         fallbackUsdPerUnitLinkDecimals: 8,
-        minimumEstimateGasPriceWei: 1000000000 // 1 gwei
+        minimumEstimateGasPriceWei: 1000000000, // 1 gwei
+        transmitTxSizeBytes: 1764
       });
   }
 

@@ -3,6 +3,7 @@ package remote_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -29,24 +30,24 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	p2 := p2ptypes.PeerID{}
 	require.NoError(t, p2.UnmarshalText([]byte(peerID2)))
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      1,
 		Members: []p2ptypes.PeerID{p1},
 		F:       0,
 	}
 	workflowDonInfo := commoncap.DON{
-		ID:      "workflow-don",
+		ID:      2,
 		Members: []p2ptypes.PeerID{p2},
 		F:       0,
 	}
 
 	dispatcher := remoteMocks.NewDispatcher(t)
-	config := &remotetypes.RemoteTriggerConfig{
-		RegistrationRefreshMs:   100,
-		RegistrationExpiryMs:    100_000,
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
-		MessageExpiryMs:         100_000,
+		MessageExpiry:           100 * time.Second,
 	}
-	workflowDONs := map[string]commoncap.DON{
+	workflowDONs := map[uint32]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
 	}
 	underlying := &testTrigger{
@@ -71,6 +72,12 @@ func TestTriggerPublisher_Register(t *testing.T) {
 		Payload:     marshaled,
 	}
 	publisher.Receive(ctx, regEvent)
+	// node p1 is not a member of the workflow DON so registration shoudn't happen
+	require.Empty(t, underlying.registrationsCh)
+
+	regEvent.Sender = p2[:]
+	publisher.Receive(ctx, regEvent)
+	require.NotEmpty(t, underlying.registrationsCh)
 	forwarded := <-underlying.registrationsCh
 	require.Equal(t, capRequest.Metadata.WorkflowID, forwarded.Metadata.WorkflowID)
 

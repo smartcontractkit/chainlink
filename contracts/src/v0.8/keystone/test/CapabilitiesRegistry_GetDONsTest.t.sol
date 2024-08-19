@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.24;
 
 import {BaseTest} from "./BaseTest.t.sol";
 
 import {CapabilitiesRegistry} from "../CapabilitiesRegistry.sol";
 
 contract CapabilitiesRegistry_GetDONsTest is BaseTest {
-  event ConfigSet(uint32 donId, uint32 configCount);
-
   CapabilitiesRegistry.CapabilityConfiguration[] private s_capabilityConfigs;
 
   function setUp() public override {

@@ -43,6 +43,7 @@ import (
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -950,7 +951,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test ETH key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = types.NetworkEVM
+		jb.OCR2OracleSpec.Relay = relay.NetworkEVM
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no EVM key matching: \"bad key\"")
 
@@ -961,7 +962,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test Cosmos key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = types.NetworkCosmos
+		jb.OCR2OracleSpec.Relay = relay.NetworkCosmos
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Cosmos key matching: \"bad key\"")
 
@@ -973,7 +974,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test Solana key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = types.NetworkSolana
+		jb.OCR2OracleSpec.Relay = relay.NetworkSolana
 
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Solana key matching: \"bad key\"")
@@ -986,13 +987,25 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test Starknet key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = types.NetworkStarkNet
+		jb.OCR2OracleSpec.Relay = relay.NetworkStarkNet
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Starknet key matching: \"bad key\"")
 
 		starkNetKey, err := keyStore.StarkNet().Create(ctx)
 		require.NoError(t, err)
 		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, starkNetKey.ID())
+		require.NoError(t, err)
+	})
+
+	t.Run(("test Aptos key validation"), func(t *testing.T) {
+		ctx := testutils.Context(t)
+		jb.OCR2OracleSpec.Relay = relay.NetworkAptos
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no Aptos key matching: \"bad key\"")
+
+		aptosKey, err := keyStore.Aptos().Create(ctx)
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, aptosKey.ID())
 		require.NoError(t, err)
 	})
 

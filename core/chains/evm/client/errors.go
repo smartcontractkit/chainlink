@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 )
 
@@ -60,7 +61,7 @@ const (
 	TransactionAlreadyMined
 	Fatal
 	ServiceUnavailable
-	OutOfCounters
+	TerminallyStuck
 )
 
 type ClientErrors map[int]*regexp.Regexp
@@ -157,7 +158,13 @@ var arbitrum = ClientErrors{
 	Fatal:                 arbitrumFatal,
 	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
 	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
-	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
+	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$|network is unreachable|i/o timeout`),
+}
+
+// Treasure
+var treasureFatal = regexp.MustCompile(`(: |^)invalid chain id for signer(:|$)`)
+var treasure = ClientErrors{
+	Fatal: treasureFatal,
 }
 
 var celo = ClientErrors{
@@ -246,10 +253,30 @@ var zkSync = ClientErrors{
 }
 
 var zkEvm = ClientErrors{
-	OutOfCounters: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
+	TerminallyStuck: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm}
+var aStar = ClientErrors{
+	TerminallyUnderpriced: regexp.MustCompile(`(?:: |^)(gas price less than block base fee)$`),
+}
+
+var mantle = ClientErrors{
+	InsufficientEth: regexp.MustCompile(`(: |^)'*insufficient funds for gas \* price \+ value`),
+	Fatal:           regexp.MustCompile(`(: |^)'*invalid sender`),
+}
+
+var gnosis = ClientErrors{
+	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(alreadyknown)`),
+}
+
+const TerminallyStuckMsg = "transaction terminally stuck"
+
+// Tx.Error messages that are set internally so they are not chain or client specific
+var internal = ClientErrors{
+	TerminallyStuck: regexp.MustCompile(TerminallyStuckMsg),
+}
+
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, treasure, mantle, aStar, gnosis, internal}
 
 // ClientErrorRegexes returns a map of compiled regexes for each error type
 func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
@@ -353,9 +380,16 @@ func (s *SendError) IsServiceUnavailable(configErrors *ClientErrors) bool {
 	return s.is(ServiceUnavailable, configErrors)
 }
 
-// IsOutOfCounters is a zk chain specific error returned if the transaction is too complex to prove on zk circuits
-func (s *SendError) IsOutOfCounters(configErrors *ClientErrors) bool {
-	return s.is(OutOfCounters, configErrors)
+// IsTerminallyStuck indicates if a transaction was stuck without any chance of inclusion
+func (s *SendError) IsTerminallyStuckConfigError(configErrors *ClientErrors) bool {
+	return s.is(TerminallyStuck, configErrors)
+}
+
+// IsFatal indicates if a transaction error is considered fatal for external callers
+// The naming discrepancy is due to the generic transaction statuses introduced by ChainWriter
+func (s *SendError) IsFatal() bool {
+	// An error classified as terminally stuck is considered fatal since the transaction payload should NOT be retried by external callers
+	return s.IsTerminallyStuckConfigError(nil)
 }
 
 // IsTimeout indicates if the error was caused by an exceeded context deadline
@@ -397,6 +431,10 @@ func NewSendError(e error) *SendError {
 	}
 	fatal := isFatalSendError(e)
 	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal}
+}
+
+func NewTxError(e error) commontypes.ErrorClassifier {
+	return NewSendError(e)
 }
 
 // Geth/parity returns these errors if the transaction failed in such a way that:
@@ -563,6 +601,11 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 			"id", "RPCTxFeeCapExceeded",
 		)
 		return commonclient.ExceedsMaxFee
+	}
+	if sendError.IsTerminallyStuckConfigError(configErrors) {
+		lggr.Warnw("Transaction that would have been terminally stuck in the mempool detected on send. Marking as fatal error.", "err", sendError, "etx", tx)
+		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
+		return commonclient.TerminallyStuck
 	}
 	lggr.Criticalw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
 	return commonclient.Unknown

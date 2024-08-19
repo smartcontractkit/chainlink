@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"fmt"
 )
 
@@ -18,7 +19,7 @@ const (
 	InsufficientFunds                        // Tx was rejected due to insufficient funds.
 	ExceedsMaxFee                            // Attempt's fee was higher than the node's limit and got rejected.
 	FeeOutOfValidRange                       // This error is returned when we use a fee price suggested from an RPC, but the network rejects the attempt due to an invalid range(mostly used by L2 chains). Retry by requesting a new suggested fee price.
-	OutOfCounters                            // The error returned when a transaction is too complex to be proven by zk circuits. This error is mainly returned by zk chains.
+	TerminallyStuck                          // The error returned when a transaction is or could get terminally stuck in the mempool without any chance of inclusion.
 	sendTxReturnCodeLen                      // tracks the number of errors. Must always be last
 )
 
@@ -50,8 +51,8 @@ func (c SendTxReturnCode) String() string {
 		return "ExceedsMaxFee"
 	case FeeOutOfValidRange:
 		return "FeeOutOfValidRange"
-	case OutOfCounters:
-		return "OutOfCounters"
+	case TerminallyStuck:
+		return "TerminallyStuck"
 	default:
 		return fmt.Sprintf("SendTxReturnCode(%d)", c)
 	}
@@ -72,5 +73,49 @@ func (n NodeTier) String() string {
 		return "secondary"
 	default:
 		return fmt.Sprintf("NodeTier(%d)", n)
+	}
+}
+
+// syncStatus - defines problems related to RPC's state synchronization. Can be used as a bitmask to define multiple issues
+type syncStatus int
+
+const (
+	// syncStatusSynced - RPC is fully synced
+	syncStatusSynced = 0
+	// syncStatusNotInSyncWithPool - RPC is lagging behind the highest block observed within the pool of RPCs
+	syncStatusNotInSyncWithPool syncStatus = 1 << iota
+	// syncStatusNoNewHead - RPC failed to produce a new head for too long
+	syncStatusNoNewHead
+	// syncStatusNoNewFinalizedHead - RPC failed to produce a new finalized head for too long
+	syncStatusNoNewFinalizedHead
+	syncStatusLen
+)
+
+func (s syncStatus) String() string {
+	if s == syncStatusSynced {
+		return "Synced"
+	}
+	var result bytes.Buffer
+	for i := syncStatusNotInSyncWithPool; i < syncStatusLen; i = i << 1 {
+		if i&s == 0 {
+			continue
+		}
+		result.WriteString(i.string())
+		result.WriteString(",")
+	}
+	result.Truncate(result.Len() - 1)
+	return result.String()
+}
+
+func (s syncStatus) string() string {
+	switch s {
+	case syncStatusNotInSyncWithPool:
+		return "NotInSyncWithRPCPool"
+	case syncStatusNoNewHead:
+		return "NoNewHead"
+	case syncStatusNoNewFinalizedHead:
+		return "NoNewFinalizedHead"
+	default:
+		return fmt.Sprintf("syncStatus(%d)", s)
 	}
 }

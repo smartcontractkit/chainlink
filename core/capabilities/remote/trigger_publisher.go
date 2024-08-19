@@ -21,11 +21,12 @@ import (
 //
 // TriggerPublisher communicates with corresponding TriggerSubscribers on remote nodes.
 type triggerPublisher struct {
-	config        *types.RemoteTriggerConfig
+	config        *capabilities.RemoteTriggerConfig
 	underlying    commoncap.TriggerCapability
 	capInfo       commoncap.CapabilityInfo
 	capDonInfo    commoncap.DON
-	workflowDONs  map[string]commoncap.DON
+	workflowDONs  map[uint32]commoncap.DON
+	membersCache  map[uint32]map[p2ptypes.PeerID]bool
 	dispatcher    types.Dispatcher
 	messageCache  *messageCache[registrationKey, p2ptypes.PeerID]
 	registrations map[registrationKey]*pubRegState
@@ -36,7 +37,7 @@ type triggerPublisher struct {
 }
 
 type registrationKey struct {
-	callerDonId string
+	callerDonId uint32
 	workflowId  string
 }
 
@@ -48,19 +49,32 @@ type pubRegState struct {
 var _ types.Receiver = &triggerPublisher{}
 var _ services.Service = &triggerPublisher{}
 
-func NewTriggerPublisher(config *types.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
+func NewTriggerPublisher(config *capabilities.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
+	if config == nil {
+		lggr.Info("no config provided, using default values")
+		config = &capabilities.RemoteTriggerConfig{}
+	}
 	config.ApplyDefaults()
+	membersCache := make(map[uint32]map[p2ptypes.PeerID]bool)
+	for id, don := range workflowDONs {
+		cache := make(map[p2ptypes.PeerID]bool)
+		for _, member := range don.Members {
+			cache[member] = true
+		}
+		membersCache[id] = cache
+	}
 	return &triggerPublisher{
 		config:        config,
 		underlying:    underlying,
 		capInfo:       capInfo,
 		capDonInfo:    capDonInfo,
 		workflowDONs:  workflowDONs,
+		membersCache:  membersCache,
 		dispatcher:    dispatcher,
 		messageCache:  NewMessageCache[registrationKey, p2ptypes.PeerID](),
 		registrations: make(map[registrationKey]*pubRegState),
 		stopCh:        make(services.StopChan),
-		lggr:          lggr,
+		lggr:          lggr.Named("TriggerPublisher"),
 	}
 }
 
@@ -84,6 +98,14 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			p.lggr.Errorw("received a message from unsupported workflow DON", "capabilityId", p.capInfo.ID, "callerDonId", msg.CallerDonId)
 			return
 		}
+		if !p.membersCache[msg.CallerDonId][sender] {
+			p.lggr.Errorw("sender not a member of its workflow DON", "capabilityId", p.capInfo.ID, "callerDonId", msg.CallerDonId, "sender", sender)
+			return
+		}
+		if !IsValidWorkflowOrExecutionID(req.Metadata.WorkflowID) {
+			p.lggr.Errorw("received trigger request with invalid workflow ID", "capabilityId", p.capInfo.ID, "workflowId", SanitizeLogString(req.Metadata.WorkflowID))
+			return
+		}
 		p.lggr.Debugw("received trigger registration", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "sender", sender)
 		key := registrationKey{msg.CallerDonId, req.Metadata.WorkflowID}
 		nowMs := time.Now().UnixMilli()
@@ -97,7 +119,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		}
 		// NOTE: require 2F+1 by default, introduce different strategies later (KS-76)
 		minRequired := uint32(2*callerDon.F + 1)
-		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-int64(p.config.RegistrationExpiryMs), false)
+		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-p.config.RegistrationExpiry.Milliseconds(), false)
 		if !ready {
 			p.lggr.Debugw("not ready to aggregate yet", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "minRequired", minRequired)
 			return
@@ -127,13 +149,13 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			p.lggr.Errorw("failed to register trigger", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "err", err)
 		}
 	} else {
-		p.lggr.Errorw("received trigger request with unknown method", "method", msg.Method, "sender", sender)
+		p.lggr.Errorw("received trigger request with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender)
 	}
 }
 
 func (p *triggerPublisher) registrationCleanupLoop() {
 	defer p.wg.Done()
-	ticker := time.NewTicker(time.Duration(p.config.RegistrationExpiryMs) * time.Millisecond)
+	ticker := time.NewTicker(p.config.RegistrationExpiry)
 	defer ticker.Stop()
 	for {
 		select {
@@ -141,10 +163,10 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 			return
 		case <-ticker.C:
 			now := time.Now().UnixMilli()
-			p.mu.RLock()
+			p.mu.Lock()
 			for key, req := range p.registrations {
 				callerDon := p.workflowDONs[key.callerDonId]
-				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-int64(p.config.RegistrationExpiryMs), false)
+				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-p.config.RegistrationExpiry.Milliseconds(), false)
 				if !ready {
 					p.lggr.Infow("trigger registration expired", "capabilityId", p.capInfo.ID, "callerDonID", key.callerDonId, "workflowId", key.workflowId)
 					ctx, cancel := p.stopCh.NewCtx()
@@ -156,7 +178,7 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 					p.messageCache.Delete(key)
 				}
 			}
-			p.mu.RUnlock()
+			p.mu.Unlock()
 		}
 	}
 }

@@ -3,16 +3,19 @@ package actions
 import (
 	"fmt"
 	"math/big"
+	"math/rand"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/seth"
+
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -21,163 +24,6 @@ import (
 
 // This actions file often returns functions, rather than just values. These are used as common test helpers, and are
 // handy to have returning as functions so that Ginkgo can use them in an aesthetically pleasing way.
-
-// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.DeployOCRContracts
-func DeployOCRContracts(
-	numberOfContracts int,
-	linkTokenContract contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	workerNodes []*client.ChainlinkK8sClient,
-	client blockchain.EVMClient,
-) ([]contracts.OffchainAggregator, error) {
-	// Deploy contracts
-	var ocrInstances []contracts.OffchainAggregator
-	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
-		ocrInstance, err := contractDeployer.DeployOffChainAggregator(
-			linkTokenContract.Address(),
-			contracts.DefaultOffChainAggregatorOptions(),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("OCR instance deployment have failed: %w", err)
-		}
-		ocrInstances = append(ocrInstances, ocrInstance)
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			if err != nil {
-				return nil, fmt.Errorf("failed to wait for OCR contract deployments: %w", err)
-			}
-		}
-	}
-	err := client.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("error waiting for OCR contract deployments: %w", err)
-	}
-
-	// Gather transmitter and address payees
-	var transmitters, payees []string
-	for _, node := range workerNodes {
-		addr, err := node.PrimaryEthAddress()
-		if err != nil {
-			return nil, fmt.Errorf("error getting node's primary ETH address: %w", err)
-		}
-		transmitters = append(transmitters, addr)
-		payees = append(payees, client.GetDefaultWallet().Address())
-	}
-
-	// Set Payees
-	for contractCount, ocrInstance := range ocrInstances {
-		err = ocrInstance.SetPayees(transmitters, payees)
-		if err != nil {
-			return nil, fmt.Errorf("error settings OCR payees: %w", err)
-		}
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			if err != nil {
-				return nil, fmt.Errorf("failed to wait for setting OCR payees: %w", err)
-			}
-		}
-	}
-	err = client.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("error waiting for OCR contracts to set payees and transmitters: %w", err)
-	}
-
-	// Set Config
-	transmitterAddresses, err := ChainlinkNodeAddresses(workerNodes)
-	if err != nil {
-		return nil, fmt.Errorf("getting node common addresses should not fail: %w", err)
-	}
-	for contractCount, ocrInstance := range ocrInstances {
-		// Exclude the first node, which will be used as a bootstrapper
-		err = ocrInstance.SetConfig(
-			contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes),
-			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
-			transmitterAddresses,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("error setting OCR config for contract '%s': %w", ocrInstance.Address(), err)
-		}
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			if err != nil {
-				return nil, fmt.Errorf("failed to wait for setting OCR config: %w", err)
-			}
-		}
-	}
-	err = client.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("error waiting for OCR contracts to set config: %w", err)
-	}
-	return ocrInstances, nil
-}
-
-// DeployOCRContractsForwarderFlow deploys and funds a certain number of offchain
-// aggregator contracts with forwarders as effectiveTransmitters
-// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.DeployOCRContractsForwarderFlow
-func DeployOCRContractsForwarderFlow(
-	t *testing.T,
-	numberOfContracts int,
-	linkTokenContract contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	workerNodes []*client.ChainlinkK8sClient,
-	forwarderAddresses []common.Address,
-	client blockchain.EVMClient,
-) []contracts.OffchainAggregator {
-	// Deploy contracts
-	var ocrInstances []contracts.OffchainAggregator
-	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
-		ocrInstance, err := contractDeployer.DeployOffChainAggregator(
-			linkTokenContract.Address(),
-			contracts.DefaultOffChainAggregatorOptions(),
-		)
-		require.NoError(t, err, "Deploying OCR instance %d shouldn't fail", contractCount+1)
-		ocrInstances = append(ocrInstances, ocrInstance)
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			require.NoError(t, err, "Failed to wait for OCR Contract deployments")
-		}
-	}
-	err := client.WaitForEvents()
-	require.NoError(t, err, "Error waiting for OCR contract deployments")
-
-	// Gather transmitter and address payees
-	var transmitters, payees []string
-	for _, forwarderCommonAddress := range forwarderAddresses {
-		forwarderAddress := forwarderCommonAddress.Hex()
-		transmitters = append(transmitters, forwarderAddress)
-		payees = append(payees, client.GetDefaultWallet().Address())
-	}
-
-	// Set Payees
-	for contractCount, ocrInstance := range ocrInstances {
-		err = ocrInstance.SetPayees(transmitters, payees)
-		require.NoError(t, err, "Error setting OCR payees")
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			require.NoError(t, err, "Failed to wait for setting OCR payees")
-		}
-	}
-	err = client.WaitForEvents()
-	require.NoError(t, err, "Error waiting for OCR contracts to set payees and transmitters")
-
-	// Set Config
-	for contractCount, ocrInstance := range ocrInstances {
-		// Exclude the first node, which will be used as a bootstrapper
-		err = ocrInstance.SetConfig(
-			contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes),
-			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
-			forwarderAddresses,
-		)
-		require.NoError(t, err, "Error setting OCR config for contract '%d'", ocrInstance.Address())
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			require.NoError(t, err, "Failed to wait for setting OCR config")
-		}
-	}
-	err = client.WaitForEvents()
-	require.NoError(t, err, "Error waiting for OCR contracts to set config")
-	return ocrInstances
-}
 
 // CreateOCRJobs bootstraps the first node and to the other nodes sends ocr jobs that
 // read from different adapters, to be used in combination with SetAdapterResponses
@@ -322,49 +168,6 @@ func CreateOCRJobsWithForwarder(
 	}
 }
 
-// StartNewRound requests a new round from the ocr contracts and waits for confirmation
-// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.StartNewRound
-func StartNewRound(
-	roundNumber int64,
-	ocrInstances []contracts.OffchainAggregator,
-	client blockchain.EVMClient,
-	logger zerolog.Logger,
-) error {
-	for i := 0; i < len(ocrInstances); i++ {
-		err := ocrInstances[i].RequestNewRound()
-		if err != nil {
-			return fmt.Errorf("requesting new OCR round %d have failed: %w", i+1, err)
-		}
-		ocrRound := contracts.NewOffchainAggregatorRoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), client.GetNetworkConfig().Timeout.Duration, logger)
-		client.AddHeaderEventSubscription(ocrInstances[i].Address(), ocrRound)
-		err = client.WaitForEvents()
-		if err != nil {
-			return fmt.Errorf("failed to wait for event subscriptions of OCR instance %d: %w", i+1, err)
-		}
-	}
-	return nil
-}
-
-// WatchNewRound watches for a new OCR round, similarly to StartNewRound, but it does not explicitly request a new
-// round from the contract, as this can cause some odd behavior in some cases
-// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.WatchNewRound
-func WatchNewRound(
-	roundNumber int64,
-	ocrInstances []contracts.OffchainAggregator,
-	client blockchain.EVMClient,
-	logger zerolog.Logger,
-) error {
-	for i := 0; i < len(ocrInstances); i++ {
-		ocrRound := contracts.NewOffchainAggregatorRoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), client.GetNetworkConfig().Timeout.Duration, logger)
-		client.AddHeaderEventSubscription(ocrInstances[i].Address(), ocrRound)
-		err := client.WaitForEvents()
-		if err != nil {
-			return fmt.Errorf("failed to wait for event subscriptions of OCR instance %d: %w", i+1, err)
-		}
-	}
-	return nil
-}
-
 // SetAdapterResponse sets a single adapter response that correlates with an ocr contract and a chainlink node
 func SetAdapterResponse(
 	response int,
@@ -405,33 +208,6 @@ func SetAllAdapterResponsesToTheSameValue(
 	return eg.Wait()
 }
 
-// SetAllAdapterResponsesToDifferentValues sets the mock responses in mockserver that are read by chainlink nodes
-// to simulate different adapters. This sets all adapter responses for each node and contract to different responses
-func SetAllAdapterResponsesToDifferentValues(
-	responses []int,
-	ocrInstances []contracts.OffchainAggregator,
-	chainlinkNodes []*client.ChainlinkK8sClient,
-	mockserver *ctfClient.MockserverClient,
-) error {
-	if len(responses) != len(ocrInstances)*len(chainlinkNodes) {
-		return fmt.Errorf(
-			"amount of responses %d should be equal to the amount of OCR instances %d times the amount of Chainlink nodes %d",
-			len(responses), len(ocrInstances), len(chainlinkNodes),
-		)
-	}
-	eg := &errgroup.Group{}
-	for _, o := range ocrInstances {
-		ocrInstance := o
-		for ni := 1; ni < len(chainlinkNodes); ni++ {
-			nodeIndex := ni
-			eg.Go(func() error {
-				return SetAdapterResponse(responses[nodeIndex-1], ocrInstance, chainlinkNodes[nodeIndex], mockserver)
-			})
-		}
-	}
-	return eg.Wait()
-}
-
 // BuildNodeContractPairID builds a UUID based on a related pair of a Chainlink node and OCR contract
 func BuildNodeContractPairID(node contracts.ChainlinkNodeWithKeysAndAddress, ocrInstance contracts.OffchainAggregator) (string, error) {
 	if node == nil {
@@ -447,4 +223,56 @@ func BuildNodeContractPairID(node contracts.ChainlinkNodeWithKeysAndAddress, ocr
 	shortNodeAddr := nodeAddress[2:12]
 	shortOCRAddr := ocrInstance.Address()[2:12]
 	return strings.ToLower(fmt.Sprintf("node_%s_contract_%s", shortNodeAddr, shortOCRAddr)), nil
+}
+
+func SetupOCRv1Cluster(
+	l zerolog.Logger,
+	seth *seth.Client,
+	workerNodes []*client.ChainlinkK8sClient,
+) (common.Address, error) {
+	err := FundChainlinkNodesFromRootAddress(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(3))
+	if err != nil {
+		return common.Address{}, err
+	}
+	linkContract, err := contracts.DeployLinkTokenContract(l, seth)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return common.HexToAddress(linkContract.Address()), nil
+}
+
+func SetupOCRv1Feed(
+	l zerolog.Logger,
+	seth *seth.Client,
+	lta common.Address,
+	msClient *ctfClient.MockserverClient,
+	bootstrapNode *client.ChainlinkK8sClient,
+	workerNodes []*client.ChainlinkK8sClient,
+) ([]contracts.OffchainAggregator, error) {
+	ocrInstances, err := DeployOCRv1Contracts(l, seth, 1, lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
+	if err != nil {
+		return nil, err
+	}
+	err = CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, msClient, fmt.Sprint(seth.ChainID))
+	if err != nil {
+		return nil, err
+	}
+	return ocrInstances, nil
+}
+
+func SimulateOCRv1EAActivity(
+	l zerolog.Logger,
+	eaChangeInterval time.Duration,
+	ocrInstances []contracts.OffchainAggregator,
+	workerNodes []*client.ChainlinkK8sClient,
+	msClient *ctfClient.MockserverClient,
+) {
+	go func() {
+		for {
+			time.Sleep(eaChangeInterval)
+			if err := SetAllAdapterResponsesToTheSameValue(rand.Intn(1000), ocrInstances, workerNodes, msClient); err != nil {
+				l.Error().Err(err).Msg("failed to update mockserver responses")
+			}
+		}
+	}()
 }

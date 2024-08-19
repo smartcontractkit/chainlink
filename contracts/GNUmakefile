@@ -1,6 +1,6 @@
 # ALL_FOUNDRY_PRODUCTS contains a list of all products that have a foundry
-# profile defined and use the Foundry snapshots. 
-ALL_FOUNDRY_PRODUCTS = functions keystone l2ep llo-feeds operatorforwarder shared transmission
+# profile defined and use the Foundry snapshots.
+ALL_FOUNDRY_PRODUCTS = ccip functions keystone l2ep liquiditymanager llo-feeds operatorforwarder shared transmission
 
 # To make a snapshot for a specific product, either set the `FOUNDRY_PROFILE` env var
 # or call the target with `FOUNDRY_PROFILE=product`
@@ -16,11 +16,11 @@ ALL_FOUNDRY_PRODUCTS = functions keystone l2ep llo-feeds operatorforwarder share
 # a static fuzz seed by default, flaky gas results per platform are still observed.
 .PHONY: snapshot
 snapshot: ## Make a snapshot for a specific product.
-	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --nmt "testFuzz_\w{1,}?" --snap gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
+	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --nmt "test_?Fuzz_\w{1,}?" --snap gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
 
 .PHONY: snapshot-diff
 snapshot-diff: ## Make a snapshot for a specific product.
-	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --nmt "testFuzz_\w{1,}?" --diff gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
+	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --nmt "test_?Fuzz_\w{1,}?" --diff gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
 
 
 .PHONY: snapshot-all
@@ -39,7 +39,7 @@ abigen: ## Build & install abigen.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.35.4
+	go install github.com/vektra/mockery/v2@v2.43.2
 
 .PHONY: foundry
 foundry: ## Install foundry.
@@ -49,6 +49,21 @@ foundry: ## Install foundry.
 foundry-refresh: foundry
 	git submodule deinit -f .
 	git submodule update --init --recursive
+
+ccip-precommit: export FOUNDRY_PROFILE=ccip
+.PHONY: ccip-precommit
+ccip-precommit:
+	forge test
+	make snapshot
+	forge fmt
+	pnpm solhint
+
+ccip-lcov: export FOUNDRY_PROFILE=ccip
+.PHONY: ccip-lcov
+ccip-lcov:
+	forge coverage --report lcov
+	../tools/ci/ccip_lcov_prune ./lcov.info ./lcov.info.pruned
+	genhtml -o report lcov.info.pruned --branch-coverage
 
 # To generate gethwrappers for a specific product, either set the `FOUNDRY_PROFILE`
 # env var or call the target with `FOUNDRY_PROFILE=product`
@@ -72,18 +87,6 @@ wrappers: pnpmdep mockery abigen ## Recompiles solidity contracts and their go w
 wrappers-all: pnpmdep mockery abigen ## Recompiles solidity contracts and their go wrappers.
 	# go_generate contains a call to  compile all contracts before generating wrappers
 	go generate ../core/gethwrappers/go_generate.go
-
-# Custom wrapper generation for OCR2VRF as their contracts do not exist in this repo
-.PHONY: go-solidity-wrappers-ocr2vrf
-go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles OCR2VRF solidity contracts and their go wrappers.
-	./scripts/native_solc_compile_all_ocr2vrf
-	# replace the go:generate_disabled directive with the regular go:generate directive
-	sed -i '' 's/go:generate_disabled/go:generate/g' ../core/gethwrappers/ocr2vrf/go_generate.go
-	go generate ../core/gethwrappers/ocr2vrf
-	go generate ../core/internal/mocks
-	# put the go:generate_disabled directive back
-	sed -i '' 's/go:generate/go:generate_disabled/g' ../core/gethwrappers/ocr2vrf/go_generate.go
-
 
 help:
 	@echo ""
