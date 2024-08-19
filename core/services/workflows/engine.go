@@ -36,7 +36,7 @@ type Engine struct {
 	localNode            capabilities.Node
 	executionStates      store.Store
 	pendingStepRequests  chan stepRequest
-	triggerEvents        chan capabilities.CapabilityResponse
+	triggerEvents        chan capabilities.TriggerRegistrationResponse
 	stepUpdateCh         chan store.WorkflowExecutionStep
 	wg                   sync.WaitGroup
 	stopCh               services.StopChan
@@ -319,14 +319,6 @@ func generateTriggerId(workflowID string, triggerIdx int) string {
 // registerTrigger is used during the initialization phase to bind a trigger to this workflow
 func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
 	triggerID := generateTriggerId(e.workflow.id, triggerIdx)
-	triggerInputs, err := values.NewMap(
-		map[string]any{
-			"triggerId": triggerID,
-		},
-	)
-	if err != nil {
-		return err
-	}
 
 	tc, err := values.NewMap(t.Config)
 	if err != nil {
@@ -335,7 +327,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 
 	t.config.Store(tc)
 
-	triggerRegRequest := capabilities.CapabilityRequest{
+	triggerRegRequest := capabilities.TriggerRegistrationRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               e.workflow.id,
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
@@ -343,8 +335,8 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 			WorkflowName:             e.workflow.name,
 			WorkflowOwner:            e.workflow.owner,
 		},
-		Config: t.config.Load(),
-		Inputs: triggerInputs,
+		Config:    t.config.Load(),
+		TriggerID: triggerID,
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
 	if err != nil {
@@ -422,12 +414,7 @@ func (e *Engine) loop(ctx context.Context) {
 				continue
 			}
 
-			te := &capabilities.TriggerEvent{}
-			err := resp.Value.UnwrapTo(te)
-			if err != nil {
-				e.logger.Errorf("could not unwrap trigger event; error %v", resp.Err)
-				continue
-			}
+			te := resp.Event
 
 			executionID, err := generateExecutionID(e.workflow.id, te.ID)
 			if err != nil {
@@ -435,7 +422,7 @@ func (e *Engine) loop(ctx context.Context) {
 				continue
 			}
 
-			err = e.startExecution(ctx, executionID, resp.Value)
+			err = e.startExecution(ctx, executionID, resp.Event)
 			if err != nil {
 				e.logger.With(eIDKey, executionID).Errorf("failed to start execution: %v", err)
 			}
@@ -466,13 +453,17 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 }
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
-func (e *Engine) startExecution(ctx context.Context, executionID string, event values.Value) error {
+func (e *Engine) startExecution(ctx context.Context, executionID string, event capabilities.TriggerEvent) error {
 	e.logger.With("event", event, eIDKey, executionID).Debug("executing on a trigger event")
+	wrappedEvent, err := values.Wrap(event)
+	if err != nil {
+		return fmt.Errorf("failed to wrap event: %w", err)
+	}
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
 				Outputs: store.StepOutput{
-					Value: event,
+					Value: wrappedEvent,
 				},
 				Status:      store.StatusCompleted,
 				ExecutionID: executionID,
@@ -484,7 +475,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event v
 		Status:      store.StatusStarted,
 	}
 
-	err := e.executionStates.Add(ctx, ec)
+	err = e.executionStates.Add(ctx, ec)
 	if err != nil {
 		return err
 	}
@@ -775,15 +766,7 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 }
 
 func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
-	triggerInputs, err := values.NewMap(
-		map[string]any{
-			"triggerId": generateTriggerId(e.workflow.id, triggerIdx),
-		},
-	)
-	if err != nil {
-		return err
-	}
-	deregRequest := capabilities.CapabilityRequest{
+	deregRequest := capabilities.TriggerRegistrationRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               e.workflow.id,
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
@@ -791,8 +774,8 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 			WorkflowName:             e.workflow.name,
 			WorkflowOwner:            e.workflow.owner,
 		},
-		Inputs: triggerInputs,
-		Config: t.config.Load(),
+		TriggerID: generateTriggerId(e.workflow.id, triggerIdx),
+		Config:    t.config.Load(),
 	}
 
 	// if t.trigger == nil, then we haven't initialized the workflow
