@@ -46,16 +46,16 @@ type OracleConfigSource struct {
 }
 
 type NodeKeys struct {
-	EthAddress            string
-	AptosAccount          string
-	AptosBundleID         string
-	AptosOnchainPublicKey string
-	P2PPeerID             string // p2p_<key>
-	OCR2BundleID          string // used only in job spec
-	OCR2OnchainPublicKey  string // ocr2on_evm_<key>
-	OCR2OffchainPublicKey string // ocr2off_evm_<key>
-	OCR2ConfigPublicKey   string // ocr2cfg_evm_<key>
-	CSAPublicKey          string
+	EthAddress            string `json:"EthAddress"`
+	AptosAccount          string `json:"AptosAccount"`
+	AptosBundleID         string `json:"AptosBundleID"`
+	AptosOnchainPublicKey string `json:"AptosOnchainPublicKey"`
+	P2PPeerID             string `json:"P2PPeerID"`             // p2p_<key>
+	OCR2BundleID          string `json:"OCR2BundleID"`          // used only in job spec
+	OCR2OnchainPublicKey  string `json:"OCR2OnchainPublicKey"`  // ocr2on_evm_<key>
+	OCR2OffchainPublicKey string `json:"OCR2OffchainPublicKey"` // ocr2off_evm_<key>
+	OCR2ConfigPublicKey   string `json:"OCR2ConfigPublicKey"`   // ocr2cfg_evm_<key>
+	CSAPublicKey          string `json:"CSAPublicKey"`
 }
 
 type orc2drOracleConfig struct {
