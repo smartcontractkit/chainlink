@@ -43,7 +43,7 @@ type registrationKey struct {
 }
 
 type pubRegState struct {
-	callback <-chan commoncap.TriggerRegistrationResponse
+	callback <-chan commoncap.TriggerResponse
 	request  commoncap.TriggerRegistrationRequest
 }
 
@@ -189,7 +189,7 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 	}
 }
 
-func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerRegistrationResponse, key registrationKey) {
+func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerResponse, key registrationKey) {
 	defer p.wg.Done()
 	for {
 		select {
@@ -202,7 +202,7 @@ func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerR
 			}
 			triggerEvent := response.Event
 			p.lggr.Debugw("received trigger event", "capabilityId", p.capInfo.ID, "workflowId", key.workflowId, "triggerEventID", triggerEvent.ID)
-			marshaled, err := pb.MarshalTriggerRegistrationResponse(response)
+			marshaled, err := pb.MarshalTriggerResponse(response)
 			if err != nil {
 				p.lggr.Debugw("can't marshal trigger event", "err", err)
 				break

@@ -43,7 +43,7 @@ type triggerEventKey struct {
 }
 
 type subRegState struct {
-	callback   chan commoncap.TriggerRegistrationResponse
+	callback   chan commoncap.TriggerResponse
 	rawRequest []byte
 }
 
@@ -98,7 +98,7 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 	return s.capInfo, nil
 }
 
-func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerRegistrationResponse, error) {
+func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
 	rawRequest, err := pb.MarshalTriggerRegistrationRequest(request)
 	if err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 	regState, ok := s.registeredWorkflows[request.Metadata.WorkflowID]
 	if !ok {
 		regState = &subRegState{
-			callback:   make(chan commoncap.TriggerRegistrationResponse, defaultSendChannelBufferSize),
+			callback:   make(chan commoncap.TriggerResponse, defaultSendChannelBufferSize),
 			rawRequest: rawRequest,
 		}
 		s.registeredWorkflows[request.Metadata.WorkflowID] = regState

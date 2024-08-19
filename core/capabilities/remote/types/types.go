@@ -31,7 +31,7 @@ type Receiver interface {
 }
 
 type Aggregator interface {
-	Aggregate(eventID string, responses [][]byte) (commoncap.TriggerRegistrationResponse, error)
+	Aggregate(eventID string, responses [][]byte) (commoncap.TriggerResponse, error)
 }
 
 // NOTE: this type will become part of the Registry (KS-108)

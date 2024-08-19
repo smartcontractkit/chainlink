@@ -20,7 +20,7 @@ func copyState(es store.WorkflowExecution) store.WorkflowExecution {
 			mval = step.Inputs.CopyMap()
 		}
 
-		copiedov := step.Outputs.Value.Copy()
+		copiedov := values.Copy(step.Outputs.Value)
 
 		newState := &store.WorkflowExecutionStep{
 			ExecutionID: step.ExecutionID,

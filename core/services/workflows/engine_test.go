@@ -223,20 +223,20 @@ func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request cap
 
 type mockTriggerCapability struct {
 	capabilities.CapabilityInfo
-	triggerEvent *capabilities.CapabilityResponse
-	ch           chan capabilities.CapabilityResponse
+	triggerEvent *capabilities.TriggerResponse
+	ch           chan capabilities.TriggerResponse
 }
 
 var _ capabilities.TriggerCapability = (*mockTriggerCapability)(nil)
 
-func (m *mockTriggerCapability) RegisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+func (m *mockTriggerCapability) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	if m.triggerEvent != nil {
 		m.ch <- *m.triggerEvent
 	}
 	return m.ch, nil
 }
 
-func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) error {
+func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
 	return nil
 }
 
@@ -275,8 +275,17 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	servicetest.Run(t, eng)
 
 	eid := getExecutionId(t, eng, testHooks)
-	assert.Equal(t, cr, <-target1.response)
-	assert.Equal(t, cr, <-target2.response)
+	resp1 := <-target1.response
+	assert.NoError(t, resp1.Err)
+	var te capabilities.TriggerEvent
+	require.NoError(t, resp1.Value.UnwrapTo(&te))
+	assert.Equal(t, cr.Event, te)
+
+	resp2 := <-target2.response
+	var te2 capabilities.TriggerEvent
+	require.NoError(t, resp1.Value.UnwrapTo(&te2))
+	assert.NoError(t, resp2.Err)
+	assert.Equal(t, cr.Event, te2)
 
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
@@ -327,14 +336,14 @@ targets:
 `
 )
 
-func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.CapabilityResponse) {
+func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.TriggerResponse) {
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
 			"mercury-trigger@1.0.0",
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 		),
-		ch: make(chan capabilities.CapabilityResponse, 10),
+		ch: make(chan capabilities.TriggerResponse, 10),
 	}
 	resp, err := values.NewMap(map[string]any{
 		"123": decimal.NewFromFloat(1.00),
@@ -342,11 +351,13 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Cap
 		"789": decimal.NewFromFloat(1.50),
 	})
 	require.NoError(t, err)
-	cr := capabilities.CapabilityResponse{
-		Value: resp,
+	tr := capabilities.TriggerResponse{
+		Event: capabilities.TriggerEvent{
+			Payload: resp,
+		},
 	}
-	mt.triggerEvent = &cr
-	return mt, cr
+	mt.triggerEvent = &tr
+	return mt, tr
 }
 
 func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
@@ -356,7 +367,7 @@ func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 		),
-		ch: make(chan capabilities.CapabilityResponse, 10),
+		ch: make(chan capabilities.TriggerResponse, 10),
 	}
 	return mt
 }
@@ -551,7 +562,7 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
-	trigger, cr := mockTrigger(t)
+	trigger, tr := mockTrigger(t)
 
 	require.NoError(t, reg.Add(ctx, trigger))
 	require.NoError(t, reg.Add(ctx, mockConsensus()))
@@ -578,9 +589,9 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	obs := unw.(map[string]any)["observations"]
 	assert.Len(t, obs, 2)
 
-	tunw, err := values.Unwrap(cr.Value)
+	tunw, err := values.Unwrap(tr.Event.Payload)
 	require.NoError(t, err)
-	assert.Equal(t, obs.([]any)[0], tunw)
+	assert.Equal(t, obs.([]any)[0].(map[string]any)["Payload"], tunw)
 
 	o, err := values.Unwrap(out)
 	require.NoError(t, err)

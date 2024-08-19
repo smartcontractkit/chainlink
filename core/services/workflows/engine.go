@@ -36,7 +36,7 @@ type Engine struct {
 	localNode            capabilities.Node
 	executionStates      store.Store
 	pendingStepRequests  chan stepRequest
-	triggerEvents        chan capabilities.TriggerRegistrationResponse
+	triggerEvents        chan capabilities.TriggerResponse
 	stepUpdateCh         chan store.WorkflowExecutionStep
 	wg                   sync.WaitGroup
 	stopCh               services.StopChan
@@ -939,7 +939,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		executionStates:      cfg.Store,
 		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
 		stepUpdateCh:         make(chan store.WorkflowExecutionStep),
-		triggerEvents:        make(chan capabilities.CapabilityResponse),
+		triggerEvents:        make(chan capabilities.TriggerResponse),
 		stopCh:               make(chan struct{}),
 		newWorkerTimeout:     cfg.NewWorkerTimeout,
 		maxExecutionDuration: cfg.MaxExecutionDuration,
