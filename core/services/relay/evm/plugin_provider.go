@@ -13,7 +13,6 @@ import (
 
 type pluginProvider struct {
 	services.Service
-	chainReader         types.ContractReader
 	codec               types.Codec
 	contractTransmitter ocrtypes.ContractTransmitter
 	configWatcher       *configWatcher
@@ -24,14 +23,12 @@ type pluginProvider struct {
 var _ types.PluginProvider = (*pluginProvider)(nil)
 
 func NewPluginProvider(
-	chainReader types.ContractReader,
 	codec types.Codec,
 	contractTransmitter ocrtypes.ContractTransmitter,
 	configWatcher *configWatcher,
 	lggr logger.Logger,
 ) *pluginProvider {
 	return &pluginProvider{
-		chainReader:         chainReader,
 		codec:               codec,
 		contractTransmitter: contractTransmitter,
 		configWatcher:       configWatcher,
@@ -63,7 +60,7 @@ func (p *pluginProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker 
 }
 
 func (p *pluginProvider) ChainReader() types.ContractReader {
-	return p.chainReader
+	return nil
 }
 
 func (p *pluginProvider) Codec() types.Codec {
