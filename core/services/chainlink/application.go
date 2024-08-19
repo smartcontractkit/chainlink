@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -45,6 +46,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
@@ -256,6 +259,33 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			registrySyncer.AddLauncher(wfLauncher)
 
 			srvcs = append(srvcs, wfLauncher, registrySyncer)
+		}
+
+		// TODO: Add this to node's TOML config and enable only for the Workflow DON
+		//   if cfg.Capabilities().GatewayConnector().Enabled() {
+		{
+			// TODO: extract this from TOML
+			config := &gateway_connector.WorkflowConnectorConfig{
+				ChainIDForNodeKey: big.NewInt(11155111),
+				GatewayConnectorConfig: &connector.ConnectorConfig{
+					NodeAddress: "", // set later from keystore
+					DonId:       "workflow_don_1",
+					Gateways: []connector.ConnectorGatewayConfig{
+						{
+							Id:  "my_gateway",
+							URL: "ws://localhost:5003/node",
+						},
+					},
+					WsClientConfig: network.WebSocketClientConfig{
+						HandshakeTimeoutMillis: 1000,
+					},
+					AuthMinChallengeLen:       10,
+					AuthTimestampToleranceSec: 300,
+				},
+			}
+
+			srvcWrapper := gateway_connector.NewGatewayConnectorServiceWrapper(config, keyStore.Eth(), globalLogger)
+			srvcs = append(srvcs, srvcWrapper)
 		}
 	} else {
 		globalLogger.Debug("External registry not configured, skipping registry syncer and starting with an empty registry")
