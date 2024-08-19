@@ -155,6 +155,30 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, stuckTxs, 0)
 	})
+
+	t.Run("excludes transactions with a in-progress attempt", func(t *testing.T) {
+		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
+		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+		attempt.TxFee.Legacy = assets.NewWeiI(2)
+		attempt.State = txmgrtypes.TxAttemptInProgress
+		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
+		stuckTxs, err := stuckTxDetector.FindUnconfirmedTxWithLowestNonce(ctx, []common.Address{fromAddress})
+		require.NoError(t, err)
+		require.Len(t, stuckTxs, 0)
+	})
+
+	t.Run("excludes transactions with an insufficient funds attempt", func(t *testing.T) {
+		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
+		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+		attempt.TxFee.Legacy = assets.NewWeiI(2)
+		attempt.State = txmgrtypes.TxAttemptInsufficientFunds
+		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
+		stuckTxs, err := stuckTxDetector.FindUnconfirmedTxWithLowestNonce(ctx, []common.Address{fromAddress})
+		require.NoError(t, err)
+		require.Len(t, stuckTxs, 0)
+	})
 }
 
 func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
@@ -271,8 +295,9 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 		enabled: true,
 	}
 	blockNum := int64(100)
-	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, chaintype.ChainZkEvm, assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
+
 	t.Run("returns empty list if no stuck transactions identified", func(t *testing.T) {
+		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, chaintype.ChainZkEvm, assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress, 1, blockNum, tenGwei)
 		attempts := tx.TxAttempts[0]
@@ -292,6 +317,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 	})
 
 	t.Run("returns stuck transactions discarded by chain", func(t *testing.T) {
+		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, chaintype.ChainZkEvm, assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
 		// Insert tx that will be mocked as stuck
 		_, fromAddress1 := cltest.MustInsertRandomKey(t, ethKeyStore)
 		mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress1, 1, blockNum, tenGwei)
@@ -314,6 +340,34 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 		txs, err := stuckTxDetector.DetectStuckTransactions(ctx, []common.Address{fromAddress1, fromAddress2}, blockNum)
 		require.NoError(t, err)
 		// Expect only 1 tx to return as stuck due to nil eth_getTransactionByHash response
+		require.Len(t, txs, 1)
+	})
+
+	t.Run("skips stuck tx detection for transactions that do not have enough attempts", func(t *testing.T) {
+		autoPurgeCfg.minAttempts = ptr(uint32(2))
+		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, chaintype.ChainZkEvm, assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
+		// Insert tx with enough attempts for detection
+		_, fromAddress1 := cltest.MustInsertRandomKey(t, ethKeyStore)
+		etx1 := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress1, 1, blockNum, tenGwei)
+		attempt := cltest.NewLegacyEthTxAttempt(t, etx1.ID)
+		attempt.TxFee.Legacy = assets.NewWeiI(2)
+		attempt.State = txmgrtypes.TxAttemptBroadcast
+		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
+
+		// Insert tx that will be skipped for too few attempts
+		_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
+		mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress2, 1, blockNum, tenGwei)
+
+		// Return nil response for a tx and a normal response for the other
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = nil // Return nil to signal discarded tx
+		}).Once()
+
+		txs, err := stuckTxDetector.DetectStuckTransactions(ctx, []common.Address{fromAddress1, fromAddress2}, blockNum)
+		require.NoError(t, err)
 		require.Len(t, txs, 1)
 	})
 }

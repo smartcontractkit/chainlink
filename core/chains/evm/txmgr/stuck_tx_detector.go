@@ -44,7 +44,7 @@ type stuckTxDetectorConfig interface {
 }
 
 type stuckTxDetector struct {
-	lggr      logger.Logger
+	lggr      logger.SugaredLogger
 	chainID   *big.Int
 	chainType chaintype.ChainType
 	maxPrice  *assets.Wei
@@ -64,7 +64,7 @@ func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType chaintyp
 	t.DisableCompression = true
 	httpClient := &http.Client{Transport: t}
 	return &stuckTxDetector{
-		lggr:             lggr,
+		lggr:             logger.Sugared(lggr),
 		chainID:          chainID,
 		chainType:        chainType,
 		maxPrice:         maxPrice,
@@ -128,7 +128,7 @@ func (d *stuckTxDetector) DetectStuckTransactions(ctx context.Context, enabledAd
 	switch d.chainType {
 	case chaintype.ChainScroll:
 		return d.detectStuckTransactionsScroll(ctx, txs)
-	case chaintype.ChainZkEvm:
+	case chaintype.ChainZkEvm, chaintype.ChainXLayer:
 		return d.detectStuckTransactionsZkEVM(ctx, txs)
 	default:
 		return d.detectStuckTransactionsHeuristic(ctx, txs, blockNum)
@@ -153,11 +153,28 @@ func (d *stuckTxDetector) FindUnconfirmedTxWithLowestNonce(ctx context.Context, 
 		}
 	}
 
-	// Build list of potentially stuck tx but exclude any that are already marked for purge
+	// Build list of potentially stuck tx but exclude any that are already marked for purge or have non-broadcasted attempts
 	var stuckTxs []Tx
 	for _, tx := range lowestNonceTxMap {
-		// Attempts are loaded newest to oldest so one marked for purge will always be first
-		if len(tx.TxAttempts) > 0 && !tx.TxAttempts[0].IsPurgeAttempt {
+		if len(tx.TxAttempts) == 0 {
+			d.lggr.AssumptionViolationw("encountered an unconfirmed transaction without an attempt", "tx", tx)
+			continue
+		}
+		// Check the transaction's attempts in case any are already marked for purge or if any are not broadcasted
+		// We can only have one non-broadcasted attempt for a transaction at a time
+		// Skip purge detection until all attempts are broadcasted to avoid conflicts with the purge attempt
+		var foundPurgeAttempt, foundNonBroadcastAttempt bool
+		for _, attempt := range tx.TxAttempts {
+			if attempt.IsPurgeAttempt {
+				foundPurgeAttempt = true
+				break
+			}
+			if attempt.State != types.TxAttemptBroadcast {
+				foundNonBroadcastAttempt = true
+				break
+			}
+		}
+		if !foundPurgeAttempt && !foundNonBroadcastAttempt {
 			stuckTxs = append(stuckTxs, tx)
 		}
 	}
@@ -322,14 +339,32 @@ func (d *stuckTxDetector) detectStuckTransactionsScroll(ctx context.Context, txs
 // Uses eth_getTransactionByHash to detect that a transaction has been discarded due to overflow
 // Currently only used by zkEVM but if other chains follow the same behavior in the future
 func (d *stuckTxDetector) detectStuckTransactionsZkEVM(ctx context.Context, txs []Tx) ([]Tx, error) {
-	txReqs := make([]rpc.BatchElem, len(txs))
+	minAttempts := 0
+	if d.cfg.MinAttempts() != nil {
+		minAttempts = int(*d.cfg.MinAttempts())
+	}
+	// Check transactions have MinAttempts to ensure it has enough time to return results for getTransactionByHash
+	// zkEVM has a significant delay between broadcasting a transaction and getting a proper result from the RPC
+	var filteredTx []Tx
+	for _, tx := range txs {
+		if len(tx.TxAttempts) >= minAttempts {
+			filteredTx = append(filteredTx, tx)
+		}
+	}
+
+	// No transactions to process
+	if len(filteredTx) == 0 {
+		return filteredTx, nil
+	}
+
+	txReqs := make([]rpc.BatchElem, len(filteredTx))
 	txHashMap := make(map[common.Hash]Tx)
-	txRes := make([]*map[string]interface{}, len(txs))
+	txRes := make([]*map[string]interface{}, len(filteredTx))
 
 	// Build batch request elems to perform
 	// Does not need to be separated out into smaller batches
 	// Max number of transactions to check is equal to the number of enabled addresses which is a relatively small amount
-	for i, tx := range txs {
+	for i, tx := range filteredTx {
 		latestAttemptHash := tx.TxAttempts[0].Hash
 		var result map[string]interface{}
 		txReqs[i] = rpc.BatchElem{

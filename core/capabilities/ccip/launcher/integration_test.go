@@ -6,6 +6,7 @@ import (
 
 	it "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/onsi/gomega"
@@ -30,12 +31,14 @@ func TestIntegration_Launcher(t *testing.T) {
 	p2pIDs := it.P2pIDsFromInts(arr)
 	uni.AddCapability(p2pIDs)
 
+	db := pgtest.NewSqlxDB(t)
 	regSyncer, err := registrysyncer.New(lggr,
 		func() (p2ptypes.PeerID, error) {
 			return p2pIDs[0], nil
 		},
 		uni,
 		uni.CapReg.Address().String(),
+		registrysyncer.NewORM(db, lggr),
 	)
 	require.NoError(t, err)
 
