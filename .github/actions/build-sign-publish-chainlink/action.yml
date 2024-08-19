@@ -241,7 +241,7 @@ runs:
       name: Install cosign
       uses: sigstore/cosign-installer@e1523de7571e31dbe865fd2e80c5c7c23ae71eb4 # v3.4.0
       with:
-        cosign-release: "v1.6.0"
+        cosign-release: "v2.4.0"
 
     - if: inputs.sign-images == 'true' && inputs.sign-method == 'keypair'
       name: Sign the published root Docker image using keypair method
@@ -264,18 +264,16 @@ runs:
     - if: inputs.sign-images == 'true' && inputs.sign-method == 'keyless'
       name: Sign the published root Docker image using keyless method
       shell: sh
-      env:
-        COSIGN_EXPERIMENTAL: 1
       run: |
         cosign sign "${{ env.root_image_name }}"
 
     - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keyless'
       name: Verify the signature of the published root Docker image using keyless
       shell: sh
-      env:
-        COSIGN_EXPERIMENTAL: 1
       run: |
-        cosign verify "${{ env.root_image_name }}"
+        cosign verify "${{ env.root_image_name }}" \
+        --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+        --certificate-identity "https://github.com/smartcontractkit/chainlink/.github/workflows/build-publish.yml@${{ github.ref }}"
 
     - if: inputs.sign-images == 'true' && inputs.sign-method == 'keypair'
       name: Sign the published non-root Docker image using keypair method
@@ -298,15 +296,13 @@ runs:
     - if: inputs.sign-images == 'true' && inputs.sign-method == 'keyless'
       name: Sign the published non-root Docker image using keyless method
       shell: sh
-      env:
-        COSIGN_EXPERIMENTAL: 1
       run: |
         cosign sign "${{ env.nonroot_image_name }}"
 
     - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keyless'
       name: Verify the signature of the published non-root Docker image using keyless
       shell: sh
-      env:
-        COSIGN_EXPERIMENTAL: 1
       run: |
         cosign verify "${{ env.nonroot_image_name }}"
+        --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+        --certificate-identity "https://github.com/smartcontractkit/chainlink/.github/workflows/build-publish.yml@${{ github.ref }}"
