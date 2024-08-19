@@ -128,7 +128,6 @@ contract CCIPConfig_constructor is Test {
 
 contract CCIPConfig_chainConfig is CCIPConfigSetup {
   // Successes.
-
   function test_applyChainConfigUpdates_addChainConfigs_Success() public {
     bytes32[] memory chainReaders = new bytes32[](1);
     chainReaders[0] = keccak256(abi.encode(1));
@@ -141,7 +140,45 @@ contract CCIPConfig_chainConfig is CCIPConfigSetup {
       chainSelector: 2,
       chainConfig: CCIPConfigTypes.ChainConfig({readers: chainReaders, fChain: 1, config: bytes("config2")})
     });
+    vm.mockCall(
+      CAPABILITIES_REGISTRY,
+      abi.encodeWithSelector(ICapabilitiesRegistry.getNode.selector, chainReaders[0]),
+      abi.encode(
+        ICapabilitiesRegistry.NodeInfo({
+          nodeOperatorId: 1,
+          signer: bytes32(uint256(1)),
+          p2pId: chainReaders[0],
+          hashedCapabilityIds: new bytes32[](0),
+          configCount: uint32(1),
+          workflowDONId: uint32(1),
+          capabilitiesDONIds: new uint256[](0)
+        })
+      )
+    );
+    vm.expectEmit();
+    emit CCIPConfig.ChainConfigSet(1, adds[0].chainConfig);
+    vm.expectEmit();
+    emit CCIPConfig.ChainConfigSet(2, adds[1].chainConfig);
+    s_ccipCC.applyChainConfigUpdates(new uint64[](0), adds);
 
+    CCIPConfigTypes.ChainConfigInfo[] memory configs = s_ccipCC.getAllChainConfigs(0, 2);
+    assertEq(configs.length, 2, "chain configs length must be 2");
+    assertEq(configs[0].chainSelector, 1, "chain selector must match");
+    assertEq(configs[1].chainSelector, 2, "chain selector must match");
+  }
+
+  function test_getPaginatedCCIPConfigs_Success() public {
+    bytes32[] memory chainReaders = new bytes32[](1);
+    chainReaders[0] = keccak256(abi.encode(1));
+    CCIPConfigTypes.ChainConfigInfo[] memory adds = new CCIPConfigTypes.ChainConfigInfo[](2);
+    adds[0] = CCIPConfigTypes.ChainConfigInfo({
+      chainSelector: 1,
+      chainConfig: CCIPConfigTypes.ChainConfig({readers: chainReaders, fChain: 1, config: bytes("config1")})
+    });
+    adds[1] = CCIPConfigTypes.ChainConfigInfo({
+      chainSelector: 2,
+      chainConfig: CCIPConfigTypes.ChainConfig({readers: chainReaders, fChain: 1, config: bytes("config2")})
+    });
     vm.mockCall(
       CAPABILITIES_REGISTRY,
       abi.encodeWithSelector(ICapabilitiesRegistry.getNode.selector, chainReaders[0]),
@@ -158,16 +195,27 @@ contract CCIPConfig_chainConfig is CCIPConfigSetup {
       )
     );
 
-    vm.expectEmit();
-    emit CCIPConfig.ChainConfigSet(1, adds[0].chainConfig);
-    vm.expectEmit();
-    emit CCIPConfig.ChainConfigSet(2, adds[1].chainConfig);
     s_ccipCC.applyChainConfigUpdates(new uint64[](0), adds);
 
-    CCIPConfigTypes.ChainConfigInfo[] memory configs = s_ccipCC.getAllChainConfigs();
+    CCIPConfigTypes.ChainConfigInfo[] memory configs = s_ccipCC.getAllChainConfigs(0, 2);
     assertEq(configs.length, 2, "chain configs length must be 2");
     assertEq(configs[0].chainSelector, 1, "chain selector must match");
     assertEq(configs[1].chainSelector, 2, "chain selector must match");
+
+    configs = s_ccipCC.getAllChainConfigs(0, 1);
+    assertEq(configs.length, 1, "chain configs length must be 1");
+    assertEq(configs[0].chainSelector, 1, "chain selector must match");
+
+    configs = s_ccipCC.getAllChainConfigs(0, 10);
+    assertEq(configs.length, 2, "chain configs length must be 2");
+    assertEq(configs[0].chainSelector, 1, "chain selector must match");
+    assertEq(configs[1].chainSelector, 2, "chain selector must match");
+
+    configs = s_ccipCC.getAllChainConfigs(1, 1);
+    assertEq(configs.length, 1, "chain configs length must be 1");
+
+    configs = s_ccipCC.getAllChainConfigs(1, 2);
+    assertEq(configs.length, 0, "chain configs length must be 0");
   }
 
   function test_applyChainConfigUpdates_removeChainConfigs_Success() public {
