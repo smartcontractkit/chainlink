@@ -225,6 +225,7 @@ jobs:
           elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
             echo "Fetching Chainlink version from tag"
             chainlink_version="${{ github.ref_name }}"
+            chainlink_version=${chainlink_version#v}
             cl_ref_path="releases"
           else
             echo "Unsupported trigger event. It's probably an issue with the pipeline definition. Please reach out to the Test Tooling team."
