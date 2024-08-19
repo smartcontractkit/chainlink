@@ -54,6 +54,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.abi ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.bin ArbitrumModule arbitrum_module
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ChainModuleBase/ChainModuleBase.abi ../../contracts/solc/v0.8.19/ChainModuleBase/ChainModuleBase.bin ChainModuleBase chain_module_base
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/OptimismModule/OptimismModule.abi ../../contracts/solc/v0.8.19/OptimismModule/OptimismModule.bin OptimismModule optimism_module
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/OptimismModuleV2/OptimismModuleV2.abi ../../contracts/solc/v0.8.19/OptimismModuleV2/OptimismModuleV2.bin OptimismModuleV2 optimism_module_v2
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.abi ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.bin ScrollModule scroll_module
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/IChainModule/IChainModule.abi ../../contracts/solc/v0.8.19/IChainModule/IChainModule.bin IChainModule i_chain_module
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/IAutomationV21PlusCommon/IAutomationV21PlusCommon.abi ../../contracts/solc/v0.8.19/IAutomationV21PlusCommon/IAutomationV21PlusCommon.bin IAutomationV21PlusCommon i_automation_v21_plus_common
