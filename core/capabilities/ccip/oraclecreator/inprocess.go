@@ -28,7 +28,7 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
-	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
+	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commitrmnocb"
 	execocr3 "github.com/smartcontractkit/chainlink-ccip/execute"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 
