@@ -3,7 +3,6 @@ package evmtesting
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
-	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -355,27 +353,6 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainWriter(t T) clcommontypes.Ch
 	require.NoError(t, err)
 	require.NoError(t, cw.Start(ctx))
 	return it.cw
-}
-
-// GenerateBlocksTillConfidenceLevel is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state
-func (it *EVMChainReaderInterfaceTester[T]) GenerateBlocksTillConfidenceLevel(t T, contractName, readName string, confidenceLevel primitives.ConfidenceLevel) {
-	contractCfg, ok := it.chainReaderConfig.Contracts[contractName]
-	if !ok {
-		t.Errorf("contract %s not found", contractName)
-		return
-	}
-	readCfg, ok := contractCfg.Configs[readName]
-	require.True(t, ok, fmt.Sprintf("readName: %s not found for contract: %s", readName, contractName))
-	toEvmConf, err := evm.ConfirmationsFromConfig(readCfg.ConfidenceConfirmations)
-	require.True(t, ok, fmt.Errorf("failed to parse confidence level mapping:%s not found for contract: %s readName: %s, err:%w", confidenceLevel, readName, contractName, err))
-	confirmations, ok := toEvmConf[confidenceLevel]
-	require.True(t, ok, fmt.Sprintf("confidence level mapping:%s not found for contract: %s readName: %s", confidenceLevel, readName, contractName))
-
-	if confirmations == evmtypes.Finalized {
-		for i := 0; i < finalityDepth; i++ {
-			it.Helper.Commit()
-		}
-	}
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) GetBindings(_ T) []clcommontypes.BoundContract {
