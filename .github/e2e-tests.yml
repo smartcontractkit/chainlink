@@ -837,7 +837,8 @@ runner-test-matrix:
       - Run PR E2E Tests 2
       - Run Nightly E2E Tests
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/leader-lane.toml
     test_inputs:
-      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      selected_networks: SIMULATED_1,SIMULATED_2
  
   # END: CCIP tests

@@ -191,7 +191,7 @@ jobs:
           fetch-depth: 0
           path: ctf        
       - name: Setup Go for citool
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@0ce1e67b254a4f041e03cc6f0e3afc987b47c7bd # v2.3.30
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@a3739daf24133394f9ac6de153972bbe084953c1 # v2.3.31
         with:
           cache_key_id: ctf
           cache_builds: true
@@ -244,7 +244,7 @@ jobs:
           fetch-depth: 0
           path: ctf
       - name: Setup Go for citool
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@0ce1e67b254a4f041e03cc6f0e3afc987b47c7bd # v2.3.30
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@a3739daf24133394f9ac6de153972bbe084953c1 # v2.3.31
         with:
           cache_key_id: ctf
           cache_builds: true
@@ -493,29 +493,36 @@ jobs:
 
       - name: Run tests
         id: run_tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@0ce1e67b254a4f041e03cc6f0e3afc987b47c7bd # v2.3.30
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@a3739daf24133394f9ac6de153972bbe084953c1 # v2.3.31
         env:
           DETACH_RUNNER: true
+          # TODO: taken from ${{ vars.TEST_LOG_COLLECT }}
+          # E2E_TEST_LOG_COLLECT: 
           E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_inputs.chainlink_version || inputs.chainlink_version || github.sha }}
           E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_inputs.chainlink_upgrade_version }}
           E2E_TEST_CHAINLINK_POSTGRES_VERSION: ${{ matrix.tests.test_inputs.chainlink_postgres_version }}
           E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_inputs.selected_networks || env.SELECTED_NETWORKS }}
           E2E_TEST_LOGGING_RUN_ID: ${{ github.run_id }}
           E2E_TEST_LOG_STREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          # TODO: taken from ${{ vars.TEST_LOG_COLLECT }}
-          # E2E_TEST_LOG_COLLECT: 
+          E2E_TEST_CHAINLINK_IMAGE: ${{ matrix.tests.test_inputs.chainlink_image || env.CHAINLINK_IMAGE }}
+          E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.test_inputs.chainlink_upgrade_image }}
+          E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          E2E_TEST_GRAFANA_BASE_URL: "http://localhost:8080/primary"
+          E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          E2E_TEST_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          E2E_TEST_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
+          E2E_TEST_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
+          E2E_TEST_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
+          E2E_TEST_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
         with:
           test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd $(dirname ${{ matrix.tests.path }}) && go mod download
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
+          test_config_override_path: ${{ matrix.tests.test_config_override_path }}
           # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392
           # test_config_override_base64: ${{ inputs.test_config_override_base64 }}
-          # test_config_chainlink_version: ${{ matrix.tests.test_inputs.chainlink_version || inputs.chainlink_version || github.sha }}
-          # test_config_chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlink_upgrade_version }}
-          # test_config_chainlink_postgres_version: ${{ matrix.tests.test_inputs.chainlink_postgres_version }}
-          # test_config_selected_networks: ${{ matrix.tests.test_inputs.selected_networks || env.SELECTED_NETWORKS}}
-          # test_config_logging_run_id: ${{ github.run_id }}
-          # test_config_logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           test_type: ${{ matrix.tests.test_inputs.test_type }}
           test_suite: ${{ matrix.tests.test_inputs.test_suite }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
@@ -534,18 +541,6 @@ jobs:
           should_tidy: "false"
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
-          DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.test_inputs.chainlink_image || env.CHAINLINK_IMAGE }}
-          DEFAULT_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.test_inputs.chainlink_upgrade_image }}
-          DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          DEFAULT_GRAFANA_BASE_URL: "http://localhost:8080/primary"
-          DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          DEFAULT_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-          DEFAULT_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
-          DEFAULT_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
-          DEFAULT_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
-          DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
 
       - name: Show Otel-Collector logs
         if: inputs.enable_otel_traces_for_ocr2_plugins && matrix.tests.test_inputs.enable_otel_traces == 'true'
@@ -681,7 +676,7 @@ jobs:
 
       - name: Run tests
         id: run_tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@0ce1e67b254a4f041e03cc6f0e3afc987b47c7bd # v2.3.30
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@a3739daf24133394f9ac6de153972bbe084953c1 # v2.3.31
         env:
           DETACH_RUNNER: true
           RR_MEM: ${{ matrix.tests.remote_runner_memory }}

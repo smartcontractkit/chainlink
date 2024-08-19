@@ -197,7 +197,7 @@ func (p *Common) ReadFromEnvVar() error {
 		if p.Logging == nil {
 			p.Logging = &ctfconfig.LoggingConfig{}
 		}
-		if p.Logging.Loki == nil {
+		if p.Logging.LogStream == nil {
 			p.Logging.LogStream = &ctfconfig.LogStreamConfig{}
 		}
 		logger.Debug().Msgf("Using %s env var to override Logging.LogStream.LogTargets", ctfconfig.E2E_TEST_LOG_STREAM_LOG_TARGETS_ENV)
