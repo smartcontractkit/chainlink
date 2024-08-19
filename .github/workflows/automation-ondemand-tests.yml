@@ -1,0 +1,318 @@
+name: Automation On Demand Tests
+on:
+  workflow_dispatch:
+    inputs:
+      chainlinkVersionUpdate:
+        description: Chainlink image version to upgrade to
+        required: false
+        type: string
+      chainlinkImageUpdate:
+        description: Chainlink image repo to upgrade to (Leave empty to build from head/ref)
+        options:
+          - public.ecr.aws/chainlink/chainlink
+          - QA_ECR
+        type: choice
+      chainlinkVersion:
+        description: Chainlink image version to use initially for upgrade test
+        default: latest
+        required: true
+        type: string
+      chainlinkImage:
+        description: Chainlink image repo to use initially for upgrade test
+        required: true
+        options:
+          - public.ecr.aws/chainlink/chainlink
+          - QA_ECR
+        type: choice
+      enableChaos:
+        description: Check to enable chaos tests
+        type: boolean
+        default: false
+        required: true
+      enableReorg:
+        description: Check to enable reorg tests
+        type: boolean
+        default: false
+        required: true
+
+env:
+  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+
+jobs:
+  build-chainlink:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      matrix:
+        image:
+          - name: ""
+            dockerfile: core/chainlink.Dockerfile
+            tag-suffix: ""
+          - name: (plugins)
+            dockerfile: plugins/chainlink.Dockerfile
+            tag-suffix: -plugins
+    name: Build Chainlink Image ${{ matrix.image.name }}
+    runs-on: ubuntu22.04-16cores-64GB
+    steps:
+      - name: Collect Metrics
+        if: inputs.chainlinkImage == ''
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: automation-on-demand-build-chainlink
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Build Chainlink Image ${{ matrix.image.name }}
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+      - name: Check if image exists
+        if: inputs.chainlinkImage == ''
+        id: check-image
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+        with:
+          repository: chainlink
+          tag: ${{ github.sha }}${{ matrix.image.tag-suffix }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      - name: Build Image
+        if: steps.check-image.outputs.exists == 'false' && inputs.chainlinkImage == ''
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+        with:
+          cl_repo: smartcontractkit/chainlink
+          cl_ref: ${{ github.sha }}
+          cl_dockerfile: ${{ matrix.image.dockerfile }}
+          push_tag: ${{ env.CHAINLINK_IMAGE }}:${{ github.sha }}${{ matrix.image.tag-suffix }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      - name: Print Chainlink Image Built
+        if: inputs.chainlinkImage == ''
+        run: |
+          echo "### chainlink node image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
+
+  build-test-image:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Test Image
+    runs-on: ubuntu22.04-16cores-64GB
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: automation-on-demand-build-test-image
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Build Test Image
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+      - name: Build Test Image
+        if: inputs.enableChaos || inputs.enableReorg
+        uses: ./.github/actions/build-test-image
+        with:
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+
+  automation-on-demand-tests:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-test-image]
+    env:
+      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_LOG_LEVEL: info
+    strategy:
+      fail-fast: false
+      matrix:
+        tests:
+          - name: chaos
+            id: chaos
+            suite: chaos
+            nodes: 20
+            os: ubuntu-latest
+            enabled: ${{ inputs.enableChaos }}
+            pyroscope_env: ci-automation-on-demand-chaos
+            network: SIMULATED
+            command: -run ^TestAutomationChaos$ ./chaos
+          - name: reorg 2.0
+            id: reorg-2.0
+            suite: reorg
+            nodes: 1
+            os: ubuntu-latest
+            enabled: ${{ inputs.enableReorg }}
+            pyroscope_env: ci-automation-on-demand-reorg
+            network: SIMULATED
+            command: -run ^TestAutomationReorg/registry_2_0 ./reorg
+          - name: reorg 2.1
+            id: reorg-2.1
+            suite: reorg
+            nodes: 2
+            os: ubuntu-latest
+            enabled: ${{ inputs.enableReorg }}
+            pyroscope_env: ci-automation-on-demand-reorg
+            network: SIMULATED
+            command: -run ^TestAutomationReorg/registry_2_1 ./reorg
+          - name: reorg 2.2
+            id: reorg-2.2
+            suite: reorg
+            nodes: 2
+            os: ubuntu-latest
+            enabled: ${{ inputs.enableReorg }}
+            pyroscope_env: ci-automation-on-demand-reorg
+            network: SIMULATED
+            command: -run ^TestAutomationReorg/registry_2_2 ./reorg
+          - name: reorg 2.3
+            id: reorg-2.3
+            suite: reorg
+            nodes: 2
+            os: ubuntu-latest
+            enabled: ${{ inputs.enableReorg }}
+            pyroscope_env: ci-automation-on-demand-reorg
+            network: SIMULATED
+            command: -run ^TestAutomationReorg/registry_2_3 ./reorg
+          - name: upgrade 2.0
+            id: upgrade-2.0
+            type: upgrade
+            suite: smoke
+            nodes: 1
+            os: ubuntu22.04-8cores-32GB
+            enabled: true
+            pyroscope_env: ci-automation-on-demand-upgrade
+            network: SIMULATED
+            command: -run ^TestAutomationNodeUpgrade/registry_2_0 ./smoke
+          - name: upgrade 2.1
+            id: upgrade-2.1
+            type: upgrade
+            suite: smoke
+            nodes: 5
+            os: ubuntu22.04-8cores-32GB
+            enabled: true
+            pyroscope_env: ci-automation-on-demand-upgrade
+            network: SIMULATED
+            command: -run ^TestAutomationNodeUpgrade/registry_2_1 ./smoke
+          - name: upgrade 2.2
+            id: upgrade-2.2
+            type: upgrade
+            suite: smoke
+            nodes: 5
+            os: ubuntu22.04-8cores-32GB
+            enabled: true
+            pyroscope_env: ci-automation-on-demand-upgrade
+            network: SIMULATED
+            command: -run ^TestAutomationNodeUpgrade/registry_2_2 ./smoke
+    runs-on: ${{ matrix.tests.os }}
+    name: Automation On Demand ${{ matrix.tests.name }} Test
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+      - name: Determine build to use
+        id: determine-build
+        shell: bash
+        run: |
+          if [[ "${{ inputs.chainlinkImage }}" == "QA_ECR" ]]; then
+            echo "image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
+          else 
+            echo "image=${{ inputs.chainlinkImage }}" >>$GITHUB_OUTPUT
+          fi
+          if [[ "${{ inputs.chainlinkImageUpdate }}" == "QA_ECR" ]]; then
+            echo "upgrade_image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
+          else
+            echo "upgrade_image=${{ inputs.chainlinkImageUpdate }}" >>$GITHUB_OUTPUT
+          fi
+          if [[ -z "${{ inputs.chainlinkVersion }}" ]] && [[ "${{ inputs.chainlinkImage }}" == "QA_ECR" ]]; then
+            echo "version=${{ github.sha }}" >>$GITHUB_OUTPUT
+          else 
+            echo "version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
+          fi
+          if [[ -z "${{ inputs.chainlinkVersionUpdate }}" ]] && [[ "${{ inputs.chainlinkImageUpdate }}" == "QA_ECR" ]]; then
+            echo "upgrade_version=${{ github.sha }}" >>$GITHUB_OUTPUT
+          else
+            echo "upgrade_version=${{ inputs.chainlinkVersionUpdate }}" >>$GITHUB_OUTPUT
+          fi
+      - name: Setup GAP for Grafana
+        uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
+        with:
+          # aws inputs
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+          # other inputs
+          duplicate-authorization-header: "true"
+                   
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
+        if: ${{ matrix.tests.enabled == true }}
+        with:
+          test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
+          test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_suite: ${{ matrix.tests.suite }}
+          test_config_chainlink_version: ${{ steps.determine-build.outputs.version }}
+          test_config_chainlink_upgrade_version: ${{ steps.determine-build.outputs.upgrade_version }}
+          test_config_selected_networks: ${{ matrix.tests.network }}
+          test_config_logging_run_id: ${{ github.run_id }}
+          test_config_logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          test_config_test_log_collect: "true"
+          cl_repo: ${{ steps.determine-build.outputs.image }}
+          cl_image_tag: ${{ steps.determine-build.outputs.version }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_location: ./integration-tests/${{ matrix.tests.suite }}/logs
+          publish_check_name: Automation On Demand Results ${{ matrix.tests.name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          DEFAULT_CHAINLINK_IMAGE: ${{ steps.determine-build.outputs.image }}
+          DEFAULT_CHAINLINK_UPGRADE_IMAGE: ${{ steps.determine-build.outputs.upgrade_image }}
+          DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          DEFAULT_GRAFANA_BASE_URL: "http://localhost:8080/primary"
+          DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          DEFAULT_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          DEFAULT_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          DEFAULT_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          DEFAULT_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
+          DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env == '' || !startsWith(github.ref, 'refs/tags/') && 'false' || 'true' }}
+          
+      - name: Upload test log
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        if: failure()
+        with:
+          name: test-log-${{ matrix.tests.name }}
+          path: /tmp/gotest.log
+          retention-days: 7
+        continue-on-error: true
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: automation-on-demand-tests-${{ matrix.tests.id }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Automation On Demand ${{ matrix.tests.name }} Test
+          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+        continue-on-error: true

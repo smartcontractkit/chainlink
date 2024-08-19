@@ -1,0 +1,300 @@
+name: Automation Nightly Tests
+on:
+  schedule:
+    - cron: "0 0 * * *" # Run nightly
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+
+env:
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+
+jobs:
+  build-chainlink:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Chainlink Image
+    runs-on: ubuntu22.04-16cores-64GB
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: automation-nightly-build-chainlink
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Chainlink Image
+        uses: ./.github/actions/build-chainlink-image
+        with:
+          tag_suffix: ""
+          dockerfile: core/chainlink.Dockerfile
+          git_commit_sha: ${{ github.sha }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+
+  automation-upgrade-tests:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink]
+    env:
+      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_LOG_LEVEL: info
+      SELECTED_NETWORKS: "SIMULATED"
+    strategy:
+      fail-fast: false
+      matrix:
+        tests:
+          - name: Upgrade 2.0
+            id: upgrade-2-0
+            suite: smoke
+            nodes: 1
+            os: ubuntu22.04-8cores-32GB
+            network: SIMULATED
+            command: -run ^TestAutomationNodeUpgrade/registry_2_0 ./smoke
+          - name: Upgrade 2.1
+            id: upgrade-2-1
+            suite: smoke
+            nodes: 5
+            os: ubuntu22.04-8cores-32GB
+            network: SIMULATED
+            command: -run ^TestAutomationNodeUpgrade/registry_2_1 ./smoke
+          - name: Upgrade 2.2
+            id: upgrade-2-2
+            suite: smoke
+            nodes: 5
+            os: ubuntu22.04-8cores-32GB
+            network: SIMULATED
+            command: -run ^TestAutomationNodeUpgrade/registry_2_2 ./smoke
+    runs-on: ${{ matrix.tests.os }}
+    name: Automation ${{ matrix.tests.name }} Test
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+      - name: Setup GAP for Grafana
+        uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
+        with:
+          # aws inputs
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+          # other inputs
+          duplicate-authorization-header: "true"
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-upgrade-config
+        with:
+          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+          chainlinkImage: "public.ecr.aws/chainlink/chainlink"
+          chainlinkVersion: "latest"
+          upgradeImage: ${{ env.CHAINLINK_IMAGE }}
+          upgradeVersion: ${{ github.sha }}
+          runId: ${{ github.run_id }}
+          testLogCollect: "true"
+          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: "http://localhost:8080/primary"
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
+        env:
+          TEST_SUITE: ${{ matrix.tests.suite }}
+        with:
+          test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          cl_repo: 'public.ecr.aws/chainlink/chainlink'
+          cl_image_tag: 'latest'
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_location: ./integration-tests/${{ matrix.tests.suite }}/logs
+          artifacts_name: testcontainers-logs-${{ matrix.tests.name }}
+          publish_check_name: Automation Results ${{ matrix.tests.name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Upload test log
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        if: failure()
+        with:
+          name: gotest-logs-${{ matrix.tests.name }}
+          path: /tmp/gotest.log
+          retention-days: 7
+        continue-on-error: true
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: automation-nightly-upgrade-tests-${{ matrix.tests.id }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Automation ${{ matrix.tests.name }} Test
+          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+        continue-on-error: true
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+
+  test-notify:
+    name: Start Slack Thread
+    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    environment: integration
+    outputs:
+      thread_ts: ${{ steps.slack.outputs.thread_ts }}
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    needs: [ automation-upgrade-tests ]
+    steps:
+      - name: Debug Result
+        run: echo ${{ join(needs.*.result, ',') }}
+      - name: Main Slack Notification
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        id: slack
+        with:
+          channel-id: C03KJ5S7KEK
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || '#2E7D32' }}",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "Automation Nightly Tests ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
+                        "emoji": true
+                      }
+                    },
+                    {
+                      "type": "divider"
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}> | <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+
+  test-results:
+    name: Post Test Results for ${{ matrix.name }}
+    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    needs: test-notify
+    strategy:
+      fail-fast: false
+      matrix:
+        name: [ Upgrade 2.0, Upgrade 2.1, Upgrade 2.2 ]
+    steps:
+      - name: Get Results
+        id: test-results
+        run: |
+          # I feel like there's some clever, fully jq way to do this, but I ain't got the motivation to figure it out
+          echo "Querying test results"
+
+          PARSED_RESULTS=$(curl \
+          -H "Authorization: Bearer ${{ github.token }}" \
+          'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
+          | jq -r --arg pattern "${{ matrix.name }} Test" '.jobs[]
+          | select(.name | test($pattern)) as $job
+          | $job.steps[]
+          | select(.name == "Run Tests")
+          | { conclusion: (if .conclusion == "success" then ":white_check_mark:" else ":x:" end), product: ("*" + ($job.name | capture($pattern).product) + "*") }')
+
+          echo "Parsed Results:"
+          echo $PARSED_RESULTS
+
+          ALL_SUCCESS=true
+          for row in $(echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'); do
+              success=false
+              break
+          done
+
+          echo all_success=$ALL_SUCCESS >> $GITHUB_OUTPUT
+
+          FORMATTED_RESULTS=$(echo $PARSED_RESULTS | jq -s '[.[] 
+          | { 
+            conclusion: .conclusion, 
+            product: .product 
+            }
+          ]
+          | map("{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"\(.product): \(.conclusion)\"}}")
+          | join(",")')
+
+          echo "Formatted Results:"
+          echo $FORMATTED_RESULTS
+
+          # Cleans out backslashes and quotes from jq
+          CLEAN_RESULTS=$(echo "$FORMATTED_RESULTS" | sed 's/\\\"/"/g' | sed 's/^"//;s/"$//')
+
+          echo "Clean Results"
+          echo $CLEAN_RESULTS
+
+          echo results=$CLEAN_RESULTS >> $GITHUB_OUTPUT
+
+      - name: Test Details
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        with:
+          channel-id: C03KJ5S7KEK
+          payload: |
+            {
+              "thread_ts": "${{ needs.test-notify.outputs.thread_ts }}",
+              "attachments": [
+                {
+                  "color": "${{ steps.test-results.outputs.all_success && '#2E7D32' || '#C62828' }}",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "${{ matrix.name }} ${{ steps.test-results.outputs.all_success && ':white_check_mark:' || ':x: Notifying <@U02Q14G80TY>'}}",
+                        "emoji": true
+                      }
+                    },
+                    {
+                      "type": "divider"
+                    },
+                    ${{ steps.test-results.outputs.results }}
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}

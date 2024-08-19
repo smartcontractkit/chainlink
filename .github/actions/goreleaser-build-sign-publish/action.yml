@@ -14,7 +14,7 @@ inputs:
     required: false
   cosign-version:
     description: The cosign version
-    default: v2.2.2
+    default: v2.4.0
     required: false
   macos-sdk-dir:
     description: The macos sdk directory

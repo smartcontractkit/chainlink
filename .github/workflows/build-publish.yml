@@ -70,7 +70,7 @@ jobs:
 
   goreleaser-build-sign-publish-chainlink:
     needs: [checks]
-    # if: ${{ ! startsWith(github.ref_name, 'release/') }}
+    if: ${{ ! startsWith(github.ref_name, 'release/') }}
     runs-on: ubuntu-20.04
     environment: build-publish
     permissions:
@@ -100,7 +100,7 @@ jobs:
           goreleaser-config: .goreleaser.develop.yaml
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
           zig-version: 0.11.0
-          enable-cosign: "true"
+          enable-cosign: true
           cosign-version: "v2.4.0"
 
       - name: Output image name and digest
