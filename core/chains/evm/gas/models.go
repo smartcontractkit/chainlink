@@ -288,7 +288,7 @@ func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit 
 		}
 	}
 
-	estimatedFeeLimit, err = e.estimateFeeLimit(ctx, fee, chainSpecificFeeLimit, calldata, toAddress)
+	estimatedFeeLimit, err = e.estimateFeeLimit(ctx, chainSpecificFeeLimit, calldata, toAddress)
 	return
 }
 
@@ -344,7 +344,7 @@ func (e *evmFeeEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLi
 	return
 }
 
-func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, fee EvmFee, feeLimit uint64, calldata []byte, toAddress *common.Address) (estimatedFeeLimit uint64, err error) {
+func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64, calldata []byte, toAddress *common.Address) (estimatedFeeLimit uint64, err error) {
 	// Use provided fee limit by default is EstimateGasLimit is disabled
 	if !e.geCfg.EstimateGasLimit() {
 		return commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
@@ -356,29 +356,22 @@ func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, fee EvmFee, feeL
 		To:   toAddress,
 		Data: calldata,
 	}
-	if e.EIP1559Enabled {
-		callMsg.GasFeeCap = fee.DynamicFeeCap.ToInt()
-		callMsg.GasTipCap = fee.DynamicTipCap.ToInt()
-	} else {
-		// Set call msg fields with legacy fee field for gas limit estimation, if needed
-		callMsg.GasPrice = fee.Legacy.ToInt()
-	}
-	e.lggr.Debugw("estimating gas limit", "callMsg", callMsg)
-	gasUsed, estimateErr := e.ethClient.EstimateGas(ctx, callMsg)
+	estimatedGas, estimateErr := e.ethClient.EstimateGas(ctx, callMsg)
 	if estimateErr != nil {
 		// Do not return error if estimate gas failed, we can still use the provided limit instead since it is an upper limit
 		e.lggr.Errorw("failed to estimate gas limit. falling back to provided gas limit.", "callMsg", callMsg, "providedGasLimit", feeLimit, "error", estimateErr)
 		estimatedFeeLimit, err = commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
 		return
 	}
+	e.lggr.Debugw("estimated gas", "callMsg", callMsg, "estimatedGas", estimatedGas, "providedGasLimit", feeLimit)
 	// Return error if estimated gas without the buffer exceeds the provided gas limit
 	// Transaction is destined to run out of gas and fail
-	if gasUsed > feeLimit {
-		e.lggr.Errorw("estimated gas limit exceeds provided limit", "estimatedGasLimit", gasUsed, "providedGasLimit", feeLimit)
+	if estimatedGas > feeLimit {
+		e.lggr.Errorw("estimated gas exceeds provided limit", "estimatedGas", estimatedGas, "providedGasLimit", feeLimit)
 		return estimatedFeeLimit, commonfee.ErrFeeLimitTooLow
 	}
 	// Apply EstimatedGasBuffer multiplier to the estimated gas limit
-	estimatedFeeLimit, err = commonfee.ApplyMultiplier(gasUsed, e.geCfg.EstimatedGasBuffer())
+	estimatedFeeLimit, err = commonfee.ApplyMultiplier(estimatedGas, e.geCfg.EstimatedGasBuffer())
 	if err != nil {
 		return
 	}
