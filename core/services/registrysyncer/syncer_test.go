@@ -455,7 +455,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	syncer.AddLauncher(l)
 
 	var latestLocalRegistryCalled, addLocalRegistryCalled bool
-	timeout := time.After(500 * time.Millisecond)
+	timeout := time.After(testutils.WaitTimeout(t))
 
 	for !latestLocalRegistryCalled || !addLocalRegistryCalled {
 		select {
