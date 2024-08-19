@@ -27,6 +27,7 @@ import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessag
 import {MockCommitStore} from "../mocks/MockCommitStore.sol";
 import {MultiOCR3BaseSetup} from "../ocr/MultiOCR3BaseSetup.t.sol";
 import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
+import {Vm} from "forge-std/Test.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
@@ -34,6 +35,8 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
   uint64 internal constant SOURCE_CHAIN_SELECTOR_1 = SOURCE_CHAIN_SELECTOR;
   uint64 internal constant SOURCE_CHAIN_SELECTOR_2 = 6433500567565415381;
   uint64 internal constant SOURCE_CHAIN_SELECTOR_3 = 4051577828743386545;
+  bytes32 internal constant EXECUTION_STATE_CHANGE_TOPIC_HASH =
+    keccak256("ExecutionStateChanged(uint64,uint64,bytes32,uint8,bytes,uint256)");
 
   bytes internal constant ON_RAMP_ADDRESS_1 = abi.encode(ON_RAMP_ADDRESS);
   bytes internal constant ON_RAMP_ADDRESS_2 = abi.encode(0xaA3f843Cf8E33B1F02dd28303b6bD87B1aBF8AE4);
@@ -491,5 +494,30 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
 
     vm.startPrank(s_validTransmitters[0]);
     s_offRamp.execute(reportContext, abi.encode(reports));
+  }
+
+  function assertExecutionStateChangedEventLogs(
+    uint64 sourceChainSelector,
+    uint64 sequenceNumber,
+    bytes32 messageId,
+    Internal.MessageExecutionState state,
+    bytes memory returnData
+  ) public {
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+    for (uint256 i = 0; i < logs.length; ++i) {
+      if (logs[i].topics[0] == EXECUTION_STATE_CHANGE_TOPIC_HASH) {
+        uint64 logSourceChainSelector = uint64(uint256(logs[i].topics[1]));
+        uint64 logSequenceNumber = uint64(uint256(logs[i].topics[2]));
+        bytes32 logMessageId = bytes32(logs[i].topics[3]);
+        (uint8 logState, bytes memory logReturnData,) = abi.decode(logs[i].data, (uint8, bytes, uint256));
+        if (logMessageId == messageId) {
+          assertEq(logSourceChainSelector, sourceChainSelector);
+          assertEq(logSequenceNumber, sequenceNumber);
+          assertEq(logMessageId, messageId);
+          assertEq(logState, uint8(state));
+          assertEq(logReturnData, returnData);
+        }
+      }
+    }
   }
 }
