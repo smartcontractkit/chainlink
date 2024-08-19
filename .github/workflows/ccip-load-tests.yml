@@ -1,6 +1,9 @@
 name: CCIP Load Test
 on: 
   push:
+    paths:
+      - '**/*ccip*'
+      - '**/*ccip*/**'
     branches:
       - develop
     tags:

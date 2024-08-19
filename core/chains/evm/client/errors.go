@@ -161,6 +161,12 @@ var arbitrum = ClientErrors{
 	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$|network is unreachable|i/o timeout`),
 }
 
+// Treasure
+var treasureFatal = regexp.MustCompile(`(: |^)invalid chain id for signer(:|$)`)
+var treasure = ClientErrors{
+	Fatal: treasureFatal,
+}
+
 var celo = ClientErrors{
 	TxFeeExceedsCap:       regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ of currency celo\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
 	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gasprice is less than gas price minimum floor`),
@@ -270,7 +276,7 @@ var internal = ClientErrors{
 	TerminallyStuck: regexp.MustCompile(TerminallyStuckMsg),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, mantle, aStar, gnosis, internal}
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, treasure, mantle, aStar, gnosis, internal}
 
 // ClientErrorRegexes returns a map of compiled regexes for each error type
 func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
@@ -595,6 +601,11 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 			"id", "RPCTxFeeCapExceeded",
 		)
 		return commonclient.ExceedsMaxFee
+	}
+	if sendError.IsTerminallyStuckConfigError(configErrors) {
+		lggr.Warnw("Transaction that would have been terminally stuck in the mempool detected on send. Marking as fatal error.", "err", sendError, "etx", tx)
+		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
+		return commonclient.TerminallyStuck
 	}
 	lggr.Criticalw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
 	return commonclient.Unknown

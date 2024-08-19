@@ -1,7 +1,8 @@
 name: CCIP Live Network Tests
 on:
-  schedule:
-    - cron: '0 */6 * * *'
+  # TODO: TT-1470 - Turn back on as we solidify new realease and image strategy
+  # schedule:
+  #   - cron: '0 */6 * * *'
   workflow_dispatch:
     inputs:
       base64_test_input : # base64 encoded toml for test input
