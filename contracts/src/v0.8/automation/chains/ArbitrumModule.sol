@@ -31,7 +31,7 @@ contract ArbitrumModule is ChainModuleBase {
     return ARB_SYS.arbBlockNumber();
   }
 
-  function getCurrentL1Fee() external view override returns (uint256) {
+  function getCurrentL1Fee(uint256) external view override returns (uint256) {
     return ARB_GAS.getCurrentTxL1GasFees();
   }
 
