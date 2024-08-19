@@ -11,8 +11,6 @@ import {ReentrantMaliciousTokenPool} from "./ReentrantMaliciousTokenPool.sol";
 
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
-import {console} from "forge-std/console.sol";
-
 /// @title MultiOnRampTokenPoolReentrancy
 /// Attempts to perform a reentrancy exploit on Onramp with a malicious TokenPool
 contract MultiOnRampTokenPoolReentrancy is EVM2EVMMultiOnRampSetup {
@@ -41,8 +39,8 @@ contract MultiOnRampTokenPoolReentrancy is EVM2EVMMultiOnRampSetup {
       remotePoolAddress: abi.encode(s_destPoolBySourceToken[s_sourceTokens[0]]),
       remoteTokenAddress: abi.encode(s_destTokens[0]),
       allowed: true,
-      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
-      inboundRateLimiterConfig: getInboundRateLimiterConfig()
+      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
     s_maliciousTokenPool.applyChainUpdates(chainUpdates);
     s_sourcePoolByToken[address(s_sourceToken)] = address(s_maliciousTokenPool);

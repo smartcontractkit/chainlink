@@ -265,8 +265,11 @@ contract Router_ccipSend is EVM2EVMOnRampSetup {
     s_priceRegistry.applyFeeTokensUpdates(feeTokens, new address[](0));
 
     // Update the price of the newly set feeToken
-    Internal.PriceUpdates memory priceUpdates = getSingleTokenPriceUpdateStruct(feeTokenWithZeroFeeAndGas, 2_000 ether);
-    priceUpdates.gasPriceUpdates = getSingleGasPriceUpdateStruct(DEST_CHAIN_SELECTOR, 0).gasPriceUpdates;
+    Internal.PriceUpdates memory priceUpdates = _getSingleTokenPriceUpdateStruct(feeTokenWithZeroFeeAndGas, 2_000 ether);
+    priceUpdates.gasPriceUpdates = new Internal.GasPriceUpdate[](1);
+    priceUpdates.gasPriceUpdates[0] =
+      Internal.GasPriceUpdate({destChainSelector: DEST_CHAIN_SELECTOR, usdPerUnitGas: 0});
+
     s_priceRegistry.updatePrices(priceUpdates);
 
     // Set the feeToken args on the onRamp
@@ -396,20 +399,20 @@ contract Router_applyRampUpdates is RouterSetup {
     s_receiver = new MaybeRevertMessageReceiver(false);
   }
 
-  function assertOffRampRouteSucceeds(Router.OffRamp memory offRamp) internal {
+  function _assertOffRampRouteSucceeds(Router.OffRamp memory offRamp) internal {
     vm.startPrank(offRamp.offRamp);
 
-    Client.Any2EVMMessage memory message = generateReceiverMessage(offRamp.sourceChainSelector);
+    Client.Any2EVMMessage memory message = _generateReceiverMessage(offRamp.sourceChainSelector);
     vm.expectCall(address(s_receiver), abi.encodeWithSelector(IAny2EVMMessageReceiver.ccipReceive.selector, message));
     s_sourceRouter.routeMessage(message, GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver));
   }
 
-  function assertOffRampRouteReverts(Router.OffRamp memory offRamp) internal {
+  function _assertOffRampRouteReverts(Router.OffRamp memory offRamp) internal {
     vm.startPrank(offRamp.offRamp);
 
     vm.expectRevert(IRouter.OnlyOffRamp.selector);
     s_sourceRouter.routeMessage(
-      generateReceiverMessage(offRamp.sourceChainSelector), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)
+      _generateReceiverMessage(offRamp.sourceChainSelector), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)
     );
   }
 
@@ -483,7 +486,7 @@ contract Router_applyRampUpdates is RouterSetup {
     for (uint256 i = 0; i < offRampUpdates.length; ++i) {
       assertEq(offRampUpdates[i].offRamp, gotOffRamps[i].offRamp);
       assertTrue(s_sourceRouter.isOffRamp(offRampUpdates[i].sourceChainSelector, offRampUpdates[i].offRamp));
-      assertOffRampRouteSucceeds(offRampUpdates[i]);
+      _assertOffRampRouteSucceeds(offRampUpdates[i]);
     }
 
     vm.startPrank(OWNER);
@@ -520,14 +523,14 @@ contract Router_applyRampUpdates is RouterSetup {
       assertFalse(
         s_sourceRouter.isOffRamp(partialOffRampRemoves[i].sourceChainSelector, partialOffRampRemoves[i].offRamp)
       );
-      assertOffRampRouteReverts(partialOffRampRemoves[i]);
+      _assertOffRampRouteReverts(partialOffRampRemoves[i]);
 
       assertTrue(s_sourceRouter.isOffRamp(partialOffRampAdds[i].sourceChainSelector, partialOffRampAdds[i].offRamp));
-      assertOffRampRouteSucceeds(partialOffRampAdds[i]);
+      _assertOffRampRouteSucceeds(partialOffRampAdds[i]);
     }
     for (uint256 i = numberOfPartialUpdates; i < offRampUpdates.length; ++i) {
       assertTrue(s_sourceRouter.isOffRamp(offRampUpdates[i].sourceChainSelector, offRampUpdates[i].offRamp));
-      assertOffRampRouteSucceeds(offRampUpdates[i]);
+      _assertOffRampRouteSucceeds(offRampUpdates[i]);
     }
 
     vm.startPrank(OWNER);
@@ -557,11 +560,11 @@ contract Router_applyRampUpdates is RouterSetup {
 
     for (uint256 i = 0; i < numberOfPartialUpdates; ++i) {
       assertFalse(s_sourceRouter.isOffRamp(partialOffRampAdds[i].sourceChainSelector, partialOffRampAdds[i].offRamp));
-      assertOffRampRouteReverts(partialOffRampAdds[i]);
+      _assertOffRampRouteReverts(partialOffRampAdds[i]);
     }
     for (uint256 i = 0; i < offRampUpdates.length; ++i) {
       assertFalse(s_sourceRouter.isOffRamp(offRampUpdates[i].sourceChainSelector, offRampUpdates[i].offRamp));
-      assertOffRampRouteReverts(offRampUpdates[i]);
+      _assertOffRampRouteReverts(offRampUpdates[i]);
     }
 
     vm.startPrank(OWNER);
@@ -582,13 +585,13 @@ contract Router_applyRampUpdates is RouterSetup {
     for (uint256 i = 0; i < offRampUpdates.length; ++i) {
       assertEq(offRampUpdates[i].offRamp, gotOffRamps[i].offRamp);
       assertTrue(s_sourceRouter.isOffRamp(offRampUpdates[i].sourceChainSelector, offRampUpdates[i].offRamp));
-      assertOffRampRouteSucceeds(offRampUpdates[i]);
+      _assertOffRampRouteSucceeds(offRampUpdates[i]);
     }
 
     // Check offramps that were not added back remain unset.
     for (uint256 i = 0; i < numberOfPartialUpdates; ++i) {
       assertFalse(s_sourceRouter.isOffRamp(partialOffRampAdds[i].sourceChainSelector, partialOffRampAdds[i].offRamp));
-      assertOffRampRouteReverts(partialOffRampAdds[i]);
+      _assertOffRampRouteReverts(partialOffRampAdds[i]);
     }
   }
 
@@ -691,18 +694,18 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
     vm.startPrank(address(s_offRamp));
   }
 
-  function generateManualGasLimit(uint256 callDataLength) internal view returns (uint256) {
+  function _generateManualGasLimit(uint256 callDataLength) internal view returns (uint256) {
     return ((gasleft() - 2 * (16 * callDataLength + GAS_FOR_CALL_EXACT_CHECK)) * 62) / 64;
   }
 
   function test_ManualExec_Success() public {
-    Client.Any2EVMMessage memory message = generateReceiverMessage(SOURCE_CHAIN_SELECTOR);
+    Client.Any2EVMMessage memory message = _generateReceiverMessage(SOURCE_CHAIN_SELECTOR);
     // Manuel execution cannot run out of gas
 
     (bool success, bytes memory retData, uint256 gasUsed) = s_destRouter.routeMessage(
-      generateReceiverMessage(SOURCE_CHAIN_SELECTOR),
+      _generateReceiverMessage(SOURCE_CHAIN_SELECTOR),
       GAS_FOR_CALL_EXACT_CHECK,
-      generateManualGasLimit(message.data.length),
+      _generateManualGasLimit(message.data.length),
       address(s_receiver)
     );
     assertTrue(success);
@@ -711,7 +714,7 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
   }
 
   function test_ExecutionEvent_Success() public {
-    Client.Any2EVMMessage memory message = generateReceiverMessage(SOURCE_CHAIN_SELECTOR);
+    Client.Any2EVMMessage memory message = _generateReceiverMessage(SOURCE_CHAIN_SELECTOR);
     // Should revert with reason
     bytes memory realError1 = new bytes(2);
     realError1[0] = 0xbe;
@@ -727,9 +730,9 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
     );
 
     (bool success, bytes memory retData, uint256 gasUsed) = s_destRouter.routeMessage(
-      generateReceiverMessage(SOURCE_CHAIN_SELECTOR),
+      _generateReceiverMessage(SOURCE_CHAIN_SELECTOR),
       GAS_FOR_CALL_EXACT_CHECK,
-      generateManualGasLimit(message.data.length),
+      _generateManualGasLimit(message.data.length),
       address(s_reverting_receiver)
     );
 
@@ -753,9 +756,9 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
     );
 
     (success, retData, gasUsed) = s_destRouter.routeMessage(
-      generateReceiverMessage(SOURCE_CHAIN_SELECTOR),
+      _generateReceiverMessage(SOURCE_CHAIN_SELECTOR),
       GAS_FOR_CALL_EXACT_CHECK,
-      generateManualGasLimit(message.data.length),
+      _generateManualGasLimit(message.data.length),
       address(s_reverting_receiver)
     );
 
@@ -782,9 +785,9 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
     );
 
     (success, retData, gasUsed) = s_destRouter.routeMessage(
-      generateReceiverMessage(SOURCE_CHAIN_SELECTOR),
+      _generateReceiverMessage(SOURCE_CHAIN_SELECTOR),
       GAS_FOR_CALL_EXACT_CHECK,
-      generateManualGasLimit(message.data.length),
+      _generateManualGasLimit(message.data.length),
       address(s_receiver)
     );
 
@@ -794,7 +797,7 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
   }
 
   function test_Fuzz_ExecutionEvent_Success(bytes calldata error) public {
-    Client.Any2EVMMessage memory message = generateReceiverMessage(SOURCE_CHAIN_SELECTOR);
+    Client.Any2EVMMessage memory message = _generateReceiverMessage(SOURCE_CHAIN_SELECTOR);
     s_reverting_receiver.setErr(error);
 
     bytes memory expectedRetData;
@@ -827,9 +830,9 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
     }
 
     (bool success, bytes memory retData,) = s_destRouter.routeMessage(
-      generateReceiverMessage(SOURCE_CHAIN_SELECTOR),
+      _generateReceiverMessage(SOURCE_CHAIN_SELECTOR),
       GAS_FOR_CALL_EXACT_CHECK,
-      generateManualGasLimit(message.data.length),
+      _generateManualGasLimit(message.data.length),
       address(s_reverting_receiver)
     );
 
@@ -839,13 +842,13 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
 
   function test_AutoExec_Success() public {
     (bool success,,) = s_destRouter.routeMessage(
-      generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)
+      _generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)
     );
 
     assertTrue(success);
 
     (success,,) = s_destRouter.routeMessage(
-      generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 1, address(s_receiver)
+      _generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 1, address(s_receiver)
     );
 
     // Can run out of gas, should return false
@@ -859,7 +862,7 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
 
     vm.expectRevert(IRouter.OnlyOffRamp.selector);
     s_destRouter.routeMessage(
-      generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)
+      _generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)
     );
   }
 
@@ -867,7 +870,7 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
     s_mockRMN.setGlobalCursed(true);
     vm.expectRevert(Router.BadARMSignal.selector);
     s_destRouter.routeMessage(
-      generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)
+      _generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)
     );
   }
 }

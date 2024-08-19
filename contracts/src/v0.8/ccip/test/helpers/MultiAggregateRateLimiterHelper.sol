@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import {MultiAggregateRateLimiter} from "../../MultiAggregateRateLimiter.sol";
-import {IPriceRegistry} from "../../interfaces/IPriceRegistry.sol";
 import {Client} from "../../libraries/Client.sol";
 
 contract MultiAggregateRateLimiterHelper is MultiAggregateRateLimiter {
