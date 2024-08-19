@@ -111,7 +111,7 @@ func TestIntegration_OCR3Nodes(t *testing.T) {
 		AddChainConfig(t, homeChainUni, getSelector(uni.chainID), p2pIDs, fChain)
 	}
 
-	cfgs, err := homeChainUni.ccipConfig.GetAllChainConfigs(callCtx)
+	cfgs, err := homeChainUni.ccipConfig.GetAllChainConfigs(callCtx, big.NewInt(0), big.NewInt(100))
 	require.NoError(t, err)
 	require.Len(t, cfgs, numChains)
 

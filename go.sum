@@ -533,8 +533,8 @@ github.com/googleapis/enterprise-certificate-proxy v0.3.2 h1:Vie5ybvEvT75RniqhfF
 github.com/googleapis/enterprise-certificate-proxy v0.3.2/go.mod h1:VLSiSSBs/ksPL8kq3OBOQ6WRI2QnaFynd1DCjZ62+V0=
 github.com/googleapis/gax-go/v2 v2.0.4/go.mod h1:0Wqv26UfaUD9n4G6kQubkQ+KchISgw+vpHVxEJEs9eg=
 github.com/googleapis/gax-go/v2 v2.0.5/go.mod h1:DWXyrwAJ9X0FpwwEdw+IPEYBICEFu5mhpdKc/us6bOk=
-github.com/googleapis/gax-go/v2 v2.12.2 h1:mhN09QQW1jEWeMF74zGR81R30z4VJzjZsfkUhuHF+DA=
-github.com/googleapis/gax-go/v2 v2.12.2/go.mod h1:61M8vcyyXR2kqKFxKrfA22jaA8JGF7Dc8App1U3H6jc=
+github.com/googleapis/gax-go/v2 v2.12.0 h1:A+gCJKdRfqXkr+BIRGtZLibNXf0m1f9E4HG56etFpas=
+github.com/googleapis/gax-go/v2 v2.12.0/go.mod h1:y+aIqrI5eb1YGMVJfuV3185Ts/D7qKpsEkdD5+I6QGU=
 github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1/go.mod h1:wJfORRmW1u3UXTncJ5qlYoELFm8eSnnEO6hX4iZ3EWY=
 github.com/gorilla/context v1.1.1 h1:AWwleXJkX/nhcU9bZSnZoi3h/qGYqQAGhq6zZe/aQW8=
 github.com/gorilla/context v1.1.1/go.mod h1:kBGZzfjB9CEq2AlWe17Uuf7NDRt0dE0s8S51q0aT7Yg=
@@ -1027,8 +1027,8 @@ github.com/smartcontractkit/chain-selectors v1.0.21 h1:KCR9SA7PhOexaBzFieHoLv1Wo
 github.com/smartcontractkit/chain-selectors v1.0.21/go.mod h1:d4Hi+E1zqjy9HqMkjBE5q1vcG9VGgxf5VxiRHfzi2kE=
 github.com/smartcontractkit/chainlink-automation v1.0.4 h1:iyW181JjKHLNMnDleI8umfIfVVlwC7+n5izbLSFgjw8=
 github.com/smartcontractkit/chainlink-automation v1.0.4/go.mod h1:u4NbPZKJ5XiayfKHD/v3z3iflQWqvtdhj13jVZXj/cM=
-github.com/smartcontractkit/chainlink-ccip v0.0.0-20240814100759-a12828c40ddb h1:iXBb4Zg/3jh/dWa6DVz1pFwc0eGfqVY2Pgs2N91BWs0=
-github.com/smartcontractkit/chainlink-ccip v0.0.0-20240814100759-a12828c40ddb/go.mod h1:/ZWraCBaDDgaIN1prixYcbVvIk/6HeED9+8zbWQ+TMo=
+github.com/smartcontractkit/chainlink-ccip v0.0.0-20240816163757-48726fd8165f h1:lQZBOjeYFpCdk0mGQUhbrJipd00tu49xK4zSijC/9Co=
+github.com/smartcontractkit/chainlink-ccip v0.0.0-20240816163757-48726fd8165f/go.mod h1:/ZWraCBaDDgaIN1prixYcbVvIk/6HeED9+8zbWQ+TMo=
 github.com/smartcontractkit/chainlink-common v0.2.1-0.20240717132349-ee5af9b79834 h1:pTf4xdcmiWBqWZ6rTy2RMTDBzhHk89VC1pM7jXKQztI=
 github.com/smartcontractkit/chainlink-common v0.2.1-0.20240717132349-ee5af9b79834/go.mod h1:fh9eBbrReCmv31bfz52ENCAMa7nTKQbdhb2B3+S2VGo=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45 h1:NBQLtqk8zsyY4qTJs+NElI3aDFTcAo83JHvqD04EvB0=

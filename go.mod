@@ -74,7 +74,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.21
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240814100759-a12828c40ddb
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240816163757-48726fd8165f
 	github.com/smartcontractkit/chainlink-common v0.2.1-0.20240717132349-ee5af9b79834
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240718160222-2dc0c8136bfa
@@ -224,7 +224,6 @@ require (
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-tpm v0.9.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/googleapis/gax-go/v2 v2.12.2 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.6 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
