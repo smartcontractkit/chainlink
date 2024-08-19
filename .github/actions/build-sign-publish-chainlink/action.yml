@@ -261,7 +261,7 @@ runs:
       shell: sh
       run: |
         echo "${{ inputs.cosign-public-key }}" > cosign.key
-        cosign verify --key cosign.key "${{ env.root_image_name }}"
+        cosign verify --key cosign.key "${{ env.root_image_name }}" --yes
         rm -f cosign.key
 
     - if: inputs.sign-images == 'true' && inputs.sign-method == 'keyless'
@@ -277,6 +277,7 @@ runs:
         cosign verify "${{ env.root_image_name }}" \
         --certificate-oidc-issuer https://token.actions.githubusercontent.com \
         --certificate-identity "https://github.com/smartcontractkit/chainlink/.github/workflows/build-publish.yml@${{ github.ref }}"
+        --yes
 
     - if: inputs.sign-images == 'true' && inputs.sign-method == 'keypair'
       name: Sign the published non-root Docker image using keypair method
@@ -293,7 +294,7 @@ runs:
       shell: sh
       run: |
         echo "${{ inputs.cosign-public-key }}" > cosign.key
-        cosign verify --key cosign.key "${{ env.nonroot_image_name }}"
+        cosign verify --key cosign.key "${{ env.nonroot_image_name }}" --yes
         rm -f cosign.key
 
     - if: inputs.sign-images == 'true' && inputs.sign-method == 'keyless'
@@ -309,3 +310,4 @@ runs:
         cosign verify "${{ env.nonroot_image_name }}"
         --certificate-oidc-issuer https://token.actions.githubusercontent.com \
         --certificate-identity "https://github.com/smartcontractkit/chainlink/.github/workflows/build-publish.yml@${{ github.ref }}"
+        --yes
