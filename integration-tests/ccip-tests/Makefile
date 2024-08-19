@@ -1,11 +1,13 @@
-## To Override the default config, and secret config:
-# example usage: make set_config override_toml=../config/config.toml secret_toml=../config/secret.toml network_config_toml=../config/network.toml
+## To Override the default config:
+# example usage: make set_config override_toml=../config/config.toml network_config_toml=../config/network.toml
 .PHONY: set_config
 set_config:
 	if [ -s "$(override_toml)" ]; then \
   			echo "Overriding config with $(override_toml)"; \
 			echo "export BASE64_CCIP_CONFIG_OVERRIDE=$$(base64 -i $(override_toml))" > ./testconfig/override/.env; \
         	echo "export TEST_BASE64_CCIP_CONFIG_OVERRIDE=$$(base64 -i $(override_toml))" >> ./testconfig/override/.env; \
+			echo "BASE64_CCIP_CONFIG_OVERRIDE=$$(base64 -i $(override_toml))" > ./testconfig/override/debug.env; \
+			echo "TEST_BASE64_CCIP_CONFIG_OVERRIDE=$$(base64 -i $(override_toml))" >> ./testconfig/override/debug.env; \
     else \
       		echo "No override config found, using default config"; \
         	echo  > ./testconfig/override/.env; \
@@ -15,14 +17,15 @@ set_config:
       echo "export BASE64_NETWORK_CONFIG=$$(base64 -i $(network_config_toml))" >> ./testconfig/override/.env; \
     fi
 
-	@echo "setting secret config with $(secret_toml)"
-	@echo "export BASE64_CCIP_SECRETS_CONFIG=$$(base64 -i $(secret_toml))" >> ./testconfig/override/.env
-	@echo "export TEST_BASE64_CCIP_SECRETS_CONFIG=$$(base64 -i $(secret_toml))" >> ./testconfig/override/.env
-	@echo "BASE64_CCIP_SECRETS_CONFIG=$$(base64 -i $(secret_toml))" > ./testconfig/override/debug.env
-	@echo "TEST_BASE64_CCIP_SECRETS_CONFIG=$$(base64 -i $(secret_toml))" >> ./testconfig/override/debug.env
+	@echo "Checking for test secrets file in ~/.testsecrets...";
+	@if [ ! -f ~/.testsecrets ]; then \
+		echo "WARNING: ~/.testsecrets file not found. No test secrets will be set. To set test secrets, refer to ./testconfig/examples/.testsecrets.example for the list of secrets and instruction how to set them up."; \
+	else \
+		echo "Test secrets will be loaded from ~/.testsecrets file."; \
+	fi	
 
 
-# example usage: make test_load_ccip testimage=chainlink-ccip-tests:latest testname=TestLoadCCIPStableRPS override_toml=./testconfig/override/config.toml secret_toml=./testconfig/tomls/secrets.toml network_config_toml=../config/network.toml
+# example usage: make test_load_ccip testimage=chainlink-ccip-tests:latest testname=TestLoadCCIPStableRPS override_toml=./testconfig/override/config.toml network_config_toml=../config/network.toml
 .PHONY: test_load_ccip
 test_load_ccip: set_config
 	source ./testconfig/override/.env && \
@@ -36,7 +39,7 @@ test_load_ccip: set_config
 	go test -timeout 24h -count=1 -v -run ^$(testname)$$ ./load
 
 
-# example usage: make test_smoke_ccip testimage=chainlink-ccip-tests:latest testname=TestSmokeCCIPForBidirectionalLane override_toml=../testconfig/override/config.toml secret_toml=./testconfig/tomls/secrets.toml network_config_toml=../config/network.toml
+# example usage: make test_smoke_ccip testimage=chainlink-ccip-tests:latest testname=TestSmokeCCIPForBidirectionalLane override_toml=../testconfig/override/config.toml network_config_toml=../config/network.toml
 .PHONY: test_smoke_ccip
 test_smoke_ccip: set_config
 	source ./testconfig/override/.env && \
@@ -48,7 +51,7 @@ test_smoke_ccip: set_config
 	go test -timeout 24h -count=1 -v -run ^$(testname)$$ ./smoke
 
 # run ccip smoke tests with default config; explicitly sets the override config to empty
-# example usage: make test_smoke_ccip_default testname=TestSmokeCCIPForBidirectionalLane secret_toml=./testconfig/tomls/secrets.toml
+# example usage: make test_smoke_ccip_default testname=TestSmokeCCIPForBidirectionalLane
 .PHONY: test_smoke_ccip_default
 test_smoke_ccip_default: set_config
 	source ./testconfig/override/.env && \
