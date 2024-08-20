@@ -82,15 +82,11 @@ func (bm *balanceMonitor) close() error {
 
 // OnNewLongestChain checks the balance for each key
 func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {
-	ok := bm.sleeperTask.IfStarted(bm.checkBalances)
+	bm.eng.Debugw("BalanceMonitor: signalling balance worker")
+	ok := bm.sleeperTask.WakeUpIfStarted()
 	if !ok {
 		bm.eng.Debugw("BalanceMonitor: ignoring OnNewLongestChain call, balance monitor is not started", "state", bm.sleeperTask.State())
 	}
-}
-
-func (bm *balanceMonitor) checkBalances() {
-	bm.eng.Debugw("BalanceMonitor: signalling balance worker")
-	bm.sleeperTask.WakeUp()
 }
 
 func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Address) {

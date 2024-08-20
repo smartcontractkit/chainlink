@@ -118,3 +118,14 @@ func TestDefaultModeAggregator_Aggregate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, res, capResponse1)
 }
+
+func TestSanitizeLogString(t *testing.T) {
+	require.Equal(t, "hello", remote.SanitizeLogString("hello"))
+	require.Equal(t, "[UNPRINTABLE] 0a", remote.SanitizeLogString("\n"))
+
+	longString := ""
+	for i := 0; i < 100; i++ {
+		longString += "aa-aa-aa-"
+	}
+	require.Equal(t, longString[:256]+" [TRUNCATED]", remote.SanitizeLogString(longString))
+}

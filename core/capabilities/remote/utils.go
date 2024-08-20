@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"unicode"
 
 	"google.golang.org/protobuf/proto"
 
@@ -14,6 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+)
+
+const (
+	maxLoggedStringLen = 256
 )
 
 func ValidateMessage(msg p2ptypes.Message, expectedReceiver p2ptypes.PeerID) (*remotetypes.MessageBody, error) {
@@ -85,11 +90,26 @@ func AggregateModeRaw(elemList [][]byte, minIdenticalResponses uint32) ([]byte, 
 		hashToCount[sha]++
 		if hashToCount[sha] >= minIdenticalResponses {
 			found = elem
-			break
+			// update in case we find another elem with an even higher count
+			minIdenticalResponses = hashToCount[sha]
 		}
 	}
 	if found == nil {
 		return nil, errors.New("not enough identical responses found")
 	}
 	return found, nil
+}
+
+func SanitizeLogString(s string) string {
+	tooLongSuffix := ""
+	if len(s) > maxLoggedStringLen {
+		s = s[:maxLoggedStringLen]
+		tooLongSuffix = " [TRUNCATED]"
+	}
+	for i := 0; i < len(s); i++ {
+		if !unicode.IsPrint(rune(s[i])) {
+			return "[UNPRINTABLE] " + hex.EncodeToString([]byte(s)) + tooLongSuffix
+		}
+	}
+	return s + tooLongSuffix
 }

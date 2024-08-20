@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -180,7 +179,7 @@ func (d *dispatcher) receive() {
 			receiver, ok := d.receivers[k]
 			d.mu.RUnlock()
 			if !ok {
-				d.lggr.Debugw("received message for unregistered capability", "capabilityId", k.capId, "donId", k.donId)
+				d.lggr.Debugw("received message for unregistered capability", "capabilityId", SanitizeLogString(k.capId), "donId", k.donId)
 				d.tryRespondWithError(msg.Sender, body, types.Error_CAPABILITY_NOT_FOUND)
 				continue
 			}
