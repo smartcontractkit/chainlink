@@ -66,6 +66,9 @@ outputs:
 
 runs:
   using: composite
+  env:
+    OIDC_ISSUER: https://token.actions.githubusercontent.com
+    OIDC_IDENTITY: https://github.com/smartcontractkit/chainlink/.github/workflows/build-publish.yml@${{ github.ref }}
   steps:
     - name: Set shared variables
       shell: bash
@@ -234,6 +237,7 @@ runs:
       with:
         cosign-release: "v2.4.0"
 
+    # This automatically signs the image with the correct OIDC provider from Github
     - if: inputs.sign-images == 'true'
       name: Sign the published root Docker image using keyless method
       shell: sh
@@ -245,9 +249,10 @@ runs:
       shell: sh
       run: |
         cosign verify "${{ env.root_image_name }}" \
-        --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-        --certificate-identity "https://github.com/smartcontractkit/chainlink/.github/workflows/build-publish.yml@${{ github.ref }}"
+        --certificate-oidc-issuer ${{ env.OIDC_ISSUER }} \
+        --certificate-identity "${{ env.OIDC_IDENTITY }}"
 
+    # This automatically signs the image with the correct OIDC provider from Github
     - if: inputs.sign-images == 'true'
       name: Sign the published non-root Docker image using keyless method
       shell: sh
@@ -259,5 +264,5 @@ runs:
       shell: sh
       run: |
         cosign verify "${{ env.nonroot_image_name }}" \
-        --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-        --certificate-identity "https://github.com/smartcontractkit/chainlink/.github/workflows/build-publish.yml@${{ github.ref }}"
+        --certificate-oidc-issuer ${{ env.OIDC_ISSUER }} \
+        --certificate-identity "${{ env.OIDC_IDENTITY }}"
