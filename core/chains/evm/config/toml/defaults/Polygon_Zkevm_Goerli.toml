@@ -14,6 +14,7 @@ ResendAfterThreshold = '3m'
 
 [GasEstimator]
 Mode = 'SuggestedPrice'
+PriceMin = '1 mwei'
 BumpPercent = 40
 BumpMin = '20 mwei'
 
