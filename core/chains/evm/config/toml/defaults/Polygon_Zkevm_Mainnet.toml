@@ -14,7 +14,7 @@ ContractConfirmations = 1
 ResendAfterThreshold = '3m'
 
 [GasEstimator]
-PriceMin = '100 mwei'
+Mode = 'SuggestedPrice'
 BumpPercent = 40
 BumpMin = '100 mwei'
 
