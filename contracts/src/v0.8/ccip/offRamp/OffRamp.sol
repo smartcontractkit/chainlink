@@ -22,14 +22,14 @@ import {MultiOCR3Base} from "../ocr/MultiOCR3Base.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/token/ERC20/IERC20.sol";
 import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/ERC165Checker.sol";
 
-/// @notice EVM2EVMOffRamp enables OCR networks to execute multiple messages
+/// @notice OffRamp enables OCR networks to execute multiple messages
 /// in an OffRamp in a single transaction.
-/// @dev The EVM2EVMMultiOnRamp and EVM2EVMMultiOffRamp form an xchain upgradeable unit. Any change to one of them
+/// @dev The OnRamp and OffRamp form an xchain upgradeable unit. Any change to one of them
 /// results an onchain upgrade of both contracts.
 /// @dev MultiOCR3Base is used to store multiple OCR configs for both the OffRamp and the CommitStore.
 /// The execution plugin type has to be configured without signature verification, and the commit
 /// plugin type with verification.
-contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
+contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   using ERC165Checker for address;
   using EnumerableMapAddresses for EnumerableMapAddresses.AddressToAddressMap;
 
@@ -142,7 +142,7 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   }
 
   // STATIC CONFIG
-  string public constant override typeAndVersion = "EVM2EVMMultiOffRamp 1.6.0-dev";
+  string public constant override typeAndVersion = "OffRamp 1.6.0-dev";
   /// @dev ChainSelector of this chain
   uint64 internal immutable i_chainSelector;
   /// @dev The address of the RMN proxy

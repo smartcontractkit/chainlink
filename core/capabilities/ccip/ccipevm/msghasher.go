@@ -32,7 +32,7 @@ var (
 
 // MessageHasherV1 implements the MessageHasher interface.
 // Compatible with:
-// - "EVM2EVMMultiOnRamp 1.6.0-dev"
+// - "OnRamp 1.6.0-dev"
 type MessageHasherV1 struct{}
 
 func NewMessageHasherV1() *MessageHasherV1 {

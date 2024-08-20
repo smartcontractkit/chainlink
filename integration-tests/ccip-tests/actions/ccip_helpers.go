@@ -52,13 +52,13 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -165,7 +165,7 @@ type CCIPCommon struct {
 	NoOfTokensNeedingDynamicPrice int
 	BridgeTokenPools              []*contracts.TokenPool
 	RateLimiterConfig             contracts.RateLimiterConfig
-	ARMContract                   *common.Address
+	RMNContract                   *common.Address
 	ARM                           *contracts.ARM // populate only if the ARM contracts is not a mock and can be used to verify various ARM events; keep this nil for mock ARM
 	Router                        *contracts.Router
 	PriceRegistry                 *contracts.PriceRegistry
@@ -202,10 +202,10 @@ func (ccipModule *CCIPCommon) UnvoteToCurseARM() error {
 	if ccipModule.ARM != nil {
 		return fmt.Errorf("real ARM deployed. cannot curse through test")
 	}
-	if ccipModule.ARMContract == nil {
+	if ccipModule.RMNContract == nil {
 		return fmt.Errorf("no ARM contract is set")
 	}
-	arm, err := mock_arm_contract.NewMockARMContract(*ccipModule.ARMContract, ccipModule.ChainClient.Backend())
+	arm, err := mock_rmn_contract.NewMockRMNContract(*ccipModule.RMNContract, ccipModule.ChainClient.Backend())
 	if err != nil {
 		return fmt.Errorf("error instantiating arm %w", err)
 	}
@@ -213,7 +213,7 @@ func (ccipModule *CCIPCommon) UnvoteToCurseARM() error {
 	if err != nil {
 		return fmt.Errorf("error getting owners for ARM OwnerUnvoteToCurse %w", err)
 	}
-	tx, err := arm.OwnerUnvoteToCurse0(opts, []mock_arm_contract.RMNUnvoteToCurseRecord{})
+	tx, err := arm.OwnerUnvoteToCurse0(opts, []mock_rmn_contract.RMNUnvoteToCurseRecord{})
 	if err != nil {
 		return fmt.Errorf("error in calling OwnerUnvoteToCurse %w", err)
 	}
@@ -231,10 +231,10 @@ func (ccipModule *CCIPCommon) IsCursed() (bool, error) {
 	if ccipModule.ARM != nil {
 		return false, fmt.Errorf("real ARM deployed. cannot validate cursing")
 	}
-	if ccipModule.ARMContract == nil {
+	if ccipModule.RMNContract == nil {
 		return false, fmt.Errorf("no ARM contract is set")
 	}
-	arm, err := mock_arm_contract.NewMockARMContract(*ccipModule.ARMContract, ccipModule.ChainClient.Backend())
+	arm, err := mock_rmn_contract.NewMockRMNContract(*ccipModule.RMNContract, ccipModule.ChainClient.Backend())
 	if err != nil {
 		return false, fmt.Errorf("error instantiating arm %w", err)
 	}
@@ -245,10 +245,10 @@ func (ccipModule *CCIPCommon) CurseARM() (*types.Transaction, error) {
 	if ccipModule.ARM != nil {
 		return nil, fmt.Errorf("real ARM deployed. cannot curse through test")
 	}
-	if ccipModule.ARMContract == nil {
+	if ccipModule.RMNContract == nil {
 		return nil, fmt.Errorf("no ARM contract is set")
 	}
-	arm, err := mock_arm_contract.NewMockARMContract(*ccipModule.ARMContract, ccipModule.ChainClient.Backend())
+	arm, err := mock_rmn_contract.NewMockRMNContract(*ccipModule.RMNContract, ccipModule.ChainClient.Backend())
 	if err != nil {
 		return nil, fmt.Errorf("error instantiating arm %w", err)
 	}
@@ -291,7 +291,7 @@ func (ccipModule *CCIPCommon) LoadContractAddresses(conf *laneconfig.LaneConfig,
 		}
 		if common.IsHexAddress(conf.ARM) {
 			addr := common.HexToAddress(conf.ARM)
-			ccipModule.ARMContract = &addr
+			ccipModule.RMNContract = &addr
 			if !conf.IsMockARM {
 				ccipModule.ARM = &contracts.ARM{
 					EthAddress: addr,
@@ -729,7 +729,7 @@ func (ccipModule *CCIPCommon) WriteLaneConfig(conf *laneconfig.LaneConfig) {
 		FeeToken:         ccipModule.FeeToken.Address(),
 		BridgeTokens:     btAddresses,
 		BridgeTokenPools: btpAddresses,
-		ARM:              ccipModule.ARMContract.Hex(),
+		ARM:              ccipModule.RMNContract.Hex(),
 		Router:           ccipModule.Router.Address(),
 		PriceRegistry:    ccipModule.PriceRegistry.Address(),
 		PriceAggregators: priceAggrs,
@@ -783,18 +783,18 @@ func (ccipModule *CCIPCommon) DeployContracts(
 
 	ccipModule.LoadContractAddresses(conf, &noOfTokens)
 	if ccipModule.ARM != nil {
-		arm, err := cd.NewARMContract(ccipModule.ARM.EthAddress)
+		arm, err := cd.NewRMNContract(ccipModule.ARM.EthAddress)
 		if err != nil {
 			return fmt.Errorf("getting new ARM contract shouldn't fail %w", err)
 		}
 		ccipModule.ARM = arm
 	} else {
 		// deploy a mock ARM contract
-		if ccipModule.ARMContract == nil {
+		if ccipModule.RMNContract == nil {
 			if ccipModule.ExistingDeployment {
 				return fmt.Errorf("ARM contract address is not provided in lane config")
 			}
-			ccipModule.ARMContract, err = cd.DeployMockARMContract()
+			ccipModule.RMNContract, err = cd.DeployMockRMNContract()
 			if err != nil {
 				return fmt.Errorf("deploying mock ARM contract shouldn't fail %w", err)
 			}
@@ -827,7 +827,7 @@ func (ccipModule *CCIPCommon) DeployContracts(
 		if ccipModule.ExistingDeployment {
 			return fmt.Errorf("router contract address is not provided in lane config")
 		}
-		ccipModule.Router, err = cd.DeployRouter(ccipModule.WrappedNative, *ccipModule.ARMContract)
+		ccipModule.Router, err = cd.DeployRouter(ccipModule.WrappedNative, *ccipModule.RMNContract)
 		if err != nil {
 			return fmt.Errorf("deploying router shouldn't fail %w", err)
 		}
@@ -979,7 +979,7 @@ func (ccipModule *CCIPCommon) DeployContracts(
 				if ccipModule.TokenTransmitter == nil {
 					return fmt.Errorf("TokenTransmitter contract address is not provided")
 				}
-				usdcPool, err := ccipModule.tokenDeployer.DeployUSDCTokenPoolContract(token.Address(), *ccipModule.TokenMessenger, *ccipModule.ARMContract, ccipModule.Router.Instance.Address())
+				usdcPool, err := ccipModule.tokenDeployer.DeployUSDCTokenPoolContract(token.Address(), *ccipModule.TokenMessenger, *ccipModule.RMNContract, ccipModule.Router.Instance.Address())
 				if err != nil {
 					return fmt.Errorf("deploying bridge Token pool(usdc) shouldn't fail %w", err)
 				}
@@ -987,7 +987,7 @@ func (ccipModule *CCIPCommon) DeployContracts(
 				ccipModule.BridgeTokenPools = append(ccipModule.BridgeTokenPools, usdcPool)
 			} else {
 				// deploy lock release token pool in case of non-usdc deployment
-				btp, err := ccipModule.tokenDeployer.DeployLockReleaseTokenPoolContract(token.Address(), *ccipModule.ARMContract, ccipModule.Router.Instance.Address())
+				btp, err := ccipModule.tokenDeployer.DeployLockReleaseTokenPoolContract(token.Address(), *ccipModule.RMNContract, ccipModule.Router.Instance.Address())
 				if err != nil {
 					return fmt.Errorf("deploying bridge Token pool(lock&release) shouldn't fail %w", err)
 				}
@@ -1178,7 +1178,7 @@ func NewCCIPCommonFromConfig(
 	}
 	var arm *contracts.ARM
 	if newCCIPModule.ARM != nil {
-		arm, err = newCD.NewARMContract(*newCCIPModule.ARMContract)
+		arm, err = newCD.NewRMNContract(*newCCIPModule.RMNContract)
 		if err != nil {
 			return nil, err
 		}
@@ -1414,7 +1414,7 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 			sourceChainSelector,
 			sourceCCIP.DestChainSelector,
 			tokensAndPools,
-			*sourceCCIP.Common.ARMContract,
+			*sourceCCIP.Common.RMNContract,
 			sourceCCIP.Common.Router.EthAddress,
 			sourceCCIP.Common.PriceRegistry.EthAddress,
 			tokenAdminReg,
@@ -2025,7 +2025,7 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 			destCCIP.SourceChainSelector,
 			destChainSelector,
 			sourceCCIP.OnRamp.EthAddress,
-			*destCCIP.Common.ARMContract,
+			*destCCIP.Common.RMNContract,
 		)
 		if err != nil {
 			return fmt.Errorf("deploying commitstore shouldn't fail %w", err)
@@ -2070,7 +2070,7 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 			destCCIP.Common.RateLimiterConfig,
 			[]common.Address{},
 			[]common.Address{},
-			*destCCIP.Common.ARMContract,
+			*destCCIP.Common.RMNContract,
 			tokenAdminReg,
 		)
 		if err != nil {
@@ -3394,7 +3394,7 @@ func (lane *CCIPLane) StartEventWatchers() error {
 	}(reportAccSub)
 
 	if lane.Dest.Common.ARM != nil {
-		reportBlessedEvent := make(chan *arm_contract.ARMContractTaggedRootBlessed)
+		reportBlessedEvent := make(chan *rmn_contract.RMNContractTaggedRootBlessed)
 		blessedSub := event.Resubscribe(DefaultResubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
 			sub, err := lane.Dest.Common.ARM.Instance.WatchTaggedRootBlessed(nil, reportBlessedEvent, nil)
 			if err != nil {
