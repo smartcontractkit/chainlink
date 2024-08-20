@@ -25,6 +25,9 @@ contract DestinationFeeManager is IDestinationFeeManager, IDestinationVerifierFe
   /// @notice list of subscribers and their discounts subscriberDiscounts[subscriber][feedId][token]
   mapping(address => mapping(bytes32 => mapping(address => uint256))) public s_subscriberDiscounts;
 
+  /// @notice map of global discounts
+  mapping(address => mapping(address => uint256)) public s_globalDiscounts;
+
   /// @notice keep track of any subsidised link that is owed to the reward manager.
   mapping(bytes32 => uint256) public s_linkDeficit;
 
@@ -289,8 +292,13 @@ contract DestinationFeeManager is IDestinationFeeManager, IDestinationVerifierFe
       revert ExpiredReport();
     }
 
-    //get the discount being applied
+    //check if feed discount has been applied
     uint256 discount = s_subscriberDiscounts[subscriber][feedId][quoteAddress];
+
+    if (discount == 0) {
+      //check if a global discount has been applied
+      discount = s_globalDiscounts[subscriber][quoteAddress];
+    }
 
     //the reward is always set in LINK
     reward.assetAddress = i_linkAddress;
@@ -343,6 +351,21 @@ contract DestinationFeeManager is IDestinationFeeManager, IDestinationVerifierFe
     s_subscriberDiscounts[subscriber][feedId][token] = discount;
 
     emit SubscriberDiscountUpdated(subscriber, feedId, token, discount);
+  }
+
+  function updateSubscriberGlobalDiscount(
+    address subscriber,
+    address token,
+    uint64 discount
+  ) external onlyOwner {
+    //make sure the discount is not greater than the total discount that can be applied
+    if (discount > PERCENTAGE_SCALAR) revert InvalidDiscount();
+    //make sure the token is either LINK or native
+    if (token != i_linkAddress && token != i_nativeAddress) revert InvalidAddress();
+
+    s_globalDiscounts[subscriber][token] = discount;
+
+    emit SubscriberDiscountUpdated(subscriber, bytes32(0), token, discount);
   }
 
   /// @inheritdoc IDestinationFeeManager
