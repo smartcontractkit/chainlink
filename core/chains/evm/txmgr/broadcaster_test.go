@@ -1677,6 +1677,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_GasEstimationError(t *testing.T) 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	cfg.EVMConfigs()[0].GasEstimator.EstimateGasLimit = ptr(true) // Enabled gas limit estimation
+	limitMultiplier := float32(1.25)
+	cfg.EVMConfigs()[0].GasEstimator.LimitMultiplier = ptr(decimal.NewFromFloat32(limitMultiplier)) // Set LimitMultiplier for the buffer
 	txStore := cltest.NewTestTxStore(t, db)
 
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -1701,7 +1703,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_GasEstimationError(t *testing.T) 
 	ctx := tests.Context(t)
 	t.Run("gas limit lowered after estimation", func(t *testing.T) {
 		estimatedGasLimit := uint64(100)
-		limitMultiplier := float32(1.25)
 		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
 		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGasLimit, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
