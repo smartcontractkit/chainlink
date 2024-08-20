@@ -183,24 +183,12 @@ jobs:
         with:
           fetch-depth: 0
           path: core
-      - name: Checkout chainlink-testing-framework to use citool
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink-testing-framework
-          ref: main
-          fetch-depth: 0
-          path: ctf        
-      - name: Setup Go for citool
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@a3739daf24133394f9ac6de153972bbe084953c1 # v2.3.31
-        with:
-          cache_key_id: ctf
-          cache_builds: true
-          go_mod_path: ctf/tools/citool/go.mod
-          should_tidy: false
+      - name: Install citool
+        shell: bash
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@bda0d221723edc89057438e24fe95fdaa283d6e0
       - name: Run Check Tests Command
         run: |
-          cd ctf/tools/citool/
-          if ! go run main.go check-tests ${{ github.workspace }}/integration-tests ${{ github.workspace }}/.github/e2e-tests.yml; then
+          if ! citool check-tests ${{ github.workspace }}/integration-tests ${{ github.workspace }}/.github/e2e-tests.yml; then
             echo "::error::Some E2E test configurations have to be added to .github/e2e-tests.yml. This file defines Github CI configuration for each E2E test or set of E2E tests." && exit 1
           fi
 
@@ -236,39 +224,22 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - name: Checkout chainlink-testing-framework to use citool
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink-testing-framework
-          # ref: main
-          # TODO: update
-          ref: update-testconfig-envs 
-          fetch-depth: 0
-          path: ctf
-      - name: Setup Go for citool
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@a3739daf24133394f9ac6de153972bbe084953c1 # v2.3.31
-        with:
-          cache_key_id: ctf
-          cache_builds: true
-          go_mod_path: ctf/tools/citool/go.mod
-          should_tidy: false
-          test_download_vendor_packages_command: cd ctf/tools/citool && go mod download
-
+      - name: Install citool
+        shell: bash
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@bda0d221723edc89057438e24fe95fdaa283d6e0
       - name: Install jq
         run: sudo apt-get install jq
       - name: Generate Docker Tests Matrix
         id: set-docker-matrix
         run: |
-          cd ctf/tools/citool/
-          MATRIX_JSON=$(go run main.go filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "Docker tests:"
           echo "$MATRIX_JSON" | jq
           echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
       - name: Generate K8s Tests Matrix
         id: set-k8s-runner-matrix
         run: |
-          cd ctf/tools/citool/
-          MATRIX_JSON=$(go run main.go filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
           echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
