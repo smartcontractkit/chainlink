@@ -52,7 +52,7 @@ contract E2E is EVM2EVMOnRampSetup, CommitStoreSetup, EVM2EVMOffRampSetup {
 
     bytes memory commitReport = abi.encode(
       CommitStore.CommitReport({
-        priceUpdates: getEmptyPriceUpdates(),
+        priceUpdates: _getEmptyPriceUpdates(),
         interval: CommitStore.Interval(messages[0].sequenceNumber, messages[2].sequenceNumber),
         merkleRoot: merkleRoots[0]
       })

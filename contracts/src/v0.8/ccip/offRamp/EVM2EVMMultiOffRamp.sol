@@ -68,7 +68,8 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
     uint64 indexed sequenceNumber,
     bytes32 indexed messageId,
     Internal.MessageExecutionState state,
-    bytes returnData
+    bytes returnData,
+    uint256 gasUsed
   );
   event SourceChainSelectorAdded(uint64 sourceChainSelector);
   event SourceChainConfigSet(uint64 indexed sourceChainSelector, SourceChainConfig sourceConfig);
@@ -372,6 +373,7 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
     // Execute messages
     bool manualExecution = manualExecGasLimits.length != 0;
     for (uint256 i = 0; i < numMsgs; ++i) {
+      uint256 gasStart = gasleft();
       Internal.Any2EVMRampMessage memory message = report.messages[i];
 
       Internal.MessageExecutionState originalState =
@@ -465,7 +467,12 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
       }
 
       emit ExecutionStateChanged(
-        sourceChainSelector, message.header.sequenceNumber, message.header.messageId, newState, returnData
+        sourceChainSelector,
+        message.header.sequenceNumber,
+        message.header.messageId,
+        newState,
+        returnData,
+        gasStart - gasleft()
       );
     }
   }

@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
+import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
 import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
 import "../helpers/MerkleHelper.sol";
 import "../offRamp/EVM2EVMMultiOffRampSetup.t.sol";
@@ -149,7 +150,7 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     });
 
     EVM2EVMMultiOffRamp.CommitReport memory report =
-      EVM2EVMMultiOffRamp.CommitReport({priceUpdates: getEmptyPriceUpdates(), merkleRoots: roots});
+      EVM2EVMMultiOffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots});
 
     vm.resumeGasMetering();
     _commit(report, ++s_latestSequenceNumber);
@@ -173,8 +174,15 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     vm.warp(BLOCK_TIME + 2000);
 
     // Execute
-    vm.expectEmit();
-    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
+    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR, messages1);
+    reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR + 1, messages2);
+
+    vm.resumeGasMetering();
+    vm.recordLogs();
+    _execute(reports);
+
+    assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR,
       messages1[0].header.sequenceNumber,
       messages1[0].header.messageId,
@@ -182,8 +190,7 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
       ""
     );
 
-    vm.expectEmit();
-    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
+    assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR,
       messages1[1].header.sequenceNumber,
       messages1[1].header.messageId,
@@ -191,21 +198,13 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
       ""
     );
 
-    vm.expectEmit();
-    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
+    assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR + 1,
       messages2[0].header.sequenceNumber,
       messages2[0].header.messageId,
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
-
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
-    reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR, messages1);
-    reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR + 1, messages2);
-
-    vm.resumeGasMetering();
-    _execute(reports);
   }
 
   function _sendRequest(

@@ -2,8 +2,6 @@
 pragma solidity 0.8.24;
 
 import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.sol";
-
-import {IAny2EVMOffRamp} from "../../interfaces/IAny2EVMOffRamp.sol";
 import {ICommitStore} from "../../interfaces/ICommitStore.sol";
 import {IRMN} from "../../interfaces/IRMN.sol";
 
@@ -16,24 +14,23 @@ import {Internal} from "../../libraries/Internal.sol";
 import {MultiOCR3Base} from "../../ocr/MultiOCR3Base.sol";
 import {EVM2EVMMultiOffRamp} from "../../offRamp/EVM2EVMMultiOffRamp.sol";
 import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
-import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
-import {TokenSetup} from "../TokenSetup.t.sol";
 import {EVM2EVMMultiOffRampHelper} from "../helpers/EVM2EVMMultiOffRampHelper.sol";
 import {EVM2EVMOffRampHelper} from "../helpers/EVM2EVMOffRampHelper.sol";
 import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMintTokenPool.sol";
 import {MessageInterceptorHelper} from "../helpers/MessageInterceptorHelper.sol";
 import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
-import {MockCommitStore} from "../mocks/MockCommitStore.sol";
 import {MultiOCR3BaseSetup} from "../ocr/MultiOCR3BaseSetup.t.sol";
-import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
+import {PriceRegistrySetup} from "../priceRegistry/PriceRegistrySetup.t.sol";
 
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {Vm} from "forge-std/Test.sol";
 
-contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3BaseSetup {
+contract EVM2EVMMultiOffRampSetup is PriceRegistrySetup, MultiOCR3BaseSetup {
   uint64 internal constant SOURCE_CHAIN_SELECTOR_1 = SOURCE_CHAIN_SELECTOR;
   uint64 internal constant SOURCE_CHAIN_SELECTOR_2 = 6433500567565415381;
   uint64 internal constant SOURCE_CHAIN_SELECTOR_3 = 4051577828743386545;
+  bytes32 internal constant EXECUTION_STATE_CHANGE_TOPIC_HASH =
+    keccak256("ExecutionStateChanged(uint64,uint64,bytes32,uint8,bytes,uint256)");
 
   bytes internal constant ON_RAMP_ADDRESS_1 = abi.encode(ON_RAMP_ADDRESS);
   bytes internal constant ON_RAMP_ADDRESS_2 = abi.encode(0xaA3f843Cf8E33B1F02dd28303b6bD87B1aBF8AE4);
@@ -60,8 +57,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
 
   uint64 internal s_latestSequenceNumber;
 
-  function setUp() public virtual override(TokenSetup, PriceRegistrySetup, MultiOCR3BaseSetup) {
-    TokenSetup.setUp();
+  function setUp() public virtual override(PriceRegistrySetup, MultiOCR3BaseSetup) {
     PriceRegistrySetup.setUp();
     MultiOCR3BaseSetup.setUp();
 
@@ -146,7 +142,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
         rmnProxy: address(s_mockRMN),
         tokenAdminRegistry: address(s_tokenAdminRegistry)
       }),
-      getInboundRateLimiterConfig()
+      _getInboundRateLimiterConfig()
     );
     offRamp.setOCR2Config(
       s_validSigners,
@@ -229,6 +225,9 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     });
   }
 
+  uint32 internal constant MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS = 200_000;
+  uint32 internal constant MAX_TOKEN_POOL_TRANSFER_GAS = 50_000;
+
   function _generateDynamicMultiOffRampConfig(address priceRegistry)
     internal
     pure
@@ -283,7 +282,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     uint64 sequenceNumber,
     uint256[] memory amounts
   ) internal view returns (Internal.Any2EVMRampMessage memory) {
-    Client.EVMTokenAmount[] memory tokenAmounts = getCastedSourceEVMTokenAmountsWithZeroAmounts();
+    Client.EVMTokenAmount[] memory tokenAmounts = _getCastedSourceEVMTokenAmountsWithZeroAmounts();
     for (uint256 i = 0; i < tokenAmounts.length; ++i) {
       tokenAmounts[i].amount = amounts[i];
     }
@@ -345,7 +344,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     bytes memory onRamp
   ) internal view returns (Internal.Any2EVMRampMessage[] memory) {
     Internal.Any2EVMRampMessage[] memory messages = new Internal.Any2EVMRampMessage[](2);
-    Client.EVMTokenAmount[] memory tokenAmounts = getCastedSourceEVMTokenAmountsWithZeroAmounts();
+    Client.EVMTokenAmount[] memory tokenAmounts = _getCastedSourceEVMTokenAmountsWithZeroAmounts();
     tokenAmounts[0].amount = 1e18;
     tokenAmounts[1].amount = 5e18;
     messages[0] = _generateAny2EVMMessage(sourceChainSelector, onRamp, 1, tokenAmounts, false);
@@ -488,5 +487,30 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
 
     vm.startPrank(s_validTransmitters[0]);
     s_offRamp.execute(reportContext, abi.encode(reports));
+  }
+
+  function assertExecutionStateChangedEventLogs(
+    uint64 sourceChainSelector,
+    uint64 sequenceNumber,
+    bytes32 messageId,
+    Internal.MessageExecutionState state,
+    bytes memory returnData
+  ) public {
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+    for (uint256 i = 0; i < logs.length; ++i) {
+      if (logs[i].topics[0] == EXECUTION_STATE_CHANGE_TOPIC_HASH) {
+        uint64 logSourceChainSelector = uint64(uint256(logs[i].topics[1]));
+        uint64 logSequenceNumber = uint64(uint256(logs[i].topics[2]));
+        bytes32 logMessageId = bytes32(logs[i].topics[3]);
+        (uint8 logState, bytes memory logReturnData,) = abi.decode(logs[i].data, (uint8, bytes, uint256));
+        if (logMessageId == messageId) {
+          assertEq(logSourceChainSelector, sourceChainSelector);
+          assertEq(logSequenceNumber, sequenceNumber);
+          assertEq(logMessageId, messageId);
+          assertEq(logState, uint8(state));
+          assertEq(logReturnData, returnData);
+        }
+      }
+    }
   }
 }

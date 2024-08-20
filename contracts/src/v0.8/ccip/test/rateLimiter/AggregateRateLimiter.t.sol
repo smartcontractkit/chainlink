@@ -6,7 +6,7 @@ import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {AggregateRateLimiterHelper} from "../helpers/AggregateRateLimiterHelper.sol";
-import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
+import {PriceRegistrySetup} from "../priceRegistry/PriceRegistrySetup.t.sol";
 
 import {stdError} from "forge-std/Test.sol";
 
@@ -20,7 +20,7 @@ contract AggregateTokenLimiterSetup is PriceRegistrySetup {
   function setUp() public virtual override {
     PriceRegistrySetup.setUp();
 
-    Internal.PriceUpdates memory priceUpdates = getSingleTokenPriceUpdateStruct(TOKEN, TOKEN_PRICE);
+    Internal.PriceUpdates memory priceUpdates = _getSingleTokenPriceUpdateStruct(TOKEN, TOKEN_PRICE);
     s_priceRegistry.updatePrices(priceUpdates);
 
     s_config = RateLimiter.Config({isEnabled: true, rate: 5, capacity: 100});

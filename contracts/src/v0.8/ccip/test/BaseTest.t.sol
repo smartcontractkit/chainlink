@@ -34,11 +34,11 @@ contract BaseTest is Test {
   // Onramp
   uint96 internal constant MAX_NOP_FEES_JUELS = 1e27;
   uint96 internal constant MAX_MSG_FEES_JUELS = 1e18;
-  uint32 internal constant DEST_GAS_OVERHEAD = 350_000;
+  uint32 internal constant DEST_GAS_OVERHEAD = 300_000;
   uint16 internal constant DEST_GAS_PER_PAYLOAD_BYTE = 16;
 
   uint16 internal constant DEFAULT_TOKEN_FEE_USD_CENTS = 50;
-  uint32 internal constant DEFAULT_TOKEN_DEST_GAS_OVERHEAD = 85_000;
+  uint32 internal constant DEFAULT_TOKEN_DEST_GAS_OVERHEAD = 90_000;
   uint32 internal constant DEFAULT_TOKEN_BYTES_OVERHEAD = 32;
 
   bool private s_baseTestInitialized;
@@ -61,8 +61,6 @@ contract BaseTest is Test {
   // OffRamp
   uint32 internal constant MAX_DATA_SIZE = 30_000;
   uint16 internal constant MAX_TOKENS_LENGTH = 5;
-  uint32 internal constant MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS = 200_000;
-  uint32 internal constant MAX_TOKEN_POOL_TRANSFER_GAS = 50_000;
   uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5000;
   uint32 internal constant PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS = 500;
   uint32 internal constant MAX_GAS_LIMIT = 4_000_000;
@@ -89,15 +87,15 @@ contract BaseTest is Test {
     s_mockRMN = new MockRMN();
   }
 
-  function getOutboundRateLimiterConfig() internal pure returns (RateLimiter.Config memory) {
+  function _getOutboundRateLimiterConfig() internal pure returns (RateLimiter.Config memory) {
     return RateLimiter.Config({isEnabled: true, capacity: 100e28, rate: 1e15});
   }
 
-  function getInboundRateLimiterConfig() internal pure returns (RateLimiter.Config memory) {
+  function _getInboundRateLimiterConfig() internal pure returns (RateLimiter.Config memory) {
     return RateLimiter.Config({isEnabled: true, capacity: 222e30, rate: 1e18});
   }
 
-  function getSingleTokenPriceUpdateStruct(
+  function _getSingleTokenPriceUpdateStruct(
     address token,
     uint224 price
   ) internal pure returns (Internal.PriceUpdates memory) {
@@ -106,19 +104,6 @@ contract BaseTest is Test {
 
     Internal.PriceUpdates memory priceUpdates =
       Internal.PriceUpdates({tokenPriceUpdates: tokenPriceUpdates, gasPriceUpdates: new Internal.GasPriceUpdate[](0)});
-
-    return priceUpdates;
-  }
-
-  function getSingleGasPriceUpdateStruct(
-    uint64 chainSelector,
-    uint224 usdPerUnitGas
-  ) internal pure returns (Internal.PriceUpdates memory) {
-    Internal.GasPriceUpdate[] memory gasPriceUpdates = new Internal.GasPriceUpdate[](1);
-    gasPriceUpdates[0] = Internal.GasPriceUpdate({destChainSelector: chainSelector, usdPerUnitGas: usdPerUnitGas});
-
-    Internal.PriceUpdates memory priceUpdates =
-      Internal.PriceUpdates({tokenPriceUpdates: new Internal.TokenPriceUpdate[](0), gasPriceUpdates: gasPriceUpdates});
 
     return priceUpdates;
   }
