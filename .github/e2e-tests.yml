@@ -161,8 +161,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test smoke/ocr2_test.go -timeout 30m -count=1 -test.parallel=6 -json
     pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
     test_env_vars:
-      # E2E_TEST_CHAINLINK_VERSION: '{{ env.GITHUB_SHA_PLUGINS }}' # This is the chainlink version that has the plugins
-      E2E_TEST_CHAINLINK_VERSION: develop-plugins
+      E2E_TEST_CHAINLINK_VERSION: '{{ env.GITHUB_SHA_PLUGINS }}' # This is the chainlink version that has the plugins
       ENABLE_OTEL_TRACES: true
 
   # END: OCR tests
