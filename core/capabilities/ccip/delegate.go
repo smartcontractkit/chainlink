@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/launcher"
@@ -119,6 +120,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		},
 		relayer,
 		cfg.ExternalRegistry().Address(),
+		registrysyncer.NewORM(d.ds, d.lggr),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not configure syncer: %w", err)
