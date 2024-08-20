@@ -117,7 +117,7 @@ func TestOPL1Oracle_ReadMantleGasPrice(t *testing.T) {
 	oracleAddress := common.HexToAddress("0x1234").String()
 
 	t.Parallel()
-	t.Run("correctly fetches weighted gas price if chain is mantle", func(t *testing.T) {
+	t.Run("correctly fetches gas price if chain is Mantle", func(t *testing.T) {
 		l1BaseFeeMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
 		require.NoError(t, err)
 		l1BaseFeeCalldata, err := l1BaseFeeMethodAbi.Pack(l1BaseFeeMethod)
