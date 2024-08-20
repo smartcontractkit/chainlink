@@ -63,23 +63,23 @@ jobs:
             id: upgrade-2-0
             suite: smoke
             nodes: 1
-            os: ubuntu22.04-8cores-32GB
+            os: ubuntu-latest
             network: SIMULATED
             command: -run ^TestAutomationNodeUpgrade/registry_2_0 ./smoke
           - name: Upgrade 2.1
             id: upgrade-2-1
             suite: smoke
-            nodes: 1
+            nodes: 3
             os: ubuntu22.04-8cores-32GB
             network: SIMULATED
-            command: -run ^TestAutomationNodeUpgrade/registry_2_1_logtrigger ./smoke
+            command: -run ^TestAutomationNodeUpgrade/registry_2_1_conditional|TestAutomationNodeUpgrade/registry_2_1_logtrigger|TestAutomationNodeUpgrade/registry_2_1_with_mercury_v03 ./smoke
           - name: Upgrade 2.2
             id: upgrade-2-2
             suite: smoke
-            nodes: 1
+            nodes: 3
             os: ubuntu22.04-8cores-32GB
             network: SIMULATED
-            command: -run ^TestAutomationNodeUpgrade/registry_2_2_conditional ./smoke
+            command: -run ^TestAutomationNodeUpgrade/registry_2_2_conditional|TestAutomationNodeUpgrade/registry_2_2_logtrigger|TestAutomationNodeUpgrade/registry_2_2_with_mercury_v03 ./smoke
     runs-on: ${{ matrix.tests.os }}
     name: Automation ${{ matrix.tests.name }} Test
     steps:
