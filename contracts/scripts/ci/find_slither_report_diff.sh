@@ -26,7 +26,7 @@ fi
 first_report_content=$(cat "$first_report_path" | sed 's/"//g' | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
 second_report_content=$(cat "$second_report_path" | sed 's/"//g' | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
 openai_prompt=$(cat "$report_prompt_path" | sed 's/"/\\"/g' | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
-openai_model="gpt-4o"
+openai_model="gpt-4o-2024-05-13"
 openai_result=$(echo '{
   "model": "'$openai_model'",
   "temperature": 0.01,
@@ -57,7 +57,7 @@ echo "$new_issues_report_content" > "$new_issues_report_path"
 
 if [[ -n "$validation_prompt_path" ]]; then
   echo "::debug::Validating the diff report using the validation prompt"
-  openai_model="gpt-4-turbo"
+  openai_model="gpt-4-turbo-2024-04-09"
   report_input=$(echo "$new_issues_report_content" | sed 's/"//g' | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
   validation_prompt_content=$(cat "$validation_prompt_path" | sed 's/"/\\"/g' | sed -E 's/\\+$//g' | sed -E 's/\\+ //g')
   validation_result=$(echo '{
