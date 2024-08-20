@@ -115,12 +115,16 @@ jobs:
           grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
-        env:
-          TEST_SUITE: ${{ matrix.tests.suite }}
         with:
+          test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
           test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
+          test_suite: ${{ matrix.tests.suite }}
+          test_config_chainlink_version: 'latest'
+          test_config_selected_networks: ${{ matrix.tests.network }}
+          test_config_logging_run_id: ${{ github.run_id }}
+          test_config_logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          test_config_test_log_collect: "true"
           cl_repo: 'public.ecr.aws/chainlink/chainlink'
           cl_image_tag: 'latest'
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
@@ -132,6 +136,13 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          DEFAULT_CHAINLINK_IMAGE: 'public.ecr.aws/chainlink/chainlink'
+          DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          DEFAULT_GRAFANA_BASE_URL: "http://localhost:8080/primary"
+          DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          DEFAULT_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       - name: Upload test log
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         if: failure()
