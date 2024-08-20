@@ -234,8 +234,6 @@ func (i *inprocessOracleCreator) CreatePluginOracle(pluginType cctypes.PluginTyp
 			evmconfig.ChainWriterConfigRaw(
 				fromAddress,
 				chain.Config().EVM().GasEstimator().PriceMaxKey(fromAddress),
-				defaultCommitGasLimit,
-				execBatchGasLimit,
 			),
 		)
 		if err2 != nil {
@@ -299,6 +297,7 @@ func (i *inprocessOracleCreator) CreatePluginOracle(pluginType cctypes.PluginTyp
 		transmitter = ocrimpls.NewCommitContractTransmitter[[]byte](destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			hexutil.Encode(config.Config.OfframpAddress), // TODO: this works for evm only, how about non-evm?
+			defaultCommitGasLimit,
 		)
 	} else if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec) {
 		factory = execocr3.NewPluginFactory(
@@ -316,6 +315,7 @@ func (i *inprocessOracleCreator) CreatePluginOracle(pluginType cctypes.PluginTyp
 		transmitter = ocrimpls.NewExecContractTransmitter[[]byte](destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			hexutil.Encode(config.Config.OfframpAddress), // TODO: this works for evm only, how about non-evm?
+			execBatchGasLimit,
 		)
 	} else {
 		return nil, fmt.Errorf("unsupported plugin type %d", config.Config.PluginType)

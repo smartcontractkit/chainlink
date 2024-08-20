@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -26,8 +27,6 @@ type WriteTarget struct {
 	cr               commontypes.ContractReader
 	cw               commontypes.ChainWriter
 	forwarderAddress string
-	// The minimum amount of gas that the receiver contract must get to process the forwarder report
-	receiverGasMinimum uint64
 	capabilities.CapabilityInfo
 
 	lggr logger.Logger
@@ -49,7 +48,7 @@ type TransmissionInfo struct {
 // TODO: Make this part of the on-chain capability configuration
 const FORWARDER_CONTRACT_LOGIC_GAS_COST = 100_000
 
-func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string, txGasLimit uint64) *WriteTarget {
+func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string) *WriteTarget {
 	info := capabilities.MustNewCapabilityInfo(
 		id,
 		capabilities.CapabilityTypeTarget,
@@ -60,7 +59,6 @@ func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader
 		cr,
 		cw,
 		forwarderAddress,
-		txGasLimit - FORWARDER_CONTRACT_LOGIC_GAS_COST,
 		info,
 		logger.Named(lggr, "WriteTarget"),
 		false,
@@ -111,6 +109,7 @@ type Config struct {
 
 type Inputs struct {
 	SignedReport types.SignedReport
+	GasLimit     uint64
 }
 
 type Request struct {
@@ -136,6 +135,23 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 
 	if rawRequest.Inputs == nil {
 		return r, fmt.Errorf("missing inputs field")
+	}
+
+	const gasLimitField = "gas_limit"
+	gasLimit, ok := rawRequest.Inputs.Underlying[gasLimitField]
+	if !ok {
+		return r, fmt.Errorf("missing required field %s", gasLimitField)
+	}
+
+	var gasLimitStr string
+	err = gasLimit.UnwrapTo(&gasLimitStr)
+	if err != nil {
+		return r, fmt.Errorf("failed to unwrap gas limit: %w", err)
+	}
+
+	r.Inputs.GasLimit, err = strconv.ParseUint(gasLimitStr, 10, 64)
+	if err != nil {
+		return r, fmt.Errorf("failed to parse gas limit: %w", err)
 	}
 
 	// required field of target's config in the workflow spec
@@ -230,11 +246,12 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 		cap.lggr.Infow("returning without a tranmission attempt - transmission already attempted, receiver was marked as invalid", "executionID", request.Metadata.WorkflowExecutionID)
 		return success(), nil
 	case transmissionInfo.State == 3: // FAILED
-		if transmissionInfo.GasLimit.Uint64() > cap.receiverGasMinimum {
-			cap.lggr.Infow("returning without a tranmission attempt - transmission already attempted and failed, sufficient gas was provided", "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", cap.receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
+		receiverGasMinimum := request.Inputs.GasLimit + FORWARDER_CONTRACT_LOGIC_GAS_COST
+		if transmissionInfo.GasLimit.Uint64() > receiverGasMinimum {
+			cap.lggr.Infow("returning without a tranmission attempt - transmission already attempted and failed, sufficient gas was provided", "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
 			return success(), nil
 		} else {
-			cap.lggr.Infow("non-empty report - retrying a failed transmission - attempting to push to txmgr", "request", request, "reportLen", len(request.Inputs.SignedReport.Report), "reportContextLen", len(request.Inputs.SignedReport.Context), "nSignatures", len(request.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", cap.receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
+			cap.lggr.Infow("non-empty report - retrying a failed transmission - attempting to push to txmgr", "request", request, "reportLen", len(request.Inputs.SignedReport.Report), "reportContextLen", len(request.Inputs.SignedReport.Context), "nSignatures", len(request.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
 		}
 	default:
 		return nil, fmt.Errorf("unexpected transmission state: %v", transmissionInfo.State)
@@ -270,7 +287,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 
 	meta := commontypes.TxMeta{WorkflowExecutionID: &request.Metadata.WorkflowExecutionID}
 	value := big.NewInt(0)
-	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value); err != nil {
+	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value, request.Inputs.GasLimit); err != nil {
 		return nil, err
 	}
 	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", txID)

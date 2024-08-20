@@ -41,6 +41,7 @@ targets:
   - id: "write_geth-testnet@1.0.0"
     inputs:
       signed_report: "$(evm_median.outputs)"
+      gas_limit: "200000"
     config:
       address: "%s"
       params: ["$(report)"]

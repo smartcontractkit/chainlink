@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/google/uuid"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -62,6 +63,7 @@ type commitTransmitter[RI any] struct {
 	method         string
 	offrampAddress string
 	toCalldataFn   ToCalldataFunc
+	gasLimit       uint64
 }
 
 func XXXNewContractTransmitterTestsOnly[RI any](
@@ -71,6 +73,7 @@ func XXXNewContractTransmitterTestsOnly[RI any](
 	method string,
 	offrampAddress string,
 	toCalldataFn ToCalldataFunc,
+	gasLimit uint64,
 ) ocr3types.ContractTransmitter[RI] {
 	return &commitTransmitter[RI]{
 		cw:             cw,
@@ -79,6 +82,7 @@ func XXXNewContractTransmitterTestsOnly[RI any](
 		method:         method,
 		offrampAddress: offrampAddress,
 		toCalldataFn:   toCalldataFn,
+		gasLimit:       gasLimit,
 	}
 }
 
@@ -86,6 +90,7 @@ func NewCommitContractTransmitter[RI any](
 	cw commontypes.ChainWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
+	gasLimit uint64,
 ) ocr3types.ContractTransmitter[RI] {
 	return &commitTransmitter[RI]{
 		cw:             cw,
@@ -94,6 +99,7 @@ func NewCommitContractTransmitter[RI any](
 		method:         consts.MethodCommit,
 		offrampAddress: offrampAddress,
 		toCalldataFn:   ToCommitCalldata,
+		gasLimit:       gasLimit,
 	}
 }
 
@@ -101,6 +107,7 @@ func NewExecContractTransmitter[RI any](
 	cw commontypes.ChainWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
+	gasLimit uint64,
 ) ocr3types.ContractTransmitter[RI] {
 	return &commitTransmitter[RI]{
 		cw:             cw,
@@ -109,6 +116,7 @@ func NewExecContractTransmitter[RI any](
 		method:         consts.MethodExecute,
 		offrampAddress: offrampAddress,
 		toCalldataFn:   ToExecCalldata,
+		gasLimit:       gasLimit,
 	}
 }
 
@@ -176,7 +184,7 @@ func (c *commitTransmitter[RI]) Transmit(
 		return fmt.Errorf("failed to generate UUID: %w", err)
 	}
 	zero := big.NewInt(0)
-	if err := c.cw.SubmitTransaction(ctx, c.contractName, c.method, args, fmt.Sprintf("%s-%s-%s", c.contractName, c.offrampAddress, txID.String()), c.offrampAddress, &meta, zero); err != nil {
+	if err := c.cw.SubmitTransaction(ctx, c.contractName, c.method, args, fmt.Sprintf("%s-%s-%s", c.contractName, c.offrampAddress, txID.String()), c.offrampAddress, &meta, zero, c.gasLimit); err != nil {
 		return fmt.Errorf("failed to submit transaction thru chainwriter: %w", err)
 	}
 

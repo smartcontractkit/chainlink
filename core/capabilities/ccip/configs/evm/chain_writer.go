@@ -23,10 +23,8 @@ var (
 func MustChainWriterConfig(
 	fromAddress common.Address,
 	maxGasPrice *assets.Wei,
-	commitGasLimit,
-	execBatchGasLimit uint64,
 ) []byte {
-	rawConfig := ChainWriterConfigRaw(fromAddress, maxGasPrice, commitGasLimit, execBatchGasLimit)
+	rawConfig := ChainWriterConfigRaw(fromAddress, maxGasPrice)
 	encoded, err := json.Marshal(rawConfig)
 	if err != nil {
 		panic(fmt.Errorf("failed to marshal ChainWriterConfig: %w", err))
@@ -39,8 +37,6 @@ func MustChainWriterConfig(
 func ChainWriterConfigRaw(
 	fromAddress common.Address,
 	maxGasPrice *assets.Wei,
-	commitGasLimit,
-	execBatchGasLimit uint64,
 ) evmrelaytypes.ChainWriterConfig {
 	return evmrelaytypes.ChainWriterConfig{
 		Contracts: map[string]*evmrelaytypes.ContractConfig{
@@ -50,12 +46,10 @@ func ChainWriterConfigRaw(
 					consts.MethodCommit: {
 						ChainSpecificName: mustGetMethodName("commit", offrampABI),
 						FromAddress:       fromAddress,
-						GasLimit:          commitGasLimit,
 					},
 					consts.MethodExecute: {
 						ChainSpecificName: mustGetMethodName("execute", offrampABI),
 						FromAddress:       fromAddress,
-						GasLimit:          execBatchGasLimit,
 					},
 				},
 			},

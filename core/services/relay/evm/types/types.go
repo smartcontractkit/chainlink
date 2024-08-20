@@ -42,7 +42,6 @@ type ChainWriterDefinition struct {
 	ChainSpecificName  string                `json:"chainSpecificName"`
 	Checker            string                `json:"checker"`
 	FromAddress        common.Address        `json:"fromAddress"`
-	GasLimit           uint64                `json:"gasLimit"` // TODO(archseer): what if this has to be configured per call?
 	InputModifications codec.ModifiersConfig `json:"inputModifications,omitempty"`
 }
 

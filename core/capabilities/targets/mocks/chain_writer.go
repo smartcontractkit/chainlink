@@ -367,17 +367,17 @@ func (_c *ChainWriter_Start_Call) RunAndReturn(run func(context.Context) error) 
 	return _c
 }
 
-// SubmitTransaction provides a mock function with given fields: ctx, contractName, method, args, transactionID, toAddress, meta, value
-func (_m *ChainWriter) SubmitTransaction(ctx context.Context, contractName string, method string, args interface{}, transactionID string, toAddress string, meta *types.TxMeta, value *big.Int) error {
-	ret := _m.Called(ctx, contractName, method, args, transactionID, toAddress, meta, value)
+// SubmitTransaction provides a mock function with given fields: ctx, contractName, method, args, transactionID, toAddress, meta, value, gasLimit
+func (_m *ChainWriter) SubmitTransaction(ctx context.Context, contractName string, method string, args interface{}, transactionID string, toAddress string, meta *types.TxMeta, value *big.Int, gasLimit uint64) error {
+	ret := _m.Called(ctx, contractName, method, args, transactionID, toAddress, meta, value, gasLimit)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SubmitTransaction")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, interface{}, string, string, *types.TxMeta, *big.Int) error); ok {
-		r0 = rf(ctx, contractName, method, args, transactionID, toAddress, meta, value)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, interface{}, string, string, *types.TxMeta, *big.Int, uint64) error); ok {
+		r0 = rf(ctx, contractName, method, args, transactionID, toAddress, meta, value, gasLimit)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -399,13 +399,14 @@ type ChainWriter_SubmitTransaction_Call struct {
 //   - toAddress string
 //   - meta *types.TxMeta
 //   - value *big.Int
-func (_e *ChainWriter_Expecter) SubmitTransaction(ctx interface{}, contractName interface{}, method interface{}, args interface{}, transactionID interface{}, toAddress interface{}, meta interface{}, value interface{}) *ChainWriter_SubmitTransaction_Call {
-	return &ChainWriter_SubmitTransaction_Call{Call: _e.mock.On("SubmitTransaction", ctx, contractName, method, args, transactionID, toAddress, meta, value)}
+//   - gasLimit uint64
+func (_e *ChainWriter_Expecter) SubmitTransaction(ctx interface{}, contractName interface{}, method interface{}, args interface{}, transactionID interface{}, toAddress interface{}, meta interface{}, value interface{}, gasLimit interface{}) *ChainWriter_SubmitTransaction_Call {
+	return &ChainWriter_SubmitTransaction_Call{Call: _e.mock.On("SubmitTransaction", ctx, contractName, method, args, transactionID, toAddress, meta, value, gasLimit)}
 }
 
-func (_c *ChainWriter_SubmitTransaction_Call) Run(run func(ctx context.Context, contractName string, method string, args interface{}, transactionID string, toAddress string, meta *types.TxMeta, value *big.Int)) *ChainWriter_SubmitTransaction_Call {
+func (_c *ChainWriter_SubmitTransaction_Call) Run(run func(ctx context.Context, contractName string, method string, args interface{}, transactionID string, toAddress string, meta *types.TxMeta, value *big.Int, gasLimit uint64)) *ChainWriter_SubmitTransaction_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(interface{}), args[4].(string), args[5].(string), args[6].(*types.TxMeta), args[7].(*big.Int))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(interface{}), args[4].(string), args[5].(string), args[6].(*types.TxMeta), args[7].(*big.Int), args[8].(uint64))
 	})
 	return _c
 }
@@ -415,7 +416,7 @@ func (_c *ChainWriter_SubmitTransaction_Call) Return(_a0 error) *ChainWriter_Sub
 	return _c
 }
 
-func (_c *ChainWriter_SubmitTransaction_Call) RunAndReturn(run func(context.Context, string, string, interface{}, string, string, *types.TxMeta, *big.Int) error) *ChainWriter_SubmitTransaction_Call {
+func (_c *ChainWriter_SubmitTransaction_Call) RunAndReturn(run func(context.Context, string, string, interface{}, string, string, *types.TxMeta, *big.Int, uint64) error) *ChainWriter_SubmitTransaction_Call {
 	_c.Call.Return(run)
 	return _c
 }

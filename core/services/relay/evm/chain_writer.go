@@ -37,12 +37,11 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 	}
 
 	w := chainWriter{
-		logger:      logger,
-		client:      client,
-		txm:         txm,
-		ge:          estimator,
-		maxGasPrice: config.MaxGasPrice,
-
+		logger:          logger,
+		client:          client,
+		txm:             txm,
+		ge:              estimator,
+		maxGasPrice:     config.MaxGasPrice,
 		sendStrategy:    txmgr.NewSendEveryStrategy(),
 		contracts:       config.Contracts,
 		parsedContracts: &ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
@@ -85,7 +84,8 @@ type chainWriter struct {
 // Note: The codec that ChainWriter uses to encode the parameters for the contract ABI cannot handle
 // `nil` values, including for slices. Until the bug is fixed we need to ensure that there are no
 // `nil` values passed in the request.
-func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method string, args any, transactionID string, toAddress string, meta *commontypes.TxMeta, value *big.Int) error {
+func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method string, args any, transactionID string, toAddress string, meta *commontypes.TxMeta, value *big.Int,
+	gasLimit uint64) error {
 	if !common.IsHexAddress(toAddress) {
 		return fmt.Errorf("toAddress is not a valid ethereum address: %v", toAddress)
 	}
@@ -126,7 +126,7 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		FromAddress:    methodConfig.FromAddress,
 		ToAddress:      common.HexToAddress(toAddress),
 		EncodedPayload: calldata,
-		FeeLimit:       methodConfig.GasLimit,
+		FeeLimit:       gasLimit,
 		Meta:           txMeta,
 		IdempotencyKey: &transactionID,
 		Strategy:       w.sendStrategy,

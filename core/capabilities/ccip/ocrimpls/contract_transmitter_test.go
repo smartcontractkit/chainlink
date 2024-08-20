@@ -316,6 +316,7 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 		methodTransmitWithSignatures,
 		ocr3HelperAddr.Hex(),
 		ocrimpls.ToCommitCalldata,
+		1e6,
 	)
 	transmitterWithoutSigs := ocrimpls.XXXNewContractTransmitterTestsOnly[RI](
 		chainWriter,
@@ -324,6 +325,7 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 		methodTransmitWithoutSignatures,
 		ocr3HelperAddr.Hex(),
 		ocrimpls.ToExecCalldata,
+		1e6,
 	)
 
 	return &testUniverse[RI]{
@@ -391,12 +393,10 @@ func chainWriterConfigRaw(fromAddress common.Address, maxGasPrice *assets.Wei) e
 				Configs: map[string]*evmrelaytypes.ChainWriterDefinition{
 					methodTransmitWithSignatures: {
 						ChainSpecificName: "transmitWithSignatures",
-						GasLimit:          1e6,
 						FromAddress:       fromAddress,
 					},
 					methodTransmitWithoutSignatures: {
 						ChainSpecificName: "transmitWithoutSignatures",
-						GasLimit:          1e6,
 						FromAddress:       fromAddress,
 					},
 				},

@@ -31,7 +31,7 @@ func TestWriteTarget(t *testing.T) {
 	forwarderA := testutils.NewAddress()
 	forwarderAddr := forwarderA.Hex()
 
-	writeTarget := targets.NewWriteTarget(lggr, "test-write-target@1.0.0", cr, cw, forwarderAddr, 400_000)
+	writeTarget := targets.NewWriteTarget(lggr, "test-write-target@1.0.0", cr, cw, forwarderAddr)
 	require.NotNil(t, writeTarget)
 
 	config, err := values.NewMap(map[string]any{
@@ -59,6 +59,7 @@ func TestWriteTarget(t *testing.T) {
 			"report":     reportMetadataBytes,
 			"signatures": [][]byte{},
 		},
+		"gas_limit": "200000",
 	})
 	require.NoError(t, err)
 
@@ -88,7 +89,7 @@ func TestWriteTarget(t *testing.T) {
 		}
 	}).Once()
 
-	cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, mock.Anything, mock.Anything).Return(nil).Once()
+	cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 	t.Run("succeeds with valid report", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
@@ -121,7 +122,7 @@ func TestWriteTarget(t *testing.T) {
 			Config:   config,
 			Inputs:   validInputs,
 		}
-		cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, mock.Anything, mock.Anything).Return(errors.New("writer error"))
+		cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("writer error"))
 
 		_, err = writeTarget.Execute(ctx, req)
 		require.Error(t, err)
