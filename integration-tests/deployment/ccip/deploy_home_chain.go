@@ -62,7 +62,7 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 				chain.Client,
 			)
 			return ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
-				Address: crAddr, Contract: cr, TvStr: CapabilitiesRegistry_1_0_0, Tx: tx, Err: err2,
+				Address: crAddr, Contract: cr, Tv: deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
 			}
 		})
 	if err != nil {
@@ -79,7 +79,7 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 				capReg.Address,
 			)
 			return ContractDeploy[*ccip_config.CCIPConfig]{
-				Address: ccAddr, TvStr: CCIPConfig_1_6_0, Tx: tx, Err: err2, Contract: cc,
+				Address: ccAddr, Tv: deployment.NewTypeAndVersion(CCIPConfig, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: cc,
 			}
 		})
 	if err != nil {
@@ -182,12 +182,10 @@ func AddChainConfig(
 		chainConfig,
 	}
 	tx, err := ccipConfig.ApplyChainConfigUpdates(h.DeployerKey, nil, inputConfig)
-	if err != nil {
+	if err := deployment.ConfirmIfNoError(h, tx, err); err != nil {
 		return ccip_config.CCIPConfigTypesChainConfigInfo{}, err
 	}
-	if err := h.Confirm(tx.Hash()); err != nil {
-		return ccip_config.CCIPConfigTypesChainConfigInfo{}, err
-	}
+	lggr.Infow("Applied chain config updates", "chainConfig", chainConfig)
 	return chainConfig, nil
 }
 
@@ -309,10 +307,6 @@ func AddDON(
 	// Trim first four bytes to remove function selector.
 	encodedConfigs := encodedCall[4:]
 
-	// commit so that we have an empty block to filter events from
-	// TODO: required?
-	//h.backend.Commit()
-
 	tx, err := capReg.AddDON(home.DeployerKey, p2pIDs, []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: ccipCapabilityID,
@@ -377,8 +371,6 @@ func AddDON(
 		})
 	}
 
-	//uni.backend.Commit()
-
 	tx, err = offRamp.SetOCR3Configs(dest.DeployerKey, offrampOCR3Configs)
 	if err := deployment.ConfirmIfNoError(dest, tx, err); err != nil {
 		return err
@@ -392,7 +384,8 @@ func AddDON(
 			//return err
 			return deployment.MaybeDataErr(err)
 		}
-		// TODO: assertions
+		// TODO: assertions to be done as part of full state
+		// resprentation validation CCIP-3047
 		//require.Equalf(t, offrampOCR3Configs[pluginType].ConfigDigest, ocrConfig.ConfigInfo.ConfigDigest, "%s OCR3 config digest mismatch", pluginType.String())
 		//require.Equalf(t, offrampOCR3Configs[pluginType].F, ocrConfig.ConfigInfo.F, "%s OCR3 config F mismatch", pluginType.String())
 		//require.Equalf(t, offrampOCR3Configs[pluginType].IsSignatureVerificationEnabled, ocrConfig.ConfigInfo.IsSignatureVerificationEnabled, "%s OCR3 config signature verification mismatch", pluginType.String())

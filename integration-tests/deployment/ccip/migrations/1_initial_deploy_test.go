@@ -2,7 +2,6 @@ package migrations
 
 import (
 	"context"
-	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -197,10 +196,10 @@ func Test0001_InitialDeploy(t *testing.T) {
 			srcChain := srcChain
 			dstChain := dstChain
 			wg.Add(1)
-			go func(src, dest uint64) {
+			go func(src, dest deployment.Chain) {
 				defer wg.Done()
-				waitForExecWithSeqNr(t, srcChain, dstChain, state.EvmOffRampsV160[dest], 1)
-			}(src, dest)
+				waitForExecWithSeqNr(t, src, dest, state.EvmOffRampsV160[dest.Selector], 1)
+			}(srcChain, dstChain)
 		}
 	}
 	wg.Wait()
@@ -211,8 +210,7 @@ func Test0001_InitialDeploy(t *testing.T) {
 func ReplayAllLogs(nodes map[string]memory.Node, chains map[uint64]deployment.Chain) error {
 	for _, node := range nodes {
 		for sel := range chains {
-			chainID, _ := chainsel.ChainIdFromSelector(sel)
-			if err := node.App.ReplayFromBlock(big.NewInt(int64(chainID)), 1, false); err != nil {
+			if err := node.ReplayLogs(map[uint64]uint64{sel: 1}); err != nil {
 				return err
 			}
 		}
