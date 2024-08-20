@@ -124,6 +124,8 @@ DeltaReconcile = '5s'
 """
 
 CommonChainConfigTOML = """
+LogPollInterval = '1s'
+
 [HeadTracker]
 HistoryDepth = 200
 
