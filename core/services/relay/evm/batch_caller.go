@@ -148,7 +148,7 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 				map[string]interface{}{
 					"from": common.Address{},
 					"to":   call.ContractAddress,
-					"data": data,
+					"data": hexutil.Bytes(data),
 				},
 				blockNumStr,
 			},
