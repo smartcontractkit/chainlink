@@ -93,7 +93,7 @@ jobs:
         id: changes
         with:
           filters: |
-            changes:
+            core_changes:
               - '**/*.go'
               - '**/*go.sum'
               - '**/*go.mod'
@@ -102,6 +102,9 @@ jobs:
               - 'core/**/migrations/*.sql'
               - 'core/**/config/**/*.toml'
               - 'integration-tests/**/*.toml'
+            ccip_changes:
+              - '**/*ccip*'
+              - '**/*ccip*/**'              
       - name: Ignore Filter On Workflow Dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
@@ -118,7 +121,8 @@ jobs:
           this-job-name: Check Paths That Require Tests To Run
         continue-on-error: true
     outputs:
-      src: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.changes }}
+      core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
+      ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
 
   build-lint-integration-tests:
     name: Build and Lint ${{ matrix.project.name }}
@@ -195,7 +199,7 @@ jobs:
     needs: [changes, enforce-ctf-version]
     steps:
       - name: Collect Metrics
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
@@ -220,7 +224,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           set-git-config: "true"
       - name: Build Chainlink Image
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/build-chainlink-image
         with:
           tag_suffix: ${{ matrix.image.tag-suffix }}
@@ -230,8 +234,8 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           dep_evm_sha: ${{ inputs.evm-ref }}
 
-  run-e2e-tests-workflow:
-    name: Run E2E Tests
+  run-core-e2e-tests-workflow:
+    name: Run Core E2E Tests
     permissions:
       actions: read
       checks: write
@@ -239,11 +243,12 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes, build-lint-integration-tests]
+    if: needs.changes.outputs.core_changes == 'true'
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
       chainlink_upgrade_version: ${{ github.sha }}
-      test_workflow: Run PR E2E Tests
+      test_workflow: Run PR E2E Core Tests
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
@@ -263,17 +268,52 @@ jobs:
       AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
       AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}    
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}    
+
+  run-ccip-e2e-tests-workflow:
+    name: Run CCIP E2E Tests
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes, build-lint-integration-tests]
+    if: needs.changes.outputs.ccip_changes == 'true'
+    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
+    with:
+      chainlink_version: ${{ inputs.evm-ref || github.sha }}
+      chainlink_upgrade_version: ${{ github.sha }}
+      test_workflow: Run PR E2E CCIP Tests
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}    
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}      
       
   check-e2e-test-results:
     if: always()
     name: Check E2E test results
     runs-on: ubuntu-latest
-    needs: run-e2e-tests-workflow
+    needs: run-core-e2e-tests-workflow
     steps:
       - name: Check test results
         id: check_results
         run: |
-          test_results='${{ needs.run-e2e-tests-workflow.outputs.test_results }}'
+          test_results='${{ needs.run-core-e2e-tests-workflow.outputs.test_results }}'
           echo "Test results:"
           echo "$test_results" | jq .
 
@@ -292,7 +332,7 @@ jobs:
   cleanup:
     name: Clean up integration environment deployments
     if: always()
-    needs: [run-e2e-tests-workflow]
+    needs: [run-core-e2e-tests-workflow, run-ccip-e2e-tests-workflow]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -447,7 +487,7 @@ jobs:
       ]
     steps:
       - name: Collect Metrics
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
@@ -463,7 +503,7 @@ jobs:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Build contracts
-        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+        if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
         uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@46b1311a5a83f33d08ffa8e1e0ab04f9ad51665d # node20 update on may 10, 2024
         with:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
@@ -490,7 +530,7 @@ jobs:
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
       - name: Collect Metrics
-        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+        if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
@@ -501,13 +541,13 @@ jobs:
           this-job-name: Solana Build Test Image
         continue-on-error: true
       - name: Checkout the repo
-        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+        if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Build Test Image
-        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+        if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
         uses: ./.github/actions/build-test-image
         with:
           tag: ${{ needs.get_solana_sha.outputs.sha }}
@@ -516,7 +556,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - run: echo "this exists so we don't have to run anything else if the build is skipped"
-        if: needs.changes.outputs.src == 'false' || needs.solana-test-image-exists.outputs.exists == 'true'
+        if: needs.changes.outputs.core_changes == 'false' || needs.solana-test-image-exists.outputs.exists == 'true'
 
   solana-smoke-tests:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
@@ -543,7 +583,7 @@ jobs:
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
       - name: Collect Metrics
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
@@ -560,7 +600,7 @@ jobs:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Run Setup
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@0ce1e67b254a4f041e03cc6f0e3afc987b47c7bd # v2.3.30
         with:
           go_mod_path: ./integration-tests/go.mod
@@ -573,7 +613,7 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Pull Artifacts
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           IMAGE_NAME=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }}
           # Pull the Docker image
@@ -613,7 +653,7 @@ jobs:
           # shellcheck disable=SC2086
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Run Tests
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@0ce1e67b254a4f041e03cc6f0e3afc987b47c7bd # v2.3.30
         with:
           test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
