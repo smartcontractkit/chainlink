@@ -260,7 +260,7 @@ jobs:
           duplicate-authorization-header: "true"
                    
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@d2f9642bcc24a73400568756f24b72c188ac7a9a # v2.3.31
         if: ${{ matrix.tests.enabled == true }}
         with:
           test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
