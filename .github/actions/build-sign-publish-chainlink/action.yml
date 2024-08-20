@@ -66,7 +66,6 @@ outputs:
 
 runs:
   using: composite
-  env:
   steps:
     - name: Set shared variables
       shell: bash
@@ -252,8 +251,8 @@ runs:
       shell: sh
       run: |
         cosign verify "${{ env.root_image_name }}" \
-        --certificate-oidc-issuer ${{ env.OIDC_ISSUER }} \
-        --certificate-identity "${{ env.OIDC_IDENTITY }}"
+        --certificate-oidc-issuer ${{ env.oidc-issuer }} \
+        --certificate-identity "${{ env.oidc-identity }}"
 
     # This automatically signs the image with the correct OIDC provider from Github
     - if: inputs.sign-images == 'true'
@@ -267,5 +266,5 @@ runs:
       shell: sh
       run: |
         cosign verify "${{ env.nonroot_image_name }}" \
-        --certificate-oidc-issuer ${{ env.OIDC_ISSUER }} \
-        --certificate-identity "${{ env.OIDC_IDENTITY }}"
+        --certificate-oidc-issuer ${{ env.oidc-issuer }} \
+        --certificate-identity "${{ env.oidc-identity }}"
