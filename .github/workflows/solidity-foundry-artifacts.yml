@@ -143,7 +143,8 @@ jobs:
       - name: Generate basic info and modified contracts list
         shell: bash
         run: |
-          echo "Commit SHA used to generate artifacts: ${{ inputs.commit_to_use || github.sha }}" > contracts/commit_sha_base_ref.txt
+          echo "Product: ${{ inputs.product }}" > contracts/commit_sha_base_ref.txt
+          echo "Commit SHA used to generate artifacts: ${{ inputs.commit_to_use || github.sha }}" >> contracts/commit_sha_base_ref.txt
           echo "Base reference SHA used to find modified contracts: ${{ inputs.base_ref }}" >> contracts/commit_sha_base_ref.txt     
           
           IFS=',' read -r -a modified_files <<< "${{ needs.changes.outputs.product_files }}"
@@ -221,11 +222,18 @@ jobs:
         env:
           FOUNDRY_PROFILE: ${{ inputs.product }}
 
+      - name: Prune lcov report
+        if: ${{ !contains(fromJson(steps.prepare-exclusion-list.outputs.coverage_exclusions), inputs.product) && needs.changes.outputs.product_changes == 'true' }}
+        shell: bash
+        working-directory: contracts
+        run: |
+          ./scripts/lcov_prune  ${{ inputs.product }} ./code-coverage/lcov.info ./code-coverage/lcov.info.pruned          
+
       - name: Generate Code Coverage HTML report for product contracts
         if: ${{ !contains(fromJson(steps.prepare-exclusion-list.outputs.coverage_exclusions), inputs.product) && needs.changes.outputs.product_changes == 'true' }}
         shell: bash
         working-directory: contracts
-        run: genhtml code-coverage/lcov.info --branch-coverage --output-directory code-coverage
+        run: genhtml code-coverage/lcov.info.pruned --branch-coverage --output-directory code-coverage
 
       - name: Run Forge doc for product contracts
         if: ${{ needs.changes.outputs.product_changes == 'true' }}
@@ -359,6 +367,7 @@ jobs:
           echo "Artifact ID: $ARTIFACT_ID"
           
           echo "# Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
+          echo "Product: **${{ inputs.product }}**" >> $GITHUB_STEP_SUMMARY
           echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
           echo "Commit SHA used: **${{ inputs.commit_to_use || github.sha }}**" >> $GITHUB_STEP_SUMMARY
           echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID)" >> $GITHUB_STEP_SUMMARY
