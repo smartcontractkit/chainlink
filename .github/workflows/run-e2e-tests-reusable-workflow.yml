@@ -224,6 +224,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Setup Go
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          go-version: '1.22.6'
+          check-latest: true
       - name: Install citool
         shell: bash
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@bda0d221723edc89057438e24fe95fdaa283d6e0
