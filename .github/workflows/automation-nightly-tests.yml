@@ -120,6 +120,7 @@ jobs:
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
           cl_repo: 'public.ecr.aws/chainlink/chainlink'
           cl_image_tag: 'latest'
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
