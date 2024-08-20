@@ -358,8 +358,7 @@ func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64,
 	if estimateErr != nil {
 		// Do not return error if estimate gas failed, we can still use the provided limit instead since it is an upper limit
 		e.lggr.Errorw("failed to estimate gas limit. falling back to provided gas limit.", "callMsg", callMsg, "providedGasLimit", feeLimit, "error", estimateErr)
-		estimatedFeeLimit, err = commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
-		return
+		return feeLimit, nil
 	}
 	e.lggr.Debugw("estimated gas", "callMsg", callMsg, "estimatedGas", estimatedGas, "providedGasLimit", feeLimit)
 	// Return error if estimated gas without the buffer exceeds the provided gas limit

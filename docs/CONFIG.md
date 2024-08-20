@@ -7967,6 +7967,10 @@ LimitMultiplier = '1.0' # Default
 ```
 LimitMultiplier is the factor by which a transaction's GasLimit is multiplied before transmission. So if the value is 1.1, and the GasLimit for a transaction is 10, 10% will be added before transmission.
 
+If EstimateGas is enabled, this multiplier is applied to the estimated gas without exceeding the gas limit provided for the transaction. The 2 different scenarios of how this multiplier can be applied are described below:
+- If the value is 1.1, the provided GasLimit is 120, and the estimated GasLimit is 100, the GasLimit used for transmission would be 110 after the multiplier.
+- If the value is 1.1, the provided GasLimit is 105, and the estimated GasLimit is 100, the GasLimit used for transmission would be 105 since the limit cannot exceed what was provided for the transaction.
+
 This factor is always applied, so includes L2 transactions which uses a default gas limit of 1 and is also applied to `LimitDefault`.
 
 ### LimitTransfer
