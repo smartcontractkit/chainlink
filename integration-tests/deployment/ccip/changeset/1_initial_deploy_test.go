@@ -1,4 +1,4 @@
-package migrations
+package changeset
 
 import (
 	"context"
@@ -88,14 +88,14 @@ func Test0001_InitialDeploy(t *testing.T) {
 	_, err = state.CapabilityRegistry[homeChainSel].GetCapability(nil, ccipCap)
 	require.NoError(t, err)
 
-	// Apply migration
+	// Apply change set
 	output, err := Apply0001(e, ccipdeployment.DeployCCIPContractConfig{
 		HomeChainSel: homeChainSel,
 		// Capreg/config already exist.
 		CCIPOnChainState: state,
 	})
 	require.NoError(t, err)
-	// Get new state after migration.
+	// Get new state after change set.
 	state, err = ccipdeployment.GenerateOnchainState(e, output.AddressBook)
 	require.NoError(t, err)
 

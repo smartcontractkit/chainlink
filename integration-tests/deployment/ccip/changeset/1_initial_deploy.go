@@ -1,4 +1,4 @@
-package migrations
+package changeset
 
 import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
@@ -6,26 +6,26 @@ import (
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 )
 
-// We expect the migration input to be unique per migration.
+// We expect the change set input to be unique per change set.
 // TODO: Maybe there's a generics approach here?
-// Note if the migration is a deployment and it fails we have 2 options:
+// Note if the change set is a deployment and it fails we have 2 options:
 // - Just throw away the addresses, fix issue and try again (potentially expensive on mainnet)
-// - Roll forward with another migration completing the deployment
-func Apply0001(env deployment.Environment, c ccipdeployment.DeployCCIPContractConfig) (deployment.MigrationOutput, error) {
+// - Roll forward with another change set completing the deployment
+func Apply0001(env deployment.Environment, c ccipdeployment.DeployCCIPContractConfig) (deployment.ChangeSetOutput, error) {
 	ab, err := ccipdeployment.DeployCCIPContracts(env, c)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "addresses", ab)
-		return deployment.MigrationOutput{}, err
+		return deployment.ChangeSetOutput{}, err
 	}
 	js, err := ccipdeployment.NewCCIPJobSpecs(env.NodeIDs, env.Offchain)
 	if err != nil {
-		return deployment.MigrationOutput{}, err
+		return deployment.ChangeSetOutput{}, err
 	}
 	proposal, err := ccipdeployment.GenerateAcceptOwnershipProposal(env, env.AllChainSelectors(), ab)
 	if err != nil {
-		return deployment.MigrationOutput{}, err
+		return deployment.ChangeSetOutput{}, err
 	}
-	return deployment.MigrationOutput{
+	return deployment.ChangeSetOutput{
 		Proposals:   []deployment.Proposal{proposal},
 		AddressBook: ab,
 		// Mapping of which nodes get which jobs.

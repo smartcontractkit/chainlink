@@ -21,7 +21,7 @@ func (p Proposal) String() string {
 }
 
 // Services as input to CI/Async tasks
-type MigrationOutput struct {
+type ChangeSetOutput struct {
 	JobSpecs    map[string][]string
 	Proposals   []Proposal
 	AddressBook AddressBook
