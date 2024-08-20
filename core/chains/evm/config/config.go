@@ -137,7 +137,6 @@ type GasEstimator interface {
 	Mode() string
 	PriceMaxKey(gethcommon.Address) *assets.Wei
 	EstimateGasLimit() bool
-	EstimatedGasBuffer() float32
 }
 
 type LimitJobType interface {

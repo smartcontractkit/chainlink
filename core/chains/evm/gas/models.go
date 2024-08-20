@@ -72,7 +72,6 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		"priceMax", geCfg.PriceMax(),
 		"priceMin", geCfg.PriceMin(),
 		"estimateGasLimit", geCfg.EstimateGasLimit(),
-		"estimatedGasBuffer", geCfg.EstimatedGasBuffer(),
 	)
 	df := geCfg.EIP1559DynamicFees()
 
@@ -349,7 +348,6 @@ func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64,
 	if !e.geCfg.EstimateGasLimit() {
 		return commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
 	}
-
 	// Create call msg for gas limit estimation
 	// Skip setting Gas to avoid capping the results of the estimation
 	callMsg := ethereum.CallMsg{
@@ -370,20 +368,17 @@ func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64,
 		e.lggr.Errorw("estimated gas exceeds provided limit", "estimatedGas", estimatedGas, "providedGasLimit", feeLimit)
 		return estimatedFeeLimit, commonfee.ErrFeeLimitTooLow
 	}
-	// Apply EstimatedGasBuffer multiplier to the estimated gas limit
-	estimatedFeeLimit, err = commonfee.ApplyMultiplier(estimatedGas, e.geCfg.EstimatedGasBuffer())
+	// Apply LimitMultiplier to the estimated gas limit
+	estimatedFeeLimit, err = commonfee.ApplyMultiplier(estimatedGas, e.geCfg.LimitMultiplier())
 	if err != nil {
 		return
 	}
-
 	// Fallback to the provided gas limit if the buffer causes the estimated gas limit to exceed it
 	// The provided gas limit should be used as an upper bound to avoid unexpected behavior for products
 	if estimatedFeeLimit > feeLimit {
 		e.lggr.Debugw("estimated gas limit with buffer exceeds provided limit. falling back to the provided gas limit", "estimatedGasLimit", estimatedFeeLimit, "providedGasLimit", feeLimit)
 		estimatedFeeLimit = feeLimit
 	}
-
-	estimatedFeeLimit, err = commonfee.ApplyMultiplier(estimatedFeeLimit, e.geCfg.LimitMultiplier())
 	return
 }
 
@@ -409,7 +404,6 @@ type GasEstimatorConfig interface {
 	PriceMax() *assets.Wei
 	Mode() string
 	EstimateGasLimit() bool
-	EstimatedGasBuffer() float32
 }
 
 type BlockHistoryConfig interface {

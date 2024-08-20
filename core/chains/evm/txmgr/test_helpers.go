@@ -93,7 +93,6 @@ func (g *TestGasEstimatorConfig) PriceMax() *assets.Wei       { return assets.Ne
 func (g *TestGasEstimatorConfig) PriceMin() *assets.Wei       { return assets.NewWeiI(42) }
 func (g *TestGasEstimatorConfig) Mode() string                { return "FixedPrice" }
 func (g *TestGasEstimatorConfig) EstimateGasLimit() bool      { return false }
-func (g *TestGasEstimatorConfig) EstimatedGasBuffer() float32 { return 1.25 }
 func (g *TestGasEstimatorConfig) LimitJobType() evmconfig.LimitJobType {
 	return &TestLimitJobTypeConfig{}
 }

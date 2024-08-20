@@ -357,7 +357,6 @@ LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 EstimateGasLimit = false
-EstimatedGasBuffer = '1.25'
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3

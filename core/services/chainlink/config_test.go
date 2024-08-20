@@ -521,7 +521,6 @@ func TestConfig_Marshal(t *testing.T) {
 					LimitMultiplier:    mustDecimal("1.234"),
 					LimitTransfer:      ptr[uint64](100),
 					EstimateGasLimit:   ptr(false),
-					EstimatedGasBuffer: mustDecimal("1.25"),
 					TipCapDefault:      assets.NewWeiI(2),
 					TipCapMin:          assets.NewWeiI(1),
 					PriceDefault:       assets.NewWeiI(math.MaxInt64),
@@ -1027,7 +1026,6 @@ LimitMax = 17
 LimitMultiplier = '1.234'
 LimitTransfer = 100
 EstimateGasLimit = false
-EstimatedGasBuffer = '1.25'
 BumpMin = '100 wei'
 BumpPercent = 10
 BumpThreshold = 6

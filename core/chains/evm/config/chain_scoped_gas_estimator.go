@@ -112,11 +112,6 @@ func (g *gasEstimatorConfig) EstimateGasLimit() bool {
 	return *g.c.EstimateGasLimit
 }
 
-func (g *gasEstimatorConfig) EstimatedGasBuffer() float32 {
-	f, _ := g.c.EstimatedGasBuffer.BigFloat().Float32()
-	return f
-}
-
 type limitJobTypeConfig struct {
 	c toml.GasLimitJobType
 }

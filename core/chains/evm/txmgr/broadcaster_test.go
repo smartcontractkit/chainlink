@@ -1701,7 +1701,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_GasEstimationError(t *testing.T) 
 	ctx := tests.Context(t)
 	t.Run("gas limit lowered after estimation", func(t *testing.T) {
 		estimatedGasLimit := uint64(100)
-		estimatedGasBuffer := float32(1.25)
+		limitMultiplier := float32(1.25)
 		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
 		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGasLimit, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -1716,7 +1716,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_GasEstimationError(t *testing.T) 
 		dbEtx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 		attempt := dbEtx.TxAttempts[0]
-		require.Equal(t, uint64(float32(estimatedGasLimit)*estimatedGasBuffer), attempt.ChainSpecificFeeLimit)
+		require.Equal(t, uint64(float32(estimatedGasLimit)*limitMultiplier), attempt.ChainSpecificFeeLimit)
 	})
 	t.Run("provided gas limit too low, transaction marked as fatal error", func(t *testing.T) {
 		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)

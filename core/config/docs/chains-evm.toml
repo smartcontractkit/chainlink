@@ -195,8 +195,6 @@ LimitMultiplier = '1.0' # Default
 LimitTransfer = 21_000 # Default
 # EstimateGasLimit enables estimating gas limits for transactions. This feature respects the gas limit provided during transaction creation as an upper bound.
 EstimateGasLimit = false # Default
-# EstimatedGasBuffer is a multiplier applied to estimated gas limits when the EstimateGasLimit feature is enabled. This buffer is added for safety in case the gas used for a transaction changes between estimation and broadcasting.
-EstimatedGasBuffer = '1.25' # Default
 # BumpMin is the minimum fixed amount of wei by which gas is bumped on each transaction attempt.
 BumpMin = '5 gwei' # Default
 # BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `BumpPercent` and `BumpMin` is taken for gas bumps.

@@ -48,7 +48,6 @@ FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMin = '1'
 EstimateGasLimit = false
-EstimatedGasBuffer = '1.25'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
