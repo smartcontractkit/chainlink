@@ -338,27 +338,28 @@ func (c *EVMConfig) TOMLString() (string, error) {
 }
 
 type Chain struct {
-	AutoCreateKey             *bool
-	BlockBackfillDepth        *uint32
-	BlockBackfillSkip         *bool
-	ChainType                 *chaintype.ChainTypeConfig
-	FinalityDepth             *uint32
-	FinalityTagEnabled        *bool
-	FlagsContractAddress      *types.EIP55Address
-	LinkContractAddress       *types.EIP55Address
-	LogBackfillBatchSize      *uint32
-	LogPollInterval           *commonconfig.Duration
-	LogKeepBlocksDepth        *uint32
-	LogPrunePageSize          *uint32
-	BackupLogPollerBlockDelay *uint64
-	MinIncomingConfirmations  *uint32
-	MinContractPayment        *commonassets.Link
-	NonceAutoSync             *bool
-	NoNewHeadsThreshold       *commonconfig.Duration
-	OperatorFactoryAddress    *types.EIP55Address
-	RPCDefaultBatchSize       *uint32
-	RPCBlockQueryDelay        *uint16
-	FinalizedBlockOffset      *uint32
+	AutoCreateKey                *bool
+	BlockBackfillDepth           *uint32
+	BlockBackfillSkip            *bool
+	ChainType                    *chaintype.ChainTypeConfig
+	FinalityDepth                *uint32
+	FinalityTagEnabled           *bool
+	FlagsContractAddress         *types.EIP55Address
+	LinkContractAddress          *types.EIP55Address
+	LogBackfillBatchSize         *uint32
+	LogPollInterval              *commonconfig.Duration
+	LogKeepBlocksDepth           *uint32
+	LogPrunePageSize             *uint32
+	BackupLogPollerBlockDelay    *uint64
+	MinIncomingConfirmations     *uint32
+	MinContractPayment           *commonassets.Link
+	NonceAutoSync                *bool
+	NoNewHeadsThreshold          *commonconfig.Duration
+	OperatorFactoryAddress       *types.EIP55Address
+	RPCDefaultBatchSize          *uint32
+	RPCBlockQueryDelay           *uint16
+	FinalizedBlockOffset         *uint32
+	NoNewFinalizedHeadsThreshold *commonconfig.Duration
 
 	Transactions   Transactions      `toml:",omitempty"`
 	BalanceMonitor BalanceMonitor    `toml:",omitempty"`

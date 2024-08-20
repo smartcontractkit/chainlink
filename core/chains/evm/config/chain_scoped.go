@@ -183,3 +183,7 @@ func (e *EVMConfig) LogPrunePageSize() uint32 {
 func (e *EVMConfig) FinalizedBlockOffset() uint32 {
 	return *e.C.FinalizedBlockOffset
 }
+
+func (e *EVMConfig) NoNewFinalizedHeadsThreshold() time.Duration {
+	return e.C.NoNewFinalizedHeadsThreshold.Duration()
+}

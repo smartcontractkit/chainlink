@@ -10,6 +10,7 @@ NoNewHeadsThreshold = '30s'
 # Must be set to something large here because Polygon has so many re-orgs that otherwise we are constantly refetching
 RPCBlockQueryDelay = 10
 RPCDefaultBatchSize = 100
+NoNewFinalizedHeadsThreshold = '6m'
 
 [Transactions]
 # Matic nodes under high mempool pressure are liable to drop txes, we need to ensure we keep sending them
