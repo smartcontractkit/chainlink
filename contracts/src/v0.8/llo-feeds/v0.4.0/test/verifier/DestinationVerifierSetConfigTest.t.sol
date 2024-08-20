@@ -167,7 +167,6 @@ contract DestinationVerifierSetConfigTest is BaseTest {
     // setting a config older than the latest current config should fail
     Signer[] memory signers = _getSigners(MAX_ORACLES);
     address[] memory signerAddrs = _getSignerAddresses(signers);
-    uint32 oldActivationTime = uint32(block.timestamp) - 1;
     // sets a config with timestamp = block.timestamp
     s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
     // setting a config with ealier timestamp retuls in failure
