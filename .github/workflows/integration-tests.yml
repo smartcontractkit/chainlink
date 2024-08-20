@@ -4,9 +4,8 @@ on:
   merge_group:
   pull_request:
   push:
-    # TODO: uncomment when ready 
-    # tags:
-    #   - "*"
+    tags:
+      - "*"
   workflow_dispatch:
     inputs:
       cl_ref:
