@@ -507,7 +507,7 @@ jobs:
           # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392
           # test_config_override_base64: ${{ inputs.test_config_override_base64 }}
           test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
-          test_suite: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
+          test_suite: ${{ matrix.tests.test_env_vars.TEST_SUITE }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.tests.id_sanitized }}-test-logs
           artifacts_location: |
@@ -694,7 +694,7 @@ jobs:
           test_download_vendor_packages_command: make gomod
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
           test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
-          test_suite: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
+          test_suite: ${{ matrix.tests.test_env_vars.TEST_SUITE }}
           token: ${{ secrets.GH_TOKEN }}
           should_cleanup: false
           cache_key_id: e2e-tests
