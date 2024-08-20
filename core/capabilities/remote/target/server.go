@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -210,7 +211,7 @@ func (r *server) getMessageHash(msg *types.MessageBody) ([32]byte, error) {
 
 func GetMessageID(msg *types.MessageBody) (string, error) {
 	idStr := string(msg.MessageId)
-	if !remote.IsValidID(idStr) {
+	if !validation.IsValidID(idStr) {
 		return "", fmt.Errorf("invalid message id")
 	}
 	return idStr, nil
