@@ -53,8 +53,12 @@
     "!src/v0.8/ccip/test/**/*",
     "src/v0.8/ccip/test/mocks/**/*",
     "!src/v0.8/ccip/test/mocks/test/*",
-    "!src/v0.8/ccip/onRamp/EVM2EVMMultiOnRamp.sol",
-    "!src/v0.8/ccip/offRamp/EVM2EVMMultiOffRamp.sol"
+    "!src/v0.8/ccip/onRamp/OnRamp.sol",
+    "!src/v0.8/ccip/offRamp/OffRamp.sol",
+    "!src/v0.8/ccip/ocr/MultiOCR3Base.sol",
+    "!src/v0.8/ccip/NonceManager.sol",
+    "!src/v0.8/ccip/MultiAggregateRateLimiter.sol",
+    "!src/v0.8/ccip/capability"
   ],
   "pnpm": {
     "_comment": "See https://github.com/ethers-io/ethers.js/discussions/2849#discussioncomment-2696454",
