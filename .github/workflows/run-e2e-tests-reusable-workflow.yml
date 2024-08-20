@@ -185,7 +185,7 @@ jobs:
           path: core
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@bda0d221723edc89057438e24fe95fdaa283d6e0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@a49f2dff000fcf020ab9978b33e3726d7df5bf96 # v1.34.4
       - name: Run Check Tests Command
         run: |
           if ! citool check-tests ${{ github.workspace }}/integration-tests ${{ github.workspace }}/.github/e2e-tests.yml; then
@@ -231,7 +231,7 @@ jobs:
           check-latest: true
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@bda0d221723edc89057438e24fe95fdaa283d6e0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@a49f2dff000fcf020ab9978b33e3726d7df5bf96 # v1.34.4
       - name: Install jq
         run: sudo apt-get install jq
       - name: Generate Docker Tests Matrix
