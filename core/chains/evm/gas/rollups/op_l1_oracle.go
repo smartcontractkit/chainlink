@@ -38,7 +38,6 @@ type optimismL1Oracle struct {
 	l1GasPrice      priceEntry
 	isEcotone       bool
 	isFjord         bool
-	isMantle        bool
 	upgradeCheckTs  time.Time
 
 	chInitialised chan struct{}
@@ -103,24 +102,20 @@ const (
 
 func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType) (*optimismL1Oracle, error) {
 	var precompileAddress string
-	isMantle := false
 	switch chainType {
-	case chaintype.ChainOptimismBedrock:
+	case chaintype.ChainOptimismBedrock, chaintype.ChainMantle:
 		precompileAddress = OPGasOracleAddress
 	case chaintype.ChainKroma:
 		precompileAddress = KromaGasOracleAddress
 	case chaintype.ChainScroll:
 		precompileAddress = ScrollGasOracleAddress
-	case chaintype.ChainMantle:
-		precompileAddress = OPGasOracleAddress
-		isMantle = true
 	default:
 		return nil, fmt.Errorf("received unsupported chaintype %s", chainType)
 	}
-	return newOpStackL1GasOracle(lggr, ethClient, chainType, precompileAddress, isMantle)
+	return newOpStackL1GasOracle(lggr, ethClient, chainType, precompileAddress)
 }
 
-func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, precompileAddress string, isMantle bool) (*optimismL1Oracle, error) {
+func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, precompileAddress string) (*optimismL1Oracle, error) {
 	getL1FeeMethodAbi, err := abi.JSON(strings.NewReader(GetL1FeeAbiString))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse L1 gas cost method ABI for chain: %s", chainType)
@@ -216,7 +211,6 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 		l1OracleAddress: precompileAddress,
 		isEcotone:       false,
 		isFjord:         false,
-		isMantle:        isMantle,
 		upgradeCheckTs:  time.Time{},
 
 		chInitialised: make(chan struct{}),
@@ -368,15 +362,16 @@ func (o *optimismL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transac
 }
 
 func (o *optimismL1Oracle) GetDAGasPrice(ctx context.Context) (*big.Int, error) {
+	if o.chainType == chaintype.ChainMantle {
+		return o.getMantleGasPrice(ctx)
+	}
+
 	err := o.checkForUpgrade(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if o.isFjord || o.isEcotone {
 		return o.getEcotoneFjordGasPrice(ctx)
-	}
-	if o.isMantle {
-		return o.getMantleGasPrice(ctx)
 	}
 
 	return o.getV1GasPrice(ctx)
@@ -486,13 +481,13 @@ func (o *optimismL1Oracle) getMantleGasPrice(ctx context.Context) (*big.Int, err
 	tokenRatio := new(big.Int).SetBytes(b)
 
 	// call optimism bedrock gas price function
-	classicEvmGasPrice, err := o.getV1GasPrice(ctx)
+	v1GasPrice, err := o.getV1GasPrice(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("getting gas price from pptimism bedrock formula failed: %w", err)
+		return nil, fmt.Errorf("getting gas price from optimism bedrock formula failed: %w", err)
 	}
 
 	// multiply return gas price by tokenRatio
-	return new(big.Int).Mul(classicEvmGasPrice, tokenRatio), nil
+	return new(big.Int).Mul(v1GasPrice, tokenRatio), nil
 }
 
 // Returns the scaled gas price using baseFeeScalar, l1BaseFee, blobBaseFeeScalar, and blobBaseFee fields from the oracle
