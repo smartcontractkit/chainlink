@@ -204,7 +204,7 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 
 		// NOTE: this is enforced on-chain and so should never happen.
 		if len(myWorkflowDONs) > 1 {
-			w.lggr.Error("invariant violation: node is part of more than one workflowDON: this shouldn't happen.")
+			return errors.New("invariant violation: node is part of more than one workflowDON")
 		}
 
 		for _, rcd := range remoteCapabilityDONs {

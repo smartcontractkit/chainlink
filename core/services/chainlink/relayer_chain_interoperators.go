@@ -186,6 +186,23 @@ func InitStarknet(ctx context.Context, factory RelayerFactory, config StarkNetFa
 	}
 }
 
+// InitAptos is a option for instantiating Aptos relayers
+func InitAptos(ctx context.Context, factory RelayerFactory, config AptosFactoryConfig) CoreRelayerChainInitFunc {
+	return func(op *CoreRelayerChainInteroperators) (err error) {
+		relayers, err := factory.NewAptos(config.Keystore, config.TOMLConfigs)
+		if err != nil {
+			return fmt.Errorf("failed to setup aptos relayer: %w", err)
+		}
+
+		for id, relayer := range relayers {
+			op.srvs = append(op.srvs, relayer)
+			op.loopRelayers[id] = relayer
+		}
+
+		return nil
+	}
+}
+
 // Get a [loop.Relayer] by id
 func (rs *CoreRelayerChainInteroperators) Get(id types.RelayID) (loop.Relayer, error) {
 	rs.mu.Lock()

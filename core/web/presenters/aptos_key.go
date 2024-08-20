@@ -5,7 +5,8 @@ import "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/apt
 // AptosKeyResource represents a Aptos key JSONAPI resource.
 type AptosKeyResource struct {
 	JAID
-	PubKey string `json:"publicKey"`
+	Account string `json:"account"`
+	PubKey  string `json:"publicKey"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -15,8 +16,9 @@ func (AptosKeyResource) GetName() string {
 
 func NewAptosKeyResource(key aptoskey.Key) *AptosKeyResource {
 	r := &AptosKeyResource{
-		JAID:   JAID{ID: key.ID()},
-		PubKey: key.PublicKeyStr(),
+		JAID:    JAID{ID: key.ID()},
+		Account: key.Account(),
+		PubKey:  key.PublicKeyStr(),
 	}
 
 	return r

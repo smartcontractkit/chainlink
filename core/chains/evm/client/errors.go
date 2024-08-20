@@ -158,7 +158,13 @@ var arbitrum = ClientErrors{
 	Fatal:                 arbitrumFatal,
 	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
 	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
-	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
+	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$|network is unreachable|i/o timeout`),
+}
+
+// Treasure
+var treasureFatal = regexp.MustCompile(`(: |^)invalid chain id for signer(:|$)`)
+var treasure = ClientErrors{
+	Fatal: treasureFatal,
 }
 
 var celo = ClientErrors{
@@ -259,6 +265,10 @@ var mantle = ClientErrors{
 	Fatal:           regexp.MustCompile(`(: |^)'*invalid sender`),
 }
 
+var gnosis = ClientErrors{
+	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(alreadyknown)`),
+}
+
 const TerminallyStuckMsg = "transaction terminally stuck"
 
 // Tx.Error messages that are set internally so they are not chain or client specific
@@ -266,7 +276,7 @@ var internal = ClientErrors{
 	TerminallyStuck: regexp.MustCompile(TerminallyStuckMsg),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, mantle, aStar, internal}
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, treasure, mantle, aStar, gnosis, internal}
 
 // ClientErrorRegexes returns a map of compiled regexes for each error type
 func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
@@ -591,6 +601,11 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 			"id", "RPCTxFeeCapExceeded",
 		)
 		return commonclient.ExceedsMaxFee
+	}
+	if sendError.IsTerminallyStuckConfigError(configErrors) {
+		lggr.Warnw("Transaction that would have been terminally stuck in the mempool detected on send. Marking as fatal error.", "err", sendError, "etx", tx)
+		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
+		return commonclient.TerminallyStuck
 	}
 	lggr.Criticalw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
 	return commonclient.Unknown
