@@ -13,7 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_proxy_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbitrum_l1_bridge_adapter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbitrum_l2_bridge_adapter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/liquiditymanager"
@@ -25,7 +25,7 @@ import (
 
 type ArmProxy struct {
 	client     blockchain.EVMClient
-	Instance   *arm_proxy_contract.ARMProxyContract
+	Instance   *rmn_proxy_contract.RMNProxyContract
 	EthAddress *common.Address
 }
 
@@ -34,7 +34,7 @@ func (e *CCIPContractsDeployer) DeployArmProxy(arm common.Address) (*ArmProxy, e
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return arm_proxy_contract.DeployARMProxyContract(
+		return rmn_proxy_contract.DeployRMNProxyContract(
 			auth,
 			wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
 			arm,
@@ -45,7 +45,7 @@ func (e *CCIPContractsDeployer) DeployArmProxy(arm common.Address) (*ArmProxy, e
 	}
 	return &ArmProxy{
 		client:     e.evmClient,
-		Instance:   instance.(*arm_proxy_contract.ARMProxyContract),
+		Instance:   instance.(*rmn_proxy_contract.RMNProxyContract),
 		EthAddress: address,
 	}, err
 }

@@ -17,7 +17,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -105,7 +105,7 @@ func Test_ProperlyRecognizesPerLaneCurses(t *testing.T) {
 	assert.True(t, isCursed)
 
 	// Uncursing the chain selector
-	_, err = mockRMN.OwnerUnvoteToCurse(user, []mock_arm_contract.RMNUnvoteToCurseRecord{}, ccipcommon.SelectorToBytes(destChainSelector))
+	_, err = mockRMN.OwnerUnvoteToCurse(user, []mock_rmn_contract.RMNUnvoteToCurseRecord{}, ccipcommon.SelectorToBytes(destChainSelector))
 	require.NoError(t, err)
 	bc.Commit()
 
@@ -129,8 +129,8 @@ func BenchmarkIsSourceCursedWithCache(b *testing.B) {
 	}
 }
 
-func setupOnRampV1_5_0(t testing.TB, user *bind.TransactOpts, bc *client.SimulatedBackendClient) (common.Address, *mock_arm_contract.MockARMContract, common.Address) {
-	rmnAddress, transaction, rmnContract, err := mock_arm_contract.DeployMockARMContract(user, bc)
+func setupOnRampV1_5_0(t testing.TB, user *bind.TransactOpts, bc *client.SimulatedBackendClient) (common.Address, *mock_rmn_contract.MockRMNContract, common.Address) {
+	rmnAddress, transaction, rmnContract, err := mock_rmn_contract.DeployMockRMNContract(user, bc)
 	bc.Commit()
 	require.NoError(t, err)
 	ccipdata.AssertNonRevert(t, transaction, bc, user)

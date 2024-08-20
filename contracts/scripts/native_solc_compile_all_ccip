@@ -32,7 +32,7 @@ compileContract () {
     echo "OffRamp uses $OPTIMIZE_RUNS_OFFRAMP optimizer runs."
       optimize_runs=$OPTIMIZE_RUNS_OFFRAMP
       ;;
-    "ccip/offRamp/EVM2EVMMultiOffRamp.sol")
+    "ccip/offRamp/OffRamp.sol")
     echo "MultiOffRamp uses $OPTIMIZE_RUNS_MULTI_OFFRAMP optimizer runs."
       optimize_runs=$OPTIMIZE_RUNS_MULTI_OFFRAMP
       ;;
@@ -58,11 +58,11 @@ compileContract () {
 # Solc produces and overwrites intermediary contracts.
 # Contracts should be ordered in reverse-import-complexity-order to minimize overwrite risks.
 compileContract ccip/offRamp/EVM2EVMOffRamp.sol
-compileContract ccip/offRamp/EVM2EVMMultiOffRamp.sol
+compileContract ccip/offRamp/OffRamp.sol
 compileContract ccip/applications/PingPongDemo.sol
 compileContract ccip/applications/SelfFundedPingPong.sol
 compileContract ccip/applications/EtherSenderReceiver.sol
-compileContract ccip/onRamp/EVM2EVMMultiOnRamp.sol
+compileContract ccip/onRamp/OnRamp.sol
 compileContract ccip/onRamp/EVM2EVMOnRamp.sol
 compileContract ccip/CommitStore.sol
 compileContract ccip/MultiAggregateRateLimiter.sol

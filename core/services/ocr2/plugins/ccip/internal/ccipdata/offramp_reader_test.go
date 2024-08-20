@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -320,7 +320,7 @@ func deployMockArm(
 	user *bind.TransactOpts,
 	bc *client.SimulatedBackendClient,
 ) common.Address {
-	armAddr, tx, _, err := mock_arm_contract.DeployMockARMContract(user, bc)
+	armAddr, tx, _, err := mock_rmn_contract.DeployMockRMNContract(user, bc)
 	require.NoError(t, err)
 	bc.Commit()
 	ccipdata.AssertNonRevert(t, tx, bc, user)

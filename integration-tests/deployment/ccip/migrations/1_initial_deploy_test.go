@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
@@ -222,10 +222,10 @@ func waitForCommitWithInterval(
 	t *testing.T,
 	src deployment.Chain,
 	dest deployment.Chain,
-	offRamp *evm_2_evm_multi_offramp.EVM2EVMMultiOffRamp,
+	offRamp *offramp.OffRamp,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
 ) {
-	sink := make(chan *evm_2_evm_multi_offramp.EVM2EVMMultiOffRampCommitReportAccepted)
+	sink := make(chan *offramp.OffRampCommitReportAccepted)
 	subscription, err := offRamp.WatchCommitReportAccepted(&bind.WatchOpts{
 		Context: context.Background(),
 	}, sink)
@@ -263,7 +263,7 @@ func waitForCommitWithInterval(
 
 func waitForExecWithSeqNr(t *testing.T,
 	source, dest deployment.Chain,
-	offramp *evm_2_evm_multi_offramp.EVM2EVMMultiOffRamp,
+	offramp *offramp.OffRamp,
 	expectedSeqNr uint64) {
 	tick := time.NewTicker(5 * time.Second)
 	defer tick.Stop()

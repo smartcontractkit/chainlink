@@ -20,10 +20,10 @@ import {USDPriceWith18Decimals} from "../libraries/USDPriceWith18Decimals.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @notice The EVM2EVMMultiOnRamp is a contract that handles lane-specific fee logic
-/// @dev The EVM2EVMMultiOnRamp, MultiCommitStore and EVM2EVMMultiOffRamp form an xchain upgradeable unit. Any change to one of them
+/// @notice The OnRamp is a contract that handles lane-specific fee logic
+/// @dev The OnRamp, MultiCommitStore and OffRamp form an xchain upgradeable unit. Any change to one of them
 /// results an onchain upgrade of all 3.
-contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
+contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   using SafeERC20 for IERC20;
   using USDPriceWith18Decimals for uint224;
 
@@ -80,7 +80,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
   }
 
   // STATIC CONFIG
-  string public constant override typeAndVersion = "EVM2EVMMultiOnRamp 1.6.0-dev";
+  string public constant override typeAndVersion = "OnRamp 1.6.0-dev";
   /// @dev The chain ID of the source chain that this contract is deployed to
   uint64 internal immutable i_chainSelector;
   /// @dev The address of the rmn proxy

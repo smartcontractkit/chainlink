@@ -14,8 +14,8 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
@@ -62,7 +62,7 @@ type OnRamp struct {
 	// Static config can be cached, because it's never expected to change.
 	// The only way to change that is through the contract's constructor (redeployment)
 	cachedStaticConfig cache.OnceCtxFunction[evm_2_evm_onramp_1_2_0.EVM2EVMOnRampStaticConfig]
-	cachedRmnContract  cache.OnceCtxFunction[*arm_contract.ARMContract]
+	cachedRmnContract  cache.OnceCtxFunction[*rmn_contract.RMNContract]
 }
 
 func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAddress common.Address, sourceLP logpoller.LogPoller, source client.Client) (*OnRamp, error) {
@@ -89,13 +89,13 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 	cachedStaticConfig := cache.OnceCtxFunction[evm_2_evm_onramp_1_2_0.EVM2EVMOnRampStaticConfig](func(ctx context.Context) (evm_2_evm_onramp_1_2_0.EVM2EVMOnRampStaticConfig, error) {
 		return onRamp.GetStaticConfig(&bind.CallOpts{Context: ctx})
 	})
-	cachedRmnContract := cache.OnceCtxFunction[*arm_contract.ARMContract](func(ctx context.Context) (*arm_contract.ARMContract, error) {
+	cachedRmnContract := cache.OnceCtxFunction[*rmn_contract.RMNContract](func(ctx context.Context) (*rmn_contract.RMNContract, error) {
 		staticConfig, err := cachedStaticConfig(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		return arm_contract.NewARMContract(staticConfig.ArmProxy, source)
+		return rmn_contract.NewRMNContract(staticConfig.ArmProxy, source)
 	})
 	return &OnRamp{
 		lggr:                       lggr,

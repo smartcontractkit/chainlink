@@ -2,25 +2,20 @@
 pragma solidity 0.8.24;
 
 import {Internal} from "../../libraries/Internal.sol";
-import {EVM2EVMMultiOffRamp} from "../../offRamp/EVM2EVMMultiOffRamp.sol";
+import {OffRamp} from "../../offRamp/OffRamp.sol";
 
 contract CCIPReaderTester {
   event CCIPSendRequested(uint64 indexed destChainSelector, Internal.EVM2AnyRampMessage message);
 
-  mapping(uint64 sourceChainSelector => EVM2EVMMultiOffRamp.SourceChainConfig sourceChainConfig) internal
-    s_sourceChainConfigs;
+  mapping(uint64 sourceChainSelector => OffRamp.SourceChainConfig sourceChainConfig) internal s_sourceChainConfigs;
 
-  function getSourceChainConfig(uint64 sourceChainSelector)
-    external
-    view
-    returns (EVM2EVMMultiOffRamp.SourceChainConfig memory)
-  {
+  function getSourceChainConfig(uint64 sourceChainSelector) external view returns (OffRamp.SourceChainConfig memory) {
     return s_sourceChainConfigs[sourceChainSelector];
   }
 
   function setSourceChainConfig(
     uint64 sourceChainSelector,
-    EVM2EVMMultiOffRamp.SourceChainConfig memory sourceChainConfig
+    OffRamp.SourceChainConfig memory sourceChainConfig
   ) external {
     s_sourceChainConfigs[sourceChainSelector] = sourceChainConfig;
   }
@@ -47,9 +42,9 @@ contract CCIPReaderTester {
     emit ExecutionStateChanged(sourceChainSelector, sequenceNumber, messageId, state, returnData);
   }
 
-  event CommitReportAccepted(EVM2EVMMultiOffRamp.CommitReport report);
+  event CommitReportAccepted(OffRamp.CommitReport report);
 
-  function emitCommitReportAccepted(EVM2EVMMultiOffRamp.CommitReport memory report) external {
+  function emitCommitReportAccepted(OffRamp.CommitReport memory report) external {
     emit CommitReportAccepted(report);
   }
 }

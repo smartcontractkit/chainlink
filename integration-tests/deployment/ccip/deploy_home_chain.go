@@ -21,8 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
@@ -194,7 +194,7 @@ func AddDON(
 	ccipCapabilityID [32]byte,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipConfig *ccip_config.CCIPConfig,
-	offRamp *evm_2_evm_multi_offramp.EVM2EVMMultiOffRamp,
+	offRamp *offramp.OffRamp,
 	dest deployment.Chain,
 	home deployment.Chain,
 	f uint8,
@@ -349,7 +349,7 @@ func AddDON(
 	}
 
 	// get the config digest from the ccip config contract and set config on the offramp.
-	var offrampOCR3Configs []evm_2_evm_multi_offramp.MultiOCR3BaseOCRConfigArgs
+	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
 		ocrConfig, err2 := ccipConfig.GetOCRConfig(&bind.CallOpts{
 			Context: context.Background(),
@@ -361,7 +361,7 @@ func AddDON(
 			return errors.New("expected exactly one OCR3 config")
 		}
 
-		offrampOCR3Configs = append(offrampOCR3Configs, evm_2_evm_multi_offramp.MultiOCR3BaseOCRConfigArgs{
+		offrampOCR3Configs = append(offrampOCR3Configs, offramp.MultiOCR3BaseOCRConfigArgs{
 			ConfigDigest:                   ocrConfig[0].ConfigDigest,
 			OcrPluginType:                  uint8(pluginType),
 			F:                              f,

@@ -15,12 +15,12 @@ import (
 
 	owner_wrappers "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_proxy_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
@@ -33,15 +33,15 @@ type CCIPOnChainState struct {
 	// Populated go bindings for the appropriate version for all contracts.
 	// We would hold 2 versions of each contract here. Once we upgrade we can phase out the old one.
 	// When generating bindings, make sure the package name corresponds to the version.
-	EvmOnRampsV160       map[uint64]*evm_2_evm_multi_onramp.EVM2EVMMultiOnRamp
-	EvmOffRampsV160      map[uint64]*evm_2_evm_multi_offramp.EVM2EVMMultiOffRamp
+	EvmOnRampsV160       map[uint64]*onramp.OnRamp
+	EvmOffRampsV160      map[uint64]*offramp.OffRamp
 	PriceRegistries      map[uint64]*price_registry.PriceRegistry
-	ArmProxies           map[uint64]*arm_proxy_contract.ARMProxyContract
+	ArmProxies           map[uint64]*rmn_proxy_contract.RMNProxyContract
 	NonceManagers        map[uint64]*nonce_manager.NonceManager
 	TokenAdminRegistries map[uint64]*token_admin_registry.TokenAdminRegistry
 	Routers              map[uint64]*router.Router
 	Weth9s               map[uint64]*weth9.WETH9
-	MockArms             map[uint64]*mock_arm_contract.MockARMContract
+	MockArms             map[uint64]*mock_rmn_contract.MockRMNContract
 	// TODO: May need to support older link too
 	LinkTokens map[uint64]*burn_mint_erc677.BurnMintERC677
 	// Note we only expect one of these (on the home chain)
@@ -146,14 +146,14 @@ func SnapshotState(e deployment.Environment, ab deployment.AddressBook) (CCIPSna
 
 func GenerateOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIPOnChainState, error) {
 	state := CCIPOnChainState{
-		EvmOnRampsV160:       make(map[uint64]*evm_2_evm_multi_onramp.EVM2EVMMultiOnRamp),
-		EvmOffRampsV160:      make(map[uint64]*evm_2_evm_multi_offramp.EVM2EVMMultiOffRamp),
+		EvmOnRampsV160:       make(map[uint64]*onramp.OnRamp),
+		EvmOffRampsV160:      make(map[uint64]*offramp.OffRamp),
 		PriceRegistries:      make(map[uint64]*price_registry.PriceRegistry),
-		ArmProxies:           make(map[uint64]*arm_proxy_contract.ARMProxyContract),
+		ArmProxies:           make(map[uint64]*rmn_proxy_contract.RMNProxyContract),
 		NonceManagers:        make(map[uint64]*nonce_manager.NonceManager),
 		TokenAdminRegistries: make(map[uint64]*token_admin_registry.TokenAdminRegistry),
 		Routers:              make(map[uint64]*router.Router),
-		MockArms:             make(map[uint64]*mock_arm_contract.MockARMContract),
+		MockArms:             make(map[uint64]*mock_rmn_contract.MockRMNContract),
 		LinkTokens:           make(map[uint64]*burn_mint_erc677.BurnMintERC677),
 		Weth9s:               make(map[uint64]*weth9.WETH9),
 		Mcms:                 make(map[uint64]*owner_wrappers.ManyChainMultiSig),
@@ -190,26 +190,26 @@ func GenerateOnchainState(e deployment.Environment, ab deployment.AddressBook) (
 					return state, err
 				}
 				state.CapabilityRegistry[chainSelector] = cr
-			case deployment.NewTypeAndVersion(EVM2EVMMultiOnRamp, deployment.Version1_6_0_dev).String():
-				onRamp, err := evm_2_evm_multi_onramp.NewEVM2EVMMultiOnRamp(common.HexToAddress(address), e.Chains[chainSelector].Client)
+			case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev).String():
+				onRamp, err := onramp.NewOnRamp(common.HexToAddress(address), e.Chains[chainSelector].Client)
 				if err != nil {
 					return state, err
 				}
 				state.EvmOnRampsV160[chainSelector] = onRamp
-			case deployment.NewTypeAndVersion(EVM2EVMMultiOffRamp, deployment.Version1_6_0_dev).String():
-				offRamp, err := evm_2_evm_multi_offramp.NewEVM2EVMMultiOffRamp(common.HexToAddress(address), e.Chains[chainSelector].Client)
+			case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev).String():
+				offRamp, err := offramp.NewOffRamp(common.HexToAddress(address), e.Chains[chainSelector].Client)
 				if err != nil {
 					return state, err
 				}
 				state.EvmOffRampsV160[chainSelector] = offRamp
 			case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0).String():
-				armProxy, err := arm_proxy_contract.NewARMProxyContract(common.HexToAddress(address), e.Chains[chainSelector].Client)
+				armProxy, err := rmn_proxy_contract.NewRMNProxyContract(common.HexToAddress(address), e.Chains[chainSelector].Client)
 				if err != nil {
 					return state, err
 				}
 				state.ArmProxies[chainSelector] = armProxy
 			case deployment.NewTypeAndVersion(MockARM, deployment.Version1_0_0).String():
-				mockARM, err := mock_arm_contract.NewMockARMContract(common.HexToAddress(address), e.Chains[chainSelector].Client)
+				mockARM, err := mock_rmn_contract.NewMockRMNContract(common.HexToAddress(address), e.Chains[chainSelector].Client)
 				if err != nil {
 					return state, err
 				}

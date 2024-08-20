@@ -27,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -167,7 +167,7 @@ func TestCommitStoreReaders(t *testing.T) {
 		MerkleRoot:  common.HexToHash("0x1"),
 	}
 	er := big.NewInt(1)
-	armAddr, _, arm, err := mock_arm_contract.DeployMockARMContract(user, ec)
+	armAddr, _, arm, err := mock_rmn_contract.DeployMockRMNContract(user, ec)
 	require.NoError(t, err)
 	addr, _, ch, err := commit_store_helper_1_0_0.DeployCommitStoreHelper(user, ec, commit_store_helper_1_0_0.CommitStoreStaticConfig{
 		ChainSelector:       testutils.SimulatedChainID.Uint64(),

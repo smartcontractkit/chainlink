@@ -10,15 +10,15 @@ import (
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 var (
-	onrampABI               = evmtypes.MustGetABI(evm_2_evm_multi_onramp.EVM2EVMMultiOnRampABI)
+	onrampABI               = evmtypes.MustGetABI(onramp.OnRampABI)
 	capabilitiesRegsitryABI = evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
 	ccipConfigABI           = evmtypes.MustGetABI(ccip_config.CCIPConfigABI)
 	priceRegistryABI        = evmtypes.MustGetABI(price_registry.PriceRegistryABI)
@@ -53,7 +53,7 @@ func DestReaderConfig() evmrelaytypes.ChainReaderConfig {
 	return evmrelaytypes.ChainReaderConfig{
 		Contracts: map[string]evmrelaytypes.ChainContractReader{
 			consts.ContractNameOffRamp: {
-				ContractABI: evm_2_evm_multi_offramp.EVM2EVMMultiOffRampABI,
+				ContractABI: offramp.OffRampABI,
 				ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 					GenericEventNames: []string{
 						mustGetEventName(consts.EventNameExecutionStateChanged, offrampABI),
@@ -108,7 +108,7 @@ func SourceReaderConfig() evmrelaytypes.ChainReaderConfig {
 	return evmrelaytypes.ChainReaderConfig{
 		Contracts: map[string]evmrelaytypes.ChainContractReader{
 			consts.ContractNameOnRamp: {
-				ContractABI: evm_2_evm_multi_onramp.EVM2EVMMultiOnRampABI,
+				ContractABI: onramp.OnRampABI,
 				ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 					GenericEventNames: []string{
 						mustGetEventName(consts.EventNameCCIPSendRequested, onrampABI),

@@ -14,18 +14,18 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool_1_4_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
@@ -133,7 +133,7 @@ func DecodeErrorStringFromABI(errorString string) (string, error) {
 
 func getAllABIs() []string {
 	return []string{
-		arm_contract.ARMContractABI,
+		rmn_contract.RMNContractABI,
 		lock_release_token_pool_1_4_0.LockReleaseTokenPoolABI,
 		burn_mint_token_pool_1_2_0.BurnMintTokenPoolABI,
 		usdc_token_pool_1_4_0.USDCTokenPoolABI,
@@ -148,8 +148,8 @@ func getAllABIs() []string {
 		evm_2_evm_onramp.EVM2EVMOnRampABI,
 		evm_2_evm_offramp.EVM2EVMOffRampABI,
 		router.RouterABI,
-		evm_2_evm_multi_onramp.EVM2EVMMultiOnRampABI,
-		evm_2_evm_multi_offramp.EVM2EVMMultiOffRampABI,
+		onramp.OnRampABI,
+		offramp.OffRampABI,
 		maybe_revert_message_receiver.MaybeRevertMessageReceiverABI,
 	}
 }

@@ -19,9 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/ccip/liquiditymanager/multienv"
 	"github.com/smartcontractkit/chainlink/core/scripts/ccip/liquiditymanager/opstack"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 	cciprouter "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbitrum_l1_bridge_adapter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbitrum_l2_bridge_adapter"
@@ -282,17 +282,17 @@ func deployTokenPoolAndRebalancer(
 func deployArm(
 	transactor *bind.TransactOpts,
 	client *ethclient.Client,
-	chainID uint64) (*mock_arm_contract.MockARMContract, *arm_proxy_contract.ARMProxyContract) {
-	_, tx, _, err := mock_arm_contract.DeployMockARMContract(transactor, client)
+	chainID uint64) (*mock_rmn_contract.MockRMNContract, *rmn_proxy_contract.RMNProxyContract) {
+	_, tx, _, err := mock_rmn_contract.DeployMockRMNContract(transactor, client)
 	helpers.PanicErr(err)
 	armAddress := helpers.ConfirmContractDeployed(context.Background(), client, tx, int64(chainID))
-	arm, err := mock_arm_contract.NewMockARMContract(armAddress, client)
+	arm, err := mock_rmn_contract.NewMockRMNContract(armAddress, client)
 	helpers.PanicErr(err)
 
-	_, tx, _, err = arm_proxy_contract.DeployARMProxyContract(transactor, client, arm.Address())
+	_, tx, _, err = rmn_proxy_contract.DeployRMNProxyContract(transactor, client, arm.Address())
 	helpers.PanicErr(err)
 	armProxyAddress := helpers.ConfirmContractDeployed(context.Background(), client, tx, int64(chainID))
-	armProxy, err := arm_proxy_contract.NewARMProxyContract(armProxyAddress, client)
+	armProxy, err := rmn_proxy_contract.NewRMNProxyContract(armProxyAddress, client)
 	helpers.PanicErr(err)
 
 	return arm, armProxy

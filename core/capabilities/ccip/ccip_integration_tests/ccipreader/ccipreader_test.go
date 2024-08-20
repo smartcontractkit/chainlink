@@ -69,7 +69,7 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 	const numReports = 5
 
 	for i := uint8(0); i < numReports; i++ {
-		_, err := s.contract.EmitCommitReportAccepted(s.auth, ccip_reader_tester.EVM2EVMMultiOffRampCommitReport{
+		_, err := s.contract.EmitCommitReportAccepted(s.auth, ccip_reader_tester.OffRampCommitReport{
 			PriceUpdates: ccip_reader_tester.InternalPriceUpdates{
 				TokenPriceUpdates: []ccip_reader_tester.InternalTokenPriceUpdate{
 					{
@@ -84,10 +84,10 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 					},
 				},
 			},
-			MerkleRoots: []ccip_reader_tester.EVM2EVMMultiOffRampMerkleRoot{
+			MerkleRoots: []ccip_reader_tester.OffRampMerkleRoot{
 				{
 					SourceChainSelector: uint64(chainS1),
-					Interval: ccip_reader_tester.EVM2EVMMultiOffRampInterval{
+					Interval: ccip_reader_tester.OffRampInterval{
 						Min: 10,
 						Max: 20,
 					},
@@ -350,7 +350,7 @@ func testSetup(ctx context.Context, t *testing.T, readerChain, destChain cciptyp
 	assert.NoError(t, lp.Start(ctx))
 
 	for sourceChain, seqNum := range onChainSeqNums {
-		_, err1 := contract.SetSourceChainConfig(auth, uint64(sourceChain), ccip_reader_tester.EVM2EVMMultiOffRampSourceChainConfig{
+		_, err1 := contract.SetSourceChainConfig(auth, uint64(sourceChain), ccip_reader_tester.OffRampSourceChainConfig{
 			IsEnabled: true,
 			MinSeqNr:  uint64(seqNum),
 		})
