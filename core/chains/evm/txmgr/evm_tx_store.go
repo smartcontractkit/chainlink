@@ -2113,7 +2113,7 @@ func (o *evmTxStore) UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context,
 	return err
 }
 
-// Returns all confirmed transactions with receipt block nums older than or equal to the finalized block number
+// FindConfirmedTxesReceipts Returns all confirmed transactions with receipt block nums older than or equal to the finalized block number
 func (o *evmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []Receipt, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
@@ -2124,12 +2124,7 @@ func (o *evmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlo
 		INNER JOIN evm.tx_attempts ON evm.tx_attempts.hash = evm.receipts.tx_hash
 		INNER JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id
 		WHERE evm.txes.state = 'confirmed' AND evm.receipts.block_number <= $1 AND evm.txes.evm_chain_id = $2`
-	var dbReceipts []DbReceipt
-	err = o.q.SelectContext(ctx, &dbReceipts, query, finalizedBlockNum, chainID.String())
-	if len(dbReceipts) != 0 {
-		receipts = dbReceipts
-	}
-
+	err = o.q.SelectContext(ctx, &receipts, query, finalizedBlockNum, chainID.String())
 	return receipts, err
 }
 
