@@ -49,7 +49,7 @@ jobs:
               echo "image-tag=release-${short_sha}" | tee -a $GITHUB_OUTPUT
               echo "build-publish=true" | tee -a $GITHUB_OUTPUT
             else
-              echo "image-tag=develop-${short_sha}" | tee -a $GITHUB_OUTPUT
+              echo "image-tag=develop" | tee -a $GITHUB_OUTPUT
               echo "build-publish=true" | tee -a $GITHUB_OUTPUT
             fi
           elif [[ ${{ github.event_name }} == 'workflow_dispatch' ]]; then
