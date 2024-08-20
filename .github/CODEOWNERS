@@ -136,6 +136,7 @@ flake.lock @smartcontractkit/prodsec-public
 
 # CCIP override
 /core/ @smartcontractkit/ccip
+/core/scripts/ccip/manual-execution @smartcontractkit/ccip-offchain
 /contracts/ @smartcontractkit/ccip-onchain @makramkd @elatoskinas @RayXpub
 go.mod @smartcontractkit/ccip @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
 go.sum @smartcontractkit/ccip @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
