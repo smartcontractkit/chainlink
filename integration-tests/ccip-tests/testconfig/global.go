@@ -192,7 +192,7 @@ func (p *Common) ReadFromEnvVar() error {
 		p.Logging.RunId = &loggingRunID
 	}
 
-	logstreamLogTargets := strings.Split(ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_LOG_STREAM_LOG_TARGETS_ENV), ",")
+	logstreamLogTargets := ctfconfig.MustReadEnvVar_Strings(ctfconfig.E2E_TEST_LOG_STREAM_LOG_TARGETS_ENV, ",")
 	if len(logstreamLogTargets) > 0 {
 		if p.Logging == nil {
 			p.Logging = &ctfconfig.LoggingConfig{}
@@ -288,7 +288,7 @@ func (p *Common) ReadFromEnvVar() error {
 		p.Logging.Grafana.BearerToken = &grafanaBearerToken
 	}
 
-	selectedNetworks := strings.Split(ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_SELECTED_NETWORK_ENV), ",")
+	selectedNetworks := ctfconfig.MustReadEnvVar_Strings(ctfconfig.E2E_TEST_SELECTED_NETWORK_ENV, ",")
 	if len(selectedNetworks) > 0 {
 		if p.Network == nil {
 			p.Network = &ctfconfig.NetworkConfig{}
