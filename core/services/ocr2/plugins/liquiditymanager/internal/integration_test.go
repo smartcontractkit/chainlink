@@ -35,9 +35,9 @@ import (
 	v2toml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/liquiditymanager"
@@ -644,11 +644,11 @@ func deployContracts(
 		// deploy arm and arm proxy.
 		// required by the token pool
 		// otherwise not used by this test.
-		armAddress, _, _, err := mock_arm_contract.DeployMockARMContract(owner, backend)
-		require.NoError(t, err, "failed to deploy MockARMContract contract")
+		armAddress, _, _, err := mock_rmn_contract.DeployMockRMNContract(owner, backend)
+		require.NoError(t, err, "failed to deploy MockRMNContract contract")
 		backend.Commit()
-		armProxyAddress, _, _, err := arm_proxy_contract.DeployARMProxyContract(owner, backend, armAddress)
-		require.NoError(t, err, "failed to deploy ARMProxyContract contract")
+		armProxyAddress, _, _, err := rmn_proxy_contract.DeployRMNProxyContract(owner, backend, armAddress)
+		require.NoError(t, err, "failed to deploy RMNProxyContract contract")
 		backend.Commit()
 
 		routerAddress, _, _, err := router.DeployRouter(owner, backend, wethAddress, armProxyAddress)

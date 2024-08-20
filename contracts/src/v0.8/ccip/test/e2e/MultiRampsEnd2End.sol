@@ -3,21 +3,22 @@ pragma solidity 0.8.24;
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
+import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
 import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
 import "../helpers/MerkleHelper.sol";
-import "../offRamp/EVM2EVMMultiOffRampSetup.t.sol";
-import "../onRamp/EVM2EVMMultiOnRampSetup.t.sol";
+import "../offRamp/OffRampSetup.t.sol";
+import "../onRamp/OnRampSetup.t.sol";
 
 /// @notice This E2E test implements the following scenario:
 /// 1. Send multiple messages from multiple source chains to a single destination chain (2 messages from source chain 1 and 1 from
 /// source chain 2).
 /// 2. Commit multiple merkle roots (1 for each source chain).
 /// 3. Batch execute all the committed messages.
-contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
+contract MultiRampsE2E is OnRampSetup, OffRampSetup {
   using Internal for Internal.Any2EVMRampMessage;
 
   Router internal s_sourceRouter2;
-  EVM2EVMMultiOnRampHelper internal s_onRamp2;
+  OnRampHelper internal s_onRamp2;
   TokenAdminRegistry internal s_tokenAdminRegistry2;
   NonceManager internal s_nonceManager2;
 
@@ -25,9 +26,9 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
 
   mapping(address destPool => address sourcePool) internal s_sourcePoolByDestPool;
 
-  function setUp() public virtual override(EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup) {
-    EVM2EVMMultiOnRampSetup.setUp();
-    EVM2EVMMultiOffRampSetup.setUp();
+  function setUp() public virtual override(OnRampSetup, OffRampSetup) {
+    OnRampSetup.setUp();
+    OffRampSetup.setUp();
 
     // Deploy new source router for the new source chain
     s_sourceRouter2 = new Router(s_sourceRouter.getWrappedNative(), address(s_mockRMN));
@@ -62,7 +63,7 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
 
     (
       // Deploy the new source chain onramp
-      // Outsource to shared helper function with EVM2EVMMultiOnRampSetup
+      // Outsource to shared helper function with OnRampSetup
       s_onRamp2,
       s_metadataHash2
     ) = _deployOnRamp(
@@ -84,16 +85,15 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     _deployOffRamp(s_mockRMN, s_inboundNonceManager);
 
     // Enable source chains on offramp
-    EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
-      new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](2);
-    sourceChainConfigs[0] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
+    OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](2);
+    sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR,
       isEnabled: true,
       // Must match OnRamp address
       onRamp: abi.encode(address(s_onRamp))
     });
-    sourceChainConfigs[1] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
+    sourceChainConfigs[1] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR + 1,
       isEnabled: true,
@@ -103,7 +103,7 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     _setupMultipleOffRampsFromConfigs(sourceChainConfigs);
   }
 
-  function test_E2E_3MessagesSuccess_gas() public {
+  function test_E2E_3MessagesMMultiOffRampSuccess_gas() public {
     vm.pauseGasMetering();
     IERC20 token0 = IERC20(s_sourceTokens[0]);
     IERC20 token1 = IERC20(s_sourceTokens[1]);
@@ -136,20 +136,20 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     merkleRoots[0] = MerkleHelper.getMerkleRoot(hashedMessages1);
     merkleRoots[1] = MerkleHelper.getMerkleRoot(hashedMessages2);
 
-    EVM2EVMMultiOffRamp.MerkleRoot[] memory roots = new EVM2EVMMultiOffRamp.MerkleRoot[](2);
-    roots[0] = EVM2EVMMultiOffRamp.MerkleRoot({
+    OffRamp.MerkleRoot[] memory roots = new OffRamp.MerkleRoot[](2);
+    roots[0] = OffRamp.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR,
-      interval: EVM2EVMMultiOffRamp.Interval(messages1[0].header.sequenceNumber, messages1[1].header.sequenceNumber),
+      interval: OffRamp.Interval(messages1[0].header.sequenceNumber, messages1[1].header.sequenceNumber),
       merkleRoot: merkleRoots[0]
     });
-    roots[1] = EVM2EVMMultiOffRamp.MerkleRoot({
+    roots[1] = OffRamp.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR + 1,
-      interval: EVM2EVMMultiOffRamp.Interval(messages2[0].header.sequenceNumber, messages2[0].header.sequenceNumber),
+      interval: OffRamp.Interval(messages2[0].header.sequenceNumber, messages2[0].header.sequenceNumber),
       merkleRoot: merkleRoots[1]
     });
 
-    EVM2EVMMultiOffRamp.CommitReport memory report =
-      EVM2EVMMultiOffRamp.CommitReport({priceUpdates: getEmptyPriceUpdates(), merkleRoots: roots});
+    OffRamp.CommitReport memory report =
+      OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots});
 
     vm.resumeGasMetering();
     _commit(report, ++s_latestSequenceNumber);
@@ -173,8 +173,15 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     vm.warp(BLOCK_TIME + 2000);
 
     // Execute
-    vm.expectEmit();
-    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
+    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR, messages1);
+    reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR + 1, messages2);
+
+    vm.resumeGasMetering();
+    vm.recordLogs();
+    _execute(reports);
+
+    assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR,
       messages1[0].header.sequenceNumber,
       messages1[0].header.messageId,
@@ -182,8 +189,7 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
       ""
     );
 
-    vm.expectEmit();
-    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
+    assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR,
       messages1[1].header.sequenceNumber,
       messages1[1].header.messageId,
@@ -191,21 +197,13 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
       ""
     );
 
-    vm.expectEmit();
-    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
+    assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR + 1,
       messages2[0].header.sequenceNumber,
       messages2[0].header.messageId,
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
-
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
-    reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR, messages1);
-    reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR + 1, messages2);
-
-    vm.resumeGasMetering();
-    _execute(reports);
   }
 
   function _sendRequest(
@@ -236,7 +234,7 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     );
 
     vm.expectEmit();
-    emit EVM2EVMMultiOnRamp.CCIPSendRequested(DEST_CHAIN_SELECTOR, msgEvent);
+    emit OnRamp.CCIPSendRequested(DEST_CHAIN_SELECTOR, msgEvent);
 
     vm.resumeGasMetering();
     router.ccipSend(DEST_CHAIN_SELECTOR, message);
