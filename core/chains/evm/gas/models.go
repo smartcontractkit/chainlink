@@ -345,7 +345,7 @@ func (e *evmFeeEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLi
 }
 
 func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64, calldata []byte, toAddress *common.Address) (estimatedFeeLimit uint64, err error) {
-	// Use provided fee limit by default is EstimateGasLimit is disabled
+	// Use provided fee limit by default if EstimateGasLimit is disabled
 	if !e.geCfg.EstimateGasLimit() {
 		return commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
 	}
