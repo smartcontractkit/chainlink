@@ -763,6 +763,7 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 			WorkflowName:             e.workflow.name,
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
+			ReferenceID:              msg.stepRef,
 		},
 	}
 
