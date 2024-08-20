@@ -67,14 +67,14 @@ outputs:
 runs:
   using: composite
   env:
-    OIDC_ISSUER: https://token.actions.githubusercontent.com
-    OIDC_IDENTITY: https://github.com/smartcontractkit/chainlink/.github/workflows/build-publish.yml@${{ github.ref }}
   steps:
     - name: Set shared variables
       shell: bash
       # See https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#multiline-strings
       run: |
         SHARED_IMAGES=${{ inputs.ecr-hostname }}/${{ inputs.ecr-image-name }}
+        OIDC_ISSUER=https://token.actions.githubusercontent.com
+        OIDC_IDENTITY=https://github.com/smartcontractkit/chainlink/.github/workflows/build-publish.yml@${{ github.ref }}
 
         SHARED_TAG_LIST=$(cat << EOF
         type=ref,event=branch,suffix=${{ inputs.ecr-tag-suffix }}
@@ -91,6 +91,9 @@ runs:
         echo "shared-images<<EOF" >> $GITHUB_ENV
         echo "$SHARED_IMAGES" >> $GITHUB_ENV
         echo "EOF" >> $GITHUB_ENV
+
+        echo "oidc-issuer=${OIDC_ISSUER}" >> $GITHUB_ENV
+        echo "oidc-identity=${OIDC_IDENTITY}" >> $GITHUB_ENV
 
         echo "shared-tag-list<<EOF" >> $GITHUB_ENV
         echo "$SHARED_TAG_LIST" >> $GITHUB_ENV
