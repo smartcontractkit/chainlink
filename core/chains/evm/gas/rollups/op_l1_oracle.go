@@ -51,7 +51,7 @@ type optimismL1Oracle struct {
 	blobBaseFeeCalldata       []byte
 	blobBaseFeeScalarCalldata []byte
 	decimalsCalldata          []byte
-	tokenRatioMethodCalldata  []byte
+	tokenRatioCalldata        []byte
 	isEcotoneCalldata         []byte
 	isEcotoneMethodAbi        abi.ABI
 	isFjordCalldata           []byte
@@ -202,7 +202,7 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", decimalsMethod, chainType, err)
 	}
-	tokenRatioCalldata, err := decimalsMethodAbi.Pack(tokenRatioMethod)
+	tokenRatioCalldata, err := tokenRatioMethodAbi.Pack(tokenRatioMethod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", decimalsMethod, chainType, err)
 	}
@@ -229,6 +229,7 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 		blobBaseFeeCalldata:       blobBaseFeeCalldata,
 		blobBaseFeeScalarCalldata: blobBaseFeeScalarCalldata,
 		decimalsCalldata:          decimalsCalldata,
+		tokenRatioCalldata:        tokenRatioCalldata,
 		isEcotoneCalldata:         isEcotoneCalldata,
 		isEcotoneMethodAbi:        isEcotoneMethodAbi,
 		isFjordCalldata:           isFjordCalldata,
@@ -485,10 +486,13 @@ func (o *optimismL1Oracle) getMantleGasPrice(ctx context.Context) (*big.Int, err
 	tokenRatio := new(big.Int).SetBytes(b)
 
 	// call optimism bedrock gas price function
-	classicEvmGasPrice := o.getV1GasPrice(ctx)
+	classicEvmGasPrice, err := o.getV1GasPrice(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting gas price from pptimism bedrock formula failed: %w", err)
+	}
 
 	// multiply return gas price by tokenRatio
-	return classicEvmGasPrice * tokenRatio
+	return new(big.Int).Mul(classicEvmGasPrice, tokenRatio), nil
 }
 
 // Returns the scaled gas price using baseFeeScalar, l1BaseFee, blobBaseFeeScalar, and blobBaseFee fields from the oracle
