@@ -304,7 +304,7 @@ contract DestinationVerifier is IDestinationVerifier, IDestinationVerifierProxyV
 
     // Check the activation time is greater than the latest config
     uint256 donConfigLength = s_donConfigs.length;
-    if (donConfigLength > 0 && s_donConfigs[donConfigLength - 1].activationTime > activationTime) {
+    if (donConfigLength > 0 && s_donConfigs[donConfigLength - 1].activationTime >= activationTime) {
       revert BadActivationTime();
     }
 
