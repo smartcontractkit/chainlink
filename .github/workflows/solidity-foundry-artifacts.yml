@@ -18,8 +18,12 @@ on:
           - "shared"
           - "transmission"
           - "vrf"
+      commit_to_use:
+        type: string
+        description: 'commit SHA to use for artifact generation; if empty HEAD will be used'
+        required: false
       base_ref:
-        description: 'commit or tag to be used as base reference, when looking for modified Solidity files'
+        description: 'commit or tag to use as base reference, when looking for modified Solidity files'
         required: true
 
 env:
@@ -38,6 +42,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ inputs.commit_to_use || github.sha }}
       - name: Find modified contracts
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
@@ -138,13 +144,13 @@ jobs:
         shell: bash
         run: |
           echo "Product: ${{ inputs.product }}" > contracts/commit_sha_base_ref.txt
-          echo "Commit SHA used to generate artifacts: ${{ github.sha }}" >> contracts/commit_sha_base_ref.txt
+          echo "Commit SHA used to generate artifacts: ${{ inputs.commit_to_use || github.sha }}" >> contracts/commit_sha_base_ref.txt
           echo "Base reference SHA used to find modified contracts: ${{ inputs.base_ref }}" >> contracts/commit_sha_base_ref.txt     
           
           IFS=',' read -r -a modified_files <<< "${{ needs.changes.outputs.product_files }}"
           echo "# Modified contracts:" > contracts/modified_contracts.md
           for file in "${modified_files[@]}"; do
-            echo " - [$file](${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/$file)" >> contracts/modified_contracts.md
+            echo " - [$file](${{ github.server_url }}/${{ github.repository }}/blob/${{ inputs.commit_to_use || github.sha }}/$file)" >> contracts/modified_contracts.md
             echo "$file" >> contracts/modified_contracts.txt
           done
 
@@ -180,6 +186,8 @@ jobs:
 
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ inputs.commit_to_use || github.sha }}
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -260,6 +268,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           fetch-depth: 0
+          ref: ${{ inputs.commit_to_use || github.sha }}
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -303,7 +312,7 @@ jobs:
           contract_list="${{ needs.changes.outputs.product_files }}"
           
           echo "::debug::Processing contracts: $contract_list"
-          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/configs/slither/.slither.config-artifacts.json "." "$contract_list" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
+          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ inputs.commit_to_use || github.sha }}/" contracts/configs/slither/.slither.config-artifacts.json "." "$contract_list" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
 
       - name: Upload UMLs and Slither reports
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
@@ -340,7 +349,7 @@ jobs:
       - name: Upload all artifacts as single package
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
-          name: review-artifacts-${{ inputs.product }}-${{ github.sha }}
+          name: review-artifacts-${{ inputs.product }}-${{ inputs.commit_to_use || github.sha }}
           path: review_artifacts
           retention-days: 60
 
@@ -354,13 +363,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
-          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts-${{ inputs.product }}-${{ github.sha }}") | .id')
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts-${{ inputs.product }}-${{ inputs.commit_to_use || github.sha }}") | .id')
           echo "Artifact ID: $ARTIFACT_ID"
           
           echo "# Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
           echo "Product: **${{ inputs.product }}**" >> $GITHUB_STEP_SUMMARY
           echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
-          echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Commit SHA used: **${{ inputs.commit_to_use || github.sha }}**" >> $GITHUB_STEP_SUMMARY
           echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID)" >> $GITHUB_STEP_SUMMARY
 
   notify-no-changes:
@@ -373,9 +382,9 @@ jobs:
         run: |
           echo "# Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
           echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
-          echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Commit SHA used: **${{ inputs.commit_to_use || github.sha }}**" >> $GITHUB_STEP_SUMMARY
           echo "## Reason: No modified Solidity files found for ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
-          echo "* no modified Solidity files found between ${{ inputs.base_ref }} and ${{ github.sha }} commits" >> $GITHUB_STEP_SUMMARY
+          echo "* no modified Solidity files found between ${{ inputs.base_ref }} and ${{ inputs.commit_to_use || github.sha }} commits" >> $GITHUB_STEP_SUMMARY
           echo "* or they are located outside of ./contracts/src/v0.8 folder" >> $GITHUB_STEP_SUMMARY
           echo "* or they were limited to test files" >> $GITHUB_STEP_SUMMARY
           exit 1
