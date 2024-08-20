@@ -67,7 +67,7 @@ library Internal {
     // CCIP_LOCK_OR_BURN_V1_RET_BYTES bytes. If more data is required, the TokenTransferFeeConfig.destBytesOverhead
     // has to be set for the specific token.
     bytes extraData;
-    uint32 destGasAmount; // The amount of gas available for the releaseOrMint and transfer calls on the offRamp
+    uint32 destGasAmount; // The amount of gas available for the releaseOrMint and balanceOf calls on the offRamp
   }
 
   /// @notice Report that is submitted by the execution DON at the execution phase. (including chain selector data)
