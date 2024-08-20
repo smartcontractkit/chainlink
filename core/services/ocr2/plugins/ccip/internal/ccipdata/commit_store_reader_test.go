@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
@@ -142,7 +141,7 @@ func TestCommitOnchainConfig(t *testing.T) {
 func TestCommitStoreReaders(t *testing.T) {
 	user, ec := newSim(t)
 	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            2,
@@ -412,7 +411,7 @@ func TestNewCommitStoreReader(t *testing.T) {
 			if tc.expectedErr == "" {
 				lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 			}
-			_, err = factory.NewCommitStoreReader(logger.TestLogger(t), factory.NewEvmVersionFinder(), addr, c, lp)
+			_, err = factory.NewCommitStoreReader(logger.Test(t), factory.NewEvmVersionFinder(), addr, c, lp)
 			if tc.expectedErr != "" {
 				require.EqualError(t, err, tc.expectedErr)
 			} else {
