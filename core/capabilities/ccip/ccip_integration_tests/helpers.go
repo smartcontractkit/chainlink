@@ -24,15 +24,15 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
@@ -47,9 +47,9 @@ import (
 
 var (
 	homeChainID                = chainsel.GETH_TESTNET.EvmChainID
-	ccipSendRequestedTopic     = evm_2_evm_multi_onramp.EVM2EVMMultiOnRampCCIPSendRequested{}.Topic()
-	commitReportAcceptedTopic  = evm_2_evm_multi_offramp.EVM2EVMMultiOffRampCommitReportAccepted{}.Topic()
-	executionStateChangedTopic = evm_2_evm_multi_offramp.EVM2EVMMultiOffRampExecutionStateChanged{}.Topic()
+	ccipSendRequestedTopic     = onramp.OnRampCCIPSendRequested{}.Topic()
+	commitReportAcceptedTopic  = offramp.OffRampCommitReportAccepted{}.Topic()
+	executionStateChangedTopic = offramp.OffRampExecutionStateChanged{}.Topic()
 )
 
 const (
@@ -102,10 +102,10 @@ type onchainUniverse struct {
 	linkToken          *link_token.LinkToken
 	weth               *weth9.WETH9
 	router             *router.Router
-	rmnProxy           *arm_proxy_contract.ARMProxyContract
-	rmn                *mock_arm_contract.MockARMContract
-	onramp             *evm_2_evm_multi_onramp.EVM2EVMMultiOnRamp
-	offramp            *evm_2_evm_multi_offramp.EVM2EVMMultiOffRamp
+	rmnProxy           *rmn_proxy_contract.RMNProxyContract
+	rmn                *mock_rmn_contract.MockRMNContract
+	onramp             *onramp.OnRamp
+	offramp            *offramp.OffRamp
 	priceRegistry      *price_registry.PriceRegistry
 	tokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	nonceManager       *nonce_manager.NonceManager
@@ -179,8 +179,8 @@ func createUniverses(
 		backend := base.backend
 		// deploy the CCIP contracts
 		linkToken := deployLinkToken(t, owner, backend, chainID)
-		rmn := deployMockARMContract(t, owner, backend, chainID)
-		rmnProxy := deployARMProxyContract(t, owner, backend, rmn.Address(), chainID)
+		rmn := deployMockRMNContract(t, owner, backend, chainID)
+		rmnProxy := deployRMNProxyContract(t, owner, backend, rmn.Address(), chainID)
 		weth := deployWETHContract(t, owner, backend, chainID)
 		rout := deployRouter(t, owner, backend, weth.Address(), rmnProxy.Address(), chainID)
 		priceRegistry := deployPriceRegistry(t, owner, backend, linkToken.Address(), weth.Address(), big.NewInt(1e18), chainID)
@@ -190,50 +190,50 @@ func createUniverses(
 		// ======================================================================
 		//							OnRamp
 		// ======================================================================
-		onRampAddr, _, _, err := evm_2_evm_multi_onramp.DeployEVM2EVMMultiOnRamp(
+		onRampAddr, _, _, err := onramp.DeployOnRamp(
 			owner,
 			backend,
-			evm_2_evm_multi_onramp.EVM2EVMMultiOnRampStaticConfig{
+			onramp.OnRampStaticConfig{
 				ChainSelector:      getSelector(chainID),
 				RmnProxy:           rmnProxy.Address(),
 				NonceManager:       nonceManager.Address(),
 				TokenAdminRegistry: tokenAdminRegistry.Address(),
 			},
-			evm_2_evm_multi_onramp.EVM2EVMMultiOnRampDynamicConfig{
+			onramp.OnRampDynamicConfig{
 				PriceRegistry: priceRegistry.Address(),
 				// `withdrawFeeTokens` onRamp function is not part of the message flow
 				// so we can set this to any address
 				FeeAggregator: testutils.NewAddress(),
 			},
 			// Destination chain configs will be set up later once we have all chains
-			[]evm_2_evm_multi_onramp.EVM2EVMMultiOnRampDestChainConfigArgs{},
+			[]onramp.OnRampDestChainConfigArgs{},
 		)
 		require.NoErrorf(t, err, "failed to deploy onramp on chain id %d", chainID)
 		backend.Commit()
-		onramp, err := evm_2_evm_multi_onramp.NewEVM2EVMMultiOnRamp(onRampAddr, backend)
+		onramp, err := onramp.NewOnRamp(onRampAddr, backend)
 		require.NoError(t, err)
 
 		// ======================================================================
 		//							OffRamp
 		// ======================================================================
-		offrampAddr, _, _, err := evm_2_evm_multi_offramp.DeployEVM2EVMMultiOffRamp(
+		offrampAddr, _, _, err := offramp.DeployOffRamp(
 			owner,
 			backend,
-			evm_2_evm_multi_offramp.EVM2EVMMultiOffRampStaticConfig{
+			offramp.OffRampStaticConfig{
 				ChainSelector:      getSelector(chainID),
 				RmnProxy:           rmnProxy.Address(),
 				TokenAdminRegistry: tokenAdminRegistry.Address(),
 				NonceManager:       nonceManager.Address(),
 			},
-			evm_2_evm_multi_offramp.EVM2EVMMultiOffRampDynamicConfig{
+			offramp.OffRampDynamicConfig{
 				PriceRegistry: priceRegistry.Address(),
 			},
 			// Source chain configs will be set up later once we have all chains
-			[]evm_2_evm_multi_offramp.EVM2EVMMultiOffRampSourceChainConfigArgs{},
+			[]offramp.OffRampSourceChainConfigArgs{},
 		)
 		require.NoErrorf(t, err, "failed to deploy offramp on chain id %d", chainID)
 		backend.Commit()
-		offramp, err := evm_2_evm_multi_offramp.NewEVM2EVMMultiOffRamp(offrampAddr, backend)
+		offramp, err := offramp.NewOffRamp(offrampAddr, backend)
 		require.NoError(t, err)
 
 		receiverAddress, _, _, err := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(
@@ -582,14 +582,14 @@ func (h *homeChain) AddDON(
 	}
 
 	// get the config digest from the ccip config contract and set config on the offramp.
-	var offrampOCR3Configs []evm_2_evm_multi_offramp.MultiOCR3BaseOCRConfigArgs
+	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
 		ocrConfig, err1 := h.ccipConfig.GetOCRConfig(&bind.CallOpts{
 			Context: testutils.Context(t),
 		}, donID, uint8(pluginType))
 		require.NoError(t, err1, "failed to get OCR3 config from ccip config contract")
 		require.Len(t, ocrConfig, 1, "expected exactly one OCR3 config")
-		offrampOCR3Configs = append(offrampOCR3Configs, evm_2_evm_multi_offramp.MultiOCR3BaseOCRConfigArgs{
+		offrampOCR3Configs = append(offrampOCR3Configs, offramp.MultiOCR3BaseOCRConfigArgs{
 			ConfigDigest:                   ocrConfig[0].ConfigDigest,
 			OcrPluginType:                  uint8(pluginType),
 			F:                              f,
@@ -747,12 +747,12 @@ func wirePriceRegistry(t *testing.T, uni onchainUniverse, universes map[uint64]o
 // Setting OnRampDestChainConfigs
 func wireOnRamp(t *testing.T, uni onchainUniverse, universes map[uint64]onchainUniverse) {
 	owner := uni.owner
-	var onrampSourceChainConfigArgs []evm_2_evm_multi_onramp.EVM2EVMMultiOnRampDestChainConfigArgs
+	var onrampSourceChainConfigArgs []onramp.OnRampDestChainConfigArgs
 	for remoteChainID := range universes {
 		if remoteChainID == uni.chainID {
 			continue
 		}
-		onrampSourceChainConfigArgs = append(onrampSourceChainConfigArgs, evm_2_evm_multi_onramp.EVM2EVMMultiOnRampDestChainConfigArgs{
+		onrampSourceChainConfigArgs = append(onrampSourceChainConfigArgs, onramp.OnRampDestChainConfigArgs{
 			DestChainSelector: getSelector(remoteChainID),
 			Router:            uni.router.Address(),
 		})
@@ -765,12 +765,12 @@ func wireOnRamp(t *testing.T, uni onchainUniverse, universes map[uint64]onchainU
 // Setting OffRampSourceChainConfigs
 func wireOffRamp(t *testing.T, uni onchainUniverse, universes map[uint64]onchainUniverse) {
 	owner := uni.owner
-	var offrampSourceChainConfigArgs []evm_2_evm_multi_offramp.EVM2EVMMultiOffRampSourceChainConfigArgs
+	var offrampSourceChainConfigArgs []offramp.OffRampSourceChainConfigArgs
 	for remoteChainID, remoteUniverse := range universes {
 		if remoteChainID == uni.chainID {
 			continue
 		}
-		offrampSourceChainConfigArgs = append(offrampSourceChainConfigArgs, evm_2_evm_multi_offramp.EVM2EVMMultiOffRampSourceChainConfigArgs{
+		offrampSourceChainConfigArgs = append(offrampSourceChainConfigArgs, offramp.OffRampSourceChainConfigArgs{
 			SourceChainSelector: getSelector(remoteChainID),
 			IsEnabled:           true,
 			Router:              uni.router.Address(),
@@ -858,20 +858,20 @@ func deployLinkToken(t *testing.T, owner *bind.TransactOpts, backend *backends.S
 	return linkToken
 }
 
-func deployMockARMContract(t *testing.T, owner *bind.TransactOpts, backend *backends.SimulatedBackend, chainID uint64) *mock_arm_contract.MockARMContract {
-	rmnAddr, _, _, err := mock_arm_contract.DeployMockARMContract(owner, backend)
+func deployMockRMNContract(t *testing.T, owner *bind.TransactOpts, backend *backends.SimulatedBackend, chainID uint64) *mock_rmn_contract.MockRMNContract {
+	rmnAddr, _, _, err := mock_rmn_contract.DeployMockRMNContract(owner, backend)
 	require.NoErrorf(t, err, "failed to deploy mock arm on chain id %d", chainID)
 	backend.Commit()
-	rmn, err := mock_arm_contract.NewMockARMContract(rmnAddr, backend)
+	rmn, err := mock_rmn_contract.NewMockRMNContract(rmnAddr, backend)
 	require.NoError(t, err)
 	return rmn
 }
 
-func deployARMProxyContract(t *testing.T, owner *bind.TransactOpts, backend *backends.SimulatedBackend, rmnAddr common.Address, chainID uint64) *arm_proxy_contract.ARMProxyContract {
-	rmnProxyAddr, _, _, err := arm_proxy_contract.DeployARMProxyContract(owner, backend, rmnAddr)
+func deployRMNProxyContract(t *testing.T, owner *bind.TransactOpts, backend *backends.SimulatedBackend, rmnAddr common.Address, chainID uint64) *rmn_proxy_contract.RMNProxyContract {
+	rmnProxyAddr, _, _, err := rmn_proxy_contract.DeployRMNProxyContract(owner, backend, rmnAddr)
 	require.NoErrorf(t, err, "failed to deploy arm proxy on chain id %d", chainID)
 	backend.Commit()
-	rmnProxy, err := arm_proxy_contract.NewARMProxyContract(rmnProxyAddr, backend)
+	rmnProxy, err := rmn_proxy_contract.NewRMNProxyContract(rmnProxyAddr, backend)
 	require.NoError(t, err)
 	return rmnProxy
 }

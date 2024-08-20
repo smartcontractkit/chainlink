@@ -3,17 +3,17 @@ pragma solidity 0.8.24;
 
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
-import {EVM2EVMMultiOffRamp} from "../../offRamp/EVM2EVMMultiOffRamp.sol";
+import {OffRamp} from "../../offRamp/OffRamp.sol";
 import {IgnoreContractSize} from "./IgnoreContractSize.sol";
 
-contract EVM2EVMMultiOffRampHelper is EVM2EVMMultiOffRamp, IgnoreContractSize {
+contract OffRampHelper is OffRamp, IgnoreContractSize {
   mapping(uint64 sourceChainSelector => uint256 overrideTimestamp) private s_sourceChainVerificationOverride;
 
   constructor(
     StaticConfig memory staticConfig,
     DynamicConfig memory dynamicConfig,
     SourceChainConfigArgs[] memory sourceChainConfigs
-  ) EVM2EVMMultiOffRamp(staticConfig, dynamicConfig, sourceChainConfigs) {}
+  ) OffRamp(staticConfig, dynamicConfig, sourceChainConfigs) {}
 
   function setExecutionStateHelper(
     uint64 sourceChainSelector,

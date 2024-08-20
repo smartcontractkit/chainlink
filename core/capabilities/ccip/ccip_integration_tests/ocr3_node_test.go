@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -226,7 +226,7 @@ func waitForCommitWithInterval(
 	expectedSourceChainSelector uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
 ) {
-	sink := make(chan *evm_2_evm_multi_offramp.EVM2EVMMultiOffRampCommitReportAccepted)
+	sink := make(chan *offramp.OffRampCommitReportAccepted)
 	subscription, err := uni.offramp.WatchCommitReportAccepted(&bind.WatchOpts{
 		Context: testutils.Context(t),
 	}, sink)
