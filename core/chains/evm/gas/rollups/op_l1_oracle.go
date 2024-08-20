@@ -475,7 +475,7 @@ func (o *optimismL1Oracle) getMantleGasPrice(ctx context.Context) (*big.Int, err
 	// call oracle to get tokenRatio
 	b, err := o.client.CallContract(ctx, ethereum.CallMsg{
 		To:   &l1OracleAddress,
-		Data: o.tokenRatioCalldata
+		Data: o.tokenRatioCalldata,
 	}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("tokenRatio() call failed: %w", err)
