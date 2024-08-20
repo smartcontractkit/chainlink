@@ -411,8 +411,16 @@ func (c *Chain) ValidateConfig() (err error) {
 					err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.DetectionApiUrl", Value: c.Transactions.AutoPurge.DetectionApiUrl.Scheme, Msg: "must be http or https"})
 				}
 			}
-		case chaintype.ChainZkEvm:
-			// No other configs are needed
+		case chaintype.ChainZkEvm, chaintype.ChainXLayer:
+			// MinAttempts is an optional config that can be used to delay the stuck tx detection for zkEVM or XLayer
+			// If MinAttempts is set, BumpThreshold cannot be 0
+			if c.Transactions.AutoPurge.MinAttempts != nil && *c.Transactions.AutoPurge.MinAttempts != 0 {
+				if c.GasEstimator.BumpThreshold == nil {
+					err = multierr.Append(err, commonconfig.ErrMissing{Name: "GasEstimator.BumpThreshold", Msg: fmt.Sprintf("must be set if Transactions.AutoPurge.MinAttempts is set for %s", chainType)})
+				} else if *c.GasEstimator.BumpThreshold == 0 {
+					err = multierr.Append(err, commonconfig.ErrInvalid{Name: "GasEstimator.BumpThreshold", Value: 0, Msg: fmt.Sprintf("cannot be 0 if Transactions.AutoPurge.MinAttempts is set for %s", chainType)})
+				}
+			}
 		default:
 			// Bump Threshold is required because the stuck tx heuristic relies on a minimum number of bump attempts to exist
 			if c.GasEstimator.BumpThreshold == nil {
