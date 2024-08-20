@@ -9,9 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
@@ -27,76 +25,26 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// Context returns a context with the test's deadline, if available.
-func Context(tb testing.TB) context.Context {
-	ctx := context.Background()
-	var cancel func()
-	switch t := tb.(type) {
-	case *testing.T:
-		if d, ok := t.Deadline(); ok {
-			ctx, cancel = context.WithDeadline(ctx, d)
-		}
-	}
-	if cancel == nil {
-		ctx, cancel = context.WithCancel(ctx)
-	}
-	tb.Cleanup(cancel)
-	return ctx
-}
-
-func Test0001_InitialDeploy(t *testing.T) {
+func Test0002_InitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := Context(t)
-	chains := memory.NewMemoryChains(t, 3)
-	homeChainSel := uint64(0)
-	homeChainEVM := uint64(0)
-	// First chain is home chain.
-	for chainSel := range chains {
-		homeChainEVM, _ = chainsel.ChainIdFromSelector(chainSel)
-		homeChainSel = chainSel
-		break
-	}
-	ab, err := ccipdeployment.DeployCapReg(lggr, chains, homeChainSel)
+	ctx := ccipdeployment.Context(t)
+	tenv := ccipdeployment.NewDeployedTestEnvironment(t, lggr)
+	e := tenv.Env
+	nodes := tenv.Nodes
+	chains := e.Chains
+
+	state, err := ccipdeployment.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
 
-	addrs, err := ab.AddressesForChain(homeChainSel)
-	require.NoError(t, err)
-	require.Len(t, addrs, 2)
-	capReg := common.Address{}
-	for addr := range addrs {
-		capReg = common.HexToAddress(addr)
-		break
-	}
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, memory.RegistryConfig{
-		EVMChainID: homeChainEVM,
-		Contract:   capReg,
-	})
-	for _, node := range nodes {
-		require.NoError(t, node.App.Start(ctx))
-	}
-
-	e := memory.NewMemoryEnvironmentFromChainsNodes(t, lggr, chains, nodes)
-	state, err := ccipdeployment.GenerateOnchainState(e, ab)
-	require.NoError(t, err)
-
-	capabilities, err := state.CapabilityRegistry[homeChainSel].GetCapabilities(nil)
-	require.NoError(t, err)
-	require.Len(t, capabilities, 1)
-	ccipCap, err := state.CapabilityRegistry[homeChainSel].GetHashedCapabilityId(nil,
-		ccipdeployment.CapabilityLabelledName, ccipdeployment.CapabilityVersion)
-	require.NoError(t, err)
-	_, err = state.CapabilityRegistry[homeChainSel].GetCapability(nil, ccipCap)
-	require.NoError(t, err)
-
-	// Apply change set
-	output, err := Apply0001(e, ccipdeployment.DeployCCIPContractConfig{
-		HomeChainSel: homeChainSel,
+	// Apply migration
+	output, err := Apply0002(tenv.Env, ccipdeployment.DeployCCIPContractConfig{
+		HomeChainSel: tenv.HomeChainSel,
 		// Capreg/config already exist.
 		CCIPOnChainState: state,
 	})
 	require.NoError(t, err)
-	// Get new state after change set.
-	state, err = ccipdeployment.GenerateOnchainState(e, output.AddressBook)
+	// Get new state after migration.
+	state, err = ccipdeployment.LoadOnchainState(e, output.AddressBook)
 	require.NoError(t, err)
 
 	// Ensure capreg logs are up to date.
@@ -138,16 +86,16 @@ func Test0001_InitialDeploy(t *testing.T) {
 				continue
 			}
 			msg := router.ClientEVM2AnyMessage{
-				Receiver:     common.LeftPadBytes(state.Receivers[dest].Address().Bytes(), 32),
+				Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello"),
 				TokenAmounts: nil, // TODO: no tokens for now
-				FeeToken:     state.Weth9s[src].Address(),
+				FeeToken:     state.Chains[src].Weth9.Address(),
 				ExtraArgs:    nil, // TODO: no extra args for now, falls back to default
 			}
-			fee, err := state.Routers[src].GetFee(
+			fee, err := state.Chains[src].Router.GetFee(
 				&bind.CallOpts{Context: context.Background()}, dest, msg)
 			require.NoError(t, err, deployment.MaybeDataErr(err))
-			tx, err := state.Weth9s[src].Deposit(&bind.TransactOpts{
+			tx, err := state.Chains[src].Weth9.Deposit(&bind.TransactOpts{
 				From:   e.Chains[src].DeployerKey.From,
 				Signer: e.Chains[src].DeployerKey.Signer,
 				Value:  fee,
@@ -156,14 +104,14 @@ func Test0001_InitialDeploy(t *testing.T) {
 			require.NoError(t, srcChain.Confirm(tx.Hash()))
 
 			// TODO: should be able to avoid this by using native?
-			tx, err = state.Weth9s[src].Approve(e.Chains[src].DeployerKey,
-				state.Routers[src].Address(), fee)
+			tx, err = state.Chains[src].Weth9.Approve(e.Chains[src].DeployerKey,
+				state.Chains[src].Router.Address(), fee)
 			require.NoError(t, err)
 			require.NoError(t, srcChain.Confirm(tx.Hash()))
 
 			t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
 				src, dest)
-			tx, err = state.Routers[src].CcipSend(e.Chains[src].DeployerKey, dest, msg)
+			tx, err = state.Chains[src].Router.CcipSend(e.Chains[src].DeployerKey, dest, msg)
 			require.NoError(t, err)
 			require.NoError(t, srcChain.Confirm(tx.Hash()))
 		}
@@ -181,7 +129,7 @@ func Test0001_InitialDeploy(t *testing.T) {
 			wg.Add(1)
 			go func(src, dest uint64) {
 				defer wg.Done()
-				waitForCommitWithInterval(t, srcChain, dstChain, state.EvmOffRampsV160[dest], ccipocr3.SeqNumRange{1, 1})
+				waitForCommitWithInterval(t, srcChain, dstChain, state.Chains[dest].EvmOffRampV160, ccipocr3.SeqNumRange{1, 1})
 			}(src, dest)
 		}
 	}
@@ -198,7 +146,7 @@ func Test0001_InitialDeploy(t *testing.T) {
 			wg.Add(1)
 			go func(src, dest deployment.Chain) {
 				defer wg.Done()
-				waitForExecWithSeqNr(t, src, dest, state.EvmOffRampsV160[dest.Selector], 1)
+				waitForExecWithSeqNr(t, src, dest, state.Chains[dest.Selector].EvmOffRampV160, 1)
 			}(srcChain, dstChain)
 		}
 	}

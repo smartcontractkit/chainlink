@@ -150,3 +150,9 @@ func NewMemoryAddressBook() *AddressBookMap {
 		AddressesByChain: make(map[uint64]map[string]TypeAndVersion),
 	}
 }
+
+func NewMemoryAddressBookFromMap(addressesByChain map[uint64]map[string]TypeAndVersion) *AddressBookMap {
+	return &AddressBookMap{
+		AddressesByChain: addressesByChain,
+	}
+}

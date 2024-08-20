@@ -14,10 +14,8 @@ func TestAddressBook_Save(t *testing.T) {
 	ab := NewMemoryAddressBook()
 	onRamp100 := NewTypeAndVersion("OnRamp", Version1_0_0)
 	onRamp110 := NewTypeAndVersion("OnRamp", Version1_1_0)
-	offRamp100 := NewTypeAndVersion("OffRamp", Version1_0_0)
 	addr1 := common.HexToAddress("0x1").String()
 	addr2 := common.HexToAddress("0x2").String()
-	addr3 := common.HexToAddress("0x3").String()
 
 	err := ab.Save(chainsel.TEST_90000001.Selector, addr1, onRamp100)
 	require.NoError(t, err)
@@ -58,21 +56,29 @@ func TestAddressBook_Save(t *testing.T) {
 			addr2: onRamp110,
 		},
 	})
+}
 
-	// Test merge
-	ab2 := NewMemoryAddressBook()
-	require.NoError(t, ab2.Save(chainsel.TEST_90000003.Selector, addr3, onRamp100))
-	require.NoError(t, ab.Merge(ab2))
-	// Other address book should remain unchanged.
-	addresses, err = ab2.Addresses()
-	require.NoError(t, err)
-	assert.DeepEqual(t, addresses, map[uint64]map[string]TypeAndVersion{
-		chainsel.TEST_90000003.Selector: {
-			addr3: onRamp100,
+func TestAddressBook_Merge(t *testing.T) {
+	onRamp100 := NewTypeAndVersion("OnRamp", Version1_0_0)
+	onRamp110 := NewTypeAndVersion("OnRamp", Version1_1_0)
+	addr1 := common.HexToAddress("0x1").String()
+	addr2 := common.HexToAddress("0x2").String()
+	a1 := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000001.Selector: {
+			addr1: onRamp100,
 		},
 	})
-	// Existing addressbook should contain the new elements.
-	addresses, err = ab.Addresses()
+	a2 := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000001.Selector: {
+			addr2: onRamp100,
+		},
+		chainsel.TEST_90000002.Selector: {
+			addr1: onRamp110,
+		},
+	})
+	require.NoError(t, a1.Merge(a2))
+
+	addresses, err := a1.Addresses()
 	require.NoError(t, err)
 	assert.DeepEqual(t, addresses, map[uint64]map[string]TypeAndVersion{
 		chainsel.TEST_90000001.Selector: {
@@ -80,14 +86,27 @@ func TestAddressBook_Save(t *testing.T) {
 			addr2: onRamp100,
 		},
 		chainsel.TEST_90000002.Selector: {
-			addr1: onRamp100,
-			addr2: onRamp110,
-		},
-		chainsel.TEST_90000003.Selector: {
-			addr3: onRamp100,
+			addr1: onRamp110,
 		},
 	})
 
-	// Merge to an existing chain.
-	require.NoError(t, ab2.Save(chainsel.TEST_90000002.Selector, addr3, offRamp100))
+	// Merge with conflicting addresses should error
+	a3 := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000001.Selector: {
+			addr1: onRamp100,
+		},
+	})
+	require.Error(t, a1.Merge(a3))
+	// a1 should not have changed
+	addresses, err = a1.Addresses()
+	require.NoError(t, err)
+	assert.DeepEqual(t, addresses, map[uint64]map[string]TypeAndVersion{
+		chainsel.TEST_90000001.Selector: {
+			addr1: onRamp100,
+			addr2: onRamp100,
+		},
+		chainsel.TEST_90000002.Selector: {
+			addr1: onRamp110,
+		},
+	})
 }

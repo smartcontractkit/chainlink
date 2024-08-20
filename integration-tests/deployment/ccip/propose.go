@@ -25,19 +25,19 @@ func GenerateAcceptOwnershipProposal(
 	chains []uint64,
 	ab deployment.AddressBook,
 ) (deployment.Proposal, error) {
-	state, err := GenerateOnchainState(e, ab)
+	state, err := LoadOnchainState(e, ab)
 	if err != nil {
 		return deployment.Proposal{}, err
 	}
 	// TODO: Just onramp as an example
 	var ops []owner_helpers.ManyChainMultiSigOp
 	for _, sel := range chains {
-		opCount, err := state.Mcms[sel].GetOpCount(nil)
+		opCount, err := state.Chains[sel].Mcm.GetOpCount(nil)
 		if err != nil {
 			return deployment.Proposal{}, err
 		}
 
-		txData, err := state.EvmOnRampsV160[sel].AcceptOwnership(SimTransactOpts())
+		txData, err := state.Chains[sel].EvmOnRampV160.AcceptOwnership(SimTransactOpts())
 		if err != nil {
 			return deployment.Proposal{}, err
 		}
@@ -47,9 +47,9 @@ func GenerateAcceptOwnershipProposal(
 		}
 		ops = append(ops, owner_helpers.ManyChainMultiSigOp{
 			ChainId:  big.NewInt(int64(evmID)),
-			MultiSig: state.McmsAddrs[sel],
+			MultiSig: state.Chains[sel].McmsAddr,
 			Nonce:    opCount,
-			To:       state.EvmOnRampsV160[sel].Address(),
+			To:       state.Chains[sel].EvmOnRampV160.Address(),
 			Value:    big.NewInt(0),
 			Data:     txData.Data(),
 		})

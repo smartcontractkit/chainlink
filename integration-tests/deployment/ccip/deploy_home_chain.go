@@ -52,7 +52,7 @@ const (
 	MaxDurationShouldTransmitAcceptedReport = 10 * time.Second
 )
 
-func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainSel uint64) (deployment.AddressBook, error) {
+func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainSel uint64) (deployment.AddressBook, common.Address, error) {
 	ab := deployment.NewMemoryAddressBook()
 	chain := chains[chainSel]
 	capReg, err := deployContract(lggr, chain, ab,
@@ -67,7 +67,7 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 		})
 	if err != nil {
 		lggr.Errorw("Failed to deploy capreg", "err", err)
-		return ab, err
+		return ab, common.Address{}, err
 	}
 	lggr.Infow("deployed capreg", "addr", capReg.Address)
 	ccipConfig, err := deployContract(
@@ -84,7 +84,7 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 		})
 	if err != nil {
 		lggr.Errorw("Failed to deploy ccip config", "err", err)
-		return ab, err
+		return ab, common.Address{}, err
 	}
 	lggr.Infow("deployed ccip config", "addr", ccipConfig.Address)
 
@@ -99,7 +99,7 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 	})
 	if err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to add capabilities", "err", err)
-		return ab, err
+		return ab, common.Address{}, err
 	}
 	// TODO: Just one for testing.
 	tx, err = capReg.Contract.AddNodeOperators(chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryNodeOperator{
@@ -110,9 +110,9 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 	})
 	if err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to add node operators", "err", err)
-		return ab, err
+		return ab, common.Address{}, err
 	}
-	return ab, nil
+	return ab, capReg.Address, nil
 }
 
 func sortP2PIDS(p2pIDs [][32]byte) {
