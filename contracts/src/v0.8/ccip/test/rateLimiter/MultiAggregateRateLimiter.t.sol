@@ -8,7 +8,7 @@ import {Internal} from "../../libraries/Internal.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {BaseTest} from "../BaseTest.t.sol";
 import {MultiAggregateRateLimiterHelper} from "../helpers/MultiAggregateRateLimiterHelper.sol";
-import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
+import {PriceRegistrySetup} from "../priceRegistry/PriceRegistrySetup.t.sol";
 import {stdError} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 
@@ -33,7 +33,7 @@ contract MultiAggregateRateLimiterSetup is BaseTest, PriceRegistrySetup {
     BaseTest.setUp();
     PriceRegistrySetup.setUp();
 
-    Internal.PriceUpdates memory priceUpdates = getSingleTokenPriceUpdateStruct(TOKEN, TOKEN_PRICE);
+    Internal.PriceUpdates memory priceUpdates = _getSingleTokenPriceUpdateStruct(TOKEN, TOKEN_PRICE);
     s_priceRegistry.updatePrices(priceUpdates);
 
     MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
@@ -683,7 +683,7 @@ contract MultiAggregateRateLimiter_onInboundMessage is MultiAggregateRateLimiter
       });
 
       Internal.PriceUpdates memory priceUpdates =
-        getSingleTokenPriceUpdateStruct(s_destTokens[i], TOKEN_PRICE * (i + 1));
+        _getSingleTokenPriceUpdateStruct(s_destTokens[i], TOKEN_PRICE * (i + 1));
       s_priceRegistry.updatePrices(priceUpdates);
     }
     s_rateLimiter.updateRateLimitTokens(new MultiAggregateRateLimiter.LocalRateLimitToken[](0), tokensToAdd);
@@ -919,7 +919,7 @@ contract MultiAggregateRateLimiter_onOutboundMessage is MultiAggregateRateLimite
       });
 
       Internal.PriceUpdates memory priceUpdates =
-        getSingleTokenPriceUpdateStruct(s_sourceTokens[i], TOKEN_PRICE * (i + 1));
+        _getSingleTokenPriceUpdateStruct(s_sourceTokens[i], TOKEN_PRICE * (i + 1));
       s_priceRegistry.updatePrices(priceUpdates);
     }
     s_rateLimiter.updateRateLimitTokens(new MultiAggregateRateLimiter.LocalRateLimitToken[](0), tokensToAdd);

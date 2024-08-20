@@ -765,7 +765,8 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.Equal(t, commontypes.Fatal, state)
-		require.Error(t, err, evmclient.TerminallyStuckMsg)
+		require.Error(t, err)
+		require.Equal(t, evmclient.TerminallyStuckMsg, err.Error())
 
 		// Test a terminally stuck client error returns Fatal
 		nonce = evmtypes.Nonce(1)
@@ -786,7 +787,8 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		require.NoError(t, err)
 		state, err = txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.Equal(t, commontypes.Fatal, state)
-		require.Error(t, err, evmclient.TerminallyStuckMsg)
+		require.Error(t, err)
+		require.Equal(t, terminallyStuckClientError, err.Error())
 	})
 
 	t.Run("returns failed for fatal error state with other error", func(t *testing.T) {

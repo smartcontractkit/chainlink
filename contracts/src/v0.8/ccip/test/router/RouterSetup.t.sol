@@ -26,7 +26,7 @@ contract RouterSetup is BaseTest {
     }
   }
 
-  function generateReceiverMessage(uint64 chainSelector) internal pure returns (Client.Any2EVMMessage memory) {
+  function _generateReceiverMessage(uint64 chainSelector) internal pure returns (Client.Any2EVMMessage memory) {
     Client.EVMTokenAmount[] memory ta = new Client.EVMTokenAmount[](0);
     return Client.Any2EVMMessage({
       messageId: bytes32("a"),
@@ -37,7 +37,7 @@ contract RouterSetup is BaseTest {
     });
   }
 
-  function generateSourceTokenData() internal pure returns (Internal.SourceTokenData memory) {
+  function _generateSourceTokenData() internal pure returns (Internal.SourceTokenData memory) {
     return Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(address(12312412312)),
       destTokenAddress: abi.encode(address(9809808909)),
