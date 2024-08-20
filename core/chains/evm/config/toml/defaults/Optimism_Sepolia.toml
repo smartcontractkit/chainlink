@@ -5,6 +5,7 @@ FinalityTagEnabled = true
 LogPollInterval = '2s'
 NoNewHeadsThreshold = '40s'
 MinIncomingConfirmations = 1
+NoNewFinalizedHeadsThreshold = '15m'
 
 [GasEstimator]
 EIP1559DynamicFees = true

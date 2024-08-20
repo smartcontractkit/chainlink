@@ -5,6 +5,7 @@ MinIncomingConfirmations = 5
 NoNewHeadsThreshold = '30s'
 RPCBlockQueryDelay = 10
 RPCDefaultBatchSize = 100
+NoNewFinalizedHeadsThreshold = '12m'
 
 [Transactions]
 MaxQueued = 5000

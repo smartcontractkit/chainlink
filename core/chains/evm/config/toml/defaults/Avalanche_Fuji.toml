@@ -7,6 +7,7 @@ MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '30s'
 OCR.ContractConfirmations = 1
 RPCBlockQueryDelay = 2
+NoNewFinalizedHeadsThreshold = '1m'
 
 [GasEstimator]
 PriceDefault = '25 gwei'
