@@ -136,8 +136,8 @@ contract VRFOld {
   uint256 private constant GROUP_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
   // Prime characteristic of the galois field over which Secp256k1 is defined
   uint256 private constant FIELD_SIZE =
-  // solium-disable-next-line indentation
-  0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
+    // solium-disable-next-line indentation
+    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
   uint256 private constant WORD_LENGTH_BYTES = 0x20;
 
   // (base^exponent) % FIELD_SIZE
@@ -292,8 +292,8 @@ contract VRFOld {
   ) internal pure returns (uint256 x3, uint256 z3) {
     unchecked {
       uint256 num1 = mulmod(z2, x1, FIELD_SIZE);
-    // Note this cannot wrap since x2 is a point in [0, FIELD_SIZE-1]
-    // we use unchecked to save gas.
+      // Note this cannot wrap since x2 is a point in [0, FIELD_SIZE-1]
+      // we use unchecked to save gas.
       uint256 num2 = mulmod(FIELD_SIZE - x2, z1, FIELD_SIZE);
       (x3, z3) = (addmod(num1, num2, FIELD_SIZE), mulmod(z1, z2, FIELD_SIZE));
     }
@@ -350,32 +350,32 @@ contract VRFOld {
     uint256 qy
   ) internal pure returns (uint256 sx, uint256 sy, uint256 sz) {
     unchecked {
-    // See "Group law for E/K : y^2 = x^3 + ax + b", in section 3.1.2, p. 80,
-    // "Guide to Elliptic Curve Cryptography" by Hankerson, Menezes and Vanstone
-    // We take the equations there for (sx,sy), and homogenize them to
-    // projective coordinates. That way, no inverses are required, here, and we
-    // only need the one inverse in _affineECAdd.
+      // See "Group law for E/K : y^2 = x^3 + ax + b", in section 3.1.2, p. 80,
+      // "Guide to Elliptic Curve Cryptography" by Hankerson, Menezes and Vanstone
+      // We take the equations there for (sx,sy), and homogenize them to
+      // projective coordinates. That way, no inverses are required, here, and we
+      // only need the one inverse in _affineECAdd.
 
-    // We only need the "point addition" equations from Hankerson et al. Can
-    // skip the "point doubling" equations because p1 == p2 is cryptographically
-    // impossible, and required not to be the case in _linearCombination.
+      // We only need the "point addition" equations from Hankerson et al. Can
+      // skip the "point doubling" equations because p1 == p2 is cryptographically
+      // impossible, and required not to be the case in _linearCombination.
 
-    // Add extra "projective coordinate" to the two points
+      // Add extra "projective coordinate" to the two points
       (uint256 z1, uint256 z2) = (1, 1);
 
-    // (lx, lz) = (qy-py)/(qx-px), i.e., gradient of secant line.
-    // Cannot wrap since px and py are in [0, FIELD_SIZE-1]
+      // (lx, lz) = (qy-py)/(qx-px), i.e., gradient of secant line.
+      // Cannot wrap since px and py are in [0, FIELD_SIZE-1]
       uint256 lx = addmod(qy, FIELD_SIZE - py, FIELD_SIZE);
       uint256 lz = addmod(qx, FIELD_SIZE - px, FIELD_SIZE);
 
       uint256 dx; // Accumulates denominator from sx calculation
-    // sx=((qy-py)/(qx-px))^2-px-qx
+      // sx=((qy-py)/(qx-px))^2-px-qx
       (sx, dx) = _projectiveMul(lx, lz, lx, lz); // ((qy-py)/(qx-px))^2
       (sx, dx) = _projectiveSub(sx, dx, px, z1); // ((qy-py)/(qx-px))^2-px
       (sx, dx) = _projectiveSub(sx, dx, qx, z2); // ((qy-py)/(qx-px))^2-px-qx
 
       uint256 dy; // Accumulates denominator from sy calculation
-    // sy=((qy-py)/(qx-px))(px-sx)-py
+      // sy=((qy-py)/(qx-px))(px-sx)-py
       (sy, dy) = _projectiveSub(px, z1, sx, dx); // px-sx
       (sy, dy) = _projectiveMul(sy, dy, lx, lz); // ((qy-py)/(qx-px))(px-sx)
       (sy, dy) = _projectiveSub(sy, dy, py, z1); // ((qy-py)/(qx-px))(px-sx)-py
@@ -426,19 +426,19 @@ contract VRFOld {
   ) internal pure returns (bool) {
     // Rule out ecrecover failure modes which return address 0.
     unchecked {
-    // solhint-disable-next-line gas-custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(lcWitness != address(0), "bad witness");
       uint8 v = (p[1] % 2 == 0) ? 27 : 28; // parity of y-ordinate of p
-    // Note this cannot wrap (X - Y % X), but we use unchecked to save
-    // gas.
+      // Note this cannot wrap (X - Y % X), but we use unchecked to save
+      // gas.
       bytes32 pseudoHash = bytes32(GROUP_ORDER - mulmod(p[0], s, GROUP_ORDER)); // -s*p[0]
       bytes32 pseudoSignature = bytes32(mulmod(c, p[0], GROUP_ORDER)); // c*p[0]
-    // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
-    // The point corresponding to the address returned by
-    // ecrecover(-s*p[0],v,p[0],c*p[0]) is
-    // (p[0]⁻¹ mod GROUP_ORDER)*(c*p[0]-(-s)*p[0]*g)=c*p+s*g.
-    // See https://crypto.stackexchange.com/a/18106
-    // https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v
+      // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
+      // The point corresponding to the address returned by
+      // ecrecover(-s*p[0],v,p[0],c*p[0]) is
+      // (p[0]⁻¹ mod GROUP_ORDER)*(c*p[0]-(-s)*p[0]*g)=c*p+s*g.
+      // See https://crypto.stackexchange.com/a/18106
+      // https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v
       address computed = ecrecover(pseudoHash, v, bytes32(p[0]), pseudoSignature);
       return computed == lcWitness;
     }
@@ -461,12 +461,12 @@ contract VRFOld {
     uint256 zInv
   ) internal pure returns (uint256[2] memory) {
     unchecked {
-    // Note we are relying on the wrap around here
-    // solhint-disable-next-line gas-custom-errors
+      // Note we are relying on the wrap around here
+      // solhint-disable-next-line gas-custom-errors
       require((cp1Witness[0] % FIELD_SIZE) != (sp2Witness[0] % FIELD_SIZE), "points in sum must be distinct");
-    // solhint-disable-next-line gas-custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(_ecmulVerify(p1, c, cp1Witness), "First mul check failed");
-    // solhint-disable-next-line gas-custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(_ecmulVerify(p2, s, sp2Witness), "Second mul check failed");
       return _affineECAdd(cp1Witness, sp2Witness, zInv);
     }
@@ -518,28 +518,28 @@ contract VRFOld {
     uint256 zInv
   ) internal view {
     unchecked {
-    // solhint-disable-next-line gas-custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(_isOnCurve(pk), "public key is not on curve");
-    // solhint-disable-next-line gas-custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(_isOnCurve(gamma), "gamma is not on curve");
-    // solhint-disable-next-line gas-custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(_isOnCurve(cGammaWitness), "cGammaWitness is not on curve");
-    // solhint-disable-next-line gas-custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(_isOnCurve(sHashWitness), "sHashWitness is not on curve");
-    // Step 5. of IETF draft section 5.3 (pk corresponds to 5.3's Y, and here
-    // we use the address of u instead of u itself. Also, here we add the
-    // terms instead of taking the difference, and in the proof construction in
-    // vrf.GenerateProof, we correspondingly take the difference instead of
-    // taking the sum as they do in step 7 of section 5.1.)
-    // solhint-disable-next-line gas-custom-errors
+      // Step 5. of IETF draft section 5.3 (pk corresponds to 5.3's Y, and here
+      // we use the address of u instead of u itself. Also, here we add the
+      // terms instead of taking the difference, and in the proof construction in
+      // vrf.GenerateProof, we correspondingly take the difference instead of
+      // taking the sum as they do in step 7 of section 5.1.)
+      // solhint-disable-next-line gas-custom-errors
       require(_verifyLinearCombinationWithGenerator(c, pk, s, uWitness), "addr(c*pk+s*g)!=_uWitness");
-    // Step 4. of IETF draft section 5.3 (pk corresponds to Y, seed to alpha_string)
+      // Step 4. of IETF draft section 5.3 (pk corresponds to Y, seed to alpha_string)
       uint256[2] memory hash = _hashToCurve(pk, seed);
-    // Step 6. of IETF draft section 5.3, but see note for step 5 about +/- terms
+      // Step 6. of IETF draft section 5.3, but see note for step 5 about +/- terms
       uint256[2] memory v = _linearCombination(c, gamma, cGammaWitness, s, hash, sHashWitness, zInv);
-    // Steps 7. and 8. of IETF draft section 5.3
+      // Steps 7. and 8. of IETF draft section 5.3
       uint256 derivedC = _scalarFromCurvePoints(hash, pk, gamma, uWitness, v);
-    // solhint-disable-next-line gas-custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(c == derivedC, "invalid proof");
     }
   }
