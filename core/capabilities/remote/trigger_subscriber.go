@@ -175,7 +175,12 @@ func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commo
 }
 
 func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
-	sender := ToPeerID(msg.Sender)
+	sender, err := ToPeerID(msg.Sender)
+	if err != nil {
+		s.lggr.Errorw("failed to convert message sender to PeerID", "err", err)
+		return
+	}
+
 	if _, found := s.capDonMembers[sender]; !found {
 		s.lggr.Errorw("received message from unexpected node", "capabilityId", s.capInfo.ID, "sender", sender)
 		return
