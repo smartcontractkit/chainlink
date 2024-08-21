@@ -60,7 +60,6 @@ mock_ethusd_aggregator_wrapper: ../../contracts/solc/v0.8.19/MockETHUSDAggregato
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5c8d6562e94166d4790f1ee6e4321d359d9f7262e6c5452a712b1f1c896f45cf
 operator_factory: ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.abi ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.bin 88e6baa5d9b255eea02616fbcb2cbe21a25ab46adeb6395f6289d169dec949ae
 operator_wrapper: ../../contracts/solc/v0.8.19/Operator/Operator.abi ../../contracts/solc/v0.8.19/Operator/Operator.bin 23c3888eaa7259e6adf2153d09abae8f4b1987dc44200363faab1e65483f32d5
-optimism_module: ../../contracts/solc/v0.8.19/OptimismModule/OptimismModule.abi ../../contracts/solc/v0.8.19/OptimismModule/OptimismModule.bin fb34a04d32c6f4ccc860962b740bfde91e5bdfd88cbac0711b41f25f6fd23a85
 optimism_module_v2: ../../contracts/solc/v0.8.19/OptimismModuleV2/OptimismModuleV2.abi ../../contracts/solc/v0.8.19/OptimismModuleV2/OptimismModuleV2.bin 6bc8f93d3a49b3fdecc169214565e6fe5690427860ca4f674818c611dd719502
 perform_data_checker_wrapper: ../../contracts/solc/v0.8.16/PerformDataChecker/PerformDataChecker.abi ../../contracts/solc/v0.8.16/PerformDataChecker/PerformDataChecker.bin 48d8309c2117c29a24e1155917ab0b780956b2cd6a8a39ef06ae66a7f6d94f73
 scroll_module: ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.abi ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.bin 0b99b89ff0c8d95a2ab273c93355e572b9e052ce2a9507498a06e0915b541a86
