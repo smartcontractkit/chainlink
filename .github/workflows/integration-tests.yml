@@ -101,6 +101,7 @@ jobs:
               - 'core/**/migrations/*.sql'
               - 'core/**/config/**/*.toml'
               - 'integration-tests/**/*.toml'
+              - 'integration-tests/**/*.go_test_list.json'
             ccip-changes:
               - '.github/workflows/integration-tests.yml'
               - 'integration-tests/**/*.toml'
