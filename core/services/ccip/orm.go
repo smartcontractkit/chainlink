@@ -181,7 +181,7 @@ func (o *orm) pickOnlyRelevantTokensForUpdate(
 			tokenPricesToUpdate = append(tokenPricesToUpdate, TokenPrice{TokenAddr: tokenAddr, TokenPrice: tokenPrice})
 		}
 		o.lggr.Debugw(
-			"Token price eligible for database update",
+			"Token price eligibility for database update",
 			"eligibleForUpdate", eligibleForUpdate,
 			"token", tokenAddr,
 			"price", tokenPrice,
