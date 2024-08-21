@@ -133,7 +133,8 @@ func TestLinkTransfer_NoSeth(t *testing.T) {
 		require.NoError(t, err, "Error waiting for transaction to be mined")
 		require.Equal(t, uint64(1), receipt.Status, "Transaction failed")
 
-		callOpts := bind.CallOpts{Context: context.Background(), From: sethClient.Addresses[0]}
+		//TODO only block number from receipt it doesn't fail. Question is: why?
+		callOpts := bind.CallOpts{Context: context.Background(), From: sethClient.Addresses[0], BlockNumber: receipt.BlockNumber}
 
 		balance, err := linkTokenContract.BalanceOf(&callOpts, sethClient.Addresses[1])
 		require.NoError(t, err, "Error getting LINK balance")
