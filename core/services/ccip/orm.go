@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	mapset "github.com/deckarep/golang-set/v2"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -155,6 +153,8 @@ func (o *orm) pickOnlyRelevantTokensForUpdate(
 ) ([]TokenPrice, error) {
 	tokenPricesByAddress := toTokensByAddress(tokenPrices)
 
+	// Picks only tokens which were recently updated and can be ignored,
+	// we will filter out these tokens from the upsert query.
 	stmt := `
 		SELECT 
 		    token_addr
@@ -172,11 +172,15 @@ func (o *orm) pickOnlyRelevantTokensForUpdate(
 		return nil, err
 	}
 
-	tokensToIgnore := mapset.NewThreadUnsafeSet[string](dbTokensToIgnore...)
+	tokensToIgnore := make(map[string]struct{}, len(dbTokensToIgnore))
+	for _, tk := range dbTokensToIgnore {
+		tokensToIgnore[tk] = struct{}{}
+	}
+
 	tokenPricesToUpdate := make([]TokenPrice, 0, len(tokenPrices))
 	for tokenAddr, tokenPrice := range tokenPricesByAddress {
 		eligibleForUpdate := false
-		if !tokensToIgnore.Contains(tokenAddr) {
+		if _, ok := tokensToIgnore[tokenAddr]; !ok {
 			eligibleForUpdate = true
 			tokenPricesToUpdate = append(tokenPricesToUpdate, TokenPrice{TokenAddr: tokenAddr, TokenPrice: tokenPrice})
 		}
