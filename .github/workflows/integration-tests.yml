@@ -273,7 +273,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: needs.changes.outputs.ccip_changes == 'true'
+    if: needs.changes.outputs.ccip_changes == 'false'
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       workflow_name: Run CCIP E2E Tests
