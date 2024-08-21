@@ -10,9 +10,10 @@ import (
 )
 
 type node struct {
-	url      *url.URL
-	login    string
-	password string
+	url       *url.URL
+	remoteUrl *url.URL
+	login     string
+	password  string
 }
 
 func (n node) IsTerminal() bool {
@@ -50,7 +51,7 @@ func mustReadNodesList(path string) []*node {
 			continue
 		}
 		s := strings.Split(rr, " ")
-		if len(s) != 3 {
+		if len(s) != 4 {
 			helpers.PanicErr(errors.New("wrong nodes list format"))
 		}
 		if strings.Contains(s[0], "boot") && hasBoot {
@@ -58,11 +59,13 @@ func mustReadNodesList(path string) []*node {
 		}
 		hasBoot = true
 		url, err := url.Parse(s[0])
+		remoteUrl, err := url.Parse(s[3])
 		helpers.PanicErr(err)
 		nodes = append(nodes, &node{
-			url:      url,
-			login:    s[1],
-			password: s[2],
+			url:       url,
+			remoteUrl: remoteUrl,
+			login:     s[1],
+			password:  s[2],
 		})
 	}
 	return nodes
