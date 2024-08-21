@@ -102,6 +102,9 @@ jobs:
               - 'core/**/config/**/*.toml'
               - 'integration-tests/**/*.toml'
             ccip-changes:
+              - '.github/workflows/integration-tests.yml'
+              - 'integration-tests/**/*.toml'
+              - '**/*Dockerfile'
               - '**/*ccip*'
               - '**/*ccip*/**'
       - name: Ignore Filter On Workflow Dispatch
@@ -121,6 +124,7 @@ jobs:
         continue-on-error: true
     outputs:
       src: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.changes }}
+      ccip-changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip-changes }}
 
   build-lint-integration-tests:
     name: Build and Lint ${{ matrix.project.name }}
