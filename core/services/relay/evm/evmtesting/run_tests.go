@@ -19,7 +19,7 @@ import (
 )
 
 func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTester[T]) {
-	RunChainReaderInterfaceTests[T](t, it)
+	RunChainReaderInterfaceTests[T](t, it, false)
 
 	t.Run("Dynamically typed topics can be used to filter and have type correct in return", func(t T) {
 		it.Setup(t)

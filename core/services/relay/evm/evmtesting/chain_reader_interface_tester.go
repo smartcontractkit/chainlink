@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
+	primitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -53,7 +54,7 @@ type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 	Accounts(t T) []*bind.TransactOpts
 	TXM(T, client.Client) evmtxmgr.TxManager
 	// To enable the historical wrappers required for Simulated Backend tests.
-	ChainReaderEVMClient(t T, ctx context.Context, ht logpoller.HeadTracker, conf types.ChainReaderConfig) client.Client
+	ChainReaderEVMClient(ctx context.Context, t T, ht logpoller.HeadTracker, conf types.ChainReaderConfig) client.Client
 	WrappedChainWriter(cw clcommontypes.ChainWriter, client client.Client) clcommontypes.ChainWriter
 }
 
@@ -67,8 +68,6 @@ type EVMChainReaderInterfaceTester[T TestingT[T]] struct {
 	chainWriterConfig types.ChainWriterConfig
 	deployerAuth      *bind.TransactOpts
 	senderAuth        *bind.TransactOpts
-	dirtyContracts    bool
-	evmTest           *chain_reader_tester.ChainReaderTester
 	cr                evm.ChainReaderService
 	cw                evm.ChainWriterService
 	txm               evmtxmgr.TxManager
@@ -97,7 +96,7 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 		return
 	}
 
-	// Need to seperate accounts to ensure the nonce doesn't get misaligned after the
+	// Need to separate accounts to ensure the nonce doesn't get misaligned after the
 	// contract deployments.
 	accounts := it.Helper.Accounts(t)
 	it.deployerAuth = accounts[0]
@@ -311,7 +310,7 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	conf, err := types.ChainReaderConfigFromBytes(confBytes)
 	require.NoError(t, err)
 
-	cwh := it.Helper.ChainReaderEVMClient(t, ctx, ht, conf)
+	cwh := it.Helper.ChainReaderEVMClient(ctx, t, ht, conf)
 	it.client = cwh
 
 	cr, err := evm.NewChainReaderService(ctx, lggr, lp, ht, it.client, conf)
@@ -319,6 +318,10 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	require.NoError(t, cr.Start(ctx))
 	it.cr = cr
 	return cr
+}
+
+// This function is no longer necessary for Simulated Backend or Testnet tests.
+func (it *EVMChainReaderInterfaceTester[T]) GenerateBlocksTillConfidenceLevel(t T, contractName, readName string, confidenceLevel primitives.ConfidenceLevel) {
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) SetBatchLatestValues(t T, batchCallEntry BatchCallEntry) {
@@ -361,8 +364,6 @@ func (it *EVMChainReaderInterfaceTester[T]) GetBindings(_ T) []clcommontypes.Bou
 		{Name: AnySecondContractName, Address: it.address2},
 	}
 }
-
-type uintFn = func(*chain_reader_tester.ChainReaderTesterTransactor, *bind.TransactOpts, uint64) (*gethtypes.Transaction, error)
 
 type testStructFn = func(*chain_reader_tester.ChainReaderTesterTransactor, *bind.TransactOpts, int32, string, uint8, [32]uint8, common.Address, []common.Address, *big.Int, chain_reader_tester.MidLevelTestStruct) (*gethtypes.Transaction, error)
 

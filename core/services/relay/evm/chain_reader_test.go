@@ -158,7 +158,7 @@ func TestChainReader(t *testing.T) {
 
 	// add new subtests here so that it can be run on real chains too
 	RunChainReaderEvmTests(t, it)
-	RunChainReaderInterfaceTests[*testing.T](t, commontestutils.WrapChainReaderTesterForLoop(it))
+	RunChainReaderInterfaceTests[*testing.T](t, commontestutils.WrapChainReaderTesterForLoop(it), false)
 }
 
 type helper struct {
@@ -249,7 +249,7 @@ func (h *helper) Context(t *testing.T) context.Context {
 	return testutils.Context(t)
 }
 
-func (h *helper) ChainReaderEVMClient(t *testing.T, ctx context.Context, ht logpoller.HeadTracker, conf types.ChainReaderConfig) client.Client {
+func (h *helper) ChainReaderEVMClient(ctx context.Context, t *testing.T, ht logpoller.HeadTracker, conf types.ChainReaderConfig) client.Client {
 	// wrap the client so that we can mock historical contract state
 	cwh := &ClientWithContractHistory{Client: h.Client(t), HT: ht}
 	require.NoError(t, cwh.Init(ctx, conf))
@@ -287,7 +287,9 @@ func (h *helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
 	})
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, clconfig, h.sim, db, client)
-	app.Start(h.Context(t))
+	err := app.Start(h.Context(t))
+	require.NoError(t, err)
+
 	keyStore := app.KeyStore.Eth()
 
 	keyStore.XXXTestingOnlyAdd(h.Context(t), keytypes.FromPrivateKey(h.deployerKey))
@@ -298,7 +300,7 @@ func (h *helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
 	require.NoError(t, keyStore.Add(h.Context(t), h.accounts[1].From, h.ChainID()))
 	require.NoError(t, keyStore.Enable(h.Context(t), h.accounts[1].From, h.ChainID()))
 
-	chain, err := app.GetRelayers().LegacyEVMChains().Get((*big.Int)(h.ChainID()).String())
+	chain, err := app.GetRelayers().LegacyEVMChains().Get((h.ChainID()).String())
 	require.NoError(t, err)
 
 	h.txm = chain.TxManager()

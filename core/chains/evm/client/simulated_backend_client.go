@@ -381,7 +381,6 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 	// ignore the situation where nonces are reused
 	// github.com/ethereum/go-ethereum/blob/fb2c79df1995b4e8dfe79f9c75464d29d23aaaf4/accounts/abi/bind/backends/simulated.go#L556
 	if tx.Nonce() < pendingNonce {
-		fmt.Printf("tx.Nonce() %d < pendingNonce %d\n", tx.Nonce(), pendingNonce)
 		return nil
 	}
 

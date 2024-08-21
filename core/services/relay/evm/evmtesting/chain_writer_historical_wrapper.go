@@ -30,7 +30,10 @@ func (cwhw *ChainWriterHistoricalWrapper) SubmitTransaction(ctx context.Context,
 			Params:          nil,
 			ReturnVal:       nil,
 		}
-		cwhw.cwh.SetUintLatestValue(ctx, primArgs.Value, callArgs)
+		err := cwhw.cwh.SetUintLatestValue(ctx, primArgs.Value, callArgs)
+		if err != nil {
+			return err
+		}
 	}
 	return cwhw.ChainWriter.SubmitTransaction(ctx, contractName, method, args, transactionID, toAddress, meta, value)
 }
