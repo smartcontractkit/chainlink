@@ -94,9 +94,12 @@ on:
         type: boolean
         default: false
     outputs:
-      test_results:
-        description: 'Test results from all executed tests'
-        value: ${{ jobs.after_tests.outputs.test_results }}        
+      combined_test_results:
+        description: 'Single test result from all executed tests'
+        value: ${{ jobs.after_tests.outputs.combined_test_results }}              
+      detailed_test_results:
+        description: 'Detailed test results from all executed tests'
+        value: ${{ jobs.after_tests.outputs.detailed_test_results }}        
     secrets:
       TEST_SECRETS_OVERRIDE_BASE64:
         required: false
@@ -723,7 +726,8 @@ jobs:
     name: After tests
     runs-on: ubuntu-latest
     outputs:
-      test_results: ${{ steps.set_test_results.outputs.combined_results }}    
+      combined_test_results: ${{ steps.set_test_results.outputs.result }}    
+      detailed_test_results: ${{ steps.set_test_results.outputs.detailed_test_results }}    
     steps:
       - name: Download all test result artifacts
         uses: actions/download-artifact@9c19ed7fe5d278cd354c7dfd5d3b88589c7e2395 # v4.1.6
@@ -738,14 +742,14 @@ jobs:
             cd test_results
             ls -R .
             # Combine JSON files into one
-            find . -name '*.json' -exec cat {} + | jq -s '.' > combined_results.json
+            find . -name '*.json' -exec cat {} + | jq -s '.' > detailed_test_results.json
             # Display the combined JSON
-            jq . combined_results.json
+            jq . detailed_test_results.json
             # Set the combined results as an output
-            echo "combined_results=$(jq -c . combined_results.json)" >> $GITHUB_OUTPUT
+            echo "detailed_test_results=$(jq -c . detailed_test_results.json)" >> $GITHUB_OUTPUT
           else
             echo "No test results directory found."
-            echo "combined_results=[]" >> $GITHUB_OUTPUT
+            echo "detailed_test_results=[]" >> $GITHUB_OUTPUT
           fi
 
       - name: Determine combined job results
