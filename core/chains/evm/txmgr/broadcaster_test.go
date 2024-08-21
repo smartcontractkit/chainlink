@@ -1717,11 +1717,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_GasEstimationError(t *testing.T) 
 		dbEtx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 		attempt := dbEtx.TxAttempts[0]
-		require.Equal(t, uint64(float32(estimatedGasLimit)*limitMultiplier), attempt.ChainSpecificFeeLimit)
+		require.Equal(t, uint64(float32(estimatedGasLimit)*gas.EstimateGasBuffer), attempt.ChainSpecificFeeLimit)
 	})
 	t.Run("provided gas limit too low, transaction marked as fatal error", func(t *testing.T) {
 		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
-		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(gasLimit+1, nil).Once()
+		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(uint64(float32(gasLimit)*limitMultiplier)+1, nil).Once()
 
 		// Do the thing
 		retryable, err := eb.ProcessUnstartedTxs(ctx, fromAddress)

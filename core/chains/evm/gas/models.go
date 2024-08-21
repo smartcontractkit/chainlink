@@ -26,6 +26,9 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
+// EstimateGasBuffer is a multiplier applied to estimated gas when the EstimateGasLimit feature is enabled
+const EstimateGasBuffer = float32(1.15)
+
 // EvmFeeEstimator provides a unified interface that wraps EvmEstimator and can determine if legacy or dynamic fee estimation should be used
 type EvmFeeEstimator interface {
 	services.Service
@@ -344,9 +347,14 @@ func (e *evmFeeEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLi
 }
 
 func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64, calldata []byte, toAddress *common.Address) (estimatedFeeLimit uint64, err error) {
+	// Use the feeLimit * LimitMultiplier as the provided gas limit since this multiplier is applied on top of the caller specified gas limit
+	providedGasLimit, err := commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
+	if err != nil {
+		return estimatedFeeLimit, err
+	}
 	// Use provided fee limit by default if EstimateGasLimit is disabled
 	if !e.geCfg.EstimateGasLimit() {
-		return commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
+		return providedGasLimit, nil
 	}
 	// Create call msg for gas limit estimation
 	// Skip setting Gas to avoid capping the results of the estimation
@@ -356,31 +364,32 @@ func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64,
 	}
 	estimatedGas, estimateErr := e.ethClient.EstimateGas(ctx, callMsg)
 	if estimateErr != nil {
-		if feeLimit > 0 {
+		if providedGasLimit > 0 {
 			// Do not return error if estimate gas failed, we can still use the provided limit instead since it is an upper limit
-			e.lggr.Errorw("failed to estimate gas limit. falling back to provided gas limit.", "callMsg", callMsg, "providedGasLimit", feeLimit, "error", estimateErr)
-			return feeLimit, nil
+			e.lggr.Errorw("failed to estimate gas limit. falling back to provided gas limit.", "callMsg", callMsg, "providedGasLimit", providedGasLimit, "error", estimateErr)
+			return providedGasLimit, nil
 		}
 		return estimatedFeeLimit, fmt.Errorf("gas estimation failed and provided gas limit is 0: %w", estimateErr)
 	}
-	e.lggr.Debugw("estimated gas", "estimatedGas", estimatedGas, "providedGasLimit", feeLimit)
+	e.lggr.Debugw("estimated gas", "estimatedGas", estimatedGas, "providedGasLimit", providedGasLimit)
 	// Return error if estimated gas without the buffer exceeds the provided gas limit, if provided
 	// Transaction would be destined to run out of gas and fail
-	if feeLimit != 0 && estimatedGas > feeLimit {
-		e.lggr.Errorw("estimated gas exceeds provided limit", "estimatedGas", estimatedGas, "providedGasLimit", feeLimit)
+	if providedGasLimit > 0 && estimatedGas > providedGasLimit {
+		e.lggr.Errorw("estimated gas exceeds provided limit", "estimatedGas", estimatedGas, "providedGasLimit", providedGasLimit)
 		return estimatedFeeLimit, commonfee.ErrFeeLimitTooLow
 	}
-	// Apply LimitMultiplier to the estimated gas limit
-	estimatedFeeLimit, err = commonfee.ApplyMultiplier(estimatedGas, e.geCfg.LimitMultiplier())
+	// Apply EstimateGasBuffer to the estimated gas limit
+	estimatedFeeLimit, err = commonfee.ApplyMultiplier(estimatedGas, EstimateGasBuffer)
 	if err != nil {
 		return
 	}
 	// If provided gas limit is not 0, fallback to it if the buffer causes the estimated gas limit to exceed it
 	// The provided gas limit should be used as an upper bound to avoid unexpected behavior for products
-	if feeLimit != 0 && estimatedFeeLimit > feeLimit {
-		e.lggr.Debugw("estimated gas limit with buffer exceeds provided limit. falling back to the provided gas limit", "estimatedGasLimit", estimatedFeeLimit, "providedGasLimit", feeLimit)
-		estimatedFeeLimit = feeLimit
+	if providedGasLimit > 0 && estimatedFeeLimit > providedGasLimit {
+		e.lggr.Debugw("estimated gas limit with buffer exceeds provided limit. falling back to the provided gas limit", "estimatedGasLimit", estimatedFeeLimit, "providedGasLimit", providedGasLimit)
+		estimatedFeeLimit = providedGasLimit
 	}
+	
 	return
 }
 
