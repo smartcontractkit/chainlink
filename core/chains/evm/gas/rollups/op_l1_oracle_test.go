@@ -118,6 +118,7 @@ func TestOPL1Oracle_ReadMantleGasPrice(t *testing.T) {
 
 	t.Parallel()
 	t.Run("correctly fetches gas price if chain is Mantle", func(t *testing.T) {
+		// Encode calldata for l1BaseFee method
 		l1BaseFeeMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
 		require.NoError(t, err)
 		l1BaseFeeCalldata, err := l1BaseFeeMethodAbi.Pack(l1BaseFeeMethod)
@@ -130,27 +131,30 @@ func TestOPL1Oracle_ReadMantleGasPrice(t *testing.T) {
 		require.NoError(t, err)
 
 		ethClient := mocks.NewL1OracleClient(t)
-		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
-			callMsg := args.Get(1).(ethereum.CallMsg)
-			blockNumber := args.Get(2).(*big.Int)
-			require.Equal(t, tokenRatioCalldata, callMsg.Data)
-			require.Equal(t, oracleAddress, callMsg.To.String())
-			assert.Nil(t, blockNumber)
-		}).Return(common.BigToHash(tokenRatio).Bytes(), nil).Once()
+		ethClient.On("BatchCallContext", mock.Anything, mock.IsType([]rpc.BatchElem{})).Run(func(args mock.Arguments) {
+			rpcElements := args.Get(1).([]rpc.BatchElem)
+			require.Equal(t, 2, len(rpcElements))
+			for _, rE := range rpcElements {
+				require.Equal(t, "eth_call", rE.Method)
+				require.Equal(t, oracleAddress, rE.Args[0].(map[string]interface{})["to"])
+				require.Equal(t, "latest", rE.Args[1])
+			}
+			require.Equal(t, hexutil.Bytes(l1BaseFeeCalldata), rpcElements[0].Args[0].(map[string]interface{})["data"])
+			require.Equal(t, hexutil.Bytes(tokenRatioCalldata), rpcElements[1].Args[0].(map[string]interface{})["data"])
 
-		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
-			callMsg := args.Get(1).(ethereum.CallMsg)
-			blockNumber := args.Get(2).(*big.Int)
-			require.Equal(t, l1BaseFeeCalldata, callMsg.Data)
-			require.Equal(t, oracleAddress, callMsg.To.String())
-			assert.Nil(t, blockNumber)
-		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil).Once()
+			res1 := common.BigToHash(l1BaseFee).Hex()
+			res2 := common.BigToHash(tokenRatio).Hex()
+
+			rpcElements[0].Result = &res1
+			rpcElements[1].Result = &res2
+		}).Return(nil).Once()
 
 		oracle, err := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainMantle, oracleAddress)
 		require.NoError(t, err)
-		gasPrice, err := oracle.GetDAGasPrice(tests.Context(t))
 
+		gasPrice, err := oracle.GetDAGasPrice(tests.Context(t))
 		require.NoError(t, err)
+
 		assert.Equal(t, new(big.Int).Mul(l1BaseFee, tokenRatio), gasPrice)
 	})
 }

@@ -465,29 +465,65 @@ func (o *optimismL1Oracle) getV1GasPrice(ctx context.Context) (*big.Int, error) 
 
 // Returns the gas price for Mantle. The formula is the same as Optimism Bedrock (getV1GasPrice), but the tokenRatio parameter is multiplied
 func (o *optimismL1Oracle) getMantleGasPrice(ctx context.Context) (*big.Int, error) {
-	// set oracle address
-	l1OracleAddress := common.HexToAddress(o.l1OracleAddress)
-
-	// call oracle to get tokenRatio
-	b, err := o.client.CallContract(ctx, ethereum.CallMsg{
-		To:   &l1OracleAddress,
-		Data: o.tokenRatioCalldata,
-	}, nil)
-	if err != nil {
-		return nil, fmt.Errorf("tokenRatio() call failed: %w", err)
+	// call oracle to get l1BaseFee and tokenRatio
+	rpcBatchCalls := []rpc.BatchElem{
+		{
+			Method: "eth_call",
+			Args: []any{
+				map[string]interface{}{
+					"from": common.Address{},
+					"to":   o.l1OracleAddress,
+					"data": hexutil.Bytes(o.l1BaseFeeCalldata),
+				},
+				"latest",
+			},
+			Result: new(string),
+		},
+		{
+			Method: "eth_call",
+			Args: []any{
+				map[string]interface{}{
+					"from": common.Address{},
+					"to":   o.l1OracleAddress,
+					"data": hexutil.Bytes(o.tokenRatioCalldata),
+				},
+				"latest",
+			},
+			Result: new(string),
+		},
 	}
 
-	// create bigInt from returned bytes
-	tokenRatio := new(big.Int).SetBytes(b)
-
-	// call optimism bedrock gas price function
-	v1GasPrice, err := o.getV1GasPrice(ctx)
+	err := o.client.BatchCallContext(ctx, rpcBatchCalls)
 	if err != nil {
-		return nil, fmt.Errorf("getting gas price from optimism bedrock formula failed: %w", err)
+		return nil, fmt.Errorf("fetch gas price parameters batch call failed: %w", err)
 	}
+	if rpcBatchCalls[0].Error != nil {
+		return nil, fmt.Errorf("%s call failed in a batch: %w", l1BaseFeeMethod, err)
+	}
+	if rpcBatchCalls[1].Error != nil {
+		return nil, fmt.Errorf("%s call failed in a batch: %w", tokenRatioMethod, err)
+	}
+
+	// Extract values from responses
+	l1BaseFeeResult := *(rpcBatchCalls[0].Result.(*string))
+	tokenRatioResult := *(rpcBatchCalls[1].Result.(*string))
+
+	// Decode the responses into bytes
+	l1BaseFeeBytes, err := hexutil.Decode(l1BaseFeeResult)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode %s rpc result: %w", l1BaseFeeMethod, err)
+	}
+	tokenRatioBytes, err := hexutil.Decode(tokenRatioResult)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode %s rpc result: %w", tokenRatioMethod, err)
+	}
+
+	// Convert bytes to big int for calculations
+	l1BaseFee := new(big.Int).SetBytes(l1BaseFeeBytes)
+	tokenRatio := new(big.Int).SetBytes(tokenRatioBytes)
 
 	// multiply return gas price by tokenRatio
-	return new(big.Int).Mul(v1GasPrice, tokenRatio), nil
+	return new(big.Int).Mul(l1BaseFee, tokenRatio), nil
 }
 
 // Returns the scaled gas price using baseFeeScalar, l1BaseFee, blobBaseFeeScalar, and blobBaseFee fields from the oracle
