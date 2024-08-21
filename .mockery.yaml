@@ -511,6 +511,11 @@ packages:
       PriceGetter:
         config:
           mockname: "Mock{{ .InterfaceName }}"
+          filename: mock.go
+      AllTokensPriceGetter:
+        config:
+          mockname: "Mock{{ .InterfaceName }}"
+          filename: all_price_getter_mock.go
   github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker:
     interfaces:
       CCIPTransactionStatusChecker:

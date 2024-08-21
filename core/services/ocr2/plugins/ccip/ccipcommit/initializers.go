@@ -75,7 +75,7 @@ func NewCommitServices(ctx context.Context, ds sqlutil.DataSource, srcProvider c
 	commitStoreReader = ccip.NewProviderProxyCommitStoreReader(srcCommitStore, dstCommitStore)
 	commitLggr := lggr.Named("CCIPCommit").With("sourceChain", sourceChainID, "destChain", destChainID)
 
-	var priceGetter pricegetter.PriceGetter
+	var priceGetter pricegetter.AllTokensPriceGetter
 	withPipeline := strings.Trim(pluginConfig.TokenPricesUSDPipeline, "\n\t ") != ""
 	if withPipeline {
 		priceGetter, err = pricegetter.NewPipelineGetter(pluginConfig.TokenPricesUSDPipeline, pr, jb.ID, jb.ExternalJobID, jb.Name.ValueOrZero(), lggr)

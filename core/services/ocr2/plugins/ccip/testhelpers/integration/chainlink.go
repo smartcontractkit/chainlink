@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -47,6 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -759,6 +761,47 @@ func (c *CCIPIntegrationTestHarness) NoNodesHaveExecutedSeqNum(t *testing.T, seq
 		log = node.ConsistentlySeqNumHasNotBeenExecuted(t, c, offRamp, seqNum)
 	}
 	return log
+}
+
+func (c *CCIPIntegrationTestHarness) EventuallyPriceRegistryUpdated(t *testing.T, block uint64, srcSelector uint64, tokens []common.Address, sourceNative common.Address, priceRegistryOpts ...common.Address) {
+	var priceRegistry *price_registry_1_2_0.PriceRegistry
+	var err error
+	if len(priceRegistryOpts) > 0 {
+		priceRegistry, err = price_registry_1_2_0.NewPriceRegistry(priceRegistryOpts[0], c.Dest.Chain)
+		require.NoError(t, err)
+	} else {
+		require.NotNil(t, c.Dest.PriceRegistry, "no priceRegistry configured")
+		priceRegistry = c.Dest.PriceRegistry
+	}
+
+	g := gomega.NewGomegaWithT(t)
+	g.Eventually(func() bool {
+		it, err := priceRegistry.FilterUsdPerTokenUpdated(&bind.FilterOpts{Start: block}, tokens)
+		g.Expect(err).NotTo(gomega.HaveOccurred(), "Error filtering UsdPerTokenUpdated event")
+
+		tokensFetched := make([]common.Address, 0, len(tokens))
+		for it.Next() {
+			tokenFetched := it.Event.Token
+			tokensFetched = append(tokensFetched, tokenFetched)
+			t.Log("Token price updated", tokenFetched.String(), it.Event.Value.String(), it.Event.Timestamp.String())
+		}
+
+		for _, token := range tokens {
+			if !slices.Contains(tokensFetched, token) {
+				return false
+			}
+		}
+
+		return true
+	}, testutils.WaitTimeout(t), 10*time.Second).Should(gomega.BeTrue(), "Tokens prices has not been updated")
+
+	g.Eventually(func() bool {
+		it, err := priceRegistry.FilterUsdPerUnitGasUpdated(&bind.FilterOpts{Start: block}, []uint64{srcSelector})
+		g.Expect(err).NotTo(gomega.HaveOccurred(), "Error filtering UsdPerUnitGasUpdated event")
+		g.Expect(it.Next()).To(gomega.BeTrue(), "No UsdPerUnitGasUpdated event found")
+
+		return true
+	}, testutils.WaitTimeout(t), 10*time.Second).Should(gomega.BeTrue(), "source gas price has not been updated")
 }
 
 func (c *CCIPIntegrationTestHarness) EventuallyCommitReportAccepted(t *testing.T, currentBlock uint64, commitStoreOpts ...common.Address) commit_store.CommitStoreCommitReport {
