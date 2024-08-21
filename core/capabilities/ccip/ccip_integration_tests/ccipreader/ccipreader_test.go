@@ -100,6 +100,10 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 		s.sb.Commit()
 	}
 
+	// Need to replay as sometimes the logs are not picked up by the log poller (?)
+	// Maybe another situation where chain reader doesn't register filters as expected.
+	require.NoError(t, s.lp.Replay(ctx, 1))
+
 	var reports []plugintypes.CommitPluginReportWithMeta
 	var err error
 	require.Eventually(t, func() bool {
