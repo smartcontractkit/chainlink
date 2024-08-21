@@ -42,7 +42,7 @@ func mustReadNodesList(path string) []*node {
 			continue
 		}
 		s := strings.Split(rr, " ")
-		if len(s) != 3 {
+		if len(s) != 4 {
 			helpers.PanicErr(errors.New("wrong nodes list format"))
 		}
 		if strings.Contains(s[0], "boot") && hasBoot {
