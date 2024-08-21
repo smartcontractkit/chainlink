@@ -22,7 +22,7 @@ contract OptimismModuleV2 is ChainModuleBase, ConfirmedOwner {
   /// @dev L1 fee coefficient is used to account for the impact of data compression on the l1 fee
   /// getL1FeeUpperBound returns the upper bound of l1 fee so this configurable coefficient will help
   /// charge a predefined percentage of the upper bound.
-  uint8 public s_l1FeeCoefficient = 100;
+  uint8 private s_l1FeeCoefficient = 100;
   uint256 private constant FIXED_GAS_OVERHEAD = 28_000;
   uint256 private constant PER_CALLDATA_BYTE_GAS_OVERHEAD = 0;
 
@@ -36,6 +36,12 @@ contract OptimismModuleV2 is ChainModuleBase, ConfirmedOwner {
     return _getL1Fee(dataSize);
   }
 
+  /* @notice this function provides an estimation for L1 fee incurred by calldata of a certain size
+   * @dev this function uses the newly provided getL1FeeUpperBound function in OP gas price oracle. this helps
+   * estimate L1 fee with much lower cost
+   * @param dataSize the size of calldata
+   * @return l1Fee the L1 fee
+   */
   function _getL1Fee(uint256 dataSize) internal view returns (uint256) {
     return OVM_GASPRICEORACLE.getL1FeeUpperBound(dataSize);
   }
@@ -49,6 +55,10 @@ contract OptimismModuleV2 is ChainModuleBase, ConfirmedOwner {
     return (FIXED_GAS_OVERHEAD, PER_CALLDATA_BYTE_GAS_OVERHEAD);
   }
 
+  /* @notice this function sets a new coefficient for L1 fee estimation.
+   * @dev this function can only be invoked by contract owner
+   * @param coefficient the new coefficient
+   */
   function setL1FeeCalculation(uint8 coefficient) external onlyOwner {
     if (coefficient > 100) {
       revert InvalidL1FeeCoefficient(coefficient);
@@ -57,5 +67,12 @@ contract OptimismModuleV2 is ChainModuleBase, ConfirmedOwner {
     s_l1FeeCoefficient = coefficient;
 
     emit L1FeeCoefficientSet(coefficient);
+  }
+
+  /* @notice this function returns the s_l1FeeCoefficient
+   * @return coefficient the current s_l1FeeCoefficient in effect
+   */
+  function getL1FeeCoefficient() public view returns (uint256 coefficient) {
+    return s_l1FeeCoefficient;
   }
 }
