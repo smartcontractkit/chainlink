@@ -16,13 +16,19 @@ contract OptimismModule is ChainModuleBase {
   uint256 private constant FIXED_GAS_OVERHEAD = 60_000;
   uint256 private constant PER_CALLDATA_BYTE_GAS_OVERHEAD = 270;
 
-  function getCurrentL1Fee() external view override returns (uint256) {
-    return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(msg.data, OP_L1_DATA_FEE_PADDING));
+  // @dev This will be updated to use the new function introduced by OP team
+  function getCurrentL1Fee(uint256 dataSize) external view override returns (uint256) {
+    return _getL1Fee(dataSize);
   }
 
   function getMaxL1Fee(uint256 dataSize) external view override returns (uint256) {
+    return _getL1Fee(dataSize);
+  }
+
+  function _getL1Fee(uint256 dataSize) internal view returns (uint256) {
     // fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have all non zero-bytes.
     // Instead of setting bytes to non-zero, we initialize 'new bytes' of length 4*dataSize to cover for zero bytes.
+    // this is the same as OP.
     bytes memory txCallData = new bytes(4 * dataSize);
     return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(txCallData, OP_L1_DATA_FEE_PADDING));
   }

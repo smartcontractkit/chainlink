@@ -18,7 +18,7 @@ contract ChainModuleBase is IChainModule {
     return blockhash(n);
   }
 
-  function getCurrentL1Fee() external view virtual returns (uint256) {
+  function getCurrentL1Fee(uint256) external view virtual returns (uint256) {
     return 0;
   }
 
