@@ -64,9 +64,9 @@ jobs:
         id: release-tag-check
         uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         env:
-          # Match semver git tags with a "contracts-" prefix.
-          RELEASE_REGEX: '^contracts-v[0-9]+\.[0-9]+\.[0-9]+$'
-          PRE_RELEASE_REGEX: '^contracts-v[0-9]+\.[0-9]+\.[0-9]+-(.+)$'
+          # Match semver git tags with a "contracts-ccip/" prefix.
+          RELEASE_REGEX: '^contracts-ccip/v[0-9]+\.[0-9]+\.[0-9]+$'
+          PRE_RELEASE_REGEX: '^contracts-ccip/v[0-9]+\.[0-9]+\.[0-9]+-(.+)$'
           # Get the version by stripping the "contracts-v" prefix.
           VERSION_PREFIX: 'contracts-v'
 
