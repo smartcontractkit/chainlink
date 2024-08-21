@@ -1,6 +1,7 @@
 package headreporter_test
 
 import (
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"math/big"
 	"testing"
 	"time"
@@ -54,7 +55,7 @@ func Test_TelemetryReporter_NewHead(t *testing.T) {
 	monitoringEndpointGen.
 		On("GenMonitoringEndpoint", "EVM", "100", "", synchronization.HeadReport).
 		Return(monitoringEndpoint)
-	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, big.NewInt(100))
+	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), big.NewInt(100))
 
 	err = reporter.ReportNewHead(testutils.Context(t), &head)
 	assert.NoError(t, err)
@@ -84,10 +85,10 @@ func Test_TelemetryReporter_NewHeadMissingFinalized(t *testing.T) {
 	monitoringEndpointGen.
 		On("GenMonitoringEndpoint", "EVM", "100", "", synchronization.HeadReport).
 		Return(monitoringEndpoint)
-	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, big.NewInt(100))
+	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), big.NewInt(100))
 
 	err = reporter.ReportNewHead(testutils.Context(t), &head)
-	assert.Errorf(t, err, "No finalized block was found for chain_id=100")
+	assert.NoError(t, err)
 }
 
 func Test_TelemetryReporter_NewHead_MissingEndpoint(t *testing.T) {
@@ -96,7 +97,7 @@ func Test_TelemetryReporter_NewHead_MissingEndpoint(t *testing.T) {
 		On("GenMonitoringEndpoint", "EVM", "100", "", synchronization.HeadReport).
 		Return(nil)
 
-	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, big.NewInt(100))
+	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), big.NewInt(100))
 
 	head := evmtypes.Head{Number: 42, EVMChainID: ubig.NewI(100)}
 
