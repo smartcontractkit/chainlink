@@ -366,7 +366,7 @@ func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64,
 	if estimateErr != nil {
 		if providedGasLimit > 0 {
 			// Do not return error if estimate gas failed, we can still use the provided limit instead since it is an upper limit
-			e.lggr.Errorw("failed to estimate gas limit. falling back to provided gas limit.", "callMsg", callMsg, "providedGasLimit", providedGasLimit, "error", estimateErr)
+			e.lggr.Errorw("failed to estimate gas limit. falling back to the provided gas limit * LimitMultiplier.", "callMsg", callMsg, "providedGasLimit", providedGasLimit, "error", estimateErr)
 			return providedGasLimit, nil
 		}
 		return estimatedFeeLimit, fmt.Errorf("gas estimation failed and provided gas limit is 0: %w", estimateErr)
