@@ -7,7 +7,6 @@ NoNewHeadsThreshold = '0'
 [GasEstimator]
 Mode = 'SuggestedPrice'
 PriceMin = '0'
-LimitDefault = 8000000
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 0
