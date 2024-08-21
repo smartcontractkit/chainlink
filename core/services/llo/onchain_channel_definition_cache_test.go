@@ -16,12 +16,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type mockLogPoller struct {
@@ -116,7 +116,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 	t.Run("readLogs", func(t *testing.T) {
 		lp := &mockLogPoller{latestBlockErr: sql.ErrNoRows}
 		newLogCh := make(chan *channel_config_store.ChannelConfigStoreNewChannelDefinition, 100)
-		cdc := &channelDefinitionCache{donID: donID, lp: lp, lggr: logger.TestLogger(t), newLogCh: newLogCh}
+		cdc := &channelDefinitionCache{donID: donID, lp: lp, lggr: logger.TestSugared(t), newLogCh: newLogCh}
 
 		t.Run("skips if logpoller has no blocks", func(t *testing.T) {
 			err := cdc.readLogs()
@@ -271,7 +271,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 	t.Run("fetchChannelDefinitions", func(t *testing.T) {
 		c := &mockHTTPClient{}
 		cdc := &channelDefinitionCache{
-			lggr:      logger.TestLogger(t),
+			lggr:      logger.TestSugared(t),
 			client:    c,
 			httpLimit: 2048,
 		}
@@ -369,7 +369,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 
 	t.Run("persist", func(t *testing.T) {
 		cdc := &channelDefinitionCache{
-			lggr:  logger.TestLogger(t),
+			lggr:  logger.TestSugared(t),
 			orm:   nil,
 			addr:  testutils.NewAddress(),
 			donID: donID,

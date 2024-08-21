@@ -308,10 +308,10 @@ func (c *channelDefinitionCache) fetchLoop(closeCh chan struct{}, log *channel_c
 
 	err := c.fetchAndSetChannelDefinitions(ctx, log)
 	if err == nil {
-		c.lggr.Debugw("Set new channel definitions", "version", log.Version, "url", log.Url, "sha", fmt.Sprintf("%x", log.Sha))
+		c.lggr.Debugw("Set new channel definitions", "donID", c.donID, "version", log.Version, "url", log.Url, "sha", fmt.Sprintf("%x", log.Sha))
 		return
 	}
-	c.lggr.Warnw("Error while fetching channel definitions", "version", log.Version, "url", log.Url, "sha", fmt.Sprintf("%x", log.Sha), "err", err, "attempt", attemptCnt)
+	c.lggr.Warnw("Error while fetching channel definitions", "donID", c.donID, "version", log.Version, "url", log.Url, "sha", fmt.Sprintf("%x", log.Sha), "err", err, "attempt", attemptCnt)
 
 	for {
 		select {
@@ -324,7 +324,7 @@ func (c *channelDefinitionCache) fetchLoop(closeCh chan struct{}, log *channel_c
 				c.lggr.Warnw("Error while fetching channel definitions", "version", log.Version, "url", log.Url, "sha", fmt.Sprintf("%x", log.Sha), "err", err, "attempt", attemptCnt)
 				continue
 			}
-			c.lggr.Debugw("Set new channel definitions", "version", log.Version, "url", log.Url, "sha", fmt.Sprintf("%x", log.Sha))
+			c.lggr.Debugw("Set new channel definitions", "donID", c.donID, "version", log.Version, "url", log.Url, "sha", fmt.Sprintf("%x", log.Sha))
 			return
 		}
 	}
