@@ -91,53 +91,53 @@ jobs:
 
           # Always run upgrade tests 
           cat > test_list.yaml <<EOF
-          - id: integration-tests/smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
-            test_inputs:
-              chainlink_image: ${{ steps.determine-build.outputs.image }}
-              chainlink_version: ${{ steps.determine-build.outputs.version }}
-              chainlink_upgrade_image: ${{ steps.determine-build.outputs.upgrade_image }}
-              chainlink_upgrade_version: ${{ steps.determine-build.outputs.upgrade_version }}
+          - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
+            test_env_vars:
+              E2E_TEST_CHAINLINK_IMAGE: ${{ steps.determine-build.outputs.image }}
+              E2E_TEST_CHAINLINK_VERSION: ${{ steps.determine-build.outputs.version }}
+              E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ steps.determine-build.outputs.upgrade_image }}
+              E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ steps.determine-build.outputs.upgrade_version }}
 
-          - id: integration-tests/smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
-            test_inputs:
-              chainlink_image: ${{ steps.determine-build.outputs.image }}
-              chainlink_version: ${{ steps.determine-build.outputs.version }}
-              chainlink_upgrade_image: ${{ steps.determine-build.outputs.upgrade_image }}
-              chainlink_upgrade_version: ${{ steps.determine-build.outputs.upgrade_version }}
+          - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
+            test_env_vars:
+              E2E_TEST_CHAINLINK_IMAGE: ${{ steps.determine-build.outputs.image }}
+              E2E_TEST_CHAINLINK_VERSION: ${{ steps.determine-build.outputs.version }}
+              E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ steps.determine-build.outputs.upgrade_image }}
+              E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ steps.determine-build.outputs.upgrade_version }}
 
-          - id: integration-tests/smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
-            test_inputs:
-              chainlink_image: ${{ steps.determine-build.outputs.image }}
-              chainlink_version: ${{ steps.determine-build.outputs.version }}
-              chainlink_upgrade_image: ${{ steps.determine-build.outputs.upgrade_image }}
-              chainlink_upgrade_version: ${{ steps.determine-build.outputs.upgrade_version }}              
+          - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
+            test_env_vars:
+              E2E_TEST_CHAINLINK_IMAGE: ${{ steps.determine-build.outputs.image }}
+              E2E_TEST_CHAINLINK_VERSION: ${{ steps.determine-build.outputs.version }}
+              E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ steps.determine-build.outputs.upgrade_image }}
+              E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ steps.determine-build.outputs.upgrade_version }}              
           EOF
 
           # Run reorg tests if enabled
           if [[ "${{ github.event.inputs.enableReorg }}" == 'true' ]]; then
           cat >> test_list.yaml <<EOF
-          - id: integration-tests/reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_0
-            test_inputs:
-              chainlink_image: ${{ steps.determine-build.outputs.image }}
-              chainlink_version: ${{ steps.determine-build.outputs.version }}
-          - id: integration-tests/reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_1
-            test_inputs:
-              chainlink_image: ${{ steps.determine-build.outputs.image }}
-              chainlink_version: ${{ steps.determine-build.outputs.version }}              
-          - id: integration-tests/reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_2
-            test_inputs:
-              chainlink_image: ${{ steps.determine-build.outputs.image }}
-              chainlink_version: ${{ steps.determine-build.outputs.version }}              
+          - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_0
+            test_env_vars:
+              E2E_TEST_CHAINLINK_IMAGE: ${{ steps.determine-build.outputs.image }}
+              E2E_TEST_CHAINLINK_VERSION: ${{ steps.determine-build.outputs.version }}
+          - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_1
+            test_env_vars:
+              E2E_TEST_CHAINLINK_IMAGE: ${{ steps.determine-build.outputs.image }}
+              E2E_TEST_CHAINLINK_VERSION: ${{ steps.determine-build.outputs.version }}              
+          - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_2
+            test_env_vars:
+              E2E_TEST_CHAINLINK_IMAGE: ${{ steps.determine-build.outputs.image }}
+              E2E_TEST_CHAINLINK_VERSION: ${{ steps.determine-build.outputs.version }}              
           EOF
           fi
 
           # Run chaos tests if enabled
           if [[ "${{ github.event.inputs.enableChaos }}" == 'true' ]]; then
           cat >> test_list.yaml <<EOF
-          - id: integration-tests/chaos/automation_chaos_test.go
-            test_inputs:
-              chainlink_image: ${{ steps.determine-build.outputs.image }}
-              chainlink_version: ${{ steps.determine-build.outputs.version }}
+          - id: chaos/automation_chaos_test.go
+            test_env_vars:
+              E2E_TEST_CHAINLINK_IMAGE: ${{ steps.determine-build.outputs.image }}
+              E2E_TEST_CHAINLINK_VERSION: ${{ steps.determine-build.outputs.version }}
           EOF
           fi
 

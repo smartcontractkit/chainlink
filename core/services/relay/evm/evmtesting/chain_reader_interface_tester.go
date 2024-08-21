@@ -374,7 +374,7 @@ func (it *EVMChainReaderInterfaceTester[T]) sendTxWithTestStruct(t T, contractAd
 		*testStruct.Field,
 		testStruct.DifferentField,
 		uint8(testStruct.OracleID),
-		OracleIdsToBytes(testStruct.OracleIDs),
+		OracleIDsToBytes(testStruct.OracleIDs),
 		common.Address(testStruct.Account),
 		ConvertAccounts(testStruct.Accounts),
 		testStruct.BigField,
@@ -440,12 +440,12 @@ func (it *EVMChainReaderInterfaceTester[T]) MaxWaitTimeForEvents() time.Duration
 	return it.Helper.MaxWaitTimeForEvents()
 }
 
-func OracleIdsToBytes(oracleIDs [32]commontypes.OracleID) [32]byte {
-	convertedIds := [32]byte{}
+func OracleIDsToBytes(oracleIDs [32]commontypes.OracleID) [32]byte {
+	convertedIDs := [32]byte{}
 	for i, id := range oracleIDs {
-		convertedIds[i] = byte(id)
+		convertedIDs[i] = byte(id)
 	}
-	return convertedIds
+	return convertedIDs
 }
 
 func ConvertAccounts(accounts [][]byte) []common.Address {
@@ -461,7 +461,7 @@ func ToInternalType(testStruct TestStruct) chain_reader_tester.TestStruct {
 		Field:          *testStruct.Field,
 		DifferentField: testStruct.DifferentField,
 		OracleId:       byte(testStruct.OracleID),
-		OracleIds:      OracleIdsToBytes(testStruct.OracleIDs),
+		OracleIds:      OracleIDsToBytes(testStruct.OracleIDs),
 		Account:        common.Address(testStruct.Account),
 		Accounts:       ConvertAccounts(testStruct.Accounts),
 		BigField:       testStruct.BigField,
