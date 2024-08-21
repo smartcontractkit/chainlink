@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Allow workflows to run without external registry configured
+#added Allow workflows to run without external registry configured
