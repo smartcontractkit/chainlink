@@ -160,6 +160,11 @@ func executeOCRSoakTest(t *testing.T, test *testsetups.OCRSoakTest, config *tc.T
 	t.Cleanup(func() {
 		if err := actions.TeardownRemoteSuite(test.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error tearing down environment")
+		} else {
+			err := test.Environment().Client.RemoveNamespace(test.Environment().Cfg.Namespace)
+			if err != nil {
+				l.Error().Err(err).Msg("Error removing namespace")
+			}
 		}
 	})
 	if test.Interrupted() {

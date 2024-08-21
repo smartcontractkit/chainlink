@@ -140,6 +140,11 @@ func TestAutomationBenchmark(t *testing.T) {
 	t.Cleanup(func() {
 		if err = actions.TeardownRemoteSuite(keeperBenchmarkTest.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
+		} else {
+			err := testEnvironment.Client.RemoveNamespace(testEnvironment.Cfg.Namespace)
+			if err != nil {
+				l.Error().Err(err).Msg("Error removing namespace")
+			}
 		}
 	})
 	keeperBenchmarkTest.Setup(testEnvironment, &config)
