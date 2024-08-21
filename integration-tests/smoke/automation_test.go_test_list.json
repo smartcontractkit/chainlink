@@ -2,102 +2,318 @@
   "tests": [
     {
       "name": "TestAutomationBasic",
-      "nodes": 3,
+      "nodes": 1,
       "run":[
-        {"name":"registry_2_0"},
-        {"name":"registry_2_1_conditional"},
+        {"name":"registry_2_0"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_1_conditional"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 1,
+      "run":[
         {"name":"registry_2_1_logtrigger"}
       ]
     },
     {
       "name": "TestAutomationBasic",
-      "nodes": 3,
+      "nodes": 1,
       "run":[
-        {"name":"registry_2_1_with_mercury_v02"},
-        {"name":"registry_2_1_with_mercury_v03"},
+        {"name":"registry_2_1_with_mercury_v02"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_1_with_mercury_v03"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 1,
+      "run":[
         {"name":"registry_2_1_with_logtrigger_and_mercury_v02"}
       ]
     },
     {
       "name": "TestAutomationBasic",
-      "nodes": 3,
+      "nodes": 1,
       "run":[
-        {"name":"registry_2_2_conditional"},
-        {"name":"registry_2_2_logtrigger"},
+        {"name":"registry_2_2_conditional"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_2_logtrigger"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 1,
+      "run":[
         {"name":"registry_2_2_with_mercury_v02"}
       ]
     },
     {
       "name": "TestAutomationBasic",
-      "nodes": 2,
+      "nodes": 1,
       "run":[
-        {"name":"registry_2_2_with_mercury_v03"},
+        {"name":"registry_2_2_with_mercury_v03"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 1,
+      "run":[
         {"name":"registry_2_2_with_logtrigger_and_mercury_v02"}
       ]
     },
     {
       "name": "TestAutomationBasic",
-      "nodes": 2,
+      "nodes": 1,
       "run":[
-        {"name":"registry_2_3_conditional_native"},
+        {"name":"registry_2_3_conditional_native"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 1,
+      "run":[
         {"name":"registry_2_3_conditional_link"}
       ]
     },
     {
       "name": "TestAutomationBasic",
-      "nodes": 2,
+      "nodes": 1,
       "run":[
-        {"name":"registry_2_3_logtrigger_native"},
+        {"name":"registry_2_3_logtrigger_native"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 1,
+      "run":[
         {"name":"registry_2_3_logtrigger_link"}
       ]
     },
     {
       "name": "TestAutomationBasic",
-      "nodes": 2,
+      "nodes": 1,
       "run":[
-        {"name":"registry_2_3_with_mercury_v03_link"},
+        {"name":"registry_2_3_with_mercury_v03_link"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 1,
+      "run":[
         {"name":"registry_2_3_with_logtrigger_and_mercury_v02_link"}
       ]
     },
     {
       "name": "TestSetUpkeepTriggerConfig",
-      "nodes": 2
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_1"}
+      ]
+    },
+    {
+      "name": "TestSetUpkeepTriggerConfig",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_2"}
+      ]
     },
     {
       "name": "TestAutomationAddFunds",
-      "nodes": 3
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_0"}
+      ]
+    },
+    {
+      "name": "TestAutomationAddFunds",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_1"}
+      ]
+    },
+    {
+      "name": "TestAutomationAddFunds",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_2"}
+      ]
     },
     {
       "name": "TestAutomationPauseUnPause",
-      "nodes": 3
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_0"}
+      ]
+    },
+    {
+      "name": "TestAutomationPauseUnPause",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_1"}
+      ]
+    },
+    {
+      "name": "TestAutomationPauseUnPause",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_2"}
+      ]
     },
     {
       "name": "TestAutomationRegisterUpkeep",
-      "nodes": 3
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_0"}
+      ]
+    },
+    {
+      "name": "TestAutomationRegisterUpkeep",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_1"}
+      ]
+    },
+    {
+      "name": "TestAutomationRegisterUpkeep",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_2"}
+      ]
     },
     {
       "name": "TestAutomationPauseRegistry",
-      "nodes": 3
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_0"}
+      ]
+    },
+    {
+      "name": "TestAutomationPauseRegistry",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_1"}
+      ]
+    },
+    {
+      "name": "TestAutomationPauseRegistry",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_2"}
+      ]
     },
     {
       "name": "TestAutomationKeeperNodesDown",
-      "nodes": 3
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_0"}
+      ]
+    },
+    {
+      "name": "TestAutomationKeeperNodesDown",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_1"}
+      ]
+    },
+    {
+      "name": "TestAutomationKeeperNodesDown",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_2"}
+      ]
     },
     {
       "name": "TestAutomationPerformSimulation",
-      "nodes": 3
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_0"}
+      ]
+    },
+    {
+      "name": "TestAutomationPerformSimulation",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_1"}
+      ]
+    },
+    {
+      "name": "TestAutomationPerformSimulation",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_2"}
+      ]
     },
     {
       "name": "TestAutomationCheckPerformGasLimit",
-      "nodes": 3
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_0"}
+      ]
+    },
+    {
+      "name": "TestAutomationCheckPerformGasLimit",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_1"}
+      ]
+    },
+    {
+      "name": "TestAutomationCheckPerformGasLimit",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_2"}
+      ]
     },
     {
       "name": "TestUpdateCheckData",
-      "nodes": 3
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_0"}
+      ]
+    },
+    {
+      "name": "TestUpdateCheckData",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_1"}
+      ]
+    },
+    {
+      "name": "TestUpdateCheckData",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_2"}
+      ]
     },
     {
       "name": "TestSetOffchainConfigWithMaxGasPrice",
-      "nodes": 2
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_1"}
+      ]
+    },
+    {
+      "name": "TestSetOffchainConfigWithMaxGasPrice",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_2"}
+      ]
     }
   ]
 }

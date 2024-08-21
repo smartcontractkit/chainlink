@@ -2,51 +2,187 @@
   "tests": [
     {
       "name": "TestKeeperBasicSmoke",
-      "nodes": 3
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_1"}
+      ]
+    },
+    {
+      "name": "TestKeeperBasicSmoke",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_2"}
+      ]
+    },
+    {
+      "name": "TestKeeperBasicSmoke",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_3"}
+      ]
     },
     {
       "name": "TestKeeperBlockCountPerTurn",
-      "nodes": 3
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_1"}
+      ]
+    },
+    {
+      "name": "TestKeeperBlockCountPerTurn",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_2"}
+      ]
+    },
+    {
+      "name": "TestKeeperBlockCountPerTurn",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_3"}
+      ]
     },
     {
       "name": "TestKeeperSimulation",
-      "nodes": 2
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_2"}
+      ]
+    },
+    {
+      "name": "TestKeeperSimulation",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_3"}
+      ]
     },
     {
       "name": "TestKeeperCheckPerformGasLimit",
-      "nodes": 3
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_2"}
+      ]
+    },
+    {
+      "name": "TestKeeperCheckPerformGasLimit",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_3"}
+      ]
     },
     {
       "name": "TestKeeperRegisterUpkeep",
-      "nodes": 3
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_1"}
+      ]
+    },
+    {
+      "name": "TestKeeperRegisterUpkeep",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_2"}
+      ]
+    },
+    {
+      "name": "TestKeeperRegisterUpkeep",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_3"}
+      ]
     },
     {
       "name": "TestKeeperAddFunds",
-      "nodes": 3
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_1"}
+      ]
+    },
+    {
+      "name": "TestKeeperAddFunds",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_2"}
+      ]
+    },
+    {
+      "name": "TestKeeperAddFunds",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_3"}
+      ]
     },
     {
       "name": "TestKeeperRemove",
-      "nodes": 3
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_1"}
+      ]
+    },
+    {
+      "name": "TestKeeperRemove",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_2"}
+      ]
+    },
+    {
+      "name": "TestKeeperRemove",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_3"}
+      ]
     },
     {
       "name": "TestKeeperPauseRegistry",
-      "nodes": 2
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_2"}
+      ]
     },
     {
-      "name": "TestKeeperMigrateRegistry"
+      "name": "TestKeeperPauseRegistry",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_3"}
+      ]
+    },
+    {
+      "name": "TestKeeperMigrateRegistry",
+      "nodes": 1
     },
     {
       "name": "TestKeeperNodeDown",
-      "nodes": 3
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_1"}
+      ]
     },
     {
-      "name": "TestKeeperPauseUnPauseUpkeep"
+      "name": "TestKeeperNodeDown",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_2"}
+      ]
     },
     {
-      "name": "TestKeeperUpdateCheckData"
+      "name": "TestKeeperNodeDown",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_1_3"}
+      ]
     },
     {
-      "name": "TestKeeperJobReplacement"
+      "name": "TestKeeperPauseUnPauseUpkeep",
+      "nodes": 1
+    },
+    {
+      "name": "TestKeeperUpdateCheckData",
+      "nodes": 1
+    },
+    {
+      "name": "TestKeeperJobReplacement",
+      "nodes": 1
     }
   ]
 }
