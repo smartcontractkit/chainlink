@@ -157,6 +157,46 @@ func TestOPL1Oracle_ReadMantleGasPrice(t *testing.T) {
 
 		assert.Equal(t, new(big.Int).Mul(l1BaseFee, tokenRatio), gasPrice)
 	})
+
+	t.Run("fetching Mantle price but rpc returns bad data", func(t *testing.T) {
+		ethClient := mocks.NewL1OracleClient(t)
+		ethClient.On("BatchCallContext", mock.Anything, mock.IsType([]rpc.BatchElem{})).Run(func(args mock.Arguments) {
+			rpcElements := args.Get(1).([]rpc.BatchElem)
+			var badData = "zzz"
+			rpcElements[0].Result = &badData
+			rpcElements[1].Result = &badData
+		}).Return(nil).Once()
+
+		oracle, err := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainMantle, oracleAddress)
+		require.NoError(t, err)
+		_, err = oracle.GetDAGasPrice(tests.Context(t))
+		assert.Error(t, err)
+	})
+
+	t.Run("fetching Mantle price but rpc parent call errors", func(t *testing.T) {
+		ethClient := mocks.NewL1OracleClient(t)
+		ethClient.On("BatchCallContext", mock.Anything, mock.IsType([]rpc.BatchElem{})).Return(fmt.Errorf("revert")).Once()
+
+		oracle, err := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainMantle, oracleAddress)
+		require.NoError(t, err)
+		_, err = oracle.GetDAGasPrice(tests.Context(t))
+		assert.Error(t, err)
+	})
+
+	t.Run("fetching Mantle price but one of the sub rpc call errors", func(t *testing.T) {
+		ethClient := mocks.NewL1OracleClient(t)
+		ethClient.On("BatchCallContext", mock.Anything, mock.IsType([]rpc.BatchElem{})).Run(func(args mock.Arguments) {
+			rpcElements := args.Get(1).([]rpc.BatchElem)
+			res := common.BigToHash(l1BaseFee).Hex()
+			rpcElements[0].Result = &res
+			rpcElements[1].Error = fmt.Errorf("revert")
+		}).Return(nil).Once()
+
+		oracle, err := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainMantle, oracleAddress)
+		require.NoError(t, err)
+		_, err = oracle.GetDAGasPrice(tests.Context(t))
+		assert.Error(t, err)
+	})
 }
 
 func setupUpgradeCheck(t *testing.T, oracleAddress string, isFjord, isEcotone bool) *mocks.L1OracleClient {

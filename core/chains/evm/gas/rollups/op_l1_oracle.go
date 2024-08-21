@@ -522,7 +522,7 @@ func (o *optimismL1Oracle) getMantleGasPrice(ctx context.Context) (*big.Int, err
 	l1BaseFee := new(big.Int).SetBytes(l1BaseFeeBytes)
 	tokenRatio := new(big.Int).SetBytes(tokenRatioBytes)
 
-	// multiply return gas price by tokenRatio
+	// multiply l1BaseFee and tokenRatio and return
 	return new(big.Int).Mul(l1BaseFee, tokenRatio), nil
 }
 
