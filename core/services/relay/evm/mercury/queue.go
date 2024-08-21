@@ -13,9 +13,9 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
@@ -42,7 +42,7 @@ type transmitQueue struct {
 	services.StateMachine
 
 	cond         sync.Cond
-	lggr         logger.Logger
+	lggr         logger.SugaredLogger
 	asyncDeleter asyncDeleter
 	mu           *sync.RWMutex
 
@@ -76,7 +76,7 @@ func NewTransmitQueue(lggr logger.Logger, serverURL, feedID string, maxlen int, 
 	return &transmitQueue{
 		services.StateMachine{},
 		sync.Cond{L: mu},
-		lggr.Named("TransmitQueue"),
+		logger.Sugared(lggr).Named("TransmitQueue"),
 		asyncDeleter,
 		mu,
 		nil, // pq needs to be initialized by calling tq.Init before use

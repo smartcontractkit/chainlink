@@ -6,8 +6,9 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 )
 
@@ -79,7 +80,7 @@ type logBuffer struct {
 
 func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogBuffer {
 	return &logBuffer{
-		lggr:          lggr.Named("KeepersRegistry.LogEventBufferV1"),
+		lggr:          logger.Sugared(lggr).Named("KeepersRegistry").Named("LogEventBufferV1"),
 		opts:          newLogBufferOptions(lookback, blockRate, logLimit),
 		lastBlockSeen: new(atomic.Int64),
 		queueIDs:      []string{},
@@ -313,7 +314,7 @@ type upkeepLogQueue struct {
 
 func newUpkeepLogQueue(lggr logger.Logger, id *big.Int, opts *logBufferOptions) *upkeepLogQueue {
 	return &upkeepLogQueue{
-		lggr:         lggr.With("upkeepID", id.String()),
+		lggr:         logger.With(lggr, "upkeepID", id.String()),
 		id:           id,
 		opts:         opts,
 		logs:         map[int64][]logpoller.Log{},
