@@ -143,6 +143,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/VRFCoordinatorV2_5_Optimism/VRFCoordinatorV2_5_Optimism.abi ../../contracts/solc/v0.8.19/VRFCoordinatorV2_5_Optimism/VRFCoordinatorV2_5_Optimism.bin VRFCoordinatorV2_5_Optimism vrf_coordinator_v2_5_optimism
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/VRFV2PlusWrapper_Arbitrum/VRFV2PlusWrapper_Arbitrum.abi ../../contracts/solc/v0.8.19/VRFV2PlusWrapper_Arbitrum/VRFV2PlusWrapper_Arbitrum.bin VRFV2PlusWrapper_Arbitrum vrfv2plus_wrapper_arbitrum
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/VRFV2PlusWrapper_Optimism/VRFV2PlusWrapper_Optimism.abi ../../contracts/solc/v0.8.19/VRFV2PlusWrapper_Optimism/VRFV2PlusWrapper_Optimism.bin VRFV2PlusWrapper_Optimism vrfv2plus_wrapper_optimism
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/VRFCoordinatorTestV2_5/VRFCoordinatorTestV2_5.abi ../../contracts/solc/v0.8.19/VRFCoordinatorTestV2_5/VRFCoordinatorTestV2_5.bin VRFCoordinatorTestV2_5 vrf_coordinator_test_v2_5
 
 // Aggregators
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.bin AggregatorV2V3Interface aggregator_v2v3_interface
