@@ -99,14 +99,17 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 	if !ok {
 		return fmt.Errorf("method config not found: %v", method)
 	}
+
 	calldata, err := w.encoder.Encode(ctx, args, WrapItemType(contract, method, true))
 	if err != nil {
 		return fmt.Errorf("%w: failed to encode args", err)
 	}
+
 	var checker evmtxmgr.TransmitCheckerSpec
 	if methodConfig.Checker != "" {
 		checker.CheckerType = txmgrtypes.TransmitCheckerType(methodConfig.Checker)
 	}
+
 	v := big.NewInt(0)
 	if value != nil {
 		v = value

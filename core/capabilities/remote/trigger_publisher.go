@@ -87,7 +87,12 @@ func (p *triggerPublisher) Start(ctx context.Context) error {
 }
 
 func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
-	sender := ToPeerID(msg.Sender)
+	sender, err := ToPeerID(msg.Sender)
+	if err != nil {
+		p.lggr.Errorw("failed to convert message sender to PeerID", "err", err)
+		return
+	}
+
 	if msg.Method == types.MethodRegisterTrigger {
 		req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
 		if err != nil {
