@@ -816,8 +816,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - PR E2E Core Tests 2
-      - PR E2E CCIP Tests 2
+      - PR E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/migration && go test upgrade_version_test.go -timeout 30m -count=1 -test.parallel=2 -json
     test_env_vars:
@@ -881,9 +880,10 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    # Leader lane test is flakey in Core repo - Need to fix CCIP-3074 to enable it.
     workflows:
-      - PR E2E CCIP Tests
-      - Nightly E2E Tests
+      # - PR E2E CCIP Tests
+      # - Nightly E2E Tests
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
