@@ -19,14 +19,12 @@ contract OptimismModuleV2 is ChainModuleBase, ConfirmedOwner {
   address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);
   OVM_GasPriceOracle private constant OVM_GASPRICEORACLE = OVM_GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
 
-  /// @dev L1 fee coefficient can be applied to reduce possibly inflated gas price
+  /// @dev L1 fee coefficient is used to account for the impact of data compression on the l1 fee
+  /// getL1FeeUpperBound returns the upper bound of l1 fee so this configurable coefficient will help
+  /// charge a predefined percentage of the upper bound.
   uint8 public s_l1FeeCoefficient = 100;
   uint256 private constant FIXED_GAS_OVERHEAD = 28_000;
   uint256 private constant PER_CALLDATA_BYTE_GAS_OVERHEAD = 0;
-
-  /// @dev This is the padding size for unsigned RLP-encoded transaction without the signature data
-  /// @dev The padding size was estimated based on hypothetical max RLP-encoded transaction size
-  uint256 private constant L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE = 71;
 
   constructor() ConfirmedOwner(msg.sender) {}
 
@@ -39,8 +37,7 @@ contract OptimismModuleV2 is ChainModuleBase, ConfirmedOwner {
   }
 
   function _getL1Fee(uint256 dataSize) internal view returns (uint256) {
-    // getL1FeeUpperBound expects unsigned fully RLP-encoded transaction size so we have to account for padding bytes as well
-    return OVM_GASPRICEORACLE.getL1FeeUpperBound(dataSize + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE);
+    return OVM_GASPRICEORACLE.getL1FeeUpperBound(dataSize);
   }
 
   function getGasOverhead()
