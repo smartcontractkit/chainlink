@@ -171,6 +171,7 @@ func TestEvmWrite(t *testing.T) {
 			"context":    []byte{4, 5},
 			"id":         []byte{9, 9},
 		},
+		"gas_limit": "400000",
 	})
 	require.NoError(t, err)
 
