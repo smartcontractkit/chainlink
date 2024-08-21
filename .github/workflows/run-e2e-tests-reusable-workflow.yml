@@ -571,7 +571,7 @@ jobs:
       - name: Upload test result as artifact
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: test_result_${{ env.GITHUB_RUN_NUMBER }}_${{ matrix.tests.id_sanitized }}
+          name: test_result_${{ github.run_number }}_${{ matrix.tests.id_sanitized }}
           path: test_result.json        
           retention-days: 1
 
@@ -729,7 +729,7 @@ jobs:
         uses: actions/download-artifact@9c19ed7fe5d278cd354c7dfd5d3b88589c7e2395 # v4.1.6
         with:
           path: test_results
-          pattern: test_result_${{ env.GITHUB_RUN_NUMBER }}_*
+          pattern: test_result_${{ github.run_number }}_*
 
       - name: Set detailed test results
         id: set_test_results
