@@ -54,8 +54,8 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 			name:     "position 0; oneAtATime",
 			position: 0,
 			schedule: "oneAtATime",
-			low:      300 * time.Millisecond,
-			high:     400 * time.Millisecond,
+			low:      200 * time.Millisecond,
+			high:     300 * time.Millisecond,
 		},
 		{
 			name:     "position 1; oneAtATime",
@@ -68,15 +68,15 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 			name:     "position 2; oneAtATime",
 			position: 2,
 			schedule: "oneAtATime",
-			low:      0 * time.Millisecond,
-			high:     100 * time.Millisecond,
+			low:      300 * time.Millisecond,
+			high:     400 * time.Millisecond,
 		},
 		{
 			name:     "position 3; oneAtATime",
 			position: 3,
 			schedule: "oneAtATime",
-			low:      100 * time.Millisecond,
-			high:     300 * time.Millisecond,
+			low:      0 * time.Millisecond,
+			high:     100 * time.Millisecond,
 		},
 		{
 			name:     "position 0; allAtOnce",
@@ -121,8 +121,8 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 			req := capabilities.CapabilityRequest{
 				Config: m,
 				Metadata: capabilities.RequestMetadata{
-					WorkflowID:          "mock-workflow-id",
-					WorkflowExecutionID: "mock-execution-id-1",
+					WorkflowID:          "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0",
+					WorkflowExecutionID: "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
 				},
 			}
 

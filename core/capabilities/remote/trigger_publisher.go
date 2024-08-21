@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -102,8 +103,8 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			p.lggr.Errorw("sender not a member of its workflow DON", "capabilityId", p.capInfo.ID, "callerDonId", msg.CallerDonId, "sender", sender)
 			return
 		}
-		if !IsValidWorkflowOrExecutionID(req.Metadata.WorkflowID) {
-			p.lggr.Errorw("received trigger request with invalid workflow ID", "capabilityId", p.capInfo.ID, "workflowId", SanitizeLogString(req.Metadata.WorkflowID))
+		if err = validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
+			p.lggr.Errorw("received trigger request with invalid workflow ID", "capabilityId", p.capInfo.ID, "workflowId", SanitizeLogString(req.Metadata.WorkflowID), "err", err)
 			return
 		}
 		p.lggr.Debugw("received trigger registration", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "sender", sender)

@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -172,8 +173,12 @@ func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
 }
 
 func GetMessageIDForRequest(req commoncap.CapabilityRequest) (string, error) {
-	if !remote.IsValidWorkflowOrExecutionID(req.Metadata.WorkflowID) || !remote.IsValidWorkflowOrExecutionID(req.Metadata.WorkflowExecutionID) {
-		return "", errors.New("workflow ID and workflow execution ID in request metadata are invalid")
+	if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
+		return "", fmt.Errorf("workflow ID is invalid: %w", err)
+	}
+
+	if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowExecutionID); err != nil {
+		return "", fmt.Errorf("workflow execution ID is invalid: %w", err)
 	}
 
 	return req.Metadata.WorkflowID + req.Metadata.WorkflowExecutionID, nil

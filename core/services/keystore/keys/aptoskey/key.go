@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/mr-tron/base58"
+	"golang.org/x/crypto/sha3"
 )
 
 // Raw represents the Aptos private key
@@ -37,6 +37,7 @@ var _ fmt.GoStringer = &Key{}
 
 // Key represents Aptos key
 type Key struct {
+	// TODO: store initial Account() derivation to support key rotation
 	privkey ed25519.PrivateKey
 	pubKey  ed25519.PublicKey
 }
@@ -72,14 +73,20 @@ func (key Key) ID() string {
 	return key.PublicKeyStr()
 }
 
+// https://github.com/aptos-foundation/AIPs/blob/main/aips/aip-40.md#long
+func (key Key) Account() string {
+	authKey := sha3.Sum256(append([]byte(key.pubKey), 0x00))
+	return fmt.Sprintf("%064x", authKey)
+}
+
 // GetPublic get Key's public key
 func (key Key) GetPublic() ed25519.PublicKey {
 	return key.pubKey
 }
 
-// PublicKeyStr return base58 encoded public key
+// PublicKeyStr returns hex encoded public key
 func (key Key) PublicKeyStr() string {
-	return base58.Encode(key.pubKey)
+	return fmt.Sprintf("%064x", key.pubKey)
 }
 
 // Raw returns the seed from private key
