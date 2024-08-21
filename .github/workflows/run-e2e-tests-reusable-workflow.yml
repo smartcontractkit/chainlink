@@ -226,6 +226,7 @@ jobs:
       run-k8s-tests: ${{ steps.check-matrices.outputs.run-k8s-tests }}
       docker-matrix: ${{ steps.set-docker-matrix.outputs.matrix }}
       k8s-runner-matrix: ${{ steps.set-k8s-runner-matrix.outputs.matrix }}
+      workflow_id: ${{ steps.gen_id.outputs.workflow_id }}
     steps:
       - name: Checkout code
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -341,6 +342,11 @@ jobs:
           else
             echo "No tests require secrets. Proceeding without additional secret setup."          
           fi
+
+      - name: Generate random workflow id 
+        id: gen_id
+        run: echo "workflow_id=$(uuidgen)" >> $GITHUB_OUTPUT          
+  
 
   # Build Chainlink images required for the tests
   require-chainlink-image-versions-in-qa-ecr:
@@ -571,7 +577,7 @@ jobs:
       - name: Upload test result as artifact
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: test_result_${{ github.run_number }}_${{ github.run_id }}_${{ matrix.tests.id_sanitized }}
+          name: test_result_${{ needs.load-test-configurations.outputs.workflow_id }}_${{ matrix.tests.id_sanitized }}
           path: test_result.json        
           retention-days: 1
 
@@ -718,7 +724,7 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@70ccaef155381025e411cf7cd1fa5ef8f668ed75 # v2.3.25        
 
   after_tests:
-    needs: [run-docker-tests, run-k8s-runner-tests]
+    needs: [load-test-configurations, run-docker-tests, run-k8s-runner-tests]
     if: always()
     name: After tests
     runs-on: ubuntu-latest
@@ -729,7 +735,7 @@ jobs:
         uses: actions/download-artifact@9c19ed7fe5d278cd354c7dfd5d3b88589c7e2395 # v4.1.6
         with:
           path: test_results
-          pattern: test_result_${{ github.run_number }}_${{ github.run_id }}_*
+          pattern: test_result_${{ needs.load-test-configurations.outputs.workflow_id }}_*
 
       - name: Set detailed test results
         id: set_test_results
