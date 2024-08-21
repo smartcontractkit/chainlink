@@ -669,7 +669,7 @@ func (o *evmTxStore) loadEthTxAttemptsReceipts(ctx context.Context, etx *Tx) (er
 	return o.loadEthTxesAttemptsReceipts(ctx, []*Tx{etx})
 }
 
-// initEthTxesAttempts takes an input txes slice, return an initialized attempt map and attemptHashes slice, plus a third value indicate if the input slice is empty
+// initEthTxesAttempts takes an input txes slice, return an initialized attempt map and attemptHashes slice
 func initEthTxesAttempts(etxs []*Tx) (map[common.Hash]*TxAttempt, [][]byte) {
 	attemptHashM := make(map[common.Hash]*TxAttempt, len(etxs)) // len here is lower bound
 	attemptHashes := make([][]byte, len(etxs))                  // len here is lower bound
