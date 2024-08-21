@@ -11,9 +11,10 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var errEmptyOutput = errors.New("rpc call output is empty (make sure that the contract method exists and rpc is healthy)")
@@ -148,7 +149,7 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 				map[string]interface{}{
 					"from": common.Address{},
 					"to":   call.ContractAddress,
-					"data": data,
+					"data": hexutil.Bytes(data),
 				},
 				blockNumStr,
 			},
