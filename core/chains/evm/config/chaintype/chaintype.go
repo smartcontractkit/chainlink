@@ -14,6 +14,7 @@ const (
 	ChainGnosis          ChainType = "gnosis"
 	ChainHedera          ChainType = "hedera"
 	ChainKroma           ChainType = "kroma"
+	ChainMantle          ChainType = "mantle"
 	ChainMetis           ChainType = "metis"
 	ChainOptimismBedrock ChainType = "optimismBedrock"
 	ChainScroll          ChainType = "scroll"
@@ -21,7 +22,6 @@ const (
 	ChainXLayer          ChainType = "xlayer"
 	ChainZkEvm           ChainType = "zkevm"
 	ChainZkSync          ChainType = "zksync"
-	ChainMantle          ChainType = "mantle"
 )
 
 // IsL2 returns true if this chain is a Layer 2 chain. Notably:

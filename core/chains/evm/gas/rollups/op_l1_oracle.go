@@ -195,11 +195,11 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 	// Encode calldata for tokenRatio method
 	tokenRatioMethodAbi, err := abi.JSON(strings.NewReader(MantleTokenRatioAbiString))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", decimalsMethod, chainType, err)
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", tokenRatioMethod, chainType, err)
 	}
 	tokenRatioCalldata, err := tokenRatioMethodAbi.Pack(tokenRatioMethod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", decimalsMethod, chainType, err)
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", tokenRatioMethod, chainType, err)
 	}
 
 	return &optimismL1Oracle{
