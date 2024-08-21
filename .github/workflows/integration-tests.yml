@@ -314,33 +314,22 @@ jobs:
       - name: Check Core test results
         id: check_core_results
         run: |
-          combined_test_results='${{ needs.run-core-e2e-tests-workflow.outputs.combined_test_results }}'
-          echo "Core combined test results: $combined_test_results"
-          echo "combined_test_results=$combined_test_results" >> $GITHUB_OUTPUT
-
-          detailed_test_results='${{ needs.run-core-e2e-tests-workflow.outputs.detailed_test_results }}'
-          echo "Core detailed test results:"
-          echo "$detailed_test_results" | jq .
+          results='${{ needs.run-core-e2e-tests-workflow.outputs.test_results }}'
+          echo "Core test results:"
+          echo "$results" | jq .
           
-          node_migration_tests_failed=$(echo $detailed_test_results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
+          node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
           echo "node_migration_tests_failed=$node_migration_tests_failed" >> $GITHUB_OUTPUT
 
       - name: Check CCIP test results
         id: check_ccip_results
         run: |
           if [[ '${{ needs.run-ccip-e2e-tests-workflow.result }}' != 'skipped' ]]; then
-            combined_test_results='${{ needs.run-ccip-e2e-tests-workflow.outputs.combined_test_results }}'
-            echo "CCIP combined test results: $combined_test_results"
-            echo "combined_test_results=$combined_test_results" >> $GITHUB_OUTPUT
-
-            detailed_test_results='${{ needs.run-ccip-e2e-tests-workflow.outputs.detailed_test_results }}'
-            echo "CCIP detailed test results:"
-            echo "$detailed_test_results" | jq .
+            results='${{ needs.run-ccip-e2e-tests-workflow.outputs.test_results }}'
+            echo "CCIP test results:"
+            echo "$results" | jq .
           else
             echo "CCIP tests were skipped."
-
-            combined_test_results="skipped"
-            echo "combined_test_results=$combined_test_results" >> $GITHUB_OUTPUT
           fi
 
       - name: Send slack notification for failed migration tests
@@ -352,13 +341,13 @@ jobs:
           channel-id: "#team-test-tooling-internal"
           slack-message: ":x: :mild-panic-intensifies: Node Migration Tests Failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}\n${{ format('Notifying <!subteam^{0}|{0}>', secrets.GUARDIAN_SLACK_NOTIFICATION_HANDLE) }}"
 
-      - name: Fail the job if core tests failed
-        if: always()
+      - name: Fail the job if Core tests failed
+        if: always() && needs.run-core-e2e-tests-workflow.result == 'failure'
         run: |
-          if [[ "${{ steps.check_core_results.outputs.combined_test_results }}" != "success" ]]; then
-              echo "Core E2E tests failed"
-              exit 1
-          fi
+          echo "Core E2E tests failed"
+          echo "Job status:"
+          echo ${{ needs.run-core-e2e-tests-workflow.result }}
+          exit 1
 
   cleanup:
     name: Clean up integration environment deployments

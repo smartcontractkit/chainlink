@@ -94,12 +94,9 @@ on:
         type: boolean
         default: false
     outputs:
-      combined_test_results:
-        description: 'Single test result from all executed tests'
-        value: ${{ jobs.after_tests.outputs.combined_test_results }}              
-      detailed_test_results:
-        description: 'Detailed test results from all executed tests'
-        value: ${{ jobs.after_tests.outputs.detailed_test_results }}        
+      test_results:
+        description: 'Test results from all executed tests'
+        value: ${{ jobs.after_tests.outputs.test_results }}        
     secrets:
       TEST_SECRETS_OVERRIDE_BASE64:
         required: false
@@ -574,7 +571,7 @@ jobs:
       - name: Upload test result as artifact
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: test_result_${{ matrix.tests.id_sanitized }}
+          name: test_result_${{ env.GITHUB_RUN_NUMBER }}_${{ matrix.tests.id_sanitized }}
           path: test_result.json        
           retention-days: 1
 
@@ -726,61 +723,29 @@ jobs:
     name: After tests
     runs-on: ubuntu-latest
     outputs:
-      combined_test_results: ${{ steps.combined_results.outputs.results }}    
-      detailed_test_results: ${{ steps.detailed_results.outputs.results }}    
+      test_results: ${{ steps.set_test_results.outputs.results }}    
     steps:
       - name: Download all test result artifacts
         uses: actions/download-artifact@9c19ed7fe5d278cd354c7dfd5d3b88589c7e2395 # v4.1.6
         with:
           path: test_results
-          pattern: test_result_*
+          pattern: test_result_${{ env.GITHUB_RUN_NUMBER }}_*
 
       - name: Set detailed test results
-        id: detailed_results
+        id: set_test_results
         run: |
           if [ -d "test_results" ]; then
             cd test_results
             ls -R .
             # Combine JSON files into one
-            find . -name '*.json' -exec cat {} + | jq -s '.' > detailed_test_results.json
+            find . -name '*.json' -exec cat {} + | jq -s '.' > test_results.json
             # Display the combined JSON
-            jq . detailed_test_results.json
+            jq . test_results.json
             # Set the combined results as an output
-            echo "results=$(jq -c . detailed_test_results.json)" >> $GITHUB_OUTPUT
+            echo "results=$(jq -c . test_results.json)" >> $GITHUB_OUTPUT
           else
             echo "No test results directory found."
             echo "results=[]" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Set combined test results
-        id: combined_results
-        run: |
-          docker_result="${{ needs.run-docker-tests.result }}"
-          k8s_result="${{ needs.run-k8s-runner-tests.result }}"
-
-          function map_outcome {
-            case "$1" in
-              success|skipped)
-                echo "success"
-                ;;
-              cancelled)
-                echo "cancelled"
-                ;;
-              *)
-                echo "failure"
-                ;;
-            esac
-          }
-
-          combined_docker_result=$(map_outcome $docker_result)
-          combined_k8s_result=$(map_outcome $k8s_result)
-
-          if [[ $combined_docker_result == "failure" || $combined_k8s_result == "failure" ]]; then
-            echo "results=failure" >> $GITHUB_OUTPUT
-          elif [[ $combined_docker_result == "cancelled" || $combined_k8s_result == "cancelled" ]]; then
-            echo "results=cancelled" >> $GITHUB_OUTPUT
-          else
-            echo "results=success" >> $GITHUB_OUTPUT
           fi
 
       - name: Send Slack notification
