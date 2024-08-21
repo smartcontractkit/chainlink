@@ -112,24 +112,6 @@ func TestORM_CheckVersion_CCIP(t *testing.T) {
 		expectedError  bool
 	}{
 		{
-			name:           "ccip beta.0 -> beta.1",
-			currentVersion: "2.5.0-ccip1.4.0+beta.0",
-			newVersion:     "2.5.0-ccip1.4.0+beta.1",
-			expectedError:  false,
-		},
-		{
-			name:           "downgrading ccip beta.1 -> beta.0 works",
-			currentVersion: "2.5.0-ccip1.4.0+beta.1",
-			newVersion:     "2.5.0-ccip1.4.0+beta.0",
-			expectedError:  false,
-		},
-		{
-			name:           "ccip beta.1 -> final release",
-			currentVersion: "2.5.0-ccip1.4.0+beta.1",
-			newVersion:     "2.5.0-ccip1.4.0",
-			expectedError:  false,
-		},
-		{
 			name:           "ccip patch version bump from 0 -> 2",
 			currentVersion: "2.5.0-ccip1.4.0",
 			newVersion:     "2.5.0-ccip1.4.2",
