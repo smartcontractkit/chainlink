@@ -684,11 +684,11 @@ func initEthTxesAttempts(etxs []*Tx) (map[common.Hash]*TxAttempt, [][]byte) {
 }
 
 func (o *evmTxStore) loadEthTxesAttemptsReceipts(ctx context.Context, etxs []*Tx) (err error) {
-	attemptHashM, attemptHashes := initEthTxesAttempts(etxs)
-	if len(attemptHashes) == 0 {
+	if len(etxs) == 0 {
 		return nil
 	}
 
+	attemptHashM, attemptHashes := initEthTxesAttempts(etxs)
 	var rs []DbReceipt
 	if err = o.q.SelectContext(ctx, &rs, `SELECT * FROM evm.receipts WHERE tx_hash = ANY($1)`, pq.Array(attemptHashes)); err != nil {
 		return pkgerrors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load evm.receipts")
@@ -707,11 +707,11 @@ func (o *evmTxStore) loadEthTxesAttemptsReceipts(ctx context.Context, etxs []*Tx
 
 // loadEthTxesAttemptsWithPartialReceipts loads ethTxes with attempts and partial receipts values for optimization
 func (o *evmTxStore) loadEthTxesAttemptsWithPartialReceipts(ctx context.Context, etxs []*Tx) (err error) {
-	attemptHashM, attemptHashes := initEthTxesAttempts(etxs)
-	if len(attemptHashes) == 0 {
+	if len(etxs) == 0 {
 		return nil
 	}
 
+	attemptHashM, attemptHashes := initEthTxesAttempts(etxs)
 	var rs []DbReceipt
 	if err = o.q.SelectContext(ctx, &rs, `SELECT evm.receipts.block_hash, evm.receipts.block_number, evm.receipts.transaction_index, evm.receipts.tx_hash FROM evm.receipts WHERE tx_hash = ANY($1)`, pq.Array(attemptHashes)); err != nil {
 		return pkgerrors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load evm.receipts")
