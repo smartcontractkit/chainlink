@@ -18,8 +18,8 @@ import (
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 )
 
-func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTester[T]) {
-	RunChainReaderInterfaceTests[T](t, it, false)
+func RunChainComponentsEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T]) {
+	RunChainComponentsInterfaceTests[T](t, it, false)
 
 	t.Run("Dynamically typed topics can be used to filter and have type correct in return", func(t T) {
 		it.Setup(t)
@@ -111,7 +111,7 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 	})
 }
 
-func triggerFourTopics[T TestingT[T]](t T, it *EVMChainReaderInterfaceTester[T], i1, i2, i3 int32) {
+func triggerFourTopics[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], i1, i2, i3 int32) {
 	type DynamicEvent struct {
 		Field1 int32
 		Field2 int32
@@ -121,7 +121,7 @@ func triggerFourTopics[T TestingT[T]](t T, it *EVMChainReaderInterfaceTester[T],
 	SubmitTransactionToCW(t, it, "triggerWithFourTopics", DynamicEvent{Field1: i1, Field2: i2, Field3: i3}, contracts[0], types.Unconfirmed)
 }
 
-func triggerFourTopicsWithHashed[T TestingT[T]](t T, it *EVMChainReaderInterfaceTester[T], i1 string, i2 [32]uint8, i3 [32]byte) {
+func triggerFourTopicsWithHashed[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], i1 string, i2 [32]uint8, i3 [32]byte) {
 	type DynamicEvent struct {
 		Field1 string
 		Field2 [32]uint8

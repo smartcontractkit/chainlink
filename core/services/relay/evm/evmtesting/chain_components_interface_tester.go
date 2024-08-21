@@ -41,7 +41,7 @@ const (
 	finalityDepth                  = 4
 )
 
-type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
+type EVMChainComponentsInterfaceTesterHelper[T TestingT[T]] interface {
 	Init(t T)
 	Client(t T) client.Client
 	Commit()
@@ -58,8 +58,8 @@ type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 	WrappedChainWriter(cw clcommontypes.ChainWriter, client client.Client) clcommontypes.ChainWriter
 }
 
-type EVMChainReaderInterfaceTester[T TestingT[T]] struct {
-	Helper            EVMChainReaderInterfaceTesterHelper[T]
+type EVMChainComponentsInterfaceTester[T TestingT[T]] struct {
+	Helper            EVMChainComponentsInterfaceTesterHelper[T]
 	client            client.Client
 	address           string
 	address2          string
@@ -74,7 +74,7 @@ type EVMChainReaderInterfaceTester[T TestingT[T]] struct {
 	gasEstimator      gas.EvmFeeEstimator
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
+func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 	t.Cleanup(func() {
 		// DB may be closed by the test already, ignore errors
 		if it.cr != nil {
@@ -273,18 +273,18 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 	it.deployNewContracts(t)
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) Name() string {
+func (it *EVMChainComponentsInterfaceTester[T]) Name() string {
 	return "EVM"
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) GetAccountBytes(i int) []byte {
+func (it *EVMChainComponentsInterfaceTester[T]) GetAccountBytes(i int) []byte {
 	account := [20]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 	account[i%20] += byte(i)
 	account[(i+3)%20] += byte(i + 3)
 	return account[:]
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.ContractReader {
+func (it *EVMChainComponentsInterfaceTester[T]) GetChainReader(t T) clcommontypes.ContractReader {
 	ctx := it.Helper.Context(t)
 	if it.cr != nil {
 		return it.cr
@@ -321,29 +321,10 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 }
 
 // This function is no longer necessary for Simulated Backend or Testnet tests.
-func (it *EVMChainReaderInterfaceTester[T]) GenerateBlocksTillConfidenceLevel(t T, contractName, readName string, confidenceLevel primitives.ConfidenceLevel) {
+func (it *EVMChainComponentsInterfaceTester[T]) GenerateBlocksTillConfidenceLevel(t T, contractName, readName string, confidenceLevel primitives.ConfidenceLevel) {
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) SetBatchLatestValues(t T, batchCallEntry BatchCallEntry) {
-	nameToAddress := make(map[string]string)
-	boundContracts := it.GetBindings(t)
-	for _, bc := range boundContracts {
-		nameToAddress[bc.Name] = bc.Address
-	}
-
-	for contractName, contractBatch := range batchCallEntry {
-		require.Contains(t, nameToAddress, contractName)
-		for _, readEntry := range contractBatch {
-			val, isOk := readEntry.ReturnValue.(*TestStruct)
-			if !isOk {
-				require.Fail(t, "expected *TestStruct for contract: %s read: %s, but received %T", contractName, readEntry.Name, readEntry.ReturnValue)
-			}
-			it.sendTxWithTestStruct(t, nameToAddress[contractName], val, (*chain_reader_tester.ChainReaderTesterTransactor).AddTestStruct)
-		}
-	}
-}
-
-func (it *EVMChainReaderInterfaceTester[T]) GetChainWriter(t T) clcommontypes.ChainWriter {
+func (it *EVMChainComponentsInterfaceTester[T]) GetChainWriter(t T) clcommontypes.ChainWriter {
 	ctx := it.Helper.Context(t)
 	if it.cw != nil {
 		return it.cw
@@ -358,35 +339,14 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainWriter(t T) clcommontypes.Ch
 	return it.cw
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) GetBindings(_ T) []clcommontypes.BoundContract {
+func (it *EVMChainComponentsInterfaceTester[T]) GetBindings(_ T) []clcommontypes.BoundContract {
 	return []clcommontypes.BoundContract{
 		{Name: AnyContractName, Address: it.address},
 		{Name: AnySecondContractName, Address: it.address2},
 	}
 }
 
-type testStructFn = func(*chain_reader_tester.ChainReaderTesterTransactor, *bind.TransactOpts, int32, string, uint8, [32]uint8, common.Address, []common.Address, *big.Int, chain_reader_tester.MidLevelTestStruct) (*gethtypes.Transaction, error)
-
-func (it *EVMChainReaderInterfaceTester[T]) sendTxWithTestStruct(t T, contractAddress string, testStruct *TestStruct, fn testStructFn) {
-	tx, err := fn(
-		&it.contractTesters[contractAddress].ChainReaderTesterTransactor,
-		it.GetAuthWithGasSet(t),
-		*testStruct.Field,
-		testStruct.DifferentField,
-		uint8(testStruct.OracleID),
-		OracleIDsToBytes(testStruct.OracleIDs),
-		common.Address(testStruct.Account),
-		ConvertAccounts(testStruct.Accounts),
-		testStruct.BigField,
-		MidToInternalType(testStruct.NestedStruct),
-	)
-	require.NoError(t, err)
-	it.Helper.Commit()
-	it.IncNonce()
-	it.AwaitTx(t, tx)
-}
-
-func (it *EVMChainReaderInterfaceTester[T]) GetAuthWithGasSet(t T) *bind.TransactOpts {
+func (it *EVMChainComponentsInterfaceTester[T]) GetAuthWithGasSet(t T) *bind.TransactOpts {
 	gasPrice, err := it.client.SuggestGasPrice(it.Helper.Context(t))
 	require.NoError(t, err)
 	extra := new(big.Int).Mul(gasPrice, big.NewInt(it.Helper.GasPriceBufferPercent()))
@@ -395,7 +355,7 @@ func (it *EVMChainReaderInterfaceTester[T]) GetAuthWithGasSet(t T) *bind.Transac
 	return it.deployerAuth
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) IncNonce() {
+func (it *EVMChainComponentsInterfaceTester[T]) IncNonce() {
 	if it.deployerAuth.Nonce == nil {
 		it.deployerAuth.Nonce = big.NewInt(1)
 	} else {
@@ -403,14 +363,14 @@ func (it *EVMChainReaderInterfaceTester[T]) IncNonce() {
 	}
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) AwaitTx(t T, tx *gethtypes.Transaction) {
+func (it *EVMChainComponentsInterfaceTester[T]) AwaitTx(t T, tx *gethtypes.Transaction) {
 	ctx := it.Helper.Context(t)
 	receipt, err := bind.WaitMined(ctx, it.client, tx)
 	require.NoError(t, err)
 	require.Equal(t, gethtypes.ReceiptStatusSuccessful, receipt.Status)
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) deployNewContracts(t T) {
+func (it *EVMChainComponentsInterfaceTester[T]) deployNewContracts(t T) {
 	// First test deploy both contracts, otherwise only deploy contracts if cleanup decides that we need to.
 	if it.address == "" || it.contractTesters == nil {
 		it.contractTesters = make(map[string]*chain_reader_tester.ChainReaderTester, 2)
@@ -422,7 +382,7 @@ func (it *EVMChainReaderInterfaceTester[T]) deployNewContracts(t T) {
 	}
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) deployNewContract(t T) (string, *chain_reader_tester.ChainReaderTester) {
+func (it *EVMChainComponentsInterfaceTester[T]) deployNewContract(t T) (string, *chain_reader_tester.ChainReaderTester) {
 	// 105528 was in the error: gas too low: have 0, want 105528
 	// Not sure if there's a better way to get it.
 	it.deployerAuth.GasLimit = 10552800
@@ -436,7 +396,7 @@ func (it *EVMChainReaderInterfaceTester[T]) deployNewContract(t T) (string, *cha
 	return address.String(), ts
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) MaxWaitTimeForEvents() time.Duration {
+func (it *EVMChainComponentsInterfaceTester[T]) MaxWaitTimeForEvents() time.Duration {
 	return it.Helper.MaxWaitTimeForEvents()
 }
 

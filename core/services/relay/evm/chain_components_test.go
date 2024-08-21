@@ -44,7 +44,7 @@ import (
 
 const commonGasLimitOnEvms = uint64(4712388)
 
-func TestChainReaderEventsInitValidation(t *testing.T) {
+func TestChainComponentsEventsInitValidation(t *testing.T) {
 	tests := []struct {
 		name                 string
 		chainContractReaders map[string]types.ChainContractReader
@@ -150,15 +150,15 @@ func TestChainReaderEventsInitValidation(t *testing.T) {
 	}
 }
 
-func TestChainReader(t *testing.T) {
+func TestChainComponents(t *testing.T) {
 	t.Parallel()
-	it := &EVMChainReaderInterfaceTester[*testing.T]{Helper: &helper{}}
+	it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: &helper{}}
 
 	it.Helper.Init(t)
 
 	// add new subtests here so that it can be run on real chains too
-	RunChainReaderEvmTests(t, it)
-	RunChainReaderInterfaceTests[*testing.T](t, commontestutils.WrapChainReaderTesterForLoop(it), false)
+	RunChainComponentsEvmTests(t, it)
+	RunChainComponentsInterfaceTests[*testing.T](t, commontestutils.WrapChainComponentsTesterForLoop(it), false)
 }
 
 type helper struct {
