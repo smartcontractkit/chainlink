@@ -75,10 +75,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	ChannelVerifierLogDecoder, err = newChannelVerifierLogDecoder()
-	if err != nil {
-		panic(err)
-	}
 }
 
 var _ commontypes.Relayer = &Relayer{} //nolint:staticcheck
@@ -552,7 +548,7 @@ func newConfigWatcher(lggr logger.Logger,
 
 func (c *configWatcher) start(ctx context.Context) error {
 	if c.runReplay && c.fromBlock != 0 {
-		// Only replay if it's a brand runReplay job.
+		// Only replay if it's a brand new job.
 		c.eng.Go(func(ctx context.Context) {
 			c.eng.Infow("starting replay for config", "fromBlock", c.fromBlock)
 			if err := c.configPoller.Replay(ctx, int64(c.fromBlock)); err != nil {
@@ -562,8 +558,7 @@ func (c *configWatcher) start(ctx context.Context) error {
 			}
 		})
 	}
-	c.configPoller.Start()
-	return nil
+	return c.configPoller.Start(ctx)
 }
 
 func (c *configWatcher) close() error {

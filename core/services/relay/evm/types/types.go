@@ -230,7 +230,7 @@ func (o *RelayOpts) RelayConfig() (RelayConfig, error) {
 type ConfigPoller interface {
 	ocrtypes.ContractConfigTracker
 
-	Start()
+	Start(context.Context) error
 	Close() error
 	Replay(ctx context.Context, fromBlock int64) error
 }

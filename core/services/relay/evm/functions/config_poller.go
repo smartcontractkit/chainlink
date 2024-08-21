@@ -116,7 +116,7 @@ func NewFunctionsConfigPoller(pluginType FunctionsPluginType, destChainPoller lo
 	return cp, nil
 }
 
-func (cp *configPoller) Start() {}
+func (cp *configPoller) Start(context.Context) error { return nil }
 
 func (cp *configPoller) Close() error {
 	return nil

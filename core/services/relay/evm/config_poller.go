@@ -106,7 +106,7 @@ func newConfigPoller(ctx context.Context, lggr logger.Logger, client client.Clie
 	return cp, nil
 }
 
-func (cp *configPoller) Start() {}
+func (cp *configPoller) Start(context.Context) error { return nil }
 
 func (cp *configPoller) Close() error {
 	return nil

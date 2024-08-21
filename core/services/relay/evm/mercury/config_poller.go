@@ -114,7 +114,7 @@ func NewConfigPoller(ctx context.Context, lggr logger.Logger, destChainPoller lo
 	return cp, nil
 }
 
-func (cp *ConfigPoller) Start() {}
+func (cp *ConfigPoller) Start(context.Context) error { return nil }
 
 func (cp *ConfigPoller) Close() error {
 	return nil
