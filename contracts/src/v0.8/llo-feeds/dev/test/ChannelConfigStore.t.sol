@@ -12,30 +12,30 @@ import {ExposedChannelConfigStore} from "./mocks/ExposedChannelConfigStore.sol";
  * @notice Base class for ChannelConfigStore tests
  */
 contract ChannelConfigStoreTest is Test {
-    ExposedChannelConfigStore public channelConfigStore;
-    event NewChannelDefinition(uint256 indexed donId, uint32 version, string url, bytes32 sha);
+  ExposedChannelConfigStore public channelConfigStore;
+  event NewChannelDefinition(uint256 indexed donId, uint32 version, string url, bytes32 sha);
 
-    function setUp() public virtual {
-        channelConfigStore = new ExposedChannelConfigStore();
-    }
+  function setUp() public virtual {
+    channelConfigStore = new ExposedChannelConfigStore();
+  }
 
-    function testTypeAndVersion() public view {
-        assertEq(channelConfigStore.typeAndVersion(), "ChannelConfigStore 0.0.1");
-    }
+  function testTypeAndVersion() public view {
+    assertEq(channelConfigStore.typeAndVersion(), "ChannelConfigStore 0.0.1");
+  }
 
-    function testSupportsInterface() public view {
-        assertTrue(channelConfigStore.supportsInterface(type(IChannelConfigStore).interfaceId));
-    }
+  function testSupportsInterface() public view {
+    assertTrue(channelConfigStore.supportsInterface(type(IChannelConfigStore).interfaceId));
+  }
 
-    function testSetChannelDefinitions() public {
-        vm.expectEmit();
-        emit NewChannelDefinition(42, 1, "url", keccak256("sha"));
-        channelConfigStore.setChannelDefinitions(42, "url", keccak256("sha"));
+  function testSetChannelDefinitions() public {
+    vm.expectEmit();
+    emit NewChannelDefinition(42, 1, "url", keccak256("sha"));
+    channelConfigStore.setChannelDefinitions(42, "url", keccak256("sha"));
 
-        vm.expectEmit();
-        emit NewChannelDefinition(42, 2, "url2", keccak256("sha2"));
-        channelConfigStore.setChannelDefinitions(42, "url2", keccak256("sha2"));
+    vm.expectEmit();
+    emit NewChannelDefinition(42, 2, "url2", keccak256("sha2"));
+    channelConfigStore.setChannelDefinitions(42, "url2", keccak256("sha2"));
 
-        assertEq(channelConfigStore.exposedReadChannelDefinitionStates(42), uint32(2));
-    }
+    assertEq(channelConfigStore.exposedReadChannelDefinitionStates(42), uint32(2));
+  }
 }
