@@ -10,21 +10,23 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 )
 
 type telemetryReporter struct {
+	lggr      logger.Logger
 	endpoints map[uint64]commontypes.MonitoringEndpoint
 }
 
-func NewTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEndpointGenerator, chainIDs ...*big.Int) HeadReporter {
+func NewTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEndpointGenerator, lggr logger.Logger, chainIDs ...*big.Int) HeadReporter {
 	endpoints := make(map[uint64]commontypes.MonitoringEndpoint)
 	for _, chainID := range chainIDs {
 		endpoints[chainID.Uint64()] = monitoringEndpointGen.GenMonitoringEndpoint("EVM", chainID.String(), "", synchronization.HeadReport)
 	}
-	return &telemetryReporter{endpoints: endpoints}
+	return &telemetryReporter{lggr: lggr.Named("TelemetryReporter"), endpoints: endpoints}
 }
 
 func (t *telemetryReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) error {
@@ -55,7 +57,8 @@ func (t *telemetryReporter) ReportNewHead(ctx context.Context, head *evmtypes.He
 	}
 	monitoringEndpoint.SendLog(bytes)
 	if finalized == nil {
-		return errors.Errorf("No finalized block was found for chain_id=%d", head.EVMChainID.Int64())
+		t.lggr.Infow("No finalized block was found", "chainID", head.EVMChainID.Int64(),
+			"head.number", head.Number, "chainLength", head.ChainLength())
 	}
 	return nil
 }
