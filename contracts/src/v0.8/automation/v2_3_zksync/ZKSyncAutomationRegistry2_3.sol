@@ -136,7 +136,7 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
     });
 
     uint256 blocknumber = hotVars.chainModule.blockNumber();
-    uint256 l1Fee = hotVars.chainModule.getCurrentL1Fee();
+    uint256 l1Fee = hotVars.chainModule.getCurrentL1Fee(msg.data.length); // this will be updated
 
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];
