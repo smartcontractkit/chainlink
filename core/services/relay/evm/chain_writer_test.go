@@ -174,7 +174,6 @@ func newBaseChainWriterConfig() relayevmtypes.ChainWriterConfig {
 						ChainSpecificName: "report",
 						Checker:           "simulate",
 						FromAddress:       testutils.NewAddress(),
-						GasLimit:          200_000,
 					},
 				},
 			},
