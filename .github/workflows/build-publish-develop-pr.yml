@@ -110,5 +110,5 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: goreleaser-build-publish-chainlink (${{ matrix.goarch }})
+          this-job-name: goreleaser-build-publish-chainlink
         continue-on-error: true
