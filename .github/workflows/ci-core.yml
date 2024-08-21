@@ -431,7 +431,8 @@ jobs:
         run: curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME/go/bin/protoc-gen-go-wsrpc && chmod +x $HOME/go/bin/protoc-gen-go-wsrpc
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
-      - run: |
+      - name: make generate
+        run: |
           make rm-mocked
           make generate
       - name: Ensure clean after generate
