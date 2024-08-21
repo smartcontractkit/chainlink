@@ -67,8 +67,8 @@ jobs:
           # Match semver git tags with a "contracts-ccip/" prefix.
           RELEASE_REGEX: '^contracts-ccip/v[0-9]+\.[0-9]+\.[0-9]+$'
           PRE_RELEASE_REGEX: '^contracts-ccip/v[0-9]+\.[0-9]+\.[0-9]+-(.+)$'
-          # Get the version by stripping the "contracts-v" prefix.
-          VERSION_PREFIX: 'contracts-v'
+          # Get the version by stripping the "contracts-ccip/v" prefix.
+          VERSION_PREFIX: 'contracts-ccip/v'
 
 #  prepublish-test:
 #    needs: [changes, tag-check]
