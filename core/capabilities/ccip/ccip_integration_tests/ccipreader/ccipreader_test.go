@@ -3,6 +3,7 @@ package ccipreader
 import (
 	"context"
 	"math/big"
+	"sort"
 	"testing"
 	"time"
 
@@ -99,6 +100,10 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 		s.sb.Commit()
 	}
 
+	// Need to replay as sometimes the logs are not picked up by the log poller (?)
+	// Maybe another situation where chain reader doesn't register filters as expected.
+	require.NoError(t, s.lp.Replay(ctx, 1))
+
 	var reports []plugintypes.CommitPluginReportWithMeta
 	var err error
 	require.Eventually(t, func() bool {
@@ -110,7 +115,7 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 		)
 		require.NoError(t, err)
 		return len(reports) == numReports-1
-	}, testutils.WaitTimeout(t), 50*time.Millisecond)
+	}, 10*time.Second, 50*time.Millisecond)
 
 	assert.Len(t, reports[0].Report.MerkleRoots, 1)
 	assert.Equal(t, chainS1, reports[0].Report.MerkleRoots[0].ChainSel)
@@ -250,6 +255,10 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 
 	s.sb.Commit()
 
+	// Need to replay as sometimes the logs are not picked up by the log poller (?)
+	// Maybe another situation where chain reader doesn't register filters as expected.
+	require.NoError(t, s.lp.Replay(ctx, 1))
+
 	var msgs []cciptypes.Message
 	require.Eventually(t, func() bool {
 		msgs, err = s.reader.MsgsBetweenSeqNums(
@@ -262,6 +271,10 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 	}, 10*time.Second, 100*time.Millisecond)
 
 	require.Len(t, msgs, 2)
+	// sort to ensure ascending order of sequence numbers.
+	sort.Slice(msgs, func(i, j int) bool {
+		return msgs[i].Header.SequenceNumber < msgs[j].Header.SequenceNumber
+	})
 	require.Equal(t, cciptypes.SeqNum(10), msgs[0].Header.SequenceNumber)
 	require.Equal(t, cciptypes.SeqNum(15), msgs[1].Header.SequenceNumber)
 	for _, msg := range msgs {

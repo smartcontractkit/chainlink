@@ -60,6 +60,9 @@ func NewDeployedTestEnvironment(t *testing.T, lggr logger.Logger) DeployedTestEn
 	})
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
+		t.Cleanup(func() {
+			require.NoError(t, node.App.Stop())
+		})
 	}
 
 	e := memory.NewMemoryEnvironmentFromChainsNodes(t, lggr, chains, nodes)

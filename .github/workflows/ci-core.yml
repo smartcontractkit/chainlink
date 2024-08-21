@@ -91,6 +91,11 @@ jobs:
           - cmd: go_core_tests
             id: core_unit
             os: ubuntu22.04-32cores-128GB
+            printResults: true
+          - cmd: go_core_ccip_deployment_tests
+            id: core_unit
+            os: ubuntu22.04-32cores-128GB
+            printResults: true
           - cmd: go_core_race_tests
             id: core_race
             # use 64cores for overnight runs only due to massive number of runs from PRs
@@ -179,9 +184,11 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
         run: ./tools/bin/${{ matrix.type.cmd }} ./...
       - name: Print Filtered Test Results
-        if: ${{ failure() && matrix.type.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true'  && steps.run-tests.conclusion == 'failure' }}
+        if: ${{ failure() && needs.filter.outputs.changes == 'true' && steps.run-tests.conclusion == 'failure' }}
         run: |
-          cat output.txt | gotestloghelper -ci
+          if [[ "${{ matrix.type.printResults }}"  == "true" ]]; then
+            cat output.txt | gotestloghelper -ci
+          fi
       - name: Print Races
         id: print-races
         if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.changes == 'true' }}
