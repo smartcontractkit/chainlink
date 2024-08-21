@@ -39,7 +39,7 @@ func genSpecs(
 
 	bootstrapSpecLines, err := readLines(filepath.Join(templatesDir, bootstrapSpecTemplate))
 	helpers.PanicErr(err)
-	bootHost := nodes[0].url.Hostname()
+	bootHost := nodes[0].remoteUrl.Hostname()
 	bootstrapSpecLines = replacePlaceholders(
 		bootstrapSpecLines,
 		chainID, p2pPort,
@@ -59,7 +59,7 @@ func genSpecs(
 			ocrConfigContractAddress, bootHost,
 			bootstrapNode, nca[i],
 		)
-		oracles = append(oracles, hostSpec{oracleSpecLines, nodes[i].url.Host})
+		oracles = append(oracles, hostSpec{oracleSpecLines, nodes[i].remoteUrl.Host})
 	}
 
 	return donHostSpec{
