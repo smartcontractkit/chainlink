@@ -130,7 +130,7 @@ func TestORM_CheckVersion_CCIP(t *testing.T) {
 			expectedError:  false,
 		},
 		{
-			name:           "ccip patch version bump from 9 -> 100",
+			name:           "ccip patch version bump from 9 -> 101",
 			currentVersion: "2.5.0-ccip1.4.9",
 			newVersion:     "2.5.0-ccip1.4.101",
 			expectedError:  false,
