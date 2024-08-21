@@ -4538,7 +4538,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'FixedPrice'
 PriceDefault = '20 gwei'
-PriceMax = '100 micro'
+PriceMax = '100 gwei'
 PriceMin = '0'
 LimitDefault = 500000
 LimitMax = 500000
@@ -4548,7 +4548,7 @@ BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
 EIP1559DynamicFees = false
-FeeCapDefault = '100 micro'
+FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
