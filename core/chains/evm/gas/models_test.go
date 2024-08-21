@@ -292,13 +292,13 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		estimator := gas.NewEvmFeeEstimator(lggr, getRootEst, dynamicFees, geCfg, ethClient)
 		toAddress := testutils.NewAddress()
 		_, _, err := estimator.GetFee(ctx, []byte{}, gasLimit, nil, &toAddress)
-		require.Error(t, err, commonfee.ErrFeeLimitTooLow)
+		require.ErrorIs(t, err, commonfee.ErrFeeLimitTooLow)
 
 		// expect dynamic fee data
 		dynamicFees = true
 		estimator = gas.NewEvmFeeEstimator(lggr, getRootEst, dynamicFees, geCfg, ethClient)
 		_, _, err = estimator.GetFee(ctx, []byte{}, gasLimit, nil, &toAddress)
-		require.Error(t, err, commonfee.ErrFeeLimitTooLow)
+		require.ErrorIs(t, err, commonfee.ErrFeeLimitTooLow)
 	})
 
 	t.Run("GetFee, estimate gas limit enabled, buffer exceeds provided limit, fallsback to provided limit", func(t *testing.T) {
@@ -352,5 +352,60 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		assert.True(t, dynamicFee.FeeCap.Equal(fee.DynamicFeeCap))
 		assert.True(t, dynamicFee.TipCap.Equal(fee.DynamicTipCap))
 		assert.Nil(t, fee.Legacy)
+	})
+
+	t.Run("GetFee, estimate gas limit enabled, provided fee limit 0, returns uncapped estimation", func(t *testing.T) {
+		est.On("GetDynamicFee", mock.Anything, mock.Anything).
+			Return(dynamicFee, nil).Once()
+		est.On("GetLegacyGas", mock.Anything, mock.Anything, uint64(0), mock.Anything).
+			Return(legacyFee, uint64(0), nil).Once()
+		estimatedGasLimit := uint64(100) // same as provided limit
+		lggr := logger.Test(t)
+		// expect legacy fee data
+		dynamicFees := false
+		geCfg.EstimateGasLimitF = true
+		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGasLimit, nil).Twice()
+		estimator := gas.NewEvmFeeEstimator(lggr, getRootEst, dynamicFees, geCfg, ethClient)
+		toAddress := testutils.NewAddress()
+		fee, limit, err := estimator.GetFee(ctx, []byte{}, uint64(0), nil, &toAddress)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(float32(estimatedGasLimit)*limitMultiplier), limit)
+		assert.True(t, legacyFee.Equal(fee.Legacy))
+		assert.Nil(t, fee.DynamicTipCap)
+		assert.Nil(t, fee.DynamicFeeCap)
+
+		// expect dynamic fee data
+		dynamicFees = true
+		estimator = gas.NewEvmFeeEstimator(lggr, getRootEst, dynamicFees, geCfg, ethClient)
+		fee, limit, err = estimator.GetFee(ctx, []byte{}, 0, nil, &toAddress)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(float32(estimatedGasLimit)*limitMultiplier), limit)
+		assert.True(t, dynamicFee.FeeCap.Equal(fee.DynamicFeeCap))
+		assert.True(t, dynamicFee.TipCap.Equal(fee.DynamicTipCap))
+		assert.Nil(t, fee.Legacy)
+	})
+
+	t.Run("GetFee, estimate gas limit enabled, provided fee limit 0, returns error on failure", func(t *testing.T) {
+		est.On("GetDynamicFee", mock.Anything, mock.Anything).
+			Return(dynamicFee, nil).Once()
+		est.On("GetLegacyGas", mock.Anything, mock.Anything, uint64(0), mock.Anything).
+			Return(legacyFee, uint64(0), nil).Once()
+		lggr := logger.Test(t)
+		// expect legacy fee data
+		dynamicFees := false
+		geCfg.EstimateGasLimitF = true
+		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(uint64(0), errors.New("something broke")).Twice()
+		estimator := gas.NewEvmFeeEstimator(lggr, getRootEst, dynamicFees, geCfg, ethClient)
+		toAddress := testutils.NewAddress()
+		_, _, err := estimator.GetFee(ctx, []byte{}, 0, nil, &toAddress)
+		require.Error(t, err)
+
+		// expect dynamic fee data
+		dynamicFees = true
+		estimator = gas.NewEvmFeeEstimator(lggr, getRootEst, dynamicFees, geCfg, ethClient)
+		_, _, err = estimator.GetFee(ctx, []byte{}, 0, nil, &toAddress)
+		require.Error(t, err)
 	})
 }

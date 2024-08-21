@@ -356,14 +356,17 @@ func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64,
 	}
 	estimatedGas, estimateErr := e.ethClient.EstimateGas(ctx, callMsg)
 	if estimateErr != nil {
-		// Do not return error if estimate gas failed, we can still use the provided limit instead since it is an upper limit
-		e.lggr.Errorw("failed to estimate gas limit. falling back to provided gas limit.", "callMsg", callMsg, "providedGasLimit", feeLimit, "error", estimateErr)
-		return feeLimit, nil
+		if feeLimit > 0 {
+			// Do not return error if estimate gas failed, we can still use the provided limit instead since it is an upper limit
+			e.lggr.Errorw("failed to estimate gas limit. falling back to provided gas limit.", "callMsg", callMsg, "providedGasLimit", feeLimit, "error", estimateErr)
+			return feeLimit, nil
+		}
+		return estimatedFeeLimit, fmt.Errorf("gas estimation failed and provided gas limit is 0: %w", estimateErr)
 	}
-	e.lggr.Debugw("estimated gas", "callMsg", callMsg, "estimatedGas", estimatedGas, "providedGasLimit", feeLimit)
-	// Return error if estimated gas without the buffer exceeds the provided gas limit
-	// Transaction is destined to run out of gas and fail
-	if estimatedGas > feeLimit {
+	e.lggr.Debugw("estimated gas", "estimatedGas", estimatedGas, "providedGasLimit", feeLimit)
+	// Return error if estimated gas without the buffer exceeds the provided gas limit, if provided
+	// Transaction would be destined to run out of gas and fail
+	if feeLimit != 0 && estimatedGas > feeLimit {
 		e.lggr.Errorw("estimated gas exceeds provided limit", "estimatedGas", estimatedGas, "providedGasLimit", feeLimit)
 		return estimatedFeeLimit, commonfee.ErrFeeLimitTooLow
 	}
@@ -372,9 +375,9 @@ func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64,
 	if err != nil {
 		return
 	}
-	// Fallback to the provided gas limit if the buffer causes the estimated gas limit to exceed it
+	// If provided gas limit is not 0, fallback to it if the buffer causes the estimated gas limit to exceed it
 	// The provided gas limit should be used as an upper bound to avoid unexpected behavior for products
-	if estimatedFeeLimit > feeLimit {
+	if feeLimit != 0 && estimatedFeeLimit > feeLimit {
 		e.lggr.Debugw("estimated gas limit with buffer exceeds provided limit. falling back to the provided gas limit", "estimatedGasLimit", estimatedFeeLimit, "providedGasLimit", feeLimit)
 		estimatedFeeLimit = feeLimit
 	}
