@@ -11,7 +11,7 @@ interface IChainModule {
   // retrieve the L1 data fee for a L2 transaction. it should return 0 for L1 chains and
   // L2 chains which don't have L1 fee component. it uses msg.data to estimate L1 data so
   // it must be used with a transaction. Return value in wei.
-  function getCurrentL1Fee() external view returns (uint256);
+  function getCurrentL1Fee(uint256 dataSize) external view returns (uint256);
 
   // retrieve the L1 data fee for a L2 simulation. it should return 0 for L1 chains and
   // L2 chains which don't have L1 fee component. Return value in wei.
