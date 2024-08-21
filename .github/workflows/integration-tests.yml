@@ -608,13 +608,14 @@ jobs:
             os: ubuntu-latest
             file: ccip
             run: -run ^TestSmokeCCIPOffRampAggRateLimit$
-          - name: ccip-smoke-leader-lane
-            nodes: 15
-            dir: ccip-tests/smoke
-            os: ubuntu-latest
-            file: ccip
-            run: -run ^TestSmokeCCIPForBidirectionalLane$
-            config_path: ./integration-tests/ccip-tests/testconfig/tomls/leader-lane.toml
+#            Leader lane test is flakey in Core repo - Need to fix CCIP-3074 to enable it.
+#          - name: ccip-smoke-leader-lane
+#            nodes: 15
+#            dir: ccip-tests/smoke
+#            os: ubuntu-latest
+#            file: ccip
+#            run: -run ^TestSmokeCCIPForBidirectionalLane$
+#            config_path: ./integration-tests/ccip-tests/testconfig/tomls/leader-lane.toml
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
     steps:
