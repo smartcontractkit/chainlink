@@ -309,6 +309,11 @@ func (r *RpcClient) UnsubscribeAllExcept(subs ...commontypes.Subscription) {
 			sub.Unsubscribe()
 		}
 	}
+
+	r.subs = []ethereum.Subscription{}
+	for sub := range keepSubs {
+		r.subs = append(r.subs, sub)
+	}
 }
 
 // Not thread-safe, pure dial.

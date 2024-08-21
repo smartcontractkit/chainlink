@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"slices"
@@ -192,7 +193,7 @@ func aggregateTxResults(resultsByCode sendTxErrors) (returnCode SendTxReturnCode
 		if hasSevereErrors {
 			const errMsg = "found contradictions in nodes replies on SendTransaction: got success and severe error"
 			// return success, since at least 1 node has accepted our broadcasted Tx, and thus it can now be included onchain
-			return successCode, successResults[0], fmt.Errorf(errMsg)
+			return successCode, successResults[0], errors.New(errMsg)
 		}
 
 		// other errors are temporary - we are safe to return success
@@ -209,7 +210,7 @@ func aggregateTxResults(resultsByCode sendTxErrors) (returnCode SendTxReturnCode
 	}
 
 	err = fmt.Errorf("expected at least one response on SendTransaction")
-	return 0, err, err
+	return Retryable, err, err
 }
 
 func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) collectTxResults(ctx context.Context, tx TX, healthyNodesNum int, txResults <-chan sendTxResult) (SendTxReturnCode, error) {

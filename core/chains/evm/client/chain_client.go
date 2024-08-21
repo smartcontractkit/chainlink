@@ -252,8 +252,8 @@ func (c *chainClient) PendingCallContract(ctx context.Context, msg ethereum.Call
 }
 
 func (c *chainClient) Close() {
-	_ = c.multiNode.Close()
 	_ = c.txSender.Close()
+	_ = c.multiNode.Close()
 }
 
 func (c *chainClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
