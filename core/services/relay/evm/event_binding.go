@@ -241,7 +241,7 @@ func (e *eventBinding) getLatestValueWithFilters(
 	}
 
 	// Gets the latest log that matches the filter and limiter.
-	logs, err := e.lp.FilteredLogs(ctx, filter, limiter, e.contractName+"-"+e.address.String()+"-"+e.eventName)
+	logs, err := e.lp.FilteredLogs(ctx, filter.Expressions, limiter, e.contractName+"-"+e.address.String()+"-"+e.eventName)
 	if err != nil {
 		return wrapInternalErr(err)
 	}
