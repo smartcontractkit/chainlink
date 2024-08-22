@@ -115,7 +115,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     });
 
     uint256 blocknumber = hotVars.chainModule.blockNumber();
-    uint256 l1Fee = hotVars.chainModule.getCurrentL1Fee();
+    uint256 l1Fee = hotVars.chainModule.getCurrentL1Fee(msg.data.length);
 
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];

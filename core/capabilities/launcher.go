@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -130,6 +131,12 @@ func (w *launcher) Name() string {
 func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegistry) error {
 	w.registry.SetLocalRegistry(state)
 
+	allDONIDs := []registrysyncer.DonID{}
+	for id := range state.IDsToDONs {
+		allDONIDs = append(allDONIDs, id)
+	}
+	slices.Sort(allDONIDs) // ensure deterministic order
+
 	// Let's start by updating the list of Peers
 	// We do this by creating a new entry for each node belonging
 	// to a public DON.
@@ -137,7 +144,8 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 	allPeers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
 
 	publicDONs := []registrysyncer.DON{}
-	for _, d := range state.IDsToDONs {
+	for _, id := range allDONIDs {
+		d := state.IDsToDONs[id]
 		if !d.DON.IsPublic {
 			continue
 		}
@@ -167,7 +175,8 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 	myWorkflowDONs := []registrysyncer.DON{}
 	remoteWorkflowDONs := []registrysyncer.DON{}
 	myDONs := map[uint32]bool{}
-	for _, d := range state.IDsToDONs {
+	for _, id := range allDONIDs {
+		d := state.IDsToDONs[id]
 		for _, peerID := range d.Members {
 			if peerID == myID {
 				myDONs[d.ID] = true
@@ -204,7 +213,7 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 
 		// NOTE: this is enforced on-chain and so should never happen.
 		if len(myWorkflowDONs) > 1 {
-			w.lggr.Error("invariant violation: node is part of more than one workflowDON: this shouldn't happen.")
+			return errors.New("invariant violation: node is part of more than one workflowDON")
 		}
 
 		for _, rcd := range remoteCapabilityDONs {

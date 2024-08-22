@@ -82,6 +82,8 @@ func TestVRFV2Performance(t *testing.T) {
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
+				// wait for all txs to be mined in order to avoid nonce issues
+				time.Sleep(10 * time.Second)
 				//cancel subs and return funds to sub owner
 				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}

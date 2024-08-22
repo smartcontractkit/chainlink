@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/libocr/permutation"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -56,8 +56,12 @@ func GetPeerIDToTransmissionDelay(donPeerIDs []types.PeerID, req capabilities.Ca
 		return nil, fmt.Errorf("failed to extract transmission config from request: %w", err)
 	}
 
-	if req.Metadata.WorkflowID == "" || req.Metadata.WorkflowExecutionID == "" {
-		return nil, errors.New("workflow ID and workflow execution ID must be set in request metadata")
+	if err = validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
+		return nil, fmt.Errorf("workflow ID is invalid: %w", err)
+	}
+
+	if err = validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowExecutionID); err != nil {
+		return nil, fmt.Errorf("workflow execution ID is invalid: %w", err)
 	}
 
 	transmissionID := req.Metadata.WorkflowID + req.Metadata.WorkflowExecutionID

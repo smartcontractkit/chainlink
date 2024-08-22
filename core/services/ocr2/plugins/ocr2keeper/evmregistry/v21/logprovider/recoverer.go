@@ -14,18 +14,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-automation/pkg/v3/random"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/random"
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -71,7 +70,7 @@ type logRecoverer struct {
 	services.StateMachine
 	threadCtrl utils.ThreadControl
 
-	lggr logger.Logger
+	lggr logger.SugaredLogger
 
 	lookbackBlocks *atomic.Int64
 	blockTime      *atomic.Int64
@@ -96,7 +95,7 @@ var _ LogRecoverer = &logRecoverer{}
 
 func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client client.Client, stateStore core.UpkeepStateReader, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logRecoverer {
 	rec := &logRecoverer{
-		lggr: lggr.Named(LogRecovererServiceName),
+		lggr: logger.Sugared(lggr).Named(LogRecovererServiceName),
 
 		threadCtrl: utils.NewThreadControl(),
 
