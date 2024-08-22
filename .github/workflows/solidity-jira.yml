@@ -46,6 +46,10 @@ jobs:
     if: ${{ needs.files-changed.outputs.source == 'true' }}
     name: Enforce Traceability
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      id-token: write
+      contents: read
     steps:
       # https://github.com/planetscale/ghcommit-action/blob/c7915d6c18d5ce4eb42b0eff3f10a29fe0766e4c/README.md?plain=1#L41
       #
@@ -55,6 +59,14 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Assume role capable of dispatching action
+        uses: smartcontractkit/.github/actions/setup-github-token@ef78fa97bf3c77de6563db1175422703e9e6674f # setup-github-token@0.2.1
+        id: get-gh-token
+        with:
+          aws-role-arn:  ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Make a comment
         uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
@@ -108,7 +120,7 @@ jobs:
           branch: ${{ github.head_ref }}
           file_pattern: "contracts/.changeset/*" 
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
 
       - name: Collect Metrics
         id: collect-gha-metrics
