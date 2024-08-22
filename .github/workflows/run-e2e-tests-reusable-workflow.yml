@@ -769,7 +769,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "${{ inputs.slack_notification_after_tests_name }} - ${{ steps.combine_results.outputs.result == 'failure' && 'Failed :x:' || steps.combine_results.outputs.result == 'cancelled' && 'Cancelled :warning:' || 'Passed :white_check_mark:' }}"
+                    "text": "${{ inputs.slack_notification_after_tests_name }} - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Cancelled :warning:' || 'Passed :white_check_mark:' }}"
                   }
                 },
                 {
