@@ -246,7 +246,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 		cap.lggr.Infow("returning without a tranmission attempt - transmission already attempted, receiver was marked as invalid", "executionID", request.Metadata.WorkflowExecutionID)
 		return success(), nil
 	case transmissionInfo.State == 3: // FAILED
-		receiverGasMinimum := request.Inputs.GasLimit + FORWARDER_CONTRACT_LOGIC_GAS_COST
+		receiverGasMinimum := request.Inputs.GasLimit - FORWARDER_CONTRACT_LOGIC_GAS_COST
 		if transmissionInfo.GasLimit.Uint64() > receiverGasMinimum {
 			cap.lggr.Infow("returning without a tranmission attempt - transmission already attempted and failed, sufficient gas was provided", "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
 			return success(), nil
