@@ -630,11 +630,11 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 }
 
 var infura = ClientErrors{
-	TooManyResults: regexp.MustCompile(`(: |^)query returned more than [0-9]+ results. Try with this block range \[0x[0-9A-Z]+, 0x[0-9A-Z]+\].$`),
+	TooManyResults: regexp.MustCompile(`(: |^)query returned more than [0-9]+ results. Try with this block range \[0x[0-9A-F]+, 0x[0-9A-F]+\].$`),
 }
 
 var alchemy = ClientErrors{
-	TooManyResults: regexp.MustCompile(`(: |^) Log response size exceeded. You can make eth_getLogs requests with up to a [0-9A-Z]+ block range and no limit on the response size, or you can request any block range with a cap of [0-9A-Z]+ in the response. Based on your parameters and the response size limit, this block range should work: .*`),
+	TooManyResults: regexp.MustCompile(`(: |^)Log response size exceeded. You can make eth_getLogs requests with up to a [0-9A-Z]+ block range and no limit on the response size, or you can request any block range with a cap of [0-9A-Z]+ logs in the response. Based on your parameters and the response size limit, this block range should work: \[0x[0-9a-f]+, 0x[0-9a-f]+\]$`),
 }
 
 var quicknode = ClientErrors{
@@ -646,7 +646,7 @@ var simplyvc = ClientErrors{
 }
 
 var drpc = ClientErrors{
-	TooManyResults: regexp.MustCompile(`(: |^)requested too many blocks from [0-9]+, maximum is set to \([0-9,]+\)$`),
+	TooManyResults: regexp.MustCompile(`(: |^)requested too many blocks from [0-9]+ to [0-9]+, maximum is set to [0-9,]+$`),
 }
 
 // Linkpool, Blockdaemon, and Chainstack all return "request timed out" if the log results are too large for them to process

@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-#bugfix Fix misleading error logging in LogPoller (was logging CRITICAL error under non-critical conditions)
+#bugfix More robust error handling in LogPoller, including no more misleading CRITICAL errors emitted under non-critical conditions
