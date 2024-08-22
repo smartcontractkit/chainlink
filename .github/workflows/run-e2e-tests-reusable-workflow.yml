@@ -10,11 +10,11 @@ on:
         type: string
         default: 'Run E2E Tests'
       chainlink_version:
-        description: 'Enter Chainlink version to use for the tests. Example: "v2.10.0" or sha'
+        description: 'Enter Chainlink version to use for the tests. Example: v2.10.0, develop or commit sha'
         required: false
         type: string
       chainlink_upgrade_version:
-        description: 'Enter Chainlink version to upgrade to for upgrade tests. Example: "v2.10.0" or sha'
+        description: 'Enter Chainlink version to use for the upgrade tests. Example: v2.10.0, develop or commit sha'
         required: false
         type: string
       test_ids:
@@ -134,8 +134,8 @@ on:
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   QA_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-  GITHUB_SHA: ${{ github.sha }}
-  GITHUB_SHA_PLUGINS: ${{ github.sha }}-plugins
+  DEFAULT_CHAINLINK_VERSION: ${{ inputs.chainlink_version || github.sha }}
+  DEFAULT_CHAINLINK_PLUGINS_VERSION: ${{ inputs.chainlink_version != '' && format('{0}-plugins', inputs.chainlink_version) || format('{0}-plugins', github.sha) }}
   CHAINLINK_ENV_USER: ${{ github.actor }}
   CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
   SELECTED_NETWORKS: SIMULATED
