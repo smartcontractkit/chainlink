@@ -378,7 +378,7 @@ func SetupVRFV2ForExistingEnv(t *testing.T, envConfig vrfcommon.VRFEnvConfig, l 
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading existing CL env", err)
 	}
-	coordinator, err := contracts.LoadVRFCoordinatorV2(sethClient, *commonExistingEnvConfig.ConsumerAddress)
+	coordinator, err := contracts.LoadVRFCoordinatorV2(sethClient, *commonExistingEnvConfig.CoordinatorAddress)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading VRFCoordinator2", err)
 	}
