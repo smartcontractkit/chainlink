@@ -344,6 +344,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [coverage-and-book, uml-static-analysis, gather-basic-info, changes]
     steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ inputs.commit_to_use || github.sha }}
+
       - name: Download all artifacts
         uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
         with:
