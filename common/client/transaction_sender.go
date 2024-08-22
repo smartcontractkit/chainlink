@@ -146,6 +146,7 @@ func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 	}()
 
 	if err != nil {
+		txSender.wg.Wait()
 		return 0, err
 	}
 
@@ -208,7 +209,7 @@ func aggregateTxResults(resultsByCode sendTxErrors) (returnCode SendTxReturnCode
 	}
 
 	err = fmt.Errorf("expected at least one response on SendTransaction")
-	return Retryable, err, err
+	return 0, err, err
 }
 
 func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) collectTxResults(ctx context.Context, tx TX, healthyNodesNum int, txResults <-chan sendTxResult) (SendTxReturnCode, error) {
