@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-#fix head reporter non-zero reporting period
+#bugfix head reporter non-zero reporting period
