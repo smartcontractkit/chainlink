@@ -215,7 +215,7 @@ runner-test-matrix:
     workflows:
       - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link$" -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link$" -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
 
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_3_logtrigger_native|TestAutomationBasic/registry_2_3_logtrigger_link$
@@ -375,7 +375,7 @@ runner-test-matrix:
     workflows:
       - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperCheckPerformGasLimit$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperCheckPerformGasLimit$ -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-keeper-evm-simulated  
 
   - id: smoke/keeper_test.go:^TestKeeperRegisterUpkeep$

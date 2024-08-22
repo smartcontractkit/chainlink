@@ -25,9 +25,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    strategy:
-      matrix:
-        goarch: [amd64, arm64]
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -36,7 +33,7 @@ jobs:
 
       # This gets the image tag and whether to publish the image based on the event type
       # PR builds: pr-<pr_number>-<short_sha> (if label 'build-publish' is present publishes the image)
-      # develop builds: develop-<short_sha>
+      # develop builds: develop-<short_sha> and develop (only amd64)
       # release builds: release-<short_sha>
       # manual builds: <short_sha> (if build-publish is true publishes the image)
       - name: Get image tag
@@ -81,8 +78,6 @@ jobs:
           docker-image-name: chainlink
           docker-image-tag: ${{ steps.get-image-tag.outputs.image-tag }}
           enable-goreleaser-snapshot: "true"
-          enable-goreleaser-split: "true"
-          goreleaser-split-arch: ${{ matrix.goarch }}
           goreleaser-exec: ./tools/bin/goreleaser_wrapper
           goreleaser-config: .goreleaser.develop.yaml
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
@@ -92,7 +87,7 @@ jobs:
         if: steps.get-image-tag.outputs.build-publish == 'true'
         shell: bash
         run: |
-          # need to check if artifacts.json exists because goreleaser splits the build
+          # need to check if artifacts.json exists because goreleaser could split the build
           if [[ -f dist/artifacts.json ]]; then
             artifact_path="dist/artifacts.json"
           else
@@ -115,5 +110,5 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: goreleaser-build-publish-chainlink (${{ matrix.goarch }})
+          this-job-name: goreleaser-build-publish-chainlink
         continue-on-error: true

@@ -257,6 +257,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 			srvcs = append(srvcs, wfLauncher, registrySyncer)
 		}
+	} else {
+		globalLogger.Debug("External registry not configured, skipping registry syncer and starting with an empty registry")
+		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
@@ -368,7 +371,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	for i, chain := range legacyEVMChains.Slice() {
 		chainIDs[i] = chain.ID()
 	}
-	telemReporter := headreporter.NewTelemetryReporter(telemetryManager, chainIDs...)
+	telemReporter := headreporter.NewTelemetryReporter(telemetryManager, globalLogger, chainIDs...)
 	headReporter := headreporter.NewHeadReporterService(opts.DS, globalLogger, promReporter, telemReporter)
 	srvcs = append(srvcs, headReporter)
 	for _, chain := range legacyEVMChains.Slice() {

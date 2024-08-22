@@ -23,7 +23,7 @@ import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typec
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { ChainModuleBase__factory as ChainModuleBaseFactory } from '../../../typechain/factories/ChainModuleBase__factory'
 import { ArbitrumModule__factory as ArbitrumModuleFactory } from '../../../typechain/factories/ArbitrumModule__factory'
-import { OptimismModule__factory as OptimismModuleFactory } from '../../../typechain/factories/OptimismModule__factory'
+import { OptimismModuleV2__factory as OptimismModuleV2Factory } from '../../../typechain/factories/OptimismModuleV2__factory'
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
 import { AutomationCompatibleUtils } from '../../../typechain/AutomationCompatibleUtils'
@@ -34,7 +34,7 @@ import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
 import { ChainModuleBase } from '../../../typechain/ChainModuleBase'
 import { ArbitrumModule } from '../../../typechain/ArbitrumModule'
-import { OptimismModule } from '../../../typechain/OptimismModule'
+import { OptimismModuleV2 } from '../../../typechain/OptimismModuleV2'
 import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
 import { IChainModule, UpkeepAutoFunder } from '../../../typechain'
 import {
@@ -152,7 +152,7 @@ let upkeepMockFactory: UpkeepMockFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
 let chainModuleBaseFactory: ChainModuleBaseFactory
 let arbitrumModuleFactory: ArbitrumModuleFactory
-let optimismModuleFactory: OptimismModuleFactory
+let optimismModuleFactory: OptimismModuleV2Factory
 let streamsLookupUpkeepFactory: StreamsLookupUpkeepFactory
 let personas: Personas
 
@@ -174,7 +174,7 @@ let ltUpkeep: MockContract
 let transcoder: UpkeepTranscoder
 let chainModuleBase: ChainModuleBase
 let arbitrumModule: ArbitrumModule
-let optimismModule: OptimismModule
+let optimismModule: OptimismModuleV2
 let streamsLookupUpkeep: StreamsLookupUpkeep
 let automationUtils: AutomationCompatibleUtils
 let automationUtils2_3: AutomationUtils2_3
@@ -442,7 +442,7 @@ describe('AutomationRegistry2_3', () => {
       await ethers.getContractFactory('UpkeepAutoFunder')
     chainModuleBaseFactory = await ethers.getContractFactory('ChainModuleBase')
     arbitrumModuleFactory = await ethers.getContractFactory('ArbitrumModule')
-    optimismModuleFactory = await ethers.getContractFactory('OptimismModule')
+    optimismModuleFactory = await ethers.getContractFactory('OptimismModuleV2')
     streamsLookupUpkeepFactory = await ethers.getContractFactory(
       'StreamsLookupUpkeep',
     )
