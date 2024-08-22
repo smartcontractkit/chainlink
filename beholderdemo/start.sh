@@ -14,7 +14,7 @@ Run this command in separate terminal:
   make consume-topic
 "
 
-start_behooder_stack() {
+start_beholder_stack() {
 	cd $BEHOLDER_DEMO
 	echo "\n\nSrating Beholder stack"
 	make start
@@ -29,7 +29,7 @@ start_chainlink() {
 	OTEL_SERVICE_NAME=beholderdemo ./chainlink node -c ~/.chainlink-sepolia/config.toml -s ~/.chainlink-sepolia/secrets.toml start || exit 1
 }
 
-start_behooder_stack
+start_beholder_stack
 
 start_chainlink
  

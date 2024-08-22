@@ -66,6 +66,7 @@ func newProductionClient() *cmd.Shell {
 
 func setupBeholder() {
 	config := beholder.DefaultConfig()
+	log.Printf("Beholder config: %#v", config)
 
 	// Initialize beholder otel client which sets up OTel components
 	otelClient, err := beholder.NewOtelClient(config, func(e error) {
