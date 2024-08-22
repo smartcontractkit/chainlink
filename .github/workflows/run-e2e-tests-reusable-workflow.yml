@@ -408,7 +408,7 @@ jobs:
 
   # Run Docker tests
   run-docker-tests:
-    name: Run ${{ matrix.tests.id }}
+    name: ${{ matrix.tests.id }}
     needs: [load-test-configurations, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr, get_latest_chainlink_release_version]
     # Run when none of the needed jobs fail or are cancelled (skipped or successful jobs are ok)
     if: ${{ needs.load-test-configurations.outputs.run-docker-tests == 'true' && always() && !failure() && !cancelled() }}
@@ -435,7 +435,7 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: ${{ inputs.workflow_name }} / Run ${{ matrix.tests.id }}
+          this-job-name: ${{ inputs.workflow_name }} / ${{ matrix.tests.id }}
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
 
@@ -626,7 +626,7 @@ jobs:
   run-k8s-runner-tests:
     needs: [load-test-configurations, prepare-remote-runner-test-image, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr, get_latest_chainlink_release_version]
     if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }}
-    name: Run ${{ matrix.tests.id }}
+    name: ${{ matrix.tests.id }}
     runs-on: ${{ matrix.tests.runs_on }}
     strategy:
       fail-fast: false
@@ -650,7 +650,7 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: ${{ inputs.workflow_name }} / Run ${{ matrix.tests.id }}
+          this-job-name: ${{ inputs.workflow_name }} / ${{ matrix.tests.id }}
         continue-on-error: true
 
       - name: Checkout repository
