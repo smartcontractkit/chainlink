@@ -189,14 +189,6 @@ type RegisterManagerParams struct {
 //
 // Only a single feeds manager is currently supported.
 func (s *service) RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error) {
-	count, err := s.CountManagers(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if count >= 1 {
-		return 0, ErrSingleFeedsManager
-	}
-
 	mgr := FeedsManager{
 		Name:      params.Name,
 		URI:       params.URI,
@@ -204,12 +196,11 @@ func (s *service) RegisterManager(ctx context.Context, params RegisterManagerPar
 	}
 
 	var id int64
-
-	err = s.orm.Transact(ctx, func(tx ORM) error {
+	err := s.orm.Transact(ctx, func(tx ORM) error {
 		var txerr error
 
 		id, txerr = tx.CreateManager(ctx, &mgr)
-		if err != nil {
+		if txerr != nil {
 			return txerr
 		}
 
@@ -219,6 +210,9 @@ func (s *service) RegisterManager(ctx context.Context, params RegisterManagerPar
 
 		return nil
 	})
+	if err != nil {
+		return 0, err
+	}
 
 	privkey, err := s.getCSAPrivateKey()
 	if err != nil {
@@ -1031,8 +1025,12 @@ func (s *service) Start(ctx context.Context) error {
 			return nil
 		}
 
-		mgr := mgrs[0]
-		s.connectFeedManager(ctx, mgr, privkey)
+		for _, mgr := range mgrs {
+			s.connectFeedManager(ctx, mgr, privkey)
+		}
+
+		//mgr := mgrs[0]
+		//s.connectFeedManager(ctx, mgr, privkey)
 
 		if err = s.observeJobProposalCounts(ctx); err != nil {
 			s.lggr.Error("failed to observe job proposal count when starting service", err)
