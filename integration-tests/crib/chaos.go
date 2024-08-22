@@ -1,7 +1,6 @@
 package crib
 
 import (
-	"github.com/smartcontractkit/havoc/k8schaos"
 	"time"
 
 	"github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
@@ -10,7 +9,7 @@ import (
 )
 
 func rebootCLNamespace(delay time.Duration, namespace string) (*havoc.Chaos, error) {
-	k8sClient, err := k8schaos.NewChaosMeshClient()
+	k8sClient, err := havoc.NewChaosMeshClient()
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +40,6 @@ func rebootCLNamespace(delay time.Duration, namespace string) (*havoc.Chaos, err
 			},
 		},
 		Client: k8sClient,
-		Logger: &k8schaos.Logger,
+		Logger: &havoc.Logger,
 	})
 }
