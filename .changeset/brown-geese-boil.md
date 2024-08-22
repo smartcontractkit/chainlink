@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-FilteredLogs receive []Expression instead of whole KeyFilter. #internal
+FilteredLogs receive Expression instead of whole KeyFilter. #internal
