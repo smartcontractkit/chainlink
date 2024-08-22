@@ -53,7 +53,7 @@ type Client interface {
 	// correct hash from the RPC response.
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
-	SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error)
+	SubscribeToHeads(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error)
 	// LatestFinalizedBlock - returns the latest finalized block as it's returned from an RPC.
 	// CAUTION: Using this method might cause local finality violations. It's highly recommended
 	// to use HeadTracker to get latest finalized block.
@@ -393,7 +393,7 @@ func (c *chainClient) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 	return rpc.SubscribeFilterLogs(ctx, q, ch)
 }
 
-func (c *chainClient) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
+func (c *chainClient) SubscribeToHeads(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
 	rpc, err := c.multiNode.SelectRPC()
 	if err != nil {
 		return nil, nil, err

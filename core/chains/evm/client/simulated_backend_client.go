@@ -293,10 +293,10 @@ func (h *headSubscription) Unsubscribe() {
 // Err returns err channel
 func (h *headSubscription) Err() <-chan error { return h.subscription.Err() }
 
-// SubscribeNewHead registers a subscription for push notifications of new blocks.
+// SubscribeToHeads registers a subscription for push notifications of new blocks.
 // Note the sim's API only accepts types.Head so we have this goroutine
 // to convert those into evmtypes.Head.
-func (c *SimulatedBackendClient) SubscribeNewHead(
+func (c *SimulatedBackendClient) SubscribeToHeads(
 	ctx context.Context,
 ) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
 	subscription := &headSubscription{unSub: make(chan chan struct{})}

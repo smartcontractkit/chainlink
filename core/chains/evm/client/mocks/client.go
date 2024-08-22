@@ -1684,12 +1684,12 @@ func (_c *Client_SubscribeFilterLogs_Call) RunAndReturn(run func(context.Context
 	return _c
 }
 
-// SubscribeNewHead provides a mock function with given fields: ctx
-func (_m *Client) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
+// SubscribeToHeads provides a mock function with given fields: ctx
+func (_m *Client) SubscribeToHeads(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for SubscribeNewHead")
+		panic("no return value specified for SubscribeToHeads")
 	}
 
 	var r0 <-chan *evmtypes.Head
@@ -1723,30 +1723,30 @@ func (_m *Client) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.Head, 
 	return r0, r1, r2
 }
 
-// Client_SubscribeNewHead_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeNewHead'
-type Client_SubscribeNewHead_Call struct {
+// Client_SubscribeToHeads_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeToHeads'
+type Client_SubscribeToHeads_Call struct {
 	*mock.Call
 }
 
-// SubscribeNewHead is a helper method to define mock.On call
+// SubscribeToHeads is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *Client_Expecter) SubscribeNewHead(ctx interface{}) *Client_SubscribeNewHead_Call {
-	return &Client_SubscribeNewHead_Call{Call: _e.mock.On("SubscribeNewHead", ctx)}
+func (_e *Client_Expecter) SubscribeToHeads(ctx interface{}) *Client_SubscribeToHeads_Call {
+	return &Client_SubscribeToHeads_Call{Call: _e.mock.On("SubscribeToHeads", ctx)}
 }
 
-func (_c *Client_SubscribeNewHead_Call) Run(run func(ctx context.Context)) *Client_SubscribeNewHead_Call {
+func (_c *Client_SubscribeToHeads_Call) Run(run func(ctx context.Context)) *Client_SubscribeToHeads_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context))
 	})
 	return _c
 }
 
-func (_c *Client_SubscribeNewHead_Call) Return(_a0 <-chan *evmtypes.Head, _a1 ethereum.Subscription, _a2 error) *Client_SubscribeNewHead_Call {
+func (_c *Client_SubscribeToHeads_Call) Return(_a0 <-chan *evmtypes.Head, _a1 ethereum.Subscription, _a2 error) *Client_SubscribeToHeads_Call {
 	_c.Call.Return(_a0, _a1, _a2)
 	return _c
 }
 
-func (_c *Client_SubscribeNewHead_Call) RunAndReturn(run func(context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error)) *Client_SubscribeNewHead_Call {
+func (_c *Client_SubscribeToHeads_Call) RunAndReturn(run func(context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error)) *Client_SubscribeToHeads_Call {
 	_c.Call.Return(run)
 	return _c
 }

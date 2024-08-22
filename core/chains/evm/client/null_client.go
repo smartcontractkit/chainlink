@@ -90,8 +90,8 @@ func (nc *NullClient) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 	return newNullSubscription(nc.lggr), nil
 }
 
-func (nc *NullClient) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
-	nc.lggr.Debug("SubscribeNewHead")
+func (nc *NullClient) SubscribeToHeads(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
+	nc.lggr.Debug("SubscribeToHeads")
 	return nil, newNullSubscription(nc.lggr), nil
 }
 

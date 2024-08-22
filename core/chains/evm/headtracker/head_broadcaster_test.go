@@ -56,7 +56,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	chchHeaders := make(chan chan<- *evmtypes.Head, 1)
 	chHead := make(chan *evmtypes.Head)
-	ethClient.On("SubscribeNewHead", mock.Anything).
+	ethClient.On("SubscribeToHeads", mock.Anything).
 		Run(func(args mock.Arguments) {
 			chchHeaders <- chHead
 		}).

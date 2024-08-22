@@ -228,9 +228,9 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) subscribe(ctx context.Context) b
 
 func (hl *headListener[HTH, S, ID, BLOCK_HASH]) subscribeToHead(ctx context.Context) error {
 	var err error
-	hl.chHeaders, hl.headSubscription, err = hl.client.SubscribeNewHead(ctx)
+	hl.chHeaders, hl.headSubscription, err = hl.client.SubscribeToHeads(ctx)
 	if err != nil {
-		return fmt.Errorf("Client#SubscribeNewHead: %w", err)
+		return fmt.Errorf("Client#SubscribeToHeads: %w", err)
 	}
 
 	hl.connected.Store(true)

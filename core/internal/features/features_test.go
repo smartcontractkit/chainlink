@@ -1294,7 +1294,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	h42 := evmtypes.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
 
 	mockEth := &evmtestutils.MockEth{EthClient: ethClient}
-	ethClient.On("SubscribeNewHead", mock.Anything).
+	ethClient.On("SubscribeToHeads", mock.Anything).
 		Return(
 			func(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
 				ch := make(chan *evmtypes.Head)

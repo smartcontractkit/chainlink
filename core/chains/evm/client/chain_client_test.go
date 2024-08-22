@@ -725,7 +725,7 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 	err := ethClient.Dial(tests.Context(t))
 	require.NoError(t, err)
 
-	headCh, sub, err := ethClient.SubscribeNewHead(ctx)
+	headCh, sub, err := ethClient.SubscribeToHeads(ctx)
 	require.NoError(t, err)
 
 	select {
@@ -824,7 +824,7 @@ func TestEthClient_ErroringClient(t *testing.T) {
 	_, err = erroringClient.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, nil)
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
-	_, _, err = erroringClient.SubscribeNewHead(ctx)
+	_, _, err = erroringClient.SubscribeToHeads(ctx)
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
 	_, err = erroringClient.SuggestGasPrice(ctx)
