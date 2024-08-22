@@ -19,7 +19,7 @@ jobs:
     outputs:
       source: ${{ steps.files-changed.outputs.source }}
       changesets: ${{ steps.files-changed.outputs.changesets }}
-      changeset_files: ${{ steps.files-changed.outputs.changeset_files }}
+      changesets_files: ${{ steps.files-changed.outputs.changesets_files }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -58,12 +58,12 @@ jobs:
           reactions: eyes
           comment_tag: changeset-contracts
           # If the changeset is added, then we delete the comment, otherwise we add it.
-          mode: ${{ needs.files-changed.outputs.changeset == 'true' && 'delete' || 'upsert' }}
+          mode: ${{ needs.files-changed.outputs.changesets == 'true' && 'delete' || 'upsert' }}
           # We only create the comment if the changeset is not added
-          create_if_not_exists: ${{ needs.files-changed.outputs.changeset == 'true' && 'false' || 'true' }}
+          create_if_not_exists: ${{ needs.files-changed.outputs.changesets == 'true' && 'false' || 'true' }}
 
       - name: Check for new changeset for contracts
-        if: ${{ needs.files-changed.outputs.changeset == 'false' }}
+        if: ${{ needs.files-changed.outputs.changesets == 'false' }}
         shell: bash
         run: |
           echo "Please run pnpm changeset to add a changeset for contracts."
@@ -83,7 +83,7 @@ jobs:
           echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
           pnpm issue:enforce
         env:
-          CHANGESET_FILES: ${{ needs.files-changed.outputs.changeset_files }}
+          CHANGESET_FILES: ${{ needs.files-changed.outputs.changesets_files }}
 
           PR_TITLE: ${{ github.event.pull_request.title }}
           BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
