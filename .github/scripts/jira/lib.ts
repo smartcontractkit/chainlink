@@ -53,10 +53,13 @@ export function parseIssueNumberFrom(
 export async function extractJiraIssueNumbersFrom(filePaths: string[]) {
   const issueNumbers: string[] = [];
   const gitTopLevel = await getGitTopLevel();
+
   for (const path of filePaths) {
     const fullPath = join(gitTopLevel, path);
+    core.info(`Reading file: ${fullPath}`);
     const content = await readFile(fullPath, "utf-8");
     const issueNumber = parseIssueNumberFrom(content);
+    core.info(`Extracted issue number: ${issueNumber}`);
     if (issueNumber) {
       issueNumbers.push(issueNumber);
     }

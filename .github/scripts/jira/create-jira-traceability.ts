@@ -125,6 +125,7 @@ export async function main() {
   const { product, baseRef, headRef, artifactUrl } =
     fetchEnvironmentVariables();
   const changesetFiles = extractChangesetFiles();
+  core.info(`Extracting Jira issue numbers from changeset files: ${changesetFiles.join(", ")}`);
   const jiraIssueNumbers = await extractJiraIssueNumbersFrom(changesetFiles);
 
   const client = createJiraClient();
