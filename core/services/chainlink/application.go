@@ -257,6 +257,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 			srvcs = append(srvcs, wfLauncher, registrySyncer)
 		}
+	} else {
+		globalLogger.Debug("External registry not configured, skipping registry syncer and starting with an empty registry")
+		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
