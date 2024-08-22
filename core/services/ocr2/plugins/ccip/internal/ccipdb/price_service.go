@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -13,15 +14,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	cciporm "github.com/smartcontractkit/chainlink/v2/core/services/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // PriceService manages DB access for gas and token price data.
@@ -47,23 +49,11 @@ const (
 	// Token prices are refreshed every 10 minutes, we only report prices for blue chip tokens, DS&A simulation show
 	// their prices are stable, 10-minute resolution is accurate enough.
 	tokenPriceUpdateInterval = 10 * time.Minute
-
-	// Prices should expire after 25 minutes in DB. Prices should be fresh in the Commit plugin.
-	// 25 min provides sufficient buffer for the Commit plugin to withstand transient price update outages, while
-	// surfacing price update outages quickly enough.
-	priceExpireThreshold = 25 * time.Minute
-
-	// Cleanups are called every 10 minutes. For a given job, on average we may expect 3 token prices and 1 gas price.
-	// 10 minutes should result in ~13 rows being cleaned up per job, it is not a heavy load on DB, so there is no need
-	// to run cleanup more frequently. We shouldn't clean up less frequently than `priceExpireThreshold`.
-	priceCleanupInterval = 10 * time.Minute
 )
 
 type priceService struct {
-	priceExpireThreshold time.Duration
-	cleanupInterval      time.Duration
-	gasUpdateInterval    time.Duration
-	tokenUpdateInterval  time.Duration
+	gasUpdateInterval   time.Duration
+	tokenUpdateInterval time.Duration
 
 	lggr              logger.Logger
 	orm               cciporm.ORM
@@ -72,7 +62,7 @@ type priceService struct {
 
 	sourceChainSelector     uint64
 	sourceNative            cciptypes.Address
-	priceGetter             pricegetter.PriceGetter
+	priceGetter             pricegetter.AllTokensPriceGetter
 	offRampReader           ccipdata.OffRampReader
 	gasPriceEstimator       prices.GasPriceEstimatorCommit
 	destPriceRegistryReader ccipdata.PriceRegistryReader
@@ -92,16 +82,14 @@ func NewPriceService(
 	sourceChainSelector uint64,
 
 	sourceNative cciptypes.Address,
-	priceGetter pricegetter.PriceGetter,
+	priceGetter pricegetter.AllTokensPriceGetter,
 	offRampReader ccipdata.OffRampReader,
 ) PriceService {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	pw := &priceService{
-		priceExpireThreshold: priceExpireThreshold,
-		cleanupInterval:      utils.WithJitter(priceCleanupInterval), // use WithJitter to avoid multiple services impacting DB at same time
-		gasUpdateInterval:    utils.WithJitter(gasPriceUpdateInterval),
-		tokenUpdateInterval:  utils.WithJitter(tokenPriceUpdateInterval),
+		gasUpdateInterval:   gasPriceUpdateInterval,
+		tokenUpdateInterval: tokenPriceUpdateInterval,
 
 		lggr:              lggr,
 		orm:               orm,
@@ -140,13 +128,11 @@ func (p *priceService) Close() error {
 }
 
 func (p *priceService) run() {
-	cleanupTicker := time.NewTicker(p.cleanupInterval)
-	gasUpdateTicker := time.NewTicker(p.gasUpdateInterval)
-	tokenUpdateTicker := time.NewTicker(p.tokenUpdateInterval)
+	gasUpdateTicker := time.NewTicker(utils.WithJitter(p.gasUpdateInterval))
+	tokenUpdateTicker := time.NewTicker(utils.WithJitter(p.tokenUpdateInterval))
 
 	go func() {
 		defer p.wg.Done()
-		defer cleanupTicker.Stop()
 		defer gasUpdateTicker.Stop()
 		defer tokenUpdateTicker.Stop()
 
@@ -154,11 +140,6 @@ func (p *priceService) run() {
 			select {
 			case <-p.backgroundCtx.Done():
 				return
-			case <-cleanupTicker.C:
-				err := p.runCleanup(p.backgroundCtx)
-				if err != nil {
-					p.lggr.Errorw("Error when cleaning up in-db prices in the background", "err", err)
-				}
 			case <-gasUpdateTicker.C:
 				err := p.runGasPriceUpdate(p.backgroundCtx)
 				if err != nil {
@@ -238,28 +219,6 @@ func (p *priceService) GetGasAndTokenPrices(ctx context.Context, destChainSelect
 	return gasPrices, tokenPrices, nil
 }
 
-func (p *priceService) runCleanup(ctx context.Context) error {
-	eg := new(errgroup.Group)
-
-	eg.Go(func() error {
-		err := p.orm.ClearGasPricesByDestChain(ctx, p.destChainSelector, int(p.priceExpireThreshold.Seconds()))
-		if err != nil {
-			return fmt.Errorf("error clearing gas prices: %w", err)
-		}
-		return nil
-	})
-
-	eg.Go(func() error {
-		err := p.orm.ClearTokenPricesByDestChain(ctx, p.destChainSelector, int(p.priceExpireThreshold.Seconds()))
-		if err != nil {
-			return fmt.Errorf("error clearing token prices: %w", err)
-		}
-		return nil
-	})
-
-	return eg.Wait()
-}
-
 func (p *priceService) runGasPriceUpdate(ctx context.Context) error {
 	// Protect against concurrent updates of `gasPriceEstimator` and `destPriceRegistryReader`
 	// Price updates happen infrequently - once every `gasPriceUpdateInterval` seconds.
@@ -322,6 +281,7 @@ func (p *priceService) observeGasPriceUpdates(
 
 	// Include wrapped native to identify the source native USD price, notice USD is in 1e18 scale, i.e. $1 = 1e18
 	rawTokenPricesUSD, err := p.priceGetter.TokenPricesUSD(ctx, []cciptypes.Address{p.sourceNative})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch source native price (%s): %w", p.sourceNative, err)
 	}
@@ -355,6 +315,9 @@ func (p *priceService) observeGasPriceUpdates(
 }
 
 // All prices are USD ($1=1e18) denominated. All prices must be not nil.
+// Jobspec should have the destination tokens (Aggregate Rate Limit, Bps) and 1 source token (source native).
+// Not respecting this will error out as we need to fetch the token decimals for all tokens expect sourceNative.
+// destTokens is only used to check if sourceNative has the same address as one of the dest tokens.
 // Return token prices should contain the exact same tokens as in tokenDecimals.
 func (p *priceService) observeTokenPriceUpdates(
 	ctx context.Context,
@@ -363,35 +326,72 @@ func (p *priceService) observeTokenPriceUpdates(
 	if p.destPriceRegistryReader == nil {
 		return nil, fmt.Errorf("destPriceRegistry is not set yet")
 	}
-
-	sortedLaneTokens, filteredLaneTokens, err := ccipcommon.GetFilteredSortedLaneTokens(ctx, p.offRampReader, p.destPriceRegistryReader, p.priceGetter)
+	rawTokenPricesUSD, err := p.priceGetter.GetJobSpecTokenPricesUSD(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("get destination tokens: %w", err)
+		return nil, fmt.Errorf("failed to fetch token prices: %w", err)
 	}
 
-	lggr.Debugw("Filtered bridgeable tokens with no configured price getter", "filteredLaneTokens", filteredLaneTokens)
-
-	queryTokens := ccipcommon.FlattenUniqueSlice(sortedLaneTokens)
-	rawTokenPricesUSD, err := p.priceGetter.TokenPricesUSD(ctx, queryTokens)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch token prices (%v): %w", queryTokens, err)
-	}
-	lggr.Infow("Raw token prices", "rawTokenPrices", rawTokenPricesUSD)
-
-	// make sure that we got prices for all the tokens of our query
-	for _, token := range queryTokens {
-		if rawTokenPricesUSD[token] == nil {
-			return nil, fmt.Errorf("missing token price: %+v", token)
+	// Verify no price returned by price getter is nil
+	for token, price := range rawTokenPricesUSD {
+		if price == nil {
+			return nil, fmt.Errorf("Token price is nil for token %s", token)
 		}
 	}
 
-	destTokensDecimals, err := p.destPriceRegistryReader.GetTokensDecimals(ctx, sortedLaneTokens)
+	lggr.Infow("Raw token prices", "rawTokenPrices", rawTokenPricesUSD)
+
+	sourceNativeEvmAddr, err := ccipcalc.GenericAddrToEvm(p.sourceNative)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert source native to EVM address: %w", err)
+	}
+
+	// Filter out source native token only if source native not in dest tokens
+	var finalDestTokens []cciptypes.Address
+	for token := range rawTokenPricesUSD {
+		tokenEvmAddr, err2 := ccipcalc.GenericAddrToEvm(token)
+		if err2 != nil {
+			return nil, fmt.Errorf("failed to convert token to EVM address: %w", err)
+		}
+
+		if tokenEvmAddr != sourceNativeEvmAddr {
+			finalDestTokens = append(finalDestTokens, token)
+		}
+	}
+
+	fee, bridged, err := ccipcommon.GetDestinationTokens(ctx, p.offRampReader, p.destPriceRegistryReader)
+	if err != nil {
+		return nil, fmt.Errorf("get destination tokens: %w", err)
+	}
+	onchainDestTokens := ccipcommon.FlattenedAndSortedTokens(fee, bridged)
+	lggr.Debugw("Destination tokens", "destTokens", onchainDestTokens)
+
+	onchainTokensEvmAddr, err := ccipcalc.GenericAddrsToEvm(onchainDestTokens...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert sorted lane tokens to EVM addresses: %w", err)
+	}
+	// Check for case where sourceNative has same address as one of the dest tokens (example: WETH in Base and Optimism)
+	hasSameDestAddress := slices.Contains(onchainTokensEvmAddr, sourceNativeEvmAddr)
+
+	if hasSameDestAddress {
+		finalDestTokens = append(finalDestTokens, p.sourceNative)
+	}
+
+	// Sort tokens to make the order deterministic, easier for testing and debugging
+	sort.Slice(finalDestTokens, func(i, j int) bool {
+		return finalDestTokens[i] < finalDestTokens[j]
+	})
+
+	destTokensDecimals, err := p.destPriceRegistryReader.GetTokensDecimals(ctx, finalDestTokens)
 	if err != nil {
 		return nil, fmt.Errorf("get tokens decimals: %w", err)
 	}
 
+	if len(destTokensDecimals) != len(finalDestTokens) {
+		return nil, fmt.Errorf("mismatched token decimals and tokens")
+	}
+
 	tokenPricesUSD = make(map[cciptypes.Address]*big.Int, len(rawTokenPricesUSD))
-	for i, token := range sortedLaneTokens {
+	for i, token := range finalDestTokens {
 		tokenPricesUSD[token] = calculateUsdPer1e18TokenAmount(rawTokenPricesUSD[token], destTokensDecimals[i])
 	}
 
@@ -403,28 +403,29 @@ func (p *priceService) observeTokenPriceUpdates(
 	return tokenPricesUSD, nil
 }
 
-func (p *priceService) writeGasPricesToDB(ctx context.Context, sourceGasPriceUSD *big.Int) (err error) {
+func (p *priceService) writeGasPricesToDB(ctx context.Context, sourceGasPriceUSD *big.Int) error {
 	if sourceGasPriceUSD == nil {
 		return nil
 	}
 
-	return p.orm.InsertGasPricesForDestChain(ctx, p.destChainSelector, p.jobId, []cciporm.GasPriceUpdate{
+	_, err := p.orm.UpsertGasPricesForDestChain(ctx, p.destChainSelector, []cciporm.GasPrice{
 		{
 			SourceChainSelector: p.sourceChainSelector,
 			GasPrice:            assets.NewWei(sourceGasPriceUSD),
 		},
 	})
+	return err
 }
 
-func (p *priceService) writeTokenPricesToDB(ctx context.Context, tokenPricesUSD map[cciptypes.Address]*big.Int) (err error) {
+func (p *priceService) writeTokenPricesToDB(ctx context.Context, tokenPricesUSD map[cciptypes.Address]*big.Int) error {
 	if tokenPricesUSD == nil {
 		return nil
 	}
 
-	var tokenPrices []cciporm.TokenPriceUpdate
+	var tokenPrices []cciporm.TokenPrice
 
 	for token, price := range tokenPricesUSD {
-		tokenPrices = append(tokenPrices, cciporm.TokenPriceUpdate{
+		tokenPrices = append(tokenPrices, cciporm.TokenPrice{
 			TokenAddr:  string(token),
 			TokenPrice: assets.NewWei(price),
 		})
@@ -435,7 +436,8 @@ func (p *priceService) writeTokenPricesToDB(ctx context.Context, tokenPricesUSD 
 		return tokenPrices[i].TokenAddr < tokenPrices[j].TokenAddr
 	})
 
-	return p.orm.InsertTokenPricesForDestChain(ctx, p.destChainSelector, p.jobId, tokenPrices)
+	_, err := p.orm.UpsertTokenPricesForDestChain(ctx, p.destChainSelector, tokenPrices, p.tokenUpdateInterval)
+	return err
 }
 
 // Input price is USD per full token, with 18 decimal precision
