@@ -64,8 +64,34 @@ func newProductionClient() *cmd.Shell {
 	}
 }
 
-func setupBeholder() {
+func beholderDevConfig() beholder.Config {
 	config := beholder.DefaultConfig()
+	// Set the OTel exporter endpoint
+	config.OtelExporterGRPCEndpoint = "localhost:4317"
+	// Add some more Resource Attributes
+	// Resource Attributes are static and are added to each emitted OTel data type
+	config.ResourceAttributes = append(config.ResourceAttributes, []attribute.KeyValue{
+		attribute.String("chain_id", "11155111"),
+		attribute.String("node_id", "dev-node-id"),
+	}...)
+	// Emitter
+	// Disable batching, should not be used in production
+	config.EmitterBatchProcessor = false
+	// Trace
+	config.TraceSampleRatio = 1
+	config.TraceBatchTimeout = 1 * time.Second
+	// Metric
+	config.MetricReaderInterval = 1 * time.Second
+	// Log
+	config.LogExportTimeout = 1 * time.Second
+	// Disable batching, should not be used in production
+	config.LogBatchProcessor = false
+	return config
+}
+
+func setupBeholder() {
+	config := beholderDevConfig()
+
 	log.Printf("Beholder config: %#v", config)
 
 	// Initialize beholder otel client which sets up OTel components
