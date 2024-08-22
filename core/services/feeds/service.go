@@ -209,7 +209,7 @@ func (s *service) RegisterManager(ctx context.Context, params RegisterManagerPar
 		var txerr error
 
 		id, txerr = tx.CreateManager(ctx, &mgr)
-		if err != nil {
+		if txerr != nil {
 			return txerr
 		}
 
@@ -219,6 +219,9 @@ func (s *service) RegisterManager(ctx context.Context, params RegisterManagerPar
 
 		return nil
 	})
+	if err != nil {
+		return 0, err
+	}
 
 	privkey, err := s.getCSAPrivateKey()
 	if err != nil {
