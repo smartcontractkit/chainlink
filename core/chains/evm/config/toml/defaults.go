@@ -84,7 +84,7 @@ func init() {
 	// Read directory contents
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		log.Printf("error reading custom defaults override directory: %v", err)
+		log.Fatalf("error reading custom defaults override directory: %v", err)
 		return
 	}
 
@@ -97,14 +97,14 @@ func init() {
 		path := dir + "/" + entry.Name()
 		file, err := os.Open(path)
 		if err != nil {
-			log.Printf("error opening file (name: %v) in custom defaults override directory: %v", entry.Name(), err)
+			log.Fatalf("error opening file (name: %v) in custom defaults override directory: %v", entry.Name(), err)
 			continue
 		}
 
 		// Read file contents
 		b, err := io.ReadAll(file)
 		if err != nil {
-			log.Printf("error reading file (name: %v) contents in custom defaults override directory: %v", entry.Name(), err)
+			log.Fatalf("error reading file (name: %v) contents in custom defaults override directory: %v", entry.Name(), err)
 			file.Close()
 			continue
 		}
