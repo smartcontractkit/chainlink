@@ -103,6 +103,11 @@ func (d *DynamicPriceGetter) FilterConfiguredTokens(ctx context.Context, tokens 
 	return configured, unconfigured, nil
 }
 
+// It returns the prices of all tokens defined in the price getter.
+func (d *DynamicPriceGetter) GetJobSpecTokenPricesUSD(ctx context.Context) (map[cciptypes.Address]*big.Int, error) {
+	return d.TokenPricesUSD(ctx, d.getAllTokensDefined())
+}
+
 // TokenPricesUSD implements the PriceGetter interface.
 // It returns static prices stored in the price getter, and batch calls aggregators (one per chain) to retrieve aggregator-based prices.
 func (d *DynamicPriceGetter) TokenPricesUSD(ctx context.Context, tokens []cciptypes.Address) (map[cciptypes.Address]*big.Int, error) {
@@ -114,6 +119,18 @@ func (d *DynamicPriceGetter) TokenPricesUSD(ctx context.Context, tokens []ccipty
 		return nil, err
 	}
 	return prices, nil
+}
+
+func (d *DynamicPriceGetter) getAllTokensDefined() []cciptypes.Address {
+	tokens := make([]cciptypes.Address, 0)
+
+	for addr := range d.cfg.AggregatorPrices {
+		tokens = append(tokens, ccipcalc.EvmAddrToGeneric(addr))
+	}
+	for addr := range d.cfg.StaticPrices {
+		tokens = append(tokens, ccipcalc.EvmAddrToGeneric(addr))
+	}
+	return tokens
 }
 
 // performBatchCalls performs batch calls on all chains to retrieve token prices.
