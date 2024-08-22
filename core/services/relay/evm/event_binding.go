@@ -146,11 +146,7 @@ func (e *eventBinding) GetLatestValue(ctx context.Context, confidenceLevel primi
 		return err
 	}
 
-	if len(e.inputInfo.Args()) == 0 {
-		return e.getLatestValueWithoutFilters(ctx, confirmations, into)
-	}
-
-	return e.getLatestValueWithFilters(ctx, confirmations, params, into)
+	return e.getLatestValue(ctx, confirmations, params, into)
 }
 
 func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
@@ -195,61 +191,85 @@ func (e *eventBinding) validateBound() error {
 	return nil
 }
 
-func (e *eventBinding) getLatestValueWithoutFilters(ctx context.Context, confs evmtypes.Confirmations, into any) error {
-	log, err := e.lp.LatestLogByEventSigWithConfs(ctx, e.hash, e.address, confs)
-	if err = wrapInternalErr(err); err != nil {
-		return err
-	}
-
-	return e.decodeLog(ctx, log, into)
-}
-
-func (e *eventBinding) getLatestValueWithFilters(
-	ctx context.Context, confs evmtypes.Confirmations, params, into any) error {
+func (e *eventBinding) getLatestValue(ctx context.Context, confs evmtypes.Confirmations, params, into any) error {
 	checkedValues, err := e.toChecked(WrapItemType(e.contractName, e.eventName, true), params)
 	if err != nil {
 		return err
 	}
 
-	filtersAndIndices, err := e.encodeParams(reflect.ValueOf(checkedValues))
+	filtersAndIndices, err := e.encodeCheckedParams(reflect.ValueOf(checkedValues))
 	if err != nil {
 		return err
 	}
 
+	hasFilter := false
+	for _, filters := range filtersAndIndices {
+		if filters != nil {
+			hasFilter = true
+		}
+	}
+
+	var log *logpoller.Log
+	if hasFilter {
+		if log, err = e.getLatestLog(ctx, confs, filtersAndIndices); err != nil {
+			return err
+		}
+	} else {
+		if log, err = e.lp.LatestLogByEventSigWithConfs(ctx, e.hash, e.address, confs); err != nil {
+			return wrapInternalErr(err)
+		}
+	}
+
+	return e.decodeLog(ctx, log, into)
+}
+
+func (e *eventBinding) getLatestLog(ctx context.Context, confs evmtypes.Confirmations, filtersAndIndices []*common.Hash) (*logpoller.Log, error) {
 	// Create limiter and filter for the query.
 	limiter := query.NewLimitAndSort(query.CountLimit(1), query.NewSortBySequence(query.Desc))
+	topicFilters, err := createTopicFilters(filtersAndIndices)
+	if err != nil {
+		return nil, err
+	}
+
 	filter, err := logpoller.Where(
+		topicFilters,
 		logpoller.NewAddressFilter(e.address),
 		logpoller.NewEventSigFilter(e.hash),
 		logpoller.NewConfirmationsFilter(confs),
-		createTopicFilters(filtersAndIndices),
 	)
 	if err != nil {
-		return wrapInternalErr(err)
+		return nil, fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 
 	// Gets the latest log that matches the filter and limiter.
 	logs, err := e.lp.FilteredLogs(ctx, filter, limiter, e.contractName+"-"+e.address.String()+"-"+e.eventName)
 	if err != nil {
-		return wrapInternalErr(err)
+		return nil, wrapInternalErr(err)
 	}
 
 	if len(logs) == 0 {
-		return fmt.Errorf("%w: no events found", commontypes.ErrNotFound)
+		return nil, fmt.Errorf("%w: no events found", commontypes.ErrNotFound)
 	}
-
-	return e.decodeLog(ctx, &logs[0], into)
+	return &logs[0], err
 }
 
-func createTopicFilters(filtersAndIndices []common.Hash) query.Expression {
+func createTopicFilters(filtersAndIndices []*common.Hash) (query.Expression, error) {
 	var expressions []query.Expression
 	for topicID, fai := range filtersAndIndices {
+		if fai == nil {
+			continue
+		}
 		// first topic index is 1-based, so we add 1.
 		expressions = append(expressions, logpoller.NewEventByTopicFilter(
-			uint64(topicID+1), []primitives.ValueComparator{{Value: fai.Hex(), Operator: primitives.Eq}},
+			uint64(topicID+1), []logpoller.HashedValueComparator{{Value: *fai, Operator: primitives.Eq}},
 		))
 	}
-	return query.And(expressions...)
+
+	if len(expressions) == 0 {
+		return query.Expression{}, fmt.Errorf("%w: no topc filters found during query creation", commontypes.ErrInternal)
+	}
+
+	return query.And(expressions...), nil
 }
 
 // toChecked injects value into a type that matches onchain types.
@@ -269,8 +289,8 @@ func (e *eventBinding) toChecked(itemType string, value any) (any, error) {
 }
 
 // TODO unspaghetti
-// encodeParams accepts chain types and encodes them to match onchain topics.
-func (e *eventBinding) encodeParams(checkedTypes reflect.Value) ([]common.Hash, error) {
+// encodeCheckedParams accepts checked chain types and encodes them to match onchain topics.
+func (e *eventBinding) encodeCheckedParams(checkedTypes reflect.Value) ([]*common.Hash, error) {
 	// convert onChain params to native types similarly to generated abi wrappers, for e.g. fixed bytes32 abi type to [32]uint8.
 	nativeParams, err := e.inputInfo.ToNative(checkedTypes)
 	if err != nil {
@@ -281,16 +301,16 @@ func (e *eventBinding) encodeParams(checkedTypes reflect.Value) ([]common.Hash, 
 		nativeParams = reflect.Indirect(nativeParams)
 	}
 
-	var values []any
+	var params []any
 	switch nativeParams.Kind() {
 	case reflect.Array, reflect.Slice:
 		native, err := representArray(nativeParams, e.inputInfo)
 		if err != nil {
 			return nil, err
 		}
-		values = []any{native}
+		params = []any{native}
 	case reflect.Struct, reflect.Map:
-		if values, err = unrollItem(nativeParams, e.inputInfo); err != nil {
+		if params, err = unrollItem(nativeParams, e.inputInfo); err != nil {
 			return nil, err
 		}
 	default:
@@ -298,43 +318,48 @@ func (e *eventBinding) encodeParams(checkedTypes reflect.Value) ([]common.Hash, 
 	}
 
 	// abi params allow you to Pack a pointers, but makeTopics doesn't work with pointers.
-	// TODO extract this from here for remaps and deref manually because of error referencing topics by indexes
-	if err = e.derefTopics(values); err != nil {
-		return nil, err
-	}
-
-	return e.makeTopics(values)
+	return e.makeTopics(derefValues(params))
 }
 
-func (e *eventBinding) derefTopics(topics []any) error {
+// derefValues dereferences pointers to nil values to nil.
+func derefValues(topics []any) []any {
 	for i, topic := range topics {
 		rTopic := reflect.ValueOf(topic)
 		if rTopic.Kind() == reflect.Pointer {
 			if rTopic.IsNil() {
-				return fmt.Errorf(
-					"%w: input topic %s cannot be nil", commontypes.ErrInvalidType, e.inputInfo.Args()[i].Name)
+				topics[i] = nil
+			} else {
+				topics[i] = rTopic.Elem().Interface()
 			}
-			topics[i] = rTopic.Elem().Interface()
 		}
 	}
-	return nil
+	return topics
 }
 
 // makeTopics encodes and hashes params filtering values to match onchain indexed topics.
-func (e *eventBinding) makeTopics(params []any) ([]common.Hash, error) {
-	// make topic value for non-fixed bytes array manually because geth MakeTopics doesn't support it
-	for i, topic := range params {
-		// TODO if you didn't add input info in config, but have a topic for QueryKey, this will panic, which is not good
+func (e *eventBinding) makeTopics(topics []any) ([]*common.Hash, error) {
+	var hashableTopics []any
+	nonHashableTopics := make(map[int]bool)
+	for i, topic := range topics {
+		if topic == nil {
+			nonHashableTopics[i] = true
+			continue
+		}
+
+		// make topic value for non-fixed bytes array manually because geth MakeTopics doesn't support it
 		if abiArg := e.inputInfo.Args()[i]; abiArg.Type.T == abi.ArrayTy && (abiArg.Type.Elem != nil && abiArg.Type.Elem.T == abi.UintTy) {
 			packed, err := abi.Arguments{abiArg}.Pack(topic)
 			if err != nil {
 				return nil, err
 			}
-			params[i] = crypto.Keccak256Hash(packed)
+			topics[i] = crypto.Keccak256Hash(packed)
 		}
+
+		hashableTopics = append(hashableTopics, topic)
+		nonHashableTopics[i] = false
 	}
 
-	hashes, err := abi.MakeTopics(params)
+	hashes, err := abi.MakeTopics(hashableTopics)
 	if err != nil {
 		return nil, wrapInternalErr(err)
 	}
@@ -343,7 +368,15 @@ func (e *eventBinding) makeTopics(params []any) ([]common.Hash, error) {
 		return nil, fmt.Errorf("%w: expected 1 filter set, got %d", commontypes.ErrInternal, len(hashes))
 	}
 
-	return hashes[0], nil
+	var ptrHashes []*common.Hash
+	for i, hash := range hashes[0] {
+		if nonHashableTopics[i] {
+			ptrHashes = append(ptrHashes, nil)
+		}
+		ptrHashes = append(ptrHashes, &hash)
+	}
+
+	return ptrHashes, nil
 }
 
 func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into any) error {
@@ -454,15 +487,29 @@ func (e *eventBinding) remapPrimitive(expression query.Expression) (query.Expres
 			hashedValComp := logpoller.HashedValueComparator{Operator: valComp.Operator}
 			if isDW {
 				// TODO
-				return query.Expression{}, nil
+				//hashedValComp.Value, err = e.encodeDataWord(valChecked, primitive.Name)
+				//return query.Expression{}, nil
 			} else {
-				wrappedVal := reflect.New(reflect.StructOf([]reflect.StructField{{Name: primitive.Name, Type: reflect.TypeOf(valChecked)}}))
-				wrappedVal.Elem().FieldByName(primitive.Name).Set(reflect.ValueOf(valChecked))
-				topics, err := e.encodeParams(wrappedVal)
+				var filterIndex int
+				var topicFields []reflect.StructField
+				for i, arg := range e.inputInfo.Args() {
+					if arg.Name == e.topics[primitive.Name].Name {
+						filterIndex = i
+						topicFields = append(topicFields, reflect.StructField{Name: primitive.Name, Type: reflect.TypeOf(valChecked)})
+					} else {
+						topicFields = append(topicFields, reflect.StructField{Name: arg.Name, Type: reflect.TypeOf(struct{}{})})
+					}
+				}
+
+				topics := reflect.New(reflect.StructOf(topicFields))
+				topics.Elem().FieldByName(primitive.Name).Set(reflect.ValueOf(valChecked))
+				hashedTopics, err := e.encodeCheckedParams(topics)
 				if err != nil {
 					return query.Expression{}, err
 				}
-				hashedValComp.Value = topics[0]
+
+				// TODO nil ptr deref
+				hashedValComp.Value = *hashedTopics[filterIndex]
 			}
 			hashedValComps = append(hashedValComps, hashedValComp)
 		}
@@ -482,16 +529,16 @@ func (e *eventBinding) remapPrimitive(expression query.Expression) (query.Expres
 }
 
 // TODO
-func (e *eventBinding) encodeDataWord(nativeValue reflect.Value, primitive primitives.Comparator) (common.Hash, error) {
+func (e *eventBinding) encodeDataWord(nativeValue reflect.Value, name string) (common.Hash, error) {
 	// TODO recalculate dwIndex if value that we are searching for is after a dynamic type like string, tuple, array...
 	// this will only work with static types that don't have a dynamic type before them
-	dwIndex, ok := e.dataWordsMapping[primitive.Name]
+	dwIndex, ok := e.dataWordsMapping[name]
 	if !ok {
-		return common.Hash{}, fmt.Errorf("cannot find data word maping for %s", primitive.Name)
+		return common.Hash{}, fmt.Errorf("cannot find data word maping for %s", name)
 	}
 
 	if len(e.dataWordsInfo) <= int(dwIndex) {
-		return common.Hash{}, fmt.Errorf("data word index is out of bounds %d for data word  %s", dwIndex, primitive.Name)
+		return common.Hash{}, fmt.Errorf("data word index is out of bounds %d for data word  %s", dwIndex, name)
 	}
 
 	packedArgs, err := abi.Arguments{e.dataWordsInfo[dwIndex].Argument}.Pack(nativeValue)

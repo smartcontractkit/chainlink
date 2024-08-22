@@ -227,7 +227,7 @@ func (cr *chainReader) addMethod(
 
 	cr.bindings.AddReader(contractName, methodName, read.NewMethodBinding(contractName, methodName, cr.client, cr.ht, confirmations, cr.lggr))
 
-	if err := cr.addEncoderDef(contractName, methodName, method.Inputs, method.ID, chainReaderDefinition.InputModifications); err != nil {
+	if err = cr.addEncoderDef(contractName, methodName, method.Inputs, method.ID, chainReaderDefinition.InputModifications); err != nil {
 		return err
 	}
 
@@ -240,16 +240,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return fmt.Errorf("%w: event %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
-	var inputFields []string
-	if chainReaderDefinition.EventDefinitions != nil {
-		inputFields = chainReaderDefinition.EventDefinitions.InputFields
-	}
-
-	filterArgs, codecTopicInfo, indexArgNames, eventDws := setupEventInput(event, inputFields)
-	if err := verifyEventIndexedInputsUsed(eventName, inputFields, indexArgNames); err != nil {
-		return err
-	}
-
+	filterArgs, codecTopicInfo, eventDws := setupEventInput(event)
 	if err := codecTopicInfo.Init(); err != nil {
 		return err
 	}
@@ -370,13 +361,7 @@ func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.
 
 // setupEventInput returns abi args where indexed flag is set to false because we expect caller to filter with params that aren't hashed.
 // codecEntry has expected onchain types set, for e.g. indexed topics of type string or uint8[32] array are expected as common.Hash onchain.
-func setupEventInput(event abi.Event, inputFields []string) ([]abi.Argument, types.CodecEntry, map[string]bool, eventDataWords) {
-	topicFieldDefs := map[string]bool{}
-	for _, value := range inputFields {
-		capFirstValue := abi.ToCamelCase(value)
-		topicFieldDefs[capFirstValue] = true
-	}
-
+func setupEventInput(event abi.Event) ([]abi.Argument, types.CodecEntry, eventDataWords) {
 	filterArgs := make([]abi.Argument, 0, types.MaxTopicFields)
 	inputArgs := make([]abi.Argument, 0, len(event.Inputs))
 	indexArgNames := map[string]bool{}
@@ -388,30 +373,18 @@ func setupEventInput(event abi.Event, inputFields []string) ([]abi.Argument, typ
 			continue
 		}
 
-		filterWith := topicFieldDefs[abi.ToCamelCase(input.Name)]
-		if filterWith {
-			// When presenting the filter off-chain,
-			// the user will provide the unhashed version of the input
-			// The reader will hash topics if needed.
-			inputUnindexed := input
-			inputUnindexed.Indexed = false
-			filterArgs = append(filterArgs, inputUnindexed)
-		}
-
 		inputArgs = append(inputArgs, input)
+
+		// When presenting the filter off-chain,
+		// the user will provide the unhashed version of the input
+		// The reader will hash topics if needed.
+		inputUnindexed := input
+		inputUnindexed.Indexed = false
+		filterArgs = append(filterArgs, inputUnindexed)
 		indexArgNames[abi.ToCamelCase(input.Name)] = true
 	}
 
-	return filterArgs, types.NewCodecEntry(inputArgs, nil, nil), indexArgNames, eventDws
-}
-
-func verifyEventIndexedInputsUsed(eventName string, inputFields []string, indexArgNames map[string]bool) error {
-	for _, value := range inputFields {
-		if !indexArgNames[abi.ToCamelCase(value)] {
-			return fmt.Errorf("%w: %s is not an indexed argument of event %s", commontypes.ErrInvalidConfig, value, eventName)
-		}
-	}
-	return nil
+	return filterArgs, types.NewCodecEntry(inputArgs, nil, nil), eventDws
 }
 
 // ConfirmationsFromConfig maps chain agnostic confidence levels defined in config to predefined EVM finality.

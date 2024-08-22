@@ -137,7 +137,6 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						ReadType:          types.Event,
 						EventDefinitions: &types.EventDefinitions{
 							GenericTopicNames: map[string]string{"field": "Field"},
-							InputFields:       []string{"Field"},
 							// TODO does it have to be in form of "NestedStruct.FixedBytes", how does that work with chain agnosticism? At the same time its weird to allow just an identifier since they can collide
 							GenericDataWordNames: map[string]uint8{"nestedStruct.FixedBytes": 0},
 						},
@@ -148,13 +147,11 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 					EventWithFilterName: {
 						ChainSpecificName: "Triggered",
 						ReadType:          types.Event,
-						EventDefinitions:  &types.EventDefinitions{InputFields: []string{"Field"}},
 					},
 					triggerWithDynamicTopic: {
 						ChainSpecificName: triggerWithDynamicTopic,
 						ReadType:          types.Event,
 						EventDefinitions: &types.EventDefinitions{
-							InputFields: []string{"fieldHash"},
 							// No specific reason for filter being defined here instead of on contract level, this is just for test case variety.
 							PollingFilter: &types.PollingFilter{},
 						},
@@ -166,7 +163,6 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						ChainSpecificName: triggerWithAllTopics,
 						ReadType:          types.Event,
 						EventDefinitions: &types.EventDefinitions{
-							InputFields:   []string{"Field1", "Field2", "Field3"},
 							PollingFilter: &types.PollingFilter{},
 						},
 						// This doesn't have to be here, since the defalt mapping would work, but is left as an example.
@@ -177,9 +173,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 					triggerWithAllTopicsWithHashed: {
 						ChainSpecificName: triggerWithAllTopicsWithHashed,
 						ReadType:          types.Event,
-						EventDefinitions: &types.EventDefinitions{
-							InputFields: []string{"Field1", "Field2", "Field3"},
-						},
+						EventDefinitions:  &types.EventDefinitions{},
 					},
 					MethodReturningSeenStruct: {
 						ChainSpecificName: "returnSeen",

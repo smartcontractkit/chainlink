@@ -104,7 +104,7 @@ type EventDefinitions struct {
 	// key is a predefined generic name for evm log event data word
 	// for e.g. first evm data word(32bytes) of USDC log event is value so the key can be called value
 	GenericDataWordNames map[string]uint8 `json:"genericDataWordNames,omitempty"`
-	// InputFields allows you to choose which indexed fields are expected from the input
+	// Deprecated: not needed anymore
 	InputFields []string `json:"inputFields,omitempty"`
 	// PollingFilter should be defined on a contract level in ContractPollingFilter,
 	// unless event needs to override the contract level filter options.
