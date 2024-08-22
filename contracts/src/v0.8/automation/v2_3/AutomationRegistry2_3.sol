@@ -19,8 +19,6 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
 
-  uint256 mietek;
-
   /**
    * @notice versions:
    * AutomationRegistry 2.3.0: supports native and ERC20 billing
