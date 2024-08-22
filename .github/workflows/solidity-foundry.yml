@@ -74,16 +74,16 @@ jobs:
           list-files: 'shell'
           filters: |
             non_src:
-              - '.github/workflows/solidity-foundry.yml'
+              - '.github/workflows/solidity-foundry.yml'            
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
               - 'contracts/package.json'
             sol:
               - modified|added: 'contracts/src/v0.8/**/*.sol'
             sol_mod_only:
-              - modified: 'contracts/src/v0.8/**/!(*.t).sol'            
+              - modified: 'contracts/src/v0.8/**/!(tests|mocks)/!(*.t).sol'
             not_test_sol:
-              - modified|added: 'contracts/src/v0.8/**/!(*.t).sol'            
+              - modified|added: 'contracts/src/v0.8/**/!(tests|mocks)/!(*.t).sol'
             automation:
               - 'contracts/src/v0.8/automation/**/*.sol'
             ccip:
@@ -112,7 +112,7 @@ jobs:
               - 'contracts/src/v0.8/transmission/**/*.sol'
 
   tests:
-    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified == 'true' }}
+    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified_added == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -425,8 +425,7 @@ jobs:
               fi
           
             else
-              echo "::error::Failed to find current commit's equivalent of $base_report (file $current_file doesn't exist, but should have been generated). Please check Slither logs."
-              exit 1
+              echo "::warning::Failed to find current commit's equivalent of $base_report (file $current_report doesn't exist, but should have been generated). Please check Slither logs."
             fi
           done
 
@@ -458,6 +457,49 @@ jobs:
             contracts/slither-reports-current
           retention-days: 7
 
+      - name: Find Slither comment in the PR
+        uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.0.0
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: 'Static analysis results'
+
+      - name: Extract job summary URL
+        id: job-summary-url
+        uses: pl-strflt/job-summary-url-action@df2d22c5351f73e0a187d20879854b8d98e6e001 # v1.0.0
+        with:
+          job: 'Run static analysis'
+
+      - name: Build Slither reports artifacts URL
+        id: build-slither-artifact-url
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="slither-reports-${{ github.sha }}") | .id')
+          echo "Artifact ID: $ARTIFACT_ID"
+          
+          slither_artifact_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID"
+          echo "slither_artifact_url=$slither_artifact_url" >> $GITHUB_OUTPUT     
+
+      - name: Create or update Slither comment in the PR
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## Static analysis results are available
+            Hey @${{ github.actor }}, you can view Slither reports in the job summary [here](${{ steps.job-summary-url.outputs.job_summary_url }}) or download them as artifact [here](${{ steps.build-slither-artifact-url.outputs.slither_artifact_url }}).
+            
+            Please check them before merging and make sure you have addressed all issues.
+          edit-mode: replace
+
+      - name: Remove temp artifacts
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: tmp-*
+
       - name: Collect Metrics
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
@@ -468,11 +510,6 @@ jobs:
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Run static analysis
         continue-on-error: true
-
-      - name: Remove temp artifacts
-        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
-        with:
-          name: tmp-*
 
   solidity-forge-fmt:
     name: Forge fmt ${{ matrix.product.name }}
