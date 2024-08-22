@@ -3851,6 +3851,10 @@ func Test_Service_StartStop(t *testing.T) {
 			ID:  1,
 			URI: "localhost:2000",
 		}
+		mgr2 = feeds.FeedsManager{
+			ID:  2,
+			URI: "localhost:2001",
+		}
 		pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
 	)
 
@@ -3869,6 +3873,18 @@ func Test_Service_StartStop(t *testing.T) {
 				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{mgr}, nil)
 				svc.connMgr.On("IsConnected", mgr.ID).Return(false)
 				svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
+				svc.connMgr.On("Close")
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+			},
+		},
+		{
+			name: "success with multiple feeds managers connection",
+			beforeFunc: func(svc *TestService) {
+				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{mgr, mgr2}, nil)
+				svc.connMgr.On("IsConnected", mgr.ID).Return(false)
+				svc.connMgr.On("IsConnected", mgr2.ID).Return(false)
+				svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Twice()
 				svc.connMgr.On("Close")
 				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
 			},

@@ -1023,7 +1023,6 @@ func (s *service) Start(ctx context.Context) error {
 			return err
 		}
 
-		// We only support a single feeds manager right now
 		mgrs, err := s.ListManagers(ctx)
 		if err != nil {
 			return err
@@ -1034,8 +1033,10 @@ func (s *service) Start(ctx context.Context) error {
 			return nil
 		}
 
-		mgr := mgrs[0]
-		s.connectFeedManager(ctx, mgr, privkey)
+		s.lggr.Infof("starting connection to %d feeds managers", len(mgrs))
+		for _, mgr := range mgrs {
+			s.connectFeedManager(ctx, mgr, privkey)
+		}
 
 		if err = s.observeJobProposalCounts(ctx); err != nil {
 			s.lggr.Error("failed to observe job proposal count when starting service", err)
