@@ -25,7 +25,7 @@ ocr3_config_encoder: ../../../contracts/solc/v0.8.24/IOCR3ConfigEncoder/IOCR3Con
 offramp: ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.abi ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.bin 76ec9676116368ab7c7c7ed45191698a12e4d975633caea32d821a1125633589
 onramp: ../../../contracts/solc/v0.8.24/OnRamp/OnRamp.abi ../../../contracts/solc/v0.8.24/OnRamp/OnRamp.bin 123e949bc9607289382534c4432ecebe5b1da5ca92c1c6c8cc6b9be56c3352c6
 ping_pong_demo: ../../../contracts/solc/v0.8.24/PingPongDemo/PingPongDemo.abi ../../../contracts/solc/v0.8.24/PingPongDemo/PingPongDemo.bin 4e51d70bdb6d951041518a3d7fd3b33ba8d3954bcc3d078318055b833b880324
-price_registry: ../../../contracts/solc/v0.8.24/PriceRegistry/PriceRegistry.abi ../../../contracts/solc/v0.8.24/PriceRegistry/PriceRegistry.bin 8f4bdaa4d8239429ae4e047ab06d445bad42234a05bb7c99ba6141bd811e1722
+price_registry: ../../../contracts/solc/v0.8.24/PriceRegistry/PriceRegistry.abi ../../../contracts/solc/v0.8.24/PriceRegistry/PriceRegistry.bin 8931609776700a2a8121c9fdd757dbf9207d8b97583e70c84ec2d88c839d4a30
 registry_module_owner_custom: ../../../contracts/solc/v0.8.24/RegistryModuleOwnerCustom/RegistryModuleOwnerCustom.abi ../../../contracts/solc/v0.8.24/RegistryModuleOwnerCustom/RegistryModuleOwnerCustom.bin 75be86323c227917a9bbc3f799d7ed02f92db546653a36db30ed0ebe64461353
 report_codec: ../../../contracts/solc/v0.8.24/ReportCodec/ReportCodec.abi ../../../contracts/solc/v0.8.24/ReportCodec/ReportCodec.bin 20292ddaba15096fe8060567cf56cda673b947df27241d0c49d2debc838feb24
 rmn_contract: ../../../contracts/solc/v0.8.24/RMN/RMN.abi ../../../contracts/solc/v0.8.24/RMN/RMN.bin 8b45b0fb08631c6b582fd3c0b4052a79cc2b4e091e6286af1ab131bef63661f9

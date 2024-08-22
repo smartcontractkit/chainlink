@@ -11,14 +11,24 @@ import {Internal} from "./libraries/Internal.sol";
 import {Pool} from "./libraries/Pool.sol";
 import {USDPriceWith18Decimals} from "./libraries/USDPriceWith18Decimals.sol";
 
+import {KeystoneFeedsPermissionHandler} from "../keystone/KeystoneFeedsPermissionHandler.sol";
+import {IReceiver} from "../keystone/interfaces/IReceiver.sol";
+import {KeystoneFeedDefaultMetadataLib} from "../keystone/lib/KeystoneFeedDefaultMetadataLib.sol";
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice The PriceRegistry contract responsibility is to store the current gas price in USD for a given destination chain,
 /// and the price of a token in USD allowing the owner or priceUpdater to update this value.
 /// The authorized callers in the contract represent the fee price updaters.
-contract PriceRegistry is AuthorizedCallers, IPriceRegistry, ITypeAndVersion {
+contract PriceRegistry is
+  AuthorizedCallers,
+  IPriceRegistry,
+  ITypeAndVersion,
+  IReceiver,
+  KeystoneFeedsPermissionHandler
+{
   using EnumerableSet for EnumerableSet.AddressSet;
   using USDPriceWith18Decimals for uint224;
+  using KeystoneFeedDefaultMetadataLib for bytes;
 
   /// @notice Token price data feed update
   struct TokenPriceFeedUpdate {
@@ -35,9 +45,17 @@ contract PriceRegistry is AuthorizedCallers, IPriceRegistry, ITypeAndVersion {
     uint32 stalenessThreshold; // The amount of time a gas price can be stale before it is considered invalid.
   }
 
+  /// @notice The struct representing the received CCIP feed report from keystone IReceiver.onReport()
+  struct ReceivedCCIPFeedReport {
+    address token; // Token address
+    uint224 price; // ─────────╮ Price of the token in USD with 18 decimals
+    uint32 timestamp; // ──────╯ Timestamp of the price update
+  }
+
   error TokenNotSupported(address token);
   error ChainNotSupported(uint64 chain);
   error StaleGasPrice(uint64 destChainSelector, uint256 threshold, uint256 timePassed);
+  error StaleKeystoneUpdate(address token, uint256 feedTimestamp, uint256 storedTimeStamp);
   error DataFeedValueOutOfUint224Range();
   error InvalidDestBytesOverhead(address token, uint32 destBytesOverhead);
   error MessageGasLimitTooHigh();
@@ -325,30 +343,11 @@ contract PriceRegistry is AuthorizedCallers, IPriceRegistry, ITypeAndVersion {
     if (dataFeedAnswer < 0) {
       revert DataFeedValueOutOfUint224Range();
     }
-    uint256 rebasedValue = uint256(dataFeedAnswer);
-
-    // Rebase formula for units in smallest token denomination: usdValue * (1e18 * 1e18) / 1eTokenDecimals
-    // feedValue * (10 ** (18 - feedDecimals)) * (10 ** (18 - erc20Decimals))
-    // feedValue * (10 ** ((18 - feedDecimals) + (18 - erc20Decimals)))
-    // feedValue * (10 ** (36 - feedDecimals - erc20Decimals))
-    // feedValue * (10 ** (36 - (feedDecimals + erc20Decimals)))
-    // feedValue * (10 ** (36 - excessDecimals))
-    // If excessDecimals > 36 => flip it to feedValue / (10 ** (excessDecimals - 36))
-
-    uint8 excessDecimals = dataFeedContract.decimals() + priceFeedConfig.tokenDecimals;
-
-    if (excessDecimals > 36) {
-      rebasedValue /= 10 ** (excessDecimals - 36);
-    } else {
-      rebasedValue *= 10 ** (36 - excessDecimals);
-    }
-
-    if (rebasedValue > type(uint224).max) {
-      revert DataFeedValueOutOfUint224Range();
-    }
+    uint224 rebasedValue =
+      _calculateRebasedValue(dataFeedContract.decimals(), priceFeedConfig.tokenDecimals, uint256(dataFeedAnswer));
 
     // Data feed staleness is unchecked to decouple the PriceRegistry from data feed delay issues
-    return Internal.TimestampedPackedUint224({value: uint224(rebasedValue), timestamp: uint32(block.timestamp)});
+    return Internal.TimestampedPackedUint224({value: rebasedValue, timestamp: uint32(block.timestamp)});
   }
 
   // ================================================================
@@ -432,6 +431,37 @@ contract PriceRegistry is AuthorizedCallers, IPriceRegistry, ITypeAndVersion {
 
       s_usdPriceFeedsPerToken[sourceToken] = tokenPriceFeedConfig;
       emit PriceFeedPerTokenUpdated(sourceToken, tokenPriceFeedConfig);
+    }
+  }
+
+  /// @notice Handles the report containing price feeds and updates the internal price storage
+  /// @inheritdoc IReceiver
+  /// @dev This function is called to process incoming price feed data.
+  /// @param metadata Arbitrary metadata associated with the report (not used in this implementation).
+  /// @param report Encoded report containing an array of `ReceivedCCIPFeedReport` structs.
+  function onReport(bytes calldata metadata, bytes calldata report) external {
+    (bytes10 workflowName, address workflowOwner, bytes2 reportName) = metadata._extractMetadataInfo();
+
+    _validateReportPermission(msg.sender, workflowOwner, workflowName, reportName);
+
+    ReceivedCCIPFeedReport[] memory feeds = abi.decode(report, (ReceivedCCIPFeedReport[]));
+
+    for (uint256 i = 0; i < feeds.length; ++i) {
+      uint8 tokenDecimals = s_usdPriceFeedsPerToken[feeds[i].token].tokenDecimals;
+      if (tokenDecimals == 0) {
+        revert TokenNotSupported(feeds[i].token);
+      }
+      // Keystone reports prices in USD with 18 decimals, so we passing it as 18 in the _calculateRebasedValue function
+      uint224 rebasedValue = _calculateRebasedValue(18, tokenDecimals, feeds[i].price);
+
+      //if stale update then revert
+      if (feeds[i].timestamp < s_usdPerToken[feeds[i].token].timestamp) {
+        revert StaleKeystoneUpdate(feeds[i].token, feeds[i].timestamp, s_usdPerToken[feeds[i].token].timestamp);
+      }
+
+      s_usdPerToken[feeds[i].token] =
+        Internal.TimestampedPackedUint224({value: rebasedValue, timestamp: feeds[i].timestamp});
+      emit UsdPerTokenUpdated(feeds[i].token, rebasedValue, feeds[i].timestamp);
     }
   }
 
@@ -610,6 +640,39 @@ contract PriceRegistry is AuthorizedCallers, IPriceRegistry, ITypeAndVersion {
     }
 
     return (tokenTransferFeeUSDWei, tokenTransferGas, tokenTransferBytesOverhead);
+  }
+
+  /// @notice calculates the rebased value for 1e18 smallest token denomination
+  /// @param dataFeedDecimal decimal of the data feed
+  /// @param tokenDecimal decimal of the token
+  /// @param feedValue value of the data feed
+  /// @return rebasedValue rebased value
+  function _calculateRebasedValue(
+    uint8 dataFeedDecimal,
+    uint8 tokenDecimal,
+    uint256 feedValue
+  ) internal pure returns (uint224 rebasedValue) {
+    // Rebase formula for units in smallest token denomination: usdValue * (1e18 * 1e18) / 1eTokenDecimals
+    // feedValue * (10 ** (18 - feedDecimals)) * (10 ** (18 - erc20Decimals))
+    // feedValue * (10 ** ((18 - feedDecimals) + (18 - erc20Decimals)))
+    // feedValue * (10 ** (36 - feedDecimals - erc20Decimals))
+    // feedValue * (10 ** (36 - (feedDecimals + erc20Decimals)))
+    // feedValue * (10 ** (36 - excessDecimals))
+    // If excessDecimals > 36 => flip it to feedValue / (10 ** (excessDecimals - 36))
+    uint8 excessDecimals = dataFeedDecimal + tokenDecimal;
+    uint256 rebasedVal;
+
+    if (excessDecimals > 36) {
+      rebasedVal = feedValue / (10 ** (excessDecimals - 36));
+    } else {
+      rebasedVal = feedValue * (10 ** (36 - excessDecimals));
+    }
+
+    if (rebasedVal > type(uint224).max) {
+      revert DataFeedValueOutOfUint224Range();
+    }
+
+    return uint224(rebasedVal);
   }
 
   /// @notice Returns the estimated data availability cost of the message.
