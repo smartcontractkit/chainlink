@@ -40,12 +40,16 @@ type chainReader struct {
 	bindings
 	codec commontypes.RemoteCodec
 	commonservices.StateMachine
-	isStarted bool
 }
 
 var _ ChainReaderService = (*chainReader)(nil)
 var _ commontypes.ContractTypeProvider = &chainReader{}
 var errServiceNotStarted = errors.New("ContractReader service not started")
+
+const (
+	stateStopped = "Stopped"
+	stateStarted = "Started"
+)
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
 // Note that the ChainReaderService returned does not support anonymous events.
@@ -143,12 +147,12 @@ func (cr *chainReader) Name() string { return cr.lggr.Name() }
 
 // Start registers polling filters if contracts are already bound.
 func (cr *chainReader) Start(ctx context.Context) error {
-	if cr.isStarted {
+	if cr.StateMachine.State() == stateStarted {
 		return nil
 	}
 
 	return cr.StartOnce("ChainReader", func() error {
-		err := cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+		return cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
 			for _, rb := range cb.readBindings {
 				if err := rb.Register(ctx); err != nil {
 					return err
@@ -156,23 +160,19 @@ func (cr *chainReader) Start(ctx context.Context) error {
 			}
 			return cb.Register(ctx, cr.lp)
 		})
-		if err == nil {
-			cr.isStarted = true
-		}
-		return err
 	})
 }
 
 // Close unregisters polling filters for bound contracts.
 func (cr *chainReader) Close() error {
-	if !cr.isStarted {
+	if cr.StateMachine.State() == stateStopped {
 		return nil
 	}
 
 	return cr.StopOnce("ChainReader", func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		err := cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+		return cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
 			for _, rb := range cb.readBindings {
 				if err := rb.Unregister(ctx); err != nil {
 					return err
@@ -180,10 +180,6 @@ func (cr *chainReader) Close() error {
 			}
 			return cb.Unregister(ctx, cr.lp)
 		})
-		if err == nil {
-			cr.isStarted = false
-		}
-		return err
 	})
 }
 
@@ -194,7 +190,7 @@ func (cr *chainReader) HealthReport() map[string]error {
 }
 
 func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
-	if !cr.isStarted {
+	if cr.StateMachine.State() != stateStarted {
 		return errServiceNotStarted
 	}
 
@@ -207,7 +203,7 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method 
 }
 
 func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
-	if !cr.isStarted {
+	if cr.StateMachine.State() != stateStarted {
 		return nil, errServiceNotStarted
 	}
 
@@ -219,7 +215,7 @@ func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundCon
 }
 
 func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	if !cr.isStarted {
+	if cr.StateMachine.State() != stateStarted {
 		return nil, errServiceNotStarted
 	}
 
