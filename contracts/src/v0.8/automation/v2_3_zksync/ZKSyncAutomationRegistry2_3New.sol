@@ -3,9 +3,9 @@ pragma solidity 0.8.19;
 
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import {AutomationRegistryBase2_3} from "./AutomationRegistryBase2_3.sol";
-import {AutomationRegistryLogicA2_3} from "./AutomationRegistryLogicA2_3.sol";
-import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
+import {ZKSyncAutomationRegistryBase2_3} from "./ZKSyncAutomationRegistryBase2_3.sol";
+import {ZKSyncAutomationRegistryLogicA2_3} from "./ZKSyncAutomationRegistryLogicA2_3.sol";
+import {ZKSyncAutomationRegistryLogicC2_3} from "./ZKSyncAutomationRegistryLogicC2_3.sol";
 import {Chainable} from "../Chainable.sol";
 import {OCR2Abstract} from "../../shared/ocr2/OCR2Abstract.sol";
 import {IERC20Metadata as IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -14,12 +14,10 @@ import {IERC20Metadata as IERC20} from "../../vendor/openzeppelin-solidity/v4.8.
  * @notice Registry for adding work for Chainlink nodes to perform on client
  * contracts. Clients must support the AutomationCompatibleInterface interface.
  */
-contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chainable {
+contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abstract, Chainable {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
-
-  uint256 public newOne;
 
   /**
    * @notice versions:
@@ -52,17 +50,17 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
    * @dev we cast the contract to logicC in order to call logicC functions (via fallback)
    */
   constructor(
-    AutomationRegistryLogicA2_3 logicA
+    ZKSyncAutomationRegistryLogicA2_3 logicA
   )
-    AutomationRegistryBase2_3(
-      AutomationRegistryLogicC2_3(address(logicA)).getLinkAddress(),
-      AutomationRegistryLogicC2_3(address(logicA)).getLinkUSDFeedAddress(),
-      AutomationRegistryLogicC2_3(address(logicA)).getNativeUSDFeedAddress(),
-      AutomationRegistryLogicC2_3(address(logicA)).getFastGasFeedAddress(),
-      AutomationRegistryLogicC2_3(address(logicA)).getAutomationForwarderLogic(),
-      AutomationRegistryLogicC2_3(address(logicA)).getAllowedReadOnlyAddress(),
-      AutomationRegistryLogicC2_3(address(logicA)).getPayoutMode(),
-      AutomationRegistryLogicC2_3(address(logicA)).getWrappedNativeTokenAddress()
+    ZKSyncAutomationRegistryBase2_3(
+      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getLinkAddress(),
+      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getLinkUSDFeedAddress(),
+      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getNativeUSDFeedAddress(),
+      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getFastGasFeedAddress(),
+      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getAutomationForwarderLogic(),
+      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getAllowedReadOnlyAddress(),
+      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getPayoutMode(),
+      ZKSyncAutomationRegistryLogicC2_3(address(logicA)).getWrappedNativeTokenAddress()
     )
     Chainable(address(logicA))
   {}
@@ -138,7 +136,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     });
 
     uint256 blocknumber = hotVars.chainModule.blockNumber();
-    uint256 l1Fee = hotVars.chainModule.getCurrentL1Fee(msg.data.length);
+    uint256 l1Fee = hotVars.chainModule.getCurrentL1Fee(msg.data.length); // this will be updated
 
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];
