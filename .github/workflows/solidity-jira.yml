@@ -106,6 +106,7 @@ jobs:
           commit_message: "Update changeset file with jira issue"
           repo: ${{ github.repository }}
           branch: ${{ github.head_ref }}
+          file_pattern: "contracts/.changeset/*" 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
