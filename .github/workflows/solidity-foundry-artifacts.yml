@@ -404,7 +404,7 @@ jobs:
               - modified|added: 'contracts/.changeset/!(README)*.md' 
 
         # Because of our earlier checks, we know that both the source and changeset files have changed
-      - name: Enforce Traceability
+      - name: Create Traceability
         working-directory: ./.github/scripts/jira
         run: |
           pnpm issue:traceability
