@@ -54,24 +54,24 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ inputs.chainlinkImage }}" == "QA_ECR" ]]; then
-            echo "image='{{ env.QA_CHAINLINK_IMAGE }}'" >>$GITHUB_OUTPUT
+            echo "image='{{ env.QA_CHAINLINK_IMAGE }}'" >> $GITHUB_ENV
           else 
-            echo "image=${{ inputs.chainlinkImage }}" >>$GITHUB_OUTPUT
+            echo "image=${{ inputs.chainlinkImage }}" >> $GITHUB_ENV
           fi
           if [[ "${{ inputs.chainlinkImageUpdate }}" == "QA_ECR" ]]; then
-            echo "upgrade_image='{{ env.QA_CHAINLINK_IMAGE }}'" >>$GITHUB_OUTPUT
+            echo "upgrade_image='{{ env.QA_CHAINLINK_IMAGE }}'" >> $GITHUB_ENV
           else
-            echo "upgrade_image=${{ inputs.chainlinkImageUpdate }}" >>$GITHUB_OUTPUT
+            echo "upgrade_image=${{ inputs.chainlinkImageUpdate }}" >> $GITHUB_ENV
           fi
           if [[ -z "${{ inputs.chainlinkVersion }}" ]] && [[ "${{ inputs.chainlinkImage }}" == "QA_ECR" ]]; then
-            echo "version=${{ github.sha }}" >>$GITHUB_OUTPUT
+            echo "version=${{ github.sha }}" >> $GITHUB_ENV
           else 
-            echo "version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
+            echo "version=${{ inputs.chainlinkVersion }}" >> $GITHUB_ENV
           fi
           if [[ -z "${{ inputs.chainlinkVersionUpdate }}" ]] && [[ "${{ inputs.chainlinkImageUpdate }}" == "QA_ECR" ]]; then
-            echo "upgrade_version=${{ github.sha }}" >>$GITHUB_OUTPUT
+            echo "upgrade_version=${{ github.sha }}" >> $GITHUB_ENV
           else
-            echo "upgrade_version=${{ inputs.chainlinkVersionUpdate }}" >>$GITHUB_OUTPUT
+            echo "upgrade_version=${{ inputs.chainlinkVersionUpdate }}" >> $GITHUB_ENV
           fi
       - name: Check if chainlink image check required
         id: determine-chainlink-image-check
@@ -79,10 +79,10 @@ jobs:
         run: |          
           chainlink_image_versions=""
           if [ "${{ github.event.inputs.chainlinkImage }}" = "QA_ECR" ]; then
-            chainlink_image_versions+="${{ steps.determine-build.outputs.version }},"
+            chainlink_image_versions+="${{ env.version }},"
           fi
           if [ "${{ github.event.inputs.chainlinkImageUpdate }}" = "QA_ECR" ]; then
-            chainlink_image_versions+="${{ steps.determine-build.outputs.upgrade_version }}"
+            chainlink_image_versions+="${{ env.upgrade_version }}"
           fi
           echo "require_chainlink_image_versions_in_qa_ecr=$chainlink_image_versions" >> $GITHUB_OUTPUT          
       - name: Set tests to run
@@ -93,24 +93,24 @@ jobs:
           cat > test_list.yaml <<EOF
           - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
             test_env_vars:
-              E2E_TEST_CHAINLINK_IMAGE: ${{ steps.determine-build.outputs.image }}
-              E2E_TEST_CHAINLINK_VERSION: ${{ steps.determine-build.outputs.version }}
-              E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ steps.determine-build.outputs.upgrade_image }}
-              E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ steps.determine-build.outputs.upgrade_version }}
+              E2E_TEST_CHAINLINK_IMAGE: ${{ env.image }}
+              E2E_TEST_CHAINLINK_VERSION: ${{ env.version }}
+              E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ env.upgrade_image }}
+              E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ env.upgrade_version }}
 
           - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
             test_env_vars:
-              E2E_TEST_CHAINLINK_IMAGE: ${{ steps.determine-build.outputs.image }}
-              E2E_TEST_CHAINLINK_VERSION: ${{ steps.determine-build.outputs.version }}
-              E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ steps.determine-build.outputs.upgrade_image }}
-              E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ steps.determine-build.outputs.upgrade_version }}
+              E2E_TEST_CHAINLINK_IMAGE: ${{ env.image }}
+              E2E_TEST_CHAINLINK_VERSION: ${{ env.version }}
+              E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ env.upgrade_image }}
+              E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ env.upgrade_version }}
 
           - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
             test_env_vars:
-              E2E_TEST_CHAINLINK_IMAGE: ${{ steps.determine-build.outputs.image }}
-              E2E_TEST_CHAINLINK_VERSION: ${{ steps.determine-build.outputs.version }}
-              E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ steps.determine-build.outputs.upgrade_image }}
-              E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ steps.determine-build.outputs.upgrade_version }}              
+              E2E_TEST_CHAINLINK_IMAGE: ${{ env.image }}
+              E2E_TEST_CHAINLINK_VERSION: ${{ env.version }}
+              E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ env.upgrade_image }}
+              E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ env.upgrade_version }}
           EOF
 
           # Run reorg tests if enabled
@@ -118,16 +118,23 @@ jobs:
           cat >> test_list.yaml <<EOF
           - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_0
             test_env_vars:
-              E2E_TEST_CHAINLINK_IMAGE: ${{ steps.determine-build.outputs.image }}
-              E2E_TEST_CHAINLINK_VERSION: ${{ steps.determine-build.outputs.version }}
+              E2E_TEST_CHAINLINK_IMAGE: ${{ env.image }}
+              E2E_TEST_CHAINLINK_VERSION: ${{ env.version }}
+              
           - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_1
             test_env_vars:
-              E2E_TEST_CHAINLINK_IMAGE: ${{ steps.determine-build.outputs.image }}
-              E2E_TEST_CHAINLINK_VERSION: ${{ steps.determine-build.outputs.version }}              
+              E2E_TEST_CHAINLINK_IMAGE: ${{ env.image }}
+              E2E_TEST_CHAINLINK_VERSION: ${{ env.version }}              
+
           - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_2
             test_env_vars:
-              E2E_TEST_CHAINLINK_IMAGE: ${{ steps.determine-build.outputs.image }}
-              E2E_TEST_CHAINLINK_VERSION: ${{ steps.determine-build.outputs.version }}              
+              E2E_TEST_CHAINLINK_IMAGE: ${{ env.image }}
+              E2E_TEST_CHAINLINK_VERSION: ${{ env.version }}   
+              
+          - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_3
+            test_env_vars:
+              E2E_TEST_CHAINLINK_IMAGE: ${{ env.image }}
+              E2E_TEST_CHAINLINK_VERSION: ${{ env.version }}                 
           EOF
           fi
 
@@ -136,8 +143,8 @@ jobs:
           cat >> test_list.yaml <<EOF
           - id: chaos/automation_chaos_test.go
             test_env_vars:
-              E2E_TEST_CHAINLINK_IMAGE: ${{ steps.determine-build.outputs.image }}
-              E2E_TEST_CHAINLINK_VERSION: ${{ steps.determine-build.outputs.version }}
+              E2E_TEST_CHAINLINK_IMAGE: ${{ env.image }}
+              E2E_TEST_CHAINLINK_VERSION: ${{ env.version }}
           EOF
           fi
 

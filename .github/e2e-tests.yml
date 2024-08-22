@@ -557,6 +557,17 @@ runner-test-matrix:
     test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_2 -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
 
+  - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_3
+    path: integration-tests/reorg/automation_reorg_test.go
+    runs_on: ubuntu-latest
+    test_env_type: docker
+    test_env_vars:
+      TEST_SUITE: reorg
+    workflows:
+      - Run Automation On Demand Tests (TEST WORKFLOW)
+    test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_3 -test.parallel=2 -timeout 30m -count=1 -json
+    pyroscope_env: ci-automation-on-demand-reorg
+
   - id: chaos/automation_chaos_test.go
     path: integration-tests/chaos/automation_chaos_test.go
     test_env_type: k8s-remote-runner
