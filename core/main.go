@@ -95,7 +95,7 @@ func setupBeholder() {
 	log.Printf("Beholder config: %#v", config)
 
 	// Initialize beholder otel client which sets up OTel components
-	otelClient, err := beholder.NewOtelClient(config, func(e error) {
+	otelClient, err := beholder.NewOtelClient(context.Background(), config, func(e error) {
 		log.Printf("otel error: %v", e)
 	})
 	if err != nil {
