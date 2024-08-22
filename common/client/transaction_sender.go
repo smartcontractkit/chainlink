@@ -135,12 +135,6 @@ func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 			}
 		}()
 	})
-	if err != nil {
-		primaryNodeWg.Wait()
-		close(txResultsToReport)
-		close(txResults)
-		return 0, err
-	}
 
 	// This needs to be done in parallel so the reporting knows when it's done (when the channel is closed)
 	txSender.wg.Add(1)
@@ -150,6 +144,10 @@ func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 		close(txResultsToReport)
 		close(txResults)
 	}()
+
+	if err != nil {
+		return 0, err
+	}
 
 	txSender.wg.Add(1)
 	go txSender.reportSendTxAnomalies(tx, txResultsToReport)

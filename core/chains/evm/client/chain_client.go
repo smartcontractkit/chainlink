@@ -118,6 +118,7 @@ func NewChainClient(
 	chainID *big.Int,
 	clientErrors evmconfig.ClientErrors,
 	deathDeclarationDelay time.Duration,
+	chainType chaintype.ChainType,
 ) Client {
 	chainFamily := "EVM"
 	multiNode := commonclient.NewMultiNode[*big.Int, *RpcClient](
@@ -132,7 +133,7 @@ func NewChainClient(
 	)
 
 	classifySendError := func(tx *types.Transaction, err error) commonclient.SendTxReturnCode {
-		return ClassifySendError(err, clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, false)
+		return ClassifySendError(err, clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
 	}
 
 	txSender := commonclient.NewTransactionSender[*types.Transaction, *big.Int, *RpcClient](

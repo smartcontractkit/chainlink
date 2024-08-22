@@ -19,10 +19,6 @@ func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, cli
 	var sendonlys []commonclient.SendOnlyNode[*big.Int, *RpcClient]
 	largePayloadRPCTimeout, defaultRPCTimeout := getRPCTimeouts(chainType)
 
-	if chainCfg.FinalityTagEnabled() && cfg.FinalizedBlockPollInterval() <= 0 {
-		lggr.Error("FinalityTagEnabled is enabled but FinalizedBlockPollInterval is not set")
-	}
-
 	for i, node := range nodes {
 		if node.SendOnly != nil && *node.SendOnly {
 			rpc := NewRPCClient(cfg, lggr, empty, (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID,
