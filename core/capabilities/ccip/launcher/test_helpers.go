@@ -24,7 +24,7 @@ var (
 	p2pID1            = getP2PID(1)
 	p2pID2            = getP2PID(2)
 	defaultCapCfgs    = map[string]registrysyncer.CapabilityConfiguration{
-		defaultCapability.ID: registrysyncer.CapabilityConfiguration{},
+		defaultCapability.ID: {},
 	}
 	defaultRegistryDon = registrysyncer.DON{
 		DON:                      getDON(1, []ragep2ptypes.PeerID{p2pID1}, 0),

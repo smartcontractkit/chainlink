@@ -29,8 +29,8 @@ var (
 )
 
 var ChainModuleBaseMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"n\",\"type\":\"uint256\"}],\"name\":\"blockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"blockNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurrentL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"chainModuleFixedOverhead\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"chainModulePerByteOverhead\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"getMaxL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b5061015c806100206000396000f3fe608060405234801561001057600080fd5b50600436106100675760003560e01c806357e871e71161005057806357e871e71461009a57806385df51fd146100a0578063de9ee35e146100b357600080fd5b8063125441401461006c57806318b8f61314610093575b600080fd5b61008061007a3660046100f6565b50600090565b6040519081526020015b60405180910390f35b6000610080565b43610080565b6100806100ae3660046100f6565b6100c9565b6040805161012c8152600060208201520161008a565b600043821015806100e457506101006100e2834361010f565b115b156100f157506000919050565b504090565b60006020828403121561010857600080fd5b5035919050565b81810381811115610149577f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b9291505056fea164736f6c6343000813000a",
+	ABI: "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"n\",\"type\":\"uint256\"}],\"name\":\"blockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"blockNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"getCurrentL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"l1Fee\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"chainModuleFixedOverhead\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"chainModulePerByteOverhead\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"getMaxL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"maxL1Fee\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b50610155806100206000396000f3fe608060405234801561001057600080fd5b50600436106100675760003560e01c80637810d12a116100505780637810d12a1461006c57806385df51fd14610099578063de9ee35e146100ac57600080fd5b8063125441401461006c57806357e871e714610093575b600080fd5b61008061007a3660046100ef565b50600090565b6040519081526020015b60405180910390f35b43610080565b6100806100a73660046100ef565b6100c2565b6040805161012c8152600060208201520161008a565b600043821015806100dd57506101006100db8343610108565b115b156100ea57506000919050565b504090565b60006020828403121561010157600080fd5b5035919050565b81810381811115610142577f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b9291505056fea164736f6c6343000813000a",
 }
 
 var ChainModuleBaseABI = ChainModuleBaseMetaData.ABI
@@ -213,9 +213,9 @@ func (_ChainModuleBase *ChainModuleBaseCallerSession) BlockNumber() (*big.Int, e
 	return _ChainModuleBase.Contract.BlockNumber(&_ChainModuleBase.CallOpts)
 }
 
-func (_ChainModuleBase *ChainModuleBaseCaller) GetCurrentL1Fee(opts *bind.CallOpts) (*big.Int, error) {
+func (_ChainModuleBase *ChainModuleBaseCaller) GetCurrentL1Fee(opts *bind.CallOpts, arg0 *big.Int) (*big.Int, error) {
 	var out []interface{}
-	err := _ChainModuleBase.contract.Call(opts, &out, "getCurrentL1Fee")
+	err := _ChainModuleBase.contract.Call(opts, &out, "getCurrentL1Fee", arg0)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -227,12 +227,12 @@ func (_ChainModuleBase *ChainModuleBaseCaller) GetCurrentL1Fee(opts *bind.CallOp
 
 }
 
-func (_ChainModuleBase *ChainModuleBaseSession) GetCurrentL1Fee() (*big.Int, error) {
-	return _ChainModuleBase.Contract.GetCurrentL1Fee(&_ChainModuleBase.CallOpts)
+func (_ChainModuleBase *ChainModuleBaseSession) GetCurrentL1Fee(arg0 *big.Int) (*big.Int, error) {
+	return _ChainModuleBase.Contract.GetCurrentL1Fee(&_ChainModuleBase.CallOpts, arg0)
 }
 
-func (_ChainModuleBase *ChainModuleBaseCallerSession) GetCurrentL1Fee() (*big.Int, error) {
-	return _ChainModuleBase.Contract.GetCurrentL1Fee(&_ChainModuleBase.CallOpts)
+func (_ChainModuleBase *ChainModuleBaseCallerSession) GetCurrentL1Fee(arg0 *big.Int) (*big.Int, error) {
+	return _ChainModuleBase.Contract.GetCurrentL1Fee(&_ChainModuleBase.CallOpts, arg0)
 }
 
 func (_ChainModuleBase *ChainModuleBaseCaller) GetGasOverhead(opts *bind.CallOpts) (GetGasOverhead,
@@ -301,7 +301,7 @@ type ChainModuleBaseInterface interface {
 
 	BlockNumber(opts *bind.CallOpts) (*big.Int, error)
 
-	GetCurrentL1Fee(opts *bind.CallOpts) (*big.Int, error)
+	GetCurrentL1Fee(opts *bind.CallOpts, arg0 *big.Int) (*big.Int, error)
 
 	GetGasOverhead(opts *bind.CallOpts) (GetGasOverhead,
 
