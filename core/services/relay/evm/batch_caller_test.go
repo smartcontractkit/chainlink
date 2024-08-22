@@ -1,12 +1,12 @@
 package evm_test
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/cometbft/cometbft/libs/rand"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -152,12 +152,10 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 				Run(func(args mock.Arguments) {
 					evmCalls := args.Get(1).([]rpc.BatchElem)
 					for i := range evmCalls {
-						arg := evmCalls[i].Args[0].(map[string]interface{})["data"].([]uint8)
-						bytes, err := hex.DecodeString(fmt.Sprintf("%x", arg))
-						require.NoError(t, err)
+						arg := evmCalls[i].Args[0].(map[string]interface{})["data"].(hexutil.Bytes)
 						str, isOk := evmCalls[i].Result.(*string)
 						require.True(t, isOk)
-						*str = fmt.Sprintf("0x%064x", new(big.Int).SetBytes(bytes[24:]).Uint64())
+						*str = fmt.Sprintf("0x%064x", new(big.Int).SetBytes(arg[24:]).Uint64())
 					}
 				}).Return(nil)
 
