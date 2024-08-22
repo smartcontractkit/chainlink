@@ -15,6 +15,8 @@ contract AutomationForwarder {
   /// @notice the user's target contract address
   address private immutable i_target;
 
+  uint256 public newOne;
+
   /// @notice the shared logic address
   address private immutable i_logic;
 
