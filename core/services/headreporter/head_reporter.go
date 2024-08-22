@@ -35,11 +35,12 @@ type (
 
 func NewHeadReporterService(ds sqlutil.DataSource, lggr logger.Logger, reporters ...HeadReporter) *HeadReporterService {
 	return &HeadReporterService{
-		ds:        ds,
-		lggr:      lggr.Named("HeadReporter"),
-		newHeads:  mailbox.NewSingle[*evmtypes.Head](),
-		chStop:    make(chan struct{}),
-		reporters: reporters,
+		ds:           ds,
+		lggr:         lggr.Named("HeadReporter"),
+		newHeads:     mailbox.NewSingle[*evmtypes.Head](),
+		chStop:       make(chan struct{}),
+		reporters:    reporters,
+		reportPeriod: 15 * time.Second,
 	}
 }
 
