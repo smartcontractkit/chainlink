@@ -92,18 +92,21 @@ jobs:
         id: changes
         with:
           filters: |
+            github_ci_changes:
+              - '.github/workflows/integration-tests.yml'
+              - '.github/workflows/run-e2e-tests-reusable-workflow.yml'
+              - '.github/e2e-tests.yml'
             core_changes:
               - '**/*.go'
               - '**/*go.sum'
               - '**/*go.mod'
-              - '.github/workflows/integration-tests.yml'
               - '**/*Dockerfile'
               - 'core/**/migrations/*.sql'
               - 'core/**/config/**/*.toml'
               - 'integration-tests/**/*.toml'
             ccip_changes:
               - '**/*ccip*'
-              - '**/*ccip*/**'              
+              - '**/*ccip*/**'
       - name: Ignore Filter On Workflow Dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
@@ -120,6 +123,7 @@ jobs:
           this-job-name: Check Paths That Require Tests To Run
         continue-on-error: true
     outputs:
+      github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
       core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
       ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
 
@@ -193,7 +197,7 @@ jobs:
     needs: [changes, enforce-ctf-version]
     steps:
       - name: Collect Metrics
-        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
+        if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true' || github.event_name == 'workflow_dispatch'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
@@ -218,7 +222,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           set-git-config: "true"
       - name: Build Chainlink Image
-        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
+        if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true' || github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/build-chainlink-image
         with:
           tag_suffix: ${{ matrix.image.tag-suffix }}
@@ -237,7 +241,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: needs.changes.outputs.core_changes == 'true'
+    if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true'
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       workflow_name: Run Core E2E Tests
@@ -273,7 +277,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: needs.changes.outputs.ccip_changes == 'true'
+    if: needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true'
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       workflow_name: Run CCIP E2E Tests
