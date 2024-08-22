@@ -121,7 +121,7 @@ export function generateIssueLabel(product: string, baseRef: string, headRef: st
  * we update each jira issue so that they are all labelled and have a comment linking them
  * to the relevant artifact URL.
  */
-export async function main() {
+async function main() {
   const { product, baseRef, headRef, artifactUrl } =
     fetchEnvironmentVariables();
   const changesetFiles = extractChangesetFiles();
@@ -137,5 +137,6 @@ export async function main() {
     artifactUrl
   );
 
-  core.setOutput("jira-issues-link", generateJiraIssuesLink(jiraIssueNumbers));
+  core.summary.addLink("Jira Issues", generateJiraIssuesLink(jiraIssueNumbers));
 }
+ main()
