@@ -1,6 +1,32 @@
 import { readFile } from "fs/promises";
 import * as core from "@actions/core";
 import * as jira from "jira.js";
+import { exec } from "child_process";
+import { promisify } from "util";
+import { join } from "path";
+
+export async function getGitTopLevel(): Promise<string> {
+  const execPromise = promisify(exec);
+  try {
+    const { stdout, stderr } = await execPromise(
+      "git rev-parse --show-toplevel"
+    );
+
+    if (stderr) {
+      const msg = `Error in command output: ${stderr}`;
+      core.error(msg);
+      throw Error(msg);
+    }
+
+    const topLevelDir = stdout.trim();
+    core.info(`Top-level directory: ${topLevelDir}`);
+    return topLevelDir;
+  } catch (error) {
+    const msg = `Error executing command: ${(error as any).message}`;
+    core.error(msg);
+    throw Error(msg);
+  }
+}
 
 /**
  * Given a list of strings, this function will return the first JIRA issue number it finds.
@@ -26,9 +52,10 @@ export function parseIssueNumberFrom(
 
 export async function extractJiraIssueNumbersFrom(filePaths: string[]) {
   const issueNumbers: string[] = [];
-
+  const gitTopLevel = await getGitTopLevel();
   for (const path of filePaths) {
-    const content = await readFile(path, "utf-8");
+    const fullPath = join(gitTopLevel, path);
+    const content = await readFile(fullPath, "utf-8");
     const issueNumber = parseIssueNumberFrom(content);
     if (issueNumber) {
       issueNumbers.push(issueNumber);
@@ -37,7 +64,6 @@ export async function extractJiraIssueNumbersFrom(filePaths: string[]) {
 
   return issueNumbers;
 }
-
 
 /**
  * Converts an array of tags to an array of labels.

@@ -1,5 +1,6 @@
-import { expect, describe, it } from "vitest";
-import { parseIssueNumberFrom, tagsToLabels } from "./lib";
+import { expect, describe, it, vi } from "vitest";
+import { getGitTopLevel, parseIssueNumberFrom, tagsToLabels } from "./lib";
+import * as core from "@actions/core";
 
 describe("parseIssueNumberFrom", () => {
   it("should return the first JIRA issue number found", () => {
@@ -43,5 +44,50 @@ describe("tagsToLabels", () => {
       { add: "core-release/1.0.0" },
       { add: "core-release/1.1.0" },
     ]);
+  });
+});
+
+    const mockExecPromise = vi.fn()
+        vi.mock("util", () => ({
+      promisify: () => mockExecPromise,
+    }));
+
+describe("getGitTopLevel", () => {
+  it("should log the top-level directory when git command succeeds", async () => {
+    mockExecPromise.mockResolvedValueOnce({
+      stdout: "/path/to/top-level-dir",
+      stderr: "",
+    });
+
+    const mockConsoleLog = vi.spyOn(core, "info");
+    await getGitTopLevel();
+
+    expect(mockExecPromise).toHaveBeenCalledWith("git rev-parse --show-toplevel");
+    expect(mockConsoleLog).toHaveBeenCalledWith("Top-level directory: /path/to/top-level-dir");
+  });
+
+  it("should log an error message when git command fails", async () => {
+    mockExecPromise.mockRejectedValueOnce({
+      message: "Command failed",
+    });
+
+    const mockConsoleError = vi.spyOn(core, "error");
+    await getGitTopLevel().catch(() => {});
+
+    expect(mockExecPromise).toHaveBeenCalledWith("git rev-parse --show-toplevel");
+    expect(mockConsoleError).toHaveBeenCalledWith("Error executing command: Command failed");
+  });
+
+  it("should log an error message when git command output contains an error", async () => {
+    mockExecPromise.mockResolvedValueOnce({
+      stdout: "",
+      stderr: "Error: Command failed",
+    });
+
+    const mockConsoleError = vi.spyOn(core, "error");
+    await getGitTopLevel().catch(() => {});
+
+    expect(mockExecPromise).toHaveBeenCalledWith("git rev-parse --show-toplevel");
+    expect(mockConsoleError).toHaveBeenCalledWith("Error in command output: Error: Command failed");
   });
 });

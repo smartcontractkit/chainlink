@@ -1,7 +1,8 @@
 import * as core from "@actions/core";
 import jira from "jira.js";
-import { createJiraClient, parseIssueNumberFrom } from "./lib";
+import { createJiraClient, getGitTopLevel, parseIssueNumberFrom } from "./lib";
 import { promises as fs } from "fs";
+import { join } from "path";
 
 async function doesIssueExist(
   client: jira.Version3Client,
@@ -75,7 +76,9 @@ async function appendIssueNumberToChangesetFile(
   changesetFile: string,
   issueNumber: string
 ) {
-  const changesetContents = await fs.readFile(changesetFile, "utf-8");
+  const gitTopLevel = await getGitTopLevel();
+  const fullChangesetPath = join(gitTopLevel, changesetFile);
+  const changesetContents = await fs.readFile(fullChangesetPath, "utf-8");
   // Check if the issue number is already in the changeset file
   if (changesetContents.includes(issueNumber)) {
     core.info("Issue number already exists in changeset file, skipping...");
@@ -83,7 +86,7 @@ async function appendIssueNumberToChangesetFile(
   }
 
   const updatedChangesetContents = `${issueNumber}\n${changesetContents}`;
-  await fs.writeFile(changesetFile, updatedChangesetContents);
+  await fs.writeFile(fullChangesetPath, updatedChangesetContents);
 }
 
 function extractChangesetFile() {
