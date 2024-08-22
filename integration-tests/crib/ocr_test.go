@@ -2,10 +2,11 @@ package crib
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 
 	"github.com/stretchr/testify/require"
 

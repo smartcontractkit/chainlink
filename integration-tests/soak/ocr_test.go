@@ -14,8 +14,9 @@ import (
 
 	"github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
