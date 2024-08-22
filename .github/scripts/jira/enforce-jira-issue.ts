@@ -85,7 +85,7 @@ async function appendIssueNumberToChangesetFile(
     return;
   }
 
-  const updatedChangesetContents = `${issueNumber}\n${changesetContents}`;
+  const updatedChangesetContents = `${changesetContents}\n\n${issueNumber}`;
   await fs.writeFile(fullChangesetPath, updatedChangesetContents);
 }
 
