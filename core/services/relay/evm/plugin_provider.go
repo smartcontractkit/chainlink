@@ -12,8 +12,9 @@ import (
 
 type pluginProvider struct {
 	services.Service
+	chainReader         ChainReaderService
 	codec               types.Codec
-	contractTransmitter ocrtypes.ContractTransmitter
+	contractTransmitter ContractTransmitter
 	configWatcher       *configWatcher
 	lggr                logger.Logger
 	ms                  services.MultiStart
@@ -22,12 +23,14 @@ type pluginProvider struct {
 var _ types.PluginProvider = (*pluginProvider)(nil)
 
 func NewPluginProvider(
+	chainReader ChainReaderService,
 	codec types.Codec,
-	contractTransmitter ocrtypes.ContractTransmitter,
+	contractTransmitter ContractTransmitter,
 	configWatcher *configWatcher,
 	lggr logger.Logger,
 ) *pluginProvider {
 	return &pluginProvider{
+		chainReader:         chainReader,
 		codec:               codec,
 		contractTransmitter: contractTransmitter,
 		configWatcher:       configWatcher,
@@ -43,6 +46,10 @@ func (p *pluginProvider) Ready() error { return nil }
 func (p *pluginProvider) HealthReport() map[string]error {
 	hp := map[string]error{p.Name(): p.Ready()}
 	services.CopyHealth(hp, p.configWatcher.HealthReport())
+	services.CopyHealth(hp, p.contractTransmitter.HealthReport())
+	if p.chainReader != nil {
+		services.CopyHealth(hp, p.chainReader.HealthReport())
+	}
 	return hp
 }
 
@@ -59,7 +66,7 @@ func (p *pluginProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker 
 }
 
 func (p *pluginProvider) ChainReader() types.ContractReader {
-	return nil
+	return p.chainReader
 }
 
 func (p *pluginProvider) Codec() types.Codec {
@@ -67,9 +74,14 @@ func (p *pluginProvider) Codec() types.Codec {
 }
 
 func (p *pluginProvider) Start(ctx context.Context) error {
-	return p.configWatcher.Start(ctx)
+	srvcs := []services.StartClose{p.configWatcher, p.contractTransmitter}
+	if p.chainReader != nil {
+		srvcs = append(srvcs, p.chainReader)
+	}
+
+	return p.ms.Start(ctx, srvcs...)
 }
 
 func (p *pluginProvider) Close() error {
-	return p.configWatcher.Close()
+	return p.ms.Close()
 }
