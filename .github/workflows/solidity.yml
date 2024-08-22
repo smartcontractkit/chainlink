@@ -141,8 +141,8 @@ jobs:
     defaults:
       run:
         working-directory: contracts
-    needs: [changes]
-    if: needs.changes.outputs.changes == 'true'
+    needs: [changes, tag-check]
+    if: needs.changes.outputs.changes == 'true' || needs.tag-check.outputs.is-release == 'true' || needs.tag-check.outputs.is-pre-release == 'true'
     name: Solidity Lint
     runs-on: ubuntu-latest
     steps:
@@ -169,8 +169,8 @@ jobs:
     defaults:
       run:
         working-directory: contracts
-    needs: [changes]
-    if: needs.changes.outputs.changes == 'true'
+    needs: [changes, tag-check]
+    if: needs.changes.outputs.changes == 'true' || needs.tag-check.outputs.is-release == 'true' || needs.tag-check.outputs.is-pre-release == 'true'
     name: Prettier Formatting
     runs-on: ubuntu-latest
     steps:
