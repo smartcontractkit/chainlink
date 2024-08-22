@@ -1,19 +1,20 @@
 package crib
 
 import (
+	"github.com/smartcontractkit/havoc/k8schaos"
 	"time"
 
 	"github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
-	"github.com/smartcontractkit/havoc/k8schaos"
+	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func rebootCLNamespace(delay time.Duration, namespace string) (*k8schaos.Chaos, error) {
+func rebootCLNamespace(delay time.Duration, namespace string) (*havoc.Chaos, error) {
 	k8sClient, err := k8schaos.NewChaosMeshClient()
 	if err != nil {
 		return nil, err
 	}
-	return k8schaos.NewChaos(k8schaos.ChaosOpts{
+	return havoc.NewChaos(havoc.ChaosOpts{
 		Description: "Reboot CRIB",
 		DelayCreate: delay,
 		Object: &v1alpha1.PodChaos{
