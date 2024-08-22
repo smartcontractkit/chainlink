@@ -490,7 +490,7 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
             ## Static analysis results are available
-            Hey @${{ github.actor }}, you can view Slither reports in the job summary [here](${{ steps.job-summary-url.outputs.job_summary_url }}) or download them as artifact [here](${{ steps.build-slither-artifact-url.outputs.slither_artifact_url }}).
+            Hey @${{ github.event.push && github.event.push.pusher && github.event.push.pusher.username || github.actor }}, you can view Slither reports in the job summary [here](${{ steps.job-summary-url.outputs.job_summary_url }}) or download them as artifact [here](${{ steps.build-slither-artifact-url.outputs.slither_artifact_url }}).
             
             Please check them before merging and make sure you have addressed all issues.
           edit-mode: replace
