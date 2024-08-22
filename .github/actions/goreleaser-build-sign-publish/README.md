@@ -97,13 +97,17 @@ Following inputs can be used as `step.with` keys
 
 | Name                         | Type   | Default            | Description                                                             |
 | ---------------------------- | ------ | ------------------ | ----------------------------------------------------------------------- |
-| `goreleaser-version`         | String | `1.13.1`           | `goreleaser` version                                                    |
-| `zig-version`                | String | `0.10.0`           | `zig` version                                                           |
-| `cosign-version`             | String | `v1.13.1`          | `cosign` version                                                        |
+| `goreleaser-version`         | String | `~> v2`            | `goreleaser` version                                                    |
+| `zig-version`                | String | `0.10.1`           | `zig` version                                                           |
+| `cosign-version`             | String | `v2.2.2`           | `cosign` version                                                        |
 | `macos-sdk-dir`              | String | `MacOSX12.3.sdk`   | MacOSX sdk directory                                                    |
 | `enable-docker-publish`      | Bool   | `true`             | Enable publishing of Docker images / manifests                          |
 | `docker-registry`            | String | `localhost:5001`   | Docker registry                                                         |
+| `docker-image-name`          | String | `chainlink`        | Docker image name                                                       |
+| `docker-image-tag`           | String | `develop`          | Docker image tag                                                        |
 | `enable-goreleaser-snapshot` | Bool   | `false`            | Enable goreleaser build / release snapshot                              |
+| `enable-goreleaser-split`    | Bool   | `false`            | Enable goreleaser build using split and merge                           |
+| `goreleaser-split-arch`      | String | `""`               | The arch to build the image with - amd64, arm64                         |
 | `goreleaser-exec`            | String | `goreleaser`       | The goreleaser executable, can invoke wrapper script                    |
 | `goreleaser-config`          | String | `.goreleaser.yaml` | The goreleaser configuration yaml                                       |
 | `enable-cosign`              | Bool   | `false`            | Enable signing of Docker images                                         |
