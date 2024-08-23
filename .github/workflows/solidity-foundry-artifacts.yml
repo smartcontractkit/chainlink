@@ -391,31 +391,18 @@ jobs:
         working-directory: ./.github/scripts/jira
         run: pnpm i
 
-      # For testing, since we need JSON output not CSV
-      - name: Find modified contracts
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: changes
-        with:
-          list-files: 'json'
-          base: ${{ inputs.base_ref }}
-          predicate-quantifier: every
-          filters: |
-            changeset:
-              - modified|added: 'contracts/.changeset/!(README)*.md' 
-
-        # Because of our earlier checks, we know that both the source and changeset files have changed
       - name: Create Traceability
         working-directory: ./.github/scripts/jira
         run: |
           pnpm issue:traceability
         env:
-          CHANGESET_FILES: ${{ steps.changes.outputs.changeset_files }}
-          CHAINLINK_PRODUCT: ${{ inputs.product }} 
+          CHANGESET_FILES: ${{ needs.changes.outputs.changeset_files }}
+          CHAINLINK_PRODUCT: ${{ inputs.product }}
           BASE_REF: ${{ inputs.base_ref }}
           HEAD_REF: ${{ inputs.commit_to_use || github.sha }}
           ARTIFACT_URL: ${{ steps.gather-all-artifacts.outputs.artifact-url }}
 
-          JIRA_HOST: https://smartcontract-it.atlassian.net/ 
+          JIRA_HOST: https://smartcontract-it.atlassian.net/
           JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
