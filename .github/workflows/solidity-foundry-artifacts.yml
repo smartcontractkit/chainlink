@@ -129,7 +129,6 @@ jobs:
         with:
           working-directory: contracts
 
-      # THIS IS BROKEN
       - name: Copy modified changesets
         if: ${{ needs.changes.outputs.changeset_changes == 'true' }}
         run: |
