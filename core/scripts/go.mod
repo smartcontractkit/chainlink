@@ -50,7 +50,7 @@ require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d // indirect
 	github.com/CosmWasm/wasmd v0.40.1 // indirect
-	github.com/CosmWasm/wasmvm v1.2.4 // indirect
+	github.com/CosmWasm/wasmvm v1.5.4 // indirect
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/Depado/ginprom v1.8.0 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect

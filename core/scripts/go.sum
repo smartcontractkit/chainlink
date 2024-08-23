@@ -92,8 +92,8 @@ github.com/CloudyKit/fastprinter v0.0.0-20200109182630-33d98a066a53/go.mod h1:+3
 github.com/CloudyKit/jet/v3 v3.0.0/go.mod h1:HKQPgSJmdK8hdoAbKUUWajkHyHo4RaU5rMdUywE7VMo=
 github.com/CosmWasm/wasmd v0.40.1 h1:LxbO78t/6S8TkeQlUrJ0m5O87HtAwLx4RGHq3rdrOEU=
 github.com/CosmWasm/wasmd v0.40.1/go.mod h1:6EOwnv7MpuFaEqxcUOdFV9i4yvrdOciaY6VQ1o7A3yg=
-github.com/CosmWasm/wasmvm v1.2.4 h1:6OfeZuEcEH/9iqwrg2pkeVtDCkMoj9U6PpKtcrCyVrQ=
-github.com/CosmWasm/wasmvm v1.2.4/go.mod h1:vW/E3h8j9xBQs9bCoijDuawKo9kCtxOaS8N8J7KFtkc=
+github.com/CosmWasm/wasmvm v1.5.4 h1:Opqy65ubJ8bMsT08dn85VjRdsLJVPIAgIXif92qOMGc=
+github.com/CosmWasm/wasmvm v1.5.4/go.mod h1:Q0bSEtlktzh7W2hhEaifrFp1Erx11ckQZmjq8FLCyys=
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
 github.com/DataDog/zstd v1.5.2 h1:vUG4lAyuPCXO0TLbXvPv7EB7cNK1QV/luu55UHLrrn8=
 github.com/DataDog/zstd v1.5.2/go.mod h1:g4AWEaM3yOg3HYfnJ3YIawPnVdXJh9QME85blwSAmyw=
