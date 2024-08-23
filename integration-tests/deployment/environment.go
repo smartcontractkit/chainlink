@@ -40,7 +40,7 @@ type Chain struct {
 	Client   OnchainClient
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
 	DeployerKey *bind.TransactOpts
-	Confirm     func(tx common.Hash) error
+	Confirm     func(tx common.Hash) (uint64, error)
 }
 
 type Environment struct {
@@ -59,15 +59,15 @@ func (e Environment) AllChainSelectors() []uint64 {
 	return selectors
 }
 
-func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) error {
+func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, error) {
 	if err != nil {
 		//revive:disable
 		var d rpc.DataError
 		ok := errors.As(err, &d)
 		if ok {
-			return fmt.Errorf("got Data Error: %s", d.ErrorData())
+			return 0, fmt.Errorf("got Data Error: %s", d.ErrorData())
 		}
-		return err
+		return 0, err
 	}
 	return chain.Confirm(tx.Hash())
 }
