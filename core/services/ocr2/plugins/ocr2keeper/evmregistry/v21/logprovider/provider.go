@@ -16,13 +16,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -111,7 +110,7 @@ type logEventProvider struct {
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
 	return &logEventProvider{
 		threadCtrl:  utils.NewThreadControl(),
-		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
+		lggr:        logger.Named(lggr, "KeepersRegistry.LogEventProvider"),
 		packer:      packer,
 		buffer:      NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
 		poller:      poller,
@@ -135,7 +134,7 @@ func (p *logEventProvider) SetConfig(cfg ocr2keepers.LogEventProviderConfig) {
 		logLimit = p.opts.defaultLogLimit()
 	}
 
-	p.lggr.With("where", "setConfig").Infow("setting config ", "bockRate", blockRate, "logLimit", logLimit)
+	p.lggr.Infow("setting config", "where", "setConfig", "bockRate", blockRate, "logLimit", logLimit)
 
 	atomic.StoreUint32(&p.opts.BlockRate, blockRate)
 	atomic.StoreUint32(&p.opts.LogLimit, logLimit)
@@ -156,7 +155,7 @@ func (p *logEventProvider) Start(context.Context) error {
 		}
 
 		p.threadCtrl.Go(func(ctx context.Context) {
-			lggr := p.lggr.With("where", "scheduler")
+			lggr := logger.With(p.lggr, "where", "scheduler")
 
 			p.scheduleReadJobs(ctx, func(ids []*big.Int) {
 				select {
@@ -369,7 +368,7 @@ func (p *logEventProvider) startReader(pctx context.Context, readQ <-chan []*big
 	ctx, cancel := context.WithCancel(pctx)
 	defer cancel()
 
-	lggr := p.lggr.With("where", "reader")
+	lggr := logger.With(p.lggr, "where", "reader")
 
 	for {
 		select {

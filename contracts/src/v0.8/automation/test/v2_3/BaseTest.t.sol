@@ -20,14 +20,14 @@ import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
 import {IWrappedNative} from "../../interfaces/v2_3/IWrappedNative.sol";
-import {WETH9} from "./WETH9.sol";
+import {WETH9} from "../WETH9.sol";
 
 /**
  * @title BaseTest provides basic test setup procedures and dependencies for use by other
  * unit tests
  */
 contract BaseTest is Test {
-  // test state (not exposed to derrived tests)
+  // test state (not exposed to derived tests)
   uint256 private nonce;
 
   // constants
@@ -283,7 +283,6 @@ contract BaseTest is Test {
       billingTokenAddresses,
       billingTokenConfigs
     );
-    registry.setPayees(PAYEES);
     return (registry, registrar);
   }
 
@@ -356,40 +355,58 @@ contract BaseTest is Test {
     );
   }
 
+  // tests single upkeep, expects success
   function _transmit(uint256 id, Registry registry) internal {
     uint256[] memory ids = new uint256[](1);
     ids[0] = id;
-    _transmit(ids, registry);
+    _handleTransmit(ids, registry, bytes4(0));
   }
 
+  // tests multiple upkeeps, expects success
   function _transmit(uint256[] memory ids, Registry registry) internal {
-    uint256[] memory upkeepIds = new uint256[](ids.length);
-    uint256[] memory gasLimits = new uint256[](ids.length);
-    bytes[] memory performDatas = new bytes[](ids.length);
-    bytes[] memory triggers = new bytes[](ids.length);
-    for (uint256 i = 0; i < ids.length; i++) {
-      upkeepIds[i] = ids[i];
-      gasLimits[i] = registry.getUpkeep(ids[i]).performGas;
-      performDatas[i] = new bytes(0);
-      uint8 triggerType = registry.getTriggerType(ids[i]);
-      if (triggerType == 0) {
-        triggers[i] = _encodeConditionalTrigger(
-          AutoBase.ConditionalTrigger(uint32(block.number - 1), blockhash(block.number - 1))
-        );
-      } else {
-        revert("not implemented");
-      }
-    }
-    AutoBase.Report memory report = AutoBase.Report(
-      uint256(1000000000),
-      uint256(2000000000),
-      upkeepIds,
-      gasLimits,
-      triggers,
-      performDatas
-    );
+    _handleTransmit(ids, registry, bytes4(0));
+  }
 
-    bytes memory reportBytes = _encodeReport(report);
+  // tests single upkeep, expects revert
+  function _transmitAndExpectRevert(uint256 id, Registry registry, bytes4 selector) internal {
+    uint256[] memory ids = new uint256[](1);
+    ids[0] = id;
+    _handleTransmit(ids, registry, selector);
+  }
+
+  // private function not exposed to actual testing contract
+  function _handleTransmit(uint256[] memory ids, Registry registry, bytes4 selector) private {
+    bytes memory reportBytes;
+    {
+      uint256[] memory upkeepIds = new uint256[](ids.length);
+      uint256[] memory gasLimits = new uint256[](ids.length);
+      bytes[] memory performDatas = new bytes[](ids.length);
+      bytes[] memory triggers = new bytes[](ids.length);
+      for (uint256 i = 0; i < ids.length; i++) {
+        upkeepIds[i] = ids[i];
+        gasLimits[i] = registry.getUpkeep(ids[i]).performGas;
+        performDatas[i] = new bytes(0);
+        uint8 triggerType = registry.getTriggerType(ids[i]);
+        if (triggerType == 0) {
+          triggers[i] = _encodeConditionalTrigger(
+            AutoBase.ConditionalTrigger(uint32(block.number - 1), blockhash(block.number - 1))
+          );
+        } else {
+          revert("not implemented");
+        }
+      }
+
+      AutoBase.Report memory report = AutoBase.Report(
+        uint256(1000000000),
+        uint256(2000000000),
+        upkeepIds,
+        gasLimits,
+        triggers,
+        performDatas
+      );
+
+      reportBytes = _encodeReport(report);
+    }
     (, , bytes32 configDigest) = registry.latestConfigDetails();
     bytes32[3] memory reportContext = [configDigest, configDigest, configDigest];
     uint256[] memory signerPKs = new uint256[](2);
@@ -398,6 +415,9 @@ contract BaseTest is Test {
     (bytes32[] memory rs, bytes32[] memory ss, bytes32 vs) = _signReport(reportBytes, reportContext, signerPKs);
 
     vm.startPrank(TRANSMITTERS[0]);
+    if (selector != bytes4(0)) {
+      vm.expectRevert(selector);
+    }
     registry.transmit(reportContext, reportBytes, rs, ss, vs);
     vm.stopPrank();
   }

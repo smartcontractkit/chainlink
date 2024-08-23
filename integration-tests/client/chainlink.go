@@ -2,6 +2,7 @@
 package client
 
 import (
+	"crypto/tls"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -45,13 +46,9 @@ type ChainlinkClient struct {
 
 // NewChainlinkClient creates a new Chainlink model using a provided config
 func NewChainlinkClient(c *ChainlinkConfig, logger zerolog.Logger) (*ChainlinkClient, error) {
-	rc, err := initRestyClient(c.URL, c.Email, c.Password, c.HTTPTimeout)
+	rc, err := initRestyClient(c.URL, c.Email, c.Password, c.Headers, c.HTTPTimeout)
 	if err != nil {
 		return nil, err
-	}
-	_, isSet := os.LookupEnv("CL_CLIENT_DEBUG")
-	if isSet {
-		rc.SetDebug(true)
 	}
 	return &ChainlinkClient{
 		Config:    c,
@@ -61,8 +58,11 @@ func NewChainlinkClient(c *ChainlinkConfig, logger zerolog.Logger) (*ChainlinkCl
 	}, nil
 }
 
-func initRestyClient(url string, email string, password string, timeout *time.Duration) (*resty.Client, error) {
-	rc := resty.New().SetBaseURL(url)
+func initRestyClient(url string, email string, password string, headers map[string]string, timeout *time.Duration) (*resty.Client, error) {
+	isDebug := os.Getenv("RESTY_DEBUG") == "true"
+	// G402 - TODO: certificates
+	//nolint
+	rc := resty.New().SetBaseURL(url).SetHeaders(headers).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true}).SetDebug(isDebug)
 	if timeout != nil {
 		rc.SetTimeout(*timeout)
 	}
@@ -74,7 +74,7 @@ func initRestyClient(url string, email string, password string, timeout *time.Du
 	for i := 0; i < retryCount; i++ {
 		resp, err = rc.R().SetBody(session).Post("/sessions")
 		if err != nil {
-			log.Debug().Err(err).Str("URL", url).Interface("Session Details", session).Msg("Error connecting to Chainlink node, retrying")
+			log.Warn().Err(err).Str("URL", url).Interface("Session Details", session).Msg("Error connecting to Chainlink node, retrying")
 			time.Sleep(5 * time.Second)
 		} else {
 			break

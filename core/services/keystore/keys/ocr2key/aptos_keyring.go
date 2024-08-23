@@ -2,12 +2,11 @@ package ocr2key
 
 import (
 	"crypto/ed25519"
-	"encoding/binary"
 	"io"
 
 	"github.com/hdevalence/ed25519consensus"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/blake2s"
+	"golang.org/x/crypto/blake2b"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -37,17 +36,15 @@ func (akr *aptosKeyring) PublicKey() ocrtypes.OnchainPublicKey {
 
 func (akr *aptosKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
 	rawReportContext := evmutil.RawReportContext(reportCtx)
-	h, err := blake2s.New256(nil)
+	h, err := blake2b.New256(nil)
 	if err != nil {
 		return nil, err
 	}
-	reportLen := make([]byte, 4)
-	binary.BigEndian.PutUint32(reportLen[0:], uint32(len(report)))
-	h.Write(reportLen[:])
-	h.Write(report)
+	// blake2b_256(report_context | report)
 	h.Write(rawReportContext[0][:])
 	h.Write(rawReportContext[1][:])
 	h.Write(rawReportContext[2][:])
+	h.Write(report)
 	return h.Sum(nil), nil
 }
 

@@ -69,6 +69,8 @@ func (hc *HealthController) Readyz(c *gin.Context) {
 }
 
 func (hc *HealthController) Health(c *gin.Context) {
+	_, failing := c.GetQuery("failing")
+
 	status := http.StatusOK
 
 	checker := hc.App.GetHealthChecker()
@@ -89,6 +91,8 @@ func (hc *HealthController) Health(c *gin.Context) {
 		if err != nil {
 			status = HealthStatusFailing
 			output = err.Error()
+		} else if failing {
+			continue // omit from returned data
 		}
 
 		checks = append(checks, presenters.Check{

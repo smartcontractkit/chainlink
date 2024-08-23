@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
+	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -34,6 +35,13 @@ const (
 	// TransmitCheckTimeout controls the maximum amount of time that will be
 	// spent on the transmit check.
 	TransmitCheckTimeout = 2 * time.Second
+
+	// maxBroadcastRetries is the number of times a transaction broadcast is retried when the sequence fails to increment on Hedera
+	maxHederaBroadcastRetries = 3
+
+	// hederaChainType is the string representation of the Hedera chain type
+	// Temporary solution until the Broadcaster is moved to the EVM code base
+	hederaChainType = "hedera"
 )
 
 var (
@@ -114,6 +122,7 @@ type Broadcaster[
 	sequenceTracker txmgrtypes.SequenceTracker[ADDR, SEQ]
 	resumeCallback  ResumeCallback
 	chainID         CHAIN_ID
+	chainType       string
 	config          txmgrtypes.BroadcasterChainConfig
 	feeConfig       txmgrtypes.BroadcasterFeeConfig
 	txConfig        txmgrtypes.BroadcasterTransactionsConfig
@@ -163,6 +172,7 @@ func NewBroadcaster[
 	lggr logger.Logger,
 	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	autoSyncSequence bool,
+	chainType string,
 ) *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Broadcaster")
 	b := &Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{
@@ -171,6 +181,7 @@ func NewBroadcaster[
 		client:           client,
 		TxAttemptBuilder: txAttemptBuilder,
 		chainID:          client.ConfiguredChainID(),
+		chainType:        chainType,
 		config:           config,
 		feeConfig:        feeConfig,
 		txConfig:         txConfig,
@@ -411,7 +422,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		return fmt.Errorf("handleAnyInProgressTx failed: %w", err), true
 	}
 	if etx != nil {
-		if err, retryable := eb.handleInProgressTx(ctx, *etx, etx.TxAttempts[0], etx.CreatedAt); err != nil {
+		if err, retryable := eb.handleInProgressTx(ctx, *etx, etx.TxAttempts[0], etx.CreatedAt, 0); err != nil {
 			return fmt.Errorf("handleAnyInProgressTx failed: %w", err), retryable
 		}
 	}
@@ -424,7 +435,11 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	}
 
 	attempt, _, _, retryable, err := eb.NewTxAttempt(ctx, *etx, eb.lggr)
-	if err != nil {
+	// Mark transaction as fatal if provided gas limit is set too low
+	if errors.Is(err, commonfee.ErrFeeLimitTooLow) {
+		etx.Error = null.StringFrom(commonfee.ErrFeeLimitTooLow.Error())
+		return eb.saveFatallyErroredTransaction(eb.lggr, etx), false
+	} else if err != nil {
 		return fmt.Errorf("processUnstartedTxs failed on NewAttempt: %w", err), retryable
 	}
 
@@ -464,12 +479,12 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		return fmt.Errorf("processUnstartedTxs failed on UpdateTxUnstartedToInProgress: %w", err), true
 	}
 
-	return eb.handleInProgressTx(ctx, *etx, attempt, time.Now())
+	return eb.handleInProgressTx(ctx, *etx, attempt, time.Now(), 0)
 }
 
 // There can be at most one in_progress transaction per address.
 // Here we complete the job that we didn't finish last time.
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) handleInProgressTx(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time) (error, bool) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) handleInProgressTx(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time, retryCount int) (error, bool) {
 	if etx.State != TxInProgress {
 		return fmt.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State), false
 	}
@@ -478,16 +493,21 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	lgr.Infow("Sending transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "meta", etx.Meta, "feeLimit", attempt.ChainSpecificFeeLimit, "callerProvidedFeeLimit", etx.FeeLimit, "attempt", attempt, "etx", etx)
 	errType, err := eb.client.SendTransactionReturnCode(ctx, etx, attempt, lgr)
 
-	if errType != client.Fatal {
-		etx.InitialBroadcastAt = &initialBroadcastAt
-		etx.BroadcastAt = &initialBroadcastAt
+	// The validation below is only applicable to Hedera because it has instant finality and a unique sequence behavior
+	if eb.chainType == hederaChainType {
+		errType, err = eb.validateOnChainSequence(ctx, lgr, errType, err, etx, retryCount)
 	}
 
-	switch errType {
-	case client.Fatal:
+	if errType == client.Fatal || errType == client.TerminallyStuck {
 		eb.SvcErrBuffer.Append(err)
 		etx.Error = null.StringFrom(err.Error())
 		return eb.saveFatallyErroredTransaction(lgr, &etx), true
+	}
+
+	etx.InitialBroadcastAt = &initialBroadcastAt
+	etx.BroadcastAt = &initialBroadcastAt
+
+	switch errType {
 	case client.TransactionAlreadyKnown:
 		fallthrough
 	case client.Successful:
@@ -538,7 +558,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		eb.sequenceTracker.GenerateNextSequence(etx.FromAddress, *etx.Sequence)
 		return err, true
 	case client.Underpriced:
-		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt)
+		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt, retryCount+1)
 	case client.InsufficientFunds:
 		// NOTE: This bails out of the entire cycle and essentially "blocks" on
 		// any transaction that gets insufficient_funds. This is OK if a
@@ -600,6 +620,44 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	}
 }
 
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) validateOnChainSequence(ctx context.Context, lgr logger.SugaredLogger, errType client.SendTxReturnCode, err error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], retryCount int) (client.SendTxReturnCode, error) {
+	// Only check if sequence was incremented if broadcast was successful, otherwise return the existing err type
+	if errType != client.Successful {
+		return errType, err
+	}
+	// Transaction sequence cannot be nil here since a sequence is required to broadcast
+	txSeq := *etx.Sequence
+	// Retrieve the latest mined sequence from on-chain
+	nextSeqOnChain, err := eb.client.SequenceAt(ctx, etx.FromAddress, nil)
+	if err != nil {
+		return errType, err
+	}
+
+	// Check that the transaction count has incremented on-chain to include the broadcasted transaction
+	// Insufficient transaction fee is a common scenario in which the sequence is not incremented by the chain even though we got a successful response
+	// If the sequence failed to increment and hasn't reached the max retries, return the Underpriced error to try again with a bumped attempt
+	if nextSeqOnChain.Int64() == txSeq.Int64() && retryCount < maxHederaBroadcastRetries {
+		return client.Underpriced, nil
+	}
+
+	// If the transaction reaches the retry limit and fails to get included, mark it as fatally errored
+	// Some unknown error other than insufficient tx fee could be the cause
+	if nextSeqOnChain.Int64() == txSeq.Int64() && retryCount >= maxHederaBroadcastRetries {
+		err := fmt.Errorf("failed to broadcast transaction on %s after %d retries", hederaChainType, retryCount)
+		lgr.Error(err.Error())
+		return client.Fatal, err
+	}
+
+	// Belts and braces approach to detect and handle sqeuence gaps if the broadcast is considered successful
+	if nextSeqOnChain.Int64() < txSeq.Int64() {
+		err := fmt.Errorf("next expected sequence on-chain (%s) is less than the broadcasted transaction's sequence (%s)", nextSeqOnChain.String(), txSeq.String())
+		lgr.Criticalw("Sequence gap has been detected and needs to be filled", "error", err)
+		return client.Fatal, err
+	}
+
+	return client.Successful, nil
+}
+
 // Finds next transaction in the queue, assigns a sequence, and moves it to "in_progress" state ready for broadcast.
 // Returns nil if no transactions are in queue
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) nextUnstartedTransactionWithSequence(fromAddress ADDR) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
@@ -622,23 +680,26 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) next
 	return etx, nil
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryAgainBumpingGas(ctx context.Context, lgr logger.Logger, txError error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time) (err error, retryable bool) {
-	logger.With(lgr,
-		"sendError", txError,
-		"attemptFee", attempt.TxFee,
-		"maxGasPriceConfig", eb.feeConfig.MaxFeePrice(),
-	).Errorf("attempt fee %v was rejected by the node for being too low. "+
-		"Node returned: '%s'. "+
-		"Will bump and retry. ACTION REQUIRED: This is a configuration error. "+
-		"Consider increasing FeeEstimator.PriceDefault (current value: %s)",
-		attempt.TxFee, txError.Error(), eb.feeConfig.FeePriceDefault())
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryAgainBumpingGas(ctx context.Context, lgr logger.Logger, txError error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time, retry int) (err error, retryable bool) {
+	// This log error is not applicable to Hedera since the action required would not be needed for its gas estimator
+	if eb.chainType != hederaChainType {
+		logger.With(lgr,
+			"sendError", txError,
+			"attemptFee", attempt.TxFee,
+			"maxGasPriceConfig", eb.feeConfig.MaxFeePrice(),
+		).Errorf("attempt fee %v was rejected by the node for being too low. "+
+			"Node returned: '%s'. "+
+			"Will bump and retry. ACTION REQUIRED: This is a configuration error. "+
+			"Consider increasing FeeEstimator.PriceDefault (current value: %s)",
+			attempt.TxFee, txError.Error(), eb.feeConfig.FeePriceDefault())
+	}
 
 	replacementAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpTxAttempt(ctx, etx, attempt, nil, lgr)
 	if err != nil {
 		return fmt.Errorf("tryAgainBumpFee failed: %w", err), retryable
 	}
 
-	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, bumpedFee, bumpedFeeLimit)
+	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, bumpedFee, bumpedFeeLimit, retry)
 }
 
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryAgainWithNewEstimation(ctx context.Context, lgr logger.Logger, txError error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time) (err error, retryable bool) {
@@ -655,15 +716,15 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryA
 	lgr.Warnw("L2 rejected transaction due to incorrect fee, re-estimated and will try again",
 		"etxID", etx.ID, "err", err, "newGasPrice", fee, "newGasLimit", feeLimit)
 
-	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, fee, feeLimit)
+	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, fee, feeLimit, 0)
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveTryAgainAttempt(ctx context.Context, lgr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], replacementAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time, newFee FEE, newFeeLimit uint64) (err error, retyrable bool) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveTryAgainAttempt(ctx context.Context, lgr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], replacementAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time, newFee FEE, newFeeLimit uint64, retry int) (err error, retyrable bool) {
 	if err = eb.txStore.SaveReplacementInProgressAttempt(ctx, attempt, &replacementAttempt); err != nil {
 		return fmt.Errorf("tryAgainWithNewFee failed: %w", err), true
 	}
 	lgr.Debugw("Bumped fee on initial send", "oldFee", attempt.TxFee.String(), "newFee", newFee.String(), "newFeeLimit", newFeeLimit)
-	return eb.handleInProgressTx(ctx, etx, replacementAttempt, initialBroadcastAt)
+	return eb.handleInProgressTx(ctx, etx, replacementAttempt, initialBroadcastAt, retry)
 }
 
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveFatallyErroredTransaction(lgr logger.Logger, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
