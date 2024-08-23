@@ -72,7 +72,6 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
     uint16 numUpkeepsPassedChecks;
     uint96 totalReimbursement;
     uint96 totalPremium;
-    uint256 totalCalldataWeight;
   }
 
   // ================================================================
@@ -89,7 +88,6 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
     bytes32[] calldata ss,
     bytes32 rawVs
   ) external override {
-    uint256 gasOverhead = gasleft();
     // use this msg.data length check to ensure no extra data is included in the call
     // 4 is first 4 bytes of the keccak-256 hash of the function signature. ss.length == rs.length so use one of them
     // 4 + (32 * 3) + (rawReport.length + 32 + 32) + (32 * rs.length + 32 + 32) + (32 * ss.length + 32 + 32) + 32
@@ -110,7 +108,7 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
     uint32 epoch = uint32(epochAndRound >> 8);
 
-    _handleReport(hotVars, report, gasOverhead);
+    _handleReport(hotVars, report);
 
     if (epoch > hotVars.latestEpoch) {
       s_hotVars.latestEpoch = epoch;
@@ -121,22 +119,20 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
    * @notice handles the report by performing the upkeeps and updating the state
    * @param hotVars the hot variables of the registry
    * @param report the report to be handled (already verified and decoded)
-   * @param gasOverhead the running tally of gas overhead to be split across the upkeeps
    * @dev had to split this function from transmit() to avoid stack too deep errors
    * @dev all other internal / private functions are generally defined in the Base contract
    * we leave this here because it is essentially a continuation of the transmit() function,
    */
-  function _handleReport(HotVars memory hotVars, Report memory report, uint256 gasOverhead) private {
+  function _handleReport(HotVars memory hotVars, Report memory report) private {
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](report.upkeepIds.length);
     TransmitVars memory transmitVars = TransmitVars({
       numUpkeepsPassedChecks: 0,
-      totalCalldataWeight: 0,
       totalReimbursement: 0,
       totalPremium: 0
     });
 
     uint256 blocknumber = hotVars.chainModule.blockNumber();
-    uint256 l1Fee = hotVars.chainModule.getCurrentL1Fee(msg.data.length); // this will be updated
+    uint256 gasOverhead;
 
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];
@@ -163,28 +159,25 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
         report.performDatas[i]
       );
 
-      // To split L1 fee across the upkeeps, assign a weight to this upkeep based on the length
-      // of the perform data and calldata overhead
-      upkeepTransmitInfo[i].calldataWeight =
-        report.performDatas[i].length +
-        TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD +
-        (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
-      transmitVars.totalCalldataWeight += upkeepTransmitInfo[i].calldataWeight;
-
-      // Deduct the gasUsed by upkeep from the overhead tally - upkeeps pay for their own gas individually
-      gasOverhead -= upkeepTransmitInfo[i].gasUsed;
-
       // Store last perform block number / deduping key for upkeep
       _updateTriggerMarker(report.upkeepIds[i], blocknumber, upkeepTransmitInfo[i]);
+
+      if (upkeepTransmitInfo[i].triggerType == Trigger.CONDITION) {
+        gasOverhead += REGISTRY_CONDITIONAL_OVERHEAD;
+      } else {
+        gasOverhead += REGISTRY_LOG_OVERHEAD;
+      }
     }
     // No upkeeps to be performed in this report
     if (transmitVars.numUpkeepsPassedChecks == 0) {
       return;
     }
 
-    // This is the overall gas overhead that will be split across performed upkeeps
-    // Take upper bound of 16 gas per callData bytes
-    gasOverhead = (gasOverhead - gasleft()) + (16 * msg.data.length) + ACCOUNTING_FIXED_GAS_OVERHEAD;
+    gasOverhead +=
+      16 *
+      msg.data.length +
+      ACCOUNTING_FIXED_GAS_OVERHEAD +
+      (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1));
     gasOverhead = gasOverhead / transmitVars.numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
 
     {
@@ -200,7 +193,7 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
             PaymentParams({
               gasLimit: upkeepTransmitInfo[i].gasUsed,
               gasOverhead: gasOverhead,
-              l1CostWei: (l1Fee * upkeepTransmitInfo[i].calldataWeight) / transmitVars.totalCalldataWeight,
+              l1CostWei: 0,
               fastGasWei: report.fastGasWei,
               linkUSD: report.linkUSD,
               nativeUSD: nativeUSD,

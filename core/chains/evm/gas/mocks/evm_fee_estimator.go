@@ -7,6 +7,8 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 
+	common "github.com/ethereum/go-ethereum/common"
+
 	context "context"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -145,14 +147,14 @@ func (_c *EvmFeeEstimator_Close_Call) RunAndReturn(run func() error) *EvmFeeEsti
 	return _c
 }
 
-// GetFee provides a mock function with given fields: ctx, calldata, feeLimit, maxFeePrice, opts
-func (_m *EvmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...types.Opt) (gas.EvmFee, uint64, error) {
+// GetFee provides a mock function with given fields: ctx, calldata, feeLimit, maxFeePrice, toAddress, opts
+func (_m *EvmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, toAddress *common.Address, opts ...types.Opt) (gas.EvmFee, uint64, error) {
 	_va := make([]interface{}, len(opts))
 	for _i := range opts {
 		_va[_i] = opts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, ctx, calldata, feeLimit, maxFeePrice)
+	_ca = append(_ca, ctx, calldata, feeLimit, maxFeePrice, toAddress)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
@@ -163,23 +165,23 @@ func (_m *EvmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit
 	var r0 gas.EvmFee
 	var r1 uint64
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, []byte, uint64, *assets.Wei, ...types.Opt) (gas.EvmFee, uint64, error)); ok {
-		return rf(ctx, calldata, feeLimit, maxFeePrice, opts...)
+	if rf, ok := ret.Get(0).(func(context.Context, []byte, uint64, *assets.Wei, *common.Address, ...types.Opt) (gas.EvmFee, uint64, error)); ok {
+		return rf(ctx, calldata, feeLimit, maxFeePrice, toAddress, opts...)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []byte, uint64, *assets.Wei, ...types.Opt) gas.EvmFee); ok {
-		r0 = rf(ctx, calldata, feeLimit, maxFeePrice, opts...)
+	if rf, ok := ret.Get(0).(func(context.Context, []byte, uint64, *assets.Wei, *common.Address, ...types.Opt) gas.EvmFee); ok {
+		r0 = rf(ctx, calldata, feeLimit, maxFeePrice, toAddress, opts...)
 	} else {
 		r0 = ret.Get(0).(gas.EvmFee)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []byte, uint64, *assets.Wei, ...types.Opt) uint64); ok {
-		r1 = rf(ctx, calldata, feeLimit, maxFeePrice, opts...)
+	if rf, ok := ret.Get(1).(func(context.Context, []byte, uint64, *assets.Wei, *common.Address, ...types.Opt) uint64); ok {
+		r1 = rf(ctx, calldata, feeLimit, maxFeePrice, toAddress, opts...)
 	} else {
 		r1 = ret.Get(1).(uint64)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, []byte, uint64, *assets.Wei, ...types.Opt) error); ok {
-		r2 = rf(ctx, calldata, feeLimit, maxFeePrice, opts...)
+	if rf, ok := ret.Get(2).(func(context.Context, []byte, uint64, *assets.Wei, *common.Address, ...types.Opt) error); ok {
+		r2 = rf(ctx, calldata, feeLimit, maxFeePrice, toAddress, opts...)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -197,43 +199,44 @@ type EvmFeeEstimator_GetFee_Call struct {
 //   - calldata []byte
 //   - feeLimit uint64
 //   - maxFeePrice *assets.Wei
+//   - toAddress *common.Address
 //   - opts ...types.Opt
-func (_e *EvmFeeEstimator_Expecter) GetFee(ctx interface{}, calldata interface{}, feeLimit interface{}, maxFeePrice interface{}, opts ...interface{}) *EvmFeeEstimator_GetFee_Call {
+func (_e *EvmFeeEstimator_Expecter) GetFee(ctx interface{}, calldata interface{}, feeLimit interface{}, maxFeePrice interface{}, toAddress interface{}, opts ...interface{}) *EvmFeeEstimator_GetFee_Call {
 	return &EvmFeeEstimator_GetFee_Call{Call: _e.mock.On("GetFee",
-		append([]interface{}{ctx, calldata, feeLimit, maxFeePrice}, opts...)...)}
+		append([]interface{}{ctx, calldata, feeLimit, maxFeePrice, toAddress}, opts...)...)}
 }
 
-func (_c *EvmFeeEstimator_GetFee_Call) Run(run func(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...types.Opt)) *EvmFeeEstimator_GetFee_Call {
+func (_c *EvmFeeEstimator_GetFee_Call) Run(run func(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, toAddress *common.Address, opts ...types.Opt)) *EvmFeeEstimator_GetFee_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := make([]types.Opt, len(args)-4)
-		for i, a := range args[4:] {
+		variadicArgs := make([]types.Opt, len(args)-5)
+		for i, a := range args[5:] {
 			if a != nil {
 				variadicArgs[i] = a.(types.Opt)
 			}
 		}
-		run(args[0].(context.Context), args[1].([]byte), args[2].(uint64), args[3].(*assets.Wei), variadicArgs...)
+		run(args[0].(context.Context), args[1].([]byte), args[2].(uint64), args[3].(*assets.Wei), args[4].(*common.Address), variadicArgs...)
 	})
 	return _c
 }
 
-func (_c *EvmFeeEstimator_GetFee_Call) Return(fee gas.EvmFee, chainSpecificFeeLimit uint64, err error) *EvmFeeEstimator_GetFee_Call {
-	_c.Call.Return(fee, chainSpecificFeeLimit, err)
+func (_c *EvmFeeEstimator_GetFee_Call) Return(fee gas.EvmFee, estimatedFeeLimit uint64, err error) *EvmFeeEstimator_GetFee_Call {
+	_c.Call.Return(fee, estimatedFeeLimit, err)
 	return _c
 }
 
-func (_c *EvmFeeEstimator_GetFee_Call) RunAndReturn(run func(context.Context, []byte, uint64, *assets.Wei, ...types.Opt) (gas.EvmFee, uint64, error)) *EvmFeeEstimator_GetFee_Call {
+func (_c *EvmFeeEstimator_GetFee_Call) RunAndReturn(run func(context.Context, []byte, uint64, *assets.Wei, *common.Address, ...types.Opt) (gas.EvmFee, uint64, error)) *EvmFeeEstimator_GetFee_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetMaxCost provides a mock function with given fields: ctx, amount, calldata, feeLimit, maxFeePrice, opts
-func (_m *EvmFeeEstimator) GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...types.Opt) (*big.Int, error) {
+// GetMaxCost provides a mock function with given fields: ctx, amount, calldata, feeLimit, maxFeePrice, toAddress, opts
+func (_m *EvmFeeEstimator) GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, toAddress *common.Address, opts ...types.Opt) (*big.Int, error) {
 	_va := make([]interface{}, len(opts))
 	for _i := range opts {
 		_va[_i] = opts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, ctx, amount, calldata, feeLimit, maxFeePrice)
+	_ca = append(_ca, ctx, amount, calldata, feeLimit, maxFeePrice, toAddress)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
@@ -243,19 +246,19 @@ func (_m *EvmFeeEstimator) GetMaxCost(ctx context.Context, amount assets.Eth, ca
 
 	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, assets.Eth, []byte, uint64, *assets.Wei, ...types.Opt) (*big.Int, error)); ok {
-		return rf(ctx, amount, calldata, feeLimit, maxFeePrice, opts...)
+	if rf, ok := ret.Get(0).(func(context.Context, assets.Eth, []byte, uint64, *assets.Wei, *common.Address, ...types.Opt) (*big.Int, error)); ok {
+		return rf(ctx, amount, calldata, feeLimit, maxFeePrice, toAddress, opts...)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, assets.Eth, []byte, uint64, *assets.Wei, ...types.Opt) *big.Int); ok {
-		r0 = rf(ctx, amount, calldata, feeLimit, maxFeePrice, opts...)
+	if rf, ok := ret.Get(0).(func(context.Context, assets.Eth, []byte, uint64, *assets.Wei, *common.Address, ...types.Opt) *big.Int); ok {
+		r0 = rf(ctx, amount, calldata, feeLimit, maxFeePrice, toAddress, opts...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, assets.Eth, []byte, uint64, *assets.Wei, ...types.Opt) error); ok {
-		r1 = rf(ctx, amount, calldata, feeLimit, maxFeePrice, opts...)
+	if rf, ok := ret.Get(1).(func(context.Context, assets.Eth, []byte, uint64, *assets.Wei, *common.Address, ...types.Opt) error); ok {
+		r1 = rf(ctx, amount, calldata, feeLimit, maxFeePrice, toAddress, opts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -274,21 +277,22 @@ type EvmFeeEstimator_GetMaxCost_Call struct {
 //   - calldata []byte
 //   - feeLimit uint64
 //   - maxFeePrice *assets.Wei
+//   - toAddress *common.Address
 //   - opts ...types.Opt
-func (_e *EvmFeeEstimator_Expecter) GetMaxCost(ctx interface{}, amount interface{}, calldata interface{}, feeLimit interface{}, maxFeePrice interface{}, opts ...interface{}) *EvmFeeEstimator_GetMaxCost_Call {
+func (_e *EvmFeeEstimator_Expecter) GetMaxCost(ctx interface{}, amount interface{}, calldata interface{}, feeLimit interface{}, maxFeePrice interface{}, toAddress interface{}, opts ...interface{}) *EvmFeeEstimator_GetMaxCost_Call {
 	return &EvmFeeEstimator_GetMaxCost_Call{Call: _e.mock.On("GetMaxCost",
-		append([]interface{}{ctx, amount, calldata, feeLimit, maxFeePrice}, opts...)...)}
+		append([]interface{}{ctx, amount, calldata, feeLimit, maxFeePrice, toAddress}, opts...)...)}
 }
 
-func (_c *EvmFeeEstimator_GetMaxCost_Call) Run(run func(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...types.Opt)) *EvmFeeEstimator_GetMaxCost_Call {
+func (_c *EvmFeeEstimator_GetMaxCost_Call) Run(run func(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, toAddress *common.Address, opts ...types.Opt)) *EvmFeeEstimator_GetMaxCost_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := make([]types.Opt, len(args)-5)
-		for i, a := range args[5:] {
+		variadicArgs := make([]types.Opt, len(args)-6)
+		for i, a := range args[6:] {
 			if a != nil {
 				variadicArgs[i] = a.(types.Opt)
 			}
 		}
-		run(args[0].(context.Context), args[1].(assets.Eth), args[2].([]byte), args[3].(uint64), args[4].(*assets.Wei), variadicArgs...)
+		run(args[0].(context.Context), args[1].(assets.Eth), args[2].([]byte), args[3].(uint64), args[4].(*assets.Wei), args[5].(*common.Address), variadicArgs...)
 	})
 	return _c
 }
@@ -298,7 +302,7 @@ func (_c *EvmFeeEstimator_GetMaxCost_Call) Return(_a0 *big.Int, _a1 error) *EvmF
 	return _c
 }
 
-func (_c *EvmFeeEstimator_GetMaxCost_Call) RunAndReturn(run func(context.Context, assets.Eth, []byte, uint64, *assets.Wei, ...types.Opt) (*big.Int, error)) *EvmFeeEstimator_GetMaxCost_Call {
+func (_c *EvmFeeEstimator_GetMaxCost_Call) RunAndReturn(run func(context.Context, assets.Eth, []byte, uint64, *assets.Wei, *common.Address, ...types.Opt) (*big.Int, error)) *EvmFeeEstimator_GetMaxCost_Call {
 	_c.Call.Return(run)
 	return _c
 }
