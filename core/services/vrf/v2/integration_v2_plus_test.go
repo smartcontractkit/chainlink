@@ -112,12 +112,13 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	require.NoError(t, err)
 	blockTime := time.Unix(int64(h.Time), 0)
 	// Move the clock closer to the current time. We set first block to be 24 hours ago.
-	adjust := -time.Since(blockTime) + 24*time.Hour
+	adjust := time.Since(blockTime) - 24*time.Hour
 	// hack to convert nanos durations to seconds until geth patches incorrect conversion
 	// remove after fix is merged: https://github.com/ethereum/go-ethereum/pull/30138
 	adjust = adjust / 1e9
 	err = backend.AdjustTime(adjust)
 	require.NoError(t, err)
+	backend.Commit()
 
 	// Deploy link
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
@@ -702,7 +703,6 @@ func TestVRFV2PlusIntegration_ConsumerProxy_HappyPath(t *testing.T) {
 		ownerKey,
 		uni.coordinatorV2UniverseCommon,
 		uni.batchCoordinatorContractAddress,
-		false,
 		vrfcommon.V2Plus,
 		false,
 	)

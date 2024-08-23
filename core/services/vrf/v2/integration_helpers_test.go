@@ -1517,7 +1517,6 @@ func testConsumerProxyHappyPath(
 	ownerKey ethkey.KeyV2,
 	uni coordinatorV2UniverseCommon,
 	batchCoordinatorAddress common.Address,
-	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {

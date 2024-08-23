@@ -321,7 +321,6 @@ func TestKeeperEthIntegration(t *testing.T) {
 }
 
 func TestKeeperForwarderEthIntegration(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	t.Run("keeper_forwarder_flow", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -479,7 +478,6 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 }
 
 func TestMaxPerformDataSize(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	t.Run("max_perform_data_size_test", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -575,6 +573,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 		require.NoError(t, err)
 		_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
 		require.NoError(t, err)
+		commit()
 
 		// Huge payload should not result in a perform
 		g.Consistently(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal([]byte{}))
@@ -583,6 +582,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 		smallPayload := make([]byte, maxPerformDataSize-1)
 		_, err = upkeepContract.SetBytesToSend(carrol, smallPayload)
 		require.NoError(t, err)
+		commit()
 		g.Eventually(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(smallPayload))
 	})
 }

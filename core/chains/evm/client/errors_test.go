@@ -214,6 +214,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"insufficient funds for gas + value. balance: 42719769622667482000, fee: 48098250000000, value: 42719769622667482000", true, "celo"},
 			{"client error insufficient eth", true, "tomlConfig"},
 			{"transaction would cause overdraft", true, "Geth"},
+			{"insufficient funds for gas * price + value: balance 0, tx cost 9327080000000000, overshot 9327080000000000", true, "Geth"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)

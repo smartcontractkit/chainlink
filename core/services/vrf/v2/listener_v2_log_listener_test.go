@@ -43,6 +43,7 @@ var (
 )
 
 type vrfLogPollerListenerTH struct {
+	FinalityDepth     int64
 	Lggr              logger.Logger
 	ChainID           *big.Int
 	ORM               logpoller.ORM
@@ -57,11 +58,15 @@ type vrfLogPollerListenerTH struct {
 	Listener          *listenerV2
 }
 
-func setupVRFLogPollerListenerTH(t *testing.T,
-	useFinalityTag bool,
-	finalityDepth, backfillBatchSize,
-	rpcBatchSize, keepFinalizedBlocksDepth int64,
-	mockChainUpdateFn func(*evmmocks.Chain, *vrfLogPollerListenerTH)) *vrfLogPollerListenerTH {
+func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
+	const (
+		useFinalityTag           = false
+		finalityDepth            = 3
+		backfillBatchSize        = 3
+		rpcBatchSize             = 2
+		keepFinalizedBlocksDepth = 1000
+	)
+
 	ctx := testutils.Context(t)
 
 	lggr := logger.TestLogger(t)
@@ -82,12 +87,13 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 	blockTime := time.Unix(int64(h.Time), 0)
 	// VRF Listener relies on block timestamps, but SimulatedBackend uses by default clock starting from 1970-01-01
 	// This trick is used to move the clock closer to the current time. We set first block to be 24 hours ago.
-	adjust := -time.Since(blockTime) + 24*time.Hour
+	adjust := time.Since(blockTime) - 24*time.Hour
 	// hack to convert nanos durations to seconds until geth patches incorrect conversion
 	// remove after fix is merged: https://github.com/ethereum/go-ethereum/pull/30138
 	adjust = adjust / 1e9
 	err = backend.AdjustTime(adjust)
 	require.NoError(t, err)
+	backend.Commit()
 
 	esc := client.NewSimulatedBackendClient(t, backend, chainID)
 	// Mark genesis block as finalized to avoid any nulls in the tests
@@ -127,6 +133,9 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 	coordinator := NewCoordinatorV2(coordinatorV2)
 
 	chain := evmmocks.NewChain(t)
+	chain.On("ID").Maybe().Return(chainID)
+	chain.On("LogPoller").Maybe().Return(lp)
+
 	listener := &listenerV2{
 		respCount:     map[string]uint64{},
 		job:           j,
@@ -162,6 +171,7 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 	require.Len(t, lp.Filter(nil, nil, nil).Topics[0], 3)
 
 	th := &vrfLogPollerListenerTH{
+		FinalityDepth:     finalityDepth,
 		Lggr:              lggr,
 		ChainID:           chainID,
 		ORM:               o,
@@ -175,7 +185,6 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 		Db:                db,
 		Listener:          listener,
 	}
-	mockChainUpdateFn(chain, th)
 	return th
 }
 
@@ -191,20 +200,15 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 
-	finalityDepth := int64(3)
-	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, th *vrfLogPollerListenerTH) {
-		mockChain.On("ID").Return(th.ChainID)
-		mockChain.On("LogPoller").Return(th.LogPoller)
-	})
+	th := setupVRFLogPollerListenerTH(t)
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(finalityDepth); i++ {
+	for i := 1; i < int(th.FinalityDepth); i++ {
 		th.Backend.Commit()
 	}
 
 	// Emit some logs from block 5 to 9 (Inclusive)
-	n := 5
-	for i := 0; i < n; i++ {
+	for i := 0; i < 5; i++ {
 		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
@@ -235,9 +239,7 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 func TestLogPollerFilterRegistered(t *testing.T) {
 	t.Parallel()
 	// Instantiate listener.
-	th := setupVRFLogPollerListenerTH(t, false, 3, 3, 2, 1000, func(mockChain *evmmocks.Chain, th *vrfLogPollerListenerTH) {
-		mockChain.On("LogPoller").Maybe().Return(th.LogPoller)
-	})
+	th := setupVRFLogPollerListenerTH(t)
 
 	// Run the log listener. This should register the log poller filter.
 	go th.Listener.runLogListener(time.Second, 1)
@@ -265,14 +267,10 @@ func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 
-	finalityDepth := int64(3)
-	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
-		mockChain.On("ID").Return(curTH.ChainID)
-		mockChain.On("LogPoller").Return(curTH.LogPoller)
-	})
+	th := setupVRFLogPollerListenerTH(t)
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(finalityDepth); i++ {
+	for i := 1; i < int(th.FinalityDepth); i++ {
 		th.Backend.Commit()
 	}
 
@@ -323,14 +321,10 @@ func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 
-	finalityDepth := int64(3)
-	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
-		mockChain.On("ID").Return(curTH.ChainID)
-		mockChain.On("LogPoller").Return(curTH.LogPoller)
-	})
+	th := setupVRFLogPollerListenerTH(t)
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(finalityDepth); i++ {
+	for i := 1; i < int(th.FinalityDepth); i++ {
 		th.Backend.Commit()
 	}
 
@@ -375,18 +369,13 @@ func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 }
 
 func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	ctx := tests.Context(t)
 
-	finalityDepth := int64(3)
-	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
-		mockChain.On("ID").Return(curTH.ChainID)
-		mockChain.On("LogPoller").Return(curTH.LogPoller)
-	})
+	th := setupVRFLogPollerListenerTH(t)
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(finalityDepth); i++ {
+	for i := 1; i < int(th.FinalityDepth); i++ {
 		th.Backend.Commit()
 	}
 
@@ -439,18 +428,13 @@ func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 }
 
 func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	ctx := tests.Context(t)
 
-	finalityDepth := int64(3)
-	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
-		mockChain.On("ID").Return(curTH.ChainID)
-		mockChain.On("LogPoller").Return(curTH.LogPoller)
-	})
+	th := setupVRFLogPollerListenerTH(t)
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(finalityDepth); i++ {
+	for i := 1; i < int(th.FinalityDepth); i++ {
 		th.Backend.Commit()
 	}
 
@@ -517,17 +501,13 @@ func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
  */
 
 func TestUpdateLastProcessedBlock_NoVRFReqs(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	ctx := tests.Context(t)
 
-	finalityDepth := int64(3)
-	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
-		mockChain.On("LogPoller").Return(curTH.LogPoller)
-	})
+	th := setupVRFLogPollerListenerTH(t)
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(finalityDepth); i++ {
+	for i := 1; i < int(th.FinalityDepth); i++ {
 		th.Backend.Commit()
 	}
 
@@ -576,17 +556,13 @@ func TestUpdateLastProcessedBlock_NoVRFReqs(t *testing.T) {
 }
 
 func TestUpdateLastProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	ctx := tests.Context(t)
 
-	finalityDepth := int64(3)
-	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
-		mockChain.On("LogPoller").Return(curTH.LogPoller)
-	})
+	th := setupVRFLogPollerListenerTH(t)
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(finalityDepth); i++ {
+	for i := 1; i < int(th.FinalityDepth); i++ {
 		th.Backend.Commit()
 	}
 
@@ -637,13 +613,10 @@ func TestUpdateLastProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 
-	finalityDepth := int64(3)
-	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
-		mockChain.On("LogPoller").Return(curTH.LogPoller)
-	})
+	th := setupVRFLogPollerListenerTH(t)
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(finalityDepth); i++ {
+	for i := 1; i < int(th.FinalityDepth); i++ {
 		th.Backend.Commit()
 	}
 
@@ -690,13 +663,10 @@ func TestUpdateLastProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 
-	finalityDepth := int64(3)
-	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
-		mockChain.On("LogPoller").Return(curTH.LogPoller)
-	})
+	th := setupVRFLogPollerListenerTH(t)
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(finalityDepth); i++ {
+	for i := 1; i < int(th.FinalityDepth); i++ {
 		th.Backend.Commit()
 	}
 
@@ -749,13 +719,10 @@ func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 
-	finalityDepth := int64(3)
-	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
-		mockChain.On("LogPoller").Return(curTH.LogPoller)
-	})
+	th := setupVRFLogPollerListenerTH(t)
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(finalityDepth); i++ {
+	for i := 1; i < int(th.FinalityDepth); i++ {
 		th.Backend.Commit()
 	}
 
