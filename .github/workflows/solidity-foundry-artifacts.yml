@@ -380,8 +380,8 @@ jobs:
           echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
           echo "Commit SHA used: **${{ inputs.commit_to_use || github.sha }}**" >> $GITHUB_STEP_SUMMARY
 
-          artifact_url="[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID)"
-          echo "$artifact_url" >> $GITHUB_STEP_SUMMARY
+          artifact_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID"
+          echo "[Artifact URL]($artifact_url)" >> $GITHUB_STEP_SUMMARY
           echo "artifact-url=$artifact_url" >> $GITHUB_OUTPUT
 
       - name: Setup NodeJS
