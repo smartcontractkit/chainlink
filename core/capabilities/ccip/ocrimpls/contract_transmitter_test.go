@@ -591,8 +591,8 @@ func (g *TestGasEstimatorConfig) BlockHistory() evmconfig.BlockHistory {
 	return &TestBlockHistoryConfig{}
 }
 
-func (g *TestGasEstimatorConfig) Universal() evmconfig.Universal {
-	return &TestUniversalConfig{}
+func (g *TestGasEstimatorConfig) FeeHistory() evmconfig.FeeHistory {
+	return &TestFeeHistoryConfig{}
 }
 
 func (g *TestGasEstimatorConfig) EIP1559DynamicFees() bool   { return false }
@@ -642,8 +642,8 @@ func (b *TestBlockHistoryConfig) BlockHistorySize() uint16          { return 42 
 func (b *TestBlockHistoryConfig) EIP1559FeeCapBufferBlocks() uint16 { return 42 }
 func (b *TestBlockHistoryConfig) TransactionPercentile() uint16     { return 42 }
 
-type TestUniversalConfig struct {
-	evmconfig.Universal
+type TestFeeHistoryConfig struct {
+	evmconfig.FeeHistory
 }
 
 type transactionsConfig struct {

@@ -1833,7 +1833,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -1931,7 +1931,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -2029,7 +2029,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -2127,7 +2127,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -2226,7 +2226,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -2324,7 +2324,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -2422,7 +2422,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -2521,7 +2521,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -2619,7 +2619,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -2716,7 +2716,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -2813,7 +2813,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -2911,7 +2911,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -3010,7 +3010,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -3108,7 +3108,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -3206,7 +3206,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -3304,7 +3304,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -3402,7 +3402,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -3500,7 +3500,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -3598,7 +3598,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -3696,7 +3696,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -3794,7 +3794,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -3892,7 +3892,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -3991,7 +3991,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -4089,7 +4089,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -4186,7 +4186,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -4284,7 +4284,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -4382,7 +4382,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -4480,7 +4480,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -4578,7 +4578,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -4675,7 +4675,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -4773,7 +4773,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -4871,7 +4871,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -4969,7 +4969,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -5067,7 +5067,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -5164,7 +5164,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -5262,7 +5262,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -5360,7 +5360,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -5459,7 +5459,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -5558,7 +5558,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -5657,7 +5657,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -5755,7 +5755,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -5853,7 +5853,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -5951,7 +5951,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -6049,7 +6049,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -6146,7 +6146,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -6243,7 +6243,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -6340,7 +6340,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -6438,7 +6438,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -6536,7 +6536,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -6633,7 +6633,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -6731,7 +6731,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -6829,7 +6829,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -6928,7 +6928,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -7027,7 +7027,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -7125,7 +7125,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -7223,7 +7223,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -7321,7 +7321,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -7419,7 +7419,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -7517,7 +7517,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -7615,7 +7615,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -7713,7 +7713,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
-[GasEstimator.Universal]
+[GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 
@@ -8370,9 +8370,9 @@ Setting this number higher will cause the Chainlink node to select higher gas pr
 
 Setting it lower will tend to set lower gas prices.
 
-## EVM.GasEstimator.Universal
+## EVM.GasEstimator.FeeHistory
 ```toml
-[EVM.GasEstimator.Universal]
+[EVM.GasEstimator.FeeHistory]
 CacheTimeout = '10s' # Default
 HasMempool = true # Default
 ```
@@ -8382,7 +8382,7 @@ HasMempool = true # Default
 ```toml
 CacheTimeout = '10s' # Default
 ```
-CacheTimeout is the time to wait in order to refresh the cached values stored in the Universal estimator. A small jitter is applied so the timeout won't be exactly the same each time.
+CacheTimeout is the time to wait in order to refresh the cached values stored in the FeeHistory estimator. A small jitter is applied so the timeout won't be exactly the same each time.
 
 You want this value to be close to the block time. For slower chains, like Ethereum, you can set it to 12s, the same as the block time. For faster chains you can skip a block or two
 and set it to two times the block time i.e. on Optimism you can set it to 4s. Ideally, you don't want to go lower than 1s since the RTT times of the RPC requests will be comparable to

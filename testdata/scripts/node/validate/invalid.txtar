@@ -364,7 +364,7 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
-[EVM.GasEstimator.Universal]
+[EVM.GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 HasMempool = true
 

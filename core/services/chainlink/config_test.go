@@ -543,7 +543,7 @@ func TestConfig_Marshal(t *testing.T) {
 						EIP1559FeeCapBufferBlocks: ptr[uint16](13),
 						TransactionPercentile:     ptr[uint16](15),
 					},
-					Universal: evmcfg.UniversalEstimator{
+					FeeHistory: evmcfg.FeeHistoryEstimator{
 						CacheTimeout: &second,
 						HasMempool:   ptr(true),
 					},
@@ -1053,7 +1053,7 @@ CheckInclusionPercentile = 19
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
-[EVM.GasEstimator.Universal]
+[EVM.GasEstimator.FeeHistory]
 CacheTimeout = '1s'
 HasMempool = true
 

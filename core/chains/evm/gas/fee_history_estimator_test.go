@@ -17,65 +17,65 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 )
 
-func TestUniversalEstimatorLifecycle(t *testing.T) {
+func TestFeeHistoryEstimatorLifecycle(t *testing.T) {
 	t.Parallel()
 	var gasLimit uint64 = 21000
 	maxPrice := assets.NewWeiI(100)
 	chainID := big.NewInt(0)
 
 	t.Run("fails if you fetch gas price before the estimator starts", func(t *testing.T) {
-		cfg := gas.UniversalEstimatorConfig{
+		cfg := gas.FeeHistoryEstimatorConfig{
 			BumpPercent:      20,
 			RewardPercentile: 60,
 			EIP1559:          false,
 		}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), nil, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), nil, cfg, chainID, nil)
 		_, _, err := u.GetLegacyGas(tests.Context(t), nil, gasLimit, maxPrice)
 		assert.ErrorContains(t, err, "gas price not set")
 	})
 
 	t.Run("fails to start if BumpPercent is lower than the minimum cap", func(t *testing.T) {
-		cfg := gas.UniversalEstimatorConfig{BumpPercent: 9}
+		cfg := gas.FeeHistoryEstimatorConfig{BumpPercent: 9}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), nil, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), nil, cfg, chainID, nil)
 		assert.ErrorContains(t, u.Start(tests.Context(t)), "BumpPercent")
 	})
 
 	t.Run("fails to start if RewardPercentile is higher than ConnectivityPercentile in EIP-1559", func(t *testing.T) {
-		cfg := gas.UniversalEstimatorConfig{
+		cfg := gas.FeeHistoryEstimatorConfig{
 			BumpPercent:      20,
 			RewardPercentile: 99,
 			EIP1559:          true,
 		}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), nil, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), nil, cfg, chainID, nil)
 		assert.ErrorContains(t, u.Start(tests.Context(t)), "RewardPercentile")
 	})
 
 	t.Run("fails to start if BlockHistorySize is 0 in EIP-1559", func(t *testing.T) {
-		cfg := gas.UniversalEstimatorConfig{
+		cfg := gas.FeeHistoryEstimatorConfig{
 			BumpPercent:      20,
 			RewardPercentile: 10,
 			BlockHistorySize: 0,
 			EIP1559:          true,
 		}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), nil, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), nil, cfg, chainID, nil)
 		assert.ErrorContains(t, u.Start(tests.Context(t)), "BlockHistorySize")
 	})
 
 	t.Run("starts if configs are correct", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		client.On("SuggestGasPrice", mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
-		cfg := gas.UniversalEstimatorConfig{
+		cfg := gas.FeeHistoryEstimatorConfig{
 			BumpPercent:      20,
 			RewardPercentile: 10,
 			CacheTimeout:     10 * time.Second,
 		}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), nil, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), nil, cfg, chainID, nil)
 		err := u.Start(tests.Context(t))
 		assert.NoError(t, err)
 		err = u.Close()
@@ -83,7 +83,7 @@ func TestUniversalEstimatorLifecycle(t *testing.T) {
 	})
 }
 
-func TestUniversalEstimatorGetLegacyGas(t *testing.T) {
+func TestFeeHistoryEstimatorGetLegacyGas(t *testing.T) {
 	t.Parallel()
 
 	var gasLimit uint64 = 21000
@@ -91,12 +91,12 @@ func TestUniversalEstimatorGetLegacyGas(t *testing.T) {
 	chainID := big.NewInt(0)
 
 	t.Run("fetches a new gas price when first called", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		client.On("SuggestGasPrice", mock.Anything).Return(big.NewInt(10), nil).Once()
 
-		cfg := gas.UniversalEstimatorConfig{}
+		cfg := gas.FeeHistoryEstimatorConfig{}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.FetchGasPrice()
 		assert.NoError(t, err)
 		gasPrice, _, err := u.GetLegacyGas(tests.Context(t), nil, gasLimit, maxPrice)
@@ -105,13 +105,13 @@ func TestUniversalEstimatorGetLegacyGas(t *testing.T) {
 	})
 
 	t.Run("will return max price if estimation exceeds it", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		client.On("SuggestGasPrice", mock.Anything).Return(big.NewInt(10), nil).Once()
 
-		cfg := gas.UniversalEstimatorConfig{}
+		cfg := gas.FeeHistoryEstimatorConfig{}
 
 		maxPrice := assets.NewWeiI(1)
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.FetchGasPrice()
 		assert.NoError(t, err)
 		gas1, _, err := u.GetLegacyGas(tests.Context(t), nil, gasLimit, maxPrice)
@@ -120,17 +120,17 @@ func TestUniversalEstimatorGetLegacyGas(t *testing.T) {
 	})
 
 	t.Run("fails if gas price has not been set yet", func(t *testing.T) {
-		cfg := gas.UniversalEstimatorConfig{}
+		cfg := gas.FeeHistoryEstimatorConfig{}
 
 		maxPrice := assets.NewWeiI(1)
-		u := gas.NewUniversalEstimator(logger.Test(t), nil, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), nil, cfg, chainID, nil)
 		_, _, err := u.GetLegacyGas(tests.Context(t), nil, gasLimit, maxPrice)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "gas price not set")
 	})
 }
 
-func TestUniversalEstimatorBumpLegacyGas(t *testing.T) {
+func TestFeeHistoryEstimatorBumpLegacyGas(t *testing.T) {
 	t.Parallel()
 
 	var gasLimit uint64 = 21000
@@ -138,13 +138,13 @@ func TestUniversalEstimatorBumpLegacyGas(t *testing.T) {
 	chainID := big.NewInt(0)
 
 	t.Run("bumps a previous attempt by BumpPercent", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		originalGasPrice := assets.NewWeiI(10)
 		client.On("SuggestGasPrice", mock.Anything).Return(big.NewInt(10), nil).Once()
 
-		cfg := gas.UniversalEstimatorConfig{BumpPercent: 50}
+		cfg := gas.FeeHistoryEstimatorConfig{BumpPercent: 50}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.FetchGasPrice()
 		assert.NoError(t, err)
 		gasPrice, _, err := u.BumpLegacyGas(tests.Context(t), originalGasPrice, gasLimit, maxPrice, nil)
@@ -153,10 +153,10 @@ func TestUniversalEstimatorBumpLegacyGas(t *testing.T) {
 	})
 
 	t.Run("fails if the original attempt is nil, or equal or higher than the max price", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 
-		cfg := gas.UniversalEstimatorConfig{}
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		cfg := gas.FeeHistoryEstimatorConfig{}
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 
 		var originalPrice *assets.Wei
 		_, _, err := u.BumpLegacyGas(tests.Context(t), originalPrice, gasLimit, maxPrice, nil)
@@ -170,22 +170,22 @@ func TestUniversalEstimatorBumpLegacyGas(t *testing.T) {
 	t.Run("fails if we try to bump but gas price has not been set", func(t *testing.T) {
 		originalGasPrice := assets.NewWeiI(10)
 
-		cfg := gas.UniversalEstimatorConfig{}
+		cfg := gas.FeeHistoryEstimatorConfig{}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), nil, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), nil, cfg, chainID, nil)
 		_, _, err := u.BumpLegacyGas(tests.Context(t), originalGasPrice, gasLimit, maxPrice, nil)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "gas price not set")
 	})
 
 	t.Run("returns market gas price if bumped original fee is lower", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		client.On("SuggestGasPrice", mock.Anything).Return(big.NewInt(80), nil).Once()
 		originalGasPrice := assets.NewWeiI(10)
 
-		cfg := gas.UniversalEstimatorConfig{}
+		cfg := gas.FeeHistoryEstimatorConfig{}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.FetchGasPrice()
 		assert.NoError(t, err)
 		gas, _, err := u.BumpLegacyGas(tests.Context(t), originalGasPrice, gasLimit, maxPrice, nil)
@@ -194,14 +194,14 @@ func TestUniversalEstimatorBumpLegacyGas(t *testing.T) {
 	})
 
 	t.Run("returns max gas price if bumped original fee is higher", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		client.On("SuggestGasPrice", mock.Anything).Return(big.NewInt(1), nil).Once()
 		originalGasPrice := assets.NewWeiI(10)
 
-		cfg := gas.UniversalEstimatorConfig{BumpPercent: 50}
+		cfg := gas.FeeHistoryEstimatorConfig{BumpPercent: 50}
 
 		maxPrice := assets.NewWeiI(14)
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.FetchGasPrice()
 		assert.NoError(t, err)
 		gas, _, err := u.BumpLegacyGas(tests.Context(t), originalGasPrice, gasLimit, maxPrice, nil)
@@ -210,14 +210,14 @@ func TestUniversalEstimatorBumpLegacyGas(t *testing.T) {
 	})
 
 	t.Run("returns max gas price if the aggregation of max and original bumped fee is higher", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		client.On("SuggestGasPrice", mock.Anything).Return(big.NewInt(1), nil).Once()
 		originalGasPrice := assets.NewWeiI(10)
 
-		cfg := gas.UniversalEstimatorConfig{BumpPercent: 50}
+		cfg := gas.FeeHistoryEstimatorConfig{BumpPercent: 50}
 
 		maxPrice := assets.NewWeiI(14)
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.FetchGasPrice()
 		assert.NoError(t, err)
 		gas, _, err := u.BumpLegacyGas(tests.Context(t), originalGasPrice, gasLimit, maxPrice, nil)
@@ -226,15 +226,15 @@ func TestUniversalEstimatorBumpLegacyGas(t *testing.T) {
 	})
 
 	t.Run("fails if the bumped gas price is lower than the minimum bump percentage", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		client.On("SuggestGasPrice", mock.Anything).Return(big.NewInt(100), nil).Once()
 		originalGasPrice := assets.NewWeiI(100)
 
-		cfg := gas.UniversalEstimatorConfig{BumpPercent: 20}
+		cfg := gas.FeeHistoryEstimatorConfig{BumpPercent: 20}
 
 		// Price will be capped by the max price
 		maxPrice := assets.NewWeiI(101)
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.FetchGasPrice()
 		assert.NoError(t, err)
 		_, _, err = u.BumpLegacyGas(tests.Context(t), originalGasPrice, gasLimit, maxPrice, nil)
@@ -242,14 +242,14 @@ func TestUniversalEstimatorBumpLegacyGas(t *testing.T) {
 	})
 }
 
-func TestUniversalEstimatorGetDynamicFee(t *testing.T) {
+func TestFeeHistoryEstimatorGetDynamicFee(t *testing.T) {
 	t.Parallel()
 
 	maxPrice := assets.NewWeiI(100)
 	chainID := big.NewInt(0)
 
 	t.Run("fetches a new dynamic fee when first called", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		baseFee := big.NewInt(5)
 		maxPriorityFeePerGas1 := big.NewInt(33)
 		maxPriorityFeePerGas2 := big.NewInt(20)
@@ -263,12 +263,12 @@ func TestUniversalEstimatorGetDynamicFee(t *testing.T) {
 		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
 		blockHistoryLength := 2
-		cfg := gas.UniversalEstimatorConfig{BlockHistorySize: uint64(blockHistoryLength)}
+		cfg := gas.FeeHistoryEstimatorConfig{BlockHistorySize: uint64(blockHistoryLength)}
 		avrgPriorityFee := big.NewInt(0)
 		avrgPriorityFee.Add(maxPriorityFeePerGas1, maxPriorityFeePerGas2).Div(avrgPriorityFee, big.NewInt(int64(blockHistoryLength)))
 		maxFee := (*assets.Wei)(baseFee).AddPercentage(gas.BaseFeeBufferPercentage).Add((*assets.Wei)(avrgPriorityFee))
 
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		dynamicFee, err := u.GetDynamicFee(tests.Context(t), maxPrice)
@@ -278,27 +278,27 @@ func TestUniversalEstimatorGetDynamicFee(t *testing.T) {
 	})
 
 	t.Run("fails if BlockHistorySize is zero and tries to fetch new prices", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 
-		cfg := gas.UniversalEstimatorConfig{BlockHistorySize: 0}
+		cfg := gas.FeeHistoryEstimatorConfig{BlockHistorySize: 0}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.GetDynamicFee(tests.Context(t), maxPrice)
 		assert.Error(t, err)
 	})
 
 	t.Run("fails if dynamic prices have not been set yet", func(t *testing.T) {
-		cfg := gas.UniversalEstimatorConfig{}
+		cfg := gas.FeeHistoryEstimatorConfig{}
 
 		maxPrice := assets.NewWeiI(1)
-		u := gas.NewUniversalEstimator(logger.Test(t), nil, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), nil, cfg, chainID, nil)
 		_, err := u.GetDynamicFee(tests.Context(t), maxPrice)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "dynamic price not set")
 	})
 
 	t.Run("will return max price if tip cap or fee cap exceed it", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		baseFee := big.NewInt(1)
 		maxPriorityFeePerGas := big.NewInt(3)
 		maxPrice := assets.NewWeiI(2)
@@ -311,9 +311,9 @@ func TestUniversalEstimatorGetDynamicFee(t *testing.T) {
 		}
 		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
-		cfg := gas.UniversalEstimatorConfig{BlockHistorySize: 1}
+		cfg := gas.FeeHistoryEstimatorConfig{BlockHistorySize: 1}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		dynamicFee, err := u.GetDynamicFee(tests.Context(t), maxPrice)
@@ -323,14 +323,14 @@ func TestUniversalEstimatorGetDynamicFee(t *testing.T) {
 	})
 }
 
-func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
+func TestFeeHistoryEstimatorBumpDynamicFee(t *testing.T) {
 	t.Parallel()
 
 	globalMaxPrice := assets.NewWeiI(100)
 	chainID := big.NewInt(0)
 
 	t.Run("bumps a previous attempt by BumpPercent", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		originalFee := gas.DynamicFee{
 			FeeCap: assets.NewWeiI(20),
 			TipCap: assets.NewWeiI(10),
@@ -345,7 +345,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		}
 		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
-		cfg := gas.UniversalEstimatorConfig{
+		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 2,
 			BumpPercent:      50,
 			HasMempool:       true,
@@ -354,7 +354,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		expectedFeeCap := originalFee.FeeCap.AddPercentage(cfg.BumpPercent)
 		expectedTipCap := originalFee.TipCap.AddPercentage(cfg.BumpPercent)
 
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		dynamicFee, err := u.BumpDynamicFee(tests.Context(t), originalFee, globalMaxPrice, nil)
@@ -364,11 +364,11 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 	})
 
 	t.Run("fails if the original attempt is invalid", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		maxPrice := assets.NewWeiI(20)
-		cfg := gas.UniversalEstimatorConfig{BlockHistorySize: 1}
+		cfg := gas.FeeHistoryEstimatorConfig{BlockHistorySize: 1}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		// nil original fee
 		var originalFee gas.DynamicFee
 		_, err := u.BumpDynamicFee(tests.Context(t), originalFee, maxPrice, nil)
@@ -392,7 +392,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 	})
 
 	t.Run("returns market prices if bumped original fee is lower", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		originalFee := gas.DynamicFee{
 			FeeCap: assets.NewWeiI(20),
 			TipCap: assets.NewWeiI(10),
@@ -411,13 +411,13 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 
 		maxFee := (*assets.Wei)(baseFee).AddPercentage(gas.BaseFeeBufferPercentage).Add((*assets.Wei)(maxPriorityFeePerGas))
 
-		cfg := gas.UniversalEstimatorConfig{
+		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 1,
 			BumpPercent:      50,
 			HasMempool:       true,
 		}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		bumpedFee, err := u.BumpDynamicFee(tests.Context(t), originalFee, globalMaxPrice, nil)
@@ -427,7 +427,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 	})
 
 	t.Run("fails if connectivity percentile value is reached", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		originalFee := gas.DynamicFee{
 			FeeCap: assets.NewWeiI(20),
 			TipCap: assets.NewWeiI(10),
@@ -444,13 +444,13 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		}
 		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
-		cfg := gas.UniversalEstimatorConfig{
+		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 1,
 			BumpPercent:      50,
 			HasMempool:       true,
 		}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		_, err = u.BumpDynamicFee(tests.Context(t), originalFee, globalMaxPrice, nil)
@@ -458,7 +458,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 	})
 
 	t.Run("returns max price if the aggregation of max and original bumped fee is higher", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		originalFee := gas.DynamicFee{
 			FeeCap: assets.NewWeiI(20),
 			TipCap: assets.NewWeiI(18),
@@ -476,13 +476,13 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		}
 		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
-		cfg := gas.UniversalEstimatorConfig{
+		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 1,
 			BumpPercent:      50,
 			HasMempool:       true,
 		}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		bumpedFee, err := u.BumpDynamicFee(tests.Context(t), originalFee, maxPrice, nil)
@@ -492,7 +492,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 	})
 
 	t.Run("fails if the bumped gas price is lower than the minimum bump percentage", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		originalFee := gas.DynamicFee{
 			FeeCap: assets.NewWeiI(20),
 			TipCap: assets.NewWeiI(18),
@@ -510,12 +510,12 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		}
 		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
-		cfg := gas.UniversalEstimatorConfig{
+		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 1,
 			BumpPercent:      50,
 		}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		_, err = u.BumpDynamicFee(tests.Context(t), originalFee, maxPrice, nil)
@@ -523,7 +523,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 	})
 
 	t.Run("ignores maxPriorityFeePerGas if there is no mempool", func(t *testing.T) {
-		client := mocks.NewUniversalEstimatorClient(t)
+		client := mocks.NewFeeHistoryEstimatorClient(t)
 		originalFee := gas.DynamicFee{
 			FeeCap: assets.NewWeiI(40),
 			TipCap: assets.NewWeiI(0),
@@ -540,13 +540,13 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		}
 		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
-		cfg := gas.UniversalEstimatorConfig{
+		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 1,
 			BumpPercent:      20,
 			HasMempool:       false,
 		}
 
-		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		_, err := u.FetchDynamicPrice()
 		assert.NoError(t, err)
 		bumpedFee, err := u.BumpDynamicFee(tests.Context(t), originalFee, globalMaxPrice, nil)

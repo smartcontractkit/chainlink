@@ -117,7 +117,7 @@ type AutoPurgeConfig interface {
 
 type GasEstimator interface {
 	BlockHistory() BlockHistory
-	Universal() Universal
+	FeeHistory() FeeHistory
 	LimitJobType() LimitJobType
 
 	EIP1559DynamicFees() bool
@@ -158,7 +158,7 @@ type BlockHistory interface {
 	TransactionPercentile() uint16
 }
 
-type Universal interface {
+type FeeHistory interface {
 	CacheTimeout() time.Duration
 	HasMempool() bool
 }

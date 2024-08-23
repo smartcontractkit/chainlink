@@ -38,8 +38,8 @@ func (g *gasEstimatorConfig) BlockHistory() BlockHistory {
 	return &blockHistoryConfig{c: g.c.BlockHistory, blockDelay: g.blockDelay, bumpThreshold: g.c.BumpThreshold}
 }
 
-func (g *gasEstimatorConfig) Universal() Universal {
-	return &universalConfig{c: g.c.Universal}
+func (g *gasEstimatorConfig) FeeHistory() FeeHistory {
+	return &feeHistoryConfig{c: g.c.FeeHistory}
 }
 
 func (g *gasEstimatorConfig) EIP1559DynamicFees() bool {
@@ -179,14 +179,14 @@ func (b *blockHistoryConfig) BlockDelay() uint16 {
 	return *b.blockDelay
 }
 
-type universalConfig struct {
-	c toml.UniversalEstimator
+type feeHistoryConfig struct {
+	c toml.FeeHistoryEstimator
 }
 
-func (u *universalConfig) CacheTimeout() time.Duration {
+func (u *feeHistoryConfig) CacheTimeout() time.Duration {
 	return u.c.CacheTimeout.Duration()
 }
 
-func (u *universalConfig) HasMempool() bool {
+func (u *feeHistoryConfig) HasMempool() bool {
 	return *u.c.HasMempool
 }

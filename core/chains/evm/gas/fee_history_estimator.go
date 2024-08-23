@@ -26,25 +26,25 @@ import (
 
 // metrics are thread safe
 var (
-	promUniversalEstimatorGasPrice = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	promFeeHistoryEstimatorGasPrice = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "gas_price_updater",
 		Help: "Sets latest gas price (in Wei)",
 	},
 		[]string{"evmChainID"},
 	)
-	promUniversalEstimatorBaseFee = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	promFeeHistoryEstimatorBaseFee = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "base_fee_updater",
 		Help: "Sets latest BaseFee (in Wei)",
 	},
 		[]string{"evmChainID"},
 	)
-	promUniversalEstimatorMaxPriorityFeePerGas = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	promFeeHistoryEstimatorMaxPriorityFeePerGas = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "max_priority_fee_per_gas_updater",
 		Help: "Sets latest MaxPriorityFeePerGas (in Wei)",
 	},
 		[]string{"evmChainID"},
 	)
-	promUniversalEstimatorMaxFeePerGas = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	promFeeHistoryEstimatorMaxFeePerGas = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "max_fee_per_gas_updater",
 		Help: "Sets latest MaxFeePerGas (in Wei)",
 	},
@@ -58,7 +58,7 @@ const (
 	BaseFeeBufferPercentage = 40
 )
 
-type UniversalEstimatorConfig struct {
+type FeeHistoryEstimatorConfig struct {
 	BumpPercent  uint16
 	CacheTimeout time.Duration
 	EIP1559      bool
@@ -68,17 +68,17 @@ type UniversalEstimatorConfig struct {
 	HasMempool       bool
 }
 
-type universalEstimatorClient interface {
+type feeHistoryEstimatorClient interface {
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
 }
 
-type UniversalEstimator struct {
+type FeeHistoryEstimator struct {
 	services.StateMachine
 
-	client  universalEstimatorClient
+	client  feeHistoryEstimatorClient
 	logger  logger.Logger
-	config  UniversalEstimatorConfig
+	config  FeeHistoryEstimatorConfig
 	chainID *big.Int
 
 	gasPriceMu sync.RWMutex
@@ -96,10 +96,10 @@ type UniversalEstimator struct {
 	stopCh services.StopChan
 }
 
-func NewUniversalEstimator(lggr logger.Logger, client universalEstimatorClient, cfg UniversalEstimatorConfig, chainID *big.Int, l1Oracle rollups.L1Oracle) *UniversalEstimator {
-	return &UniversalEstimator{
+func NewFeeHistoryEstimator(lggr logger.Logger, client feeHistoryEstimatorClient, cfg FeeHistoryEstimatorConfig, chainID *big.Int, l1Oracle rollups.L1Oracle) *FeeHistoryEstimator {
+	return &FeeHistoryEstimator{
 		client:   client,
-		logger:   logger.Named(lggr, "UniversalEstimator"),
+		logger:   logger.Named(lggr, "FeeHistoryEstimator"),
 		config:   cfg,
 		chainID:  chainID,
 		l1Oracle: l1Oracle,
@@ -108,8 +108,8 @@ func NewUniversalEstimator(lggr logger.Logger, client universalEstimatorClient, 
 	}
 }
 
-func (u *UniversalEstimator) Start(context.Context) error {
-	return u.StartOnce("UniversalEstimator", func() error {
+func (u *FeeHistoryEstimator) Start(context.Context) error {
+	return u.StartOnce("FeeHistoryEstimator", func() error {
 		if u.config.BumpPercent < MinimumBumpPercentage {
 			return fmt.Errorf("BumpPercent: %s is less than minimum allowed percentage: %s",
 				strconv.FormatUint(uint64(u.config.BumpPercent), 10), strconv.Itoa(MinimumBumpPercentage))
@@ -128,15 +128,15 @@ func (u *UniversalEstimator) Start(context.Context) error {
 	})
 }
 
-func (u *UniversalEstimator) Close() error {
-	return u.StopOnce("UniversalEstimator", func() error {
+func (u *FeeHistoryEstimator) Close() error {
+	return u.StopOnce("FeeHistoryEstimator", func() error {
 		close(u.stopCh)
 		u.wg.Wait()
 		return nil
 	})
 }
 
-func (u *UniversalEstimator) run() {
+func (u *FeeHistoryEstimator) run() {
 	defer u.wg.Done()
 
 	t := services.NewTicker(u.config.CacheTimeout)
@@ -159,7 +159,7 @@ func (u *UniversalEstimator) run() {
 }
 
 // GetLegacyGas will fetch the cached gas price value.
-func (u *UniversalEstimator) GetLegacyGas(ctx context.Context, _ []byte, gasLimit uint64, maxPrice *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint64, err error) {
+func (u *FeeHistoryEstimator) GetLegacyGas(ctx context.Context, _ []byte, gasLimit uint64, maxPrice *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint64, err error) {
 	chainSpecificGasLimit = gasLimit
 	if gasPrice, err = u.getGasPrice(); err != nil {
 		return
@@ -173,7 +173,7 @@ func (u *UniversalEstimator) GetLegacyGas(ctx context.Context, _ []byte, gasLimi
 }
 
 // FetchGasPrice will use eth_gasPrice to fetch and cache the latest gas price from the RPC.
-func (u *UniversalEstimator) FetchGasPrice() (*assets.Wei, error) {
+func (u *FeeHistoryEstimator) FetchGasPrice() (*assets.Wei, error) {
 	ctx, cancel := u.stopCh.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
@@ -182,7 +182,7 @@ func (u *UniversalEstimator) FetchGasPrice() (*assets.Wei, error) {
 		return nil, fmt.Errorf("failed to fetch gas price: %s", err)
 	}
 
-	promUniversalEstimatorGasPrice.WithLabelValues(u.chainID.String()).Set(float64(gasPrice.Int64()))
+	promFeeHistoryEstimatorGasPrice.WithLabelValues(u.chainID.String()).Set(float64(gasPrice.Int64()))
 
 	gasPriceWei := assets.NewWei(gasPrice)
 
@@ -194,7 +194,7 @@ func (u *UniversalEstimator) FetchGasPrice() (*assets.Wei, error) {
 	return u.gasPrice, nil
 }
 
-func (u *UniversalEstimator) getGasPrice() (*assets.Wei, error) {
+func (u *FeeHistoryEstimator) getGasPrice() (*assets.Wei, error) {
 	u.gasPriceMu.RLock()
 	defer u.gasPriceMu.RUnlock()
 	if u.gasPrice == nil {
@@ -204,7 +204,7 @@ func (u *UniversalEstimator) getGasPrice() (*assets.Wei, error) {
 }
 
 // GetDynamicFee will fetch the cached dynamic prices.
-func (u *UniversalEstimator) GetDynamicFee(ctx context.Context, maxPrice *assets.Wei) (fee DynamicFee, err error) {
+func (u *FeeHistoryEstimator) GetDynamicFee(ctx context.Context, maxPrice *assets.Wei) (fee DynamicFee, err error) {
 	if fee, err = u.getDynamicPrice(); err != nil {
 		return
 	}
@@ -227,7 +227,7 @@ func (u *UniversalEstimator) GetDynamicFee(ctx context.Context, maxPrice *assets
 // of the past X blocks. It also fetches the highest 85th maxPriorityFeePerGas percentile of the past X blocks, which represents
 // the highest percentile we're willing to pay. A buffer is added on top of the latest baseFee to catch fluctuations in the next
 // blocks. On Ethereum the increase is baseFee * 1.125 per block, however in some chains that may vary.
-func (u *UniversalEstimator) FetchDynamicPrice() (fee DynamicFee, err error) {
+func (u *FeeHistoryEstimator) FetchDynamicPrice() (fee DynamicFee, err error) {
 	ctx, cancel := u.stopCh.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
@@ -264,9 +264,9 @@ func (u *UniversalEstimator) FetchDynamicPrice() (fee DynamicFee, err error) {
 	// baseFeeBufferPercentage is used as a safety to catch fluctuations in the next block.
 	maxFeePerGas := baseFee.AddPercentage(BaseFeeBufferPercentage).Add(maxPriorityFeePerGas)
 
-	promUniversalEstimatorBaseFee.WithLabelValues(u.chainID.String()).Set(float64(baseFee.Int64()))
-	promUniversalEstimatorMaxPriorityFeePerGas.WithLabelValues(u.chainID.String()).Set(float64(maxPriorityFeePerGas.Int64()))
-	promUniversalEstimatorMaxFeePerGas.WithLabelValues(u.chainID.String()).Set(float64(maxFeePerGas.Int64()))
+	promFeeHistoryEstimatorBaseFee.WithLabelValues(u.chainID.String()).Set(float64(baseFee.Int64()))
+	promFeeHistoryEstimatorMaxPriorityFeePerGas.WithLabelValues(u.chainID.String()).Set(float64(maxPriorityFeePerGas.Int64()))
+	promFeeHistoryEstimatorMaxFeePerGas.WithLabelValues(u.chainID.String()).Set(float64(maxFeePerGas.Int64()))
 
 	u.logger.Debugf("Fetched new dynamic prices, nextBlock#: %v - oldestBlock#: %v - maxFeePerGas: %v - maxPriorityFeePerGas: %v - maxPriorityFeeThreshold: %v",
 		nextBlock, feeHistory.OldestBlock, maxFeePerGas, maxPriorityFeePerGas, priorityFeeThresholdWei)
@@ -278,7 +278,7 @@ func (u *UniversalEstimator) FetchDynamicPrice() (fee DynamicFee, err error) {
 	return u.dynamicPrice, nil
 }
 
-func (u *UniversalEstimator) getDynamicPrice() (fee DynamicFee, err error) {
+func (u *FeeHistoryEstimator) getDynamicPrice() (fee DynamicFee, err error) {
 	u.dynamicPriceMu.RLock()
 	defer u.dynamicPriceMu.RUnlock()
 	if u.dynamicPrice.FeeCap == nil || u.dynamicPrice.TipCap == nil {
@@ -290,7 +290,7 @@ func (u *UniversalEstimator) getDynamicPrice() (fee DynamicFee, err error) {
 // BumpLegacyGas provides a bumped gas price value by bumping the previous one by BumpPercent.
 // If the original value is higher than the max price it returns an error as there is no room for bumping.
 // It aggregates the market, bumped, and max gas price to provide a correct value.
-func (u *UniversalEstimator) BumpLegacyGas(ctx context.Context, originalGasPrice *assets.Wei, gasLimit uint64, maxPrice *assets.Wei, _ []EvmPriorAttempt) (*assets.Wei, uint64, error) {
+func (u *FeeHistoryEstimator) BumpLegacyGas(ctx context.Context, originalGasPrice *assets.Wei, gasLimit uint64, maxPrice *assets.Wei, _ []EvmPriorAttempt) (*assets.Wei, uint64, error) {
 	// Sanitize original fee input
 	if originalGasPrice == nil || originalGasPrice.Cmp(maxPrice) >= 0 {
 		return nil, 0, fmt.Errorf("%w: error while retrieving original gas price: originalGasPrice: %s. Maximum price configured: %s",
@@ -319,7 +319,7 @@ func (u *UniversalEstimator) BumpLegacyGas(ctx context.Context, originalGasPrice
 // Both maxFeePerGas as well as maxPriorityFerPergas need to be bumped otherwise the RPC won't accept the transaction and throw an error.
 // See: https://github.com/ethereum/go-ethereum/issues/24284
 // It aggregates the market, bumped, and max price to provide a correct value, for both maxFeePerGas as well as maxPriorityFerPergas.
-func (u *UniversalEstimator) BumpDynamicFee(ctx context.Context, originalFee DynamicFee, maxPrice *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, err error) {
+func (u *FeeHistoryEstimator) BumpDynamicFee(ctx context.Context, originalFee DynamicFee, maxPrice *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, err error) {
 	// Sanitize original fee input
 	// According to geth's spec we need to bump both maxFeePerGas and maxPriorityFeePerGas for the new attempt to be accepted by the RPC
 	if originalFee.FeeCap == nil ||
@@ -399,7 +399,7 @@ func LimitBumpedFee(originalFee *assets.Wei, currentFee *assets.Wei, bumpedFee *
 	return bumpedFee, nil
 }
 
-func (u *UniversalEstimator) getPriorityFeeThreshold() (*assets.Wei, error) {
+func (u *FeeHistoryEstimator) getPriorityFeeThreshold() (*assets.Wei, error) {
 	u.priorityFeeThresholdMu.RLock()
 	defer u.priorityFeeThresholdMu.RUnlock()
 	if u.priorityFeeThreshold == nil {
@@ -408,7 +408,7 @@ func (u *UniversalEstimator) getPriorityFeeThreshold() (*assets.Wei, error) {
 	return u.priorityFeeThreshold, nil
 }
 
-func (u *UniversalEstimator) Name() string                                      { return u.logger.Name() }
-func (u *UniversalEstimator) L1Oracle() rollups.L1Oracle                        { return u.l1Oracle }
-func (u *UniversalEstimator) HealthReport() map[string]error                    { return map[string]error{u.Name(): nil} }
-func (u *UniversalEstimator) OnNewLongestChain(context.Context, *evmtypes.Head) {}
+func (u *FeeHistoryEstimator) Name() string                                      { return u.logger.Name() }
+func (u *FeeHistoryEstimator) L1Oracle() rollups.L1Oracle                        { return u.l1Oracle }
+func (u *FeeHistoryEstimator) HealthReport() map[string]error                    { return map[string]error{u.Name(): nil} }
+func (u *FeeHistoryEstimator) OnNewLongestChain(context.Context, *evmtypes.Head) {}

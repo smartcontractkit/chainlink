@@ -106,17 +106,17 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		newEstimator = func(l logger.Logger) EvmEstimator {
 			return NewSuggestedPriceEstimator(lggr, ethClient, geCfg, l1Oracle)
 		}
-	case "Universal":
+	case "FeeHistory":
 		newEstimator = func(l logger.Logger) EvmEstimator {
-			ccfg := UniversalEstimatorConfig{
+			ccfg := FeeHistoryEstimatorConfig{
 				BumpPercent:      geCfg.BumpPercent(),
-				CacheTimeout:     geCfg.Universal().CacheTimeout(),
+				CacheTimeout:     geCfg.FeeHistory().CacheTimeout(),
 				EIP1559:          geCfg.EIP1559DynamicFees(),
 				BlockHistorySize: uint64(geCfg.BlockHistory().BlockHistorySize()),
 				RewardPercentile: float64(geCfg.BlockHistory().TransactionPercentile()),
-				HasMempool:       geCfg.Universal().HasMempool(),
+				HasMempool:       geCfg.FeeHistory().HasMempool(),
 			}
-			return NewUniversalEstimator(lggr, ethClient, ccfg, ethClient.ConfiguredChainID(), l1Oracle)
+			return NewFeeHistoryEstimator(lggr, ethClient, ccfg, ethClient.ConfiguredChainID(), l1Oracle)
 		}
 
 	default:
