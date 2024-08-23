@@ -18,8 +18,9 @@ EIP1559DynamicFees = true
 BumpMin = '20 gwei'
 BumpThreshold = 5
 
-[GasEstimator.BlockHistory]
-BlockHistorySize = 24
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 2000
