@@ -94,9 +94,9 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 	}
 
 	if msg.Method == types.MethodRegisterTrigger {
-		req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
+		req, err := pb.UnmarshalTriggerRegistrationRequest(msg.Payload)
 		if err != nil {
-			p.lggr.Errorw("failed to unmarshal capability request", "capabilityId", p.capInfo.ID, "err", err)
+			p.lggr.Errorw("failed to unmarshal trigger registration request", "capabilityId", p.capInfo.ID, "err", err)
 			return
 		}
 		callerDon, ok := p.workflowDONs[msg.CallerDonId]
