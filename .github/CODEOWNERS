@@ -62,11 +62,10 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/**/*upkeep* @smartcontractkit/keepers
 /contracts/**/*automation* @smartcontractkit/keepers
 /contracts/**/*functions* @smartcontractkit/functions
-/contracts/**/*llo-feeds* @smartcontrackit/mercury-team
+/contracts/**/*llo-feeds* @smartcontractkit/mercury-team
 /contracts/**/*vrf* @smartcontractkit/vrf-team
 /contracts/**/*l2ep* @smartcontractkit/bix-ship
-# TODO: replace with a team tag when ready
-/contracts/**/*keystone* @archseer @bolekk @patrick-dowell
+/contracts/**/*keystone* @smartcontractkit/keystone
 
 /contracts/src/v0.8/automation @smartcontractkit/keepers
 /contracts/src/v0.8/functions @smartcontractkit/functions
