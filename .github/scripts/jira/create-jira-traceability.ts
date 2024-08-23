@@ -45,18 +45,53 @@ async function checkAndAddArtifactPayloadComment(
   artifactUrl: string
 ) {
   const maxResults = 5000;
-  const comments = await client.issueComments.getComments({
+  const getCommentsResponse = await client.issueComments.getComments({
     issueIdOrKey: issue,
     maxResults, // this is the default maxResults, see https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-comments/#api-rest-api-3-issue-issueidorkey-comment-get
   });
-  core.debug(JSON.stringify(comments.comments));
-  if ((comments.total ?? 0) > maxResults) {
+  core.debug(JSON.stringify(getCommentsResponse.comments));
+  if ((getCommentsResponse.total ?? 0) > maxResults) {
     throw Error(
-      `Too many (${comments.total}) comments on issue ${issue}, please increase maxResults (${maxResults})`
+      `Too many (${getCommentsResponse.total}) comments on issue ${issue}, please increase maxResults (${maxResults})`
     );
   }
-  const commentExists = comments.comments?.some((c) =>
-    c?.body?.text?.includes(artifactUrl)
+
+  // Search path is getCommentsResponse.comments[].body.content[].content[].marks[].attrs.href
+  //
+  // Example:
+  // [ // getCommentsResponse.comments
+  //   {
+  //     body: {
+  //       type: "doc",
+  //       version: 1,
+  //       content: [
+  //         {
+  //           type: "paragraph",
+  //           content: [
+  //             {
+  //               type: "text",
+  //               text: "Artifact URL",
+  //               marks: [
+  //                 {
+  //                   type: "link",
+  //                   attrs: {
+  //                     href: "https://github.com/smartcontractkit/chainlink/actions/runs/10517121836/artifacts/1844867108",
+  //                   },
+  //                 },
+  //               ],
+  //             },
+  //           ],
+  //         },
+  //       ],
+  //     },
+  //   },
+  // ];
+  const commentExists = getCommentsResponse.comments?.some((c) =>
+    c?.body?.content?.some((innerContent) =>
+      innerContent?.content?.some((c) =>
+        c.marks?.some((m) => m.attrs?.href === artifactUrl)
+      )
+    )
   );
 
   if (commentExists) {
@@ -65,7 +100,29 @@ async function checkAndAddArtifactPayloadComment(
     core.info(`Adding artifact payload as comment on issue ${issue}`);
     await client.issueComments.addComment({
       issueIdOrKey: issue,
-      comment: artifactUrl,
+      comment: {
+        type: "doc",
+        version: 1,
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              {
+                type: "text",
+                text: "Artifact Download URL",
+                marks: [
+                  {
+                    type: "link",
+                    attrs: {
+                      href: artifactUrl,
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
     });
   }
 }
