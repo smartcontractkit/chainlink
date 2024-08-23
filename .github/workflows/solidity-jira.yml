@@ -113,7 +113,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Commit appended changeset file back to repo
-      - uses: planetscale/ghcommit-action@v0.1.6
+      - uses: planetscale/ghcommit-action@13a844326508cdefc72235201bb0446d6d10a85f # v0.1.6
         with:
           commit_message: "[Bot] Update changeset file with jira issue"
           repo: ${{ github.repository }}
