@@ -178,9 +178,9 @@ func (i *inprocessOracleCreator) CreatePluginOracle(pluginType cctypes.PluginTyp
 	for _, chain := range i.chains.Slice() {
 		var chainReaderConfig evmrelaytypes.ChainReaderConfig
 		if chain.ID().Uint64() == destChainID {
-			chainReaderConfig = evmconfig.DestReaderConfig()
+			chainReaderConfig = evmconfig.DestReaderConfig
 		} else {
-			chainReaderConfig = evmconfig.SourceReaderConfig()
+			chainReaderConfig = evmconfig.SourceReaderConfig
 		}
 		cr, err2 := evm.NewChainReaderService(
 			context.Background(),
