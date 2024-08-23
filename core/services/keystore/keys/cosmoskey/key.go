@@ -59,9 +59,6 @@ func newFrom(reader io.Reader) Key {
 		panic(err)
 	}
 	privKey := secpSigningAlgo.Generate()(rawKey.D.Bytes())
-	if err != nil {
-		panic(err)
-	}
 
 	return Key{
 		d: rawKey.D,

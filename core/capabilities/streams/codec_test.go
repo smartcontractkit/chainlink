@@ -69,7 +69,7 @@ func TestCodec_WrapUnwrap(t *testing.T) {
 	_, err = codec.Unwrap(values.NewBool(true))
 	require.Error(t, err)
 
-	// correct reports byt wrong signatures
+	// correct reports but wrong signatures
 	unwrapped, err := codec.Unwrap(wrapped)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(unwrapped))
@@ -85,6 +85,20 @@ func TestCodec_WrapUnwrap(t *testing.T) {
 	for _, report := range unwrapped {
 		require.NoError(t, codec.Validate(report, allowedSigners, 2))
 	}
+
+	// invalid FeedID
+	wrappedInvalid, err := codec.Wrap([]datastreams.FeedReport{
+		{
+			FeedID:        id2Str, // ID #2 doesn't match what's in report #1
+			FullReport:    report1,
+			ReportContext: rawCtx,
+			Signatures:    [][]byte{signatureK1R1, signatureK2R1},
+		},
+	})
+	require.NoError(t, err)
+	_, err = codec.Unwrap(wrappedInvalid)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "feed ID mismatch")
 }
 
 func newFeedID(t *testing.T) ([32]byte, string) {

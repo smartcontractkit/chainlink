@@ -1883,12 +1883,146 @@ func (_c *RPCClient_SubscribeNewHead_Call) Run(run func(ctx context.Context, cha
 	return _c
 }
 
-func (_c *RPCClient_SubscribeNewHead_Call) Return(_a0 commontypes.Subscription, _a1 error) *RPCClient_SubscribeNewHead_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *RPCClient_SubscribeNewHead_Call) Return(s commontypes.Subscription, err error) *RPCClient_SubscribeNewHead_Call {
+	_c.Call.Return(s, err)
 	return _c
 }
 
 func (_c *RPCClient_SubscribeNewHead_Call) RunAndReturn(run func(context.Context, chan<- *types.Head) (commontypes.Subscription, error)) *RPCClient_SubscribeNewHead_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SubscribeToFinalizedHeads provides a mock function with given fields: _a0
+func (_m *RPCClient) SubscribeToFinalizedHeads(_a0 context.Context) (<-chan *types.Head, commontypes.Subscription, error) {
+	ret := _m.Called(_a0)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SubscribeToFinalizedHeads")
+	}
+
+	var r0 <-chan *types.Head
+	var r1 commontypes.Subscription
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context) (<-chan *types.Head, commontypes.Subscription, error)); ok {
+		return rf(_a0)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) <-chan *types.Head); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(<-chan *types.Head)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) commontypes.Subscription); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(commontypes.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(_a0)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// RPCClient_SubscribeToFinalizedHeads_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeToFinalizedHeads'
+type RPCClient_SubscribeToFinalizedHeads_Call struct {
+	*mock.Call
+}
+
+// SubscribeToFinalizedHeads is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *RPCClient_Expecter) SubscribeToFinalizedHeads(_a0 interface{}) *RPCClient_SubscribeToFinalizedHeads_Call {
+	return &RPCClient_SubscribeToFinalizedHeads_Call{Call: _e.mock.On("SubscribeToFinalizedHeads", _a0)}
+}
+
+func (_c *RPCClient_SubscribeToFinalizedHeads_Call) Run(run func(_a0 context.Context)) *RPCClient_SubscribeToFinalizedHeads_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *RPCClient_SubscribeToFinalizedHeads_Call) Return(_a0 <-chan *types.Head, _a1 commontypes.Subscription, _a2 error) *RPCClient_SubscribeToFinalizedHeads_Call {
+	_c.Call.Return(_a0, _a1, _a2)
+	return _c
+}
+
+func (_c *RPCClient_SubscribeToFinalizedHeads_Call) RunAndReturn(run func(context.Context) (<-chan *types.Head, commontypes.Subscription, error)) *RPCClient_SubscribeToFinalizedHeads_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SubscribeToHeads provides a mock function with given fields: ctx
+func (_m *RPCClient) SubscribeToHeads(ctx context.Context) (<-chan *types.Head, commontypes.Subscription, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SubscribeToHeads")
+	}
+
+	var r0 <-chan *types.Head
+	var r1 commontypes.Subscription
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context) (<-chan *types.Head, commontypes.Subscription, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) <-chan *types.Head); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(<-chan *types.Head)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) commontypes.Subscription); ok {
+		r1 = rf(ctx)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(commontypes.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(ctx)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// RPCClient_SubscribeToHeads_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeToHeads'
+type RPCClient_SubscribeToHeads_Call struct {
+	*mock.Call
+}
+
+// SubscribeToHeads is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *RPCClient_Expecter) SubscribeToHeads(ctx interface{}) *RPCClient_SubscribeToHeads_Call {
+	return &RPCClient_SubscribeToHeads_Call{Call: _e.mock.On("SubscribeToHeads", ctx)}
+}
+
+func (_c *RPCClient_SubscribeToHeads_Call) Run(run func(ctx context.Context)) *RPCClient_SubscribeToHeads_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *RPCClient_SubscribeToHeads_Call) Return(ch <-chan *types.Head, sub commontypes.Subscription, err error) *RPCClient_SubscribeToHeads_Call {
+	_c.Call.Return(ch, sub, err)
+	return _c
+}
+
+func (_c *RPCClient_SubscribeToHeads_Call) RunAndReturn(run func(context.Context) (<-chan *types.Head, commontypes.Subscription, error)) *RPCClient_SubscribeToHeads_Call {
 	_c.Call.Return(run)
 	return _c
 }

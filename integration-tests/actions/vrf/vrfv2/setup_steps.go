@@ -8,8 +8,6 @@ import (
 
 	"github.com/smartcontractkit/seth"
 
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
@@ -371,38 +369,30 @@ func SetupVRFV2ForNewEnv(
 
 func SetupVRFV2ForExistingEnv(t *testing.T, envConfig vrfcommon.VRFEnvConfig, l zerolog.Logger) (*vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, *test_env.CLClusterTestEnv, *seth.Client, error) {
 	commonExistingEnvConfig := envConfig.TestConfig.VRFv2.ExistingEnvConfig.ExistingEnvConfig
-	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestInstance(t).
-		WithTestConfig(&envConfig.TestConfig).
-		WithCustomCleanup(envConfig.CleanupFn).
-		Build()
+	env, sethClient, err := vrfcommon.LoadExistingCLEnvForVRF(
+		t,
+		envConfig,
+		commonExistingEnvConfig,
+		l,
+	)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
+		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading existing CL env", err)
 	}
-	evmNetwork, err := env.GetFirstEvmNetwork()
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	sethClient, err := seth_utils.GetChainClient(envConfig.TestConfig, *evmNetwork)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	coordinator, err := contracts.LoadVRFCoordinatorV2(sethClient, *commonExistingEnvConfig.ConsumerAddress)
+	coordinator, err := contracts.LoadVRFCoordinatorV2(sethClient, *commonExistingEnvConfig.CoordinatorAddress)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading VRFCoordinator2", err)
 	}
-	linkAddr := common.HexToAddress(*commonExistingEnvConfig.LinkAddress)
-	linkToken, err := contracts.LoadLinkTokenContract(l, sethClient, linkAddr)
+	linkAddress, err := coordinator.GetLinkAddress(testcontext.Get(t))
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error getting Link address from Coordinator", err)
+	}
+	linkToken, err := contracts.LoadLinkTokenContract(l, sethClient, common.HexToAddress(linkAddress.String()))
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
 	}
-	err = vrfcommon.FundNodesIfNeeded(testcontext.Get(t), commonExistingEnvConfig, sethClient, l)
-	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("err: %w", err)
-	}
 	blockHashStoreAddress, err := coordinator.GetBlockHashStoreAddress(testcontext.Get(t))
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("err: %w", err)
+		return nil, nil, nil, nil, err
 	}
 	blockHashStore, err := contracts.LoadBlockHashStore(sethClient, blockHashStoreAddress.String())
 	if err != nil {
@@ -449,13 +439,13 @@ func SetupSubsAndConsumersForExistingEnv(
 				l,
 			)
 			if err != nil {
-				return nil, nil, fmt.Errorf("err: %w", err)
+				return nil, nil, err
 			}
 		} else {
 			addr := common.HexToAddress(*commonExistingEnvConfig.ConsumerAddress)
 			consumer, err := contracts.LoadVRFv2LoadTestConsumer(sethClient, addr)
 			if err != nil {
-				return nil, nil, fmt.Errorf("err: %w", err)
+				return nil, nil, err
 			}
 			consumers = append(consumers, consumer)
 			subIDs = append(subIDs, *testConfig.VRFv2.ExistingEnvConfig.SubID)
@@ -471,7 +461,7 @@ func SetupSubsAndConsumersForExistingEnv(
 			l,
 		)
 		if err != nil {
-			return nil, nil, fmt.Errorf("err: %w", err)
+			return nil, nil, err
 		}
 	}
 	return subIDs, consumers, nil

@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
@@ -21,7 +22,6 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -49,7 +49,7 @@ var _ commontypes.ContractTypeProvider = &chainReader{}
 // Note that the ChainReaderService returned does not support anonymous events.
 func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, ht logpoller.HeadTracker, client evmclient.Client, config types.ChainReaderConfig) (ChainReaderService, error) {
 	cr := &chainReader{
-		lggr:     lggr.Named("ChainReader"),
+		lggr:     logger.Named(lggr, "ChainReader"),
 		ht:       ht,
 		lp:       lp,
 		client:   client,
@@ -127,6 +127,10 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 			if err != nil {
 				return err
 			}
+		}
+
+		if cr.bindings.contractBindings[contractName] == nil {
+			return fmt.Errorf("%w: no read bindings added for contract: %s", commontypes.ErrInvalidConfig, contractName)
 		}
 		cr.bindings.contractBindings[contractName].pollingFilter = chainContractReader.PollingFilter.ToLPFilter(eventSigsForContractFilter)
 	}
@@ -259,7 +263,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return err
 	}
 
-	// Encoder def's codec won't be used to encode, only for its type as input for GetLatestValue
+	// Encoder defs codec won't be used for encoding, but for storing caller filtering params which won't be hashed.
 	if err := cr.addEncoderDef(contractName, eventName, filterArgs, nil, chainReaderDefinition.InputModifications); err != nil {
 		return err
 	}
@@ -327,9 +331,11 @@ func (cr *chainReader) addQueryingReadBindings(contractName string, genericTopic
 	}
 }
 
+// getEventInput returns codec entry for expected incoming event params and the modifier to be applied to the params.
 func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractName, eventName string) (
 	types.CodecEntry, codec.Modifier, error) {
 	inputInfo := cr.parsed.EncoderDefs[WrapItemType(contractName, eventName, true)]
+	// TODO can this be simplified? Isn't this same as inputInfo.Modifier()? BCI-3909
 	inMod, err := def.InputModifications.ToModifier(DecoderHooks...)
 	if err != nil {
 		return nil, nil, err
@@ -378,6 +384,8 @@ func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.
 	return output.Init()
 }
 
+// setupEventInput returns abi args where indexed flag is set to false because we expect caller to filter with params that aren't hashed.
+// codecEntry has expected onchain types set, for e.g. indexed topics of type string or uint8[32] array are expected as common.Hash onchain.
 func setupEventInput(event abi.Event, inputFields []string) ([]abi.Argument, types.CodecEntry, map[string]bool) {
 	topicFieldDefs := map[string]bool{}
 	for _, value := range inputFields {

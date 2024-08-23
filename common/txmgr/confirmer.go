@@ -102,6 +102,10 @@ var (
 	}, []string{"chainID"})
 )
 
+type confirmerHeadTracker[HEAD types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
+	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized HEAD, err error)
+}
+
 // Confirmer is a broad service which performs four different tasks in sequence on every new longest chain
 // Step 1: Mark that all currently pending transaction attempts were broadcast before this block
 // Step 2: Check pending transactions for receipts
@@ -133,14 +137,15 @@ type Confirmer[
 	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	enabledAddresses []ADDR
 
-	mb        *mailbox.Mailbox[HEAD]
-	stopCh    services.StopChan
-	wg        sync.WaitGroup
-	initSync  sync.Mutex
-	isStarted bool
-
+	mb                              *mailbox.Mailbox[HEAD]
+	stopCh                          services.StopChan
+	wg                              sync.WaitGroup
+	initSync                        sync.Mutex
+	isStarted                       bool
 	nConsecutiveBlocksChainTooShort int
 	isReceiptNil                    func(R) bool
+
+	headTracker confirmerHeadTracker[HEAD, BLOCK_HASH]
 }
 
 func NewConfirmer[
@@ -164,6 +169,7 @@ func NewConfirmer[
 	lggr logger.Logger,
 	isReceiptNil func(R) bool,
 	stuckTxDetector txmgrtypes.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	headTracker confirmerHeadTracker[HEAD, BLOCK_HASH],
 ) *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Confirmer")
 	return &Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
@@ -181,6 +187,7 @@ func NewConfirmer[
 		mb:               mailbox.NewSingle[HEAD](),
 		isReceiptNil:     isReceiptNil,
 		stuckTxDetector:  stuckTxDetector,
+		headTracker:      headTracker,
 	}
 }
 
@@ -297,7 +304,20 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 		return fmt.Errorf("CheckConfirmedMissingReceipt failed: %w", err)
 	}
 
-	if err := ec.CheckForReceipts(ctx, head.BlockNumber()); err != nil {
+	_, latestFinalizedHead, err := ec.headTracker.LatestAndFinalizedBlock(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve latest finalized head: %w", err)
+	}
+
+	if !latestFinalizedHead.IsValid() {
+		return fmt.Errorf("latest finalized head is not valid")
+	}
+
+	if latestFinalizedHead.BlockNumber() > head.BlockNumber() {
+		ec.lggr.Debugw("processHead received old block", "latestFinalizedHead", latestFinalizedHead.BlockNumber(), "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
+	}
+
+	if err := ec.CheckForReceipts(ctx, head.BlockNumber(), latestFinalizedHead.BlockNumber()); err != nil {
 		return fmt.Errorf("CheckForReceipts failed: %w", err)
 	}
 
@@ -318,7 +338,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	ec.lggr.Debugw("Finished RebroadcastWhereNecessary", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 	mark = time.Now()
 
-	if err := ec.EnsureConfirmedTransactionsInLongestChain(ctx, head); err != nil {
+	if err := ec.EnsureConfirmedTransactionsInLongestChain(ctx, head, latestFinalizedHead.BlockNumber()); err != nil {
 		return fmt.Errorf("EnsureConfirmedTransactionsInLongestChain failed: %w", err)
 	}
 
@@ -395,8 +415,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 	return
 }
 
-// CheckForReceipts finds attempts that are still pending and checks to see if a receipt is present for the given block number
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CheckForReceipts(ctx context.Context, blockNum int64) error {
+// CheckForReceipts finds attempts that are still pending and checks to see if a receipt is present for the given block number.
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CheckForReceipts(ctx context.Context, blockNum int64, latestFinalizedBlockNum int64) error {
 	attempts, err := ec.txStore.FindTxAttemptsRequiringReceiptFetch(ctx, ec.chainID)
 	if err != nil {
 		return fmt.Errorf("FindTxAttemptsRequiringReceiptFetch failed: %w", err)
@@ -443,7 +463,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 		return fmt.Errorf("unable to mark txes as 'confirmed_missing_receipt': %w", err)
 	}
 
-	if err := ec.txStore.MarkOldTxesMissingReceiptAsErrored(ctx, blockNum, ec.chainConfig.FinalityDepth(), ec.chainID); err != nil {
+	if err := ec.txStore.MarkOldTxesMissingReceiptAsErrored(ctx, blockNum, latestFinalizedBlockNum, ec.chainID); err != nil {
 		return fmt.Errorf("unable to confirm buried unconfirmed txes': %w", err)
 	}
 	return nil
@@ -471,7 +491,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 		go func(tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
 			defer wg.Done()
 			lggr := tx.GetLogger(ec.lggr)
-			// Create an purge attempt for tx
+			// Create a purge attempt for tx
 			purgeAttempt, err := ec.TxAttemptBuilder.NewPurgeTxAttempt(ctx, tx, lggr)
 			if err != nil {
 				errMu.Lock()
@@ -664,11 +684,15 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bat
 		}
 
 		if receipt.GetStatus() == 0 {
-			rpcError, errExtract := ec.client.CallContract(ctx, attempt, receipt.GetBlockNumber())
-			if errExtract == nil {
-				l.Warnw("transaction reverted on-chain", "hash", receipt.GetTxHash(), "rpcError", rpcError.String())
+			if receipt.GetRevertReason() != nil {
+				l.Warnw("transaction reverted on-chain", "hash", receipt.GetTxHash(), "revertReason", *receipt.GetRevertReason())
 			} else {
-				l.Warnw("transaction reverted on-chain unable to extract revert reason", "hash", receipt.GetTxHash(), "err", err)
+				rpcError, errExtract := ec.client.CallContract(ctx, attempt, receipt.GetBlockNumber())
+				if errExtract == nil {
+					l.Warnw("transaction reverted on-chain", "hash", receipt.GetTxHash(), "rpcError", rpcError.String())
+				} else {
+					l.Warnw("transaction reverted on-chain unable to extract revert reason", "hash", receipt.GetTxHash(), "err", err)
+				}
 			}
 			// This might increment more than once e.g. in case of re-orgs going back and forth we might re-fetch the same receipt
 			promRevertedTxCount.WithLabelValues(ec.chainID.String()).Add(1)
@@ -975,6 +999,21 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		ec.SvcErrBuffer.Append(sendError)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
 		return ec.txStore.DeleteInProgressAttempt(ctx, attempt)
+	case client.TerminallyStuck:
+		// A transaction could broadcast successfully but then be considered terminally stuck on another attempt
+		// Even though the transaction can succeed under different circumstances, we want to purge this transaction as soon as we get this error
+		lggr.Warnw("terminally stuck transaction detected", "err", sendError.Error())
+		ec.SvcErrBuffer.Append(sendError)
+		// Create a purge attempt for tx
+		purgeAttempt, err := ec.TxAttemptBuilder.NewPurgeTxAttempt(ctx, etx, lggr)
+		if err != nil {
+			return fmt.Errorf("NewPurgeTxAttempt failed: %w", err)
+		}
+		// Replace the in progress attempt with the purge attempt
+		if err := ec.txStore.SaveReplacementInProgressAttempt(ctx, attempt, &purgeAttempt); err != nil {
+			return fmt.Errorf("saveReplacementInProgressAttempt failed: %w", err)
+		}
+		return ec.handleInProgressAttempt(ctx, lggr, etx, purgeAttempt, blockHeight)
 	case client.TransactionAlreadyKnown:
 		// Sequence too low indicated that a transaction at this sequence was confirmed already.
 		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
@@ -1000,22 +1039,30 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 	}
 }
 
-// EnsureConfirmedTransactionsInLongestChain finds all confirmed txes up to the depth
+// EnsureConfirmedTransactionsInLongestChain finds all confirmed txes up to the earliest head
 // of the given chain and ensures that every one has a receipt with a block hash that is
 // in the given chain.
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head types.Head[BLOCK_HASH]) error {
-	if head.ChainLength() < ec.chainConfig.FinalityDepth() {
-		logArgs := []interface{}{
-			"chainLength", head.ChainLength(), "finalityDepth", ec.chainConfig.FinalityDepth(),
-		}
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head types.Head[BLOCK_HASH], latestFinalizedHeadNumber int64) error {
+	logArgs := []interface{}{
+		"chainLength", head.ChainLength(), "latestFinalizedHead number", latestFinalizedHeadNumber,
+	}
+
+	if head.BlockNumber() < latestFinalizedHeadNumber {
+		errMsg := "current head is shorter than latest finalized head"
+		ec.lggr.Errorw(errMsg, append(logArgs, "head block number", head.BlockNumber())...)
+		return errors.New(errMsg)
+	}
+
+	calculatedFinalityDepth := uint32(head.BlockNumber() - latestFinalizedHeadNumber)
+	if head.ChainLength() < calculatedFinalityDepth {
 		if ec.nConsecutiveBlocksChainTooShort > logAfterNConsecutiveBlocksChainTooShort {
-			warnMsg := "Chain length supplied for re-org detection was shorter than FinalityDepth. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
+			warnMsg := "Chain length supplied for re-org detection was shorter than the depth from the latest head to the finalized head. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
 			ec.lggr.Warnw(warnMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
 		} else {
-			logMsg := "Chain length supplied for re-org detection was shorter than FinalityDepth"
+			logMsg := "Chain length supplied for re-org detection was shorter than the depth from the latest head to the finalized head"
 			ec.lggr.Debugw(logMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
 		}
 		ec.nConsecutiveBlocksChainTooShort++

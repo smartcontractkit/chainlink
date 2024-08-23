@@ -9,8 +9,10 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -151,7 +153,11 @@ func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	messageID := GetMessageID(msg)
+	messageID, err := GetMessageID(msg)
+	if err != nil {
+		c.lggr.Errorw("invalid message ID", "err", err, "id", remote.SanitizeLogString(string(msg.MessageId)))
+		return
+	}
 
 	c.lggr.Debugw("Remote client target receiving message", "messageID", messageID)
 
@@ -167,8 +173,12 @@ func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
 }
 
 func GetMessageIDForRequest(req commoncap.CapabilityRequest) (string, error) {
-	if req.Metadata.WorkflowID == "" || req.Metadata.WorkflowExecutionID == "" {
-		return "", errors.New("workflow ID and workflow execution ID must be set in request metadata")
+	if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
+		return "", fmt.Errorf("workflow ID is invalid: %w", err)
+	}
+
+	if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowExecutionID); err != nil {
+		return "", fmt.Errorf("workflow execution ID is invalid: %w", err)
 	}
 
 	return req.Metadata.WorkflowID + req.Metadata.WorkflowExecutionID, nil

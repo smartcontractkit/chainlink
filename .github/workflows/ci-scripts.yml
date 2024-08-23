@@ -6,6 +6,8 @@ on:
 
 jobs:
   lint-scripts:
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2

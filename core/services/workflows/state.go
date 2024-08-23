@@ -17,12 +17,10 @@ func copyState(es store.WorkflowExecution) store.WorkflowExecution {
 	for ref, step := range es.Steps {
 		var mval *values.Map
 		if step.Inputs != nil {
-			mp := values.Proto(step.Inputs).GetMapValue()
-			mval = values.FromMapValueProto(mp)
+			mval = step.Inputs.CopyMap()
 		}
 
-		op := values.Proto(step.Outputs.Value)
-		copiedov := values.FromProto(op)
+		copiedov := values.Copy(step.Outputs.Value)
 
 		newState := &store.WorkflowExecutionStep{
 			ExecutionID: step.ExecutionID,

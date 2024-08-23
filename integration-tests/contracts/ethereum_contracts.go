@@ -770,12 +770,12 @@ func DeployLinkTokenContract(l zerolog.Logger, client *seth.Client) (*EthereumLi
 }
 
 func LoadLinkTokenContract(l zerolog.Logger, client *seth.Client, address common.Address) (*EthereumLinkToken, error) {
-	abi, err := link_token_interface.LinkTokenMetaData.GetAbi()
+	linkABI, err := link_token_interface.LinkTokenMetaData.GetAbi()
 	if err != nil {
 		return &EthereumLinkToken{}, fmt.Errorf("failed to get LinkToken ABI: %w", err)
 	}
 
-	client.ContractStore.AddABI("LinkToken", *abi)
+	client.ContractStore.AddABI("LinkToken", *linkABI)
 	client.ContractStore.AddBIN("LinkToken", common.FromHex(link_token_interface.LinkTokenMetaData.Bin))
 
 	linkToken, err := link_token_interface.NewLinkToken(address, wrappers.MustNewWrappedContractBackend(nil, client))
@@ -1195,19 +1195,19 @@ func (v *EthereumMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
 	return data.UpdatedAt, nil
 }
 
-func DeployMockETHLINKFeed(client *seth.Client, answer *big.Int) (MockETHLINKFeed, error) {
+func DeployMockLINKETHFeed(client *seth.Client, answer *big.Int) (MockLINKETHFeed, error) {
 	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
 	if err != nil {
-		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockETHLINKFeed ABI: %w", err)
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockLINKETHFeed ABI: %w", err)
 	}
-	data, err := client.DeployContract(client.NewTXOpts(), "MockETHLINKFeed", *abi, common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin), answer)
+	data, err := client.DeployContract(client.NewTXOpts(), "MockLINKETHFeed", *abi, common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin), answer)
 	if err != nil {
-		return &EthereumMockETHLINKFeed{}, fmt.Errorf("MockETHLINKFeed instance deployment have failed: %w", err)
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("MockLINKETHFeed instance deployment have failed: %w", err)
 	}
 
 	instance, err := mock_ethlink_aggregator_wrapper.NewMockETHLINKAggregator(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
 	if err != nil {
-		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockETHLINKFeed instance: %w", err)
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockLINKETHFeed instance: %w", err)
 	}
 
 	return &EthereumMockETHLINKFeed{
@@ -1217,17 +1217,17 @@ func DeployMockETHLINKFeed(client *seth.Client, answer *big.Int) (MockETHLINKFee
 	}, nil
 }
 
-func LoadMockETHLINKFeed(client *seth.Client, address common.Address) (MockETHLINKFeed, error) {
+func LoadMockLINKETHFeed(client *seth.Client, address common.Address) (MockLINKETHFeed, error) {
 	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
 	if err != nil {
-		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockETHLINKFeed ABI: %w", err)
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockLINKETHFeed ABI: %w", err)
 	}
-	client.ContractStore.AddABI("MockETHLINKFeed", *abi)
-	client.ContractStore.AddBIN("MockETHLINKFeed", common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin))
+	client.ContractStore.AddABI("MockLINKETHFeed", *abi)
+	client.ContractStore.AddBIN("MockLINKETHFeed", common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin))
 
 	instance, err := mock_ethlink_aggregator_wrapper.NewMockETHLINKAggregator(address, wrappers.MustNewWrappedContractBackend(nil, client))
 	if err != nil {
-		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockETHLINKFeed instance: %w", err)
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockLINKETHFeed instance: %w", err)
 	}
 
 	return &EthereumMockETHLINKFeed{

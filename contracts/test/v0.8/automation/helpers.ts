@@ -9,6 +9,7 @@ import { IAutomationRegistryMaster__factory as IAutomationRegistryMasterFactory 
 import { assert } from 'chai'
 import { FunctionFragment } from '@ethersproject/abi'
 import { AutomationRegistryLogicC2_3__factory as AutomationRegistryLogicC2_3Factory } from '../../../typechain/factories/AutomationRegistryLogicC2_3__factory'
+import { ZKSyncAutomationRegistryLogicC2_3__factory as ZKSyncAutomationRegistryLogicC2_3Factory } from '../../../typechain/factories/ZKSyncAutomationRegistryLogicC2_3__factory'
 import { IAutomationRegistryMaster2_3 as IAutomationRegistry2_3 } from '../../../typechain/IAutomationRegistryMaster2_3'
 import { IAutomationRegistryMaster2_3__factory as IAutomationRegistryMaster2_3Factory } from '../../../typechain/factories/IAutomationRegistryMaster2_3__factory'
 
@@ -170,10 +171,10 @@ export const deployRegistry23 = async (
   link: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[0],
   linkUSD: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[1],
   nativeUSD: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[2],
-  fastgas: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[2],
+  fastgas: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[3],
   allowedReadOnlyAddress: Parameters<
     AutomationRegistryLogicC2_3Factory['deploy']
-  >[3],
+  >[5],
   payoutMode: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[6],
   wrappedNativeTokenAddress: Parameters<
     AutomationRegistryLogicC2_3Factory['deploy']
@@ -190,6 +191,54 @@ export const deployRegistry23 = async (
   )
   const registryFactory = await ethers.getContractFactory(
     'AutomationRegistry2_3',
+  )
+  const forwarderLogicFactory = await ethers.getContractFactory(
+    'AutomationForwarderLogic',
+  )
+  const forwarderLogic = await forwarderLogicFactory.connect(from).deploy()
+  const logicC = await logicCFactory
+    .connect(from)
+    .deploy(
+      link,
+      linkUSD,
+      nativeUSD,
+      fastgas,
+      forwarderLogic.address,
+      allowedReadOnlyAddress,
+      payoutMode,
+      wrappedNativeTokenAddress,
+    )
+  const logicB = await logicBFactory.connect(from).deploy(logicC.address)
+  const logicA = await logicAFactory.connect(from).deploy(logicB.address)
+  const master = await registryFactory.connect(from).deploy(logicA.address)
+  return IAutomationRegistryMaster2_3Factory.connect(master.address, from)
+}
+
+export const deployZKSyncRegistry23 = async (
+  from: Signer,
+  link: Parameters<ZKSyncAutomationRegistryLogicC2_3Factory['deploy']>[0],
+  linkUSD: Parameters<ZKSyncAutomationRegistryLogicC2_3Factory['deploy']>[1],
+  nativeUSD: Parameters<ZKSyncAutomationRegistryLogicC2_3Factory['deploy']>[2],
+  fastgas: Parameters<ZKSyncAutomationRegistryLogicC2_3Factory['deploy']>[3],
+  allowedReadOnlyAddress: Parameters<
+    AutomationRegistryLogicC2_3Factory['deploy']
+  >[5],
+  payoutMode: Parameters<ZKSyncAutomationRegistryLogicC2_3Factory['deploy']>[6],
+  wrappedNativeTokenAddress: Parameters<
+    ZKSyncAutomationRegistryLogicC2_3Factory['deploy']
+  >[7],
+): Promise<IAutomationRegistry2_3> => {
+  const logicCFactory = await ethers.getContractFactory(
+    'ZKSyncAutomationRegistryLogicC2_3',
+  )
+  const logicBFactory = await ethers.getContractFactory(
+    'ZKSyncAutomationRegistryLogicB2_3',
+  )
+  const logicAFactory = await ethers.getContractFactory(
+    'ZKSyncAutomationRegistryLogicA2_3',
+  )
+  const registryFactory = await ethers.getContractFactory(
+    'ZKSyncAutomationRegistry2_3',
   )
   const forwarderLogicFactory = await ethers.getContractFactory(
     'AutomationForwarderLogic',
