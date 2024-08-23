@@ -26,7 +26,7 @@ import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 /// in an OffRamp in a single transaction.
 /// @dev The OnRamp and OffRamp form an xchain upgradeable unit. Any change to one of them
 /// results an onchain upgrade of both contracts.
-/// @dev MultiOCR3Base is used to store multiple OCR configs for both the OffRamp and the CommitStore.
+/// @dev MultiOCR3Base is used to store multiple OCR configs for the OffRamp.
 /// The execution plugin type has to be configured without signature verification, and the commit
 /// plugin type with verification.
 contract OffRamp is ITypeAndVersion, MultiOCR3Base {
@@ -79,13 +79,13 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   event CommitReportAccepted(CommitReport report);
   event RootRemoved(bytes32 root);
 
-  /// @notice Static offRamp config
+  /// @notice Struct that contains the static configuration
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct StaticConfig {
     uint64 chainSelector; // ───╮  Destination chainSelector
     address rmnProxy; // ───────╯  RMN proxy address
     address tokenAdminRegistry; // Token admin registry address
-    address nonceManager; // Address of the nonce manager
+    address nonceManager; // Nonce manager address
   }
 
   /// @notice Per-chain source config (defining a lane from a Source Chain -> Dest OffRamp)
@@ -96,7 +96,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     bytes onRamp; // OnRamp address on the source chain
   }
 
-  /// @notice SourceChainConfig update args scoped to one source chain
+  /// @notice Same as SourceChainConfig but with source chain selector so that an array of these
+  /// can be passed in the constructor and the applySourceChainConfigUpdates function.
   struct SourceChainConfigArgs {
     IRouter router; // ────────────────╮  Local router to use for messages coming from this source chain
     uint64 sourceChainSelector; //     |  Source chain selector of the config to update
@@ -105,7 +106,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   }
 
   /// @notice Dynamic offRamp config
-  /// @dev since OffRampConfig is part of OffRampConfigChanged event, if changing it, we should update the ABI on Atlas
+  /// @dev Since DynamicConfig is part of DynamicConfigSet event, if changing it, we should update the ABI on Atlas
   struct DynamicConfig {
     address priceRegistry; // ──────────────────────────╮ Price registry address on the local chain
     uint32 permissionLessExecutionThresholdSeconds; //  │ Waiting time before manual execution is enabled
@@ -155,7 +156,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   // DYNAMIC CONFIG
   DynamicConfig internal s_dynamicConfig;
 
-  /// @notice SourceConfig per chain
+  /// @notice SourceChainConfig per chain
   /// (forms lane configurations from sourceChainSelector => StaticConfig.chainSelector)
   mapping(uint64 sourceChainSelector => SourceChainConfig sourceChainConfig) internal s_sourceChainConfigs;
 
@@ -166,7 +167,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   mapping(uint64 sourceChainSelector => mapping(uint64 seqNum => uint256 executionStateBitmap)) internal
     s_executionStates;
 
-  // sourceChainSelector => merkleRoot => timestamp when received
+  /// @notice Commit timestamp of merkle roots per source chain
   mapping(uint64 sourceChainSelector => mapping(bytes32 merkleRoot => uint256 timestamp)) internal s_roots;
   /// @dev The sequence number of the last price update
   uint64 private s_latestPriceSequenceNumber;
@@ -213,8 +214,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @notice Returns the current execution state of a message based on its sequenceNumber.
   /// @param sourceChainSelector The source chain to get the execution state for
   /// @param sequenceNumber The sequence number of the message to get the execution state for.
-  /// @return The current execution state of the message.
-  /// @dev we use the literal number 128 because using a constant increased gas usage.
+  /// @return executionState The current execution state of the message.
+  /// @dev We use the literal number 128 because using a constant increased gas usage.
   function getExecutionState(
     uint64 sourceChainSelector,
     uint64 sequenceNumber
@@ -231,7 +232,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @param sourceChainSelector The source chain to set the execution state for
   /// @param sequenceNumber The sequence number for which the state will be saved.
   /// @param newState The new value the state will be in after this function is called.
-  /// @dev we use the literal number 128 because using a constant increased gas usage.
+  /// @dev We use the literal number 128 because using a constant increased gas usage.
   function _setExecutionState(
     uint64 sourceChainSelector,
     uint64 sequenceNumber,
@@ -239,7 +240,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   ) internal {
     uint256 offset = (sequenceNumber % 128) * MESSAGE_EXECUTION_STATE_BIT_WIDTH;
     uint256 bitmap = _getSequenceNumberBitmap(sourceChainSelector, sequenceNumber);
-    // to unset any potential existing state we zero the bits of the section the state occupies,
+    // To unset any potential existing state we zero the bits of the section the state occupies,
     // then we do an AND operation to blank out any existing state for the section.
     bitmap &= ~(MESSAGE_EXECUTION_STATE_MASK << offset);
     // Set the new state
@@ -358,7 +359,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
         revert InvalidMessageDestChainSelector(message.header.destChainSelector);
       }
 
-      // We do this hash here instead of in _verifyMessages to avoid two separate loops
+      // We do this hash here instead of in _verify to avoid two separate loops
       // over the same data, which increases gas cost.
       // Hashing all of the message fields ensures that the message being executed is correct and not tampered with.
       // Including the known OnRamp ensures that the message originates from the correct on ramp version
@@ -422,6 +423,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       // FAILURE   -> FAILURE  no nonce bump
       // FAILURE   -> SUCCESS  no nonce bump
       // UNTOUCHED messages MUST be executed in order always
+      // If nonce == 0 then out of order execution is allowed
       if (message.header.nonce != 0) {
         if (originalState == Internal.MessageExecutionState.UNTOUCHED) {
           // If a nonce is not incremented, that means it was skipped, and we can ignore the message
@@ -480,12 +482,12 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @notice Try executing a message.
   /// @param message Internal.Any2EVMRampMessage memory message.
   /// @param offchainTokenData Data provided by the DON for token transfers.
-  /// @return the new state of the message, being either SUCCESS or FAILURE.
-  /// @return revert data in bytes if CCIP receiver reverted during execution.
+  /// @return executionState The new state of the message, being either SUCCESS or FAILURE.
+  /// @return errData Revert data in bytes if CCIP receiver reverted during execution.
   function _trialExecute(
     Internal.Any2EVMRampMessage memory message,
     bytes[] memory offchainTokenData
-  ) internal returns (Internal.MessageExecutionState, bytes memory) {
+  ) internal returns (Internal.MessageExecutionState executionState, bytes memory) {
     try this.executeSingleMessage(message, offchainTokenData) {}
     catch (bytes memory err) {
       // return the message execution state as FAILURE and the revert data
@@ -496,7 +498,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     return (Internal.MessageExecutionState.SUCCESS, "");
   }
 
-  /// @notice Execute a single message.
+  /// @notice Executes a single message.
   /// @param message The message that will be executed.
   /// @param offchainTokenData Token transfer data to be passed to TokenPool.
   /// @dev We make this external and callable by the contract itself, in order to try/catch
@@ -563,12 +565,12 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// 1. Price updates
   /// 2. A batch of merkle root and sequence number intervals (per-source)
   /// Both have their own, separate, staleness checks, with price updates using the epoch and round
-  /// number of the latest price update. The merkle root checks for staleness based on the seqNums.
+  /// number of the latest price update. The merkle root checks for staleness are based on the seqNums.
   /// They need to be separate because a price report for round t+2 might be included before a report
   /// containing a merkle root for round t+1. This merkle root report for round t+1 is still valid
   /// and should not be rejected. When a report with a stale root but valid price updates is submitted,
   /// we are OK to revert to preserve the invariant that we always revert on invalid sequence number ranges.
-  /// If that happens, prices will be updates in later rounds.
+  /// If that happens, prices will be updated in later rounds.
   function commit(
     bytes32[3] calldata reportContext,
     bytes calldata report,
@@ -604,7 +606,6 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       _whenNotCursed(sourceChainSelector);
       SourceChainConfig storage sourceChainConfig = _getEnabledSourceChainConfig(sourceChainSelector);
 
-      // If we reached this section, the report should contain a valid root
       if (sourceChainConfig.minSeqNr != root.interval.min || root.interval.min > root.interval.max) {
         revert InvalidInterval(root.sourceChainSelector, root.interval);
       }
@@ -612,7 +613,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       // TODO: confirm how RMN offchain blessing impacts commit report
       bytes32 merkleRoot = root.merkleRoot;
       if (merkleRoot == bytes32(0)) revert InvalidRoot();
-      // Disallow duplicate roots as that would reset the timestamp and
+      // If we reached this section, the report should contain a valid root
+      // We disallow duplicate roots as that would reset the timestamp and
       // delay potential manual execution.
       if (s_roots[root.sourceChainSelector][merkleRoot] != 0) {
         revert RootAlreadyCommitted(root.sourceChainSelector, merkleRoot);
@@ -628,7 +630,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   }
 
   /// @notice Returns the sequence number of the last price update.
-  /// @return the latest price update sequence number.
+  /// @return sequenceNumber The latest price update sequence number.
   function getLatestPriceSequenceNumber() external view returns (uint64) {
     return s_latestPriceSequenceNumber;
   }
@@ -637,7 +639,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// If the root was never committed 0 will be returned.
   /// @param sourceChainSelector The source chain selector.
   /// @param root The merkle root to check the commit status for.
-  /// @return the timestamp of the committed root or zero in the case that it was never
+  /// @return timestamp The timestamp of the committed root or zero in the case that it was never
   /// committed.
   function getMerkleRoot(uint64 sourceChainSelector, bytes32 root) external view returns (uint256) {
     return s_roots[sourceChainSelector][root];
@@ -645,7 +647,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
 
   /// @notice Returns if a root is blessed or not.
   /// @param root The merkle root to check the blessing status for.
-  /// @return whether the root is blessed or not.
+  /// @return blessed Whether the root is blessed or not.
   function isBlessed(bytes32 root) public view returns (bool) {
     // TODO: update RMN to also consider the source chain selector for blessing
     return IRMN(i_rmnProxy).isBlessed(IRMN.TaggedRoot({commitStore: address(this), root: root}));
@@ -669,6 +671,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev This method uses a merkle tree within a merkle tree, with the hashedLeaves,
   /// proofs and proofFlagBits being used to get the root of the inner tree.
   /// This root is then used as the singular leaf of the outer tree.
+  /// @return timestamp The commit timestamp of the root
   function _verify(
     uint64 sourceChainSelector,
     bytes32[] memory hashedLeaves,
@@ -701,6 +704,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @notice Returns the static config.
   /// @dev This function will always return the same struct as the contents is static and can never change.
   /// RMN depends on this function, if changing, please notify the RMN maintainers.
+  /// @return staticConfig The static config.
   function getStaticConfig() external view returns (StaticConfig memory) {
     return StaticConfig({
       chainSelector: i_chainSelector,
@@ -711,14 +715,14 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   }
 
   /// @notice Returns the current dynamic config.
-  /// @return The current config.
+  /// @return dynamicConfig The current dynamic config.
   function getDynamicConfig() external view returns (DynamicConfig memory) {
     return s_dynamicConfig;
   }
 
   /// @notice Returns the source chain config for the provided source chain selector
   /// @param sourceChainSelector chain to retrieve configuration for
-  /// @return SourceChainConfig config for the source chain
+  /// @return sourceChainConfig The config for the source chain
   function getSourceChainConfig(uint64 sourceChainSelector) external view returns (SourceChainConfig memory) {
     return s_sourceChainConfigs[sourceChainSelector];
   }
@@ -787,7 +791,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
 
   /// @notice Returns a source chain config with a check that the config is enabled
   /// @param sourceChainSelector Source chain selector to check for cursing
-  /// @return sourceChainConfig Source chain config
+  /// @return sourceChainConfig The source chain config storage pointer
   function _getEnabledSourceChainConfig(uint64 sourceChainSelector) internal view returns (SourceChainConfig storage) {
     SourceChainConfig storage sourceChainConfig = s_sourceChainConfigs[sourceChainSelector];
     if (!sourceChainConfig.isEnabled) {
@@ -840,7 +844,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     // address is a (compatible) pool contract. _callWithExactGasSafeReturnData will check if the location
     // contains a contract. If it doesn't it reverts with a known error, which we catch gracefully.
     // We call the pool with exact gas to increase resistance against malicious tokens or token pools.
-    // We protects against return data bombs by capping the return data size at MAX_RET_BYTES.
+    // We protect against return data bombs by capping the return data size at MAX_RET_BYTES.
     (bool success, bytes memory returnData, uint256 gasUsedReleaseOrMint) = CallWithExactGas
       ._callWithExactGasSafeReturnData(
       abi.encodeCall(
@@ -862,7 +866,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       Internal.MAX_RET_BYTES
     );
 
-    // wrap and rethrow the error so we can catch it lower in the stack
+    // Wrap and rethrow the error so we can catch it lower in the stack
     if (!success) revert TokenHandlingError(returnData);
 
     // If the call was successful, the returnData should be the local token address.
@@ -885,6 +889,12 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     return Client.EVMTokenAmount({token: localToken, amount: localAmount});
   }
 
+  /// @notice Retrieves the balance of a receiver address for a given token.
+  /// @param receiver The address to check the balance of.
+  /// @param token The token address.
+  /// @param gasLimit The gas limit to use for the call.
+  /// @return balance The balance of the receiver.
+  /// @return gasLeft The gas left after the call.
   function _getBalanceOfReceiver(
     address receiver,
     address token,
@@ -913,10 +923,10 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @param sourceTokenAmounts List of token amounts with source data of the tokens to be released/minted.
   /// @param originalSender The message sender on the source chain.
   /// @param receiver The address that will receive the tokens.
-  /// @param sourceChainSelector The remote source chain selector
+  /// @param sourceChainSelector The remote source chain selector.
   /// @param offchainTokenData Array of token data fetched offchain by the DON.
   /// @return destTokenAmounts local token addresses with amounts
-  /// @dev This function wrappes the token pool call in a try catch block to gracefully handle
+  /// @dev This function wraps the token pool call in a try catch block to gracefully handle
   /// any non-rate limiting errors that may occur. If we encounter a rate limiting related error
   /// we bubble it up. If we encounter a non-rate limiting error we wrap it in a TokenHandlingError.
   function _releaseOrMintTokens(
