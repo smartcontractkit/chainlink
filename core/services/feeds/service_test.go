@@ -3863,8 +3863,9 @@ func Test_Service_StartStop(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name       string
-		beforeFunc func(svc *TestService)
+		name                     string
+		enableMultiFeedsManagers bool
+		beforeFunc               func(svc *TestService)
 	}{
 		{
 			name: "success with a feeds manager connection",
@@ -3878,7 +3879,8 @@ func Test_Service_StartStop(t *testing.T) {
 			},
 		},
 		{
-			name: "success with multiple feeds managers connection",
+			name:                     "success with multiple feeds managers connection",
+			enableMultiFeedsManagers: true,
 			beforeFunc: func(svc *TestService) {
 				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{mgr, mgr2}, nil)
@@ -3905,7 +3907,9 @@ func Test_Service_StartStop(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			svc := setupTestService(t)
+			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.Feature.MultiFeedsManagers = &tt.enableMultiFeedsManagers
+			})
 
 			if tt.beforeFunc != nil {
 				tt.beforeFunc(svc)

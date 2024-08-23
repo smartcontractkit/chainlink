@@ -1033,9 +1033,13 @@ func (s *service) Start(ctx context.Context) error {
 			return nil
 		}
 
-		s.lggr.Infof("starting connection to %d feeds managers", len(mgrs))
-		for _, mgr := range mgrs {
-			s.connectFeedManager(ctx, mgr, privkey)
+		if s.gCfg.FeatureMultiFeedsManagers() {
+			s.lggr.Infof("starting connection to %d feeds managers", len(mgrs))
+			for _, mgr := range mgrs {
+				s.connectFeedManager(ctx, mgr, privkey)
+			}
+		} else {
+			s.connectFeedManager(ctx, mgrs[0], privkey)
 		}
 
 		if err = s.observeJobProposalCounts(ctx); err != nil {
