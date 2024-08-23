@@ -127,6 +127,61 @@ func TestWriteTarget(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("passes gas limit set on config to the chain writer", func(t *testing.T) {
+
+		configGasLimit, err := values.NewMap(map[string]any{
+			"Address":  forwarderAddr,
+			"GasLimit": 500000,
+		})
+		require.NoError(t, err)
+		req := capabilities.CapabilityRequest{
+			Metadata: validMetadata,
+			Config:   configGasLimit,
+			Inputs:   validInputs,
+		}
+
+		meta := types.TxMeta{WorkflowExecutionID: &req.Metadata.WorkflowExecutionID, GasLimit: big.NewInt(500000)}
+		cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, &meta, mock.Anything).Return(types.ErrSettingTransactionGasLimitNotSupported)
+
+		ch, err2 := writeTarget.Execute(ctx, req)
+		require.NoError(t, err2)
+		response := <-ch
+		require.NotNil(t, response)
+	})
+
+	t.Run("retries without gas limit when ChainWriter's SubmitTransaction returns error due to gas limit not supported", func(t *testing.T) {
+
+		configGasLimit, err := values.NewMap(map[string]any{
+			"Address":  forwarderAddr,
+			"GasLimit": 500000,
+		})
+		require.NoError(t, err)
+		req := capabilities.CapabilityRequest{
+			Metadata: validMetadata,
+			Config:   configGasLimit,
+			Inputs:   validInputs,
+		}
+
+		meta := types.TxMeta{WorkflowExecutionID: &req.Metadata.WorkflowExecutionID, GasLimit: big.NewInt(500000)}
+		cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, &meta, mock.Anything).Return(types.ErrSettingTransactionGasLimitNotSupported)
+		meta = types.TxMeta{WorkflowExecutionID: &req.Metadata.WorkflowExecutionID}
+		cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, &meta, mock.Anything).Return(nil)
+		
+		configGasLimit, err = values.NewMap(map[string]any{
+			"Address": forwarderAddr,
+		})
+		req = capabilities.CapabilityRequest{
+			Metadata: validMetadata,
+			Config:   configGasLimit,
+			Inputs:   validInputs,
+		}
+
+		ch, err2 := writeTarget.Execute(ctx, req)
+		require.NoError(t, err2)
+		response := <-ch
+		require.NotNil(t, response)
+	})
+
 	t.Run("fails with invalid config", func(t *testing.T) {
 		invalidConfig, err2 := values.NewMap(map[string]any{
 			"Address": "invalid-address",

@@ -241,6 +241,12 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	require.NoError(t, err)
 
 	targetCapabilityConfig := newCapabilityConfig()
+
+	configWithLimit, err := values.WrapMap(map[string]any{"gasLimit": 500000})
+	require.NoError(t, err)
+
+	targetCapabilityConfig.DefaultConfig = values.Proto(configWithLimit).GetMapValue()
+
 	targetCapabilityConfig.RemoteConfig = &pb.CapabilityConfig_RemoteTargetConfig{
 		RemoteTargetConfig: &pb.RemoteTargetConfig{
 			RequestHashExcludedAttributes: []string{"signed_report.Signatures"},
