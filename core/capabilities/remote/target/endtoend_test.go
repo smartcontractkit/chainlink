@@ -226,7 +226,7 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
-		capabilityNode := target.NewServer(capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
+		capabilityNode := target.NewServer(&commoncap.RemoteTargetConfig{RequestHashExcludedAttributes: []string{}}, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
 			capabilityNodeResponseTimeout, lggr)
 		servicetest.Run(t, capabilityNode)
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
@@ -261,8 +261,8 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 			responseCh, err := caller.Execute(ctx,
 				commoncap.CapabilityRequest{
 					Metadata: commoncap.RequestMetadata{
-						WorkflowID:          "workflowID",
-						WorkflowExecutionID: "workflowExecutionID",
+						WorkflowID:          workflowID1,
+						WorkflowExecutionID: workflowExecutionID1,
 					},
 					Config: transmissionSchedule,
 					Inputs: executeInputs,
@@ -369,6 +369,26 @@ type broker interface {
 type nodeDispatcher struct {
 	callerPeerID p2ptypes.PeerID
 	broker       broker
+}
+
+func (t *nodeDispatcher) Name() string {
+	return "nodeDispatcher"
+}
+
+func (t *nodeDispatcher) Start(ctx context.Context) error {
+	return nil
+}
+
+func (t *nodeDispatcher) Close() error {
+	return nil
+}
+
+func (t *nodeDispatcher) Ready() error {
+	return nil
+}
+
+func (t *nodeDispatcher) HealthReport() map[string]error {
+	return nil
 }
 
 func (t *nodeDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {

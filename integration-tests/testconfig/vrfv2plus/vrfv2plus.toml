@@ -19,6 +19,7 @@ MaxSize = '0b'
 [WebServer]
 AllowOrigins = '*'
 HTTPPort = 6688
+HTTPWriteTimeout = '1m0s'
 SecureCookies = false
 
 [WebServer.RateLimit]
@@ -57,7 +58,7 @@ BatchSize = 100
 """
 
 [Common]
-chainlink_node_funding = 0.5
+chainlink_node_funding = 0.7
 
 [VRFv2Plus]
 [VRFv2Plus.General]
@@ -67,6 +68,7 @@ use_existing_env = false
 minimum_confirmations = 3
 # Can be "LINK", "NATIVE" or "LINK_AND_NATIVE"
 subscription_billing_type = "LINK_AND_NATIVE"
+generate_txs_on_chain = false
 
 #CL Node config
 cl_node_max_gas_price_gwei = 10
@@ -96,6 +98,10 @@ fulfillment_flat_fee_link_discount_ppm=0
 native_premium_percentage=24
 link_premium_percentage=20
 
+#  0 = L1_GAS_FEES_MODE; 1 = L1_CALLDATA_GAS_COST_MODE; 2 = L1_GAS_FEES_UPPER_BOUND_MODE
+l1_fee_calculation_mode = 2
+l1_fee_coefficient = 80
+
 # Wrapper config
 wrapped_gas_overhead = 50000
 coordinator_gas_overhead_native = 52000
@@ -123,15 +129,27 @@ bhs_job_lookback_blocks = 250
 bhs_job_poll_period = "1s"
 bhs_job_run_timeout = "24h"
 
+# BHF Job config
+bhf_job_wait_blocks = 260
+bhf_job_lookback_blocks = 500
+bhf_job_poll_period = "30s"
+bhf_job_run_timeout = "1h"
+
 # PERFORMANCE test specific config
 
 [VRFv2Plus.ExistingEnv]
 coordinator_address = ""
-consumer_address = ""
-sub_id = ""
 key_hash = ""
+
+use_existing_wrapper = false
+wrapper_address = ""
 create_fund_subs_and_add_consumers = true
-link_address = ""
+sub_id = ""
+consumer_address = ""
+
+create_fund_add_wrapper_consumers = true
+wrapper_consumer_address = ""
+
 node_sending_key_funding_min = 1
 node_sending_keys = []
 
@@ -148,16 +166,16 @@ bhs_test_rps = 1
 chainlink_node_funding = 0.1
 
 [Soak.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+randomness_request_count_per_request = 4 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
 number_of_sending_keys_to_create = 0
-subscription_funding_amount_link = 5.0
-subscription_funding_amount_native=1
+subscription_funding_amount_link = 50
+subscription_funding_amount_native=10
 
 [Soak.VRFv2Plus.Performance]
 test_duration = "2m"
-rate_limit_unit_duration = "3s"
+rate_limit_unit_duration = "10s"
 rps = 1
 bhs_test_duration = "1m"
 bhs_test_rate_limit_unit_duration = "3s"
@@ -261,7 +279,6 @@ key_hash = "0xd360445bacd26df47086ccf255c4f932d297ed8d5c7334b51eed32f61c541601"
 #key_hash = "0x2328cbee29e32d0b6662d6df82ff0fea7be300bd310561c92f515c9ee19464f1"
 #key_hash = "0x25f4e2d0509f42ec77db5380f3433a89fe623fa75f65d5b398d5f498327be4dd"
 create_fund_subs_and_add_consumers = true
-link_address = "0x0Fd9e8d3aF1aaee056EB9e802c3A762a667b1904"
 node_sending_key_funding_min = 10
 node_sending_keys = [
     "0xD96013C241f1741C35a135321969f92Aae02A12F",
@@ -396,7 +413,6 @@ consumer_address = ""
 sub_id = ""
 key_hash = "0xe13aa26fe94bfcd2ae055911f4d3bf1aed54ca6cf77af34e17f918802fd69ba1"
 create_fund_subs_and_add_consumers = true
-link_address = "0xb1D4538B4571d411F07960EF2838Ce337FE1E80E"
 node_sending_key_funding_min = 20
 node_sending_keys = [
     "0xbE21ae371FcA1aC2d8A152e707D21e68d7d99252",
@@ -540,7 +556,6 @@ consumer_address = ""
 sub_id = ""
 key_hash = "0x5b03254a80ea3eb72139ff0423cb88be42612780c3dd25f1d95a5ba7708a4be1"
 create_fund_subs_and_add_consumers = true
-link_address = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
 node_sending_key_funding_min = 50
 node_sending_keys = [
     "0x3D7Da5D6A23CA2240CE576C8638C1798a023920a",
@@ -665,7 +680,6 @@ consumer_address = ""
 sub_id = ""
 key_hash = "0xf5b4a359df0598eef89872ea2170f2afa844dbf74b417e6d44d4bda9420aceb2"
 create_fund_subs_and_add_consumers = true
-link_address = "0x779877A7B0D9E8603169DdbD7836e478b4624789"
 node_sending_key_funding_min = 50
 node_sending_keys = [
     "0x0c0DC7f33A1256f0247c5ea75861d385fa5FED31",
@@ -735,7 +749,6 @@ rps = 1
 
 ### BSC SEPOLIA Config
 [BSC_TESTNET.VRFv2Plus.General]
-use_existing_env = true
 #todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
 minimum_confirmations = 3
 
@@ -789,7 +802,6 @@ consumer_address = ""
 sub_id = ""
 key_hash = "0x4d43763d3eff849a89cf578a42787baa32132d7a80032125710e95b3972cd214"
 create_fund_subs_and_add_consumers = true
-link_address = "0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06"
 node_sending_key_funding_min = 150
 node_sending_keys = [
     "0x4EE2Cc6D50E8acb6BaEf673B03559525a6c92fB8",
@@ -847,6 +859,345 @@ subscription_funding_amount_link = 5.0
 subscription_funding_amount_native = 0.1
 
 [BSC_TESTNET-Stress.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+### NEXON QA Config
+[NEXON_QA.VRFv2Plus.General]
+#todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
+minimum_confirmations = 0
+generate_txs_on_chain = true
+
+# Consumer Request config
+subscription_billing_type = "LINK_AND_NATIVE"
+callback_gas_limit = 1000000
+
+[NEXON_QA.VRFv2Plus.ExistingEnv]
+coordinator_address = "0xF1F0beBcc284591FCD28d8f2BAc9f30efdA3E0ea"
+consumer_address = ""
+sub_id = ""
+key_hash = "0x7d5692e71807c4c02f5a109627a9ad2b12a361a346790a306983af9a5e3a186f"
+create_fund_subs_and_add_consumers = true
+node_sending_key_funding_min = 30
+node_sending_keys = [
+    "0xB97c0C52A2B957b45DA213e652c76090DDd0FEc6",
+    "0xe205F5d4a99ca0f474d0b4d12f60a0153c786B4E",
+    #   BHS
+    "0xf85E291edF0352435f2fD5e817030f6542375a99",
+]
+
+#SMOKE TEST CONFIG
+[NEXON_QA-Smoke.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 21
+subscription_funding_amount_native = 2
+subscription_refunding_amount_link = 21
+subscription_refunding_amount_native = 2
+number_of_words = 1
+random_words_fulfilled_event_timeout = "1m30s"
+wait_for_256_blocks_timeout = "25m"
+wrapper_consumer_funding_amount_link = 21
+wrapper_consumer_funding_amount_native_token = 3
+
+
+[NEXON_QA-Smoke.VRFv2Plus.Performance]
+test_duration = "2s"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+#SOAK TEST CONFIG
+[NEXON_QA-Soak.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 400
+subscription_funding_amount_native = 200
+
+[NEXON_QA-Soak.VRFv2Plus.Performance]
+test_duration = "5h"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+# LOAD TEST CONFIG
+[NEXON_QA-Load.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 300
+subscription_funding_amount_native = 300
+
+[NEXON_QA-Load.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+# STRESS TEST CONFIG
+[NEXON_QA-Stress.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 5.0
+subscription_funding_amount_native = 2
+
+[NEXON_QA-Stress.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+### NEXON DEV Config
+[NEXON_DEV.VRFv2Plus.General]
+#todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
+minimum_confirmations = 0
+generate_txs_on_chain = true
+
+# Consumer Request config
+subscription_billing_type = "LINK_AND_NATIVE"
+callback_gas_limit = 1000000
+
+[NEXON_DEV.VRFv2Plus.ExistingEnv]
+coordinator_address = "0x6901d7236A823E7B7911d90FBe46E6FA770CC823"
+consumer_address = ""
+sub_id = ""
+key_hash = "0xdc023892a41e5fe74ec7c4c2e8c0a808b01aea7acaf2b2ae30f4e08df877c48b"
+create_fund_subs_and_add_consumers = true
+node_sending_key_funding_min = 30
+node_sending_keys = [
+    "0xF3d9879a75BBD85890056D7c6cB37C555F9b41A3",
+    #   BHS
+    "0xb544f9D7c16a30af0EEd0afcC4132D1c63bAF8AC",
+]
+
+#SMOKE TEST CONFIG
+[NEXON_DEV-Smoke.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 21
+subscription_funding_amount_native = 2
+subscription_refunding_amount_link = 21
+subscription_refunding_amount_native = 2
+number_of_words = 1
+random_words_fulfilled_event_timeout = "1m30s"
+wait_for_256_blocks_timeout = "25m"
+wrapper_consumer_funding_amount_link = 21
+wrapper_consumer_funding_amount_native_token = 3
+
+[NEXON_DEV-Smoke.VRFv2Plus.Performance]
+test_duration = "2s"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+#SOAK TEST CONFIG
+[NEXON_DEV-Soak.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 400
+subscription_funding_amount_native = 200
+
+[NEXON_DEV-Soak.VRFv2Plus.Performance]
+test_duration = "5h"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+# LOAD TEST CONFIG
+[NEXON_DEV-Load.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 300
+subscription_funding_amount_native = 300
+
+[NEXON_DEV-Load.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+# STRESS TEST CONFIG
+[NEXON_DEV-Stress.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 5.0
+subscription_funding_amount_native = 0.1
+
+[NEXON_DEV-Stress.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+### NEXON TEST Config
+[NEXON_TEST.VRFv2Plus.General]
+#todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
+minimum_confirmations = 0
+generate_txs_on_chain = true
+
+# Consumer Request config
+subscription_billing_type = "LINK_AND_NATIVE"
+callback_gas_limit = 1000000
+
+[NEXON_TEST.VRFv2Plus.ExistingEnv]
+coordinator_address = "0xAa92Ba21168B48195cAdB87cfaB3eB70B2499F55"
+consumer_address = ""
+sub_id = ""
+key_hash = "0x0cb2a18e8b762cb4c8f7b17a6cc02ac7b9d2a3346f048cfd2f5d37677f8747d8"
+create_fund_subs_and_add_consumers = true
+node_sending_key_funding_min = 30
+node_sending_keys = [
+    "0xBFD780Af421e98C35918e10B9d6da7389C3e1D10",
+    "0xbf6c76024672F233aB8164EC00683e1AE774F6b0",
+    #   BHS
+    "0x2a3900Ac77de110670E060DBFf4fCbe36c6f8170",
+]
+
+#SMOKE TEST CONFIG
+[NEXON_TEST-Smoke.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 21
+subscription_funding_amount_native = 2
+subscription_refunding_amount_link = 21
+subscription_refunding_amount_native = 2
+number_of_words = 1
+random_words_fulfilled_event_timeout = "1m30s"
+wait_for_256_blocks_timeout = "25m"
+wrapper_consumer_funding_amount_link = 5
+wrapper_consumer_funding_amount_native_token = 3
+
+[NEXON_TEST-Smoke.VRFv2Plus.Performance]
+test_duration = "2s"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+#SOAK TEST CONFIG
+[NEXON_TEST-Soak.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 400
+subscription_funding_amount_native = 200
+
+[NEXON_TEST-Soak.VRFv2Plus.Performance]
+test_duration = "5h"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+# LOAD TEST CONFIG
+[NEXON_TEST-Load.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 300
+subscription_funding_amount_native = 300
+
+[NEXON_TEST-Load.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+# STRESS TEST CONFIG
+[NEXON_TEST-Stress.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 5.0
+subscription_funding_amount_native = 0.1
+
+[NEXON_TEST-Stress.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+### NEXON STAGE Config
+[NEXON_STAGE.VRFv2Plus.General]
+#todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
+minimum_confirmations = 0
+generate_txs_on_chain = true
+
+# Consumer Request config
+subscription_billing_type = "LINK_AND_NATIVE"
+callback_gas_limit = 1000000
+
+[NEXON_STAGE.VRFv2Plus.ExistingEnv]
+coordinator_address = "0xF705dD3e7E717F32de0Cc5F833f8009f16122AD1"
+consumer_address = ""
+sub_id = ""
+key_hash = "0xbc9f525e3e1d9e2336f7c77d5f33f5b60aab3765944617fed7f66a6afecac616"
+create_fund_subs_and_add_consumers = true
+node_sending_key_funding_min = 30
+node_sending_keys = [
+]
+
+#SMOKE TEST CONFIG
+[NEXON_STAGE-Smoke.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 21
+subscription_funding_amount_native = 2
+subscription_refunding_amount_link = 21
+subscription_refunding_amount_native = 2
+number_of_words = 1
+random_words_fulfilled_event_timeout = "1m30s"
+wait_for_256_blocks_timeout = "25m"
+wrapper_consumer_funding_amount_link = 21
+wrapper_consumer_funding_amount_native_token = 3
+
+[NEXON_STAGE-Smoke.VRFv2Plus.Performance]
+test_duration = "2s"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+#SOAK TEST CONFIG
+[NEXON_STAGE-Soak.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 400
+subscription_funding_amount_native = 200
+
+[NEXON_STAGE-Soak.VRFv2Plus.Performance]
+test_duration = "5h"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+# LOAD TEST CONFIG
+[NEXON_STAGE-Load.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 300
+subscription_funding_amount_native = 300
+
+[NEXON_STAGE-Load.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+# STRESS TEST CONFIG
+[NEXON_STAGE-Stress.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 5.0
+subscription_funding_amount_native = 0.1
+
+[NEXON_STAGE-Stress.VRFv2Plus.Performance]
 test_duration = "2m"
 rate_limit_unit_duration = "3s"
 rps = 1

@@ -33,7 +33,6 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-//go:generate mockery --quiet --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
 type LogPoller interface {
 	services.Service
 	Healthy() error
@@ -1282,11 +1281,12 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 	logPollerBlocks := make(map[uint64]LogPollerBlock)
 	for _, head := range evmBlocks {
 		logPollerBlocks[uint64(head.Number)] = LogPollerBlock{
-			EvmChainId:     head.EVMChainID,
-			BlockHash:      head.Hash,
-			BlockNumber:    head.Number,
-			BlockTimestamp: head.Timestamp,
-			CreatedAt:      head.CreatedAt,
+			EvmChainId:           head.EVMChainID,
+			BlockHash:            head.Hash,
+			BlockNumber:          head.Number,
+			BlockTimestamp:       head.Timestamp,
+			FinalizedBlockNumber: head.Number, // always finalized; only matters if this block is returned by LatestBlock()
+			CreatedAt:            head.CreatedAt,
 		}
 	}
 	return logPollerBlocks, nil

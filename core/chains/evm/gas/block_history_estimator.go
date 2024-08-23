@@ -91,7 +91,6 @@ type estimatorGasEstimatorConfig interface {
 	bumpConfig
 }
 
-//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type BlockHistoryEstimator struct {
 	services.StateMachine
 	ethClient feeEstimatorClient
@@ -277,6 +276,8 @@ func (b *BlockHistoryEstimator) setMaxPercentileGasPrice(gasPrice *assets.Wei) {
 }
 
 func (b *BlockHistoryEstimator) getBlockHistoryNumbers() (numsInHistory []int64) {
+	b.blocksMu.RLock()
+	defer b.blocksMu.RUnlock()
 	for _, b := range b.blocks {
 		numsInHistory = append(numsInHistory, b.Number)
 	}

@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
-	"github.com/smartcontractkit/havoc/k8schaos"
+	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -91,12 +91,12 @@ type OCRSoakTest struct {
 	reorgHappened              bool                  // flag to indicate if a reorg happened during the test
 	gasSpikeSimulationHappened bool                  // flag to indicate if a gas spike simulation happened during the test
 	gasLimitSimulationHappened bool                  // flag to indicate if a gas limit simulation happened during the test
-	chaosList                  []*k8schaos.Chaos     // list of chaos simulations to run during the test
+	chaosList                  []*havoc.Chaos        // list of chaos simulations to run during the test
 }
 
 type OCRSoakTestOption = func(c *OCRSoakTest)
 
-func WithChaos(chaosList []*k8schaos.Chaos) OCRSoakTestOption {
+func WithChaos(chaosList []*havoc.Chaos) OCRSoakTestOption {
 	return func(c *OCRSoakTest) {
 		c.chaosList = chaosList
 	}
@@ -277,7 +277,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	nodes, err := client.ConnectChainlinkNodes(o.testEnvironment)
 	require.NoError(o.t, err, "Connecting to chainlink nodes shouldn't fail")
 	o.bootstrapNode, o.workerNodes = nodes[0], nodes[1:]
-	o.mockServer, err = ctf_client.ConnectMockServer(o.testEnvironment)
+	o.mockServer = ctf_client.ConnectMockServer(o.testEnvironment)
 	require.NoError(o.t, err, "Creating mockserver clients shouldn't fail")
 
 	linkContract, err := contracts.DeployLinkTokenContract(o.log, sethClient)
@@ -546,11 +546,7 @@ func (o *OCRSoakTest) LoadState() error {
 		}
 	}
 
-	o.mockServer, err = ctf_client.ConnectMockServerURL(testState.MockServerURL)
-	if err != nil {
-		return err
-	}
-
+	o.mockServer = ctf_client.ConnectMockServerURL(testState.MockServerURL)
 	return err
 }
 
@@ -683,11 +679,11 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	if len(o.chaosList) > 0 {
 		for _, chaos := range o.chaosList {
 			chaos.Create(context.Background())
-			chaos.AddListener(k8schaos.NewChaosLogger(o.log))
+			chaos.AddListener(havoc.NewChaosLogger(o.log))
 			chaos.AddListener(ocrTestChaosListener{t: o.t})
 			// Add Grafana annotation if configured
 			if o.Config.Logging.Grafana != nil && o.Config.Logging.Grafana.BaseUrl != nil && o.Config.Logging.Grafana.BearerToken != nil && o.Config.Logging.Grafana.DashboardUID != nil {
-				chaos.AddListener(k8schaos.NewSingleLineGrafanaAnnotator(*o.Config.Logging.Grafana.BaseUrl, *o.Config.Logging.Grafana.BearerToken, *o.Config.Logging.Grafana.DashboardUID, o.log))
+				chaos.AddListener(havoc.NewSingleLineGrafanaAnnotator(*o.Config.Logging.Grafana.BaseUrl, *o.Config.Logging.Grafana.BearerToken, *o.Config.Logging.Grafana.DashboardUID, o.log))
 			} else {
 				o.log.Warn().Msg("Skipping Grafana annotation for chaos simulation. Grafana config is missing either BearerToken, BaseUrl or DashboardUID")
 			}
@@ -1112,28 +1108,28 @@ type ocrTestChaosListener struct {
 	t *testing.T
 }
 
-func (l ocrTestChaosListener) OnChaosCreated(_ k8schaos.Chaos) {
+func (l ocrTestChaosListener) OnChaosCreated(_ havoc.Chaos) {
 }
 
-func (l ocrTestChaosListener) OnChaosCreationFailed(chaos k8schaos.Chaos, reason error) {
+func (l ocrTestChaosListener) OnChaosCreationFailed(chaos havoc.Chaos, reason error) {
 	// Fail the test if chaos creation fails during chaos simulation
 	require.FailNow(l.t, "Error creating chaos simulation", reason.Error(), chaos)
 }
 
-func (l ocrTestChaosListener) OnChaosStarted(_ k8schaos.Chaos) {
+func (l ocrTestChaosListener) OnChaosStarted(_ havoc.Chaos) {
 }
 
-func (l ocrTestChaosListener) OnChaosPaused(_ k8schaos.Chaos) {
+func (l ocrTestChaosListener) OnChaosPaused(_ havoc.Chaos) {
 }
 
-func (l ocrTestChaosListener) OnChaosEnded(_ k8schaos.Chaos) {
+func (l ocrTestChaosListener) OnChaosEnded(_ havoc.Chaos) {
 }
 
-func (l ocrTestChaosListener) OnChaosStatusUnknown(_ k8schaos.Chaos) {
+func (l ocrTestChaosListener) OnChaosStatusUnknown(_ havoc.Chaos) {
 }
 
-func (l ocrTestChaosListener) OnScheduleCreated(_ k8schaos.Schedule) {
+func (l ocrTestChaosListener) OnScheduleCreated(_ havoc.Schedule) {
 }
 
-func (l ocrTestChaosListener) OnScheduleDeleted(_ k8schaos.Schedule) {
+func (l ocrTestChaosListener) OnScheduleDeleted(_ havoc.Schedule) {
 }

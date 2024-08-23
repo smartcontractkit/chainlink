@@ -15,6 +15,14 @@ cp stdout compact.json
 exec jq . compact.json
 cmp stdout out.json
 
+exec chainlink --remote-node-url $NODEURL health -failing
+cmp stdout out-unhealthy.txt
+
+exec chainlink --remote-node-url $NODEURL health -f -json
+cp stdout compact.json
+exec jq . compact.json
+cmp stdout out-unhealthy.json
+
 -- testdb.txt --
 CL_DATABASE_URL
 -- testport.txt --
@@ -74,7 +82,9 @@ ok EVM.1.Txm
 ok EVM.1.Txm.BlockHistoryEstimator
 ok EVM.1.Txm.Broadcaster
 ok EVM.1.Txm.Confirmer
+ok EVM.1.Txm.Finalizer
 ok EVM.1.Txm.WrappedEvmEstimator
+ok HeadReporter
 ok JobSpawner
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
@@ -82,10 +92,13 @@ ok Mercury.WSRPCPool.CacheSet
 ok PipelineORM
 ok PipelineRunner
 ok PipelineRunner.BridgeCache
-ok PromReporter
 ok Solana.Bar
 ok StarkNet.Baz
 ok TelemetryManager
+
+-- out-unhealthy.txt --
+!  EVM.1.HeadTracker.HeadListener
+	Listener is not connected
 
 -- out.json --
 {
@@ -209,9 +222,27 @@ ok TelemetryManager
     },
     {
       "type": "checks",
+      "id": "EVM.1.Txm.Finalizer",
+      "attributes": {
+        "name": "EVM.1.Txm.Finalizer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "EVM.1.Txm.WrappedEvmEstimator",
       "attributes": {
         "name": "EVM.1.Txm.WrappedEvmEstimator",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "HeadReporter",
+      "attributes": {
+        "name": "HeadReporter",
         "status": "passing",
         "output": ""
       }
@@ -281,15 +312,6 @@ ok TelemetryManager
     },
     {
       "type": "checks",
-      "id": "PromReporter",
-      "attributes": {
-        "name": "PromReporter",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
       "id": "Solana.Bar",
       "attributes": {
         "name": "Solana.Bar",
@@ -313,6 +335,20 @@ ok TelemetryManager
         "name": "TelemetryManager",
         "status": "passing",
         "output": ""
+      }
+    }
+  ]
+}
+-- out-unhealthy.json --
+{
+  "data": [
+    {
+      "type": "checks",
+      "id": "EVM.1.HeadTracker.HeadListener",
+      "attributes": {
+        "name": "EVM.1.HeadTracker.HeadListener",
+        "status": "failing",
+        "output": "Listener is not connected"
       }
     }
   ]

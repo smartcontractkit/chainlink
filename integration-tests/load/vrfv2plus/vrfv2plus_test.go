@@ -81,6 +81,8 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *testConfig.VRFv2Plus.General.CancelSubsAfterTestRun {
+				// wait for all txs to be mined in order to avoid nonce issues
+				time.Sleep(10 * time.Second)
 				//cancel subs and return funds to sub owner
 				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
@@ -311,11 +313,12 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		latestBlockNumber, err := sethClient.Client.BlockNumber(testcontext.Get(t))
 		require.NoError(t, err, "error getting latest block number")
 		_, err = actions.WaitForBlockNumberToBe(
+			testcontext.Get(t),
 			latestBlockNumber+uint64(257),
 			sethClient,
 			&wgBlockNumberTobe,
+			nil,
 			configCopy.VRFv2Plus.General.WaitFor256BlocksTimeout.Duration,
-			t,
 			l,
 		)
 		wgBlockNumberTobe.Wait()
@@ -334,13 +337,15 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 			Float64("SubscriptionRefundingAmountNative", *configCopy.VRFv2Plus.General.SubscriptionRefundingAmountNative).
 			Float64("SubscriptionRefundingAmountLink", *configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink).
 			Strs("SubIDs", subIDsString).
-			Msg("Funding Subscriptions with Link and Native Tokens")
+			Str("Funding type", *configCopy.VRFv2Plus.General.SubscriptionBillingType).
+			Msg("Funding Subscriptions with Link and/or Native Tokens")
 		err = vrfv2plus.FundSubscriptions(
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountNative),
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink),
 			vrfContracts.LinkToken,
 			vrfContracts.CoordinatorV2Plus,
 			underfundedSubIDs,
+			*configCopy.VRFv2Plus.General.SubscriptionBillingType,
 		)
 		require.NoError(t, err, "error funding subscriptions")
 

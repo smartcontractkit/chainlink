@@ -11,15 +11,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
-	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	starkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -37,7 +36,7 @@ type RelayerFactory struct {
 	*plugins.LoopRegistry
 	loop.GRPCOpts
 	MercuryPool          wsrpc.Pool
-	CapabilitiesRegistry *capabilities.Registry
+	CapabilitiesRegistry coretypes.CapabilitiesRegistry
 }
 
 type DummyFactoryConfig struct {
@@ -172,12 +171,12 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solcfg.TOMLConf
 
 type StarkNetFactoryConfig struct {
 	Keystore keystore.StarkNet
-	config.TOMLConfigs
+	starkcfg.TOMLConfigs
 }
 
 // TODO BCF-2606 consider consolidating the driving logic with that of NewSolana above via generics
 // perhaps when we implement a Cosmos LOOP
-func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs config.TOMLConfigs) (map[types.RelayID]loop.Relayer, error) {
+func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starkcfg.TOMLConfigs) (map[types.RelayID]loop.Relayer, error) {
 	starknetRelayers := make(map[types.RelayID]loop.Relayer)
 
 	var (
@@ -206,7 +205,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs config.TOML
 		if cmdName := env.StarknetPlugin.Cmd.Get(); cmdName != "" {
 			// setup the starknet relayer to be a LOOP
 			cfgTOML, err := toml.Marshal(struct {
-				Starknet config.TOMLConfig
+				Starknet starkcfg.TOMLConfig
 			}{Starknet: *chainCfg})
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal StarkNet configs: %w", err)
@@ -299,6 +298,68 @@ func (r *RelayerFactory) NewCosmos(config CosmosFactoryConfig) (map[types.RelayI
 		}
 
 		relayers[relayID] = NewCosmosLoopRelayerChain(cosmos.NewRelayer(lggr, chain), chain)
+	}
+	return relayers, nil
+}
+
+type AptosFactoryConfig struct {
+	Keystore    keystore.Aptos
+	TOMLConfigs RawConfigs
+}
+
+func (r *RelayerFactory) NewAptos(ks keystore.Aptos, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+	plugin := env.NewPlugin("aptos")
+	loopKs := &keystore.AptosLooppSigner{Aptos: ks}
+	return r.NewLOOPRelayer("Aptos", corerelay.NetworkAptos, plugin, loopKs, chainCfgs)
+}
+
+func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.Plugin, ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+	relayers := make(map[types.RelayID]loop.Relayer)
+	lggr := r.Logger.Named(name)
+
+	unique := make(map[string]struct{})
+	// create one relayer per chain id
+	for _, chainCfg := range chainCfgs {
+		relayID := types.RelayID{Network: network, ChainID: chainCfg.ChainID()}
+		if _, alreadyExists := unique[relayID.Name()]; alreadyExists {
+			return nil, fmt.Errorf("duplicate chain definitions for %s", relayID.Name())
+		}
+		unique[relayID.Name()] = struct{}{}
+
+		// skip disabled chains from further processing
+		if !chainCfg.IsEnabled() {
+			lggr.Warnw("Skipping disabled chain", "id", relayID.ChainID)
+			continue
+		}
+
+		lggr2 := lggr.Named(relayID.ChainID)
+
+		cmdName := plugin.Cmd.Get()
+		if cmdName == "" {
+			return nil, fmt.Errorf("plugin not defined: %s", "")
+		}
+
+		// setup the relayer as a LOOP
+		cfgTOML, err := toml.Marshal(chainCfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal configs: %w", err)
+		}
+
+		envVars, err := plugins.ParseEnvFile(plugin.Env.Get())
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse env file: %w", err)
+		}
+		cmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
+			ID:  relayID.Name(),
+			Cmd: cmdName,
+			Env: envVars,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create LOOP command: %w", err)
+		}
+		// the relayer service has a delicate keystore dependency. the value that is passed to NewRelayerService must
+		// be compatible with instantiating a starknet transaction manager KeystoreAdapter within the LOOPp executable.
+		relayers[relayID] = loop.NewRelayerService(lggr2, r.GRPCOpts, cmdFn, string(cfgTOML), ks, r.CapabilitiesRegistry)
 	}
 	return relayers, nil
 }

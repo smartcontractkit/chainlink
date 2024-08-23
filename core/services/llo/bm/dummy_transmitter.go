@@ -12,10 +12,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // A dummy transmitter useful for benchmarking and testing
@@ -39,7 +38,7 @@ type transmitter struct {
 
 func NewTransmitter(lggr logger.Logger, fromAccount string) Transmitter {
 	return &transmitter{
-		lggr.Named("DummyTransmitter"),
+		logger.Named(lggr, "DummyTransmitter"),
 		fromAccount,
 	}
 }
@@ -66,16 +65,15 @@ func (t *transmitter) Transmit(
 		if err != nil {
 			lggr.Debugw("Failed to decode JSON report", "err", err)
 		}
-		lggr = lggr.With(
+		lggr = logger.With(lggr,
 			"report.Report.ConfigDigest", r.ConfigDigest,
-			"report.Report.ChainSelector", r.ChainSelector,
 			"report.Report.SeqNr", r.SeqNr,
 			"report.Report.ChannelID", r.ChannelID,
 			"report.Report.ValidAfterSeconds", r.ValidAfterSeconds,
-			"report.Report.ValidUntilSeconds", r.ValidUntilSeconds,
 			"report.Report.Values", r.Values,
 			"report.Report.Specimen", r.Specimen,
 		)
+	default:
 	}
 	transmitSuccessCount.Inc()
 	lggr.Infow("Transmit (dummy)", "digest", digest, "seqNr", seqNr, "report.Report", report.Report, "report.Info", report.Info, "sigs", sigs)

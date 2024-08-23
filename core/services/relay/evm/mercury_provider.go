@@ -6,17 +6,18 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
+
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 )
 
@@ -30,6 +31,7 @@ type mercuryProvider struct {
 	reportCodecV1      v1.ReportCodec
 	reportCodecV2      v2.ReportCodec
 	reportCodecV3      v3.ReportCodec
+	reportCodecV4      v4.ReportCodec
 	mercuryChainReader mercurytypes.ChainReader
 	logger             logger.Logger
 	ms                 services.MultiStart
@@ -44,6 +46,7 @@ func NewMercuryProvider(
 	reportCodecV1 v1.ReportCodec,
 	reportCodecV2 v2.ReportCodec,
 	reportCodecV3 v3.ReportCodec,
+	reportCodecV4 v4.ReportCodec,
 	lggr logger.Logger,
 ) *mercuryProvider {
 	return &mercuryProvider{
@@ -54,6 +57,7 @@ func NewMercuryProvider(
 		reportCodecV1,
 		reportCodecV2,
 		reportCodecV3,
+		reportCodecV4,
 		mercuryChainReader,
 		lggr,
 		services.MultiStart{},
@@ -113,6 +117,10 @@ func (p *mercuryProvider) ReportCodecV2() v2.ReportCodec {
 
 func (p *mercuryProvider) ReportCodecV3() v3.ReportCodec {
 	return p.reportCodecV3
+}
+
+func (p *mercuryProvider) ReportCodecV4() v4.ReportCodec {
+	return p.reportCodecV4
 }
 
 func (p *mercuryProvider) ContractTransmitter() ocrtypes.ContractTransmitter {

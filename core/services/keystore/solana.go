@@ -10,8 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 )
 
-//go:generate mockery --quiet --name Solana --output ./mocks/ --case=underscore --filename solana.go
-
 type Solana interface {
 	Get(id string) (solkey.Key, error)
 	GetAll() ([]solkey.Key, error)

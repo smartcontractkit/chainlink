@@ -85,15 +85,8 @@ type TestConfig struct {
 	VRF        *vrf_config.Config       `toml:"VRF"`
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
-	CRIB       *CRIB                    `toml:"CRIB"`
 
 	ConfigurationNames []string `toml:"-"`
-}
-
-type CRIB struct {
-	Namespace   string `toml:"namespace"`
-	NetworkName string `toml:"network_name"`
-	CLNodesNum  int    `toml:"nodes"`
 }
 
 var embeddedConfigs embed.FS
@@ -382,13 +375,13 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 	}
 
 	logger.Info().Msg("Loading config values from default ~/.testsecrets env file")
-	err = ctf_config.LoadSecretEnvsFromFile()
+	err = ctf_config.LoadSecretEnvsFromFiles()
 	if err != nil {
 		return TestConfig{}, errors.Wrapf(err, "error reading test config values from ~/.testsecrets file")
 	}
 
 	logger.Info().Msg("Reading values from environment variables")
-	err = testConfig.ReadConfigValuesFromEnvVars()
+	err = testConfig.ReadFromEnvVar()
 	if err != nil {
 		return TestConfig{}, errors.Wrapf(err, "error reading test config values from env vars")
 	}

@@ -7,23 +7,22 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-
-	"google.golang.org/protobuf/proto"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	v1types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
+	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
+	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	v4types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	v1types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
-	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
-	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 )
 
 type eaTelemetry struct {
@@ -41,15 +40,17 @@ type EnhancedTelemetryData struct {
 }
 
 type EnhancedTelemetryMercuryData struct {
-	V1Observation              *v1types.Observation
-	V2Observation              *v2types.Observation
-	V3Observation              *v3types.Observation
-	TaskRunResults             pipeline.TaskRunResults
-	RepTimestamp               ocrtypes.ReportTimestamp
-	FeedVersion                mercuryutils.FeedVersion
-	FetchMaxFinalizedTimestamp bool
-	IsLinkFeed                 bool
-	IsNativeFeed               bool
+	V1Observation                *v1types.Observation
+	V2Observation                *v2types.Observation
+	V3Observation                *v3types.Observation
+	V4Observation                *v4types.Observation
+	TaskRunResults               pipeline.TaskRunResults
+	RepTimestamp                 ocrtypes.ReportTimestamp
+	FeedVersion                  mercuryutils.FeedVersion
+	FetchMaxFinalizedTimestamp   bool
+	IsLinkFeed                   bool
+	IsNativeFeed                 bool
+	DpInvariantViolationDetected bool
 }
 
 type EnhancedTelemetryService[T EnhancedTelemetryData | EnhancedTelemetryMercuryData] struct {
@@ -295,11 +296,13 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 	var bt uint64
 	// v1+v2+v3 fields
 	bp := big.NewInt(0)
-	//v1+v3 fields
+	// v1+v3 fields
 	bid := big.NewInt(0)
 	ask := big.NewInt(0)
 	// v2+v3 fields
 	var mfts, lp, np int64
+	// v4 fields
+	var marketStatus telem.MarketStatus
 
 	switch {
 	case d.V1Observation != nil:
@@ -356,6 +359,29 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 		if obs.Ask.Err == nil && obs.Ask.Val != nil {
 			ask = obs.Ask.Val
 		}
+	case d.V4Observation != nil:
+		obs := *d.V4Observation
+		if obs.MaxFinalizedTimestamp.Err == nil {
+			mfts = obs.MaxFinalizedTimestamp.Val
+		}
+		if obs.LinkPrice.Err == nil && obs.LinkPrice.Val != nil {
+			lp = obs.LinkPrice.Val.Int64()
+		}
+		if obs.NativePrice.Err == nil && obs.NativePrice.Val != nil {
+			np = obs.NativePrice.Val.Int64()
+		}
+		if obs.BenchmarkPrice.Err == nil && obs.BenchmarkPrice.Val != nil {
+			bp = obs.BenchmarkPrice.Val
+		}
+		if obs.Bid.Err == nil && obs.Bid.Val != nil {
+			bid = obs.Bid.Val
+		}
+		if obs.Ask.Err == nil && obs.Ask.Val != nil {
+			ask = obs.Ask.Val
+		}
+		if obs.MarketStatus.Err == nil {
+			marketStatus = telem.MarketStatus(obs.MarketStatus.Val)
+		}
 	}
 
 	for _, trr := range d.TaskRunResults {
@@ -384,6 +410,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			DpBenchmarkPrice:                benchmarkPrice,
 			DpBid:                           bidPrice,
 			DpAsk:                           askPrice,
+			DpInvariantViolationDetected:    d.DpInvariantViolationDetected,
 			CurrentBlockNumber:              bn,
 			CurrentBlockHash:                bh,
 			CurrentBlockTimestamp:           bt,
@@ -402,6 +429,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			ObservationBenchmarkPriceString: stringOrEmpty(bp),
 			ObservationBidString:            stringOrEmpty(bid),
 			ObservationAskString:            stringOrEmpty(ask),
+			ObservationMarketStatus:         marketStatus,
 			IsLinkFeed:                      d.IsLinkFeed,
 			LinkPrice:                       lp,
 			IsNativeFeed:                    d.IsNativeFeed,

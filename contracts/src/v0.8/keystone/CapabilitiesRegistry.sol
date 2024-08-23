@@ -502,7 +502,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       NodeOperator memory nodeOperator = nodeOperators[i];
       if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
-      if (msg.sender != nodeOperator.admin && msg.sender != owner) revert AccessForbidden(msg.sender);
+      if (msg.sender != currentNodeOperator.admin && msg.sender != owner) revert AccessForbidden(msg.sender);
 
       if (
         currentNodeOperator.admin != nodeOperator.admin ||
@@ -611,11 +611,12 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     bool isOwner = msg.sender == owner();
     for (uint256 i; i < nodes.length; ++i) {
       NodeParams memory node = nodes[i];
-      NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
+      Node storage storedNode = s_nodes[node.p2pId];
+      NodeOperator memory nodeOperator = s_nodeOperators[storedNode.nodeOperatorId];
+
+      if (storedNode.signer == bytes32("")) revert NodeDoesNotExist(node.p2pId);
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
-      Node storage storedNode = s_nodes[node.p2pId];
-      if (storedNode.signer == bytes32("")) revert NodeDoesNotExist(node.p2pId);
       if (node.signer == bytes32("")) revert InvalidNodeSigner();
 
       bytes32 previousSigner = storedNode.signer;
@@ -774,7 +775,9 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param nodes The nodes making up the DON
   /// @param capabilityConfigurations The list of configurations for the
   /// capabilities supported by the DON
-  /// @param isPublic True if the DON is public
+  /// @param isPublic True if the DON is can accept external capability requests
+  /// @param acceptsWorkflows True if the DON can accept workflows
+  /// @param f The maximum number of faulty nodes the DON can tolerate
   function addDON(
     bytes32[] calldata nodes,
     CapabilityConfiguration[] calldata capabilityConfigurations,
@@ -796,24 +799,32 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// the admin to reconfigure the list of capabilities supported
   /// by the DON, the list of nodes that make up the DON as well
   /// as whether or not the DON can accept external workflows
+  /// @param donId The ID of the DON to update
   /// @param nodes The nodes making up the DON
   /// @param capabilityConfigurations The list of configurations for the
   /// capabilities supported by the DON
-  /// @param isPublic True if the DON is can accept external workflows
+  /// @param isPublic True if the DON is can accept external capability requests
+  /// @param f The maximum number of nodes that can fail
   function updateDON(
     uint32 donId,
     bytes32[] calldata nodes,
     CapabilityConfiguration[] calldata capabilityConfigurations,
     bool isPublic,
-    bool acceptsWorkflows,
     uint8 f
   ) external onlyOwner {
-    uint32 configCount = s_dons[donId].configCount;
+    DON storage don = s_dons[donId];
+    uint32 configCount = don.configCount;
     if (configCount == 0) revert DONDoesNotExist(donId);
     _setDONConfig(
       nodes,
       capabilityConfigurations,
-      DONParams({id: donId, configCount: ++configCount, isPublic: isPublic, acceptsWorkflows: acceptsWorkflows, f: f})
+      DONParams({
+        id: donId,
+        configCount: ++configCount,
+        isPublic: isPublic,
+        acceptsWorkflows: don.acceptsWorkflows,
+        f: f
+      })
     );
   }
 
@@ -960,6 +971,11 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
       donCapabilityConfig.capabilityIds.push(configuration.capabilityId);
       donCapabilityConfig.capabilityConfigs[configuration.capabilityId] = configuration.config;
 
+      s_dons[donParams.id].isPublic = donParams.isPublic;
+      s_dons[donParams.id].acceptsWorkflows = donParams.acceptsWorkflows;
+      s_dons[donParams.id].f = donParams.f;
+      s_dons[donParams.id].configCount = donParams.configCount;
+
       _setDONCapabilityConfig(
         donParams.id,
         donParams.configCount,
@@ -968,10 +984,6 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
         configuration.config
       );
     }
-    s_dons[donParams.id].isPublic = donParams.isPublic;
-    s_dons[donParams.id].acceptsWorkflows = donParams.acceptsWorkflows;
-    s_dons[donParams.id].f = donParams.f;
-    s_dons[donParams.id].configCount = donParams.configCount;
     emit ConfigSet(donParams.id, donParams.configCount);
   }
 

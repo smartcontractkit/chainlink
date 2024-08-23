@@ -10,26 +10,26 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	env_client "github.com/smartcontractkit/chainlink-testing-framework/k8s/client"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
+	envclient "github.com/smartcontractkit/chainlink-testing-framework/k8s/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+	sethutils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	ethcontracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
 )
 
 var (
-	performanceChainlinkResources = map[string]interface{}{
+	chainlinkResources = map[string]interface{}{
 		"resources": map[string]interface{}{
 			"requests": map[string]interface{}{
 				"cpu":    "1000m",
@@ -41,7 +41,7 @@ var (
 			},
 		},
 	}
-	performanceDbResources = map[string]interface{}{
+	dbResources = map[string]interface{}{
 		"resources": map[string]interface{}{
 			"requests": map[string]interface{}{
 				"cpu":    "1000m",
@@ -50,33 +50,6 @@ var (
 			"limits": map[string]interface{}{
 				"cpu":    "1000m",
 				"memory": "1Gi",
-			},
-		},
-		"stateful": true,
-		"capacity": "10Gi",
-	}
-
-	soakChainlinkResources = map[string]interface{}{
-		"resources": map[string]interface{}{
-			"requests": map[string]interface{}{
-				"cpu":    "350m",
-				"memory": "1Gi",
-			},
-			"limits": map[string]interface{}{
-				"cpu":    "350m",
-				"memory": "1Gi",
-			},
-		},
-	}
-	soakDbResources = map[string]interface{}{
-		"resources": map[string]interface{}{
-			"requests": map[string]interface{}{
-				"cpu":    "250m",
-				"memory": "256Mi",
-			},
-			"limits": map[string]interface{}{
-				"cpu":    "250m",
-				"memory": "256Mi",
 			},
 		},
 		"stateful": true,
@@ -115,9 +88,9 @@ func TestAutomationBenchmark(t *testing.T) {
 	benchmarkTestNetwork := getNetworkConfig(&config)
 
 	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
-	testNetwork := seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, benchmarkNetwork, *testEnvironment)
+	testNetwork := sethutils.MustReplaceSimulatedNetworkUrlWithK8(l, benchmarkNetwork, *testEnvironment)
 
-	chainClient, err := seth_utils.GetChainClientWithConfigFunction(&config, testNetwork, seth_utils.OneEphemeralKeysLiveTestnetAutoFixFn)
+	chainClient, err := sethutils.GetChainClientWithConfigFunction(&config, testNetwork, sethutils.OneEphemeralKeysLiveTestnetAutoFixFn)
 	require.NoError(t, err, "Error getting Seth client")
 
 	registryVersions := addRegistry(&config)
@@ -167,46 +140,53 @@ func TestAutomationBenchmark(t *testing.T) {
 	t.Cleanup(func() {
 		if err = actions.TeardownRemoteSuite(keeperBenchmarkTest.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
+		} else {
+			err := testEnvironment.Client.RemoveNamespace(testEnvironment.Cfg.Namespace)
+			if err != nil {
+				l.Error().Err(err).Msg("Error removing namespace")
+			}
 		}
 	})
 	keeperBenchmarkTest.Setup(testEnvironment, &config)
 	keeperBenchmarkTest.Run()
 }
 
-func addRegistry(config *tc.TestConfig) []eth_contracts.KeeperRegistryVersion {
+func addRegistry(config *tc.TestConfig) []ethcontracts.KeeperRegistryVersion {
 	switch *config.Keeper.Common.RegistryToTest {
 	case "1_1":
-		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_1}
+		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_1_1}
 	case "1_2":
-		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2}
+		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_1_2}
 	case "1_3":
-		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3}
+		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_1_3}
 	case "2_0":
-		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0}
+		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_2_0}
 	case "2_1":
-		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_1}
+		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_2_1}
 	case "2_2":
-		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_2}
+		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_2_2}
+	case "2_3":
+		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_2_3}
 	case "2_0-1_3":
-		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0, eth_contracts.RegistryVersion_1_3}
+		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_2_0, ethcontracts.RegistryVersion_1_3}
 	case "2_1-2_0-1_3":
-		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_1,
-			eth_contracts.RegistryVersion_2_0, eth_contracts.RegistryVersion_1_3}
+		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_2_1,
+			ethcontracts.RegistryVersion_2_0, ethcontracts.RegistryVersion_1_3}
 	case "2_2-2_1":
-		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_2, eth_contracts.RegistryVersion_2_1}
+		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_2_2, ethcontracts.RegistryVersion_2_1}
 	case "2_0-Multiple":
-		return repeatRegistries(eth_contracts.RegistryVersion_2_0, *config.Keeper.Common.NumberOfRegistries)
+		return repeatRegistries(ethcontracts.RegistryVersion_2_0, *config.Keeper.Common.NumberOfRegistries)
 	case "2_1-Multiple":
-		return repeatRegistries(eth_contracts.RegistryVersion_2_1, *config.Keeper.Common.NumberOfRegistries)
+		return repeatRegistries(ethcontracts.RegistryVersion_2_1, *config.Keeper.Common.NumberOfRegistries)
 	case "2_2-Multiple":
-		return repeatRegistries(eth_contracts.RegistryVersion_2_2, *config.Keeper.Common.NumberOfRegistries)
+		return repeatRegistries(ethcontracts.RegistryVersion_2_2, *config.Keeper.Common.NumberOfRegistries)
 	default:
-		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0}
+		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_2_0}
 	}
 }
 
-func repeatRegistries(registryVersion eth_contracts.KeeperRegistryVersion, numberOfRegistries int) []eth_contracts.KeeperRegistryVersion {
-	repeatedRegistries := make([]eth_contracts.KeeperRegistryVersion, 0)
+func repeatRegistries(registryVersion ethcontracts.KeeperRegistryVersion, numberOfRegistries int) []ethcontracts.KeeperRegistryVersion {
+	repeatedRegistries := make([]ethcontracts.KeeperRegistryVersion, 0)
 	for i := 0; i < numberOfRegistries; i++ {
 		repeatedRegistries = append(repeatedRegistries, registryVersion)
 	}
@@ -288,6 +268,11 @@ var networkConfig = map[string]NetworkConfig{
 		blockTime:  time.Second,
 		deltaStage: 20 * time.Second,
 	},
+	networks.ScrollSepolia.Name: {
+		upkeepSLA:  int64(120),
+		blockTime:  3 * time.Second,
+		deltaStage: 20 * time.Second,
+	},
 }
 
 func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenchmarkTestConfig) (*environment.Environment, blockchain.EVMNetwork) {
@@ -316,12 +301,8 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 		PreventPodEviction: true,
 	})
 
-	dbResources := performanceDbResources
-	chainlinkResources := performanceChainlinkResources
-	if strings.Contains(strings.ToLower(strings.Join(keeperTestConfig.GetConfigurationNames(), ",")), "soak") {
-		chainlinkResources = soakChainlinkResources
-		dbResources = soakDbResources
-	}
+	dbResources := dbResources
+	chainlinkResources := chainlinkResources
 
 	// Test can run on simulated, simulated-non-dev, testnets
 	if testNetwork.Name == networks.SimulatedEVMNonDev.Name {
@@ -389,10 +370,10 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 		// for simulated-nod-dev each CL node gets its own RPC node
 		if testNetwork.Name == networks.SimulatedEVMNonDev.Name {
 			podName := fmt.Sprintf("%s-ethereum-geth:%d", testNetwork.Name, i)
-			txNodeInternalWs, err := testEnvironment.Fwd.FindPort(podName, "geth", "ws-rpc").As(env_client.RemoteConnection, env_client.WS)
+			txNodeInternalWs, err := testEnvironment.Fwd.FindPort(podName, "geth", "ws-rpc").As(envclient.RemoteConnection, envclient.WS)
 			require.NoError(t, err, "Error finding WS ports")
 			internalWsURLs = append(internalWsURLs, txNodeInternalWs)
-			txNodeInternalHttp, err := testEnvironment.Fwd.FindPort(podName, "geth", "http-rpc").As(env_client.RemoteConnection, env_client.HTTP)
+			txNodeInternalHttp, err := testEnvironment.Fwd.FindPort(podName, "geth", "http-rpc").As(envclient.RemoteConnection, envclient.HTTP)
 			require.NoError(t, err, "Error finding HTTP ports")
 			internalHttpURLs = append(internalHttpURLs, txNodeInternalHttp)
 			// for testnets with more than 1 RPC nodes
@@ -412,8 +393,8 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 		testNetwork.URLs = []string{internalWsURLs[i]}
 
 		var overrideFn = func(_ interface{}, target interface{}) {
-			ctf_config.MustConfigOverrideChainlinkVersion(keeperTestConfig.GetChainlinkImageConfig(), target)
-			ctf_config.MightConfigOverridePyroscopeKey(keeperTestConfig.GetPyroscopeConfig(), target)
+			ctfconfig.MustConfigOverrideChainlinkVersion(keeperTestConfig.GetChainlinkImageConfig(), target)
+			ctfconfig.MightConfigOverridePyroscopeKey(keeperTestConfig.GetPyroscopeConfig(), target)
 		}
 
 		tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(keeperTestConfig, testNetwork)

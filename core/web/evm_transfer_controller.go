@@ -54,7 +54,7 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 	}
 
 	if !tr.AllowHigherAmounts {
-		err = ValidateEthBalanceForTransfer(c, chain, tr.FromAddress, tr.Amount)
+		err = ValidateEthBalanceForTransfer(c, chain, tr.FromAddress, tr.Amount, tr.DestinationAddress)
 		if err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("transaction failed: %v", err))
 			return
@@ -92,7 +92,7 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 }
 
 // ValidateEthBalanceForTransfer validates that the current balance can cover the transaction amount
-func ValidateEthBalanceForTransfer(c *gin.Context, chain legacyevm.Chain, fromAddr common.Address, amount assets.Eth) error {
+func ValidateEthBalanceForTransfer(c *gin.Context, chain legacyevm.Chain, fromAddr common.Address, amount assets.Eth, toAddr common.Address) error {
 	var err error
 	var balance *big.Int
 
@@ -116,7 +116,7 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain legacyevm.Chain, fromAd
 	gasLimit := chain.Config().EVM().GasEstimator().LimitTransfer()
 	estimator := chain.GasEstimator()
 
-	amountWithFees, err := estimator.GetMaxCost(c, amount, nil, gasLimit, chain.Config().EVM().GasEstimator().PriceMaxKey(fromAddr))
+	amountWithFees, err := estimator.GetMaxCost(c, amount, nil, gasLimit, chain.Config().EVM().GasEstimator().PriceMaxKey(fromAddr), &toAddr)
 	if err != nil {
 		return err
 	}

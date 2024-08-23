@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-//go:generate mockery --quiet --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
 	types.ChainService
 
@@ -64,8 +63,6 @@ type LegacyChains struct {
 }
 
 // LegacyChainContainer is container for EVM chains.
-//
-//go:generate mockery --quiet --name LegacyChainContainer --output ./mocks/ --case=underscore
 type LegacyChainContainer interface {
 	Get(id string) (Chain, error)
 	Len() int
@@ -250,7 +247,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	}
 
 	// note: gas estimator is started as a part of the txm
-	txm, gasEstimator, err := newEvmTxm(opts.DS, cfg.EVM(), opts.AppConfig.EVMRPCEnabled(), opts.AppConfig.Database(), opts.AppConfig.Database().Listener(), client, l, logPoller, opts)
+	txm, gasEstimator, err := newEvmTxm(opts.DS, cfg.EVM(), opts.AppConfig.EVMRPCEnabled(), opts.AppConfig.Database(), opts.AppConfig.Database().Listener(), client, l, logPoller, opts, headTracker)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate EvmTxm for chain with ID %s: %w", chainID.String(), err)
 	}

@@ -14,6 +14,14 @@ type BridgeAccessor struct {
 	mock.Mock
 }
 
+type BridgeAccessor_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *BridgeAccessor) EXPECT() *BridgeAccessor_Expecter {
+	return &BridgeAccessor_Expecter{mock: &_m.Mock}
+}
+
 // NewExternalAdapterClient provides a mock function with given fields: _a0
 func (_m *BridgeAccessor) NewExternalAdapterClient(_a0 context.Context) (functions.ExternalAdapterClient, error) {
 	ret := _m.Called(_a0)
@@ -42,6 +50,34 @@ func (_m *BridgeAccessor) NewExternalAdapterClient(_a0 context.Context) (functio
 	}
 
 	return r0, r1
+}
+
+// BridgeAccessor_NewExternalAdapterClient_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'NewExternalAdapterClient'
+type BridgeAccessor_NewExternalAdapterClient_Call struct {
+	*mock.Call
+}
+
+// NewExternalAdapterClient is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *BridgeAccessor_Expecter) NewExternalAdapterClient(_a0 interface{}) *BridgeAccessor_NewExternalAdapterClient_Call {
+	return &BridgeAccessor_NewExternalAdapterClient_Call{Call: _e.mock.On("NewExternalAdapterClient", _a0)}
+}
+
+func (_c *BridgeAccessor_NewExternalAdapterClient_Call) Run(run func(_a0 context.Context)) *BridgeAccessor_NewExternalAdapterClient_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *BridgeAccessor_NewExternalAdapterClient_Call) Return(_a0 functions.ExternalAdapterClient, _a1 error) *BridgeAccessor_NewExternalAdapterClient_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *BridgeAccessor_NewExternalAdapterClient_Call) RunAndReturn(run func(context.Context) (functions.ExternalAdapterClient, error)) *BridgeAccessor_NewExternalAdapterClient_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewBridgeAccessor creates a new instance of BridgeAccessor. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

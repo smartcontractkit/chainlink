@@ -10,10 +10,6 @@ import (
 	"sync"
 	"time"
 
-	types2 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,19 +18,20 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+
+	types2 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
@@ -66,7 +63,6 @@ var (
 	logEventLookback int64 = 250
 )
 
-//go:generate mockery --quiet --name Registry --output ./mocks/ --case=underscore
 type Registry interface {
 	GetUpkeep(opts *bind.CallOpts, id *big.Int) (encoding.UpkeepInfo, error)
 	GetState(opts *bind.CallOpts) (ac.GetState, error)
@@ -77,7 +73,6 @@ type Registry interface {
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
 }
 
-//go:generate mockery --quiet --name HttpClient --output ./mocks/ --case=underscore
 type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
@@ -100,7 +95,7 @@ func NewEvmRegistry(
 	return &EvmRegistry{
 		stopCh:           make(chan struct{}),
 		threadCtrl:       utils.NewThreadControl(),
-		lggr:             lggr.Named(RegistryServiceName),
+		lggr:             logger.Sugared(lggr).Named(RegistryServiceName),
 		poller:           client.LogPoller(),
 		addr:             addr,
 		client:           client.Client(),
@@ -177,7 +172,7 @@ func (c *MercuryConfig) SetPluginRetry(k string, v interface{}, d time.Duration)
 type EvmRegistry struct {
 	services.StateMachine
 	threadCtrl       utils.ThreadControl
-	lggr             logger.Logger
+	lggr             logger.SugaredLogger
 	poller           logpoller.LogPoller
 	addr             common.Address
 	client           client.Client

@@ -82,6 +82,8 @@ func TestVRFV2Performance(t *testing.T) {
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
+				// wait for all txs to be mined in order to avoid nonce issues
+				time.Sleep(10 * time.Second)
 				//cancel subs and return funds to sub owner
 				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
@@ -309,11 +311,12 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		latestBlockNumber, err := sethClient.Client.BlockNumber(testcontext.Get(t))
 		require.NoError(t, err)
 		_, err = actions.WaitForBlockNumberToBe(
+			testcontext.Get(t),
 			latestBlockNumber+uint64(257),
 			sethClient,
 			&wgBlockNumberTobe,
+			nil,
 			configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration,
-			t,
 			l,
 		)
 		wgBlockNumberTobe.Wait()

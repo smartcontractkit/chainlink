@@ -16,13 +16,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -81,13 +80,8 @@ type LogEventProviderTest interface {
 	CurrentPartitionIdx() uint64
 }
 
-type LogEventProviderFeatures interface {
-	WithBufferVersion(v BufferVersion)
-}
-
 var _ LogEventProvider = &logEventProvider{}
 var _ LogEventProviderTest = &logEventProvider{}
-var _ LogEventProviderFeatures = &logEventProvider{}
 
 // logEventProvider manages log filters for upkeeps and enables to read the log events.
 type logEventProvider struct {
@@ -104,8 +98,7 @@ type logEventProvider struct {
 	registerLock sync.Mutex
 
 	filterStore UpkeepFilterStore
-	buffer      *logEventBuffer
-	bufferV1    LogBuffer
+	buffer      LogBuffer
 
 	opts LogTriggersOptions
 
@@ -117,10 +110,9 @@ type logEventProvider struct {
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
 	return &logEventProvider{
 		threadCtrl:  utils.NewThreadControl(),
-		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
+		lggr:        logger.Named(lggr, "KeepersRegistry.LogEventProvider"),
 		packer:      packer,
-		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
-		bufferV1:    NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
+		buffer:      NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
@@ -142,25 +134,12 @@ func (p *logEventProvider) SetConfig(cfg ocr2keepers.LogEventProviderConfig) {
 		logLimit = p.opts.defaultLogLimit()
 	}
 
-	p.lggr.With("where", "setConfig").Infow("setting config ", "bockRate", blockRate, "logLimit", logLimit)
+	p.lggr.Infow("setting config", "where", "setConfig", "bockRate", blockRate, "logLimit", logLimit)
 
 	atomic.StoreUint32(&p.opts.BlockRate, blockRate)
 	atomic.StoreUint32(&p.opts.LogLimit, logLimit)
 
-	switch p.opts.BufferVersion {
-	case BufferVersionV1:
-		p.bufferV1.SetConfig(uint32(p.opts.LookbackBlocks), blockRate, logLimit)
-	default:
-	}
-}
-
-func (p *logEventProvider) WithBufferVersion(v BufferVersion) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-
-	p.lggr.Debugw("with buffer version", "version", v)
-
-	p.opts.BufferVersion = v
+	p.buffer.SetConfig(uint32(p.opts.LookbackBlocks), blockRate, logLimit)
 }
 
 func (p *logEventProvider) Start(context.Context) error {
@@ -176,7 +155,7 @@ func (p *logEventProvider) Start(context.Context) error {
 		}
 
 		p.threadCtrl.Go(func(ctx context.Context) {
-			lggr := p.lggr.With("where", "scheduler")
+			lggr := logger.With(p.lggr, "where", "scheduler")
 
 			p.scheduleReadJobs(ctx, func(ids []*big.Int) {
 				select {
@@ -197,7 +176,7 @@ func (p *logEventProvider) Start(context.Context) error {
 			for {
 				select {
 				case <-ticker.C:
-					if err := p.syncBufferFilters(); err != nil {
+					if err := p.buffer.SyncFilters(p.filterStore); err != nil {
 						p.lggr.Warnw("failed to sync buffer filters", "err", err)
 					}
 				case <-ctx.Done():
@@ -259,22 +238,11 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 		start = 1
 	}
 
-	switch p.opts.BufferVersion {
-	case BufferVersionV1:
-		payloads = p.minimumCommitmentDequeue(latestBlock, start)
+	payloads = p.minimumCommitmentDequeue(latestBlock, start)
 
-		// if we have remaining capacity following minimum commitment dequeue, perform a best effort dequeue
-		if len(payloads) < MaxPayloads {
-			payloads = p.bestEffortDequeue(latestBlock, start, payloads)
-		}
-	default:
-		logs := p.buffer.dequeueRange(start, latestBlock, AllowedLogsPerUpkeep, MaxPayloads)
-		for _, l := range logs {
-			payload, err := p.createPayload(l.upkeepID, l.log)
-			if err == nil {
-				payloads = append(payloads, payload)
-			}
-		}
+	// if we have remaining capacity following minimum commitment dequeue, perform a best effort dequeue
+	if len(payloads) < MaxPayloads {
+		payloads = p.bestEffortDequeue(latestBlock, start, payloads)
 	}
 
 	return payloads
@@ -290,7 +258,7 @@ func (p *logEventProvider) minimumCommitmentDequeue(latestBlock, start int64) []
 		startWindow, _ := getBlockWindow(start, blockRate)
 
 		// dequeue the minimum number logs (log limit, varies by chain) per upkeep for this block window
-		logs, remaining := p.bufferV1.Dequeue(startWindow, MaxPayloads-len(payloads), true)
+		logs, remaining := p.buffer.Dequeue(startWindow, MaxPayloads-len(payloads), true)
 		if len(logs) > 0 {
 			p.lggr.Debugw("minimum commitment dequeue", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining)
 		}
@@ -316,7 +284,7 @@ func (p *logEventProvider) bestEffortDequeue(latestBlock, start int64, payloads 
 		startWindow, _ := getBlockWindow(start, blockRate)
 
 		// dequeue as many logs as we can, based on remaining capacity, for this block window
-		logs, remaining := p.bufferV1.Dequeue(startWindow, MaxPayloads-len(payloads), false)
+		logs, remaining := p.buffer.Dequeue(startWindow, MaxPayloads-len(payloads), false)
 		if len(logs) > 0 {
 			p.lggr.Debugw("best effort dequeue", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining)
 		}
@@ -400,7 +368,7 @@ func (p *logEventProvider) startReader(pctx context.Context, readQ <-chan []*big
 	ctx, cancel := context.WithCancel(pctx)
 	defer cancel()
 
-	lggr := p.lggr.With("where", "reader")
+	lggr := logger.With(p.lggr, "where", "reader")
 
 	for {
 		select {
@@ -522,29 +490,12 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		}
 		filteredLogs := filter.Select(logs...)
 
-		switch p.opts.BufferVersion {
-		case BufferVersionV1:
-			p.bufferV1.Enqueue(filter.upkeepID, filteredLogs...)
-		default:
-			p.buffer.enqueue(filter.upkeepID, filteredLogs...)
-		}
+		p.buffer.Enqueue(filter.upkeepID, filteredLogs...)
+
 		// Update the lastPollBlock for filter in slice this is then
 		// updated into filter store in updateFiltersLastPoll
 		filters[i].lastPollBlock = latest
 	}
 
 	return merr
-}
-
-func (p *logEventProvider) syncBufferFilters() error {
-	p.lock.RLock()
-	buffVersion := p.opts.BufferVersion
-	p.lock.RUnlock()
-
-	switch buffVersion {
-	case BufferVersionV1:
-		return p.bufferV1.SyncFilters(p.filterStore)
-	default:
-		return nil
-	}
 }

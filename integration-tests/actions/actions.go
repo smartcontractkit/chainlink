@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/rand"
 	"strings"
 	"sync"
 	"testing"
@@ -26,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	ethContracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
@@ -143,11 +145,12 @@ func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, e
 
 // todo - move to CTF
 func WaitForBlockNumberToBe(
+	ctx context.Context,
 	waitForBlockNumberToBe uint64,
 	client *seth.Client,
 	wg *sync.WaitGroup,
+	desiredBlockNumberReached chan<- bool,
 	timeout time.Duration,
-	t testing.TB,
 	l zerolog.Logger,
 ) (uint64, error) {
 	blockNumberChannel := make(chan uint64)
@@ -166,7 +169,7 @@ func WaitForBlockNumberToBe(
 					waitForBlockNumberToBe, latestBlockNumber)
 		case <-ticker.C:
 			go func() {
-				currentBlockNumber, err := client.Client.BlockNumber(testcontext.Get(t))
+				currentBlockNumber, err := client.Client.BlockNumber(ctx)
 				if err != nil {
 					errorChannel <- err
 				}
@@ -180,6 +183,9 @@ func WaitForBlockNumberToBe(
 			if latestBlockNumber >= waitForBlockNumberToBe {
 				ticker.Stop()
 				wg.Done()
+				if desiredBlockNumberReached != nil {
+					desiredBlockNumberReached <- true
+				}
 				l.Info().
 					Uint64("Latest Block Number", latestBlockNumber).
 					Uint64("Desired Block Number", waitForBlockNumberToBe).
@@ -1019,18 +1025,42 @@ func SendLinkFundsToDeploymentAddresses(
 
 	toTransferToMultiCallContract := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(totalUpkeeps+concurrency)))
 	toTransferPerClient := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(operationsPerAddress+1)))
-	err := linkToken.Transfer(multicallAddress.Hex(), toTransferToMultiCallContract)
+
+	// As a hack we use the geth wrapper directly, because we need to access receipt to get block number, which we will use to query the balance
+	// This is needed as querying with 'latest' block number very rarely, but still, return stale balance. That's happening even though we wait for
+	// the transaction to be mined.
+	linkInstance, err := link_token_interface.NewLinkToken(common.HexToAddress(linkToken.Address()), wrappers.MustNewWrappedContractBackend(nil, chainClient))
 	if err != nil {
-		return errors.Wrapf(err, "Error transferring LINK to multicall contract")
+		return err
 	}
 
-	balance, err := linkToken.BalanceOf(context.Background(), multicallAddress.Hex())
+	tx, err := chainClient.Decode(linkInstance.Transfer(chainClient.NewTXOpts(), multicallAddress, toTransferToMultiCallContract))
+	if err != nil {
+		return err
+	}
+
+	if tx.Receipt == nil {
+		return fmt.Errorf("transaction receipt for LINK transfer to multicall contract is nil")
+	}
+
+	multiBalance, err := linkInstance.BalanceOf(&bind.CallOpts{From: chainClient.Addresses[0], BlockNumber: tx.Receipt.BlockNumber}, multicallAddress)
 	if err != nil {
 		return errors.Wrapf(err, "Error getting LINK balance of multicall contract")
 	}
 
-	if balance.Cmp(toTransferToMultiCallContract) < 0 {
-		return fmt.Errorf("Incorrect LINK balance of multicall contract. Expected at least: %s. Got: %s", toTransferToMultiCallContract.String(), balance.String())
+	// Old code that's querying latest block
+	//err := linkToken.Transfer(multicallAddress.Hex(), toTransferToMultiCallContract)
+	//if err != nil {
+	//	return errors.Wrapf(err, "Error transferring LINK to multicall contract")
+	//}
+	//
+	//balance, err := linkToken.BalanceOf(context.Background(), multicallAddress.Hex())
+	//if err != nil {
+	//	return errors.Wrapf(err, "Error getting LINK balance of multicall contract")
+	//}
+
+	if multiBalance.Cmp(toTransferToMultiCallContract) < 0 {
+		return fmt.Errorf("Incorrect LINK balance of multicall contract. Expected at least: %s. Got: %s", toTransferToMultiCallContract.String(), multiBalance.String())
 	}
 
 	// Transfer LINK to ephemeral keys
@@ -1055,18 +1085,24 @@ func SendLinkFundsToDeploymentAddresses(
 	}
 	boundContract := bind.NewBoundContract(multicallAddress, multiCallABI, chainClient.Client, chainClient.Client, chainClient.Client)
 	// call aggregate3 to group all msg call data and send them in a single transaction
-	_, err = chainClient.Decode(boundContract.Transact(chainClient.NewTXOpts(), "aggregate3", call))
+	ephemeralTx, err := chainClient.Decode(boundContract.Transact(chainClient.NewTXOpts(), "aggregate3", call))
 	if err != nil {
 		return errors.Wrapf(err, "Error calling Multicall contract")
 	}
 
+	if ephemeralTx.Receipt == nil {
+		return fmt.Errorf("transaction receipt for LINK transfer to ephemeral keys is nil")
+	}
+
 	for i := 1; i <= concurrency; i++ {
-		balance, err := linkToken.BalanceOf(context.Background(), chainClient.Addresses[i].Hex())
+		ephemeralBalance, err := linkInstance.BalanceOf(&bind.CallOpts{From: chainClient.Addresses[0], BlockNumber: ephemeralTx.Receipt.BlockNumber}, chainClient.Addresses[i])
+		// Old code that's querying latest block, for now we prefer to use block number from the transaction receipt
+		//balance, err := linkToken.BalanceOf(context.Background(), chainClient.Addresses[i].Hex())
 		if err != nil {
 			return errors.Wrapf(err, "Error getting LINK balance of ephemeral key %d", i)
 		}
-		if balance.Cmp(toTransferPerClient) < 0 {
-			return fmt.Errorf("Incorrect LINK balance after transfer. Ephemeral key %d. Expected: %s. Got: %s", i, toTransferPerClient.String(), balance.String())
+		if ephemeralBalance.Cmp(toTransferPerClient) < 0 {
+			return fmt.Errorf("Incorrect LINK balance after transfer. Ephemeral key %d. Expected: %s. Got: %s", i, toTransferPerClient.String(), ephemeralBalance.String())
 		}
 	}
 
@@ -1198,4 +1234,48 @@ func BuildTOMLNodeConfigForK8s(testConfig ctfconfig.GlobalTestConfig, testNetwor
 	}
 
 	return string(asStr), nil
+}
+
+func IsOPStackChain(chainID int64) bool {
+	return chainID == 8453 || //BASE MAINNET
+		chainID == 84532 || //BASE SEPOLIA
+		chainID == 10 || //OPTIMISM MAINNET
+		chainID == 11155420 //OPTIMISM SEPOLIA
+}
+
+func RandBool() bool {
+	return rand.Intn(2) == 1
+}
+
+func ContinuouslyGenerateTXsOnChain(sethClient *seth.Client, stopChannel chan bool, wg *sync.WaitGroup, l zerolog.Logger) (bool, error) {
+	counterContract, err := contracts.DeployCounterContract(sethClient)
+	if err != nil {
+		return false, err
+	}
+	err = counterContract.Reset()
+	if err != nil {
+		return false, err
+	}
+	var count *big.Int
+	for {
+		select {
+		case <-stopChannel:
+			l.Info().Str("Number of generated transactions on chain", count.String()).Msg("Stopping generating txs on chain. Desired block number reached.")
+			sleepDuration := time.Second * 10
+			l.Info().Str("Waiting for", sleepDuration.String()).Msg("Waiting for transactions to be mined and avoid nonce issues")
+			time.Sleep(sleepDuration)
+			wg.Done()
+			return true, nil
+		default:
+			err = counterContract.Increment()
+			if err != nil {
+				return false, err
+			}
+			count, err = counterContract.Count()
+			if err != nil {
+				return false, err
+			}
+			l.Info().Str("Count", count.String()).Msg("Number of generated transactions on chain")
+		}
+	}
 }

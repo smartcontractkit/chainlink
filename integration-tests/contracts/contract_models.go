@@ -224,7 +224,7 @@ type JobByInstance struct {
 	Instance string
 }
 
-type MockETHLINKFeed interface {
+type MockLINKETHFeed interface {
 	Address() string
 	LatestRoundData() (*big.Int, error)
 	LatestRoundDataUpdatedAt() (*big.Int, error)
@@ -244,6 +244,7 @@ type MockGasFeed interface {
 type BlockHashStore interface {
 	Address() string
 	GetBlockHash(ctx context.Context, blockNumber *big.Int) ([32]byte, error)
+	StoreVerifyHeader(blockNumber *big.Int, blockHeader []byte) error
 }
 
 type Staking interface {

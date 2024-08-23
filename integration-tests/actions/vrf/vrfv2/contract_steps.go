@@ -320,7 +320,7 @@ func FundSubscriptions(
 	for _, subID := range subIDs {
 		//Link Billing
 		amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
-		err := FundVRFCoordinatorV2Subscription(linkAddress, coordinator, subID, amountJuels)
+		err := FundSubscriptionWithLink(linkAddress, coordinator, subID, amountJuels)
 		if err != nil {
 			return fmt.Errorf("%s, err %w", vrfcommon.ErrFundSubWithLinkToken, err)
 		}
@@ -328,7 +328,7 @@ func FundSubscriptions(
 	return nil
 }
 
-func FundVRFCoordinatorV2Subscription(
+func FundSubscriptionWithLink(
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2,
 	subscriptionID uint64,
@@ -635,7 +635,7 @@ func SetupNewConsumersAndSubs(
 ) ([]contracts.VRFv2LoadTestConsumer, []uint64, error) {
 	consumers, err := DeployVRFV2Consumers(sethClient, coordinator.Address(), numberOfConsumerContractsToDeployAndAddToSub)
 	if err != nil {
-		return nil, nil, fmt.Errorf("err: %w", err)
+		return nil, nil, err
 	}
 	l.Info().
 		Str("Coordinator", *testConfig.VRFv2.ExistingEnvConfig.ExistingEnvConfig.CoordinatorAddress).
@@ -649,7 +649,7 @@ func SetupNewConsumersAndSubs(
 		numberOfSubToCreate,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("err: %w", err)
+		return nil, nil, err
 	}
 	return consumers, subIDs, nil
 }
