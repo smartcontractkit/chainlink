@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 var _ Finalizer = (*evmFinalizer)(nil)
@@ -174,7 +175,7 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 	// Find transactions with receipt block nums older than the latest finalized block num and block hashes still in chain
 	for _, receipt := range unfinalizedReceipts {
 		// The tx store query ensures transactions have receipts but leaving this check here for a belts and braces approach
-		if receipt.Receipt.IsZero() || receipt.Receipt.IsUnmined() {
+		if receipt.TxHash == utils.EmptyHash || receipt.BlockHash == utils.EmptyHash {
 			f.lggr.AssumptionViolationw("invalid receipt found for confirmed transaction", "receipt", receipt)
 			continue
 		}
