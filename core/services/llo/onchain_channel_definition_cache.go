@@ -13,12 +13,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type ChannelDefinitionCacheORM interface {
@@ -75,7 +75,7 @@ func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM
 		lp,
 		0,
 		addr,
-		lggr.Named("ChannelDefinitionCache").With("addr", addr, "fromBlock", fromBlock),
+		logger.Sugared(lggr).Named("ChannelDefinitionCache").With("addr", addr, "fromBlock", fromBlock),
 		sync.RWMutex{},
 		nil,
 		fromBlock,

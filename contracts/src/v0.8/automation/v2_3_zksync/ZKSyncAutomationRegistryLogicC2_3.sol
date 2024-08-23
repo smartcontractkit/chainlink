@@ -222,20 +222,8 @@ contract ZKSyncAutomationRegistryLogicC2_3 is ZKSyncAutomationRegistryBase2_3 {
     return REGISTRY_LOG_OVERHEAD;
   }
 
-  function getPerPerformByteGasOverhead() external pure returns (uint256) {
-    return REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD;
-  }
-
   function getPerSignerGasOverhead() external pure returns (uint256) {
     return REGISTRY_PER_SIGNER_GAS_OVERHEAD;
-  }
-
-  function getTransmitCalldataFixedBytesOverhead() external pure returns (uint256) {
-    return TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD;
-  }
-
-  function getTransmitCalldataPerSignerBytesOverhead() external pure returns (uint256) {
-    return TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD;
   }
 
   function getCancellationDelay() external pure returns (uint256) {

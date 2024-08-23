@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -41,5 +42,10 @@ func Test_HeadReporterService(t *testing.T) {
 		service.OnNewLongestChain(testutils.Context(t), &head)
 
 		require.Eventually(t, func() bool { return reportCalls.Load() == 2 }, 5*time.Second, 100*time.Millisecond)
+	})
+
+	t.Run("has default report period", func(t *testing.T) {
+		service := NewHeadReporterService(pgtest.NewSqlxDB(t), logger.TestLogger(t), NewMockHeadReporter(t))
+		assert.Equal(t, service.reportPeriod, 15*time.Second)
 	})
 }

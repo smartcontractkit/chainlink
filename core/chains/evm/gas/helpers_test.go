@@ -157,6 +157,7 @@ type MockGasEstimatorConfig struct {
 	FeeCapDefaultF      *assets.Wei
 	LimitMaxF           uint64
 	ModeF               string
+	EstimateGasLimitF   bool
 }
 
 func NewMockGasConfig() *MockGasEstimatorConfig {
@@ -213,4 +214,8 @@ func (m *MockGasEstimatorConfig) LimitMax() uint64 {
 
 func (m *MockGasEstimatorConfig) Mode() string {
 	return m.ModeF
+}
+
+func (m *MockGasEstimatorConfig) EstimateGasLimit() bool {
+	return m.EstimateGasLimitF
 }
