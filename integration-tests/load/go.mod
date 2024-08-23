@@ -58,7 +58,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240816163757-48726fd8165f // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240806144315-04ac101e9c95 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v0.0.0-20240822140612-df8e03c10dc1 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect

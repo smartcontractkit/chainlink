@@ -406,7 +406,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240816163757-48726fd8165f // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240806144315-04ac101e9c95 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240820130645-cf4b159fbba2 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240710170203-5b41615da827 // indirect
