@@ -98,17 +98,14 @@ func init() {
 		file, err := os.Open(path)
 		if err != nil {
 			log.Fatalf("error opening file (name: %v) in custom defaults override directory: %v", entry.Name(), err)
-			continue
 		}
 
 		// Read file contents
 		b, err := io.ReadAll(file)
+		file.Close()
 		if err != nil {
 			log.Fatalf("error reading file (name: %v) contents in custom defaults override directory: %v", entry.Name(), err)
-			file.Close()
-			continue
 		}
-		file.Close()
 
 		var config = struct {
 			ChainID *big.Big
