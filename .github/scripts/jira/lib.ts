@@ -5,6 +5,26 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { join } from "path";
 
+export function generateJiraIssuesLink(label: string) {
+  // https://smartcontract-it.atlassian.net/issues/?jql=labels%20%3D%20%22review-artifacts-automation-base%3A8d818ea265ff08887e61ace4f83364a3ee149ef0-head%3A3c45b71f3610de28f429cef0163936eaa448e63c%22
+  const baseUrl = "https://smartcontract-it.atlassian.net/issues/";
+  const jqlQuery = `labels = "${label}"`;
+  const fullUrl = new URL(baseUrl);
+  fullUrl.searchParams.set("jql", jqlQuery);
+
+  const urlStr = fullUrl.toString();
+  core.info(`Jira issues link: ${urlStr}`);
+  return urlStr;
+}
+
+export function generateIssueLabel(
+  product: string,
+  baseRef: string,
+  headRef: string
+) {
+  return `review-artifacts-${product}-base:${baseRef}-head:${headRef}`;
+}
+
 export async function getGitTopLevel(): Promise<string> {
   const execPromise = promisify(exec);
   try {

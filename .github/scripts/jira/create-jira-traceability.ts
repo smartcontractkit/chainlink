@@ -1,7 +1,11 @@
 import * as jira from "jira.js";
-import { createJiraClient, extractJiraIssueNumbersFrom } from "./lib";
+import {
+  createJiraClient,
+  extractJiraIssueNumbersFrom,
+  generateIssueLabel,
+  generateJiraIssuesLink,
+} from "./lib";
 import * as core from "@actions/core";
-import { URL } from "url";
 
 /**
  * Adds traceability to JIRA issues by commenting on each issue with a link to the artifact payload
@@ -12,7 +16,7 @@ import { URL } from "url";
  * @param label The label to add to each issue
  * @param artifactUrl The url to the artifact payload that we'll comment on each issue with
  */
-export async function addTraceabillityToJiraIssues(
+async function addTraceabillityToJiraIssues(
   client: jira.Version3Client,
   issues: string[],
   label: string,
@@ -45,9 +49,10 @@ async function checkAndAddArtifactPayloadComment(
     issueIdOrKey: issue,
     maxResults, // this is the default maxResults, see https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-comments/#api-rest-api-3-issue-issueidorkey-comment-get
   });
-  if (comments.total ?? 0 > maxResults) {
+  core.debug(JSON.stringify(comments.comments));
+  if ((comments.total ?? 0) > maxResults) {
     throw Error(
-      `Too many comments on issue ${issue}, please increase maxResults`
+      `Too many (${comments.total}) comments on issue ${issue}, please increase maxResults (${maxResults})`
     );
   }
   const commentExists = comments.comments?.some((c) =>
@@ -60,7 +65,7 @@ async function checkAndAddArtifactPayloadComment(
     core.info(`Adding artifact payload as comment on issue ${issue}`);
     await client.issueComments.addComment({
       issueIdOrKey: issue,
-      comment: `:link: [Artifact Payload](${artifactUrl})`,
+      comment: artifactUrl,
     });
   }
 }
@@ -96,24 +101,10 @@ function extractChangesetFiles(): string[] {
     throw Error("At least one changeset file must exist");
   }
 
-  core.info(`Changeset to extract issues from: ${parsedChangesetFiles.join(", ")}`);
+  core.info(
+    `Changeset to extract issues from: ${parsedChangesetFiles.join(", ")}`
+  );
   return parsedChangesetFiles;
-}
-
-export function generateJiraIssuesLink(issues: string[]) {
-  // https://smartcontract-it.atlassian.net/issues/?jql=issuekey%20in%20%28KS-435%2C%20KS-434%29
-  const baseUrl = "https://smartcontract-it.atlassian.net/issues/";
-  const jqlQuery = `issuekey in (${issues.join(", ")})`;
-  const fullUrl = new URL(baseUrl);
-  fullUrl.searchParams.set("jql", jqlQuery);
-
-  const urlStr = fullUrl.toString();
-  core.info(`Jira issues link: ${urlStr}`);
-  return urlStr
-}
-
-export function generateIssueLabel(product: string, baseRef: string, headRef: string) {
-  return `review-artifacts-${product}-base:${baseRef}-head:${headRef}`;
 }
 
 /**
@@ -125,7 +116,11 @@ async function main() {
   const { product, baseRef, headRef, artifactUrl } =
     fetchEnvironmentVariables();
   const changesetFiles = extractChangesetFiles();
-  core.info(`Extracting Jira issue numbers from changeset files: ${changesetFiles.join(", ")}`);
+  core.info(
+    `Extracting Jira issue numbers from changeset files: ${changesetFiles.join(
+      ", "
+    )}`
+  );
   const jiraIssueNumbers = await extractJiraIssueNumbersFrom(changesetFiles);
 
   const client = createJiraClient();
@@ -137,6 +132,6 @@ async function main() {
     artifactUrl
   );
 
-  core.summary.addLink("Jira Issues", generateJiraIssuesLink(jiraIssueNumbers));
+  core.summary.addLink("Jira Issues", generateJiraIssuesLink(label));
 }
- main()
+main();

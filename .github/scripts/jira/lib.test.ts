@@ -1,5 +1,5 @@
 import { expect, describe, it, vi } from "vitest";
-import { getGitTopLevel, parseIssueNumberFrom, tagsToLabels } from "./lib";
+import { generateIssueLabel, generateJiraIssuesLink, getGitTopLevel, parseIssueNumberFrom, tagsToLabels } from "./lib";
 import * as core from "@actions/core";
 
 describe("parseIssueNumberFrom", () => {
@@ -91,3 +91,18 @@ describe("getGitTopLevel", () => {
     expect(mockConsoleError).toHaveBeenCalledWith("Error in command output: Error: Command failed");
   });
 });
+
+describe('generateJiraIssuesLink', () => {
+  it('should generate a Jira issues link', () => {
+    expect(generateJiraIssuesLink("review-artifacts-automation-base:0de9b3b-head:e5b3b9d")).toMatchInlineSnapshot(`"https://smartcontract-it.atlassian.net/issues/?jql=labels+%3D+%22review-artifacts-automation-base%3A0de9b3b-head%3Ae5b3b9d%22"`)
+  });
+});
+
+describe('generateIssueLabel', () => {
+  it('should generate an issue label', () => {
+    const product = 'automation';
+    const baseRef = '0de9b3b';
+    const headRef = 'e5b3b9d'; 
+    expect(generateIssueLabel(product, baseRef, headRef)).toMatchInlineSnapshot(`"review-artifacts-automation-base:0de9b3b-head:e5b3b9d"`)
+  });
+})
