@@ -235,11 +235,11 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	return cr
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) StartChainReader(t T) {
+func (it *EVMChainReaderInterfaceTester[T]) Start(t T) {
 	require.NoError(t, it.cr.Start(it.Helper.Context(t)))
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) CloseChainReader(t T) {
+func (it *EVMChainReaderInterfaceTester[T]) Close(t T) {
 	require.NoError(t, it.cr.Close())
 }
 
