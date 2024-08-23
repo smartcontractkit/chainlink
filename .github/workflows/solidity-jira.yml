@@ -115,7 +115,7 @@ jobs:
       # Commit appended changeset file back to repo
       - uses: planetscale/ghcommit-action@v0.1.6
         with:
-          commit_message: "Update changeset file with jira issue"
+          commit_message: "[Bot] Update changeset file with jira issue"
           repo: ${{ github.repository }}
           branch: ${{ github.head_ref }}
           file_pattern: "contracts/.changeset/*" 
