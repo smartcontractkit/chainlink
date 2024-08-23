@@ -316,6 +316,7 @@ LimitDefault = 12
 LimitMax = 17
 LimitMultiplier = '1.234'
 LimitTransfer = 100
+EstimateGasLimit = false
 BumpMin = '100 wei'
 BumpPercent = 10
 BumpThreshold = 6

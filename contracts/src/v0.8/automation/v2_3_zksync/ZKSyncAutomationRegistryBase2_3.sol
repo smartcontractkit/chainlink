@@ -34,8 +34,6 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
   bytes4 internal constant CHECK_LOG_SELECTOR = ILogAutomation.checkLog.selector;
   uint256 internal constant PERFORM_GAS_MIN = 2_300;
   uint256 internal constant CANCELLATION_DELAY = 50;
-  uint256 internal constant PERFORM_GAS_CUSHION = 5_000;
-  uint256 internal constant PPB_BASE = 1_000_000_000;
   uint32 internal constant UINT32_MAX = type(uint32).max;
   // The first byte of the mask can be 0, because we only ever have 31 oracles
   uint256 internal constant ORACLE_MASK = 0x0001010101010101010101010101010101010101010101010101010101010101;
@@ -47,20 +45,13 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
   uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 98_200; // Fixed gas overhead for conditional upkeeps
   uint256 internal constant REGISTRY_LOG_OVERHEAD = 122_500; // Fixed gas overhead for log upkeeps
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 5_600; // Value scales with f
-  uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 24; // Per perform data byte overhead
-
-  // The overhead (in bytes) in addition to perform data for upkeep sent in calldata
-  // This includes overhead for all struct encoding as well as report signatures
-  // There is a fixed component and a per signer component. This is calculated exactly by doing abi encoding
-  uint256 internal constant TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD = 932;
-  uint256 internal constant TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD = 64;
 
   // Next block of constants are used in actual payment calculation. We calculate the exact gas used within the
   // tx itself, but since payment processing itself takes gas, and it needs the overhead as input, we use fixed constants
   // to account for gas used in payment processing. These values are calibrated using hardhat tests which simulates various cases and verifies that
   // the variables result in accurate estimation
-  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 51_200; // Fixed overhead per tx
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 14_200; // Overhead per upkeep performed in batch
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 51_000; // Fixed overhead per tx
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 20_000; // Overhead per upkeep performed in batch
 
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkUSDFeed;
@@ -313,7 +304,6 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
    * @member performSuccess whether the perform was successful
    * @member triggerType the type of trigger
    * @member gasUsed gasUsed by this upkeep in perform
-   * @member calldataWeight weight assigned to this upkeep for its contribution to calldata. It is used to split L1 fee
    * @member dedupID unique ID used to dedup an upkeep/trigger combo
    */
   struct UpkeepTransmitInfo {
@@ -322,7 +312,6 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
     bool performSuccess;
     Trigger triggerType;
     uint256 gasUsed;
-    uint256 calldataWeight;
     bytes32 dedupID;
   }
 
@@ -739,7 +728,6 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
     uint256 nativeUSD,
     IERC20 billingToken
   ) internal view returns (uint96) {
-    uint256 maxL1Fee;
     uint256 maxGasOverhead;
 
     {
@@ -750,15 +738,8 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
       } else {
         revert InvalidTriggerType();
       }
-      uint256 maxCalldataSize = s_storage.maxPerformDataSize +
-        TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD +
-        (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
-      (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) = s_hotVars.chainModule.getGasOverhead();
-      maxGasOverhead +=
-        (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1)) +
-        ((REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD + chainModulePerByteOverhead) * maxCalldataSize) +
-        chainModuleFixedOverhead;
-      maxL1Fee = hotVars.gasCeilingMultiplier * hotVars.chainModule.getMaxL1Fee(maxCalldataSize);
+      (uint256 chainModuleFixedOverhead, ) = s_hotVars.chainModule.getGasOverhead();
+      maxGasOverhead += (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1)) + chainModuleFixedOverhead;
     }
 
     BillingTokenPaymentParams memory paymentParams = _getBillingTokenPaymentParams(hotVars, billingToken);
@@ -774,7 +755,7 @@ abstract contract ZKSyncAutomationRegistryBase2_3 is ConfirmedOwner {
       PaymentParams({
         gasLimit: performGas,
         gasOverhead: maxGasOverhead,
-        l1CostWei: maxL1Fee,
+        l1CostWei: 0,
         fastGasWei: fastGasWei,
         linkUSD: linkUSD,
         nativeUSD: nativeUSD,
