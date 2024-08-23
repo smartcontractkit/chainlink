@@ -8606,9 +8606,9 @@ ForwarderAddress is the keystone forwarder contract address on chain.
 
 ### DefaultGasLimit
 ```toml
-DefaultGasLimit = 500_000 # Example
+DefaultGasLimit = 400_000 # Default
 ```
-DefaultGasLimit is the default gas limit submitted by the evm chain writer used by the write target capability.
+DefaultGasLimit is the default gas limit for workflow transactions.
 
 ## Cosmos
 ```toml
