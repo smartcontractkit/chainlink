@@ -4,10 +4,16 @@ REPOS=~/repos
 CHAINLINK=$REPOS/chainlink
 BEHOLDER_DEMO=$REPOS/atlas/beholder
 
-echo Builing chainlink-dev
-make chainlink-dev || exit 1
+
+build_chainlink_dev() {
+	echo Builing chainlink-dev
+	make chainlink-dev || exit 1
+}
 
 start_beholder_stack() {
+	echo "\n\nRemoving all running containers"
+	docker rm $(docker stop $(docker ps -aq))
+
 	echo "\n\nTo start consuming custom messages emitted from chainlink node to OTel Collector
 	Run this command in separate terminal:
 
@@ -40,8 +46,7 @@ start_chainlink() {
 	OTEL_SERVICE_NAME=beholderdemo ./chainlink node -c ~/.chainlink-sepolia/config.toml -s ~/.chainlink-sepolia/secrets.toml start || exit 1
 }
 
-echo "\n\nRemoving all running containers"
-docker rm $(docker stop $(docker ps -aq))
+build_chainlink_dev
 
 start_beholder_stack
 
