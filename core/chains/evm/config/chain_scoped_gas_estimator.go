@@ -63,11 +63,11 @@ func (g *gasEstimatorConfig) FeeCapDefault() *assets.Wei {
 	return g.c.FeeCapDefault
 }
 
-func (g *gasEstimatorConfig) LimitDefault() uint32 {
+func (g *gasEstimatorConfig) LimitDefault() uint64 {
 	return *g.c.LimitDefault
 }
 
-func (g *gasEstimatorConfig) LimitMax() uint32 {
+func (g *gasEstimatorConfig) LimitMax() uint64 {
 	return *g.c.LimitMax
 }
 
@@ -76,7 +76,7 @@ func (g *gasEstimatorConfig) LimitMultiplier() float32 {
 	return f
 }
 
-func (g *gasEstimatorConfig) LimitTransfer() uint32 {
+func (g *gasEstimatorConfig) LimitTransfer() uint64 {
 	return *g.c.LimitTransfer
 }
 
@@ -106,6 +106,10 @@ func (g *gasEstimatorConfig) Mode() string {
 
 func (g *gasEstimatorConfig) LimitJobType() LimitJobType {
 	return &limitJobTypeConfig{c: g.c.LimitJobType}
+}
+
+func (g *gasEstimatorConfig) EstimateGasLimit() bool {
+	return *g.c.EstimateGasLimit
 }
 
 type limitJobTypeConfig struct {

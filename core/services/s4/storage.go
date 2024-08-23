@@ -5,11 +5,10 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // Constraints specifies the global storage constraints.
@@ -44,8 +43,6 @@ type Metadata struct {
 	// Signature contains the original user signature.
 	Signature []byte
 }
-
-//go:generate mockery --quiet --name Storage --output ./mocks/ --case=underscore
 
 // Storage represents S4 storage access interface.
 // All functions are thread-safe.
@@ -95,7 +92,7 @@ func (s *storage) Get(ctx context.Context, key *Key) (*Record, *Metadata, error)
 	}
 
 	bigAddress := big.New(key.Address.Big())
-	row, err := s.orm.Get(bigAddress, key.SlotId, pg.WithParentCtx(ctx))
+	row, err := s.orm.Get(ctx, bigAddress, key.SlotId)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -125,7 +122,7 @@ func (s *storage) List(ctx context.Context, address common.Address) ([]*Snapshot
 	if err != nil {
 		return nil, err
 	}
-	return s.orm.GetSnapshot(sar, pg.WithParentCtx(ctx))
+	return s.orm.GetSnapshot(ctx, sar)
 }
 
 func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature []byte) error {
@@ -161,5 +158,5 @@ func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature [
 	copy(row.Payload, record.Payload)
 	copy(row.Signature, signature)
 
-	return s.orm.Update(row, pg.WithParentCtx(ctx))
+	return s.orm.Update(ctx, row)
 }

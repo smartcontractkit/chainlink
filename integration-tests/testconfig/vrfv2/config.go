@@ -3,8 +3,6 @@ package testconfig
 import (
 	"errors"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	vrf_common_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/common/vrf"
 )
 
@@ -52,10 +50,6 @@ func (c *ExistingEnvConfig) Validate() error {
 		if *c.SubID == 0 {
 			return errors.New("sub_id must be positive value")
 		}
-
-		if c.LinkAddress != nil && !common.IsHexAddress(*c.LinkAddress) {
-			return errors.New("link_address must be a valid hex address")
-		}
 	}
 
 	return c.Funding.Validate()
@@ -72,6 +66,8 @@ type General struct {
 	ReqsForTier3                   *int64  `toml:"reqs_for_tier_3"`
 	ReqsForTier4                   *int64  `toml:"reqs_for_tier_4"`
 	ReqsForTier5                   *int64  `toml:"reqs_for_tier_5"`
+	CoordinatorGasOverhead         *uint32 `toml:"coordinator_gas_overhead"`
+	WrapperPremiumPercentage       *uint8  `toml:"wrapper_premium_percentage"`
 }
 
 func (c *General) Validate() error {
@@ -107,6 +103,11 @@ func (c *General) Validate() error {
 	if c.ReqsForTier5 == nil || *c.ReqsForTier5 < 0 {
 		return errors.New("reqs_for_tier_5 must be set to a non-negative value")
 	}
-
+	if c.CoordinatorGasOverhead == nil || *c.CoordinatorGasOverhead == 0 {
+		return errors.New("coordinator_gas_overhead must be set to a non-negative value")
+	}
+	if c.WrapperPremiumPercentage == nil || *c.WrapperPremiumPercentage == 0 {
+		return errors.New("wrapper_premium_percentage must be set to a positive value")
+	}
 	return nil
 }

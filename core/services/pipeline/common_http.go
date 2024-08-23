@@ -24,7 +24,6 @@ func makeHTTPRequest(
 	client *http.Client,
 	httpLimit int64,
 ) ([]byte, int, http.Header, time.Duration, error) {
-
 	var bodyReader io.Reader
 	if requestData != nil {
 		bodyBytes, err := json.Marshal(requestData)
@@ -65,7 +64,7 @@ func makeHTTPRequest(
 
 	if statusCode >= 400 {
 		maybeErr := bestEffortExtractError(responseBytes)
-		return nil, statusCode, respHeaders, 0, errors.Errorf("got error from %s: (status code %v) %s", url.String(), statusCode, maybeErr)
+		return responseBytes, statusCode, respHeaders, 0, errors.Errorf("got error from %s: (status code %v) %s", url.String(), statusCode, maybeErr)
 	}
 	return responseBytes, statusCode, respHeaders, elapsed, nil
 }

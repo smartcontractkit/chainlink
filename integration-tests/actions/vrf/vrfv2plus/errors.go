@@ -1,6 +1,8 @@
 package vrfv2plus
 
 const (
+	ErrDeployCoordinatorV2Plus                     = "error deploying VRF CoordinatorV2Plus"
+	ErrDeployBatchCoordinatorV2Plus                = "error deploying Batch VRF CoordinatorV2Plus"
 	ErrCreatingVRFv2PlusKey                        = "error creating VRFv2Plus key"
 	ErrAdvancedConsumer                            = "error deploying VRFv2Plus Advanced Consumer"
 	ErrCreatingVRFv2PlusJob                        = "error creating VRFv2Plus job"
@@ -14,4 +16,5 @@ const (
 	ErrLinkTotalBalance                            = "error waiting for RandomWordsFulfilled event"
 	ErrNativeTokenBalance                          = "error waiting for RandomWordsFulfilled event"
 	ErrDeployWrapper                               = "error deploying VRFV2PlusWrapper"
+	ErrSetL1FeeCalculation                         = "error setting L1 fee calculation"
 )

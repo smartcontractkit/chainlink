@@ -53,9 +53,9 @@ Execute the following command based on your upkeep type:
 - For custom logic: 
 
     ```bash
-    go run main.go keeper debug UPKEEP_ID [OPTIONAL BLOCK_NUMBER]
+    go run main.go keeper debug UPKEEP_ID [BLOCK_NUMBER]
     ```
-    If you don't specify a block number, the debugging script uses the latest block.
+    If you don't specify a block number, the debugging script uses the latest block for checkUpkeep and simulatePerformUpkeep. For conditional upkeeps using streams lookup, a BLOCK_NUMBER is required.
 
 - For log trigger upkeep:
 

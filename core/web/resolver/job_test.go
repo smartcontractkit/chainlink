@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -68,11 +69,11 @@ func TestResolver_Jobs(t *testing.T) {
 		{
 			name:          "get jobs success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				plnSpecID := int32(12)
 
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobs", 0, 50).Return([]job.Job{
+				f.Mocks.jobORM.On("FindJobs", mock.Anything, 0, 50).Return([]job.Job{
 					{
 						ID:              1,
 						Name:            null.StringFrom("job1"),
@@ -89,13 +90,13 @@ func TestResolver_Jobs(t *testing.T) {
 					},
 				}, 1, nil)
 				f.Mocks.jobORM.
-					On("FindPipelineRunIDsByJobID", int32(1), 0, 50).
+					On("FindPipelineRunIDsByJobID", mock.Anything, int32(1), 0, 50).
 					Return([]int64{200}, nil)
 				f.Mocks.jobORM.
-					On("FindPipelineRunsByIDs", []int64{200}).
+					On("FindPipelineRunsByIDs", mock.Anything, []int64{200}).
 					Return([]pipeline.Run{{ID: 200}}, nil)
 				f.Mocks.jobORM.
-					On("CountPipelineRunsByJobID", int32(1)).
+					On("CountPipelineRunsByJobID", mock.Anything, int32(1)).
 					Return(int32(1), nil)
 			},
 			query: query,
@@ -206,9 +207,9 @@ func TestResolver_Job(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					ID:              1,
 					Name:            null.StringFrom("job1"),
 					SchemaVersion:   1,
@@ -223,13 +224,13 @@ func TestResolver_Job(t *testing.T) {
 					},
 				}, nil)
 				f.Mocks.jobORM.
-					On("FindPipelineRunIDsByJobID", int32(1), 0, 50).
+					On("FindPipelineRunIDsByJobID", mock.Anything, int32(1), 0, 50).
 					Return([]int64{200}, nil)
 				f.Mocks.jobORM.
-					On("FindPipelineRunsByIDs", []int64{200}).
+					On("FindPipelineRunsByIDs", mock.Anything, []int64{200}).
 					Return([]pipeline.Run{{ID: 200}}, nil)
 				f.Mocks.jobORM.
-					On("CountPipelineRunsByJobID", int32(1)).
+					On("CountPipelineRunsByJobID", mock.Anything, int32(1)).
 					Return(int32(1), nil)
 			},
 			query:  query,
@@ -238,9 +239,9 @@ func TestResolver_Job(t *testing.T) {
 		{
 			name:          "not found",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{}, sql.ErrNoRows)
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{}, sql.ErrNoRows)
 			},
 			query: query,
 			result: `
@@ -255,9 +256,9 @@ func TestResolver_Job(t *testing.T) {
 		{
 			name:          "show job when chainID is disabled",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					ID:              1,
 					Name:            null.StringFrom("job1"),
 					SchemaVersion:   1,
@@ -272,13 +273,13 @@ func TestResolver_Job(t *testing.T) {
 					},
 				}, chains.ErrNoSuchChainID)
 				f.Mocks.jobORM.
-					On("FindPipelineRunIDsByJobID", int32(1), 0, 50).
+					On("FindPipelineRunIDsByJobID", mock.Anything, int32(1), 0, 50).
 					Return([]int64{200}, nil)
 				f.Mocks.jobORM.
-					On("FindPipelineRunsByIDs", []int64{200}).
+					On("FindPipelineRunsByIDs", mock.Anything, []int64{200}).
 					Return([]pipeline.Run{{ID: 200}}, nil)
 				f.Mocks.jobORM.
-					On("CountPipelineRunsByJobID", int32(1)).
+					On("CountPipelineRunsByJobID", mock.Anything, int32(1)).
 					Return(int32(1), nil)
 			},
 			query:  query,
@@ -351,7 +352,7 @@ func TestResolver_CreateJob(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
 				f.App.On("AddJobV2", mock.Anything, &jb).Return(nil)
 			},
@@ -378,7 +379,7 @@ func TestResolver_CreateJob(t *testing.T) {
 		{
 			name:          "generic error when adding the job",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
 				f.App.On("AddJobV2", mock.Anything, &jb).Return(gError)
 			},
@@ -452,8 +453,8 @@ func TestResolver_DeleteJob(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					ID:              id,
 					Name:            null.StringFrom("test-job"),
 					ExternalJobID:   extJID,
@@ -470,8 +471,8 @@ func TestResolver_DeleteJob(t *testing.T) {
 		{
 			name:          "not found on FindJob()",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{}, sql.ErrNoRows)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{}, sql.ErrNoRows)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 			},
 			query:     mutation,
@@ -488,8 +489,8 @@ func TestResolver_DeleteJob(t *testing.T) {
 		{
 			name:          "not found on DeleteJob()",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{}, nil)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{}, nil)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.App.On("DeleteJob", mock.Anything, id).Return(sql.ErrNoRows)
 			},
@@ -507,8 +508,8 @@ func TestResolver_DeleteJob(t *testing.T) {
 		{
 			name:          "generic error on FindJob()",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{}, gError)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{}, gError)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 			},
 			query:     mutation,
@@ -526,8 +527,8 @@ func TestResolver_DeleteJob(t *testing.T) {
 		{
 			name:          "generic error on DeleteJob()",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{}, nil)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{}, nil)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.App.On("DeleteJob", mock.Anything, id).Return(gError)
 			},

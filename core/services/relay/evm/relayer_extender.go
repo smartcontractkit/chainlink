@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -19,7 +19,7 @@ import (
 var ErrNoChains = errors.New("no EVM chains loaded")
 
 type EVMChainRelayerExtender interface {
-	loop.RelayerExt
+	relay.RelayerExt
 	Chain() legacyevm.Chain
 }
 
@@ -139,7 +139,6 @@ func NewChainRelayerExtenders(ctx context.Context, opts legacyevm.ChainRelayExte
 	var result []*ChainRelayerExt
 	var err error
 	for i := range enabled {
-
 		cid := enabled[i].ChainID.String()
 		privOpts := legacyevm.ChainRelayExtenderConfig{
 			Logger:    opts.Logger.Named(cid),

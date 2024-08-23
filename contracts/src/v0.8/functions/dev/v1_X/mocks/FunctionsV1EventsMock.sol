@@ -3,6 +3,7 @@
 pragma solidity ^0.8.19;
 
 contract FunctionsV1EventsMock {
+  // solhint-disable-next-line gas-struct-packing
   struct Config {
     uint16 maxConsumersPerSubscription;
     uint72 adminFee;
@@ -10,6 +11,7 @@ contract FunctionsV1EventsMock {
     uint16 gasForCallExactCheck;
     uint32[] maxCallbackGasLimits;
   }
+
   event ConfigUpdated(Config param1);
   event ContractProposed(
     bytes32 proposedContractSetId,

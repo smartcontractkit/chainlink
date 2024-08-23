@@ -9,6 +9,7 @@ pragma solidity ^0.8.0;
  * This makes it possible to store addresses in optimized data types and convert them to human-readable strings
  * in `getPoRAddressList()`.
  */
+// solhint-disable-next-line interface-starts-with-i
 interface PoRAddressList {
   /// @notice Get total number of addresses in the list.
   function getPoRAddressListLength() external view returns (uint256);

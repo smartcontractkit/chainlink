@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import {OracleInterface} from "./OracleInterface.sol";
 import {ChainlinkRequestInterface} from "./ChainlinkRequestInterface.sol";
 
+// solhint-disable-next-line interface-starts-with-i
 interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
   function operatorRequest(
     address sender,

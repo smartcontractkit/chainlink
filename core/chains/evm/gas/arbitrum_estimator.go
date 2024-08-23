@@ -3,34 +3,23 @@ package gas
 import (
 	"context"
 	"fmt"
-	"math"
-	"math/big"
 	"slices"
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 )
 
 type ArbConfig interface {
-	LimitMax() uint32
+	LimitMax() uint64
 	BumpPercent() uint16
 	BumpMin() *assets.Wei
-}
-
-//go:generate mockery --quiet --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
-type ethClient interface {
-	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 }
 
 // arbitrumEstimator is an Estimator which extends SuggestedPriceEstimator to use getPricesInArbGas() for gas limit estimation.
@@ -40,7 +29,6 @@ type arbitrumEstimator struct {
 
 	EvmEstimator // *SuggestedPriceEstimator
 
-	client     ethClient
 	pollPeriod time.Duration
 	logger     logger.Logger
 
@@ -52,20 +40,23 @@ type arbitrumEstimator struct {
 	chInitialised  chan struct{}
 	chStop         services.StopChan
 	chDone         chan struct{}
+
+	l1Oracle rollups.ArbL1GasOracle
 }
 
-func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient) EvmEstimator {
+func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, ethClient feeEstimatorClient, l1Oracle rollups.ArbL1GasOracle) EvmEstimator {
 	lggr = logger.Named(lggr, "ArbitrumEstimator")
+
 	return &arbitrumEstimator{
 		cfg:            cfg,
-		EvmEstimator:   NewSuggestedPriceEstimator(lggr, rpcClient, cfg),
-		client:         ethClient,
+		EvmEstimator:   NewSuggestedPriceEstimator(lggr, ethClient, cfg, l1Oracle),
 		pollPeriod:     10 * time.Second,
 		logger:         lggr,
 		chForceRefetch: make(chan (chan struct{})),
 		chInitialised:  make(chan struct{}),
 		chStop:         make(chan struct{}),
 		chDone:         make(chan struct{}),
+		l1Oracle:       l1Oracle,
 	}
 }
 
@@ -105,7 +96,7 @@ func (a *arbitrumEstimator) HealthReport() map[string]error {
 //   - Limit is computed from the dynamic values perL2Tx and perL1CalldataUnit, provided by the getPricesInArbGas() method
 //     of the precompilie contract at ArbGasInfoAddress. perL2Tx is a constant amount of gas, and perL1CalldataUnit is
 //     multiplied by the length of the tx calldata. The sum of these two values plus the original l2GasLimit is returned.
-func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l2GasLimit uint64, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint64, err error) {
 	gasPrice, _, err = a.EvmEstimator.GetLegacyGas(ctx, calldata, l2GasLimit, maxGasPriceWei, opts...)
 	if err != nil {
 		return
@@ -134,7 +125,7 @@ func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l
 			}
 		}
 		perL2Tx, perL1CalldataUnit := a.getPricesInArbGas()
-		chainSpecificGasLimit = l2GasLimit + perL2Tx + uint32(len(calldata))*perL1CalldataUnit
+		chainSpecificGasLimit = l2GasLimit + uint64(perL2Tx) + uint64(len(calldata))*uint64(perL1CalldataUnit)
 		a.logger.Debugw("GetLegacyGas", "l2GasLimit", l2GasLimit, "calldataLen", len(calldata), "perL2Tx", perL2Tx,
 			"perL1CalldataUnit", perL1CalldataUnit, "chainSpecificGasLimit", chainSpecificGasLimit)
 	})
@@ -175,28 +166,32 @@ func (a *arbitrumEstimator) getPricesInArbGas() (perL2Tx uint32, perL1CalldataUn
 func (a *arbitrumEstimator) run() {
 	defer close(a.chDone)
 
-	t := a.refreshPricesInArbGas()
+	a.refreshPricesInArbGas()
 	close(a.chInitialised)
+
+	t := services.TickerConfig{
+		Initial:   a.pollPeriod,
+		JitterPct: services.DefaultJitter,
+	}.NewTicker(a.pollPeriod)
+	defer t.Stop()
 
 	for {
 		select {
 		case <-a.chStop:
 			return
 		case ch := <-a.chForceRefetch:
-			t.Stop()
-			t = a.refreshPricesInArbGas()
+			a.refreshPricesInArbGas()
+			t.Reset()
 			close(ch)
 		case <-t.C:
-			t = a.refreshPricesInArbGas()
+			a.refreshPricesInArbGas()
 		}
 	}
 }
 
 // refreshPricesInArbGas calls getPricesInArbGas() and caches the refreshed prices.
-func (a *arbitrumEstimator) refreshPricesInArbGas() (t *time.Timer) {
-	t = time.NewTimer(utils.WithJitter(a.pollPeriod))
-
-	perL2Tx, perL1CalldataUnit, err := a.callGetPricesInArbGas()
+func (a *arbitrumEstimator) refreshPricesInArbGas() {
+	perL2Tx, perL1CalldataUnit, err := a.l1Oracle.GetPricesInArbGas()
 	if err != nil {
 		a.logger.Warnw("Failed to refresh prices", "err", err)
 		return
@@ -208,56 +203,4 @@ func (a *arbitrumEstimator) refreshPricesInArbGas() (t *time.Timer) {
 	a.perL2Tx = perL2Tx
 	a.perL1CalldataUnit = perL1CalldataUnit
 	a.getPricesInArbGasMu.Unlock()
-	return
-}
-
-const (
-	// ArbGasInfoAddress is the address of the "Precompiled contract that exists in every Arbitrum chain."
-	// https://github.com/OffchainLabs/nitro/blob/f7645453cfc77bf3e3644ea1ac031eff629df325/contracts/src/precompiles/ArbGasInfo.sol
-	ArbGasInfoAddress = "0x000000000000000000000000000000000000006C"
-	// ArbGasInfo_getPricesInArbGas is the a hex encoded call to:
-	// `function getPricesInArbGas() external view returns (uint256, uint256, uint256);`
-	ArbGasInfo_getPricesInArbGas = "02199f34"
-)
-
-// callGetPricesInArbGas calls ArbGasInfo.getPricesInArbGas() on the precompile contract ArbGasInfoAddress.
-//
-// @return (per L2 tx, per L1 calldata unit, per storage allocation)
-// function getPricesInArbGas() external view returns (uint256, uint256, uint256);
-//
-// https://github.com/OffchainLabs/nitro/blob/f7645453cfc77bf3e3644ea1ac031eff629df325/contracts/src/precompiles/ArbGasInfo.sol#L69
-func (a *arbitrumEstimator) callGetPricesInArbGas() (perL2Tx uint32, perL1CalldataUnit uint32, err error) {
-	ctx, cancel := a.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
-	defer cancel()
-
-	precompile := common.HexToAddress(ArbGasInfoAddress)
-	b, err := a.client.CallContract(ctx, ethereum.CallMsg{
-		To:   &precompile,
-		Data: common.Hex2Bytes(ArbGasInfo_getPricesInArbGas),
-	}, big.NewInt(-1))
-	if err != nil {
-		return 0, 0, err
-	}
-
-	if len(b) != 3*32 { // returns (uint256, uint256, uint256);
-		err = fmt.Errorf("return data length (%d) different than expected (%d)", len(b), 3*32)
-		return
-	}
-	bPerL2Tx := new(big.Int).SetBytes(b[:32])
-	bPerL1CalldataUnit := new(big.Int).SetBytes(b[32:64])
-	// ignore perStorageAllocation
-	if !bPerL2Tx.IsUint64() || !bPerL1CalldataUnit.IsUint64() {
-		err = fmt.Errorf("returned integers are not uint64 (%s, %s)", bPerL2Tx.String(), bPerL1CalldataUnit.String())
-		return
-	}
-
-	perL2TxU64 := bPerL2Tx.Uint64()
-	perL1CalldataUnitU64 := bPerL1CalldataUnit.Uint64()
-	if perL2TxU64 > math.MaxUint32 || perL1CalldataUnitU64 > math.MaxUint32 {
-		err = fmt.Errorf("returned integers are not uint32 (%d, %d)", perL2TxU64, perL1CalldataUnitU64)
-		return
-	}
-	perL2Tx = uint32(perL2TxU64)
-	perL1CalldataUnit = uint32(perL1CalldataUnitU64)
-	return
 }

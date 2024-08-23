@@ -52,7 +52,6 @@ var (
 )
 
 func main() {
-
 	vrfPrimaryNodeURL := flag.String("vrf-primary-node-url", "", "remote node URL")
 	vrfBackupNodeURL := flag.String("vrf-backup-node-url", "", "remote node URL")
 	bhsNodeURL := flag.String("bhs-node-url", "", "remote node URL")
@@ -69,6 +68,8 @@ func main() {
 	numEthKeys := flag.Int("num-eth-keys", 5, "Number of eth keys to create")
 	provingKeyMaxGasPriceString := flag.String("proving-key-max-gas-price", "1e12", "Max Gas Price for proving key set in Coordinator config")
 	numVRFKeys := flag.Int("num-vrf-keys", 1, "Number of vrf keys to create")
+	numBHSSendingKeys := flag.Int("num-bhs-sending-keys", 1, "Number of sending keys for BHS to create")
+	numBHFSendingKeys := flag.Int("num-bhf-sending-keys", 1, "Number of sending keys for BHF to create")
 	batchFulfillmentEnabled := flag.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether send randomness fulfillments in batches inside one tx from CL node")
 	batchFulfillmentGasMultiplier := flag.Float64("batch-fulfillment-gas-multiplier", 1.1, "")
 	estimateGasMultiplier := flag.Float64("estimate-gas-multiplier", 1.1, "")
@@ -81,6 +82,7 @@ func main() {
 	bhsJobRunTimeout := flag.String("bhs-job-run-timeout", "1m", "")
 
 	vrfVersion := flag.String("vrf-version", "v2", "VRF version to use")
+	coordinatorType := flag.String("coordinator-type", "", "Specify which coordinator type to use: layer1, arbitrum, optimism")
 	deployContractsAndCreateJobs := flag.Bool("deploy-contracts-and-create-jobs", false, "whether to deploy contracts and create jobs")
 
 	subscriptionBalanceJuelsString := flag.String("subscription-balance", constants.SubscriptionBalanceJuels, "amount to fund subscription with Link token (Juels)")
@@ -107,6 +109,10 @@ func main() {
 	linkPremiumPercentage := flag.Int64("link-premium-percentage", 1, "premium percentage for LINK payment")
 	simulationBlock := flag.String("simulation-block", "pending", "simulation block can be 'pending' or 'latest'")
 
+	// only necessary for Optimism coordinator contract
+	optimismL1GasFeeCalculationMode := flag.Uint64("optimism-l1-fee-mode", 0, "Choose Optimism coordinator contract L1 fee calculation mode: 0, 1, 2")
+	optimismL1GasFeeCoefficient := flag.Uint64("optimism-l1-fee-coefficient", 100, "Choose Optimism coordinator contract L1 fee coefficient percentage [1, 100]")
+
 	e := helpers.SetupEnv(false)
 	flag.Parse()
 	nodesMap := make(map[string]model.Node)
@@ -115,6 +121,11 @@ func main() {
 		panic(fmt.Sprintf("Invalid VRF Version `%s`. Only `v2` and `v2plus` are supported", *vrfVersion))
 	}
 	fmt.Println("Using VRF Version:", *vrfVersion)
+
+	if *coordinatorType != "layer1" && *coordinatorType != "arbitrum" && *coordinatorType != "optimism" {
+		panic(fmt.Sprintf("Invalid Coordinator type `%s`. Only `layer1`, `arbitrum` and `optimism` are supported", *coordinatorType))
+	}
+	fmt.Println("Using Coordinator type:", *coordinatorType)
 
 	if *simulationBlock != "pending" && *simulationBlock != "latest" {
 		helpers.PanicErr(fmt.Errorf("simulation block must be 'pending' or 'latest'"))
@@ -166,7 +177,16 @@ func main() {
 	for key, node := range nodesMap {
 		node := node
 		client, app := connectToNode(&node.URL, output, node.CredsFile)
-		ethKeys := createETHKeysIfNeeded(client, app, output, numEthKeys, &node.URL)
+
+		// assumption that we are dealing with VRF nodes
+		numKeysToCreate := numEthKeys
+		if key == model.BHSNodeName || key == model.BHSBackupNodeName {
+			numKeysToCreate = numBHSSendingKeys
+		} else if key == model.BHFNodeName {
+			numKeysToCreate = numBHFSendingKeys
+		}
+		ethKeys := createETHKeysIfNeeded(client, app, output, numKeysToCreate, &node.URL)
+
 		if key == model.VRFPrimaryNodeName {
 			vrfKeys := createVRFKeyIfNeeded(client, app, output, numVRFKeys, &node.URL)
 			node.VrfKeys = mapVrfKeysToStringArr(vrfKeys)
@@ -187,7 +207,6 @@ func main() {
 	importVRFKeyToNodeIfSet(vrfBackupNodeURL, nodesMap, output, nodesMap[model.VRFBackupNodeName].CredsFile)
 
 	if *deployContractsAndCreateJobs {
-
 		contractAddresses := model.ContractAddresses{
 			LinkAddress:             *linkAddress,
 			LinkEthAddress:          *linkEthAddress,
@@ -294,6 +313,9 @@ func main() {
 				coordinatorJobSpecConfig,
 				bhsJobSpecConfig,
 				*simulationBlock,
+				*coordinatorType,
+				uint8(*optimismL1GasFeeCalculationMode),
+				uint8(*optimismL1GasFeeCoefficient),
 			)
 		}
 

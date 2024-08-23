@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
 	"github.com/jmoiron/sqlx"
@@ -39,7 +38,7 @@ func fakeExternalAdapter(t *testing.T, expectedRequest, response interface{}) ht
 	})
 }
 
-func makeBridge(t *testing.T, db *sqlx.DB, expectedRequest, response interface{}, cfg pg.QConfig) (*httptest.Server, bridges.BridgeType) {
+func makeBridge(t *testing.T, db *sqlx.DB, expectedRequest, response interface{}) (*httptest.Server, bridges.BridgeType) {
 	t.Helper()
 
 	server := httptest.NewServer(fakeExternalAdapter(t, expectedRequest, response))
@@ -47,7 +46,7 @@ func makeBridge(t *testing.T, db *sqlx.DB, expectedRequest, response interface{}
 	bridgeFeedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
+	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()})
 
 	return server, *bt
 }

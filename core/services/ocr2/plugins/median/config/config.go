@@ -4,6 +4,7 @@
 package config
 
 import (
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -13,26 +14,47 @@ import (
 )
 
 // The PluginConfig struct contains the custom arguments needed for the Median plugin.
+// To avoid a catastrophic libocr codec error, you must make sure that either all nodes in the same DON
+// (1) have no GasPriceSubunitsPipeline or all nodes in the same DON (2) have a GasPriceSubunitsPipeline
 type PluginConfig struct {
-	JuelsPerFeeCoinPipeline      string          `json:"juelsPerFeeCoinSource"`
-	JuelsPerFeeCoinCacheDuration models.Interval `json:"juelsPerFeeCoinCacheDuration"`
-	JuelsPerFeeCoinCacheDisabled bool            `json:"juelsPerFeeCoinCacheDisabled"`
+	GasPriceSubunitsPipeline string `json:"gasPriceSubunitsSource"`
+	JuelsPerFeeCoinPipeline  string `json:"juelsPerFeeCoinSource"`
+	// JuelsPerFeeCoinCache is disabled when nil
+	JuelsPerFeeCoinCache *JuelsPerFeeCoinCache `json:"juelsPerFeeCoinCache"`
+}
+
+type JuelsPerFeeCoinCache struct {
+	Disable                 bool            `json:"disable"`
+	UpdateInterval          models.Interval `json:"updateInterval"`
+	StalenessAlertThreshold models.Interval `json:"stalenessAlertThreshold"`
 }
 
 // ValidatePluginConfig validates the arguments for the Median plugin.
-func ValidatePluginConfig(config PluginConfig) error {
+func (config *PluginConfig) ValidatePluginConfig() error {
 	if _, err := pipeline.Parse(config.JuelsPerFeeCoinPipeline); err != nil {
 		return errors.Wrap(err, "invalid juelsPerFeeCoinSource pipeline")
 	}
 
-	// unset duration defaults later
-	if config.JuelsPerFeeCoinCacheDuration != 0 {
-		if config.JuelsPerFeeCoinCacheDuration.Duration() < time.Second*30 {
-			return errors.Errorf("juelsPerFeeCoinSource cache duration: %s is below 30 second minimum", config.JuelsPerFeeCoinCacheDuration.Duration().String())
-		} else if config.JuelsPerFeeCoinCacheDuration.Duration() > time.Minute*20 {
-			return errors.Errorf("juelsPerFeeCoinSource cache duration: %s is above 20 minute maximum", config.JuelsPerFeeCoinCacheDuration.Duration().String())
+	// unset durations have a default set late
+	if config.JuelsPerFeeCoinCache != nil {
+		updateInterval := config.JuelsPerFeeCoinCache.UpdateInterval.Duration()
+		if updateInterval != 0 && updateInterval < time.Second*30 {
+			return errors.Errorf("juelsPerFeeCoinSourceCache update interval: %s is below 30 second minimum", updateInterval.String())
+		} else if updateInterval > time.Minute*20 {
+			return errors.Errorf("juelsPerFeeCoinSourceCache update interval: %s is above 20 minute maximum", updateInterval.String())
 		}
 	}
 
+	// Gas price pipeline is optional
+	if !config.HasGasPriceSubunitsPipeline() {
+		return nil
+	} else if _, err := pipeline.Parse(config.GasPriceSubunitsPipeline); err != nil {
+		return errors.Wrap(err, "invalid gasPriceSubunitsSource pipeline")
+	}
+
 	return nil
+}
+
+func (config *PluginConfig) HasGasPriceSubunitsPipeline() bool {
+	return strings.TrimSpace(config.GasPriceSubunitsPipeline) != ""
 }

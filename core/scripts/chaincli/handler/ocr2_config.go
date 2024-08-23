@@ -20,7 +20,6 @@ import (
 )
 
 func OCR2GetConfig(hdlr *baseHandler, registry_addr string) error {
-
 	b, err := common.ParseHexOrString(registry_addr)
 	if err != nil {
 		return fmt.Errorf("failed to parse address hash: %s", err)

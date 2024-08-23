@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type FunctionsReportingPluginFactory struct {
@@ -151,7 +150,7 @@ func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp
 		"oracleID": r.genericConfig.OracleID,
 	})
 	maxBatchSize := r.specificConfig.Config.GetMaxRequestBatchSize()
-	results, err := r.pluginORM.FindOldestEntriesByState(functions.RESULT_READY, maxBatchSize, pg.WithParentCtx(ctx))
+	results, err := r.pluginORM.FindOldestEntriesByState(ctx, functions.RESULT_READY, maxBatchSize)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +221,7 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 			continue
 		}
 		processedIds[id] = true
-		localResult, err2 := r.pluginORM.FindById(id, pg.WithParentCtx(ctx))
+		localResult, err2 := r.pluginORM.FindById(ctx, id)
 		if err2 != nil {
 			r.logger.Debug("FunctionsReporting Observation can't find request from query", commontypes.LogFields{
 				"requestID": formatRequestId(id[:]),
@@ -338,7 +337,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 		}
 
 		// TODO: support per-request aggregation method
-		// https://app.shortcut.com/chainlinklabs/story/57701/per-request-plugin-config
+		// https://smartcontract-it.atlassian.net/browse/FUN-159
 		aggregated, errAgg := Aggregate(defaultAggMethod, observations)
 		if errAgg != nil {
 			r.logger.Error("FunctionsReporting Report: error when aggregating reqId", commontypes.LogFields{
@@ -429,14 +428,14 @@ func (r *functionsReporting) ShouldAcceptFinalizedReport(ctx context.Context, ts
 			r.logger.Error("FunctionsReporting ShouldAcceptFinalizedReport: invalid ID", commontypes.LogFields{"requestID": reqIdStr, "err": err})
 			continue
 		}
-		_, err = r.pluginORM.FindById(id, pg.WithParentCtx(ctx))
+		_, err = r.pluginORM.FindById(ctx, id)
 		if err != nil {
 			// TODO: Differentiate between ID not found and other ORM errors (https://smartcontract-it.atlassian.net/browse/DRO-215)
 			r.logger.Warn("FunctionsReporting ShouldAcceptFinalizedReport: request doesn't exist locally! Accepting anyway.", commontypes.LogFields{"requestID": reqIdStr})
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
 			continue
 		}
-		err = r.pluginORM.SetFinalized(id, item.Result, item.Error, pg.WithParentCtx(ctx)) // validates state transition
+		err = r.pluginORM.SetFinalized(ctx, id, item.Result, item.Error) // validates state transition
 		if err != nil {
 			r.logger.Debug("FunctionsReporting ShouldAcceptFinalizedReport: state couldn't be changed to FINALIZED. Not transmitting.", commontypes.LogFields{"requestID": reqIdStr, "err": err})
 			continue
@@ -490,7 +489,7 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 			r.logger.Error("FunctionsReporting ShouldAcceptFinalizedReport: invalid ID", commontypes.LogFields{"requestID": reqIdStr, "err": err})
 			continue
 		}
-		request, err := r.pluginORM.FindById(id, pg.WithParentCtx(ctx))
+		request, err := r.pluginORM.FindById(ctx, id)
 		if err != nil {
 			r.logger.Warn("FunctionsReporting ShouldTransmitAcceptedReport: request doesn't exist locally! Transmitting anyway.", commontypes.LogFields{"requestID": reqIdStr, "err": err})
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)

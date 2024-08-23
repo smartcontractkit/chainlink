@@ -165,6 +165,5 @@ func TestScheduler(t *testing.T) {
 		}
 
 		test.assertion(t, *p, s.results)
-
 	}
 }

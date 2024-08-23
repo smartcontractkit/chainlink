@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
@@ -163,10 +164,9 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	b.Commit()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewQConfig(false)
 	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	lggr := logger.TestLogger(t)
-	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
+	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr)
 
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
@@ -175,10 +175,11 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, lpOpts)
+	ht := headtracker.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, ht, lpOpts)
 	servicetest.Run(t, lp)
 
-	configPoller, err := NewConfigPoller(lggr, lp, verifierAddress, feedID)
+	configPoller, err := NewConfigPoller(testutils.Context(t), lggr, lp, verifierAddress, feedID)
 	require.NoError(t, err)
 
 	configPoller.Start()

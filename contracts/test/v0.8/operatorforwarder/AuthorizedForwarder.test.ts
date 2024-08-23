@@ -18,7 +18,7 @@ before(async () => {
 
   roles = users.roles
   getterSetterFactory = await ethers.getContractFactory(
-    'src/v0.4/tests/GetterSetter.sol:GetterSetter',
+    'src/v0.8/operatorforwarder/test/testhelpers/GetterSetter.sol:GetterSetter',
     roles.defaultAccount,
   )
   brokenFactory = await ethers.getContractFactory(
@@ -26,11 +26,11 @@ before(async () => {
     roles.defaultAccount,
   )
   forwarderFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/AuthorizedForwarder.sol:AuthorizedForwarder',
+    'src/v0.8/operatorforwarder/AuthorizedForwarder.sol:AuthorizedForwarder',
     roles.defaultAccount,
   )
   linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
+    'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
     roles.defaultAccount,
   )
 })
@@ -254,7 +254,7 @@ describe('AuthorizedForwarder', () => {
               forwarder
                 .connect(roles.defaultAccount)
                 .forward(brokenMock.address, brokenMsgPayload),
-              "reverted with reason string 'Failure message'",
+              'Failure message',
             )
           })
         })
@@ -371,7 +371,7 @@ describe('AuthorizedForwarder', () => {
               forwarder
                 .connect(roles.defaultAccount)
                 .multiForward([brokenMock.address], [brokenMsgPayload]),
-              "reverted with reason string 'Failure message'",
+              'Failure message',
             )
           })
         })
@@ -463,7 +463,7 @@ describe('AuthorizedForwarder', () => {
               forwarder
                 .connect(roles.defaultAccount)
                 .multiForward([brokenMock.address], [brokenMsgPayload]),
-              "reverted with reason string 'Failure message'",
+              'Failure message',
             )
           })
         })
@@ -509,7 +509,7 @@ describe('AuthorizedForwarder', () => {
                   [brokenMock.address, mock.address],
                   [brokenMsgPayload, payload],
                 ),
-              "reverted with reason string 'Failure message'",
+              'Failure message',
             )
 
             await evmRevert(
@@ -519,7 +519,7 @@ describe('AuthorizedForwarder', () => {
                   [mock.address, brokenMock.address],
                   [payload, brokenMsgPayload],
                 ),
-              "reverted with reason string 'Failure message'",
+              'Failure message',
             )
           })
         })

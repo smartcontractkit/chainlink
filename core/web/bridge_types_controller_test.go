@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -115,21 +114,21 @@ func TestValidateBridgeType(t *testing.T) {
 func TestValidateBridgeNotExist(t *testing.T) {
 	t.Parallel()
 
+	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewQConfig(true)
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
+	orm := bridges.NewORM(db)
 
 	// Create a duplicate
 	bt := bridges.BridgeType{}
 	bt.Name = bridges.MustParseBridgeName("solargridreporting")
 	bt.URL = cltest.WebURL(t, "https://denergy.eth")
-	assert.NoError(t, orm.CreateBridgeType(&bt))
+	assert.NoError(t, orm.CreateBridgeType(ctx, &bt))
 
 	newBridge := bridges.BridgeTypeRequest{
 		Name: "solargridreporting",
 	}
 	expected := models.NewJSONAPIErrorsWith("Bridge Type solargridreporting already exists")
-	result := web.ValidateBridgeTypeNotExist(&newBridge, orm)
+	result := web.ValidateBridgeTypeNotExist(ctx, &newBridge, orm)
 	assert.Equal(t, expected, result)
 }
 
@@ -199,7 +198,8 @@ func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.Bridg
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	err := orm.CreateBridgeType(bt1)
+	ctx := testutils.Context(t)
+	err := orm.CreateBridgeType(ctx, bt1)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +209,7 @@ func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.Bridg
 		URL:           cltest.WebURL(t, "https://testing.com/tari"),
 		Confirmations: 0,
 	}
-	err = orm.CreateBridgeType(bt2)
+	err = orm.CreateBridgeType(ctx, bt2)
 	return []*bridges.BridgeType{bt1, bt2}, err
 }
 
@@ -232,7 +232,8 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	assert.NotEmpty(t, respJSON.Get("data.attributes.incomingToken").String())
 	assert.NotEmpty(t, respJSON.Get("data.attributes.outgoingToken").String())
 
-	bt, err := app.BridgeORM().FindBridge(bridges.MustParseBridgeName(btName))
+	ctx := testutils.Context(t)
+	bt, err := app.BridgeORM().FindBridge(ctx, bridges.MustParseBridgeName(btName))
 	assert.NoError(t, err)
 	assert.Equal(t, "randomnumber", bt.Name.String())
 	assert.Equal(t, uint32(10), bt.Confirmations)
@@ -253,15 +254,16 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 		Name: bridges.MustParseBridgeName(bridgeName),
 		URL:  cltest.WebURL(t, "http://mybridge"),
 	}
-	require.NoError(t, app.BridgeORM().CreateBridgeType(bt))
+	ctx := testutils.Context(t)
+	require.NoError(t, app.BridgeORM().CreateBridgeType(ctx, bt))
 
 	body := fmt.Sprintf(`{"name": "%s","url":"http://yourbridge"}`, bridgeName)
-	ud := bytes.NewBuffer([]byte(body))
+	ud := bytes.NewBufferString(body)
 	resp, cleanup := client.Patch("/v2/bridge_types/"+bridgeName, ud)
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	ubt, err := app.BridgeORM().FindBridge(bt.Name)
+	ubt, err := app.BridgeORM().FindBridge(ctx, bt.Name)
 	assert.NoError(t, err)
 	assert.Equal(t, cltest.WebURL(t, "http://yourbridge"), ubt.URL)
 }
@@ -279,7 +281,8 @@ func TestBridgeController_Show(t *testing.T) {
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	require.NoError(t, app.BridgeORM().CreateBridgeType(bt))
+	ctx := testutils.Context(t)
+	require.NoError(t, app.BridgeORM().CreateBridgeType(ctx, bt))
 
 	resp, cleanup := client.Get("/v2/bridge_types/" + bt.Name.String())
 	t.Cleanup(cleanup)

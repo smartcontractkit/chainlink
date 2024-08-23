@@ -109,7 +109,6 @@ func TestField_Clone(t *testing.T) {
 	assert.Equal(t, f, g, "clone output does not equal original")
 	g.Add(f, f)
 	assert.Equal(t, f, h, "clone does not make a copy")
-
 }
 
 func TestField_SetBytesAndBytes(t *testing.T) {

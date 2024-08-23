@@ -3,26 +3,17 @@ package webhook_test
 import (
 	"testing"
 
-	"github.com/jmoiron/sqlx"
-
-	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
-
-func newBridgeORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig) bridges.ORM {
-	return bridges.NewORM(db, logger.TestLogger(t), cfg)
-}
 
 type eiEnabledCfg struct{}
 
@@ -34,7 +25,7 @@ func (eiDisabledCfg) ExternalInitiatorsEnabled() bool { return false }
 
 func Test_Authorizer(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	borm := newBridgeORM(t, db, pgtest.NewQConfig(true))
+	borm := bridges.NewORM(db)
 
 	eiFoo := cltest.MustInsertExternalInitiator(t, borm)
 	eiBar := cltest.MustInsertExternalInitiator(t, borm)
@@ -51,7 +42,7 @@ func Test_Authorizer(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("no user no ei never authorizes", func(t *testing.T) {
-		a := webhook.NewAuthorizer(db.DB, nil, nil)
+		a := webhook.NewAuthorizer(db, nil, nil)
 
 		can, err := a.CanRun(testutils.Context(t), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
@@ -65,7 +56,7 @@ func Test_Authorizer(t *testing.T) {
 	})
 
 	t.Run("with user no ei always authorizes", func(t *testing.T) {
-		a := webhook.NewAuthorizer(db.DB, &sessions.User{}, nil)
+		a := webhook.NewAuthorizer(db, &sessions.User{}, nil)
 
 		can, err := a.CanRun(testutils.Context(t), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
@@ -79,7 +70,7 @@ func Test_Authorizer(t *testing.T) {
 	})
 
 	t.Run("no user with ei authorizes conditionally", func(t *testing.T) {
-		a := webhook.NewAuthorizer(db.DB, nil, &eiFoo)
+		a := webhook.NewAuthorizer(db, nil, &eiFoo)
 
 		can, err := a.CanRun(testutils.Context(t), eiEnabledCfg{}, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)

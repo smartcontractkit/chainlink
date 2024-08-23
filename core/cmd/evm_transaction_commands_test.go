@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
@@ -33,7 +32,7 @@ func TestShell_IndexTransactions(t *testing.T) {
 
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
-	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
+	txStore := cltest.NewTestTxStore(t, app.GetDB())
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
 	attempt := tx.TxAttempts[0]
 
@@ -71,10 +70,10 @@ func TestShell_ShowTransaction(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
 
-	db := app.GetSqlxDB()
+	db := app.GetDB()
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
-	txStore := cltest.NewTestTxStore(t, db, app.GetConfig().Database())
+	txStore := cltest.NewTestTxStore(t, db)
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
 	attempt := tx.TxAttempts[0]
 
@@ -98,7 +97,7 @@ func TestShell_IndexTxAttempts(t *testing.T) {
 
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
-	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
+	txStore := cltest.NewTestTxStore(t, app.GetDB())
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
 
 	// page 1
@@ -157,9 +156,8 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 		withMocks(ethMock, key),
 	)
 	client, r := app.NewShellAndRenderer()
-	db := app.GetSqlxDB()
-	cfg := pgtest.NewQConfig(false)
-	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	db := app.GetDB()
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	set := flag.NewFlagSet("sendether", 0)
 	flagSetApplyFromAction(client.SendEther, set, "")
 
@@ -192,7 +190,6 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, attempts, 1)
 	assert.Equal(t, attempts[0].Hash, output.Hash)
-
 }
 
 func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
@@ -223,9 +220,8 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 		withMocks(ethMock, key),
 	)
 	client, r := app.NewShellAndRenderer()
-	db := app.GetSqlxDB()
-	cfg := pgtest.NewQConfig(false)
-	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	db := app.GetDB()
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 
 	set := flag.NewFlagSet("sendether", 0)
 	flagSetApplyFromAction(client.SendEther, set, "")

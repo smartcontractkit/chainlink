@@ -92,9 +92,27 @@
     },
     {
       "type": "checks",
+      "id": "EVM.0.Txm.Finalizer",
+      "attributes": {
+        "name": "EVM.0.Txm.Finalizer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "EVM.0.Txm.WrappedEvmEstimator",
       "attributes": {
         "name": "EVM.0.Txm.WrappedEvmEstimator",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "HeadReporter",
+      "attributes": {
+        "name": "HeadReporter",
         "status": "passing",
         "output": ""
       }
@@ -155,9 +173,9 @@
     },
     {
       "type": "checks",
-      "id": "PromReporter",
+      "id": "PipelineRunner.BridgeCache",
       "attributes": {
-        "name": "PromReporter",
+        "name": "PipelineRunner.BridgeCache",
         "status": "passing",
         "output": ""
       }

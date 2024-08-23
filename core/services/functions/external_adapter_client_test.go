@@ -27,7 +27,7 @@ func runFetcherTest(t *testing.T, adapterJSONResponse, expectedSecrets, expected
 	adapterUrl, err := url.Parse(ts.URL)
 	assert.NoError(t, err, "Unexpected error")
 
-	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
+	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0, 0)
 	encryptedSecrets, userError, err := ea.FetchEncryptedSecrets(testutils.Context(t), []byte("urls to secrets"), "requestID1234", "TestJob")
 
 	if expectedError != nil {
@@ -50,7 +50,7 @@ func runRequestTest(t *testing.T, adapterJSONResponse, expectedUserResult, expec
 	adapterUrl, err := url.Parse(ts.URL)
 	assert.NoError(t, err, "Unexpected error")
 
-	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
+	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0, 0)
 	userResult, userError, domains, err := ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "", &functions.RequestData{})
 
 	if expectedError != nil {
@@ -144,15 +144,7 @@ func TestFetchEncryptedSecrets_UnexpectedResult(t *testing.T) {
 }
 
 func TestRunComputation_Success(t *testing.T) {
-	runRequestTest(t, `{
-	    	"result": "success",
-				"data": {
-					"result": "0x616263646566",
-					"error": "",
-					"domains": ["domain1", "domain2"]
-				},
-				"statusCode": 200
-			}`, "abcdef", "", []string{"domain1", "domain2"}, nil)
+	runRequestTest(t, runComputationSuccessResponse, "abcdef", "", []string{"domain1", "domain2"}, nil)
 }
 
 func TestRunComputation_MissingData(t *testing.T) {
@@ -177,7 +169,7 @@ func TestRunComputation_CorrectAdapterRequest(t *testing.T) {
 	adapterUrl, err := url.Parse(ts.URL)
 	assert.NoError(t, err)
 
-	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
+	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0, 0)
 	reqData := &functions.RequestData{
 		Source:          "abcd",
 		Language:        7,
@@ -199,7 +191,7 @@ func TestRunComputation_HTTP500(t *testing.T) {
 	adapterUrl, err := url.Parse(ts.URL)
 	assert.NoError(t, err)
 
-	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
+	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0, 0)
 	_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
 	assert.Error(t, err)
 }
@@ -214,10 +206,95 @@ func TestRunComputation_ContextRespected(t *testing.T) {
 	adapterUrl, err := url.Parse(ts.URL)
 	assert.NoError(t, err)
 
-	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
+	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0, 0)
 	ctx, cancel := context.WithTimeout(testutils.Context(t), 10*time.Millisecond)
 	defer cancel()
 	_, _, _, err = ea.RunComputation(ctx, "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
 	assert.Error(t, err)
 	close(done)
 }
+
+func TestRunComputationRetrial(t *testing.T) {
+	t.Run("OK-retry_succeeds_after_one_failure", func(t *testing.T) {
+		counter := 0
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch counter {
+			case 0:
+				counter++
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			case 1:
+				counter++
+				fmt.Fprintln(w, runComputationSuccessResponse)
+				return
+			default:
+				t.Errorf("invalid amount of retries: %d", counter)
+				t.FailNow()
+			}
+		}))
+		defer ts.Close()
+
+		adapterUrl, err := url.Parse(ts.URL)
+		assert.NoError(t, err)
+
+		ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 1, 1*time.Nanosecond)
+		_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
+		assert.NoError(t, err)
+	})
+
+	t.Run("NOK-retry_fails_after_retrial", func(t *testing.T) {
+		counter := 0
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch counter {
+			case 0, 1:
+				counter++
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			default:
+				t.Errorf("invalid amount of retries: %d", counter)
+				t.FailNow()
+			}
+		}))
+		defer ts.Close()
+
+		adapterUrl, err := url.Parse(ts.URL)
+		assert.NoError(t, err)
+
+		ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 1, 1*time.Nanosecond)
+		_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
+		assert.Error(t, err)
+	})
+
+	t.Run("NOK-dont_retry_on_4XX_errors", func(t *testing.T) {
+		counter := 0
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch counter {
+			case 0:
+				counter++
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			default:
+				t.Errorf("invalid amount of retries: %d", counter)
+				t.FailNow()
+			}
+		}))
+		defer ts.Close()
+
+		adapterUrl, err := url.Parse(ts.URL)
+		assert.NoError(t, err)
+
+		ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 1, 1*time.Nanosecond)
+		_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
+		assert.Error(t, err)
+	})
+}
+
+const runComputationSuccessResponse = `{
+	"result": "success",
+		"data": {
+			"result": "0x616263646566",
+			"error": "",
+			"domains": ["domain1", "domain2"]
+		},
+		"statusCode": 200
+	}`

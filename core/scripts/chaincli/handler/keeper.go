@@ -246,7 +246,6 @@ func (k *Keeper) VerifyContract(params ...string) {
 	fmt.Println("Running command to verify contract: ", command)
 	if err := k.runCommand(command); err != nil {
 		log.Println("Contract verification on Explorer failed: ", err)
-
 	}
 }
 

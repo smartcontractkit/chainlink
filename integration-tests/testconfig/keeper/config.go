@@ -2,17 +2,26 @@ package keeper
 
 import (
 	"errors"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 )
 
 type Config struct {
-	Common *Common `toml:"Common"`
+	Common     *Common           `toml:"Common"`
+	Resiliency *ResiliencyConfig `toml:"Resiliency"`
 }
 
 func (c *Config) Validate() error {
 	if c.Common == nil {
 		return nil
 	}
-	return c.Common.Validate()
+	if err := c.Common.Validate(); err != nil {
+		return err
+	}
+	if c.Resiliency == nil {
+		return nil
+	}
+	return c.Resiliency.Validate()
 }
 
 type Common struct {
@@ -81,5 +90,21 @@ func (c *Common) Validate() error {
 	if c.GasFeedAddress == nil {
 		c.GasFeedAddress = new(string)
 	}
+	return nil
+}
+
+type ResiliencyConfig struct {
+	ContractCallLimit    *uint                   `toml:"contract_call_limit"`
+	ContractCallInterval *blockchain.StrDuration `toml:"contract_call_interval"`
+}
+
+func (c *ResiliencyConfig) Validate() error {
+	if c.ContractCallLimit == nil {
+		return errors.New("contract_call_limit must be set")
+	}
+	if c.ContractCallInterval == nil {
+		return errors.New("contract_call_interval must be set")
+	}
+
 	return nil
 }

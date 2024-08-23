@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"maps"
-	"math/big"
 	"net/url"
 	"os"
 	"regexp"
@@ -13,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
@@ -23,7 +21,6 @@ import (
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -41,6 +38,11 @@ import (
 var (
 	ErrConnectNodeClient    = "could not connect Node HTTP Client"
 	ErrStartCLNodeContainer = "failed to start CL node container"
+)
+
+const (
+	RestartContainer  = true
+	StartNewContainer = false
 )
 
 type ClNode struct {
@@ -73,6 +75,14 @@ func WithNodeEnvVars(ev map[string]string) ClNodeOption {
 	}
 }
 
+func WithStartupTimeout(timeout time.Duration) ClNodeOption {
+	return func(n *ClNode) {
+		if timeout != 0 {
+			n.StartupTimeout = timeout
+		}
+	}
+}
+
 // Sets custom node container name if name is not empty
 func WithNodeContainerName(name string) ClNodeOption {
 	return func(c *ClNode) {
@@ -88,12 +98,6 @@ func WithDbContainerName(name string) ClNodeOption {
 		if name != "" {
 			c.PostgresDb.ContainerName = name
 		}
-	}
-}
-
-func WithLogStream(ls *logstream.LogStream) ClNodeOption {
-	return func(c *ClNode) {
-		c.LogStream = ls
 	}
 }
 
@@ -119,10 +123,11 @@ func WithPgDBOptions(opts ...test_env.PostgresDbOption) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, opts ...ClNodeOption) (*ClNode, error) {
+func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, logStream *logstream.LogStream, opts ...ClNodeOption) (*ClNode, error) {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
-	pgDb, err := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
+
+	pgDb, err := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName), test_env.WithPostgresDbLogStream(logStream))
 	if err != nil {
 		return nil, err
 	}
@@ -132,6 +137,8 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 			ContainerImage:   imageName,
 			ContainerVersion: imageVersion,
 			Networks:         networks,
+			LogStream:        logStream,
+			StartupTimeout:   3 * time.Minute,
 		},
 		UserEmail:    "local@local.com",
 		UserPassword: "localdevpassword",
@@ -158,7 +165,7 @@ func (n *ClNode) Restart(cfg *chainlink.Config) error {
 		return err
 	}
 	n.NodeConfig = cfg
-	return n.StartContainer()
+	return n.RestartContainer()
 }
 
 // UpgradeVersion restarts the cl node with new image and version
@@ -270,23 +277,13 @@ func (n *ClNode) ChainlinkNodeAddress() (common.Address, error) {
 	return common.HexToAddress(addr), nil
 }
 
-func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
-	toAddress, err := n.API.PrimaryEthAddress()
-	if err != nil {
-		return err
+func (n *ClNode) containerStartOrRestart(restartDb bool) error {
+	var err error
+	if restartDb {
+		err = n.PostgresDb.RestartContainer()
+	} else {
+		err = n.PostgresDb.StartContainer()
 	}
-	toAddr := common.HexToAddress(toAddress)
-	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{
-		To: &toAddr,
-	})
-	if err != nil {
-		return err
-	}
-	return evmClient.Fund(toAddress, amount, gasEstimates)
-}
-
-func (n *ClNode) StartContainer() error {
-	err := n.PostgresDb.StartContainer()
 	if err != nil {
 		return err
 	}
@@ -294,7 +291,7 @@ func (n *ClNode) StartContainer() error {
 	// If the node secrets TOML is not set, generate it with the default template
 	nodeSecretsToml, err := templates.NodeSecretsTemplate{
 		PgDbName:      n.PostgresDb.DbName,
-		PgHost:        n.PostgresDb.ContainerName,
+		PgHost:        strings.Split(n.PostgresDb.InternalURL.Host, ":")[0],
 		PgPort:        n.PostgresDb.InternalPort,
 		PgPassword:    n.PostgresDb.Password,
 		CustomSecrets: n.NodeSecretsConfigTOML,
@@ -318,7 +315,7 @@ func (n *ClNode) StartContainer() error {
 	container, err := docker.StartContainerWithRetry(n.l, tc.GenericContainerRequest{
 		ContainerRequest: *cReq,
 		Started:          true,
-		Reuse:            true,
+		Reuse:            false,
 		Logger:           l,
 	})
 	if err != nil {
@@ -352,11 +349,19 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return fmt.Errorf("%s err: %w", ErrConnectNodeClient, err)
 	}
-	clClient.Config.InternalIP = n.ContainerName
+
 	n.Container = container
 	n.API = clClient
 
 	return nil
+}
+
+func (n *ClNode) RestartContainer() error {
+	return n.containerStartOrRestart(RestartContainer)
+}
+
+func (n *ClNode) StartContainer() error {
+	return n.containerStartOrRestart(StartNewContainer)
 }
 
 func (n *ClNode) ExecGetVersion() (string, error) {
@@ -381,17 +386,25 @@ func (n *ClNode) ExecGetVersion() (string, error) {
 	return "", errors.Errorf("could not find chainlink version in command output '%'", output)
 }
 
+func (n ClNode) GetNodeConfigStr() (string, error) {
+	data, err := toml.Marshal(n.NodeConfig)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 func (n *ClNode) getContainerRequest(secrets string) (
 	*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
 		return nil, err
 	}
-	data, err := toml.Marshal(n.NodeConfig)
+	configStr, err := n.GetNodeConfigStr()
 	if err != nil {
 		return nil, err
 	}
-	_, err = configFile.WriteString(string(data))
+	_, err = configFile.WriteString(configStr)
 	if err != nil {
 		return nil, err
 	}
@@ -443,9 +456,9 @@ func (n *ClNode) getContainerRequest(secrets string) (
 			"-a", apiCredsPath,
 		},
 		Networks: append(n.Networks, "tracing"),
-		WaitingFor: tcwait.ForHTTP("/health").
+		WaitingFor: tcwait.ForHTTP("/readyz").
 			WithPort("6688/tcp").
-			WithStartupTimeout(90 * time.Second).
+			WithStartupTimeout(n.StartupTimeout).
 			WithPollInterval(1 * time.Second),
 		Files: []tc.ContainerFile{
 			{

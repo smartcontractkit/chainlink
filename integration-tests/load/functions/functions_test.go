@@ -11,12 +11,11 @@ import (
 )
 
 func TestFunctionsLoad(t *testing.T) {
-	generalConfig, err := tc.GetConfig(tc.NoKey, tc.Functions)
+	generalConfig, err := tc.GetConfig([]string{""}, tc.Functions)
 	require.NoError(t, err, "failed to get config")
 
 	ft, err := SetupLocalLoadTestEnv(&generalConfig, &generalConfig)
 	require.NoError(t, err)
-	ft.EVMClient.ParallelTransactions(false)
 
 	labels := map[string]string{
 		"branch": "functions_healthcheck",
@@ -26,7 +25,7 @@ func TestFunctionsLoad(t *testing.T) {
 	MonitorLoadStats(t, ft, labels, &generalConfig)
 
 	t.Run("mumbai functions soak test http", func(t *testing.T) {
-		config, err := tc.GetConfig("Soak", tc.Functions)
+		config, err := tc.GetConfig([]string{"Soak"}, tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
 		cfgl := config.Logging.Loki
@@ -60,7 +59,7 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions stress test http", func(t *testing.T) {
-		config, err := tc.GetConfig("Stress", tc.Functions)
+		config, err := tc.GetConfig([]string{"Stress"}, tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
 		cfgl := config.Logging.Loki
@@ -94,7 +93,7 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions soak test only secrets", func(t *testing.T) {
-		config, err := tc.GetConfig("SecretsSoak", tc.Functions)
+		config, err := tc.GetConfig([]string{"SecretsSoak"}, tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
 		cfgl := config.Logging.Loki
@@ -128,7 +127,7 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions stress test only secrets", func(t *testing.T) {
-		config, err := tc.GetConfig("SecretsStress", tc.Functions)
+		config, err := tc.GetConfig([]string{"SecretsStress"}, tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
 		cfgl := config.Logging.Loki
@@ -162,7 +161,7 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions soak test real", func(t *testing.T) {
-		config, err := tc.GetConfig("RealSoak", tc.Functions)
+		config, err := tc.GetConfig([]string{"RealSoak"}, tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
 		cfgl := config.Logging.Loki
@@ -196,7 +195,7 @@ func TestFunctionsLoad(t *testing.T) {
 	})
 
 	t.Run("mumbai functions stress test real", func(t *testing.T) {
-		config, err := tc.GetConfig("RealStress", tc.Functions)
+		config, err := tc.GetConfig([]string{"RealStress"}, tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
 		cfgl := config.Logging.Loki

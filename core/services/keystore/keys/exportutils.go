@@ -32,7 +32,6 @@ func FromEncryptedJSON[E Encrypted, K any](
 	passwordFunc func(string) string,
 	privKeyToKey func(export E, rawPrivKey []byte) (K, error),
 ) (K, error) {
-
 	// unmarshal byte data to [E] Encrypted key export
 	var export E
 	if err := json.Unmarshal(keyJSON, &export); err != nil {
@@ -64,7 +63,6 @@ func ToEncryptedJSON[E Encrypted, K any](
 	passwordFunc func(string) string,
 	buildExport func(id string, key K, cryptoJSON keystore.CryptoJSON) E,
 ) (export []byte, err error) {
-
 	// encrypt data using prefixed password
 	cryptoJSON, err := keystore.EncryptDataV3(
 		raw,

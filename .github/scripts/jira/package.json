@@ -1,0 +1,30 @@
+{
+  "name": "jira",
+  "version": "0.1.0",
+  "description": "Updates Jira issue with release information like the version and tags for a PR.",
+  "main": "update-jira-issue.js",
+  "type": "module",
+  "private": true,
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "issue:update": "tsx update-jira-issue.ts",
+    "issue:enforce": "tsx enforce-jira-issue.ts",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@actions/core": "^1.10.1",
+    "jira.js": "^4.0.1",
+    "tsx": "^4.16.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "typescript": "^5.5.3",
+    "vitest": "^2.0.3"
+  }
+}

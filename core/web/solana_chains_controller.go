@@ -8,8 +8,8 @@ import (
 
 func NewSolanaChainsController(app chainlink.Application) ChainsController {
 	return newChainsController(
-		relay.Solana,
-		app.GetRelayers().List(chainlink.FilterRelayersByType(relay.Solana)),
+		relay.NetworkSolana,
+		app.GetRelayers().List(chainlink.FilterRelayersByType(relay.NetworkSolana)),
 		ErrSolanaNotEnabled,
 		presenters.NewSolanaChainResource,
 		app.GetLogger(),

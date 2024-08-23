@@ -9,6 +9,7 @@ type Plugins {
 	execute: Boolean!
 	median: Boolean!
 	mercury: Boolean!
+	rebalancer: Boolean!
 }
 
 type FeedsManager {
@@ -27,6 +28,7 @@ type FeedsManagerChainConfig {
 	chainID: String!
 	chainType: String!
 	accountAddr: String!
+	accountAddrPubKey: String
 	adminAddr: String!
 	fluxMonitorJobConfig: FluxMonitorJobConfig!
 	ocr1JobConfig: OCR1JobConfig!
@@ -108,6 +110,7 @@ input CreateFeedsManagerChainConfigInput {
 	chainID: String!
 	chainType: String!
 	accountAddr: String!
+	accountAddrPubKey: String
 	adminAddr: String!
 	fluxMonitorEnabled: Boolean!
 	ocr1Enabled: Boolean!
@@ -149,6 +152,7 @@ union DeleteFeedsManagerChainConfigPayload = DeleteFeedsManagerChainConfigSucces
 
 input UpdateFeedsManagerChainConfigInput {
 	accountAddr: String!
+	accountAddrPubKey: String
 	adminAddr: String!
 	fluxMonitorEnabled: Boolean!
 	ocr1Enabled: Boolean!

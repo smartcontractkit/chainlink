@@ -11,10 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestNullClient(t *testing.T) {
@@ -33,7 +34,7 @@ func TestNullClient(t *testing.T) {
 	t.Run("CL client methods", func(t *testing.T) {
 		lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
-		ctx := testutils.Context(t)
+		ctx := tests.Context(t)
 
 		err := nc.Dial(ctx)
 		require.NoError(t, err)
@@ -79,7 +80,7 @@ func TestNullClient(t *testing.T) {
 	t.Run("Geth client methods", func(t *testing.T) {
 		lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
-		ctx := testutils.Context(t)
+		ctx := tests.Context(t)
 
 		h, err := nc.HeaderByNumber(ctx, nil)
 		require.NoError(t, err)

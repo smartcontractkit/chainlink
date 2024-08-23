@@ -118,7 +118,6 @@ func TestPeriodicBackup_AlternativeOutputDir(t *testing.T) {
 
 	assert.Greater(t, file.Size(), int64(0))
 	assert.Contains(t, result.path, "/alternative/cl_backup_0.9.9.dump")
-
 }
 
 type testConfig struct {

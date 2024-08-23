@@ -25,6 +25,7 @@ type AppConfig interface {
 	CosmosEnabled() bool
 	SolanaEnabled() bool
 	StarkNetEnabled() bool
+	AptosEnabled() bool
 
 	Validate() error
 	ValidateDB() error
@@ -35,6 +36,7 @@ type AppConfig interface {
 
 	AuditLogger() AuditLogger
 	AutoPprof() AutoPprof
+	Capabilities() Capabilities
 	Database() Database
 	Feature() Feature
 	FluxMonitor() FluxMonitor

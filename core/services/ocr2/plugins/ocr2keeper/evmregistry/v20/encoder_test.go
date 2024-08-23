@@ -218,5 +218,4 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 		assert.Errorf(t, err, "pack failed: failed to pack report data")
 		assert.Len(t, b, 0)
 	})
-
 }

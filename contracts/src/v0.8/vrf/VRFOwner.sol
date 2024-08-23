@@ -91,7 +91,7 @@ interface IVRFCoordinatorV2 {
   function hashOfKey(uint256[2] memory publicKey) external pure returns (bytes32);
 
   function fulfillRandomWords(
-    VRFTypes.Proof memory proof,
+    VRFTypes.Proof calldata proof,
     VRFTypes.RequestCommitment memory rc
   ) external returns (uint96);
 }
@@ -110,7 +110,7 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
   event RandomWordsForced(uint256 indexed requestId, uint64 indexed subId, address indexed sender);
 
   constructor(address _vrfCoordinator) ConfirmedOwner(msg.sender) {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(_vrfCoordinator != address(0), "vrf coordinator address must be non-zero");
     s_vrfCoordinator = IVRFCoordinatorV2(_vrfCoordinator);
   }
@@ -281,7 +281,7 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
    * @param rc request commitment pre-image, committed to at request time
    */
   function fulfillRandomWords(
-    VRFTypes.Proof memory proof,
+    VRFTypes.Proof calldata proof,
     VRFTypes.RequestCommitment memory rc
   ) external validateAuthorizedSender {
     uint256 requestId = _requestIdFromProof(proof.pk, proof.seed);

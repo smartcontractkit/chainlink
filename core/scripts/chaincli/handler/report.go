@@ -250,7 +250,6 @@ func (t *OCR2Transaction) To() *common.Address {
 }
 
 func (t *OCR2Transaction) From() (common.Address, error) {
-
 	switch t.tx.Type() {
 	case 2:
 		from, err := types.Sender(types.NewLondonSigner(t.tx.ChainId()), &t.tx)
@@ -296,7 +295,6 @@ type OCR2TransmitTx struct {
 }
 
 func (t *OCR2TransmitTx) UpkeepsInTransmit() ([]ocr2keepers20.UpkeepResult, error) {
-
 	txData := t.tx.Data()
 
 	// recover Method from signature and ABI
@@ -367,7 +365,6 @@ func (t *OCR2TransmitTx) SetStaticValues(elem *OCR2ReportDataElem) {
 }
 
 func (t *OCR2TransmitTx) BatchElem() (rpc.BatchElem, error) {
-
 	bn, err := t.BlockNumber()
 	if err != nil {
 		return rpc.BatchElem{}, err

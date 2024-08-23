@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -38,11 +39,11 @@ type userFindFailer struct {
 	err error
 }
 
-func (u userFindFailer) FindUser(email string) (sessions.User, error) {
+func (u userFindFailer) FindUser(ctx context.Context, email string) (sessions.User, error) {
 	return sessions.User{}, u.err
 }
 
-func (u userFindFailer) FindUserByAPIToken(token string) (sessions.User, error) {
+func (u userFindFailer) FindUserByAPIToken(ctx context.Context, token string) (sessions.User, error) {
 	return sessions.User{}, u.err
 }
 
@@ -51,11 +52,11 @@ type userFindSuccesser struct {
 	user sessions.User
 }
 
-func (u userFindSuccesser) FindUser(email string) (sessions.User, error) {
+func (u userFindSuccesser) FindUser(ctx context.Context, email string) (sessions.User, error) {
 	return u.user, nil
 }
 
-func (u userFindSuccesser) FindUserByAPIToken(token string) (sessions.User, error) {
+func (u userFindSuccesser) FindUserByAPIToken(ctx context.Context, token string) (sessions.User, error) {
 	return u.user, nil
 }
 
@@ -273,19 +274,24 @@ var routesRolesMap = [...]routeRules{
 	{"POST", "/v2/keys/p2p/export/MOCK", false, false, false},
 	{"GET", "/v2/keys/solana", true, true, true},
 	{"GET", "/v2/keys/cosmos", true, true, true},
-	{"GET", "/v2/keys/dkgsign", true, true, true},
+	{"GET", "/v2/keys/starknet", true, true, true},
+	{"GET", "/v2/keys/aptos", true, true, true},
 	{"POST", "/v2/keys/solana", false, false, true},
 	{"POST", "/v2/keys/cosmos", false, false, true},
-	{"POST", "/v2/keys/dkgsign", false, false, true},
+	{"POST", "/v2/keys/starknet", false, false, true},
+	{"POST", "/v2/keys/aptos", false, false, true},
 	{"DELETE", "/v2/keys/solana/MOCK", false, false, false},
 	{"DELETE", "/v2/keys/cosmos/MOCK", false, false, false},
-	{"DELETE", "/v2/keys/dkgsign/MOCK", false, false, false},
+	{"DELETE", "/v2/keys/starknet/MOCK", false, false, false},
+	{"DELETE", "/v2/keys/aptos/MOCK", false, false, false},
 	{"POST", "/v2/keys/solana/import", false, false, false},
 	{"POST", "/v2/keys/cosmos/import", false, false, false},
-	{"POST", "/v2/keys/dkgsign/import", false, false, false},
+	{"POST", "/v2/keys/starknet/import", false, false, false},
+	{"POST", "/v2/keys/aptos/import", false, false, false},
 	{"POST", "/v2/keys/solana/export/MOCK", false, false, false},
 	{"POST", "/v2/keys/cosmos/export/MOCK", false, false, false},
-	{"POST", "/v2/keys/dkgsign/export/MOCK", false, false, false},
+	{"POST", "/v2/keys/starknet/export/MOCK", false, false, false},
+	{"POST", "/v2/keys/aptos/export/MOCK", false, false, false},
 	{"GET", "/v2/keys/vrf", true, true, true},
 	{"POST", "/v2/keys/vrf", false, false, true},
 	{"DELETE", "/v2/keys/vrf/MOCK", false, false, false},

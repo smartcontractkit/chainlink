@@ -8,14 +8,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -31,9 +30,9 @@ const (
 )
 
 type ORM interface {
-	BatchInsertRecords([]persistedStateRecord, ...pg.QOpt) error
-	SelectStatesByWorkIDs([]string, ...pg.QOpt) ([]persistedStateRecord, error)
-	DeleteExpired(time.Time, ...pg.QOpt) error
+	BatchInsertRecords(context.Context, []persistedStateRecord) error
+	SelectStatesByWorkIDs(context.Context, []string) ([]persistedStateRecord, error)
+	DeleteExpired(context.Context, time.Time) error
 }
 
 // UpkeepStateStore is the interface for managing upkeeps final state in a local store.
@@ -84,7 +83,7 @@ type upkeepStateStore struct {
 func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScanner) *upkeepStateStore {
 	return &upkeepStateStore{
 		orm:            orm,
-		lggr:           lggr.Named(UpkeepStateStoreServiceName),
+		lggr:           logger.Named(lggr, UpkeepStateStoreServiceName),
 		cache:          map[string]*upkeepStateRecord{},
 		scanner:        scanner,
 		retention:      CacheExpiration,
@@ -108,7 +107,7 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 		u.lggr.Debug("Starting upkeep state store")
 
 		u.threadCtrl.Go(func(ctx context.Context) {
-			ticker := time.NewTicker(utils.WithJitter(u.cleanCadence))
+			ticker := services.NewTicker(u.cleanCadence)
 			defer ticker.Stop()
 
 			flushTicker := newTickerFn(utils.WithJitter(flushCadence))
@@ -120,7 +119,7 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 					if err := u.cleanup(ctx); err != nil {
 						u.lggr.Errorw("unable to clean old state values", "err", err)
 					}
-					ticker.Reset(utils.WithJitter(u.cleanCadence))
+					ticker.Reset()
 				case <-flushTicker.C:
 					u.flush(ctx)
 					flushTicker.Reset(utils.WithJitter(flushCadence))
@@ -152,7 +151,7 @@ func (u *upkeepStateStore) flush(ctx context.Context) {
 		u.sem <- struct{}{}
 
 		go func() {
-			if err := u.orm.BatchInsertRecords(batch, pg.WithParentCtx(ctx)); err != nil {
+			if err := u.orm.BatchInsertRecords(ctx, batch); err != nil {
 				u.lggr.Errorw("error inserting records", "err", err)
 			}
 			<-u.sem
@@ -268,7 +267,7 @@ func (u *upkeepStateStore) fetchPerformed(ctx context.Context, workIDs ...string
 // fetchFromDB fetches all upkeeps indicated as ineligible from the db to
 // populate the cache.
 func (u *upkeepStateStore) fetchFromDB(ctx context.Context, workIDs ...string) error {
-	states, err := u.orm.SelectStatesByWorkIDs(workIDs, pg.WithParentCtx(ctx))
+	states, err := u.orm.SelectStatesByWorkIDs(ctx, workIDs)
 	if err != nil {
 		return err
 	}
@@ -320,7 +319,9 @@ func (u *upkeepStateStore) cleanup(ctx context.Context) error {
 func (u *upkeepStateStore) cleanDB(ctx context.Context) error {
 	tm := time.Now().Add(-1 * u.retention)
 
-	return u.orm.DeleteExpired(tm, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
+	ctx, cancel := context.WithTimeout(sqlutil.WithoutDefaultTimeout(ctx), time.Minute)
+	defer cancel()
+	return u.orm.DeleteExpired(ctx, tm)
 }
 
 // cleanupCache removes any records from the cache that are older than the TTL.

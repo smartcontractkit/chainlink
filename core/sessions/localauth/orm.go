@@ -1,26 +1,26 @@
 package localauth
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type orm struct {
-	q               pg.Q
+	ds              sqlutil.DataSource
 	sessionDuration time.Duration
 	lggr            logger.Logger
 	auditLogger     audit.AuditLogger
@@ -30,10 +30,9 @@ type orm struct {
 var _ sessions.AuthenticationProvider = (*orm)(nil)
 var _ sessions.BasicAdminUsersORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, sd time.Duration, lggr logger.Logger, cfg pg.QConfig, auditLogger audit.AuditLogger) sessions.AuthenticationProvider {
-	namedLogger := lggr.Named("LocalAuthAuthenticationProviderORM")
+func NewORM(ds sqlutil.DataSource, sd time.Duration, lggr logger.Logger, auditLogger audit.AuditLogger) sessions.AuthenticationProvider {
 	return &orm{
-		q:               pg.NewQ(db, namedLogger, cfg),
+		ds:              ds,
 		sessionDuration: sd,
 		lggr:            lggr.Named("LocalAuthAuthenticationProviderORM"),
 		auditLogger:     auditLogger,
@@ -41,33 +40,33 @@ func NewORM(db *sqlx.DB, sd time.Duration, lggr logger.Logger, cfg pg.QConfig, a
 }
 
 // FindUser will attempt to return an API user by email.
-func (o *orm) FindUser(email string) (sessions.User, error) {
-	return o.findUser(email)
+func (o *orm) FindUser(ctx context.Context, email string) (sessions.User, error) {
+	return o.findUser(ctx, email)
 }
 
 // FindUserByAPIToken will attempt to return an API user via the user's table token_key column.
-func (o *orm) FindUserByAPIToken(apiToken string) (user sessions.User, err error) {
+func (o *orm) FindUserByAPIToken(ctx context.Context, apiToken string) (user sessions.User, err error) {
 	sql := "SELECT * FROM users WHERE token_key = $1"
-	err = o.q.Get(&user, sql, apiToken)
+	err = o.ds.GetContext(ctx, &user, sql, apiToken)
 	return
 }
 
-func (o *orm) findUser(email string) (user sessions.User, err error) {
+func (o *orm) findUser(ctx context.Context, email string) (user sessions.User, err error) {
 	sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
-	err = o.q.Get(&user, sql, email)
+	err = o.ds.GetContext(ctx, &user, sql, email)
 	return
 }
 
 // ListUsers will load and return all user rows from the db.
-func (o *orm) ListUsers() (users []sessions.User, err error) {
+func (o *orm) ListUsers(ctx context.Context) (users []sessions.User, err error) {
 	sql := "SELECT * FROM users ORDER BY email ASC;"
-	err = o.q.Select(&users, sql)
+	err = o.ds.SelectContext(ctx, &users, sql)
 	return
 }
 
 // findValidSession finds an unexpired session by its ID and returns the associated email.
-func (o *orm) findValidSession(sessionID string) (email string, err error) {
-	if err := o.q.Get(&email, "SELECT email FROM sessions WHERE id = $1 AND last_used + $2 >= now() FOR UPDATE", sessionID, o.sessionDuration); err != nil {
+func (o *orm) findValidSession(ctx context.Context, sessionID string) (email string, err error) {
+	if err := o.ds.GetContext(ctx, &email, "SELECT email FROM sessions WHERE id = $1 AND last_used + $2 >= now() FOR UPDATE", sessionID, o.sessionDuration); err != nil {
 		o.lggr.Infof("query result: %v", email)
 		return email, pkgerrors.Wrap(err, "no matching user for provided session token")
 	}
@@ -75,30 +74,31 @@ func (o *orm) findValidSession(sessionID string) (email string, err error) {
 }
 
 // updateSessionLastUsed updates a session by its ID and sets the LastUsed field to now().
-func (o *orm) updateSessionLastUsed(sessionID string) error {
-	return o.q.ExecQ("UPDATE sessions SET last_used = now() WHERE id = $1", sessionID)
+func (o *orm) updateSessionLastUsed(ctx context.Context, sessionID string) error {
+	_, err := o.ds.ExecContext(ctx, "UPDATE sessions SET last_used = now() WHERE id = $1", sessionID)
+	return err
 }
 
 // AuthorizedUserWithSession will return the API user associated with the Session ID if it
 // exists and hasn't expired, and update session's LastUsed field.
 // AuthorizedUserWithSession will return the API user associated with the Session ID if it
 // exists and hasn't expired, and update session's LastUsed field.
-func (o *orm) AuthorizedUserWithSession(sessionID string) (user sessions.User, err error) {
+func (o *orm) AuthorizedUserWithSession(ctx context.Context, sessionID string) (user sessions.User, err error) {
 	if len(sessionID) == 0 {
 		return sessions.User{}, sessions.ErrEmptySessionID
 	}
 
-	email, err := o.findValidSession(sessionID)
+	email, err := o.findValidSession(ctx, sessionID)
 	if err != nil {
 		return sessions.User{}, sessions.ErrUserSessionExpired
 	}
 
-	user, err = o.findUser(email)
+	user, err = o.findUser(ctx, email)
 	if err != nil {
 		return sessions.User{}, sessions.ErrUserSessionExpired
 	}
 
-	if err := o.updateSessionLastUsed(sessionID); err != nil {
+	if err := o.updateSessionLastUsed(ctx, sessionID); err != nil {
 		return sessions.User{}, err
 	}
 
@@ -106,10 +106,10 @@ func (o *orm) AuthorizedUserWithSession(sessionID string) (user sessions.User, e
 }
 
 // DeleteUser will delete an API User and sessions by email.
-func (o *orm) DeleteUser(email string) error {
-	return o.q.Transaction(func(tx pg.Queryer) error {
+func (o *orm) DeleteUser(ctx context.Context, email string) error {
+	return sqlutil.TransactDataSource(ctx, o.ds, nil, func(tx sqlutil.DataSource) error {
 		// session table rows are deleted on cascade through the user email constraint
-		if _, err := tx.Exec("DELETE FROM users WHERE email = $1", email); err != nil {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email); err != nil {
 			return err
 		}
 		return nil
@@ -117,8 +117,8 @@ func (o *orm) DeleteUser(email string) error {
 }
 
 // DeleteUserSession will delete a session by ID.
-func (o *orm) DeleteUserSession(sessionID string) error {
-	_, err := o.q.Exec("DELETE FROM sessions WHERE id = $1", sessionID)
+func (o *orm) DeleteUserSession(ctx context.Context, sessionID string) error {
+	_, err := o.ds.ExecContext(ctx, "DELETE FROM sessions WHERE id = $1", sessionID)
 	return err
 }
 
@@ -126,9 +126,9 @@ func (o *orm) DeleteUserSession(sessionID string) error {
 // tokens for the user. This list must be used when logging in (for obvious reasons) but
 // must also be used for registration to prevent the user from enrolling the same hardware
 // token multiple times.
-func (o *orm) GetUserWebAuthn(email string) ([]sessions.WebAuthn, error) {
+func (o *orm) GetUserWebAuthn(ctx context.Context, email string) ([]sessions.WebAuthn, error) {
 	var uwas []sessions.WebAuthn
-	err := o.q.Select(&uwas, "SELECT email, public_key_data FROM web_authns WHERE LOWER(email) = $1", strings.ToLower(email))
+	err := o.ds.SelectContext(ctx, &uwas, "SELECT email, public_key_data FROM web_authns WHERE LOWER(email) = $1", strings.ToLower(email))
 	if err != nil {
 		return uwas, err
 	}
@@ -140,8 +140,8 @@ func (o *orm) GetUserWebAuthn(email string) ([]sessions.WebAuthn, error) {
 // CreateSession will check the password in the SessionRequest against
 // the hashed API User password in the db. Also will check WebAuthn if it's
 // enabled for that user.
-func (o *orm) CreateSession(sr sessions.SessionRequest) (string, error) {
-	user, err := o.FindUser(sr.Email)
+func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (string, error) {
+	user, err := o.FindUser(ctx, sr.Email)
 	if err != nil {
 		return "", err
 	}
@@ -161,7 +161,7 @@ func (o *orm) CreateSession(sr sessions.SessionRequest) (string, error) {
 	}
 
 	// Load all valid MFA tokens associated with user's email
-	uwas, err := o.GetUserWebAuthn(user.Email)
+	uwas, err := o.GetUserWebAuthn(ctx, user.Email)
 	if err != nil {
 		// There was an error with the database query
 		lggr.Errorf("Could not fetch user's MFA data: %v", err)
@@ -172,7 +172,7 @@ func (o *orm) CreateSession(sr sessions.SessionRequest) (string, error) {
 	if len(uwas) == 0 {
 		lggr.Infof("No MFA for user. Creating Session")
 		session := sessions.NewSession()
-		_, err = o.q.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
+		_, err = o.ds.ExecContext(ctx, "INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
 		o.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]interface{}{"email": sr.Email})
 		return session.ID, err
 	}
@@ -212,7 +212,7 @@ func (o *orm) CreateSession(sr sessions.SessionRequest) (string, error) {
 	lggr.Infof("User passed MFA authentication and login will proceed")
 	// This is a success so we can create the sessions
 	session := sessions.NewSession()
-	_, err = o.q.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
+	_, err = o.ds.ExecContext(ctx, "INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
 	if err != nil {
 		return "", err
 	}
@@ -240,28 +240,28 @@ func constantTimeEmailCompare(left, right string) bool {
 }
 
 // ClearNonCurrentSessions removes all sessions but the id passed in.
-func (o *orm) ClearNonCurrentSessions(sessionID string) error {
-	_, err := o.q.Exec("DELETE FROM sessions where id != $1", sessionID)
+func (o *orm) ClearNonCurrentSessions(ctx context.Context, sessionID string) error {
+	_, err := o.ds.ExecContext(ctx, "DELETE FROM sessions where id != $1", sessionID)
 	return err
 }
 
 // CreateUser creates a new API user
-func (o *orm) CreateUser(user *sessions.User) error {
+func (o *orm) CreateUser(ctx context.Context, user *sessions.User) error {
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	return o.q.Get(user, sql, strings.ToLower(user.Email), user.HashedPassword, user.Role)
+	return o.ds.GetContext(ctx, user, sql, strings.ToLower(user.Email), user.HashedPassword, user.Role)
 }
 
 // UpdateRole overwrites role field of the user specified by email.
-func (o *orm) UpdateRole(email, newRole string) (sessions.User, error) {
+func (o *orm) UpdateRole(ctx context.Context, email, newRole string) (sessions.User, error) {
 	var userToEdit sessions.User
 
 	if newRole == "" {
 		return userToEdit, pkgerrors.New("user role must be specified")
 	}
 
-	err := o.q.Transaction(func(tx pg.Queryer) error {
+	err := sqlutil.TransactDataSource(ctx, o.ds, nil, func(tx sqlutil.DataSource) error {
 		// First, attempt to load specified user by email
-		if err := tx.Get(&userToEdit, "SELECT * FROM users WHERE lower(email) = lower($1)", email); err != nil {
+		if err := tx.GetContext(ctx, &userToEdit, "SELECT * FROM users WHERE lower(email) = lower($1)", email); err != nil {
 			return pkgerrors.New("no matching user for provided email")
 		}
 
@@ -272,15 +272,15 @@ func (o *orm) UpdateRole(email, newRole string) (sessions.User, error) {
 		}
 		userToEdit.Role = userRole
 
-		_, err = tx.Exec("DELETE FROM sessions WHERE email = lower($1)", email)
+		_, err = tx.ExecContext(ctx, "DELETE FROM sessions WHERE email = lower($1)", email)
 		if err != nil {
-			o.lggr.Errorf("Failed to purge user sessions for UpdateRole", "err", err)
+			o.lggr.Errorw("Failed to purge user sessions for UpdateRole", "err", err)
 			return pkgerrors.New("error updating API user")
 		}
 
 		sql := "UPDATE users SET role = $1, updated_at = now() WHERE lower(email) = lower($2) RETURNING *"
-		if err := tx.Get(&userToEdit, sql, userToEdit.Role, email); err != nil {
-			o.lggr.Errorf("Error updating API user", "err", err)
+		if err := tx.GetContext(ctx, &userToEdit, sql, userToEdit.Role, email); err != nil {
+			o.lggr.Errorw("Error updating API user", "err", err)
 			return pkgerrors.New("error updating API user")
 		}
 
@@ -291,19 +291,19 @@ func (o *orm) UpdateRole(email, newRole string) (sessions.User, error) {
 }
 
 // SetAuthToken updates the user to use the given Authentication Token.
-func (o *orm) SetPassword(user *sessions.User, newPassword string) error {
+func (o *orm) SetPassword(ctx context.Context, user *sessions.User, newPassword string) error {
 	hashedPassword, err := utils.HashPassword(newPassword)
 	if err != nil {
 		return err
 	}
 	sql := "UPDATE users SET hashed_password = $1, updated_at = now() WHERE email = $2 RETURNING *"
-	return o.q.Get(user, sql, hashedPassword, user.Email)
+	return o.ds.GetContext(ctx, user, sql, hashedPassword, user.Email)
 }
 
 // TestPassword checks plaintext user provided password with hashed database password, returns nil if matched
-func (o *orm) TestPassword(email string, password string) error {
+func (o *orm) TestPassword(ctx context.Context, email string, password string) error {
 	var hashedPassword string
-	if err := o.q.Get(&hashedPassword, "SELECT hashed_password FROM users WHERE lower(email) = lower($1)", email); err != nil {
+	if err := o.ds.GetContext(ctx, &hashedPassword, "SELECT hashed_password FROM users WHERE lower(email) = lower($1)", email); err != nil {
 		return pkgerrors.New("no matching user for provided email")
 	}
 	if !utils.CheckPasswordHash(password, hashedPassword) {
@@ -312,10 +312,10 @@ func (o *orm) TestPassword(email string, password string) error {
 	return nil
 }
 
-func (o *orm) CreateAndSetAuthToken(user *sessions.User) (*auth.Token, error) {
+func (o *orm) CreateAndSetAuthToken(ctx context.Context, user *sessions.User) (*auth.Token, error) {
 	newToken := auth.NewToken()
 
-	err := o.SetAuthToken(user, newToken)
+	err := o.SetAuthToken(ctx, user, newToken)
 	if err != nil {
 		return nil, err
 	}
@@ -324,33 +324,33 @@ func (o *orm) CreateAndSetAuthToken(user *sessions.User) (*auth.Token, error) {
 }
 
 // SetAuthToken updates the user to use the given Authentication Token.
-func (o *orm) SetAuthToken(user *sessions.User, token *auth.Token) error {
+func (o *orm) SetAuthToken(ctx context.Context, user *sessions.User, token *auth.Token) error {
 	salt := utils.NewSecret(utils.DefaultSecretSize)
 	hashedSecret, err := auth.HashedSecret(token, salt)
 	if err != nil {
 		return pkgerrors.Wrap(err, "user")
 	}
 	sql := "UPDATE users SET token_salt = $1, token_key = $2, token_hashed_secret = $3, updated_at = now() WHERE email = $4 RETURNING *"
-	return o.q.Get(user, sql, salt, token.AccessKey, hashedSecret, user.Email)
+	return o.ds.GetContext(ctx, user, sql, salt, token.AccessKey, hashedSecret, user.Email)
 }
 
 // DeleteAuthToken clears and disables the users Authentication Token.
-func (o *orm) DeleteAuthToken(user *sessions.User) error {
+func (o *orm) DeleteAuthToken(ctx context.Context, user *sessions.User) error {
 	sql := "UPDATE users SET token_salt = '', token_key = '', token_hashed_secret = '', updated_at = now() WHERE email = $1 RETURNING *"
-	return o.q.Get(user, sql, user.Email)
+	return o.ds.GetContext(ctx, user, sql, user.Email)
 }
 
 // SaveWebAuthn saves new WebAuthn token information.
-func (o *orm) SaveWebAuthn(token *sessions.WebAuthn) error {
+func (o *orm) SaveWebAuthn(ctx context.Context, token *sessions.WebAuthn) error {
 	sql := "INSERT INTO web_authns (email, public_key_data) VALUES ($1, $2)"
-	_, err := o.q.Exec(sql, token.Email, token.PublicKeyData)
+	_, err := o.ds.ExecContext(ctx, sql, token.Email, token.PublicKeyData)
 	return err
 }
 
 // Sessions returns all sessions limited by the parameters.
-func (o *orm) Sessions(offset, limit int) (sessions []sessions.Session, err error) {
+func (o *orm) Sessions(ctx context.Context, offset, limit int) (sessions []sessions.Session, err error) {
 	sql := `SELECT * FROM sessions ORDER BY created_at, id LIMIT $1 OFFSET $2;`
-	if err = o.q.Select(&sessions, sql, limit, offset); err != nil {
+	if err = o.ds.SelectContext(ctx, &sessions, sql, limit, offset); err != nil {
 		return
 	}
 	return
@@ -358,9 +358,10 @@ func (o *orm) Sessions(offset, limit int) (sessions []sessions.Session, err erro
 
 // NOTE: this is duplicated from the bridges ORM to appease the AuthStorer interface
 func (o *orm) FindExternalInitiator(
+	ctx context.Context,
 	eia *auth.Token,
 ) (*bridges.ExternalInitiator, error) {
 	exi := &bridges.ExternalInitiator{}
-	err := o.q.Get(exi, `SELECT * FROM external_initiators WHERE access_key = $1`, eia.AccessKey)
+	err := o.ds.GetContext(ctx, exi, `SELECT * FROM external_initiators WHERE access_key = $1`, eia.AccessKey)
 	return exi, err
 }

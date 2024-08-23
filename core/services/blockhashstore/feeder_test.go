@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	loggermocks "github.com/smartcontractkit/chainlink/v2/core/logger/mocks"
 )
 
 const (
@@ -230,7 +229,7 @@ func TestStartHeartbeats(t *testing.T) {
 	t.Run("bhs_heartbeat_happy_path", func(t *testing.T) {
 		expectedDuration := 600 * time.Second
 		mockBHS := bhsmocks.NewBHS(t)
-		mockLogger := loggermocks.NewLogger(t)
+		mockLogger := logger.NewMockLogger(t)
 		feeder := NewFeeder(
 			mockLogger,
 			&TestCoordinator{}, // Not used for this test
@@ -275,7 +274,7 @@ func TestStartHeartbeats(t *testing.T) {
 		expectedDuration := 600 * time.Second
 		expectedError := fmt.Errorf("insufficient gas")
 		mockBHS := bhsmocks.NewBHS(t)
-		mockLogger := loggermocks.NewLogger(t)
+		mockLogger := logger.NewMockLogger(t)
 		feeder := NewFeeder(
 			mockLogger,
 			&TestCoordinator{}, // Not used for this test
@@ -322,7 +321,7 @@ func TestStartHeartbeats(t *testing.T) {
 	t.Run("bhs_heartbeat_sad_path_heartbeat_0", func(t *testing.T) {
 		expectedDuration := 0 * time.Second
 		mockBHS := bhsmocks.NewBHS(t)
-		mockLogger := loggermocks.NewLogger(t)
+		mockLogger := logger.NewMockLogger(t)
 		feeder := NewFeeder(
 			mockLogger,
 			&TestCoordinator{}, // Not used for this test
@@ -410,7 +409,7 @@ func (test testCase) testFeederWithLogPollerVRFv1(t *testing.T) {
 
 	// Instantiate log poller & coordinator.
 	lp := &mocklp.LogPoller{}
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	c, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(coordinatorAddress, nil)
 	require.NoError(t, err)
 	coordinator := &V1Coordinator{
@@ -449,23 +448,23 @@ func (test testCase) testFeederWithLogPollerVRFv1(t *testing.T) {
 		Return(logpoller.LogPollerBlock{BlockNumber: latest}, nil)
 	lp.On(
 		"LogsWithSigs",
+		mock.Anything,
 		fromBlock,
 		toBlock,
 		[]common.Hash{
 			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(),
 		},
 		coordinatorAddress,
-		mock.Anything,
 	).Return(requestLogs, nil)
 	lp.On(
 		"LogsWithSigs",
+		mock.Anything,
 		fromBlock,
 		latest,
 		[]common.Hash{
 			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
 		},
 		coordinatorAddress,
-		mock.Anything,
 	).Return(fulfillmentLogs, nil)
 
 	// Instantiate feeder.
@@ -504,7 +503,7 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 
 	// Instantiate log poller & coordinator.
 	lp := &mocklp.LogPoller{}
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	c, err := vrf_coordinator_v2.NewVRFCoordinatorV2(coordinatorAddress, nil)
 	require.NoError(t, err)
 	coordinator := &V2Coordinator{
@@ -547,23 +546,23 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 		Return(logpoller.LogPollerBlock{BlockNumber: latest}, nil)
 	lp.On(
 		"LogsWithSigs",
+		mock.Anything,
 		fromBlock,
 		toBlock,
 		[]common.Hash{
 			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
 		},
 		coordinatorAddress,
-		mock.Anything,
 	).Return(requestLogs, nil)
 	lp.On(
 		"LogsWithSigs",
+		mock.Anything,
 		fromBlock,
 		latest,
 		[]common.Hash{
 			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
 		},
 		coordinatorAddress,
-		mock.Anything,
 	).Return(fulfillmentLogs, nil)
 
 	// Instantiate feeder.
@@ -602,7 +601,7 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 
 	// Instantiate log poller & coordinator.
 	lp := &mocklp.LogPoller{}
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	c, err := vrf_coordinator_v2plus_interface.NewIVRFCoordinatorV2PlusInternal(coordinatorAddress, nil)
 	require.NoError(t, err)
 	coordinator := &V2PlusCoordinator{
@@ -645,23 +644,23 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 		Return(logpoller.LogPollerBlock{BlockNumber: latest}, nil)
 	lp.On(
 		"LogsWithSigs",
+		mock.Anything,
 		fromBlock,
 		toBlock,
 		[]common.Hash{
 			vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsRequested{}.Topic(),
 		},
 		coordinatorAddress,
-		mock.Anything,
 	).Return(requestLogs, nil)
 	lp.On(
 		"LogsWithSigs",
+		mock.Anything,
 		fromBlock,
 		latest,
 		[]common.Hash{
 			vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled{}.Topic(),
 		},
 		coordinatorAddress,
-		mock.Anything,
 	).Return(fulfillmentLogs, nil)
 
 	// Instantiate feeder.

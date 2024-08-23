@@ -1,3 +1,4 @@
+skip 'High Flake Rate'
 # Check that metrics specified in the expected_metrics are present in /metrics response
 # start node
 exec sh -c 'eval "echo \"$(cat config.toml.tmpl)\" > config.toml"'

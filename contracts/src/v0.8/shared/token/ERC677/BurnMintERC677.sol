@@ -91,7 +91,7 @@ contract BurnMintERC677 is IBurnMintERC20, ERC677, IERC165, ERC20Burnable, Owner
   /// @dev Reverts with an empty revert to be compatible with the existing link token when
   /// the recipient is this contract address.
   modifier validAddress(address recipient) virtual {
-    // solhint-disable-next-line reason-string, custom-errors
+    // solhint-disable-next-line reason-string, gas-custom-errors
     if (recipient == address(this)) revert();
     _;
   }

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -20,15 +21,14 @@ import (
 	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 
 	mercuryocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	libocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -38,6 +38,7 @@ var (
 	v1FeedId = [32]uint8{00, 01, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
 	v2FeedId = [32]uint8{00, 02, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
 	v3FeedId = [32]uint8{00, 03, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
+	v4FeedId = [32]uint8{00, 04, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
 
 	testArgsNoPlugin = libocr2.MercuryOracleArgs{
 		LocalConfig: libocr2types.LocalConfig{
@@ -67,6 +68,13 @@ var (
 		"nativeFeedID": "0x00036b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472",
 	}
 
+	v4jsonCfg = job.JSONConfig{
+		"serverURL":    "example.com:80",
+		"serverPubKey": "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93",
+		"linkFeedID":   "0x00026b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472",
+		"nativeFeedID": "0x00036b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472",
+	}
+
 	testJob = job.Job{
 		ID:               1,
 		ExternalJobID:    uuid.Must(uuid.NewRandom()),
@@ -75,7 +83,7 @@ var (
 			ID:         7,
 			ContractID: "phony",
 			FeedID:     ptr(common.BytesToHash([]byte{1, 2, 3})),
-			Relay:      relay.EVM,
+			Relay:      relay.NetworkEVM,
 			ChainID:    "1",
 		},
 		PipelineSpec:   &pipeline.Spec{},
@@ -137,6 +145,15 @@ func TestNewServices(t *testing.T) {
 			wantErr:        false,
 		},
 		{
+			name: "v4 legacy",
+			args: args{
+				pluginConfig: v4jsonCfg,
+				feedID:       v4FeedId,
+			},
+			wantServiceCnt: expectedEmbeddedServiceCnt,
+			wantErr:        false,
+		},
+		{
 			name:     "v1 loop",
 			loopMode: true,
 			args: args{
@@ -168,6 +185,17 @@ func TestNewServices(t *testing.T) {
 			wantServiceCnt:  expectedLoopServiceCnt,
 			wantErr:         false,
 			wantLoopFactory: &loop.MercuryV3Service{},
+		},
+		{
+			name:     "v4 loop",
+			loopMode: true,
+			args: args{
+				pluginConfig: v4jsonCfg,
+				feedID:       v4FeedId,
+			},
+			wantServiceCnt:  expectedLoopServiceCnt,
+			wantErr:         false,
+			wantLoopFactory: &loop.MercuryV4Service{},
 		},
 	}
 	for _, tt := range tests {
@@ -208,7 +236,7 @@ func newServicesTestWrapper(t *testing.T, pluginConfig job.JSONConfig, feedID ut
 type testProvider struct{}
 
 // ChainReader implements types.MercuryProvider.
-func (*testProvider) ChainReader() commontypes.ChainReader { panic("unimplemented") }
+func (*testProvider) ChainReader() commontypes.ContractReader { panic("unimplemented") }
 
 // Close implements types.MercuryProvider.
 func (*testProvider) Close() error { return nil }
@@ -260,12 +288,17 @@ func (*testProvider) ReportCodecV2() v2.ReportCodec { return nil }
 // ReportCodecV3 implements types.MercuryProvider.
 func (*testProvider) ReportCodecV3() v3.ReportCodec { return nil }
 
+// ReportCodecV4 implements types.MercuryProvider.
+func (*testProvider) ReportCodecV4() v4.ReportCodec { return nil }
+
 // Start implements types.MercuryProvider.
 func (*testProvider) Start(context.Context) error { panic("unimplemented") }
 
 var _ commontypes.MercuryProvider = (*testProvider)(nil)
 
 type testRegistrarConfig struct{}
+
+func (c *testRegistrarConfig) UnregisterLOOP(ID string) {}
 
 // RegisterLOOP implements plugins.RegistrarConfig.
 func (*testRegistrarConfig) RegisterLOOP(config plugins.CmdConfig) (func() *exec.Cmd, loop.GRPCOpts, error) {
@@ -277,7 +310,7 @@ var _ plugins.RegistrarConfig = (*testRegistrarConfig)(nil)
 type testDataSourceORM struct{}
 
 // LatestReport implements types.DataSourceORM.
-func (*testDataSourceORM) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error) {
+func (*testDataSourceORM) LatestReport(ctx context.Context, feedID [32]byte) (report []byte, err error) {
 	return []byte{1, 2, 3}, nil
 }
 

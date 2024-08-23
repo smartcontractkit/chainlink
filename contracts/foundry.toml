@@ -4,10 +4,10 @@ optimizer = true
 optimizer_runs = 1_000_000
 
 src = 'src/v0.8'
-test = 'test/v0.8/foundry'
+test = 'test/v0.8'
 out = 'foundry-artifacts'
 cache_path  = 'foundry-cache'
-libs = ['node_modules', 'foundry-lib']
+libs = ['node_modules']
 bytecode_hash = "none"
 ffi = false
 
@@ -16,6 +16,19 @@ gas_price = 1
 block_timestamp = 1234567890
 block_number = 12345
 
+[fmt]
+tab_width = 2
+multiline_func_header = "params_first"
+sort_imports = true
+single_line_statement_blocks = "preserve"
+
+[profile.ccip]
+solc_version = '0.8.24'
+src = 'src/v0.8/ccip'
+test = 'src/v0.8/ccip/test'
+optimizer_runs = 3_600
+evm_version = 'paris'
+
 [profile.functions]
 solc_version = '0.8.19'
 src = 'src/v0.8/functions/dev/v1_X'
@@ -23,37 +36,63 @@ test = 'src/v0.8/functions/tests/v1_X'
 gas_price = 3_000_000_000 # 3 gwei
 
 [profile.vrf]
-optimizer_runs = 1000
+optimizer_runs = 1_000
 src = 'src/v0.8/vrf'
-test = 'test/v0.8/foundry/vrf' # skips tests for no VRF foundry tests
-solc_version = '0.8.6'
+test = 'src/v0.8/vrf/test'
+
+[profile.vrfv2plus_coordinator]
+optimizer_runs = 500
+src = 'src/v0.8/vrf'
+
+[profile.vrfv2plus]
+optimizer_runs = 1_000_000
+src = 'src/v0.8/vrf'
 
 [profile.automation]
-optimizer_runs = 10000
+optimizer_runs = 10_000
 src = 'src/v0.8/automation'
 test = 'src/v0.8/automation/test'
 
 [profile.l2ep]
-optimizer_runs = 1000000
+optimizer_runs = 1_000_000
 src = 'src/v0.8/l2ep'
 test = 'src/v0.8/l2ep/test'
 solc_version = '0.8.19'
 
 [profile.llo-feeds]
-optimizer_runs = 1000000
+optimizer_runs = 1_000_000
 src = 'src/v0.8/llo-feeds'
 test = 'src/v0.8/llo-feeds/test'
 solc_version = '0.8.19'
-# We cannot turn on deny_warnings = true as that will hide any CI failure
+
+[profile.liquiditymanager]
+optimizer_runs = 1000000
+src = 'src/v0.8/liquiditymanager'
+test = 'src/v0.8/liquiditymanager/test'
+solc_version = '0.8.24'
+evm_version = 'paris'
 
 [profile.keystone]
-solc_version = '0.8.19'
+optimizer_runs = 1_000_000
+solc_version = '0.8.24'
 src = 'src/v0.8/keystone'
 test = 'src/v0.8/keystone/test'
-optimizer_runs = 10_000
+evm_version = 'paris'
+
+[profile.operatorforwarder]
+optimizer_runs = 1_000_000
+solc_version = '0.8.19'
+src = 'src/v0.8/operatorforwarder'
+test = 'src/v0.8/operatorforwarder/test'
+
+[profile.transmission]
+optimizer_runs = 1_000_000
+solc_version = '0.8.19'
+src = 'src/v0.8/transmission'
+test = 'src/v0.8/transmission/test'
 
 [profile.shared]
-optimizer_runs = 1000000
+optimizer_runs = 1_000_000
 src = 'src/v0.8/shared'
 test = 'src/v0.8/shared/test'
 solc_version = '0.8.19'

@@ -32,8 +32,6 @@ type OnchainSubscriptionsConfig struct {
 
 // OnchainSubscriptions maintains a mirror of all subscriptions fetched from the blockchain (EVM-only).
 // All methods are thread-safe.
-//
-//go:generate mockery --quiet --name OnchainSubscriptions --output ./mocks/ --case=underscore
 type OnchainSubscriptions interface {
 	job.ServiceCtx
 
@@ -99,7 +97,7 @@ func (s *onchainSubscriptions) Start(ctx context.Context) error {
 			return errors.New("OnchainSubscriptionsConfig.UpdateRangeSize must be greater than 0")
 		}
 
-		s.loadStoredSubscriptions()
+		s.loadStoredSubscriptions(ctx)
 
 		s.closeWait.Add(1)
 		go s.queryLoop()
@@ -138,7 +136,7 @@ func (s *onchainSubscriptions) queryLoop() {
 
 		latestBlockHeight, err := s.client.LatestBlockHeight(ctx)
 		if err != nil || latestBlockHeight == nil {
-			s.lggr.Errorw("Error calling LatestBlockHeight", "err", err, "latestBlockHeight", latestBlockHeight.Int64())
+			s.lggr.Errorw("Error calling LatestBlockHeight", "err", err, "latestBlockHeight", latestBlockHeight)
 			return
 		}
 
@@ -206,11 +204,11 @@ func (s *onchainSubscriptions) querySubscriptionsRange(ctx context.Context, bloc
 		subscription := subscription
 		updated := s.subscriptions.UpdateSubscription(subscriptionId, &subscription)
 		if updated {
-			if err = s.orm.UpsertSubscription(StoredSubscription{
+			if err = s.orm.UpsertSubscription(ctx, StoredSubscription{
 				SubscriptionID:                      subscriptionId,
 				IFunctionsSubscriptionsSubscription: subscription,
 			}); err != nil {
-				s.lggr.Errorf("unexpected error updating subscription in the db: %w", err)
+				s.lggr.Errorf("unexpected error updating subscription in the db: %v", err)
 			}
 		}
 	}
@@ -226,10 +224,10 @@ func (s *onchainSubscriptions) getSubscriptionsCount(ctx context.Context, blockN
 	})
 }
 
-func (s *onchainSubscriptions) loadStoredSubscriptions() {
+func (s *onchainSubscriptions) loadStoredSubscriptions(ctx context.Context) {
 	offset := uint(0)
 	for {
-		csBatch, err := s.orm.GetSubscriptions(offset, s.config.StoreBatchSize)
+		csBatch, err := s.orm.GetSubscriptions(ctx, offset, s.config.StoreBatchSize)
 		if err != nil {
 			break
 		}

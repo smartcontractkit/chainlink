@@ -43,6 +43,11 @@ func (r *FeedsManagerChainConfigResolver) AccountAddr() string {
 	return r.cfg.AccountAddress
 }
 
+// AccountAddrPubKey resolves the chain configs's account address public key.
+func (r *FeedsManagerChainConfigResolver) AccountAddrPubKey() *string {
+	return r.cfg.AccountAddressPublicKey.Ptr()
+}
+
 // AdminAddr resolves the chain configs's admin address.
 func (r *FeedsManagerChainConfigResolver) AdminAddr() string {
 	return r.cfg.AdminAddress

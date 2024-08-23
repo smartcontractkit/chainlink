@@ -5,8 +5,8 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
+	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 )
 
 type UpkeepFailureReason uint8
@@ -31,6 +31,7 @@ const (
 	UpkeepFailureReasonInvalidRevertDataInput  UpkeepFailureReason = 34
 	UpkeepFailureReasonSimulationFailed        UpkeepFailureReason = 35
 	UpkeepFailureReasonTxHashReorged           UpkeepFailureReason = 36
+	UpkeepFailureReasonGasPriceTooHigh         UpkeepFailureReason = 37
 
 	// pipeline execution error
 	NoPipelineError               PipelineExecutionState = 0
@@ -85,12 +86,12 @@ func HttpToStreamsErrCode(statusCode int) ErrCode {
 	}
 }
 
-type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo
+type UpkeepInfo = autov2common.IAutomationV21PlusCommonUpkeepInfoLegacy
 
 type Packer interface {
 	UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error)
 	UnpackPerformResult(raw string) (PipelineExecutionState, bool, error)
-	UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.LogTriggerConfig, error)
-	PackReport(report automation_utils_2_1.KeeperRegistryBase21Report) ([]byte, error)
-	UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistryBase21Report, error)
+	UnpackLogTriggerConfig(raw []byte) (ac.IAutomationV21PlusCommonLogTriggerConfig, error)
+	PackReport(report ac.IAutomationV21PlusCommonReport) ([]byte, error)
+	UnpackReport(raw []byte) (ac.IAutomationV21PlusCommonReport, error)
 }

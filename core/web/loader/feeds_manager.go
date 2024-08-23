@@ -14,7 +14,7 @@ type feedsBatcher struct {
 	app chainlink.Application
 }
 
-func (b *feedsBatcher) loadByIDs(_ context.Context, keys dataloader.Keys) []*dataloader.Result {
+func (b *feedsBatcher) loadByIDs(ctx context.Context, keys dataloader.Keys) []*dataloader.Result {
 	// Create a map for remembering the order of keys passed in
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
@@ -28,7 +28,7 @@ func (b *feedsBatcher) loadByIDs(_ context.Context, keys dataloader.Keys) []*dat
 	}
 
 	// Fetch the feeds managers
-	managers, err := b.app.GetFeedsService().ListManagersByIDs(managersIDs)
+	managers, err := b.app.GetFeedsService().ListManagersByIDs(ctx, managersIDs)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}

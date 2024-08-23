@@ -40,6 +40,10 @@ type PerformanceConfig struct {
 	TestDuration          *blockchain.StrDuration `toml:"test_duration"`
 	RPS                   *int64                  `toml:"rps"`
 	RateLimitUnitDuration *blockchain.StrDuration `toml:"rate_limit_unit_duration"`
+
+	BHSTestDuration              *blockchain.StrDuration `toml:"bhs_test_duration"`
+	BHSTestRPS                   *int64                  `toml:"bhs_test_rps"`
+	BHSTestRateLimitUnitDuration *blockchain.StrDuration `toml:"bhs_test_rate_limit_unit_duration"`
 }
 
 func (c *PerformanceConfig) Validate() error {
@@ -52,16 +56,28 @@ func (c *PerformanceConfig) Validate() error {
 	if c.RateLimitUnitDuration == nil {
 		return errors.New("rate_limit_unit_duration must be set ")
 	}
+	if c.BHSTestDuration == nil || c.BHSTestDuration.Duration == 0 {
+		return errors.New("bhs_test_duration must be set to a positive value")
+	}
+	if c.BHSTestRPS == nil || *c.BHSTestRPS == 0 {
+		return errors.New("bhs_test_rps must be set to a positive value")
+	}
+	if c.BHSTestRateLimitUnitDuration == nil {
+		return errors.New("bhs_test_rate_limit_unit_duration must be set ")
+	}
 
 	return nil
 }
 
 type ExistingEnvConfig struct {
 	CoordinatorAddress            *string  `toml:"coordinator_address"`
+	UseExistingWrapper            *bool    `toml:"use_existing_wrapper"`
+	WrapperAddress                *string  `toml:"wrapper_address"`
 	ConsumerAddress               *string  `toml:"consumer_address"`
-	LinkAddress                   *string  `toml:"link_address"`
+	WrapperConsumerAddress        *string  `toml:"wrapper_consumer_address"`
 	KeyHash                       *string  `toml:"key_hash"`
 	CreateFundSubsAndAddConsumers *bool    `toml:"create_fund_subs_and_add_consumers"`
+	CreateFundAddWrapperConsumers *bool    `toml:"create_fund_add_wrapper_consumers"`
 	NodeSendingKeys               []string `toml:"node_sending_keys"`
 	Funding
 }
@@ -70,11 +86,25 @@ func (c *ExistingEnvConfig) Validate() error {
 	if c.CreateFundSubsAndAddConsumers == nil {
 		return errors.New("create_fund_subs_and_add_consumers must be set ")
 	}
+	if c.CreateFundAddWrapperConsumers == nil {
+		return errors.New("create_fund_add_wrapper_consumers must be set ")
+	}
 	if c.CoordinatorAddress == nil {
 		return errors.New("coordinator_address must be set when using existing environment")
 	}
 	if !common.IsHexAddress(*c.CoordinatorAddress) {
 		return errors.New("coordinator_address must be a valid hex address")
+	}
+	if c.UseExistingWrapper == nil {
+		return errors.New("use_existing_wrapper must be set ")
+	}
+	if *c.UseExistingWrapper {
+		if c.WrapperAddress == nil {
+			return errors.New("wrapper_address must be set when using `use_existing_wrapper=true`")
+		}
+		if !common.IsHexAddress(*c.WrapperAddress) {
+			return errors.New("wrapper_address must be a valid hex address")
+		}
 	}
 	if c.KeyHash == nil {
 		return errors.New("key_hash must be set when using existing environment")
@@ -82,11 +112,7 @@ func (c *ExistingEnvConfig) Validate() error {
 	if *c.KeyHash == "" {
 		return errors.New("key_hash must be a non-empty string")
 	}
-	if *c.CreateFundSubsAndAddConsumers {
-		if err := c.Funding.Validate(); err != nil {
-			return err
-		}
-	} else {
+	if !*c.CreateFundSubsAndAddConsumers {
 		if c.ConsumerAddress == nil || *c.ConsumerAddress == "" {
 			return errors.New("consumer_address must be set when using existing environment")
 		}
@@ -94,7 +120,14 @@ func (c *ExistingEnvConfig) Validate() error {
 			return errors.New("consumer_address must be a valid hex address")
 		}
 	}
-
+	if !*c.CreateFundAddWrapperConsumers {
+		if c.WrapperConsumerAddress == nil || *c.WrapperConsumerAddress == "" {
+			return errors.New("wrapper_consumer_address must be set when using existing environment")
+		}
+		if !common.IsHexAddress(*c.WrapperConsumerAddress) {
+			return errors.New("wrapper_consumer_address must be a valid hex address")
+		}
+	}
 	if c.NodeSendingKeys != nil {
 		for _, key := range c.NodeSendingKeys {
 			if !common.IsHexAddress(key) {
@@ -102,7 +135,6 @@ func (c *ExistingEnvConfig) Validate() error {
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -114,36 +146,37 @@ func (c *Funding) Validate() error {
 	if c.NodeSendingKeyFundingMin != nil && *c.NodeSendingKeyFundingMin <= 0 {
 		return errors.New("when set node_sending_key_funding_min must be a positive value")
 	}
-
 	return nil
 }
 
 type General struct {
-	UseExistingEnv                *bool    `toml:"use_existing_env"`
-	CancelSubsAfterTestRun        *bool    `toml:"cancel_subs_after_test_run"`
-	CLNodeMaxGasPriceGWei         *int64   `toml:"cl_node_max_gas_price_gwei"`       // Max gas price in GWei for the chainlink node
-	LinkNativeFeedResponse        *int64   `toml:"link_native_feed_response"`        // Response of the LINK/ETH feed
-	MinimumConfirmations          *uint16  `toml:"minimum_confirmations"`            // Minimum number of confirmations for the VRF Coordinator
-	SubscriptionFundingAmountLink *float64 `toml:"subscription_funding_amount_link"` // Amount of LINK to fund the subscription with
-	NumberOfWords                 *uint32  `toml:"number_of_words"`                  // Number of words to request
-	CallbackGasLimit              *uint32  `toml:"callback_gas_limit"`               // Gas limit for the callback
-	MaxGasLimitCoordinatorConfig  *uint32  `toml:"max_gas_limit_coordinator_config"` // Max gas limit for the VRF Coordinator config
-	FallbackWeiPerUnitLink        *int64   `toml:"fallback_wei_per_unit_link"`       // Fallback wei per unit LINK for the VRF Coordinator config
-	StalenessSeconds              *uint32  `toml:"staleness_seconds"`                // Staleness in seconds for the VRF Coordinator config
-	GasAfterPaymentCalculation    *uint32  `toml:"gas_after_payment_calculation"`    // Gas after payment calculation for the VRF Coordinator
+	UseExistingEnv                  *bool    `toml:"use_existing_env"`
+	CancelSubsAfterTestRun          *bool    `toml:"cancel_subs_after_test_run"`
+	CLNodeMaxGasPriceGWei           *int64   `toml:"cl_node_max_gas_price_gwei"`         // Max gas price in GWei for the chainlink node
+	LinkNativeFeedResponse          *int64   `toml:"link_native_feed_response"`          // Response of the LINK/ETH feed
+	MinimumConfirmations            *uint16  `toml:"minimum_confirmations"`              // Minimum number of confirmations for the VRF Coordinator
+	SubscriptionFundingAmountLink   *float64 `toml:"subscription_funding_amount_link"`   // Amount of LINK to fund the subscription with
+	SubscriptionRefundingAmountLink *float64 `toml:"subscription_refunding_amount_link"` // Amount of LINK to fund the subscription with
+	NumberOfWords                   *uint32  `toml:"number_of_words"`                    // Number of words to request
+	CallbackGasLimit                *uint32  `toml:"callback_gas_limit"`                 // Gas limit for the callback
+	MaxGasLimitCoordinatorConfig    *uint32  `toml:"max_gas_limit_coordinator_config"`   // Max gas limit for the VRF Coordinator config
+	FallbackWeiPerUnitLink          *string  `toml:"fallback_wei_per_unit_link"`         // Fallback wei per unit LINK for the VRF Coordinator config
+	StalenessSeconds                *uint32  `toml:"staleness_seconds"`                  // Staleness in seconds for the VRF Coordinator config
+	GasAfterPaymentCalculation      *uint32  `toml:"gas_after_payment_calculation"`      // Gas after payment calculation for the VRF Coordinator
 
-	NumberOfSubToCreate *int `toml:"number_of_sub_to_create"` // Number of subscriptions to create
+	NumberOfSubToCreate         *int `toml:"number_of_sub_to_create"`          // Number of subscriptions to create
+	NumberOfSendingKeysToCreate *int `toml:"number_of_sending_keys_to_create"` // Number of sending keys to create
 
 	RandomnessRequestCountPerRequest          *uint16 `toml:"randomness_request_count_per_request"`           // How many randomness requests to send per request
 	RandomnessRequestCountPerRequestDeviation *uint16 `toml:"randomness_request_count_per_request_deviation"` // How many randomness requests to send per request
 
 	RandomWordsFulfilledEventTimeout *blockchain.StrDuration `toml:"random_words_fulfilled_event_timeout"` // How long to wait for the RandomWordsFulfilled event to be emitted
+	WaitFor256BlocksTimeout          *blockchain.StrDuration `toml:"wait_for_256_blocks_timeout"`          // How long to wait for 256 blocks to be mined
 
 	// Wrapper Config
-	WrapperGasOverhead                      *uint32  `toml:"wrapped_gas_overhead"`
-	CoordinatorGasOverhead                  *uint32  `toml:"coordinator_gas_overhead"`
-	WrapperPremiumPercentage                *uint8   `toml:"wrapper_premium_percentage"`
-	WrapperMaxNumberOfWords                 *uint8   `toml:"wrapper_max_number_of_words"`
+	WrapperGasOverhead      *uint32 `toml:"wrapped_gas_overhead"`
+	WrapperMaxNumberOfWords *uint8  `toml:"wrapper_max_number_of_words"`
+
 	WrapperConsumerFundingAmountNativeToken *float64 `toml:"wrapper_consumer_funding_amount_native_token"`
 	WrapperConsumerFundingAmountLink        *int64   `toml:"wrapper_consumer_funding_amount_link"`
 
@@ -161,6 +194,14 @@ type General struct {
 	BHSJobLookBackBlocks *int                    `toml:"bhs_job_lookback_blocks"`
 	BHSJobPollPeriod     *blockchain.StrDuration `toml:"bhs_job_poll_period"`
 	BHSJobRunTimeout     *blockchain.StrDuration `toml:"bhs_job_run_timeout"`
+
+	//BHF Job Config
+	BHFJobWaitBlocks     *int                    `toml:"bhf_job_wait_blocks"`
+	BHFJobLookBackBlocks *int                    `toml:"bhf_job_lookback_blocks"`
+	BHFJobPollPeriod     *blockchain.StrDuration `toml:"bhf_job_poll_period"`
+	BHFJobRunTimeout     *blockchain.StrDuration `toml:"bhf_job_run_timeout"`
+
+	GenerateTXsOnChain *bool `toml:"generate_txs_on_chain"`
 }
 
 func (c *General) Validate() error {
@@ -168,7 +209,7 @@ func (c *General) Validate() error {
 		return errors.New("use_existing_env must not be nil")
 	}
 	if c.CLNodeMaxGasPriceGWei == nil || *c.CLNodeMaxGasPriceGWei == 0 {
-		return errors.New("max_gas_price_gwei must be set to a positive value")
+		return errors.New("cl_node_max_gas_price_gwei must be set to a positive value")
 	}
 	if c.LinkNativeFeedResponse == nil || *c.LinkNativeFeedResponse == 0 {
 		return errors.New("link_native_feed_response must be set to a positive value")
@@ -179,6 +220,9 @@ func (c *General) Validate() error {
 	if c.SubscriptionFundingAmountLink == nil || *c.SubscriptionFundingAmountLink < 0 {
 		return errors.New("subscription_funding_amount_link must be set to non-negative value")
 	}
+	if c.SubscriptionRefundingAmountLink == nil || *c.SubscriptionRefundingAmountLink < 0 {
+		return errors.New("subscription_refunding_amount_link must be set to non-negative value")
+	}
 	if c.NumberOfWords == nil || *c.NumberOfWords == 0 {
 		return errors.New("number_of_words must be set to a positive value")
 	}
@@ -188,8 +232,8 @@ func (c *General) Validate() error {
 	if c.MaxGasLimitCoordinatorConfig == nil || *c.MaxGasLimitCoordinatorConfig == 0 {
 		return errors.New("max_gas_limit_coordinator_config must be set to a positive value")
 	}
-	if c.FallbackWeiPerUnitLink == nil || *c.FallbackWeiPerUnitLink == 0 {
-		return errors.New("fallback_wei_per_unit_link must be set to a positive value")
+	if c.FallbackWeiPerUnitLink == nil {
+		return errors.New("fallback_wei_per_unit_link must be set")
 	}
 	if c.StalenessSeconds == nil || *c.StalenessSeconds == 0 {
 		return errors.New("staleness_seconds must be set to a positive value")
@@ -200,6 +244,11 @@ func (c *General) Validate() error {
 	if c.NumberOfSubToCreate == nil || *c.NumberOfSubToCreate == 0 {
 		return errors.New("number_of_sub_to_create must be set to a positive value")
 	}
+
+	if c.NumberOfSendingKeysToCreate == nil || *c.NumberOfSendingKeysToCreate < 0 {
+		return errors.New("number_of_sending_keys_to_create must be set to 0 or a positive value")
+	}
+
 	if c.RandomnessRequestCountPerRequest == nil || *c.RandomnessRequestCountPerRequest == 0 {
 		return errors.New("randomness_request_count_per_request must be set to a positive value")
 	}
@@ -209,14 +258,11 @@ func (c *General) Validate() error {
 	if c.RandomWordsFulfilledEventTimeout == nil || c.RandomWordsFulfilledEventTimeout.Duration == 0 {
 		return errors.New("random_words_fulfilled_event_timeout must be set to a positive value")
 	}
+	if c.WaitFor256BlocksTimeout == nil || c.WaitFor256BlocksTimeout.Duration == 0 {
+		return errors.New("wait_for_256_blocks_timeout must be set to a positive value")
+	}
 	if c.WrapperGasOverhead == nil {
 		return errors.New("wrapped_gas_overhead must be set to a non-negative value")
-	}
-	if c.CoordinatorGasOverhead == nil || *c.CoordinatorGasOverhead == 0 {
-		return errors.New("coordinator_gas_overhead must be set to a non-negative value")
-	}
-	if c.WrapperPremiumPercentage == nil || *c.WrapperPremiumPercentage == 0 {
-		return errors.New("wrapper_premium_percentage must be set to a positive value")
 	}
 	if c.WrapperMaxNumberOfWords == nil || *c.WrapperMaxNumberOfWords == 0 {
 		return errors.New("wrapper_max_number_of_words must be set to a positive value")
@@ -271,6 +317,26 @@ func (c *General) Validate() error {
 
 	if c.BHSJobWaitBlocks == nil || *c.BHSJobWaitBlocks < 0 {
 		return errors.New("bhs_job_wait_blocks must be set to a non-negative value")
+	}
+
+	if c.BHFJobLookBackBlocks == nil || *c.BHFJobLookBackBlocks < 0 {
+		return errors.New("bhf_job_lookback_blocks must be set to a non-negative value")
+	}
+
+	if c.BHFJobPollPeriod == nil || c.BHFJobPollPeriod.Duration == 0 {
+		return errors.New("bhf_job_poll_period must be set to a non-negative value")
+	}
+
+	if c.BHFJobRunTimeout == nil || c.BHFJobRunTimeout.Duration == 0 {
+		return errors.New("bhf_job_run_timeout must be set to a non-negative value")
+	}
+
+	if c.BHFJobWaitBlocks == nil || *c.BHFJobWaitBlocks < 0 {
+		return errors.New("bhf_job_wait_blocks must be set to a non-negative value")
+	}
+
+	if c.GenerateTXsOnChain == nil {
+		return errors.New("generate_txs_on_chain must not be nil")
 	}
 
 	return nil

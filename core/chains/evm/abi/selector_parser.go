@@ -1,5 +1,5 @@
-// Sourced from https://github.com/ethereum/go-ethereum/blob/fe91d476ba3e29316b6dc99b6efd4a571481d888/accounts/abi/selector_parser.go#L126
-// Modified assembleArgs to retain argument names
+// Originally sourced from https://github.com/ethereum/go-ethereum/blob/fe91d476ba3e29316b6dc99b6efd4a571481d888/accounts/abi/selector_parser.go#L126
+// Modified to suppor parsing selectors with argument names
 
 // Copyright 2022 The go-ethereum Authors
 // This file is part of the go-ethereum library.
@@ -83,31 +83,69 @@ func parseElementaryType(unescapedSelector string) (string, string, error) {
 	return parsedType, rest, nil
 }
 
-func parseCompositeType(unescapedSelector string) ([]interface{}, string, error) {
+func parseCompositeType(unescapedSelector string) ([]abi.ArgumentMarshaling, string, error) {
 	if len(unescapedSelector) == 0 || unescapedSelector[0] != '(' {
 		return nil, "", fmt.Errorf("expected '(', got %c", unescapedSelector[0])
 	}
-	parsedType, rest, err := parseType(unescapedSelector[1:])
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to parse type: %v", err)
-	}
-	result := []interface{}{parsedType}
+	rest := unescapedSelector[1:] // skip over the opening `(`
+	result := []abi.ArgumentMarshaling{}
+	var parsedType any
+	var err error
+	i := 0
 	for len(rest) > 0 && rest[0] != ')' {
-		parsedType, rest, err = parseType(rest[1:])
+		// skip any leading whitespace
+		for rest[0] == ' ' {
+			rest = rest[1:]
+		}
+
+		parsedType, rest, err = parseType(rest[0:])
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to parse type: %v", err)
 		}
-		result = append(result, parsedType)
+
+		// skip whitespace between name and identifier
+		for rest[0] == ' ' {
+			rest = rest[1:]
+		}
+
+		name := fmt.Sprintf("name%d", i)
+		// if we're at a delimiter the parameter is unnamed
+		if !(rest[0] == ',' || rest[0] == ')') {
+			// attempt to parse name
+			name, rest, err = parseIdentifier(rest[:])
+			if err != nil {
+				return nil, "", fmt.Errorf("failed to parse name: %v", err)
+			}
+		}
+
+		arg, err := assembleArg(name, parsedType)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to parse type: %v", err)
+		}
+
+		result = append(result, arg)
+		i++
+
+		// skip trailing whitespace, consume comma
+		for rest[0] == ' ' || rest[0] == ',' {
+			rest = rest[1:]
+		}
 	}
 	if len(rest) == 0 || rest[0] != ')' {
 		return nil, "", fmt.Errorf("expected ')', got '%s'", rest)
 	}
 	if len(rest) >= 3 && rest[1] == '[' && rest[2] == ']' {
-		return append(result, "[]"), rest[3:], nil
+		// emits a sentinel value that later gets removed when assembling
+		array, err := assembleArg("", "[]")
+		if err != nil {
+			panic("unreachable")
+		}
+		return append(result, array), rest[3:], nil
 	}
 	return result, rest[1:], nil
 }
 
+// type-name rule
 func parseType(unescapedSelector string) (interface{}, string, error) {
 	if len(unescapedSelector) == 0 {
 		return nil, "", errors.New("empty type")
@@ -118,61 +156,10 @@ func parseType(unescapedSelector string) (interface{}, string, error) {
 	return parseElementaryType(unescapedSelector)
 }
 
-func parseArgs(unescapedSelector string) ([]abi.ArgumentMarshaling, error) {
-	if len(unescapedSelector) == 0 || unescapedSelector[0] != '(' {
-		return nil, fmt.Errorf("expected '(', got %c", unescapedSelector[0])
-	}
-	result := []abi.ArgumentMarshaling{}
-	rest := unescapedSelector[1:]
-	var parsedType any
-	var err error
-	for len(rest) > 0 && rest[0] != ')' {
-		// parse method name
-		var name string
-		name, rest, err = parseIdentifier(rest[:])
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse name: %v", err)
-		}
-
-		// skip whitespace between name and identifier
-		for rest[0] == ' ' {
-			rest = rest[1:]
-		}
-
-		// parse type
-		parsedType, rest, err = parseType(rest[:])
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse type: %v", err)
-		}
-
-		arg, err := assembleArg(name, parsedType)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse type: %v", err)
-		}
-
-		result = append(result, arg)
-
-		for rest[0] == ' ' || rest[0] == ',' {
-			rest = rest[1:]
-		}
-	}
-	if len(rest) == 0 || rest[0] != ')' {
-		return nil, fmt.Errorf("expected ')', got '%s'", rest)
-	}
-	if len(rest) > 1 {
-		return nil, fmt.Errorf("failed to parse selector '%s': unexpected string '%s'", unescapedSelector, rest)
-	}
-	return result, nil
-}
-
 func assembleArg(name string, arg any) (abi.ArgumentMarshaling, error) {
 	if s, ok := arg.(string); ok {
 		return abi.ArgumentMarshaling{Name: name, Type: s, InternalType: s, Components: nil, Indexed: false}, nil
-	} else if components, ok := arg.([]interface{}); ok {
-		subArgs, err := assembleArgs(components)
-		if err != nil {
-			return abi.ArgumentMarshaling{}, fmt.Errorf("failed to assemble components: %v", err)
-		}
+	} else if subArgs, ok := arg.([]abi.ArgumentMarshaling); ok {
 		tupleType := "tuple"
 		if len(subArgs) != 0 && subArgs[len(subArgs)-1].Type == "[]" {
 			subArgs = subArgs[:len(subArgs)-1]
@@ -183,20 +170,6 @@ func assembleArg(name string, arg any) (abi.ArgumentMarshaling, error) {
 	return abi.ArgumentMarshaling{}, fmt.Errorf("failed to assemble args: unexpected type %T", arg)
 }
 
-func assembleArgs(args []interface{}) ([]abi.ArgumentMarshaling, error) {
-	arguments := make([]abi.ArgumentMarshaling, 0)
-	for i, arg := range args {
-		// generate dummy name to avoid unmarshal issues
-		name := fmt.Sprintf("name%d", i)
-		arg, err := assembleArg(name, arg)
-		if err != nil {
-			return nil, err
-		}
-		arguments = append(arguments, arg)
-	}
-	return arguments, nil
-}
-
 // ParseSelector converts a method selector into a struct that can be JSON encoded
 // and consumed by other functions in this package.
 // Note, although uppercase letters are not part of the ABI spec, this function
@@ -204,46 +177,19 @@ func assembleArgs(args []interface{}) ([]abi.ArgumentMarshaling, error) {
 func ParseSelector(unescapedSelector string) (abi.SelectorMarshaling, error) {
 	name, rest, err := parseIdentifier(unescapedSelector)
 	if err != nil {
-		return abi.SelectorMarshaling{}, fmt.Errorf("failed to parse selector '%s': %v", unescapedSelector, err)
+		return abi.SelectorMarshaling{}, fmt.Errorf("failed to parse selector identifier '%s': %v", unescapedSelector, err)
 	}
-	args := []interface{}{}
+	args := []abi.ArgumentMarshaling{}
 	if len(rest) >= 2 && rest[0] == '(' && rest[1] == ')' {
 		rest = rest[2:]
 	} else {
 		args, rest, err = parseCompositeType(rest)
 		if err != nil {
-			return abi.SelectorMarshaling{}, fmt.Errorf("failed to parse selector '%s': %v", unescapedSelector, err)
+			return abi.SelectorMarshaling{}, fmt.Errorf("failed to parse selector args '%s': %v", unescapedSelector, err)
 		}
 	}
 	if len(rest) > 0 {
 		return abi.SelectorMarshaling{}, fmt.Errorf("failed to parse selector '%s': unexpected string '%s'", unescapedSelector, rest)
 	}
-
-	// Reassemble the fake ABI and construct the JSON
-	fakeArgs, err := assembleArgs(args)
-	if err != nil {
-		return abi.SelectorMarshaling{}, fmt.Errorf("failed to parse selector: %v", err)
-	}
-
-	return abi.SelectorMarshaling{Name: name, Type: "function", Inputs: fakeArgs}, nil
-}
-
-// ParseSelector converts a method selector into a struct that can be JSON encoded
-// and consumed by other functions in this package.
-// Note, although uppercase letters are not part of the ABI spec, this function
-// still accepts it as the general format is valid.
-func ParseSignature(unescapedSelector string) (abi.SelectorMarshaling, error) {
-	name, rest, err := parseIdentifier(unescapedSelector)
-	if err != nil {
-		return abi.SelectorMarshaling{}, fmt.Errorf("failed to parse selector '%s': %v", unescapedSelector, err)
-	}
-	args := []abi.ArgumentMarshaling{}
-	if len(rest) < 2 || rest[0] != '(' || rest[1] != ')' {
-		args, err = parseArgs(rest)
-		if err != nil {
-			return abi.SelectorMarshaling{}, fmt.Errorf("failed to parse selector '%s': %v", unescapedSelector, err)
-		}
-	}
-
 	return abi.SelectorMarshaling{Name: name, Type: "function", Inputs: args}, nil
 }

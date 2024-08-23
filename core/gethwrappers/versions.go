@@ -51,7 +51,6 @@ func versionsDBLineReader() (*bufio.Scanner, error) {
 		return nil, pkgerrors.Wrapf(err, "could not open versions database")
 	}
 	return bufio.NewScanner(versionsDBFile), nil
-
 }
 
 // ReadVersionsDB populates an IntegratedVersion with all the info in the

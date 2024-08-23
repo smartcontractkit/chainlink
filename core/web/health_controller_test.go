@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -96,6 +97,12 @@ var (
 	bodyHTML string
 	//go:embed testdata/body/health.txt
 	bodyTXT string
+	//go:embed testdata/body/health-failing.json
+	bodyJSONFailing string
+	//go:embed testdata/body/health-failing.html
+	bodyHTMLFailing string
+	//go:embed testdata/body/health-failing.txt
+	bodyTXTFailing string
 )
 
 func TestHealthController_Health_body(t *testing.T) {
@@ -110,6 +117,12 @@ func TestHealthController_Health_body(t *testing.T) {
 		{"html", "/health", map[string]string{"Accept": gin.MIMEHTML}, bodyHTML},
 		{"text", "/health", map[string]string{"Accept": gin.MIMEPlain}, bodyTXT},
 		{".txt", "/health.txt", nil, bodyTXT},
+
+		{"default-failing", "/health?failing", nil, bodyJSONFailing},
+		{"json-failing", "/health?failing", map[string]string{"Accept": gin.MIMEJSON}, bodyJSONFailing},
+		{"html-failing", "/health?failing", map[string]string{"Accept": gin.MIMEHTML}, bodyHTMLFailing},
+		{"text-failing", "/health?failing", map[string]string{"Accept": gin.MIMEPlain}, bodyTXTFailing},
+		{".txt-failing", "/health.txt?failing", nil, bodyTXTFailing},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			app := cltest.NewApplicationWithKey(t)
@@ -127,7 +140,7 @@ func TestHealthController_Health_body(t *testing.T) {
 				require.NoError(t, json.Indent(&b, body, "", "  "))
 				body = b.Bytes()
 			}
-			assert.Equal(t, tc.expBody, string(body))
+			assert.Equal(t, strings.TrimSpace(tc.expBody), strings.TrimSpace(string(body)))
 		})
 	}
 }

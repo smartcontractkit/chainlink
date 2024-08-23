@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 /// @title ForwarderInterface - forwards a call to a target, under some conditions
+// solhint-disable-next-line interface-starts-with-i
 interface ForwarderInterface {
   /**
    * @notice forward calls the `target` with `data`

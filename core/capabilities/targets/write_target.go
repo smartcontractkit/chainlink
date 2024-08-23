@@ -1,243 +1,286 @@
 package targets
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
-	"strings"
+	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mitchellh/mapstructure"
-	"github.com/pkg/errors"
-
-	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	abiutil "github.com/smartcontractkit/chainlink/v2/core/chains/evm/abi"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 )
-
-var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
-
-func InitializeWrite(registry commontypes.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer, lggr logger.Logger) error {
-	for _, chain := range legacyEVMChains.Slice() {
-		capability := NewEvmWrite(chain, lggr)
-		if err := registry.Add(context.TODO(), capability); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 var (
-	_ capabilities.ActionCapability = &EvmWrite{}
+	_ capabilities.ActionCapability = &WriteTarget{}
 )
 
-const defaultGasLimit = 200000
-
-type EvmWrite struct {
-	chain legacyevm.Chain
+type WriteTarget struct {
+	cr               commontypes.ContractReader
+	cw               commontypes.ChainWriter
+	forwarderAddress string
+	// The minimum amount of gas that the receiver contract must get to process the forwarder report
+	receiverGasMinimum uint64
 	capabilities.CapabilityInfo
+
 	lggr logger.Logger
+
+	bound bool
 }
 
-func NewEvmWrite(chain legacyevm.Chain, lggr logger.Logger) *EvmWrite {
-	// generate ID based on chain selector
-	name := fmt.Sprintf("write_%v", chain.ID())
-	chainName, err := chainselectors.NameFromChainId(chain.ID().Uint64())
-	if err == nil {
-		name = fmt.Sprintf("write_%v", chainName)
-	}
+type TransmissionInfo struct {
+	GasLimit        *big.Int
+	InvalidReceiver bool
+	State           uint8
+	Success         bool
+	TransmissionId  [32]byte
+	Transmitter     common.Address
+}
 
+// The gas cost of the forwarder contract logic, including state updates and event emission.
+// This is a rough estimate and should be updated if the forwarder contract logic changes.
+// TODO: Make this part of the on-chain capability configuration
+const FORWARDER_CONTRACT_LOGIC_GAS_COST = 100_000
+
+func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string, txGasLimit uint64) *WriteTarget {
 	info := capabilities.MustNewCapabilityInfo(
-		name,
+		id,
 		capabilities.CapabilityTypeTarget,
 		"Write target.",
-		"v1.0.0",
 	)
 
-	return &EvmWrite{
-		chain,
+	return &WriteTarget{
+		cr,
+		cw,
+		forwarderAddress,
+		txGasLimit - FORWARDER_CONTRACT_LOGIC_GAS_COST,
 		info,
-		lggr.Named("EvmWrite"),
+		logger.Named(lggr, "WriteTarget"),
+		false,
 	}
 }
 
-type EvmConfig struct {
-	ChainID uint
+// Note: This should be a shared type that the OCR3 package validates as well
+type ReportV1Metadata struct {
+	Version             uint8
+	WorkflowExecutionID [32]byte
+	Timestamp           uint32
+	DonID               uint32
+	DonConfigVersion    uint32
+	WorkflowCID         [32]byte
+	WorkflowName        [10]byte
+	WorkflowOwner       [20]byte
+	ReportID            [2]byte
+}
+
+func (rm ReportV1Metadata) Encode() ([]byte, error) {
+	buf := new(bytes.Buffer)
+	err := binary.Write(buf, binary.BigEndian, rm)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (rm ReportV1Metadata) Length() int {
+	bytes, err := rm.Encode()
+	if err != nil {
+		return 0
+	}
+	return len(bytes)
+}
+
+func decodeReportMetadata(data []byte) (metadata ReportV1Metadata, err error) {
+	if len(data) < metadata.Length() {
+		return metadata, fmt.Errorf("data too short: %d bytes", len(data))
+	}
+	return metadata, binary.Read(bytes.NewReader(data[:metadata.Length()]), binary.BigEndian, &metadata)
+}
+
+type Config struct {
+	// Address of the contract that will get the forwarded report
 	Address string
-	Params  []any
-	ABI     string
 }
 
-// TODO: enforce required key presence
-
-func parseConfig(rawConfig *values.Map) (EvmConfig, error) {
-	var config EvmConfig
-	configAny, err := rawConfig.Unwrap()
-	if err != nil {
-		return config, err
-	}
-	err = mapstructure.Decode(configAny, &config)
-	return config, err
+type Inputs struct {
+	SignedReport types.SignedReport
 }
 
-func evaluateParams(params []any, inputs map[string]any) ([]any, error) {
-	vars := pipeline.NewVarsFrom(inputs)
-	var args []any
-	for _, param := range params {
-		switch v := param.(type) {
-		case string:
-			val, err := pipeline.VarExpr(v, vars)()
-			if err == nil {
-				args = append(args, val)
-			} else if errors.Is(errors.Cause(err), pipeline.ErrParameterEmpty) {
-				args = append(args, param)
-			} else {
-				return args, err
-			}
-		default:
-			args = append(args, param)
-		}
-	}
-
-	return args, nil
+type Request struct {
+	Metadata capabilities.RequestMetadata
+	Config   Config
+	Inputs   Inputs
 }
 
-func encodePayload(args []any, rawSelector string) ([]byte, error) {
-	// TODO: do spec parsing as part of parseConfig()
+func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) {
+	r.Metadata = rawRequest.Metadata
 
-	// Based on https://github.com/ethereum/go-ethereum/blob/f1c27c286ea2d0e110a507e5749e92d0a6144f08/signer/fourbyte/abi.go#L77-L102
-
-	// NOTE: without having full ABI it's actually impossible to support function overloading
-	selector, err := abiutil.ParseSignature(rawSelector)
-	if err != nil {
-		return nil, err
+	if rawRequest.Config == nil {
+		return r, fmt.Errorf("missing config field")
 	}
 
-	abidata, err := json.Marshal([]abi.SelectorMarshaling{selector})
-	if err != nil {
-		return nil, err
+	if err = rawRequest.Config.UnwrapTo(&r.Config); err != nil {
+		return r, err
 	}
 
-	spec, err := abi.JSON(strings.NewReader(string(abidata)))
-	if err != nil {
-		return nil, err
+	if !common.IsHexAddress(r.Config.Address) {
+		return r, fmt.Errorf("'%v' is not a valid address", r.Config.Address)
 	}
 
-	return spec.Pack(selector.Name, args...)
+	if rawRequest.Inputs == nil {
+		return r, fmt.Errorf("missing inputs field")
+	}
 
-	// NOTE: could avoid JSON encoding/decoding the selector
-	// var args abi.Arguments
-	// for _, arg := range selector.Inputs {
-	// 	ty, err := abi.NewType(arg.Type, arg.InternalType, arg.Components)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	args = append(args, abi.Argument{Name: arg.Name, Type: ty})
-	// }
-	// // we only care about the name + inputs so we can compute the method ID
-	// method := abi.NewMethod(selector.Name, selector.Name, abi.Function, "nonpayable", false, false, args, nil)
-	//
-	// https://github.com/ethereum/go-ethereum/blob/f1c27c286ea2d0e110a507e5749e92d0a6144f08/accounts/abi/abi.go#L77-L82
-	// arguments, err := method.Inputs.Pack(args...)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// // Pack up the method ID too if not a constructor and return
-	// return append(method.ID, arguments...), nil
+	// required field of target's config in the workflow spec
+	const signedReportField = "signed_report"
+	signedReport, ok := rawRequest.Inputs.Underlying[signedReportField]
+	if !ok {
+		return r, fmt.Errorf("missing required field %s", signedReportField)
+	}
+
+	if err = signedReport.UnwrapTo(&r.Inputs.SignedReport); err != nil {
+		return r, err
+	}
+
+	reportMetadata, err := decodeReportMetadata(r.Inputs.SignedReport.Report)
+	if err != nil {
+		return r, err
+	}
+
+	if reportMetadata.Version != 1 {
+		return r, fmt.Errorf("unsupported report version: %d", reportMetadata.Version)
+	}
+
+	if hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]) != rawRequest.Metadata.WorkflowExecutionID ||
+		hex.EncodeToString(reportMetadata.WorkflowOwner[:]) != rawRequest.Metadata.WorkflowOwner ||
+		hex.EncodeToString(reportMetadata.WorkflowName[:]) != rawRequest.Metadata.WorkflowName ||
+		hex.EncodeToString(reportMetadata.WorkflowCID[:]) != rawRequest.Metadata.WorkflowID {
+		return r, fmt.Errorf("report metadata does not match request metadata. reportMetadata: %+v, requestMetadata: %+v", reportMetadata, rawRequest.Metadata)
+	}
+
+	return r, nil
 }
 
-func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.CapabilityResponse, request capabilities.CapabilityRequest) error {
-	cap.lggr.Debugw("Execute", "request", request)
-	// TODO: idempotency
-
-	// TODO: extract into ChainWriter?
-	txm := cap.chain.TxManager()
-
-	config := cap.chain.Config().EVM().ChainWriter()
-
-	reqConfig, err := parseConfig(request.Config)
-	if err != nil {
-		return err
-	}
-
-	inputsAny, err := request.Inputs.Unwrap()
-	if err != nil {
-		return err
-	}
-	inputs := inputsAny.(map[string]any)
-
-	// evaluate any variables in reqConfig.Params
-	args, err := evaluateParams(reqConfig.Params, inputs)
-	if err != nil {
-		return err
-	}
-
-	data, err := encodePayload(args, reqConfig.ABI)
-	if err != nil {
-		return err
-	}
-
-	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
-
-	// No signature validation in the MVP demo
-	signatures := [][]byte{}
-
-	// construct forwarding payload
-	calldata, err := forwardABI.Pack("report", common.HexToAddress(reqConfig.Address), data, signatures)
-	if err != nil {
-		return err
-	}
-
-	txMeta := &txmgr.TxMeta{
-		// FwdrDestAddress could also be set for better logging but it's used for various purposes around Operator Forwarders
-		WorkflowExecutionID: &request.Metadata.WorkflowExecutionID,
-	}
-	strategy := txmgrcommon.NewSendEveryStrategy()
-
-	checker := txmgr.TransmitCheckerSpec{
-		CheckerType: txmgr.TransmitCheckerTypeSimulate,
-	}
-	req := txmgr.TxRequest{
-		FromAddress:    config.FromAddress().Address(),
-		ToAddress:      config.ForwarderAddress().Address(),
-		EncodedPayload: calldata,
-		FeeLimit:       uint32(defaultGasLimit),
-		Meta:           txMeta,
-		Strategy:       strategy,
-		Checker:        checker,
-		// SignalCallback:   true, TODO: add code that checks if a workflow id is present, if so, route callback to chainwriter rather than pipeline
-	}
-	tx, err := txm.CreateTransaction(ctx, req)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Transaction submitted %v", tx.ID)
+func success() <-chan capabilities.CapabilityResponse {
+	callback := make(chan capabilities.CapabilityResponse)
 	go func() {
-		// TODO: cast tx.Error to Err (or Value to Value?)
-		callback <- capabilities.CapabilityResponse{
-			Value: nil,
-			Err:   nil,
-		}
+		callback <- capabilities.CapabilityResponse{}
 		close(callback)
 	}()
+	return callback
+}
+
+func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+	// Bind to the contract address on the write path.
+	// Bind() requires a connection to the node's RPCs and
+	// cannot be run during initialization.
+	if !cap.bound {
+		cap.lggr.Debugw("Binding to forwarder address")
+		err := cap.cr.Bind(ctx, []commontypes.BoundContract{{
+			Address: cap.forwarderAddress,
+			Name:    "forwarder",
+		}})
+		if err != nil {
+			return nil, err
+		}
+		cap.bound = true
+	}
+
+	cap.lggr.Debugw("Execute", "rawRequest", rawRequest)
+
+	request, err := evaluate(rawRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	rawExecutionID, err := hex.DecodeString(request.Metadata.WorkflowExecutionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check whether value was already transmitted on chain
+	queryInputs := struct {
+		Receiver            string
+		WorkflowExecutionID []byte
+		ReportId            []byte
+	}{
+		Receiver:            request.Config.Address,
+		WorkflowExecutionID: rawExecutionID,
+		ReportId:            request.Inputs.SignedReport.ID,
+	}
+	var transmissionInfo TransmissionInfo
+	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmissionInfo", primitives.Unconfirmed, queryInputs, &transmissionInfo); err != nil {
+		return nil, fmt.Errorf("failed to getTransmissionInfo latest value: %w", err)
+	}
+
+	switch {
+	case transmissionInfo.State == 0: // NOT_ATTEMPTED
+		cap.lggr.Infow("non-empty report - tranasmission not attempted - attempting to push to txmgr", "request", request, "reportLen", len(request.Inputs.SignedReport.Report), "reportContextLen", len(request.Inputs.SignedReport.Context), "nSignatures", len(request.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
+	case transmissionInfo.State == 1: // SUCCEEDED
+		cap.lggr.Infow("returning without a tranmission attempt - report already onchain ", "executionID", request.Metadata.WorkflowExecutionID)
+		return success(), nil
+	case transmissionInfo.State == 2: // INVALID_RECEIVER
+		cap.lggr.Infow("returning without a tranmission attempt - transmission already attempted, receiver was marked as invalid", "executionID", request.Metadata.WorkflowExecutionID)
+		return success(), nil
+	case transmissionInfo.State == 3: // FAILED
+		if transmissionInfo.GasLimit.Uint64() > cap.receiverGasMinimum {
+			cap.lggr.Infow("returning without a tranmission attempt - transmission already attempted and failed, sufficient gas was provided", "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", cap.receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
+			return success(), nil
+		} else {
+			cap.lggr.Infow("non-empty report - retrying a failed transmission - attempting to push to txmgr", "request", request, "reportLen", len(request.Inputs.SignedReport.Report), "reportContextLen", len(request.Inputs.SignedReport.Context), "nSignatures", len(request.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", cap.receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
+		}
+	default:
+		return nil, fmt.Errorf("unexpected transmission state: %v", transmissionInfo.State)
+	}
+
+	txID, err := uuid.NewUUID() // NOTE: CW expects us to generate an ID, rather than return one
+	if err != nil {
+		return nil, err
+	}
+
+	// Note: The codec that ChainWriter uses to encode the parameters for the contract ABI cannot handle
+	// `nil` values, including for slices. Until the bug is fixed we need to ensure that there are no
+	// `nil` values passed in the request.
+	req := struct {
+		Receiver      string
+		RawReport     []byte
+		ReportContext []byte
+		Signatures    [][]byte
+	}{request.Config.Address, request.Inputs.SignedReport.Report, request.Inputs.SignedReport.Context, request.Inputs.SignedReport.Signatures}
+
+	if req.RawReport == nil {
+		req.RawReport = make([]byte, 0)
+	}
+
+	if req.ReportContext == nil {
+		req.ReportContext = make([]byte, 0)
+	}
+
+	if req.Signatures == nil {
+		req.Signatures = make([][]byte, 0)
+	}
+	cap.lggr.Debugw("Transaction raw report", "report", hex.EncodeToString(req.RawReport))
+
+	meta := commontypes.TxMeta{WorkflowExecutionID: &request.Metadata.WorkflowExecutionID}
+	value := big.NewInt(0)
+	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value); err != nil {
+		return nil, err
+	}
+	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", txID)
+	return success(), nil
+}
+
+func (cap *WriteTarget) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
 	return nil
 }
 
-func (cap *EvmWrite) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
-	return nil
-}
-
-func (cap *EvmWrite) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
+func (cap *WriteTarget) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
 	return nil
 }

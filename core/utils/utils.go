@@ -479,7 +479,6 @@ func NewRedialBackoff() backoff.Backoff {
 		Max:    15 * time.Second,
 		Jitter: true,
 	}
-
 }
 
 // KeyedMutex allows to lock based on particular values

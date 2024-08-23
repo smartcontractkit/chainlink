@@ -52,6 +52,7 @@ ShutdownGracePeriod = '5s'
 FeedsManager = true
 LogPoller = false
 UICSAKeys = false
+CCIP = true
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1h0m0s'
@@ -59,7 +60,7 @@ DefaultLockTimeout = '15s'
 DefaultQueryTimeout = '10s'
 LogQueries = false
 MaxIdleConns = 10
-MaxOpenConns = 20
+MaxOpenConns = 100
 MigrateOnStartup = true
 
 [Database.Backup]
@@ -162,6 +163,7 @@ MaxSuccessfulRuns = 10000
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '24h0m0s'
 ResultWriteQueueDepth = 100
+VerboseLogging = true
 
 [JobPipeline.HTTPRequest]
 DefaultTimeout = '15s'
@@ -267,6 +269,8 @@ Mode = 'tls'
 TLSCertPath = ''
 
 [Mercury]
+VerboseLogging = false
+
 [Mercury.Cache]
 LatestReportTTL = '1s'
 MaxStaleAge = '1h0m0s'
@@ -274,6 +278,30 @@ LatestReportDeadline = '5s'
 
 [Mercury.TLS]
 CertFile = ''
+
+[Mercury.Transmitter]
+TransmitQueueMaxSize = 10000
+TransmitTimeout = '5s'
+
+[Capabilities]
+[Capabilities.Peering]
+IncomingMessageBufferSize = 10
+OutgoingMessageBufferSize = 10
+PeerID = ''
+TraceLogging = false
+
+[Capabilities.Peering.V2]
+Enabled = false
+AnnounceAddresses = []
+DefaultBootstrappers = []
+DeltaDial = '15s'
+DeltaReconcile = '1m0s'
+ListenAddresses = []
+
+[Capabilities.ExternalRegistry]
+Address = ''
+NetworkID = 'evm'
+ChainID = '1'
 
 [[EVM]]
 ChainID = '1'
@@ -295,6 +323,8 @@ NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '9m0s'
 
 [EVM.Transactions]
 ForwardersEnabled = false
@@ -303,6 +333,9 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+
+[EVM.Transactions.AutoPurge]
+Enabled = false
 
 [EVM.BalanceMonitor]
 Enabled = true
@@ -316,6 +349,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -335,6 +369,8 @@ TransactionPercentile = 50
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [EVM.NodePool]
 PollFailureThreshold = 5
@@ -343,6 +379,9 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
+DeathDeclarationDelay = '10s'
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -354,7 +393,7 @@ ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
 [EVM.OCR2.Automation]
-GasLimit = 5400000
+GasLimit = 10500000
 
 [[EVM.Nodes]]
 Name = 'fake'

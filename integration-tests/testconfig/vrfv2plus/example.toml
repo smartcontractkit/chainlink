@@ -31,6 +31,8 @@ bearer_token_secret="bearer_token"
 base_url="http://grafana.url"
 # url of your grafana dashboard (prefix and suffix "/" are stirpped), example: /d/ad61652-2712-1722/my-dashboard
 dashboard_url="/d/your-dashboard"
+# Grafana dashboard uid to annotate. Find it in Dashboard Settings -> JSON Model 
+dashboard_uid="dashboard-uid-to-annotate"
 bearer_token_secret="my-awesome-token"
 
 # if you want to use polygon_mumbial
@@ -69,6 +71,77 @@ chain_id=1337
 # list of addresses to be prefunded in genesis
 addresses_to_fund=["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"]
 
+[PrivateEthereumNetwork.EthereumChainConfig.HardForkEpochs]
+# hardforks to be applied (fork_name = epoch)
+Deneb=500
+
+# Chainlink node TOML config
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '3m'
+SessionTimeout = '999h0m0s'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[OCR]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+ListenAddresses = ['0.0.0.0:6690']
+"""
+
+# override config toml related to EVMNode configs for chainlink nodes; applicable to all EVM node configs in chainlink toml
+CommonChainConfigTOML = """
+AutoCreateKey = true
+FinalityDepth = 1
+MinContractPayment = 0
+
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+"""
+
+# chainlink override config toml for EVMNode config specific to EVM chains with chain id as mentioned in the key
+[NodeConfig.ChainConfigTOMLByChainID]
+# applicable for arbitrum-goerli chain
+421613 = """
+[GasEstimator]
+PriceMax = '400 gwei'
+LimitDefault = 100000000
+FeeCapDefault = '200 gwei'
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 gwei'
+"""
+
 # Common
 [Common]
 chainlink_node_funding = 0.5
@@ -85,7 +158,7 @@ subscription_funding_amount_link = 5.0
 number_of_words = 3
 callback_gas_limit = 1000000
 max_gas_limit_coordinator_config = 2500000
-fallback_wei_per_unit_link = 60000000000000000
+fallback_wei_per_unit_link = "60000000000000000"
 staleness_seconds = 86400
 gas_after_payment_calculation = 33825
 fulfilment_flat_fee_link_ppm_tier_1 = 500
@@ -102,13 +175,14 @@ randomness_request_count_per_request = 1
 randomness_request_count_per_request_deviation = 0
 random_words_fulfilled_event_timeout = "2m"
 wrapped_gas_overhead = 50000
-coordinator_gas_overhead = 52000
+coordinator_gas_overhead_native = 52000
+coordinator_gas_overhead_link = 74000
+coordinator_gas_overhead_per_word = 440
 wrapper_premium_percentage = 25
 wrapper_max_number_of_words = 10
 wrapper_consumer_funding_amount_native_token = 1.0
 wrapper_consumer_funding_amount_link = 10
 subscription_funding_amount_native=1
-fulfillment_flat_fee_link_ppm=500
 fulfillment_flat_fee_native_ppm=500
 fulfillment_flat_fee_link_discount_ppm=100
 native_premium_percentage=1

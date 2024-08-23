@@ -3,13 +3,18 @@ package v2plusscripts
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"log"
 	"math/big"
+
+	"github.com/montanaflynn/stats"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
@@ -19,9 +24,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5_arbitrum"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5_optimism"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_arbitrum"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_consumer_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_optimism"
 )
 
 func DeployBHS(e helpers.Environment) (blockhashStoreAddress common.Address) {
@@ -41,18 +50,36 @@ func DeployCoordinator(
 	linkAddress string,
 	bhsAddress string,
 	linkEthAddress string,
+	coordinatorType string,
 ) (coordinatorAddress common.Address) {
-	_, tx, _, err := vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
-		e.Owner,
-		e.Ec,
-		common.HexToAddress(bhsAddress))
+	var tx *types.Transaction
+	var err error
+	if coordinatorType == "layer1" {
+		_, tx, _, err = vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
+			e.Owner,
+			e.Ec,
+			common.HexToAddress(bhsAddress))
+	} else if coordinatorType == "arbitrum" {
+		_, tx, _, err = vrf_coordinator_v2_5_arbitrum.DeployVRFCoordinatorV25Arbitrum(
+			e.Owner,
+			e.Ec,
+			common.HexToAddress(bhsAddress))
+	} else if coordinatorType == "optimism" {
+		_, tx, _, err = vrf_coordinator_v2_5_optimism.DeployVRFCoordinatorV25Optimism(
+			e.Owner,
+			e.Ec,
+			common.HexToAddress(bhsAddress))
+	} else {
+		panic(fmt.Sprintf("Coordinator type not supported '%s'", coordinatorType))
+	}
 	helpers.PanicErr(err)
 	coordinatorAddress = helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 
-	// Set LINK and LINK ETH
+	// all coordinator types share VRFCoordinatorV25 interface so it's okay to use it
 	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
+	// Set LINK and LINK ETH
 	if linkAddress != "" && linkEthAddress != "" {
 		linkTx, err := coordinator.SetLINKAndLINKNativeFeed(e.Owner,
 			common.HexToAddress(linkAddress), common.HexToAddress(linkEthAddress))
@@ -79,10 +106,24 @@ func EoaAddConsumerToSub(
 	helpers.ConfirmTXMined(context.Background(), e.Ec, txadd, e.ChainID)
 }
 
-func EoaCreateSub(e helpers.Environment, coordinator vrf_coordinator_v2_5.VRFCoordinatorV25) {
+func EoaCreateSub(e helpers.Environment, coordinator vrf_coordinator_v2_5.VRFCoordinatorV25) (*big.Int, error) {
 	tx, err := coordinator.CreateSubscription(e.Owner)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+
+	receipt, err := e.Ec.TransactionReceipt(context.Background(), tx.Hash())
+	if err != nil {
+		log.Fatalf("Failed to get transaction receipt: %v", err)
+	}
+
+	for _, log := range receipt.Logs {
+		subCreatedLog, err := coordinator.ParseSubscriptionCreated(*log)
+		if err == nil {
+			return subCreatedLog.SubId, nil
+		}
+	}
+
+	return nil, errors.New("expected SubscriptionCreated log")
 }
 
 // returns subscription ID that belongs to the given owner. Returns result found first
@@ -179,6 +220,25 @@ func SetCoordinatorConfig(
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
+func SetCoordinatorL1FeeCalculation(
+	e helpers.Environment,
+	coordinatorAddress common.Address,
+	l1FeeCalculationMode uint8,
+	l1FeeCostCoefficient uint8,
+) {
+	wrapper, err := vrf_coordinator_v2_5_optimism.NewVRFCoordinatorV25Optimism(coordinatorAddress, e.Ec)
+	helpers.PanicErr(err)
+
+	tx, err := wrapper.SetL1FeeCalculation(
+		e.Owner,
+		l1FeeCalculationMode,
+		l1FeeCostCoefficient,
+	)
+
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+}
+
 func RegisterCoordinatorProvingKey(e helpers.Environment,
 	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25, uncompressed string, gasLaneMaxGas uint64) {
 	pubBytes, err := hex.DecodeString(uncompressed)
@@ -198,39 +258,90 @@ func RegisterCoordinatorProvingKey(e helpers.Environment,
 	)
 }
 
+func RegisterMigratableCoordinator(
+	e helpers.Environment,
+	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25,
+	coordinatorMigrateToAddress common.Address,
+) {
+	tx, err := coordinator.RegisterMigratableCoordinator(e.Owner, coordinatorMigrateToAddress)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(
+		context.Background(),
+		e.Ec,
+		tx,
+		e.ChainID,
+		fmt.Sprintf("Coordinator %s registered migratable coordinator %s", coordinator.Address().String(), coordinatorMigrateToAddress.String()),
+	)
+}
+
+func MigrateSub(
+	e helpers.Environment,
+	coordinatorMigrateSubFrom vrf_coordinator_v2_5.VRFCoordinatorV25,
+	coordinatorMigrateSubTo common.Address,
+	subID *big.Int,
+) {
+	tx, err := coordinatorMigrateSubFrom.Migrate(e.Owner, subID, coordinatorMigrateSubTo)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(
+		context.Background(),
+		e.Ec,
+		tx,
+		e.ChainID,
+		fmt.Sprintf("Sub Migrated from Coordinator: %s,", coordinatorMigrateSubFrom.Address().String()),
+		fmt.Sprintf("Sub Migrated TO Coordinator: %s,", coordinatorMigrateSubTo.String()),
+		fmt.Sprintf("Sub ID which was migrated: %s,", subID.String()),
+	)
+}
+
 func WrapperDeploy(
 	e helpers.Environment,
-	link, linkEthFeed, coordinator common.Address,
-) (common.Address, *big.Int) {
-	address, tx, _, err := vrfv2plus_wrapper.DeployVRFV2PlusWrapper(e.Owner, e.Ec,
-		link,
-		linkEthFeed,
-		coordinator)
+	link, linkEthFeed, coordinator common.Address, subID *big.Int, wrapperType string,
+) common.Address {
+	var address common.Address
+	var tx *types.Transaction
+	var err error
+	if wrapperType == "layer1" {
+		address, tx, _, err = vrfv2plus_wrapper.DeployVRFV2PlusWrapper(e.Owner, e.Ec,
+			link,
+			linkEthFeed,
+			coordinator,
+			subID)
+	} else if wrapperType == "arbitrum" {
+		address, tx, _, err = vrfv2plus_wrapper_arbitrum.DeployVRFV2PlusWrapperArbitrum(e.Owner, e.Ec,
+			link,
+			linkEthFeed,
+			coordinator,
+			subID)
+	} else if wrapperType == "optimism" {
+		address, tx, _, err = vrfv2plus_wrapper_optimism.DeployVRFV2PlusWrapperOptimism(e.Owner, e.Ec,
+			link,
+			linkEthFeed,
+			coordinator,
+			subID)
+	} else {
+		panic(fmt.Sprintf("Wrapper type not supported '%s'", wrapperType))
+	}
 	helpers.PanicErr(err)
 
 	helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	fmt.Println("VRFV2Wrapper address:", address)
 
-	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(address, e.Ec)
-	helpers.PanicErr(err)
-
-	subID, err := wrapper.SUBSCRIPTIONID(nil)
-	helpers.PanicErr(err)
-	fmt.Println("VRFV2Wrapper subscription id:", subID)
-
-	return address, subID
+	return address
 }
 
 func WrapperConfigure(
 	e helpers.Environment,
 	wrapperAddress common.Address,
-	wrapperGasOverhead, coordinatorGasOverhead, premiumPercentage uint,
+	wrapperGasOverhead uint,
+	coordinatorGasOverheadNative, coordinatorGasOverheadLink uint,
+	coordinatorGasOverheadPerWord uint,
+	nativePremiumPercentage, linkPremiumPercentage uint,
 	keyHash string,
 	maxNumWords uint,
 	fallbackWeiPerUnitLink *big.Int,
 	stalenessSeconds uint32,
-	fulfillmentFlatFeeLinkPPM uint32,
 	fulfillmentFlatFeeNativePPM uint32,
+	fulfillmentFlatFeeLinkDiscountPPM uint32,
 ) {
 	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(wrapperAddress, e.Ec)
 	helpers.PanicErr(err)
@@ -238,18 +349,47 @@ func WrapperConfigure(
 	tx, err := wrapper.SetConfig(
 		e.Owner,
 		uint32(wrapperGasOverhead),
-		uint32(coordinatorGasOverhead),
-		uint8(premiumPercentage),
+		uint32(coordinatorGasOverheadNative),
+		uint32(coordinatorGasOverheadLink),
+		uint16(coordinatorGasOverheadPerWord),
+		uint8(nativePremiumPercentage),
+		uint8(linkPremiumPercentage),
 		common.HexToHash(keyHash),
 		uint8(maxNumWords),
 		stalenessSeconds,
 		fallbackWeiPerUnitLink,
-		fulfillmentFlatFeeLinkPPM,
 		fulfillmentFlatFeeNativePPM,
+		fulfillmentFlatFeeLinkDiscountPPM,
 	)
 
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func WrapperSetL1FeeCalculation(
+	e helpers.Environment,
+	wrapperAddress common.Address,
+	l1FeeCalculationMode uint8,
+	l1FeeCostCoefficient uint8,
+) {
+	wrapper, err := vrfv2plus_wrapper_optimism.NewVRFV2PlusWrapperOptimism(wrapperAddress, e.Ec)
+	helpers.PanicErr(err)
+
+	tx, err := wrapper.SetL1FeeCalculation(
+		e.Owner,
+		l1FeeCalculationMode,
+		l1FeeCostCoefficient,
+	)
+
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func PrintWrapperConfig(wrapper *vrfv2plus_wrapper.VRFV2PlusWrapper) {
+	cfg, err := wrapper.GetConfig(nil)
+	helpers.PanicErr(err)
+	fmt.Printf("Wrapper config: %+v\n", cfg)
+	fmt.Printf("Wrapper Keyhash: %s\n", fmt.Sprintf("0x%x", cfg.KeyHash))
 }
 
 func WrapperConsumerDeploy(
@@ -257,7 +397,6 @@ func WrapperConsumerDeploy(
 	link, wrapper common.Address,
 ) common.Address {
 	address, tx, _, err := vrfv2plus_wrapper_consumer_example.DeployVRFV2PlusWrapperConsumerExample(e.Owner, e.Ec,
-		link,
 		wrapper)
 	helpers.PanicErr(err)
 
@@ -274,4 +413,41 @@ func EoaV2PlusLoadTestConsumerWithMetricsDeploy(e helpers.Environment, consumerC
 	)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func CalculateFulfillmentResponseTimePercentiles(e helpers.Environment, consumer *vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetrics) (float64, float64, error) {
+	var responseTimesInBlocks []uint32
+	for {
+		currentResponseTimesInBlocks, err := consumer.GetRequestBlockTimes(&bind.CallOpts{
+			From:    e.Owner.From,
+			Context: context.Background(),
+		}, big.NewInt(int64(len(responseTimesInBlocks))), big.NewInt(1000))
+		if err != nil {
+			return 0, 0, err
+		}
+		if len(currentResponseTimesInBlocks) == 0 {
+			break
+		}
+		responseTimesInBlocks = append(responseTimesInBlocks, currentResponseTimesInBlocks...)
+	}
+	var p90FulfillmentBlockTime, p95FulfillmentBlockTime float64
+	var err error
+	if len(responseTimesInBlocks) == 0 {
+		p90FulfillmentBlockTime = 0
+		p95FulfillmentBlockTime = 0
+	} else {
+		responseTimesInBlocksFloat64 := make([]float64, len(responseTimesInBlocks))
+		for i, value := range responseTimesInBlocks {
+			responseTimesInBlocksFloat64[i] = float64(value)
+		}
+		p90FulfillmentBlockTime, err = stats.Percentile(responseTimesInBlocksFloat64, 90)
+		if err != nil {
+			return 0, 0, err
+		}
+		p95FulfillmentBlockTime, err = stats.Percentile(responseTimesInBlocksFloat64, 95)
+		if err != nil {
+			return 0, 0, err
+		}
+	}
+	return p90FulfillmentBlockTime, p95FulfillmentBlockTime, nil
 }

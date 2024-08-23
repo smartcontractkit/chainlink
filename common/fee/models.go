@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
-	"github.com/smartcontractkit/chainlink/v2/common/chains/label"
 )
 
 var (
 	ErrBumpFeeExceedsLimit = errors.New("fee bump exceeds limit")
 	ErrBump                = errors.New("fee bump failed")
 	ErrConnectivity        = errors.New("transaction propagation issue: transactions are not being mined")
+	ErrFeeLimitTooLow      = errors.New("provided fee limit too low")
 )
 
 func IsBumpErr(err error) bool {

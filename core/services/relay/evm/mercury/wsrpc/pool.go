@@ -6,10 +6,10 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/wsrpc/credentials"
-	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -106,7 +106,7 @@ func (conn *connection) forceCloseAll() (err error) {
 }
 
 type Pool interface {
-	services.ServiceCtx
+	services.Service
 	// Checkout gets a wsrpc.Client for the given arguments
 	// The same underlying client can be checked out multiple times, the pool
 	// handles lifecycle management. The consumer can treat it as if it were
@@ -181,7 +181,6 @@ func (p *pool) remove(serverURL string, clientPubKey credentials.StaticSizedPubl
 	if len(p.connections[serverURL]) == 0 {
 		delete(p.connections, serverURL)
 	}
-
 }
 
 func (p *pool) newConnection(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) *connection {
@@ -226,6 +225,6 @@ func (p *pool) Ready() error {
 
 func (p *pool) HealthReport() map[string]error {
 	hp := map[string]error{p.Name(): p.Ready()}
-	maps.Copy(hp, p.cacheSet.HealthReport())
+	services.CopyHealth(hp, p.cacheSet.HealthReport())
 	return hp
 }

@@ -106,13 +106,13 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
   /// @inheritdoc IFunctionsBilling
   function getDONFeeJuels(bytes memory /* requestData */) public view override returns (uint72) {
-    // s_config.donFee is in cents of USD. Get Juel amount then convert to dollars.
+    // s_config.donFee is in cents of USD. Convert to dollars amount then get amount of Juels.
     return SafeCast.toUint72(_getJuelsFromUsd(s_config.donFeeCentsUsd) / 100);
   }
 
   /// @inheritdoc IFunctionsBilling
   function getOperationFeeJuels() public view override returns (uint72) {
-    // s_config.donFee is in cents of USD. Get Juel amount then convert to dollars.
+    // s_config.donFee is in cents of USD. Convert to dollars then get amount of Juels.
     return SafeCast.toUint72(_getJuelsFromUsd(s_config.operationFeeCentsUsd) / 100);
   }
 
@@ -124,6 +124,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   /// @inheritdoc IFunctionsBilling
   function getWeiPerUnitLink() public view returns (uint256) {
     (, int256 weiPerUnitLink, , uint256 timestamp, ) = s_linkToNativeFeed.latestRoundData();
+    // Only fallback if feedStalenessSeconds is set
     // solhint-disable-next-line not-rely-on-time
     if (s_config.feedStalenessSeconds < block.timestamp - timestamp && s_config.feedStalenessSeconds > 0) {
       return s_config.fallbackNativePerUnitLink;
@@ -143,6 +144,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   /// @inheritdoc IFunctionsBilling
   function getUsdPerUnitLink() public view returns (uint256, uint8) {
     (, int256 usdPerUnitLink, , uint256 timestamp, ) = s_linkToUsdFeed.latestRoundData();
+    // Only fallback if feedStalenessSeconds is set
     // solhint-disable-next-line not-rely-on-time
     if (s_config.feedStalenessSeconds < block.timestamp - timestamp && s_config.feedStalenessSeconds > 0) {
       return (s_config.fallbackUsdPerUnitLink, s_config.fallbackUsdPerUnitLinkDecimals);
@@ -197,13 +199,15 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       gasPriceWei = s_config.minimumEstimateGasPriceWei;
     }
 
-    uint256 gasPriceWithOverestimation = gasPriceWei +
-      ((gasPriceWei * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
-    /// @NOTE: Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
-
     uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
-    uint256 l1FeeWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
-    uint96 estimatedGasReimbursementJuels = _getJuelsFromWei((gasPriceWithOverestimation * executionGas) + l1FeeWei);
+    uint256 l1FeeWei = ChainSpecificUtil._getL1FeeUpperLimit(s_config.transmitTxSizeBytes);
+    uint256 totalFeeWei = (gasPriceWei * executionGas) + l1FeeWei;
+
+    // Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
+    uint256 totalFeeWeiWithOverestimate = totalFeeWei +
+      ((totalFeeWei * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
+
+    uint96 estimatedGasReimbursementJuels = _getJuelsFromWei(totalFeeWeiWithOverestimate);
 
     uint96 feesJuels = uint96(donFeeJuels) + uint96(adminFeeJuels) + uint96(operationFeeJuels);
 
@@ -296,7 +300,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     FunctionsResponse.Commitment memory commitment = abi.decode(onchainMetadata, (FunctionsResponse.Commitment));
 
     uint256 gasOverheadWei = (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback) * tx.gasprice;
-    uint256 l1FeeShareWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data) / reportBatchSize;
+    uint256 l1FeeShareWei = ChainSpecificUtil._getL1FeeUpperLimit(msg.data.length) / reportBatchSize;
     // Gas overhead without callback
     uint96 gasOverheadJuels = _getJuelsFromWei(gasOverheadWei + l1FeeShareWei);
     uint96 juelsPerGas = _getJuelsFromWei(tx.gasprice);
@@ -420,6 +424,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       revert NoTransmittersSet();
     }
     uint96 feePoolShare = s_feePool / uint96(numberOfTransmitters);
+    if (feePoolShare == 0) {
+      // Dust cannot be evenly distributed to all transmitters
+      return;
+    }
     // Bounded by "maxNumOracles" on OCR2Abstract.sol
     for (uint256 i = 0; i < numberOfTransmitters; ++i) {
       s_withdrawableTokens[transmitters[i]] += feePoolShare;

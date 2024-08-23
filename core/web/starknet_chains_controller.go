@@ -8,8 +8,8 @@ import (
 
 func NewStarkNetChainsController(app chainlink.Application) ChainsController {
 	return newChainsController(
-		relay.StarkNet,
-		app.GetRelayers().List(chainlink.FilterRelayersByType(relay.StarkNet)),
+		relay.NetworkStarkNet,
+		app.GetRelayers().List(chainlink.FilterRelayersByType(relay.NetworkStarkNet)),
 		ErrStarkNetNotEnabled,
 		presenters.NewStarkNetChainResource,
 		app.GetLogger(),

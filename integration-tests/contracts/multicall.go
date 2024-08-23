@@ -1,8 +1,6 @@
 package contracts
 
 import (
-	"context"
-	"fmt"
 	"math/big"
 	"strings"
 
@@ -10,10 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/seth"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 )
 
 const (
@@ -39,57 +36,25 @@ type Result struct {
 	ReturnData []byte
 }
 
-func WaitForSuccessfulTxMined(evmClient blockchain.EVMClient, tx *types.Transaction) error {
-	log.Debug().Str("tx", tx.Hash().Hex()).Msg("waiting for tx to be mined")
-	receipt, err := bind.WaitMined(context.Background(), evmClient.DeployBackend(), tx)
-	if err != nil {
-		return err
-	}
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		return fmt.Errorf("tx failed %s", tx.Hash().Hex())
-	}
-	log.Debug().Str("tx", tx.Hash().Hex()).Str("Network", evmClient.GetNetworkName()).Msg("tx mined successfully")
-	return nil
-}
-
 func MultiCallLogTriggerLoadGen(
-	evmClient blockchain.EVMClient,
+	client *seth.Client,
 	multiCallAddress string,
 	logTriggerAddress []string,
 	logTriggerData [][]byte,
 ) (*types.Transaction, error) {
-
 	contractAddress := common.HexToAddress(multiCallAddress)
 	multiCallABI, err := abi.JSON(strings.NewReader(MultiCallABI))
 	if err != nil {
 		return nil, err
 	}
-	boundContract := bind.NewBoundContract(contractAddress, multiCallABI, evmClient.Backend(), evmClient.Backend(), evmClient.Backend())
+	wrapper := wrappers.MustNewWrappedContractBackend(nil, client)
+	boundContract := bind.NewBoundContract(contractAddress, multiCallABI, wrapper, wrapper, wrapper)
 
 	var call []Call
 	for i, d := range logTriggerData {
 		data := Call{Target: common.HexToAddress(logTriggerAddress[i]), AllowFailure: false, CallData: d}
 		call = append(call, data)
 	}
-
-	opts, err := evmClient.TransactionOpts(evmClient.GetDefaultWallet())
-	if err != nil {
-		return nil, err
-	}
-
 	// call aggregate3 to group all msg call data and send them in a single transaction
-	tx, err := boundContract.Transact(opts, "aggregate3", call)
-	if err != nil {
-		return nil, err
-	}
-	err = evmClient.MarkTxAsSentOnL2(tx)
-	if err != nil {
-		return nil, err
-	}
-	err = WaitForSuccessfulTxMined(evmClient, tx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "multicall failed for log trigger load gen; multicall %s", contractAddress.Hex())
-	}
-	return tx, nil
-
+	return boundContract.Transact(client.NewTXKeyOpts(client.AnySyncedKey()), "aggregate3", call)
 }

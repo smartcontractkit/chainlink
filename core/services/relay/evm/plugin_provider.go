@@ -5,15 +5,14 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type pluginProvider struct {
 	services.Service
-	chainReader         types.ChainReader
+	chainReader         types.ContractReader
 	codec               types.Codec
 	contractTransmitter ocrtypes.ContractTransmitter
 	configWatcher       *configWatcher
@@ -24,7 +23,7 @@ type pluginProvider struct {
 var _ types.PluginProvider = (*pluginProvider)(nil)
 
 func NewPluginProvider(
-	chainReader types.ChainReader,
+	chainReader types.ContractReader,
 	codec types.Codec,
 	contractTransmitter ocrtypes.ContractTransmitter,
 	configWatcher *configWatcher,
@@ -62,7 +61,7 @@ func (p *pluginProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker 
 	return p.configWatcher.configPoller
 }
 
-func (p *pluginProvider) ChainReader() types.ChainReader {
+func (p *pluginProvider) ChainReader() types.ContractReader {
 	return p.chainReader
 }
 

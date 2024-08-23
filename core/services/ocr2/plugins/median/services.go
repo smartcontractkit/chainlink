@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
+	libocr_median "github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-feeds/median"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -56,6 +56,7 @@ func NewMedianServices(ctx context.Context,
 	jb job.Job,
 	isNewlyCreatedJob bool,
 	relayer loop.Relayer,
+	kvStore job.KVStore,
 	pipelineRunner pipeline.Runner,
 	lggr logger.Logger,
 	argsNoPlugin libocr.OCR2OracleArgs,
@@ -69,7 +70,7 @@ func NewMedianServices(ctx context.Context,
 	if err != nil {
 		return
 	}
-	err = config.ValidatePluginConfig(pluginConfig)
+	err = pluginConfig.ValidatePluginConfig()
 	if err != nil {
 		return
 	}
@@ -126,11 +127,25 @@ func NewMedianServices(ctx context.Context,
 		CreatedAt:    time.Now(),
 	}, lggr)
 
-	if !pluginConfig.JuelsPerFeeCoinCacheDisabled {
+	if pluginConfig.JuelsPerFeeCoinCache == nil || (pluginConfig.JuelsPerFeeCoinCache != nil && !pluginConfig.JuelsPerFeeCoinCache.Disable) {
 		lggr.Infof("juelsPerFeeCoin data source caching is enabled")
-		if juelsPerFeeCoinSource, err = ocrcommon.NewInMemoryDataSourceCache(juelsPerFeeCoinSource, pluginConfig.JuelsPerFeeCoinCacheDuration.Duration()); err != nil {
-			return nil, err
+		juelsPerFeeCoinSourceCache, err2 := ocrcommon.NewInMemoryDataSourceCache(juelsPerFeeCoinSource, kvStore, pluginConfig.JuelsPerFeeCoinCache)
+		if err2 != nil {
+			return nil, err2
 		}
+		juelsPerFeeCoinSource = juelsPerFeeCoinSourceCache
+		srvs = append(srvs, juelsPerFeeCoinSourceCache)
+	}
+
+	var gasPriceSubunitsDataSource libocr_median.DataSource
+	if pluginConfig.HasGasPriceSubunitsPipeline() {
+		gasPriceSubunitsDataSource = ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
+			ID:           jb.ID,
+			DotDagSource: pluginConfig.GasPriceSubunitsPipeline,
+			CreatedAt:    time.Now(),
+		}, lggr)
+	} else {
+		gasPriceSubunitsDataSource = &median.ZeroDataSource{}
 	}
 
 	if cmdName := env.MedianPlugin.Cmd.Get(); cmdName != "" {
@@ -152,11 +167,11 @@ func NewMedianServices(ctx context.Context,
 			abort()
 			return
 		}
-		median := loop.NewMedianService(lggr, telem, cmdFn, medianProvider, dataSource, juelsPerFeeCoinSource, errorLog)
+		median := loop.NewMedianService(lggr, telem, cmdFn, medianProvider, dataSource, juelsPerFeeCoinSource, gasPriceSubunitsDataSource, errorLog)
 		argsNoPlugin.ReportingPluginFactory = median
 		srvs = append(srvs, median)
 	} else {
-		argsNoPlugin.ReportingPluginFactory, err = median.NewPlugin(lggr).NewMedianFactory(ctx, medianProvider, dataSource, juelsPerFeeCoinSource, errorLog)
+		argsNoPlugin.ReportingPluginFactory, err = median.NewPlugin(lggr).NewMedianFactory(ctx, medianProvider, dataSource, juelsPerFeeCoinSource, gasPriceSubunitsDataSource, errorLog)
 		if err != nil {
 			err = fmt.Errorf("failed to create median factory: %w", err)
 			abort()

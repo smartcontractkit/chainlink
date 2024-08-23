@@ -83,5 +83,4 @@ func Test_disallowReplica(t *testing.T) {
 
 	_, err = db.Exec("SET session_replication_role= 'not_valid_role'")
 	require.Error(t, err)
-
 }

@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+option go_package = "core/capabilities/remote/types";
+
+package remote;
+
+enum Error {
+  OK = 0;
+  VALIDATION_FAILED = 1;
+  CAPABILITY_NOT_FOUND = 2;
+  INVALID_REQUEST = 3;
+  TIMEOUT = 4;
+  INTERNAL_ERROR = 5;
+}
+
+message Message {
+  bytes signature = 1;
+  bytes body = 2; // proto-encoded MessageBody to sign
+}
+
+message MessageBody {
+  reserved 7, 8;
+  uint32 version = 1;
+  bytes sender = 2;
+  bytes receiver = 3;
+  int64 timestamp = 4;
+  bytes message_id = 5; // scoped to sender
+  string capability_id = 6;
+  string method = 9;
+  Error error = 10;
+  string errorMsg = 11;
+
+  // payload contains a CapabilityRequest or CapabilityResponse
+  bytes payload = 12;
+  oneof metadata {
+    TriggerRegistrationMetadata trigger_registration_metadata = 13;
+    TriggerEventMetadata trigger_event_metadata = 14;
+  }
+
+  uint32 capability_don_id = 15;
+  uint32 caller_don_id = 16;
+}
+
+message TriggerRegistrationMetadata {
+  string last_received_event_id = 1;
+}
+
+message TriggerEventMetadata {
+  string trigger_event_id = 1;
+  repeated string workflow_ids = 2;
+}

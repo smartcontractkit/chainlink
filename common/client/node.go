@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 	"net/url"
 	"sync"
 	"time"
@@ -43,23 +42,39 @@ type NodeConfig interface {
 	SelectionMode() string
 	SyncThreshold() uint32
 	NodeIsSyncingEnabled() bool
+	FinalizedBlockPollInterval() time.Duration
+	EnforceRepeatableRead() bool
+	DeathDeclarationDelay() time.Duration
 }
 
-//go:generate mockery --quiet --name Node --structname mockNode --filename "mock_node_test.go" --inpackage --case=underscore
+type ChainConfig interface {
+	NodeNoNewHeadsThreshold() time.Duration
+	NoNewFinalizedHeadsThreshold() time.Duration
+	FinalityDepth() uint32
+	FinalityTagEnabled() bool
+	FinalizedBlockOffset() uint32
+}
+
 type Node[
 	CHAIN_ID types.ID,
 	HEAD Head,
 	RPC NodeClient[CHAIN_ID, HEAD],
 ] interface {
-	// State returns nodeState
+	// State returns most accurate state of the Node on the moment of call.
+	// While some of the checks may be performed in the background and State may return cached value, critical, like
+	// `FinalizedBlockOutOfSync`, must be executed upon every call.
 	State() nodeState
-	// StateAndLatest returns nodeState with the latest received block number & total difficulty.
-	StateAndLatest() (nodeState, int64, *big.Int)
+	// StateAndLatest returns nodeState with the latest ChainInfo observed by Node during current lifecycle.
+	StateAndLatest() (nodeState, ChainInfo)
+	// HighestUserObservations - returns highest ChainInfo ever observed by underlying RPC excluding results of health check requests
+	HighestUserObservations() ChainInfo
+	SetPoolChainInfoProvider(PoolChainInfoProvider)
 	// Name is a unique identifier for this node.
 	Name() string
 	String() string
 	RPC() RPC
 	SubscribersCount() int32
+	// UnsubscribeAllExceptAliveLoop - closes all subscriptions except the aliveLoop subscription
 	UnsubscribeAllExceptAliveLoop()
 	ConfiguredChainID() CHAIN_ID
 	Order() int32
@@ -73,14 +88,14 @@ type node[
 	RPC NodeClient[CHAIN_ID, HEAD],
 ] struct {
 	services.StateMachine
-	lfcLog              logger.Logger
-	name                string
-	id                  int32
-	chainID             CHAIN_ID
-	nodePoolCfg         NodeConfig
-	noNewHeadsThreshold time.Duration
-	order               int32
-	chainFamily         string
+	lfcLog      logger.Logger
+	name        string
+	id          int32
+	chainID     CHAIN_ID
+	nodePoolCfg NodeConfig
+	chainCfg    ChainConfig
+	order       int32
+	chainFamily string
 
 	ws   url.URL
 	http *url.URL
@@ -89,22 +104,12 @@ type node[
 
 	stateMu sync.RWMutex // protects state* fields
 	state   nodeState
-	// Each node is tracking the last received head number and total difficulty
-	stateLatestBlockNumber     int64
-	stateLatestTotalDifficulty *big.Int
 
-	// nodeCtx is the node lifetime's context
-	nodeCtx context.Context
-	// cancelNodeCtx cancels nodeCtx when stopping the node
-	cancelNodeCtx context.CancelFunc
+	poolInfoProvider PoolChainInfoProvider
+
+	stopCh services.StopChan
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
-
-	// nLiveNodes is a passed in function that allows this node to:
-	//  1. see how many live nodes there are in total, so we can prevent the last alive node in a pool from being
-	//  moved to out-of-sync state. It is better to have one out-of-sync node than no nodes at all.
-	//  2. compare against the highest head (by number or difficulty) to ensure we don't fall behind too far.
-	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *big.Int)
 }
 
 func NewNode[
@@ -113,7 +118,7 @@ func NewNode[
 	RPC NodeClient[CHAIN_ID, HEAD],
 ](
 	nodeCfg NodeConfig,
-	noNewHeadsThreshold time.Duration,
+	chainCfg ChainConfig,
 	lggr logger.Logger,
 	wsuri url.URL,
 	httpuri *url.URL,
@@ -129,13 +134,13 @@ func NewNode[
 	n.id = id
 	n.chainID = chainID
 	n.nodePoolCfg = nodeCfg
-	n.noNewHeadsThreshold = noNewHeadsThreshold
+	n.chainCfg = chainCfg
 	n.ws = wsuri
 	n.order = nodeOrder
 	if httpuri != nil {
 		n.http = httpuri
 	}
-	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
+	n.stopCh = make(services.StopChan)
 	lggr = logger.Named(lggr, "Node")
 	lggr = logger.With(lggr,
 		"nodeTier", Primary.String(),
@@ -145,7 +150,6 @@ func NewNode[
 		"nodeOrder", n.order,
 	)
 	n.lfcLog = logger.Named(lggr, "Lifecycle")
-	n.stateLatestBlockNumber = -1
 	n.rpc = rpc
 	n.chainFamily = chainFamily
 	return n
@@ -192,7 +196,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) close() error {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 
-	n.cancelNodeCtx()
+	close(n.stopCh)
 	n.state = nodeStateClosed
 	return nil
 }
@@ -238,8 +242,12 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lgg
 		promPoolRPCNodeVerifiesFailed.WithLabelValues(n.chainFamily, n.chainID.String(), n.name).Inc()
 	}
 
-	st := n.State()
+	st := n.getCachedState()
 	switch st {
+	case nodeStateClosed:
+		// The node is already closed, and any subsequent transition is invalid.
+		// To make spotting such transitions a bit easier, return the invalid node state.
+		return nodeStateLen
 	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing:
 	default:
 		panic(fmt.Sprintf("cannot verify node in state %v", st))
@@ -249,7 +257,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lgg
 	var err error
 	if chainID, err = n.rpc.ChainID(callerCtx); err != nil {
 		promFailed()
-		lggr.Errorw("Failed to verify chain ID for node", "err", err, "nodeState", n.State())
+		lggr.Errorw("Failed to verify chain ID for node", "err", err, "nodeState", n.getCachedState())
 		return nodeStateUnreachable
 	} else if chainID.String() != n.chainID.String() {
 		promFailed()
@@ -260,7 +268,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lgg
 			n.name,
 			errInvalidChainID,
 		)
-		lggr.Errorw("Failed to verify RPC node; remote endpoint returned the wrong chain ID", "err", err, "nodeState", n.State())
+		lggr.Errorw("Failed to verify RPC node; remote endpoint returned the wrong chain ID", "err", err, "nodeState", n.getCachedState())
 		return nodeStateInvalidChainID
 	}
 
@@ -273,7 +281,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lgg
 // Returns desired state if one of the verifications fails. Otherwise, returns nodeStateAlive.
 func (n *node[CHAIN_ID, HEAD, RPC]) createVerifiedConn(ctx context.Context, lggr logger.Logger) nodeState {
 	if err := n.rpc.Dial(ctx); err != nil {
-		n.lfcLog.Errorw("Dial failed: Node is unreachable", "err", err, "nodeState", n.State())
+		n.lfcLog.Errorw("Dial failed: Node is unreachable", "err", err, "nodeState", n.getCachedState())
 		return nodeStateUnreachable
 	}
 
@@ -291,12 +299,12 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyConn(ctx context.Context, lggr logger.
 	if n.nodePoolCfg.NodeIsSyncingEnabled() {
 		isSyncing, err := n.rpc.IsSyncing(ctx)
 		if err != nil {
-			lggr.Errorw("Unexpected error while verifying RPC node synchronization status", "err", err, "nodeState", n.State())
+			lggr.Errorw("Unexpected error while verifying RPC node synchronization status", "err", err, "nodeState", n.getCachedState())
 			return nodeStateUnreachable
 		}
 
 		if isSyncing {
-			lggr.Errorw("Verification failed: Node is syncing", "nodeState", n.State())
+			lggr.Errorw("Verification failed: Node is syncing", "nodeState", n.getCachedState())
 			return nodeStateSyncing
 		}
 	}
@@ -313,4 +321,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) disconnectAll() {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) Order() int32 {
 	return n.order
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) newCtx() (context.Context, context.CancelFunc) {
+	ctx, cancel := n.stopCh.NewCtx()
+	ctx = CtxAddHealthCheckFlag(ctx)
+	return ctx, cancel
 }

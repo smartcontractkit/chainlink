@@ -24,12 +24,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jmoiron/sqlx"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
@@ -42,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -377,7 +376,6 @@ func assertNoSubmission(t *testing.T,
 	duration time.Duration,
 	msg string,
 ) {
-
 	// drain the channel
 	for len(submissionReceived) > 0 {
 		<-submissionReceived
@@ -392,32 +390,34 @@ func assertNoSubmission(t *testing.T,
 
 // assertPipelineRunCreated checks that a pipeline exists for a given round and
 // verifies the answer
-func assertPipelineRunCreated(t *testing.T, db *sqlx.DB, roundID int64, result int64) pipeline.Run {
+func assertPipelineRunCreated(t *testing.T, ds sqlutil.DataSource, roundID int64, result int64) pipeline.Run {
+	ctx := testutils.Context(t)
 	// Fetch the stats to extract the run id
 	stats := fluxmonitorv2.FluxMonitorRoundStatsV2{}
-	require.NoError(t, db.Get(&stats, "SELECT * FROM flux_monitor_round_stats_v2 WHERE round_id = $1", roundID))
+	require.NoError(t, ds.GetContext(ctx, &stats, "SELECT * FROM flux_monitor_round_stats_v2 WHERE round_id = $1", roundID))
 	if stats.ID == 0 {
 		t.Fatalf("Stats for round id: %v not found!", roundID)
 	}
 	require.True(t, stats.PipelineRunID.Valid)
 	// Verify the pipeline run data
 	run := pipeline.Run{}
-	require.NoError(t, db.Get(&run, `SELECT * FROM pipeline_runs WHERE id = $1`, stats.PipelineRunID.Int64), "runID %v", stats.PipelineRunID)
+	require.NoError(t, ds.GetContext(ctx, &run, `SELECT * FROM pipeline_runs WHERE id = $1`, stats.PipelineRunID.Int64), "runID %v", stats.PipelineRunID)
 	assert.Equal(t, []interface{}{result}, run.Outputs.Val)
 	return run
 }
 
-func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *sqlx.DB, pipelineSpecID int32, blockNumber uint64, cfg pg.QConfig) {
+func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, ds sqlutil.DataSource, pipelineSpecID int32, blockNumber uint64) {
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	lggr.Infof("Waiting for log on block: %v, job id: %v", blockNumber, pipelineSpecID)
 
 	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
+		ctx := testutils.Context(t)
 		block := fa.backend.Blockchain().GetBlockByNumber(blockNumber)
 		require.NotNil(t, block)
-		orm := log.NewORM(db, lggr, cfg, fa.evmChainID)
-		consumed, err := orm.WasBroadcastConsumed(block.Hash(), 0, pipelineSpecID)
+		orm := log.NewORM(ds, fa.evmChainID)
+		consumed, err := orm.WasBroadcastConsumed(ctx, block.Hash(), 0, pipelineSpecID)
 		require.NoError(t, err)
 		fa.backend.Commit()
 		return consumed
@@ -482,7 +482,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			)
 			t.Cleanup(mockServer.Close)
 			u, _ := url.Parse(mockServer.URL)
-			require.NoError(t, app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+			require.NoError(t, app.BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
 				Name: "bridge",
 				URL:  models.WebURL(*u),
 			}))
@@ -558,12 +558,12 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 				initialBalance,
 				receiptBlock,
 			)
-			assertPipelineRunCreated(t, app.GetSqlxDB(), 1, int64(100))
+			assertPipelineRunCreated(t, app.GetDB(), 1, int64(100))
 
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
 			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-			checkLogWasConsumed(t, fa, app.GetSqlxDB(), jobID, receiptBlock, app.GetConfig().Database())
+			checkLogWasConsumed(t, fa, app.GetDB(), jobID, receiptBlock)
 
 			lggr.Info("Updating price to 103")
 			// Change reported price to a value outside the deviation
@@ -587,12 +587,12 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 				initialBalance-fee,
 				receiptBlock,
 			)
-			assertPipelineRunCreated(t, app.GetSqlxDB(), 2, int64(103))
+			assertPipelineRunCreated(t, app.GetDB(), 2, int64(103))
 
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
 			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-			checkLogWasConsumed(t, fa, app.GetSqlxDB(), jobID, receiptBlock, app.GetConfig().Database())
+			checkLogWasConsumed(t, fa, app.GetDB(), jobID, receiptBlock)
 
 			// Should not received a submission as it is inside the deviation
 			reportPrice.Store(104)
@@ -623,7 +623,7 @@ func TestFluxMonitor_NewRound(t *testing.T) {
 	app := startApplication(t, fa, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(100 * time.Millisecond)
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(1 * time.Second)
-		flags := ethkey.EIP55AddressFromAddress(fa.flagsContractAddress)
+		flags := types.EIP55AddressFromAddress(fa.flagsContractAddress)
 		c.EVM[0].FlagsContractAddress = &flags
 	})
 
@@ -689,7 +689,7 @@ ds1 -> ds1_parse
 		return lb.(log.BroadcasterInTest).TrackedAddressesCount()
 	}, testutils.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 
-	// Have the the fake node start a new round
+	// Have the fake node start a new round
 	submitAnswer(t, answerParams{
 		fa:              &fa,
 		roundId:         1,
@@ -734,7 +734,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	app := startApplication(t, fa, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(100 * time.Millisecond)
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(1 * time.Second)
-		flags := ethkey.EIP55AddressFromAddress(fa.flagsContractAddress)
+		flags := types.EIP55AddressFromAddress(fa.flagsContractAddress)
 		c.EVM[0].FlagsContractAddress = &flags
 	})
 
@@ -794,7 +794,7 @@ ds1 -> ds1_parse
 
 	// node doesn't submit initial response, because flag is up
 	// Wait here so the next lower flags doesn't trigger immediately
-	cltest.AssertPipelineRunsStays(t, j.PipelineSpec.ID, app.GetSqlxDB(), 0)
+	cltest.AssertPipelineRunsStays(t, j.PipelineSpec.ID, app.GetDB(), 0)
 
 	// lower global kill switch flag - should trigger job run
 	_, err = fa.flagsContract.LowerFlags(fa.sergey, []common.Address{evmutils.ZeroAddress})
@@ -909,7 +909,7 @@ ds1 -> ds1_parse
 	jobID, err := strconv.ParseInt(j.ID, 10, 32)
 	require.NoError(t, err)
 
-	jse := cltest.WaitForSpecErrorV2(t, app.GetSqlxDB(), int32(jobID), 1)
+	jse := cltest.WaitForSpecErrorV2(t, app.GetDB(), int32(jobID), 1)
 	assert.Contains(t, jse[0].Description, "Answer is outside acceptable range")
 }
 

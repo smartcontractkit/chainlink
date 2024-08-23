@@ -114,7 +114,6 @@ func TestValidateDB(t *testing.T) {
 		require.Error(t, err)
 		require.ErrorIs(t, err, ErrInvalidSecrets)
 	})
-
 }
 
 func TestConfig_LogSQL(t *testing.T) {

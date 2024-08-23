@@ -5,7 +5,6 @@ import "time"
 type TransactionManagerChainConfig interface {
 	BroadcasterChainConfig
 	ConfirmerChainConfig
-	ReaperChainConfig
 }
 
 type TransactionManagerFeeConfig interface {
@@ -42,7 +41,7 @@ type BroadcasterListenerConfig interface {
 
 type ConfirmerFeeConfig interface {
 	BumpTxDepth() uint32
-	LimitDefault() uint32
+	LimitDefault() uint64
 
 	// from gas.Config
 	BumpThreshold() uint64
@@ -72,13 +71,6 @@ type ResenderChainConfig interface {
 type ResenderTransactionsConfig interface {
 	ResendAfterThreshold() time.Duration
 	MaxInFlight() uint32
-}
-
-// ReaperConfig is the config subset used by the reaper
-//
-//go:generate mockery --quiet --name ReaperChainConfig --structname ReaperConfig --output ./mocks/ --case=underscore
-type ReaperChainConfig interface {
-	FinalityDepth() uint32
 }
 
 type ReaperTransactionsConfig interface {

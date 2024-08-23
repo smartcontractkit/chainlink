@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // solhint-disable-next-line one-contract-per-file
-pragma solidity 0.8.6;
+pragma solidity 0.8.19;
 
 import {ChainSpecificUtil} from "../ChainSpecificUtil.sol";
 
@@ -42,7 +42,7 @@ contract BatchBlockhashStore {
    * @param headers the rlp-encoded block headers of blockNumbers[i] + 1.
    */
   function storeVerifyHeader(uint256[] memory blockNumbers, bytes[] memory headers) public {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(blockNumbers.length == headers.length, "input array arg lengths mismatch");
     for (uint256 i = 0; i < blockNumbers.length; i++) {
       BHS.storeVerifyHeader(blockNumbers[i], headers[i]);
@@ -80,6 +80,7 @@ contract BatchBlockhashStore {
   }
 }
 
+// solhint-disable-next-line interface-starts-with-i
 interface BlockhashStore {
   function storeVerifyHeader(uint256 n, bytes memory header) external;
 

@@ -49,7 +49,6 @@ func NewDeferableWriteCloser(wc io.WriteCloser) *DeferableWriteCloser {
 // Should be called explicitly AND defered
 // Thread safe
 func (wc *DeferableWriteCloser) Close() error {
-
 	wc.mu.Lock()
 	defer wc.mu.Unlock()
 	if !wc.closed {
@@ -57,5 +56,4 @@ func (wc *DeferableWriteCloser) Close() error {
 		wc.closed = true
 	}
 	return wc.closeErr
-
 }

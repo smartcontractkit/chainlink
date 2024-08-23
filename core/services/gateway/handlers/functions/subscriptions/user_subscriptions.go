@@ -2,6 +2,7 @@ package subscriptions
 
 import (
 	"math/big"
+	"reflect"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -54,7 +55,7 @@ func (us *userSubscriptions) UpdateSubscription(subscriptionId uint64, subscript
 	}
 
 	// there is no change to the subscription
-	if us.userSubscriptionsMap[subscription.Owner][subscriptionId] == subscription {
+	if reflect.DeepEqual(us.userSubscriptionsMap[subscription.Owner][subscriptionId], subscription) {
 		return false
 	}
 

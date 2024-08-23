@@ -49,12 +49,11 @@ var rcTemplate = `{
 	callbackGasLimit: %d,
 	numWords: %d,
 	sender: %s,
-	nativePayment: %t
+	extraArgs: %s
 }
 `
 
 func generateProofForV2Plus(e helpers.Environment) {
-
 	deployCmd := flag.NewFlagSet("generate-proof", flag.ExitOnError)
 
 	keyHashString := deployCmd.String("key-hash", "", "key hash for VRF request")

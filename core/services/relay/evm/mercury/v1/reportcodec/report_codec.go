@@ -11,8 +11,9 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/types"
 )
@@ -97,4 +98,12 @@ func (r *ReportCodec) BenchmarkPriceFromReport(report ocrtypes.Report) (*big.Int
 		return nil, err
 	}
 	return decoded.BenchmarkPrice, nil
+}
+
+func (r *ReportCodec) ObservationTimestampFromReport(report ocrtypes.Report) (uint32, error) {
+	decoded, err := r.Decode(report)
+	if err != nil {
+		return 0, err
+	}
+	return decoded.ObservationsTimestamp, nil
 }

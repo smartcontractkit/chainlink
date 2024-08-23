@@ -14,21 +14,19 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-automation/pkg/v3/random"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/random"
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -72,7 +70,7 @@ type logRecoverer struct {
 	services.StateMachine
 	threadCtrl utils.ThreadControl
 
-	lggr logger.Logger
+	lggr logger.SugaredLogger
 
 	lookbackBlocks *atomic.Int64
 	blockTime      *atomic.Int64
@@ -97,12 +95,12 @@ var _ LogRecoverer = &logRecoverer{}
 
 func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client client.Client, stateStore core.UpkeepStateReader, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logRecoverer {
 	rec := &logRecoverer{
-		lggr: lggr.Named(LogRecovererServiceName),
+		lggr: logger.Sugared(lggr).Named(LogRecovererServiceName),
 
 		threadCtrl: utils.NewThreadControl(),
 
-		blockTime:      &atomic.Int64{},
-		lookbackBlocks: &atomic.Int64{},
+		blockTime:      new(atomic.Int64),
+		lookbackBlocks: new(atomic.Int64),
 		interval:       opts.ReadInterval * 5,
 
 		pending:           make([]ocr2keepers.UpkeepPayload, 0),
@@ -150,14 +148,14 @@ func (r *logRecoverer) Start(ctx context.Context) error {
 		})
 
 		r.threadCtrl.Go(func(ctx context.Context) {
-			cleanupTicker := time.NewTicker(utils.WithJitter(GCInterval))
+			cleanupTicker := services.NewTicker(GCInterval)
 			defer cleanupTicker.Stop()
 
 			for {
 				select {
 				case <-cleanupTicker.C:
 					r.clean(ctx)
-					cleanupTicker.Reset(utils.WithJitter(GCInterval))
+					cleanupTicker.Reset()
 				case <-ctx.Done():
 					return
 				}
@@ -207,7 +205,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	if !r.filterStore.Has(proposal.UpkeepID.BigInt()) {
 		return nil, fmt.Errorf("filter not found for upkeep %v", proposal.UpkeepID)
 	}
-	latest, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
+	latest, err := r.poller.LatestBlock(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +259,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 		return nil, fmt.Errorf("log block %d is before the filter configUpdateBlock %d for upkeepID %s", logBlock, filter.configUpdateBlock, proposal.UpkeepID.String())
 	}
 
-	logs, err := r.poller.LogsWithSigs(logBlock-1, logBlock+1, filter.topics, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
+	logs, err := r.poller.LogsWithSigs(ctx, logBlock-1, logBlock+1, filter.topics, common.BytesToAddress(filter.addr))
 	if err != nil {
 		return nil, fmt.Errorf("could not read logs: %w", err)
 	}
@@ -286,7 +284,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 }
 
 func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
-	latestBlock, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
+	latestBlock, err := r.poller.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
@@ -330,7 +328,7 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 }
 
 func (r *logRecoverer) recover(ctx context.Context) error {
-	latest, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
+	latest, err := r.poller.LatestBlock(ctx)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
@@ -389,7 +387,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		end = offsetBlock
 	}
 	// we expect start to be > offsetBlock in any case
-	logs, err := r.poller.LogsWithSigs(start, end, f.topics, common.BytesToAddress(f.addr), pg.WithParentCtx(ctx))
+	logs, err := r.poller.LogsWithSigs(ctx, start, end, f.topics, common.BytesToAddress(f.addr))
 	if err != nil {
 		return fmt.Errorf("could not read logs: %w", err)
 	}
@@ -605,7 +603,7 @@ func (r *logRecoverer) clean(ctx context.Context) {
 }
 
 func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
-	latestBlock, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
+	latestBlock, err := r.poller.LatestBlock(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get latest block: %w", err)
 	}
@@ -725,7 +723,7 @@ func (r *logRecoverer) updateBlockTime(ctx context.Context) {
 		currentBlockTime := r.blockTime.Load()
 		newBlockTime := int64(blockTime)
 		if currentBlockTime > 0 && (int64(math.Abs(float64(currentBlockTime-newBlockTime)))*100/currentBlockTime) > 20 {
-			r.lggr.Warnf("updating blocktime from %d to %d, this change is larger than 20%", currentBlockTime, newBlockTime)
+			r.lggr.Warnf("updating blocktime from %d to %d, this change is larger than 20%%", currentBlockTime, newBlockTime)
 		} else {
 			r.lggr.Debugf("updating blocktime from %d to %d", currentBlockTime, newBlockTime)
 		}

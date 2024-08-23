@@ -23,6 +23,7 @@ import (
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
+	evmtestutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
@@ -81,7 +82,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		FilterLogs:          backfillTimes,
 	}
 
-	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
+	chchRawLogs := make(chan evmtestutils.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), nil)
 	helper.mockEth = mockEth
@@ -147,7 +148,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 		FilterLogs:          2,
 	}
 
-	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
+	chchRawLogs := make(chan evmtestutils.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), nil)
 	helper.mockEth = mockEth
@@ -204,7 +205,7 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 		blocks.LogOnBlockNum(7, contract.Address()),
 	}
 
-	mockEth := newMockEthClient(t, make(chan evmtest.RawSub[types.Log], 4), blockHeight, mockEthClientExpectedCalls{
+	mockEth := newMockEthClient(t, make(chan evmtestutils.RawSub[types.Log], 4), blockHeight, mockEthClientExpectedCalls{
 		FilterLogs:       4,
 		FilterLogsResult: sentLogs,
 	})
@@ -241,7 +242,6 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 		<-cltest.SimulateIncomingHeads(t, blocks.Slice(12, 13), helper.lb)
 		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 4 }, testutils.WaitTimeout(t), time.Second,
 			"expected unique logs to be 4 but was %d", len(listener.getUniqueLogs()))
-
 	}()
 
 	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, testutils.WaitTimeout(t), time.Second)
@@ -262,14 +262,12 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	log2 := blocks.LogOnBlockNum(log2Block, contract2.Address())
 	logs := []types.Log{log1, log2}
 
-	contract1.On("ParseLog", log1).Return(flux_aggregator_wrapper.FluxAggregatorNewRound{}, nil)
-	contract2.On("ParseLog", log2).Return(flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}, nil)
 	t.Run("pool two logs from subscription, then shut down", func(t *testing.T) {
 		helper := newBroadcasterHelper(t, 0, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
-		lggr := logger.Test(t)
-		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
+		ctx := testutils.Context(t)
+		orm := log.NewORM(helper.db, cltest.FixtureChainID)
 
 		listener := helper.newLogListenerWithJob("one")
 		listener.SkipMarkingConsumed(true)
@@ -282,7 +280,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 			chRawLogs.TrySend(log2)
 		})
 		// Pool min block in DB and neither listener received a broadcast
-		blockNum, err := orm.GetPendingMinBlock()
+		blockNum, err := orm.GetPendingMinBlock(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, blockNum)
 		require.Equal(t, int64(log1.BlockNumber), *blockNum)
@@ -294,8 +292,10 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper := newBroadcasterHelper(t, 2, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
-		lggr := logger.Test(t)
-		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
+		ctx := testutils.Context(t)
+		orm := log.NewORM(helper.db, cltest.FixtureChainID)
+		contract1.On("ParseLog", log1).Return(flux_aggregator_wrapper.FluxAggregatorNewRound{}, nil)
+		contract2.On("ParseLog", log2).Return(flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}, nil)
 
 		listener := helper.newLogListenerWithJob("one")
 		listener.SkipMarkingConsumed(true)
@@ -305,13 +305,13 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper.simulateHeads(t, listener, listener2, contract1, contract2, confs, blocks.Slice(2, 5), orm, &expBlock, nil)
 
 		// Pool min block in DB and one listener received but didn't consume
-		blockNum, err := orm.GetPendingMinBlock()
+		blockNum, err := orm.GetPendingMinBlock(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, blockNum)
 		require.Equal(t, int64(log2.BlockNumber), *blockNum)
 		require.NotEmpty(t, listener.getUniqueLogs())
 		require.Empty(t, listener2.getUniqueLogs())
-		c, err := orm.WasBroadcastConsumed(log1.BlockHash, log1.Index, listener.JobID())
+		c, err := orm.WasBroadcastConsumed(ctx, log1.BlockHash, log1.Index, listener.JobID())
 		require.NoError(t, err)
 		require.False(t, c)
 	})
@@ -319,8 +319,8 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper := newBroadcasterHelper(t, 4, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
-		lggr := logger.Test(t)
-		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
+		ctx := testutils.Context(t)
+		orm := log.NewORM(helper.db, cltest.FixtureChainID)
 
 		listener := helper.newLogListenerWithJob("one")
 		listener2 := helper.newLogListenerWithJob("two")
@@ -328,15 +328,15 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper.simulateHeads(t, listener, listener2, contract1, contract2, confs, blocks.Slice(5, 8), orm, nil, nil)
 
 		// Pool empty and one consumed but other didn't
-		blockNum, err := orm.GetPendingMinBlock()
+		blockNum, err := orm.GetPendingMinBlock(ctx)
 		require.NoError(t, err)
 		require.Nil(t, blockNum)
 		require.NotEmpty(t, listener.getUniqueLogs())
 		require.NotEmpty(t, listener2.getUniqueLogs())
-		c, err := orm.WasBroadcastConsumed(log1.BlockHash, log1.Index, listener.JobID())
+		c, err := orm.WasBroadcastConsumed(ctx, log1.BlockHash, log1.Index, listener.JobID())
 		require.NoError(t, err)
 		require.True(t, c)
-		c, err = orm.WasBroadcastConsumed(log2.BlockHash, log2.Index, listener2.JobID())
+		c, err = orm.WasBroadcastConsumed(ctx, log2.BlockHash, log2.Index, listener2.JobID())
 		require.NoError(t, err)
 		require.False(t, c)
 	})
@@ -344,19 +344,19 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper := newBroadcasterHelper(t, 7, 1, logs[1:], func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
-		lggr := logger.Test(t)
-		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
+		ctx := testutils.Context(t)
+		orm := log.NewORM(helper.db, cltest.FixtureChainID)
 		listener := helper.newLogListenerWithJob("one")
 		listener2 := helper.newLogListenerWithJob("two")
 		helper.simulateHeads(t, listener, listener2, contract1, contract2, confs, blocks.Slice(8, 9), orm, nil, nil)
 
 		// Pool empty, one broadcasted and consumed
-		blockNum, err := orm.GetPendingMinBlock()
+		blockNum, err := orm.GetPendingMinBlock(ctx)
 		require.NoError(t, err)
 		require.Nil(t, blockNum)
 		require.Empty(t, listener.getUniqueLogs())
 		require.NotEmpty(t, listener2.getUniqueLogs())
-		c, err := orm.WasBroadcastConsumed(log2.BlockHash, log2.Index, listener2.JobID())
+		c, err := orm.WasBroadcastConsumed(ctx, log2.BlockHash, log2.Index, listener2.JobID())
 		require.NoError(t, err)
 		require.True(t, c)
 	})
@@ -380,8 +380,9 @@ func (helper *broadcasterHelper) simulateHeads(t *testing.T, listener, listener2
 
 	<-headsDone
 
+	ctx := testutils.Context(t)
 	require.Eventually(t, func() bool {
-		blockNum, err := orm.GetPendingMinBlock()
+		blockNum, err := orm.GetPendingMinBlock(ctx)
 		if !assert.NoError(t, err) {
 			return false
 		}
@@ -409,7 +410,7 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 		FilterLogs:          backfillTimes,
 	}
 
-	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
+	chchRawLogs := make(chan evmtestutils.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].BlockBackfillSkip = ptr(true)
@@ -459,7 +460,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 		FilterLogs:          expectedBatches,
 	}
 
-	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
+	chchRawLogs := make(chan evmtestutils.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].LogBackfillBatchSize = ptr(uint32(batchSize))
@@ -532,7 +533,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 		FilterLogsResult: backfilledLogs,
 	}
 
-	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
+	chchRawLogs := make(chan evmtestutils.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].LogBackfillBatchSize = ptr(batchSize)
@@ -1012,8 +1013,8 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		contract1 = newMockContract(t)
 		contract2 = newMockContract(t)
 	)
-	mockEth := &evmtest.MockEth{EthClient: ethClient}
-	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
+	mockEth := &evmtestutils.MockEth{EthClient: ethClient}
+	chchRawLogs := make(chan evmtestutils.RawSub[types.Log], backfillTimes)
 	chStarted := make(chan struct{})
 	ethClient.On("ConfiguredChainID", mock.Anything).Return(&cltest.FixtureChainID)
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
@@ -1021,7 +1022,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {
 				defer close(chStarted)
 				sub := mockEth.NewSub(t)
-				chchRawLogs <- evmtest.NewRawSub(ch, sub.Err())
+				chchRawLogs <- evmtestutils.NewRawSub(ch, sub.Err())
 				return sub
 			},
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) error {
@@ -1034,7 +1035,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		Return(
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {
 				sub := mockEth.NewSub(t)
-				chchRawLogs <- evmtest.NewRawSub(ch, sub.Err())
+				chchRawLogs <- evmtestutils.NewRawSub(ch, sub.Err())
 				return sub
 			},
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) error {
@@ -1530,14 +1531,14 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	gm := gomega.NewWithT(t)
 
 	ethClient := evmclimocks.NewClient(t)
-	mockEth := &evmtest.MockEth{EthClient: ethClient}
+	mockEth := &evmtestutils.MockEth{EthClient: ethClient}
 	ethClient.On("ConfiguredChainID").Return(big.NewInt(0)).Maybe()
-	logsChCh := make(chan evmtest.RawSub[types.Log])
+	logsChCh := make(chan evmtestutils.RawSub[types.Log])
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {
 				sub := mockEth.NewSub(t)
-				logsChCh <- evmtest.NewRawSub(ch, sub.Err())
+				logsChCh <- evmtestutils.NewRawSub(ch, sub.Err())
 				return sub
 			},
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) error {

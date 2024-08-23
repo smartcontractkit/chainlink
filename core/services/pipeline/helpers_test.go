@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -63,3 +64,5 @@ func (t *ETHTxTask) HelperSetDependencies(legacyChains legacyevm.LegacyChainCont
 	t.specGasLimit = specGasLimit
 	t.jobType = jobType
 }
+
+func (o *orm) Prune(ctx context.Context, pipelineSpecID int32) { o.prune(ctx, o.ds, pipelineSpecID) }

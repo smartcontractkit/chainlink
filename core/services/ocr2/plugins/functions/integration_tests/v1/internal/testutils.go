@@ -217,7 +217,9 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	}
 	var initialAllowedSenders []common.Address
 	var initialBlockedSenders []common.Address
-	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b, allowListConfig, initialAllowedSenders, initialBlockedSenders)
+	// The allowlist requires a pointer to the previous allowlist. If none exists, use the null address.
+	var nullPreviousAllowlist common.Address
+	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b, allowListConfig, initialAllowedSenders, initialBlockedSenders, nullPreviousAllowlist)
 	require.NoError(t, err)
 
 	// Deploy Coordinator contract (matches updateConfig() in FunctionsBilling.sol)
@@ -234,6 +236,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		OperationFeeCentsUsd:                uint16(0),
 		FallbackUsdPerUnitLink:              uint64(1_400_000_000),
 		FallbackUsdPerUnitLinkDecimals:      uint8(8),
+		TransmitTxSizeBytes:                 uint16(1764),
 	}
 	require.NoError(t, err)
 	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)
@@ -317,6 +320,7 @@ func StartNewNode(
 	ocr2Keystore []byte,
 	thresholdKeyShare string,
 ) *Node {
+	ctx := testutils.Context(t)
 	p2pKey := keystest.NewP2PKeyV2(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true)
@@ -337,7 +341,7 @@ func StartNewNode(
 
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(false)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(maxGas)
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(maxGas))
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
 		c.EVM[0].GasEstimator.PriceDefault = assets.NewWei(big.NewInt(int64(DefaultGasPrice)))
 
@@ -371,9 +375,9 @@ func StartNewNode(
 
 	var kb ocr2key.KeyBundle
 	if ocr2Keystore != nil {
-		kb, err = app.GetKeyStore().OCR2().Import(ocr2Keystore, "testPassword")
+		kb, err = app.GetKeyStore().OCR2().Import(ctx, ocr2Keystore, "testPassword")
 	} else {
-		kb, err = app.GetKeyStore().OCR2().Create("evm")
+		kb, err = app.GetKeyStore().OCR2().Create(ctx, "evm")
 	}
 	require.NoError(t, err)
 
@@ -422,13 +426,14 @@ func AddBootstrapJob(t *testing.T, app *cltest.TestApplication, contractAddress 
 }
 
 func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress common.Address, keyBundleID string, transmitter common.Address, bridgeURL string) job.Job {
+	ctx := testutils.Context(t)
 	u, err := url.Parse(bridgeURL)
 	require.NoError(t, err)
-	require.NoError(t, app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+	require.NoError(t, app.BridgeORM().CreateBridgeType(ctx, &bridges.BridgeType{
 		Name: "ea_bridge",
 		URL:  models.WebURL(*u),
 	}))
-	job, err := validate.ValidatedOracleSpecToml(app.Config.OCR2(), app.Config.Insecure(), fmt.Sprintf(`
+	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), app.Config.OCR2(), app.Config.Insecure(), fmt.Sprintf(`
 		type               = "offchainreporting2"
 		name               = "functions-node"
 		schemaVersion      = 1
@@ -470,7 +475,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 			[pluginConfig.s4Constraints]
 			maxPayloadSizeBytes = 10_1000
 			maxSlotsPerUser = 10
-	`, contractAddress, keyBundleID, transmitter, DefaultDONId))
+	`, contractAddress, keyBundleID, transmitter, DefaultDONId), nil)
 	require.NoError(t, err)
 	err = app.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)

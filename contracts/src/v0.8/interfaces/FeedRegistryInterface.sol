@@ -4,6 +4,7 @@ pragma abicoder v2;
 
 import {AggregatorV2V3Interface} from "../shared/interfaces/AggregatorV2V3Interface.sol";
 
+// solhint-disable-next-line interface-starts-with-i
 interface FeedRegistryInterface {
   struct Phase {
     uint16 phaseId;

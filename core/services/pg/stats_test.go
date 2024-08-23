@@ -61,7 +61,6 @@ func TestStatReporter(t *testing.T) {
 		{name: "mutli_start", testFn: testMultiStart},
 		{name: "multi_stop", testFn: testMultiStop},
 	} {
-
 		t.Run(scenario.name, func(t *testing.T) {
 			d := newtestDbStater(t, scenario.name)
 			d.Mock.On("Stats").Return(sql.DBStats{})

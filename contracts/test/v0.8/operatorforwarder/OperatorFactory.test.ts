@@ -16,19 +16,19 @@ before(async () => {
 
   roles = users.roles
   linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
+    'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
     roles.defaultAccount,
   )
   operatorGeneratorFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/OperatorFactory.sol:OperatorFactory',
+    'src/v0.8/operatorforwarder/OperatorFactory.sol:OperatorFactory',
     roles.defaultAccount,
   )
   operatorFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/Operator.sol:Operator',
+    'src/v0.8/operatorforwarder/Operator.sol:Operator',
     roles.defaultAccount,
   )
   forwarderFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/AuthorizedForwarder.sol:AuthorizedForwarder',
+    'src/v0.8/operatorforwarder/AuthorizedForwarder.sol:AuthorizedForwarder',
     roles.defaultAccount,
   )
 })

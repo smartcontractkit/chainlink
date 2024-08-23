@@ -13,13 +13,12 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
 
@@ -43,14 +42,15 @@ type delegate struct {
 }
 
 type DelegateConfig struct {
-	Logger   logger.Logger
-	Queryer  pg.Queryer
-	Runner   streams.Runner
-	Registry Registry
-	JobName  null.String
+	Logger     logger.Logger
+	DataSource sqlutil.DataSource
+	Runner     streams.Runner
+	Registry   Registry
+	JobName    null.String
 
 	// LLO
 	ChannelDefinitionCache llotypes.ChannelDefinitionCache
+	ReportingPluginConfig  llo.Config
 
 	// OCR3
 	BinaryNetworkEndpointFactory ocr2types.BinaryNetworkEndpointFactory
@@ -67,8 +67,8 @@ type DelegateConfig struct {
 }
 
 func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
-	if cfg.Queryer == nil {
-		return nil, errors.New("Queryer must not be nil")
+	if cfg.DataSource == nil {
+		return nil, errors.New("DataSource must not be nil")
 	}
 	if cfg.Runner == nil {
 		return nil, errors.New("Runner must not be nil")
@@ -80,7 +80,6 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 
 	// NOTE: All codecs must be specified here
 	codecs[llotypes.ReportFormatJSON] = llo.JSONReportCodec{}
-	codecs[llotypes.ReportFormatEVM] = evm.ReportCodec{}
 
 	// TODO: Do these services need starting?
 	// https://smartcontract-it.atlassian.net/browse/MERC-3386
@@ -107,7 +106,7 @@ func (d *delegate) Start(ctx context.Context) error {
 			OffchainKeyring:              d.cfg.OffchainKeyring,
 			OnchainKeyring:               d.cfg.OnchainKeyring,
 			ReportingPluginFactory: llo.NewPluginFactory(
-				d.prrc, d.src, d.cfg.ChannelDefinitionCache, d.ds, d.cfg.Logger.Named("LLOReportingPlugin"), d.codecs,
+				d.cfg.ReportingPluginConfig, d.prrc, d.src, d.cfg.ChannelDefinitionCache, d.ds, d.cfg.Logger.Named("LLOReportingPlugin"), d.codecs,
 			),
 			MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"job_name": d.cfg.JobName.ValueOrZero()}, prometheus.DefaultRegisterer),
 		})

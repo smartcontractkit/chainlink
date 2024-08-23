@@ -159,7 +159,6 @@ func TestGetMaxSize(t *testing.T) {
 			{big.NewInt(3), true},
 		}
 		runSizeTest(t, anyNumElements, args, arg1)
-
 	})
 
 	t.Run("Bytes pack themselves", func(t *testing.T) {
@@ -243,7 +242,6 @@ func TestGetMaxSize(t *testing.T) {
 }
 
 func runSizeTest(t *testing.T, n int, args abi.Arguments, params ...any) {
-
 	actual, err := types.GetMaxSize(n, args)
 	require.NoError(t, err)
 

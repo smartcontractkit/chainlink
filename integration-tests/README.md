@@ -14,9 +14,9 @@ If you have previously run these smoke tests using GitHub Actions or some sort o
 
 ## Configure
 
-We have finished first pass at moving the configuration from env vars to TOML files. Currently all product-related configuration is already in TOML files, but env vars still are used to control things like log level, Slack notifications and Kubernetes-related settings. See the [example.env](./example.env) file for environment variables.
+We have finished the first pass at moving all test configuration from env vars to TOML files. All product-related configuration is already in TOML files, but env vars are still used to control the log level, Slack notifications, and Kubernetes-related settings. See the [example.env](./example.env) file for how to set these environment variables.
 
-We have added what we think are sensible defaults for all products, you can find them in `./testconfig/<product>/<product>.toml` files. Each product folder contains also an `example.toml` file with all possible TOML keys and some description. Detailed description of TOML configuration can be found in [README.md](./testconfig/README.md), but if you want to run some tests using default value all you need to do is provide Chainlink image and version:
+We have defined some sensible defaults for all products, you can find them in `./testconfig/<product>/<product>.toml` files. Each product folder contains an `example.toml` file that describes all options. If you wish to override these values, you can do so by creating a `./testconfig/overrides.toml`. A detailed description of TOML configuration can be found in the [testconfig README](./testconfig/README.md), but if you want to run some tests using default values all you need to do is provide the Chainlink image and version you want to run tests on:
 ```toml
 # ./testconfig/overrides.toml
 
@@ -25,15 +25,9 @@ image = "your image name"
 version = "your tag"
 ```
 
-You could also think about that config this way:
-```toml
-# ./testconfig/overrides.toml
-[ChainlinkImage]
-image = "${CHAINLINK_IMAGE}"
-version = "${CHAINLINK_VERSION}"
-```
+The `./testconfig/overrides.toml` file **should never be committed** and has been added to the [.gitignore](../.gitignore) file as it can often contain secrets like private keys and RPC URLs.
 
-Of course above just and example, in real world no substitution will take place unless you use some templating tool, but it should give you an idea on how to move from env vars to TOML files. **Remember** your runtime configuration needs to be placed in `./testconfig/overrides.toml` file **that should never be committed**.
+For more information on how to configure the tests, see the [testconfig README](./testconfig/README.md).
 
 ## Build
 
@@ -47,7 +41,7 @@ e.g.
 
 ## Run
 
-Make sure you have `./testconfig/overrides.toml` file with your Chainlink image and version.
+Ensure you have created a `./testconfig/overrides.toml` file with your desired Chainlink image and version.
 
 `go test ./smoke/<product>_test.go`
 
@@ -57,6 +51,10 @@ Most test files have a couple of tests, it's recommended to look into the file a
 
 It's generally recommended to run only one test at a time on a local machine as it needs a lot of docker containers and can peg your resources otherwise. You will see docker containers spin up on your machine for each component of the test where you can inspect logs.
 
+### Configure Seth
+
+Our new evm client is Seth. Detailed instructions on how to configure it can be found in the [Seth README](./README_SETH.md) in this repo as well as in [Seth repository](https://github.com/smartcontractkit/seth).
+
 ## Analyze
 
 You can see the results of each test in the terminal with normal `go test` output. If a test fails, logs of each Chainlink container will dump into the `smoke/logs/` folder for later analysis. You can also see these logs in CI uploaded as GitHub artifacts.
@@ -64,3 +62,76 @@ You can see the results of each test in the terminal with normal `go test` outpu
 ## Running Soak, Performance, Benchmark, and Chaos Tests
 
 These tests remain bound to a Kubernetes run environment, and require more complex setup and running instructions not documented here. We endeavor to make these easier to run and configure, but for the time being please seek a member of the QA/Test Tooling team if you want to run these.
+
+### How to run reorg tests
+Run soak/ocr_test.go with reorg below finality and `FinalityTagEnabled=false`
+
+```bash
+make test_soak_ocr_reorg_1
+```
+
+Run soak/ocr_test.go with reorg below finality and `FinalityTagEnabled=true`:
+
+```bash
+make test_soak_ocr_reorg_2
+```
+
+Run reorg/automation_reorg_test.go with reorg settings:
+
+1. Use Simulated Geth network and put GethReorgConfig in overrides.toml
+
+    ```toml
+    [Network]
+    selected_networks=["simulated"]
+    [Network.GethReorgConfig]
+    enabled = true
+    depth = 10
+    delay_create = "3s"
+    ```
+
+2. Then run the test:
+    ```bash
+    make test_reorg_automation
+    ```
+
+Run reorg above finality docker test:
+
+```bash
+go test -v -run ^TestReorgAboveFinality_FinalityTagDisabled$ ./smoke
+```
+
+### How to run gas simulation tests
+
+Run soak/ocr_test.go with gas spike:
+
+```bash
+make test_soak_ocr_gas_spike
+```
+
+Run soak/ocr_test.go with changing gas limit creating block congestion:
+
+```bash
+make test_soak_ocr_gas_limit_change
+```
+
+Note: you can update gas simulation params for the tests below in in testconfig/ocr.toml
+
+### How to run tests with RPC node failure
+
+Run soak/ocr_test.go with RPC network chaos by bringing down network to RPC node for all Chainlink Nodes:
+
+```bash
+make test_soak_ocr_rpc_down_all_cl_nodes
+```
+
+Run soak/ocr_test.go with RPC network chaos by bringing down network to RPC node for 50 percent of Chainlink Nodes:
+
+```bash
+make test_soak_ocr_rpc_down_half_cl_nodes
+```
+
+### Debugging HTTP and RPC clients
+```bash
+export SETH_LOG_LEVEL=debug
+export RESTY_DEBUG=true
+```

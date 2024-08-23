@@ -10,20 +10,20 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type logPollerWrapper struct {
-	services.StateMachine
+	services.Service
+	eng *services.Engine
 
 	routerContract            *functions_router.FunctionsRouter
 	pluginConfig              config.PluginConfig
@@ -39,9 +39,6 @@ type logPollerWrapper struct {
 	detectedRequests          detectedEvents
 	detectedResponses         detectedEvents
 	mu                        sync.Mutex
-	closeWait                 sync.WaitGroup
-	stopCh                    services.StopChan
-	lggr                      logger.Logger
 }
 
 type detectedEvent struct {
@@ -95,7 +92,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 		return nil, errors.Errorf("invalid config: number of required confirmation blocks >= pastBlocksToPoll")
 	}
 
-	return &logPollerWrapper{
+	w := &logPollerWrapper{
 		routerContract:            routerContract,
 		pluginConfig:              pluginConfig,
 		requestBlockOffset:        requestBlockOffset,
@@ -107,42 +104,27 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 		logPoller:                 logPoller,
 		client:                    client,
 		subscribers:               make(map[string]evmRelayTypes.RouteUpdateSubscriber),
-		stopCh:                    make(services.StopChan),
-		lggr:                      lggr.Named("LogPollerWrapper"),
-	}, nil
+	}
+	w.Service, w.eng = services.Config{
+		Name:  "LoggPollerWrapper",
+		Start: w.start,
+	}.NewServiceEngine(lggr)
+	return w, nil
 }
 
-func (l *logPollerWrapper) Start(context.Context) error {
-	return l.StartOnce("LogPollerWrapper", func() error {
-		l.lggr.Infow("starting LogPollerWrapper", "routerContract", l.routerContract.Address().Hex(), "contractVersion", l.pluginConfig.ContractVersion)
-		l.mu.Lock()
-		defer l.mu.Unlock()
-		if l.pluginConfig.ContractVersion != 1 {
-			return errors.New("only contract version 1 is supported")
-		}
-		l.closeWait.Add(1)
-		go l.checkForRouteUpdates()
-		return nil
-	})
+func (l *logPollerWrapper) start(context.Context) error {
+	l.eng.Infow("starting LogPollerWrapper", "routerContract", l.routerContract.Address().Hex(), "contractVersion", l.pluginConfig.ContractVersion)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.pluginConfig.ContractVersion != 1 {
+		return errors.New("only contract version 1 is supported")
+	}
+	l.eng.Go(l.checkForRouteUpdates)
+	return nil
 }
-
-func (l *logPollerWrapper) Close() error {
-	return l.StopOnce("LogPollerWrapper", func() (err error) {
-		l.lggr.Info("closing LogPollerWrapper")
-		close(l.stopCh)
-		l.closeWait.Wait()
-		return nil
-	})
-}
-
-func (l *logPollerWrapper) HealthReport() map[string]error {
-	return map[string]error{l.Name(): l.Ready()}
-}
-
-func (l *logPollerWrapper) Name() string { return l.lggr.Name() }
 
 // methods of LogPollerWrapper
-func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmRelayTypes.OracleResponse, error) {
+func (l *logPollerWrapper) LatestEvents(ctx context.Context) ([]evmRelayTypes.OracleRequest, []evmRelayTypes.OracleResponse, error) {
 	l.mu.Lock()
 	coordinators := []common.Address{}
 	if l.activeCoordinator != (common.Address{}) {
@@ -151,7 +133,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 	if l.proposedCoordinator != (common.Address{}) && l.activeCoordinator != l.proposedCoordinator {
 		coordinators = append(coordinators, l.proposedCoordinator)
 	}
-	latest, err := l.logPoller.LatestBlock()
+	latest, err := l.logPoller.LatestBlock(ctx)
 	if err != nil {
 		l.mu.Unlock()
 		return nil, nil, err
@@ -167,40 +149,40 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 	resultsReq := []evmRelayTypes.OracleRequest{}
 	resultsResp := []evmRelayTypes.OracleResponse{}
 	if len(coordinators) == 0 {
-		l.lggr.Debug("LatestEvents: no non-zero coordinators to check")
+		l.eng.Debug("LatestEvents: no non-zero coordinators to check")
 		return resultsReq, resultsResp, errors.New("no non-zero coordinators to check")
 	}
 
 	for _, coordinator := range coordinators {
 		requestEndBlock := latestBlockNum - l.requestBlockOffset
-		requestLogs, err := l.logPoller.Logs(startBlockNum, requestEndBlock, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), coordinator)
+		requestLogs, err := l.logPoller.Logs(ctx, startBlockNum, requestEndBlock, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), coordinator)
 		if err != nil {
-			l.lggr.Errorw("LatestEvents: fetching request logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", requestEndBlock)
+			l.eng.Errorw("LatestEvents: fetching request logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", requestEndBlock)
 			return nil, nil, err
 		}
-		l.lggr.Debugw("LatestEvents: fetched request logs", "nRequestLogs", len(requestLogs), "latestBlock", latest, "startBlock", startBlockNum, "endBlock", requestEndBlock)
+		l.eng.Debugw("LatestEvents: fetched request logs", "nRequestLogs", len(requestLogs), "latestBlock", latest, "startBlock", startBlockNum, "endBlock", requestEndBlock)
 		requestLogs = l.filterPreviouslyDetectedEvents(requestLogs, &l.detectedRequests, "requests")
 		responseEndBlock := latestBlockNum - l.responseBlockOffset
-		responseLogs, err := l.logPoller.Logs(startBlockNum, responseEndBlock, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
+		responseLogs, err := l.logPoller.Logs(ctx, startBlockNum, responseEndBlock, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
 		if err != nil {
-			l.lggr.Errorw("LatestEvents: fetching response logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", responseEndBlock)
+			l.eng.Errorw("LatestEvents: fetching response logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", responseEndBlock)
 			return nil, nil, err
 		}
-		l.lggr.Debugw("LatestEvents: fetched request logs", "nResponseLogs", len(responseLogs), "latestBlock", latest, "startBlock", startBlockNum, "endBlock", responseEndBlock)
+		l.eng.Debugw("LatestEvents: fetched request logs", "nResponseLogs", len(responseLogs), "latestBlock", latest, "startBlock", startBlockNum, "endBlock", responseEndBlock)
 		responseLogs = l.filterPreviouslyDetectedEvents(responseLogs, &l.detectedResponses, "responses")
 
 		parsingContract, err := functions_coordinator.NewFunctionsCoordinator(coordinator, l.client)
 		if err != nil {
-			l.lggr.Error("LatestEvents: creating a contract instance for parsing failed")
+			l.eng.Error("LatestEvents: creating a contract instance for parsing failed")
 			return nil, nil, err
 		}
 
-		l.lggr.Debugw("LatestEvents: parsing logs", "nRequestLogs", len(requestLogs), "nResponseLogs", len(responseLogs), "coordinatorAddress", coordinator.Hex())
+		l.eng.Debugw("LatestEvents: parsing logs", "nRequestLogs", len(requestLogs), "nResponseLogs", len(responseLogs), "coordinatorAddress", coordinator.Hex())
 		for _, log := range requestLogs {
 			gethLog := log.ToGethLog()
 			oracleRequest, err := parsingContract.ParseOracleRequest(gethLog)
 			if err != nil {
-				l.lggr.Errorw("LatestEvents: failed to parse a request log, skipping", "err", err)
+				l.eng.Errorw("LatestEvents: failed to parse a request log, skipping", "err", err)
 				continue
 			}
 
@@ -213,7 +195,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 			bytes32Type, errType7 := abi.NewType("bytes32", "bytes32", nil)
 
 			if errType1 != nil || errType2 != nil || errType3 != nil || errType4 != nil || errType5 != nil || errType6 != nil || errType7 != nil {
-				l.lggr.Errorw("LatestEvents: failed to initialize types", "errType1", errType1,
+				l.eng.Errorw("LatestEvents: failed to initialize types", "errType1", errType1,
 					"errType2", errType2, "errType3", errType3, "errType4", errType4, "errType5", errType5, "errType6", errType6, "errType7", errType7,
 				)
 				continue
@@ -245,7 +227,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 				oracleRequest.Commitment.TimeoutTimestamp,
 			)
 			if err != nil {
-				l.lggr.Errorw("LatestEvents: failed to pack commitment bytes, skipping", err)
+				l.eng.Errorw("LatestEvents: failed to pack commitment bytes, skipping", "err", err)
 			}
 
 			resultsReq = append(resultsReq, evmRelayTypes.OracleRequest{
@@ -267,7 +249,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 			gethLog := log.ToGethLog()
 			oracleResponse, err := parsingContract.ParseOracleResponse(gethLog)
 			if err != nil {
-				l.lggr.Errorw("LatestEvents: failed to parse a response log, skipping")
+				l.eng.Errorw("LatestEvents: failed to parse a response log, skipping")
 				continue
 			}
 			resultsResp = append(resultsResp, evmRelayTypes.OracleResponse{
@@ -276,13 +258,13 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 		}
 	}
 
-	l.lggr.Debugw("LatestEvents: done", "nRequestLogs", len(resultsReq), "nResponseLogs", len(resultsResp), "startBlock", startBlockNum, "endBlock", latestBlockNum)
+	l.eng.Debugw("LatestEvents: done", "nRequestLogs", len(resultsReq), "nResponseLogs", len(resultsResp), "startBlock", startBlockNum, "endBlock", latestBlockNum)
 	return resultsReq, resultsResp, nil
 }
 
 func (l *logPollerWrapper) filterPreviouslyDetectedEvents(logs []logpoller.Log, detectedEvents *detectedEvents, filterType string) []logpoller.Log {
 	if len(logs) > maxLogsToProcess {
-		l.lggr.Errorw("filterPreviouslyDetectedEvents: too many logs to process, only processing latest maxLogsToProcess logs", "filterType", filterType, "nLogs", len(logs), "maxLogsToProcess", maxLogsToProcess)
+		l.eng.Errorw("filterPreviouslyDetectedEvents: too many logs to process, only processing latest maxLogsToProcess logs", "filterType", filterType, "nLogs", len(logs), "maxLogsToProcess", maxLogsToProcess)
 		logs = logs[len(logs)-maxLogsToProcess:]
 	}
 	l.mu.Lock()
@@ -291,7 +273,7 @@ func (l *logPollerWrapper) filterPreviouslyDetectedEvents(logs []logpoller.Log, 
 	for _, log := range logs {
 		var requestId [32]byte
 		if len(log.Topics) < 2 || len(log.Topics[1]) != 32 {
-			l.lggr.Errorw("filterPreviouslyDetectedEvents: invalid log, skipping", "filterType", filterType, "log", log)
+			l.eng.Errorw("filterPreviouslyDetectedEvents: invalid log, skipping", "filterType", filterType, "log", log)
 			continue
 		}
 		copy(requestId[:], log.Topics[1]) // requestId is the second topic (1st topic is the event signature)
@@ -311,16 +293,16 @@ func (l *logPollerWrapper) filterPreviouslyDetectedEvents(logs []logpoller.Log, 
 		expiredRequests++
 	}
 	detectedEvents.detectedEventsOrdered = detectedEvents.detectedEventsOrdered[expiredRequests:]
-	l.lggr.Debugw("filterPreviouslyDetectedEvents: done", "filterType", filterType, "nLogs", len(logs), "nFilteredLogs", len(filteredLogs), "nExpiredRequests", expiredRequests, "previouslyDetectedCacheSize", len(detectedEvents.detectedEventsOrdered))
+	l.eng.Debugw("filterPreviouslyDetectedEvents: done", "filterType", filterType, "nLogs", len(logs), "nFilteredLogs", len(filteredLogs), "nExpiredRequests", expiredRequests, "previouslyDetectedCacheSize", len(detectedEvents.detectedEventsOrdered))
 	return filteredLogs
 }
 
 // "internal" method called only by EVM relayer components
-func (l *logPollerWrapper) SubscribeToUpdates(subscriberName string, subscriber evmRelayTypes.RouteUpdateSubscriber) {
+func (l *logPollerWrapper) SubscribeToUpdates(ctx context.Context, subscriberName string, subscriber evmRelayTypes.RouteUpdateSubscriber) {
 	if l.pluginConfig.ContractVersion == 0 {
 		// in V0, immediately set contract address to Oracle contract and never update again
-		if err := subscriber.UpdateRoutes(l.routerContract.Address(), l.routerContract.Address()); err != nil {
-			l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "subscriberName", subscriberName, "err", err)
+		if err := subscriber.UpdateRoutes(ctx, l.routerContract.Address(), l.routerContract.Address()); err != nil {
+			l.eng.Errorw("LogPollerWrapper: Failed to update routes", "subscriberName", subscriberName, "err", err)
 		}
 	} else if l.pluginConfig.ContractVersion == 1 {
 		l.mu.Lock()
@@ -329,35 +311,36 @@ func (l *logPollerWrapper) SubscribeToUpdates(subscriberName string, subscriber 
 	}
 }
 
-func (l *logPollerWrapper) checkForRouteUpdates() {
-	defer l.closeWait.Done()
+func (l *logPollerWrapper) checkForRouteUpdates(ctx context.Context) {
 	freqSec := l.pluginConfig.ContractUpdateCheckFrequencySec
 	if freqSec == 0 {
-		l.lggr.Errorw("LogPollerWrapper: ContractUpdateCheckFrequencySec is zero - route update checks disabled")
+		l.eng.Errorw("LogPollerWrapper: ContractUpdateCheckFrequencySec is zero - route update checks disabled")
 		return
 	}
 
-	updateOnce := func() {
+	updateOnce := func(ctx context.Context) {
 		// NOTE: timeout == frequency here, could be changed to a separate config value
-		timeoutCtx, cancel := utils.ContextFromChanWithTimeout(l.stopCh, time.Duration(l.pluginConfig.ContractUpdateCheckFrequencySec)*time.Second)
+		timeout := time.Duration(l.pluginConfig.ContractUpdateCheckFrequencySec) * time.Second
+		ctx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
-		active, proposed, err := l.getCurrentCoordinators(timeoutCtx)
+		active, proposed, err := l.getCurrentCoordinators(ctx)
 		if err != nil {
-			l.lggr.Errorw("LogPollerWrapper: error calling getCurrentCoordinators", "err", err)
+			l.eng.Errorw("LogPollerWrapper: error calling getCurrentCoordinators", "err", err)
 			return
 		}
-		l.handleRouteUpdate(active, proposed)
+
+		l.handleRouteUpdate(ctx, active, proposed)
 	}
 
-	updateOnce() // update once right away
+	updateOnce(ctx) // update once right away
 	ticker := time.NewTicker(time.Duration(freqSec) * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
-		case <-l.stopCh:
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			updateOnce()
+			updateOnce(ctx)
 		}
 	}
 }
@@ -388,49 +371,69 @@ func (l *logPollerWrapper) getCurrentCoordinators(ctx context.Context) (common.A
 	return activeCoordinator, proposedCoordinator, nil
 }
 
-func (l *logPollerWrapper) handleRouteUpdate(activeCoordinator common.Address, proposedCoordinator common.Address) {
+func (l *logPollerWrapper) handleRouteUpdate(ctx context.Context, activeCoordinator common.Address, proposedCoordinator common.Address) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	if activeCoordinator == (common.Address{}) {
-		l.lggr.Error("LogPollerWrapper: cannot update activeCoordinator to zero address")
+		l.eng.Error("LogPollerWrapper: cannot update activeCoordinator to zero address")
 		return
 	}
 
 	if activeCoordinator == l.activeCoordinator && proposedCoordinator == l.proposedCoordinator {
-		l.lggr.Debug("LogPollerWrapper: no changes to routes")
+		l.eng.Debug("LogPollerWrapper: no changes to routes")
 		return
 	}
-	errActive := l.registerFilters(activeCoordinator)
-	errProposed := l.registerFilters(proposedCoordinator)
+	errActive := l.registerFilters(ctx, activeCoordinator)
+	errProposed := l.registerFilters(ctx, proposedCoordinator)
 	if errActive != nil || errProposed != nil {
-		l.lggr.Errorw("LogPollerWrapper: Failed to register filters", "errorActive", errActive, "errorProposed", errProposed)
+		l.eng.Errorw("LogPollerWrapper: Failed to register filters", "errorActive", errActive, "errorProposed", errProposed)
 		return
 	}
 
-	l.lggr.Debugw("LogPollerWrapper: new routes", "activeCoordinator", activeCoordinator.Hex(), "proposedCoordinator", proposedCoordinator.Hex())
+	l.eng.Debugw("LogPollerWrapper: new routes", "activeCoordinator", activeCoordinator.Hex(), "proposedCoordinator", proposedCoordinator.Hex())
+
 	l.activeCoordinator = activeCoordinator
 	l.proposedCoordinator = proposedCoordinator
 
 	for _, subscriber := range l.subscribers {
-		err := subscriber.UpdateRoutes(activeCoordinator, proposedCoordinator)
+		err := subscriber.UpdateRoutes(ctx, activeCoordinator, proposedCoordinator)
 		if err != nil {
-			l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "err", err)
+			l.eng.Errorw("LogPollerWrapper: Failed to update routes", "err", err)
 		}
+	}
+
+	filters := l.logPoller.GetFilters()
+	for _, filter := range filters {
+		if filter.Name[:len(l.filterPrefix())] != l.filterPrefix() {
+			continue
+		}
+		if filter.Name == l.filterName(l.activeCoordinator) || filter.Name == l.filterName(l.proposedCoordinator) {
+			continue
+		}
+		if err := l.logPoller.UnregisterFilter(ctx, filter.Name); err != nil {
+			l.eng.Errorw("LogPollerWrapper: Failed to unregister filter", "filterName", filter.Name, "err", err)
+		}
+		l.eng.Debugw("LogPollerWrapper: Successfully unregistered filter", "filterName", filter.Name)
 	}
 }
 
-func filterName(addr common.Address) string {
-	return logpoller.FilterName("FunctionsLogPollerWrapper", addr.String())
+func (l *logPollerWrapper) filterPrefix() string {
+	return "FunctionsLogPollerWrapper:" + l.pluginConfig.DONID
 }
 
-func (l *logPollerWrapper) registerFilters(coordinatorAddress common.Address) error {
+func (l *logPollerWrapper) filterName(addr common.Address) string {
+	return logpoller.FilterName(l.filterPrefix(), addr.String())
+}
+
+func (l *logPollerWrapper) registerFilters(ctx context.Context, coordinatorAddress common.Address) error {
 	if (coordinatorAddress == common.Address{}) {
 		return nil
 	}
 	return l.logPoller.RegisterFilter(
+		ctx,
 		logpoller.Filter{
-			Name: filterName(coordinatorAddress),
+			Name: l.filterName(coordinatorAddress),
 			EventSigs: []common.Hash{
 				functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(),
 				functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(),

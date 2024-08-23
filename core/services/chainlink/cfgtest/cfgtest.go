@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 func AssertFieldsNotNil(t *testing.T, s interface{}) {
 	err := assertValNotNil(t, "", reflect.ValueOf(s))
-	_, err = utils.MultiErrorList(err)
+	_, err = config.MultiErrorList(err)
 	assert.NoError(t, err)
 }
 

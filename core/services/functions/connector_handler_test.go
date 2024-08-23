@@ -130,7 +130,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)
 				require.Equal(t, `{"success":true,"rows":[{"slot_id":1,"version":1,"expiration":1},{"slot_id":2,"version":2,"expiration":2}]}`, string(msg.Body.Payload))
-
 			}).Return(nil).Once()
 
 			handler.HandleGatewayMessage(ctx, "gw1", &msg)
@@ -142,7 +141,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
 					require.Equal(t, `{"success":false,"error_message":"Failed to list secrets: boom"}`, string(msg.Body.Payload))
-
 				}).Return(nil).Once()
 
 				handler.HandleGatewayMessage(ctx, "gw1", &msg)
@@ -187,7 +185,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)
 				require.Equal(t, `{"success":true}`, string(msg.Body.Payload))
-
 			}).Return(nil).Once()
 
 			handler.HandleGatewayMessage(ctx, "gw1", &msg)
@@ -200,7 +197,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
 					require.Equal(t, `{"success":false,"error_message":"Failed to set secret: boom"}`, string(msg.Body.Payload))
-
 				}).Return(nil).Once()
 
 				handler.HandleGatewayMessage(ctx, "gw1", &msg)
@@ -216,7 +212,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
 					require.Equal(t, `{"success":false,"error_message":"Failed to set secret: wrong signature"}`, string(msg.Body.Payload))
-
 				}).Return(nil).Once()
 
 				handler.HandleGatewayMessage(ctx, "gw1", &msg)
@@ -231,7 +226,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
 					require.Equal(t, `{"success":false,"error_message":"Bad request to set secret: invalid character 's' looking for beginning of object key string"}`, string(msg.Body.Payload))
-
 				}).Return(nil).Once()
 
 				handler.HandleGatewayMessage(ctx, "gw1", &msg)
@@ -244,7 +238,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
 					require.Equal(t, `{"success":false,"error_message":"user subscription has insufficient balance"}`, string(msg.Body.Payload))
-
 				}).Return(nil).Once()
 
 				handler.HandleGatewayMessage(ctx, "gw1", &msg)
@@ -276,7 +269,10 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 		// first call to trigger the request
 		var response functions.HeartbeatResponse
 		allowlist.On("Allow", addr).Return(true).Once()
-		listener.On("HandleOffchainRequest", mock.Anything, mock.Anything).Return(nil).Once()
+		handlerCalled := make(chan struct{})
+		listener.On("HandleOffchainRequest", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			handlerCalled <- struct{}{}
+		}).Return(nil).Once()
 		connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 			respMsg, ok := args[2].(*api.Message)
 			require.True(t, ok)
@@ -284,6 +280,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			require.Equal(t, functions.RequestStatePending, response.Status)
 		}).Return(nil).Once()
 		handler.HandleGatewayMessage(ctx, "gw1", msg)
+		<-handlerCalled
 
 		// async response computation
 		reportCh <- &functions.OffchainResponse{
@@ -311,9 +308,13 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 		// first call to trigger the request
 		var response functions.HeartbeatResponse
 		allowlist.On("Allow", addr).Return(true).Once()
-		listener.On("HandleOffchainRequest", mock.Anything, mock.Anything).Return(errors.New("boom")).Once()
+		handlerCalled := make(chan struct{})
+		listener.On("HandleOffchainRequest", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			handlerCalled <- struct{}{}
+		}).Return(errors.New("boom")).Once()
 		connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Return(nil).Once()
 		handler.HandleGatewayMessage(ctx, "gw1", msg)
+		<-handlerCalled
 
 		// collect the response - should eventually result in an internal error
 		gomega.NewGomegaWithT(t).Eventually(func() bool {

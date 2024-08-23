@@ -19,5 +19,4 @@ func TestPyroscopeConfigTest(t *testing.T) {
 	require.Equal(t, "pyroscope-token", pcfg.AuthToken())
 	require.Equal(t, "http://localhost:4040", pcfg.ServerAddress())
 	require.Equal(t, "tests", pcfg.Environment())
-
 }

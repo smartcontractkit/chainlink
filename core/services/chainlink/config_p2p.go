@@ -69,7 +69,6 @@ func (v *p2pv2) DeltaDial() commonconfig.Duration {
 func (v *p2pv2) DeltaReconcile() commonconfig.Duration {
 	if d := v.c.DeltaReconcile; d != nil {
 		return *d
-
 	}
 	return commonconfig.Duration{}
 }

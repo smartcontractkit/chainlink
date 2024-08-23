@@ -1,11 +1,13 @@
 package resolver
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -57,7 +59,7 @@ func Test_CSAKeysQuery(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.csa.On("GetAll").Return(fakeKeys, nil)
 				f.Mocks.keystore.On("CSA").Return(f.Mocks.csa)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -108,8 +110,8 @@ func Test_CreateCSAKey(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.csa.On("Create").Return(fakeKey, nil)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.csa.On("Create", mock.Anything).Return(fakeKey, nil)
 				f.Mocks.keystore.On("CSA").Return(f.Mocks.csa)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
@@ -119,8 +121,8 @@ func Test_CreateCSAKey(t *testing.T) {
 		{
 			name:          "csa key exists error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.csa.On("Create").Return(csakey.KeyV2{}, keystore.ErrCSAKeyExists)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.csa.On("Create", mock.Anything).Return(csakey.KeyV2{}, keystore.ErrCSAKeyExists)
 				f.Mocks.keystore.On("CSA").Return(f.Mocks.csa)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
@@ -177,10 +179,10 @@ func Test_DeleteCSAKey(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.Mocks.keystore.On("CSA").Return(f.Mocks.csa)
-				f.Mocks.csa.On("Delete", fakeKey.ID()).Return(fakeKey, nil)
+				f.Mocks.csa.On("Delete", mock.Anything, fakeKey.ID()).Return(fakeKey, nil)
 			},
 			query:     query,
 			variables: variables,
@@ -189,11 +191,11 @@ func Test_DeleteCSAKey(t *testing.T) {
 		{
 			name:          "not found error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.Mocks.keystore.On("CSA").Return(f.Mocks.csa)
 				f.Mocks.csa.
-					On("Delete", fakeKey.ID()).
+					On("Delete", mock.Anything, fakeKey.ID()).
 					Return(csakey.KeyV2{}, keystore.KeyNotFoundError{ID: fakeKey.ID(), KeyType: "CSA"})
 			},
 			query:     query,

@@ -19,11 +19,11 @@ import (
 	mercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	mercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
@@ -126,7 +126,7 @@ func TestGetContract(t *testing.T) {
 		job:  &j,
 		lggr: nil,
 	}
-	contractAddress := ethkey.EIP55Address(utils.RandomAddress().String())
+	contractAddress := evmtypes.EIP55Address(utils.RandomAddress().String())
 
 	j.Type = job.Type(pipeline.OffchainReportingJobType)
 	j.OCROracleSpec.ContractAddress = contractAddress
@@ -177,7 +177,6 @@ func TestParseEATelemetry(t *testing.T) {
 }
 
 func TestGetJsonParsedValue(t *testing.T) {
-
 	resp := getJsonParsedValue(trrs[0], &trrs)
 	assert.Equal(t, 123456.123456789, *resp)
 
@@ -187,7 +186,6 @@ func TestGetJsonParsedValue(t *testing.T) {
 
 	resp = getJsonParsedValue(trrs[1], &trrs)
 	assert.Nil(t, resp)
-
 }
 
 func TestSendEATelemetry(t *testing.T) {
@@ -208,7 +206,7 @@ func TestSendEATelemetry(t *testing.T) {
 	jb := job.Job{
 		Type: job.Type(pipeline.OffchainReportingJobType),
 		OCROracleSpec: &job.OCROracleSpec{
-			ContractAddress:    ethkey.EIP55AddressFromAddress(feedAddress),
+			ContractAddress:    evmtypes.EIP55AddressFromAddress(feedAddress),
 			CaptureEATelemetry: true,
 			EVMChainID:         (*ubig.Big)(big.NewInt(9)),
 		},
@@ -303,7 +301,6 @@ func TestGetObservation(t *testing.T) {
 	}
 	obs = e.getObservation(finalResult)
 	assert.Equal(t, obs, int64(123456))
-
 }
 
 func TestCollectAndSend(t *testing.T) {
@@ -529,7 +526,6 @@ func TestGetPricesFromResults(t *testing.T) {
 }
 
 func TestShouldCollectEnhancedTelemetryMercury(t *testing.T) {
-
 	j := job.Job{
 		Type: job.Type(pipeline.OffchainReporting2JobType),
 		OCR2OracleSpec: &job.OCR2OracleSpec{

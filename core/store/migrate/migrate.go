@@ -5,17 +5,18 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"io/fs"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/pressly/goose/v3"
+	"github.com/pressly/goose/v3/database"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate/migrations" // Invoke init() functions within migrations pkg.
@@ -26,30 +27,63 @@ var embedMigrations embed.FS
 
 const MIGRATIONS_DIR string = "migrations"
 
-func init() {
-	goose.SetBaseFS(embedMigrations)
-	goose.SetSequential(true)
-	goose.SetTableName("goose_migrations")
+func NewProvider(ctx context.Context, db *sql.DB) (*goose.Provider, error) {
+	store, err := database.NewStore(goose.DialectPostgres, "goose_migrations")
+	if err != nil {
+		return nil, err
+	}
+
+	goMigrations := []*goose.Migration{
+		migrations.Migration36,
+		migrations.Migration54,
+		migrations.Migration56,
+		migrations.Migration195,
+	}
+
 	logMigrations := os.Getenv("CL_LOG_SQL_MIGRATIONS")
 	verbose, _ := strconv.ParseBool(logMigrations)
-	goose.SetVerbose(verbose)
+
+	fys, err := fs.Sub(embedMigrations, MIGRATIONS_DIR)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sub filesystem for embedded migration dir: %w", err)
+	}
+	// hack to work around global go migrations
+	// https: //github.com/pressly/goose/issues/782
+	goose.ResetGlobalMigrations()
+	p, err := goose.NewProvider("", db, fys,
+		goose.WithStore(store),
+		goose.WithGoMigrations(goMigrations...),
+		goose.WithVerbose(verbose))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create goose provider: %w", err)
+	}
+
+	err = ensureMigrated(ctx, db, p, store.Tablename())
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 // Ensure we migrated from v1 migrations to goose_migrations
-func ensureMigrated(ctx context.Context, db *sql.DB, lggr logger.Logger) error {
+// TODO remove this for v3
+func ensureMigrated(ctx context.Context, db *sql.DB, p *goose.Provider, providerTableName string) error {
+	todo, err := p.HasPending(ctx)
+	if !todo && err == nil {
+		return nil
+	}
 	sqlxDB := pg.WrapDbWithSqlx(db)
 	var names []string
-	err := sqlxDB.SelectContext(ctx, &names, `SELECT id FROM migrations`)
+	err = sqlxDB.SelectContext(ctx, &names, `SELECT id FROM migrations`)
 	if err != nil {
 		// already migrated
 		return nil
 	}
-	err = pg.SqlTransaction(ctx, db, lggr, func(tx *sqlx.Tx) error {
-		// ensure that no legacy job specs are present: we _must_ bail out early if
-		// so because otherwise we run the risk of dropping working jobs if the
-		// user has not read the release notes
-		return migrations.CheckNoLegacyJobs(tx.Tx)
-	})
+	// ensure that no legacy job specs are present: we _must_ bail out early if
+	// so because otherwise we run the risk of dropping working jobs if the
+	// user has not read the release notes
+	err = migrations.CheckNoLegacyJobs(ctx, db)
 	if err != nil {
 		return err
 	}
@@ -66,14 +100,15 @@ func ensureMigrated(ctx context.Context, db *sql.DB, lggr logger.Logger) error {
 	}
 
 	// ensure a goose migrations table exists with it's initial v0
-	if _, err = goose.GetDBVersion(db); err != nil {
+	if _, err = p.GetDBVersion(ctx); err != nil {
 		return err
 	}
 
 	// insert records for existing migrations
 	//nolint
-	sql := fmt.Sprintf(`INSERT INTO %s (version_id, is_applied) VALUES ($1, true);`, goose.TableName())
-	return pg.SqlTransaction(ctx, db, lggr, func(tx *sqlx.Tx) error {
+
+	sql := fmt.Sprintf(`INSERT INTO %s (version_id, is_applied) VALUES ($1, true);`, providerTableName)
+	return sqlutil.TransactDataSource(ctx, sqlxDB, nil, func(tx sqlutil.DataSource) error {
 		for _, name := range names {
 			var id int64
 			// the first migration doesn't follow the naming convention
@@ -92,47 +127,59 @@ func ensureMigrated(ctx context.Context, db *sql.DB, lggr logger.Logger) error {
 				}
 			}
 
-			if _, err = db.Exec(sql, id); err != nil {
+			if _, err = tx.ExecContext(ctx, sql, id); err != nil {
 				return err
 			}
 		}
 
-		_, err = db.Exec("DROP TABLE migrations;")
+		_, err = tx.ExecContext(ctx, "DROP TABLE migrations;")
 		return err
 	})
 }
 
-func Migrate(ctx context.Context, db *sql.DB, lggr logger.Logger) error {
-	if err := ensureMigrated(ctx, db, lggr); err != nil {
+func Migrate(ctx context.Context, db *sql.DB) error {
+	provider, err := NewProvider(ctx, db)
+	if err != nil {
 		return err
 	}
-	// WithAllowMissing is necessary when upgrading from 0.10.14 since it
-	// includes out-of-order migrations
-	return goose.Up(db, MIGRATIONS_DIR, goose.WithAllowMissing())
+	_, err = provider.Up(ctx)
+	return err
 }
 
-func Rollback(ctx context.Context, db *sql.DB, lggr logger.Logger, version null.Int) error {
-	if err := ensureMigrated(ctx, db, lggr); err != nil {
+func Rollback(ctx context.Context, db *sql.DB, version null.Int) error {
+	provider, err := NewProvider(ctx, db)
+	if err != nil {
 		return err
 	}
 	if version.Valid {
-		return goose.DownTo(db, MIGRATIONS_DIR, version.Int64)
+		_, err = provider.DownTo(ctx, version.Int64)
+	} else {
+		_, err = provider.Down(ctx)
 	}
-	return goose.Down(db, MIGRATIONS_DIR)
+	return err
 }
 
-func Current(ctx context.Context, db *sql.DB, lggr logger.Logger) (int64, error) {
-	if err := ensureMigrated(ctx, db, lggr); err != nil {
+func Current(ctx context.Context, db *sql.DB) (int64, error) {
+	provider, err := NewProvider(ctx, db)
+	if err != nil {
 		return -1, err
 	}
-	return goose.EnsureDBVersion(db)
+	return provider.GetDBVersion(ctx)
 }
 
-func Status(ctx context.Context, db *sql.DB, lggr logger.Logger) error {
-	if err := ensureMigrated(ctx, db, lggr); err != nil {
+func Status(ctx context.Context, db *sql.DB) error {
+	provider, err := NewProvider(ctx, db)
+	if err != nil {
 		return err
 	}
-	return goose.Status(db, MIGRATIONS_DIR)
+	migrations, err := provider.Status(ctx)
+	if err != nil {
+		return err
+	}
+	for _, m := range migrations {
+		fmt.Printf("version:%d, path:%s, type:%s, state:%s, appliedAt: %s \n", m.Source.Version, m.Source.Path, m.Source.Type, m.State, m.AppliedAt.String())
+	}
+	return nil
 }
 
 func Create(db *sql.DB, name, migrationType string) error {

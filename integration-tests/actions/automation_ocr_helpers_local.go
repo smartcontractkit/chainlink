@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog"
@@ -25,6 +27,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
+
+func AutomationDefaultRegistryConfig(c tc.AutomationTestConfig) contracts.KeeperRegistrySettings {
+	registrySettings := c.GetAutomationConfig().AutomationConfig.RegistrySettings
+	return contracts.KeeperRegistrySettings{
+		PaymentPremiumPPB:    *registrySettings.PaymentPremiumPPB,
+		FlatFeeMicroLINK:     *registrySettings.FlatFeeMicroLINK,
+		CheckGasLimit:        *registrySettings.CheckGasLimit,
+		StalenessSeconds:     registrySettings.StalenessSeconds,
+		GasCeilingMultiplier: *registrySettings.GasCeilingMultiplier,
+		MinUpkeepSpend:       registrySettings.MinUpkeepSpend,
+		MaxPerformGas:        *registrySettings.MaxPerformGas,
+		FallbackGasPrice:     registrySettings.FallbackGasPrice,
+		FallbackLinkPrice:    registrySettings.FallbackLinkPrice,
+		MaxCheckDataSize:     *registrySettings.MaxCheckDataSize,
+		MaxPerformDataSize:   *registrySettings.MaxPerformDataSize,
+		MaxRevertDataSize:    *registrySettings.MaxRevertDataSize,
+	}
+}
 
 func BuildAutoOCR2ConfigVarsLocal(
 	l zerolog.Logger,
@@ -152,20 +172,24 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
-	if err != nil {
-		return contracts.OCRv2Config{}, err
-	}
-
-	l.Info().Msg("Done building OCR config")
-	return contracts.OCRv2Config{
+	ocrConfig := contracts.OCRv2Config{
 		Signers:               signers,
 		Transmitters:          transmitters,
 		F:                     f,
-		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        offchainConfig,
-	}, nil
+	}
+
+	if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_0 {
+		ocrConfig.OnchainConfig = registryConfig.Encode20OnchainConfig(registrar)
+	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_1 {
+		ocrConfig.TypedOnchainConfig21 = registryConfig.Create21OnchainConfig(registrar, registryOwnerAddress)
+	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_2 {
+		ocrConfig.TypedOnchainConfig22 = registryConfig.Create22OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
+	}
+
+	l.Info().Msg("Done building OCR config")
+	return ocrConfig, nil
 }
 
 // CreateOCRKeeperJobs bootstraps the first node and to the other nodes sends ocr jobs

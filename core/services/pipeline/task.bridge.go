@@ -16,7 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/internal/eautils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 )
 
 // NOTE: These metrics generate a new label per bridge, this should be safe
@@ -109,7 +109,10 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		return Result{Error: errors.Errorf("headers must have an even number of elements")}, runInfo
 	}
 
-	url, err := t.getBridgeURLFromName(name)
+	overtimeCtx, cancel := overtimeContext(ctx)
+	defer cancel()
+
+	url, err := t.getBridgeURLFromName(overtimeCtx, name)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
@@ -175,13 +178,17 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	}
 
 	if err != nil || statusCode != http.StatusOK {
+		if adapterErr := eautils.BestEffortExtractEAError(responseBytes); adapterErr != nil {
+			err = adapterErr
+		}
+
 		promBridgeErrors.WithLabelValues(t.Name).Inc()
 		if cacheTTL == 0 {
 			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 		}
 
 		var cacheErr error
-		responseBytes, cacheErr = t.orm.GetCachedResponse(t.dotID, t.specId, cacheDuration)
+		responseBytes, cacheErr = t.orm.GetCachedResponse(overtimeCtx, t.dotID, t.specId, cacheDuration)
 		if cacheErr != nil {
 			promBridgeCacheErrors.WithLabelValues(t.Name).Inc()
 			if !errors.Is(cacheErr, sql.ErrNoRows) {
@@ -217,7 +224,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	}
 
 	if !cachedResponse && cacheTTL > 0 {
-		err := t.orm.UpsertBridgeResponse(t.dotID, t.specId, responseBytes)
+		err := t.orm.UpsertBridgeResponse(overtimeCtx, t.dotID, t.specId, responseBytes)
 		if err != nil {
 			lggr.Errorw("Bridge task: failed to upsert response in bridge cache", "err", err)
 		}
@@ -241,8 +248,8 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	return result, runInfo
 }
 
-func (t BridgeTask) getBridgeURLFromName(name StringParam) (URLParam, error) {
-	bt, err := t.orm.FindBridge(bridges.BridgeName(name))
+func (t *BridgeTask) getBridgeURLFromName(ctx context.Context, name StringParam) (URLParam, error) {
+	bt, err := t.orm.FindBridge(ctx, bridges.BridgeName(name))
 	if err != nil {
 		return URLParam{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}

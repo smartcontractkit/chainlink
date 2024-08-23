@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat'
 import { assert } from 'chai'
 import { Contract, ContractFactory } from 'ethers'
-import { Roles, getUsers } from '../test-helpers/setup'
+import { getUsers, Roles } from '../test-helpers/setup'
 import {
   convertFufillParams,
   decodeCCRequest,
@@ -27,19 +27,19 @@ before(async () => {
     roles.defaultAccount,
   )
   emptyOracleFactory = await ethers.getContractFactory(
-    'src/v0.6/tests/EmptyOracle.sol:EmptyOracle',
+    'src/v0.8/operatorforwarder/test/testhelpers/EmptyOracle.sol:EmptyOracle',
     roles.defaultAccount,
   )
   getterSetterFactory = await ethers.getContractFactory(
-    'src/v0.5/tests/GetterSetter.sol:GetterSetter',
+    'src/v0.8/operatorforwarder/test/testhelpers/GetterSetter.sol:GetterSetter',
     roles.defaultAccount,
   )
   operatorFactory = await ethers.getContractFactory(
-    'src/v0.7/Operator.sol:Operator',
+    'src/v0.8/operatorforwarder/Operator.sol:Operator',
     roles.defaultAccount,
   )
   linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
+    'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
     roles.defaultAccount,
   )
 })

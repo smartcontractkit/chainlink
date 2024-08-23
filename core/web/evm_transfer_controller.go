@@ -54,7 +54,7 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 	}
 
 	if !tr.AllowHigherAmounts {
-		err = ValidateEthBalanceForTransfer(c, chain, tr.FromAddress, tr.Amount)
+		err = ValidateEthBalanceForTransfer(c, chain, tr.FromAddress, tr.Amount, tr.DestinationAddress)
 		if err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("transaction failed: %v", err))
 			return
@@ -92,7 +92,7 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 }
 
 // ValidateEthBalanceForTransfer validates that the current balance can cover the transaction amount
-func ValidateEthBalanceForTransfer(c *gin.Context, chain legacyevm.Chain, fromAddr common.Address, amount assets.Eth) error {
+func ValidateEthBalanceForTransfer(c *gin.Context, chain legacyevm.Chain, fromAddr common.Address, amount assets.Eth, toAddr common.Address) error {
 	var err error
 	var balance *big.Int
 
@@ -116,7 +116,7 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain legacyevm.Chain, fromAd
 	gasLimit := chain.Config().EVM().GasEstimator().LimitTransfer()
 	estimator := chain.GasEstimator()
 
-	amountWithFees, err := estimator.GetMaxCost(c, amount, nil, gasLimit, chain.Config().EVM().GasEstimator().PriceMaxKey(fromAddr))
+	amountWithFees, err := estimator.GetMaxCost(c, amount, nil, gasLimit, chain.Config().EVM().GasEstimator().PriceMaxKey(fromAddr), &toAddr)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain legacyevm.Chain, fromAd
 	return nil
 }
 
-func FindTxAttempt(ctx context.Context, timeout time.Duration, etx txmgr.Tx, FindTxWithAttempts func(int64) (txmgr.Tx, error)) (attempt txmgr.TxAttempt, err error) {
+func FindTxAttempt(ctx context.Context, timeout time.Duration, etx txmgr.Tx, FindTxWithAttempts func(context.Context, int64) (txmgr.Tx, error)) (attempt txmgr.TxAttempt, err error) {
 	recheckTime := time.Second
 	tick := time.After(0)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -138,7 +138,7 @@ func FindTxAttempt(ctx context.Context, timeout time.Duration, etx txmgr.Tx, Fin
 		case <-ctx.Done():
 			return attempt, fmt.Errorf("%w - tx may still have been broadcast", ctx.Err())
 		case <-tick:
-			etx, err = FindTxWithAttempts(etx.ID)
+			etx, err = FindTxWithAttempts(ctx, etx.ID)
 			if err != nil {
 				return attempt, fmt.Errorf("failed to find transaction: %w", err)
 			}

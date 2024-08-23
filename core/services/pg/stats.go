@@ -91,7 +91,6 @@ func NewStatsReporter(fn StatFn, lggr logger.Logger, opts ...StatsReporterOpt) *
 }
 
 func (r *StatsReporter) Start(ctx context.Context) {
-
 	startOnce := func() {
 		r.wg.Add(1)
 		r.lggr.Debug("Starting DB stat reporter")

@@ -357,5 +357,4 @@ func (v *VRFV2Checker) Check(
 		"meta", tx.Meta,
 		"vrfRequestId", vrfRequestID)
 	return nil
-
 }

@@ -56,7 +56,6 @@ func (jae *JSONAPIErrors) Merge(e error) {
 		return
 	}
 	jae.Add(e.Error())
-
 }
 
 // CoerceEmptyToNil will return nil if JSONAPIErrors has no errors.

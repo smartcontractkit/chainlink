@@ -79,7 +79,7 @@ abstract contract VRFV2WrapperConsumerBase {
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal virtual;
 
   function rawFulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) external {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == address(VRF_V2_WRAPPER), "only VRF V2 wrapper can fulfill");
     fulfillRandomWords(_requestId, _randomWords);
   }
