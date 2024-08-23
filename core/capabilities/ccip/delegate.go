@@ -239,7 +239,7 @@ func (d *Delegate) getHomeChainContractReader(
 		homeChain.LogPoller(),
 		homeChain.HeadTracker(),
 		homeChain.Client(),
-		configsevm.HomeChainReaderConfigRaw(),
+		configsevm.HomeChainReaderConfigRaw,
 	)
 	if err != nil {
 		return nil, types.BoundContract{}, fmt.Errorf("failed to create home chain contract reader: %w", err)
