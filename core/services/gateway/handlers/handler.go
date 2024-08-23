@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -39,4 +41,9 @@ type Handler interface {
 type DON interface {
 	// Thread-safe
 	SendToNode(ctx context.Context, nodeAddress string, msg *api.Message) error
+}
+
+type RelayGetter interface {
+	Get(types.RelayID) (loop.Relayer, error)
+	GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error)
 }

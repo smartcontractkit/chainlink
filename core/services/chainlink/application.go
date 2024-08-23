@@ -428,6 +428,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				legacyEVMChains,
 				keyStore.Eth(),
 				opts.DS,
+				opts.RelayerChainInteroperators,
 				globalLogger),
 			job.Stream: streams.NewDelegate(
 				globalLogger,

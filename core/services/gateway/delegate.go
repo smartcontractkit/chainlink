@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
@@ -20,16 +21,18 @@ type Delegate struct {
 	legacyChains legacyevm.LegacyChainContainer
 	ks           keystore.Eth
 	ds           sqlutil.DataSource
+	relayGetter  handlers.RelayGetter
 	lggr         logger.Logger
 }
 
 var _ job.Delegate = (*Delegate)(nil)
 
-func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, lggr logger.Logger) *Delegate {
+func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, relayGetter handlers.RelayGetter, lggr logger.Logger) *Delegate {
 	return &Delegate{
 		legacyChains: legacyChains,
 		ks:           ks,
 		ds:           ds,
+		relayGetter:  relayGetter,
 		lggr:         lggr,
 	}
 }
@@ -54,7 +57,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "unmarshal gateway config")
 	}
-	handlerFactory := NewHandlerFactory(d.legacyChains, d.ds, d.lggr)
+	handlerFactory := NewHandlerFactory(d.legacyChains, d.ds, d.relayGetter, d.lggr)
 	gateway, err := NewGatewayFromConfig(&gatewayConfig, handlerFactory, d.lggr)
 	if err != nil {
 		return nil, err
