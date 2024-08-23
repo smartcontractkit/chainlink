@@ -122,11 +122,16 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		}
 	}
 
+	gasLimit := methodConfig.GasLimit
+	if meta != nil && meta.GasLimit != nil {
+		gasLimit = meta.GasLimit.Uint64()
+	}
+
 	req := evmtxmgr.TxRequest{
 		FromAddress:    methodConfig.FromAddress,
 		ToAddress:      common.HexToAddress(toAddress),
 		EncodedPayload: calldata,
-		FeeLimit:       methodConfig.GasLimit,
+		FeeLimit:       gasLimit,
 		Meta:           txMeta,
 		IdempotencyKey: &transactionID,
 		Strategy:       w.sendStrategy,
