@@ -277,15 +277,11 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	eid := getExecutionId(t, eng, testHooks)
 	resp1 := <-target1.response
 	assert.NoError(t, resp1.Err)
-	var te capabilities.TriggerEvent
-	require.NoError(t, resp1.Value.UnwrapTo(&te))
-	assert.Equal(t, cr.Event, te)
+	assert.Equal(t, cr.Event.Outputs, resp1.Value)
 
 	resp2 := <-target2.response
-	var te2 capabilities.TriggerEvent
-	require.NoError(t, resp1.Value.UnwrapTo(&te2))
 	assert.NoError(t, resp2.Err)
-	assert.Equal(t, cr.Event, te2)
+	assert.Equal(t, cr.Event.Outputs, resp2.Value)
 
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
@@ -353,7 +349,7 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Tri
 	require.NoError(t, err)
 	tr := capabilities.TriggerResponse{
 		Event: capabilities.TriggerEvent{
-			Payload: resp,
+			Outputs: resp,
 		},
 	}
 	mt.triggerEvent = &tr
@@ -589,9 +585,10 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	obs := unw.(map[string]any)["observations"]
 	assert.Len(t, obs, 2)
 
-	tunw, err := values.Unwrap(tr.Event.Payload)
 	require.NoError(t, err)
-	assert.Equal(t, obs.([]any)[0].(map[string]any)["Payload"], tunw)
+	uo, err := values.Unwrap(tr.Event.Outputs)
+	require.NoError(t, err)
+	assert.Equal(t, obs.([]any)[0].(map[string]any), uo)
 
 	o, err := values.Unwrap(out)
 	require.NoError(t, err)

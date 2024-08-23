@@ -422,7 +422,7 @@ func (e *Engine) loop(ctx context.Context) {
 				continue
 			}
 
-			err = e.startExecution(ctx, executionID, resp.Event)
+			err = e.startExecution(ctx, executionID, resp.Event.Outputs)
 			if err != nil {
 				e.logger.With(eIDKey, executionID).Errorf("failed to start execution: %v", err)
 			}
@@ -453,17 +453,13 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 }
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
-func (e *Engine) startExecution(ctx context.Context, executionID string, event capabilities.TriggerEvent) error {
+func (e *Engine) startExecution(ctx context.Context, executionID string, event *values.Map) error {
 	e.logger.With("event", event, eIDKey, executionID).Debug("executing on a trigger event")
-	wrappedEvent, err := values.Wrap(event)
-	if err != nil {
-		return fmt.Errorf("failed to wrap event: %w", err)
-	}
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
 				Outputs: store.StepOutput{
-					Value: wrappedEvent,
+					Value: event,
 				},
 				Status:      store.StatusCompleted,
 				ExecutionID: executionID,
@@ -475,7 +471,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event c
 		Status:      store.StatusStarted,
 	}
 
-	err = e.executionStates.Add(ctx, ec)
+	err := e.executionStates.Add(ctx, ec)
 	if err != nil {
 		return err
 	}
