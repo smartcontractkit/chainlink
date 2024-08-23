@@ -190,5 +190,6 @@ async function main() {
   );
 
   core.summary.addLink("Jira Issues", generateJiraIssuesLink(label));
+  core.summary.write()
 }
 main();
