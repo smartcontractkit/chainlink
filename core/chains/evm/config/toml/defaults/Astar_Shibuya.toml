@@ -1,6 +1,5 @@
 ChainID = '81'
-# FinalityTag will be enabled once the custom tag is implemented
-# FinalityTagEnabled = true
+FinalityTagEnabled = true
 FinalityDepth = 100
 LogPollInterval = '6s'
 
