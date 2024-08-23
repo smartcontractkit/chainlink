@@ -1,5 +1,11 @@
 import { expect, describe, it, vi } from "vitest";
-import { generateIssueLabel, generateJiraIssuesLink, getGitTopLevel, parseIssueNumberFrom, tagsToLabels } from "./lib";
+import {
+  generateIssueLabel,
+  generateJiraIssuesLink,
+  getGitTopLevel,
+  parseIssueNumberFrom,
+  tagsToLabels,
+} from "./lib";
 import * as core from "@actions/core";
 
 describe("parseIssueNumberFrom", () => {
@@ -59,10 +65,10 @@ describe("tagsToLabels", () => {
   });
 });
 
-    const mockExecPromise = vi.fn()
-        vi.mock("util", () => ({
-      promisify: () => mockExecPromise,
-    }));
+const mockExecPromise = vi.fn();
+vi.mock("util", () => ({
+  promisify: () => mockExecPromise,
+}));
 
 describe("getGitTopLevel", () => {
   it("should log the top-level directory when git command succeeds", async () => {
@@ -74,8 +80,12 @@ describe("getGitTopLevel", () => {
     const mockConsoleLog = vi.spyOn(core, "info");
     await getGitTopLevel();
 
-    expect(mockExecPromise).toHaveBeenCalledWith("git rev-parse --show-toplevel");
-    expect(mockConsoleLog).toHaveBeenCalledWith("Top-level directory: /path/to/top-level-dir");
+    expect(mockExecPromise).toHaveBeenCalledWith(
+      "git rev-parse --show-toplevel"
+    );
+    expect(mockConsoleLog).toHaveBeenCalledWith(
+      "Top-level directory: /path/to/top-level-dir"
+    );
   });
 
   it("should log an error message when git command fails", async () => {
@@ -86,8 +96,12 @@ describe("getGitTopLevel", () => {
     const mockConsoleError = vi.spyOn(core, "error");
     await getGitTopLevel().catch(() => {});
 
-    expect(mockExecPromise).toHaveBeenCalledWith("git rev-parse --show-toplevel");
-    expect(mockConsoleError).toHaveBeenCalledWith("Error executing command: Command failed");
+    expect(mockExecPromise).toHaveBeenCalledWith(
+      "git rev-parse --show-toplevel"
+    );
+    expect(mockConsoleError).toHaveBeenCalledWith(
+      "Error executing command: Command failed"
+    );
   });
 
   it("should log an error message when git command output contains an error", async () => {
@@ -99,22 +113,34 @@ describe("getGitTopLevel", () => {
     const mockConsoleError = vi.spyOn(core, "error");
     await getGitTopLevel().catch(() => {});
 
-    expect(mockExecPromise).toHaveBeenCalledWith("git rev-parse --show-toplevel");
-    expect(mockConsoleError).toHaveBeenCalledWith("Error in command output: Error: Command failed");
+    expect(mockExecPromise).toHaveBeenCalledWith(
+      "git rev-parse --show-toplevel"
+    );
+    expect(mockConsoleError).toHaveBeenCalledWith(
+      "Error in command output: Error: Command failed"
+    );
   });
 });
 
-describe('generateJiraIssuesLink', () => {
-  it('should generate a Jira issues link', () => {
-    expect(generateJiraIssuesLink("review-artifacts-automation-base:0de9b3b-head:e5b3b9d")).toMatchInlineSnapshot(`"https://smartcontract-it.atlassian.net/issues/?jql=labels+%3D+%22review-artifacts-automation-base%3A0de9b3b-head%3Ae5b3b9d%22"`)
+describe("generateJiraIssuesLink", () => {
+  it("should generate a Jira issues link", () => {
+    expect(
+      generateJiraIssuesLink(
+        "review-artifacts-automation-base:0de9b3b-head:e5b3b9d"
+      )
+    ).toMatchInlineSnapshot(
+      `"https://smartcontract-it.atlassian.net/issues/?jql=labels+%3D+%22review-artifacts-automation-base%3A0de9b3b-head%3Ae5b3b9d%22"`
+    );
   });
 });
 
-describe('generateIssueLabel', () => {
-  it('should generate an issue label', () => {
-    const product = 'automation';
-    const baseRef = '0de9b3b';
-    const headRef = 'e5b3b9d'; 
-    expect(generateIssueLabel(product, baseRef, headRef)).toMatchInlineSnapshot(`"review-artifacts-automation-base:0de9b3b-head:e5b3b9d"`)
+describe("generateIssueLabel", () => {
+  it("should generate an issue label", () => {
+    const product = "automation";
+    const baseRef = "0de9b3b";
+    const headRef = "e5b3b9d";
+    expect(generateIssueLabel(product, baseRef, headRef)).toMatchInlineSnapshot(
+      `"review-artifacts-automation-base:0de9b3b-head:e5b3b9d"`
+    );
   });
-})
+});
