@@ -10,7 +10,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   // Maximum number of oracles the offchain reporting protocol is designed for
   uint256 internal constant MAX_NUM_ORACLES = 31;
 
-  /// @notice triggers a new run of the offchain reporting protocol
+  /// @notice Triggers a new run of the offchain reporting protocol
   /// @param ocrPluginType OCR plugin type for which the config was set
   /// @param configDigest configDigest of this configuration
   /// @param signers ith element is address ith oracle uses to sign a report
@@ -18,7 +18,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   /// @param F maximum number of faulty/dishonest oracles the protocol can tolerate while still working correctly
   event ConfigSet(uint8 ocrPluginType, bytes32 configDigest, address[] signers, address[] transmitters, uint8 F);
 
-  /// @notice optionally emitted to indicate the latest configDigest and sequence number
+  /// @notice Optionally emitted to indicate the latest configDigest and sequence number
   /// for which a report was successfully transmitted. Alternatively, the contract may
   /// use latestConfigDigestAndEpoch with scanLogs set to false.
   event Transmitted(uint8 indexed ocrPluginType, bytes32 configDigest, uint64 sequenceNumber);
@@ -71,14 +71,14 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     Role role; // ─────╯ Role of the address which mapped to this struct
   }
 
-  /// @notice OCR configuration for a single OCR plugin within a DON
+  /// @notice OCR configuration for a single OCR plugin within a DON.
   struct OCRConfig {
     ConfigInfo configInfo; //  latest OCR config
     address[] signers; //      addresses oracles use to sign the reports
     address[] transmitters; // addresses oracles use to transmit the reports
   }
 
-  /// @notice Args to update an OCR Config
+  /// @notice Args to update an OCR Config.
   struct OCRConfigArgs {
     bytes32 configDigest; // Config digest to update to
     uint8 ocrPluginType; // ──────────────────╮ OCR plugin type to update config for
@@ -98,15 +98,15 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   // See the "If we wanted to call sam" example on for example reasoning
   // https://solidity.readthedocs.io/en/v0.7.2/abi-spec.html
 
-  /// @notice constant length component for transmit functions with no signatures.
-  /// The signatures are expected to match transmitPlugin(reportContext, report)
+  /// @notice Constant length component for transmit functions with no signatures.
+  /// The signatures are expected to match transmitPlugin(reportContext, report).
   uint16 private constant TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT_NO_SIGNATURES = 4 // function selector
     + 3 * 32 // 3 words containing reportContext
     + 32 // word containing start location of abiencoded report value
     + 32; // word containing length of report
 
-  /// @notice extra constant length component for transmit functions with signatures (relative to no signatures)
-  /// The signatures are expected to match transmitPlugin(reportContext, report, rs, ss, rawVs)
+  /// @notice Extra constant length component for transmit functions with signatures (relative to no signatures).
+  /// The signatures are expected to match transmitPlugin(reportContext, report, rs, ss, rawVs).
   uint16 private constant TRANSMIT_MSGDATA_EXTRA_CONSTANT_LENGTH_COMPONENT_FOR_SIGNATURES = 32 // word containing location start of abiencoded rs value
     + 32 // word containing start location of abiencoded ss value
     + 32 // rawVs value
@@ -119,18 +119,18 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     i_chainID = block.chainid;
   }
 
-  /// @notice sets offchain reporting protocol configuration incl. participating oracles
+  /// @notice Sets offchain reporting protocol configuration incl. participating oracles.
   /// NOTE: The OCR3 config must be sanity-checked against the home-chain registry configuration, to ensure
   /// home-chain and remote-chain parity!
-  /// @param ocrConfigArgs OCR config update args
+  /// @param ocrConfigArgs OCR config update args.
   function setOCR3Configs(OCRConfigArgs[] memory ocrConfigArgs) external onlyOwner {
     for (uint256 i; i < ocrConfigArgs.length; ++i) {
       _setOCR3Config(ocrConfigArgs[i]);
     }
   }
 
-  /// @notice sets offchain reporting protocol configuration incl. participating oracles for a single OCR plugin type
-  /// @param ocrConfigArgs OCR config update args
+  /// @notice Sets offchain reporting protocol configuration incl. participating oracles for a single OCR plugin type.
+  /// @param ocrConfigArgs OCR config update args.
   function _setOCR3Config(OCRConfigArgs memory ocrConfigArgs) internal {
     if (ocrConfigArgs.F == 0) revert InvalidConfig(InvalidConfigErrorType.F_MUST_BE_POSITIVE);
 
@@ -180,23 +180,23 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     _afterOCR3ConfigSet(ocrPluginType);
   }
 
-  /// @notice Hook that is called after a plugin's OCR3 config changes
-  /// @param ocrPluginType Plugin type for which the config changed
+  /// @notice Hook that is called after a plugin's OCR3 config changes.
+  /// @param ocrPluginType Plugin type for which the config changed.
   function _afterOCR3ConfigSet(uint8 ocrPluginType) internal virtual;
 
-  /// @notice Clears oracle roles for the provided oracle addresses
-  /// @param ocrPluginType OCR plugin type to clear roles for
-  /// @param oracleAddresses Oracle addresses to clear roles for
+  /// @notice Clears oracle roles for the provided oracle addresses.
+  /// @param ocrPluginType OCR plugin type to clear roles for.
+  /// @param oracleAddresses Oracle addresses to clear roles for.
   function _clearOracleRoles(uint8 ocrPluginType, address[] memory oracleAddresses) internal {
     for (uint256 i = 0; i < oracleAddresses.length; ++i) {
       delete s_oracles[ocrPluginType][oracleAddresses[i]];
     }
   }
 
-  /// @notice Assigns oracles roles for the provided oracle addresses with uniqueness verification
-  /// @param ocrPluginType OCR plugin type to assign roles for
-  /// @param oracleAddresses Oracle addresses to assign roles to
-  /// @param role Role to assign
+  /// @notice Assigns oracles roles for the provided oracle addresses with uniqueness verification.
+  /// @param ocrPluginType OCR plugin type to assign roles for.
+  /// @param oracleAddresses Oracle addresses to assign roles to.
+  /// @param role Role to assign.
   function _assignOracleRoles(uint8 ocrPluginType, address[] memory oracleAddresses, Role role) internal {
     for (uint8 i = 0; i < oracleAddresses.length; ++i) {
       address oracle = oracleAddresses[i];
@@ -212,9 +212,9 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   ///         The function should be called after the per-DON reporting logic is completed.
   /// @param ocrPluginType OCR plugin type to transmit report for
   /// @param report serialized report, which the signatures are signing.
-  /// @param rs ith element is the R components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries
-  /// @param ss ith element is the S components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries
-  /// @param rawVs ith element is the the V component of the ith signature
+  /// @param rs ith element is the R components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries.
+  /// @param ss ith element is the S components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries.
+  /// @param rawVs ith element is the the V component of the ith signature.
   function _transmit(
     uint8 ocrPluginType,
     // NOTE: If these parameters are changed, expectedMsgDataLength and/or
@@ -280,12 +280,12 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     emit Transmitted(ocrPluginType, configDigest, uint64(uint256(reportContext[1])));
   }
 
-  /// @notice verifies the signatures of a hashed report value for one OCR plugin type
-  /// @param ocrPluginType OCR plugin type to transmit report for
-  /// @param hashedReport hashed encoded packing of report + reportContext
-  /// @param rs ith element is the R components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries
-  /// @param ss ith element is the S components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries
-  /// @param rawVs ith element is the the V component of the ith signature
+  /// @notice Verifies the signatures of a hashed report value for one OCR plugin type.
+  /// @param ocrPluginType OCR plugin type to transmit report for.
+  /// @param hashedReport hashed encoded packing of report + reportContext.
+  /// @param rs ith element is the R components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries.
+  /// @param ss ith element is the S components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries.
+  /// @param rawVs ith element is the the V component of the ith signature.
   function _verifySignatures(
     uint8 ocrPluginType,
     bytes32 hashedReport,
@@ -309,14 +309,14 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     }
   }
 
-  /// @notice Validates that the chain ID has not diverged after deployment. Reverts if the chain IDs do not match
+  /// @notice Validates that the chain ID has not diverged after deployment. Reverts if the chain IDs do not match.
   function _whenChainNotForked() internal view {
     if (i_chainID != block.chainid) revert ForkedChain(i_chainID, block.chainid);
   }
 
-  /// @notice information about current offchain reporting protocol configuration
-  /// @param ocrPluginType OCR plugin type to return config details for
-  /// @return ocrConfig OCR config for the plugin type
+  /// @notice Information about current offchain reporting protocol configuration.
+  /// @param ocrPluginType OCR plugin type to return config details for.
+  /// @return ocrConfig OCR config for the plugin type.
   function latestConfigDetails(uint8 ocrPluginType) external view returns (OCRConfig memory ocrConfig) {
     return s_ocrConfigs[ocrPluginType];
   }
