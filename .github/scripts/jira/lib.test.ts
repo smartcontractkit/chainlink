@@ -34,6 +34,18 @@ CORE-1011`,
     const result = parseIssueNumberFrom("No issue number");
     expect(result).to.be.undefined;
   });
+
+  it("works when the label is in the middle of the commit message", () => {
+    let r = parseIssueNumberFrom(
+      "This is a commit message with CORE-123 in the middle",
+      "CORE-456",
+      "CORE-789"
+    );
+    expect(r).to.equal("CORE-123");
+
+    r = parseIssueNumberFrom("#internal address security vulnerabilities RE-2917 around updating nodes and node operators on capabilities registry")
+    expect(r).to.equal("RE-2917");
+  });
 });
 
 describe("tagsToLabels", () => {
