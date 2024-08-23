@@ -415,7 +415,7 @@ jobs:
           HEAD_REF: ${{ inputs.commit_to_use || github.sha }}
           ARTIFACT_URL: ${{ steps.gather-all-artifacts.outputs.artifact-url }}
 
-          JIRA_HOST: ${{ secrets.JIRA_HOST }}
+          JIRA_HOST: https://smartcontract-it.atlassian.net/ 
           JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
