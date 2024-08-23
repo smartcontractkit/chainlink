@@ -772,6 +772,7 @@ PriceRegistry_validatePoolReturnData:test_InvalidEVMAddressDestToken_Revert() (g
 PriceRegistry_validatePoolReturnData:test_SourceTokenDataTooLarge_Revert() (gas: 90819)
 PriceRegistry_validatePoolReturnData:test_TokenAmountArraysMismatching_Revert() (gas: 32771)
 PriceRegistry_validatePoolReturnData:test_WithSingleToken_Success() (gas: 31315)
+RMNHome:test() (gas: 186)
 RMN_constructor:test_Constructor_Success() (gas: 48838)
 RMN_getRecordedCurseRelatedOps:test_OpsPostDeployment() (gas: 19666)
 RMN_lazyVoteToCurseUpdate_Benchmark:test_VoteToCurseLazilyRetain3VotersUponConfigChange_gas() (gas: 152152)
