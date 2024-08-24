@@ -76,10 +76,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	if cfg.Registry == nil {
 		return nil, errors.New("Registry must not be nil")
 	}
-	codecs := make(map[llotypes.ReportFormat]llo.ReportCodec)
-
-	// NOTE: All codecs must be specified here
-	codecs[llotypes.ReportFormatJSON] = llo.JSONReportCodec{}
+	codecs := NewCodecs()
 
 	// TODO: Do these services need starting?
 	// https://smartcontract-it.atlassian.net/browse/MERC-3386
