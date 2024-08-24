@@ -44,7 +44,6 @@ type chainReader struct {
 
 var _ ChainReaderService = (*chainReader)(nil)
 var _ commontypes.ContractTypeProvider = &chainReader{}
-var errServiceNotStarted = errors.New("ContractReader service not started")
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
 // Note that the ChainReaderService returned does not support anonymous events.
@@ -184,42 +183,50 @@ func (cr *chainReader) HealthReport() map[string]error {
 	return map[string]error{cr.Name(): nil}
 }
 
-func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
-	if cr.StateMachine.Ready() != nil {
-		return errServiceNotStarted
+func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) (err error) {
+	if ok := cr.StateMachine.IfStarted(func() {
+		b, bindingErr := cr.bindings.GetReadBinding(contractName, method)
+		if bindingErr != nil {
+			err = bindingErr
+			return
+		}
+
+		err = b.GetLatestValue(ctx, confidenceLevel, params, returnVal)
+	}); !ok {
+		return fmt.Errorf("ContractReader should be in Started state before calling GetLatestValue. Current state: %s", cr.StateMachine.State())
 	}
 
-	b, err := cr.bindings.GetReadBinding(contractName, method)
-	if err != nil {
-		return err
-	}
-
-	return b.GetLatestValue(ctx, confidenceLevel, params, returnVal)
+	return err
 }
 
-func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
-	if cr.StateMachine.Ready() != nil {
-		return nil, errServiceNotStarted
+func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (res commontypes.BatchGetLatestValuesResult, err error) {
+	if ok := cr.StateMachine.IfStarted(func() {
+		res, err = cr.bindings.BatchGetLatestValues(ctx, request)
+	}); !ok {
+		return nil, fmt.Errorf("ContractReader should be in Started state before calling BatchGetLatestValues. Current state: %s", cr.StateMachine.State())
 	}
 
-	return cr.bindings.BatchGetLatestValues(ctx, request)
+	return res, err
 }
 
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
 	return cr.bindings.Bind(ctx, cr.lp, bindings)
 }
 
-func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	if cr.StateMachine.Ready() != nil {
-		return nil, errServiceNotStarted
+func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) (seq []commontypes.Sequence, err error) {
+	if ok := cr.StateMachine.IfStarted(func() {
+		b, bindingErr := cr.bindings.GetReadBinding(contractName, filter.Key)
+		if bindingErr != nil {
+			seq, err = nil, bindingErr
+			return
+		}
+
+		seq, err = b.QueryKey(ctx, filter, limitAndSort, sequenceDataType)
+	}); !ok {
+		return nil, fmt.Errorf("ContractReader should be in Started state before calling QueryKey. Current state: %s", cr.StateMachine.State())
 	}
 
-	b, err := cr.bindings.GetReadBinding(contractName, filter.Key)
-	if err != nil {
-		return nil, err
-	}
-
-	return b.QueryKey(ctx, filter, limitAndSort, sequenceDataType)
+	return seq, err
 }
 
 func (cr *chainReader) CreateContractType(contractName, itemType string, forEncoding bool) (any, error) {
