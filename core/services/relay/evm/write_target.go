@@ -15,7 +15,7 @@ import (
 	relayevmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain, lggr logger.Logger) (*targets.WriteTarget, error) {
+func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain, defaultGasLimit uint64, lggr logger.Logger) (*targets.WriteTarget, error) {
 	// generate ID based on chain selector
 	id := fmt.Sprintf("write_%v@1.0.0", chain.ID())
 	chainName, err := chainselectors.NameFromChainId(chain.ID().Uint64())
@@ -52,7 +52,14 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, err
 	}
 
-	var gasLimit uint64 = 400_000
+<<<<<<< HEAD
+	err = cr.Start(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+=======
+>>>>>>> develop
 	chainWriterConfig := relayevmtypes.ChainWriterConfig{
 		Contracts: map[string]*relayevmtypes.ContractConfig{
 			"forwarder": {
@@ -62,7 +69,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 						ChainSpecificName: "report",
 						Checker:           "simulate",
 						FromAddress:       config.FromAddress().Address(),
-						GasLimit:          gasLimit,
+						GasLimit:          defaultGasLimit,
 					},
 				},
 			},
@@ -80,5 +87,5 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, err
 	}
 
-	return targets.NewWriteTarget(logger.Named(lggr, "WriteTarget"), id, cr, cw, config.ForwarderAddress().String(), gasLimit), nil
+	return targets.NewWriteTarget(logger.Named(lggr, "WriteTarget"), id, cr, cw, config.ForwarderAddress().String(), defaultGasLimit), nil
 }

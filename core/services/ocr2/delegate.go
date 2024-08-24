@@ -49,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
@@ -953,6 +952,7 @@ func (d *Delegate) newServicesLLO(
 		return nil, err
 	}
 
+	// Handle key bundle IDs explicitly specified in job spec
 	kbm := make(map[llotypes.ReportFormat]llo.Key)
 	for rfStr, kbid := range pluginCfg.KeyBundleIDs {
 		k, err3 := d.ks.Get(kbid)
@@ -965,26 +965,19 @@ func (d *Delegate) newServicesLLO(
 		}
 		kbm[rf] = k
 	}
-	// NOTE: This is a bit messy because we assume chain type matches report
-	// format, and it may not in all cases. We don't yet know what report
-	// formats we need or how they correspond to chain types, so assume it's
-	// 1:1 for now but will change in future
-	//
+
+	// Use the default key bundle if not specified
+	// NOTE: Only JSON and EVMPremiumLegacy supported for now
 	// https://smartcontract-it.atlassian.net/browse/MERC-3722
-	for _, s := range chaintype.SupportedChainTypes {
-		rf, err3 := llotypes.ReportFormatFromString(string(s))
-		if err3 != nil {
-			return nil, fmt.Errorf("job %d (%s) has a chain type with no matching report format %s: %w", jb.ID, jb.Name.ValueOrZero(), s, err3)
-		}
+	for _, rf := range []llotypes.ReportFormat{llotypes.ReportFormatJSON, llotypes.ReportFormatEVMPremiumLegacy} {
 		if _, exists := kbm[rf]; !exists {
 			// Use the first if unspecified
-			kbs, err4 := d.ks.GetAllOfType(s)
-			if err4 != nil {
-				return nil, err4
+			kbs, err3 := d.ks.GetAllOfType("evm")
+			if err3 != nil {
+				return nil, err3
 			}
 			if len(kbs) == 0 {
-				// unsupported key type
-				continue
+				return nil, fmt.Errorf("no on-chain signing keys found for report format %s", "evm")
 			} else if len(kbs) > 1 {
 				lggr.Debugf("Multiple on-chain signing keys found for report format %s, using the first", rf.String())
 			}
