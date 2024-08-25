@@ -50,6 +50,7 @@ jobs:
       actions: read
       id-token: write
       contents: read
+      pull-requests: write
     steps:
       # https://github.com/planetscale/ghcommit-action/blob/c7915d6c18d5ce4eb42b0eff3f10a29fe0766e4c/README.md?plain=1#L41
       #
