@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/havoc/k8schaos"
+	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 
 	"github.com/stretchr/testify/require"
 
@@ -40,7 +40,7 @@ func TestCRIB(t *testing.T) {
 			os.Getenv("CRIB_NAMESPACE"),
 		)
 		ch.Create(context.Background())
-		ch.AddListener(k8schaos.NewChaosLogger(l))
+		ch.AddListener(havoc.NewChaosLogger(l))
 		t.Cleanup(func() {
 			err := ch.Delete(context.Background())
 			require.NoError(t, err)

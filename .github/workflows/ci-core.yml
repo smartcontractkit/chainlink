@@ -319,7 +319,7 @@ jobs:
             -gh_run_id=$GITHUB_RUN_ID \
             -gh_repo=$GITHUB_REPO \
             -command=./tools/bin/go_core_tests \
-            `ls -R ./artifacts/go_core_tests*/output.txt`
+            `ls -R ./artifacts/output.txt`
       - name: Store logs artifacts
         if: ${{ needs.filter.outputs.changes == 'true' && always() }}
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1

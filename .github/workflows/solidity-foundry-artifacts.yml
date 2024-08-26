@@ -34,7 +34,6 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
-      changes: ${{ steps.changes.outputs.sol }}
       product_changes: ${{ steps.changes-transform.outputs.product_changes }}
       product_files: ${{ steps.changes-transform.outputs.product_files }}
       changeset_changes: ${{ steps.changes-dorny.outputs.changeset }}
@@ -46,10 +45,11 @@ jobs:
           ref: ${{ inputs.commit_to_use || github.sha }}
       - name: Find modified contracts
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: changes
+        id: changes-dorny
         with:
           list-files: 'csv'
           base: ${{ inputs.base_ref }}
+          # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
           predicate-quantifier: every
           filters: |
             ignored: &ignored
@@ -81,33 +81,33 @@ jobs:
         run: |
           if [ "${{ inputs.product }}" = "shared" ]; then
             echo "::debug:: Product is shared, transforming changes"
-            if [[ "${{ steps.changes.outputs.product }}" == "true" && "${{ steps.changes.outputs.other_shared }}" == "true" ]]; then
+            if [[ "${{ steps.changes-dorny.outputs.product }}" == "true" && "${{ steps.changes-dorny.outputs.other_shared }}" == "true" ]]; then
               echo "::debug:: Changes were found in 'shared' folder and in 'interfaces' and root folders"
               echo "product_changes=true" >> $GITHUB_OUTPUT
-              echo "product_files=${{ steps.changes.outputs.product_files }},${{ steps.changes.outputs.other_shared_files }}" >> $GITHUB_OUTPUT
-            elif [[ "${{ steps.changes.outputs.product }}" == "false" && "${{ steps.changes.outputs.other_shared }}" == "true" ]]; then
+              echo "product_files=${{ steps.changes-dorny.outputs.product_files }},${{ steps.changes-dorny.outputs.other_shared_files }}" >> $GITHUB_OUTPUT
+            elif [[ "${{ steps.changes-dorny.outputs.product }}" == "false" && "${{ steps.changes-dorny.outputs.other_shared }}" == "true" ]]; then
               echo "::debug:: Only contracts in' interfaces' and root folders were modified"
               echo "product_changes=true" >> $GITHUB_OUTPUT
-              echo "product_files=${{ steps.changes.outputs.other_shared_files }}" >> $GITHUB_OUTPUT
-            elif [[ "${{ steps.changes.outputs.product }}" == "true" && "${{ steps.changes.outputs.other_shared }}" == "false" ]]; then
+              echo "product_files=${{ steps.changes-dorny.outputs.other_shared_files }}" >> $GITHUB_OUTPUT
+            elif [[ "${{ steps.changes-dorny.outputs.product }}" == "true" && "${{ steps.changes-dorny.outputs.other_shared }}" == "false" ]]; then
               echo "::debug:: Only contracts in 'shared' folder were modified"
               echo "product_changes=true" >> $GITHUB_OUTPUT
-              echo "product_files=${{ steps.changes.outputs.product_files }}" >> $GITHUB_OUTPUT
+              echo "product_files=${{ steps.changes-dorny.outputs.product_files }}" >> $GITHUB_OUTPUT
             else
               echo "::debug:: No contracts were modified"
               echo "product_changes=false" >> $GITHUB_OUTPUT
               echo "product_files=" >> $GITHUB_OUTPUT
             fi
           else
-           echo "product_changes=${{ steps.changes.outputs.product }}" >> $GITHUB_OUTPUT
-           echo "product_files=${{ steps.changes.outputs.product_files }}" >> $GITHUB_OUTPUT
+           echo "product_changes=${{ steps.changes-dorny.outputs.product }}" >> $GITHUB_OUTPUT
+           echo "product_files=${{ steps.changes-dorny.outputs.product_files }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Check for changes outside of artifact scope
         uses: ./.github/actions/validate-artifact-scope
-        if: ${{ steps.changes.outputs.sol == 'true' }}
+        if: ${{ steps.changes-dorny.outputs.sol == 'true' }}
         with:
-          sol_files: ${{ steps.changes.outputs.sol_files }}
+          sol_files: ${{ steps.changes-dorny.outputs.sol_files }}
           product: ${{ inputs.product }}
 
   gather-basic-info:
@@ -134,7 +134,7 @@ jobs:
         run: |
           mkdir -p contracts/changesets
           files="${{ needs.changes.outputs.changeset_files }}"
-          IFS=",'
+          IFS=","
           for changeset in $files; do
             echo "::debug:: Copying $changeset"
             cp $changeset contracts/changesets
@@ -303,13 +303,16 @@ jobs:
           
           # modify remappings so that solc can find dependencies
           ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
-          mv remappings_modified.txt remappings.txt
+          mv remappings_modified.txt remappings.txt          
           
           ./contracts/scripts/ci/generate_uml.sh "./" "contracts/uml-diagrams" "$contract_list"
 
       - name: Generate Slither Markdown reports
         run: |
           contract_list="${{ needs.changes.outputs.product_files }}"
+          
+          # without it Slither sometimes fails to use remappings correctly
+          cp contracts/foundry.toml foundry.toml    
           
           echo "::debug::Processing contracts: $contract_list"
           ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ inputs.commit_to_use || github.sha }}/" contracts/configs/slither/.slither.config-artifacts.json "." "$contract_list" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
@@ -349,9 +352,8 @@ jobs:
       - name: Upload all artifacts as single package
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
-          name: review-artifacts-${{ inputs.product }}-${{ inputs.commit_to_use || github.sha }}
+          name: review-artifacts-${{ inputs.product }}-${{ inputs.base_ref }}-${{ inputs.commit_to_use || github.sha }}
           path: review_artifacts
-          retention-days: 60
 
       - name: Remove temporary artifacts
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0

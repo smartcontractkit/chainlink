@@ -73,7 +73,7 @@ func TestStuckTxDetector_LoadPurgeBlockNumMap(t *testing.T) {
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	marketGasPrice := assets.GWei(15)
 	fee := gas.EvmFee{Legacy: marketGasPrice}
-	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything).Return(fee, uint64(0), nil)
+	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything, mock.Anything).Return(fee, uint64(0), nil)
 	autoPurgeThreshold := uint32(5)
 	autoPurgeMinAttempts := uint32(3)
 	autoPurgeCfg := testAutoPurgeConfig{
@@ -194,7 +194,7 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 	// Return 10 gwei as market gas price
 	marketGasPrice := tenGwei
 	fee := gas.EvmFee{Legacy: marketGasPrice}
-	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything).Return(fee, uint64(0), nil)
+	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything, mock.Anything).Return(fee, uint64(0), nil)
 	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 	autoPurgeThreshold := uint32(5)
 	autoPurgeMinAttempts := uint32(3)

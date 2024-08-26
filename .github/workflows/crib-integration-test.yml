@@ -73,19 +73,20 @@ jobs:
           echo $GITHUB_WORKSPACE
 
       - name: Deploy and validate CRIB Environment for Core
-        uses: smartcontractkit/.github/actions/crib-deploy-environment@9a4954089045a765eca4bac68f396b2df5a5ea25 # crib-deploy-environment@0.7.1
+        uses: smartcontractkit/.github/actions/crib-deploy-environment@4dd21a9d6e3f1383ffe8b9650b55f6e6031d3d0a # crib-deploy-environment@1.0.0
         id: deploy-crib
         with:
           github-token: ${{ steps.token.outputs.access-token }}
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_K8S_STAGE }}
           aws-region: ${{ secrets.AWS_REGION }}
           aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
-          ecr-private-registry-stage: ${{ secrets.AWS_ACCOUNT_ID_STAGE }}
           ecr-private-registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
           ingress-base-domain: ${{ secrets.INGRESS_BASE_DOMAIN_STAGE }}
           k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
           devspace-profiles: "local-dev-simulated-core-ocr1"
           crib-alert-slack-webhook: ${{ secrets.CRIB_ALERT_SLACK_WEBHOOK }}
+          product-image: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}/chainlink
+          product-image-tag: develop
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
