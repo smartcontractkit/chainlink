@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -250,7 +251,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return err
 	}
 
-	inputInfo, inputModifier, err := cr.getEventInput(chainReaderDefinition, contractName, eventName)
+	inputInfo, inputModifier, err := cr.getEventInput(chainReaderDefinition.InputModifications, contractName, eventName)
 	if err != nil {
 		return err
 	}
@@ -260,67 +261,79 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return err
 	}
 
-	eb := read.NewEventBinding(contractName, eventName, cr.lp, event.ID, inputInfo, inputModifier, codecTopicInfo, eventDws, confirmations)
+	eb := read.NewEventBinding(contractName, eventName, cr.lp, event.ID, inputModifier, codecTopicInfo, confirmations)
+	eventTypesInfo := make(map[string]types.CodecEntry)
+	eventTypesInfo[eventName] = inputInfo
+	
 	if eventDefinitions := chainReaderDefinition.EventDefinitions; eventDefinitions != nil {
 		if eventDefinitions.PollingFilter != nil {
 			eb.SetFilter(eventDefinitions.PollingFilter.ToLPFilter(evmtypes.HashArray{a.Events[event.Name].ID}))
 		}
 
-		if err = cr.initTopicQuerying(eb, event.Inputs, eventDefinitions.GenericTopicNames, chainReaderDefinition.InputModifications); err != nil {
+		topics, err := cr.initTopicQuerying(contractName, eventName, event.Inputs, eventDefinitions.GenericTopicNames, chainReaderDefinition.InputModifications)
+		if err != nil {
 			return err
 		}
 
-		if err = cr.initDWQuerying(eb, eventDefinitions.GenericDataWordNames); err != nil {
+		dwsCodecEntries, err := cr.initDWQuerying(contractName, eventName, eventDws, eventDefinitions.GenericDataWordNames)
+		if err != nil {
 			return err
 		}
+
+		eb.topics = topics
+		eb.dataWordsInfo = eventDws
+		eb.dataWordsMapping = eventDefinitions.GenericDataWordNames
+		maps.Copy(eventTypesInfo, dwsCodecEntries)
 	}
 
+	eb.eventTypesInfo = eventTypesInfo
 	cr.bindings.AddReader(contractName, eventName, eb)
-
 	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition.OutputModifications)
 }
 
 // initTopicQuerying adds codec types for topics that are used for typing over the wire bytes used in value comparator QueryKey filters.
-func (cr *chainReader) initTopicQuerying(eb *eventBinding, eventInputs abi.Arguments, genericTopicNames map[string]string, inputModifications codec.ModifiersConfig) error {
+func (cr *chainReader) initTopicQuerying(contractName, eventName string, eventInputs abi.Arguments, genericTopicNames map[string]string, inputModifications codec.ModifiersConfig) (map[string]topicDetail, error) {
+	topicDetails := make(map[string]topicDetail)
 	for topicIndex, topic := range eventInputs {
 		genericTopicName, ok := genericTopicNames[topic.Name]
 		if ok {
 			// TODO how did this work before with topicIndex not having a +1
-			eb.WithTopic(genericTopicName, topic, uint64(topicIndex))
+			topicDetails[genericTopicName] = topicDetail{Argument: topic, Index: uint64(topicIndex + 1)}
 			// Encoder defs codec won't be used for encoding, but for storing caller filtering params which won't be hashed.
-			if err := cr.addEncoderDef(eb.contractName, eb.eventName+"."+genericTopicName, abi.Arguments{{Type: topic.Type}}, nil, inputModifications); err != nil {
-				return err
+			if err := cr.addEncoderDef(contractName, eventName+"."+genericTopicName, abi.Arguments{{Type: topic.Type}}, nil, inputModifications); err != nil {
+				return nil, err
 			}
 		}
 	}
-	return nil
+	return topicDetails, nil
 }
 
 // initDWQuerying adds codec types for data words that are used for typing over the wire bytes used in value comparator QueryKey filters.
-func (cr *chainReader) initDWQuerying(eb *eventBinding, genericDataWordNames map[string]uint8) error {
-	eb.dataWordsMapping = genericDataWordNames
-	for genericDataWordName, dwIndex := range eb.dataWordsMapping {
-		dwsInfo := eb.dataWordsInfo
-		if dwIndex > uint8(len(dwsInfo)-1) {
+func (cr *chainReader) initDWQuerying(contractName, eventName string, dataWordsInfo []dataWordInfo, genericDataWordNames map[string]uint8) (map[string]types.CodecEntry, error) {
+	dwsCodecEntries := make(map[string]types.CodecEntry)
+	// TODO somehow handle mismatched dw indexes? probably during init?
+	for genericDataWordName, dwIndex := range genericDataWordNames {
+		if dwIndex > uint8(len(dataWordsInfo)-1) {
 			// TODO improve this error
-			return errors.New("invalid data word index")
+			return nil, fmt.Errorf("invalid data word index")
 		}
-		// TODO add only dws from config? Or not?
-		dwName, dwArg := eb.eventName+"."+genericDataWordName, dwsInfo[dwIndex].Argument
-		if err := cr.addEncoderDef(eb.contractName, dwName, abi.Arguments{{Type: dwArg.Type}}, nil, nil); err != nil {
-			return fmt.Errorf("%w: failed to init codec for data word %s on index %d querying for event: %q", err, dwName, dwIndex, eb.eventName)
+		dwName, dwArg := eventName+"."+genericDataWordName, dataWordsInfo[dwIndex].Argument
+		if err := cr.addEncoderDef(contractName, dwName, abi.Arguments{{Type: dwArg.Type}}, nil, nil); err != nil {
+			return nil, fmt.Errorf("%w: failed to init codec for data word %s on index %d querying for event: %q", err, dwName, dwIndex, eventName)
 		}
+
+		dwsCodecEntries[genericDataWordName] = cr.parsed.EncoderDefs[WrapItemType(contractName, dwName, true)]
 	}
-	return nil
+	return dwsCodecEntries, nil
 }
 
 // getEventInput returns codec entry for expected incoming event params and the modifier to be applied to the params.
-func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractName, eventName string) (
+func (cr *chainReader) getEventInput(inputMod codec.ModifiersConfig, contractName, eventName string) (
 	types.CodecEntry, commoncodec.Modifier, error) {
 	inputInfo := cr.parsed.EncoderDefs[WrapItemType(contractName, eventName, true)]
 
 	// TODO can this be simplified? Isn't this same as inputInfo.Modifier()? BCI-3909
-	inMod, err := def.InputModifications.ToModifier(codec.DecoderHooks...)
+	inMod, err := inputMod.ToModifier(codec.DecoderHooks...)
 	if err != nil {
 		return nil, nil, err
 	}

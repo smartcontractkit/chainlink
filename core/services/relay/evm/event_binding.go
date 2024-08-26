@@ -33,13 +33,14 @@ type eventBinding struct {
 	hash  common.Hash
 	codec commontypes.RemoteCodec
 	// bound determines if address is set to the contract binding.
-	bound          bool
-	bindLock       sync.Mutex
-	inputInfo      types.CodecEntry
-	inputModifier  codec.Modifier
-	codecTopicInfo types.CodecEntry
+	bound           bool
+	bindLock        sync.Mutex
+	eventTypesInfo  map[string]types.CodecEntry
+	inputModifier   codec.Modifier
+	codecTopicsInfo types.CodecEntry
 	// topics maps a generic topic name (key) to topic data
-	topics        map[string]topicDetail
+	topics map[string]topicDetail
+	// can this be a map instead with genericDWName as key and can it contain codec entries for it?
 	dataWordsInfo eventDataWords
 	// dataWordsMapping maps a generic name to a word index
 	// key is a predefined generic name for evm log event data word
@@ -292,7 +293,7 @@ func (e *eventBinding) toChecked(itemType string, value any) (any, error) {
 // encodeCheckedParams accepts checked chain types and encodes them to match onchain topics.
 func (e *eventBinding) encodeCheckedParams(checkedTypes reflect.Value) ([]*common.Hash, error) {
 	// convert onChain params to native types similarly to generated abi wrappers, for e.g. fixed bytes32 abi type to [32]uint8.
-	nativeParams, err := e.inputInfo.ToNative(checkedTypes)
+	nativeParams, err := e.eventTypesInfo[e.eventName].ToNative(checkedTypes)
 	if err != nil {
 		return nil, err
 	}
@@ -304,13 +305,13 @@ func (e *eventBinding) encodeCheckedParams(checkedTypes reflect.Value) ([]*commo
 	var params []any
 	switch nativeParams.Kind() {
 	case reflect.Array, reflect.Slice:
-		native, err := representArray(nativeParams, e.inputInfo)
+		native, err := representArray(nativeParams, e.eventTypesInfo[e.eventName])
 		if err != nil {
 			return nil, err
 		}
 		params = []any{native}
 	case reflect.Struct, reflect.Map:
-		if params, err = unrollItem(nativeParams, e.inputInfo); err != nil {
+		if params, err = unrollItem(nativeParams, e.eventTypesInfo[e.eventName]); err != nil {
 			return nil, err
 		}
 	default:
@@ -347,7 +348,7 @@ func (e *eventBinding) makeTopics(topics []any) ([]*common.Hash, error) {
 		}
 
 		// make topic value for non-fixed bytes array manually because geth MakeTopics doesn't support it
-		if abiArg := e.inputInfo.Args()[i]; abiArg.Type.T == abi.ArrayTy && (abiArg.Type.Elem != nil && abiArg.Type.Elem.T == abi.UintTy) {
+		if abiArg := e.eventTypesInfo[e.eventName].Args()[i]; abiArg.Type.T == abi.ArrayTy && (abiArg.Type.Elem != nil && abiArg.Type.Elem.T == abi.UintTy) {
 			packed, err := abi.Arguments{abiArg}.Pack(topic)
 			if err != nil {
 				return nil, err
@@ -386,7 +387,7 @@ func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 	}
 
 	// decode indexed topics which is rarely useful since most indexed topic types get Keccak256 hashed and should be just used for log filtering.
-	topics := make([]common.Hash, len(e.codecTopicInfo.Args()))
+	topics := make([]common.Hash, len(e.codecTopicsInfo.Args()))
 	if len(log.Topics) < len(topics)+1 {
 		return fmt.Errorf("%w: not enough topics to decode", commontypes.ErrInvalidType)
 	}
@@ -396,7 +397,7 @@ func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 	}
 
 	topicsInto := map[string]any{}
-	if err := abi.ParseTopicsIntoMap(topicsInto, e.codecTopicInfo.Args(), topics); err != nil {
+	if err := abi.ParseTopicsIntoMap(topicsInto, e.codecTopicsInfo.Args(), topics); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
 	}
 
@@ -479,6 +480,7 @@ func (e *eventBinding) remapPrimitive(expression query.Expression) (query.Expres
 		var hashedValComps []logpoller.HashedValueComparator
 		dwIndex, isDW := e.dataWordsMapping[primitive.Name]
 		for _, valComp := range primitive.ValueComparators {
+			// TODO this applies same input modifiers for dws and topics
 			valChecked, err := e.toChecked(WrapItemType(e.contractName, e.eventName+"."+primitive.Name, true), valComp.Value)
 			if err != nil {
 				return query.Expression{}, err
@@ -486,13 +488,15 @@ func (e *eventBinding) remapPrimitive(expression query.Expression) (query.Expres
 
 			hashedValComp := logpoller.HashedValueComparator{Operator: valComp.Operator}
 			if isDW {
-				// TODO
-				//hashedValComp.Value, err = e.encodeDataWord(valChecked, primitive.Name)
-				//return query.Expression{}, nil
+				hashedValComp.Value, err = e.
+					encodeDataWord(valComp.Value, primitive.Name)
+				if err != nil {
+					return query.Expression{}, err
+				}
 			} else {
 				var filterIndex int
 				var topicFields []reflect.StructField
-				for i, arg := range e.inputInfo.Args() {
+				for i, arg := range e.eventTypesInfo[e.eventName].Args() {
 					if arg.Name == e.topics[primitive.Name].Name {
 						filterIndex = i
 						topicFields = append(topicFields, reflect.StructField{Name: primitive.Name, Type: reflect.TypeOf(valChecked)})
@@ -514,7 +518,8 @@ func (e *eventBinding) remapPrimitive(expression query.Expression) (query.Expres
 			hashedValComps = append(hashedValComps, hashedValComp)
 		}
 		if isDW {
-			return logpoller.NewEventByWordFilter(dwIndex, hashedValComps), nil
+			// TODO fix dw indexing to start from 1, or not
+			return logpoller.NewEventByWordFilter(dwIndex+1, hashedValComps), nil
 		}
 		return logpoller.NewEventByTopicFilter(e.topics[primitive.Name].Index, hashedValComps), nil
 	case *primitives.Confidence:
@@ -528,8 +533,17 @@ func (e *eventBinding) remapPrimitive(expression query.Expression) (query.Expres
 	}
 }
 
-// TODO
-func (e *eventBinding) encodeDataWord(nativeValue reflect.Value, name string) (common.Hash, error) {
+// TODO Fix all the panicky reflection
+func (e *eventBinding) encodeDataWord(checkedValue any, name string) (common.Hash, error) {
+	nativeParams, err := e.eventTypesInfo[name].ToNative(reflect.ValueOf(checkedValue))
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	for nativeParams.Kind() == reflect.Pointer {
+		nativeParams = reflect.Indirect(nativeParams)
+	}
+
 	// TODO recalculate dwIndex if value that we are searching for is after a dynamic type like string, tuple, array...
 	// this will only work with static types that don't have a dynamic type before them
 	dwIndex, ok := e.dataWordsMapping[name]
@@ -541,7 +555,8 @@ func (e *eventBinding) encodeDataWord(nativeValue reflect.Value, name string) (c
 		return common.Hash{}, fmt.Errorf("data word index is out of bounds %d for data word  %s", dwIndex, name)
 	}
 
-	packedArgs, err := abi.Arguments{e.dataWordsInfo[dwIndex].Argument}.Pack(nativeValue)
+	// TODO check against bytes in db if this values make sense
+	packedArgs, err := abi.Arguments{e.dataWordsInfo[dwIndex].Argument}.Pack(nativeParams.Interface())
 	if err != nil {
 		return common.Hash{}, err
 	}
