@@ -29,14 +29,14 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
 
   /**
    * @param l1CrossDomainMessengerAddress address the Bridgehub contract address
-   * @param l2UptimeFeedAddr the address of the OptimismSequencerUptimeFeed contract address
+   * @param l2UptimeFeedAddr the address of the ZKSyncSequencerUptimeFeedInterface contract address
    * @param gasLimit the gasLimit to use for sending a message from L1 to L2
    */
   constructor(address l1CrossDomainMessengerAddress, address l2UptimeFeedAddr, uint32 gasLimit) {
     // solhint-disable-next-line gas-custom-errors
     require(l1CrossDomainMessengerAddress != address(0), "Invalid xDomain Messenger address");
     // solhint-disable-next-line gas-custom-errors
-    require(l2UptimeFeedAddr != address(0), "Invalid OptimismSequencerUptimeFeed contract address");
+    require(l2UptimeFeedAddr != address(0), "Invalid ZKSyncSequencerUptimeFeedInterface contract address");
     L1_CROSS_DOMAIN_MESSENGER_ADDRESS = l1CrossDomainMessengerAddress;
     L2_UPTIME_FEED_ADDR = l2UptimeFeedAddr;
     s_gasLimit = gasLimit;
@@ -47,7 +47,7 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
    *
    * - ZKSyncValidator 0.1.0: initial release
    * - ZKSyncValidator 1.0.0: change target of L2 sequencer status update
-   *   - now calls `updateStatus` on an L2 OptimismSequencerUptimeFeed contract instead of
+   *   - now calls `updateStatus` on an L2 ZKSyncSequencerUptimeFeedInterface contract instead of
    *     directly calling the Flags contract
    *
    * @inheritdoc TypeAndVersionInterface
@@ -83,7 +83,7 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     uint256 /* currentRoundId */,
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
-    // Encode the OptimismSequencerUptimeFeed call
+    // Encode the ZKSyncSequencerUptimeFeedInterface call
     bytes4 selector = ZKSyncSequencerUptimeFeedInterface.updateStatus.selector;
     bool status = currentAnswer == ANSWER_SEQ_OFFLINE;
     uint64 timestamp = uint64(block.timestamp);
