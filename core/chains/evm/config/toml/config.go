@@ -521,6 +521,7 @@ func (a *Automation) setFrom(f *Automation) {
 type Workflow struct {
 	FromAddress      *types.EIP55Address `toml:",omitempty"`
 	ForwarderAddress *types.EIP55Address `toml:",omitempty"`
+	DefaultGasLimit  uint64
 }
 
 func (m *Workflow) setFrom(f *Workflow) {
@@ -530,6 +531,8 @@ func (m *Workflow) setFrom(f *Workflow) {
 	if v := f.ForwarderAddress; v != nil {
 		m.ForwarderAddress = v
 	}
+
+	m.DefaultGasLimit = f.DefaultGasLimit
 }
 
 type BalanceMonitor struct {
@@ -549,12 +552,12 @@ type GasEstimator struct {
 	PriceMax     *assets.Wei
 	PriceMin     *assets.Wei
 
-	LimitDefault       *uint64
-	LimitMax           *uint64
-	LimitMultiplier    *decimal.Decimal
-	LimitTransfer      *uint64
-	LimitJobType       GasLimitJobType `toml:",omitempty"`
-	EstimateGasLimit   *bool
+	LimitDefault     *uint64
+	LimitMax         *uint64
+	LimitMultiplier  *decimal.Decimal
+	LimitTransfer    *uint64
+	LimitJobType     GasLimitJobType `toml:",omitempty"`
+	EstimateGasLimit *bool
 
 	BumpMin       *assets.Wei
 	BumpPercent   *uint16
