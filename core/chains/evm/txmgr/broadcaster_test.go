@@ -29,8 +29,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	commmonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -69,7 +71,7 @@ func NewTestEthBroadcaster(
 
 	estimator := gas.NewEvmFeeEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
 		return gas.NewFixedPriceEstimator(config.EVM().GasEstimator(), nil, ge.BlockHistory(), lggr, nil)
-	}, ge.EIP1559DynamicFees(), ge)
+	}, ge.EIP1559DynamicFees(), ge, ethClient)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, keyStore, estimator)
 	ethBroadcaster := txmgrcommon.NewBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(config.EVM().GasEstimator()), config.EVM().Transactions(), gconfig.Database().Listener(), keyStore, txBuilder, nonceTracker, lggr, checkerFactory, nonceAutoSync, "")
 
@@ -642,7 +644,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	chStartEstimate := make(chan struct{})
 	chBlock := make(chan struct{})
 
-	estimator.On("GetFee", mock.Anything, mock.Anything, mock.Anything, ccfg.EVM().GasEstimator().PriceMaxKey(fromAddress)).Return(gas.EvmFee{Legacy: assets.GWei(32)}, uint64(500), nil).Run(func(_ mock.Arguments) {
+	estimator.On("GetFee", mock.Anything, mock.Anything, mock.Anything, ccfg.EVM().GasEstimator().PriceMaxKey(fromAddress), mock.Anything).Return(gas.EvmFee{Legacy: assets.GWei(32)}, uint64(500), nil).Run(func(_ mock.Arguments) {
 		close(chStartEstimate)
 		<-chBlock
 	}).Once()
@@ -1177,7 +1179,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 				t.Run("callback set by ctor", func(t *testing.T) {
 					estimator := gas.NewEvmFeeEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
 						return gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), nil, evmcfg.EVM().GasEstimator().BlockHistory(), lggr, nil)
-					}, evmcfg.EVM().GasEstimator().EIP1559DynamicFees(), evmcfg.EVM().GasEstimator())
+					}, evmcfg.EVM().GasEstimator().EIP1559DynamicFees(), evmcfg.EVM().GasEstimator(), ethClient)
 					txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg.EVM().GasEstimator(), ethKeyStore, estimator)
 					localNextNonce = getLocalNextNonce(t, nonceTracker, fromAddress)
 					eb2 := txmgr.NewEvmBroadcaster(txStore, txmClient, txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), cfg.Database().Listener(), ethKeyStore, txBuilder, lggr, &testCheckerFactory{}, false, "")
@@ -1666,6 +1668,73 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	})
 }
 
+func TestEthBroadcaster_ProcessUnstartedEthTxs_GasEstimationError(t *testing.T) {
+	toAddress := testutils.NewAddress()
+	value := big.Int(assets.NewEthValue(142))
+	gasLimit := uint64(242)
+	encodedPayload := []byte{0, 1}
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	cfg.EVMConfigs()[0].GasEstimator.EstimateGasLimit = ptr(true) // Enabled gas limit estimation
+	limitMultiplier := float32(1.25)
+	cfg.EVMConfigs()[0].GasEstimator.LimitMultiplier = ptr(decimal.NewFromFloat32(limitMultiplier)) // Set LimitMultiplier for the buffer
+	txStore := cltest.NewTestTxStore(t, db)
+
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+
+	config := evmtest.NewChainScopedConfig(t, cfg)
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
+	lggr := logger.Test(t)
+	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
+	nonceTracker := txmgr.NewNonceTracker(lggr, txStore, txmClient)
+	ge := config.EVM().GasEstimator()
+	estimator := gas.NewEvmFeeEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
+		return gas.NewFixedPriceEstimator(ge, nil, ge.BlockHistory(), lggr, nil)
+	}, ge.EIP1559DynamicFees(), ge, ethClient)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, estimator)
+	eb := txmgrcommon.NewBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(config.EVM().GasEstimator()), config.EVM().Transactions(), cfg.Database().Listener(), ethKeyStore, txBuilder, nonceTracker, lggr, &testCheckerFactory{}, false, "")
+
+	// Mark instance as test
+	eb.XXXTestDisableUnstartedTxAutoProcessing()
+	servicetest.Run(t, eb)
+	ctx := tests.Context(t)
+	t.Run("gas limit lowered after estimation", func(t *testing.T) {
+		estimatedGasLimit := uint64(100)
+		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
+		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGasLimit, nil).Once()
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == uint64(0)
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
+
+		// Do the thing
+		retryable, err := eb.ProcessUnstartedTxs(ctx, fromAddress)
+		assert.NoError(t, err)
+		assert.False(t, retryable)
+
+		dbEtx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
+		require.NoError(t, err)
+		attempt := dbEtx.TxAttempts[0]
+		require.Equal(t, uint64(float32(estimatedGasLimit)*gas.EstimateGasBuffer), attempt.ChainSpecificFeeLimit)
+	})
+	t.Run("provided gas limit too low, transaction marked as fatal error", func(t *testing.T) {
+		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
+		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(uint64(float32(gasLimit)*limitMultiplier)+1, nil).Once()
+
+		// Do the thing
+		retryable, err := eb.ProcessUnstartedTxs(ctx, fromAddress)
+		assert.NoError(t, err)
+		assert.False(t, retryable)
+
+		dbEtx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
+		require.NoError(t, err)
+		require.Equal(t, txmgrcommon.TxFatalError, dbEtx.State)
+		require.Equal(t, commmonfee.ErrFeeLimitTooLow.Error(), dbEtx.Error.String)
+	})
+}
+
 func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 	value := big.Int(assets.NewEthValue(142))
@@ -1760,15 +1829,15 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 	kst := cltest.NewKeyStore(t, db).Eth()
 	_, fromAddress := cltest.RandomKey{Disabled: false}.MustInsertWithState(t, kst)
 
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 	estimator := gas.NewEvmFeeEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
 		return gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), nil, evmcfg.EVM().GasEstimator().BlockHistory(), lggr, nil)
-	}, evmcfg.EVM().GasEstimator().EIP1559DynamicFees(), evmcfg.EVM().GasEstimator())
+	}, evmcfg.EVM().GasEstimator().EIP1559DynamicFees(), evmcfg.EVM().GasEstimator(), ethClient)
 	checkerFactory := &testCheckerFactory{}
 
 	ge := evmcfg.EVM().GasEstimator()
 
 	t.Run("does nothing if nonce sync is disabled", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, estimator)
 
 		kst := ksmocks.NewEth(t)
@@ -1838,7 +1907,7 @@ func TestEthBroadcaster_HederaBroadcastValidation(t *testing.T) {
 	ge := evmcfg.EVM().GasEstimator()
 	estimator := gas.NewEvmFeeEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
 		return gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), nil, ge.BlockHistory(), lggr, nil)
-	}, ge.EIP1559DynamicFees(), ge)
+	}, ge.EIP1559DynamicFees(), ge, ethClient)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, estimator)
 	checkerFactory := &txmgr.CheckerFactory{Client: ethClient}
 	ctx := tests.Context(t)

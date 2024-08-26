@@ -136,6 +136,7 @@ type GasEstimator interface {
 	PriceMin() *assets.Wei
 	Mode() string
 	PriceMaxKey(gethcommon.Address) *assets.Wei
+	EstimateGasLimit() bool
 }
 
 type LimitJobType interface {
@@ -160,6 +161,7 @@ type BlockHistory interface {
 type Workflow interface {
 	FromAddress() *types.EIP55Address
 	ForwarderAddress() *types.EIP55Address
+	DefaultGasLimit() uint64
 }
 
 type NodePool interface {
