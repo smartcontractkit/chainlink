@@ -21,7 +21,7 @@ jobs:
       test_workflow: E2E CCIP Chaos Tests
       test_log_level: debug
       slack_notification_after_tests: on_failure
-      slack_notification_after_tests_channel_id: 'C07DKUTAV2L'
+      slack_notification_after_tests_channel_id: '#ccip-testing'
       slack_notification_after_tests_name: CCIP Chaos E2E Tests
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
