@@ -9,7 +9,7 @@ import {PingPongDemo} from "./PingPongDemo.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract SelfFundedPingPong is PingPongDemo {
-  string public constant override typeAndVersion = "SelfFundedPingPong 1.2.0";
+  string public constant override typeAndVersion = "SelfFundedPingPong 1.5.0";
 
   event Funded();
   event CountIncrBeforeFundingSet(uint8 countIncrBeforeFunding);
