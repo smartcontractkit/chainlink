@@ -162,8 +162,8 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("processMessageArgs", priceRegistryABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				"ValidatePoolReturnData": {
-					ChainSpecificName: mustGetMethodName("validatePoolReturnData", priceRegistryABI),
+				"ProcessPoolReturnData": {
+					ChainSpecificName: mustGetMethodName("processPoolReturnData", priceRegistryABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 				"GetValidatedTokenPrice": {
