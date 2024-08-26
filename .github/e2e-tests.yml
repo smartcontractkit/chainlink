@@ -981,7 +981,6 @@ runner-test-matrix:
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
     workflows:
-      - Automation On Demand Tests
       - E2E CCIP Chaos Tests
     test_cmd: cd integration-tests/ccip-tests/chaos && DETACH_RUNNER=false go test ccip_test.go -v -test.parallel=11 -timeout 60m -count=1 -json
     test_env_vars:
@@ -994,7 +993,6 @@ runner-test-matrix:
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
     workflows:
-      - Automation On Demand Tests
       # Disabled until CCIP-2555 is resolved
       # - E2E CCIP Chaos Tests
     test_cmd: cd integration-tests/ccip-tests/load && DETACH_RUNNER=false go test -run '^TestLoadCCIPStableWithPodChaosDiffCommitAndExec' -v -test.parallel=4 -timeout 120m -count=1 -json
