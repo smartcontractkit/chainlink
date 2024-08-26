@@ -169,8 +169,8 @@ runner-test-matrix:
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
     workflows:
-      - Run Automation On Demand Tests (TEST WORKFLOW)
-      - Chaos Tests
+      - Automation On Demand Tests
+      - E2E Chaos Tests
     test_cmd: cd integration-tests/chaos && DETACH_RUNNER=false go test ocr_chaos_tests.go -v -test.parallel=10 -timeout 60m -count=1 -json
     test_env_vars:
       TEST_SUITE: chaos
@@ -542,7 +542,7 @@ runner-test-matrix:
     test_env_vars:
       TEST_SUITE: reorg
     workflows:
-      - Run Automation On Demand Tests (TEST WORKFLOW)
+      - Automation On Demand Tests
     test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_0 -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
 
@@ -553,7 +553,7 @@ runner-test-matrix:
     test_env_vars:
       TEST_SUITE: reorg
     workflows:
-      - Run Automation On Demand Tests (TEST WORKFLOW)
+      - Automation On Demand Tests
     test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_1 -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
 
@@ -564,7 +564,7 @@ runner-test-matrix:
     test_env_vars:
       TEST_SUITE: reorg
     workflows:
-      - Run Automation On Demand Tests (TEST WORKFLOW)
+      - Automation On Demand Tests
     test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_2 -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
 
@@ -575,7 +575,7 @@ runner-test-matrix:
     test_env_vars:
       TEST_SUITE: reorg
     workflows:
-      - Run Automation On Demand Tests (TEST WORKFLOW)
+      - Automation On Demand Tests
     test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_3 -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
 
@@ -584,8 +584,8 @@ runner-test-matrix:
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
     workflows:
-      - Run Automation On Demand Tests (TEST WORKFLOW)
-      - Chaos Tests
+      - Automation On Demand Tests
+      - E2E Chaos Tests
     test_cmd: cd integration-tests/chaos && DETACH_RUNNER=false go test -v -test.run ^TestAutomationChaos$ -test.parallel=20 -timeout 60m -count=1 -json
     pyroscope_env: ci-automation-on-demand-chaos
     test_env_vars:

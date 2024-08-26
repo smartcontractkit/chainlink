@@ -13,7 +13,7 @@ jobs:
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       chainlink_version: ${{ github.sha }}
-      test_workflow: Chaos Tests
+      test_workflow: E2E Chaos Tests
       test_log_level: debug
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
