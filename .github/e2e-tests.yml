@@ -976,4 +976,32 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2      
 
+  - id: ccip-tests/chaos/ccip_test.go
+    path: integration-tests/ccip-tests/chaos/ccip_test.go
+    test_env_type: k8s-remote-runner
+    runs_on: ubuntu-latest
+    workflows:
+      - Automation On Demand Tests
+      - E2E CCIP Chaos Tests
+    test_cmd: cd integration-tests/ccip-tests/chaos && DETACH_RUNNER=false go test ccip_test.go -v -test.parallel=11 -timeout 60m -count=1 -json
+    test_env_vars:
+      TEST_SUITE: chaos
+      TEST_TRIGGERED_BY: ccip-cron-chaos-eth
+      TEST_LOG_LEVEL: debug
+      DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
+
+  - id: ccip-tests/load/ccip_test.go:^TestLoadCCIPStableWithPodChaosDiffCommitAndExec
+    path: integration-tests/ccip-tests/load/ccip_test.go
+    test_env_type: k8s-remote-runner
+    runs_on: ubuntu-latest
+    workflows:
+      - Automation On Demand Tests
+      - E2E CCIP Chaos Tests
+    test_cmd: cd integration-tests/ccip-tests/load && DETACH_RUNNER=false go test -run '^TestLoadCCIPStableWithPodChaosDiffCommitAndExec' -v -test.parallel=4 -timeout 120m -count=1 -json
+    test_env_vars:
+      TEST_SUITE: chaos
+      TEST_TRIGGERED_BY: ccip-cron-chaos-eth
+      TEST_LOG_LEVEL: debug
+      DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
+            
   # END: CCIP tests
