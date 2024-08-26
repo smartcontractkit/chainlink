@@ -281,7 +281,8 @@ WHERE id = $1
 func (o *orm) ListManagers(ctx context.Context) (mgrs []FeedsManager, err error) {
 	stmt := `
 SELECT id, name, uri, public_key, created_at, updated_at
-FROM feeds_managers;
+FROM feeds_managers
+ORDER BY created_at;
 `
 
 	err = o.ds.SelectContext(ctx, &mgrs, stmt)
