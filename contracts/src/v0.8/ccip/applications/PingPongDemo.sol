@@ -37,7 +37,7 @@ contract PingPongDemo is CCIPReceiver, OwnerIsCreator, ITypeAndVersion {
   }
 
   function typeAndVersion() external pure virtual returns (string memory) {
-    return "PingPongDemo 1.2.0";
+    return "PingPongDemo 1.5.0";
   }
 
   function setCounterpart(uint64 counterpartChainSelector, address counterpartAddress) external onlyOwner {
