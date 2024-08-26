@@ -49,6 +49,7 @@ jobs:
         with:
           list-files: 'csv'
           base: ${{ inputs.base_ref }}
+          # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
           predicate-quantifier: every
           filters: |
             ignored: &ignored
