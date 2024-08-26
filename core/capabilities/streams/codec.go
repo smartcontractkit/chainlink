@@ -45,7 +45,9 @@ func (c *codec) Unwrap(wrapped values.Value) ([]datastreams.FeedReport, error) {
 }
 
 func (c *codec) Wrap(reports []datastreams.FeedReport) (values.Value, error) {
-	return values.Wrap(reports)
+	return values.Wrap(&datastreams.StreamsTriggerPayload{
+		Payload: reports,
+	})
 }
 
 func (c *codec) Validate(report datastreams.FeedReport, allowedSigners [][]byte, minRequiredSignatures int) error {
