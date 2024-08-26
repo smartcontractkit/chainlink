@@ -140,10 +140,11 @@ library Internal {
   uint256 public constant ANY_2_EVM_MESSAGE_FIXED_BYTES = 32 * 14;
 
   /// @dev Each token transfer adds 1 RampTokenAmount
-  /// RampTokenAmount has 4 fields, including 3 bytes.
-  /// Each bytes takes 1 more slot to store its length, and one slot to store the offset.
-  /// When abi encoded, each token transfer takes up 10 slots, excl bytes contents.
-  uint256 public constant ANY_2_EVM_MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * 10;
+  /// RampTokenAmount has 5 fields, 3 of which are bytes type, 1 uint256 and 1 uint32.
+  /// Each bytes type takes 1 slot for length, 1 slot for data and 1 slot for the offset.
+  /// uint256 amount takes 1 slot.
+  /// uint32 destGasAmount takes 1 slot.
+  uint256 public constant ANY_2_EVM_MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * ((3 * 3) + 2);
 
   bytes32 internal constant EVM_2_EVM_MESSAGE_HASH = keccak256("EVM2EVMMessageHashV2");
 
@@ -294,6 +295,9 @@ library Internal {
     // has to be set for the specific token.
     bytes extraData;
     uint256 amount; // Amount of tokens.
+    // Destination chain specific execution data encoded in bytes
+    //(for EVM destination it consists of the amount of gas available for the releaseOrMint and transfer calls on the offRamp
+    bytes destExecData;
   }
 
   /// @notice Family-agnostic header for OnRamp & OffRamp messages.
