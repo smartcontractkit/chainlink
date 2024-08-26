@@ -98,7 +98,6 @@ type Service interface {
 
 	CountJobProposalsByStatus(ctx context.Context) (*JobProposalCounts, error)
 	GetJobProposal(ctx context.Context, id int64) (*JobProposal, error)
-	ListJobProposals(ctx context.Context) ([]JobProposal, error)
 	ListJobProposalsByManagersIDs(ctx context.Context, ids []int64) ([]JobProposal, error)
 
 	ApproveSpec(ctx context.Context, id int64, force bool) error
@@ -419,14 +418,6 @@ func (s *service) UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64
 	}
 
 	return id, nil
-}
-
-// Lists all JobProposals
-//
-// When we support multiple feed managers, we will need to change this to filter
-// by feeds manager
-func (s *service) ListJobProposals(ctx context.Context) ([]JobProposal, error) {
-	return s.orm.ListJobProposals(ctx)
 }
 
 // ListJobProposalsByManagersIDs gets job proposals by feeds managers IDs

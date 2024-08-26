@@ -1269,64 +1269,6 @@ func (_c *ORM_ListChainConfigsByManagerIDs_Call) RunAndReturn(run func(context.C
 	return _c
 }
 
-// ListJobProposals provides a mock function with given fields: ctx
-func (_m *ORM) ListJobProposals(ctx context.Context) ([]feeds.JobProposal, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ListJobProposals")
-	}
-
-	var r0 []feeds.JobProposal
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) ([]feeds.JobProposal, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) []feeds.JobProposal); ok {
-		r0 = rf(ctx)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]feeds.JobProposal)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ORM_ListJobProposals_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListJobProposals'
-type ORM_ListJobProposals_Call struct {
-	*mock.Call
-}
-
-// ListJobProposals is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *ORM_Expecter) ListJobProposals(ctx interface{}) *ORM_ListJobProposals_Call {
-	return &ORM_ListJobProposals_Call{Call: _e.mock.On("ListJobProposals", ctx)}
-}
-
-func (_c *ORM_ListJobProposals_Call) Run(run func(ctx context.Context)) *ORM_ListJobProposals_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *ORM_ListJobProposals_Call) Return(jps []feeds.JobProposal, err error) *ORM_ListJobProposals_Call {
-	_c.Call.Return(jps, err)
-	return _c
-}
-
-func (_c *ORM_ListJobProposals_Call) RunAndReturn(run func(context.Context) ([]feeds.JobProposal, error)) *ORM_ListJobProposals_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // ListJobProposalsByManagersIDs provides a mock function with given fields: ctx, ids
 func (_m *ORM) ListJobProposalsByManagersIDs(ctx context.Context, ids []int64) ([]feeds.JobProposal, error) {
 	ret := _m.Called(ctx, ids)

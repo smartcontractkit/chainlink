@@ -799,64 +799,6 @@ func (_c *Service_ListChainConfigsByManagerIDs_Call) RunAndReturn(run func(conte
 	return _c
 }
 
-// ListJobProposals provides a mock function with given fields: ctx
-func (_m *Service) ListJobProposals(ctx context.Context) ([]feeds.JobProposal, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ListJobProposals")
-	}
-
-	var r0 []feeds.JobProposal
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) ([]feeds.JobProposal, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) []feeds.JobProposal); ok {
-		r0 = rf(ctx)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]feeds.JobProposal)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// Service_ListJobProposals_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListJobProposals'
-type Service_ListJobProposals_Call struct {
-	*mock.Call
-}
-
-// ListJobProposals is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *Service_Expecter) ListJobProposals(ctx interface{}) *Service_ListJobProposals_Call {
-	return &Service_ListJobProposals_Call{Call: _e.mock.On("ListJobProposals", ctx)}
-}
-
-func (_c *Service_ListJobProposals_Call) Run(run func(ctx context.Context)) *Service_ListJobProposals_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *Service_ListJobProposals_Call) Return(_a0 []feeds.JobProposal, _a1 error) *Service_ListJobProposals_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *Service_ListJobProposals_Call) RunAndReturn(run func(context.Context) ([]feeds.JobProposal, error)) *Service_ListJobProposals_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // ListJobProposalsByManagersIDs provides a mock function with given fields: ctx, ids
 func (_m *Service) ListJobProposalsByManagersIDs(ctx context.Context, ids []int64) ([]feeds.JobProposal, error) {
 	ret := _m.Called(ctx, ids)

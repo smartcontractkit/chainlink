@@ -34,7 +34,6 @@ type ORM interface {
 	DeleteProposal(ctx context.Context, id int64) error
 	GetJobProposal(ctx context.Context, id int64) (*JobProposal, error)
 	GetJobProposalByRemoteUUID(ctx context.Context, uuid uuid.UUID) (*JobProposal, error)
-	ListJobProposals(ctx context.Context) (jps []JobProposal, err error)
 	ListJobProposalsByManagersIDs(ctx context.Context, ids []int64) ([]JobProposal, error)
 	UpdateJobProposalStatus(ctx context.Context, id int64, status JobProposalStatus) error // NEEDED?
 	UpsertJobProposal(ctx context.Context, jp *JobProposal) (int64, error)
@@ -371,17 +370,6 @@ AND status <> $2;
 	jp = new(JobProposal)
 	err = o.ds.GetContext(ctx, jp, stmt, id, JobProposalStatusDeleted)
 	return jp, errors.Wrap(err, "GetJobProposalByRemoteUUID failed")
-}
-
-// ListJobProposals lists all job proposals.
-func (o *orm) ListJobProposals(ctx context.Context) (jps []JobProposal, err error) {
-	stmt := `
-SELECT *
-FROM job_proposals;
-`
-
-	err = o.ds.SelectContext(ctx, &jps, stmt)
-	return jps, errors.Wrap(err, "ListJobProposals failed")
 }
 
 // ListJobProposalsByManagersIDs gets job proposals by feeds managers IDs.

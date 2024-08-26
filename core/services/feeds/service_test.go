@@ -1527,25 +1527,6 @@ func Test_Service_IsJobManaged(t *testing.T) {
 	assert.True(t, isManaged)
 }
 
-func Test_Service_ListJobProposals(t *testing.T) {
-	t.Parallel()
-	ctx := testutils.Context(t)
-
-	var (
-		jp  = feeds.JobProposal{}
-		jps = []feeds.JobProposal{jp}
-	)
-	svc := setupTestService(t)
-
-	svc.orm.On("ListJobProposals", mock.Anything).
-		Return(jps, nil)
-
-	actual, err := svc.ListJobProposals(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, actual, jps)
-}
-
 func Test_Service_ListJobProposalsByManagersIDs(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)

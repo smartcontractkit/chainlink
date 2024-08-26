@@ -555,39 +555,6 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 	})
 }
 
-func Test_ORM_ListJobProposals(t *testing.T) {
-	t.Parallel()
-	ctx := testutils.Context(t)
-
-	orm := setupORM(t)
-	fmID := createFeedsManager(t, orm)
-	uuid := uuid.New()
-	name := null.StringFrom("jp1")
-
-	jp := &feeds.JobProposal{
-		Name:           name,
-		RemoteUUID:     uuid,
-		Status:         feeds.JobProposalStatusPending,
-		FeedsManagerID: fmID,
-	}
-
-	id, err := orm.CreateJobProposal(ctx, jp)
-	require.NoError(t, err)
-
-	jps, err := orm.ListJobProposals(ctx)
-	require.NoError(t, err)
-	require.Len(t, jps, 1)
-
-	actual := jps[0]
-	assert.Equal(t, id, actual.ID)
-	assert.Equal(t, name, actual.Name)
-	assert.Equal(t, uuid, actual.RemoteUUID)
-	assert.Equal(t, jp.Status, actual.Status)
-	assert.False(t, actual.ExternalJobID.Valid)
-	assert.False(t, actual.PendingUpdate)
-	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
-}
-
 func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 	t.Parallel()
 
