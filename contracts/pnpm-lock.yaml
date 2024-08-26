@@ -26,9 +26,6 @@ importers:
       '@eth-optimism/contracts':
         specifier: 0.6.0
         version: 0.6.0(ethers@5.7.2)
-      '@matter-labs/contracts':
-        specifier: matter-labs/era-contracts
-        version: era-contracts@https://codeload.github.com/matter-labs/era-contracts/tar.gz/446d391d34bdb48255d5f8fef8a8248925fc98b9
       '@openzeppelin/contracts':
         specifier: 4.9.3
         version: 4.9.3
@@ -38,6 +35,9 @@ importers:
       '@scroll-tech/contracts':
         specifier: 0.1.0
         version: 0.1.0
+      '@zksync/contracts':
+        specifier: git+https://github.com/matter-labs/era-contracts.git
+        version: era-contracts@https://codeload.github.com/matter-labs/era-contracts/tar.gz/446d391d34bdb48255d5f8fef8a8248925fc98b9
       semver:
         specifier: ^7.6.2
         version: 7.6.2

@@ -7,8 +7,7 @@ import {ZKSyncSequencerUptimeFeedInterface} from "./../interfaces/ZKSyncSequence
 
 import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
 
-import {IBridgehub} from "@zksync/contracts/l1-contracts/contracts/bridgehub/IBridgehub.sol";
-import {L2Message} from "@zksync/contracts/l1-contracts/contracts/common/Messaging.sol";
+import {IBridgehub, L2TransactionRequestDirect} from "@zksync/contracts/l1-contracts/contracts/bridgehub/IBridgehub.sol";
 
 /**
  * @title ZKSyncValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
@@ -90,29 +89,24 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     uint64 timestamp = uint64(block.timestamp);
     // Encode `status` and `timestamp`
     bytes memory message = abi.encodeWithSelector(selector, status, timestamp);
-    // Make the xDomain call
-    L2Message memory _message = L2Message({
-      txNumberInBatch: 0,
-      sender: 0,
-      data: message,
+    bytes[] memory emptyBytes;
 
-      // target: L2_UPTIME_FEED_ADDR,
-      // gasLimit: s_gasLimit,
-      // data: message
+    // Create the L2 transaction request
+    L2TransactionRequestDirect memory l2TransactionRequestDirect = L2TransactionRequestDirect({
+      chainId: 1, // TODO look at docs
+      mintValue: 0,
+      l2Contract: L2_UPTIME_FEED_ADDR,
+      l2Value: 0, // TODO confirm
+      l2Calldata: message,
+      l2GasLimit: s_gasLimit,
+      l2GasPerPubdataByteLimit: 0, // TODO confirm
+      factoryDeps: emptyBytes,
+      refundRecipient: msg.sender
     });
-    IBridgehub(L1_CROSS_DOMAIN_MESSENGER_ADDRESS).proveL2MessageInclusion(
-      _chainId, 
-      _batchNumber, 
-      _index, 
-      _message, 
-      _proof
-    );
-    // .sendMessage(
-    //   L2_UPTIME_FEED_ADDR, // target
-    //   message,
-    //   s_gasLimit
-    // );
-    // // return success
+
+    // Make the xDomain call
+    IBridgehub(L1_CROSS_DOMAIN_MESSENGER_ADDRESS).requestL2TransactionDirect(l2TransactionRequestDirect);
+
     return true;
   }
 }
