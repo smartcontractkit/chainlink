@@ -17,6 +17,7 @@ jobs:
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       chainlink_version: ${{ github.sha }}
+      require_chainlink_image_versions_in_qa_ecr: ${{ github.sha }}
       test_ids: 'ccip-tests/chaos/ccip_test.go'
       # Disabled until CCIP-2555 is resolved
       # test_ids: 'ccip-tests/chaos/ccip_test.go,ccip-tests/load/ccip_test.go:^TestLoadCCIPStableWithPodChaosDiffCommitAndExec'
