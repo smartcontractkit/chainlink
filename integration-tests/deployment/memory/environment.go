@@ -39,7 +39,7 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 			Selector:    sel,
 			Client:      chain.Backend,
 			DeployerKey: chain.DeployerKey,
-			Confirm: func(tx common.Hash) error {
+			Confirm: func(tx common.Hash) (uint64, error) {
 				for {
 					chain.Backend.Commit()
 					receipt, err := chain.Backend.TransactionReceipt(context.Background(), tx)
@@ -50,7 +50,7 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 					if receipt.Status == 0 {
 						t.Logf("Status (reverted) %d for txhash %s\n", receipt.Status, tx.String())
 					}
-					return nil
+					return receipt.BlockNumber.Uint64(), nil
 				}
 			},
 		}
