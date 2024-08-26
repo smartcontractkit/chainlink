@@ -48,10 +48,14 @@ func ValidateMessage(msg p2ptypes.Message, expectedReceiver p2ptypes.PeerID) (*r
 	return &body, nil
 }
 
-func ToPeerID(peerID []byte) p2ptypes.PeerID {
+func ToPeerID(peerID []byte) (p2ptypes.PeerID, error) {
+	if len(peerID) != p2ptypes.PeerIDLength {
+		return p2ptypes.PeerID{}, fmt.Errorf("invalid peer ID length: %d", len(peerID))
+	}
+
 	var id p2ptypes.PeerID
 	copy(id[:], peerID)
-	return id
+	return id, nil
 }
 
 // Default MODE Aggregator needs a configurable number of identical responses for aggregation to succeed

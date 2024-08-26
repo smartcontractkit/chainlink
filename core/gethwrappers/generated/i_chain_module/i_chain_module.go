@@ -29,7 +29,7 @@ var (
 )
 
 var IChainModuleMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"blockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"blockNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCurrentL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"chainModuleFixedOverhead\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"chainModulePerByteOverhead\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"dataSize\",\"type\":\"uint256\"}],\"name\":\"getMaxL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"blockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"blockNumber\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"dataSize\",\"type\":\"uint256\"}],\"name\":\"getCurrentL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"l1Fee\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"chainModuleFixedOverhead\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"chainModulePerByteOverhead\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"dataSize\",\"type\":\"uint256\"}],\"name\":\"getMaxL1Fee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"maxL1Fee\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 var IChainModuleABI = IChainModuleMetaData.ABI
@@ -150,9 +150,9 @@ func (_IChainModule *IChainModuleTransactorRaw) Transact(opts *bind.TransactOpts
 	return _IChainModule.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_IChainModule *IChainModuleCaller) BlockHash(opts *bind.CallOpts, arg0 *big.Int) ([32]byte, error) {
+func (_IChainModule *IChainModuleCaller) BlockHash(opts *bind.CallOpts, blockNumber *big.Int) ([32]byte, error) {
 	var out []interface{}
-	err := _IChainModule.contract.Call(opts, &out, "blockHash", arg0)
+	err := _IChainModule.contract.Call(opts, &out, "blockHash", blockNumber)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -164,12 +164,12 @@ func (_IChainModule *IChainModuleCaller) BlockHash(opts *bind.CallOpts, arg0 *bi
 
 }
 
-func (_IChainModule *IChainModuleSession) BlockHash(arg0 *big.Int) ([32]byte, error) {
-	return _IChainModule.Contract.BlockHash(&_IChainModule.CallOpts, arg0)
+func (_IChainModule *IChainModuleSession) BlockHash(blockNumber *big.Int) ([32]byte, error) {
+	return _IChainModule.Contract.BlockHash(&_IChainModule.CallOpts, blockNumber)
 }
 
-func (_IChainModule *IChainModuleCallerSession) BlockHash(arg0 *big.Int) ([32]byte, error) {
-	return _IChainModule.Contract.BlockHash(&_IChainModule.CallOpts, arg0)
+func (_IChainModule *IChainModuleCallerSession) BlockHash(blockNumber *big.Int) ([32]byte, error) {
+	return _IChainModule.Contract.BlockHash(&_IChainModule.CallOpts, blockNumber)
 }
 
 func (_IChainModule *IChainModuleCaller) BlockNumber(opts *bind.CallOpts) (*big.Int, error) {
@@ -194,9 +194,9 @@ func (_IChainModule *IChainModuleCallerSession) BlockNumber() (*big.Int, error) 
 	return _IChainModule.Contract.BlockNumber(&_IChainModule.CallOpts)
 }
 
-func (_IChainModule *IChainModuleCaller) GetCurrentL1Fee(opts *bind.CallOpts) (*big.Int, error) {
+func (_IChainModule *IChainModuleCaller) GetCurrentL1Fee(opts *bind.CallOpts, dataSize *big.Int) (*big.Int, error) {
 	var out []interface{}
-	err := _IChainModule.contract.Call(opts, &out, "getCurrentL1Fee")
+	err := _IChainModule.contract.Call(opts, &out, "getCurrentL1Fee", dataSize)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -208,12 +208,12 @@ func (_IChainModule *IChainModuleCaller) GetCurrentL1Fee(opts *bind.CallOpts) (*
 
 }
 
-func (_IChainModule *IChainModuleSession) GetCurrentL1Fee() (*big.Int, error) {
-	return _IChainModule.Contract.GetCurrentL1Fee(&_IChainModule.CallOpts)
+func (_IChainModule *IChainModuleSession) GetCurrentL1Fee(dataSize *big.Int) (*big.Int, error) {
+	return _IChainModule.Contract.GetCurrentL1Fee(&_IChainModule.CallOpts, dataSize)
 }
 
-func (_IChainModule *IChainModuleCallerSession) GetCurrentL1Fee() (*big.Int, error) {
-	return _IChainModule.Contract.GetCurrentL1Fee(&_IChainModule.CallOpts)
+func (_IChainModule *IChainModuleCallerSession) GetCurrentL1Fee(dataSize *big.Int) (*big.Int, error) {
+	return _IChainModule.Contract.GetCurrentL1Fee(&_IChainModule.CallOpts, dataSize)
 }
 
 func (_IChainModule *IChainModuleCaller) GetGasOverhead(opts *bind.CallOpts) (GetGasOverhead,
@@ -278,11 +278,11 @@ func (_IChainModule *IChainModule) Address() common.Address {
 }
 
 type IChainModuleInterface interface {
-	BlockHash(opts *bind.CallOpts, arg0 *big.Int) ([32]byte, error)
+	BlockHash(opts *bind.CallOpts, blockNumber *big.Int) ([32]byte, error)
 
 	BlockNumber(opts *bind.CallOpts) (*big.Int, error)
 
-	GetCurrentL1Fee(opts *bind.CallOpts) (*big.Int, error)
+	GetCurrentL1Fee(opts *bind.CallOpts, dataSize *big.Int) (*big.Int, error)
 
 	GetGasOverhead(opts *bind.CallOpts) (GetGasOverhead,
 

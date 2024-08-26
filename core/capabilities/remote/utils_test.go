@@ -84,7 +84,8 @@ func encodeAndSign(t *testing.T, senderPrivKey ed25519.PrivateKey, senderId p2pt
 }
 
 func TestToPeerID(t *testing.T) {
-	id := remote.ToPeerID([]byte("12345678901234567890123456789012"))
+	id, err := remote.ToPeerID([]byte("12345678901234567890123456789012"))
+	require.NoError(t, err)
 	require.Equal(t, "12D3KooWD8QYTQVYjB6oog4Ej8PcPpqTrPRnxLQap8yY8KUQRVvq", id.String())
 }
 

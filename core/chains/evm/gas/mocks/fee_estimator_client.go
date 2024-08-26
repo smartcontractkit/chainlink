@@ -241,6 +241,63 @@ func (_c *FeeEstimatorClient_ConfiguredChainID_Call) RunAndReturn(run func() *bi
 	return _c
 }
 
+// EstimateGas provides a mock function with given fields: ctx, call
+func (_m *FeeEstimatorClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
+	ret := _m.Called(ctx, call)
+
+	if len(ret) == 0 {
+		panic("no return value specified for EstimateGas")
+	}
+
+	var r0 uint64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, ethereum.CallMsg) (uint64, error)); ok {
+		return rf(ctx, call)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, ethereum.CallMsg) uint64); ok {
+		r0 = rf(ctx, call)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, ethereum.CallMsg) error); ok {
+		r1 = rf(ctx, call)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FeeEstimatorClient_EstimateGas_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EstimateGas'
+type FeeEstimatorClient_EstimateGas_Call struct {
+	*mock.Call
+}
+
+// EstimateGas is a helper method to define mock.On call
+//   - ctx context.Context
+//   - call ethereum.CallMsg
+func (_e *FeeEstimatorClient_Expecter) EstimateGas(ctx interface{}, call interface{}) *FeeEstimatorClient_EstimateGas_Call {
+	return &FeeEstimatorClient_EstimateGas_Call{Call: _e.mock.On("EstimateGas", ctx, call)}
+}
+
+func (_c *FeeEstimatorClient_EstimateGas_Call) Run(run func(ctx context.Context, call ethereum.CallMsg)) *FeeEstimatorClient_EstimateGas_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(ethereum.CallMsg))
+	})
+	return _c
+}
+
+func (_c *FeeEstimatorClient_EstimateGas_Call) Return(_a0 uint64, _a1 error) *FeeEstimatorClient_EstimateGas_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FeeEstimatorClient_EstimateGas_Call) RunAndReturn(run func(context.Context, ethereum.CallMsg) (uint64, error)) *FeeEstimatorClient_EstimateGas_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // HeadByNumber provides a mock function with given fields: ctx, n
 func (_m *FeeEstimatorClient) HeadByNumber(ctx context.Context, n *big.Int) (*types.Head, error) {
 	ret := _m.Called(ctx, n)
