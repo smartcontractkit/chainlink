@@ -4056,11 +4056,7 @@ func (c *CCIPTestEnv) ConnectToDeployedNodes() error {
 		}
 		c.CLNodes = chainlinkK8sNodes
 		if _, exists := c.K8Env.URLs[mockserver.InternalURLsKey]; exists {
-			mockServer, err := ctfClient.ConnectMockServer(c.K8Env)
-			if err != nil {
-				return fmt.Errorf("failed to connect to mock server: %w", err)
-			}
-			c.MockServer = mockServer
+			c.MockServer = ctfClient.ConnectMockServer(c.K8Env)
 		}
 	}
 	return nil

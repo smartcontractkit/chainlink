@@ -7,14 +7,15 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
+	ctfconfigtypes "github.com/smartcontractkit/chainlink-testing-framework/config/types"
 )
 
 var createTestConfigCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a test config from the provided flags",
 	Run: func(cmd *cobra.Command, _ []string) {
-		var tc ctf_config.TestConfig
+		var tc ctfconfig.TestConfig
 
 		var version, postgresVersion *string
 		if cmd.Flags().Changed(ChainlinkVersionFlag) {
@@ -24,7 +25,7 @@ var createTestConfigCmd = &cobra.Command{
 			version = &oc.ChainlinkPostgresVersion
 		}
 		if version != nil || postgresVersion != nil {
-			tc.ChainlinkImage = &ctf_config.ChainlinkImageConfig{
+			tc.ChainlinkImage = &ctfconfig.ChainlinkImageConfig{
 				Version:         version,
 				PostgresVersion: postgresVersion,
 			}
@@ -35,7 +36,7 @@ var createTestConfigCmd = &cobra.Command{
 			upgradeVersion = &oc.ChainlinkUpgradeVersion
 		}
 		if upgradeVersion != nil {
-			tc.ChainlinkUpgradeImage = &ctf_config.ChainlinkImageConfig{
+			tc.ChainlinkUpgradeImage = &ctfconfig.ChainlinkImageConfig{
 				Version: upgradeVersion,
 			}
 		}
@@ -45,7 +46,7 @@ var createTestConfigCmd = &cobra.Command{
 			selectedNetworks = &oc.SelectedNetworks
 		}
 		if selectedNetworks != nil {
-			tc.Network = &ctf_config.NetworkConfig{
+			tc.Network = &ctfconfig.NetworkConfig{
 				SelectedNetworks: oc.SelectedNetworks,
 			}
 		}
@@ -65,7 +66,7 @@ var createTestConfigCmd = &cobra.Command{
 			pyroscopeEnvironment = &oc.PyroscopeEnvironment
 		}
 		if peryscopeEnabled != nil {
-			tc.Pyroscope = &ctf_config.PyroscopeConfig{
+			tc.Pyroscope = &ctfconfig.PyroscopeConfig{
 				Enabled:     peryscopeEnabled,
 				ServerUrl:   pyroscopeServerURL,
 				Environment: pyroscopeEnvironment,
@@ -111,23 +112,23 @@ var createTestConfigCmd = &cobra.Command{
 		}
 
 		if testLogCollect != nil || loggingRunID != nil || loggingLogTargets != nil || loggingLokiEndpoint != nil || loggingLokiTenantID != nil || loggingLokiBasicAuth != nil || loggingGrafanaBaseURL != nil || loggingGrafanaDashboardURL != nil || loggingGrafanaBearerToken != nil {
-			tc.Logging = &ctf_config.LoggingConfig{}
+			tc.Logging = &ctfconfig.LoggingConfig{}
 			tc.Logging.TestLogCollect = testLogCollect
 			tc.Logging.RunId = loggingRunID
 			if loggingLogTargets != nil {
-				tc.Logging.LogStream = &ctf_config.LogStreamConfig{
+				tc.Logging.LogStream = &ctfconfig.LogStreamConfig{
 					LogTargets: loggingLogTargets,
 				}
 			}
 			if loggingLokiTenantID != nil || loggingLokiBasicAuth != nil || loggingLokiEndpoint != nil {
-				tc.Logging.Loki = &ctf_config.LokiConfig{
+				tc.Logging.Loki = &ctfconfig.LokiConfig{
 					TenantId:  loggingLokiTenantID,
 					BasicAuth: loggingLokiBasicAuth,
 					Endpoint:  loggingLokiEndpoint,
 				}
 			}
 			if loggingGrafanaBaseURL != nil || loggingGrafanaDashboardURL != nil || loggingGrafanaBearerToken != nil {
-				tc.Logging.Grafana = &ctf_config.GrafanaConfig{
+				tc.Logging.Grafana = &ctfconfig.GrafanaConfig{
 					BaseUrl:      loggingGrafanaBaseURL,
 					DashboardUrl: loggingGrafanaDashboardURL,
 					BearerToken:  loggingGrafanaBearerToken,
@@ -148,19 +149,19 @@ var createTestConfigCmd = &cobra.Command{
 			privateEthereumNetworkCustomDockerImage = &oc.PrivateEthereumNetworkCustomDockerImages
 		}
 		if privateEthereumNetworkExecutionLayer != nil || privateEthereumNetworkEthereumVersion != nil || privateEthereumNetworkCustomDockerImage != nil {
-			var el ctf_config.ExecutionLayer
+			var el ctfconfigtypes.ExecutionLayer
 			if privateEthereumNetworkExecutionLayer != nil {
-				el = ctf_config.ExecutionLayer(*privateEthereumNetworkExecutionLayer)
+				el = ctfconfigtypes.ExecutionLayer(*privateEthereumNetworkExecutionLayer)
 			}
-			var ev ctf_config.EthereumVersion
+			var ev ctfconfigtypes.EthereumVersion
 			if privateEthereumNetworkEthereumVersion != nil {
-				ev = ctf_config.EthereumVersion(*privateEthereumNetworkEthereumVersion)
+				ev = ctfconfigtypes.EthereumVersion(*privateEthereumNetworkEthereumVersion)
 			}
-			var customImages map[ctf_config.ContainerType]string
+			var customImages map[ctfconfig.ContainerType]string
 			if privateEthereumNetworkCustomDockerImage != nil {
-				customImages = map[ctf_config.ContainerType]string{"execution_layer": *privateEthereumNetworkCustomDockerImage}
+				customImages = map[ctfconfig.ContainerType]string{"execution_layer": *privateEthereumNetworkCustomDockerImage}
 			}
-			tc.PrivateEthereumNetwork = &ctf_config.EthereumNetworkConfig{
+			tc.PrivateEthereumNetwork = &ctfconfig.EthereumNetworkConfig{
 				ExecutionLayer:     &el,
 				EthereumVersion:    &ev,
 				CustomDockerImages: customImages,

@@ -277,8 +277,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	nodes, err := client.ConnectChainlinkNodes(o.testEnvironment)
 	require.NoError(o.t, err, "Connecting to chainlink nodes shouldn't fail")
 	o.bootstrapNode, o.workerNodes = nodes[0], nodes[1:]
-	o.mockServer, err = ctf_client.ConnectMockServer(o.testEnvironment)
-	require.NoError(o.t, err, "Creating mockserver clients shouldn't fail")
+	o.mockServer = ctf_client.ConnectMockServer(o.testEnvironment)
 
 	linkContract, err := contracts.DeployLinkTokenContract(o.log, sethClient)
 	require.NoError(o.t, err, "Error deploying LINK contract")
@@ -546,12 +545,9 @@ func (o *OCRSoakTest) LoadState() error {
 		}
 	}
 
-	o.mockServer, err = ctf_client.ConnectMockServerURL(testState.MockServerURL)
-	if err != nil {
-		return err
-	}
+	o.mockServer = ctf_client.ConnectMockServerURL(testState.MockServerURL)
 
-	return err
+	return nil
 }
 
 func (o *OCRSoakTest) Resume() {
