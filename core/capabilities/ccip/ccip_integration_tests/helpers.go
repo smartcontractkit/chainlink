@@ -10,7 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
 
@@ -23,6 +23,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
@@ -301,8 +302,8 @@ func createChains(t *testing.T, numChains int) map[uint64]chainBase {
 	chains := make(map[uint64]chainBase)
 
 	homeChainOwner := testutils.MustNewSimTransactor(t)
-	homeChainBackend := simulated.NewBackend(core.GenesisAlloc{
-		homeChainOwner.From: core.GenesisAccount{
+	homeChainBackend := simulated.NewBackend(types.GenesisAlloc{
+		homeChainOwner.From: types.Account{
 			Balance: assets.Ether(10_000).ToInt(),
 		},
 	}, simulated.WithBlockGasLimit(30e6))
@@ -315,8 +316,8 @@ func createChains(t *testing.T, numChains int) map[uint64]chainBase {
 
 	for chainID := chainsel.TEST_90000001.EvmChainID; len(chains) < numChains && chainID < chainsel.TEST_90000020.EvmChainID; chainID++ {
 		owner := testutils.MustNewSimTransactor(t)
-		backend := simulated.NewBackend(core.GenesisAlloc{
-			owner.From: core.GenesisAccount{
+		backend := simulated.NewBackend(types.GenesisAlloc{
+			owner.From: types.Account{
 				Balance: assets.Ether(10_000).ToInt(),
 			},
 		}, simulated.WithBlockGasLimit(30e6))
@@ -653,6 +654,7 @@ func setupUniverseBasics(t *testing.T, uni onchainUniverse) {
 	// =============================================================================
 	_, err := uni.linkToken.GrantMintRole(owner, owner.From)
 	require.NoError(t, err)
+	uni.backend.Commit()
 	_, err = uni.linkToken.Mint(owner, owner.From, e18Mult(1000))
 	require.NoError(t, err)
 	uni.backend.Commit()
@@ -799,6 +801,7 @@ func initRemoteChainsGasPrices(t *testing.T, uni onchainUniverse, universes map[
 		GasPriceUpdates: gasPriceUpdates,
 	})
 	require.NoError(t, err)
+	uni.backend.Commit()
 }
 
 func defaultPriceRegistryDestChainConfig(t *testing.T) price_registry.PriceRegistryDestChainConfig {

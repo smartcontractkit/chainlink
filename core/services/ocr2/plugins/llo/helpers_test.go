@@ -15,10 +15,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -171,7 +171,7 @@ func setupNode(
 	t *testing.T,
 	port int,
 	dbName string,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	csaKey csakey.KeyV2,
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
 	k := big.NewInt(int64(port)) // keys unique to port
@@ -507,19 +507,19 @@ func addOCRJobsEVMPremiumLegacy(
 	return jobIDs
 }
 
-func setupV03Blockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, *destination_verifier.DestinationVerifier, *destination_verifier_proxy.DestinationVerifierProxy, common.Address) {
+func setupV03Blockchain(t *testing.T) (*bind.TransactOpts, *simulated.Backend, *destination_verifier.DestinationVerifier, *destination_verifier_proxy.DestinationVerifierProxy, common.Address) {
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
-	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
+	genesisData := types.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
 	backend.Commit() // ensure starting block number at least 1
 
 	// Deploy verifier proxy
-	verifierProxyAddr, _, verifierProxy, err := destination_verifier_proxy.DeployDestinationVerifierProxy(steve, backend)
+	verifierProxyAddr, _, verifierProxy, err := destination_verifier_proxy.DeployDestinationVerifierProxy(steve, backend.Client())
 	require.NoError(t, err)
 	backend.Commit()
 
 	// Deploy verifier
-	verifierAddress, _, verifier, err := destination_verifier.DeployDestinationVerifier(steve, backend, verifierProxyAddr)
+	verifierAddress, _, verifier, err := destination_verifier.DeployDestinationVerifier(steve, backend.Client(), verifierProxyAddr)
 	require.NoError(t, err)
 	backend.Commit()
 
