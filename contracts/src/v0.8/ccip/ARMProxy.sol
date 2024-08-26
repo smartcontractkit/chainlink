@@ -15,6 +15,8 @@ contract ARMProxy is OwnerIsCreator, ITypeAndVersion {
 
   event ARMSet(address arm);
 
+  uint256 public someVar;
+
   // STATIC CONFIG
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "ARMProxy 1.0.0";
