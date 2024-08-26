@@ -49,7 +49,9 @@ CORE-1011`,
     );
     expect(r).to.equal("CORE-123");
 
-    r = parseIssueNumberFrom("#internal address security vulnerabilities RE-2917 around updating nodes and node operators on capabilities registry")
+    r = parseIssueNumberFrom(
+      "#internal address security vulnerabilities RE-2917 around updating nodes and node operators on capabilities registry"
+    );
     expect(r).to.equal("RE-2917");
   });
 });
