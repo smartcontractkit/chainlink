@@ -6,6 +6,8 @@ import (
 	context "context"
 
 	feeds "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	crypto "github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
+
 	mock "github.com/stretchr/testify/mock"
 
 	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -1500,6 +1502,63 @@ func (_c *ORM_ListSpecsByJobProposalIDs_Call) Return(_a0 []feeds.JobProposalSpec
 }
 
 func (_c *ORM_ListSpecsByJobProposalIDs_Call) RunAndReturn(run func(context.Context, []int64) ([]feeds.JobProposalSpec, error)) *ORM_ListSpecsByJobProposalIDs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ManagerExists provides a mock function with given fields: ctx, publicKey
+func (_m *ORM) ManagerExists(ctx context.Context, publicKey crypto.PublicKey) (bool, error) {
+	ret := _m.Called(ctx, publicKey)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ManagerExists")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, crypto.PublicKey) (bool, error)); ok {
+		return rf(ctx, publicKey)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, crypto.PublicKey) bool); ok {
+		r0 = rf(ctx, publicKey)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, crypto.PublicKey) error); ok {
+		r1 = rf(ctx, publicKey)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_ManagerExists_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ManagerExists'
+type ORM_ManagerExists_Call struct {
+	*mock.Call
+}
+
+// ManagerExists is a helper method to define mock.On call
+//   - ctx context.Context
+//   - publicKey crypto.PublicKey
+func (_e *ORM_Expecter) ManagerExists(ctx interface{}, publicKey interface{}) *ORM_ManagerExists_Call {
+	return &ORM_ManagerExists_Call{Call: _e.mock.On("ManagerExists", ctx, publicKey)}
+}
+
+func (_c *ORM_ManagerExists_Call) Run(run func(ctx context.Context, publicKey crypto.PublicKey)) *ORM_ManagerExists_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(crypto.PublicKey))
+	})
+	return _c
+}
+
+func (_c *ORM_ManagerExists_Call) Return(_a0 bool, _a1 error) *ORM_ManagerExists_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_ManagerExists_Call) RunAndReturn(run func(context.Context, crypto.PublicKey) (bool, error)) *ORM_ManagerExists_Call {
 	_c.Call.Return(run)
 	return _c
 }

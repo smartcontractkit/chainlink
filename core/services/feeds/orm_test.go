@@ -53,7 +53,7 @@ func setupORM(t *testing.T) *TestORM {
 
 // Managers
 
-func Test_ORM_CreateManager(t *testing.T) {
+func Test_ORM_CreateManager_CountManagers(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -76,6 +76,33 @@ func Test_ORM_CreateManager(t *testing.T) {
 	count, err = orm.CountManagers(ctx)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), count)
+
+	assert.NotZero(t, id)
+}
+
+func Test_ORM_CreateManager(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	var (
+		orm = setupORM(t)
+		mgr = &feeds.FeedsManager{
+			URI:       uri,
+			Name:      name,
+			PublicKey: publicKey,
+		}
+	)
+
+	exists, err := orm.ManagerExists(ctx, publicKey)
+	require.NoError(t, err)
+	require.Equal(t, false, exists)
+
+	id, err := orm.CreateManager(ctx, mgr)
+	require.NoError(t, err)
+
+	exists, err = orm.ManagerExists(ctx, publicKey)
+	require.NoError(t, err)
+	require.Equal(t, true, exists)
 
 	assert.NotZero(t, id)
 }

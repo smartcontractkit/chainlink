@@ -9,11 +9,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
 type ORM interface {
+	ManagerExists(ctx context.Context, publicKey crypto.PublicKey) (bool, error)
 	CountManagers(ctx context.Context) (int64, error)
 	CreateManager(ctx context.Context, ms *FeedsManager) (int64, error)
 	GetManager(ctx context.Context, id int64) (*FeedsManager, error)
@@ -73,6 +75,7 @@ func (o *orm) Transact(ctx context.Context, fn func(ORM) error) error {
 func (o *orm) WithDataSource(ds sqlutil.DataSource) ORM { return &orm{ds} }
 
 // Count counts the number of feeds manager records.
+// TODO: delete once multiple feeds managers support is released
 func (o *orm) CountManagers(ctx context.Context) (count int64, err error) {
 	stmt := `
 SELECT COUNT(*)
@@ -81,6 +84,21 @@ FROM feeds_managers
 
 	err = o.ds.GetContext(ctx, &count, stmt)
 	return count, errors.Wrap(err, "CountManagers failed")
+}
+
+// ManagerExists checks if a feeds manager exists by public key.
+func (o *orm) ManagerExists(ctx context.Context, publicKey crypto.PublicKey) (bool, error) {
+	stmt := `
+SELECT EXISTS (
+	SELECT 1
+	FROM feeds_managers
+    	WHERE public_key = $1
+);
+	`
+
+	var exists bool
+	err := o.ds.GetContext(ctx, &exists, stmt, publicKey)
+	return exists, errors.Wrap(err, "ManagerExists failed")
 }
 
 // CreateManager creates a feeds manager.
