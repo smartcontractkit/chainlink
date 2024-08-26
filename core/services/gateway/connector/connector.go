@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -46,7 +47,7 @@ type GatewayConnectorHandler interface {
 type gatewayConnector struct {
 	services.StateMachine
 
-	config      *ConnectorConfig
+	config      config.GatewayConnectorConfig
 	codec       api.Codec
 	clock       clockwork.Clock
 	nodeAddress []byte
@@ -71,24 +72,27 @@ func (c *gatewayConnector) Name() string { return c.lggr.Name() }
 
 type gatewayState struct {
 	conn     network.WSConnectionWrapper
-	config   ConnectorGatewayConfig
+	config   config.ConnectorGatewayConfig
 	url      *url.URL
 	wsClient network.WebSocketClient
 }
 
-func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler GatewayConnectorHandler, clock clockwork.Clock, lggr logger.Logger) (GatewayConnector, error) {
-	if config == nil || signer == nil || handler == nil || clock == nil || lggr == nil {
+func NewGatewayConnector(configLocal config.GatewayConnectorConfig, signer Signer, handler GatewayConnectorHandler, clock clockwork.Clock, lggr logger.Logger) (GatewayConnector, error) {
+	if configLocal == nil || signer == nil || handler == nil || clock == nil || lggr == nil {
 		return nil, errors.New("nil dependency")
 	}
-	if len(config.DonId) == 0 || len(config.DonId) > network.HandshakeDonIdLen {
+	// configLocal.DonId undefined
+	// (type *"github.com/smartcontractkit/chainlink/v2/core/config".ConnectorConfig
+	// is pointer to interface, not interface)compilerMissingFieldOrMethod
+	if len(configLocal.DonId()) == 0 || len(configLocal.DonId()) > network.HandshakeDonIdLen {
 		return nil, errors.New("invalid DON ID")
 	}
-	addressBytes, err := hex.DecodeString(config.NodeAddress)
+	addressBytes, err := hex.DecodeString(configLocal.NodeAddress())
 	if err != nil {
 		return nil, err
 	}
 	connector := &gatewayConnector{
-		config:      config,
+		config:      configLocal,
 		codec:       &api.JsonRPCCodec{},
 		clock:       clock,
 		nodeAddress: addressBytes,
@@ -99,15 +103,15 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler Gateway
 	}
 	gateways := make(map[string]*gatewayState)
 	urlToId := make(map[string]string)
-	for _, gw := range config.Gateways {
+	for _, gw := range configLocal.Gateways() {
 		gw := gw
-		if _, exists := gateways[gw.Id]; exists {
+		if _, exists := gateways[gw.Id()]; exists {
 			return nil, fmt.Errorf("duplicate Gateway ID %s", gw.Id)
 		}
-		if _, exists := urlToId[gw.URL]; exists {
+		if _, exists := urlToId[gw.URL()]; exists {
 			return nil, fmt.Errorf("duplicate Gateway URL %s", gw.URL)
 		}
-		parsedURL, err := url.Parse(gw.URL)
+		parsedURL, err := url.Parse(gw.URL())
 		if err != nil {
 			return nil, err
 		}
@@ -115,10 +119,10 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler Gateway
 			conn:     network.NewWSConnectionWrapper(lggr),
 			config:   gw,
 			url:      parsedURL,
-			wsClient: network.NewWebSocketClient(config.WsClientConfig, connector, lggr),
+			wsClient: network.NewWebSocketClient(configLocal.WsClientConfig(), connector, lggr),
 		}
-		gateways[gw.Id] = gateway
-		urlToId[gw.URL] = gw.Id
+		gateways[gw.Id()] = gateway
+		urlToId[gw.URL()] = gw.Id()
 	}
 	connector.gateways = gateways
 	connector.urlToId = urlToId
@@ -159,7 +163,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 				c.lggr.Errorw("failed to validate message signature", "id", gatewayState.config.Id, "err", err)
 				break
 			}
-			c.handler.HandleGatewayMessage(ctx, gatewayState.config.Id, msg)
+			c.handler.HandleGatewayMessage(ctx, gatewayState.config.Id(), msg)
 		}
 	}
 }
@@ -229,7 +233,7 @@ func (c *gatewayConnector) NewAuthHeader(url *url.URL) ([]byte, error) {
 	}
 	authHeaderElems := &network.AuthHeaderElems{
 		Timestamp: uint32(c.clock.Now().Unix()),
-		DonId:     c.config.DonId,
+		DonId:     c.config.DonId(),
 		GatewayId: gatewayId,
 	}
 	packedElems := network.PackAuthHeader(authHeaderElems)
@@ -245,7 +249,7 @@ func (c *gatewayConnector) ChallengeResponse(url *url.URL, challenge []byte) ([]
 	if err != nil {
 		return nil, err
 	}
-	if len(challengeElems.ChallengeBytes) < c.config.AuthMinChallengeLen {
+	if len(challengeElems.ChallengeBytes) < c.config.AuthMinChallengeLen() {
 		return nil, network.ErrChallengeTooShort
 	}
 	gatewayId, found := c.urlToId[url.String()]
@@ -254,7 +258,7 @@ func (c *gatewayConnector) ChallengeResponse(url *url.URL, challenge []byte) ([]
 	}
 	nowTs := uint32(c.clock.Now().Unix())
 	ts := challengeElems.Timestamp
-	if ts < nowTs-c.config.AuthTimestampToleranceSec || nowTs+c.config.AuthTimestampToleranceSec < ts {
+	if ts < nowTs-c.config.AuthTimestampToleranceSec() || nowTs+c.config.AuthTimestampToleranceSec() < ts {
 		return nil, network.ErrAuthInvalidTimestamp
 	}
 	return c.signer.Sign(challenge)

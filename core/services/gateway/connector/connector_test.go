@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
@@ -33,18 +34,21 @@ Id = "another_one"
 URL = "wss://example.com:8090/node_endpoint"
 `
 
-func parseTOMLConfig(t *testing.T, tomlConfig string) *connector.ConnectorConfig {
-	var cfg connector.ConnectorConfig
+func parseTOMLConfig(t *testing.T, tomlConfig string) *config.ConnectorConfig {
+	var cfg config.ConnectorConfig
 	err := toml.Unmarshal([]byte(tomlConfig), &cfg)
 	require.NoError(t, err)
 	return &cfg
 }
 
-func newTestConnector(t *testing.T, config *connector.ConnectorConfig, now time.Time) (connector.GatewayConnector, *mocks.Signer, *mocks.GatewayConnectorHandler) {
+func newTestConnector(t *testing.T, configInstance *config.ConnectorConfig, now time.Time) (connector.GatewayConnector, *mocks.Signer, *mocks.GatewayConnectorHandler) {
 	signer := mocks.NewSigner(t)
 	handler := mocks.NewGatewayConnectorHandler(t)
 	clock := clockwork.NewFakeClock()
-	connector, err := connector.NewGatewayConnector(config, signer, handler, clock, logger.TestLogger(t))
+	// cannot use configInstance
+	// (variable of type *"github.com/smartcontractkit/chainlink/v2/core/config".ConnectorConfig)
+	// as *invalid type value in argument to connector.NewGatewayConnector
+	connector, err := connector.NewGatewayConnector(configInstance, signer, handler, clock, logger.TestLogger(t))
 	require.NoError(t, err)
 	return connector, signer, handler
 }

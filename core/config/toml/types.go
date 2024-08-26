@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strings"
+
+	"math/big"
 
 	"github.com/google/uuid"
 	"go.uber.org/multierr"
@@ -20,11 +23,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+
 	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -1434,14 +1439,71 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 	}
 }
 
+type GatewayConnectorConfig struct {
+	NodeAddress               *string
+	DonId                     *string
+	Gateways                  []ConnectorGatewayConfig
+	WsClientConfig            *network.WebSocketClientConfig
+	AuthMinChallengeLen       *int
+	AuthTimestampToleranceSec *uint32
+}
+
+func (r *GatewayConnectorConfig) setFrom(f *GatewayConnectorConfig) {
+	if f.NodeAddress != nil {
+		r.NodeAddress = f.NodeAddress
+	}
+
+	if f.DonId != nil {
+		r.DonId = f.DonId
+	}
+
+	// TODO: verify this copy by reference is ok, or does array need to be copied by value
+	if f.Gateways != nil {
+		r.Gateways = f.Gateways
+	}
+
+	if !reflect.ValueOf(f.WsClientConfig).IsZero() {
+		r.WsClientConfig = f.WsClientConfig
+	}
+
+	if f.AuthMinChallengeLen != nil {
+		r.AuthMinChallengeLen = f.AuthMinChallengeLen
+	}
+
+	if f.AuthTimestampToleranceSec != nil {
+		r.AuthTimestampToleranceSec = f.AuthTimestampToleranceSec
+	}
+}
+
+type ConnectorGatewayConfig struct {
+	Id  *string
+	URL *string
+}
+type WorkflowConnectorConfig struct {
+	ChainIDForNodeKey      *big.Int
+	GatewayConnectorConfig *GatewayConnectorConfig `json:"gatewayConnectorConfig"`
+}
+
+func (r *WorkflowConnectorConfig) setFrom(f *WorkflowConnectorConfig) {
+	if len(f.ChainIDForNodeKey.Bits()) != 0 {
+		r.ChainIDForNodeKey = f.ChainIDForNodeKey
+	}
+
+	if !reflect.ValueOf(f.GatewayConnectorConfig).IsZero() {
+		r.GatewayConnectorConfig.setFrom(f.GatewayConnectorConfig)
+	}
+}
+
 type Capabilities struct {
-	Peering          P2P              `toml:",omitempty"`
-	ExternalRegistry ExternalRegistry `toml:",omitempty"`
+	Peering                 P2P                     `toml:",omitempty"`
+	ExternalRegistry        ExternalRegistry        `toml:",omitempty"`
+	WorkflowConnectorConfig WorkflowConnectorConfig `toml:", omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.Peering.setFrom(&f.Peering)
 	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
+	c.WorkflowConnectorConfig.setFrom(&f.WorkflowConnectorConfig)
 }
 
 type ThresholdKeyShareSecrets struct {
