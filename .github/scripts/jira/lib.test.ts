@@ -128,6 +128,7 @@ describe("generateJiraIssuesLink", () => {
   it("should generate a Jira issues link", () => {
     expect(
       generateJiraIssuesLink(
+        "https://smartcontract-it.atlassian.net/issues/",
         "review-artifacts-automation-base:0de9b3b-head:e5b3b9d"
       )
     ).toMatchInlineSnapshot(

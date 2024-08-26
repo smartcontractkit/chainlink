@@ -4,6 +4,7 @@ import {
   extractJiraIssueNumbersFrom,
   generateIssueLabel,
   generateJiraIssuesLink,
+  getJiraEnvVars,
 } from "./lib";
 import * as core from "@actions/core";
 
@@ -197,7 +198,8 @@ async function main() {
     artifactUrl
   );
 
-  core.summary.addLink("Jira Issues", generateJiraIssuesLink(label));
+  const { jiraHost } = getJiraEnvVars()
+  core.summary.addLink("Jira Issues", generateJiraIssuesLink(`${jiraHost}/issues/`, label));
   core.summary.write();
 }
 main();
