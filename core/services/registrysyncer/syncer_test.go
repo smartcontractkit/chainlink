@@ -87,7 +87,7 @@ func (c *crFactory) NewContractReader(ctx context.Context, cfg []byte) (types.Co
 		return nil, err
 	}
 
-	return svc, svc.Start(ctx)
+	return svc, nil
 }
 
 func newContractReaderFactory(t *testing.T, simulatedBackend *backends.SimulatedBackend) *crFactory {
