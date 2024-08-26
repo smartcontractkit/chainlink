@@ -84,3 +84,6 @@ ObservationGracePeriod = '1s'
 
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+DefaultGasLimit = 400_000

@@ -50,7 +50,7 @@ contract SortedSetValidationUtilBaseTest is BaseTest {
 contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValidationUtilBaseTest {
   // Successes.
 
-  function test__checkIsValidUniqueSubset_ValidSubset_Success() public {
+  function test__checkIsValidUniqueSubset_ValidSubset_Success() public pure {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(3, 5);
     _convertArrayToSortedSet(superset, OFFSET);
     _convertArrayToSubset(subset, superset);
@@ -123,7 +123,7 @@ contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValida
     SortedSetValidationUtil._checkIsValidUniqueSubset(subset, superset);
   }
 
-  function test__checkIsValidUniqueSubset_SubsetEqualsSuperset_NoRevert() public {
+  function test__checkIsValidUniqueSubset_SubsetEqualsSuperset_NoRevert() public pure {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(5, 5);
     _convertArrayToSortedSet(subset, OFFSET);
     _convertArrayToSortedSet(superset, OFFSET);
@@ -131,7 +131,7 @@ contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValida
     SortedSetValidationUtil._checkIsValidUniqueSubset(subset, superset);
   }
 
-  function test__checkIsValidUniqueSubset_SingleElementSubset() public {
+  function test__checkIsValidUniqueSubset_SingleElementSubset() public pure {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(1, 5);
     _convertArrayToSortedSet(superset, OFFSET);
     _convertArrayToSubset(subset, superset);
@@ -139,7 +139,7 @@ contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValida
     SortedSetValidationUtil._checkIsValidUniqueSubset(subset, superset);
   }
 
-  function test__checkIsValidUniqueSubset_SingleElementSubsetAndSuperset_Equal() public {
+  function test__checkIsValidUniqueSubset_SingleElementSubsetAndSuperset_Equal() public pure {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(1, 1);
     _convertArrayToSortedSet(subset, OFFSET);
     _convertArrayToSortedSet(superset, OFFSET);

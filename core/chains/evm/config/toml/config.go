@@ -521,6 +521,7 @@ func (a *Automation) setFrom(f *Automation) {
 type Workflow struct {
 	FromAddress      *types.EIP55Address `toml:",omitempty"`
 	ForwarderAddress *types.EIP55Address `toml:",omitempty"`
+	DefaultGasLimit  uint64
 }
 
 func (m *Workflow) setFrom(f *Workflow) {
@@ -530,6 +531,8 @@ func (m *Workflow) setFrom(f *Workflow) {
 	if v := f.ForwarderAddress; v != nil {
 		m.ForwarderAddress = v
 	}
+
+	m.DefaultGasLimit = f.DefaultGasLimit
 }
 
 type BalanceMonitor struct {

@@ -96,27 +96,24 @@ jobs:
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
           # other inputs
           duplicate-authorization-header: "true"
-      - name: Prepare Base64 TOML override
-        uses: ./.github/actions/setup-create-base64-upgrade-config
-        with:
-          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
-          chainlinkImage: "public.ecr.aws/chainlink/chainlink"
-          chainlinkVersion: "latest"
-          upgradeImage: ${{ env.CHAINLINK_IMAGE }}
-          upgradeVersion: ${{ github.sha }}
-          runId: ${{ github.run_id }}
-          testLogCollect: "true"
-          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: "http://localhost:8080/primary"
-          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@00c164251be2a7c5b2b23a6e5f7014982f232c14 # v2.3.32
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}
+          E2E_TEST_SELECTED_NETWORK: ${{ env.SELECTED_NETWORKS }}
+          E2E_TEST_CHAINLINK_IMAGE: "public.ecr.aws/chainlink/chainlink"
+          E2E_TEST_CHAINLINK_VERSION: "latest"
+          E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ github.sha }}
+          E2E_TEST_LOGGING_RUN_ID: ${{ github.run_id }}
+          E2E_TEST_LOG_COLLECT: "true"
+          E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          E2E_TEST_LOG_STREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          E2E_TEST_GRAFANA_BASE_URL: "http://localhost:8080/primary"
+          E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          E2E_TEST_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
