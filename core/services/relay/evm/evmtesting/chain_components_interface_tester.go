@@ -70,6 +70,7 @@ type EVMChainComponentsInterfaceTester[T TestingT[T]] struct {
 	senderAuth        *bind.TransactOpts
 	cr                evm.ChainReaderService
 	cw                evm.ChainWriterService
+	dirtyContracts    bool
 	txm               evmtxmgr.TxManager
 	gasEstimator      gas.EvmFeeEstimator
 }
@@ -82,12 +83,14 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 		}
 		it.cr = nil
 
+		if it.dirtyContracts {
+			it.contractTesters = nil
+		}
+
 		if it.cw != nil {
 			_ = it.cw.Close()
 		}
 		it.cw = nil
-
-		it.contractTesters = nil
 	})
 
 	// can re-use the same chain for tests, just make new contract for each test
@@ -346,6 +349,10 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetBindings(_ T) []clcommontypes
 	}
 }
 
+func (it *EVMChainComponentsInterfaceTester[T]) DirtyContracts() {
+	it.dirtyContracts = true
+}
+
 func (it *EVMChainComponentsInterfaceTester[T]) GetAuthWithGasSet(t T) *bind.TransactOpts {
 	gasPrice, err := it.client.SuggestGasPrice(it.Helper.Context(t))
 	require.NoError(t, err)
@@ -379,6 +386,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) deployNewContracts(t T) {
 		it.address, it.address2 = address, address2
 		it.contractTesters[it.address] = ts1
 		it.contractTesters[it.address2] = ts2
+		it.dirtyContracts = false
 	}
 }
 
