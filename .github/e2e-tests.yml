@@ -164,6 +164,17 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
       ENABLE_OTEL_TRACES: true
 
+  - id: chaos/ocr_chaos_test.go
+    path: integration-tests/chaos/ocr_chaos_test.go
+    test_env_type: k8s-remote-runner
+    runs_on: ubuntu-latest
+    workflows:
+      - Run Automation On Demand Tests (TEST WORKFLOW)
+      - Chaos Tests
+    test_cmd: cd integration-tests/chaos && DETACH_RUNNER=false go test ocr_chaos_tests.go -v -test.parallel=10 -timeout 60m -count=1 -json
+    test_env_vars:
+      TEST_SUITE: chaos
+
   # END: OCR tests
 
   # START: Automation tests
@@ -574,6 +585,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     workflows:
       - Run Automation On Demand Tests (TEST WORKFLOW)
+      - Chaos Tests
     test_cmd: cd integration-tests/chaos && DETACH_RUNNER=false go test -v -test.run ^TestAutomationChaos$ -test.parallel=20 -timeout 60m -count=1 -json
     pyroscope_env: ci-automation-on-demand-chaos
     test_env_vars:
