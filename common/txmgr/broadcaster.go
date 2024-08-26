@@ -560,9 +560,21 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	case client.Underpriced:
 		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt, retryCount+1)
 	case client.InsufficientFunds:
-		// NOTE: Replacing existing attempt with a new gas estimation to overcome the occasional gas spike
+		// NOTE: This bails out of the entire cycle and essentially "blocks" on
+		// any transaction that gets insufficient_funds. This is OK if a
+		// transaction with a large VALUE blocks because this always comes last
+		// in the processing list.
+		// If it blocks because of a transaction that is expensive due to large
+		// gas limit, we could have smaller transactions "above" it that could
+		// theoretically be sent, but will instead be blocked.
 		eb.SvcErrBuffer.Append(err)
-		return eb.tryAgainWithNewEstimation(ctx, lgr, err, etx, attempt, initialBroadcastAt)
+		if attempt.TxType != 0x2 {
+			// NOTE: Replacing existing attempt with a new gas estimation to overcome the occasional gas spike
+			// no need for type-2 tx due to re-estimation is not supported
+			return eb.tryAgainWithNewEstimation(ctx, lgr, err, etx, attempt, initialBroadcastAt)
+		}
+
+		fallthrough
 	case client.Retryable:
 		return err, true
 	case client.FeeOutOfValidRange:
