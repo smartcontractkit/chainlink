@@ -161,6 +161,7 @@ type BlockHistory interface {
 type Workflow interface {
 	FromAddress() *types.EIP55Address
 	ForwarderAddress() *types.EIP55Address
+	DefaultGasLimit() uint64
 }
 
 type NodePool interface {
