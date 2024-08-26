@@ -1243,6 +1243,11 @@ func IsOPStackChain(chainID int64) bool {
 		chainID == 11155420 //OPTIMISM SEPOLIA
 }
 
+func IsArbitrumChain(chainID int64) bool {
+	return chainID == 42161 || //Arbitrum MAINNET
+		chainID == 421614 //Arbitrum Sepolia
+}
+
 func RandBool() bool {
 	return rand.Intn(2) == 1
 }
