@@ -1,10 +1,12 @@
 package chainlink
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
 var _ config.Capabilities = (*capabilitiesConfig)(nil)
@@ -63,6 +65,12 @@ func (r *dispatcherRateLimit) PerSenderBurst() int {
 	return *r.r.PerSenderBurst
 }
 
+func (c *capabilitiesConfig) WorkflowConnectorConfig() config.WorkflowConnectorConfig {
+	return &workflowConnectorConfig{
+		c: c.c.WorkflowConnectorConfig,
+	}
+}
+
 type capabilitiesExternalRegistry struct {
 	c toml.ExternalRegistry
 }
@@ -81,4 +89,62 @@ func (c *capabilitiesExternalRegistry) ChainID() string {
 
 func (c *capabilitiesExternalRegistry) Address() string {
 	return *c.c.Address
+}
+
+type workflowConnectorConfig struct {
+	c toml.WorkflowConnectorConfig
+}
+
+func (c *workflowConnectorConfig) ChainIDForNodeKey() big.Int {
+	return *c.c.ChainIDForNodeKey
+}
+
+func (c *workflowConnectorConfig) GatewayConnectorConfig() config.GatewayConnectorConfig {
+	return &gatewayConnectorConfig{
+		c: *c.c.GatewayConnectorConfig,
+	}
+}
+
+type gatewayConnectorConfig struct {
+	c toml.GatewayConnectorConfig
+}
+
+func (c *gatewayConnectorConfig) NodeAddress() string {
+	return *c.c.NodeAddress
+}
+
+func (c *gatewayConnectorConfig) DonId() string {
+	return *c.c.DonId
+}
+
+func (c *gatewayConnectorConfig) Gateways() []config.ConnectorGatewayConfig {
+	t := []config.ConnectorGatewayConfig{}
+	for index, element := range c.c.Gateways {
+		t[index] = &connectorGatewayConfig{element}
+	}
+	return t
+}
+
+func (c *gatewayConnectorConfig) WsClientConfig() network.WebSocketClientConfig {
+	return *c.c.WsClientConfig
+}
+
+func (c *gatewayConnectorConfig) AuthMinChallengeLen() int {
+	return *c.c.AuthMinChallengeLen
+}
+
+func (c *gatewayConnectorConfig) AuthTimestampToleranceSec() uint32 {
+	return *c.c.AuthTimestampToleranceSec
+}
+
+type connectorGatewayConfig struct {
+	c toml.ConnectorGatewayConfig
+}
+
+func (c *connectorGatewayConfig) Id() string {
+	return *c.c.Id
+}
+
+func (c *connectorGatewayConfig) URL() string {
+	return *c.c.URL
 }
