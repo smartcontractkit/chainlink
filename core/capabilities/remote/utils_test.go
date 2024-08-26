@@ -84,7 +84,8 @@ func encodeAndSign(t *testing.T, senderPrivKey ed25519.PrivateKey, senderId p2pt
 }
 
 func TestToPeerID(t *testing.T) {
-	id := remote.ToPeerID([]byte("12345678901234567890123456789012"))
+	id, err := remote.ToPeerID([]byte("12345678901234567890123456789012"))
+	require.NoError(t, err)
 	require.Equal(t, "12D3KooWD8QYTQVYjB6oog4Ej8PcPpqTrPRnxLQap8yY8KUQRVvq", id.String())
 }
 
@@ -128,16 +129,4 @@ func TestSanitizeLogString(t *testing.T) {
 		longString += "aa-aa-aa-"
 	}
 	require.Equal(t, longString[:256]+" [TRUNCATED]", remote.SanitizeLogString(longString))
-}
-
-func TestIsValidWorkflowID(t *testing.T) {
-	require.False(t, remote.IsValidWorkflowOrExecutionID("too_short"))
-	require.False(t, remote.IsValidWorkflowOrExecutionID("nothex--95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"))
-	require.True(t, remote.IsValidWorkflowOrExecutionID("15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"))
-}
-
-func TestIsValidTriggerEventID(t *testing.T) {
-	require.False(t, remote.IsValidID(""))
-	require.False(t, remote.IsValidID("\n\n"))
-	require.True(t, remote.IsValidID("id_id_2"))
 }

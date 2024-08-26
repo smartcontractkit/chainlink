@@ -144,7 +144,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Notify Slack
-        uses: smartcontractkit/.github/actions/slack-notify-git-ref@7fa90bbeff35aa6ce3a9054f542bcf10b7d47cec # slack-notify-git-ref@0.1.0
+        uses: smartcontractkit/.github/actions/slack-notify-git-ref@31e00facdd8f57a2bc7868b5e4c8591bf2aa3727 # slack-notify-git-ref@0.1.2
         with:
           slack-channel-id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
           slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }} # Releng Bot

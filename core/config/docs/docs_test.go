@@ -83,8 +83,11 @@ func TestDoc(t *testing.T) {
 		docDefaults.OperatorFactoryAddress = nil
 		require.Empty(t, docDefaults.Workflow.FromAddress)
 		require.Empty(t, docDefaults.Workflow.ForwarderAddress)
+		require.Equal(t, uint64(400_000), docDefaults.Workflow.DefaultGasLimit)
+
 		docDefaults.Workflow.FromAddress = nil
 		docDefaults.Workflow.ForwarderAddress = nil
+		docDefaults.Workflow.DefaultGasLimit = uint64(400_000)
 		docDefaults.NodePool.Errors = evmcfg.ClientErrors{}
 
 		// Transactions.AutoPurge configs are only set if the feature is enabled
