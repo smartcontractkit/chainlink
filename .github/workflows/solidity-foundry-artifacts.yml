@@ -302,13 +302,16 @@ jobs:
           
           # modify remappings so that solc can find dependencies
           ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
-          mv remappings_modified.txt remappings.txt
+          mv remappings_modified.txt remappings.txt          
           
           ./contracts/scripts/ci/generate_uml.sh "./" "contracts/uml-diagrams" "$contract_list"
 
       - name: Generate Slither Markdown reports
         run: |
           contract_list="${{ needs.changes.outputs.product_files }}"
+          
+          # without it Slither sometimes fails to use remappings correctly
+          cp contracts/foundry.toml foundry.toml    
           
           echo "::debug::Processing contracts: $contract_list"
           ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ inputs.commit_to_use || github.sha }}/" contracts/configs/slither/.slither.config-artifacts.json "." "$contract_list" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
