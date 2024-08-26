@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	gethlog "github.com/ethereum/go-ethereum/log"
@@ -187,6 +187,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 
 	_, err = reg.AddNodes(transactOpts, nodes)
 	require.NoError(t, err)
+	backend.Commit()
 
 	// workflow DON
 	ps, err := peers(workflowDon.peerIDs)
@@ -317,7 +318,7 @@ type ethBackend struct {
 
 func setupBlockchain(t *testing.T, initialEth int, blockTimeProcessingTime time.Duration) (*ethBackend, *bind.TransactOpts) {
 	transactOpts := testutils.MustNewSimTransactor(t) // config contract deployer and owner
-	genesisData := core.GenesisAlloc{transactOpts.From: {Balance: assets.Ether(initialEth).ToInt()}}
+	genesisData := types.GenesisAlloc{transactOpts.From: {Balance: assets.Ether(initialEth).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
 	gethlog.SetDefault(gethlog.NewLogger(gethlog.NewTerminalHandlerWithLevel(os.Stderr, gethlog.LevelWarn, true)))
 	backend.Commit()

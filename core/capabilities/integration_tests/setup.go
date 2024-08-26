@@ -223,9 +223,9 @@ func startNewNode(ctx context.Context,
 
 	tx := cltest.NewLegacyTransaction(
 		n, keyV2.Address,
-		assets.Ether(1).ToInt(),
+		assets.Ether(10).ToInt(),
 		21000,
-		assets.GWei(1).ToInt(),
+		assets.GWei(10).ToInt(),
 		nil)
 	signedTx, err := transactor.Signer(transactor.From, tx)
 	require.NoError(t, err)

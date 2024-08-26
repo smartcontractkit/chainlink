@@ -65,7 +65,7 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 	}
 
 	s := testSetup(ctx, t, chainD, chainD, nil, cfg)
-
+	s.sb.Commit()
 	tokenA := common.HexToAddress("123")
 	const numReports = 5
 
@@ -103,6 +103,7 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 	var reports []plugintypes.CommitPluginReportWithMeta
 	var err error
 	require.Eventually(t, func() bool {
+		s.sb.Commit()
 		reports, err = s.reader.CommitReportsGTETimestamp(
 			ctx,
 			chainD,
