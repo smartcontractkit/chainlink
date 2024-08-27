@@ -20,7 +20,7 @@ type codec struct {
 var _ datastreams.ReportCodec = &codec{}
 
 func (c *codec) Unwrap(wrapped values.Value) ([]datastreams.FeedReport, error) {
-	dest, err := datastreams.UnwrapStreamsTriggerPayloadToFeedReportList(wrapped)
+	dest, err := datastreams.UnwrapStreamsTriggerEventToFeedReportList(wrapped)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unwrap: %v", err)
 	}
@@ -45,7 +45,7 @@ func (c *codec) Unwrap(wrapped values.Value) ([]datastreams.FeedReport, error) {
 }
 
 func (c *codec) Wrap(reports []datastreams.FeedReport) (values.Value, error) {
-	return values.Wrap(&datastreams.StreamsTriggerPayload{
+	return values.Wrap(&datastreams.StreamsTriggerEvent{
 		Payload: reports,
 	})
 }

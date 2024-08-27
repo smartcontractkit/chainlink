@@ -43,7 +43,7 @@ func (r *reportsSink) Close() error {
 
 func (r *reportsSink) sendReports(reportList []*datastreams.FeedReport) {
 	for _, trigger := range r.triggers {
-		resp, err := wrapReports(reportList, "1", 12, datastreams.SignersMetadata{})
+		resp, err := wrapReports(reportList, "1", 12, datastreams.Metadata{})
 		if err != nil {
 			panic(err)
 		}
@@ -116,12 +116,12 @@ func (s *streamsTrigger) UnregisterTrigger(ctx context.Context, request capabili
 	return nil
 }
 
-func wrapReports(reportList []*datastreams.FeedReport, eventID string, timestamp int64, meta datastreams.SignersMetadata) (capabilities.TriggerResponse, error) {
+func wrapReports(reportList []*datastreams.FeedReport, eventID string, timestamp int64, meta datastreams.Metadata) (capabilities.TriggerResponse, error) {
 	rl := []datastreams.FeedReport{}
 	for _, r := range reportList {
 		rl = append(rl, *r)
 	}
-	outputs, err := values.WrapMap(datastreams.StreamsTriggerPayload{
+	outputs, err := values.WrapMap(datastreams.StreamsTriggerEvent{
 		Payload:   rl,
 		Metadata:  meta,
 		Timestamp: timestamp,

@@ -180,7 +180,7 @@ func newFeedsWithSignedReports(t *testing.T, nodes []node, N, P, R int) []feed {
 }
 
 func newTriggerEvent(t *testing.T, reportList []datastreams.FeedReport, triggerEventID string, sender ragetypes.PeerID) *remotetypes.MessageBody {
-	outputs, err := values.WrapMap(&datastreams.StreamsTriggerPayload{
+	outputs, err := values.WrapMap(&datastreams.StreamsTriggerEvent{
 		Timestamp: 10,
 		Payload:   reportList,
 	})
@@ -215,7 +215,7 @@ func newTriggerEvent(t *testing.T, reportList []datastreams.FeedReport, triggerE
 }
 
 func validateLatestReports(t *testing.T, wrapped values.Value, expectedFeedsLen int, expectedPrice int, expectedTimestamp int) {
-	triggerEvent := datastreams.StreamsTriggerPayload{}
+	triggerEvent := datastreams.StreamsTriggerEvent{}
 	require.NoError(t, wrapped.UnwrapTo(&triggerEvent))
 	require.Equal(t, expectedFeedsLen, len(triggerEvent.Payload))
 	priceBig := big.NewInt(int64(expectedPrice))

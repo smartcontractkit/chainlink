@@ -97,11 +97,11 @@ func newObservations(t *testing.T, nNodes int, feeds []feed, minRequiredSignatur
 			reportList = append(reportList, signedStreamsReport)
 		}
 
-		meta := datastreams.SignersMetadata{
+		meta := datastreams.Metadata{
 			Signers:               allowedSigners,
 			MinRequiredSignatures: minRequiredSignatures,
 		}
-		p := datastreams.StreamsTriggerPayload{
+		p := datastreams.StreamsTriggerEvent{
 			Payload:  reportList,
 			Metadata: meta,
 		}
