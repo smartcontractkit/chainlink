@@ -3,6 +3,7 @@ package ccip_load_test_view
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/K-Phoen/grabana/dashboard"
 	"github.com/K-Phoen/grabana/logs"
 	"github.com/K-Phoen/grabana/row"

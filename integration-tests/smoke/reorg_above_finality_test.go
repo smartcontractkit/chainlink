@@ -53,7 +53,7 @@ func TestReorgAboveFinality_FinalityTagDisabled(t *testing.T) {
 	evmNetwork, err := testEnv.GetFirstEvmNetwork()
 	require.NoError(t, err, "Error getting first evm network")
 
-	client := ctf_client.NewRPCClient(evmNetwork.HTTPURLs[0])
+	client := ctf_client.NewRPCClient(evmNetwork.HTTPURLs[0], nil)
 
 	// Wait for chain to progress
 	require.Eventually(t, func() bool {
