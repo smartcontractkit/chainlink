@@ -9,13 +9,13 @@ import {Router} from "../../Router.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {OnRamp} from "../../onRamp/OnRamp.sol";
+import {FeeQuoterFeeSetup} from "../feeQuoter/FeeQuoterSetup.t.sol";
 import {MessageInterceptorHelper} from "../helpers/MessageInterceptorHelper.sol";
 import {OnRampHelper} from "../helpers/OnRampHelper.sol";
-import {PriceRegistryFeeSetup} from "../priceRegistry/PriceRegistry.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
-contract OnRampSetup is PriceRegistryFeeSetup {
+contract OnRampSetup is FeeQuoterFeeSetup {
   uint256 internal immutable i_tokenAmount0 = 9;
   uint256 internal immutable i_tokenAmount1 = 7;
 
@@ -84,9 +84,8 @@ contract OnRampSetup is PriceRegistryFeeSetup {
     );
   }
 
-  function _generateDynamicOnRampConfig(address priceRegistry) internal pure returns (OnRamp.DynamicConfig memory) {
-    return
-      OnRamp.DynamicConfig({priceRegistry: priceRegistry, messageValidator: address(0), feeAggregator: FEE_AGGREGATOR});
+  function _generateDynamicOnRampConfig(address feeQuoter) internal pure returns (OnRamp.DynamicConfig memory) {
+    return OnRamp.DynamicConfig({feeQuoter: feeQuoter, messageValidator: address(0), feeAggregator: FEE_AGGREGATOR});
   }
 
   // Slicing is only available for calldata. So we have to build a new bytes array.
@@ -117,7 +116,7 @@ contract OnRampSetup is PriceRegistryFeeSetup {
         nonceManager: nonceManager,
         tokenAdminRegistry: tokenAdminRegistry
       }),
-      _generateDynamicOnRampConfig(address(s_priceRegistry)),
+      _generateDynamicOnRampConfig(address(s_feeQuoter)),
       _generateDestChainConfigArgs(router)
     );
 
@@ -162,6 +161,6 @@ contract OnRampSetup is PriceRegistryFeeSetup {
   }
 
   function _assertDynamicConfigsEqual(OnRamp.DynamicConfig memory a, OnRamp.DynamicConfig memory b) internal pure {
-    assertEq(a.priceRegistry, b.priceRegistry);
+    assertEq(a.feeQuoter, b.feeQuoter);
   }
 }

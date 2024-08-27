@@ -7,12 +7,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -21,7 +21,7 @@ var (
 	onrampABI               = evmtypes.MustGetABI(onramp.OnRampABI)
 	capabilitiesRegsitryABI = evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
 	ccipConfigABI           = evmtypes.MustGetABI(ccip_config.CCIPConfigABI)
-	priceRegistryABI        = evmtypes.MustGetABI(price_registry.PriceRegistryABI)
+	priceRegistryABI        = evmtypes.MustGetABI(fee_quoter.FeeQuoterABI)
 )
 
 // MustSourceReaderConfig returns a ChainReaderConfig that can be used to read from the onramp.
@@ -138,7 +138,7 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 			},
 		},
 		consts.ContractNamePriceRegistry: {
-			ContractABI: price_registry.PriceRegistryABI,
+			ContractABI: fee_quoter.FeeQuoterABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				// TODO: update with the consts from https://github.com/smartcontractkit/chainlink-ccip/pull/39
 				// in a followup.

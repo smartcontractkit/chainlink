@@ -27,13 +27,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool_1_4_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -1111,7 +1111,7 @@ type PriceRegistryUsdPerUnitGasUpdated struct {
 }
 
 type PriceRegistryWrapper struct {
-	Latest *price_registry.PriceRegistry
+	Latest *fee_quoter.FeeQuoter
 	V1_2_0 *price_registry_1_2_0.PriceRegistry
 }
 
@@ -1137,7 +1137,7 @@ func (p *PriceRegistryWrapper) AddPriceUpdater(opts *bind.TransactOpts, addr com
 	if p.Latest != nil {
 		return p.Latest.ApplyAuthorizedCallerUpdates(
 			opts,
-			price_registry.AuthorizedCallersAuthorizedCallerArgs{
+			fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
 				AddedCallers:   []common.Address{addr},
 				RemovedCallers: []common.Address{},
 			},
@@ -1243,21 +1243,21 @@ func (c *PriceRegistry) UpdatePrices(tokenUpdates []InternalTokenPriceUpdate, ga
 	}
 	var tx *types.Transaction
 	if c.Instance.Latest != nil {
-		var tokenUpdatesLatest []price_registry.InternalTokenPriceUpdate
-		var gasUpdatesLatest []price_registry.InternalGasPriceUpdate
+		var tokenUpdatesLatest []fee_quoter.InternalTokenPriceUpdate
+		var gasUpdatesLatest []fee_quoter.InternalGasPriceUpdate
 		for _, update := range tokenUpdates {
-			tokenUpdatesLatest = append(tokenUpdatesLatest, price_registry.InternalTokenPriceUpdate{
+			tokenUpdatesLatest = append(tokenUpdatesLatest, fee_quoter.InternalTokenPriceUpdate{
 				SourceToken: update.SourceToken,
 				UsdPerToken: update.UsdPerToken,
 			})
 		}
 		for _, update := range gasUpdates {
-			gasUpdatesLatest = append(gasUpdatesLatest, price_registry.InternalGasPriceUpdate{
+			gasUpdatesLatest = append(gasUpdatesLatest, fee_quoter.InternalGasPriceUpdate{
 				DestChainSelector: update.DestChainSelector,
 				UsdPerUnitGas:     update.UsdPerUnitGas,
 			})
 		}
-		tx, err = c.Instance.Latest.UpdatePrices(opts, price_registry.InternalPriceUpdates{
+		tx, err = c.Instance.Latest.UpdatePrices(opts, fee_quoter.InternalPriceUpdates{
 			TokenPriceUpdates: tokenUpdatesLatest,
 			GasPriceUpdates:   gasUpdatesLatest,
 		})
@@ -1299,12 +1299,12 @@ func (c *PriceRegistry) UpdatePrices(tokenUpdates []InternalTokenPriceUpdate, ga
 	return c.client.ProcessTransaction(tx)
 }
 
-func (c *PriceRegistry) WatchUsdPerUnitGasUpdated(opts *bind.WatchOpts, latest chan *price_registry.PriceRegistryUsdPerUnitGasUpdated, destChain []uint64) (event.Subscription, error) {
+func (c *PriceRegistry) WatchUsdPerUnitGasUpdated(opts *bind.WatchOpts, latest chan *fee_quoter.FeeQuoterUsdPerUnitGasUpdated, destChain []uint64) (event.Subscription, error) {
 	if c.Instance.Latest != nil {
 		return c.Instance.Latest.WatchUsdPerUnitGasUpdated(opts, latest, destChain)
 	}
 	if c.Instance.V1_2_0 != nil {
-		newP, err := price_registry.NewPriceRegistry(c.Instance.V1_2_0.Address(), wrappers.MustNewWrappedContractBackend(c.client, nil))
+		newP, err := fee_quoter.NewFeeQuoter(c.Instance.V1_2_0.Address(), wrappers.MustNewWrappedContractBackend(c.client, nil))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new PriceRegistry contract: %w", err)
 		}
@@ -1313,12 +1313,12 @@ func (c *PriceRegistry) WatchUsdPerUnitGasUpdated(opts *bind.WatchOpts, latest c
 	return nil, fmt.Errorf("no instance found to watch for price updates for gas")
 }
 
-func (c *PriceRegistry) WatchUsdPerTokenUpdated(opts *bind.WatchOpts, latest chan *price_registry.PriceRegistryUsdPerTokenUpdated) (event.Subscription, error) {
+func (c *PriceRegistry) WatchUsdPerTokenUpdated(opts *bind.WatchOpts, latest chan *fee_quoter.FeeQuoterUsdPerTokenUpdated) (event.Subscription, error) {
 	if c.Instance.Latest != nil {
 		return c.Instance.Latest.WatchUsdPerTokenUpdated(opts, latest, nil)
 	}
 	if c.Instance.V1_2_0 != nil {
-		newP, err := price_registry.NewPriceRegistry(c.Instance.V1_2_0.Address(), wrappers.MustNewWrappedContractBackend(c.client, nil))
+		newP, err := fee_quoter.NewFeeQuoter(c.Instance.V1_2_0.Address(), wrappers.MustNewWrappedContractBackend(c.client, nil))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new PriceRegistry contract: %w", err)
 		}

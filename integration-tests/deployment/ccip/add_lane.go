@@ -7,10 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
@@ -37,8 +36,8 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 	}
 
 	_, err = state.Chains[from].PriceRegistry.UpdatePrices(
-		e.Chains[from].DeployerKey, price_registry.InternalPriceUpdates{
-			TokenPriceUpdates: []price_registry.InternalTokenPriceUpdate{
+		e.Chains[from].DeployerKey, fee_quoter.InternalPriceUpdates{
+			TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{
 				{
 					SourceToken: state.Chains[from].LinkToken.Address(),
 					UsdPerToken: deployment.E18Mult(20),
@@ -48,7 +47,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 					UsdPerToken: deployment.E18Mult(4000),
 				},
 			},
-			GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
+			GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
 				{
 					DestChainSelector: to,
 					UsdPerUnitGas:     big.NewInt(2e12),
@@ -60,7 +59,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 
 	// Enable dest in price registry
 	tx, err = state.Chains[from].PriceRegistry.ApplyDestChainConfigUpdates(e.Chains[from].DeployerKey,
-		[]price_registry.PriceRegistryDestChainConfigArgs{
+		[]fee_quoter.FeeQuoterDestChainConfigArgs{
 			{
 				DestChainSelector: to,
 				DestChainConfig:   defaultPriceRegistryDestChainConfig(),
@@ -91,7 +90,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 	return deployment.ConfirmIfNoError(e.Chains[to], tx, err)
 }
 
-func defaultPriceRegistryDestChainConfig() price_registry.PriceRegistryDestChainConfig {
+func defaultPriceRegistryDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
 	// https://github.com/smartcontractkit/ccip/blob/c4856b64bd766f1ddbaf5d13b42d3c4b12efde3a/contracts/src/v0.8/ccip/libraries/Internal.sol#L337-L337
 	/*
 		```Solidity
@@ -100,7 +99,7 @@ func defaultPriceRegistryDestChainConfig() price_registry.PriceRegistryDestChain
 		```
 	*/
 	evmFamilySelector, _ := hex.DecodeString("2812d52c")
-	return price_registry.PriceRegistryDestChainConfig{
+	return fee_quoter.FeeQuoterDestChainConfig{
 		IsEnabled:                         true,
 		MaxNumberOfTokensPerMsg:           10,
 		MaxDataBytes:                      256,

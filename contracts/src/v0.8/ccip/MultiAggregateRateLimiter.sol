@@ -2,8 +2,8 @@
 pragma solidity 0.8.24;
 
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
+import {IFeeQuoter} from "./interfaces/IFeeQuoter.sol";
 import {IMessageInterceptor} from "./interfaces/IMessageInterceptor.sol";
-import {IPriceRegistry} from "./interfaces/IPriceRegistry.sol";
 
 import {AuthorizedCallers} from "../shared/access/AuthorizedCallers.sol";
 import {EnumerableMapAddresses} from "./../shared/enumerable/EnumerableMapAddresses.sol";
@@ -13,7 +13,7 @@ import {USDPriceWith18Decimals} from "./libraries/USDPriceWith18Decimals.sol";
 
 /// @notice The aggregate rate limiter is a wrapper of the token bucket rate limiter
 /// which permits rate limiting based on the aggregate value of a group of
-/// token transfers, using a price registry to convert to a numeraire asset (e.g. USD).
+/// token transfers, using a fee quoter to convert to a numeraire asset (e.g. USD).
 /// The contract is a standalone multi-lane message validator contract, which can be called by authorized
 /// ramp contracts to apply rate limit changes to lanes, and revert when the rate limits get breached.
 contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, ITypeAndVersion {
@@ -25,7 +25,7 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   error ZeroChainSelectorNotAllowed();
 
   event RateLimiterConfigUpdated(uint64 indexed remoteChainSelector, bool isOutboundLane, RateLimiter.Config config);
-  event PriceRegistrySet(address newPriceRegistry);
+  event FeeQuoterSet(address newFeeQuoter);
   event TokenAggregateRateLimitAdded(uint64 remoteChainSelector, bytes remoteToken, address localToken);
   event TokenAggregateRateLimitRemoved(uint64 remoteChainSelector, address localToken);
 
@@ -62,16 +62,16 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   mapping(uint64 remoteChainSelector => EnumerableMapAddresses.AddressToBytesMap tokensLocalToRemote) internal
     s_rateLimitedTokensLocalToRemote;
 
-  /// @notice The address of the PriceRegistry used to query token values for ratelimiting.
-  address internal s_priceRegistry;
+  /// @notice The address of the FeeQuoter used to query token values for ratelimiting.
+  address internal s_feeQuoter;
 
   /// @notice Rate limiter token bucket states per chain, with separate buckets for inbound and outbound lanes.
   mapping(uint64 remoteChainSelector => RateLimiterBuckets buckets) internal s_rateLimitersByChainSelector;
 
-  /// @param priceRegistry the price registry to set.
+  /// @param feeQuoter the fee quoter to set.
   /// @param authorizedCallers the authorized callers to set.
-  constructor(address priceRegistry, address[] memory authorizedCallers) AuthorizedCallers(authorizedCallers) {
-    _setPriceRegistry(priceRegistry);
+  constructor(address feeQuoter, address[] memory authorizedCallers) AuthorizedCallers(authorizedCallers) {
+    _setFeeQuoter(feeQuoter);
   }
 
   /// @inheritdoc IMessageInterceptor
@@ -127,13 +127,13 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
     }
   }
 
-  /// @notice Retrieves the token value for a token using the PriceRegistry.
+  /// @notice Retrieves the token value for a token using the FeeQuoter.
   /// @param tokenAmount The token and amount to get the value for.
   /// @return tokenValue USD value in 18 decimals.
   function _getTokenValue(Client.EVMTokenAmount memory tokenAmount) internal view returns (uint256) {
     // not fetching validated price, as price staleness is not important for value-based rate limiting
     // we only need to verify the price is not 0
-    uint224 pricePerToken = IPriceRegistry(s_priceRegistry).getTokenPrice(tokenAmount.token).value;
+    uint224 pricePerToken = IFeeQuoter(s_feeQuoter).getTokenPrice(tokenAmount.token).value;
     if (pricePerToken == 0) revert PriceNotFoundForToken(tokenAmount.token);
     return pricePerToken._calcUSDValueFromTokenAmount(tokenAmount.amount);
   }
@@ -247,27 +247,27 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
     }
   }
 
-  /// @return priceRegistry The configured PriceRegistry address.
-  function getPriceRegistry() external view returns (address) {
-    return s_priceRegistry;
+  /// @return feeQuoter The configured FeeQuoter address.
+  function getFeeQuoter() external view returns (address feeQuoter) {
+    return s_feeQuoter;
   }
 
-  /// @notice Sets the Price Registry address.
-  /// @param newPriceRegistry the address of the new PriceRegistry.
+  /// @notice Sets the FeeQuoter address.
+  /// @param newFeeQuoter the address of the new FeeQuoter.
   /// @dev precondition The address must be a non-zero address.
-  function setPriceRegistry(address newPriceRegistry) external onlyOwner {
-    _setPriceRegistry(newPriceRegistry);
+  function setFeeQuoter(address newFeeQuoter) external onlyOwner {
+    _setFeeQuoter(newFeeQuoter);
   }
 
-  /// @notice Sets the Price Registry address.
-  /// @param newPriceRegistry the address of the new PriceRegistry.
+  /// @notice Sets the FeeQuoter address.
+  /// @param newFeeQuoter the address of the new FeeQuoter.
   /// @dev precondition The address must be a non-zero address.
-  function _setPriceRegistry(address newPriceRegistry) internal {
-    if (newPriceRegistry == address(0)) {
+  function _setFeeQuoter(address newFeeQuoter) internal {
+    if (newFeeQuoter == address(0)) {
       revert ZeroAddressNotAllowed();
     }
 
-    s_priceRegistry = newPriceRegistry;
-    emit PriceRegistrySet(newPriceRegistry);
+    s_feeQuoter = newFeeQuoter;
+    emit FeeQuoterSet(newFeeQuoter);
   }
 }
