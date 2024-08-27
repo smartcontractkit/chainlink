@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -31,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
@@ -106,7 +106,7 @@ type onchainUniverse struct {
 	rmn                *mock_rmn_contract.MockRMNContract
 	onramp             *onramp.OnRamp
 	offramp            *offramp.OffRamp
-	priceRegistry      *price_registry.PriceRegistry
+	priceRegistry      *fee_quoter.FeeQuoter
 	tokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	nonceManager       *nonce_manager.NonceManager
 	receiver           *maybe_revert_message_receiver.MaybeRevertMessageReceiver
@@ -200,7 +200,7 @@ func createUniverses(
 				TokenAdminRegistry: tokenAdminRegistry.Address(),
 			},
 			onramp.OnRampDynamicConfig{
-				PriceRegistry: priceRegistry.Address(),
+				FeeQuoter: priceRegistry.Address(),
 				// `withdrawFeeTokens` onRamp function is not part of the message flow
 				// so we can set this to any address
 				FeeAggregator: testutils.NewAddress(),
@@ -226,7 +226,7 @@ func createUniverses(
 				NonceManager:       nonceManager.Address(),
 			},
 			offramp.OffRampDynamicConfig{
-				PriceRegistry: priceRegistry.Address(),
+				FeeQuoter: priceRegistry.Address(),
 			},
 			// Source chain configs will be set up later once we have all chains
 			[]offramp.OffRampSourceChainConfigArgs{},
@@ -660,7 +660,7 @@ func setupUniverseBasics(t *testing.T, uni onchainUniverse) {
 	//						Price updates for tokens
 	//			These are the prices of the fee tokens of local chain in USD
 	// =============================================================================
-	tokenPriceUpdates := []price_registry.InternalTokenPriceUpdate{
+	tokenPriceUpdates := []fee_quoter.InternalTokenPriceUpdate{
 		{
 			SourceToken: uni.linkToken.Address(),
 			UsdPerToken: e18Mult(20),
@@ -670,13 +670,13 @@ func setupUniverseBasics(t *testing.T, uni onchainUniverse) {
 			UsdPerToken: e18Mult(4000),
 		},
 	}
-	_, err = uni.priceRegistry.UpdatePrices(owner, price_registry.InternalPriceUpdates{
+	_, err = uni.priceRegistry.UpdatePrices(owner, fee_quoter.InternalPriceUpdates{
 		TokenPriceUpdates: tokenPriceUpdates,
 	})
 	require.NoErrorf(t, err, "failed to update prices in price registry on chain id %d", uni.chainID)
 	uni.backend.Commit()
 
-	_, err = uni.priceRegistry.ApplyAuthorizedCallerUpdates(owner, price_registry.AuthorizedCallersAuthorizedCallerArgs{
+	_, err = uni.priceRegistry.ApplyAuthorizedCallerUpdates(owner, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
 		AddedCallers: []common.Address{
 			uni.offramp.Address(),
 		},
@@ -729,12 +729,12 @@ func wireRouter(t *testing.T, uni onchainUniverse, universes map[uint64]onchainU
 // Setting OnRampDestChainConfigs
 func wirePriceRegistry(t *testing.T, uni onchainUniverse, universes map[uint64]onchainUniverse) {
 	owner := uni.owner
-	var priceRegistryDestChainConfigArgs []price_registry.PriceRegistryDestChainConfigArgs
+	var priceRegistryDestChainConfigArgs []fee_quoter.FeeQuoterDestChainConfigArgs
 	for remoteChainID := range universes {
 		if remoteChainID == uni.chainID {
 			continue
 		}
-		priceRegistryDestChainConfigArgs = append(priceRegistryDestChainConfigArgs, price_registry.PriceRegistryDestChainConfigArgs{
+		priceRegistryDestChainConfigArgs = append(priceRegistryDestChainConfigArgs, fee_quoter.FeeQuoterDestChainConfigArgs{
 			DestChainSelector: getSelector(remoteChainID),
 			DestChainConfig:   defaultPriceRegistryDestChainConfig(t),
 		})
@@ -801,25 +801,25 @@ func getSelector(chainID uint64) uint64 {
 
 // initRemoteChainsGasPrices sets the gas prices for all chains except the local chain in the local price registry
 func initRemoteChainsGasPrices(t *testing.T, uni onchainUniverse, universes map[uint64]onchainUniverse) {
-	var gasPriceUpdates []price_registry.InternalGasPriceUpdate
+	var gasPriceUpdates []fee_quoter.InternalGasPriceUpdate
 	for remoteChainID := range universes {
 		if remoteChainID == uni.chainID {
 			continue
 		}
 		gasPriceUpdates = append(gasPriceUpdates,
-			price_registry.InternalGasPriceUpdate{
+			fee_quoter.InternalGasPriceUpdate{
 				DestChainSelector: getSelector(remoteChainID),
 				UsdPerUnitGas:     big.NewInt(2e12),
 			},
 		)
 	}
-	_, err := uni.priceRegistry.UpdatePrices(uni.owner, price_registry.InternalPriceUpdates{
+	_, err := uni.priceRegistry.UpdatePrices(uni.owner, fee_quoter.InternalPriceUpdates{
 		GasPriceUpdates: gasPriceUpdates,
 	})
 	require.NoError(t, err)
 }
 
-func defaultPriceRegistryDestChainConfig(t *testing.T) price_registry.PriceRegistryDestChainConfig {
+func defaultPriceRegistryDestChainConfig(t *testing.T) fee_quoter.FeeQuoterDestChainConfig {
 	// https://github.com/smartcontractkit/ccip/blob/c4856b64bd766f1ddbaf5d13b42d3c4b12efde3a/contracts/src/v0.8/ccip/libraries/Internal.sol#L337-L337
 	/*
 		```Solidity
@@ -829,7 +829,7 @@ func defaultPriceRegistryDestChainConfig(t *testing.T) price_registry.PriceRegis
 	*/
 	evmFamilySelector, err := hex.DecodeString("2812d52c")
 	require.NoError(t, err)
-	return price_registry.PriceRegistryDestChainConfig{
+	return fee_quoter.FeeQuoterDestChainConfig{
 		IsEnabled:                         true,
 		MaxNumberOfTokensPerMsg:           10,
 		MaxDataBytes:                      256,
@@ -901,11 +901,11 @@ func deployPriceRegistry(
 	wethAddr common.Address,
 	maxFeeJuelsPerMsg *big.Int,
 	chainID uint64,
-) *price_registry.PriceRegistry {
-	priceRegistryAddr, _, _, err := price_registry.DeployPriceRegistry(
+) *fee_quoter.FeeQuoter {
+	priceRegistryAddr, _, _, err := fee_quoter.DeployFeeQuoter(
 		owner,
 		backend,
-		price_registry.PriceRegistryStaticConfig{
+		fee_quoter.FeeQuoterStaticConfig{
 			MaxFeeJuelsPerMsg:  maxFeeJuelsPerMsg,
 			LinkToken:          linkAddr,
 			StalenessThreshold: 24 * 60 * 60, // 24 hours
@@ -915,10 +915,10 @@ func deployPriceRegistry(
 		}, // price updaters, will be set to offramp later
 		[]common.Address{linkAddr, wethAddr}, // fee tokens
 		// empty for now, need to fill in when testing token transfers
-		[]price_registry.PriceRegistryTokenPriceFeedUpdate{},
+		[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
 		// empty for now, need to fill in when testing token transfers
-		[]price_registry.PriceRegistryTokenTransferFeeConfigArgs{},
-		[]price_registry.PriceRegistryPremiumMultiplierWeiPerEthArgs{
+		[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{},
+		[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
 			{
 				PremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
 				Token:                      linkAddr,
@@ -929,11 +929,11 @@ func deployPriceRegistry(
 			},
 		},
 		// Destination chain configs will be set up later once we have all chains
-		[]price_registry.PriceRegistryDestChainConfigArgs{},
+		[]fee_quoter.FeeQuoterDestChainConfigArgs{},
 	)
 	require.NoErrorf(t, err, "failed to deploy price registry on chain id %d", chainID)
 	backend.Commit()
-	priceRegistry, err := price_registry.NewPriceRegistry(priceRegistryAddr, backend)
+	priceRegistry, err := fee_quoter.NewFeeQuoter(priceRegistryAddr, backend)
 	require.NoError(t, err)
 	return priceRegistry
 }

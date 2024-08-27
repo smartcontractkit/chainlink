@@ -9,17 +9,16 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
@@ -51,7 +50,7 @@ type Contracts interface {
 		*rmn_proxy_contract.RMNProxyContract |
 		*ccip_config.CCIPConfig |
 		*nonce_manager.NonceManager |
-		*price_registry.PriceRegistry |
+		*fee_quoter.FeeQuoter |
 		*router.Router |
 		*token_admin_registry.TokenAdminRegistry |
 		*weth9.WETH9 |
@@ -154,7 +153,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 			return ab, err
 		}
 		// Enable ramps on price registry/nonce manager
-		tx, err := chainState.PriceRegistry.ApplyAuthorizedCallerUpdates(chain.DeployerKey, price_registry.AuthorizedCallersAuthorizedCallerArgs{
+		tx, err := chainState.PriceRegistry.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
 			// TODO: We enable the deployer initially to set prices
 			AddedCallers: []common.Address{chainState.EvmOffRampV160.Address(), chain.DeployerKey.From},
 		})
@@ -377,21 +376,21 @@ func DeployChainContracts(e deployment.Environment, chain deployment.Chain, ab d
 		return ab, err
 	}
 
-	priceRegistry, err := deployContract(e.Logger, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*price_registry.PriceRegistry] {
-			prAddr, tx, pr, err2 := price_registry.DeployPriceRegistry(
+	feeQuoter, err := deployContract(e.Logger, chain, ab,
+		func(chain deployment.Chain) ContractDeploy[*fee_quoter.FeeQuoter] {
+			prAddr, tx, pr, err2 := fee_quoter.DeployFeeQuoter(
 				chain.DeployerKey,
 				chain.Client,
-				price_registry.PriceRegistryStaticConfig{
+				fee_quoter.FeeQuoterStaticConfig{
 					MaxFeeJuelsPerMsg:  big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
 					LinkToken:          linkToken.Address,
 					StalenessThreshold: uint32(24 * 60 * 60),
 				},
 				[]common.Address{}, // ramps added after
 				[]common.Address{weth9.Address, linkToken.Address}, // fee tokens
-				[]price_registry.PriceRegistryTokenPriceFeedUpdate{},
-				[]price_registry.PriceRegistryTokenTransferFeeConfigArgs{}, // TODO: tokens
-				[]price_registry.PriceRegistryPremiumMultiplierWeiPerEthArgs{
+				[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
+				[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{}, // TODO: tokens
+				[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
 					{
 						PremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
 						Token:                      linkToken.Address,
@@ -401,9 +400,9 @@ func DeployChainContracts(e deployment.Environment, chain deployment.Chain, ab d
 						Token:                      weth9.Address,
 					},
 				},
-				[]price_registry.PriceRegistryDestChainConfigArgs{},
+				[]fee_quoter.FeeQuoterDestChainConfigArgs{},
 			)
-			return ContractDeploy[*price_registry.PriceRegistry]{
+			return ContractDeploy[*fee_quoter.FeeQuoter]{
 				prAddr, pr, tx, deployment.NewTypeAndVersion(PriceRegistry, deployment.Version1_6_0_dev), err2,
 			}
 		})
@@ -424,7 +423,7 @@ func DeployChainContracts(e deployment.Environment, chain deployment.Chain, ab d
 					TokenAdminRegistry: tokenAdminRegistry.Address,
 				},
 				onramp.OnRampDynamicConfig{
-					PriceRegistry: priceRegistry.Address,
+					FeeQuoter:     feeQuoter.Address,
 					FeeAggregator: common.HexToAddress("0x1"), // TODO real fee aggregator
 				},
 				[]onramp.OnRampDestChainConfigArgs{},
@@ -451,7 +450,7 @@ func DeployChainContracts(e deployment.Environment, chain deployment.Chain, ab d
 					TokenAdminRegistry: tokenAdminRegistry.Address,
 				},
 				offramp.OffRampDynamicConfig{
-					PriceRegistry:                           priceRegistry.Address,
+					FeeQuoter:                               feeQuoter.Address,
 					PermissionLessExecutionThresholdSeconds: uint32(86400),
 					MaxTokenTransferGas:                     uint32(200_000),
 					MaxPoolReleaseOrMintGas:                 uint32(200_000),

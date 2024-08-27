@@ -3,10 +3,10 @@ pragma solidity 0.8.24;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {IEVM2AnyOnRampClient} from "../interfaces/IEVM2AnyOnRampClient.sol";
+import {IFeeQuoter} from "../interfaces/IFeeQuoter.sol";
 import {IMessageInterceptor} from "../interfaces/IMessageInterceptor.sol";
 import {INonceManager} from "../interfaces/INonceManager.sol";
 import {IPoolV1} from "../interfaces/IPool.sol";
-import {IPriceRegistry} from "../interfaces/IPriceRegistry.sol";
 import {IRMN} from "../interfaces/IRMN.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
@@ -56,7 +56,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// @dev Struct that contains the dynamic configuration
   // solhint-disable-next-line gas-struct-packing
   struct DynamicConfig {
-    address priceRegistry; // Price registry address
+    address feeQuoter; // FeeQuoter address
     address messageValidator; // Optional message validator to validate outbound messages (zero address = no validator)
     address feeAggregator; // Fee aggregator address
   }
@@ -153,8 +153,8 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     }
 
     // Convert message fee to juels and retrieve converted args
-    (uint256 msgFeeJuels, bool isOutOfOrderExecution, bytes memory convertedExtraArgs) = IPriceRegistry(
-      s_dynamicConfig.priceRegistry
+    (uint256 msgFeeJuels, bool isOutOfOrderExecution, bytes memory convertedExtraArgs) = IFeeQuoter(
+      s_dynamicConfig.feeQuoter
     ).processMessageArgs(destChainSelector, message.feeToken, feeTokenAmount, message.extraArgs);
 
     emit FeePaid(message.feeToken, msgFeeJuels);
@@ -191,7 +191,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     }
 
     // Validate pool return data after it is populated (view function - no state changes)
-    bytes[] memory destExecDataPerToken = IPriceRegistry(s_dynamicConfig.priceRegistry).processPoolReturnData(
+    bytes[] memory destExecDataPerToken = IFeeQuoter(s_dynamicConfig.feeQuoter).processPoolReturnData(
       destChainSelector, newMessage.tokenAmounts, message.tokenAmounts
     );
 
@@ -249,8 +249,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
       })
     );
 
-    // NOTE: pool data validations are outsourced to the PriceRegistry to handle family-specific logic handling
-
+    // NOTE: pool data validations are outsourced to the FeeQuoter to handle family-specific logic handling
     return Internal.RampTokenAmount({
       sourcePoolAddress: abi.encode(sourcePool),
       destTokenAddress: poolReturnData.destTokenAddress,
@@ -297,7 +296,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
 
   /// @notice Internal version of setDynamicConfig to allow for reuse in the constructor.
   function _setDynamicConfig(DynamicConfig memory dynamicConfig) internal {
-    if (dynamicConfig.priceRegistry == address(0) || dynamicConfig.feeAggregator == address(0)) revert InvalidConfig();
+    if (dynamicConfig.feeQuoter == address(0) || dynamicConfig.feeAggregator == address(0)) revert InvalidConfig();
 
     s_dynamicConfig = dynamicConfig;
 
@@ -367,13 +366,13 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   ) external view returns (uint256 feeTokenAmount) {
     if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(destChainSelector)))) revert CursedByRMN(destChainSelector);
 
-    return IPriceRegistry(s_dynamicConfig.priceRegistry).getValidatedFee(destChainSelector, message);
+    return IFeeQuoter(s_dynamicConfig.feeQuoter).getValidatedFee(destChainSelector, message);
   }
 
   /// @notice Withdraws the outstanding fee token balances to the fee aggregator.
   /// @dev This function can be permissionless as it only transfers accepted fee tokens to the fee aggregator which is a trusted address.
   function withdrawFeeTokens() external {
-    address[] memory feeTokens = IPriceRegistry(s_dynamicConfig.priceRegistry).getFeeTokens();
+    address[] memory feeTokens = IFeeQuoter(s_dynamicConfig.feeQuoter).getFeeTokens();
     address feeAggregator = s_dynamicConfig.feeAggregator;
 
     for (uint256 i = 0; i < feeTokens.length; ++i) {

@@ -67,7 +67,7 @@ compileContract ccip/onRamp/EVM2EVMOnRamp.sol
 compileContract ccip/CommitStore.sol
 compileContract ccip/MultiAggregateRateLimiter.sol
 compileContract ccip/Router.sol
-compileContract ccip/PriceRegistry.sol
+compileContract ccip/FeeQuoter.sol
 compileContract ccip/RMN.sol
 compileContract ccip/ARMProxy.sol
 compileContract ccip/tokenAdminRegistry/TokenAdminRegistry.sol
