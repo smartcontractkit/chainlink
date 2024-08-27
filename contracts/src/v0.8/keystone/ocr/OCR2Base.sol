@@ -122,8 +122,6 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       offchainConfig: _offchainConfig
     });
 
-    _beforeSetConfig(args.f, args.onchainConfig);
-
     while (s_signers.length != 0) {
       // remove any old signer/transmitter addresses
       uint256 lastIdx = s_signers.length - 1;
@@ -232,6 +230,4 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
   function transmitters() external view returns (address[] memory) {
     return s_transmitters;
   }
-
-  function _beforeSetConfig(uint8 _f, bytes memory _onchainConfig) internal virtual;
 }
