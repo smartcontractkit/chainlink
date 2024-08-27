@@ -316,6 +316,42 @@ func TestCCIPReader_NextSeqNum(t *testing.T) {
 	assert.Equal(t, cciptypes.SeqNum(30), seqNums[2])
 }
 
+func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	cfg := evmtypes.ChainReaderConfig{
+		Contracts: map[string]evmtypes.ChainContractReader{
+			consts.ContractNameOnRamp: {
+				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
+				Configs: map[string]*evmtypes.ChainReaderDefinition{
+					consts.MethodNameGetExpectedNextSequenceNumber: {
+						ChainSpecificName: "getExpectedNextSequenceNumber",
+						ReadType:          evmtypes.Method,
+					},
+				},
+			},
+		},
+	}
+
+	s := testSetup(ctx, t, chainS1, chainD, nil, cfg)
+
+	_, err := s.contract.SetDestChainSeqNr(s.auth, uint64(chainD), 10)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	seqNum, err := s.reader.GetExpectedNextSequenceNumber(ctx, chainS1, chainD)
+	require.NoError(t, err)
+	require.Equal(t, cciptypes.SeqNum(10)+1, seqNum)
+
+	_, err = s.contract.SetDestChainSeqNr(s.auth, uint64(chainD), 25)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	seqNum, err = s.reader.GetExpectedNextSequenceNumber(ctx, chainS1, chainD)
+	require.NoError(t, err)
+	require.Equal(t, cciptypes.SeqNum(25)+1, seqNum)
+}
+
 func testSetup(ctx context.Context, t *testing.T, readerChain, destChain cciptypes.ChainSelector, onChainSeqNums map[cciptypes.ChainSelector]cciptypes.SeqNum, cfg evmtypes.ChainReaderConfig) *testSetupData {
 	const chainID = 1337
 
