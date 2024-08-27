@@ -72,6 +72,13 @@ let config = {
         settings: COMPILER_SETTINGS,
       },
       {
+        version: '0.8.20',
+        settings: {
+          ...COMPILER_SETTINGS,
+          evmVersion: 'paris',
+        },
+      },
+      {
         version: '0.8.24',
         settings: {
           ...COMPILER_SETTINGS,
