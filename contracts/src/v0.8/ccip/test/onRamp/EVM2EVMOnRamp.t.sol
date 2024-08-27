@@ -27,7 +27,7 @@ contract EVM2EVMOnRamp_constructor is EVM2EVMOnRampSetup {
       tokenAdminRegistry: address(s_tokenAdminRegistry)
     });
     EVM2EVMOnRamp.DynamicConfig memory dynamicConfig =
-      generateDynamicOnRampConfig(address(s_sourceRouter), address(s_priceRegistry));
+      generateDynamicOnRampConfig(address(s_sourceRouter), address(s_feeQuoter));
 
     vm.expectEmit();
     emit EVM2EVMOnRamp.ConfigSet(staticConfig, dynamicConfig);
@@ -247,7 +247,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
 
     address[] memory feeTokens = new address[](1);
     feeTokens[0] = s_sourceTokens[1];
-    s_priceRegistry.applyFeeTokensUpdates(feeTokens, new address[](0));
+    s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
 
     // Since we'll mostly be testing for valid calls from the router we'll
     // mock all calls to be originating from the router and re-mock in
@@ -437,8 +437,8 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     assertEq(IERC20(s_sourceTokens[1]).balanceOf(address(s_onRamp)), feeAmount);
 
     // Calculate conversion done by prices contract
-    uint256 feeTokenPrice = s_priceRegistry.getTokenPrice(s_sourceTokens[1]).value;
-    uint256 linkTokenPrice = s_priceRegistry.getTokenPrice(s_sourceFeeToken).value;
+    uint256 feeTokenPrice = s_feeQuoter.getTokenPrice(s_sourceTokens[1]).value;
+    uint256 linkTokenPrice = s_feeQuoter.getTokenPrice(s_sourceFeeToken).value;
     uint256 conversionRate = (feeTokenPrice * 1e18) / linkTokenPrice;
     uint256 expectedJuels = (feeAmount * conversionRate) / 1e18;
 
@@ -487,7 +487,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     // Set a high price to trip the ARL
     uint224 tokenPrice = 3 ** 128;
     Internal.PriceUpdates memory priceUpdates = _getSingleTokenPriceUpdateStruct(s_sourceTokens[0], tokenPrice);
-    s_priceRegistry.updatePrices(priceUpdates);
+    s_feeQuoter.updatePrices(priceUpdates);
     vm.startPrank(address(s_sourceRouter));
 
     vm.expectRevert(
@@ -662,7 +662,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     vm.startPrank(OWNER);
 
     Internal.PriceUpdates memory priceUpdates = _getSingleTokenPriceUpdateStruct(wrongToken, 1);
-    s_priceRegistry.updatePrices(priceUpdates);
+    s_feeQuoter.updatePrices(priceUpdates);
 
     // Change back to the router
     vm.startPrank(address(s_sourceRouter));
@@ -694,7 +694,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     // Set token price to 0
     vm.stopPrank();
     vm.startPrank(OWNER);
-    s_priceRegistry.updatePrices(_getSingleTokenPriceUpdateStruct(CUSTOM_TOKEN, 0));
+    s_feeQuoter.updatePrices(_getSingleTokenPriceUpdateStruct(CUSTOM_TOKEN, 0));
 
     vm.startPrank(address(s_sourceRouter));
 
@@ -905,7 +905,7 @@ contract EVM2EVMOnRamp_forwardFromRouter_upgrade is EVM2EVMOnRampSetup {
         rmnProxy: address(s_mockRMN),
         tokenAdminRegistry: address(s_tokenAdminRegistry)
       }),
-      generateDynamicOnRampConfig(address(s_sourceRouter), address(s_priceRegistry)),
+      generateDynamicOnRampConfig(address(s_sourceRouter), address(s_feeQuoter)),
       _getOutboundRateLimiterConfig(),
       s_feeTokenConfigArgs,
       s_tokenTransferFeeConfigArgs,
