@@ -1,8 +1,0 @@
-syntax="proto3";
-
-package v1;
-option go_package = ".;llo";
-
-message LLOOffchainConfigProto {
-   bytes predecessorConfigDigest = 1; 
-}
