@@ -68,6 +68,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     uint64 indexed sourceChainSelector,
     uint64 indexed sequenceNumber,
     bytes32 indexed messageId,
+    bytes32 messageHash,
     Internal.MessageExecutionState state,
     bytes returnData,
     uint256 gasUsed
@@ -473,6 +474,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
         sourceChainSelector,
         message.header.sequenceNumber,
         message.header.messageId,
+        hashedLeaves[i],
         newState,
         returnData,
         gasStart - gasleft()
