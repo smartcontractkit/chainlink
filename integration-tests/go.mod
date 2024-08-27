@@ -37,25 +37,14 @@ require (
 	github.com/smartcontractkit/ccip/integration-tests v0.0.0-20240827112422-fd63fe3f10fc
 	github.com/smartcontractkit/chain-selectors v1.0.21
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-<<<<<<< HEAD
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240827083222-2d851e6979f0
-	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240826172653-9ee1e8cc8b97
-	github.com/smartcontractkit/chainlink-testing-framework v1.34.6
-	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.1
-	github.com/smartcontractkit/chainlink-testing-framework/havoc v0.0.0-20240822140612-df8e03c10dc1
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7
-	github.com/smartcontractkit/seth v1.1.2
-=======
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240827105512-728a83598aac
 	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240823143943-86fc7c5deb84
-	github.com/smartcontractkit/chainlink-testing-framework v1.34.9
+	github.com/smartcontractkit/chainlink-testing-framework v1.34.6
 	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.1
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v0.0.0-20240822140612-df8e03c10dc1
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.2.0
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7
->>>>>>> b136555d35 (fix dependencies and add .husky in contracts)
 	github.com/smartcontractkit/wasp v0.4.5
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
@@ -424,6 +413,7 @@ require (
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240710170203-5b41615da827 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20240821170223-a2f5c39f457f // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240709043547-03612098f799 // indirect
+	github.com/smartcontractkit/seth v1.2.0 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 // indirect
 	github.com/smartcontractkit/wsrpc v0.8.1 // indirect
@@ -492,11 +482,7 @@ require (
 	golang.org/x/oauth2 v0.21.0 // indirect
 	golang.org/x/sys v0.23.0 // indirect
 	golang.org/x/term v0.23.0 // indirect
-<<<<<<< HEAD
-	golang.org/x/time v0.5.0 // indirect
-=======
 	golang.org/x/time v0.6.0 // indirect
->>>>>>> b136555d35 (fix dependencies and add .husky in contracts)
 	golang.org/x/tools v0.24.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gonum.org/v1/gonum v0.15.0 // indirect
