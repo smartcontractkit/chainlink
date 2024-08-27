@@ -101,7 +101,7 @@ type EventDefinitions struct {
 	// This helps us translate chain agnostic querying key "transfer-value" to EVM specific "evmTransferEvent-weiAmountTopic".
 	// GenericTopicNames requires InputFields to be defined for every generic topic mapping.
 	GenericTopicNames map[string]string `json:"genericTopicNames,omitempty"`
-	// key is a predefined generic name for evm log event data word
+	// key is a predefined generic name for evm log event data word and maps to data word indexes that should start from 1.
 	// for e.g. first evm data word(32bytes) of USDC log event is value so the key can be called value
 	GenericDataWordNames map[string]uint8 `json:"genericDataWordNames,omitempty"`
 	// Deprecated: not needed anymore
