@@ -2335,7 +2335,11 @@ func (OffRampDynamicConfigSet) Topic() common.Hash {
 }
 
 func (OffRampExecutionStateChanged) Topic() common.Hash {
+<<<<<<< HEAD
 	return common.HexToHash("0x05665fe9ad095383d018353f4cbcba77e84db27dd215081bbf7cdf9ae6fbe48b")
+=======
+	return common.HexToHash("0xdc8ccbc35e0eebd81239bcd1971fcd53c7eb34034880142a0f43c809a458732f")
+>>>>>>> b136555d35 (fix dependencies and add .husky in contracts)
 }
 
 func (OffRampOwnershipTransferRequested) Topic() common.Hash {
