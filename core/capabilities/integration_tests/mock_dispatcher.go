@@ -166,8 +166,8 @@ type brokerDispatcher struct {
 }
 
 type key struct {
-	capId string
-	donId uint32
+	capID string
+	donID uint32
 }
 
 func (t *brokerDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
@@ -180,20 +180,20 @@ func (t *brokerDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.Mes
 	return nil
 }
 
-func (t *brokerDispatcher) SetReceiver(capabilityId string, donId uint32, receiver remotetypes.Receiver) error {
+func (t *brokerDispatcher) SetReceiver(capabilityID string, donId uint32, receiver remotetypes.Receiver) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	k := key{capabilityId, donId}
+	k := key{capabilityID, donId}
 	_, ok := t.receivers[k]
 	if ok {
-		return fmt.Errorf("%w: receiver already exists for capability %s and don %d", remote.ErrReceiverExists, capabilityId, donId)
+		return fmt.Errorf("%w: receiver already exists for capability %s and don %d", remote.ErrReceiverExists, capabilityID, donId)
 	}
 	t.receivers[k] = receiver
 
-	t.broker.(*testAsyncMessageBroker).registerReceiverNode(t.callerPeerID, capabilityId, donId, receiver)
+	t.broker.(*testAsyncMessageBroker).registerReceiverNode(t.callerPeerID, capabilityID, donId, receiver)
 	return nil
 }
-func (t *brokerDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
+func (t *brokerDispatcher) RemoveReceiver(capabilityID string, donId uint32) {}
 
 func (t *brokerDispatcher) Start(context.Context) error { return nil }
 

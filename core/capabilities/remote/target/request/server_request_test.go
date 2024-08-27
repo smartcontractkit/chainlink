@@ -82,7 +82,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			MessageId:       []byte("workflowID" + "workflowExecutionID"),
 			CapabilityId:    "capabilityID",
 			CapabilityDonId: 2,
-			CallerDonId:     1,
+			CallerDonID:     1,
 			Method:          types.MethodExecute,
 			Payload:         rawRequest,
 		})
@@ -104,7 +104,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			MessageId:       []byte("workflowID" + "workflowExecutionID"),
 			CapabilityId:    "capabilityID",
 			CapabilityDonId: 2,
-			CallerDonId:     1,
+			CallerDonID:     1,
 			Method:          types.MethodExecute,
 			Payload:         append(rawRequest, []byte("asdf")...),
 		})
@@ -129,7 +129,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			MessageId:       []byte("workflowID" + "workflowExecutionID"),
 			CapabilityId:    "capabilityID",
 			CapabilityDonId: 2,
-			CallerDonId:     1,
+			CallerDonID:     1,
 			Method:          types.MethodExecute,
 			Payload:         rawRequest,
 		})
@@ -156,7 +156,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			MessageId:       []byte("workflowID" + "workflowExecutionID"),
 			CapabilityId:    "capabilityID",
 			CapabilityDonId: 2,
-			CallerDonId:     1,
+			CallerDonID:     1,
 			Method:          types.MethodExecute,
 			Payload:         rawRequest,
 		})
@@ -180,7 +180,7 @@ func sendValidRequest(request serverRequest, workflowPeers []p2ptypes.PeerID, ca
 		MessageId:       []byte("workflowID" + "workflowExecutionID"),
 		CapabilityId:    "capabilityID",
 		CapabilityDonId: 2,
-		CallerDonId:     1,
+		CallerDonID:     1,
 		Method:          types.MethodExecute,
 		Payload:         rawRequest,
 	})

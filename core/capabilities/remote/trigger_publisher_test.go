@@ -68,7 +68,7 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	regEvent := &remotetypes.MessageBody{
 		Sender:      p1[:],
 		Method:      remotetypes.MethodRegisterTrigger,
-		CallerDonId: workflowDonInfo.ID,
+		CallerDonID: workflowDonInfo.ID,
 		Payload:     marshaled,
 	}
 	publisher.Receive(ctx, regEvent)
