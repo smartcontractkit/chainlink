@@ -290,11 +290,10 @@ jobs:
         shell: bash
         run: |
           # Check if the test config override is provided and skip the checks if it is non-empty
-          # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
-          # if [ -n "${{ inputs.test_config_override_base64 }}" ]; then
-          #   echo "Test config override provided. Skipping checks for tests requiring config override."
-          #   exit 0
-          # fi
+          if [ -n "${{ inputs.test_config_override_base64 }}" ]; then
+            echo "Test config override provided. Skipping checks for tests requiring config override."
+            exit 0
+          fi
 
           # Parse the JSON to check for test_config_override_required in Docker matrix
           DOCKER_TESTS_REQUIRING_CONFIG_OVERRIDE=$(echo '${{ steps.set-docker-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("test_config_override_required") and .test_config_override_required) | .id else empty end' -r)
