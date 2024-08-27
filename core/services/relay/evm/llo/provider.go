@@ -1,8 +1,10 @@
-package evm
+package llo
 
 import (
 	"context"
 	"errors"
+
+	pkgerrors "github.com/pkg/errors"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -12,7 +14,10 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
+	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 var _ commontypes.LLOProvider = (*lloProvider)(nil)
@@ -26,19 +31,32 @@ type lloProvider struct {
 	ms services.MultiStart
 }
 
-func NewLLOProvider(
-	cp commontypes.ConfigProvider,
-	transmitter llo.Transmitter,
+func NewProvider(
 	lggr logger.Logger,
-	channelDefinitionCache llotypes.ChannelDefinitionCache,
-) relaytypes.LLOProvider {
+	chain legacyevm.Chain,
+	relayCfg types.RelayConfig,
+	relayOpts *types.RelayOpts,
+	lloCfg lloconfig.PluginConfig,
+	cdc llotypes.ChannelDefinitionCache,
+	transmitter llo.Transmitter,
+) (relaytypes.LLOProvider, error) {
+	lggr = logger.Named(lggr, "LLOProvider")
+	cp, err := NewConfigProvider(lggr, chain, relayCfg, relayOpts)
+	if err != nil {
+		return nil, pkgerrors.WithStack(err)
+	}
+
+	if !relayCfg.EffectiveTransmitterID.Valid {
+		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
+	}
+
 	return &lloProvider{
 		cp,
 		transmitter,
-		logger.Named(lggr, "LLOProvider"),
-		channelDefinitionCache,
+		lggr,
+		cdc,
 		services.MultiStart{},
-	}
+	}, nil
 }
 
 func (p *lloProvider) Start(ctx context.Context) error {

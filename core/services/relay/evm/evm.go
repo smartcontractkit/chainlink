@@ -49,6 +49,7 @@ import (
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
+	evmllo "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
@@ -380,8 +381,6 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 
 func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.LLOProvider, error) {
 	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
-	ctx := context.Background()
-
 	relayOpts := types.NewRelayOpts(rargs)
 	var relayConfig types.RelayConfig
 	{
@@ -403,19 +402,16 @@ func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.
 	if relayConfig.ChainID.String() != r.chain.ID().String() {
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
-	cp, err := newLLOConfigProvider(ctx, r.lggr, r.chain, relayOpts)
+
+	cdc, err := r.cdcFactory.NewCache(lloCfg)
 	if err != nil {
-		return nil, pkgerrors.WithStack(err)
+		return nil, err
 	}
 
-	if !relayConfig.EffectiveTransmitterID.Valid {
-		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
-	}
 	privKey, err := r.ks.CSA().Get(relayConfig.EffectiveTransmitterID.String)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to get CSA key for mercury connection")
 	}
-
 	// FIXME: Remove after benchmarking is done
 	// https://smartcontract-it.atlassian.net/browse/MERC-3487
 	var transmitter llo.Transmitter
@@ -430,12 +426,7 @@ func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.
 		}
 		transmitter = llo.NewTransmitter(r.lggr, client, privKey.PublicKey)
 	}
-
-	cdc, err := r.cdcFactory.NewCache(lloCfg)
-	if err != nil {
-		return nil, err
-	}
-	return NewLLOProvider(cp, transmitter, r.lggr, cdc), nil
+	return evmllo.NewProvider(r.lggr, r.chain, relayConfig, relayOpts, lloCfg, cdc, transmitter)
 }
 
 func (r *Relayer) NewFunctionsProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {
@@ -479,7 +470,7 @@ func (r *Relayer) NewConfigProvider(args commontypes.RelayArgs) (configProvider 
 	case "mercury":
 		configProvider, err = newMercuryConfigProvider(ctx, lggr, r.chain, relayOpts)
 	case "llo":
-		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, relayOpts)
+		configProvider, err = evmllo.NewConfigProvider(lggr, r.chain, relayConfig, relayOpts)
 	default:
 		return nil, fmt.Errorf("unrecognized provider type: %q", args.ProviderType)
 	}

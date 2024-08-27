@@ -195,6 +195,11 @@ type RelayConfig struct {
 	// Mercury-specific
 	FeedID                  *common.Hash `json:"feedID"`
 	EnableTriggerCapability bool         `json:"enableTriggerCapability"`
+
+	// LLO/Data Streams
+	// NOTE: This is a temporary solution that later ought to be replaced with
+	// actual dynamic capability
+	DonID uint32 `json:"donID"`
 }
 
 var ErrBadRelayConfig = errors.New("bad relay config")
