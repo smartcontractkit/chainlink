@@ -266,7 +266,7 @@ describe('EthBalanceMonitor', () => {
     })
 
     it('Should revert if any of the addresses are empty', async () => {
-      let tx = bm
+      const tx = bm
         .connect(owner)
         .setWatchList(
           [watchAddress1, ethers.constants.AddressZero],
