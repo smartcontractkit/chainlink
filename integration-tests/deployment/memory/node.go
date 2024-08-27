@@ -13,13 +13,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	v2toml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
