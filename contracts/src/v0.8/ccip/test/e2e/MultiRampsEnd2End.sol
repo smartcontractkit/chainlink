@@ -240,7 +240,7 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
     router.ccipSend(DEST_CHAIN_SELECTOR, message);
     vm.pauseGasMetering();
 
-    uint256 gasLimit = s_priceRegistry.parseEVMExtraArgsFromBytes(msgEvent.extraArgs, DEST_CHAIN_SELECTOR).gasLimit;
+    uint256 gasLimit = s_feeQuoter.parseEVMExtraArgsFromBytes(msgEvent.extraArgs, DEST_CHAIN_SELECTOR).gasLimit;
 
     return Internal.Any2EVMRampMessage({
       header: Internal.RampMessageHeader({
