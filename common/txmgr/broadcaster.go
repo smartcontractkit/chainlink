@@ -560,25 +560,14 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	case client.Underpriced:
 		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt, retryCount+1)
 	case client.InsufficientFunds:
-		// NOTE: For EIP-1559 transactions, this bails out of the entire cycle and essentially "blocks" on
-		// any transaction that gets insufficient_funds. This is OK if a
-		// transaction with a large VALUE blocks because this always comes last
-		// in the processing list.
-		// If it blocks because of a transaction that is expensive due to large
-		// gas limit, we could have smaller transactions "above" it that could
-		// theoretically be sent, but will instead be blocked.
-
-		// NOTE: For non-EIP-1559 transactions, replacing existing attempt with a new gas estimation to overcome the occasional gas spike
+		// NOTE: This can potentially happen during gas spike. We want to re-estimate the tx, and save the replaced attempt and process it after the back off,
+		// so tryAgainWithNewEstimation should return retryable after saved the tx attempt, instead of calling handleInProgressTx() again
 		eb.SvcErrBuffer.Append(err)
-		if attempt.TxType != 0x2 {
-			return eb.tryAgainWithNewEstimation(ctx, lgr, err, etx, attempt, initialBroadcastAt)
-		}
-
-		fallthrough
+		return eb.tryAgainWithNewEstimation(ctx, lgr, err, errType, etx, attempt, initialBroadcastAt)
 	case client.Retryable:
 		return err, true
 	case client.FeeOutOfValidRange:
-		return eb.tryAgainWithNewEstimation(ctx, lgr, err, etx, attempt, initialBroadcastAt)
+		return eb.tryAgainWithNewEstimation(ctx, lgr, err, errType, etx, attempt, initialBroadcastAt)
 	case client.Unsupported:
 		return err, false
 	case client.ExceedsMaxFee:
@@ -705,16 +694,10 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryA
 		return fmt.Errorf("tryAgainBumpFee failed: %w", err), retryable
 	}
 
-	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, bumpedFee, bumpedFeeLimit, retry)
+	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, bumpedFee, bumpedFeeLimit, retry, txError, client.Underpriced)
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryAgainWithNewEstimation(ctx context.Context, lgr logger.Logger, txError error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time) (err error, retryable bool) {
-	if attempt.TxType == 0x2 {
-		err = fmt.Errorf("re-estimation is not supported for EIP-1559 transactions. Node returned error: %v. This is a bug", txError.Error())
-		logger.Sugared(eb.lggr).AssumptionViolation(err.Error())
-		return err, false
-	}
-
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryAgainWithNewEstimation(ctx context.Context, lgr logger.Logger, txError error, errType client.SendTxReturnCode, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time) (err error, retryable bool) {
 	replacementAttempt, fee, feeLimit, retryable, err := eb.NewTxAttemptWithType(ctx, etx, lgr, attempt.TxType, feetypes.OptForceRefetch)
 	if err != nil {
 		return fmt.Errorf("tryAgainWithNewEstimation failed to build new attempt: %w", err), retryable
@@ -722,14 +705,20 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryA
 	lgr.Warnw("L2 rejected transaction due to incorrect fee, re-estimated and will try again",
 		"etxID", etx.ID, "err", err, "newGasPrice", fee, "newGasLimit", feeLimit)
 
-	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, fee, feeLimit, 0)
+	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, fee, feeLimit, 0, txError, errType)
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveTryAgainAttempt(ctx context.Context, lgr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], replacementAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time, newFee FEE, newFeeLimit uint64, retry int) (err error, retyrable bool) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveTryAgainAttempt(ctx context.Context, lgr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], replacementAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time, newFee FEE, newFeeLimit uint64, retry int, txError error, errType client.SendTxReturnCode) (err error, retyrable bool) {
 	if err = eb.txStore.SaveReplacementInProgressAttempt(ctx, attempt, &replacementAttempt); err != nil {
 		return fmt.Errorf("tryAgainWithNewFee failed: %w", err), true
 	}
 	lgr.Debugw("Bumped fee on initial send", "oldFee", attempt.TxFee.String(), "newFee", newFee.String(), "newFeeLimit", newFeeLimit)
+
+	// this avoids re-estimated insufficient fund tx gets processed immediately, we want to back off the tx when gas spikes
+	if errType == client.InsufficientFunds {
+		return txError, true
+	}
+
 	return eb.handleInProgressTx(ctx, etx, replacementAttempt, initialBroadcastAt, retry)
 }
 
