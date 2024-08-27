@@ -1483,6 +1483,7 @@ type Capabilities struct {
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.Peering.setFrom(&f.Peering)
 	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
+	c.Dispatcher.setFrom(&f.Dispatcher)
 }
 
 type ThresholdKeyShareSecrets struct {

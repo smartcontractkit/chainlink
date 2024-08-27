@@ -1233,6 +1233,60 @@ ChainID = '1' # Default
 ```
 ChainID identifies the target chain id where the remote registry is located.
 
+## Capabilities.Dispatcher
+```toml
+[Capabilities.Dispatcher]
+SupportedVersion = 1 # Default
+ReceiverBufferSize = 10000 # Default
+```
+
+
+### SupportedVersion
+```toml
+SupportedVersion = 1 # Default
+```
+SupportedVersion is the version of the dispatcher that the node supports.
+
+### ReceiverBufferSize
+```toml
+ReceiverBufferSize = 10000 # Default
+```
+ReceiverBufferSize is the size of the buffer for incoming messages.
+
+## Capabilities.Dispatcher.RateLimit
+```toml
+[Capabilities.Dispatcher.RateLimit]
+GlobalRPS = 800 # Default
+GlobalBurst = 1000 # Default
+PerSenderRPS = 5 # Example
+PerSenderBurst = 10 # Example
+```
+
+
+### GlobalRPS
+```toml
+GlobalRPS = 800 # Default
+```
+GlobalRPS is the global rate limit for the dispatcher.
+
+### GlobalBurst
+```toml
+GlobalBurst = 1000 # Default
+```
+GlobalBurst is the global burst limit for the dispatcher.
+
+### PerSenderRPS
+```toml
+PerSenderRPS = 5 # Example
+```
+PerSenderRPS is the per-sender rate limit for the dispatcher.
+
+### PerSenderBurst
+```toml
+PerSenderBurst = 10 # Example
+```
+PerSenderBurst is the per-sender burst limit for the dispatcher.
+
 ## Capabilities.Peering
 ```toml
 [Capabilities.Peering]

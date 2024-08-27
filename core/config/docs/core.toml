@@ -450,6 +450,22 @@ NetworkID = 'evm' # Default
 # ChainID identifies the target chain id where the remote registry is located.
 ChainID = '1' # Default
 
+[Capabilities.Dispatcher]
+# SupportedVersion is the version of the dispatcher that the node supports.
+SupportedVersion = 1 # Default
+# ReceiverBufferSize is the size of the buffer for incoming messages.
+ReceiverBufferSize = 10000 # Default
+
+[Capabilities.Dispatcher.RateLimit]
+# GlobalRPS is the global rate limit for the dispatcher.
+GlobalRPS = 800 # Default
+# GlobalBurst is the global burst limit for the dispatcher.
+GlobalBurst = 1000 # Default
+# PerSenderRPS is the per-sender rate limit for the dispatcher.
+PerSenderRPS = 5 # Example
+# PerSenderBurst is the per-sender burst limit for the dispatcher.
+PerSenderBurst = 10 # Example
+
 [Capabilities.Peering]
 # IncomingMessageBufferSize is the per-remote number of incoming
 # messages to buffer. Any additional messages received on top of those
