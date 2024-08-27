@@ -53,7 +53,7 @@ It's generally recommended to run only one test at a time on a local machine as 
 
 ### Configure Seth
 
-Our new evm client is Seth. Detailed instructions on how to configure it can be found in the [Seth README](./README_SETH.md) in this repo as well as in [Seth repository](https://github.com/smartcontractkit/seth).
+Our new evm client is Seth. Detailed instructions on how to configure it can be found in the [Seth README](./README_SETH.md) in this repo as well as in [Seth repository](https://github.com/smartcontractkit/chainlink-testing-framework/tree/main/seth).
 
 ## Analyze
 
