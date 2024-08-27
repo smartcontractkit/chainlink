@@ -96,7 +96,8 @@ func NewCommitOffchainConfig(
 	ExecGasPriceDeviationPPB uint32,
 	TokenPriceHeartBeat config.Duration,
 	TokenPriceDeviationPPB uint32,
-	InflightCacheExpiry config.Duration) CommitOffchainConfig {
+	InflightCacheExpiry config.Duration,
+	priceReportingDisabled bool) CommitOffchainConfig {
 	return CommitOffchainConfig{v1_2_0.JSONCommitOffchainConfig{
 		GasPriceHeartBeat:        GasPriceHeartBeat,
 		DAGasPriceDeviationPPB:   DAGasPriceDeviationPPB,
@@ -104,6 +105,7 @@ func NewCommitOffchainConfig(
 		TokenPriceHeartBeat:      TokenPriceHeartBeat,
 		TokenPriceDeviationPPB:   TokenPriceDeviationPPB,
 		InflightCacheExpiry:      InflightCacheExpiry,
+		PriceReportingDisabled:   priceReportingDisabled,
 	}}
 }
 
