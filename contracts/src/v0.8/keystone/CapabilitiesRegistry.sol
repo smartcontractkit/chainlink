@@ -396,7 +396,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param donId The ID of the DON the config was set for
   /// @param configCount The number of times the DON has been
   /// configured
-  event ConfigSet(uint32 donId, uint32 configCount);
+  event ConfigSet(uint32 indexed donId, uint32 configCount);
 
   /// @notice This event is emitted when a new node operator is added
   /// @param nodeOperatorId The ID of the newly added node operator
