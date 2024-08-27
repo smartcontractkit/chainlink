@@ -136,13 +136,12 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		var wg sync.WaitGroup
 		for i := 0; i < numberOfAttempts; i++ {
-			ch := make(chan *evmtypes.Head)
-			sub, err := rpc.SubscribeNewHead(tests.Context(t), ch)
+			_, sub, err := rpc.SubscribeToHeads(tests.Context(t))
 			require.NoError(t, err)
 			wg.Add(2)
 			go func() {
@@ -150,7 +149,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 				wg.Done()
 			}()
 			go func() {
-				rpc.UnsubscribeAllExceptAliveLoop()
+				rpc.UnsubscribeAllExcept(sub)
 				sub.Unsubscribe()
 				wg.Done()
 			}()

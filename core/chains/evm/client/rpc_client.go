@@ -274,14 +274,14 @@ func (r *RpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	return channel, forwarder, err
 }
 
-func (r *RpcClient) SubscribeToFinalizedHeads(_ context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
+func (r *RpcClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
 	interval := r.cfg.FinalizedBlockPollInterval()
 	if interval == 0 {
 		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
 	}
 	timeout := interval
 	poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.LatestFinalizedBlock, timeout, r.rpcLog)
-	if err := poller.Start(); err != nil {
+	if err := poller.Start(ctx); err != nil {
 		return nil, nil, err
 	}
 	return channel, &poller, nil
@@ -382,9 +382,9 @@ func (r *RpcClient) Close() {
 	}()
 	r.cancelInflightRequests()
 	r.UnsubscribeAllExcept()
-	r.stateMu.Lock()
+	r.chainInfoLock.Lock()
 	r.latestChainInfo = commonclient.ChainInfo{}
-	r.stateMu.Unlock()
+	r.chainInfoLock.Unlock()
 }
 
 // cancelInflightRequests closes and replaces the chStopInFlight
@@ -1301,8 +1301,8 @@ func (r *RpcClient) onNewHead(ctx context.Context, requestCh <-chan struct{}, he
 		return
 	}
 
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
+	r.chainInfoLock.Lock()
+	defer r.chainInfoLock.Unlock()
 	if !commonclient.CtxIsHeathCheckRequest(ctx) {
 		r.highestUserObservations.BlockNumber = max(r.highestUserObservations.BlockNumber, head.Number)
 		r.highestUserObservations.TotalDifficulty = commonclient.MaxTotalDifficulty(r.highestUserObservations.TotalDifficulty, head.TotalDifficulty)
@@ -1320,8 +1320,8 @@ func (r *RpcClient) onNewFinalizedHead(ctx context.Context, requestCh <-chan str
 	if head == nil {
 		return
 	}
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
+	r.chainInfoLock.Lock()
+	defer r.chainInfoLock.Unlock()
 	if !commonclient.CtxIsHeathCheckRequest(ctx) {
 		r.highestUserObservations.FinalizedBlockNumber = max(r.highestUserObservations.FinalizedBlockNumber, head.Number)
 	}
@@ -1334,8 +1334,8 @@ func (r *RpcClient) onNewFinalizedHead(ctx context.Context, requestCh <-chan str
 }
 
 func (r *RpcClient) GetInterceptedChainInfo() (latest, highestUserObservations commonclient.ChainInfo) {
-	r.stateMu.RLock()
-	defer r.stateMu.RUnlock()
+	r.chainInfoLock.Lock()
+	defer r.chainInfoLock.Unlock()
 	return r.latestChainInfo, r.highestUserObservations
 }
 
