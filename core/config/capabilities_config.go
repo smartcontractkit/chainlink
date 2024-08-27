@@ -13,6 +13,6 @@ type CapabilitiesExternalRegistry interface {
 
 type Capabilities interface {
 	Peering() P2P
-	// TODO: add Dispatcher Config here + all parsers, tests, README
+	Dispatcher() Dispatcher
 	ExternalRegistry() CapabilitiesExternalRegistry
 }

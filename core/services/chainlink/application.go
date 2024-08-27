@@ -213,8 +213,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), opts.DS, globalLogger)
 			signer := externalPeer
 			externalPeerWrapper = externalPeer
-			// TODO: pass new dispatcher config from TOML config: cfg.Capabilities().Dispatcher()
-			remoteDispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
+			remoteDispatcher, err := remote.NewDispatcher(cfg.Capabilities().Dispatcher(), externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
+			if err != nil {
+				return nil, fmt.Errorf("could not create dispatcher: %w", err)
+			}
 			dispatcher = remoteDispatcher
 		} else {
 			dispatcher = opts.CapabilitiesDispatcher

@@ -2,19 +2,22 @@ package remote
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	sync "sync"
+	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -24,11 +27,13 @@ var (
 
 // dispatcher en/decodes messages and routes traffic between peers and capabilities
 type dispatcher struct {
+	cfg         config.Dispatcher
 	peerWrapper p2ptypes.PeerWrapper
 	peer        p2ptypes.Peer
 	peerID      p2ptypes.PeerID
 	signer      p2ptypes.Signer
 	registry    core.CapabilitiesRegistry
+	rateLimiter *common.RateLimiter
 	receivers   map[key]*receiver
 	mu          sync.RWMutex
 	stopCh      services.StopChan
@@ -43,19 +48,26 @@ type key struct {
 
 var _ services.Service = &dispatcher{}
 
-// TODO read those and also new rate-limiter config from node's TOML config
-const supportedVersion = 1
-const receiverBufferSize = 10000
-
-func NewDispatcher(peerWrapper p2ptypes.PeerWrapper, signer p2ptypes.Signer, registry core.CapabilitiesRegistry, lggr logger.Logger) *dispatcher {
+func NewDispatcher(cfg config.Dispatcher, peerWrapper p2ptypes.PeerWrapper, signer p2ptypes.Signer, registry core.CapabilitiesRegistry, lggr logger.Logger) (*dispatcher, error) {
+	rl, err := common.NewRateLimiter(common.RateLimiterConfig{
+		GlobalRPS:      cfg.RateLimit().GlobalRPS(),
+		GlobalBurst:    cfg.RateLimit().GlobalBurst(),
+		PerSenderRPS:   cfg.RateLimit().RPS(),
+		PerSenderBurst: cfg.RateLimit().Burst(),
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create rate limiter")
+	}
 	return &dispatcher{
+		cfg:         cfg,
 		peerWrapper: peerWrapper,
 		signer:      signer,
 		registry:    registry,
+		rateLimiter: rl,
 		receivers:   make(map[key]*receiver),
 		stopCh:      make(services.StopChan),
 		lggr:        lggr.Named("Dispatcher"),
-	}
+	}, nil
 }
 
 func (d *dispatcher) Start(ctx context.Context) error {
@@ -100,7 +112,7 @@ func (d *dispatcher) SetReceiver(capabilityId string, donId uint32, rec types.Re
 		return fmt.Errorf("%w: receiver already exists for capability %s and don %d", ErrReceiverExists, capabilityId, donId)
 	}
 
-	receiverCh := make(chan *types.MessageBody, receiverBufferSize)
+	receiverCh := make(chan *types.MessageBody, d.cfg.ReceiverBufferSize())
 
 	ctx, cancelCtx := d.stopCh.NewCtx()
 	d.wg.Add(1)
@@ -139,7 +151,7 @@ func (d *dispatcher) RemoveReceiver(capabilityId string, donId uint32) {
 }
 
 func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
-	msgBody.Version = supportedVersion
+	msgBody.Version = uint32(d.cfg.SupportedVersion())
 	msgBody.Sender = d.peerID[:]
 	msgBody.Receiver = peerID[:]
 	msgBody.Timestamp = time.Now().UnixMilli()
@@ -167,7 +179,11 @@ func (d *dispatcher) receive() {
 			d.lggr.Info("stopped - exiting receive")
 			return
 		case msg := <-recvCh:
-			// TODO: apply rate-limiting per msg.Sender using rate.NewLimiter()
+			if !d.rateLimiter.Allow(msg.Sender.String()) {
+				d.lggr.Debugw("rate limit exceeded, dropping message", "sender", msg.Sender)
+				// TODO: do we just drop the message, or do we need to respond with an error?
+				continue
+			}
 			body, err := ValidateMessage(msg, d.peerID)
 			if err != nil {
 				d.lggr.Debugw("received invalid message", "error", err)
@@ -184,7 +200,7 @@ func (d *dispatcher) receive() {
 				continue
 			}
 
-			receiverQueueUsage := float64(len(receiver.ch)) / receiverBufferSize
+			receiverQueueUsage := float64(len(receiver.ch)) / float64(d.cfg.ReceiverBufferSize())
 			capReceiveChannelUsage.WithLabelValues(k.capId, fmt.Sprint(k.donId)).Set(receiverQueueUsage)
 			select {
 			case receiver.ch <- body:
