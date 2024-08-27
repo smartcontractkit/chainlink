@@ -834,6 +834,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	sourceWrapped, err := weth9.NewWETH9(sourceWeth9addr, sourceChain.Client())
 	require.NoError(t, err)
+	sourceChain.Commit()
 
 	sourceRouterAddress, _, _, err := router.DeployRouter(sourceUser, sourceChain.Client(), sourceWeth9addr, armProxySourceAddress)
 	require.NoError(t, err)
@@ -914,6 +915,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		},
 	})
 	require.NoError(t, err)
+	sourceChain.Commit()
 
 	onRampAddress, _, _, err := evm_2_evm_onramp.DeployEVM2EVMOnRamp(
 		sourceUser,           // user
@@ -985,6 +987,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	onRamp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(onRampAddress, sourceChain.Client())
 	require.NoError(t, err)
+	sourceChain.Commit()
 	_, err = sourcePool.ApplyChainUpdates(
 		sourceUser,
 		[]lock_release_token_pool.TokenPoolChainUpdate{{
@@ -1023,7 +1026,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	destWrapped, err := weth9.NewWETH9(destWethaddr, destChain.Client())
 	require.NoError(t, err)
-
+	destChain.Commit()
 	// Create dest router
 	destRouterAddress, _, _, err := router.DeployRouter(destUser, destChain.Client(), destWethaddr, armProxyDestAddress)
 	require.NoError(t, err)
@@ -1058,8 +1061,10 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.Equal(t, destUser.From.String(), o.String())
 	_, err = destPool.SetRebalancer(destUser, destUser.From)
 	require.NoError(t, err)
+	destChain.Commit()
 	_, err = destLinkToken.Approve(destUser, destPoolAddress, Link(200))
 	require.NoError(t, err)
+	destChain.Commit()
 	_, err = destPool.ProvideLiquidity(destUser, Link(200))
 	require.NoError(t, err)
 	destChain.Commit()
@@ -1074,6 +1079,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	destWrappedPool, err := lock_release_token_pool_1_0_0.NewLockReleaseTokenPool(destWrappedPoolAddress, destChain.Client())
 	require.NoError(t, err)
+	destChain.Commit()
 
 	poolFloatValue := big.NewInt(1e18)
 
@@ -1098,6 +1104,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	destPriceRegistry, err := price_registry_1_2_0.NewPriceRegistry(destPricesAddress, destChain.Client())
 	require.NoError(t, err)
+	destChain.Commit()
 
 	// Deploy commit store.
 	commitStoreAddress, _, _, err := commit_store_1_2_0.DeployCommitStore(
@@ -1137,6 +1144,8 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	offRamp, err := evm_2_evm_offramp.NewEVM2EVMOffRamp(offRampAddress, destChain.Client())
 	require.NoError(t, err)
+	destChain.Commit()
+
 	_, err = destPool.ApplyChainUpdates(destUser,
 		[]lock_release_token_pool.TokenPoolChainUpdate{{
 			RemoteChainSelector: sourceChainSelector,

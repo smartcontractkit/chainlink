@@ -653,8 +653,10 @@ func SetAdminAndRegisterPool(t *testing.T,
 	poolAddress common.Address) {
 	_, err := tokenAdminRegistry.ProposeAdministrator(user, tokenAddress, user.From)
 	require.NoError(t, err)
+	chain.Commit()
 	_, err = tokenAdminRegistry.AcceptAdminRole(user, tokenAddress)
 	require.NoError(t, err)
+	chain.Commit()
 	_, err = tokenAdminRegistry.SetPool(user, tokenAddress, poolAddress)
 	require.NoError(t, err)
 
@@ -843,8 +845,10 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.Equal(t, destUser.From.String(), o.String())
 	_, err = destLinkPool.SetRebalancer(destUser, destUser.From)
 	require.NoError(t, err)
+	destChain.Commit()
 	_, err = destLinkToken.Approve(destUser, destPoolLinkAddress, Link(200))
 	require.NoError(t, err)
+	destChain.Commit()
 	_, err = destLinkPool.ProvideLiquidity(destUser, Link(200))
 	require.NoError(t, err)
 	destChain.Commit()

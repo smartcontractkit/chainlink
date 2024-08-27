@@ -19,7 +19,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
@@ -92,7 +92,7 @@ func detectPanicLogs(t *testing.T, logObservers []*observer.ObservedLogs) {
 
 func setupBlockchain(t *testing.T) (*bind.TransactOpts, *simulated.Backend, *verifier.Verifier, common.Address) {
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
-	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
+	genesisData := types.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
 	backend.Commit()                                          // ensure starting block number at least 1
 	commit, stopMining := cltest.Mine(backend, 1*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
@@ -101,24 +101,35 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *simulated.Backend, *ver
 	// Deploy contracts
 	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(steve, backend.Client())
 	require.NoError(t, err)
+	commit()
 	_, err = linkToken.Transfer(steve, steve.From, big.NewInt(1000))
 	require.NoError(t, err)
+	commit()
 	nativeTokenAddress, _, nativeToken, err := link_token_interface.DeployLinkToken(steve, backend.Client())
 	require.NoError(t, err)
+	commit()
+
 	_, err = nativeToken.Transfer(steve, steve.From, big.NewInt(1000))
 	require.NoError(t, err)
+	commit()
 	verifierProxyAddr, _, verifierProxy, err := verifier_proxy.DeployVerifierProxy(steve, backend.Client(), common.Address{}) // zero address for access controller disables access control
 	require.NoError(t, err)
+	commit()
 	verifierAddress, _, verifier, err := verifier.DeployVerifier(steve, backend.Client(), verifierProxyAddr)
 	require.NoError(t, err)
+	commit()
 	_, err = verifierProxy.InitializeVerifier(steve, verifierAddress)
 	require.NoError(t, err)
+	commit()
 	rewardManagerAddr, _, rewardManager, err := reward_manager.DeployRewardManager(steve, backend.Client(), linkTokenAddress)
 	require.NoError(t, err)
+	commit()
 	feeManagerAddr, _, _, err := fee_manager.DeployFeeManager(steve, backend.Client(), linkTokenAddress, nativeTokenAddress, verifierProxyAddr, rewardManagerAddr)
 	require.NoError(t, err)
+	commit()
 	_, err = verifierProxy.SetFeeManager(steve, feeManagerAddr)
 	require.NoError(t, err)
+	commit()
 	_, err = rewardManager.SetFeeManager(steve, feeManagerAddr)
 	require.NoError(t, err)
 	commit()
