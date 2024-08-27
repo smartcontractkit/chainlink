@@ -14,10 +14,8 @@ packages:
       NodeSelector:
       sendOnlyClient:
       SendOnlyNode:
-      RPC:
       RPCClient:
       Head:
-      NodeClient:
       PoolChainInfoProvider:
   github.com/smartcontractkit/chainlink/v2/common/headtracker:
     interfaces:

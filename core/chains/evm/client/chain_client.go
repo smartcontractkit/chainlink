@@ -183,9 +183,6 @@ func (c *chainClient) BatchCallContextAll(ctx context.Context, b []ethrpc.BatchE
 
 	// Select main RPC to use for return value
 	main, selectionErr := c.multiNode.SelectRPC()
-	if selectionErr != nil {
-		return selectionErr
-	}
 
 	doFunc := func(ctx context.Context, rpc *RpcClient, isSendOnly bool) {
 		if rpc == main {
@@ -207,6 +204,11 @@ func (c *chainClient) BatchCallContextAll(ctx context.Context, b []ethrpc.BatchE
 	if err := c.multiNode.DoAll(ctx, doFunc); err != nil {
 		return err
 	}
+
+	if selectionErr != nil {
+		return selectionErr
+	}
+
 	return main.BatchCallContext(ctx, b)
 }
 

@@ -3,6 +3,7 @@ package client_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http/httptest"
@@ -739,6 +740,54 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 		require.Zero(t, chainId.Cmp(h.EVMChainID.ToInt()))
 	}
 	sub.Unsubscribe()
+}
+
+func TestEthClient_BatchCallContext(t *testing.T) {
+	t.Parallel()
+
+	t.Run("batch requests return errors", func(t *testing.T) {
+		rpcError := errors.New("something went wrong")
+		b := []rpc.BatchElem{
+			{
+				Method: "eth_call",
+				Args:   []interface{}{0},
+				Result: "",
+			},
+			{
+				Method: "eth_call",
+				Args:   []interface{}{1},
+				Result: "",
+			},
+		}
+
+		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			fmt.Printf("Handling method: %s with params: %s\n", method, params.String())
+			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = headResult
+				return
+			case "eth_unsubscribe":
+				resp.Result = "true"
+				return
+			}
+			require.Equal(t, "eth_call", method)
+			resp.Error.Code = -1
+			resp.Error.Message = rpcError.Error()
+			resp.Result = ""
+			return
+		}).WSURL().String()
+
+		ethClient := mustNewChainClient(t, wsURL)
+		err := ethClient.Dial(tests.Context(t))
+		require.NoError(t, err)
+
+		err = ethClient.BatchCallContext(context.Background(), b)
+		require.NoError(t, err)
+		for _, elem := range b {
+			require.Equal(t, elem.Error.Error(), rpcError.Error())
+		}
+	})
 }
 
 func TestEthClient_ErroringClient(t *testing.T) {
