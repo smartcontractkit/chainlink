@@ -91,9 +91,9 @@ func NewPriceRegistry(lggr logger.Logger, priceRegistryAddr common.Address, lp l
 		evmBatchCaller: rpclib.NewDynamicLimitedBatchCaller(
 			lggr,
 			ec,
-			rpclib.DefaultRPCBatchSizeLimit,
-			rpclib.DefaultRPCBatchBackOffMultiplier,
-			rpclib.DefaultMaxParallelRPCCalls,
+			rpclib.DefaultRpcBatchSizeLimit,
+			rpclib.DefaultRpcBatchBackOffMultiplier,
+			rpclib.DefaultMaxParallelRpcCalls,
 		),
 		lggr:            lggr,
 		gasUpdated:      UsdPerUnitGasUpdated,

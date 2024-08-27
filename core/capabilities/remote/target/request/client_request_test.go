@@ -96,7 +96,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	msg := &types.MessageBody{
 		CapabilityId:    capInfo.ID,
 		CapabilityDonId: capDonInfo.ID,
-		CallerDonID:     workflowDonInfo.ID,
+		CallerDonId:     workflowDonInfo.ID,
 		Method:          types.MethodExecute,
 		Payload:         rawResponse,
 		MessageId:       []byte("messageID"),
@@ -125,7 +125,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		msg2 := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
 			CapabilityDonId: capDonInfo.ID,
-			CallerDonID:     workflowDonInfo.ID,
+			CallerDonId:     workflowDonInfo.ID,
 			Method:          types.MethodExecute,
 			Payload:         rawResponse2,
 			MessageId:       []byte("messageID"),
@@ -212,7 +212,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		msgWithError := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
 			CapabilityDonId: capDonInfo.ID,
-			CallerDonID:     workflowDonInfo.ID,
+			CallerDonId:     workflowDonInfo.ID,
 			Method:          types.MethodExecute,
 			Payload:         rawResponse,
 			MessageId:       []byte("messageID"),
@@ -250,7 +250,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		msgWithError := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
 			CapabilityDonId: capDonInfo.ID,
-			CallerDonID:     workflowDonInfo.ID,
+			CallerDonId:     workflowDonInfo.ID,
 			Method:          types.MethodExecute,
 			Payload:         rawResponse,
 			MessageId:       []byte("messageID"),
@@ -262,7 +262,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		msgWithError2 := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
 			CapabilityDonId: capDonInfo.ID,
-			CallerDonID:     workflowDonInfo.ID,
+			CallerDonId:     workflowDonInfo.ID,
 			Method:          types.MethodExecute,
 			Payload:         rawResponse,
 			MessageId:       []byte("messageID"),

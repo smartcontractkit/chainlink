@@ -29,18 +29,18 @@ type BatchSender interface {
 }
 
 const (
-	// DefaultRPCBatchSizeLimit defines the maximum number of rpc requests to be included in a batch.
-	DefaultRPCBatchSizeLimit = 100
+	// DefaultRpcBatchSizeLimit defines the maximum number of rpc requests to be included in a batch.
+	DefaultRpcBatchSizeLimit = 100
 
-	// DefaultRPCBatchBackOffMultiplier defines the rate of reducing the batch size limit for retried calls.
+	// DefaultRpcBatchBackOffMultiplier defines the rate of reducing the batch size limit for retried calls.
 	// For example if limit is 20 and multiplier is 4:
 	// 1.        20
 	// 2. 20/4 = 5
 	// 3. 5/4  = 1
-	DefaultRPCBatchBackOffMultiplier = 5
+	DefaultRpcBatchBackOffMultiplier = 5
 
-	// DefaultMaxParallelRPCCalls defines the default maximum number of individual in-parallel rpc calls.
-	DefaultMaxParallelRPCCalls = 10
+	// DefaultMaxParallelRpcCalls defines the default maximum number of individual in-parallel rpc calls.
+	DefaultMaxParallelRpcCalls = 10
 )
 
 // DynamicLimitedBatchCaller makes batched rpc calls and perform retries by reducing the batch size on each retry.
@@ -74,17 +74,17 @@ type defaultEvmBatchCaller struct {
 func newDefaultEvmBatchCaller(
 	lggr logger.Logger, batchSender BatchSender, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint,
 ) *defaultEvmBatchCaller {
-	batchSize := uint(DefaultRPCBatchSizeLimit)
+	batchSize := uint(DefaultRpcBatchSizeLimit)
 	if batchSizeLimit > 0 {
 		batchSize = batchSizeLimit
 	}
 
-	multiplier := uint(DefaultRPCBatchBackOffMultiplier)
+	multiplier := uint(DefaultRpcBatchBackOffMultiplier)
 	if backOffMultiplier > 0 {
 		multiplier = backOffMultiplier
 	}
 
-	parallelRpcCalls := uint(DefaultMaxParallelRPCCalls)
+	parallelRpcCalls := uint(DefaultMaxParallelRpcCalls)
 	if parallelRpcCallsLimit > 0 {
 		parallelRpcCalls = parallelRpcCallsLimit
 	}

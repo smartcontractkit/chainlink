@@ -487,8 +487,8 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 
 type AuditLogger struct {
 	Enabled        *bool
-	ForwardToURL   *commonconfig.URL
-	JSONWrapperKey *string
+	ForwardToUrl   *commonconfig.URL
+	JsonWrapperKey *string
 	Headers        *[]models.ServiceHeader
 }
 
@@ -496,11 +496,11 @@ func (p *AuditLogger) SetFrom(f *AuditLogger) {
 	if v := f.Enabled; v != nil {
 		p.Enabled = v
 	}
-	if v := f.ForwardToURL; v != nil {
-		p.ForwardToURL = v
+	if v := f.ForwardToUrl; v != nil {
+		p.ForwardToUrl = v
 	}
-	if v := f.JSONWrapperKey; v != nil {
-		p.JSONWrapperKey = v
+	if v := f.JsonWrapperKey; v != nil {
+		p.JsonWrapperKey = v
 	}
 	if v := f.Headers; v != nil {
 		p.Headers = v

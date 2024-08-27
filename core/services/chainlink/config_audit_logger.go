@@ -16,7 +16,7 @@ func (a auditLoggerConfig) Enabled() bool {
 }
 
 func (a auditLoggerConfig) ForwardToUrl() (commonconfig.URL, error) {
-	return *a.c.ForwardToURL, nil
+	return *a.c.ForwardToUrl, nil
 }
 
 func (a auditLoggerConfig) Environment() string {
@@ -27,7 +27,7 @@ func (a auditLoggerConfig) Environment() string {
 }
 
 func (a auditLoggerConfig) JsonWrapperKey() string {
-	return *a.c.JSONWrapperKey
+	return *a.c.JsonWrapperKey
 }
 
 func (a auditLoggerConfig) Headers() (models.ServiceHeaders, error) {

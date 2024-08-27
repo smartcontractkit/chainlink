@@ -52,7 +52,7 @@ var (
 			RootDir: ptr("my/root/dir"),
 			AuditLogger: toml.AuditLogger{
 				Enabled:      ptr(true),
-				ForwardToURL: mustURL("http://localhost:9898"),
+				ForwardToUrl: mustURL("http://localhost:9898"),
 				Headers: ptr([]models.ServiceHeader{
 					{
 						Header: "Authorization",
@@ -63,7 +63,7 @@ var (
 						Value:  "value with spaces | and a bar+*",
 					},
 				}),
-				JSONWrapperKey: ptr("event"),
+				JsonWrapperKey: ptr("event"),
 			},
 			Database: toml.Database{
 				Listener: toml.DatabaseListener{
@@ -252,9 +252,9 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.AuditLogger = toml.AuditLogger{
 		Enabled:        ptr(true),
-		ForwardToURL:   mustURL("http://localhost:9898"),
+		ForwardToUrl:   mustURL("http://localhost:9898"),
 		Headers:        ptr(serviceHeaders),
-		JSONWrapperKey: ptr("event"),
+		JsonWrapperKey: ptr("event"),
 	}
 
 	full.Feature = toml.Feature{
@@ -766,8 +766,8 @@ test = 'load'
 `},
 		{"AuditLogger", Config{Core: toml.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
 Enabled = true
-ForwardToURL = 'http://localhost:9898'
-JSONWrapperKey = 'event'
+ForwardToUrl = 'http://localhost:9898'
+JsonWrapperKey = 'event'
 Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*']
 `},
 		{"Feature", Config{Core: toml.Core{Feature: full.Feature}}, `[Feature]

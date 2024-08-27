@@ -95,9 +95,9 @@ func NewCommitServices(ctx context.Context, ds sqlutil.DataSource, srcProvider c
 			caller := rpclib.NewDynamicLimitedBatchCaller(
 				lggr,
 				chain.Client(),
-				rpclib.DefaultRPCBatchSizeLimit,
-				rpclib.DefaultRPCBatchBackOffMultiplier,
-				rpclib.DefaultMaxParallelRPCCalls,
+				rpclib.DefaultRpcBatchSizeLimit,
+				rpclib.DefaultRpcBatchBackOffMultiplier,
+				rpclib.DefaultMaxParallelRpcCalls,
 			)
 			priceGetterClients[chainID] = pricegetter.NewDynamicPriceGetterClient(caller)
 		}
