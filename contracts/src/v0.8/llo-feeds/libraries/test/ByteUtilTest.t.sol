@@ -15,7 +15,7 @@ contract ByteUtilTest is Test {
 
   bytes4 internal constant MALFORMED_ERROR_SELECTOR = bytes4(keccak256("MalformedData()"));
 
-  function test_readUint256Max() public {
+  function test_readUint256Max() public pure {
     //read the first 32 bytes
     uint256 result = B_512._readUint256(0);
 
@@ -23,7 +23,7 @@ contract ByteUtilTest is Test {
     assertEq(result, type(uint256).max);
   }
 
-  function test_readUint192Max() public {
+  function test_readUint192Max() public pure {
     //read the first 24 bytes
     uint256 result = B_512._readUint192(0);
 
@@ -31,7 +31,7 @@ contract ByteUtilTest is Test {
     assertEq(result, type(uint192).max);
   }
 
-  function test_readUint32Max() public {
+  function test_readUint32Max() public pure {
     //read the first 4 bytes
     uint256 result = B_512._readUint32(0);
 
@@ -39,7 +39,7 @@ contract ByteUtilTest is Test {
     assertEq(result, type(uint32).max);
   }
 
-  function test_readUint256Min() public {
+  function test_readUint256Min() public pure {
     //read the second 32 bytes
     uint256 result = B_512._readUint256(32);
 
@@ -47,7 +47,7 @@ contract ByteUtilTest is Test {
     assertEq(result, type(uint256).min);
   }
 
-  function test_readUint192Min() public {
+  function test_readUint192Min() public pure {
     //read the second 24 bytes
     uint256 result = B_512._readUint192(32);
 
@@ -55,7 +55,7 @@ contract ByteUtilTest is Test {
     assertEq(result, type(uint192).min);
   }
 
-  function test_readUint32Min() public {
+  function test_readUint32Min() public pure {
     //read the second 4 bytes
     uint256 result = B_512._readUint32(32);
 
@@ -63,7 +63,7 @@ contract ByteUtilTest is Test {
     assertEq(result, type(uint32).min);
   }
 
-  function test_readUint256MultiWord() public {
+  function test_readUint256MultiWord() public pure {
     //read the first 32 bytes
     uint256 result = B_512._readUint256(31);
 
@@ -71,7 +71,7 @@ contract ByteUtilTest is Test {
     assertEq(result, type(uint256).max << 248);
   }
 
-  function test_readUint192MultiWord() public {
+  function test_readUint192MultiWord() public pure {
     //read the first 24 bytes
     uint256 result = B_512._readUint192(31);
 
@@ -79,7 +79,7 @@ contract ByteUtilTest is Test {
     assertEq(result, type(uint192).max << 184);
   }
 
-  function test_readUint32MultiWord() public {
+  function test_readUint32MultiWord() public pure {
     //read the first 4 bytes
     uint256 result = B_512._readUint32(31);
 
@@ -135,7 +135,7 @@ contract ByteUtilTest is Test {
     B_EMPTY._readUint32(0);
   }
 
-  function test_readAddress() public {
+  function test_readAddress() public pure {
     //read the first 20 bytes
     address result = B_512._readAddress(0);
 
@@ -143,7 +143,7 @@ contract ByteUtilTest is Test {
     assertEq(result, address(type(uint160).max));
   }
 
-  function test_readZeroAddress() public {
+  function test_readZeroAddress() public pure {
     //read the first 32 bytes after the first word
     address result = B_512._readAddress(32);
 
@@ -151,7 +151,7 @@ contract ByteUtilTest is Test {
     assertEq(result, address(type(uint160).min));
   }
 
-  function test_readAddressMultiWord() public {
+  function test_readAddressMultiWord() public pure {
     //read the first 20 bytes after byte 13
     address result = B_512._readAddress(13);
 

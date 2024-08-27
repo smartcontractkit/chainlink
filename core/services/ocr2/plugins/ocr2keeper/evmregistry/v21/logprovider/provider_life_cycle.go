@@ -10,6 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
 
@@ -106,7 +108,7 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 	if err != nil {
 		return fmt.Errorf("failed to get latest block while registering filter: %w", err)
 	}
-	lggr := p.lggr.With("upkeepID", ufilter.upkeepID.String())
+	lggr := logger.With(p.lggr, "upkeepID", ufilter.upkeepID.String())
 	logPollerHasFilter := p.poller.HasFilter(lpFilter.Name)
 	filterStoreHasFilter := p.filterStore.Has(ufilter.upkeepID)
 	if filterStoreHasFilter {

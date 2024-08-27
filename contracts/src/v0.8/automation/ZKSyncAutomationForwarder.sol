@@ -2,16 +2,19 @@
 pragma solidity ^0.8.16;
 
 import {IAutomationRegistryConsumer} from "./interfaces/IAutomationRegistryConsumer.sol";
+import {GAS_BOUND_CALLER, IGasBoundCaller} from "./interfaces/zksync/IGasBoundCaller.sol";
 
-uint256 constant PERFORM_GAS_CUSHION = 5_000;
+uint256 constant PERFORM_GAS_CUSHION = 50_000;
 
 /**
- * @title AutomationForwarder is a relayer that sits between the registry and the customer's target contract
+ * @title ZKSyncAutomationForwarder is a relayer that sits between the registry and the customer's target contract
  * @dev The purpose of the forwarder is to give customers a consistent address to authorize against,
  * which stays consistent between migrations. The Forwarder also exposes the registry address, so that users who
  * want to programmatically interact with the registry (ie top up funds) can do so.
  */
 contract ZKSyncAutomationForwarder {
+  error InvalidCaller(address);
+
   /// @notice the user's target contract address
   address private immutable i_target;
 
@@ -31,11 +34,14 @@ contract ZKSyncAutomationForwarder {
    * @param gasAmount is the amount of gas to use in the call
    * @param data is the 4 bytes function selector + arbitrary function data
    * @return success indicating whether the target call succeeded or failed
+   * @return gasUsed the total gas used from this forwarding call
    */
   function forward(uint256 gasAmount, bytes memory data) external returns (bool success, uint256 gasUsed) {
-    if (msg.sender != address(s_registry)) revert();
+    if (msg.sender != address(s_registry)) revert InvalidCaller(msg.sender);
+
+    uint256 g1 = gasleft();
     address target = i_target;
-    gasUsed = gasleft();
+
     assembly {
       let g := gas()
       // Compute g -= PERFORM_GAS_CUSHION and check for underflow
@@ -52,10 +58,18 @@ contract ZKSyncAutomationForwarder {
       if iszero(extcodesize(target)) {
         revert(0, 0)
       }
-      // call with exact gas
-      success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
     }
-    gasUsed = gasUsed - gasleft();
+
+    bytes memory returnData;
+    // solhint-disable-next-line avoid-low-level-calls
+    (success, returnData) = GAS_BOUND_CALLER.delegatecall{gas: gasAmount}(
+      abi.encodeWithSelector(IGasBoundCaller.gasBoundCall.selector, target, gasAmount, data)
+    );
+    uint256 pubdataGasSpent;
+    if (success) {
+      (, pubdataGasSpent) = abi.decode(returnData, (bytes, uint256));
+    }
+    gasUsed = g1 - gasleft() + pubdataGasSpent;
     return (success, gasUsed);
   }
 
@@ -63,7 +77,8 @@ contract ZKSyncAutomationForwarder {
     return i_target;
   }
 
-  fallback() external {
+  // solhint-disable-next-line no-complex-fallback
+  fallback() external payable {
     // copy to memory for assembly access
     address logic = i_logic;
     // copied directly from OZ's Proxy contract

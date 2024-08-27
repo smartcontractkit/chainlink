@@ -196,9 +196,11 @@ func TestEvmWrite(t *testing.T) {
 		require.Equal(t, signatures, payload["signatures"])
 	}).Once()
 
+	defaultGasLimit := uint64(400_000)
+
 	t.Run("succeeds with valid report", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		capability, err := evm.NewWriteTarget(ctx, relayer, chain, lggr)
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, defaultGasLimit, lggr)
 		require.NoError(t, err)
 
 		req := capabilities.CapabilityRequest{
@@ -216,7 +218,7 @@ func TestEvmWrite(t *testing.T) {
 
 	t.Run("fails with invalid config", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		capability, err := evm.NewWriteTarget(ctx, relayer, chain, logger.TestLogger(t))
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, defaultGasLimit, logger.TestLogger(t))
 		require.NoError(t, err)
 
 		invalidConfig, err := values.NewMap(map[string]any{
@@ -236,7 +238,7 @@ func TestEvmWrite(t *testing.T) {
 
 	t.Run("fails when TXM CreateTransaction returns error", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		capability, err := evm.NewWriteTarget(ctx, relayer, chain, logger.TestLogger(t))
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, defaultGasLimit, logger.TestLogger(t))
 		require.NoError(t, err)
 
 		req := capabilities.CapabilityRequest{

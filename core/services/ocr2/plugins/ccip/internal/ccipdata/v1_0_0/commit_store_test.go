@@ -8,12 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestCommitReportEncoding(t *testing.T) {
@@ -35,7 +35,7 @@ func TestCommitReportEncoding(t *testing.T) {
 		Interval:   cciptypes.CommitStoreInterval{Min: 1, Max: 10},
 	}
 
-	c, err := NewCommitStore(logger.TestLogger(t), utils.RandomAddress(), nil, mocks.NewLogPoller(t))
+	c, err := NewCommitStore(logger.Test(t), utils.RandomAddress(), nil, mocks.NewLogPoller(t))
 	assert.NoError(t, err)
 
 	encodedReport, err := c.EncodeCommitReport(ctx, report)
