@@ -560,17 +560,17 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	case client.Underpriced:
 		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt, retryCount+1)
 	case client.InsufficientFunds:
-		// NOTE: This bails out of the entire cycle and essentially "blocks" on
+		// NOTE: For EIP-1559 transactions, this bails out of the entire cycle and essentially "blocks" on
 		// any transaction that gets insufficient_funds. This is OK if a
 		// transaction with a large VALUE blocks because this always comes last
 		// in the processing list.
 		// If it blocks because of a transaction that is expensive due to large
 		// gas limit, we could have smaller transactions "above" it that could
 		// theoretically be sent, but will instead be blocked.
+
+		// NOTE: For non-EIP-1559 transactions, replacing existing attempt with a new gas estimation to overcome the occasional gas spike
 		eb.SvcErrBuffer.Append(err)
 		if attempt.TxType != 0x2 {
-			// NOTE: Replacing existing attempt with a new gas estimation to overcome the occasional gas spike
-			// can't re-estimate type-2 tx due since it's not supported
 			return eb.tryAgainWithNewEstimation(ctx, lgr, err, etx, attempt, initialBroadcastAt)
 		}
 
