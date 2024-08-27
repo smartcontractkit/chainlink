@@ -570,7 +570,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		eb.SvcErrBuffer.Append(err)
 		if attempt.TxType != 0x2 {
 			// NOTE: Replacing existing attempt with a new gas estimation to overcome the occasional gas spike
-			// no need for type-2 tx due to re-estimation is not supported
+			// can't re-estimate type-2 tx due since it's not supported
 			return eb.tryAgainWithNewEstimation(ctx, lgr, err, etx, attempt, initialBroadcastAt)
 		}
 
