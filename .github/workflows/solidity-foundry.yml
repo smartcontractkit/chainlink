@@ -35,7 +35,7 @@ jobs:
             { "name": "liquiditymanager", "setup": { "run-coverage": true, "min-coverage": 46.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "llo-feeds", "setup": { "run-coverage": true, "min-coverage": 49.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "operatorforwarder", "setup": { "run-coverage": true, "min-coverage": 55.7, "run-gas-snapshot": true, "run-forge-fmt": false }},
-            { "name": "shared", "setup": { "run-coverage": true, "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*'", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "transmission", "setup": { "run-coverage": true, "min-coverage": 65.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "vrf", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }}
           ]
@@ -62,13 +62,14 @@ jobs:
       sol_modified_added_files: ${{ steps.changes.outputs.sol_files }}
       sol_mod_only: ${{ steps.changes.outputs.sol_mod_only }}
       sol_mod_only_files: ${{ steps.changes.outputs.sol_mod_only_files }}
-      not_test_sol_modified: ${{ steps.changes.outputs.not_test_sol }}
-      not_test_sol_modified_files: ${{ steps.changes.outputs.not_test_sol_files }}
+      not_test_sol_modified: ${{ steps.changes-non-test.outputs.not_test_sol }}
+      not_test_sol_modified_files: ${{ steps.changes-non-test.outputs.not_test_sol_files }}
       all_changes: ${{ steps.changes.outputs.changes }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      - name: Detect changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
           list-files: 'shell'
@@ -110,6 +111,26 @@ jobs:
               - 'contracts/src/v0.8/vendor/**/*.sol'
             transmission:
               - 'contracts/src/v0.8/transmission/**/*.sol'
+
+      - name: Detect non-test changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes-non-test
+        with:
+          list-files: 'shell'
+          # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
+          predicate-quantifier: every
+          filters: |
+            not_test_sol:
+              - modified|added: 'contracts/src/v0.8/**/!(*.t).sol'
+              - '!contracts/src/v0.8/**/test/**'
+              - '!contracts/src/v0.8/**/tests/**'
+              - '!contracts/src/v0.8/**/mock/**'
+              - '!contracts/src/v0.8/**/mocks/**'
+              - '!contracts/src/v0.8/**/*.t.sol'
+              - '!contracts/src/v0.8/*.t.sol'
+              - '!contracts/src/v0.8/**/testhelpers/**'
+              - '!contracts/src/v0.8/testhelpers/**'
+              - '!contracts/src/v0.8/vendor/**'     
 
   tests:
     if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified_added == 'true' }}
@@ -198,7 +219,13 @@ jobs:
           || needs.changes.outputs.non_src_changes == 'true')
           && matrix.product.setup.run-coverage }}
         working-directory: contracts
-        run: forge coverage --report lcov
+        shell: bash
+        run: |
+          if [[ -n "${{ matrix.product.setup.extra-coverage-params }}" ]]; then
+            forge coverage --report lcov ${{ matrix.product.setup.extra-coverage-params }}
+          else
+            forge coverage --report lcov
+          fi
         env:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 

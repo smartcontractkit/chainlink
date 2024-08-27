@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/wasp"
@@ -72,9 +72,9 @@ func TestVRFV2Performance(t *testing.T) {
 		Uint16("RandomnessRequestCountPerRequestDeviation", *vrfv2Config.General.RandomnessRequestCountPerRequestDeviation).
 		Bool("UseExistingEnv", *vrfv2Config.General.UseExistingEnv).
 		Msg("Performance Test Configuration")
+
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
-		require.NoError(t, err, "Getting Seth client shouldn't fail")
 
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
@@ -309,7 +309,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		wgBlockNumberTobe.Add(1)
 		//Wait at least 256 blocks
 		latestBlockNumber, err := sethClient.Client.BlockNumber(testcontext.Get(t))
-		require.NoError(t, err)
+		require.NoError(t, err, "error getting latest block number")
 		_, err = actions.WaitForBlockNumberToBe(
 			testcontext.Get(t),
 			latestBlockNumber+uint64(257),

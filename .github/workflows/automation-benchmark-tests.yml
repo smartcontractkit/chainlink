@@ -16,6 +16,11 @@ on:
         required: true
         default: U02Q14G80TY
         type: string
+      test_secrets_override_key:
+        description: 'Key to run tests with custom test secrets'
+        required: false
+        type: string 
+
 jobs:
   automation_benchmark:
     environment: integration
@@ -80,6 +85,7 @@ jobs:
         with:
           test_command_to_run: cd integration-tests && go test -timeout 30m -v -run ^TestAutomationBenchmark$ ./benchmark -count=1
           test_download_vendor_packages_command: make gomod
+          test_secrets_override_base64: ${{ secrets[inputs.test_secrets_override_key] }}
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           token: ${{ secrets.GITHUB_TOKEN }}

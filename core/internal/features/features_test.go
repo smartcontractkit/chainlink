@@ -41,6 +41,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -57,7 +58,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/multiwordconsumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -74,6 +74,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )

@@ -389,7 +389,7 @@ func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64,
 		e.lggr.Debugw("estimated gas limit with buffer exceeds the provided gas limit with multiplier. falling back to the provided gas limit with multiplier", "estimatedGasLimit", estimatedFeeLimit, "providedGasLimitWithMultiplier", providedGasLimit)
 		estimatedFeeLimit = providedGasLimit
 	}
-	
+
 	return
 }
 
