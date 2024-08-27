@@ -29,11 +29,14 @@ on:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
         required: false
         type: string
-      # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392
-      # test_config_override_base64:
-      #   required: false
-      #   description: The base64-encoded test config override
-      #   type: string
+      test_config_override_base64:
+        required: false
+        description: The base64-encoded test config override
+        type: string
+      test_type:
+        description: 'Used to set the TEST_TYPE env'
+        required: false
+        type: string
       enable_check_test_configurations:
         description: 'Set to "true" to enable check-test-configurations job'
         required: false
@@ -486,7 +489,7 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@00c164251be2a7c5b2b23a6e5f7014982f232c14 # v2.3.32
         env:
           DETACH_RUNNER: true
-          E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || inputs.chainlink_version || github.sha }}
+          E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}
           E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_VERSION }}
           E2E_TEST_CHAINLINK_POSTGRES_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_POSTGRES_VERSION }}
           E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_env_vars.E2E_TEST_SELECTED_NETWORK || env.SELECTED_NETWORKS }}
@@ -510,9 +513,8 @@ jobs:
           test_download_vendor_packages_command: cd $(dirname ${{ matrix.tests.path }}) && go mod download
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
           test_config_override_path: ${{ matrix.tests.test_config_override_path }}
-          # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392
-          # test_config_override_base64: ${{ inputs.test_config_override_base64 }}
-          test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
+          test_config_override_base64: ${{ inputs.test_config_override_base64 }}
+          test_type: ${{ inputs.test_type || matrix.tests.test_env_vars.TEST_TYPE }}
           test_suite: ${{ matrix.tests.test_env_vars.TEST_SUITE }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.tests.id_sanitized }}-test-logs
@@ -676,7 +678,7 @@ jobs:
           TEST_UPLOAD_CPU_PROFILE: true
           TEST_UPLOAD_MEM_PROFILE: true
           REF_NAME: ${{ github.head_ref || github.ref_name }}
-          E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || inputs.chainlink_version || github.sha }}
+          E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}
           E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_VERSION }}
           E2E_TEST_CHAINLINK_POSTGRES_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_POSTGRES_VERSION }}
           E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_env_vars.E2E_TEST_SELECTED_NETWORK || env.SELECTED_NETWORKS }}
@@ -700,7 +702,9 @@ jobs:
           test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: make gomod
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
-          test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
+          test_config_override_path: ${{ matrix.tests.test_config_override_path }}
+          test_config_override_base64: ${{ inputs.test_config_override_base64 }}
+          test_type: ${{ inputs.test_type || matrix.tests.test_env_vars.TEST_TYPE }}
           test_suite: ${{ matrix.tests.test_env_vars.TEST_SUITE }}
           token: ${{ secrets.GH_TOKEN }}
           should_cleanup: false
