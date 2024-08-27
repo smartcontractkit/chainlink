@@ -196,11 +196,9 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   /// @param remoteChainSelector chain selector to get rate limit tokens for.
   /// @return localTokens The local chain representation of the tokens that are rate limited.
   /// @return remoteTokens The remote representation of the tokens that are rate limited.
-  function getAllRateLimitTokens(uint64 remoteChainSelector)
-    external
-    view
-    returns (address[] memory localTokens, bytes[] memory remoteTokens)
-  {
+  function getAllRateLimitTokens(
+    uint64 remoteChainSelector
+  ) external view returns (address[] memory localTokens, bytes[] memory remoteTokens) {
     uint256 tokenCount = s_rateLimitedTokensLocalToRemote[remoteChainSelector].length();
 
     localTokens = new address[](tokenCount);

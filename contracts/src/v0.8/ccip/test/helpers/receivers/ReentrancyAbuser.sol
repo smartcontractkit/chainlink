@@ -36,11 +36,9 @@ contract ReentrancyAbuser is CCIPReceiver {
     }
   }
 
-  function _getGasLimitsFromMessages(Internal.EVM2EVMMessage[] memory messages)
-    internal
-    pure
-    returns (EVM2EVMOffRamp.GasLimitOverride[] memory)
-  {
+  function _getGasLimitsFromMessages(
+    Internal.EVM2EVMMessage[] memory messages
+  ) internal pure returns (EVM2EVMOffRamp.GasLimitOverride[] memory) {
     EVM2EVMOffRamp.GasLimitOverride[] memory gasLimitOverrides = new EVM2EVMOffRamp.GasLimitOverride[](messages.length);
     for (uint256 i = 0; i < messages.length; ++i) {
       gasLimitOverrides[i].receiverExecutionGasLimit = messages[i].gasLimit;

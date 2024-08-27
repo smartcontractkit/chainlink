@@ -96,12 +96,9 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   /// @notice Burn the token in the pool
   /// @dev emits ITokenMessenger.DepositForBurn
   /// @dev Assumes caller has validated destinationReceiver
-  function lockOrBurn(Pool.LockOrBurnInV1 calldata lockOrBurnIn)
-    public
-    virtual
-    override
-    returns (Pool.LockOrBurnOutV1 memory)
-  {
+  function lockOrBurn(
+    Pool.LockOrBurnInV1 calldata lockOrBurnIn
+  ) public virtual override returns (Pool.LockOrBurnOutV1 memory) {
     _validateLockOrBurn(lockOrBurnIn);
 
     Domain memory domain = s_chainToDomain[lockOrBurnIn.remoteChainSelector];
@@ -138,12 +135,9 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   /// for that message, including its (nonce, sourceDomain). This way, the only
   /// non-reverting offchainTokenData that can be supplied is a valid attestation for the
   /// specific message that was sent on source.
-  function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
-    public
-    virtual
-    override
-    returns (Pool.ReleaseOrMintOutV1 memory)
-  {
+  function releaseOrMint(
+    Pool.ReleaseOrMintInV1 calldata releaseOrMintIn
+  ) public virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
     _validateReleaseOrMint(releaseOrMintIn);
     SourceTokenDataPayload memory sourceTokenDataPayload =
       abi.decode(releaseOrMintIn.sourcePoolData, (SourceTokenDataPayload));

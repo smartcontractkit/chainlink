@@ -352,7 +352,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
         bytes32(uint256(uint160(recipient))),
         amount,
         bytes32(uint256(uint160(OWNER)))
-        )
+      )
     });
 
     bytes memory message = _generateUSDCMessage(usdcMessage);
@@ -363,7 +363,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
       destTokenAddress: abi.encode(address(s_usdcTokenPool)),
       extraData: abi.encode(
         USDCTokenPool.SourceTokenDataPayload({nonce: usdcMessage.nonce, sourceDomain: SOURCE_DOMAIN_IDENTIFIER})
-        ),
+      ),
       destGasAmount: USDC_DEST_TOKEN_GAS
     });
 
@@ -460,7 +460,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
         bytes32(uint256(uint160(OWNER))),
         amount,
         bytes32(uint256(uint160(OWNER)))
-        )
+      )
     });
 
     Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
@@ -468,7 +468,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
       destTokenAddress: abi.encode(address(s_usdcTokenPool)),
       extraData: abi.encode(
         USDCTokenPool.SourceTokenDataPayload({nonce: usdcMessage.nonce, sourceDomain: SOURCE_DOMAIN_IDENTIFIER})
-        ),
+      ),
       destGasAmount: USDC_DEST_TOKEN_GAS
     });
 

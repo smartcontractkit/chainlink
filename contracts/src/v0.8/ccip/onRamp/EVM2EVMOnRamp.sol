@@ -716,11 +716,9 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   }
 
   /// @notice Gets the transfer fee config for a given token.
-  function getTokenTransferFeeConfig(address token)
-    external
-    view
-    returns (TokenTransferFeeConfig memory tokenTransferFeeConfig)
-  {
+  function getTokenTransferFeeConfig(
+    address token
+  ) external view returns (TokenTransferFeeConfig memory tokenTransferFeeConfig) {
     return s_tokenTransferFeeConfig[token];
   }
 

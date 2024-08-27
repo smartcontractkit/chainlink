@@ -346,7 +346,9 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
   /// @param ocr3Configs The OCR3 configurations to group.
   /// @return commitConfigs The commit configurations.
   /// @return execConfigs The execution configurations.
-  function _groupByPluginType(CCIPConfigTypes.OCR3Config[] memory ocr3Configs)
+  function _groupByPluginType(
+    CCIPConfigTypes.OCR3Config[] memory ocr3Configs
+  )
     internal
     pure
     returns (CCIPConfigTypes.OCR3Config[] memory commitConfigs, CCIPConfigTypes.OCR3Config[] memory execConfigs)
