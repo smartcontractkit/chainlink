@@ -132,7 +132,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		var wg sync.WaitGroup
@@ -152,7 +152,6 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 			}()
 			wg.Wait()
 		}
-
 	})
 	t.Run("Block's chain ID matched configured", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
