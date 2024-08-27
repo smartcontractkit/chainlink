@@ -1525,23 +1525,30 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM evm.txes WHERE nonce = $1`, localNextNonce)
 	})
 
-	t.Run("type 2 eth tx is left in progress if eth node returns insufficient eth", func(t *testing.T) {
+	pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
+
+	t.Run("eth tx is left in progress if eth node returns insufficient eth in EIP-1559 mode", func(t *testing.T) {
 		insufficientEthError := "insufficient funds for transfer"
+		evmcfg2 := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+		}))
+
 		localNextNonce := getLocalNextNonce(t, nonceTracker, fromAddress)
-		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
+		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		}), fromAddress).Return(commonclient.InsufficientFunds, errors.New(insufficientEthError)).Once()
+		}), fromAddress).Return(commonclient.InsufficientFunds, errors.New(insufficientEthError))
+		eb2 := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, cfg, evmcfg2, &testCheckerFactory{}, false, nonceTracker)
+		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
 
-		retryable, err := eb.ProcessUnstartedTxs(ctx, fromAddress)
+		// Check gas tip cap verification
+		retryable, err := eb2.ProcessUnstartedTxs(ctx, fromAddress)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "insufficient funds for transfer")
 		assert.True(t, retryable)
 
-		// Check it was saved correctly with its attempt
 		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
-		require.NoError(t, err)
-
+		// Check it was saved correctly with its attempt
 		assert.Nil(t, etx.BroadcastAt)
 		assert.Nil(t, etx.InitialBroadcastAt)
 		require.NotNil(t, etx.Sequence)
@@ -1551,9 +1558,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		attempt := etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
 		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
-	})
 
-	pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
+		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
+	})
 
 	t.Run("eth tx is left in progress if nonce is too high", func(t *testing.T) {
 		localNextNonce := getLocalNextNonce(t, nonceTracker, fromAddress)
