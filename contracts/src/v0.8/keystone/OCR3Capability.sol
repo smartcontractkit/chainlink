@@ -13,10 +13,6 @@ contract OCR3Capability is OCR2Base {
     return "Keystone 1.0.0";
   }
 
-  function _beforeSetConfig(uint8 /* _f */, bytes memory /* _onchainConfig */) internal override {
-    // no-op
-  }
-
   function transmit(
     // NOTE: If these parameters are changed, expectedMsgDataLength and/or
     // TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT need to be changed accordingly
