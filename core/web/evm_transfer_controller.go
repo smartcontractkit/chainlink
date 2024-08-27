@@ -116,7 +116,7 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain legacyevm.Chain, fromAd
 	gasLimit := chain.Config().EVM().GasEstimator().LimitTransfer()
 	estimator := chain.GasEstimator()
 
-	amountWithFees, err := estimator.GetMaxCost(c, amount, nil, gasLimit, chain.Config().EVM().GasEstimator().PriceMaxKey(fromAddr), &toAddr)
+	amountWithFees, err := estimator.GetMaxCost(c, amount, nil, gasLimit, chain.Config().EVM().GasEstimator().PriceMaxKey(fromAddr), &fromAddr, &toAddr)
 	if err != nil {
 		return err
 	}
