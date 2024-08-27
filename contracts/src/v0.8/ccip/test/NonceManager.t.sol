@@ -236,7 +236,7 @@ contract NonceManager_OnRampUpgrade is OnRampSetup {
         destDataAvailabilityOverheadGas: DEST_DATA_AVAILABILITY_OVERHEAD_GAS,
         destGasPerDataAvailabilityByte: DEST_GAS_PER_DATA_AVAILABILITY_BYTE,
         destDataAvailabilityMultiplierBps: DEST_GAS_DATA_AVAILABILITY_MULTIPLIER_BPS,
-        priceRegistry: address(s_feeQuoter),
+        priceRegistry: address(s_priceRegistry),
         maxDataBytes: MAX_DATA_SIZE,
         maxPerMsgGasLimit: MAX_GAS_LIMIT,
         defaultTokenFeeUSDCents: DEFAULT_TOKEN_FEE_USD_CENTS,
@@ -395,7 +395,6 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
-      Internal._hash(messages[0], ON_RAMP_ADDRESS_1),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -427,7 +426,6 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       SOURCE_CHAIN_SELECTOR_3,
       messagesChain3[0].header.sequenceNumber,
       messagesChain3[0].header.messageId,
-      Internal._hash(messagesChain3[0], ON_RAMP_ADDRESS_3),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -509,7 +507,6 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       SOURCE_CHAIN_SELECTOR_1,
       messagesMultiRamp[0].header.sequenceNumber,
       messagesMultiRamp[0].header.messageId,
-      Internal._hash(messagesMultiRamp[0], ON_RAMP_ADDRESS_1),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -530,7 +527,6 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       SOURCE_CHAIN_SELECTOR_1,
       messagesMultiRamp[0].header.sequenceNumber,
       messagesMultiRamp[0].header.messageId,
-      Internal._hash(messagesMultiRamp[0], ON_RAMP_ADDRESS_1),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -565,7 +561,6 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       SOURCE_CHAIN_SELECTOR_1,
       messagesMultiRamp[0].header.sequenceNumber,
       messagesMultiRamp[0].header.messageId,
-      Internal._hash(messagesMultiRamp[0], ON_RAMP_ADDRESS_1),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -616,7 +611,6 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
-      Internal._hash(messages[0], ON_RAMP_ADDRESS_1),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
