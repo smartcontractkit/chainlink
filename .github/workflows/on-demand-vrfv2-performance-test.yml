@@ -3,9 +3,13 @@ on:
   workflow_dispatch:
     inputs:
       base64_config:
-        description: base64-ed test config override
+        description: Base64-ed test config override (must NOT contain secrets)
         required: true
         type: string 
+      test_secrets_override_key:
+        description: Key to run tests with custom test secrets
+        required: false
+        type: string         
       test_type:
         description: Performance test type of test to run
         type: choice
@@ -16,13 +20,9 @@ on:
           - Stress
           - Spike
       test_ids:
-        description: Tests to run (see .github/e2e-tests.yml)
+        description: Comma separated list of test IDs to run (see .github/e2e-tests.yml)
         required: false
         default: "load/vrfv2/vrfv2_test.go:TestVRFV2Performance"
-      test_secrets_override_key:
-        description: Key to run tests with custom test secrets
-        required: false
-        type: string 
 
 jobs:
   run-e2e-tests-workflow:

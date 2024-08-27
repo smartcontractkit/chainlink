@@ -1,5 +1,9 @@
 # This is a reusable workflow that runs E2E tests for Chainlink.
 # It is not meant to be run on its own.
+# 
+# If test_config_override_base64 is provided, it MUST NOT contain any secrets as it will be printed in the Github summary and logs.
+# For tests that require secrets, use test_secrets_override_key to provide the secret key. Learn more: https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md#test-secrets
+#
 name: Run E2E Tests
 on:
   workflow_call:
