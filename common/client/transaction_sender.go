@@ -209,7 +209,7 @@ func aggregateTxResults(resultsByCode sendTxErrors) (returnCode SendTxReturnCode
 	}
 
 	err = fmt.Errorf("expected at least one response on SendTransaction")
-	return 0, err, err
+	return Retryable, err, err
 }
 
 func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) collectTxResults(ctx context.Context, tx TX, healthyNodesNum int, txResults <-chan sendTxResult) (SendTxReturnCode, error) {
