@@ -111,6 +111,7 @@ type RpcClient struct {
 	// stateMu since it can happen on state transitions as well as RpcClient Close.
 	chStopInFlight chan struct{}
 
+	chainInfoLock sync.RWMutex
 	// intercepted values seen by callers of the rpcClient excluding health check calls. Need to ensure MultiNode provides repeatable read guarantee
 	highestUserObservations commonclient.ChainInfo
 	// most recent chain info observed during current lifecycle (reseted on DisconnectAll)

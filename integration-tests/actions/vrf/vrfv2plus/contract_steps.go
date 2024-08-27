@@ -10,7 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -45,6 +46,24 @@ func DeployVRFV2_5Contracts(
 			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrSetL1FeeCalculation, err)
 		}
 		coordinator, err = contracts.LoadVRFCoordinatorV2_5(chainClient, opStackCoordinator.Address.String())
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrLoadingCoordinator, err)
+		}
+	} else if actions.IsArbitrumChain(chainClient.ChainID) {
+		arbitrumCoordinator, err := contracts.DeployVRFCoordinatorV2_5_Arbitrum(chainClient, bhs.Address())
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployCoordinatorV2Plus, err)
+		}
+		coordinator, err = contracts.LoadVRFCoordinatorV2_5(chainClient, arbitrumCoordinator.Address.String())
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrLoadingCoordinator, err)
+		}
+	} else if *configGeneral.UseTestCoordinator {
+		testCoordinator, err := contracts.DeployVRFCoordinatorTestV2_5(chainClient, bhs.Address())
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployCoordinatorV2Plus, err)
+		}
+		coordinator, err = contracts.LoadVRFCoordinatorV2_5(chainClient, testCoordinator.Address.String())
 		if err != nil {
 			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrLoadingCoordinator, err)
 		}
@@ -423,6 +442,15 @@ func DeployVRFV2PlusDirectFundingContracts(
 			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrSetL1FeeCalculation, err)
 		}
 		vrfv2PlusWrapper, err = contracts.LoadVRFV2PlusWrapper(sethClient, opStackWrapper.Address.String())
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrLoadingCoordinator, err)
+		}
+	} else if actions.IsArbitrumChain(sethClient.ChainID) {
+		arbitrumWrapper, err := contracts.DeployVRFV2PlusWrapperArbitrum(sethClient, linkTokenAddress, linkEthFeedAddress, coordinator.Address(), wrapperSubId)
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployCoordinatorV2Plus, err)
+		}
+		vrfv2PlusWrapper, err = contracts.LoadVRFV2PlusWrapper(sethClient, arbitrumWrapper.Address.String())
 		if err != nil {
 			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrLoadingCoordinator, err)
 		}

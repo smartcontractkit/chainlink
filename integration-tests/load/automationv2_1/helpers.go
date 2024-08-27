@@ -8,7 +8,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/slack-go/slack"
-	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"

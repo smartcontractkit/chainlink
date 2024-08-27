@@ -6,15 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -24,6 +22,7 @@ import (
 	ethcontracts "github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func TestVRFBasic(t *testing.T) {

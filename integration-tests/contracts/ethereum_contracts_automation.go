@@ -14,7 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	registrylogicc23 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_logic_c_wrapper_2_3"
@@ -1368,12 +1369,7 @@ func deployRegistry22(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 		return nil, err
 	}
 
-	var allowedReadOnlyAddress common.Address
-	if chainId == networks.PolygonZkEvmMainnet.ChainID || chainId == networks.PolygonZkEvmCardona.ChainID {
-		allowedReadOnlyAddress = common.HexToAddress("0x1111111111111111111111111111111111111111")
-	} else {
-		allowedReadOnlyAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
-	}
+	allowedReadOnlyAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
 
 	logicBAbi, err := registrylogicb22.AutomationRegistryLogicBMetaData.GetAbi()
 	if err != nil {
@@ -1456,12 +1452,7 @@ func deployRegistry23(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 		return nil, err
 	}
 
-	var allowedReadOnlyAddress common.Address
-	if chainId == networks.PolygonZkEvmMainnet.ChainID || chainId == networks.PolygonZkEvmCardona.ChainID {
-		allowedReadOnlyAddress = common.HexToAddress("0x1111111111111111111111111111111111111111")
-	} else {
-		allowedReadOnlyAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
-	}
+	allowedReadOnlyAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
 
 	logicCAbi, err := registrylogicc23.AutomationRegistryLogicCMetaData.GetAbi()
 	if err != nil {

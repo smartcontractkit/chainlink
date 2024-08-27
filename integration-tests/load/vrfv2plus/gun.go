@@ -5,8 +5,9 @@ import (
 	"math/rand"
 
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/seth"
 	"github.com/smartcontractkit/wasp"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"

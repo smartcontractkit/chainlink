@@ -2,9 +2,10 @@ package dashboard_lib
 
 import (
 	"encoding/base64"
-	"github.com/pkg/errors"
 	"os"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 type EnvConfig struct {

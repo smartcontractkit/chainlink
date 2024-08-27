@@ -38,7 +38,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -1241,6 +1242,11 @@ func IsOPStackChain(chainID int64) bool {
 		chainID == 84532 || //BASE SEPOLIA
 		chainID == 10 || //OPTIMISM MAINNET
 		chainID == 11155420 //OPTIMISM SEPOLIA
+}
+
+func IsArbitrumChain(chainID int64) bool {
+	return chainID == 42161 || //Arbitrum MAINNET
+		chainID == 421614 //Arbitrum Sepolia
 }
 
 func RandBool() bool {
