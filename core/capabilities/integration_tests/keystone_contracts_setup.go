@@ -306,7 +306,15 @@ func setupConsumerContract(t *testing.T, transactOpts *bind.TransactOpts, backen
 
 	ownerAddr := common.HexToAddress(workflowOwner)
 
-	_, err = consumer.SetConfig(transactOpts, []common.Address{forwarderAddress}, []common.Address{ownerAddr}, [][10]byte{nameBytes})
+	permission := feeds_consumer.KeystoneFeedsPermissionHandlerPermission{
+		IsAllowed:     true,
+		Forwarder:     forwarderAddress,
+		ReportName:    [2]byte(nameBytes[:2]),
+		WorkflowName:  nameBytes,
+		WorkflowOwner: ownerAddr,
+	}
+	permissions := []feeds_consumer.KeystoneFeedsPermissionHandlerPermission{permission}
+	_, err = consumer.SetReportPermissions(transactOpts, permissions)
 	require.NoError(t, err)
 
 	backend.Commit()
