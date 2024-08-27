@@ -338,10 +338,11 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 	triggerRegRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               e.workflow.id,
+			WorkflowOwner:            e.workflow.owner,
+			WorkflowName:             e.workflow.name,
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
-			WorkflowName:             e.workflow.name,
-			WorkflowOwner:            e.workflow.owner,
+			ReferenceID:              t.Ref,
 		},
 		Config: t.config.Load(),
 		Inputs: triggerInputs,
@@ -763,6 +764,7 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 			WorkflowName:             e.workflow.name,
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
+			ReferenceID:              msg.stepRef,
 		},
 	}
 
@@ -790,6 +792,7 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
 			WorkflowName:             e.workflow.name,
 			WorkflowOwner:            e.workflow.owner,
+			ReferenceID:              t.Ref,
 		},
 		Inputs: triggerInputs,
 		Config: t.config.Load(),

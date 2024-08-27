@@ -41,7 +41,7 @@ import (
 	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	token "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
@@ -98,11 +98,11 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBacke
 	t.Cleanup(stopMining)
 
 	// Deploy contracts
-	linkTokenAddress, _, linkToken, err := token.DeployLinkToken(steve, backend)
+	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(steve, backend)
 	require.NoError(t, err)
 	_, err = linkToken.Transfer(steve, steve.From, big.NewInt(1000))
 	require.NoError(t, err)
-	nativeTokenAddress, _, nativeToken, err := token.DeployLinkToken(steve, backend)
+	nativeTokenAddress, _, nativeToken, err := link_token_interface.DeployLinkToken(steve, backend)
 	require.NoError(t, err)
 	_, err = nativeToken.Transfer(steve, steve.From, big.NewInt(1000))
 	require.NoError(t, err)

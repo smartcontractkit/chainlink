@@ -51,7 +51,7 @@ core/scripts/functions @smartcontractkit/functions
 core/scripts/gateway @smartcontractkit/functions
 
 # Contracts
-/contracts/ @RensR
+/contracts/ @RensR @matYang @RayXpub @elatoskinas
 
 # First we match on project names to catch files like the compilation scripts,
 # gas snapshots and other files not places in the project directories.
@@ -62,11 +62,10 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/**/*upkeep* @smartcontractkit/keepers
 /contracts/**/*automation* @smartcontractkit/keepers
 /contracts/**/*functions* @smartcontractkit/functions
-/contracts/**/*llo-feeds* @smartcontrackit/mercury-team
+/contracts/**/*llo-feeds* @smartcontractkit/mercury-team
 /contracts/**/*vrf* @smartcontractkit/vrf-team
 /contracts/**/*l2ep* @smartcontractkit/bix-ship
-# TODO: replace with a team tag when ready
-/contracts/**/*keystone* @archseer @bolekk @patrick-dowell
+/contracts/**/*keystone* @smartcontractkit/keystone
 
 /contracts/src/v0.8/automation @smartcontractkit/keepers
 /contracts/src/v0.8/functions @smartcontractkit/functions
@@ -74,8 +73,8 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/src/v0.8/l2ep @chris-de-leon-cll
 /contracts/src/v0.8/llo-feeds @smartcontractkit/mercury-team
 # TODO: mocks folder, folder should be removed and files moved to the correct folders
-/contracts/src/v0.8/operatorforwarder @austinborn
-/contracts/src/v0.8/shared @RensR
+/contracts/src/v0.8/operatorforwarder @smartcontractkit/data-feeds-engineers
+/contracts/src/v0.8/shared @RensR @matYang @RayXpub @elatoskinas
 # TODO: tests folder, folder should be removed and files moved to the correct folders
 # TODO: transmission folder, owner should be found
 /contracts/src/v0.8/vrf @smartcontractkit/vrf-team

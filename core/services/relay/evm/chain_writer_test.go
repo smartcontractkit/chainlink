@@ -67,6 +67,7 @@ func TestChainWriter(t *testing.T) {
 			status commontypes.TransactionStatus
 		}{
 			{uuid.NewString(), commontypes.Unknown},
+			{uuid.NewString(), commontypes.Pending},
 			{uuid.NewString(), commontypes.Unconfirmed},
 			{uuid.NewString(), commontypes.Finalized},
 			{uuid.NewString(), commontypes.Failed},
@@ -86,7 +87,7 @@ func TestChainWriter(t *testing.T) {
 	})
 
 	t.Run("GetFeeComponents", func(t *testing.T) {
-		ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
+		ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
 			Legacy:        assets.NewWei(big.NewInt(1000000001)),
 			DynamicFeeCap: assets.NewWei(big.NewInt(1000000002)),
 			DynamicTipCap: assets.NewWei(big.NewInt(1000000003)),
@@ -112,7 +113,7 @@ func TestChainWriter(t *testing.T) {
 		})
 
 		t.Run("Returns Legacy Fee in absence of Dynamic Fee", func(t *testing.T) {
-			ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
+			ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
 				Legacy:        assets.NewWei(big.NewInt(1000000001)),
 				DynamicFeeCap: nil,
 				DynamicTipCap: assets.NewWei(big.NewInt(1000000003)),
@@ -124,7 +125,7 @@ func TestChainWriter(t *testing.T) {
 		})
 
 		t.Run("Fails when neither legacy or dynamic fee is available", func(t *testing.T) {
-			ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
+			ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
 				Legacy:        nil,
 				DynamicFeeCap: nil,
 				DynamicTipCap: nil,
@@ -136,7 +137,7 @@ func TestChainWriter(t *testing.T) {
 
 		t.Run("Fails when GetFee returns an error", func(t *testing.T) {
 			expectedErr := fmt.Errorf("GetFee error")
-			ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
+			ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
 				Legacy:        nil,
 				DynamicFeeCap: nil,
 				DynamicTipCap: nil,
@@ -146,7 +147,7 @@ func TestChainWriter(t *testing.T) {
 		})
 
 		t.Run("Fails when L1Oracle returns error", func(t *testing.T) {
-			ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
+			ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
 				Legacy:        assets.NewWei(big.NewInt(1000000001)),
 				DynamicFeeCap: assets.NewWei(big.NewInt(1000000002)),
 				DynamicTipCap: assets.NewWei(big.NewInt(1000000003)),

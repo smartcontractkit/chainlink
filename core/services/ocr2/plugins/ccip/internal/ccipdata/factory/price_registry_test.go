@@ -9,11 +9,11 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
@@ -22,7 +22,7 @@ func TestPriceRegistry(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	for _, versionStr := range []string{ccipdata.V1_0_0, ccipdata.V1_2_0} {
-		lggr := logger.TestLogger(t)
+		lggr := logger.Test(t)
 		addr := cciptypes.Address(utils.RandomAddress().String())
 		lp := mocks2.NewLogPoller(t)
 
