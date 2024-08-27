@@ -241,6 +241,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 				KeepFinalizedBlocksDepth: int64(cfg.EVM().LogKeepBlocksDepth()),
 				LogPrunePageSize:         int64(cfg.EVM().LogPrunePageSize()),
 				BackupPollerBlockDelay:   int64(cfg.EVM().BackupLogPollerBlockDelay()),
+				ClientErrors:             cfg.EVM().NodePool().Errors(),
 			}
 			logPoller = logpoller.NewLogPoller(logpoller.NewObservedORM(chainID, opts.DS, l), client, l, headTracker, lpOpts)
 		}
