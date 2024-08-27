@@ -73,7 +73,7 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 			message := &types.MessageBody{
 				CapabilityId:    remoteCapabilityInfo.ID,
 				CapabilityDonId: remoteCapabilityDonInfo.ID,
-				CallerDonId:     localDonInfo.ID,
+				CallerDonID:     localDonInfo.ID,
 				Method:          types.MethodExecute,
 				Payload:         rawRequest,
 				MessageId:       []byte(messageID),

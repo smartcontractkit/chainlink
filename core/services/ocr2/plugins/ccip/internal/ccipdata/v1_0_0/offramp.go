@@ -669,9 +669,9 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 		evmBatchCaller: rpclib.NewDynamicLimitedBatchCaller(
 			lggr,
 			ec,
-			rpclib.DefaultRpcBatchSizeLimit,
-			rpclib.DefaultRpcBatchBackOffMultiplier,
-			rpclib.DefaultMaxParallelRpcCalls,
+			rpclib.DefaultRPCBatchSizeLimit,
+			rpclib.DefaultRPCBatchBackOffMultiplier,
+			rpclib.DefaultMaxParallelRPCCalls,
 		),
 		cachedOffRampTokens: cache.NewLogpollerEventsBased[cciptypes.OffRampTokens](
 			lp,

@@ -3,7 +3,7 @@ package remote
 import (
 	"context"
 	"errors"
-	sync "sync"
+	"sync"
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -38,8 +38,8 @@ type triggerSubscriber struct {
 }
 
 type triggerEventKey struct {
-	triggerEventId string
-	workflowId     string
+	triggerEventID string
+	workflowID     string
 }
 
 type subRegState struct {
@@ -145,7 +145,7 @@ func (s *triggerSubscriber) registrationLoop() {
 					m := &types.MessageBody{
 						CapabilityId:    s.capInfo.ID,
 						CapabilityDonId: s.capDonInfo.ID,
-						CallerDonId:     s.localDonInfo.ID,
+						CallerDonID:     s.localDonInfo.ID,
 						Method:          types.MethodRegisterTrigger,
 						Payload:         registration.rawRequest,
 					}
@@ -204,8 +204,8 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 				continue
 			}
 			key := triggerEventKey{
-				triggerEventId: meta.TriggerEventId,
-				workflowId:     workflowId,
+				triggerEventID: meta.TriggerEventId,
+				workflowID:     workflowId,
 			}
 			nowMs := time.Now().UnixMilli()
 			s.mu.Lock()
@@ -213,17 +213,17 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			ready, payloads := s.messageCache.Ready(key, s.config.MinResponsesToAggregate, nowMs-s.config.MessageExpiry.Milliseconds(), true)
 			s.mu.Unlock()
 			if nowMs-creationTs > s.config.RegistrationExpiry.Milliseconds() {
-				s.lggr.Warnw("received trigger event for an expired ID", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId, "sender", sender)
+				s.lggr.Warnw("received trigger event for an expired ID", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowID", workflowId, "sender", sender)
 				continue
 			}
 			if ready {
-				s.lggr.Debugw("trigger event ready to aggregate", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId)
+				s.lggr.Debugw("trigger event ready to aggregate", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowID", workflowId)
 				aggregatedResponse, err := s.aggregator.Aggregate(meta.TriggerEventId, payloads)
 				if err != nil {
-					s.lggr.Errorw("failed to aggregate responses", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId, "err", err)
+					s.lggr.Errorw("failed to aggregate responses", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowID", workflowId, "err", err)
 					continue
 				}
-				s.lggr.Infow("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId)
+				s.lggr.Infow("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowID", workflowId)
 				registration.callback <- aggregatedResponse
 			}
 		}

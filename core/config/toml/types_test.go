@@ -110,11 +110,11 @@ func Test_validateDBURL(t *testing.T) {
 }
 
 func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
-	validUrl := commonconfig.URL(url.URL{Scheme: "https", Host: "localhost"})
-	validSecretURL := *models.NewSecretURL(&validUrl)
+	validURL := commonconfig.URL(url.URL{Scheme: "https", Host: "localhost"})
+	validSecretURL := *models.NewSecretURL(&validURL)
 
-	invalidEmptyUrl := commonconfig.URL(url.URL{})
-	invalidEmptySecretURL := *models.NewSecretURL(&invalidEmptyUrl)
+	invalidEmptyURL := commonconfig.URL(url.URL{})
+	invalidEmptySecretURL := *models.NewSecretURL(&invalidEmptyURL)
 
 	invalidBackupURL := commonconfig.URL(url.URL{Scheme: "http", Host: "localhost"})
 	invalidBackupSecretURL := *models.NewSecretURL(&invalidBackupURL)
@@ -372,7 +372,7 @@ func TestTracing_ValidateSamplingRatio(t *testing.T) {
 
 func TestTracing_ValidateTLSCertPath(t *testing.T) {
 	// tests for Tracing.Mode = 'tls'
-	tls_tests := []struct {
+	tlsTests := []struct {
 		name        string
 		tlsCertPath *string
 		wantErr     bool
@@ -431,7 +431,7 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tls_tests {
+	for _, tt := range tlsTests {
 		t.Run(tt.name, func(t *testing.T) {
 			tracing := &Tracing{
 				Mode:        ptr("tls"),

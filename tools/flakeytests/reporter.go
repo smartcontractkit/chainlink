@@ -62,7 +62,7 @@ type Context struct {
 type LokiReporter struct {
 	host    string
 	auth    string
-	orgId   string
+	orgID   string
 	command string
 	now     func() time.Time
 	ctx     Context
@@ -156,7 +156,7 @@ func (l *LokiReporter) makeRequest(ctx context.Context, pushReq pushRequest) err
 		fmt.Sprintf("Basic %s", base64.StdEncoding.EncodeToString([]byte(l.auth))),
 	)
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-Scope-OrgID", l.orgId)
+	req.Header.Add("X-Scope-OrgID", l.orgID)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
@@ -179,6 +179,6 @@ func (l *LokiReporter) Report(ctx context.Context, report *Report) error {
 	return l.makeRequest(ctx, pushReq)
 }
 
-func NewLokiReporter(host, auth, orgId, command string, ctx Context) *LokiReporter {
-	return &LokiReporter{host: host, auth: auth, orgId: orgId, command: command, now: time.Now, ctx: ctx}
+func NewLokiReporter(host, auth, orgID, command string, ctx Context) *LokiReporter {
+	return &LokiReporter{host: host, auth: auth, orgID: orgID, command: command, now: time.Now, ctx: ctx}
 }
