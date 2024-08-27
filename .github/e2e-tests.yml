@@ -150,7 +150,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/ocr2_test.go -timeout 30m -count=1 -test.parallel=6 -json
     pyroscope_env: ci-smoke-ocr2-evm-simulated
-
+    test_env_vars:
+      E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
+      
   - id: smoke/ocr2_test.go:*-plugins
     path: integration-tests/smoke/ocr2_test.go
     test_env_type: docker
