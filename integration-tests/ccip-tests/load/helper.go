@@ -112,7 +112,7 @@ func (l *LoadArgs) scheduleForDest(destNetworkName string) []*wasp.Segment {
 	// otherwise, use the default frequency
 	if l.TestCfg.TestGroupInput.LoadProfile.FrequencyByDestination != nil {
 		for networkName, freq := range l.TestCfg.TestGroupInput.LoadProfile.FrequencyByDestination {
-			if strings.Contains(destNetworkName, networkName) {
+			if strings.Contains(destNetworkName, strings.ToLower(networkName)) {
 				return WaspSchedule(
 					freq.RequestPerUnitTime,
 					l.TestCfg.TestGroupInput.LoadProfile.TestDuration,
