@@ -17,7 +17,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"

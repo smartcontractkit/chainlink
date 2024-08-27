@@ -52,10 +52,9 @@ on:
         required: false
         type: string
       slack_notification_after_tests:
-        description: 'Set to "true" to send a slack notification after the tests'
+        description: 'Set to "always" to always send a slack notification after the tests. Set "on_failure" to send a notification only on test failure'
         required: false
-        type: boolean
-        default: false
+        type: string
       slack_notification_after_tests_channel_id:
         description: 'Slack channel ID to send the notification to'
         required: false
@@ -449,6 +448,7 @@ jobs:
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
         id: setup-gap
+        timeout-minutes: 3
         with:
           aws-region: ${{ secrets.AWS_REGION }}
           aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
@@ -499,7 +499,7 @@ jobs:
           E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           E2E_TEST_GRAFANA_BASE_URL: "http://localhost:8080/primary"
-          E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          E2E_TEST_GRAFANA_DASHBOARD_URL: ${{ matrix.tests.test_env_vars.E2E_TEST_GRAFANA_DASHBOARD_URL || '/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs' }} 
           E2E_TEST_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
           E2E_TEST_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
           E2E_TEST_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
@@ -689,12 +689,13 @@ jobs:
           E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           E2E_TEST_GRAFANA_BASE_URL: "http://localhost:8080/primary"
-          E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          E2E_TEST_GRAFANA_DASHBOARD_URL: ${{ matrix.tests.test_env_vars.E2E_TEST_GRAFANA_DASHBOARD_URL || '/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs' }} 
           E2E_TEST_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
           E2E_TEST_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
           E2E_TEST_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
           E2E_TEST_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
           E2E_TEST_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
+          DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
         with:
           test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: make gomod
@@ -756,7 +757,7 @@ jobs:
 
       - name: Send Slack notification
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
-        if: ${{ inputs.slack_notification_after_tests }}
+        if: ${{ inputs.slack_notification_after_tests == 'true' || inputs.slack_notification_after_tests == 'always' || (inputs.slack_notification_after_tests == 'on_failure' && contains(join(needs.*.result, ','), 'failure')) }}
         id: slack
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
