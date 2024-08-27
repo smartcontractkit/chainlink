@@ -8,6 +8,21 @@ contract CCIPReaderTester {
   event CCIPSendRequested(uint64 indexed destChainSelector, Internal.EVM2AnyRampMessage message);
 
   mapping(uint64 sourceChainSelector => OffRamp.SourceChainConfig sourceChainConfig) internal s_sourceChainConfigs;
+  mapping(uint64 destChainSelector => uint64 sequenceNumber) internal s_destChainSeqNrs;
+
+  /// @notice Gets the next sequence number to be used in the onRamp
+  /// @param destChainSelector The destination chain selector
+  /// @return nextSequenceNumber The next sequence number to be used
+  function getExpectedNextSequenceNumber(uint64 destChainSelector) external view returns (uint64) {
+    return s_destChainSeqNrs[destChainSelector] + 1;
+  }
+
+  /// @notice Sets the sequence number in the onRamp
+  /// @param destChainSelector The destination chain selector
+  /// @param sequenceNumber The sequence number
+  function setDestChainSeqNr(uint64 destChainSelector, uint64 sequenceNumber) external {
+    s_destChainSeqNrs[destChainSelector] = sequenceNumber;
+  }
 
   function getSourceChainConfig(uint64 sourceChainSelector) external view returns (OffRamp.SourceChainConfig memory) {
     return s_sourceChainConfigs[sourceChainSelector];
