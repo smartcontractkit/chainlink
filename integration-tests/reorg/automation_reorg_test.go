@@ -132,7 +132,7 @@ func TestAutomationReorg(t *testing.T) {
 			err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*config.GetCommonConfig().ChainlinkNodeFunding))
 			require.NoError(t, err, "Failed to fund the nodes")
 
-			gethRPCClient := ctfClient.NewRPCClient(evmNetwork.HTTPURLs[0])
+			gethRPCClient := ctfClient.NewRPCClient(evmNetwork.HTTPURLs[0], nil)
 
 			registryConfig := actions.AutomationDefaultRegistryConfig(config)
 			registryConfig.RegistryVersion = registryVersion

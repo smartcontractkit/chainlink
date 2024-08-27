@@ -10,7 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"

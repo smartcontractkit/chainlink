@@ -2,9 +2,9 @@
 pragma solidity 0.8.24;
 
 import {ICapabilityConfiguration} from "../../interfaces/ICapabilityConfiguration.sol";
-import {ERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165.sol";
+import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 
-contract CapabilityConfigurationContract is ICapabilityConfiguration, ERC165 {
+contract CapabilityConfigurationContract is ICapabilityConfiguration, IERC165 {
   mapping(uint256 => bytes) private s_donConfiguration;
 
   function getCapabilityConfiguration(uint32 donId) external view returns (bytes memory configuration) {
@@ -17,7 +17,7 @@ contract CapabilityConfigurationContract is ICapabilityConfiguration, ERC165 {
     s_donConfiguration[donId] = config;
   }
 
-  function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
-    return interfaceId == this.getCapabilityConfiguration.selector ^ this.beforeCapabilityConfigSet.selector;
+  function supportsInterface(bytes4 interfaceId) public pure returns (bool) {
+    return interfaceId == type(ICapabilityConfiguration).interfaceId || interfaceId == type(IERC165).interfaceId;
   }
 }
