@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -44,7 +43,9 @@ type key struct {
 
 var _ services.Service = &dispatcher{}
 
+// TODO read those and also new rate-limiter config from node's TOML config
 const supportedVersion = 1
+const receiverBufferSize = 10000
 
 func NewDispatcher(peerWrapper p2ptypes.PeerWrapper, signer p2ptypes.Signer, registry core.CapabilitiesRegistry, lggr logger.Logger) *dispatcher {
 	return &dispatcher{
@@ -85,14 +86,12 @@ var capReceiveChannelUsage = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Help: "The usage of the receive channel for each capability, 0 indicates empty, 1 indicates full.",
 }, []string{"capabilityId", "donId"})
 
-const receiverBufferSize = 10000
-
 type receiver struct {
 	cancel context.CancelFunc
-	ch     chan *remotetypes.MessageBody
+	ch     chan *types.MessageBody
 }
 
-func (d *dispatcher) SetReceiver(capabilityId string, donId uint32, rec remotetypes.Receiver) error {
+func (d *dispatcher) SetReceiver(capabilityId string, donId uint32, rec types.Receiver) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	k := key{capabilityId, donId}
@@ -101,7 +100,7 @@ func (d *dispatcher) SetReceiver(capabilityId string, donId uint32, rec remotety
 		return fmt.Errorf("%w: receiver already exists for capability %s and don %d", ErrReceiverExists, capabilityId, donId)
 	}
 
-	receiverCh := make(chan *remotetypes.MessageBody, receiverBufferSize)
+	receiverCh := make(chan *types.MessageBody, receiverBufferSize)
 
 	ctx, cancelCtx := d.stopCh.NewCtx()
 	d.wg.Add(1)
@@ -139,7 +138,7 @@ func (d *dispatcher) RemoveReceiver(capabilityId string, donId uint32) {
 	}
 }
 
-func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
+func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
 	msgBody.Version = supportedVersion
 	msgBody.Sender = d.peerID[:]
 	msgBody.Receiver = peerID[:]
@@ -152,7 +151,7 @@ func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBo
 	if err != nil {
 		return err
 	}
-	msg := &remotetypes.Message{Signature: signature, Body: rawBody}
+	msg := &types.Message{Signature: signature, Body: rawBody}
 	rawMsg, err := proto.Marshal(msg)
 	if err != nil {
 		return err
@@ -168,6 +167,7 @@ func (d *dispatcher) receive() {
 			d.lggr.Info("stopped - exiting receive")
 			return
 		case msg := <-recvCh:
+			// TODO: apply rate-limiting per msg.Sender using rate.NewLimiter()
 			body, err := ValidateMessage(msg, d.peerID)
 			if err != nil {
 				d.lggr.Debugw("received invalid message", "error", err)
@@ -195,7 +195,7 @@ func (d *dispatcher) receive() {
 	}
 }
 
-func (d *dispatcher) tryRespondWithError(peerID p2ptypes.PeerID, body *remotetypes.MessageBody, errType types.Error) {
+func (d *dispatcher) tryRespondWithError(peerID p2ptypes.PeerID, body *types.MessageBody, errType types.Error) {
 	if body == nil {
 		return
 	}

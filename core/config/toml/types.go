@@ -1435,7 +1435,8 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 }
 
 type Capabilities struct {
-	Peering          P2P              `toml:",omitempty"`
+	Peering P2P `toml:",omitempty"`
+	// TODO: add Dispatcher config here
 	ExternalRegistry ExternalRegistry `toml:",omitempty"`
 }
 
