@@ -62,7 +62,7 @@ contract PingPongDemo is CCIPReceiver, OwnerIsCreator, ITypeAndVersion {
       tokenAmounts: new Client.EVMTokenAmount[](0),
       extraArgs: Client._argsToBytes(
         Client.EVMExtraArgsV2({gasLimit: uint256(DEFAULT_GAS_LIMIT), allowOutOfOrderExecution: s_outOfOrderExecution})
-        ),
+      ),
       feeToken: address(s_feeToken)
     });
     IRouterClient(getRouter()).ccipSend(s_counterpartChainSelector, message);

@@ -2795,9 +2795,9 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     }
   }
 
-  function test_Fuzz_applySourceChainConfigUpdate_Success(OffRamp.SourceChainConfigArgs memory sourceChainConfigArgs)
-    public
-  {
+  function test_Fuzz_applySourceChainConfigUpdate_Success(
+    OffRamp.SourceChainConfigArgs memory sourceChainConfigArgs
+  ) public {
     // Skip invalid inputs
     vm.assume(sourceChainConfigArgs.sourceChainSelector != 0);
     vm.assume(sourceChainConfigArgs.onRamp.length != 0);

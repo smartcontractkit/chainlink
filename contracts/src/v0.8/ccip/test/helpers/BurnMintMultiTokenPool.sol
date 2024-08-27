@@ -18,12 +18,9 @@ contract BurnMintMultiTokenPool is MultiTokenPool {
 
   /// @notice Burn the token in the pool
   /// @dev The _validateLockOrBurn check is an essential security check
-  function lockOrBurn(Pool.LockOrBurnInV1 calldata lockOrBurnIn)
-    external
-    virtual
-    override
-    returns (Pool.LockOrBurnOutV1 memory)
-  {
+  function lockOrBurn(
+    Pool.LockOrBurnInV1 calldata lockOrBurnIn
+  ) external virtual override returns (Pool.LockOrBurnOutV1 memory) {
     _validateLockOrBurn(lockOrBurnIn);
 
     IBurnMintERC20(lockOrBurnIn.localToken).burn(lockOrBurnIn.amount);
@@ -38,12 +35,9 @@ contract BurnMintMultiTokenPool is MultiTokenPool {
 
   /// @notice Mint tokens from the pool to the recipient
   /// @dev The _validateReleaseOrMint check is an essential security check
-  function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
-    external
-    virtual
-    override
-    returns (Pool.ReleaseOrMintOutV1 memory)
-  {
+  function releaseOrMint(
+    Pool.ReleaseOrMintInV1 calldata releaseOrMintIn
+  ) external virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
     _validateReleaseOrMint(releaseOrMintIn);
 
     // Mint to the receiver

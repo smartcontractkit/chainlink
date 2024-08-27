@@ -241,12 +241,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   }
 
   /// @inheritdoc IPriceRegistry
-  function getTokenPrices(address[] calldata tokens)
-    external
-    view
-    override
-    returns (Internal.TimestampedPackedUint224[] memory)
-  {
+  function getTokenPrices(
+    address[] calldata tokens
+  ) external view override returns (Internal.TimestampedPackedUint224[] memory) {
     uint256 length = tokens.length;
     Internal.TimestampedPackedUint224[] memory tokenPrices = new Internal.TimestampedPackedUint224[](length);
     for (uint256 i = 0; i < length; ++i) {
@@ -256,22 +253,16 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   }
 
   /// @inheritdoc IFeeQuoter
-  function getTokenPriceFeedConfig(address token)
-    external
-    view
-    override
-    returns (IFeeQuoter.TokenPriceFeedConfig memory)
-  {
+  function getTokenPriceFeedConfig(
+    address token
+  ) external view override returns (IFeeQuoter.TokenPriceFeedConfig memory) {
     return s_usdPriceFeedsPerToken[token];
   }
 
   /// @inheritdoc IPriceRegistry
-  function getDestinationChainGasPrice(uint64 destChainSelector)
-    external
-    view
-    override
-    returns (Internal.TimestampedPackedUint224 memory)
-  {
+  function getDestinationChainGasPrice(
+    uint64 destChainSelector
+  ) external view override returns (Internal.TimestampedPackedUint224 memory) {
     return s_usdPerUnitGasByDestChainSelector[destChainSelector];
   }
 
@@ -319,11 +310,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @notice Gets the token price from a data feed address, rebased to the same units as s_usdPerToken
   /// @param priceFeedConfig token data feed configuration with valid data feed address (used to retrieve price & timestamp)
   /// @return tokenPrice data feed price answer rebased to s_usdPerToken units, with latest block timestamp
-  function _getTokenPriceFromDataFeed(IFeeQuoter.TokenPriceFeedConfig memory priceFeedConfig)
-    internal
-    view
-    returns (Internal.TimestampedPackedUint224 memory tokenPrice)
-  {
+  function _getTokenPriceFromDataFeed(
+    IFeeQuoter.TokenPriceFeedConfig memory priceFeedConfig
+  ) internal view returns (Internal.TimestampedPackedUint224 memory tokenPrice) {
     AggregatorV3Interface dataFeedContract = AggregatorV3Interface(priceFeedConfig.dataFeedAddress);
     (
       /* uint80 roundID */

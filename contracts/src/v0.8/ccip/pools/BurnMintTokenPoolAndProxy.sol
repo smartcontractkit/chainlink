@@ -19,12 +19,9 @@ contract BurnMintTokenPoolAndProxy is ITypeAndVersion, LegacyPoolWrapper {
 
   /// @notice Burn the token in the pool
   /// @dev The _validateLockOrBurn check is an essential security check
-  function lockOrBurn(Pool.LockOrBurnInV1 calldata lockOrBurnIn)
-    external
-    virtual
-    override
-    returns (Pool.LockOrBurnOutV1 memory)
-  {
+  function lockOrBurn(
+    Pool.LockOrBurnInV1 calldata lockOrBurnIn
+  ) external virtual override returns (Pool.LockOrBurnOutV1 memory) {
     _validateLockOrBurn(lockOrBurnIn);
 
     if (!_hasLegacyPool()) {
@@ -40,12 +37,9 @@ contract BurnMintTokenPoolAndProxy is ITypeAndVersion, LegacyPoolWrapper {
 
   /// @notice Mint tokens from the pool to the recipient
   /// @dev The _validateReleaseOrMint check is an essential security check
-  function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
-    external
-    virtual
-    override
-    returns (Pool.ReleaseOrMintOutV1 memory)
-  {
+  function releaseOrMint(
+    Pool.ReleaseOrMintInV1 calldata releaseOrMintIn
+  ) external virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
     _validateReleaseOrMint(releaseOrMintIn);
 
     if (!_hasLegacyPool()) {
