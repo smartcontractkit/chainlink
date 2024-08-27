@@ -259,7 +259,7 @@ func (r *serverTestClient) Execute(ctx context.Context, req commoncap.Capability
 		message := &remotetypes.MessageBody{
 			CapabilityId:    "capability-id",
 			CapabilityDonId: 1,
-			CallerDonID:     2,
+			CallerDonId:     2,
 			Method:          remotetypes.MethodExecute,
 			Payload:         rawRequest,
 			MessageId:       []byte(messageID),

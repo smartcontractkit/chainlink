@@ -268,7 +268,7 @@ func (t *clientTestServer) Receive(_ context.Context, msg *remotetypes.MessageBo
 			var responseMsg = &remotetypes.MessageBody{
 				CapabilityId:    "cap_id@1.0.0",
 				CapabilityDonId: 1,
-				CallerDonID:     t.workflowDonInfo.ID,
+				CallerDonId:     t.workflowDonInfo.ID,
 				Method:          remotetypes.MethodExecute,
 				MessageId:       []byte(messageID),
 				Sender:          t.peerID[:],

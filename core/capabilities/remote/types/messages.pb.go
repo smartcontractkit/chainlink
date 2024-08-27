@@ -155,7 +155,7 @@ type MessageBody struct {
 	//	*MessageBody_TriggerEventMetadata
 	Metadata        isMessageBody_Metadata `protobuf_oneof:"metadata"`
 	CapabilityDonId uint32                 `protobuf:"varint,15,opt,name=capability_don_id,json=capabilityDonId,proto3" json:"capability_don_id,omitempty"`
-	CallerDonID     uint32                 `protobuf:"varint,16,opt,name=caller_don_id,json=callerDonId,proto3" json:"caller_don_id,omitempty"`
+	CallerDonId     uint32                 `protobuf:"varint,16,opt,name=caller_don_id,json=callerDonId,proto3" json:"caller_don_id,omitempty"`
 }
 
 func (x *MessageBody) Reset() {
@@ -290,7 +290,7 @@ func (x *MessageBody) GetCapabilityDonId() uint32 {
 
 func (x *MessageBody) GetCallerDonId() uint32 {
 	if x != nil {
-		return x.CallerDonID
+		return x.CallerDonId
 	}
 	return 0
 }

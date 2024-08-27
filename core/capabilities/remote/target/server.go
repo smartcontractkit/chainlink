@@ -136,7 +136,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		return
 	}
 
-	messageID, err := GetMessageID(msg)
+	messageId, err := GetMessageID(msg)
 	if err != nil {
 		r.lggr.Errorw("invalid message id", "err", err, "id", remote.SanitizeLogString(string(msg.MessageId)))
 		return
@@ -150,34 +150,34 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 
 	// A request is uniquely identified by the message id and the hash of the payload to prevent a malicious
 	// actor from sending a different payload with the same message id
-	requestID := messageID + hex.EncodeToString(msgHash[:])
+	requestID := messageId + hex.EncodeToString(msgHash[:])
 
 	r.lggr.Debugw("received request", "msgId", msg.MessageId, "requestID", requestID)
 
-	if requestIDs, ok := r.messageIDToRequestIDsCount[messageID]; ok {
+	if requestIDs, ok := r.messageIDToRequestIDsCount[messageId]; ok {
 		requestIDs[requestID] = requestIDs[requestID] + 1
 	} else {
-		r.messageIDToRequestIDsCount[messageID] = map[string]int{requestID: 1}
+		r.messageIDToRequestIDsCount[messageId] = map[string]int{requestID: 1}
 	}
 
-	requestIDs := r.messageIDToRequestIDsCount[messageID]
+	requestIDs := r.messageIDToRequestIDsCount[messageId]
 	if len(requestIDs) > 1 {
 		// This is a potential attack vector as well as a situation that will occur if the client is sending non-deterministic payloads
 		// so a warning is logged
-		r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageID, "lenRequestIDs", len(requestIDs))
+		r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageId, "lenRequestIDs", len(requestIDs))
 	}
 
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
-		callingDon, ok := r.workflowDONs[msg.CallerDonID]
+		callingDon, ok := r.workflowDONs[msg.CallerDonId]
 		if !ok {
-			r.lggr.Errorw("received request from unregistered don", "donId", msg.CallerDonID)
+			r.lggr.Errorw("received request from unregistered don", "donId", msg.CallerDonId)
 			return
 		}
 
 		r.requestIDToRequest[requestID] = requestAndMsgID{
 			request: request.NewServerRequest(r.underlying, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
-				callingDon, messageID, r.dispatcher, r.requestTimeout, r.lggr),
-			messageID: messageID,
+				callingDon, messageId, r.dispatcher, r.requestTimeout, r.lggr),
+			messageID: messageId,
 		}
 	}
 

@@ -96,9 +96,9 @@ func CloseUSDCReader(lggr logger.Logger, jobID string, transmitter common.Addres
 
 type USDCReaderImpl = ccipdata.USDCReaderImpl
 
-var DefaultRpcBatchSizeLimit = rpclib.DefaultRPCBatchSizeLimit
-var DefaultRpcBatchBackOffMultiplier = rpclib.DefaultRPCBatchBackOffMultiplier
-var DefaultMaxParallelRpcCalls = rpclib.DefaultMaxParallelRPCCalls
+var DefaultRpcBatchSizeLimit = rpclib.DefaultRpcBatchSizeLimit
+var DefaultRpcBatchBackOffMultiplier = rpclib.DefaultRpcBatchBackOffMultiplier
+var DefaultMaxParallelRpcCalls = rpclib.DefaultMaxParallelRpcCalls
 
 func NewEVMTokenPoolBatchedReader(lggr logger.Logger, remoteChainSelector uint64, offRampAddress ccip.Address, evmBatchCaller rpclib.EvmBatchCaller) (*batchreader.EVMTokenPoolBatchedReader, error) {
 	return batchreader.NewEVMTokenPoolBatchedReader(lggr, remoteChainSelector, offRampAddress, evmBatchCaller)

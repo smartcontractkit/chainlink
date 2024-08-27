@@ -205,7 +205,7 @@ func (e *ServerRequest) sendResponse(requester p2ptypes.PeerID) error {
 	responseMsg := types.MessageBody{
 		CapabilityId:    e.capabilityID,
 		CapabilityDonId: e.capabilityDonID,
-		CallerDonID:     e.callingDon.ID,
+		CallerDonId:     e.callingDon.ID,
 		Method:          types.MethodExecute,
 		MessageId:       []byte(e.requestMessageID),
 		Sender:          e.capabilityPeerId[:],
