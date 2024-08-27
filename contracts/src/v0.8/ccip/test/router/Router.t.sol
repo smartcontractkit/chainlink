@@ -210,7 +210,7 @@ contract Router_ccipSend is EVM2EVMOnRampSetup {
 
     address[] memory feeTokens = new address[](1);
     feeTokens[0] = s_sourceTokens[1];
-    s_priceRegistry.applyFeeTokensUpdates(feeTokens, new address[](0));
+    s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
 
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.feeToken = s_sourceTokens[1];
@@ -262,7 +262,7 @@ contract Router_ccipSend is EVM2EVMOnRampSetup {
     // Set the new token as feeToken
     address[] memory feeTokens = new address[](1);
     feeTokens[0] = feeTokenWithZeroFeeAndGas;
-    s_priceRegistry.applyFeeTokensUpdates(feeTokens, new address[](0));
+    s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
 
     // Update the price of the newly set feeToken
     Internal.PriceUpdates memory priceUpdates = _getSingleTokenPriceUpdateStruct(feeTokenWithZeroFeeAndGas, 2_000 ether);
@@ -270,7 +270,7 @@ contract Router_ccipSend is EVM2EVMOnRampSetup {
     priceUpdates.gasPriceUpdates[0] =
       Internal.GasPriceUpdate({destChainSelector: DEST_CHAIN_SELECTOR, usdPerUnitGas: 0});
 
-    s_priceRegistry.updatePrices(priceUpdates);
+    s_feeQuoter.updatePrices(priceUpdates);
 
     // Set the feeToken args on the onRamp
     EVM2EVMOnRamp.FeeTokenConfigArgs[] memory feeTokenConfigArgs = new EVM2EVMOnRamp.FeeTokenConfigArgs[](1);

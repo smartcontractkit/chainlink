@@ -41,7 +41,7 @@ contract EVM2EVMOffRamp_constructor is EVM2EVMOffRampSetup {
       tokenAdminRegistry: address(s_tokenAdminRegistry)
     });
     EVM2EVMOffRamp.DynamicConfig memory dynamicConfig =
-      generateDynamicOffRampConfig(address(s_destRouter), address(s_priceRegistry));
+      generateDynamicOffRampConfig(address(s_destRouter), address(s_feeQuoter));
 
     s_offRamp = new EVM2EVMOffRampHelper(staticConfig, _getInboundRateLimiterConfig());
 
@@ -112,7 +112,7 @@ contract EVM2EVMOffRamp_constructor is EVM2EVMOffRampSetup {
 contract EVM2EVMOffRamp_setDynamicConfig is EVM2EVMOffRampSetup {
   function test_SetDynamicConfig_Success() public {
     EVM2EVMOffRamp.StaticConfig memory staticConfig = s_offRamp.getStaticConfig();
-    EVM2EVMOffRamp.DynamicConfig memory dynamicConfig = generateDynamicOffRampConfig(USER_3, address(s_priceRegistry));
+    EVM2EVMOffRamp.DynamicConfig memory dynamicConfig = generateDynamicOffRampConfig(USER_3, address(s_feeQuoter));
     bytes memory onchainConfig = abi.encode(dynamicConfig);
 
     vm.expectEmit();
@@ -142,7 +142,7 @@ contract EVM2EVMOffRamp_setDynamicConfig is EVM2EVMOffRampSetup {
 
   function test_NonOwner_Revert() public {
     vm.startPrank(STRANGER);
-    EVM2EVMOffRamp.DynamicConfig memory dynamicConfig = generateDynamicOffRampConfig(USER_3, address(s_priceRegistry));
+    EVM2EVMOffRamp.DynamicConfig memory dynamicConfig = generateDynamicOffRampConfig(USER_3, address(s_feeQuoter));
 
     vm.expectRevert("Only callable by owner");
 
@@ -1856,7 +1856,7 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
     // Set a high price to trip the ARL
     uint224 tokenPrice = 3 ** 128;
     Internal.PriceUpdates memory priceUpdates = _getSingleTokenPriceUpdateStruct(s_destFeeToken, tokenPrice);
-    s_priceRegistry.updatePrices(priceUpdates);
+    s_feeQuoter.updatePrices(priceUpdates);
 
     Client.EVMTokenAmount[] memory srcTokenAmounts = _getCastedSourceEVMTokenAmountsWithZeroAmounts();
     uint256 amount1 = 100;
@@ -2032,7 +2032,7 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
 
   function test_PriceNotFoundForToken_Reverts() public {
     // Set token price to 0
-    s_priceRegistry.updatePrices(_getSingleTokenPriceUpdateStruct(s_destFeeToken, 0));
+    s_feeQuoter.updatePrices(_getSingleTokenPriceUpdateStruct(s_destFeeToken, 0));
 
     Client.EVMTokenAmount[] memory srcTokenAmounts = _getCastedSourceEVMTokenAmountsWithZeroAmounts();
     uint256 amount1 = 100;
