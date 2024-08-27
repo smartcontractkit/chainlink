@@ -91,21 +91,39 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     bytes memory message = abi.encodeWithSelector(selector, status, timestamp);
     bytes[] memory emptyBytes;
 
+    IBridgehub bridgeHub = IBridgehub(L1_CROSS_DOMAIN_MESSENGER_ADDRESS);
+    uint32 l2GasPerPubdataByteLimit = 0; // TODO get from config
+
+    // 300 for testnet
+    // 324 for mainnet.
+    uint32 chainId = 0; // TODO get from deployment env dependant config
+
+    // TODO where can we get this from?
+    // doc examples use: vm.rpc("eth_gasPrice", "[]")
+    uint256 ethGasPrice = 0; 
+    
+    uint256 transactionBaseCostEstimate = bridgeHub.l2TransactionBaseCost(
+      chainId, 
+      ethGasPrice, 
+      s_gasLimit, 
+      l2GasPerPubdataByteLimit
+    );
+
     // Create the L2 transaction request
     L2TransactionRequestDirect memory l2TransactionRequestDirect = L2TransactionRequestDirect({
-      chainId: 1, // TODO look at docs
+      chainId: chainId,
       mintValue: 0,
       l2Contract: L2_UPTIME_FEED_ADDR,
-      l2Value: 0, // TODO confirm
+      l2Value: transactionBaseCostEstimate,
       l2Calldata: message,
       l2GasLimit: s_gasLimit,
-      l2GasPerPubdataByteLimit: 0, // TODO confirm
+      l2GasPerPubdataByteLimit: l2GasPerPubdataByteLimit,
       factoryDeps: emptyBytes,
       refundRecipient: msg.sender
     });
 
     // Make the xDomain call
-    IBridgehub(L1_CROSS_DOMAIN_MESSENGER_ADDRESS).requestL2TransactionDirect(l2TransactionRequestDirect);
+    bridgeHub.requestL2TransactionDirect(l2TransactionRequestDirect);
 
     return true;
   }
