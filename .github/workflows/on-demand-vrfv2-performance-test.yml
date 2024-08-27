@@ -2,25 +2,25 @@ name: On Demand VRFV2 Performance Test
 on:
   workflow_dispatch:
     inputs:
-      base64Config:
-        description: base64-ed config
+      base64_config:
+        description: base64-ed test config override
         required: true
         type: string 
       test_type:
-        description: Performance Test Type of test to run
+        description: Performance test type of test to run
         type: choice
         options:
-          - "Smoke"
-          - "Soak"
-          - "Load"
-          - "Stress"
-          - "Spike"
+          - Smoke
+          - Soak
+          - Load
+          - Stress
+          - Spike
       test_ids:
-        description: "Tests to run (see .github/e2e-tests.yml)"
+        description: Tests to run (see .github/e2e-tests.yml)
         required: false
         default: "load/vrfv2/vrfv2_test.go:TestVRFV2Performance"
       test_secrets_override_key:
-        description: 'Key to run tests with custom test secrets'
+        description: Key to run tests with custom test secrets
         required: false
         type: string 
 
@@ -31,7 +31,7 @@ jobs:
     with:
       chainlink_version: ${{ github.sha }}
       require_chainlink_image_versions_in_qa_ecr: ${{ github.sha }}
-      test_config_override_base64: ${{ inputs.base64Config}}
+      test_config_override_base64: ${{ inputs.base64_config}}
       test_ids: ${{ inputs.test_ids }}
       test_type: ${{ inputs.test_type }}
     secrets:
