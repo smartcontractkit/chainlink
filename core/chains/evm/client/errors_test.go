@@ -401,6 +401,7 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"Failed to serialize transaction: oversized data. max: 1000000; actual: 1000000", true, "zkSync"},
 
 		{"client error fatal", true, "tomlConfig"},
+		{"invalid chain id for signer", true, "Treasure"},
 	}
 
 	for _, test := range tests {
