@@ -1524,8 +1524,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM evm.txes WHERE nonce = $1`, localNextNonce)
 	})
 
-	pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
-
 	t.Run("eth tx is left in progress if eth node returns insufficient eth in EIP-1559 mode", func(t *testing.T) {
 		insufficientEthError := "insufficient funds for transfer"
 		evmcfg2 := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
