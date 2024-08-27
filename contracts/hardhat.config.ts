@@ -18,16 +18,14 @@ const COMPILER_SETTINGS = {
 
 // prune forge style tests from hardhat paths
 subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS).setAction(
-  async (_, __, runSuper) => {
-    const paths = await runSuper()
-    const noTests = paths.filter((p: string) => !p.endsWith('.t.sol'))
-    const noCCIPTests = noTests.filter(
-      (p: string) => !p.includes('/v0.8/ccip/test'),
-    )
-    return noCCIPTests.filter(
-      (p: string) => !p.includes('src/v0.8/vendor/forge-std'),
-    )
-  },
+    async (_, __, runSuper) => {
+      const paths = await runSuper()
+      const noTests = paths.filter((p: string) => !p.endsWith('.t.sol'))
+      const noCCIP = noTests.filter((p: string) => !p.includes('/v0.8/ccip'))
+      return noCCIP.filter(
+          (p: string) => !p.includes('src/v0.8/vendor/forge-std'),
+      )
+    },
 )
 
 /**
@@ -41,8 +39,8 @@ let config = {
   paths: {
     artifacts: './artifacts',
     cache: './cache',
-    sources: './src/v0.8',
-    tests: './test/v0.8',
+    sources: './src',
+    tests: './test',
   },
   typechain: {
     outDir: './typechain',
@@ -54,7 +52,7 @@ let config = {
     },
     hardhat: {
       allowUnlimitedContractSize: Boolean(
-        process.env.ALLOW_UNLIMITED_CONTRACT_SIZE,
+          process.env.ALLOW_UNLIMITED_CONTRACT_SIZE,
       ),
       hardfork: 'merge',
     },
