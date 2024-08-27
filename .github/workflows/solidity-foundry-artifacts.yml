@@ -28,6 +28,7 @@ on:
 
 env:
   FOUNDRY_PROFILE: ci
+
   # Unfortunately, we can't use the "default" field in the inputs section, because it does not have
   # access to the workflow context
   head_ref:  ${{ inputs.commit_to_use || github.sha }}
