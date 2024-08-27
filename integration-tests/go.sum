@@ -1427,8 +1427,6 @@ github.com/slack-go/slack v0.12.2 h1:x3OppyMyGIbbiyFhsBmpf9pwkUzMhthJMRNmNlA4LaQ
 github.com/slack-go/slack v0.12.2/go.mod h1:hlGi5oXA+Gt+yWTPP0plCdRKmjsDxecdHxYQdlMQKOw=
 github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240808195812-ae0378684685 h1:jakAsdhDxV4cMgRAcSvHraXjyePi8umG5SEUTGFvuy8=
 github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240808195812-ae0378684685/go.mod h1:p7L/xNEQpHDdZtgFA6/FavuZHqvV3kYhQysxBywmq1k=
-github.com/smartcontractkit/ccip/integration-tests v0.0.0-20240827112422-fd63fe3f10fc h1:rkcYXhCUOb6KmOqlDoitB/SdWeikDNM/6FvxKixD9pc=
-github.com/smartcontractkit/ccip/integration-tests v0.0.0-20240827112422-fd63fe3f10fc/go.mod h1:iOsk5XTO4onNbxfIkAQnXxZyuh5OOinfTpsdL0Fz6mA=
 github.com/smartcontractkit/chain-selectors v1.0.21 h1:KCR9SA7PhOexaBzFieHoLv1WonwhVOPtOStpqTmLC4E=
 github.com/smartcontractkit/chain-selectors v1.0.21/go.mod h1:d4Hi+E1zqjy9HqMkjBE5q1vcG9VGgxf5VxiRHfzi2kE=
 github.com/smartcontractkit/chainlink-automation v1.0.4 h1:iyW181JjKHLNMnDleI8umfIfVVlwC7+n5izbLSFgjw8=

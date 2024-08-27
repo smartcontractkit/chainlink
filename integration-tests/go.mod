@@ -34,10 +34,8 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240808195812-ae0378684685
-	github.com/smartcontractkit/ccip/integration-tests v0.0.0-20240827112422-fd63fe3f10fc
 	github.com/smartcontractkit/chain-selectors v1.0.21
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240827105512-728a83598aac
 	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240823143943-86fc7c5deb84
 	github.com/smartcontractkit/chainlink-testing-framework v1.34.6
 	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.1
@@ -408,6 +406,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240827105512-728a83598aac // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240820130645-cf4b159fbba2 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240710170203-5b41615da827 // indirect
