@@ -1524,7 +1524,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM evm.txes WHERE nonce = $1`, localNextNonce)
 	})
 
-	t.Run("eth tx is left in progress if eth node returns insufficient eth", func(t *testing.T) {
+	t.Run("eth tx is replaced with new re-estimated tx if eth node returns insufficient eth", func(t *testing.T) {
 		insufficientEthError := "insufficient funds for transfer"
 		localNextNonce := getLocalNextNonce(t, nonceTracker, fromAddress)
 		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
@@ -1537,17 +1537,20 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Contains(t, err.Error(), "insufficient funds for transfer")
 		assert.True(t, retryable)
 
-		// Check it was saved correctly with its attempt
-		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
+		// Check it was saved correctly with replaced attempt
+		updated_etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
+		assert.Nil(t, updated_etx.BroadcastAt)
+		assert.Nil(t, updated_etx.InitialBroadcastAt)
+		require.NotNil(t, updated_etx.Sequence)
+		assert.False(t, updated_etx.Error.Valid)
+		assert.Equal(t, txmgrcommon.TxUnstarted, etx.State)
+		require.Len(t, updated_etx.TxAttempts, 1)
 
-		assert.Nil(t, etx.BroadcastAt)
-		assert.Nil(t, etx.InitialBroadcastAt)
-		require.NotNil(t, etx.Sequence)
-		assert.False(t, etx.Error.Valid)
-		assert.Equal(t, txmgrcommon.TxInProgress, etx.State)
-		require.Len(t, etx.TxAttempts, 1)
-		attempt := etx.TxAttempts[0]
+		// check new attempt created
+		assert.NotEqual(t, updated_etx.CreatedAt, etx.CreatedAt)
+
+		attempt := updated_etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
 		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
 	})
