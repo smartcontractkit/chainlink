@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -20,6 +21,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	ocr3capability "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
@@ -162,6 +165,7 @@ type RelayerOpts struct {
 	MercuryPool          wsrpc.Pool
 	TransmitterConfig    mercury.TransmitterConfig
 	CapabilitiesRegistry coretypes.CapabilitiesRegistry
+	HTTPClient           *http.Client
 }
 
 func (c RelayerOpts) Validate() error {
@@ -189,8 +193,9 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	sugared := logger.Sugared(lggr).Named("Relayer")
 
 	mercuryORM := mercury.NewORM(opts.DS)
-	lloORM := llo.NewORM(opts.DS, chain.ID())
-	cdcFactory := llo.NewChannelDefinitionCacheFactory(sugared, lloORM, chain.LogPoller())
+	chainSelector, err := chainselectors.SelectorFromChainId(chain.ID().Uint64())
+	lloORM := llo.NewORM(opts.DS, chainSelector)
+	cdcFactory := llo.NewChannelDefinitionCacheFactory(sugared, lloORM, chain.LogPoller(), opts.HTTPClient)
 	relayer := &Relayer{
 		ds:                   opts.DS,
 		chain:                chain,
@@ -207,7 +212,8 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	// Initialize write target capability if configuration is defined
 	if chain.Config().EVM().Workflow().ForwarderAddress() != nil {
 		ctx := context.Background()
-		capability, err := NewWriteTarget(ctx, relayer, chain, lggr)
+		capability, err := NewWriteTarget(ctx, relayer, chain, chain.Config().EVM().Workflow().DefaultGasLimit(),
+			lggr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize write target: %w", err)
 		}

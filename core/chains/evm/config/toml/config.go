@@ -521,6 +521,7 @@ func (a *Automation) setFrom(f *Automation) {
 type Workflow struct {
 	FromAddress      *types.EIP55Address `toml:",omitempty"`
 	ForwarderAddress *types.EIP55Address `toml:",omitempty"`
+	DefaultGasLimit  uint64
 }
 
 func (m *Workflow) setFrom(f *Workflow) {
@@ -530,6 +531,8 @@ func (m *Workflow) setFrom(f *Workflow) {
 	if v := f.ForwarderAddress; v != nil {
 		m.ForwarderAddress = v
 	}
+
+	m.DefaultGasLimit = f.DefaultGasLimit
 }
 
 type BalanceMonitor struct {
@@ -549,11 +552,12 @@ type GasEstimator struct {
 	PriceMax     *assets.Wei
 	PriceMin     *assets.Wei
 
-	LimitDefault    *uint64
-	LimitMax        *uint64
-	LimitMultiplier *decimal.Decimal
-	LimitTransfer   *uint64
-	LimitJobType    GasLimitJobType `toml:",omitempty"`
+	LimitDefault     *uint64
+	LimitMax         *uint64
+	LimitMultiplier  *decimal.Decimal
+	LimitTransfer    *uint64
+	LimitJobType     GasLimitJobType `toml:",omitempty"`
+	EstimateGasLimit *bool
 
 	BumpMin       *assets.Wei
 	BumpPercent   *uint16
@@ -640,6 +644,9 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	}
 	if v := f.LimitTransfer; v != nil {
 		e.LimitTransfer = v
+	}
+	if v := f.EstimateGasLimit; v != nil {
+		e.EstimateGasLimit = v
 	}
 	if v := f.PriceDefault; v != nil {
 		e.PriceDefault = v
@@ -800,6 +807,7 @@ type ClientErrors struct {
 	TransactionAlreadyMined           *string `toml:",omitempty"`
 	Fatal                             *string `toml:",omitempty"`
 	ServiceUnavailable                *string `toml:",omitempty"`
+	TooManyResults                    *string `toml:",omitempty"`
 }
 
 func (r *ClientErrors) setFrom(f *ClientErrors) bool {
@@ -844,6 +852,9 @@ func (r *ClientErrors) setFrom(f *ClientErrors) bool {
 	}
 	if v := f.ServiceUnavailable; v != nil {
 		r.ServiceUnavailable = v
+	}
+	if v := f.TooManyResults; v != nil {
+		r.TooManyResults = v
 	}
 	return true
 }

@@ -150,7 +150,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/ocr2_test.go -timeout 30m -count=1 -test.parallel=6 -json
     pyroscope_env: ci-smoke-ocr2-evm-simulated
-
+    test_env_vars:
+      E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
+      
   - id: smoke/ocr2_test.go:*-plugins
     path: integration-tests/smoke/ocr2_test.go
     test_env_type: docker
@@ -161,8 +163,19 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test smoke/ocr2_test.go -timeout 30m -count=1 -test.parallel=6 -json
     pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
     test_env_vars:
-      E2E_TEST_CHAINLINK_VERSION: '{{ env.GITHUB_SHA_PLUGINS }}' # This is the chainlink version that has the plugins
+      E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
       ENABLE_OTEL_TRACES: true
+
+  - id: chaos/ocr_chaos_test.go
+    path: integration-tests/chaos/ocr_chaos_test.go
+    test_env_type: k8s-remote-runner
+    runs_on: ubuntu-latest
+    workflows:
+      - Automation On Demand Tests
+      - E2E Chaos Tests
+    test_cmd: cd integration-tests/chaos && DETACH_RUNNER=false go test -test.run "^TestOCRChaos$" -v -test.parallel=10 -timeout 60m -count=1 -json
+    test_env_vars:
+      TEST_SUITE: chaos
 
   # END: OCR tests
 
@@ -215,7 +228,7 @@ runner-test-matrix:
     workflows:
       - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link$" -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link$" -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
 
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_3_logtrigger_native|TestAutomationBasic/registry_2_3_logtrigger_link$
@@ -375,7 +388,7 @@ runner-test-matrix:
     workflows:
       - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperCheckPerformGasLimit$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperCheckPerformGasLimit$ -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-keeper-evm-simulated  
 
   - id: smoke/keeper_test.go:^TestKeeperRegisterUpkeep$
@@ -531,7 +544,7 @@ runner-test-matrix:
     test_env_vars:
       TEST_SUITE: reorg
     workflows:
-      - Run Automation On Demand Tests (TEST WORKFLOW)
+      - Automation On Demand Tests
     test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_0 -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
 
@@ -542,7 +555,7 @@ runner-test-matrix:
     test_env_vars:
       TEST_SUITE: reorg
     workflows:
-      - Run Automation On Demand Tests (TEST WORKFLOW)
+      - Automation On Demand Tests
     test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_1 -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
 
@@ -553,8 +566,19 @@ runner-test-matrix:
     test_env_vars:
       TEST_SUITE: reorg
     workflows:
-      - Run Automation On Demand Tests (TEST WORKFLOW)
+      - Automation On Demand Tests
     test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_2 -test.parallel=2 -timeout 30m -count=1 -json
+    pyroscope_env: ci-automation-on-demand-reorg
+
+  - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_3
+    path: integration-tests/reorg/automation_reorg_test.go
+    runs_on: ubuntu-latest
+    test_env_type: docker
+    test_env_vars:
+      TEST_SUITE: reorg
+    workflows:
+      - Automation On Demand Tests
+    test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_3 -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
 
   - id: chaos/automation_chaos_test.go
@@ -562,7 +586,8 @@ runner-test-matrix:
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
     workflows:
-      - Run Automation On Demand Tests (TEST WORKFLOW)
+      - Automation On Demand Tests
+      - E2E Chaos Tests
     test_cmd: cd integration-tests/chaos && DETACH_RUNNER=false go test -v -test.run ^TestAutomationChaos$ -test.parallel=20 -timeout 60m -count=1 -json
     pyroscope_env: ci-automation-on-demand-chaos
     test_env_vars:
@@ -823,7 +848,7 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       E2E_TEST_CHAINLINK_VERSION: '{{ env.LATEST_CHAINLINK_RELEASE_VERSION }}'
       E2E_TEST_CHAINLINK_UPGRADE_IMAGE: '{{ env.QA_CHAINLINK_IMAGE }}'
-      E2E_TEST_CHAINLINK_UPGRADE_VERSION: '{{ env.GITHUB_SHA }}'
+      E2E_TEST_CHAINLINK_UPGRADE_VERSION: '{{ env.DEFAULT_CHAINLINK_VERSION }}'
 
   # END: Other tests
 
@@ -938,7 +963,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - PR E2E CCIP Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPOffRampCapacityLimit$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
@@ -949,10 +973,35 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     workflows:
-      - PR E2E CCIP Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPOffRampAggRateLimit$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2      
 
+  - id: ccip-tests/chaos/ccip_test.go
+    path: integration-tests/ccip-tests/chaos/ccip_test.go
+    test_env_type: k8s-remote-runner
+    runs_on: ubuntu-latest
+    workflows:
+      - E2E CCIP Chaos Tests
+    test_cmd: cd integration-tests/ccip-tests/chaos && DETACH_RUNNER=false go test ccip_test.go -v -test.parallel=11 -timeout 60m -count=1 -json
+    test_env_vars:
+      TEST_SUITE: chaos
+      TEST_TRIGGERED_BY: ccip-cron-chaos-eth
+      TEST_LOG_LEVEL: debug
+
+  - id: ccip-tests/load/ccip_test.go:^TestLoadCCIPStableWithPodChaosDiffCommitAndExec
+    path: integration-tests/ccip-tests/load/ccip_test.go
+    test_env_type: k8s-remote-runner
+    runs_on: ubuntu-latest
+    workflows:
+      # Disabled until CCIP-2555 is resolved
+      # - E2E CCIP Chaos Tests
+    test_cmd: cd integration-tests/ccip-tests/load && DETACH_RUNNER=false go test -run '^TestLoadCCIPStableWithPodChaosDiffCommitAndExec' -v -test.parallel=4 -timeout 120m -count=1 -json
+    test_env_vars:
+      TEST_SUITE: chaos
+      TEST_TRIGGERED_BY: ccip-cron-chaos-eth
+      TEST_LOG_LEVEL: debug
+      E2E_TEST_GRAFANA_DASHBOARD_URL: /d/6vjVx-1V8/ccip-long-running-tests
+            
   # END: CCIP tests

@@ -13,8 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-resty/resty/v2"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/seth"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 

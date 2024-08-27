@@ -4,16 +4,17 @@ import (
 	"time"
 
 	"github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
-	"github.com/smartcontractkit/havoc/k8schaos"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 )
 
-func rebootCLNamespace(delay time.Duration, namespace string) (*k8schaos.Chaos, error) {
-	k8sClient, err := k8schaos.NewChaosMeshClient()
+func rebootCLNamespace(delay time.Duration, namespace string) (*havoc.Chaos, error) {
+	k8sClient, err := havoc.NewChaosMeshClient()
 	if err != nil {
 		return nil, err
 	}
-	return k8schaos.NewChaos(k8schaos.ChaosOpts{
+	return havoc.NewChaos(havoc.ChaosOpts{
 		Description: "Reboot CRIB",
 		DelayCreate: delay,
 		Object: &v1alpha1.PodChaos{
@@ -40,6 +41,6 @@ func rebootCLNamespace(delay time.Duration, namespace string) (*k8schaos.Chaos, 
 			},
 		},
 		Client: k8sClient,
-		Logger: &k8schaos.Logger,
+		Logger: &havoc.Logger,
 	})
 }

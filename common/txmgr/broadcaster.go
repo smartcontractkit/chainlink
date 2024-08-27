@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
+	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -434,7 +435,11 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	}
 
 	attempt, _, _, retryable, err := eb.NewTxAttempt(ctx, *etx, eb.lggr)
-	if err != nil {
+	// Mark transaction as fatal if provided gas limit is set too low
+	if errors.Is(err, commonfee.ErrFeeLimitTooLow) {
+		etx.Error = null.StringFrom(commonfee.ErrFeeLimitTooLow.Error())
+		return eb.saveFatallyErroredTransaction(eb.lggr, etx), false
+	} else if err != nil {
 		return fmt.Errorf("processUnstartedTxs failed on NewAttempt: %w", err), retryable
 	}
 
