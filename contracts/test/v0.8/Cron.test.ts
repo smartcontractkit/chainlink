@@ -40,7 +40,7 @@ describe('Cron', () => {
     await reset()
   })
 
-  for (let libType of ['Internal', 'External']) {
+  for (const libType of ['Internal', 'External']) {
     describe(libType, () => {
       beforeEach(() => {
         cron = libType === 'Internal' ? cronInternal : cronExternal

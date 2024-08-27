@@ -1385,8 +1385,8 @@ describe('Operator', () => {
             ethers.utils.toUtf8Bytes('whatever(bytes32,bytes32)'),
           )
           const receipt = await tx.wait()
-          let request = decodeRunRequest(receipt.logs?.[3])
-          let responseParams = convertFufillParams(request, response)
+          const request = decodeRunRequest(receipt.logs?.[3])
+          const responseParams = convertFufillParams(request, response)
           // set the params to be the owned address
           responseParams[2] = forwarder1.address
 
@@ -1991,8 +1991,8 @@ describe('Operator', () => {
               ethers.utils.toUtf8Bytes('whatever(bytes32,bytes32)'),
             )
             const receipt = await tx.wait()
-            let request = decodeRunRequest(receipt.logs?.[3])
-            let responseParams = convertFufillParams(request, response)
+            const request = decodeRunRequest(receipt.logs?.[3])
+            const responseParams = convertFufillParams(request, response)
             // set the params to be the owned address
             responseParams[2] = forwarder1.address
 
@@ -3087,7 +3087,7 @@ describe('Operator', () => {
       const responseValues = [toBytes32String(response)]
 
       it('reverts', async () => {
-        let basicConsumer = await basicConsumerFactory
+        const basicConsumer = await basicConsumerFactory
           .connect(roles.defaultAccount)
           .deploy(link.address, operator.address, specId)
         const paymentAmount = toWei('1')
@@ -3097,7 +3097,7 @@ describe('Operator', () => {
           paymentAmount,
         )
         const receipt = await tx.wait()
-        let request = decodeRunRequest(receipt.logs?.[3])
+        const request = decodeRunRequest(receipt.logs?.[3])
 
         const fulfillParams = convertFulfill2Params(
           request,
