@@ -146,13 +146,27 @@ env:
   METRICS_COLLECTION_ID: chainlink-e2e-tests
 
 jobs:
-  validate-inputs:
-    name: Validate workflow inputs
+  check-inputs:
+    name: Check workflow inputs
     runs-on: ubuntu-latest
     outputs:
       require_chainlink_image_versions_in_qa_ecr_matrix: ${{ steps.set-required-chainlink-image-versions-matrix.outputs.versions }}
       require_chainlink_plugin_versions_in_qa_ecr_matrix: ${{ steps.set-required-chainlink-plugin-versions-matrix.outputs.versions }}
     steps:
+      - name: Show test config override in github summary
+        if: ${{ inputs.test_config_override_base64 != '' }}
+        shell: bash
+        run: |
+          echo "### BASE64_CONFIG_OVERRIDE used to run tests" >>$GITHUB_STEP_SUMMARY
+          
+          echo '```' >>$GITHUB_STEP_SUMMARY
+          echo "${{ inputs.test_config_override_base64 }}" >>$GITHUB_STEP_SUMMARY
+          echo '```' >>$GITHUB_STEP_SUMMARY 
+          
+          DECODED_CONFIG=$(echo "${{ inputs.test_config_override_base64 }}" | base64 --decode)
+          echo '```' >>$GITHUB_STEP_SUMMARY
+          echo "$DECODED_CONFIG" >>$GITHUB_STEP_SUMMARY
+          echo '```' >>$GITHUB_STEP_SUMMARY      
       - name: Check input conditions
         run: |
           if [[ "${{ inputs.test_ids }}" != "" && "${{ inputs.test_workflow }}" != "" ]]; then
@@ -182,7 +196,7 @@ jobs:
   check-test-configurations:
     name: Check test configurations
     if: ${{ inputs.enable_check_test_configurations }}
-    needs: validate-inputs
+    needs: check-inputs
     runs-on: ubuntu-latest
     steps:
       - name: Checkout core
@@ -221,7 +235,7 @@ jobs:
 
   load-test-configurations:
     name: Load test configurations
-    needs: [validate-inputs]
+    needs: [check-inputs]
     runs-on: ubuntu-latest
     outputs:
       run-docker-tests: ${{ steps.check-matrices.outputs.run-docker-tests }}
@@ -352,8 +366,8 @@ jobs:
   # Build Chainlink images required for the tests
   require-chainlink-image-versions-in-qa-ecr:
     name: Build Chainlink image
-    needs: [validate-inputs, load-test-configurations]
-    if: ${{ needs.validate-inputs.outputs.require_chainlink_image_versions_in_qa_ecr_matrix != '' }}
+    needs: [check-inputs, load-test-configurations]
+    if: ${{ needs.check-inputs.outputs.require_chainlink_image_versions_in_qa_ecr_matrix != '' }}
     runs-on: ubuntu-latest
     environment: integration
     permissions:
@@ -363,7 +377,7 @@ jobs:
       CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
     strategy:
       matrix:
-        version: ${{ fromJson(needs.validate-inputs.outputs.require_chainlink_image_versions_in_qa_ecr_matrix) }}
+        version: ${{ fromJson(needs.check-inputs.outputs.require_chainlink_image_versions_in_qa_ecr_matrix) }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -381,8 +395,8 @@ jobs:
   # Build Chainlink plugins required for the tests
   require-chainlink-plugin-versions-in-qa-ecr:
     name: Build Chainlink plugins
-    needs: [validate-inputs, load-test-configurations]
-    if: ${{ needs.validate-inputs.outputs.require_chainlink_plugin_versions_in_qa_ecr_matrix != '' }}
+    needs: [check-inputs, load-test-configurations]
+    if: ${{ needs.check-inputs.outputs.require_chainlink_plugin_versions_in_qa_ecr_matrix != '' }}
     runs-on: ubuntu-latest
     environment: integration
     permissions:
@@ -392,7 +406,7 @@ jobs:
       CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
     strategy:
       matrix:
-        version: ${{ fromJson(needs.validate-inputs.outputs.require_chainlink_plugin_versions_in_qa_ecr_matrix) }}
+        version: ${{ fromJson(needs.check-inputs.outputs.require_chainlink_plugin_versions_in_qa_ecr_matrix) }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
