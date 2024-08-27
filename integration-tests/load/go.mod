@@ -17,7 +17,7 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240823143943-86fc7c5deb84
-	github.com/smartcontractkit/chainlink-testing-framework v1.34.6
+	github.com/smartcontractkit/chainlink-testing-framework v1.34.9
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.2.0
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
@@ -61,7 +61,6 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240827105512-728a83598aac // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v0.0.0-20240822140612-df8e03c10dc1 // indirect
-	github.com/smartcontractkit/seth v1.2.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	k8s.io/apimachinery v0.31.0 // indirect
