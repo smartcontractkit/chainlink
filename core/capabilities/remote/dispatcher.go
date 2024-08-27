@@ -181,7 +181,6 @@ func (d *dispatcher) receive() {
 		case msg := <-recvCh:
 			if !d.rateLimiter.Allow(msg.Sender.String()) {
 				d.lggr.Debugw("rate limit exceeded, dropping message", "sender", msg.Sender)
-				// TODO: do we just drop the message, or do we need to respond with an error?
 				continue
 			}
 			body, err := ValidateMessage(msg, d.peerID)

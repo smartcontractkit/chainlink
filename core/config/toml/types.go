@@ -1453,10 +1453,10 @@ func (d *Dispatcher) setFrom(f *Dispatcher) {
 }
 
 type DispatcherRateLimit struct {
-	GlobalRPS   *float64
-	GlobalBurst *int
-	RPS         *float64
-	Burst       *int
+	GlobalRPS      *float64
+	GlobalBurst    *int
+	PerSenderRPS   *float64
+	PerSenderBurst *int
 }
 
 func (drl *DispatcherRateLimit) setFrom(f *DispatcherRateLimit) {
@@ -1466,17 +1466,17 @@ func (drl *DispatcherRateLimit) setFrom(f *DispatcherRateLimit) {
 	if f.GlobalBurst != nil {
 		drl.GlobalBurst = f.GlobalBurst
 	}
-	if f.RPS != nil {
-		drl.RPS = f.RPS
+	if f.PerSenderRPS != nil {
+		drl.PerSenderRPS = f.PerSenderRPS
 	}
-	if f.Burst != nil {
-		drl.Burst = f.Burst
+	if f.PerSenderBurst != nil {
+		drl.PerSenderBurst = f.PerSenderBurst
 	}
 }
 
 type Capabilities struct {
 	Peering          P2P              `toml:",omitempty"`
-	Dispatcher       Dispatcher       `toml:"omitempty"`
+	Dispatcher       Dispatcher       `toml:",omitempty"`
 	ExternalRegistry ExternalRegistry `toml:",omitempty"`
 }
 
