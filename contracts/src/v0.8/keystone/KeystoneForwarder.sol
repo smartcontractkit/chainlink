@@ -248,6 +248,9 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     emit ConfigSet(donId, configVersion, 0, new address[](0));
   }
 
+
+  event ReportIsCalled();
+
   // send a report to receiver
   function report(
     address receiver,
@@ -255,6 +258,10 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     bytes calldata reportContext,
     bytes[] calldata signatures
   ) external {
+
+    emit ReportIsCalled();
+    return;
+
     if (rawReport.length < METADATA_LENGTH) {
       revert InvalidReport();
     }

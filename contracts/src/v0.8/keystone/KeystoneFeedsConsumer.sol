@@ -21,9 +21,14 @@ contract KeystoneFeedsConsumer is IReceiver, KeystoneFeedsPermissionHandler {
     uint32 Timestamp;
   }
 
+  event MessageReceived(bytes  metadata, bytes  rawReport);
+
   mapping(bytes32 feedId => StoredFeedReport feedReport) internal s_feedReports;
 
   function onReport(bytes calldata metadata, bytes calldata rawReport) external {
+    emit MessageReceived(metadata, rawReport);
+    return;
+
     (bytes10 workflowName, address workflowOwner, bytes2 reportName) = metadata._extractMetadataInfo();
 
     _validateReportPermission(msg.sender, workflowOwner, workflowName, reportName);

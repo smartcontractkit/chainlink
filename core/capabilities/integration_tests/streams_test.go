@@ -3,6 +3,7 @@ package integration_tests
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/types"
 )
@@ -26,7 +28,7 @@ func Test_AllAtOnceTransmissionSchedule(t *testing.T) {
 	triggerDonInfo := createDonInfo(t, don{id: 2, numNodes: 7, f: 2})
 	targetDonInfo := createDonInfo(t, don{id: 3, numNodes: 4, f: 1})
 
-	consumer, feedIDs, triggerSink := setupStreamDonsWithTransmissionSchedule(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, 3,
+	consumer, feedIDs, triggerSink, fwd := setupStreamDonsWithTransmissionSchedule(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, 3,
 		"2s", "allAtOnce")
 
 	reports := []*datastreams.FeedReport{
@@ -34,6 +36,24 @@ func Test_AllAtOnceTransmissionSchedule(t *testing.T) {
 		createFeedReport(t, big.NewInt(3), 7, feedIDs[1], triggerDonInfo.keyBundles),
 		createFeedReport(t, big.NewInt(2), 6, feedIDs[2], triggerDonInfo.keyBundles),
 	}
+
+	reportIsCalled := make(chan *forwarder.KeystoneForwarderReportIsCalled, 1000)
+	msgSub, err := fwd.WatchReportIsCalled(&bind.WatchOpts{}, reportIsCalled)
+	require.NoError(t, err)
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-msgSub.Err():
+				return
+			case msg := <-reportIsCalled:
+				fmt.Printf("Report clalled %v", msg)
+			}
+		}
+
+	}()
 
 	triggerSink.sendReports(reports)
 
@@ -49,7 +69,7 @@ func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
 	triggerDonInfo := createDonInfo(t, don{id: 2, numNodes: 7, f: 2})
 	targetDonInfo := createDonInfo(t, don{id: 3, numNodes: 4, f: 1})
 
-	consumer, feedIDs, triggerSink := setupStreamDonsWithTransmissionSchedule(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, 3,
+	consumer, feedIDs, triggerSink, _ := setupStreamDonsWithTransmissionSchedule(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, 3,
 		"2s", "oneAtATime")
 
 	reports := []*datastreams.FeedReport{
@@ -64,6 +84,25 @@ func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
 }
 
 func waitForConsumerReports(ctx context.Context, t *testing.T, consumer *feeds_consumer.KeystoneFeedsConsumer, triggerFeedReports []*datastreams.FeedReport) {
+
+	msgReceived := make(chan *feeds_consumer.KeystoneFeedsConsumerMessageReceived, 1000)
+	msgSub, err := consumer.WatchMessageReceived(&bind.WatchOpts{}, msgReceived)
+	require.NoError(t, err)
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-msgSub.Err():
+				return
+			case msg := <-msgReceived:
+				fmt.Printf("Received message %v", msg)
+			}
+		}
+
+	}()
+
 	feedsReceived := make(chan *feeds_consumer.KeystoneFeedsConsumerFeedReceived, 1000)
 	feedsSub, err := consumer.WatchFeedReceived(&bind.WatchOpts{}, feedsReceived, nil)
 	require.NoError(t, err)

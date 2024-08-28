@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -64,13 +65,13 @@ type donInfo struct {
 }
 
 func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, workflowDonInfo donInfo, triggerDonInfo donInfo, targetDonInfo donInfo,
-	feedCount int, deltaStage string, schedule string) (*feeds_consumer.KeystoneFeedsConsumer, []string, *reportsSink) {
+	feedCount int, deltaStage string, schedule string) (*feeds_consumer.KeystoneFeedsConsumer, []string, *reportsSink, *forwarder.KeystoneForwarder) {
 	lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(TestLogLevel)
 
 	ethBlockchain, transactor := setupBlockchain(t, 1000, 1*time.Second)
 	capabilitiesRegistryAddr := setupCapabilitiesRegistryContract(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, transactor, ethBlockchain)
-	forwarderAddr, _ := setupForwarderContract(t, workflowDonInfo, transactor, ethBlockchain)
+	forwarderAddr, fwdContract := setupForwarderContract(t, workflowDonInfo, transactor, ethBlockchain)
 	consumerAddr, consumer := setupConsumerContract(t, transactor, ethBlockchain, forwarderAddr, workflowOwnerID, workflowName)
 
 	var feedIDs []string
@@ -92,7 +93,7 @@ func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, 
 	servicetest.Run(t, ethBlockchain)
 	servicetest.Run(t, libocr)
 	servicetest.Run(t, sink)
-	return consumer, feedIDs, sink
+	return consumer, feedIDs, sink, fwdContract
 }
 
 func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSink *reportsSink,
