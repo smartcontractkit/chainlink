@@ -451,7 +451,7 @@ NetworkID = 'evm' # Default
 ChainID = '1' # Default
 
 [Capabilities.Dispatcher]
-# SupportedVersion is the version of the dispatcher that the node supports.
+# SupportedVersion is the version of the version of message schema.
 SupportedVersion = 1 # Default
 # ReceiverBufferSize is the size of the buffer for incoming messages.
 ReceiverBufferSize = 10000 # Default
@@ -462,9 +462,9 @@ GlobalRPS = 800 # Default
 # GlobalBurst is the global burst limit for the dispatcher.
 GlobalBurst = 1000 # Default
 # PerSenderRPS is the per-sender rate limit for the dispatcher.
-PerSenderRPS = 5 # Example
+PerSenderRPS = 10 # Default
 # PerSenderBurst is the per-sender burst limit for the dispatcher.
-PerSenderBurst = 10 # Example
+PerSenderBurst = 50 # Default
 
 [Capabilities.Peering]
 # IncomingMessageBufferSize is the per-remote number of incoming

@@ -315,8 +315,8 @@ ReceiverBufferSize = 10000
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800.0
 GlobalBurst = 1000
-PerSenderRPS = 0.0
-PerSenderBurst = 0
+PerSenderRPS = 10.0
+PerSenderBurst = 50
 
 [Capabilities.ExternalRegistry]
 Address = ''

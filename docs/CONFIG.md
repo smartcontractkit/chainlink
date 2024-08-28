@@ -1245,7 +1245,7 @@ ReceiverBufferSize = 10000 # Default
 ```toml
 SupportedVersion = 1 # Default
 ```
-SupportedVersion is the version of the dispatcher that the node supports.
+SupportedVersion is the version of the version of message schema.
 
 ### ReceiverBufferSize
 ```toml
@@ -1258,8 +1258,8 @@ ReceiverBufferSize is the size of the buffer for incoming messages.
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800 # Default
 GlobalBurst = 1000 # Default
-PerSenderRPS = 5 # Example
-PerSenderBurst = 10 # Example
+PerSenderRPS = 10 # Default
+PerSenderBurst = 50 # Default
 ```
 
 
@@ -1277,13 +1277,13 @@ GlobalBurst is the global burst limit for the dispatcher.
 
 ### PerSenderRPS
 ```toml
-PerSenderRPS = 5 # Example
+PerSenderRPS = 10 # Default
 ```
 PerSenderRPS is the per-sender rate limit for the dispatcher.
 
 ### PerSenderBurst
 ```toml
-PerSenderBurst = 10 # Example
+PerSenderBurst = 50 # Default
 ```
 PerSenderBurst is the per-sender burst limit for the dispatcher.
 

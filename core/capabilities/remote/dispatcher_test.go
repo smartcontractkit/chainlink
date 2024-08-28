@@ -90,10 +90,10 @@ func TestDispatcher_CleanStartClose(t *testing.T) {
 		supportedVersion:   1,
 		receiverBufferSize: 10000,
 		rateLimit: testRateLimitConfig{
-			globalRPS:   3.0,
-			globalBurst: 3,
-			rps:         1.0,
-			burst:       2,
+			globalRPS:   800.0,
+			globalBurst: 100,
+			rps:         10.0,
+			burst:       50,
 		},
 	}, wrapper, signer, registry, lggr)
 	require.NoError(t, err)
@@ -121,10 +121,10 @@ func TestDispatcher_Receive(t *testing.T) {
 		supportedVersion:   1,
 		receiverBufferSize: 10000,
 		rateLimit: testRateLimitConfig{
-			globalRPS:   3.0,
-			globalBurst: 3,
-			rps:         1.0,
-			burst:       2,
+			globalRPS:   800.0,
+			globalBurst: 100,
+			rps:         10.0,
+			burst:       50,
 		},
 	}, wrapper, signer, registry, lggr)
 	require.NoError(t, err)
@@ -179,10 +179,10 @@ func TestDispatcher_RespondWithError(t *testing.T) {
 		supportedVersion:   1,
 		receiverBufferSize: 10000,
 		rateLimit: testRateLimitConfig{
-			globalRPS:   3.0,
-			globalBurst: 3,
-			rps:         1.0,
-			burst:       2,
+			globalRPS:   800.0,
+			globalBurst: 100,
+			rps:         10.0,
+			burst:       50,
 		},
 	}, wrapper, signer, registry, lggr)
 	require.NoError(t, err)

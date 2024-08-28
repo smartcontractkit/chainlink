@@ -262,6 +262,16 @@ DeltaDial = '1m0s'
 DeltaReconcile = '2s'
 ListenAddresses = ['foo', 'bar']
 
+[Capabilities.Dispatcher]
+SupportedVersion = 1
+ReceiverBufferSize = 10000
+
+[Capabilities.Dispatcher.RateLimit]
+GlobalRPS = 800.0
+GlobalBurst = 1000
+PerSenderRPS = 10.0
+PerSenderBurst = 50
+
 [Capabilities.ExternalRegistry]
 Address = ''
 NetworkID = 'evm'
