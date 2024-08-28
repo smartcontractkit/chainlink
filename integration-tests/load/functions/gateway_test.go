@@ -3,8 +3,9 @@ package loadfunctions
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
