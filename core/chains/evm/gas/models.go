@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -91,7 +90,6 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		}
 	}
 	var newEstimator func(logger.Logger) EvmEstimator
-	s = "FeeHistory"
 	switch s {
 	case "Arbitrum":
 		arbOracle, err := rollups.NewArbitrumL1GasOracle(lggr, ethClient)
@@ -117,9 +115,9 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		newEstimator = func(l logger.Logger) EvmEstimator {
 			ccfg := FeeHistoryEstimatorConfig{
 				BumpPercent:      geCfg.BumpPercent(),
-				CacheTimeout:     3 * time.Second,
-				EIP1559:          true,
-				BlockHistorySize: 1,
+				CacheTimeout:     geCfg.FeeHistory().CacheTimeout(),
+				EIP1559:          geCfg.EIP1559DynamicFees(),
+				BlockHistorySize: uint64(geCfg.BlockHistory().BlockHistorySize()),
 				RewardPercentile: float64(geCfg.BlockHistory().TransactionPercentile()),
 			}
 			return NewFeeHistoryEstimator(lggr, ethClient, ccfg, ethClient.ConfiguredChainID(), l1Oracle)
