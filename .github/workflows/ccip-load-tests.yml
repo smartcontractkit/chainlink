@@ -182,7 +182,7 @@ jobs:
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@d38226be720c5ccc1ff4d3cee40608ebf264cd59 # v2.3.26
         env:
-          TEST_SUITE: ./ccip-tests/load
+          TEST_SUITE: ccip-load
           TEST_ARGS: -test.timeout 900h
           DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
           RR_MEM: 8Gi
