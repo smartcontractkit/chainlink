@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/go-cmp/cmp"
@@ -319,16 +319,14 @@ func TestVRFv2Plus(t *testing.T) {
 	t.Run("Direct Funding", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 
-		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
+		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperUniverse(
 			testcontext.Get(t),
-			l,
 			sethClient,
+			vrfContracts,
 			&configCopy,
-			vrfContracts.LinkToken,
-			vrfContracts.MockETHLINKFeed,
-			vrfContracts.CoordinatorV2Plus,
 			vrfKey.KeyHash,
 			1,
+			l,
 		)
 		require.NoError(t, err)
 
@@ -337,7 +335,7 @@ func TestVRFv2Plus(t *testing.T) {
 			testConfig := configCopy.VRFv2Plus.General
 			var isNativeBilling = false
 
-			wrapperConsumerJuelsBalanceBeforeRequest, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), wrapperContracts.LoadTestConsumers[0].Address())
+			wrapperConsumerJuelsBalanceBeforeRequest, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), wrapperContracts.WrapperConsumers[0].Address())
 			require.NoError(t, err, "error getting wrapper consumer balance")
 
 			wrapperSubscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), wrapperSubID)
@@ -345,7 +343,7 @@ func TestVRFv2Plus(t *testing.T) {
 			subBalanceBeforeRequest := wrapperSubscription.Balance
 
 			randomWordsFulfilledEvent, err := vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillment(
-				wrapperContracts.LoadTestConsumers[0],
+				wrapperContracts.WrapperConsumers[0],
 				vrfContracts.CoordinatorV2Plus,
 				vrfKey,
 				wrapperSubID,
@@ -361,13 +359,13 @@ func TestVRFv2Plus(t *testing.T) {
 			subBalanceAfterRequest := wrapperSubscription.Balance
 			require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
 
-			consumerStatus, err := wrapperContracts.LoadTestConsumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+			consumerStatus, err := wrapperContracts.WrapperConsumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 			require.NoError(t, err, "error getting rand request status")
 			require.True(t, consumerStatus.Fulfilled)
 
 			expectedWrapperConsumerJuelsBalance := new(big.Int).Sub(wrapperConsumerJuelsBalanceBeforeRequest, consumerStatus.Paid)
 
-			wrapperConsumerJuelsBalanceAfterRequest, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), wrapperContracts.LoadTestConsumers[0].Address())
+			wrapperConsumerJuelsBalanceAfterRequest, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), wrapperContracts.WrapperConsumers[0].Address())
 			require.NoError(t, err, "error getting wrapper consumer balance")
 			require.Equal(t, expectedWrapperConsumerJuelsBalance, wrapperConsumerJuelsBalanceAfterRequest)
 
@@ -386,7 +384,7 @@ func TestVRFv2Plus(t *testing.T) {
 			testConfig := configCopy.VRFv2Plus.General
 			var isNativeBilling = true
 
-			wrapperConsumerBalanceBeforeRequestWei, err := sethClient.Client.BalanceAt(testcontext.Get(t), common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()), nil)
+			wrapperConsumerBalanceBeforeRequestWei, err := sethClient.Client.BalanceAt(testcontext.Get(t), common.HexToAddress(wrapperContracts.WrapperConsumers[0].Address()), nil)
 			require.NoError(t, err, "error getting wrapper consumer balance")
 
 			wrapperSubscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), wrapperSubID)
@@ -394,7 +392,7 @@ func TestVRFv2Plus(t *testing.T) {
 			subBalanceBeforeRequest := wrapperSubscription.NativeBalance
 
 			randomWordsFulfilledEvent, err := vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillment(
-				wrapperContracts.LoadTestConsumers[0],
+				wrapperContracts.WrapperConsumers[0],
 				vrfContracts.CoordinatorV2Plus,
 				vrfKey,
 				wrapperSubID,
@@ -410,13 +408,13 @@ func TestVRFv2Plus(t *testing.T) {
 			subBalanceAfterRequest := wrapperSubscription.NativeBalance
 			require.Equal(t, expectedSubBalanceWei, subBalanceAfterRequest)
 
-			consumerStatus, err := wrapperContracts.LoadTestConsumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+			consumerStatus, err := wrapperContracts.WrapperConsumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 			require.NoError(t, err, "error getting rand request status")
 			require.True(t, consumerStatus.Fulfilled)
 
 			expectedWrapperConsumerWeiBalance := new(big.Int).Sub(wrapperConsumerBalanceBeforeRequestWei, consumerStatus.Paid)
 
-			wrapperConsumerBalanceAfterRequestWei, err := sethClient.Client.BalanceAt(testcontext.Get(t), common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()), nil)
+			wrapperConsumerBalanceAfterRequestWei, err := sethClient.Client.BalanceAt(testcontext.Get(t), common.HexToAddress(wrapperContracts.WrapperConsumers[0].Address()), nil)
 			require.NoError(t, err, "error getting wrapper consumer balance")
 			require.Equal(t, expectedWrapperConsumerWeiBalance, wrapperConsumerBalanceAfterRequestWei)
 
@@ -1059,16 +1057,14 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	t.Run("Test migration of direct billing using VRFV2PlusWrapper subID", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 
-		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
+		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperUniverse(
 			testcontext.Get(t),
-			l,
 			sethClient,
+			vrfContracts,
 			&configCopy,
-			vrfContracts.LinkToken,
-			vrfContracts.MockETHLINKFeed,
-			vrfContracts.CoordinatorV2Plus,
 			vrfKey.KeyHash,
 			1,
+			l,
 		)
 		require.NoError(t, err)
 		subID := wrapperSubID
@@ -1199,7 +1195,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		// Verify rand requests fulfills with Link Token billing
 		isNativeBilling := false
 		randomWordsFulfilledEvent, err := vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillment(
-			wrapperContracts.LoadTestConsumers[0],
+			wrapperContracts.WrapperConsumers[0],
 			newCoordinator,
 			vrfKey,
 			subID,
@@ -1208,14 +1204,14 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
-		consumerStatus, err := wrapperContracts.LoadTestConsumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+		consumerStatus, err := wrapperContracts.WrapperConsumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, consumerStatus.Fulfilled)
 
 		// Verify rand requests fulfills with Native Token billing
 		isNativeBilling = true
 		randomWordsFulfilledEvent, err = vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillment(
-			wrapperContracts.LoadTestConsumers[0],
+			wrapperContracts.WrapperConsumers[0],
 			newCoordinator,
 			vrfKey,
 			subID,
@@ -1224,7 +1220,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
-		consumerStatus, err = wrapperContracts.LoadTestConsumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+		consumerStatus, err = wrapperContracts.WrapperConsumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, consumerStatus.Fulfilled)
 	})
@@ -1327,11 +1323,10 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		}()
 
 		if *configCopy.VRFv2Plus.General.GenerateTXsOnChain {
+			wg.Add(1)
 			go func() {
-				_, err := actions.ContinuouslyGenerateTXsOnChain(sethClient, desiredBlockNumberReached, l)
+				_, err := actions.ContinuouslyGenerateTXsOnChain(sethClient, desiredBlockNumberReached, &wg, l)
 				require.NoError(t, err)
-				// Wait to let the transactions be mined and avoid nonce issues
-				time.Sleep(time.Second * 5)
 			}()
 		}
 		wg.Wait()
@@ -1872,7 +1867,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 	}
 	chainlinkNodeLogScannerSettings := test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(
 		testreporters.NewAllowedLogMessage(
-			"This is a problem and either means a very deep re-org occurred",
+			"Got very old block.",
 			"Test is expecting a reorg to occur",
 			zapcore.DPanicLevel,
 			testreporters.WarnAboutAllowedMsgs_No),

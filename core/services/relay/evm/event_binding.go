@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
@@ -168,7 +169,7 @@ func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, lim
 	}
 	remapped.Expressions = append(defaultExpressions, remapped.Expressions...)
 
-	logs, err := e.lp.FilteredLogs(ctx, remapped, limitAndSort, e.contractName+"-"+e.eventName)
+	logs, err := e.lp.FilteredLogs(ctx, remapped, limitAndSort, e.contractName+"-"+e.address.String()+"-"+e.eventName)
 	if err != nil {
 		return nil, err
 	}
@@ -209,11 +210,13 @@ func (e *eventBinding) getLatestValueWithFilters(
 		return err
 	}
 
+	// convert caller chain agnostic params types to types representing onchain abi types, for e.g. bytes32.
 	checkedParams, err := e.inputModifier.TransformToOnChain(offChain, "" /* unused */)
 	if err != nil {
 		return err
 	}
 
+	// convert onchain params to native types similarly to generated abi wrappers, for e.g. fixed bytes32 abi type to [32]uint8.
 	nativeParams, err := e.inputInfo.ToNative(reflect.ValueOf(checkedParams))
 	if err != nil {
 		return err
@@ -224,34 +227,45 @@ func (e *eventBinding) getLatestValueWithFilters(
 		return err
 	}
 
-	fai := filtersAndIndices[0]
-	remainingFilters := filtersAndIndices[1:]
-
-	logs, err := e.lp.IndexedLogs(ctx, e.hash, e.address, 1, []common.Hash{fai}, confs)
+	// Create limiter and filter for the query.
+	limiter := query.NewLimitAndSort(query.CountLimit(1), query.NewSortBySequence(query.Desc))
+	filter, err := query.Where(
+		"",
+		logpoller.NewAddressFilter(e.address),
+		logpoller.NewEventSigFilter(e.hash),
+		logpoller.NewConfirmationsFilter(confs),
+		createTopicFilters(filtersAndIndices),
+	)
 	if err != nil {
 		return wrapInternalErr(err)
 	}
 
-	// TODO Use filtered logs here BCF-3316
-	// TODO: there should be a better way to ask log poller to filter these
-	// First, you should be able to ask for as many topics to match
-	// Second, you should be able to get the latest only
-	var logToUse *logpoller.Log
-	for _, log := range logs {
-		tmp := log
-		if compareLogs(&tmp, logToUse) > 0 && matchesRemainingFilters(&tmp, remainingFilters) {
-			// copy so that it's not pointing to the changing variable
-			logToUse = &tmp
-		}
+	// Gets the latest log that matches the filter and limiter.
+	logs, err := e.lp.FilteredLogs(ctx, filter, limiter, e.contractName+"-"+e.address.String()+"-"+e.eventName)
+	if err != nil {
+		return wrapInternalErr(err)
 	}
 
-	if logToUse == nil {
+	if len(logs) == 0 {
 		return fmt.Errorf("%w: no events found", commontypes.ErrNotFound)
 	}
 
-	return e.decodeLog(ctx, logToUse, into)
+	return e.decodeLog(ctx, &logs[0], into)
 }
 
+func createTopicFilters(filtersAndIndices []common.Hash) query.Expression {
+	var expressions []query.Expression
+	for topicID, fai := range filtersAndIndices {
+		// first topic index is 1-based, so we add 1.
+		expressions = append(expressions, logpoller.NewEventByTopicFilter(
+			uint64(topicID+1), []primitives.ValueComparator{{Value: fai.Hex(), Operator: primitives.Eq}},
+		))
+	}
+	return query.And(expressions...)
+}
+
+// convertToOffChainType creates a struct based on contract abi with applied codec modifiers.
+// Created type shouldn't have hashed types for indexed topics since incoming params wouldn't be hashed.
 func (e *eventBinding) convertToOffChainType(params any) (any, error) {
 	offChain, err := e.codec.CreateType(WrapItemType(e.contractName, e.eventName, true), true)
 	if err != nil {
@@ -265,65 +279,35 @@ func (e *eventBinding) convertToOffChainType(params any) (any, error) {
 	return offChain, nil
 }
 
-func compareLogs(log, use *logpoller.Log) int64 {
-	if use == nil {
-		return 1
+// encodeParams accepts nativeParams and encodes them to match onchain topics.
+func (e *eventBinding) encodeParams(nativeParams reflect.Value) ([]common.Hash, error) {
+	for nativeParams.Kind() == reflect.Pointer {
+		nativeParams = reflect.Indirect(nativeParams)
 	}
 
-	if log.BlockNumber != use.BlockNumber {
-		return log.BlockNumber - use.BlockNumber
-	}
-
-	return log.LogIndex - use.LogIndex
-}
-
-func matchesRemainingFilters(log *logpoller.Log, filters []common.Hash) bool {
-	for i, rfai := range filters {
-		if !reflect.DeepEqual(rfai[:], log.Topics[i+2]) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (e *eventBinding) encodeParams(item reflect.Value) ([]common.Hash, error) {
-	for item.Kind() == reflect.Pointer {
-		item = reflect.Indirect(item)
-	}
-
-	var topics []any
-	switch item.Kind() {
+	var params []any
+	switch nativeParams.Kind() {
 	case reflect.Array, reflect.Slice:
-		native, err := representArray(item, e.inputInfo)
+		native, err := representArray(nativeParams, e.inputInfo)
 		if err != nil {
 			return nil, err
 		}
-		topics = []any{native}
+		params = []any{native}
 	case reflect.Struct, reflect.Map:
 		var err error
-		if topics, err = unrollItem(item, e.inputInfo); err != nil {
+		if params, err = unrollItem(nativeParams, e.inputInfo); err != nil {
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("%w: cannot encode kind %v", commontypes.ErrInvalidType, item.Kind())
+		return nil, fmt.Errorf("%w: cannot encode kind %v", commontypes.ErrInvalidType, nativeParams.Kind())
 	}
 
-	// abi params allow you to Pack a pointers, but MakeTopics doesn't work with pointers.
-	if err := e.derefTopics(topics); err != nil {
+	// abi params allow you to Pack a pointers, but makeTopics doesn't work with pointers.
+	if err := e.derefTopics(params); err != nil {
 		return nil, err
 	}
 
-	hashes, err := abi.MakeTopics(topics)
-	if err != nil {
-		return nil, wrapInternalErr(err)
-	}
-
-	if len(hashes) != 1 {
-		return nil, fmt.Errorf("%w: expected 1 filter set, got %d", commontypes.ErrInternal, len(hashes))
-	}
-
-	return hashes[0], nil
+	return e.makeTopics(params)
 }
 
 func (e *eventBinding) derefTopics(topics []any) error {
@@ -340,11 +324,38 @@ func (e *eventBinding) derefTopics(topics []any) error {
 	return nil
 }
 
+// makeTopics encodes and hashes params filtering values to match onchain indexed topics.
+func (e *eventBinding) makeTopics(params []any) ([]common.Hash, error) {
+	// make topic value for non-fixed bytes array manually because geth MakeTopics doesn't support it
+	for i, topic := range params {
+		if abiArg := e.inputInfo.Args()[i]; abiArg.Type.T == abi.ArrayTy && (abiArg.Type.Elem != nil && abiArg.Type.Elem.T == abi.UintTy) {
+			packed, err := abi.Arguments{abiArg}.Pack(topic)
+			if err != nil {
+				return nil, err
+			}
+			params[i] = crypto.Keccak256Hash(packed)
+		}
+	}
+
+	hashes, err := abi.MakeTopics(params)
+	if err != nil {
+		return nil, wrapInternalErr(err)
+	}
+
+	if len(hashes) != 1 {
+		return nil, fmt.Errorf("%w: expected 1 filter set, got %d", commontypes.ErrInternal, len(hashes))
+	}
+
+	return hashes[0], nil
+}
+
 func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into any) error {
+	// decode non indexed topics and apply output modifiers
 	if err := e.codec.Decode(ctx, log.Data, into, WrapItemType(e.contractName, e.eventName, false)); err != nil {
 		return err
 	}
 
+	// decode indexed topics which is rarely useful since most indexed topic types get Keccak256 hashed and should be just used for log filtering.
 	topics := make([]common.Hash, len(e.codecTopicInfo.Args()))
 	if len(log.Topics) < len(topics)+1 {
 		return fmt.Errorf("%w: not enough topics to decode", commontypes.ErrInvalidType)
@@ -436,6 +447,7 @@ func (e *eventBinding) remapExpression(key string, expression query.Expression) 
 // remap chain agnostic primitives to chain specific
 func (e *eventBinding) remapPrimitive(key string, expression query.Expression) (query.Expression, error) {
 	switch primitive := expression.Primitive.(type) {
+	// TODO comparator primitive should undergo codec transformations and do hashed types handling similarly to how GetLatestValue handles it BCI-3910
 	case *primitives.Comparator:
 		if val, ok := e.eventDataWords[primitive.Name]; ok {
 			return logpoller.NewEventByWordFilter(e.hash, val, primitive.ValueComparators), nil

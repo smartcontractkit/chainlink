@@ -353,6 +353,7 @@ func TestClientErrorsConfig(t *testing.T) {
 					TransactionAlreadyMined:           ptr("client error transaction already mined"),
 					Fatal:                             ptr("client error fatal"),
 					ServiceUnavailable:                ptr("client error service unavailable"),
+					TooManyResults:                    ptr("client error too many results"),
 				},
 			}
 		})
@@ -372,6 +373,7 @@ func TestClientErrorsConfig(t *testing.T) {
 		assert.Equal(t, "client error transaction already mined", errors.TransactionAlreadyMined())
 		assert.Equal(t, "client error fatal", errors.Fatal())
 		assert.Equal(t, "client error service unavailable", errors.ServiceUnavailable())
+		assert.Equal(t, "client error too many results", errors.TooManyResults())
 	})
 }
 

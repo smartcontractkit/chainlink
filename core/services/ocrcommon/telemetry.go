@@ -15,6 +15,8 @@ import (
 	v1types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	v4types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -41,6 +43,7 @@ type EnhancedTelemetryMercuryData struct {
 	V1Observation                *v1types.Observation
 	V2Observation                *v2types.Observation
 	V3Observation                *v3types.Observation
+	V4Observation                *v4types.Observation
 	TaskRunResults               pipeline.TaskRunResults
 	RepTimestamp                 ocrtypes.ReportTimestamp
 	FeedVersion                  mercuryutils.FeedVersion
@@ -298,6 +301,8 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 	ask := big.NewInt(0)
 	// v2+v3 fields
 	var mfts, lp, np int64
+	// v4 fields
+	var marketStatus telem.MarketStatus
 
 	switch {
 	case d.V1Observation != nil:
@@ -354,6 +359,29 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 		if obs.Ask.Err == nil && obs.Ask.Val != nil {
 			ask = obs.Ask.Val
 		}
+	case d.V4Observation != nil:
+		obs := *d.V4Observation
+		if obs.MaxFinalizedTimestamp.Err == nil {
+			mfts = obs.MaxFinalizedTimestamp.Val
+		}
+		if obs.LinkPrice.Err == nil && obs.LinkPrice.Val != nil {
+			lp = obs.LinkPrice.Val.Int64()
+		}
+		if obs.NativePrice.Err == nil && obs.NativePrice.Val != nil {
+			np = obs.NativePrice.Val.Int64()
+		}
+		if obs.BenchmarkPrice.Err == nil && obs.BenchmarkPrice.Val != nil {
+			bp = obs.BenchmarkPrice.Val
+		}
+		if obs.Bid.Err == nil && obs.Bid.Val != nil {
+			bid = obs.Bid.Val
+		}
+		if obs.Ask.Err == nil && obs.Ask.Val != nil {
+			ask = obs.Ask.Val
+		}
+		if obs.MarketStatus.Err == nil {
+			marketStatus = telem.MarketStatus(obs.MarketStatus.Val)
+		}
 	}
 
 	for _, trr := range d.TaskRunResults {
@@ -401,6 +429,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			ObservationBenchmarkPriceString: stringOrEmpty(bp),
 			ObservationBidString:            stringOrEmpty(bid),
 			ObservationAskString:            stringOrEmpty(ask),
+			ObservationMarketStatus:         marketStatus,
 			IsLinkFeed:                      d.IsLinkFeed,
 			LinkPrice:                       lp,
 			IsNativeFeed:                    d.IsNativeFeed,

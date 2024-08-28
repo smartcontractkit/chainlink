@@ -140,7 +140,10 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 
 	c.lggr.Debugw("OnMessage called for client request", "messageID", msg.MessageId)
 
-	sender := remote.ToPeerID(msg.Sender)
+	sender, err := remote.ToPeerID(msg.Sender)
+	if err != nil {
+		return fmt.Errorf("failed to convert message sender to PeerID: %w", err)
+	}
 
 	received, expected := c.responseReceived[sender]
 	if !expected {
@@ -170,7 +173,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			}
 		}
 	} else {
-		c.lggr.Warnw("received error response", "error", msg.ErrorMsg)
+		c.lggr.Warnw("received error response", "error", remote.SanitizeLogString(msg.ErrorMsg))
 		c.errorCount[msg.ErrorMsg]++
 		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {
 			c.sendResponse(commoncap.CapabilityResponse{Err: errors.New(msg.ErrorMsg)})

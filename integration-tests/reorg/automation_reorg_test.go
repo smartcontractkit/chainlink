@@ -43,7 +43,7 @@ var (
 )
 
 var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(testreporters.NewAllowedLogMessage(
-	"Got very old block with number",
+	"Got very old block.",
 	"It is expected, because we are causing reorgs",
 	zapcore.DPanicLevel,
 	testreporters.WarnAboutAllowedMsgs_No,
@@ -132,7 +132,7 @@ func TestAutomationReorg(t *testing.T) {
 			err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*config.GetCommonConfig().ChainlinkNodeFunding))
 			require.NoError(t, err, "Failed to fund the nodes")
 
-			gethRPCClient := ctfClient.NewRPCClient(evmNetwork.HTTPURLs[0])
+			gethRPCClient := ctfClient.NewRPCClient(evmNetwork.HTTPURLs[0], nil)
 
 			registryConfig := actions.AutomationDefaultRegistryConfig(config)
 			registryConfig.RegistryVersion = registryVersion

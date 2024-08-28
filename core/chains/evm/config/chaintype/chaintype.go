@@ -9,9 +9,12 @@ type ChainType string
 
 const (
 	ChainArbitrum        ChainType = "arbitrum"
+	ChainAstar           ChainType = "astar"
 	ChainCelo            ChainType = "celo"
 	ChainGnosis          ChainType = "gnosis"
+	ChainHedera          ChainType = "hedera"
 	ChainKroma           ChainType = "kroma"
+	ChainMantle          ChainType = "mantle"
 	ChainMetis           ChainType = "metis"
 	ChainOptimismBedrock ChainType = "optimismBedrock"
 	ChainScroll          ChainType = "scroll"
@@ -35,7 +38,7 @@ func (c ChainType) IsL2() bool {
 
 func (c ChainType) IsValid() bool {
 	switch c {
-	case "", ChainArbitrum, ChainCelo, ChainGnosis, ChainKroma, ChainMetis, ChainOptimismBedrock, ChainScroll, ChainWeMix, ChainXLayer, ChainZkEvm, ChainZkSync:
+	case "", ChainArbitrum, ChainAstar, ChainCelo, ChainGnosis, ChainHedera, ChainKroma, ChainMantle, ChainMetis, ChainOptimismBedrock, ChainScroll, ChainWeMix, ChainXLayer, ChainZkEvm, ChainZkSync:
 		return true
 	}
 	return false
@@ -45,12 +48,18 @@ func ChainTypeFromSlug(slug string) ChainType {
 	switch slug {
 	case "arbitrum":
 		return ChainArbitrum
+	case "astar":
+		return ChainAstar
 	case "celo":
 		return ChainCelo
 	case "gnosis":
 		return ChainGnosis
+	case "hedera":
+		return ChainHedera
 	case "kroma":
 		return ChainKroma
+	case "mantle":
+		return ChainMantle
 	case "metis":
 		return ChainMetis
 	case "optimismBedrock":
@@ -118,9 +127,12 @@ func (c *ChainTypeConfig) String() string {
 
 var ErrInvalidChainType = fmt.Errorf("must be one of %s or omitted", strings.Join([]string{
 	string(ChainArbitrum),
+	string(ChainAstar),
 	string(ChainCelo),
 	string(ChainGnosis),
+	string(ChainHedera),
 	string(ChainKroma),
+	string(ChainMantle),
 	string(ChainMetis),
 	string(ChainOptimismBedrock),
 	string(ChainScroll),

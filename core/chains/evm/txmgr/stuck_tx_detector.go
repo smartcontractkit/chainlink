@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -24,7 +25,7 @@ import (
 )
 
 type stuckTxDetectorGasEstimator interface {
-	GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee gas.EvmFee, chainSpecificFeeLimit uint64, err error)
+	GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, fromAddress, toAddress *common.Address, opts ...feetypes.Opt) (fee gas.EvmFee, chainSpecificFeeLimit uint64, err error)
 }
 
 type stuckTxDetectorClient interface {
@@ -37,13 +38,13 @@ type stuckTxDetectorTxStore interface {
 
 type stuckTxDetectorConfig interface {
 	Enabled() bool
-	Threshold() uint32
-	MinAttempts() uint32
+	Threshold() *uint32
+	MinAttempts() *uint32
 	DetectionApiUrl() *url.URL
 }
 
 type stuckTxDetector struct {
-	lggr      logger.Logger
+	lggr      logger.SugaredLogger
 	chainID   *big.Int
 	chainType chaintype.ChainType
 	maxPrice  *assets.Wei
@@ -63,7 +64,7 @@ func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType chaintyp
 	t.DisableCompression = true
 	httpClient := &http.Client{Transport: t}
 	return &stuckTxDetector{
-		lggr:             lggr,
+		lggr:             logger.Sugared(lggr),
 		chainID:          chainID,
 		chainType:        chainType,
 		maxPrice:         maxPrice,
@@ -78,7 +79,7 @@ func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType chaintyp
 
 func (d *stuckTxDetector) LoadPurgeBlockNumMap(ctx context.Context, addresses []common.Address) error {
 	// Skip loading purge block num map if auto-purge feature disabled or Threshold is set to 0
-	if !d.cfg.Enabled() || d.cfg.Threshold() == 0 {
+	if !d.cfg.Enabled() || d.cfg.Threshold() == nil || *d.cfg.Threshold() == 0 {
 		return nil
 	}
 	d.purgeBlockNumLock.Lock()
@@ -127,7 +128,7 @@ func (d *stuckTxDetector) DetectStuckTransactions(ctx context.Context, enabledAd
 	switch d.chainType {
 	case chaintype.ChainScroll:
 		return d.detectStuckTransactionsScroll(ctx, txs)
-	case chaintype.ChainZkEvm:
+	case chaintype.ChainZkEvm, chaintype.ChainXLayer:
 		return d.detectStuckTransactionsZkEVM(ctx, txs)
 	default:
 		return d.detectStuckTransactionsHeuristic(ctx, txs, blockNum)
@@ -152,11 +153,28 @@ func (d *stuckTxDetector) FindUnconfirmedTxWithLowestNonce(ctx context.Context, 
 		}
 	}
 
-	// Build list of potentially stuck tx but exclude any that are already marked for purge
+	// Build list of potentially stuck tx but exclude any that are already marked for purge or have non-broadcasted attempts
 	var stuckTxs []Tx
 	for _, tx := range lowestNonceTxMap {
-		// Attempts are loaded newest to oldest so one marked for purge will always be first
-		if len(tx.TxAttempts) > 0 && !tx.TxAttempts[0].IsPurgeAttempt {
+		if len(tx.TxAttempts) == 0 {
+			d.lggr.AssumptionViolationw("encountered an unconfirmed transaction without an attempt", "tx", tx)
+			continue
+		}
+		// Check the transaction's attempts in case any are already marked for purge or if any are not broadcasted
+		// We can only have one non-broadcasted attempt for a transaction at a time
+		// Skip purge detection until all attempts are broadcasted to avoid conflicts with the purge attempt
+		var foundPurgeAttempt, foundNonBroadcastAttempt bool
+		for _, attempt := range tx.TxAttempts {
+			if attempt.IsPurgeAttempt {
+				foundPurgeAttempt = true
+				break
+			}
+			if attempt.State != types.TxAttemptBroadcast {
+				foundNonBroadcastAttempt = true
+				break
+			}
+		}
+		if !foundPurgeAttempt && !foundNonBroadcastAttempt {
 			stuckTxs = append(stuckTxs, tx)
 		}
 	}
@@ -172,11 +190,16 @@ func (d *stuckTxDetector) FindUnconfirmedTxWithLowestNonce(ctx context.Context, 
 // 4. If 3 is true, check if the latest attempt's gas price is higher than what our gas estimator's GetFee method returns
 // 5. If 4 is true, the transaction is likely stuck due to overflow
 func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, txs []Tx, blockNum int64) ([]Tx, error) {
+	if d.cfg.Threshold() == nil || d.cfg.MinAttempts() == nil {
+		err := errors.New("missing required configs for the stuck transaction heuristic. Transactions.AutoPurge.Threshold and Transactions.AutoPurge.MinAttempts are required")
+		d.lggr.Error(err.Error())
+		return txs, err
+	}
 	d.purgeBlockNumLock.RLock()
 	defer d.purgeBlockNumLock.RUnlock()
 	// Get gas price from internal gas estimator
 	// Send with max gas price time 2 to prevent the results from being capped. Need the market gas price here.
-	marketGasPrice, _, err := d.gasEstimator.GetFee(ctx, []byte{}, 0, d.maxPrice.Mul(big.NewInt(2)))
+	marketGasPrice, _, err := d.gasEstimator.GetFee(ctx, []byte{}, 0, d.maxPrice.Mul(big.NewInt(2)), nil, nil)
 	if err != nil {
 		return txs, fmt.Errorf("failed to get market gas price for overflow detection: %w", err)
 	}
@@ -187,17 +210,17 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 		d.purgeBlockNumLock.RLock()
 		lastPurgeBlockNum := d.purgeBlockNumMap[tx.FromAddress]
 		d.purgeBlockNumLock.RUnlock()
-		if lastPurgeBlockNum > blockNum-int64(d.cfg.Threshold()) {
+		if lastPurgeBlockNum > blockNum-int64(*d.cfg.Threshold()) {
 			continue
 		}
 		// Tx attempts are loaded from newest to oldest
 		oldestBroadcastAttempt, newestBroadcastAttempt, broadcastedAttemptsCount := findBroadcastedAttempts(tx)
 		// 2. Check if Threshold amount of blocks have passed since the oldest attempt's broadcast block num
-		if *oldestBroadcastAttempt.BroadcastBeforeBlockNum > blockNum-int64(d.cfg.Threshold()) {
+		if *oldestBroadcastAttempt.BroadcastBeforeBlockNum > blockNum-int64(*d.cfg.Threshold()) {
 			continue
 		}
 		// 3. Check if the transaction has at least MinAttempts amount of broadcasted attempts
-		if broadcastedAttemptsCount < d.cfg.MinAttempts() {
+		if broadcastedAttemptsCount < *d.cfg.MinAttempts() {
 			continue
 		}
 		// 4. Check if the newest broadcasted attempt's gas price is higher than what our gas estimator's GetFee method returns
@@ -278,6 +301,10 @@ func (d *stuckTxDetector) detectStuckTransactionsScroll(ctx context.Context, txs
 	if err != nil {
 		return nil, fmt.Errorf("failed to make new request with context: %w", err)
 	}
+
+	// Add Content-Type header
+	postReq.Header.Add("Content-Type", "application/json")
+
 	// Send request
 	resp, err := d.httpClient.Do(postReq)
 	if err != nil {
@@ -287,6 +314,7 @@ func (d *stuckTxDetector) detectStuckTransactionsScroll(ctx context.Context, txs
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("request failed with status %d", resp.StatusCode)
 	}
+
 	// Decode the response into expected type
 	scrollResp := new(scrollResponse)
 	err = json.NewDecoder(resp.Body).Decode(scrollResp)
@@ -311,14 +339,32 @@ func (d *stuckTxDetector) detectStuckTransactionsScroll(ctx context.Context, txs
 // Uses eth_getTransactionByHash to detect that a transaction has been discarded due to overflow
 // Currently only used by zkEVM but if other chains follow the same behavior in the future
 func (d *stuckTxDetector) detectStuckTransactionsZkEVM(ctx context.Context, txs []Tx) ([]Tx, error) {
-	txReqs := make([]rpc.BatchElem, len(txs))
+	minAttempts := 0
+	if d.cfg.MinAttempts() != nil {
+		minAttempts = int(*d.cfg.MinAttempts())
+	}
+	// Check transactions have MinAttempts to ensure it has enough time to return results for getTransactionByHash
+	// zkEVM has a significant delay between broadcasting a transaction and getting a proper result from the RPC
+	var filteredTx []Tx
+	for _, tx := range txs {
+		if len(tx.TxAttempts) >= minAttempts {
+			filteredTx = append(filteredTx, tx)
+		}
+	}
+
+	// No transactions to process
+	if len(filteredTx) == 0 {
+		return filteredTx, nil
+	}
+
+	txReqs := make([]rpc.BatchElem, len(filteredTx))
 	txHashMap := make(map[common.Hash]Tx)
-	txRes := make([]*map[string]interface{}, len(txs))
+	txRes := make([]*map[string]interface{}, len(filteredTx))
 
 	// Build batch request elems to perform
 	// Does not need to be separated out into smaller batches
 	// Max number of transactions to check is equal to the number of enabled addresses which is a relatively small amount
-	for i, tx := range txs {
+	for i, tx := range filteredTx {
 		latestAttemptHash := tx.TxAttempts[0].Hash
 		var result map[string]interface{}
 		txReqs[i] = rpc.BatchElem{

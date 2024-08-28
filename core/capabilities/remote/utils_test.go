@@ -84,7 +84,8 @@ func encodeAndSign(t *testing.T, senderPrivKey ed25519.PrivateKey, senderId p2pt
 }
 
 func TestToPeerID(t *testing.T) {
-	id := remote.ToPeerID([]byte("12345678901234567890123456789012"))
+	id, err := remote.ToPeerID([]byte("12345678901234567890123456789012"))
+	require.NoError(t, err)
 	require.Equal(t, "12D3KooWD8QYTQVYjB6oog4Ej8PcPpqTrPRnxLQap8yY8KUQRVvq", id.String())
 }
 
@@ -117,4 +118,15 @@ func TestDefaultModeAggregator_Aggregate(t *testing.T) {
 	res, err := agg.Aggregate("", [][]byte{marshaled1, marshaled2, marshaled1})
 	require.NoError(t, err)
 	require.Equal(t, res, capResponse1)
+}
+
+func TestSanitizeLogString(t *testing.T) {
+	require.Equal(t, "hello", remote.SanitizeLogString("hello"))
+	require.Equal(t, "[UNPRINTABLE] 0a", remote.SanitizeLogString("\n"))
+
+	longString := ""
+	for i := 0; i < 100; i++ {
+		longString += "aa-aa-aa-"
+	}
+	require.Equal(t, longString[:256]+" [TRUNCATED]", remote.SanitizeLogString(longString))
 }

@@ -46,6 +46,7 @@ type EVM interface {
 	RPCDefaultBatchSize() uint32
 	NodeNoNewHeadsThreshold() time.Duration
 	FinalizedBlockOffset() uint32
+	NoNewFinalizedHeadsThreshold() time.Duration
 
 	IsEnabled() bool
 	TOMLString() (string, error)
@@ -95,6 +96,7 @@ type ClientErrors interface {
 	TransactionAlreadyMined() string
 	Fatal() string
 	ServiceUnavailable() string
+	TooManyResults() string
 }
 
 type Transactions interface {
@@ -109,8 +111,8 @@ type Transactions interface {
 
 type AutoPurgeConfig interface {
 	Enabled() bool
-	Threshold() uint32
-	MinAttempts() uint32
+	Threshold() *uint32
+	MinAttempts() *uint32
 	DetectionApiUrl() *url.URL
 }
 
@@ -135,6 +137,7 @@ type GasEstimator interface {
 	PriceMin() *assets.Wei
 	Mode() string
 	PriceMaxKey(gethcommon.Address) *assets.Wei
+	EstimateGasLimit() bool
 }
 
 type LimitJobType interface {
@@ -159,6 +162,7 @@ type BlockHistory interface {
 type Workflow interface {
 	FromAddress() *types.EIP55Address
 	ForwarderAddress() *types.EIP55Address
+	DefaultGasLimit() uint64
 }
 
 type NodePool interface {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.24;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilitiesRegistry} from "../CapabilitiesRegistry.sol";
@@ -19,10 +19,7 @@ contract CapabilitiesRegistry_UpdateNodeOperatorTest is BaseTest {
     changePrank(STRANGER);
 
     CapabilitiesRegistry.NodeOperator[] memory nodeOperators = new CapabilitiesRegistry.NodeOperator[](1);
-    nodeOperators[0] = CapabilitiesRegistry.NodeOperator({
-      admin: NEW_NODE_OPERATOR_ADMIN,
-      name: NEW_NODE_OPERATOR_NAME
-    });
+    nodeOperators[0] = CapabilitiesRegistry.NodeOperator({admin: ADMIN, name: NEW_NODE_OPERATOR_NAME});
 
     uint32[] memory nodeOperatorIds = new uint32[](1);
     nodeOperatorIds[0] = TEST_NODE_OPERATOR_ID;

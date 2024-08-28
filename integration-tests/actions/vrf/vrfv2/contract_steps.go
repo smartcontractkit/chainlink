@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -635,7 +635,7 @@ func SetupNewConsumersAndSubs(
 ) ([]contracts.VRFv2LoadTestConsumer, []uint64, error) {
 	consumers, err := DeployVRFV2Consumers(sethClient, coordinator.Address(), numberOfConsumerContractsToDeployAndAddToSub)
 	if err != nil {
-		return nil, nil, fmt.Errorf("err: %w", err)
+		return nil, nil, err
 	}
 	l.Info().
 		Str("Coordinator", *testConfig.VRFv2.ExistingEnvConfig.ExistingEnvConfig.CoordinatorAddress).
@@ -649,7 +649,7 @@ func SetupNewConsumersAndSubs(
 		numberOfSubToCreate,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("err: %w", err)
+		return nil, nil, err
 	}
 	return consumers, subIDs, nil
 }

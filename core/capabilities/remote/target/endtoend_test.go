@@ -226,7 +226,7 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
-		capabilityNode := target.NewServer(capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
+		capabilityNode := target.NewServer(&commoncap.RemoteTargetConfig{RequestHashExcludedAttributes: []string{}}, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
 			capabilityNodeResponseTimeout, lggr)
 		servicetest.Run(t, capabilityNode)
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
@@ -261,8 +261,8 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 			responseCh, err := caller.Execute(ctx,
 				commoncap.CapabilityRequest{
 					Metadata: commoncap.RequestMetadata{
-						WorkflowID:          "workflowID",
-						WorkflowExecutionID: "workflowExecutionID",
+						WorkflowID:          workflowID1,
+						WorkflowExecutionID: workflowExecutionID1,
 					},
 					Config: transmissionSchedule,
 					Inputs: executeInputs,
@@ -276,67 +276,47 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 }
 
 type testAsyncMessageBroker struct {
-	services.StateMachine
-	t *testing.T
+	services.Service
+	eng *services.Engine
+	t   *testing.T
 
 	nodes map[p2ptypes.PeerID]remotetypes.Receiver
 
 	sendCh chan *remotetypes.MessageBody
-
-	stopCh services.StopChan
-	wg     sync.WaitGroup
-}
-
-func (a *testAsyncMessageBroker) HealthReport() map[string]error {
-	return nil
-}
-
-func (a *testAsyncMessageBroker) Name() string {
-	return "testAsyncMessageBroker"
 }
 
 func newTestAsyncMessageBroker(t *testing.T, sendChBufferSize int) *testAsyncMessageBroker {
-	return &testAsyncMessageBroker{
+	b := &testAsyncMessageBroker{
 		t:      t,
 		nodes:  make(map[p2ptypes.PeerID]remotetypes.Receiver),
-		stopCh: make(services.StopChan),
 		sendCh: make(chan *remotetypes.MessageBody, sendChBufferSize),
 	}
+	b.Service, b.eng = services.Config{
+		Name:  "testAsyncMessageBroker",
+		Start: b.start,
+	}.NewServiceEngine(logger.TestLogger(t))
+	return b
 }
 
-func (a *testAsyncMessageBroker) Start(ctx context.Context) error {
-	return a.StartOnce("testAsyncMessageBroker", func() error {
-		a.wg.Add(1)
-		go func() {
-			defer a.wg.Done()
+func (a *testAsyncMessageBroker) start(ctx context.Context) error {
+	a.eng.Go(func(ctx context.Context) {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg := <-a.sendCh:
+				receiverId := toPeerID(msg.Receiver)
 
-			for {
-				select {
-				case <-a.stopCh:
-					return
-				case msg := <-a.sendCh:
-					receiverId := toPeerID(msg.Receiver)
-
-					receiver, ok := a.nodes[receiverId]
-					if !ok {
-						panic("server not found for peer id")
-					}
-
-					receiver.Receive(tests.Context(a.t), msg)
+				receiver, ok := a.nodes[receiverId]
+				if !ok {
+					panic("server not found for peer id")
 				}
+
+				receiver.Receive(tests.Context(a.t), msg)
 			}
-		}()
-		return nil
+		}
 	})
-}
-
-func (a *testAsyncMessageBroker) Close() error {
-	return a.StopOnce("testAsyncMessageBroker", func() error {
-		close(a.stopCh)
-
-		a.wg.Wait()
-		return nil
-	})
+	return nil
 }
 
 func (a *testAsyncMessageBroker) NewDispatcherForNode(nodePeerID p2ptypes.PeerID) remotetypes.Dispatcher {

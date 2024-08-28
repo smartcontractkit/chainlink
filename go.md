@@ -5,11 +5,7 @@ flowchart LR
     chainlink-cosmos
     chainlink-solana
     chainlink-starknet/relayer
-    subgraph chainlink-integrations
-      direction LR
-      chainlink-integrations/evm/relayer
-      chainlink-integrations/common
-    end
+    chainlink-evm
   end
 
   subgraph products
@@ -21,13 +17,20 @@ flowchart LR
     chainlink-vrf
   end
 
+  subgraph tdh2
+    tdh2/go/tdh2
+    tdh2/go/ocr2/decryptionplugin
+  end
+
   classDef outline stroke-dasharray:6,fill:none;
-  class chains,products outline
+  class chains,products,tdh2 outline
 
   chainlink/v2 --> chain-selectors
   click chain-selectors href "https://github.com/smartcontractkit/chain-selectors"
   chainlink/v2 --> chainlink-automation
   click chainlink-automation href "https://github.com/smartcontractkit/chainlink-automation"
+  chainlink/v2 --> chainlink-ccip
+  click chainlink-ccip href "https://github.com/smartcontractkit/chainlink-ccip"
   chainlink/v2 --> chainlink-common
   click chainlink-common href "https://github.com/smartcontractkit/chainlink-common"
   chainlink/v2 --> chainlink-cosmos
@@ -50,6 +53,8 @@ flowchart LR
   click wsrpc href "https://github.com/smartcontractkit/wsrpc"
   chainlink-automation --> chainlink-common
   chainlink-automation --> libocr
+  chainlink-ccip --> chainlink-common
+  chainlink-ccip --> libocr
   chainlink-common --> libocr
   chainlink-cosmos --> chainlink-common
   chainlink-cosmos --> libocr

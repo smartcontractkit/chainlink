@@ -48,3 +48,4 @@ func (c *clientErrorsConfig) Fatal() string { return derefOrDefault(c.c.Fatal) }
 func (c *clientErrorsConfig) ServiceUnavailable() string {
 	return derefOrDefault(c.c.ServiceUnavailable)
 }
+func (c *clientErrorsConfig) TooManyResults() string { return derefOrDefault(c.c.TooManyResults) }

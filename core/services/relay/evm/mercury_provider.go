@@ -6,17 +6,18 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
+
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 )
 
@@ -24,12 +25,12 @@ var _ commontypes.MercuryProvider = (*mercuryProvider)(nil)
 
 type mercuryProvider struct {
 	cp                 commontypes.ConfigProvider
-	chainReader        commontypes.ContractReader
 	codec              commontypes.Codec
 	transmitter        evmmercury.Transmitter
 	reportCodecV1      v1.ReportCodec
 	reportCodecV2      v2.ReportCodec
 	reportCodecV3      v3.ReportCodec
+	reportCodecV4      v4.ReportCodec
 	mercuryChainReader mercurytypes.ChainReader
 	logger             logger.Logger
 	ms                 services.MultiStart
@@ -37,23 +38,23 @@ type mercuryProvider struct {
 
 func NewMercuryProvider(
 	cp commontypes.ConfigProvider,
-	chainReader commontypes.ContractReader,
 	codec commontypes.Codec,
 	mercuryChainReader mercurytypes.ChainReader,
 	transmitter evmmercury.Transmitter,
 	reportCodecV1 v1.ReportCodec,
 	reportCodecV2 v2.ReportCodec,
 	reportCodecV3 v3.ReportCodec,
+	reportCodecV4 v4.ReportCodec,
 	lggr logger.Logger,
 ) *mercuryProvider {
 	return &mercuryProvider{
 		cp,
-		chainReader,
 		codec,
 		transmitter,
 		reportCodecV1,
 		reportCodecV2,
 		reportCodecV3,
+		reportCodecV4,
 		mercuryChainReader,
 		lggr,
 		services.MultiStart{},
@@ -115,6 +116,10 @@ func (p *mercuryProvider) ReportCodecV3() v3.ReportCodec {
 	return p.reportCodecV3
 }
 
+func (p *mercuryProvider) ReportCodecV4() v4.ReportCodec {
+	return p.reportCodecV4
+}
+
 func (p *mercuryProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return p.transmitter
 }
@@ -124,7 +129,7 @@ func (p *mercuryProvider) MercuryServerFetcher() mercurytypes.ServerFetcher {
 }
 
 func (p *mercuryProvider) ChainReader() commontypes.ContractReader {
-	return p.chainReader
+	return nil
 }
 
 var _ mercurytypes.ChainReader = (*mercuryChainReader)(nil)

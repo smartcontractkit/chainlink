@@ -261,6 +261,7 @@ func TestConfig_Marshal(t *testing.T) {
 		FeedsManager: ptr(true),
 		LogPoller:    ptr(true),
 		UICSAKeys:    ptr(true),
+		CCIP:         ptr(true),
 	}
 	full.Database = toml.Database{
 		DefaultIdleInTxSessionTimeout: commoncfg.MustNewDuration(time.Minute),
@@ -519,6 +520,7 @@ func TestConfig_Marshal(t *testing.T) {
 					LimitMax:           ptr[uint64](17),
 					LimitMultiplier:    mustDecimal("1.234"),
 					LimitTransfer:      ptr[uint64](100),
+					EstimateGasLimit:   ptr(false),
 					TipCapDefault:      assets.NewWeiI(2),
 					TipCapMin:          assets.NewWeiI(1),
 					PriceDefault:       assets.NewWeiI(math.MaxInt64),
@@ -553,19 +555,20 @@ func TestConfig_Marshal(t *testing.T) {
 					},
 				},
 
-				LinkContractAddress:       mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
-				LogBackfillBatchSize:      ptr[uint32](17),
-				LogPollInterval:           &minute,
-				LogKeepBlocksDepth:        ptr[uint32](100000),
-				LogPrunePageSize:          ptr[uint32](0),
-				BackupLogPollerBlockDelay: ptr[uint64](532),
-				MinContractPayment:        commonassets.NewLinkFromJuels(math.MaxInt64),
-				MinIncomingConfirmations:  ptr[uint32](13),
-				NonceAutoSync:             ptr(true),
-				NoNewHeadsThreshold:       &minute,
-				OperatorFactoryAddress:    mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
-				RPCDefaultBatchSize:       ptr[uint32](17),
-				RPCBlockQueryDelay:        ptr[uint16](10),
+				LinkContractAddress:          mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
+				LogBackfillBatchSize:         ptr[uint32](17),
+				LogPollInterval:              &minute,
+				LogKeepBlocksDepth:           ptr[uint32](100000),
+				LogPrunePageSize:             ptr[uint32](0),
+				BackupLogPollerBlockDelay:    ptr[uint64](532),
+				MinContractPayment:           commonassets.NewLinkFromJuels(math.MaxInt64),
+				MinIncomingConfirmations:     ptr[uint32](13),
+				NonceAutoSync:                ptr(true),
+				NoNewHeadsThreshold:          &minute,
+				OperatorFactoryAddress:       mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
+				RPCDefaultBatchSize:          ptr[uint32](17),
+				RPCBlockQueryDelay:           ptr[uint16](10),
+				NoNewFinalizedHeadsThreshold: &hour,
 
 				Transactions: evmcfg.Transactions{
 					MaxInFlight:          ptr[uint32](19),
@@ -612,6 +615,7 @@ func TestConfig_Marshal(t *testing.T) {
 						TransactionAlreadyMined:           ptr[string]("(: |^)transaction already mined"),
 						Fatal:                             ptr[string]("(: |^)fatal"),
 						ServiceUnavailable:                ptr[string]("(: |^)service unavailable"),
+						TooManyResults:                    ptr[string]("(: |^)too many results"),
 					},
 				},
 				OCR: evmcfg.OCR{
@@ -770,6 +774,7 @@ Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and 
 FeedsManager = true
 LogPoller = true
 UICSAKeys = true
+CCIP = true
 `},
 		{"Database", Config{Core: toml.Core{Database: full.Database}}, `[Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
@@ -996,6 +1001,7 @@ OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 16
+NoNewFinalizedHeadsThreshold = '1h0m0s'
 
 [EVM.Transactions]
 ForwardersEnabled = true
@@ -1020,6 +1026,7 @@ LimitDefault = 12
 LimitMax = 17
 LimitMultiplier = '1.234'
 LimitTransfer = 100
+EstimateGasLimit = false
 BumpMin = '100 wei'
 BumpPercent = 10
 BumpThreshold = 6
@@ -1084,6 +1091,7 @@ L2Full = '(: |^)l2 full'
 TransactionAlreadyMined = '(: |^)transaction already mined'
 Fatal = '(: |^)fatal'
 ServiceUnavailable = '(: |^)service unavailable'
+TooManyResults = '(: |^)too many results'
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -1300,7 +1308,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 10 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Foo): must be one of arbitrum, celo, gnosis, kroma, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync or omitted
+			- ChainType: invalid value (Foo): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be greater than or equal to FinalizedBlockOffset
 			- GasEstimator.BumpThreshold: invalid value (0): cannot be 0 if auto-purge feature is enabled for Foo
 			- Transactions.AutoPurge.Threshold: missing: needs to be set if auto-purge feature is enabled for Foo
@@ -1313,7 +1321,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Arbitrum): must be one of arbitrum, celo, gnosis, kroma, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync or omitted
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3.Nodes: 5 errors:
@@ -1361,7 +1369,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 2 errors:
 			- ChainID: missing: required for all chains
 			- Nodes: missing: must have at least one node
-	- Aptos.0.Enabled: invalid value (1): expected *bool`},
+	- Aptos.0.Enabled: invalid value (1): expected bool`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config

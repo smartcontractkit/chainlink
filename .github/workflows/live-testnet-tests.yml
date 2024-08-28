@@ -302,7 +302,7 @@ jobs:
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
         with:
-          test_directory: "./"
+          test_directories: "./"
 
   bsc-testnet-smoke-tests:
     environment: integration

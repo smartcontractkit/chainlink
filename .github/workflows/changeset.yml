@@ -50,13 +50,8 @@ jobs:
               - '!core/**/*.json'
               - '!core/chainlink.goreleaser.Dockerfile'
               - '!core/chainlink.Dockerfile'
-            contracts:
-              - contracts/**/*.sol
-              - '!contracts/**/*.t.sol'
             core-changeset:
               - added: '.changeset/**'
-            contracts-changeset:
-              - added: 'contracts/.changeset/**'
 
       - name: Check for changeset tags for core
         id: changeset-tags
@@ -94,7 +89,7 @@ jobs:
         working-directory: ./.github/scripts/jira
         run: |
           echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
-          pnpm install && node update-jira-issue.js
+          pnpm install && pnpm issue:update 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           JIRA_HOST: ${{ secrets.JIRA_HOST }}
@@ -120,31 +115,11 @@ jobs:
           mode: ${{ steps.files-changed.outputs.core-changeset == 'false' && 'upsert' || 'delete' }}
           create_if_not_exists: ${{ steps.files-changed.outputs.core-changeset == 'false' && 'true' || 'false' }}
 
-      - name: Make a comment
-        uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
-        if: ${{ steps.files-changed.outputs.contracts == 'true' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          message: |
-            I see you updated files related to `contracts`. Please run `pnpm changeset` in the `contracts` directory to add a changeset.
-          reactions: eyes
-          comment_tag: changeset-contracts
-          mode: ${{ steps.files-changed.outputs.contracts-changeset == 'false' && 'upsert' || 'delete' }}
-          create_if_not_exists: ${{ steps.files-changed.outputs.contracts-changeset == 'false' && 'true' || 'false' }}
-
       - name: Check for new changeset for core
         if: ${{ (steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true') && steps.files-changed.outputs.core-changeset == 'false' }}
         shell: bash
         run: |
           echo "Please run pnpm changeset to add a changeset for core and include in the text at least one tag."
-          exit 1
-
-      - name: Check for new changeset for contracts
-        if: ${{ steps.files-changed.outputs.contracts == 'true' && steps.files-changed.outputs.contracts-changeset == 'false' }}
-        shell: bash
-        run: |
-          echo "Please run pnpm changeset to add a changeset for contracts."
           exit 1
 
       - name: Make a comment
