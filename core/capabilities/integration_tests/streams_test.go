@@ -18,7 +18,6 @@ import (
 )
 
 func Test_AllAtOnceTransmissionSchedule(t *testing.T) {
-	t.Skip("Skipping - to be fixed with high priority CCIP-3120")
 	ctx := testutils.Context(t)
 
 	// The don IDs set in the below calls are inferred from the order in which the dons are added to the capabilities registry
@@ -42,7 +41,6 @@ func Test_AllAtOnceTransmissionSchedule(t *testing.T) {
 }
 
 func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
-	t.Skip("Skipping - to be fixed with high priority CCIP-3120")
 	ctx := testutils.Context(t)
 
 	// The don IDs set in the below calls are inferred from the order in which the dons are added to the capabilities registry
