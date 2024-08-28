@@ -100,12 +100,12 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
 
     // TODO where can we get this from?
     // doc examples use: vm.rpc("eth_gasPrice", "[]")
-    uint256 ethGasPrice = 0; 
-    
+    uint256 ethGasPrice = 0;
+
     uint256 transactionBaseCostEstimate = bridgeHub.l2TransactionBaseCost(
-      chainId, 
-      ethGasPrice, 
-      s_gasLimit, 
+      chainId,
+      ethGasPrice,
+      s_gasLimit,
       l2GasPerPubdataByteLimit
     );
 

@@ -23,17 +23,17 @@ contract ZKSyncSequencerUptimeFeed is
 {
   /// @dev Round info (for uptime history)
   struct Round {
-    bool status;
-    uint64 startedAt;
-    uint64 updatedAt;
+    uint64 startedAt; // ─╮ The timestamp at which the round started
+    uint64 updatedAt; //  │ The timestamp at which the round was updated
+    bool status; // ──────╯ The sequencer status for the round
   }
 
   /// @dev Packed state struct to save sloads
   struct FeedState {
-    uint80 latestRoundId;
-    bool latestStatus;
-    uint64 startedAt;
-    uint64 updatedAt;
+    uint80 latestRoundId; // ─╮ The ID of the latest round
+    uint64 startedAt; //      │ The date at which the latest round started
+    uint64 updatedAt; //      │ The date at which the latest round was updated
+    bool latestStatus; // ────╯ The status of the latest round
   }
 
   /// @notice Sender is not the L2 messenger
@@ -138,11 +138,9 @@ contract ZKSyncSequencerUptimeFeed is
    */
   function _recordRound(uint80 roundId, bool status, uint64 timestamp) private {
     uint64 updatedAt = uint64(block.timestamp);
-    Round memory nextRound = Round(status, timestamp, updatedAt);
-    FeedState memory feedState = FeedState(roundId, status, timestamp, updatedAt);
 
-    s_rounds[roundId] = nextRound;
-    s_feedState = feedState;
+    s_rounds[roundId] = Round({status: status, startedAt: timestamp, updatedAt: updatedAt});
+    s_feedState = FeedState({latestRoundId: roundId, latestStatus: status, startedAt: timestamp, updatedAt: updatedAt});
 
     emit NewRound(roundId, msg.sender, timestamp);
     emit AnswerUpdated(_getStatusAnswer(status), roundId, timestamp);
@@ -169,13 +167,11 @@ contract ZKSyncSequencerUptimeFeed is
    * @param timestamp Block timestamp of status update
    */
   function updateStatus(bool status, uint64 timestamp) external override {
-    // TODO: Address aliasing will be necessary to check on the L2 the L1 caller. 
+    // TODO: Address aliasing will be necessary to check on the L2 the L1 caller.
     // The aliasing can be applied using AddressAliasHelper.applyL1ToL2Alias(msg.sender).
 
     FeedState memory feedState = s_feedState;
-    if (
-      msg.sender != address(s_l2SharedBridge) || s_l2SharedBridge.l1Bridge() != s_l1Sender
-    ) {
+    if (msg.sender != address(s_l2SharedBridge) || s_l2SharedBridge.l1Bridge() != s_l1Sender) {
       revert InvalidSender();
     }
 
@@ -239,17 +235,13 @@ contract ZKSyncSequencerUptimeFeed is
     checkAccess
     returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
   {
-    if (_isValidRound(_roundId)) {
-      Round memory round = s_rounds[_roundId];
-      answer = _getStatusAnswer(round.status);
-      startedAt = uint256(round.startedAt);
-      roundId = _roundId;
-      updatedAt = uint256(round.updatedAt);
-      answeredInRound = roundId;
-    } else {
+    if (!_isValidRound(_roundId)) {
       revert NoDataPresent();
     }
-    return (roundId, answer, startedAt, updatedAt, answeredInRound);
+
+    Round memory round = s_rounds[_roundId];
+
+    return (_roundId, _getStatusAnswer(round.status), uint256(round.startedAt), uint256(round.updatedAt), _roundId);
   }
 
   /// @inheritdoc AggregatorV3Interface
@@ -262,11 +254,12 @@ contract ZKSyncSequencerUptimeFeed is
   {
     FeedState memory feedState = s_feedState;
 
-    roundId = feedState.latestRoundId;
-    answer = _getStatusAnswer(feedState.latestStatus);
-    startedAt = feedState.startedAt;
-    updatedAt = feedState.updatedAt;
-    answeredInRound = roundId;
-    return (roundId, answer, startedAt, updatedAt, answeredInRound);
+    return (
+      feedState.latestRoundId,
+      _getStatusAnswer(feedState.latestStatus),
+      feedState.startedAt,
+      feedState.updatedAt,
+      roundId
+    );
   }
 }
