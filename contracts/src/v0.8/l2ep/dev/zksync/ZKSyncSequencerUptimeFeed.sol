@@ -8,7 +8,7 @@ import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterfa
 import {ZKSyncSequencerUptimeFeedInterface} from "./../interfaces/ZKSyncSequencerUptimeFeedInterface.sol";
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
 import {IL2SharedBridge} from "@zksync/contracts/l2-contracts/contracts/bridge/interfaces/IL2SharedBridge.sol";
-// import {AddressHelper} from "@zksync/contracts/l1-contracts/contracts/vendor/AddressAliasHelper.sol";
+import {AddressHelper} from "@zksync/contracts/l1-contracts/contracts/vendor/AddressAliasHelper.sol";
 
 ///
 /// @title ZKSyncSequencerUptimeFeed - L2 sequencer uptime status aggregator
