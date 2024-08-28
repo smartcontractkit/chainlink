@@ -8,7 +8,7 @@ import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterfa
 import {ZKSyncSequencerUptimeFeedInterface} from "./../interfaces/ZKSyncSequencerUptimeFeedInterface.sol";
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
 import {IL2SharedBridge} from "@zksync/contracts/l2-contracts/contracts/bridge/interfaces/IL2SharedBridge.sol";
-// import {applyL1ToL2Alias} from "@zksync/contracts/l1-contracts/contracts/vendor/AddressAliasHelper.sol";
+// import {AddressHelper} from "@zksync/contracts/l1-contracts/contracts/vendor/AddressAliasHelper.sol";
 
 ///
 /// @title ZKSyncSequencerUptimeFeed - L2 sequencer uptime status aggregator
@@ -171,6 +171,7 @@ contract ZKSyncSequencerUptimeFeed is
     // The aliasing can be applied using AddressAliasHelper.applyL1ToL2Alias(msg.sender).
 
     FeedState memory feedState = s_feedState;
+    // TODO find the address of the validator, not the l1bridge
     if (msg.sender != address(s_l2SharedBridge) || s_l2SharedBridge.l1Bridge() != s_l1Sender) {
       revert InvalidSender();
     }
