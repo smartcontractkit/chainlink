@@ -48,7 +48,7 @@ func mockEstimator(t *testing.T) gas.EvmFeeEstimator {
 	// note: estimator will only return 1 of legacy or dynamic fees (not both)
 	// assumed to call legacy estimator only
 	estimator := gasmocks.NewEvmFeeEstimator(t)
-	estimator.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe().Return(gas.EvmFee{
+	estimator.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe().Return(gas.EvmFee{
 		Legacy: assets.GWei(60),
 	}, uint32(60), nil)
 	return estimator

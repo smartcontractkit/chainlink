@@ -265,6 +265,52 @@ func Test_Service_RegisterManager(t *testing.T) {
 	assert.Equal(t, actual, id)
 }
 
+func Test_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
+	t.Parallel()
+
+	var (
+		id        = int64(1)
+		pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
+	)
+
+	var pubKey crypto.PublicKey
+	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
+	require.NoError(t, err)
+
+	var (
+		mgr = feeds.FeedsManager{
+			Name:      "FMS",
+			URI:       "localhost:8080",
+			PublicKey: pubKey,
+		}
+		params = feeds.RegisterManagerParams{
+			Name:      "FMS",
+			URI:       "localhost:8080",
+			PublicKey: pubKey,
+		}
+	)
+
+	svc := setupTestService(t)
+
+	svc.orm.On("CountManagers", mock.Anything).Return(int64(0), nil)
+	svc.orm.On("CreateManager", mock.Anything, &mgr, mock.Anything).
+		Return(id, errors.New("orm error"))
+	// ListManagers runs in a goroutine so it might be called.
+	svc.orm.On("ListManagers", testutils.Context(t)).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
+
+	transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
+	transactCall.Run(func(args mock.Arguments) {
+		fn := args[1].(func(orm feeds.ORM) error)
+		transactCall.ReturnArguments = mock.Arguments{fn(svc.orm)}
+	})
+	_, err = svc.RegisterManager(testutils.Context(t), params)
+	// We need to stop the service because the manager will attempt to make a
+	// connection
+	svc.Close()
+	require.Error(t, err)
+	assert.Equal(t, "orm error", err.Error())
+}
+
 func Test_Service_ListManagers(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)

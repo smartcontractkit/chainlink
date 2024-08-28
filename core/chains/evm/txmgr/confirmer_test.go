@@ -129,7 +129,7 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
 	lggr := logger.Test(t)
 	ge := config.EVM().GasEstimator()
-	feeEstimator := gas.NewEvmFeeEstimator(lggr, newEst, ge.EIP1559DynamicFees(), ge)
+	feeEstimator := gas.NewEvmFeeEstimator(lggr, newEst, ge.EIP1559DynamicFees(), ge, ethClient)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), config.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
@@ -1662,7 +1662,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
 		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint64(0), pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction..."))
 		ge := ccfg.EVM().GasEstimator()
-		feeEstimator := gas.NewEvmFeeEstimator(lggr, newEst, ge.EIP1559DynamicFees(), ge)
+		feeEstimator := gas.NewEvmFeeEstimator(lggr, newEst, ge.EIP1559DynamicFees(), ge, ethClient)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addresses, nil).Maybe()
@@ -1712,7 +1712,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
 		// Create confirmer with necessary state
 		ge := ccfg.EVM().GasEstimator()
-		feeEstimator := gas.NewEvmFeeEstimator(lggr, newEst, ge.EIP1559DynamicFees(), ge)
+		feeEstimator := gas.NewEvmFeeEstimator(lggr, newEst, ge.EIP1559DynamicFees(), ge, ethClient)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addresses, nil).Maybe()
@@ -3219,7 +3219,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 	fee := gas.EvmFee{Legacy: marketGasPrice}
 	bumpedLegacy := assets.GWei(30)
 	bumpedFee := gas.EvmFee{Legacy: bumpedLegacy}
-	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything).Return(fee, uint64(0), nil)
+	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything, mock.Anything, mock.Anything).Return(fee, uint64(0), nil)
 	feeEstimator.On("BumpFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(bumpedFee, uint64(10_000), nil)
 	autoPurgeThreshold := uint32(5)
 	autoPurgeMinAttempts := uint32(3)
@@ -3318,7 +3318,7 @@ func newEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient client.Cl
 	ge := config.EVM().GasEstimator()
 	estimator := gas.NewEvmFeeEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
 		return gas.NewFixedPriceEstimator(ge, nil, ge.BlockHistory(), lggr, nil)
-	}, ge.EIP1559DynamicFees(), ge)
+	}, ge.EIP1559DynamicFees(), ge, ethClient)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ks, estimator)
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), config.EVM().Transactions().AutoPurge(), estimator, txStore, ethClient)
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)

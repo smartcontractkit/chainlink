@@ -18,32 +18,41 @@ on:
           - "shared"
           - "transmission"
           - "vrf"
+      commit_to_use:
+        type: string
+        description: 'commit SHA to use for artifact generation; if empty HEAD will be used'
+        required: false
       base_ref:
-        description: 'commit or tag to be used as base reference, when looking for modified Solidity files'
+        description: 'commit or tag to use as base reference, when looking for modified Solidity files'
         required: true
 
 env:
   FOUNDRY_PROFILE: ci
+  # Unfortunately, we can't use the "default" field in the inputs section, because it does not have
+  # access to the workflow context
+  head_ref:  ${{ inputs.commit_to_use || github.sha }}
 
 jobs:
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
-      changes: ${{ steps.changes.outputs.sol }}
       product_changes: ${{ steps.changes-transform.outputs.product_changes }}
       product_files: ${{ steps.changes-transform.outputs.product_files }}
-      changeset_changes: ${{ steps.changes-dorny.outputs.changeset }}
-      changeset_files: ${{ steps.changes-dorny.outputs.changeset_files }}
+      changeset_changes: ${{ steps.changes.outputs.changeset }}
+      changeset_files: ${{ steps.changes.outputs.changeset_files }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ env.head_ref }}
       - name: Find modified contracts
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: changes
+        id: changes-dorny
         with:
           list-files: 'csv'
           base: ${{ inputs.base_ref }}
+          # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
           predicate-quantifier: every
           filters: |
             ignored: &ignored
@@ -75,33 +84,33 @@ jobs:
         run: |
           if [ "${{ inputs.product }}" = "shared" ]; then
             echo "::debug:: Product is shared, transforming changes"
-            if [[ "${{ steps.changes.outputs.product }}" == "true" && "${{ steps.changes.outputs.other_shared }}" == "true" ]]; then
+            if [[ "${{ steps.changes-dorny.outputs.product }}" == "true" && "${{ steps.changes-dorny.outputs.other_shared }}" == "true" ]]; then
               echo "::debug:: Changes were found in 'shared' folder and in 'interfaces' and root folders"
               echo "product_changes=true" >> $GITHUB_OUTPUT
-              echo "product_files=${{ steps.changes.outputs.product_files }},${{ steps.changes.outputs.other_shared_files }}" >> $GITHUB_OUTPUT
-            elif [[ "${{ steps.changes.outputs.product }}" == "false" && "${{ steps.changes.outputs.other_shared }}" == "true" ]]; then
+              echo "product_files=${{ steps.changes-dorny.outputs.product_files }},${{ steps.changes-dorny.outputs.other_shared_files }}" >> $GITHUB_OUTPUT
+            elif [[ "${{ steps.changes-dorny.outputs.product }}" == "false" && "${{ steps.changes-dorny.outputs.other_shared }}" == "true" ]]; then
               echo "::debug:: Only contracts in' interfaces' and root folders were modified"
               echo "product_changes=true" >> $GITHUB_OUTPUT
-              echo "product_files=${{ steps.changes.outputs.other_shared_files }}" >> $GITHUB_OUTPUT
-            elif [[ "${{ steps.changes.outputs.product }}" == "true" && "${{ steps.changes.outputs.other_shared }}" == "false" ]]; then
+              echo "product_files=${{ steps.changes-dorny.outputs.other_shared_files }}" >> $GITHUB_OUTPUT
+            elif [[ "${{ steps.changes-dorny.outputs.product }}" == "true" && "${{ steps.changes-dorny.outputs.other_shared }}" == "false" ]]; then
               echo "::debug:: Only contracts in 'shared' folder were modified"
               echo "product_changes=true" >> $GITHUB_OUTPUT
-              echo "product_files=${{ steps.changes.outputs.product_files }}" >> $GITHUB_OUTPUT
+              echo "product_files=${{ steps.changes-dorny.outputs.product_files }}" >> $GITHUB_OUTPUT
             else
               echo "::debug:: No contracts were modified"
               echo "product_changes=false" >> $GITHUB_OUTPUT
               echo "product_files=" >> $GITHUB_OUTPUT
             fi
           else
-           echo "product_changes=${{ steps.changes.outputs.product }}" >> $GITHUB_OUTPUT
-           echo "product_files=${{ steps.changes.outputs.product_files }}" >> $GITHUB_OUTPUT
+           echo "product_changes=${{ steps.changes-dorny.outputs.product }}" >> $GITHUB_OUTPUT
+           echo "product_files=${{ steps.changes-dorny.outputs.product_files }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Check for changes outside of artifact scope
         uses: ./.github/actions/validate-artifact-scope
-        if: ${{ steps.changes.outputs.sol == 'true' }}
+        if: ${{ steps.changes-dorny.outputs.sol == 'true' }}
         with:
-          sol_files: ${{ steps.changes.outputs.sol_files }}
+          sol_files: ${{ steps.changes-dorny.outputs.sol_files }}
           product: ${{ inputs.product }}
 
   gather-basic-info:
@@ -128,7 +137,7 @@ jobs:
         run: |
           mkdir -p contracts/changesets
           files="${{ needs.changes.outputs.changeset_files }}"
-          IFS=",'
+          IFS=","
           for changeset in $files; do
             echo "::debug:: Copying $changeset"
             cp $changeset contracts/changesets
@@ -137,13 +146,14 @@ jobs:
       - name: Generate basic info and modified contracts list
         shell: bash
         run: |
-          echo "Commit SHA used to generate artifacts: ${{ github.sha }}" > contracts/commit_sha_base_ref.txt
+          echo "Product: ${{ inputs.product }}" > contracts/commit_sha_base_ref.txt
+          echo "Commit SHA used to generate artifacts: ${{ env.head_ref }}" >> contracts/commit_sha_base_ref.txt
           echo "Base reference SHA used to find modified contracts: ${{ inputs.base_ref }}" >> contracts/commit_sha_base_ref.txt     
           
           IFS=',' read -r -a modified_files <<< "${{ needs.changes.outputs.product_files }}"
           echo "# Modified contracts:" > contracts/modified_contracts.md
           for file in "${modified_files[@]}"; do
-            echo " - [$file](${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/$file)" >> contracts/modified_contracts.md
+            echo " - [$file](${{ github.server_url }}/${{ github.repository }}/blob/${{ env.head_ref }}/$file)" >> contracts/modified_contracts.md
             echo "$file" >> contracts/modified_contracts.txt
           done
 
@@ -179,6 +189,8 @@ jobs:
 
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ env.head_ref }}
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -213,11 +225,18 @@ jobs:
         env:
           FOUNDRY_PROFILE: ${{ inputs.product }}
 
+      - name: Prune lcov report
+        if: ${{ !contains(fromJson(steps.prepare-exclusion-list.outputs.coverage_exclusions), inputs.product) && needs.changes.outputs.product_changes == 'true' }}
+        shell: bash
+        working-directory: contracts
+        run: |
+          ./scripts/lcov_prune  ${{ inputs.product }} ./code-coverage/lcov.info ./code-coverage/lcov.info.pruned          
+
       - name: Generate Code Coverage HTML report for product contracts
         if: ${{ !contains(fromJson(steps.prepare-exclusion-list.outputs.coverage_exclusions), inputs.product) && needs.changes.outputs.product_changes == 'true' }}
         shell: bash
         working-directory: contracts
-        run: genhtml code-coverage/lcov.info --branch-coverage --output-directory code-coverage
+        run: genhtml code-coverage/lcov.info.pruned --branch-coverage --output-directory code-coverage
 
       - name: Run Forge doc for product contracts
         if: ${{ needs.changes.outputs.product_changes == 'true' }}
@@ -252,6 +271,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           fetch-depth: 0
+          ref: ${{ env.head_ref }}
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -286,7 +306,7 @@ jobs:
           
           # modify remappings so that solc can find dependencies
           ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
-          mv remappings_modified.txt remappings.txt
+          mv remappings_modified.txt remappings.txt          
           
           ./contracts/scripts/ci/generate_uml.sh "./" "contracts/uml-diagrams" "$contract_list"
 
@@ -294,8 +314,11 @@ jobs:
         run: |
           contract_list="${{ needs.changes.outputs.product_files }}"
           
+          # without it Slither sometimes fails to use remappings correctly
+          cp contracts/foundry.toml foundry.toml    
+          
           echo "::debug::Processing contracts: $contract_list"
-          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" contracts/configs/slither/.slither.config-artifacts.json "." "$contract_list" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
+          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ env.head_ref }}/" contracts/configs/slither/.slither.config-artifacts.json "." "$contract_list" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
 
       - name: Upload UMLs and Slither reports
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
@@ -323,6 +346,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [coverage-and-book, uml-static-analysis, gather-basic-info, changes]
     steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ env.head_ref }}
+
       - name: Download all artifacts
         uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
         with:
@@ -332,9 +360,8 @@ jobs:
       - name: Upload all artifacts as single package
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
-          name: review-artifacts-${{ inputs.product }}-${{ github.sha }}
+          name: review-artifacts-${{ inputs.product }}-${{ inputs.base_ref }}-${{ env.head_ref }}
           path: review_artifacts
-          retention-days: 60
 
       - name: Remove temporary artifacts
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
@@ -342,17 +369,46 @@ jobs:
           name: tmp-*
 
       - name: Print Artifact URL in job summary
+        id: gather-all-artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
-          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts-${{ inputs.product }}-${{ github.sha }}") | .id')
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts-${{ inputs.product }}-${{ env.head_ref }}") | .id')
           echo "Artifact ID: $ARTIFACT_ID"
           
           echo "# Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
+          echo "Product: **${{ inputs.product }}**" >> $GITHUB_STEP_SUMMARY
           echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
-          echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
-          echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID)" >> $GITHUB_STEP_SUMMARY
+          echo "Commit SHA used: **${{ env.head_ref }}**" >> $GITHUB_STEP_SUMMARY
+
+          artifact_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID"
+          echo "[Artifact URL]($artifact_url)" >> $GITHUB_STEP_SUMMARY
+          echo "artifact-url=$artifact_url" >> $GITHUB_OUTPUT
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Setup Jira
+        working-directory: ./.github/scripts/jira
+        run: pnpm i
+
+      - name: Create Traceability
+        working-directory: ./.github/scripts/jira
+        run: |
+          pnpm issue:traceability
+        env:
+          CHANGESET_FILES: ${{ needs.changes.outputs.changeset_files }}
+          CHAINLINK_PRODUCT: ${{ inputs.product }}
+          BASE_REF: ${{ inputs.base_ref }}
+          HEAD_REF: ${{ env.head_ref }}
+          ARTIFACT_URL: ${{ steps.gather-all-artifacts.outputs.artifact-url }}
+
+          JIRA_HOST: https://smartcontract-it.atlassian.net/
+          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   notify-no-changes:
     if: ${{ needs.changes.outputs.product_changes == 'false' }}
@@ -364,9 +420,9 @@ jobs:
         run: |
           echo "# Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
           echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
-          echo "Commit SHA used: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Commit SHA used: **${{ env.head_ref }}**" >> $GITHUB_STEP_SUMMARY
           echo "## Reason: No modified Solidity files found for ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
-          echo "* no modified Solidity files found between ${{ inputs.base_ref }} and ${{ github.sha }} commits" >> $GITHUB_STEP_SUMMARY
+          echo "* no modified Solidity files found between ${{ inputs.base_ref }} and ${{ env.head_ref }} commits" >> $GITHUB_STEP_SUMMARY
           echo "* or they are located outside of ./contracts/src/v0.8 folder" >> $GITHUB_STEP_SUMMARY
           echo "* or they were limited to test files" >> $GITHUB_STEP_SUMMARY
           exit 1

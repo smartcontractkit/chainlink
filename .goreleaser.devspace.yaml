@@ -1,5 +1,6 @@
-## goreleaser <1.14.0
 project_name: chainlink-devspace
+
+version: 2
 
 env:
   - ZIG_EXEC={{ if index .Env "ZIG_EXEC"  }}{{ .Env.ZIG_EXEC }}{{ else }}zig{{ end }}
@@ -75,7 +76,7 @@ checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  name_template: '{{ .Env.CHAINLINK_VERSION }}-{{ .Runtime.Goarch }}-{{ .Now.Format "2006-01-02-15-04-05Z" }}'
+  version_template: '{{ .Env.CHAINLINK_VERSION }}-{{ .Runtime.Goarch }}-{{ .Now.Format "2006-01-02-15-04-05Z" }}'
 
 changelog:
   sort: asc

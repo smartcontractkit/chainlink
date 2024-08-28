@@ -3,19 +3,19 @@ package llo
 import (
 	"context"
 	"crypto/ed25519"
-	"errors"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
 // LLO Transmitter implementation, based on
@@ -33,25 +33,6 @@ const (
 	// maxDeleteQueueSize   = 10_000
 	// transmitTimeout      = 5 * time.Second
 )
-
-var PayloadTypes = getPayloadTypes()
-
-func getPayloadTypes() abi.Arguments {
-	mustNewType := func(t string) abi.Type {
-		result, err := abi.NewType(t, "", []abi.ArgumentMarshaling{})
-		if err != nil {
-			panic(fmt.Sprintf("Unexpected error during abi.NewType: %s", err))
-		}
-		return result
-	}
-	return abi.Arguments([]abi.Argument{
-		{Name: "reportContext", Type: mustNewType("bytes32[2]")},
-		{Name: "report", Type: mustNewType("bytes")},
-		{Name: "rawRs", Type: mustNewType("bytes32[]")},
-		{Name: "rawSs", Type: mustNewType("bytes32[]")},
-		{Name: "rawVs", Type: mustNewType("bytes32")},
-	})
-}
 
 type Transmitter interface {
 	llotypes.Transmitter
@@ -97,7 +78,32 @@ func (t *transmitter) Transmit(
 	report ocr3types.ReportWithInfo[llotypes.ReportInfo],
 	sigs []types.AttributedOnchainSignature,
 ) (err error) {
-	return errors.New("not implemented")
+	var payload []byte
+
+	switch report.Info.ReportFormat {
+	case llotypes.ReportFormatJSON:
+		// TODO: exactly how to handle JSON here?
+		// https://smartcontract-it.atlassian.net/browse/MERC-3659
+		fallthrough
+	case llotypes.ReportFormatEVMPremiumLegacy:
+		payload, err = evm.ReportCodecPremiumLegacy{}.Pack(digest, seqNr, report.Report, sigs)
+	default:
+		return fmt.Errorf("Transmit failed; unsupported report format: %q", report.Info.ReportFormat)
+	}
+
+	if err != nil {
+		return fmt.Errorf("Transmit: encode failed; %w", err)
+	}
+
+	req := &pb.TransmitRequest{
+		Payload:      payload,
+		ReportFormat: uint32(report.Info.ReportFormat),
+	}
+
+	// TODO: persistenceManager and queueing, error handling, retry etc
+	// https://smartcontract-it.atlassian.net/browse/MERC-3659
+	_, err = t.rpcClient.Transmit(ctx, req)
+	return err
 }
 
 // FromAccount returns the stringified (hex) CSA public key

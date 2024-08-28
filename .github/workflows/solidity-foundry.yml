@@ -8,6 +8,11 @@ env:
 # * use the top-level matrix to decide, which checks should run for each product.
 # * when enabling code coverage, remember to adjust the minimum code coverage as it's set to 98.5% by default.
 
+# This pipeline will run product tests only if product-specific contracts were modified or if broad-impact changes were made (e.g. changes to this pipeline, Foundry configuration, etc.)
+# For modified contracts we use a LLM to extract new issues introduced by the changes. For new contracts full report is delivered.
+# Slither has a default configuration, but also supports per-product configuration. If a product-specific configuration is not found, the default one is used.
+# Changes to test files do not trigger static analysis or formatting checks.
+
 jobs:
   define-matrix:
     name: Define test matrix
@@ -30,7 +35,7 @@ jobs:
             { "name": "liquiditymanager", "setup": { "run-coverage": true, "min-coverage": 46.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "llo-feeds", "setup": { "run-coverage": true, "min-coverage": 49.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "operatorforwarder", "setup": { "run-coverage": true, "min-coverage": 55.7, "run-gas-snapshot": true, "run-forge-fmt": false }},
-            { "name": "shared", "setup": { "run-coverage": true, "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*'", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "transmission", "setup": { "run-coverage": true, "min-coverage": 65.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "vrf", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }}
           ]
@@ -53,28 +58,33 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       non_src_changes: ${{ steps.changes.outputs.non_src }}
-      sol_modified: ${{ steps.changes.outputs.sol }}
-      sol_modified_files: ${{ steps.changes.outputs.sol_files }}
-      not_test_sol_modified: ${{ steps.changes.outputs.not_test_sol }}
-      not_test_sol_modified_files: ${{ steps.changes.outputs.not_test_sol_files }}
+      sol_modified_added: ${{ steps.changes.outputs.sol }}
+      sol_modified_added_files: ${{ steps.changes.outputs.sol_files }}
+      sol_mod_only: ${{ steps.changes.outputs.sol_mod_only }}
+      sol_mod_only_files: ${{ steps.changes.outputs.sol_mod_only_files }}
+      not_test_sol_modified: ${{ steps.changes-non-test.outputs.not_test_sol }}
+      not_test_sol_modified_files: ${{ steps.changes-non-test.outputs.not_test_sol_files }}
       all_changes: ${{ steps.changes.outputs.changes }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      - name: Detect changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
           list-files: 'shell'
           filters: |
             non_src:
-              - '.github/workflows/solidity-foundry.yml'
+              - '.github/workflows/solidity-foundry.yml'            
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
               - 'contracts/package.json'
             sol:
               - modified|added: 'contracts/src/v0.8/**/*.sol'
+            sol_mod_only:
+              - modified: 'contracts/src/v0.8/**/!(tests|mocks)/!(*.t).sol'
             not_test_sol:
-              - modified|added: 'contracts/src/v0.8/**/!(*.t).sol'            
+              - modified|added: 'contracts/src/v0.8/**/!(tests|mocks)/!(*.t).sol'
             automation:
               - 'contracts/src/v0.8/automation/**/*.sol'
             ccip:
@@ -102,8 +112,28 @@ jobs:
             transmission:
               - 'contracts/src/v0.8/transmission/**/*.sol'
 
+      - name: Detect non-test changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes-non-test
+        with:
+          list-files: 'shell'
+          # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
+          predicate-quantifier: every
+          filters: |
+            not_test_sol:
+              - modified|added: 'contracts/src/v0.8/**/!(*.t).sol'
+              - '!contracts/src/v0.8/**/test/**'
+              - '!contracts/src/v0.8/**/tests/**'
+              - '!contracts/src/v0.8/**/mock/**'
+              - '!contracts/src/v0.8/**/mocks/**'
+              - '!contracts/src/v0.8/**/*.t.sol'
+              - '!contracts/src/v0.8/*.t.sol'
+              - '!contracts/src/v0.8/**/testhelpers/**'
+              - '!contracts/src/v0.8/testhelpers/**'
+              - '!contracts/src/v0.8/vendor/**'     
+
   tests:
-    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified == 'true' }}
+    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified_added == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -189,7 +219,13 @@ jobs:
           || needs.changes.outputs.non_src_changes == 'true')
           && matrix.product.setup.run-coverage }}
         working-directory: contracts
-        run: forge coverage --report lcov
+        shell: bash
+        run: |
+          if [[ -n "${{ matrix.product.setup.extra-coverage-params }}" ]]; then
+            forge coverage --report lcov ${{ matrix.product.setup.extra-coverage-params }}
+          else
+            forge coverage --report lcov
+          fi
         env:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
@@ -199,7 +235,6 @@ jobs:
           || needs.changes.outputs.non_src_changes == 'true')
           && matrix.product.setup.run-coverage }}
         run: |
-          sudo apt-get install lcov
           ./contracts/scripts/lcov_prune ${{ matrix.product.name }} ./contracts/lcov.info ./contracts/lcov.info.pruned
 
       - name: Report code coverage for ${{ matrix.product.name }}
@@ -229,6 +264,7 @@ jobs:
           this-job-name: Foundry Tests ${{ matrix.product.name }}
         continue-on-error: true
 
+  # runs only if non-test contracts were modified; scoped only to modified or added contracts
   analyze:
     needs: [ changes, define-matrix ]
     name: Run static analysis
@@ -268,25 +304,164 @@ jobs:
           # modify remappings so that solc can find dependencies
           ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
           mv remappings_modified.txt remappings.txt
+          
+          # without it Slither sometimes fails to use remappings correctly
+          cp contracts/foundry.toml foundry.toml              
 
-          FILES="${{ needs.changes.outputs.not_test_sol_modified_files }}"
+          FILES="${{ needs.changes.outputs.not_test_sol_modified_files }}"            
           
           for FILE in $FILES; do
             PRODUCT=$(echo "$FILE" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
             echo "::debug::Running Slither for $FILE in $PRODUCT"
             SLITHER_CONFIG="contracts/configs/slither/.slither.config-$PRODUCT-pr.json"
-            if [ ! -f $SLITHER_CONFIG ]; then
+            if [[ ! -f $SLITHER_CONFIG ]]; then
               echo "::debug::No Slither config found for $PRODUCT, using default"
               SLITHER_CONFIG="contracts/configs/slither/.slither.config-default-pr.json"
             fi
-            ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "." "$FILE" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
+            ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "." "$FILE" "contracts/slither-reports-current" "--solc-remaps @=contracts/node_modules/@"
           done
 
+      # all the actions below, up to printing results, run only if any existing contracts were modified
+      # in that case we extract new issues introduced by the changes by using an LLM model
+      - name: Upload Slither results for current branch
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: slither-reports-current-${{ github.sha }}
+          path: contracts/slither-reports-current
+          retention-days: 7
+
+      # we need to upload scripts and configuration in case base_ref doesn't have the scripts, or they are in different version
+      - name: Upload Slither scripts
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: tmp-slither-scripts-${{ github.sha }}
+          path: contracts/scripts/ci
+          retention-days: 7
+
+      - name: Upload configs
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: tmp-configs-${{ github.sha }}
+          path: contracts/configs
+          retention-days: 7
+
+      - name: Checkout the repo
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ github.base_ref }}
+
+      - name: Download Slither scripts
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        with:
+          name: tmp-slither-scripts-${{ github.sha }}
+          path: contracts/scripts/ci
+
+      - name: Download configs
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        with:
+          name: tmp-configs-${{ github.sha }}
+          path: contracts/configs
+
+      # since we have just checked out the repository again, we lose NPM dependencies installs previously, we need to install them again to compile contracts
+      - name: Setup NodeJS
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Run Slither for base reference
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        shell: bash
+        run: |
+          # we need to set file permission again since they are lost during download
+          for file in contracts/scripts/ci/*.sh; do
+            chmod +x "$file"
+          done
+          
+          # modify remappings so that solc can find dependencies
+          ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
+          mv remappings_modified.txt remappings.txt
+          
+          # without it Slither sometimes fails to use remappings correctly
+          cp contracts/foundry.toml foundry.toml
+          
+          FILES="${{ needs.changes.outputs.sol_mod_only_files }}"
+          
+          for FILE in $FILES; do
+            PRODUCT=$(echo "$FILE" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
+            echo "::debug::Running Slither for $FILE in $PRODUCT"
+            SLITHER_CONFIG="contracts/configs/slither/.slither.config-$PRODUCT-pr.json"
+            if [[ ! -f $SLITHER_CONFIG ]]; then
+              echo "::debug::No Slither config found for $PRODUCT, using default"
+              SLITHER_CONFIG="contracts/configs/slither/.slither.config-default-pr.json"
+            fi
+            ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "." "$FILE" "contracts/slither-reports-base-ref" "--solc-remaps @=contracts/node_modules/@"
+          done          
+
+      - name: Upload Slither report
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        timeout-minutes: 10
+        continue-on-error: true
+        with:
+          name: slither-reports-base-${{ github.sha }}
+          path: |
+            contracts/slither-reports-base-ref
+          retention-days: 7
+
+      - name: Download Slither results for current branch
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        with:
+          name: slither-reports-current-${{ github.sha }}
+          path: contracts/slither-reports-current
+
+      - name: Generate diff of Slither reports for modified files
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        env:
+          OPEN_API_KEY: ${{ secrets.OPEN_AI_SLITHER_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for base_report in contracts/slither-reports-base-ref/*.md; do
+            filename=$(basename "$base_report")
+            current_report="contracts/slither-reports-current/$filename"
+            new_issues_report="contracts/slither-reports-current/${filename%.md}_new_issues.md"
+            if [ -f "$current_report" ]; then
+              if ./contracts/scripts/ci/find_slither_report_diff.sh "$base_report" "$current_report" "$new_issues_report" "contracts/scripts/ci/prompt-difference.md" "contracts/scripts/ci/prompt-validation.md"; then          
+                if [[ -s $new_issues_report ]]; then    
+                  awk 'NR==2{print "*This new issues report has been automatically generated by LLM model using two Slither reports. One based on `${{ github.base_ref}}` and another on `${{ github.sha }}` commits.*"}1' $new_issues_report > tmp.md && mv tmp.md $new_issues_report                                  
+                  echo "Replacing full Slither report with diff for $current_report"            
+                  rm $current_report && mv $new_issues_report $current_report
+                else 
+                  echo "No difference detected between $base_report and $current_report reports. Won't include any of them."
+                  rm $current_report
+                fi
+              else
+                echo "::warning::Failed to generate a diff report with new issues for $base_report using an LLM model, will use full report."
+              fi
+          
+            else
+              echo "::warning::Failed to find current commit's equivalent of $base_report (file $current_report doesn't exist, but should have been generated). Please check Slither logs."
+            fi
+          done
+
+      # actions that execute only if any existing contracts were modified end here
       - name: Print Slither summary
         shell: bash
         run: |
           echo "# Static analysis results " >> $GITHUB_STEP_SUMMARY
-          for file in "contracts/slither-reports"/*.md; do
+          for file in "contracts/slither-reports-current"/*.md; do
             if [ -e "$file" ]; then
               cat "$file" >> $GITHUB_STEP_SUMMARY
             fi
@@ -296,18 +471,61 @@ jobs:
         uses: ./.github/actions/validate-solidity-artifacts
         with:
           validate_slither_reports: 'true'
-          slither_reports_path: 'contracts/slither-reports'
+          slither_reports_path: 'contracts/slither-reports-current'
           sol_files: ${{ needs.changes.outputs.not_test_sol_modified_files }}
 
-      - name: Upload Slither report
+      - name: Upload Slither reports
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         timeout-minutes: 10
         continue-on-error: true
         with:
           name: slither-reports-${{ github.sha }}
           path: |
-            contracts/slither-reports
+            contracts/slither-reports-current
           retention-days: 7
+
+      - name: Find Slither comment in the PR
+        uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.0.0
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: 'Static analysis results'
+
+      - name: Extract job summary URL
+        id: job-summary-url
+        uses: pl-strflt/job-summary-url-action@df2d22c5351f73e0a187d20879854b8d98e6e001 # v1.0.0
+        with:
+          job: 'Run static analysis'
+
+      - name: Build Slither reports artifacts URL
+        id: build-slither-artifact-url
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="slither-reports-${{ github.sha }}") | .id')
+          echo "Artifact ID: $ARTIFACT_ID"
+          
+          slither_artifact_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID"
+          echo "slither_artifact_url=$slither_artifact_url" >> $GITHUB_OUTPUT     
+
+      - name: Create or update Slither comment in the PR
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## Static analysis results are available
+            Hey @${{ github.event.push && github.event.push.pusher && github.event.push.pusher.username || github.actor }}, you can view Slither reports in the job summary [here](${{ steps.job-summary-url.outputs.job_summary_url }}) or download them as artifact [here](${{ steps.build-slither-artifact-url.outputs.slither_artifact_url }}).
+            
+            Please check them before merging and make sure you have addressed all issues.
+          edit-mode: replace
+
+      - name: Remove temp artifacts
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: tmp-*
 
       - name: Collect Metrics
         id: collect-gha-metrics
