@@ -27,7 +27,7 @@ do
       popd
     elif [ "$x" = "ccip-load" ]; then
       echo "Changing directory and executing go test -c ./... for 'ccip-load' package"
-      pushd "./ccip-tests/load" && go test -c -tags embed -o ../.. ./...
+      pushd "./ccip-tests/load" && go test -c -tags embed -o .. ./...
       popd
     else
       go test -c -tags embed ./"${x}"
