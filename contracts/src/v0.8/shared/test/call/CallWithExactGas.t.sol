@@ -220,7 +220,7 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
     assertGt(gasUsed, 500);
   }
 
-  function testFuzz_CallWithExactGasSafeReturnData_ConsumeAllGas_Success(uint8 gasLimitMultiplier) external {
+  function test_Fuzz_CallWithExactGasSafeReturnData_ConsumeAllGas_Success(uint8 gasLimitMultiplier) external {
     vm.assume(gasLimitMultiplier > 0); // Assume not zero to avoid zero gas being passed to s_gasConsumer
     uint16 maxRetBytes = 0;
 
@@ -244,7 +244,7 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
 
     assertTrue(success, "Error: External Call Failed");
 
-    //Assert equal within a margin of error of 1/64 of the gas limit to account for excess gas used by execution library
+    // Assert equal within a margin of error of 1/64 of the gas limit to account for excess gas used by execution library
     assertApproxEqAbs(
       gasUsed - CALL_WITH_EXACT_GAS_SAFE_RETURN_DATA_GAS_OVERHEAD,
       gasLimit,

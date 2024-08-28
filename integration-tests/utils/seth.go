@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	pkg_seth "github.com/smartcontractkit/seth"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
+	pkg_seth "github.com/smartcontractkit/chainlink-testing-framework/seth"
 	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 )
 
