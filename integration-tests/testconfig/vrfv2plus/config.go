@@ -3,8 +3,6 @@ package testconfig
 import (
 	"errors"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	vrf_common_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/common/vrf"
 )
 
@@ -63,10 +61,6 @@ type General struct {
 	L1FeeCoefficient     *uint8 `toml:"l1_fee_coefficient"`
 
 	UseTestCoordinator *bool `toml:"use_test_coordinator"`
-
-	//Used when deploying a new environment on a live network
-	LinkNativeFeedAddress *string `toml:"link_native_feed_address"`
-	LinkTokenAddress      *string `toml:"link_token_address"`
 }
 
 func (c *General) Validate() error {
@@ -108,18 +102,6 @@ func (c *General) Validate() error {
 	}
 	if c.CoordinatorLinkPremiumPercentage == nil {
 		return errors.New("coordinator_link_premium_percentage must not be nil")
-	}
-	if c.LinkNativeFeedAddress == nil {
-		return errors.New("link_native_feed_address must not be nil")
-	}
-	if !common.IsHexAddress(*c.LinkNativeFeedAddress) {
-		return errors.New("link_native_feed_address must be a valid hex address")
-	}
-	if c.LinkTokenAddress == nil {
-		return errors.New("link_token_address must not be nil")
-	}
-	if !common.IsHexAddress(*c.LinkTokenAddress) {
-		return errors.New("link_token_address must be a valid hex address")
 	}
 	if c.UseTestCoordinator == nil {
 		return errors.New("use_test_coordinator must not be nil")

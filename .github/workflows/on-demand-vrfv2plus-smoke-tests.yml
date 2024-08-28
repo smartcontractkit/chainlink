@@ -6,21 +6,21 @@ on:
         description: base64-ed config
         required: true
         type: string
-      test_list_regex:
-        description: "Regex for tests to run"
-        required: false
-        default: "(TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS)"
-      test_secrets_override_key:
-        description: 'Key to run tests with custom test secrets'
-        required: false
-        type: string
       test_suite:
         description: "Test Suite to run"
         required: true
         type: choice
         options:
           - "All Tests"
-          - "P0 Tests"
+          - "Selected Tests"
+      test_list_regex:
+        description: "Regex for 'Selected Tests' to run"
+        required: false
+        default: "(TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS|TestVRFV2PlusWithBHF)"
+      test_secrets_override_key:
+        description: 'Key to run tests with custom test secrets'
+        required: false
+        type: string
 
 jobs:
   vrfv2plus_smoke_test:
@@ -78,7 +78,7 @@ jobs:
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY
       - name: Run Tests
-        if: ${{ github.event.inputs.test_suite == 'P0 Tests' }}
+        if: ${{ github.event.inputs.test_suite == 'Selected Tests' }}
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
         with:
           test_command_to_run: cd ./integration-tests/smoke && go test -v -count=1 -parallel=1 -timeout 2h -run "${{ inputs.test_list_regex }}"
