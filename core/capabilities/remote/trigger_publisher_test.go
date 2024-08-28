@@ -52,18 +52,18 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	}
 	underlying := &testTrigger{
 		info:            capInfo,
-		registrationsCh: make(chan commoncap.CapabilityRequest, 2),
+		registrationsCh: make(chan commoncap.TriggerRegistrationRequest, 2),
 	}
 	publisher := remote.NewTriggerPublisher(config, underlying, capInfo, capDonInfo, workflowDONs, dispatcher, lggr)
 	require.NoError(t, publisher.Start(ctx))
 
 	// trigger registration event
-	capRequest := commoncap.CapabilityRequest{
+	triggerRequest := commoncap.TriggerRegistrationRequest{
 		Metadata: commoncap.RequestMetadata{
 			WorkflowID: workflowID1,
 		},
 	}
-	marshaled, err := pb.MarshalCapabilityRequest(capRequest)
+	marshaled, err := pb.MarshalTriggerRegistrationRequest(triggerRequest)
 	require.NoError(t, err)
 	regEvent := &remotetypes.MessageBody{
 		Sender:      p1[:],
@@ -79,25 +79,25 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	publisher.Receive(ctx, regEvent)
 	require.NotEmpty(t, underlying.registrationsCh)
 	forwarded := <-underlying.registrationsCh
-	require.Equal(t, capRequest.Metadata.WorkflowID, forwarded.Metadata.WorkflowID)
+	require.Equal(t, triggerRequest.Metadata.WorkflowID, forwarded.Metadata.WorkflowID)
 
 	require.NoError(t, publisher.Close())
 }
 
 type testTrigger struct {
 	info            commoncap.CapabilityInfo
-	registrationsCh chan commoncap.CapabilityRequest
+	registrationsCh chan commoncap.TriggerRegistrationRequest
 }
 
 func (t *testTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) {
 	return t.info, nil
 }
 
-func (t *testTrigger) RegisterTrigger(_ context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
+func (t *testTrigger) RegisterTrigger(_ context.Context, request commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
 	t.registrationsCh <- request
 	return nil, nil
 }
 
-func (t *testTrigger) UnregisterTrigger(_ context.Context, request commoncap.CapabilityRequest) error {
+func (t *testTrigger) UnregisterTrigger(_ context.Context, request commoncap.TriggerRegistrationRequest) error {
 	return nil
 }
