@@ -1527,7 +1527,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	t.Run("eth tx is replaced with new re-estimated tx if eth node returns insufficient eth", func(t *testing.T) {
 		insufficientEthError := "insufficient funds for transfer"
 		localNextNonce := getLocalNextNonce(t, nonceTracker, fromAddress)
-		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
+		mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
 		}), fromAddress).Return(commonclient.InsufficientFunds, errors.New(insufficientEthError)).Once()
@@ -1538,13 +1538,16 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.True(t, retryable)
 
 		// Check it was saved correctly with replaced attempt
-		updated_etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
+		output, err := txStore.FindTxsByStateAndFromAddresses(ctx, []gethCommon.Address{fromAddress}, txmgrcommon.TxInProgress, testutils.FixtureChainID)
+		updated_etx := output[0]
 		require.NoError(t, err)
+		assert.NotEqual(t, 0, len(output))
+		assert.NotNil(t, updated_etx.CreatedAt)
 		assert.Nil(t, updated_etx.BroadcastAt)
 		assert.Nil(t, updated_etx.InitialBroadcastAt)
 		require.NotNil(t, updated_etx.Sequence)
 		assert.False(t, updated_etx.Error.Valid)
-		assert.Equal(t, txmgrcommon.TxUnstarted, etx.State)
+		assert.Equal(t, txmgrcommon.TxInProgress, updated_etx.State)
 		require.Len(t, updated_etx.TxAttempts, 1)
 
 		attempt := updated_etx.TxAttempts[0]
