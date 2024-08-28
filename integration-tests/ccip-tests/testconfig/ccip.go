@@ -387,6 +387,18 @@ type CCIP struct {
 	Groups           map[string]*CCIPTestGroupConfig              `toml:",omitempty"`
 }
 
+// LoadFromEnv loads selected env vars into the CCIP config
+func (c *CCIP) LoadFromEnv() error {
+	if c.Env == nil {
+		c.Env = &Common{}
+	}
+	err := c.Env.ReadFromEnvVar()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *CCIP) Validate() error {
 	if c.Env != nil {
 		err := c.Env.Validate()

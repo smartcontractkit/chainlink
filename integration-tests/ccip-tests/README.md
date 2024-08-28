@@ -34,38 +34,11 @@ For example, if you want to override the `Network` input in test and want to run
         export BASE64_CCIP_CONFIG_OVERRIDE=$(base64 -i ./testconfig/override/mainnet.toml)
         ```
 
-3. Secrets - You also need to set some secrets. This is a mandatory step needed to run the tests. Please refer to [sample-secrets.toml](./testconfig/examples/secrets.toml.example) for the list of secrets that are mandatory to run the tests.
-   - The chainlink image and tag are required secrets for all the tests.
+3. Secrets - You also need to set some secrets. This is a mandatory step needed to run the tests. Please refer to [.testsecrets.example](./examples/.testsecrets.example) for the list of secrets and instruction how to set them up.
+   - The chainlink image is a required secret for all tests
    - If you are running tests in live networks like testnet and mainnet, you need to set the secrets (rpc urls and private keys) for the respective networks.
-   - If you are running tests in simulated networks no network specific secrets are required.
-   here is a sample secrets.toml file, for running the tests in simulated networks, with the chainlink image and tag set as secrets:
-
-   ```toml
-   [CCIP]
-   [CCIP.Env]
-   # ChainlinkImage is mandatory for all tests.
-   [CCIP.Env.NewCLCluster]
-   [CCIP.Env.NewCLCluster.Common]
-   [CCIP.Env.NewCLCluster.Common.ChainlinkImage]
-   image = "chainlink-ccip"
-   version = "latest"
-   ```
-
-   We consider secrets similar to test input overrides and encode them using `base64` command.
-   Once you have the secrets.toml file, you can encode it using `base64` command (similar to step 2) and set the env var `BASE64_CCIP_SECRETS_CONFIG` with the encoded content.
-
-    ```bash
-        export BASE64_CCIP_SECRETS_CONFIG=$(base64 -i ./testconfig/tomls/secrets.toml)
-    ```
 
 **Please note that the secrets should NOT be checked in to the repo and should be kept locally.**
-
-We recommend against changing the content of [sample-secrets.toml](./testconfig/examples/secrets.toml.example). Please create a new file and set it as the secrets file.
-You can run the command to ignore the changes to the file.
-
-```bash
-git update-index --skip-worktree <path-to-secrets-file>
-```
 
 ## Running the Tests
 

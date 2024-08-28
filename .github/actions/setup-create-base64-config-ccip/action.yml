@@ -11,62 +11,39 @@ inputs:
     default: "false"
   selectedNetworks:
     description: The networks to run tests against
-  chainlinkImage:
-    description: The chainlink image to use
-    default: "public.ecr.aws/chainlink/chainlink"
   chainlinkVersion:
     description: The git commit sha to use for the image tag
-  upgradeImage:
-    description: The chainlink image to upgrade to
-    default: ""
   upgradeVersion:
-    description: The git commit sha to use for the image tag
-  lokiEndpoint:
-    description: Loki push endpoint
-  lokiTenantId:
-    description: Loki tenant id
-  lokiBasicAuth:
-    description: Loki basic auth
+    description: The git commit sha to use for the image tag    
   logstreamLogTargets:
     description: Where to send logs (e.g. file, loki)
-  grafanaUrl:
-    description: Grafana URL
-  grafanaDashboardUrl:
-    description: Grafana dashboard URL
-  grafanaBearerToken:
-    description: Grafana bearer token
   customEvmNodes:
     description: Custom EVM nodes to use  in key=value format, where key is chain id and value is docker image to use. If they are provided the number of networksSelected must be equal to the number of customEvmNodes
   evmNodeLogLevel:
     description: Log level for the custom EVM nodes
     default: "info"
+outputs:
+  base64_config:
+    description: The base64-encoded config
+    value: ${{ steps.base64_config_override.outputs.base64_config }}
 
 runs:
   using: composite
   steps:
     - name: Prepare Base64 TOML override
       shell: bash
-      id: base64-config-override
+      id: base64_config_override
       env:
         RUN_ID: ${{ inputs.runId }}
         SELECTED_NETWORKS: ${{ inputs.selectedNetworks }}
         EXISTING_NAMESPACE: ${{ inputs.existingNamespace }}
         TEST_LOG_COLLECT: ${{ inputs.testLogCollect }}
-        CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
         CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
-        UPGRADE_IMAGE: ${{ inputs.upgradeImage }}
         UPGRADE_VERSION: ${{ inputs.upgradeVersion }}
-        LOKI_ENDPOINT: ${{ inputs.lokiEndpoint }}
-        LOKI_TENANT_ID: ${{ inputs.lokiTenantId }}
-        LOKI_BASIC_AUTH: ${{ inputs.lokiBasicAuth }}
         LOGSTREAM_LOG_TARGETS: ${{ inputs.logstreamLogTargets }}
-        GRAFANA_URL: ${{ inputs.grafanaUrl }}
-        GRAFANA_DASHBOARD_URL: ${{ inputs.grafanaDashboardUrl }}
-        GRAFANA_BEARER_TOKEN: ${{ inputs.grafanaBearerToken }}
         CUSTOM_EVM_NODES: ${{ inputs.customEvmNodes }}
         EVM_NODE_LOG_LEVEL: ${{ inputs.evmNodeLogLevel }}
       run: |
-        echo ::add-mask::$CHAINLINK_IMAGE
         function convert_to_toml_array() {
           local IFS=','
           local input_array=($1)
@@ -133,11 +110,6 @@ runs:
           fi
         fi
 
-        grafana_bearer_token=""
-        if [ -n "$GRAFANA_BEARER_TOKEN" ]; then
-          grafana_bearer_token="bearer_token_secret=\"$GRAFANA_BEARER_TOKEN\""
-        fi
-
         cat << EOF > config.toml
         [CCIP]
         [CCIP.Env]
@@ -147,12 +119,7 @@ runs:
         [CCIP.Env.NewCLCluster]
         [CCIP.Env.NewCLCluster.Common]
         [CCIP.Env.NewCLCluster.Common.ChainlinkImage]
-        image="$CHAINLINK_IMAGE"
         version="$CHAINLINK_VERSION"
-
-        [CCIP.Env.NewCLCluster.Common.ChainlinkUpgradeImage]
-        image="$UPGRADE_IMAGE"
-        version="$UPGRADE_VERSION"
 
         $custom_nodes_toml
 
@@ -163,16 +130,6 @@ runs:
         [CCIP.Env.Logging.LogStream]
         log_targets=$log_targets
 
-        [CCIP.Env.Logging.Loki]
-        tenant_id="$LOKI_TENANT_ID"
-        endpoint="$LOKI_ENDPOINT"
-        basic_auth_secret="$LOKI_BASIC_AUTH"
-
-        [CCIP.Env.Logging.Grafana]
-        base_url="$GRAFANA_URL"
-        dashboard_url="$GRAFANA_DASHBOARD_URL"
-        $grafana_bearer_token
-
         [CCIP.Groups.load]
         TestRunName = '$EXISTING_NAMESPACE'
 
@@ -181,7 +138,14 @@ runs:
 
         EOF
 
-        BASE64_CCIP_SECRETS_CONFIG=$(cat config.toml | base64 -w 0)
-        echo ::add-mask::$BASE64_CCIP_SECRETS_CONFIG
-        echo "BASE64_CCIP_SECRETS_CONFIG=$BASE64_CCIP_SECRETS_CONFIG" >> $GITHUB_ENV
-        echo "TEST_BASE64_CCIP_SECRETS_CONFIG=$BASE64_CCIP_SECRETS_CONFIG" >> $GITHUB_ENV
+        # Check if UPGRADE_VERSION is not empty and append to config.toml
+        if [ -n "$UPGRADE_VERSION" ]; then
+          cat << EOF >> config.toml
+        [CCIP.Env.NewCLCluster.Common.ChainlinkUpgradeImage]
+        version="$UPGRADE_VERSION"
+        EOF
+        fi     
+
+        BASE64_CONFIG=$(cat config.toml | base64 -w 0)
+        echo ::add-mask::$BASE64_CONFIG
+        echo "base64_config=$BASE64_CONFIG" >> $GITHUB_OUTPUT
