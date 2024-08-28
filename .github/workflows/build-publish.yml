@@ -111,10 +111,10 @@ jobs:
         run: |
           artifact_path="dist/artifacts.json"
           echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
-          echo "arm64-digest=$(jq -r '.[]|select(.type=="Archive" and .goarch=="arm64")|.extra.Checksum' ${artifact_path})" >> "$GITHUB_OUTPUT"
-          echo "amd64-digest=$(jq -r '.[]|select(.type=="Archive" and .goarch=="amd64")|.extra.Checksum' ${artifact_path})" | tee -a "$GITHUB_OUTPUT"
+          echo "arm64-digest=$(jq -r '.[]|select(.type=="Published Docker Image" and .goarch=="arm64")|.extra.Digest' ${artifact_path})" | tee -a "$GITHUB_OUTPUT"
+          echo "amd64-digest=$(jq -r '.[]|select(.type=="Published Docker Image" and .goarch=="amd64")|.extra.Digest' ${artifact_path})" | tee -a "$GITHUB_OUTPUT"
           jq -r '.[] | select(.type == "Docker Image") | "`\(.goarch)-image`: \(.name)"' ${artifact_path} >> output.txt
-          jq -r '.[] | select(.type == "Archive") | "`\(.goarch)-digest`: \(.extra.Checksum)"' ${artifact_path} >> output.txt
+          jq -r '.[] | select(.type == "Published Docker Image") | "`\(.goarch)-digest`: \(.extra.Digest)"' ${artifact_path} >> output.txt
           while read -r line; do
             echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
           done < output.txt
