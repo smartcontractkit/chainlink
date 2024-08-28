@@ -708,7 +708,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) repl
 		return bumpedAttempt, fmt.Errorf("replaceAttemptWithBumpedGas failed: %w", err), retryable
 	}
 
-	bumpedAttempt, err = eb.saveReplacementAttempt(ctx, lgr, attempt, bumpedAttempt, bumpedFee, bumpedFeeLimit)
+	err = eb.saveReplacementAttempt(ctx, lgr, attempt, &bumpedAttempt, bumpedFee, bumpedFeeLimit)
 	return bumpedAttempt, err, retryable
 }
 
@@ -720,17 +720,16 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) repl
 	lgr.Warnw("L2 rejected transaction due to incorrect fee, re-estimated and will try again",
 		"etxID", etx.ID, "err", err, "newGasPrice", fee, "newGasLimit", feeLimit)
 
-	newEstimatedAttempt, err = eb.saveReplacementAttempt(ctx, lgr, attempt, newEstimatedAttempt, fee, feeLimit)
+	err = eb.saveReplacementAttempt(ctx, lgr, attempt, &newEstimatedAttempt, fee, feeLimit)
 	return newEstimatedAttempt, err, retryable
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveReplacementAttempt(ctx context.Context, lgr logger.Logger, attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], replacementAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], newFee FEE, newFeeLimit uint64) (newAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
-	if err = eb.txStore.SaveReplacementInProgressAttempt(ctx, attempt, &replacementAttempt); err != nil {
-		err = fmt.Errorf("saveReplacementAttempt failed: %w", err)
-		return
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveReplacementAttempt(ctx context.Context, lgr logger.Logger, attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], replacementAttempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], newFee FEE, newFeeLimit uint64) (err error) {
+	if err = eb.txStore.SaveReplacementInProgressAttempt(ctx, attempt, replacementAttempt); err != nil {
+		return fmt.Errorf("saveReplacementAttempt failed: %w", err)
 	}
 	lgr.Debugw("Bumped fee on initial send", "oldFee", attempt.TxFee.String(), "newFee", newFee.String(), "newFeeLimit", newFeeLimit)
-	return replacementAttempt, err
+	return nil
 }
 
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveFatallyErroredTransaction(lgr logger.Logger, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
