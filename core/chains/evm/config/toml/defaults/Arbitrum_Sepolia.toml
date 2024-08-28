@@ -3,6 +3,7 @@ ChainType = 'arbitrum'
 NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1
 LogPollInterval = '1s'
+FinalityDepth = 20000
 
 [GasEstimator]
 Mode = 'Arbitrum'
@@ -23,3 +24,7 @@ SyncThreshold = 10
 
 [OCR2.Automation]
 GasLimit = 14500000
+
+[HeadTracker]
+HistoryDepth = 1000
+MaxAllowedFinalityDepth = 30000
