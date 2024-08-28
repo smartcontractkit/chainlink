@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
 )
 
 // Note: any update to the enum below should be reflected in
@@ -50,3 +51,18 @@ type WorkflowExecution struct {
 	UpdatedAt  *time.Time
 	FinishedAt *time.Time
 }
+
+func (w WorkflowExecution) ResultForStep(s string) (*exec.Result, bool) {
+	step, ok := w.Steps[s]
+	if !ok {
+		return &exec.Result{}, false
+	}
+
+	return &exec.Result{
+		Inputs:  step.Inputs,
+		Outputs: step.Outputs.Value,
+		Error:   step.Outputs.Err,
+	}, true
+}
+
+var _ exec.Results = WorkflowExecution{}
