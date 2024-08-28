@@ -53,7 +53,7 @@ It's generally recommended to run only one test at a time on a local machine as 
 
 ### Configure Seth
 
-Our new evm client is Seth. Detailed instructions on how to configure it can be found in the [Seth README](./README_SETH.md) in this repo as well as in [Seth repository](https://github.com/smartcontractkit/seth).
+Our new evm client is Seth. Detailed instructions on how to configure it can be found in the [Seth README](./README_SETH.md) in this repo as well as in [Seth repository](https://github.com/smartcontractkit/chainlink-testing-framework/tree/main/seth).
 
 ## Analyze
 
@@ -128,4 +128,10 @@ Run soak/ocr_test.go with RPC network chaos by bringing down network to RPC node
 
 ```bash
 make test_soak_ocr_rpc_down_half_cl_nodes
+```
+
+### Debugging HTTP and RPC clients
+```bash
+export SETH_LOG_LEVEL=debug
+export RESTY_DEBUG=true
 ```

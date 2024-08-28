@@ -1,0 +1,114 @@
+name: "Build and Publish Chainlink"
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+      - "release/**"
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "The git ref to check out"
+        required: true
+      build-publish:
+        description: "Whether to build and publish - defaults to just build"
+        required: false
+        default: "false"
+
+env:
+  GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
+
+jobs:
+  goreleaser-build-publish-chainlink:
+    runs-on: ubuntu-20.04
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ env.GIT_REF }}
+
+      # This gets the image tag and whether to publish the image based on the event type
+      # PR builds: pr-<pr_number>-<short_sha> (if label 'build-publish' is present publishes the image)
+      # develop builds: develop-<short_sha> and develop (only amd64)
+      # release builds: release-<short_sha>
+      # manual builds: <short_sha> (if build-publish is true publishes the image)
+      - name: Get image tag
+        id: get-image-tag
+        run: |
+          short_sha=$(git rev-parse --short HEAD)
+          echo "build-publish=false" | tee -a $GITHUB_OUTPUT
+          if [[ ${{ github.event_name }} == 'push' ]]; then
+            if [[ ${{ github.ref_name }} == 'release/'* ]]; then
+              echo "image-tag=release-${short_sha}" | tee -a $GITHUB_OUTPUT
+              echo "build-publish=true" | tee -a $GITHUB_OUTPUT
+            else
+              echo "image-tag=develop" | tee -a $GITHUB_OUTPUT
+              echo "build-publish=true" | tee -a $GITHUB_OUTPUT
+            fi
+          elif [[ ${{ github.event_name }} == 'workflow_dispatch' ]]; then
+            echo "image-tag=${short_sha}" | tee -a $GITHUB_OUTPUT
+            echo "build-publish=${{ github.event.inputs.build-publish }}" | tee -a $GITHUB_OUTPUT
+          else
+            if [[ ${{ github.event_name }} == "pull_request" ]]; then
+              echo "image-tag=pr-${{ github.event.number }}-${short_sha}" | tee -a $GITHUB_OUTPUT
+              if [[ ${{ contains(github.event.pull_request.labels.*.name, 'build-publish') }} == "true" ]]; then
+                echo "build-publish=true" | tee -a $GITHUB_OUTPUT
+              fi
+            fi
+          fi
+
+      - name: Configure aws credentials
+        if: steps.get-image-tag.outputs.build-publish == 'true'
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: goreleaser-build-publish-chainlink
+
+      - name: Build and publish images
+        uses: ./.github/actions/goreleaser-build-sign-publish
+        with:
+          enable-docker-publish: ${{ steps.get-image-tag.outputs.build-publish }}
+          docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
+          docker-image-name: chainlink
+          docker-image-tag: ${{ steps.get-image-tag.outputs.image-tag }}
+          enable-goreleaser-snapshot: "true"
+          goreleaser-exec: ./tools/bin/goreleaser_wrapper
+          goreleaser-config: .goreleaser.develop.yaml
+          goreleaser-key: ${{ secrets.GORELEASER_KEY }}
+          zig-version: 0.11.0
+
+      - name: Output image name and digest
+        if: steps.get-image-tag.outputs.build-publish == 'true'
+        shell: bash
+        run: |
+          # need to check if artifacts.json exists because goreleaser could split the build
+          if [[ -f dist/artifacts.json ]]; then
+            artifact_path="dist/artifacts.json"
+          else
+            artifact_path="dist/linux_${{ matrix.goarch }}/artifacts.json"
+            cat dist/linux_${{ matrix.goarch }}/artifacts.json
+          fi
+          echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
+          jq -r '.[] | select(.type == "Docker Image") | "`\(.goarch)-image`: \(.name)"' ${artifact_path} >> output.txt
+          jq -r '.[] | select(.type == "Archive") | "`\(.goarch)-digest`: \(.extra.Checksum)"' ${artifact_path} >> output.txt
+          while read -r line; do
+            echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
+          done < output.txt
+
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: goreleaser-build-publish
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: goreleaser-build-publish-chainlink
+        continue-on-error: true

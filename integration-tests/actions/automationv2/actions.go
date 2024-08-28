@@ -20,10 +20,11 @@ import (
 	ocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 
@@ -62,8 +63,9 @@ type AutomationTest struct {
 
 	LinkToken   contracts.LinkToken
 	Transcoder  contracts.UpkeepTranscoder
-	EthLinkFeed contracts.MockETHLINKFeed
-	EthUSDFeed  contracts.MockETHUSDFeed
+	LINKETHFeed contracts.MockLINKETHFeed
+	ETHUSDFeed  contracts.MockETHUSDFeed
+	LINKUSDFeed contracts.MockETHUSDFeed
 	WETHToken   contracts.WETHToken
 	GasFeed     contracts.MockGasFeed
 	Registry    contracts.KeeperRegistry
@@ -192,31 +194,30 @@ func (a *AutomationTest) LoadTranscoder(address string) error {
 	return nil
 }
 
-func (a *AutomationTest) DeployEthLinkFeed() error {
-	ethLinkFeed, err := contracts.DeployMockETHLINKFeed(a.ChainClient, a.RegistrySettings.FallbackLinkPrice)
+func (a *AutomationTest) DeployLinkEthFeed() error {
+	ethLinkFeed, err := contracts.DeployMockLINKETHFeed(a.ChainClient, a.RegistrySettings.FallbackLinkPrice)
 	if err != nil {
 		return err
 	}
-	a.EthLinkFeed = ethLinkFeed
+	a.LINKETHFeed = ethLinkFeed
 	return nil
 }
 
-func (a *AutomationTest) LoadEthLinkFeed(address string) error {
-	ethLinkFeed, err := contracts.LoadMockETHLINKFeed(a.ChainClient, common.HexToAddress(address))
+func (a *AutomationTest) LoadLinkEthFeed(address string) error {
+	ethLinkFeed, err := contracts.LoadMockLINKETHFeed(a.ChainClient, common.HexToAddress(address))
 	if err != nil {
 		return err
 	}
-	a.EthLinkFeed = ethLinkFeed
+	a.LINKETHFeed = ethLinkFeed
 	return nil
 }
 
 func (a *AutomationTest) DeployEthUSDFeed() error {
-	// FallbackLinkPrice and FallbackETHPrice are the same
 	ethUSDFeed, err := contracts.DeployMockETHUSDFeed(a.ChainClient, a.RegistrySettings.FallbackLinkPrice)
 	if err != nil {
 		return err
 	}
-	a.EthUSDFeed = ethUSDFeed
+	a.ETHUSDFeed = ethUSDFeed
 	return nil
 }
 
@@ -225,7 +226,25 @@ func (a *AutomationTest) LoadEthUSDFeed(address string) error {
 	if err != nil {
 		return err
 	}
-	a.EthUSDFeed = ethUSDFeed
+	a.ETHUSDFeed = ethUSDFeed
+	return nil
+}
+
+func (a *AutomationTest) DeployLinkUSDFeed() error {
+	linkUSDFeed, err := contracts.DeployMockETHUSDFeed(a.ChainClient, a.RegistrySettings.FallbackLinkPrice)
+	if err != nil {
+		return err
+	}
+	a.LINKUSDFeed = linkUSDFeed
+	return nil
+}
+
+func (a *AutomationTest) LoadLinkUSDFeed(address string) error {
+	linkUSDFeed, err := contracts.LoadMockETHUSDFeed(a.ChainClient, common.HexToAddress(address))
+	if err != nil {
+		return err
+	}
+	a.LINKUSDFeed = linkUSDFeed
 	return nil
 }
 
@@ -269,13 +288,13 @@ func (a *AutomationTest) DeployRegistry() error {
 	registryOpts := &contracts.KeeperRegistryOpts{
 		RegistryVersion:   a.RegistrySettings.RegistryVersion,
 		LinkAddr:          a.LinkToken.Address(),
-		ETHFeedAddr:       a.EthLinkFeed.Address(),
+		ETHFeedAddr:       a.LINKETHFeed.Address(),
 		GasFeedAddr:       a.GasFeed.Address(),
 		TranscoderAddr:    a.Transcoder.Address(),
 		RegistrarAddr:     utils.ZeroAddress.Hex(),
 		Settings:          a.RegistrySettings,
-		LinkUSDFeedAddr:   a.EthUSDFeed.Address(),
-		NativeUSDFeedAddr: a.EthUSDFeed.Address(),
+		LinkUSDFeedAddr:   a.ETHUSDFeed.Address(),
+		NativeUSDFeedAddr: a.LINKUSDFeed.Address(),
 		WrappedNativeAddr: a.WETHToken.Address(),
 	}
 	registry, err := contracts.DeployKeeperRegistry(a.ChainClient, registryOpts)
@@ -563,7 +582,7 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 				{
 					GasFeePPB:         100,
 					FlatFeeMilliCents: big.NewInt(500),
-					PriceFeed:         common.HexToAddress(a.EthUSDFeed.Address()), // ETH/USD feed and LINK/USD feed are the same
+					PriceFeed:         common.HexToAddress(a.ETHUSDFeed.Address()),
 					Decimals:          18,
 					FallbackPrice:     big.NewInt(1000),
 					MinSpend:          big.NewInt(200),
@@ -571,7 +590,7 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 				{
 					GasFeePPB:         100,
 					FlatFeeMilliCents: big.NewInt(500),
-					PriceFeed:         common.HexToAddress(a.EthUSDFeed.Address()), // ETH/USD feed and LINK/USD feed are the same
+					PriceFeed:         common.HexToAddress(a.LINKUSDFeed.Address()),
 					Decimals:          18,
 					FallbackPrice:     big.NewInt(1000),
 					MinSpend:          big.NewInt(200),
@@ -853,13 +872,16 @@ func (a *AutomationTest) SetupAutomationDeployment(t *testing.T) {
 	err = a.DeployWETH()
 	require.NoError(t, err, "Error deploying weth token contract")
 
-	err = a.DeployEthLinkFeed()
-	require.NoError(t, err, "Error deploying eth link feed contract")
+	err = a.DeployLinkEthFeed()
+	require.NoError(t, err, "Error deploying link eth feed contract")
 	err = a.DeployGasFeed()
 	require.NoError(t, err, "Error deploying gas feed contract")
 
 	err = a.DeployEthUSDFeed()
 	require.NoError(t, err, "Error deploying eth usd feed contract")
+
+	err = a.DeployLinkUSDFeed()
+	require.NoError(t, err, "Error deploying link usd feed contract")
 
 	err = a.DeployTranscoder()
 	require.NoError(t, err, "Error deploying transcoder contract")
@@ -873,7 +895,7 @@ func (a *AutomationTest) SetupAutomationDeployment(t *testing.T) {
 }
 
 func (a *AutomationTest) LoadAutomationDeployment(t *testing.T, linkTokenAddress,
-	ethLinkFeedAddress, gasFeedAddress, transcoderAddress, registryAddress, registrarAddress string) {
+	linkEthFeedAddress, linkUsdFeedAddress, EthUsdFeedAddress, gasFeedAddress, transcoderAddress, registryAddress, registrarAddress string) {
 	l := logging.GetTestLogger(t)
 	err := a.CollectNodeDetails()
 	require.NoError(t, err, "Error collecting node details")
@@ -883,10 +905,14 @@ func (a *AutomationTest) LoadAutomationDeployment(t *testing.T, linkTokenAddress
 	err = a.LoadLINK(linkTokenAddress)
 	require.NoError(t, err, "Error loading link token contract")
 
-	err = a.LoadEthLinkFeed(ethLinkFeedAddress)
-	require.NoError(t, err, "Error loading eth link feed contract")
+	err = a.LoadLinkEthFeed(linkEthFeedAddress)
+	require.NoError(t, err, "Error loading link eth feed contract")
 	err = a.LoadEthGasFeed(gasFeedAddress)
 	require.NoError(t, err, "Error loading gas feed contract")
+	err = a.LoadEthUSDFeed(EthUsdFeedAddress)
+	require.NoError(t, err, "Error loading eth usd feed contract")
+	err = a.LoadLinkUSDFeed(linkUsdFeedAddress)
+	require.NoError(t, err, "Error loading link usd feed contract")
 	err = a.LoadTranscoder(transcoderAddress)
 	require.NoError(t, err, "Error loading transcoder contract")
 	err = a.LoadRegistry(registryAddress)

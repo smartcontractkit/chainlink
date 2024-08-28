@@ -1,6 +1,7 @@
 package ccip_test
 
 import (
+	"context"
 	"encoding/json"
 	"math/big"
 	"testing"
@@ -32,7 +33,6 @@ func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
 	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
 
 	//Set up the aggregators here to avoid modifying ccipTH.
-	srcLinkAddr := ccipTH.Source.LinkToken.Address()
 	dstLinkAddr := ccipTH.Dest.LinkToken.Address()
 	srcNativeAddr, err := ccipTH.Source.Router.GetWrappedNative(nil)
 	require.NoError(t, err)
@@ -41,13 +41,6 @@ func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
 	aggSrcNatAddr, _, aggSrcNat, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Source.User, ccipTH.Source.Chain, 18, big.NewInt(2e18))
 	require.NoError(t, err)
 	_, err = aggSrcNat.UpdateRoundData(ccipTH.Source.User, big.NewInt(50), big.NewInt(17000000), big.NewInt(1000), big.NewInt(1000))
-	require.NoError(t, err)
-	ccipTH.Source.Chain.Commit()
-
-	aggSrcLnkAddr, _, aggSrcLnk, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Source.User, ccipTH.Source.Chain, 18, big.NewInt(3e18))
-	require.NoError(t, err)
-	ccipTH.Dest.Chain.Commit()
-	_, err = aggSrcLnk.UpdateRoundData(ccipTH.Source.User, big.NewInt(50), big.NewInt(8000000), big.NewInt(1000), big.NewInt(1000))
 	require.NoError(t, err)
 	ccipTH.Source.Chain.Commit()
 
@@ -74,10 +67,6 @@ func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
 
 	priceGetterConfig := config.DynamicPriceGetterConfig{
 		AggregatorPrices: map[common.Address]config.AggregatorPriceConfig{
-			srcLinkAddr: {
-				ChainID:                   ccipTH.Source.ChainID,
-				AggregatorContractAddress: aggSrcLnkAddr,
-			},
 			srcNativeAddr: {
 				ChainID:                   ccipTH.Source.ChainID,
 				AggregatorContractAddress: aggSrcNatAddr,
@@ -125,11 +114,22 @@ func test_CLOSpecApprovalFlow(t *testing.T, ccipTH integrationtesthelpers.CCIPIn
 
 	_, err = ccipTH.Source.LinkToken.Approve(ccipTH.Source.User, ccipTH.Source.Router.Address(), new(big.Int).Set(fee))
 	require.NoError(t, err)
-	ccipTH.Source.Chain.Commit()
+	blockHash := ccipTH.Dest.Chain.Commit()
+	// get the block number
+	block, err := ccipTH.Dest.Chain.BlockByHash(context.Background(), blockHash)
+	require.NoError(t, err)
+	blockNumber := block.Number().Uint64() + 1 // +1 as a block will be mined for the request from EventuallyReportCommitted
 
 	ccipTH.SendRequest(t, msg)
 	ccipTH.AllNodesHaveReqSeqNum(t, currentSeqNum)
 	ccipTH.EventuallyReportCommitted(t, currentSeqNum)
+	ccipTH.EventuallyPriceRegistryUpdated(
+		t,
+		blockNumber,
+		ccipTH.Source.ChainSelector,
+		[]common.Address{ccipTH.Dest.LinkToken.Address(), ccipTH.Dest.WrappedNative.Address()},
+		ccipTH.Source.WrappedNative.Address(),
+	)
 
 	executionLogs := ccipTH.AllNodesHaveExecutedSeqNums(t, currentSeqNum, currentSeqNum)
 	assert.Len(t, executionLogs, 1)

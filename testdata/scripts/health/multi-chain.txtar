@@ -82,7 +82,9 @@ ok EVM.1.Txm
 ok EVM.1.Txm.BlockHistoryEstimator
 ok EVM.1.Txm.Broadcaster
 ok EVM.1.Txm.Confirmer
+ok EVM.1.Txm.Finalizer
 ok EVM.1.Txm.WrappedEvmEstimator
+ok HeadReporter
 ok JobSpawner
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
@@ -90,7 +92,6 @@ ok Mercury.WSRPCPool.CacheSet
 ok PipelineORM
 ok PipelineRunner
 ok PipelineRunner.BridgeCache
-ok PromReporter
 ok Solana.Bar
 ok StarkNet.Baz
 ok TelemetryManager
@@ -221,9 +222,27 @@ ok TelemetryManager
     },
     {
       "type": "checks",
+      "id": "EVM.1.Txm.Finalizer",
+      "attributes": {
+        "name": "EVM.1.Txm.Finalizer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "EVM.1.Txm.WrappedEvmEstimator",
       "attributes": {
         "name": "EVM.1.Txm.WrappedEvmEstimator",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "HeadReporter",
+      "attributes": {
+        "name": "HeadReporter",
         "status": "passing",
         "output": ""
       }
@@ -287,15 +306,6 @@ ok TelemetryManager
       "id": "PipelineRunner.BridgeCache",
       "attributes": {
         "name": "PipelineRunner.BridgeCache",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "PromReporter",
-      "attributes": {
-        "name": "PromReporter",
         "status": "passing",
         "output": ""
       }

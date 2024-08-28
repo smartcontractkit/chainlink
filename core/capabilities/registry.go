@@ -8,6 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 var (
@@ -16,7 +18,7 @@ var (
 
 type metadataRegistry interface {
 	LocalNode(ctx context.Context) (capabilities.Node, error)
-	ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error)
+	ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error)
 }
 
 // Registry is a struct for the registry of capabilities.
@@ -37,11 +39,18 @@ func (r *Registry) LocalNode(ctx context.Context) (capabilities.Node, error) {
 }
 
 func (r *Registry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	if r.metadataRegistry == nil {
 		return capabilities.CapabilityConfiguration{}, errors.New("metadataRegistry information not available")
 	}
 
-	return r.metadataRegistry.ConfigForCapability(ctx, capabilityID, donID)
+	cfc, err := r.metadataRegistry.ConfigForCapability(ctx, capabilityID, donID)
+	if err != nil {
+		return capabilities.CapabilityConfiguration{}, err
+	}
+
+	return unmarshalCapabilityConfig(cfc.Config)
 }
 
 // SetLocalRegistry sets a local copy of the offchain registry for the registry to use.
@@ -190,4 +199,31 @@ func NewRegistry(lggr logger.Logger) *Registry {
 		m:    map[string]capabilities.BaseCapability{},
 		lggr: lggr.Named("CapabilitiesRegistry"),
 	}
+}
+
+// TestMetadataRegistry is a test implementation of the metadataRegistry
+// interface. It is used when ExternalCapabilitiesRegistry is not available.
+type TestMetadataRegistry struct{}
+
+func (t *TestMetadataRegistry) LocalNode(ctx context.Context) (capabilities.Node, error) {
+	peerID := p2ptypes.PeerID{}
+	workflowDON := capabilities.DON{
+		ID:            1,
+		ConfigVersion: 1,
+		Members: []p2ptypes.PeerID{
+			peerID,
+		},
+		F:                0,
+		IsPublic:         false,
+		AcceptsWorkflows: true,
+	}
+	return capabilities.Node{
+		PeerID:         &peerID,
+		WorkflowDON:    workflowDON,
+		CapabilityDONs: []capabilities.DON{},
+	}, nil
+}
+
+func (t *TestMetadataRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
+	return registrysyncer.CapabilityConfiguration{}, nil
 }

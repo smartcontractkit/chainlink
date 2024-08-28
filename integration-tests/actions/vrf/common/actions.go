@@ -10,16 +10,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -367,7 +369,7 @@ func BuildNewCLEnvForVRF(l zerolog.Logger, t *testing.T, envConfig VRFEnvConfig,
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, err: %w", "error getting first evm network", err)
 	}
-	sethClient, err := seth_utils.GetChainClient(envConfig.TestConfig, *evmNetwork)
+	sethClient, err := utils.TestAwareSethClient(t, envConfig.TestConfig, evmNetwork)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, err: %w", "error getting seth client", err)
 	}
@@ -403,7 +405,7 @@ func LoadExistingCLEnvForVRF(
 	if err != nil {
 		return nil, nil, err
 	}
-	sethClient, err := seth_utils.GetChainClient(envConfig.TestConfig, *evmNetwork)
+	sethClient, err := utils.TestAwareSethClient(t, envConfig.TestConfig, evmNetwork)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -429,7 +431,7 @@ type RPCRawClient struct {
 }
 
 func NewRPCRawClient(url string) *RPCRawClient {
-	isDebug := os.Getenv("DEBUG_RESTY") == "true"
+	isDebug := os.Getenv("RESTY_DEBUG") == "true"
 	restyClient := resty.New().SetDebug(isDebug).SetBaseURL(url)
 	return &RPCRawClient{
 		resty: restyClient,

@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -28,6 +29,7 @@ import (
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -120,6 +122,7 @@ type rpcClient struct {
 	largePayloadRpcTimeout     time.Duration
 	rpcTimeout                 time.Duration
 	finalizedBlockPollInterval time.Duration
+	chainType                  chaintype.ChainType
 
 	ws   rawclient
 	http *rawclient
@@ -138,6 +141,7 @@ type rpcClient struct {
 	// stateMu since it can happen on state transitions as well as rpcClient Close.
 	chStopInFlight chan struct{}
 
+	chainInfoLock sync.RWMutex
 	// intercepted values seen by callers of the rpcClient excluding health check calls. Need to ensure MultiNode provides repeatable read guarantee
 	highestUserObservations commonclient.ChainInfo
 	// most recent chain info observed during current lifecycle (reseted on DisconnectAll)
@@ -156,10 +160,12 @@ func NewRPCClient(
 	finalizedBlockPollInterval time.Duration,
 	largePayloadRpcTimeout time.Duration,
 	rpcTimeout time.Duration,
+	chainType chaintype.ChainType,
 ) RPCClient {
 	r := &rpcClient{
 		largePayloadRpcTimeout: largePayloadRpcTimeout,
 		rpcTimeout:             rpcTimeout,
+		chainType:              chainType,
 	}
 	r.name = name
 	r.id = id
@@ -331,7 +337,9 @@ func (r *rpcClient) DisconnectAll() {
 	}
 	r.cancelInflightRequests()
 	r.unsubscribeAll()
+	r.chainInfoLock.Lock()
 	r.latestChainInfo = commonclient.ChainInfo{}
+	r.chainInfoLock.Unlock()
 }
 
 // unsubscribeAll unsubscribes all subscriptions
@@ -396,8 +404,28 @@ func (r *rpcClient) CallContext(ctx context.Context, result interface{}, method 
 	return err
 }
 
-func (r *rpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRpcTimeout)
+func (r *rpcClient) BatchCallContext(rootCtx context.Context, b []rpc.BatchElem) error {
+	// Astar's finality tags provide weaker finality guarantees than we require.
+	// Fetch latest finalized block using Astar's custom requests and populate it after batch request completes
+	var astarRawLatestFinalizedBlock json.RawMessage
+	var requestedFinalizedBlock bool
+	if r.chainType == chaintype.ChainAstar {
+		for _, el := range b {
+			if !isRequestingFinalizedBlock(el) {
+				continue
+			}
+
+			requestedFinalizedBlock = true
+			err := r.astarLatestFinalizedBlock(rootCtx, &astarRawLatestFinalizedBlock)
+			if err != nil {
+				return fmt.Errorf("failed to get astar latest finalized block: %w", err)
+			}
+
+			break
+		}
+	}
+
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(rootCtx, r.largePayloadRpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("nBatchElems", len(b), "batchElems", b)
 
@@ -412,8 +440,46 @@ func (r *rpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) err
 	duration := time.Since(start)
 
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "BatchCallContext")
+	if err != nil {
+		return err
+	}
 
-	return err
+	if r.chainType == chaintype.ChainAstar && requestedFinalizedBlock {
+		// populate requested finalized block with correct value
+		for _, el := range b {
+			if !isRequestingFinalizedBlock(el) {
+				continue
+			}
+
+			el.Error = nil
+			err = json.Unmarshal(astarRawLatestFinalizedBlock, el.Result)
+			if err != nil {
+				el.Error = fmt.Errorf("failed to unmarshal astar finalized block into provided struct: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func isRequestingFinalizedBlock(el rpc.BatchElem) bool {
+	isGetBlock := el.Method == "eth_getBlockByNumber" && len(el.Args) > 0
+	if !isGetBlock {
+		return false
+	}
+
+	if el.Args[0] == rpc.FinalizedBlockNumber {
+		return true
+	}
+
+	switch arg := el.Args[0].(type) {
+	case string:
+		return arg == rpc.FinalizedBlockNumber.String()
+	case fmt.Stringer:
+		return arg.String() == rpc.FinalizedBlockNumber.String()
+	default:
+		return false
+	}
 }
 
 // TODO: Full transition from SubscribeNewHead to SubscribeToHeads is done in BCI-2875
@@ -483,14 +549,14 @@ func (r *rpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	return channel, forwarder, err
 }
 
-func (r *rpcClient) SubscribeToFinalizedHeads(_ context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
+func (r *rpcClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
 	interval := r.finalizedBlockPollInterval
 	if interval == 0 {
 		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
 	}
 	timeout := interval
 	poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.LatestFinalizedBlock, timeout, r.rpcLog)
-	if err := poller.Start(); err != nil {
+	if err := poller.Start(ctx); err != nil {
 		return nil, nil, err
 	}
 	return channel, &poller, nil
@@ -601,17 +667,84 @@ func (r *rpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 	return
 }
 
-func (r *rpcClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
-	return r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
+func (r *rpcClient) LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error) {
+	// capture chStopInFlight to ensure we are not updating chainInfo with observations related to previous life cycle
+	ctx, cancel, chStopInFlight, _, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
+	defer cancel()
+	if r.chainType == chaintype.ChainAstar {
+		// astar's finality tags provide weaker guarantee. Use their custom request to request latest finalized block
+		err = r.astarLatestFinalizedBlock(ctx, &head)
+	} else {
+		err = r.ethGetBlockByNumber(ctx, rpc.FinalizedBlockNumber.String(), &head)
+	}
+
+	if err != nil {
+		return
+	}
+
+	if head == nil {
+		err = r.wrapRPCClientError(ethereum.NotFound)
+		return
+	}
+
+	head.EVMChainID = ubig.New(r.chainID)
+
+	r.onNewFinalizedHead(ctx, chStopInFlight, head)
+	return
+}
+
+func (r *rpcClient) astarLatestFinalizedBlock(ctx context.Context, result interface{}) (err error) {
+	var hashResult string
+	err = r.CallContext(ctx, &hashResult, "chain_getFinalizedHead")
+	if err != nil {
+		return fmt.Errorf("failed to get astar latest finalized hash: %w", err)
+	}
+
+	var astarHead struct {
+		Number *hexutil.Big `json:"number"`
+	}
+	err = r.CallContext(ctx, &astarHead, "chain_getHeader", hashResult, false)
+	if err != nil {
+		return fmt.Errorf("failed to get astar head by hash: %w", err)
+	}
+
+	if astarHead.Number == nil {
+		return r.wrapRPCClientError(fmt.Errorf("expected non empty head number of finalized block"))
+	}
+
+	err = r.ethGetBlockByNumber(ctx, astarHead.Number.String(), result)
+	if err != nil {
+		return fmt.Errorf("failed to get astar finalized block: %w", err)
+	}
+
+	return nil
 }
 
 func (r *rpcClient) BlockByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
-	hex := ToBlockNumArg(number)
-	return r.blockByNumber(ctx, hex)
+	ctx, cancel, chStopInFlight, _, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
+	defer cancel()
+	hexNumber := ToBlockNumArg(number)
+	err = r.ethGetBlockByNumber(ctx, hexNumber, &head)
+	if err != nil {
+		return
+	}
+
+	if head == nil {
+		err = r.wrapRPCClientError(ethereum.NotFound)
+		return
+	}
+
+	head.EVMChainID = ubig.New(r.chainID)
+
+	if hexNumber == rpc.LatestBlockNumber.String() {
+		r.onNewHead(ctx, chStopInFlight, head)
+	}
+
+	return
 }
 
-func (r *rpcClient) blockByNumber(ctx context.Context, number string) (head *evmtypes.Head, err error) {
-	ctx, cancel, chStopInFlight, ws, http := r.acquireQueryCtx(ctx, r.rpcTimeout)
+func (r *rpcClient) ethGetBlockByNumber(ctx context.Context, number string, result interface{}) (err error) {
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	const method = "eth_getBlockByNumber"
 	args := []interface{}{number, false}
@@ -623,30 +756,14 @@ func (r *rpcClient) blockByNumber(ctx context.Context, number string) (head *evm
 	lggr.Debug("RPC call: evmclient.Client#CallContext")
 	start := time.Now()
 	if http != nil {
-		err = r.wrapHTTP(http.rpc.CallContext(ctx, &head, method, args...))
+		err = r.wrapHTTP(http.rpc.CallContext(ctx, result, method, args...))
 	} else {
-		err = r.wrapWS(ws.rpc.CallContext(ctx, &head, method, args...))
+		err = r.wrapWS(ws.rpc.CallContext(ctx, result, method, args...))
 	}
 	duration := time.Since(start)
 
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "CallContext")
-	if err != nil {
-		return nil, err
-	}
-	if head == nil {
-		err = r.wrapRPCClientError(ethereum.NotFound)
-		return
-	}
-	head.EVMChainID = ubig.New(r.chainID)
-
-	switch number {
-	case rpc.FinalizedBlockNumber.String():
-		r.onNewFinalizedHead(ctx, chStopInFlight, head)
-	case rpc.LatestBlockNumber.String():
-		r.onNewHead(ctx, chStopInFlight, head)
-	}
-
-	return
+	return err
 }
 
 func (r *rpcClient) BlockByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error) {
@@ -1265,8 +1382,8 @@ func (r *rpcClient) onNewHead(ctx context.Context, requestCh <-chan struct{}, he
 		return
 	}
 
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
+	r.chainInfoLock.Lock()
+	defer r.chainInfoLock.Unlock()
 	if !commonclient.CtxIsHeathCheckRequest(ctx) {
 		r.highestUserObservations.BlockNumber = max(r.highestUserObservations.BlockNumber, head.Number)
 		r.highestUserObservations.TotalDifficulty = commonclient.MaxTotalDifficulty(r.highestUserObservations.TotalDifficulty, head.TotalDifficulty)
@@ -1284,8 +1401,8 @@ func (r *rpcClient) onNewFinalizedHead(ctx context.Context, requestCh <-chan str
 	if head == nil {
 		return
 	}
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
+	r.chainInfoLock.Lock()
+	defer r.chainInfoLock.Unlock()
 	if !commonclient.CtxIsHeathCheckRequest(ctx) {
 		r.highestUserObservations.FinalizedBlockNumber = max(r.highestUserObservations.FinalizedBlockNumber, head.Number)
 	}
@@ -1298,8 +1415,8 @@ func (r *rpcClient) onNewFinalizedHead(ctx context.Context, requestCh <-chan str
 }
 
 func (r *rpcClient) GetInterceptedChainInfo() (latest, highestUserObservations commonclient.ChainInfo) {
-	r.stateMu.RLock()
-	defer r.stateMu.RUnlock()
+	r.chainInfoLock.RLock()
+	defer r.chainInfoLock.RUnlock()
 	return r.latestChainInfo, r.highestUserObservations
 }
 

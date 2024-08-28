@@ -93,7 +93,7 @@ compileContract automation/v2_2/AutomationUtils2_2.sol
 compileContract automation/interfaces/v2_2/IAutomationRegistryMaster.sol
 compileContract automation/chains/ArbitrumModule.sol
 compileContract automation/chains/ChainModuleBase.sol
-compileContract automation/chains/OptimismModule.sol
+compileContract automation/chains/OptimismModuleV2.sol
 compileContract automation/chains/ScrollModule.sol
 compileContract automation/interfaces/IChainModule.sol
 compileContract automation/interfaces/IAutomationV21PlusCommon.sol
@@ -108,4 +108,4 @@ compileContract automation/v2_3/AutomationUtils2_3.sol
 compileContract automation/interfaces/v2_3/IAutomationRegistryMaster2_3.sol
 
 compileContract automation/testhelpers/MockETHUSDAggregator.sol
-compileContract automation/test/v2_3/WETH9.sol
+compileContract automation/test/WETH9.sol

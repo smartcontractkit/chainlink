@@ -1,7 +1,10 @@
 package evm_test
 
 import (
+	"bytes"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -9,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -36,16 +40,72 @@ import (
 
 var forwardABI = types.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
+func newMockedEncodeTransmissionInfo() ([]byte, error) {
+	info := targets.TransmissionInfo{
+		GasLimit:        big.NewInt(0),
+		InvalidReceiver: false,
+		State:           0,
+		Success:         false,
+		TransmissionId:  [32]byte{},
+		Transmitter:     common.HexToAddress("0x0"),
+	}
+
+	var buffer bytes.Buffer
+	gasLimitBytes := info.GasLimit.Bytes()
+	if len(gasLimitBytes) > 80 {
+		return nil, fmt.Errorf("GasLimit too large")
+	}
+	paddedGasLimit := make([]byte, 80-len(gasLimitBytes))
+	buffer.Write(paddedGasLimit)
+	buffer.Write(gasLimitBytes)
+
+	// Encode InvalidReceiver (as uint8)
+	if info.InvalidReceiver {
+		buffer.WriteByte(1)
+	} else {
+		buffer.WriteByte(0)
+	}
+
+	// Padding for InvalidReceiver to fit into 32 bytes
+	padInvalidReceiver := make([]byte, 31)
+	buffer.Write(padInvalidReceiver)
+
+	// Encode State (as uint8)
+	buffer.WriteByte(info.State)
+
+	// Padding for State to fit into 32 bytes
+	padState := make([]byte, 31)
+	buffer.Write(padState)
+
+	// Encode Success (as uint8)
+	if info.Success {
+		buffer.WriteByte(1)
+	} else {
+		buffer.WriteByte(0)
+	}
+
+	// Padding for Success to fit into 32 bytes
+	padSuccess := make([]byte, 31)
+	buffer.Write(padSuccess)
+
+	// Encode TransmissionId (as bytes32)
+	buffer.Write(info.TransmissionId[:])
+
+	// Encode Transmitter (as address)
+	buffer.Write(info.Transmitter.Bytes())
+
+	return buffer.Bytes(), nil
+}
+
 func TestEvmWrite(t *testing.T) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	evmClient := evmclimocks.NewClient(t)
 
-	// This probably isn't the best way to do this, but couldn't find a simpler way to mock the CallContract response
-	var mockCall []byte
-	for i := 0; i < 32; i++ {
-		mockCall = append(mockCall, byte(0))
-	}
+	// This is a very error-prone way to mock an on-chain response to a GetLatestValue("getTransmissionInfo") call
+	// It's a bit of a hack, but it's the best way to do it without a lot of refactoring
+	mockCall, err := newMockedEncodeTransmissionInfo()
+	require.NoError(t, err)
 	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockCall, nil).Maybe()
 	evmClient.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return([]byte("test"), nil)
 
@@ -87,74 +147,66 @@ func TestEvmWrite(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	reportMetadata := targets.ReportV1Metadata{
+		Version:             1,
+		WorkflowExecutionID: [32]byte{},
+		Timestamp:           0,
+		DonID:               0,
+		DonConfigVersion:    0,
+		WorkflowCID:         [32]byte{},
+		WorkflowName:        [10]byte{},
+		WorkflowOwner:       [20]byte{},
+		ReportID:            [2]byte{},
+	}
+
+	reportMetadataBytes, err := reportMetadata.Encode()
+	require.NoError(t, err)
+
+	signatures := [][]byte{}
+
+	validInputs, err := values.NewMap(map[string]any{
+		"signed_report": map[string]any{
+			"report":     reportMetadataBytes,
+			"signatures": signatures,
+			"context":    []byte{4, 5},
+			"id":         []byte{9, 9},
+		},
+	})
+	require.NoError(t, err)
+
+	validMetadata := capabilities.RequestMetadata{
+		WorkflowID:          hex.EncodeToString(reportMetadata.WorkflowCID[:]),
+		WorkflowOwner:       hex.EncodeToString(reportMetadata.WorkflowOwner[:]),
+		WorkflowName:        hex.EncodeToString(reportMetadata.WorkflowName[:]),
+		WorkflowExecutionID: hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]),
+	}
+
+	validConfig, err := values.NewMap(map[string]any{
+		"Address": evmCfg.EVM().Workflow().ForwarderAddress().String(),
+	})
+	require.NoError(t, err)
+
 	txManager.On("CreateTransaction", mock.Anything, mock.Anything).Return(txmgr.Tx{}, nil).Run(func(args mock.Arguments) {
 		req := args.Get(1).(txmgr.TxRequest)
 		payload := make(map[string]any)
 		method := forwardABI.Methods["report"]
 		err = method.Inputs.UnpackIntoMap(payload, req.EncodedPayload[4:])
 		require.NoError(t, err)
-		require.Equal(t, []byte{0x1, 0x2, 0x3}, payload["rawReport"])
-		require.Equal(t, [][]byte{}, payload["signatures"])
+		require.Equal(t, reportMetadataBytes, payload["rawReport"])
+		require.Equal(t, signatures, payload["signatures"])
 	}).Once()
+
+	defaultGasLimit := uint64(400_000)
 
 	t.Run("succeeds with valid report", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		capability, err := evm.NewWriteTarget(ctx, relayer, chain, lggr)
-		require.NoError(t, err)
-
-		config, err := values.NewMap(map[string]any{
-			"Address": evmCfg.EVM().Workflow().ForwarderAddress().String(),
-		})
-		require.NoError(t, err)
-
-		inputs, err := values.NewMap(map[string]any{
-			"signed_report": map[string]any{
-				"report":     []byte{1, 2, 3},
-				"signatures": [][]byte{},
-				"context":    []byte{4, 5},
-				"id":         []byte{9, 9},
-			},
-		})
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, defaultGasLimit, lggr)
 		require.NoError(t, err)
 
 		req := capabilities.CapabilityRequest{
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
-			},
-			Config: config,
-			Inputs: inputs,
-		}
-
-		ch, err := capability.Execute(ctx, req)
-		require.NoError(t, err)
-
-		response := <-ch
-		require.Nil(t, response.Err)
-	})
-
-	t.Run("succeeds with empty report", func(t *testing.T) {
-		ctx := testutils.Context(t)
-		capability, err := evm.NewWriteTarget(ctx, relayer, chain, logger.TestLogger(t))
-		require.NoError(t, err)
-
-		config, err := values.NewMap(map[string]any{
-			"Address": evmCfg.EVM().Workflow().ForwarderAddress().String(),
-		})
-		require.NoError(t, err)
-
-		inputs, err := values.NewMap(map[string]any{
-			"signed_report": map[string]any{
-				"report": nil,
-			},
-		})
-		require.NoError(t, err)
-
-		req := capabilities.CapabilityRequest{
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
-			},
-			Config: config,
-			Inputs: inputs,
+			Metadata: validMetadata,
+			Config:   validConfig,
+			Inputs:   validInputs,
 		}
 
 		ch, err := capability.Execute(ctx, req)
@@ -166,7 +218,7 @@ func TestEvmWrite(t *testing.T) {
 
 	t.Run("fails with invalid config", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		capability, err := evm.NewWriteTarget(ctx, relayer, chain, logger.TestLogger(t))
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, defaultGasLimit, logger.TestLogger(t))
 		require.NoError(t, err)
 
 		invalidConfig, err := values.NewMap(map[string]any{
@@ -174,19 +226,10 @@ func TestEvmWrite(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		inputs, err := values.NewMap(map[string]any{
-			"signed_report": map[string]any{
-				"report": nil,
-			},
-		})
-		require.NoError(t, err)
-
 		req := capabilities.CapabilityRequest{
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
-			},
-			Config: invalidConfig,
-			Inputs: inputs,
+			Metadata: validMetadata,
+			Config:   invalidConfig,
+			Inputs:   validInputs,
 		}
 
 		_, err = capability.Execute(ctx, req)
@@ -195,30 +238,13 @@ func TestEvmWrite(t *testing.T) {
 
 	t.Run("fails when TXM CreateTransaction returns error", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		capability, err := evm.NewWriteTarget(ctx, relayer, chain, logger.TestLogger(t))
-		require.NoError(t, err)
-
-		config, err := values.NewMap(map[string]any{
-			"Address": evmCfg.EVM().Workflow().ForwarderAddress().String(),
-		})
-		require.NoError(t, err)
-
-		inputs, err := values.NewMap(map[string]any{
-			"signed_report": map[string]any{
-				"report":     []byte{1, 2, 3},
-				"signatures": [][]byte{},
-				"context":    []byte{4, 5},
-				"id":         []byte{9, 9},
-			},
-		})
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, defaultGasLimit, logger.TestLogger(t))
 		require.NoError(t, err)
 
 		req := capabilities.CapabilityRequest{
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
-			},
-			Config: config,
-			Inputs: inputs,
+			Metadata: validMetadata,
+			Config:   validConfig,
+			Inputs:   validInputs,
 		}
 
 		txManager.On("CreateTransaction", mock.Anything, mock.Anything).Return(txmgr.Tx{}, errors.New("TXM error"))
