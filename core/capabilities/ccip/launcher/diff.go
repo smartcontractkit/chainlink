@@ -141,16 +141,3 @@ func isMemberOfDON(don kcr.CapabilitiesRegistryDONInfo, p2pID ragep2ptypes.PeerI
 	}
 	return false
 }
-
-// isMemberOfBootstrapSubcommittee returns true if and only if the given p2pID is a member of the given bootstrap subcommittee.
-func isMemberOfBootstrapSubcommittee(
-	bootstrapP2PIDs [][32]byte,
-	p2pID ragep2ptypes.PeerID,
-) bool {
-	for _, bootstrapID := range bootstrapP2PIDs {
-		if bootstrapID == p2pID {
-			return true
-		}
-	}
-	return false
-}

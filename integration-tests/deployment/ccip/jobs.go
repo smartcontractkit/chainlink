@@ -48,8 +48,17 @@ func NewCCIPJobSpecs(nodeIds []string, oc deployment.OffchainClient) (map[string
 		if err != nil {
 			return nil, err
 		}
+
+		// only set P2PV2Bootstrappers in the job spec if the node is a plugin node.
+		var p2pV2Bootstrappers []string
+		for _, chainConfig := range nodeChainConfigs.ChainConfigs {
+			if !chainConfig.Ocr2Config.IsBootstrap {
+				p2pV2Bootstrappers = bootstraps
+				break
+			}
+		}
 		spec, err := validate.NewCCIPSpecToml(validate.SpecArgs{
-			P2PV2Bootstrappers:     bootstraps,
+			P2PV2Bootstrappers:     p2pV2Bootstrappers,
 			CapabilityVersion:      CapabilityVersion,
 			CapabilityLabelledName: CapabilityLabelledName,
 			OCRKeyBundleIDs: map[string]string{

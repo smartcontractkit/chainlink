@@ -32,17 +32,17 @@ func TestIntegration_Launcher(t *testing.T) {
 	regSyncer, err := registrysyncer.New(lggr, uni, uni.CapReg.Address().String())
 	require.NoError(t, err)
 
-	hcr := uni.HomeChainReader
+	oracleCreator := &oracleCreatorPrints{
+		t: t,
+	}
 	launcher := New(
 		it.CcipCapabilityVersion,
 		it.CcipCapabilityLabelledName,
 		p2pIDs[0],
 		logger.TestLogger(t),
-		hcr,
-		&oracleCreatorPrints{
-			t: t,
-		},
+		uni.HomeChainReader,
 		1*time.Second,
+		oracleCreator,
 	)
 	regSyncer.AddLauncher(launcher)
 
@@ -99,14 +99,14 @@ type oracleCreatorPrints struct {
 	t *testing.T
 }
 
-func (o *oracleCreatorPrints) CreatePluginOracle(pluginType cctypes.PluginType, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
+func (o *oracleCreatorPrints) Create(config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
+	pluginType := cctypes.PluginType(config.Config.PluginType)
 	o.t.Logf("Creating plugin oracle (pluginType: %s) with config %+v\n", pluginType, config)
 	return &oraclePrints{pluginType: pluginType, config: config, t: o.t}, nil
 }
 
-func (o *oracleCreatorPrints) CreateBootstrapOracle(config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
-	o.t.Logf("Creating bootstrap oracle with config %+v\n", config)
-	return &oraclePrints{pluginType: cctypes.PluginTypeCCIPCommit, config: config, isBootstrap: true, t: o.t}, nil
+func (o *oracleCreatorPrints) Type() cctypes.OracleType {
+	return cctypes.OracleTypePlugin
 }
 
 var _ cctypes.OracleCreator = &oracleCreatorPrints{}
