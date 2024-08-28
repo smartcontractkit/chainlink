@@ -92,7 +92,7 @@ contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
     address prevOffRamp = makeAddr("prevOffRamp");
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);
     previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp, prevOffRamp));
+              NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp, prevOffRamp));
 
     vm.expectEmit();
     emit NonceManager.PreviousRampsUpdated(DEST_CHAIN_SELECTOR, previousRamps[0].prevRamps);
@@ -109,9 +109,9 @@ contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
     address prevOffRamp2 = makeAddr("prevOffRamp2");
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](2);
     previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp1, prevOffRamp1));
+              NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp1, prevOffRamp1));
     previousRamps[1] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR + 1, NonceManager.PreviousRamps(prevOnRamp2, prevOffRamp2));
+              NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR + 1, NonceManager.PreviousRamps(prevOnRamp2, prevOffRamp2));
 
     vm.expectEmit();
     emit NonceManager.PreviousRampsUpdated(DEST_CHAIN_SELECTOR, previousRamps[0].prevRamps);
@@ -137,12 +137,12 @@ contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);
     address prevOnRamp = makeAddr("prevOnRamp");
     previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp, address(0)));
+              NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp, address(0)));
 
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
 
     previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp, address(0)));
+              NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp, address(0)));
 
     vm.expectRevert(NonceManager.PreviousRampAlreadySet.selector);
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
@@ -152,12 +152,12 @@ contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);
     address prevOffRamp = makeAddr("prevOffRamp");
     previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(address(0), prevOffRamp));
+              NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(address(0), prevOffRamp));
 
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
 
     previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(address(0), prevOffRamp));
+              NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(address(0), prevOffRamp));
 
     vm.expectRevert(NonceManager.PreviousRampAlreadySet.selector);
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
@@ -168,12 +168,12 @@ contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
     address prevOnRamp = makeAddr("prevOnRamp");
     address prevOffRamp = makeAddr("prevOffRamp");
     previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp, prevOffRamp));
+              NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp, prevOffRamp));
 
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
 
     previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp, prevOffRamp));
+              NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp, prevOffRamp));
 
     vm.expectRevert(NonceManager.PreviousRampAlreadySet.selector);
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
@@ -205,7 +205,7 @@ contract NonceManager_OnRampUpgrade is OnRampSetup {
     });
 
     EVM2EVMOnRamp.TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfig =
-      new EVM2EVMOnRamp.TokenTransferFeeConfigArgs[](1);
+          new EVM2EVMOnRamp.TokenTransferFeeConfigArgs[](1);
 
     tokenTransferFeeConfig[0] = EVM2EVMOnRamp.TokenTransferFeeConfigArgs({
       token: s_sourceFeeToken,
@@ -236,7 +236,7 @@ contract NonceManager_OnRampUpgrade is OnRampSetup {
         destDataAvailabilityOverheadGas: DEST_DATA_AVAILABILITY_OVERHEAD_GAS,
         destGasPerDataAvailabilityByte: DEST_GAS_PER_DATA_AVAILABILITY_BYTE,
         destDataAvailabilityMultiplierBps: DEST_GAS_DATA_AVAILABILITY_MULTIPLIER_BPS,
-        priceRegistry: address(s_priceRegistry),
+        priceRegistry: address(s_feeQuoter),
         maxDataBytes: MAX_DATA_SIZE,
         maxPerMsgGasLimit: MAX_GAS_LIMIT,
         defaultTokenFeeUSDCents: DEFAULT_TOKEN_FEE_USD_CENTS,
@@ -251,7 +251,7 @@ contract NonceManager_OnRampUpgrade is OnRampSetup {
 
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);
     previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(address(s_prevOnRamp), address(0)));
+              NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(address(s_prevOnRamp), address(0)));
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
 
     (s_onRamp, s_metadataHash) = _deployOnRamp(
@@ -387,7 +387,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
 
   function test_Upgraded_Success() public {
     Internal.Any2EVMRampMessage[] memory messages =
-      _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+            _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
     vm.recordLogs();
     s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
@@ -403,9 +403,9 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
 
   function test_NoPrevOffRampForChain_Success() public {
     Internal.EVM2EVMMessage[] memory messages =
-      _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
+            _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
     uint64 startNonceChain3 =
-      s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_3, abi.encode(messages[0].sender));
+              s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_3, abi.encode(messages[0].sender));
     s_prevOffRamp.execute(
       _generateSingleLaneRampReportFromMessages(messages), new EVM2EVMOffRampHelper.GasLimitOverride[](0)
     );
@@ -416,7 +416,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     );
 
     Internal.Any2EVMRampMessage[] memory messagesChain3 =
-      _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_3, ON_RAMP_ADDRESS_3);
+            _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_3, ON_RAMP_ADDRESS_3);
 
     vm.recordLogs();
 
@@ -439,7 +439,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
 
   function test_UpgradedSenderNoncesReadsPreviousRamp_Success() public {
     Internal.EVM2EVMMessage[] memory messages =
-      _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
+            _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
     uint64 startNonce = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(messages[0].sender));
 
     for (uint64 i = 1; i < 4; ++i) {
@@ -460,7 +460,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
 
   function test_UpgradedSenderNoncesReadsPreviousRampTransitive_Success() public {
     Internal.EVM2EVMMessage[] memory messages =
-      _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_2, SINGLE_LANE_ON_RAMP_ADDRESS_2);
+            _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_2, SINGLE_LANE_ON_RAMP_ADDRESS_2);
     uint64 startNonce = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_2, abi.encode(messages[0].sender));
 
     for (uint64 i = 1; i < 4; ++i) {
@@ -482,7 +482,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
 
   function test_UpgradedNonceStartsAtV1Nonce_Success() public {
     Internal.EVM2EVMMessage[] memory messages =
-      _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
+            _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
 
     uint64 startNonce = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(messages[0].sender));
     s_prevOffRamp.execute(
@@ -494,7 +494,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     );
 
     Internal.Any2EVMRampMessage[] memory messagesMultiRamp =
-      _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+            _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
     messagesMultiRamp[0].header.nonce++;
     messagesMultiRamp[0].header.messageId = Internal._hash(messagesMultiRamp[0], ON_RAMP_ADDRESS_1);
@@ -542,14 +542,14 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
 
   function test_UpgradedNonceNewSenderStartsAtZero_Success() public {
     Internal.EVM2EVMMessage[] memory messages =
-      _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
+            _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
 
     s_prevOffRamp.execute(
       _generateSingleLaneRampReportFromMessages(messages), new EVM2EVMOffRampHelper.GasLimitOverride[](0)
     );
 
     Internal.Any2EVMRampMessage[] memory messagesMultiRamp =
-      _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+            _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
     bytes memory newSender = abi.encode(address(1234567));
     messagesMultiRamp[0].sender = newSender;
@@ -574,7 +574,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
 
   function test_UpgradedOffRampNonceSkipsIfMsgInFlight_Success() public {
     Internal.Any2EVMRampMessage[] memory messages =
-      _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+            _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
     address newSender = address(1234567);
     messages[0].sender = abi.encode(newSender);
@@ -591,7 +591,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     assertEq(startNonce, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender));
 
     Internal.EVM2EVMMessage[] memory messagesSingleLane =
-      _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
+            _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
 
     messagesSingleLane[0].nonce = 1;
     messagesSingleLane[0].sender = newSender;
@@ -624,9 +624,9 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
   }
 
   function _generateSingleLaneRampReportFromMessages(Internal.EVM2EVMMessage[] memory messages)
-    internal
-    pure
-    returns (Internal.ExecutionReport memory)
+  internal
+  pure
+  returns (Internal.ExecutionReport memory)
   {
     bytes[][] memory offchainTokenData = new bytes[][](messages.length);
 
