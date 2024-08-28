@@ -11,8 +11,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"go.uber.org/ratelimit"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	client2 "github.com/smartcontractkit/chainlink-testing-framework/client"
 

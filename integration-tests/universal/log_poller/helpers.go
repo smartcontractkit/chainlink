@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/jmoiron/sqlx"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"

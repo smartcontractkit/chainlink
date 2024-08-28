@@ -12,10 +12,11 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
