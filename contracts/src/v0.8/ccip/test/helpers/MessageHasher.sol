@@ -12,9 +12,11 @@ contract MessageHasher {
     return Internal._hash(message, onRamp);
   }
 
-  function encodeTokenAmountsHashPreimage(
-    Internal.RampTokenAmount[] memory rampTokenAmounts
-  ) public pure returns (bytes memory) {
+  function encodeTokenAmountsHashPreimage(Internal.RampTokenAmount[] memory rampTokenAmounts)
+    public
+    pure
+    returns (bytes memory)
+  {
     return abi.encode(rampTokenAmounts);
   }
 

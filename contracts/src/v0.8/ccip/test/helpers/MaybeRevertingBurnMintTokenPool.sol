@@ -30,9 +30,12 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
     s_releaseOrMintMultiplier = multiplier;
   }
 
-  function lockOrBurn(
-    Pool.LockOrBurnInV1 calldata lockOrBurnIn
-  ) external virtual override returns (Pool.LockOrBurnOutV1 memory) {
+  function lockOrBurn(Pool.LockOrBurnInV1 calldata lockOrBurnIn)
+    external
+    virtual
+    override
+    returns (Pool.LockOrBurnOutV1 memory)
+  {
     _validateLockOrBurn(lockOrBurnIn);
 
     bytes memory revertReason = s_revertReason;
@@ -51,9 +54,12 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
   }
 
   /// @notice Reverts depending on the value of `s_revertReason`
-  function releaseOrMint(
-    Pool.ReleaseOrMintInV1 calldata releaseOrMintIn
-  ) external virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
+  function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
+    external
+    virtual
+    override
+    returns (Pool.ReleaseOrMintOutV1 memory)
+  {
     _validateReleaseOrMint(releaseOrMintIn);
 
     bytes memory revertReason = s_revertReason;
