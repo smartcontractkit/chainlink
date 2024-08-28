@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/wasp"
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/stretchr/testify/require"
 
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"

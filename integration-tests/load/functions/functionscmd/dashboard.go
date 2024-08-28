@@ -4,7 +4,7 @@ import (
 	"github.com/K-Phoen/grabana/dashboard"
 	"github.com/K-Phoen/grabana/logs"
 	"github.com/K-Phoen/grabana/row"
-	db "github.com/smartcontractkit/wasp/dashboard"
+	db "github.com/smartcontractkit/chainlink-testing-framework/wasp/dashboard"
 )
 
 func main() {
