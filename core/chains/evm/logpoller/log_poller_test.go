@@ -1542,6 +1542,8 @@ type getLogErrData struct {
 }
 
 func TestTooManyLogResults(t *testing.T) {
+	t.Parallel()
+
 	ctx := testutils.Context(t)
 	ec := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
@@ -1561,89 +1563,126 @@ func TestTooManyLogResults(t *testing.T) {
 	lp := logpoller.NewLogPoller(o, ec, lggr, headTracker, lpOpts)
 	expected := []int64{10, 5, 2, 1}
 
-	clientErr := client.JsonError{
+	tooLargeErr := client.JsonError{
 		Code:    -32005,
 		Data:    getLogErrData{"0x100E698", "0x100E6D4", 10000},
 		Message: "query returned more than 10000 results. Try with this block range [0x100E698, 0x100E6D4].",
 	}
 
-	// Simulate currentBlock = 300
-	head := &evmtypes.Head{Number: 300}
-	finalized := &evmtypes.Head{Number: head.Number - lpOpts.FinalityDepth}
-	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalized, nil).Once()
-	call1 := ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
+	var filterLogsCall *mock.Call
+	head := &evmtypes.Head{}
+	finalized := &evmtypes.Head{}
+
+	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
 		if blockNumber == nil {
 			require.FailNow(t, "unexpected call to get current head")
 		}
 		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
 	})
 
-	call2 := ec.On("FilterLogs", mock.Anything, mock.Anything).Return(func(ctx context.Context, fq ethereum.FilterQuery) (logs []types.Log, err error) {
-		if fq.BlockHash != nil {
-			return []types.Log{}, nil // succeed when single block requested
+	t.Run("halves size until small enough, then succeeds", func(t *testing.T) {
+		// Simulate currentBlock = 300
+		head.Number = 300
+		finalized.Number = head.Number - lpOpts.FinalityDepth
+		headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalized, nil).Once()
+
+		filterLogsCall = ec.On("FilterLogs", mock.Anything, mock.Anything).Return(func(ctx context.Context, fq ethereum.FilterQuery) (logs []types.Log, err error) {
+			if fq.BlockHash != nil {
+				return []types.Log{}, nil // succeed when single block requested
+			}
+			from := fq.FromBlock.Uint64()
+			to := fq.ToBlock.Uint64()
+			if to-from >= 4 {
+				return []types.Log{}, tooLargeErr // return "too many results" error if block range spans 4 or more blocks
+			}
+			return logs, err
+		})
+
+		addr := testutils.NewAddress()
+		err := lp.RegisterFilter(ctx, logpoller.Filter{
+			Name:      "Integration test",
+			EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID},
+			Addresses: []common.Address{addr},
+		})
+		require.NoError(t, err)
+		lp.PollAndSaveLogs(ctx, 5)
+		block, err2 := o.SelectLatestBlock(ctx)
+		require.NoError(t, err2)
+		assert.Equal(t, int64(298), block.BlockNumber)
+
+		logs := obs.FilterLevelExact(zapcore.WarnLevel).FilterMessageSnippet("halving block range batch size").FilterFieldKey("newBatchSize").All()
+		// Should have tried again 3 times--first reducing batch size to 10, then 5, then 2
+		require.Len(t, logs, 3)
+		for i, s := range expected[:3] {
+			assert.Equal(t, s, logs[i].ContextMap()["newBatchSize"])
 		}
-		from := fq.FromBlock.Uint64()
-		to := fq.ToBlock.Uint64()
-		if to-from >= 4 {
-			return []types.Log{}, &clientErr // return "too many results" error if block range spans 4 or more blocks
-		}
-		return logs, err
+		filterLogsCall.Unset()
 	})
 
-	addr := testutils.NewAddress()
-	err := lp.RegisterFilter(ctx, logpoller.Filter{
-		Name:      "Integration test",
-		EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID},
-		Addresses: []common.Address{addr},
-	})
-	require.NoError(t, err)
-	lp.PollAndSaveLogs(ctx, 5)
-	block, err2 := o.SelectLatestBlock(ctx)
-	require.NoError(t, err2)
-	assert.Equal(t, int64(298), block.BlockNumber)
+	t.Run("Halves size until single block, then reports critical error", func(t *testing.T) {
+		obs.TakeAll()
 
-	logs := obs.FilterLevelExact(zapcore.WarnLevel).FilterMessageSnippet("halving block range batch size").FilterFieldKey("newBatchSize").All()
-	// Should have tried again 3 times--first reducing batch size to 10, then 5, then 2
-	require.Len(t, logs, 3)
-	for i, s := range expected[:3] {
-		assert.Equal(t, s, logs[i].ContextMap()["newBatchSize"])
-	}
+		// Now jump to block 500, but return error no matter how small the block range gets.
+		//  Should exit the loop with a critical error instead of hanging.
+		head.Number = 500
+		finalized.Number = head.Number - lpOpts.FinalityDepth
+		headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalized, nil).Once()
+		filterLogsCall = ec.On("FilterLogs", mock.Anything, mock.Anything).Return(func(ctx context.Context, fq ethereum.FilterQuery) (logs []types.Log, err error) {
+			if fq.BlockHash != nil {
+				return []types.Log{}, nil // succeed when single block requested
+			}
+			return []types.Log{}, tooLargeErr // return "too many results" error if block range spans 4 or more blocks
+		})
 
-	obs.TakeAll()
-	call1.Unset()
-	call2.Unset()
-
-	// Now jump to block 500, but return error no matter how small the block range gets.
-	//  Should exit the loop with a critical error instead of hanging.
-	head = &evmtypes.Head{Number: 500}
-	finalized = &evmtypes.Head{Number: head.Number - lpOpts.FinalityDepth}
-	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalized, nil).Once()
-	call1.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
-		if blockNumber == nil {
-			require.FailNow(t, "unexpected call to get current head")
+		lp.PollAndSaveLogs(ctx, 298)
+		block, err := o.SelectLatestBlock(ctx)
+		if err != nil {
+			assert.ErrorContains(t, err, "no rows") // In case this subtest is run by itself
+		} else {
+			assert.Equal(t, int64(298), block.BlockNumber)
 		}
-		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
-	})
-	call2.On("FilterLogs", mock.Anything, mock.Anything).Return(func(ctx context.Context, fq ethereum.FilterQuery) (logs []types.Log, err error) {
-		if fq.BlockHash != nil {
-			return []types.Log{}, nil // succeed when single block requested
+		warns := obs.FilterMessageSnippet("halving block range").FilterLevelExact(zapcore.WarnLevel).All()
+		crit := obs.FilterMessageSnippet("failed to retrieve logs").FilterLevelExact(zapcore.DPanicLevel).All()
+		require.Len(t, warns, 4)
+		for i, s := range expected {
+			assert.Equal(t, s, warns[i].ContextMap()["newBatchSize"])
 		}
-		return []types.Log{}, &clientErr // return "too many results" error if block range spans 4 or more blocks
+
+		require.Len(t, crit, 1)
+		assert.Contains(t, crit[0].Message, "Too many log results in a single block")
+		filterLogsCall.Unset()
 	})
 
-	lp.PollAndSaveLogs(ctx, 298)
-	block, err2 = o.SelectLatestBlock(ctx)
-	require.NoError(t, err2)
-	assert.Equal(t, int64(298), block.BlockNumber)
-	warns := obs.FilterMessageSnippet("halving block range").FilterLevelExact(zapcore.WarnLevel).All()
-	crit := obs.FilterMessageSnippet("failed to retrieve logs").FilterLevelExact(zapcore.DPanicLevel).All()
-	require.Len(t, warns, 4)
-	for i, s := range expected {
-		assert.Equal(t, s, warns[i].ContextMap()["newBatchSize"])
-	}
+	t.Run("Unrelated error are retried without adjusting size", func(t *testing.T) {
+		unrelatedError := fmt.Errorf("Unrelated to the size of the request")
+		head.Number = 500
+		finalized.Number = head.Number - lpOpts.FinalityDepth
 
-	require.Len(t, crit, 1)
-	assert.Contains(t, crit[0].Message, "Too many log results in a single block")
+		obs.TakeAll()
+		filterLogsCall = ec.On("FilterLogs", mock.Anything, mock.Anything).Return(func(ctx context.Context, fq ethereum.FilterQuery) (logs []types.Log, err error) {
+			if fq.BlockHash != nil {
+				return []types.Log{}, nil // succeed when single block requested
+			}
+			return []types.Log{}, unrelatedError // return an unrelated error that should just be retried with same size
+		})
+		headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalized, nil).Once()
+
+		lp.PollAndSaveLogs(ctx, 298)
+		block, err := o.SelectLatestBlock(ctx)
+		if err != nil {
+			assert.ErrorContains(t, err, "no rows") // In case this subtest is run by itself
+		} else {
+			assert.Equal(t, int64(298), block.BlockNumber)
+		}
+		crit := obs.FilterLevelExact(zapcore.DPanicLevel).All()
+		errors := obs.FilterLevelExact(zapcore.ErrorLevel).All()
+		warns := obs.FilterLevelExact(zapcore.WarnLevel).All()
+		assert.Len(t, crit, 0)
+		require.Len(t, errors, 1)
+		assert.Equal(t, errors[0].Message, "Unable to query for logs")
+		require.Len(t, warns, 1)
+		assert.Contains(t, warns[0].Message, "retrying later")
+	})
 }
 
 func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
