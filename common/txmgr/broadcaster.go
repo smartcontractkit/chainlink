@@ -558,11 +558,11 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		eb.sequenceTracker.GenerateNextSequence(etx.FromAddress, *etx.Sequence)
 		return err, true
 	case client.Underpriced:
-		replacementAttempt, newErr, retryable := eb.replaceAttemptWithBumpedGas(ctx, lgr, err, etx, attempt)
+		bumpedAttempt, newErr, retryable := eb.replaceAttemptWithBumpedGas(ctx, lgr, err, etx, attempt)
 		if newErr != nil {
 			return newErr, retryable
 		}
-		return eb.handleInProgressTx(ctx, etx, replacementAttempt, initialBroadcastAt, retryCount+1)
+		return eb.handleInProgressTx(ctx, etx, bumpedAttempt, initialBroadcastAt, retryCount+1)
 	case client.InsufficientFunds:
 		// NOTE: This can occur due to either insufficient funds or a gas spike
 		// combined with a high gas limit. Regardless of the cause, we need to obtain a new estimate,
@@ -577,9 +577,9 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	case client.Retryable:
 		return err, true
 	case client.FeeOutOfValidRange:
-		replacementAttempt, err, retryable := eb.replaceAttemptWithNewEstimation(ctx, lgr, etx, attempt)
-		if err != nil {
-			return err, retryable
+		replacementAttempt, newErr, retryable := eb.replaceAttemptWithNewEstimation(ctx, lgr, etx, attempt)
+		if newErr != nil {
+			return newErr, retryable
 		}
 		return eb.handleInProgressTx(ctx, etx, replacementAttempt, initialBroadcastAt, 0)
 	case client.Unsupported:
@@ -703,13 +703,13 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) repl
 			attempt.TxFee, txError.Error(), eb.feeConfig.FeePriceDefault())
 	}
 
-	replacementAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpTxAttempt(ctx, etx, attempt, nil, lgr)
+	bumpedAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpTxAttempt(ctx, etx, attempt, nil, lgr)
 	if err != nil {
-		return replacementAttempt, fmt.Errorf("replaceAttemptWithBumpedGas failed: %w", err), retryable
+		return bumpedAttempt, fmt.Errorf("replaceAttemptWithBumpedGas failed: %w", err), retryable
 	}
 
-	replacementAttempt, err = eb.saveReplacementAttempt(ctx, lgr, attempt, replacementAttempt, bumpedFee, bumpedFeeLimit)
-	return replacementAttempt, err, retryable
+	bumpedAttempt, err = eb.saveReplacementAttempt(ctx, lgr, attempt, bumpedAttempt, bumpedFee, bumpedFeeLimit)
+	return bumpedAttempt, err, retryable
 }
 
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) replaceAttemptWithNewEstimation(ctx context.Context, lgr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (updatedAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error, retryable bool) {
