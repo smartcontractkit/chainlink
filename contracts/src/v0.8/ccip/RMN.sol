@@ -13,7 +13,7 @@ import {EnumerableSet} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/ut
 // deployed, relying on isCursed().
 bytes16 constant LEGACY_CURSE_SUBJECT = 0x01000000000000000000000000000000;
 
-// An active curse on this subject will cause isCursed() and isCursed(bytes32) to return true. Use this subject for
+// An active curse on this subject will cause isCursed() and isCursed(bytes16) to return true. Use this subject for
 // issues affecting all of CCIP chains, or pertaining to the chain that this contract is deployed on, instead of using
 // the local chain selector as a subject.
 bytes16 constant GLOBAL_CURSE_SUBJECT = 0x01000000000000000000000000000001;
