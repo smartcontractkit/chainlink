@@ -558,7 +558,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		eb.sequenceTracker.GenerateNextSequence(etx.FromAddress, *etx.Sequence)
 		return err, true
 	case client.Underpriced:
-		replacementAttempt, newErr, retryable := eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt)
+		replacementAttempt, newErr, retryable := eb.replaceAttemptWithBumpedGas(ctx, lgr, err, etx, attempt)
 		if newErr != nil {
 			return newErr, retryable
 		}
@@ -689,7 +689,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) next
 	return etx, nil
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryAgainBumpingGas(ctx context.Context, lgr logger.Logger, txError error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (replacedAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error, retryable bool) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) replaceAttemptWithBumpedGas(ctx context.Context, lgr logger.Logger, txError error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (replacedAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error, retryable bool) {
 	// This log error is not applicable to Hedera since the action required would not be needed for its gas estimator
 	if eb.chainType != hederaChainType {
 		logger.With(lgr,
@@ -705,7 +705,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryA
 
 	replacementAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpTxAttempt(ctx, etx, attempt, nil, lgr)
 	if err != nil {
-		return replacementAttempt, fmt.Errorf("tryAgainBumpFee failed: %w", err), retryable
+		return replacementAttempt, fmt.Errorf("replaceAttemptWithBumpedGas failed: %w", err), retryable
 	}
 
 	return replacementAttempt, eb.saveReplacementAttempt(ctx, lgr, attempt, replacementAttempt, bumpedFee, bumpedFeeLimit), retryable
