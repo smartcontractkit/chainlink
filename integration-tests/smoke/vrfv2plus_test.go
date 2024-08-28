@@ -241,9 +241,7 @@ func TestVRFv2Plus(t *testing.T) {
 			//verify that the actual sub payment is more than TX fee
 			require.Equal(t, 1, actualSubPaymentWei.Cmp(fulfillmentTxFeeWei), "the actual sub payment has to be more than the TX fee")
 
-			//tolerance := 1e15 // polygon
-
-			tolerance := 1e15 //avax
+			tolerance := *testConfig.SubBillingTolerance
 			isWithinTolerance, diff := actions.WithinTolerance(actualSubPaymentWeiFloat, expectedSubPaymentWeiFloat, tolerance)
 			require.True(t, isWithinTolerance, fmt.Sprintf("Expected the actual sub payment to be within %f tolerance of the expected sub payment. Diff: %f", tolerance, diff))
 		})

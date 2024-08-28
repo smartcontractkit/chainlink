@@ -61,6 +61,8 @@ type General struct {
 	L1FeeCoefficient     *uint8 `toml:"l1_fee_coefficient"`
 
 	UseTestCoordinator *bool `toml:"use_test_coordinator"`
+
+	SubBillingTolerance *float64 `toml:"sub_billing_tolerance_wei"`
 }
 
 func (c *General) Validate() error {
