@@ -33,7 +33,8 @@ jobs:
     environment: build-publish
     permissions:
       id-token: write
-      contents: read
+      contents: write
+      attestations: write
     outputs:
       docker-image-tag: ${{ steps.build-sign-publish.outputs.docker-image-tag }}
       docker-image-digest: ${{ steps.build-sign-publish.outputs.docker-image-digest }}
@@ -75,7 +76,8 @@ jobs:
     environment: build-publish
     permissions:
       id-token: write
-      contents: read
+      contents: write
+      attestations: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -104,15 +106,55 @@ jobs:
           cosign-version: "v2.4.0"
 
       - name: Output image name and digest
-        shell: sh
+        id: get-image-name-digest
+        shell: bash
         run: |
           artifact_path="dist/artifacts.json"
           echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "arm64-digest=$(jq -r '.[]|select(.type=="Archive" and .goarch=="arm64")|.extra.Checksum' ${artifact_path})" | tee -a "GITHUB_OUTPUT"
+          echo "amd64-digest=$(jq -r '.[]|select(.type=="Archive" and .goarch=="amd64")|.extra.Checksum' ${artifact_path})" | tee -a "GITHUB_OUTPUT"
           jq -r '.[] | select(.type == "Docker Image") | "`\(.goarch)-image`: \(.name)"' ${artifact_path} >> output.txt
           jq -r '.[] | select(.type == "Archive") | "`\(.goarch)-digest`: \(.extra.Checksum)"' ${artifact_path} >> output.txt
           while read -r line; do
             echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
           done < output.txt
+
+      - name: Attest tarballs
+        uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
+        with:
+          subject-path: "dist/*.tar.gz"
+
+      - name: Attest Docker image (amd64)
+        uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
+        with:
+          subject-digest: ${{ steps.get-image-name-digest.outputs.amd64-digest }}
+          subject-name: ${{ env.ECR_HOSTNAME }}/${{ env.ECR_IMAGE_NAME }}
+          push-to-registry: true
+
+      - name: Attest Docker image (arm64)
+        uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
+        with:
+          subject-digest: ${{ steps.get-image-name-digest.outputs.arm64-digest }}
+          subject-name: ${{ env.ECR_HOSTNAME }}/${{ env.ECR_IMAGE_NAME }}
+          push-to-registry: true
+
+      - name: Upload SBOMs
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        with:
+          name: goreleaser-sboms
+          path: dist/*.sbom.json
+      
+      - name: Print SBOM artifact to job summary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="goreleaser-sboms") | .id')
+          echo "Artifact ID: $ARTIFACT_ID"
+          echo "### SBOM Artifact" | tee -a "$GITHUB_STEP_SUMMARY"
+          artifact_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID"
+          echo "[Artifact URL]($artifact_url)" | tee -a $GITHUB_STEP_SUMMARY
 
       - name: Collect Metrics
         if: always()

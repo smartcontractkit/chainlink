@@ -200,6 +200,10 @@ docker_signs:
 checksum:
   name_template: "checksums.txt"
 
+# See https://goreleaser.com/customization/sbom
+sboms:
+  - artifacts: archive
+
 snapshot:
   version_template: "{{ .Env.CHAINLINK_VERSION }}-{{ .ShortCommit }}"
 
