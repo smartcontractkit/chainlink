@@ -39,6 +39,8 @@ type PluginConfig struct {
 	// KeyBundleIDs maps supported keys to their respective bundle IDs
 	// Key must match llo's ReportFormat
 	KeyBundleIDs map[string]string `json:"keyBundleIDs" toml:"keyBundleIDs"`
+
+	DonID uint32 `json:"donID" toml:"donID"`
 }
 
 func (p *PluginConfig) Unmarshal(data []byte) error {
@@ -46,8 +48,12 @@ func (p *PluginConfig) Unmarshal(data []byte) error {
 }
 
 func (p PluginConfig) Validate() (merr error) {
+	if p.DonID == 0 {
+		merr = errors.Join(merr, errors.New("llo: DonID must be specified and not zero"))
+	}
+
 	if p.RawServerURL == "" {
-		merr = errors.New("llo: ServerURL must be specified")
+		merr = errors.Join(merr, errors.New("llo: ServerURL must be specified"))
 	} else {
 		var normalizedURI string
 		if schemeRegexp.MatchString(p.RawServerURL) {
@@ -57,9 +63,9 @@ func (p PluginConfig) Validate() (merr error) {
 		}
 		uri, err := url.ParseRequestURI(normalizedURI)
 		if err != nil {
-			merr = fmt.Errorf("llo: invalid value for ServerURL: %w", err)
+			merr = errors.Join(merr, fmt.Errorf("llo: invalid value for ServerURL: %w", err))
 		} else if uri.Scheme != "wss" {
-			merr = fmt.Errorf(`llo: invalid scheme specified for MercuryServer, got: %q (scheme: %q) but expected a websocket url e.g. "192.0.2.2:4242" or "wss://192.0.2.2:4242"`, p.RawServerURL, uri.Scheme)
+			merr = errors.Join(merr, fmt.Errorf(`llo: invalid scheme specified for MercuryServer, got: %q (scheme: %q) but expected a websocket url e.g. "192.0.2.2:4242" or "wss://192.0.2.2:4242"`, p.RawServerURL, uri.Scheme))
 		}
 	}
 
@@ -74,6 +80,8 @@ func (p PluginConfig) Validate() (merr error) {
 		if err := json.Unmarshal([]byte(p.ChannelDefinitions), &cd); err != nil {
 			merr = errors.Join(merr, fmt.Errorf("channelDefinitions is invalid JSON: %w", err))
 		}
+		// TODO: Verify Opts format here?
+		// MERC-3524
 	} else {
 		if p.ChannelDefinitionsContractAddress == (common.Address{}) {
 			merr = errors.Join(merr, errors.New("llo: ChannelDefinitionsContractAddress is required if ChannelDefinitions is not specified"))

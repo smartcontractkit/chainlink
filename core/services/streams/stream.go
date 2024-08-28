@@ -3,12 +3,10 @@ package streams
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Runner interface {
@@ -93,36 +91,4 @@ func (s *stream) executeRun(ctx context.Context) (*pipeline.Run, pipeline.TaskRu
 	}
 
 	return run, trrs, err
-}
-
-// ExtractBigInt returns a result of a pipeline run that returns one single
-// decimal result, as a *big.Int.
-// This acts as a reference/example method, other methods can be implemented to
-// extract any desired type that matches a particular pipeline run output.
-// Returns error on parse errors: if results are wrong type
-func ExtractBigInt(trrs pipeline.TaskRunResults) (*big.Int, error) {
-	// pipeline.TaskRunResults comes ordered asc by index, this is guaranteed
-	// by the pipeline executor
-	finaltrrs := trrs.Terminals()
-
-	if len(finaltrrs) != 1 {
-		return nil, fmt.Errorf("invalid number of results, expected: 1, got: %d", len(finaltrrs))
-	}
-	res := finaltrrs[0].Result
-	if res.Error != nil {
-		return nil, res.Error
-	}
-	val, err := toBigInt(res.Value)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse BenchmarkPrice: %w", err)
-	}
-	return val, nil
-}
-
-func toBigInt(val interface{}) (*big.Int, error) {
-	dec, err := utils.ToDecimal(val)
-	if err != nil {
-		return nil, err
-	}
-	return dec.BigInt(), nil
 }
