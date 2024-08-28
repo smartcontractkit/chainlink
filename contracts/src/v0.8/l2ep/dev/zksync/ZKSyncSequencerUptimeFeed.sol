@@ -10,11 +10,11 @@ import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAcces
 import {IL2SharedBridge} from "@zksync/contracts/l2-contracts/contracts/bridge/interfaces/IL2SharedBridge.sol";
 // import {applyL1ToL2Alias} from "@zksync/contracts/l1-contracts/contracts/vendor/AddressAliasHelper.sol";
 
-/**
- * @title ZKSyncSequencerUptimeFeed - L2 sequencer uptime status aggregator
- * @notice L2 contract that receives status updates from a specific L1 address,
- *  records a new answer if the status changed
- */
+///
+/// @title ZKSyncSequencerUptimeFeed - L2 sequencer uptime status aggregator
+/// @notice L2 contract that receives status updates from a specific L1 address,
+///  records a new answer if the status changed
+///
 contract ZKSyncSequencerUptimeFeed is
   AggregatorV2V3Interface,
   ZKSyncSequencerUptimeFeedInterface,
@@ -63,11 +63,11 @@ contract ZKSyncSequencerUptimeFeed is
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   IL2SharedBridge private immutable s_l2SharedBridge;
 
-  /**
-   * @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
-   * @param l2CrossDomainMessengerAddr Address of the L2CrossDomainMessenger contract
-   * @param initialStatus The initial status of the feed
-   */
+  ///
+  /// @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
+  /// @param l2CrossDomainMessengerAddr Address of the L2CrossDomainMessenger contract
+  /// @param initialStatus The initial status of the feed
+  ///
   constructor(address l1SenderAddress, address l2CrossDomainMessengerAddr, bool initialStatus) {
     _setL1Sender(l1SenderAddress);
     s_l2SharedBridge = IL2SharedBridge(l2CrossDomainMessengerAddr);
@@ -77,22 +77,22 @@ contract ZKSyncSequencerUptimeFeed is
     _recordRound(1, initialStatus, timestamp);
   }
 
-  /**
-   * @notice Check if a roundId is valid in this current contract state
-   * @dev Mainly used for AggregatorV2V3Interface functions
-   * @param roundId Round ID to check
-   */
+  ///
+  /// @notice Check if a roundId is valid in this current contract state
+  /// @dev Mainly used for AggregatorV2V3Interface functions
+  /// @param roundId Round ID to check
+  ///
   function _isValidRound(uint256 roundId) private view returns (bool) {
     return roundId > 0 && roundId <= type(uint80).max && s_feedState.latestRoundId >= roundId;
   }
 
-  /**
-   * @notice versions:
-   *
-   * - ZKSyncSequencerUptimeFeed 1.0.0: initial release
-   *
-   * @inheritdoc TypeAndVersionInterface
-   */
+  ///
+  /// @notice versions:
+  ///
+  /// - ZKSyncSequencerUptimeFeed 1.0.0: initial release
+  ///
+  /// @inheritdoc TypeAndVersionInterface
+  ///
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "ZKSyncSequencerUptimeFeed 1.0.0";
   }
@@ -102,11 +102,11 @@ contract ZKSyncSequencerUptimeFeed is
     return s_l1Sender;
   }
 
-  /**
-   * @notice Set the allowed L1 sender for this contract to a new L1 sender
-   * @dev Can be disabled by setting the L1 sender as `address(0)`. Accessible only by owner.
-   * @param to new L1 sender that will be allowed to call `updateStatus` on this contract
-   */
+  ///
+  /// @notice Set the allowed L1 sender for this contract to a new L1 sender
+  /// @dev Can be disabled by setting the L1 sender as `address(0)`. Accessible only by owner.
+  /// @param to new L1 sender that will be allowed to call `updateStatus` on this contract
+  ///
   function transferL1Sender(address to) external virtual onlyOwner {
     _setL1Sender(to);
   }
@@ -120,22 +120,22 @@ contract ZKSyncSequencerUptimeFeed is
     }
   }
 
-  /**
-   * @dev Returns an AggregatorV2V3Interface compatible answer from status flag
-   *
-   * @param status The status flag to convert to an aggregator-compatible answer
-   */
+  ///
+  /// @dev Returns an AggregatorV2V3Interface compatible answer from status flag
+  ///
+  /// @param status The status flag to convert to an aggregator-compatible answer
+  ///
   function _getStatusAnswer(bool status) private pure returns (int256) {
     return status ? int256(1) : int256(0);
   }
 
-  /**
-   * @notice Helper function to record a round and set the latest feed state.
-   *
-   * @param roundId The round ID to record
-   * @param status Sequencer status
-   * @param timestamp The L1 block timestamp of status update
-   */
+  ///
+  /// @notice Helper function to record a round and set the latest feed state.
+  ///
+  /// @param roundId The round ID to record
+  /// @param status Sequencer status
+  /// @param timestamp The L1 block timestamp of status update
+  ///
   function _recordRound(uint80 roundId, bool status, uint64 timestamp) private {
     uint64 updatedAt = uint64(block.timestamp);
 
@@ -146,12 +146,12 @@ contract ZKSyncSequencerUptimeFeed is
     emit AnswerUpdated(_getStatusAnswer(status), roundId, timestamp);
   }
 
-  /**
-   * @notice Helper function to update when a round was last updated
-   *
-   * @param roundId The round ID to update
-   * @param status Sequencer status
-   */
+  ///
+  /// @notice Helper function to update when a round was last updated
+  ///
+  /// @param roundId The round ID to update
+  /// @param status Sequencer status
+  ///
   function _updateRound(uint80 roundId, bool status) private {
     uint64 updatedAt = uint64(block.timestamp);
     s_rounds[roundId].updatedAt = updatedAt;
@@ -159,13 +159,13 @@ contract ZKSyncSequencerUptimeFeed is
     emit RoundUpdated(_getStatusAnswer(status), updatedAt);
   }
 
-  /**
-   * @notice Record a new status and timestamp if it has changed since the last round.
-   * @dev This function will revert if not called from `l1Sender` via the L1->L2 messenger.
-   *
-   * @param status Sequencer status
-   * @param timestamp Block timestamp of status update
-   */
+  ///
+  /// @notice Record a new status and timestamp if it has changed since the last round.
+  /// @dev This function will revert if not called from `l1Sender` via the L1->L2 messenger.
+  ///
+  /// @param status Sequencer status
+  /// @param timestamp Block timestamp of status update
+  ///
   function updateStatus(bool status, uint64 timestamp) external override {
     // TODO: Address aliasing will be necessary to check on the L2 the L1 caller.
     // The aliasing can be applied using AddressAliasHelper.applyL1ToL2Alias(msg.sender).
