@@ -1,0 +1,28 @@
+[Log]
+Level = 'warn'
+
+[WebServer]
+AllowOrigins = '\*'
+SecureCookies = false
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[[EVM]]
+ChainID = '11155111'
+
+[[EVM.Nodes]]
+Name = 'PKTest'
+WSURL = 'wss://sepolia.infura.io/ws/v3/7c43471f9d604276a856f0cff1edb645'
+HTTPURL = 'https://sepolia.infura.io/v3/7c43471f9d604276a856f0cff1edb645'
+
+[EVM.NodePool]
+PollInterval = '5s'
+
+[Tracing]
+Enabled = false # Default
+CollectorTarget = 'localhost:4317' # Example
+NodeID = 'NodeID' # Example
+SamplingRatio = 1.0 # Example
+Mode = 'tls' # Default
+TLSCertPath = '/path/to/cert.pem' # Example
