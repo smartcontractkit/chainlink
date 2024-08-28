@@ -51,23 +51,11 @@ inputs:
     description: When set to the string boolean value of "true", the resulting build image will be signed
     default: "false"
     required: false
-  cosign-private-key:
-    description: The private key to be used with cosign to sign the image
-    required: false
-  cosign-public-key:
-    description: The public key to be used with cosign for verification
-    required: false
-  cosign-password:
-    description: The password to decrypt the cosign private key needed to sign the image
-    required: false
-  sign-method:
-    description: Build image will be signed using keypair or keyless methods
-    default: "keypair"
-    required: true
   verify-signature:
     description: When set to the string boolean value of "true", the resulting build image signature will be verified
     default: "false"
     required: false
+
 outputs:
   docker-image-tag:
     description: The docker image tag that was built and pushed
@@ -84,6 +72,8 @@ runs:
       # See https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#multiline-strings
       run: |
         SHARED_IMAGES=${{ inputs.ecr-hostname }}/${{ inputs.ecr-image-name }}
+        OIDC_ISSUER=https://token.actions.githubusercontent.com
+        OIDC_IDENTITY=https://github.com/smartcontractkit/chainlink/.github/workflows/build-publish.yml@${{ github.ref }}
 
         SHARED_TAG_LIST=$(cat << EOF
         type=ref,event=branch,suffix=${{ inputs.ecr-tag-suffix }}
@@ -100,6 +90,9 @@ runs:
         echo "shared-images<<EOF" >> $GITHUB_ENV
         echo "$SHARED_IMAGES" >> $GITHUB_ENV
         echo "EOF" >> $GITHUB_ENV
+
+        echo "oidc-issuer=${OIDC_ISSUER}" >> $GITHUB_ENV
+        echo "oidc-identity=${OIDC_IDENTITY}" >> $GITHUB_ENV
 
         echo "shared-tag-list<<EOF" >> $GITHUB_ENV
         echo "$SHARED_TAG_LIST" >> $GITHUB_ENV
@@ -171,7 +164,9 @@ runs:
       run: |
         IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-root.outputs.metadata)['image.name'] }}
         IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
+        IMAGE_DIGEST=${{ fromJSON(steps.buildpush-root.outputs.metadata)['containerimage.digest'] }}
         echo "root_image_name=${IMAGE_NAME}" >> $GITHUB_ENV
+        echo "root_image_digest=${IMAGE_DIGEST}" >> $GITHUB_ENV
 
     - name: Generate docker metadata for non-root image
       id: meta-nonroot
@@ -217,6 +212,7 @@ runs:
         IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
         IMAGE_TAG=$(echo "$IMAGES_NAME_RAW" | cut -d":" -f2)
         echo "nonroot_image_name=${IMAGE_NAME}" >> $GITHUB_ENV
+        echo "nonroot_image_digest=${IMAGE_DIGEST}" >> $GITHUB_ENV
         echo '### Docker Image' >> $GITHUB_STEP_SUMMARY
         echo "Image Name: ${IMAGE_NAME}"  >> $GITHUB_STEP_SUMMARY
         echo "Image Digest: ${IMAGE_DIGEST}"  >> $GITHUB_STEP_SUMMARY
@@ -239,74 +235,36 @@ runs:
 
     - if: inputs.sign-images == 'true'
       name: Install cosign
-      uses: sigstore/cosign-installer@e1523de7571e31dbe865fd2e80c5c7c23ae71eb4 # v3.4.0
+      uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
       with:
-        cosign-release: "v1.6.0"
+        cosign-release: "v2.4.0"
 
-    - if: inputs.sign-images == 'true' && inputs.sign-method == 'keypair'
-      name: Sign the published root Docker image using keypair method
-      shell: sh
-      env:
-        COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
-      run: |
-        echo "${{ inputs.cosign-private-key }}" > cosign.key
-        cosign sign --key cosign.key "${{ env.root_image_name }}"
-        rm -f cosign.key
-
-    - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keypair'
-      name: Verify the signature of the published root Docker image using keypair
-      shell: sh
-      run: |
-        echo "${{ inputs.cosign-public-key }}" > cosign.key
-        cosign verify --key cosign.key "${{ env.root_image_name }}"
-        rm -f cosign.key
-
-    - if: inputs.sign-images == 'true' && inputs.sign-method == 'keyless'
+    # This automatically signs the image with the correct OIDC provider from Github
+    - if: inputs.sign-images == 'true'
       name: Sign the published root Docker image using keyless method
       shell: sh
-      env:
-        COSIGN_EXPERIMENTAL: 1
       run: |
-        cosign sign "${{ env.root_image_name }}"
+        cosign sign "${{ env.root_image_name }}" --yes
 
-    - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keyless'
+    - if: inputs.verify-signature == 'true'
       name: Verify the signature of the published root Docker image using keyless
       shell: sh
-      env:
-        COSIGN_EXPERIMENTAL: 1
       run: |
-        cosign verify "${{ env.root_image_name }}"
+        cosign verify "${{ env.root_image_name }}" \
+        --certificate-oidc-issuer ${{ env.oidc-issuer }} \
+        --certificate-identity "${{ env.oidc-identity }}"
 
-    - if: inputs.sign-images == 'true' && inputs.sign-method == 'keypair'
-      name: Sign the published non-root Docker image using keypair method
-      shell: sh
-      env:
-        COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
-      run: |
-        echo "${{ inputs.cosign-private-key }}" > cosign.key
-        cosign sign --key cosign.key "${{ env.nonroot_image_name }}"
-        rm -f cosign.key
-
-    - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keypair'
-      name: Verify the signature of the published non-root Docker image using keypair
-      shell: sh
-      run: |
-        echo "${{ inputs.cosign-public-key }}" > cosign.key
-        cosign verify --key cosign.key "${{ env.nonroot_image_name }}"
-        rm -f cosign.key
-
-    - if: inputs.sign-images == 'true' && inputs.sign-method == 'keyless'
+    # This automatically signs the image with the correct OIDC provider from Github
+    - if: inputs.sign-images == 'true'
       name: Sign the published non-root Docker image using keyless method
       shell: sh
-      env:
-        COSIGN_EXPERIMENTAL: 1
       run: |
-        cosign sign "${{ env.nonroot_image_name }}"
+        cosign sign "${{ env.nonroot_image_name }}" --yes
 
-    - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keyless'
+    - if: inputs.verify-signature == 'true'
       name: Verify the signature of the published non-root Docker image using keyless
       shell: sh
-      env:
-        COSIGN_EXPERIMENTAL: 1
       run: |
-        cosign verify "${{ env.nonroot_image_name }}"
+        cosign verify "${{ env.nonroot_image_name }}" \
+        --certificate-oidc-issuer ${{ env.oidc-issuer }} \
+        --certificate-identity "${{ env.oidc-identity }}"
