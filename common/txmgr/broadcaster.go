@@ -753,7 +753,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryA
 	return eb.saveTryAgainAttempt(ctx, lgr, params)
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveTryAgainAttempt(ctx context.Context, lgr logger.Logger, param saveTryAgainAttemptParams[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (err error, retyrable bool) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveTryAgainAttempt(ctx context.Context, lgr logger.Logger, param saveTryAgainAttemptParams[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (err error, retryable bool) {
 	if err = eb.txStore.SaveReplacementInProgressAttempt(ctx, param.attempt, &param.replacementAttempt); err != nil {
 		return fmt.Errorf("tryAgainWithNewFee failed: %w", err), true
 	}

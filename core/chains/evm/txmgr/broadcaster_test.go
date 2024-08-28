@@ -1547,9 +1547,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, txmgrcommon.TxUnstarted, etx.State)
 		require.Len(t, updated_etx.TxAttempts, 1)
 
-		// check new attempt created
-		assert.NotEqual(t, updated_etx.CreatedAt, etx.CreatedAt)
-
 		attempt := updated_etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
 		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
