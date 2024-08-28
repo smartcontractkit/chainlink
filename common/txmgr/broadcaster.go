@@ -562,7 +562,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		if newErr != nil {
 			return newErr, retryable
 		}
-		return eb.handleInProgressTx(ctx, etx, replacementAttempt, initialBroadcastAt, 0)
+		return eb.handleInProgressTx(ctx, etx, replacementAttempt, initialBroadcastAt, retryCount+1)
 	case client.InsufficientFunds:
 		// NOTE: This can occur due to either insufficient funds or a gas spike
 		// combined with a high gas limit. Regardless of the cause, we need to obtain a new estimate,
