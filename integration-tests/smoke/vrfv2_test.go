@@ -816,7 +816,6 @@ func TestVRFV2WithBHS(t *testing.T) {
 
 	configPtr := &config
 
-	//TODO @Ilya - does it have any effect? We are not using that vrfv2Config reference anywhere
 	//decrease default span for checking blockhashes for unfulfilled requests
 	vrfv2Config.General.BHSJobWaitBlocks = ptr.Ptr(2)
 	vrfv2Config.General.BHSJobLookBackBlocks = ptr.Ptr(20)
@@ -1010,10 +1009,8 @@ func TestVRFV2NodeReorg(t *testing.T) {
 		env                          *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
-		//TODO @Ilya where do we set this value?
-		defaultWalletAddress *string
-		vrfKey               *vrfcommon.VRFKeyData
-		sethClient           *seth.Client
+		vrfKey                       *vrfcommon.VRFKeyData
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 
@@ -1026,7 +1023,6 @@ func TestVRFV2NodeReorg(t *testing.T) {
 	chainID := network.ChainID
 
 	configPtr := &config
-	walletAddrRef := &defaultWalletAddress
 	chainlinkNodeLogScannerSettings := test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(
 		testreporters.NewAllowedLogMessage(
 			"Got very old block.",
@@ -1042,7 +1038,7 @@ func TestVRFV2NodeReorg(t *testing.T) {
 	vrfEnvConfig := vrfcommon.VRFEnvConfig{
 		TestConfig: config,
 		ChainID:    chainID,
-		CleanupFn:  vrfv2CleanUpFn(&t, &sethClient, &configPtr, &env, &vrfContracts, &subIDsForCancellingAfterTest, walletAddrRef),
+		CleanupFn:  vrfv2CleanUpFn(&t, &sethClient, &configPtr, &env, &vrfContracts, &subIDsForCancellingAfterTest, nil),
 	}
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},
@@ -1174,7 +1170,6 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 		env                          *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
-		defaultWalletAddress         *string
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
 		sethClient                   *seth.Client
@@ -1187,11 +1182,10 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 	chainID := network.ChainID
 
 	configPtr := &config
-	walletAddrRef := &defaultWalletAddress
 	vrfEnvConfig := vrfcommon.VRFEnvConfig{
 		TestConfig: config,
 		ChainID:    chainID,
-		CleanupFn:  vrfv2CleanUpFn(&t, &sethClient, &configPtr, &env, &vrfContracts, &subIDsForCancellingAfterTest, walletAddrRef),
+		CleanupFn:  vrfv2CleanUpFn(&t, &sethClient, &configPtr, &env, &vrfContracts, &subIDsForCancellingAfterTest, nil),
 	}
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},

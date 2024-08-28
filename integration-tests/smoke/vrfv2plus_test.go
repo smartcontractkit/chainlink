@@ -1244,7 +1244,6 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 	configPtr := &config
 
-	//TODO @Ilya is this config used anywhere?
 	//decrease default span for checking blockhashes for unfulfilled requests
 	vrfv2PlusConfig.General.BHSJobWaitBlocks = ptr.Ptr(2)
 	vrfv2PlusConfig.General.BHSJobLookBackBlocks = ptr.Ptr(20)
@@ -1844,10 +1843,8 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 		env                          *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
-		//TODO @Ilya is this set anywhere?
-		defaultWalletAddress *string
-		vrfKey               *vrfcommon.VRFKeyData
-		sethClient           *seth.Client
+		vrfKey                       *vrfcommon.VRFKeyData
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 
@@ -1863,7 +1860,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 	vrfEnvConfig := vrfcommon.VRFEnvConfig{
 		TestConfig: config,
 		ChainID:    chainID,
-		CleanupFn:  vrfv2PlusCleanUpFn(&t, &sethClient, &configPtr, &env, &vrfContracts, &subIDsForCancellingAfterTest, &defaultWalletAddress),
+		CleanupFn:  vrfv2PlusCleanUpFn(&t, &sethClient, &configPtr, &env, &vrfContracts, &subIDsForCancellingAfterTest, nil),
 	}
 	chainlinkNodeLogScannerSettings := test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(
 		testreporters.NewAllowedLogMessage(
