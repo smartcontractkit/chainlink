@@ -19,7 +19,12 @@ import (
 )
 
 func RunChainComponentsEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T]) {
-	RunChainComponentsInterfaceTests[T](t, it, false)
+	RunContractReaderEvmTests[T](t, it)
+	// Add ChainWriter tests here
+}
+
+func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T]) {
+	RunContractReaderInterfaceTests[T](t, it, false)
 
 	t.Run("Dynamically typed topics can be used to filter and have type correct in return", func(t T) {
 		it.Setup(t)
