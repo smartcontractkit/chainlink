@@ -429,6 +429,8 @@ TransactionAlreadyMined = '(: |^)transaction already mined' # Example
 Fatal = '(: |^)fatal' # Example
 # ServiceUnavailable is a regex pattern to match against service unavailable errors.
 ServiceUnavailable = '(: |^)service unavailable' # Example
+# TooManyResults is a regex pattern to match an eth_getLogs error indicating the result set is too large to return
+TooManyResults = '(: |^)too many results' # Example
 
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.
