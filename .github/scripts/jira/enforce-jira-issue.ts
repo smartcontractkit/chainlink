@@ -1,6 +1,8 @@
 import * as core from "@actions/core";
 import jira from "jira.js";
-import { createJiraClient, parseIssueNumberFrom } from "./lib";
+import { createJiraClient, getGitTopLevel, parseIssueNumberFrom } from "./lib";
+import { promises as fs } from "fs";
+import { join } from "path";
 
 async function doesIssueExist(
   client: jira.Version3Client,
@@ -44,6 +46,8 @@ async function main() {
   const commitMessage = process.env.COMMIT_MESSAGE;
   const branchName = process.env.BRANCH_NAME;
   const dryRun = !!process.env.DRY_RUN;
+  const { changesetFile } = extractChangesetFile();
+
   const client = createJiraClient();
 
   // Checks for the Jira issue number and exit if it can't find it
@@ -58,9 +62,47 @@ async function main() {
 
   const exists = await doesIssueExist(client, issueNumber, dryRun);
   if (!exists) {
-    core.setFailed(`JIRA issue ${issueNumber} not found, this pull request must be associated with a JIRA issue.`);
+    core.setFailed(
+      `JIRA issue ${issueNumber} not found, this pull request must be associated with a JIRA issue.`
+    );
     return;
   }
+
+  core.info(`Appending JIRA issue ${issueNumber} to changeset file`);
+  await appendIssueNumberToChangesetFile(changesetFile, issueNumber);
+}
+
+async function appendIssueNumberToChangesetFile(
+  changesetFile: string,
+  issueNumber: string
+) {
+  const gitTopLevel = await getGitTopLevel();
+  const fullChangesetPath = join(gitTopLevel, changesetFile);
+  const changesetContents = await fs.readFile(fullChangesetPath, "utf-8");
+  // Check if the issue number is already in the changeset file
+  if (changesetContents.includes(issueNumber)) {
+    core.info("Issue number already exists in changeset file, skipping...");
+    return;
+  }
+
+  const updatedChangesetContents = `${changesetContents}\n\n${issueNumber}`;
+  await fs.writeFile(fullChangesetPath, updatedChangesetContents);
+}
+
+function extractChangesetFile() {
+  const changesetFiles = process.env.CHANGESET_FILES;
+  if (!changesetFiles) {
+    throw Error("Missing required environment variable CHANGESET_FILES");
+  }
+  const parsedChangesetFiles = JSON.parse(changesetFiles);
+  if (parsedChangesetFiles.length !== 1) {
+    throw Error(
+      "This action only supports one changeset file per pull request."
+    );
+  }
+  const [changesetFile] = parsedChangesetFiles;
+
+  return { changesetFile };
 }
 
 async function run() {
