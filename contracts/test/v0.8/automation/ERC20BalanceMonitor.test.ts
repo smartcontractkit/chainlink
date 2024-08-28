@@ -278,7 +278,7 @@ describe('ERC20BalanceMonitor', () => {
     })
 
     it('Should revert if any of the addresses are empty', async () => {
-      const tx = bm
+      let tx = bm
         .connect(owner)
         .setWatchList(
           [watchAddress1, ethers.constants.AddressZero],
