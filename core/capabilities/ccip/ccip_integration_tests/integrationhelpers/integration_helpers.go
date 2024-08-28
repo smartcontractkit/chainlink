@@ -41,6 +41,8 @@ import (
 
 const chainID = 1337
 
+var CapabilityID = fmt.Sprintf("%s@%s", CcipCapabilityLabelledName, CcipCapabilityVersion)
+
 func NewReader(
 	t *testing.T,
 	logPoller logpoller.LogPoller,
@@ -81,8 +83,6 @@ const (
 	CcipCapabilityLabelledName = "ccip"
 	CcipCapabilityVersion      = "v1.0"
 )
-
-var CapabilityID = fmt.Sprintf("%s@%s", CcipCapabilityLabelledName, CcipCapabilityVersion)
 
 type TestUniverse struct {
 	Transactor      *bind.TransactOpts

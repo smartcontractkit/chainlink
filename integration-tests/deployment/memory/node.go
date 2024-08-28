@@ -12,12 +12,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	v2toml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -59,6 +62,16 @@ type Node struct {
 	Keys       Keys
 	Addr       net.TCPAddr
 	IsBoostrap bool
+}
+
+func (n Node) ReplayLogs(chains map[uint64]uint64) error {
+	for sel, block := range chains {
+		chainID, _ := chainsel.ChainIdFromSelector(sel)
+		if err := n.App.ReplayFromBlock(big.NewInt(int64(chainID)), block, false); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type RegistryConfig struct {
@@ -152,9 +165,10 @@ func NewNode(
 
 	// Build relayer factory with EVM.
 	relayerFactory := chainlink.RelayerFactory{
-		Logger:       lggr,
-		LoopRegistry: plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing()),
-		GRPCOpts:     loop.GRPCOpts{},
+		Logger:               lggr,
+		LoopRegistry:         plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing()),
+		GRPCOpts:             loop.GRPCOpts{},
+		CapabilitiesRegistry: evmcapabilities.NewRegistry(lggr),
 	}
 	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(context.Background(), relayerFactory, evmOpts)}
 	rci, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
