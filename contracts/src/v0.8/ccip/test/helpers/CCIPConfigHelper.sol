@@ -36,9 +36,7 @@ contract CCIPConfigHelper is CCIPConfig {
     return _computeNewConfigWithMeta(donId, currentConfig, newConfig, currentState, newState);
   }
 
-  function groupByPluginType(
-    CCIPConfigTypes.OCR3Config[] memory ocr3Configs
-  )
+  function groupByPluginType(CCIPConfigTypes.OCR3Config[] memory ocr3Configs)
     public
     pure
     returns (CCIPConfigTypes.OCR3Config[] memory commitConfigs, CCIPConfigTypes.OCR3Config[] memory execConfigs)

@@ -57,9 +57,13 @@ contract CCIPClientExample is CCIPReceiver, OwnerIsCreator {
     delete s_chains[chainSelector];
   }
 
-  function ccipReceive(
-    Client.Any2EVMMessage calldata message
-  ) external virtual override onlyRouter validChain(message.sourceChainSelector) {
+  function ccipReceive(Client.Any2EVMMessage calldata message)
+    external
+    virtual
+    override
+    onlyRouter
+    validChain(message.sourceChainSelector)
+  {
     // Extremely important to ensure only router calls this.
     // Tokens in message if any will be transferred to this contract
     // TODO: Validate sender/origin chain and process message and/or tokens.
