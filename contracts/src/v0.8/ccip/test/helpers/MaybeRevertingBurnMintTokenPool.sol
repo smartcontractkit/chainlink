@@ -9,6 +9,7 @@ import {BurnMintTokenPool} from "../../pools/BurnMintTokenPool.sol";
 contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
   bytes public s_revertReason = "";
   bytes public s_sourceTokenData = "";
+  uint256 public s_releaseOrMintMultiplier = 1;
 
   constructor(
     IBurnMintERC20 token,
@@ -23,6 +24,10 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
 
   function setSourceTokenData(bytes calldata sourceTokenData) external {
     s_sourceTokenData = sourceTokenData;
+  }
+
+  function setReleaseOrMintMultiplier(uint256 multiplier) external {
+    s_releaseOrMintMultiplier = multiplier;
   }
 
   function lockOrBurn(Pool.LockOrBurnInV1 calldata lockOrBurnIn)
@@ -63,8 +68,10 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
         revert(add(32, revertReason), mload(revertReason))
       }
     }
-    IBurnMintERC20(address(i_token)).mint(msg.sender, releaseOrMintIn.amount);
-    emit Minted(msg.sender, releaseOrMintIn.receiver, releaseOrMintIn.amount);
-    return Pool.ReleaseOrMintOutV1({destinationAmount: releaseOrMintIn.amount});
+    uint256 amount = releaseOrMintIn.amount * s_releaseOrMintMultiplier;
+    IBurnMintERC20(address(i_token)).mint(releaseOrMintIn.receiver, amount);
+
+    emit Minted(msg.sender, releaseOrMintIn.receiver, amount);
+    return Pool.ReleaseOrMintOutV1({destinationAmount: amount});
   }
 }

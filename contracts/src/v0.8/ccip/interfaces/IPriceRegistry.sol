@@ -5,12 +5,6 @@ import {Client} from "../libraries/Client.sol";
 import {Internal} from "../libraries/Internal.sol";
 
 interface IPriceRegistry {
-  /// @notice Token price data feed configuration
-  struct TokenPriceFeedConfig {
-    address dataFeedAddress; // ──╮ AggregatorV3Interface contract (0 - feed is unset)
-    uint8 tokenDecimals; // ──────╯ Decimals of the token that the feed represents
-  }
-
   /// @notice Update the price for given tokens and gas prices for given chains.
   /// @param priceUpdates The price updates to apply.
   function updatePrices(Internal.PriceUpdates memory priceUpdates) external;
@@ -29,11 +23,6 @@ interface IPriceRegistry {
   /// @param tokens The tokens to get prices for.
   /// @return tokenPrices The tokenPrices for the given tokens.
   function getTokenPrices(address[] calldata tokens) external view returns (Internal.TimestampedPackedUint224[] memory);
-
-  /// @notice Returns the token price data feed configuration
-  /// @param token The token to retrieve the feed config for
-  /// @return dataFeedAddress The token price data feed config (if feed address is 0, the feed config is disabled)
-  function getTokenPriceFeedConfig(address token) external view returns (TokenPriceFeedConfig memory);
 
   /// @notice Get an encoded `gasPrice` for a given destination chain ID.
   /// The 224-bit result encodes necessary gas price components.
@@ -70,7 +59,7 @@ interface IPriceRegistry {
   ) external view returns (uint256 toTokenAmount);
 
   /// @notice Get the list of fee tokens.
-  /// @return The tokens set as fee tokens.
+  /// @return feeTokens The tokens set as fee tokens.
   function getFeeTokens() external view returns (address[] memory);
 
   /// @notice Validates the ccip message & returns the fee
@@ -101,9 +90,10 @@ interface IPriceRegistry {
   /// @param destChainSelector Destination chain selector to which the token amounts are sent to
   /// @param rampTokenAmounts Token amounts with populated pool return data
   /// @param sourceTokenAmounts Token amounts originally sent in a Client.EVM2AnyMessage message
-  function validatePoolReturnData(
+  /// @return destExecData Destination chain execution data
+  function processPoolReturnData(
     uint64 destChainSelector,
-    Internal.RampTokenAmount[] calldata rampTokenAmounts,
+    Internal.RampTokenAmount[] memory rampTokenAmounts,
     Client.EVMTokenAmount[] calldata sourceTokenAmounts
-  ) external view;
+  ) external view returns (bytes[] memory);
 }

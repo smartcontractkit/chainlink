@@ -9,6 +9,8 @@ import {EVM2EVMOffRamp} from "../../../offRamp/EVM2EVMOffRamp.sol";
 contract ReentrancyAbuser is CCIPReceiver {
   event ReentrancySucceeded();
 
+  uint32 internal constant DEFAULT_TOKEN_DEST_GAS_OVERHEAD = 144_000;
+
   bool internal s_ReentrancyDone = false;
   Internal.ExecutionReport internal s_payload;
   EVM2EVMOffRamp internal s_offRamp;
@@ -23,11 +25,7 @@ contract ReentrancyAbuser is CCIPReceiver {
 
   function _ccipReceive(Client.Any2EVMMessage memory) internal override {
     // Use original message gas limits in manual execution
-    uint256 numMsgs = s_payload.messages.length;
-    uint256[] memory gasOverrides = new uint256[](numMsgs);
-    for (uint256 i = 0; i < numMsgs; ++i) {
-      gasOverrides[i] = 0;
-    }
+    EVM2EVMOffRamp.GasLimitOverride[] memory gasOverrides = _getGasLimitsFromMessages(s_payload.messages);
 
     if (!s_ReentrancyDone) {
       // Could do more rounds but a PoC one is enough
@@ -36,5 +34,23 @@ contract ReentrancyAbuser is CCIPReceiver {
     } else {
       emit ReentrancySucceeded();
     }
+  }
+
+  function _getGasLimitsFromMessages(Internal.EVM2EVMMessage[] memory messages)
+    internal
+    pure
+    returns (EVM2EVMOffRamp.GasLimitOverride[] memory)
+  {
+    EVM2EVMOffRamp.GasLimitOverride[] memory gasLimitOverrides = new EVM2EVMOffRamp.GasLimitOverride[](messages.length);
+    for (uint256 i = 0; i < messages.length; ++i) {
+      gasLimitOverrides[i].receiverExecutionGasLimit = messages[i].gasLimit;
+      gasLimitOverrides[i].tokenGasOverrides = new uint32[](messages[i].tokenAmounts.length);
+
+      for (uint256 j = 0; j < messages[i].tokenAmounts.length; ++j) {
+        gasLimitOverrides[i].tokenGasOverrides[j] = DEFAULT_TOKEN_DEST_GAS_OVERHEAD + 1;
+      }
+    }
+
+    return gasLimitOverrides;
   }
 }

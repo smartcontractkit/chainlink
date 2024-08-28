@@ -8,7 +8,7 @@ import {Pool} from "../libraries/Pool.sol";
 import {LegacyPoolWrapper} from "./LegacyPoolWrapper.sol";
 
 contract BurnMintTokenPoolAndProxy is ITypeAndVersion, LegacyPoolWrapper {
-  string public constant override typeAndVersion = "BurnMintTokenPoolAndProxy 1.5.0-dev";
+  string public constant override typeAndVersion = "BurnMintTokenPoolAndProxy 1.5.0";
 
   constructor(
     IBurnMintERC20 token,
@@ -49,8 +49,7 @@ contract BurnMintTokenPoolAndProxy is ITypeAndVersion, LegacyPoolWrapper {
     _validateReleaseOrMint(releaseOrMintIn);
 
     if (!_hasLegacyPool()) {
-      // Mint to the offRamp, which forwards it to the recipient
-      IBurnMintERC20(address(i_token)).mint(msg.sender, releaseOrMintIn.amount);
+      IBurnMintERC20(address(i_token)).mint(releaseOrMintIn.receiver, releaseOrMintIn.amount);
     } else {
       _releaseOrMintLegacy(releaseOrMintIn);
     }
