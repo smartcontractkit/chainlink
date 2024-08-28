@@ -53,18 +53,6 @@ func TestFeeHistoryEstimatorLifecycle(t *testing.T) {
 		assert.ErrorContains(t, u.Start(tests.Context(t)), "RewardPercentile")
 	})
 
-	t.Run("fails to start if BlockHistorySize is 0 in EIP-1559", func(t *testing.T) {
-		cfg := gas.FeeHistoryEstimatorConfig{
-			BumpPercent:      20,
-			RewardPercentile: 10,
-			BlockHistorySize: 0,
-			EIP1559:          true,
-		}
-
-		u := gas.NewFeeHistoryEstimator(logger.Test(t), nil, cfg, chainID, nil)
-		assert.ErrorContains(t, u.Start(tests.Context(t)), "BlockHistorySize")
-	})
-
 	t.Run("starts if configs are correct", func(t *testing.T) {
 		client := mocks.NewFeeHistoryEstimatorClient(t)
 		client.On("SuggestGasPrice", mock.Anything).Return(big.NewInt(10), nil).Maybe()
@@ -155,7 +143,7 @@ func TestFeeHistoryEstimatorBumpLegacyGas(t *testing.T) {
 	t.Run("fails if the original attempt is nil, or equal or higher than the max price", func(t *testing.T) {
 		client := mocks.NewFeeHistoryEstimatorClient(t)
 
-		cfg := gas.FeeHistoryEstimatorConfig{HasMempool: true}
+		cfg := gas.FeeHistoryEstimatorConfig{}
 		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 
 		var originalPrice *assets.Wei
@@ -263,7 +251,7 @@ func TestFeeHistoryEstimatorGetDynamicFee(t *testing.T) {
 		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
 		blockHistoryLength := 2
-		cfg := gas.FeeHistoryEstimatorConfig{BlockHistorySize: uint64(blockHistoryLength), HasMempool: true}
+		cfg := gas.FeeHistoryEstimatorConfig{BlockHistorySize: uint64(blockHistoryLength)}
 		avrgPriorityFee := big.NewInt(0)
 		avrgPriorityFee.Add(maxPriorityFeePerGas1, maxPriorityFeePerGas2).Div(avrgPriorityFee, big.NewInt(int64(blockHistoryLength)))
 		maxFee := (*assets.Wei)(baseFee).AddPercentage(gas.BaseFeeBufferPercentage).Add((*assets.Wei)(avrgPriorityFee))
@@ -311,7 +299,7 @@ func TestFeeHistoryEstimatorGetDynamicFee(t *testing.T) {
 		}
 		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
-		cfg := gas.FeeHistoryEstimatorConfig{BlockHistorySize: 1, HasMempool: true}
+		cfg := gas.FeeHistoryEstimatorConfig{BlockHistorySize: 1}
 
 		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		err := u.RefreshDynamicPrice()
@@ -348,7 +336,6 @@ func TestFeeHistoryEstimatorBumpDynamicFee(t *testing.T) {
 		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 2,
 			BumpPercent:      50,
-			HasMempool:       true,
 		}
 
 		expectedFeeCap := originalFee.FeeCap.AddPercentage(cfg.BumpPercent)
@@ -366,7 +353,7 @@ func TestFeeHistoryEstimatorBumpDynamicFee(t *testing.T) {
 	t.Run("fails if the original attempt is invalid", func(t *testing.T) {
 		client := mocks.NewFeeHistoryEstimatorClient(t)
 		maxPrice := assets.NewWeiI(20)
-		cfg := gas.FeeHistoryEstimatorConfig{BlockHistorySize: 1, HasMempool: true}
+		cfg := gas.FeeHistoryEstimatorConfig{BlockHistorySize: 1}
 
 		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		// nil original fee
@@ -414,7 +401,6 @@ func TestFeeHistoryEstimatorBumpDynamicFee(t *testing.T) {
 		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 1,
 			BumpPercent:      50,
-			HasMempool:       true,
 		}
 
 		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
@@ -447,7 +433,6 @@ func TestFeeHistoryEstimatorBumpDynamicFee(t *testing.T) {
 		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 1,
 			BumpPercent:      50,
-			HasMempool:       true,
 		}
 
 		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
@@ -479,7 +464,6 @@ func TestFeeHistoryEstimatorBumpDynamicFee(t *testing.T) {
 		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 1,
 			BumpPercent:      50,
-			HasMempool:       true,
 		}
 
 		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
@@ -513,7 +497,6 @@ func TestFeeHistoryEstimatorBumpDynamicFee(t *testing.T) {
 		cfg := gas.FeeHistoryEstimatorConfig{
 			BlockHistorySize: 1,
 			BumpPercent:      50,
-			HasMempool:       true,
 		}
 
 		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
@@ -542,9 +525,8 @@ func TestFeeHistoryEstimatorBumpDynamicFee(t *testing.T) {
 		client.On("FeeHistory", mock.Anything, mock.Anything, mock.Anything).Return(feeHistoryResult, nil).Once()
 
 		cfg := gas.FeeHistoryEstimatorConfig{
-			BlockHistorySize: 1,
+			BlockHistorySize: 0,
 			BumpPercent:      20,
-			HasMempool:       false,
 		}
 
 		maxFeePerGas := assets.NewWei(baseFee).AddPercentage(gas.BaseFeeBufferPercentage)

@@ -1836,7 +1836,6 @@ TransactionPercentile = 50
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -1935,7 +1934,6 @@ TransactionPercentile = 50
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2034,7 +2032,6 @@ TransactionPercentile = 50
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2133,7 +2130,6 @@ TransactionPercentile = 50
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2233,7 +2229,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 300
@@ -2332,7 +2327,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2431,7 +2425,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2531,7 +2524,6 @@ TransactionPercentile = 50
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2630,7 +2622,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2728,7 +2719,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2826,7 +2816,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2925,7 +2914,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3025,7 +3013,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3124,7 +3111,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3223,7 +3209,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -3322,7 +3307,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -3421,7 +3405,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -3520,7 +3503,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3619,7 +3601,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 400
@@ -3718,7 +3699,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 50
@@ -3817,7 +3797,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 50
@@ -3916,7 +3895,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 50
@@ -4016,7 +3994,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 300
@@ -4115,7 +4092,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4213,7 +4189,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4312,7 +4287,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4411,7 +4385,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -4510,7 +4483,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4609,7 +4581,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4707,7 +4678,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 10
@@ -4806,7 +4776,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -4905,7 +4874,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 400
@@ -5004,7 +4972,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -5103,7 +5070,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5201,7 +5167,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5300,7 +5265,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 300
@@ -5399,7 +5363,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5499,7 +5462,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5599,7 +5561,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5699,7 +5660,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5798,7 +5758,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 50
@@ -5897,7 +5856,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5996,7 +5954,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6095,7 +6052,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 50
@@ -6193,7 +6149,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6291,7 +6246,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 1000
@@ -6389,7 +6343,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 350
@@ -6488,7 +6441,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6587,7 +6539,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -6685,7 +6636,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -6784,7 +6734,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 300
@@ -6883,7 +6832,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 300
@@ -6983,7 +6931,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -7083,7 +7030,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -7182,7 +7128,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -7281,7 +7226,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 50
@@ -7380,7 +7324,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 50
@@ -7479,7 +7422,6 @@ TransactionPercentile = 50
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -7578,7 +7520,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 300
@@ -7677,7 +7618,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -7776,7 +7716,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100
@@ -8442,7 +8381,6 @@ Setting it lower will tend to set lower gas prices.
 ```toml
 [EVM.GasEstimator.FeeHistory]
 CacheTimeout = '10s' # Default
-HasMempool = true # Default
 ```
 
 
@@ -8456,13 +8394,6 @@ You want this value to be close to the block time. For slower chains, like Ether
 and set it to two times the block time i.e. on Optimism you can set it to 4s. Ideally, you don't want to go lower than 1s since the RTT times of the RPC requests will be comparable to
 the timeout. The estimator is already adding a buffer to account for a potential increase in prices within one or two blocks. On the other hand, slower frequency will fail to refresh
 the prices and end up in stale values.
-
-### HasMempool
-```toml
-HasMempool = true # Default
-```
-HasMempool should be set to true if the estimator is making RPC calls to a network that supports a transaction mempool. This is only relevant for EIP-1559 estimations and it forces a
-minimum bumping check on maxPriorityFeePerGas and a connectivity check. For chains that don't have a mempool and process transactions in a FCFS manner, the two checks are omitted.
 
 ## EVM.HeadTracker
 ```toml

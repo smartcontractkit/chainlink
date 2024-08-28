@@ -319,9 +319,6 @@ TransactionPercentile = 60 # Default
 # the timeout. The estimator is already adding a buffer to account for a potential increase in prices within one or two blocks. On the other hand, slower frequency will fail to refresh
 # the prices and end up in stale values.
 CacheTimeout = '10s' # Default
-# HasMempool should be set to true if the estimator is making RPC calls to a network that supports a transaction mempool. This is only relevant for EIP-1559 estimations and it forces a
-# minimum bumping check on maxPriorityFeePerGas and a connectivity check. For chains that don't have a mempool and process transactions in a FCFS manner, the two checks are omitted.
-HasMempool = true # Default
 
 # The head tracker continually listens for new heads from the chain.
 #

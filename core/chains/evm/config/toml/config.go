@@ -728,15 +728,11 @@ func (e *BlockHistoryEstimator) setFrom(f *BlockHistoryEstimator) {
 
 type FeeHistoryEstimator struct {
 	CacheTimeout *commonconfig.Duration
-	HasMempool   *bool
 }
 
 func (u *FeeHistoryEstimator) setFrom(f *FeeHistoryEstimator) {
 	if v := f.CacheTimeout; v != nil {
 		u.CacheTimeout = v
-	}
-	if v := f.HasMempool; v != nil {
-		u.HasMempool = v
 	}
 }
 

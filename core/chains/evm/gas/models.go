@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -90,6 +91,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		}
 	}
 	var newEstimator func(logger.Logger) EvmEstimator
+	s = "FeeHistory"
 	switch s {
 	case "Arbitrum":
 		arbOracle, err := rollups.NewArbitrumL1GasOracle(lggr, ethClient)
@@ -115,11 +117,10 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		newEstimator = func(l logger.Logger) EvmEstimator {
 			ccfg := FeeHistoryEstimatorConfig{
 				BumpPercent:      geCfg.BumpPercent(),
-				CacheTimeout:     geCfg.FeeHistory().CacheTimeout(),
-				EIP1559:          geCfg.EIP1559DynamicFees(),
-				BlockHistorySize: uint64(geCfg.BlockHistory().BlockHistorySize()),
+				CacheTimeout:     3 * time.Second,
+				EIP1559:          true,
+				BlockHistorySize: 1,
 				RewardPercentile: float64(geCfg.BlockHistory().TransactionPercentile()),
-				HasMempool:       geCfg.FeeHistory().HasMempool(),
 			}
 			return NewFeeHistoryEstimator(lggr, ethClient, ccfg, ethClient.ConfiguredChainID(), l1Oracle)
 		}
@@ -404,7 +405,7 @@ func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64,
 		e.lggr.Debugw("estimated gas limit with buffer exceeds the provided gas limit with multiplier. falling back to the provided gas limit with multiplier", "estimatedGasLimit", estimatedFeeLimit, "providedGasLimitWithMultiplier", providedGasLimit)
 		estimatedFeeLimit = providedGasLimit
 	}
-	
+
 	return
 }
 

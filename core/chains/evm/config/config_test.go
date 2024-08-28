@@ -226,7 +226,6 @@ func TestChainScopedConfig_FeeHistory(t *testing.T) {
 
 	u := cfg.EVM().GasEstimator().FeeHistory()
 	assert.Equal(t, 10*time.Second, u.CacheTimeout())
-	assert.Equal(t, true, u.HasMempool())
 }
 
 func TestChainScopedConfig_GasEstimator(t *testing.T) {

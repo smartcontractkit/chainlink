@@ -133,7 +133,6 @@ type TestFeeHistoryConfig struct {
 }
 
 func (b *TestFeeHistoryConfig) CacheTimeout() time.Duration { return 0 * time.Second }
-func (b *TestFeeHistoryConfig) HasMempool() bool            { return true }
 
 type transactionsConfig struct {
 	evmconfig.Transactions

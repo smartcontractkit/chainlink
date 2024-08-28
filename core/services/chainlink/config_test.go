@@ -546,7 +546,6 @@ func TestConfig_Marshal(t *testing.T) {
 					},
 					FeeHistory: evmcfg.FeeHistoryEstimator{
 						CacheTimeout: &second,
-						HasMempool:   ptr(true),
 					},
 				},
 
@@ -1057,7 +1056,6 @@ TransactionPercentile = 15
 
 [EVM.GasEstimator.FeeHistory]
 CacheTimeout = '1s'
-HasMempool = true
 
 [EVM.HeadTracker]
 HistoryDepth = 15

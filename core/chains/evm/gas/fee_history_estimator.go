@@ -61,11 +61,10 @@ const (
 type FeeHistoryEstimatorConfig struct {
 	BumpPercent  uint16
 	CacheTimeout time.Duration
-	EIP1559      bool
 
+	EIP1559          bool
 	BlockHistorySize uint64
 	RewardPercentile float64
-	HasMempool       bool
 }
 
 type feeHistoryEstimatorClient interface {
@@ -117,9 +116,6 @@ func (f *FeeHistoryEstimator) Start(context.Context) error {
 		if f.config.EIP1559 && f.config.RewardPercentile > ConnectivityPercentile {
 			return fmt.Errorf("RewardPercentile: %s is greater than maximum allowed percentile: %s",
 				strconv.FormatUint(uint64(f.config.RewardPercentile), 10), strconv.Itoa(ConnectivityPercentile))
-		}
-		if f.config.EIP1559 && f.config.BlockHistorySize == 0 {
-			return fmt.Errorf("BlockHistorySize is set to 0 and EIP1559 is enabled")
 		}
 		f.wg.Add(1)
 		go f.run()
@@ -231,11 +227,8 @@ func (f *FeeHistoryEstimator) RefreshDynamicPrice() error {
 	ctx, cancel := f.stopCh.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
-	if f.config.BlockHistorySize == 0 {
-		return fmt.Errorf("BlockHistorySize cannot be 0")
-	}
 	// RewardPercentile will be used for maxPriorityFeePerGas estimations and connectivityPercentile to set the highest threshold for bumping.
-	feeHistory, err := f.client.FeeHistory(ctx, f.config.BlockHistorySize, []float64{f.config.RewardPercentile, ConnectivityPercentile})
+	feeHistory, err := f.client.FeeHistory(ctx, max(f.config.BlockHistorySize, 1), []float64{f.config.RewardPercentile, ConnectivityPercentile})
 	if err != nil {
 		return fmt.Errorf("failed to fetch dynamic prices: %s", err)
 	}
@@ -246,12 +239,12 @@ func (f *FeeHistoryEstimator) RefreshDynamicPrice() error {
 	nextBaseFee := assets.NewWei(feeHistory.BaseFee[len(feeHistory.BaseFee)-1])
 	nextBlock := big.NewInt(0).Add(feeHistory.OldestBlock, big.NewInt(int64(f.config.BlockHistorySize)))
 
-	// If the network doesn't have a mempool then priority fees are set to 0 since they'll be ignored.
-	// If it does, then we exclude 0 priced priority fees, even though some networks allow them. For empty blocks, eth_feeHistory returns
-	// priority fees with 0 values so it's safer to discard them in order to pick values from a more representative sample.
+	// If BlockHistorySize is 0 it means priority fees will be ignored from the calculations, so we set them to 0.
+	// If it's not we exclude 0 priced priority fees from the RPC response, even though some networks allow them. For empty blocks, eth_feeHistory
+	// returns priority fees with 0 values so it's safer to discard them in order to pick values from a more representative sample.
 	maxPriorityFeePerGas := assets.NewWeiI(0)
 	priorityFeeThresholdWei := assets.NewWeiI(0)
-	if f.config.HasMempool {
+	if f.config.BlockHistorySize > 0 {
 		var nonZeroRewardsLen int64 = 0
 		priorityFee := big.NewInt(0)
 		priorityFeeThreshold := big.NewInt(0)
@@ -341,7 +334,7 @@ func (f *FeeHistoryEstimator) BumpLegacyGas(ctx context.Context, originalGasPric
 // It aggregates the market, bumped, and max price to provide a correct value, for both maxFeePerGas as well as maxPriorityFerPergas.
 func (f *FeeHistoryEstimator) BumpDynamicFee(ctx context.Context, originalFee DynamicFee, maxPrice *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, err error) {
 	// For chains that don't have a mempool there is no concept of gas bumping so we force-call FetchDynamicPrice to update the underlying base fee value
-	if !f.config.HasMempool {
+	if f.config.BlockHistorySize == 0 {
 		if err = f.RefreshDynamicPrice(); err != nil {
 			return
 		}
