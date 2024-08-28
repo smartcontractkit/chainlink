@@ -9,8 +9,9 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
 )

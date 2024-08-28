@@ -3,8 +3,9 @@ package zcluster
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
