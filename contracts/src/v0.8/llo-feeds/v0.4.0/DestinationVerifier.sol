@@ -8,7 +8,6 @@ import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/inter
 import {Common} from "../libraries/Common.sol";
 import {IAccessController} from "../../shared/interfaces/IAccessController.sol";
 import {IDestinationVerifierProxy} from "./interfaces/IDestinationVerifierProxy.sol";
-import {IDestinationFeeManager} from "./interfaces/IDestinationFeeManager.sol";
 import {IDestinationVerifierProxyVerifier} from "./interfaces/IDestinationVerifierProxyVerifier.sol";
 import {IDestinationVerifierFeeManager} from "./interfaces/IDestinationVerifierFeeManager.sol";
 
@@ -20,7 +19,12 @@ uint256 constant MAX_NUM_ORACLES = 31;
  * @author Michael Fletcher
  * @notice This contract will be used to verify reports based on the oracle signatures. This is not the source verifier which required individual fee configurations, instead, this checks that a report has been signed by one of the configured oracles.
  */
-contract DestinationVerifier is IDestinationVerifier, IDestinationVerifierProxyVerifier, ConfirmedOwner, TypeAndVersionInterface {
+contract DestinationVerifier is
+  IDestinationVerifier,
+  IDestinationVerifierProxyVerifier,
+  ConfirmedOwner,
+  TypeAndVersionInterface
+{
   /// @notice The list of DON configurations by hash(address|donConfigId) - set to true if the signer is part of the config
   mapping(bytes32 => bool) private s_signerByAddressAndDonConfigId;
 
@@ -148,7 +152,14 @@ contract DestinationVerifier is IDestinationVerifier, IDestinationVerifierProxyV
     address fm = s_feeManager;
     if (fm != address(0)) {
       //process the fee and catch the error
-      try IDestinationVerifierFeeManager(fm).processFee{value: msg.value}(donConfigId, signedReport, parameterPayload, sender) {
+      try
+        IDestinationVerifierFeeManager(fm).processFee{value: msg.value}(
+          donConfigId,
+          signedReport,
+          parameterPayload,
+          sender
+        )
+      {
         //do nothing
       } catch {
         // we purposefully obfuscate the error here to prevent information leaking leading to free verifications
@@ -178,7 +189,12 @@ contract DestinationVerifier is IDestinationVerifier, IDestinationVerifierProxyV
     if (fm != address(0)) {
       //process the fee and catch the error
       try
-      IDestinationVerifierFeeManager(fm).processFeeBulk{value: msg.value}(donConfigs, signedReports, parameterPayload, sender)
+        IDestinationVerifierFeeManager(fm).processFeeBulk{value: msg.value}(
+          donConfigs,
+          signedReports,
+          parameterPayload,
+          sender
+        )
       {
         //do nothing
       } catch {
@@ -315,7 +331,7 @@ contract DestinationVerifier is IDestinationVerifier, IDestinationVerifierProxyV
 
     // We may want to register these later or skip this step in the unlikely scenario they've previously been registered in the RewardsManager
     if (recipientAddressesAndWeights.length != 0) {
-      if(s_feeManager == address(0)) {
+      if (s_feeManager == address(0)) {
         revert FeeManagerInvalid();
       }
       IDestinationVerifierFeeManager(s_feeManager).setFeeRecipients(donConfigId, recipientAddressesAndWeights);
@@ -329,9 +345,8 @@ contract DestinationVerifier is IDestinationVerifier, IDestinationVerifierProxyV
 
   /// @inheritdoc IDestinationVerifier
   function setFeeManager(address feeManager) external override onlyOwner {
-    if (
-      !IERC165(feeManager).supportsInterface(type(IDestinationVerifierFeeManager).interfaceId)
-    ) revert FeeManagerInvalid();
+    if (!IERC165(feeManager).supportsInterface(type(IDestinationVerifierFeeManager).interfaceId))
+      revert FeeManagerInvalid();
 
     address oldFeeManager = s_feeManager;
     s_feeManager = feeManager;
@@ -416,7 +431,9 @@ contract DestinationVerifier is IDestinationVerifier, IDestinationVerifierProxyV
 
   /// @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
-    return interfaceId == type(IDestinationVerifier).interfaceId || interfaceId == type(IDestinationVerifierProxyVerifier).interfaceId;
+    return
+      interfaceId == type(IDestinationVerifier).interfaceId ||
+      interfaceId == type(IDestinationVerifierProxyVerifier).interfaceId;
   }
 
   /// @inheritdoc TypeAndVersionInterface

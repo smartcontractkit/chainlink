@@ -5,7 +5,6 @@ import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {IDestinationVerifierProxy} from "./interfaces/IDestinationVerifierProxy.sol";
-import {IDestinationVerifier} from "./interfaces/IDestinationVerifier.sol";
 import {IDestinationVerifierProxyVerifier} from "./interfaces/IDestinationVerifierProxyVerifier.sol";
 
 /**
@@ -46,9 +45,8 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
   /// @inheritdoc IDestinationVerifierProxy
   function setVerifier(address verifierAddress) external onlyOwner {
     //check it supports the functions we need
-    if (
-      !IERC165(verifierAddress).supportsInterface(type(IDestinationVerifierProxyVerifier).interfaceId)
-    ) revert VerifierInvalid(verifierAddress);
+    if (!IERC165(verifierAddress).supportsInterface(type(IDestinationVerifierProxyVerifier).interfaceId))
+      revert VerifierInvalid(verifierAddress);
 
     s_verifier = IDestinationVerifierProxyVerifier(verifierAddress);
   }

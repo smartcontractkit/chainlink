@@ -3,10 +3,8 @@ pragma solidity 0.8.19;
 
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {Common} from "../../libraries/Common.sol";
-import {IDestinationFeeManager} from "./IDestinationFeeManager.sol";
 
 interface IDestinationVerifierFeeManager is IERC165 {
-
   /**
    * @notice Handles fees for a report from the subscriber and manages rewards
    * @param poolId pool id of the pool to pay into

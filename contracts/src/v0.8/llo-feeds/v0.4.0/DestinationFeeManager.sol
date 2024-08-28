@@ -19,7 +19,12 @@ import {IDestinationVerifierFeeManager} from "./interfaces/IDestinationVerifierF
  * @author Austin Born
  * @notice This contract is used for the handling of fees required for users verifying reports.
  */
-contract DestinationFeeManager is IDestinationFeeManager, IDestinationVerifierFeeManager, ConfirmedOwner, TypeAndVersionInterface {
+contract DestinationFeeManager is
+  IDestinationFeeManager,
+  IDestinationVerifierFeeManager,
+  ConfirmedOwner,
+  TypeAndVersionInterface
+{
   using SafeERC20 for IERC20;
 
   /// @notice list of subscribers and their discounts subscriberDiscounts[subscriber][feedId][token]
@@ -166,7 +171,9 @@ contract DestinationFeeManager is IDestinationFeeManager, IDestinationVerifierFe
 
   /// @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-    return interfaceId == type(IDestinationFeeManager).interfaceId || interfaceId == type(IDestinationVerifierFeeManager).interfaceId;
+    return
+      interfaceId == type(IDestinationFeeManager).interfaceId ||
+      interfaceId == type(IDestinationVerifierFeeManager).interfaceId;
   }
 
   /// @inheritdoc IDestinationVerifierFeeManager
@@ -353,11 +360,7 @@ contract DestinationFeeManager is IDestinationFeeManager, IDestinationVerifierFe
     emit SubscriberDiscountUpdated(subscriber, feedId, token, discount);
   }
 
-  function updateSubscriberGlobalDiscount(
-    address subscriber,
-    address token,
-    uint64 discount
-  ) external onlyOwner {
+  function updateSubscriberGlobalDiscount(address subscriber, address token, uint64 discount) external onlyOwner {
     //make sure the discount is not greater than the total discount that can be applied
     if (discount > PERCENTAGE_SCALAR) revert InvalidDiscount();
     //make sure the token is either LINK or native

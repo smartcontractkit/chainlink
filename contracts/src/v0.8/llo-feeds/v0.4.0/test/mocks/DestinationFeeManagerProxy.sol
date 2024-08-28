@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {IDestinationFeeManager} from "../../interfaces/IDestinationFeeManager.sol";
 import {IDestinationVerifierFeeManager} from "../../interfaces/IDestinationVerifierFeeManager.sol";
 
 contract DestinationFeeManagerProxy {

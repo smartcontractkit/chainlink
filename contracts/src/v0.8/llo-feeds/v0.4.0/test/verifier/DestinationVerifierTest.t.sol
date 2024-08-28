@@ -27,9 +27,8 @@ contract DestinationVerifierConstructorTest is BaseTest {
   }
 
   function test_trueIfIsCorrectInterface() public view {
-    bool isInterface = s_verifier.supportsInterface(type(IDestinationVerifier).interfaceId) && s_verifier.supportsInterface(type(IDestinationVerifierProxyVerifier).interfaceId);
+    bool isInterface = s_verifier.supportsInterface(type(IDestinationVerifier).interfaceId) &&
+      s_verifier.supportsInterface(type(IDestinationVerifierProxyVerifier).interfaceId);
     assertEq(isInterface, true);
   }
-
-
 }
