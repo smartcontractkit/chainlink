@@ -64,26 +64,6 @@ var ErrTxRemoved = errors.New("tx removed")
 
 type ProcessUnstartedTxs[ADDR types.Hashable] func(ctx context.Context, fromAddress ADDR) (retryable bool, err error)
 
-type saveTryAgainAttemptParams[
-	CHAIN_ID types.ID,
-	HEAD types.Head[BLOCK_HASH],
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
-	FEE feetypes.Fee,
-] struct {
-	etx                txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	attempt            txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	replacementAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	initialBroadcastAt time.Time
-	newFee             FEE
-	newFeeLimit        uint64
-	retry              int
-	txError            error
-	errType            client.SendTxReturnCode
-}
-
 // TransmitCheckerFactory creates a transmit checker based on a spec.
 type TransmitCheckerFactory[
 	CHAIN_ID types.ID,
@@ -717,18 +697,8 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryA
 	if err != nil {
 		return fmt.Errorf("tryAgainBumpFee failed: %w", err), retryable
 	}
-	params := saveTryAgainAttemptParams[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{
-		etx:                etx,
-		attempt:            attempt,
-		replacementAttempt: replacementAttempt,
-		initialBroadcastAt: initialBroadcastAt,
-		newFee:             bumpedFee,
-		newFeeLimit:        bumpedFeeLimit,
-		retry:              0,
-		txError:            txError,
-		errType:            errType,
-	}
-	return eb.saveTryAgainAttempt(ctx, lgr, params)
+
+	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, bumpedFee, bumpedFeeLimit, retry, txError, errType)
 }
 
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryAgainWithNewEstimation(ctx context.Context, lgr logger.Logger, txError error, errType client.SendTxReturnCode, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time) (err error, retryable bool) {
@@ -739,32 +709,21 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryA
 	lgr.Warnw("L2 rejected transaction due to incorrect fee, re-estimated and will try again",
 		"etxID", etx.ID, "err", err, "newGasPrice", fee, "newGasLimit", feeLimit)
 
-	params := saveTryAgainAttemptParams[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{
-		etx:                etx,
-		attempt:            attempt,
-		replacementAttempt: replacementAttempt,
-		initialBroadcastAt: initialBroadcastAt,
-		newFee:             fee,
-		newFeeLimit:        feeLimit,
-		retry:              0,
-		txError:            txError,
-		errType:            errType,
-	}
-	return eb.saveTryAgainAttempt(ctx, lgr, params)
+	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, fee, feeLimit, 0, txError, errType)
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveTryAgainAttempt(ctx context.Context, lgr logger.Logger, param saveTryAgainAttemptParams[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (err error, retryable bool) {
-	if err = eb.txStore.SaveReplacementInProgressAttempt(ctx, param.attempt, &param.replacementAttempt); err != nil {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveTryAgainAttempt(ctx context.Context, lgr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], replacementAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time, newFee FEE, newFeeLimit uint64, retry int, txError error, errType client.SendTxReturnCode) (err error, retryable bool) {
+	if err = eb.txStore.SaveReplacementInProgressAttempt(ctx, attempt, &replacementAttempt); err != nil {
 		return fmt.Errorf("tryAgainWithNewFee failed: %w", err), true
 	}
-	lgr.Debugw("Bumped fee on initial send", "oldFee", param.attempt.TxFee.String(), "newFee", param.newFee.String(), "newFeeLimit", param.newFeeLimit)
+	lgr.Debugw("Bumped fee on initial send", "oldFee", attempt.TxFee.String(), "newFee", newFee.String(), "newFeeLimit", newFeeLimit)
 
 	// this avoids re-estimated insufficient fund tx gets processed immediately, we want to back off the tx when gas spikes
-	if param.errType == client.InsufficientFunds {
-		return param.txError, true
+	if errType == client.InsufficientFunds {
+		return txError, true
 	}
 
-	return eb.handleInProgressTx(ctx, param.etx, param.replacementAttempt, param.initialBroadcastAt, param.retry)
+	return eb.handleInProgressTx(ctx, etx, replacementAttempt, initialBroadcastAt, retry)
 }
 
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveFatallyErroredTransaction(lgr logger.Logger, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
