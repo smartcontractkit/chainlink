@@ -209,20 +209,20 @@ contract ZKSyncSequencerUptimeFeed is
 
   /// @inheritdoc AggregatorInterface
   function getAnswer(uint256 roundId) external view override checkAccess returns (int256) {
-    if (_isValidRound(roundId)) {
-      return _getStatusAnswer(s_rounds[uint80(roundId)].status);
+    if (!_isValidRound(roundId)) {
+      revert NoDataPresent();
     }
 
-    revert NoDataPresent();
+    return _getStatusAnswer(s_rounds[uint80(roundId)].status);
   }
 
   /// @inheritdoc AggregatorInterface
   function getTimestamp(uint256 roundId) external view override checkAccess returns (uint256) {
-    if (_isValidRound(roundId)) {
-      return s_rounds[uint80(roundId)].startedAt;
+    if (!_isValidRound(roundId)) {
+      revert NoDataPresent();
     }
 
-    revert NoDataPresent();
+    return s_rounds[uint80(roundId)].startedAt;
   }
 
   /// @inheritdoc AggregatorV3Interface
