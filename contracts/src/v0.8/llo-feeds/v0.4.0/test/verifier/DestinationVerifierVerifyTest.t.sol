@@ -313,6 +313,7 @@ contract VerifierVerifyTest is BaseTest {
     address[] memory signersAddrSubset1 = _getSignerAddresses(signersSubset1);
     // Config1
     s_verifier.setConfig(signersAddrSubset1, MINIMAL_FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
+    vm.warp(block.timestamp + 1);
 
     BaseTest.Signer[] memory signersSubset2 = new BaseTest.Signer[](7);
     signersSubset2[0] = signers[7];
@@ -326,6 +327,7 @@ contract VerifierVerifyTest is BaseTest {
     address[] memory signersAddrSubset2 = _getSignerAddresses(signersSubset2);
     // Config2
     s_verifier.setConfig(signersAddrSubset2, MINIMAL_FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
+    vm.warp(block.timestamp + 1);
 
     BaseTest.Signer[] memory signersSubset3 = new BaseTest.Signer[](7);
     signersSubset3[0] = signers[30];
@@ -339,6 +341,7 @@ contract VerifierVerifyTest is BaseTest {
     address[] memory signersAddrSubset3 = _getSignerAddresses(signersSubset3);
     // Config3
     s_verifier.setConfig(signersAddrSubset3, MINIMAL_FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
+    vm.warp(block.timestamp + 1);
 
     V3Report memory report = V3Report({
       feedId: FEED_ID_V3,
