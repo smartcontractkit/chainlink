@@ -93,7 +93,7 @@ func TestStreamsTrigger(t *testing.T) {
 	subscriber := remote.NewTriggerSubscriber(config, capInfo, capDonInfo, capabilities.DON{}, nil, agg, lggr)
 
 	// register trigger
-	req := capabilities.CapabilityRequest{
+	req := capabilities.TriggerRegistrationRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID: workflowID,
 		},
@@ -131,7 +131,7 @@ func TestStreamsTrigger(t *testing.T) {
 		}
 
 		response := <-triggerEventCallbackCh
-		validateLatestReports(t, response.Value, P, basePrice+R-1, baseTimestamp+R-1)
+		validateLatestReports(t, response.Event.Outputs, P, basePrice+R-1, baseTimestamp+R-1)
 	}
 	totalTime := time.Now().UnixMilli() - startTs
 	lggr.Infow("elapsed", "totalMs", totalTime, "processingMs", processingTime)
@@ -180,24 +180,20 @@ func newFeedsWithSignedReports(t *testing.T, nodes []node, N, P, R int) []feed {
 }
 
 func newTriggerEvent(t *testing.T, reportList []datastreams.FeedReport, triggerEventID string, sender ragetypes.PeerID) *remotetypes.MessageBody {
-	val, err := values.Wrap(reportList)
+	outputs, err := values.WrapMap(&datastreams.StreamsTriggerEvent{
+		Timestamp: 10,
+		Payload:   reportList,
+	})
 	require.NoError(t, err)
 
 	triggerEvent := capabilities.TriggerEvent{
 		TriggerType: triggerID,
 		ID:          triggerEventID,
-		Timestamp:   strconv.FormatInt(1000, 10),
-		Metadata:    nil,
-		Payload:     val,
+		Outputs:     outputs,
 	}
 
-	eventVal, err := values.WrapMap(triggerEvent)
-	require.NoError(t, err)
+	marshaled, err := pb.MarshalTriggerResponse(capabilities.TriggerResponse{Event: triggerEvent})
 
-	marshaled, err := pb.MarshalCapabilityResponse(
-		capabilities.CapabilityResponse{
-			Value: eventVal,
-		})
 	require.NoError(t, err)
 	msg := &remotetypes.MessageBody{
 		Sender: sender[:],
@@ -214,13 +210,11 @@ func newTriggerEvent(t *testing.T, reportList []datastreams.FeedReport, triggerE
 }
 
 func validateLatestReports(t *testing.T, wrapped values.Value, expectedFeedsLen int, expectedPrice int, expectedTimestamp int) {
-	triggerEvent := capabilities.TriggerEvent{}
+	triggerEvent := datastreams.StreamsTriggerEvent{}
 	require.NoError(t, wrapped.UnwrapTo(&triggerEvent))
-	reports := []datastreams.FeedReport{}
-	require.NoError(t, triggerEvent.Payload.UnwrapTo(&reports))
-	require.Equal(t, expectedFeedsLen, len(reports))
+	require.Equal(t, expectedFeedsLen, len(triggerEvent.Payload))
 	priceBig := big.NewInt(int64(expectedPrice))
-	for _, report := range reports {
+	for _, report := range triggerEvent.Payload {
 		require.Equal(t, priceBig.Bytes(), report.BenchmarkPrice)
 		require.Equal(t, int64(expectedTimestamp), report.ObservationTimestamp)
 	}
