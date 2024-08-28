@@ -30,7 +30,7 @@ contract OnRamp_constructor is OnRampSetup {
     vm.expectEmit();
     emit OnRamp.ConfigSet(staticConfig, dynamicConfig);
     vm.expectEmit();
-    emit OnRamp.DestChainConfigSet(DEST_CHAIN_SELECTOR, OnRamp.DestChainConfig(0, s_sourceRouter));
+    emit OnRamp.DestChainConfigSet(DEST_CHAIN_SELECTOR, 0, s_sourceRouter, false);
 
     _deployOnRamp(SOURCE_CHAIN_SELECTOR, s_sourceRouter, address(s_outboundNonceManager), address(s_tokenAdminRegistry));
 
@@ -116,6 +116,20 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     address[] memory feeTokens = new address[](1);
     feeTokens[0] = s_sourceTokens[1];
     s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
+
+    uint64[] memory destinationChainSelectors = new uint64[](1);
+    destinationChainSelectors[0] = DEST_CHAIN_SELECTOR;
+    address[] memory addAllowedList = new address[](1);
+    addAllowedList[0] = OWNER;
+    OnRamp.AllowListConfigArgs memory allowListConfigArgs = OnRamp.AllowListConfigArgs({
+      allowListEnabled: true,
+      destChainSelector: DEST_CHAIN_SELECTOR,
+      addedAllowlistedSenders: addAllowedList,
+      removedAllowlistedSenders: new address[](0)
+    });
+    OnRamp.AllowListConfigArgs[] memory applyAllowListConfigArgsItems = new OnRamp.AllowListConfigArgs[](1);
+    applyAllowListConfigArgsItems[0] = allowListConfigArgs;
+    s_onRamp.applyAllowListUpdates(applyAllowListConfigArgsItems);
 
     // Since we'll mostly be testing for valid calls from the router we'll
     // mock all calls to be originating from the router and re-mock in
@@ -308,6 +322,25 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     vm.assume(originalSender != address(0));
     vm.assume(uint160(receiver) >= Internal.PRECOMPILE_SPACE);
     feeTokenAmount = uint96(bound(feeTokenAmount, 0, MAX_MSG_FEES_JUELS));
+    vm.stopPrank();
+
+    vm.startPrank(OWNER);
+    uint64[] memory destinationChainSelectors = new uint64[](1);
+    destinationChainSelectors[0] = uint64(DEST_CHAIN_SELECTOR);
+    address[] memory addAllowedList = new address[](1);
+    addAllowedList[0] = originalSender;
+    OnRamp.AllowListConfigArgs memory allowListConfigArgs = OnRamp.AllowListConfigArgs({
+      allowListEnabled: true,
+      destChainSelector: DEST_CHAIN_SELECTOR,
+      addedAllowlistedSenders: addAllowedList,
+      removedAllowlistedSenders: new address[](0)
+    });
+    OnRamp.AllowListConfigArgs[] memory applyAllowListConfigArgsItems = new OnRamp.AllowListConfigArgs[](1);
+    applyAllowListConfigArgsItems[0] = allowListConfigArgs;
+    s_onRamp.applyAllowListUpdates(applyAllowListConfigArgsItems);
+    vm.stopPrank();
+
+    vm.startPrank(address(s_sourceRouter));
 
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.receiver = abi.encode(receiver);
@@ -379,6 +412,13 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), 0, address(0));
   }
 
+  function test_UnAllowedOriginalSender_Revert() public {
+    vm.stopPrank();
+    vm.startPrank(STRANGER);
+    vm.expectRevert(abi.encodeWithSelector(OnRamp.SenderNotAllowed.selector, STRANGER));
+    s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), 0, STRANGER);
+  }
+
   function test_MessageValidationError_Revert() public {
     _enableOutboundMessageValidator();
 
@@ -398,13 +438,13 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
 
-  function test_CannotSendZeroTokens_Revert() public {
+  function test_MultiCannotSendZeroTokens_Revert() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.tokenAmounts = new Client.EVMTokenAmount[](1);
     message.tokenAmounts[0].amount = 0;
     message.tokenAmounts[0].token = s_sourceTokens[0];
     vm.expectRevert(OnRamp.CannotSendZeroTokens.selector);
-    s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, STRANGER);
+    s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
   }
 
   function test_UnsupportedToken_Revert() public {
@@ -602,7 +642,8 @@ contract OnRamp_setDynamicConfig is OnRampSetup {
     OnRamp.DynamicConfig memory newConfig = OnRamp.DynamicConfig({
       feeQuoter: address(23423),
       messageValidator: makeAddr("messageValidator"),
-      feeAggregator: FEE_AGGREGATOR
+      feeAggregator: FEE_AGGREGATOR,
+      allowListAdmin: address(0)
     });
 
     vm.expectEmit();
@@ -620,7 +661,8 @@ contract OnRamp_setDynamicConfig is OnRampSetup {
     OnRamp.DynamicConfig memory newConfig = OnRamp.DynamicConfig({
       feeQuoter: address(0),
       feeAggregator: FEE_AGGREGATOR,
-      messageValidator: makeAddr("messageValidator")
+      messageValidator: makeAddr("messageValidator"),
+      allowListAdmin: address(0)
     });
 
     vm.expectRevert(OnRamp.InvalidConfig.selector);
@@ -628,8 +670,12 @@ contract OnRamp_setDynamicConfig is OnRampSetup {
   }
 
   function test_SetConfigInvalidConfig_Revert() public {
-    OnRamp.DynamicConfig memory newConfig =
-      OnRamp.DynamicConfig({feeQuoter: address(23423), messageValidator: address(0), feeAggregator: FEE_AGGREGATOR});
+    OnRamp.DynamicConfig memory newConfig = OnRamp.DynamicConfig({
+      feeQuoter: address(23423),
+      messageValidator: address(0),
+      feeAggregator: FEE_AGGREGATOR,
+      allowListAdmin: address(0)
+    });
 
     // Invalid price reg reverts.
     newConfig.feeQuoter = address(0);
@@ -638,8 +684,13 @@ contract OnRamp_setDynamicConfig is OnRampSetup {
   }
 
   function test_SetConfigInvalidConfigFeeAggregatorEqAddressZero_Revert() public {
-    OnRamp.DynamicConfig memory newConfig =
-      OnRamp.DynamicConfig({feeQuoter: address(23423), messageValidator: address(0), feeAggregator: address(0)});
+    OnRamp.DynamicConfig memory newConfig = OnRamp.DynamicConfig({
+      feeQuoter: address(23423),
+      messageValidator: address(0),
+      feeAggregator: address(0),
+      allowListAdmin: address(0)
+    });
+
     vm.expectRevert(OnRamp.InvalidConfig.selector);
     s_onRamp.setDynamicConfig(newConfig);
   }
@@ -740,7 +791,7 @@ contract OnRamp_applyDestChainConfigUpdates is OnRampSetup {
 
     // supports disabling a lane by setting a router to zero
     vm.expectEmit();
-    emit OnRamp.DestChainConfigSet(DEST_CHAIN_SELECTOR, OnRamp.DestChainConfig(0, IRouter(address(0))));
+    emit OnRamp.DestChainConfigSet(DEST_CHAIN_SELECTOR, 0, IRouter(address(0)), false);
     s_onRamp.applyDestChainConfigUpdates(configArgs);
     assertEq(address(0), address(s_onRamp.getRouter(DEST_CHAIN_SELECTOR)));
 
@@ -749,9 +800,9 @@ contract OnRamp_applyDestChainConfigUpdates is OnRampSetup {
     configArgs[0] = OnRamp.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, router: s_sourceRouter});
     configArgs[1] = OnRamp.DestChainConfigArgs({destChainSelector: 9999, router: IRouter(address(9999))});
     vm.expectEmit();
-    emit OnRamp.DestChainConfigSet(DEST_CHAIN_SELECTOR, OnRamp.DestChainConfig(0, s_sourceRouter));
+    emit OnRamp.DestChainConfigSet(DEST_CHAIN_SELECTOR, 0, s_sourceRouter, false);
     vm.expectEmit();
-    emit OnRamp.DestChainConfigSet(9999, OnRamp.DestChainConfig(0, IRouter(address(9999))));
+    emit OnRamp.DestChainConfigSet(9999, 0, IRouter(address(9999)), false);
     s_onRamp.applyDestChainConfigUpdates(configArgs);
     assertEq(address(s_sourceRouter), address(s_onRamp.getRouter(DEST_CHAIN_SELECTOR)));
     assertEq(address(9999), address(s_onRamp.getRouter(9999)));
@@ -763,12 +814,150 @@ contract OnRamp_applyDestChainConfigUpdates is OnRampSetup {
     assertEq(numLogs, vm.getRecordedLogs().length); // indicates no changes made
   }
 
-  function test_ApplyDestChainConfigUpdates_WithInalidChainSelector_Revert() external {
+  function test_ApplyDestChainConfigUpdates_WithInvalidChainSelector_Revert() external {
     vm.stopPrank();
     vm.startPrank(OWNER);
     OnRamp.DestChainConfigArgs[] memory configArgs = new OnRamp.DestChainConfigArgs[](1);
     configArgs[0].destChainSelector = 0; // invalid
     vm.expectRevert(abi.encodeWithSelector(OnRamp.InvalidDestChainConfig.selector, 0));
     s_onRamp.applyDestChainConfigUpdates(configArgs);
+  }
+}
+
+contract OnRamp_allowListConfigUpdates is OnRampSetup {
+  function test_applyAllowList_Success() public {
+    vm.stopPrank();
+    vm.startPrank(OWNER);
+
+    OnRamp.DestChainConfigArgs[] memory configArgs = new OnRamp.DestChainConfigArgs[](2);
+    configArgs[0] = OnRamp.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, router: s_sourceRouter});
+    configArgs[1] = OnRamp.DestChainConfigArgs({destChainSelector: 9999, router: IRouter(address(9999))});
+    vm.expectEmit();
+    emit OnRamp.DestChainConfigSet(DEST_CHAIN_SELECTOR, 0, s_sourceRouter, false);
+    vm.expectEmit();
+    emit OnRamp.DestChainConfigSet(9999, 0, IRouter(address(9999)), false);
+    s_onRamp.applyDestChainConfigUpdates(configArgs);
+
+    (uint64 sequenceNumber, bool allowListEnabled, address router) = s_onRamp.getDestChainConfig(9999);
+    assertEq(sequenceNumber, 0);
+    assertEq(allowListEnabled, false);
+    assertEq(router, address(9999));
+
+    uint64[] memory destinationChainSelectors = new uint64[](2);
+    destinationChainSelectors[0] = DEST_CHAIN_SELECTOR;
+    destinationChainSelectors[1] = uint64(99999);
+
+    address[] memory addedAllowlistedSenders = new address[](4);
+    addedAllowlistedSenders[0] = vm.addr(1);
+    addedAllowlistedSenders[1] = vm.addr(2);
+    addedAllowlistedSenders[2] = vm.addr(3);
+    addedAllowlistedSenders[3] = vm.addr(4);
+
+    vm.expectEmit();
+    emit OnRamp.AllowListSendersAdded(DEST_CHAIN_SELECTOR, addedAllowlistedSenders);
+
+    OnRamp.AllowListConfigArgs memory allowListConfigArgs = OnRamp.AllowListConfigArgs({
+      allowListEnabled: true,
+      destChainSelector: DEST_CHAIN_SELECTOR,
+      addedAllowlistedSenders: addedAllowlistedSenders,
+      removedAllowlistedSenders: new address[](0)
+    });
+
+    OnRamp.AllowListConfigArgs[] memory applyAllowListConfigArgsItems = new OnRamp.AllowListConfigArgs[](1);
+    applyAllowListConfigArgsItems[0] = allowListConfigArgs;
+
+    s_onRamp.applyAllowListUpdates(applyAllowListConfigArgsItems);
+    assertEq(4, s_onRamp.getAllowedSendersList(DEST_CHAIN_SELECTOR).length);
+
+    assertEq(addedAllowlistedSenders, s_onRamp.getAllowedSendersList(DEST_CHAIN_SELECTOR));
+
+    address[] memory removedAllowlistedSenders = new address[](1);
+    removedAllowlistedSenders[0] = vm.addr(2);
+
+    vm.expectEmit();
+    emit OnRamp.AllowListSendersRemoved(DEST_CHAIN_SELECTOR, removedAllowlistedSenders);
+
+    allowListConfigArgs = OnRamp.AllowListConfigArgs({
+      allowListEnabled: true,
+      destChainSelector: DEST_CHAIN_SELECTOR,
+      addedAllowlistedSenders: new address[](0),
+      removedAllowlistedSenders: removedAllowlistedSenders
+    });
+
+    OnRamp.AllowListConfigArgs[] memory allowListConfigArgsItems_2 = new OnRamp.AllowListConfigArgs[](1);
+    allowListConfigArgsItems_2[0] = allowListConfigArgs;
+
+    s_onRamp.applyAllowListUpdates(allowListConfigArgsItems_2);
+    assertEq(3, s_onRamp.getAllowedSendersList(DEST_CHAIN_SELECTOR).length);
+
+    addedAllowlistedSenders = new address[](2);
+    addedAllowlistedSenders[0] = vm.addr(5);
+    addedAllowlistedSenders[1] = vm.addr(6);
+
+    removedAllowlistedSenders = new address[](2);
+    removedAllowlistedSenders[0] = vm.addr(1);
+    removedAllowlistedSenders[1] = vm.addr(3);
+
+    vm.expectEmit();
+    emit OnRamp.AllowListSendersAdded(DEST_CHAIN_SELECTOR, addedAllowlistedSenders);
+    emit OnRamp.AllowListSendersRemoved(DEST_CHAIN_SELECTOR, removedAllowlistedSenders);
+
+    allowListConfigArgs = OnRamp.AllowListConfigArgs({
+      allowListEnabled: true,
+      destChainSelector: DEST_CHAIN_SELECTOR,
+      addedAllowlistedSenders: addedAllowlistedSenders,
+      removedAllowlistedSenders: removedAllowlistedSenders
+    });
+
+    OnRamp.AllowListConfigArgs[] memory allowListConfigArgsItems_3 = new OnRamp.AllowListConfigArgs[](1);
+    allowListConfigArgsItems_3[0] = allowListConfigArgs;
+
+    s_onRamp.applyAllowListUpdates(allowListConfigArgsItems_3);
+    assertEq(3, s_onRamp.getAllowedSendersList(DEST_CHAIN_SELECTOR).length);
+  }
+
+  function test_applyAllowList_Revert() public {
+    vm.stopPrank();
+    vm.startPrank(OWNER);
+
+    OnRamp.DestChainConfigArgs[] memory configArgs = new OnRamp.DestChainConfigArgs[](2);
+    configArgs[0] = OnRamp.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, router: s_sourceRouter});
+    configArgs[1] = OnRamp.DestChainConfigArgs({destChainSelector: 9999, router: IRouter(address(9999))});
+    vm.expectEmit();
+    emit OnRamp.DestChainConfigSet(DEST_CHAIN_SELECTOR, 0, s_sourceRouter, false);
+    vm.expectEmit();
+    emit OnRamp.DestChainConfigSet(9999, 0, IRouter(address(9999)), false);
+    s_onRamp.applyDestChainConfigUpdates(configArgs);
+
+    uint64[] memory destinationChainSelectors = new uint64[](2);
+    destinationChainSelectors[0] = DEST_CHAIN_SELECTOR;
+    destinationChainSelectors[1] = uint64(99999);
+
+    address[] memory addedAllowlistedSenders = new address[](4);
+    addedAllowlistedSenders[0] = vm.addr(1);
+    addedAllowlistedSenders[1] = vm.addr(2);
+    addedAllowlistedSenders[2] = vm.addr(3);
+    addedAllowlistedSenders[3] = vm.addr(4);
+
+    OnRamp.AllowListConfigArgs memory allowListConfigArgs = OnRamp.AllowListConfigArgs({
+      allowListEnabled: true,
+      destChainSelector: DEST_CHAIN_SELECTOR,
+      addedAllowlistedSenders: addedAllowlistedSenders,
+      removedAllowlistedSenders: new address[](0)
+    });
+
+    OnRamp.AllowListConfigArgs[] memory applyAllowListConfigArgsItems = new OnRamp.AllowListConfigArgs[](1);
+    applyAllowListConfigArgsItems[0] = allowListConfigArgs;
+
+    vm.startPrank(STRANGER);
+    vm.expectRevert(OnRamp.OnlyCallableByOwnerOrAllowlistAdmin.selector);
+    s_onRamp.applyAllowListUpdates(applyAllowListConfigArgsItems);
+    vm.stopPrank();
+
+    applyAllowListConfigArgsItems[0].addedAllowlistedSenders[0] = address(0);
+    vm.expectRevert(abi.encodeWithSelector(OnRamp.InvalidAllowListRequest.selector, DEST_CHAIN_SELECTOR));
+    vm.startPrank(OWNER);
+    s_onRamp.applyAllowListUpdates(applyAllowListConfigArgsItems);
+    vm.stopPrank();
   }
 }

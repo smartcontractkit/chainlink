@@ -85,7 +85,12 @@ contract OnRampSetup is FeeQuoterFeeSetup {
   }
 
   function _generateDynamicOnRampConfig(address feeQuoter) internal pure returns (OnRamp.DynamicConfig memory) {
-    return OnRamp.DynamicConfig({feeQuoter: feeQuoter, messageValidator: address(0), feeAggregator: FEE_AGGREGATOR});
+    return OnRamp.DynamicConfig({
+      feeQuoter: feeQuoter,
+      messageValidator: address(0),
+      feeAggregator: FEE_AGGREGATOR,
+      allowListAdmin: address(0)
+    });
   }
 
   // Slicing is only available for calldata. So we have to build a new bytes array.
