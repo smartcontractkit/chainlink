@@ -568,11 +568,13 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		// combined with a high gas limit. Regardless of the cause, we need to obtain a new estimate,
 		// replace the current attempt, and retry after the backoff duration.
 		// The new attempt must be replaced immediately because of a database constraint.
-		eb.SvcErrBuffer.Append(err)
 		_, newErr, retryable := eb.replaceAttemptWithNewEstimation(ctx, lgr, etx, attempt)
 		if newErr != nil {
+			eb.SvcErrBuffer.Append(fmt.Errorf("%v, %v, retryable: %v", err, newErr, retryable))
 			return newErr, retryable
 		}
+
+		eb.SvcErrBuffer.Append(fmt.Errorf("%v, retryable: %v", err, retryable))
 		return err, retryable
 	case client.Retryable:
 		return err, true
