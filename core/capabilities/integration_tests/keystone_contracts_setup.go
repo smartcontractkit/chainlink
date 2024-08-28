@@ -309,10 +309,10 @@ func setupConsumerContract(t *testing.T, transactOpts *bind.TransactOpts, backen
 	permission := feeds_consumer.KeystoneFeedsPermissionHandlerPermission{
 		IsAllowed:     true,
 		Forwarder:     forwarderAddress,
-		ReportName:    [2]byte(nameBytes[:2]),
 		WorkflowName:  nameBytes,
 		WorkflowOwner: ownerAddr,
 	}
+
 	permissions := []feeds_consumer.KeystoneFeedsPermissionHandlerPermission{permission}
 	_, err = consumer.SetReportPermissions(transactOpts, permissions)
 	require.NoError(t, err)
