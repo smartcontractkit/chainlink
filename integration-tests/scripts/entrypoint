@@ -16,7 +16,9 @@ cd "$SCRIPT_DIR"/../ || exit 1
 
 # run the tests
 if [ "${SUITE}" = "ccip-load" ]; then
-  ./ccip-tests/load.test -test.v -test.count 1 ${ARGS} -test.run ^${TEST_NAME}$
+  pwd
+  ls
+  ./load.test -test.v -test.count 1 ${ARGS} -test.run ^${TEST_NAME}$
 else
   ./${SUITE}.test -test.v -test.count 1 ${ARGS} -test.run ^${TEST_NAME}$
 fi
