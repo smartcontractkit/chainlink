@@ -560,12 +560,10 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	case client.Underpriced:
 		return eb.tryAgainBumpingGas(ctx, lgr, err, errType, etx, attempt, initialBroadcastAt, retryCount+1)
 	case client.InsufficientFunds:
-		// NOTE:
-		// This can potentially happen during gas spike.
-		// We want to re-estimate the tx, and save the replaced attempt,
-		// and process it after the back off duration.
-		// This is done by tryAgainWithNewEstimation return retryable after saved the tx attempt,
-		// instead of calling handleInProgressTx() again
+		// NOTE: This can occur due to either insufficient funds or a gas spike
+		// combined with a high gas limit. Regardless of the cause, we need to obtain a new estimate,
+		// replace the current attempt, and retry after the backoff duration.
+		// The new attempt must be replaced immediately because of a database constraint.
 		eb.SvcErrBuffer.Append(err)
 		return eb.tryAgainWithNewEstimation(ctx, lgr, err, errType, etx, attempt, initialBroadcastAt)
 	case client.Retryable:
