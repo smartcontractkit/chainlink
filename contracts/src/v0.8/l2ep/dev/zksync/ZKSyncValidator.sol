@@ -60,13 +60,6 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
   }
 
   ///
-  /// @notice versions:
-  ///
-  /// - ZKSyncValidator 0.1.0: initial release
-  /// - ZKSyncValidator 1.0.0: change target of L2 sequencer status update
-  ///   - now calls `updateStatus` on an L2 ZKSyncSequencerUptimeFeedInterface contract instead of
-  ///     directly calling the Flags contract
-  ///
   /// @inheritdoc TypeAndVersionInterface
   ///
   function typeAndVersion() external pure virtual override returns (string memory) {
