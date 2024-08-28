@@ -146,11 +146,11 @@ func (f *FeeHistoryEstimator) run() {
 			return
 		case <-t.C:
 			if f.config.EIP1559 {
-				if _, err := f.FetchDynamicPrice(); err != nil {
+				if err := f.RefreshDynamicPrice(); err != nil {
 					f.logger.Error(err)
 				}
 			} else {
-				if _, err := f.FetchGasPrice(); err != nil {
+				if err := f.RefreshGasPrice(); err != nil {
 					f.logger.Error(err)
 				}
 			}
@@ -172,14 +172,14 @@ func (f *FeeHistoryEstimator) GetLegacyGas(ctx context.Context, _ []byte, gasLim
 	return
 }
 
-// FetchGasPrice will use eth_gasPrice to fetch and cache the latest gas price from the RPC.
-func (f *FeeHistoryEstimator) FetchGasPrice() (*assets.Wei, error) {
+// RefreshGasPrice will use eth_gasPrice to fetch and cache the latest gas price from the RPC.
+func (f *FeeHistoryEstimator) RefreshGasPrice() error {
 	ctx, cancel := f.stopCh.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
 	gasPrice, err := f.client.SuggestGasPrice(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch gas price: %s", err)
+		return fmt.Errorf("failed to fetch gas price: %s", err)
 	}
 
 	promFeeHistoryEstimatorGasPrice.WithLabelValues(f.chainID.String()).Set(float64(gasPrice.Int64()))
@@ -191,7 +191,7 @@ func (f *FeeHistoryEstimator) FetchGasPrice() (*assets.Wei, error) {
 	f.gasPriceMu.Lock()
 	defer f.gasPriceMu.Unlock()
 	f.gasPrice = gasPriceWei
-	return f.gasPrice, nil
+	return nil
 }
 
 func (f *FeeHistoryEstimator) getGasPrice() (*assets.Wei, error) {
@@ -223,59 +223,79 @@ func (f *FeeHistoryEstimator) GetDynamicFee(ctx context.Context, maxPrice *asset
 	return
 }
 
-// FetchDynamicPrice uses eth_feeHistory to fetch the baseFee of the next block and the Nth maxPriorityFeePerGas percentiles
+// RefreshDynamicPrice uses eth_feeHistory to fetch the baseFee of the next block and the Nth maxPriorityFeePerGas percentiles
 // of the past X blocks. It also fetches the highest 85th maxPriorityFeePerGas percentile of the past X blocks, which represents
 // the highest percentile we're willing to pay. A buffer is added on top of the latest baseFee to catch fluctuations in the next
 // blocks. On Ethereum the increase is baseFee * 1.125 per block, however in some chains that may vary.
-func (f *FeeHistoryEstimator) FetchDynamicPrice() (fee DynamicFee, err error) {
+func (f *FeeHistoryEstimator) RefreshDynamicPrice() error {
 	ctx, cancel := f.stopCh.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
 	if f.config.BlockHistorySize == 0 {
-		return fee, fmt.Errorf("BlockHistorySize cannot be 0")
+		return fmt.Errorf("BlockHistorySize cannot be 0")
 	}
 	// RewardPercentile will be used for maxPriorityFeePerGas estimations and connectivityPercentile to set the highest threshold for bumping.
 	feeHistory, err := f.client.FeeHistory(ctx, f.config.BlockHistorySize, []float64{f.config.RewardPercentile, ConnectivityPercentile})
 	if err != nil {
-		return fee, fmt.Errorf("failed to fetch dynamic prices: %s", err)
+		return fmt.Errorf("failed to fetch dynamic prices: %s", err)
 	}
 
 	// eth_feeHistory doesn't return the latest baseFee of the range but rather the latest + 1, because it can be derived from the existing
 	// values. Source: https://github.com/ethereum/go-ethereum/blob/b0f66e34ca2a4ea7ae23475224451c8c9a569826/eth/gasprice/feehistory.go#L235
 	// nextBlock is the latest returned + 1 to be aligned with the base fee value.
-	baseFee := assets.NewWei(feeHistory.BaseFee[len(feeHistory.BaseFee)-1])
+	nextBaseFee := assets.NewWei(feeHistory.BaseFee[len(feeHistory.BaseFee)-1])
 	nextBlock := big.NewInt(0).Add(feeHistory.OldestBlock, big.NewInt(int64(f.config.BlockHistorySize)))
 
-	priorityFee := big.NewInt(0)
-	priorityFeeThreshold := big.NewInt(0)
-	for _, fee := range feeHistory.Reward {
-		priorityFee = priorityFee.Add(priorityFee, fee[0])
-		// We don't need an average, we need the max value
-		priorityFeeThreshold = bigmath.Max(priorityFeeThreshold, fee[1])
+	// If the network doesn't have a mempool then priority fees are set to 0 since they'll be ignored.
+	// If it does, then we exclude 0 priced priority fees, even though some networks allow them. For empty blocks, eth_feeHistory returns
+	// priority fees with 0 values so it's safer to discard them in order to pick values from a more representative sample.
+	maxPriorityFeePerGas := assets.NewWeiI(0)
+	priorityFeeThresholdWei := assets.NewWeiI(0)
+	if f.config.HasMempool {
+		var nonZeroRewardsLen int64 = 0
+		priorityFee := big.NewInt(0)
+		priorityFeeThreshold := big.NewInt(0)
+		for _, reward := range feeHistory.Reward {
+			// reward needs to have values for two percentiles
+			if len(reward) < 2 {
+				return fmt.Errorf("reward size incorrect: %d", len(reward))
+			}
+			// We'll calculate the average of non-zero priority fees
+			if reward[0].Cmp(big.NewInt(0)) > 0 {
+				priorityFee = priorityFee.Add(priorityFee, reward[0])
+				nonZeroRewardsLen += 1
+			}
+			// We take the max value for the bumping threshold
+			if reward[1].Cmp(big.NewInt(0)) > 0 {
+				priorityFeeThreshold = bigmath.Max(priorityFeeThreshold, reward[1])
+			}
+		}
+
+		if nonZeroRewardsLen == 0 || priorityFeeThreshold.Cmp(big.NewInt(0)) == 0 {
+			return nil
+		}
+		priorityFeeThresholdWei = assets.NewWei(priorityFeeThreshold)
+		maxPriorityFeePerGas = assets.NewWei(priorityFee.Div(priorityFee, big.NewInt(nonZeroRewardsLen)))
 	}
-	priorityFeeThresholdWei := assets.NewWei(priorityFeeThreshold)
+	// baseFeeBufferPercentage is added on top as a safety to catch fluctuations in the next blocks.
+	maxFeePerGas := nextBaseFee.AddPercentage(BaseFeeBufferPercentage).Add(maxPriorityFeePerGas)
 
-	f.priorityFeeThresholdMu.Lock()
-	f.priorityFeeThreshold = priorityFeeThresholdWei
-	f.priorityFeeThresholdMu.Unlock()
-
-	// eth_feeHistory may return less results than BlockHistorySize so we need to divide by the length of the result
-	maxPriorityFeePerGas := assets.NewWei(priorityFee.Div(priorityFee, big.NewInt(int64(len(feeHistory.Reward)))))
-	// baseFeeBufferPercentage is used as a safety to catch fluctuations in the next block.
-	maxFeePerGas := baseFee.AddPercentage(BaseFeeBufferPercentage).Add(maxPriorityFeePerGas)
-
-	promFeeHistoryEstimatorBaseFee.WithLabelValues(f.chainID.String()).Set(float64(baseFee.Int64()))
+	promFeeHistoryEstimatorBaseFee.WithLabelValues(f.chainID.String()).Set(float64(nextBaseFee.Int64()))
 	promFeeHistoryEstimatorMaxPriorityFeePerGas.WithLabelValues(f.chainID.String()).Set(float64(maxPriorityFeePerGas.Int64()))
 	promFeeHistoryEstimatorMaxFeePerGas.WithLabelValues(f.chainID.String()).Set(float64(maxFeePerGas.Int64()))
 
 	f.logger.Debugf("Fetched new dynamic prices, nextBlock#: %v - oldestBlock#: %v - maxFeePerGas: %v - maxPriorityFeePerGas: %v - maxPriorityFeeThreshold: %v",
 		nextBlock, feeHistory.OldestBlock, maxFeePerGas, maxPriorityFeePerGas, priorityFeeThresholdWei)
 
+	f.priorityFeeThresholdMu.Lock()
+	f.priorityFeeThreshold = priorityFeeThresholdWei
+	f.priorityFeeThresholdMu.Unlock()
+
 	f.dynamicPriceMu.Lock()
 	defer f.dynamicPriceMu.Unlock()
 	f.dynamicPrice.FeeCap = maxFeePerGas
 	f.dynamicPrice.TipCap = maxPriorityFeePerGas
-	return f.dynamicPrice, nil
+	return nil
 }
 
 func (f *FeeHistoryEstimator) getDynamicPrice() (fee DynamicFee, err error) {
@@ -320,6 +340,13 @@ func (f *FeeHistoryEstimator) BumpLegacyGas(ctx context.Context, originalGasPric
 // See: https://github.com/ethereum/go-ethereum/issues/24284
 // It aggregates the market, bumped, and max price to provide a correct value, for both maxFeePerGas as well as maxPriorityFerPergas.
 func (f *FeeHistoryEstimator) BumpDynamicFee(ctx context.Context, originalFee DynamicFee, maxPrice *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, err error) {
+	// For chains that don't have a mempool there is no concept of gas bumping so we force-call FetchDynamicPrice to update the underlying base fee value
+	if !f.config.HasMempool {
+		if err = f.RefreshDynamicPrice(); err != nil {
+			return
+		}
+		return f.GetDynamicFee(ctx, maxPrice)
+	}
 	// Sanitize original fee input
 	// According to geth's spec we need to bump both maxFeePerGas and maxPriorityFeePerGas for the new attempt to be accepted by the RPC
 	if originalFee.FeeCap == nil ||
@@ -338,29 +365,19 @@ func (f *FeeHistoryEstimator) BumpDynamicFee(ctx context.Context, originalFee Dy
 	bumpedMaxPriorityFeePerGas := originalFee.TipCap.AddPercentage(f.config.BumpPercent)
 	bumpedMaxFeePerGas := originalFee.FeeCap.AddPercentage(f.config.BumpPercent)
 
-	if f.config.HasMempool {
-		bumpedMaxPriorityFeePerGas, err = LimitBumpedFee(originalFee.TipCap, currentDynamicPrice.TipCap, bumpedMaxPriorityFeePerGas, maxPrice)
-		if err != nil {
-			return bumped, fmt.Errorf("maxPriorityFeePerGas error: %s", err.Error())
-		}
+	bumpedMaxPriorityFeePerGas, err = LimitBumpedFee(originalFee.TipCap, currentDynamicPrice.TipCap, bumpedMaxPriorityFeePerGas, maxPrice)
+	if err != nil {
+		return bumped, fmt.Errorf("maxPriorityFeePerGas error: %s", err.Error())
+	}
 
-		priorityFeeThreshold, e := f.getPriorityFeeThreshold()
-		if e != nil {
-			err = e
-			return
-		}
+	priorityFeeThreshold, e := f.getPriorityFeeThreshold()
+	if e != nil {
+		return bumped, e
+	}
 
-		// If either of these two values are 0 it could be that the network has extremely low priority fees. We should skip the
-		// connectivity check because we're only going to be charged for the base fee, which is mandatory.
-		if (priorityFeeThreshold.Cmp(assets.NewWeiI(0)) > 0) && (bumpedMaxPriorityFeePerGas.Cmp(assets.NewWeiI(0)) > 0) &&
-			bumpedMaxPriorityFeePerGas.Cmp(priorityFeeThreshold) > 0 {
-			return bumped, fmt.Errorf("bumpedMaxPriorityFeePergas: %s is above market's %sth percentile: %s, bumping is halted",
-				bumpedMaxPriorityFeePerGas, strconv.Itoa(ConnectivityPercentile), priorityFeeThreshold)
-		}
-	} else {
-		// If the network doesn't have a mempool then transactions are processed in a FCFS manner and maxPriorityFeePerGas value is irrelevant.
-		// We just need to cap the value at maxPrice in case maxFeePerGas also gets capped.
-		bumpedMaxPriorityFeePerGas = assets.WeiMin(bumpedMaxPriorityFeePerGas, maxPrice)
+	if bumpedMaxPriorityFeePerGas.Cmp(priorityFeeThreshold) > 0 {
+		return bumped, fmt.Errorf("bumpedMaxPriorityFeePergas: %s is above market's %sth percentile: %s, bumping is halted",
+			bumpedMaxPriorityFeePerGas, strconv.Itoa(ConnectivityPercentile), priorityFeeThreshold)
 	}
 
 	bumpedMaxFeePerGas, err = LimitBumpedFee(originalFee.FeeCap, currentDynamicPrice.FeeCap, bumpedMaxFeePerGas, maxPrice)
