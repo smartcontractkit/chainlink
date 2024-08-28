@@ -3,6 +3,7 @@ package toml
 import (
 	"bytes"
 	"embed"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -81,10 +82,13 @@ func init() {
 		return
 	}
 
-	// Read directory contents
-	entries, err := os.ReadDir(dir)
+	// use evm overrides specifically
+	evmDir := fmt.Sprintf("%s/evm", dir)
+
+	// Read directory contents for evm only
+	entries, err := os.ReadDir(evmDir)
 	if err != nil {
-		log.Fatalf("error reading custom defaults override directory: %v", err)
+		log.Fatalf("error reading evm custom defaults override directory: %v", err)
 		return
 	}
 
@@ -94,7 +98,7 @@ func init() {
 			continue
 		}
 
-		path := dir + "/" + entry.Name()
+		path := evmDir + "/" + entry.Name()
 		file, err := os.Open(path)
 		if err != nil {
 			log.Fatalf("error opening file (name: %v) in custom defaults override directory: %v", entry.Name(), err)
@@ -121,6 +125,10 @@ func init() {
 		}
 
 		id := config.ChainID.String()
+
+		if _, ok := customDefaults[id]; ok {
+			log.Fatalf("%q contains duplicate ChainID: %s", path, id)
+		}
 		customDefaults[id] = config.Chain
 	}
 }
