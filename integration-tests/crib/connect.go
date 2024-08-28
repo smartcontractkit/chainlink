@@ -7,7 +7,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/crib"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"

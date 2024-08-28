@@ -58,6 +58,7 @@ func (h *mockHTTPClient) SetResponse(resp *http.Response, err error) {
 
 type MockReadCloser struct {
 	data   []byte
+	mu     sync.RWMutex
 	reader *bytes.Reader
 }
 
@@ -70,11 +71,15 @@ func NewMockReadCloser(data []byte) *MockReadCloser {
 
 // Read reads from the underlying data
 func (m *MockReadCloser) Read(p []byte) (int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return m.reader.Read(p)
 }
 
 // Close resets the reader to the beginning of the data
 func (m *MockReadCloser) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.reader.Seek(0, io.SeekStart)
 	return nil
 }
