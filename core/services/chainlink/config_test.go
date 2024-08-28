@@ -631,6 +631,9 @@ func TestConfig_Marshal(t *testing.T) {
 						GasLimit: ptr[uint32](540),
 					},
 				},
+				Workflow: evmcfg.Workflow{
+					GasLimitDefault: ptr[uint64](400000),
+				},
 			},
 			Nodes: []*evmcfg.Node{
 				{
@@ -1105,6 +1108,9 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2.Automation]
 GasLimit = 540
 
+[EVM.Workflow]
+GasLimitDefault = 400000
+
 [[EVM.Nodes]]
 Name = 'foo'
 WSURL = 'wss://web.socket/test/foo'
@@ -1240,6 +1246,9 @@ func TestConfig_full(t *testing.T) {
 		}
 		if got.EVM[c].Workflow.ForwarderAddress == nil {
 			got.EVM[c].Workflow.ForwarderAddress = &addr
+		}
+		if got.EVM[c].Workflow.GasLimitDefault == nil {
+			got.EVM[c].Workflow.GasLimitDefault = ptr(uint64(400000))
 		}
 		for n := range got.EVM[c].Nodes {
 			if got.EVM[c].Nodes[n].WSURL == nil {
