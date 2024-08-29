@@ -715,11 +715,11 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) repl
 	}
 
 	if err = eb.txStore.SaveReplacementInProgressAttempt(ctx, attempt, &bumpedAttempt); err != nil {
-		return bumpedAttempt, retryable, err
+		return bumpedAttempt, true, err
 	}
 
 	lgr.Debugw("Bumped fee on initial send", "oldFee", attempt.TxFee.String(), "newFee", bumpedFee.String(), "newFeeLimit", bumpedFeeLimit)
-	return bumpedAttempt, retryable, err
+	return bumpedAttempt, true, err
 }
 
 // replaceAttemptWithNewEstimation performs the replacement of the existing tx attempt with a new estimated fee attempt.
@@ -730,11 +730,11 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) repl
 	}
 
 	if err = eb.txStore.SaveReplacementInProgressAttempt(ctx, attempt, &newEstimatedAttempt); err != nil {
-		return &newEstimatedAttempt, retryable, err
+		return &newEstimatedAttempt, true, err
 	}
 
 	lgr.Debugw("new estimated fee on initial send", "oldFee", attempt.TxFee.String(), "newFee", fee.String(), "newFeeLimit", feeLimit)
-	return &newEstimatedAttempt, retryable, err
+	return &newEstimatedAttempt, true, err
 }
 
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveFatallyErroredTransaction(lgr logger.Logger, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
