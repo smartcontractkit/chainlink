@@ -559,7 +559,11 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		return err, true
 	case client.Underpriced:
 		bumpedAttempt, newErr := eb.replaceAttemptWithBumpedGas(ctx, lgr, err, etx, attempt)
-		lgr.Debugf("%v, failed to create bumped attempt, %v", err, newErr)
+		if newErr != nil {
+			err = fmt.Errorf("%v, failed to create bumped attempt, %v", err, newErr)
+			return err, true
+		}
+
 		return eb.handleInProgressTx(ctx, etx, bumpedAttempt, initialBroadcastAt, retryCount+1)
 	case client.InsufficientFunds:
 		// NOTE: This can occur due to either insufficient funds or a gas spike
