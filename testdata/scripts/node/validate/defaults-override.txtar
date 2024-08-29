@@ -1,6 +1,4 @@
 # test with default override
-# mkdir default_overrides
-# mkdir default_overrides/evm
 env CL_CHAIN_DEFAULTS=default_overrides
 exec chainlink node -c config.toml -s secrets.toml validate
 cmp stdout out.txt
@@ -13,12 +11,10 @@ exec chainlink node -c config.toml -s secrets.toml validate
 # negative path testing with failing validate command not working in CI: BCF-3370
 
 # overrides outside of evm suffix, FinalityTagEnabled should not match as override is not applied
-# mkdir default_overrides2
 # env CL_CHAIN_DEFAULTS=default_overrides2
 # ! exec chainlink node -c config.toml -s secrets.toml validate
 
 # duplicate chain IDs
-# mkdir default_overrides3
 # env CL_CHAIN_DEFAULTS=default_overrides3
 # ! exec chainlink node -c config.toml -s secrets.toml validate
 # stderr 'contains duplicate ChainID'
