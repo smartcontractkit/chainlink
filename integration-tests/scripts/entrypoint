@@ -15,7 +15,12 @@ cd "$SCRIPT_DIR"/../ || exit 1
 # TEST_NAME=${TEST_NAME:=} The specific test to run
 
 # run the tests
+#if [ "${SUITE}" = "ccip-load" ]; then
+#  ls
+#  ./load.test -test.v -test.count 1 ${ARGS} -test.run ^${TEST_NAME}$
+#else
 ./${SUITE}.test -test.v -test.count 1 ${ARGS} -test.run ^${TEST_NAME}$
+#fi
 
 exit_code=$?
 
