@@ -119,7 +119,6 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 				EIP1559:          geCfg.EIP1559DynamicFees(),
 				BlockHistorySize: uint64(geCfg.BlockHistory().BlockHistorySize()),
 				RewardPercentile: float64(geCfg.BlockHistory().TransactionPercentile()),
-				HasMempool:       geCfg.FeeHistory().HasMempool(),
 			}
 			return NewFeeHistoryEstimator(lggr, ethClient, ccfg, ethClient.ConfiguredChainID(), l1Oracle)
 		}
@@ -404,7 +403,7 @@ func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64,
 		e.lggr.Debugw("estimated gas limit with buffer exceeds the provided gas limit with multiplier. falling back to the provided gas limit with multiplier", "estimatedGasLimit", estimatedFeeLimit, "providedGasLimitWithMultiplier", providedGasLimit)
 		estimatedFeeLimit = providedGasLimit
 	}
-	
+
 	return
 }
 

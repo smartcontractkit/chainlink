@@ -343,7 +343,6 @@ TransactionPercentile = 15
 
 [EVM.GasEstimator.FeeHistory]
 CacheTimeout = '1s'
-HasMempool = true
 
 [EVM.HeadTracker]
 HistoryDepth = 15

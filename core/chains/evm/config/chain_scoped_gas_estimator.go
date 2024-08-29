@@ -190,7 +190,3 @@ type feeHistoryConfig struct {
 func (u *feeHistoryConfig) CacheTimeout() time.Duration {
 	return u.c.CacheTimeout.Duration()
 }
-
-func (u *feeHistoryConfig) HasMempool() bool {
-	return *u.c.HasMempool
-}

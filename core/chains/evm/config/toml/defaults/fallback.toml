@@ -58,7 +58,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 100

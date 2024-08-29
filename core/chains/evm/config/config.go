@@ -161,7 +161,6 @@ type BlockHistory interface {
 
 type FeeHistory interface {
 	CacheTimeout() time.Duration
-	HasMempool() bool
 }
 
 type Workflow interface {
