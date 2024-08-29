@@ -137,6 +137,12 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						ReadType:          types.Event,
 						EventDefinitions: &types.EventDefinitions{
 							GenericTopicNames: map[string]string{"field": "Field"},
+							GenericDataWordNames: map[string]types.DataWordDef{
+								"OracleID": {
+									OnChainName: "oracleId",
+									Index:       0,
+								},
+							},
 						},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},

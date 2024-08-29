@@ -127,8 +127,12 @@ func Test_ChainReaderConfig(t *testing.T) {
 								},
 								ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 								EventDefinitions: &EventDefinitions{
-									GenericTopicNames:    map[string]string{"TopicKey1": "TopicVal1"},
-									GenericDataWordNames: map[string]uint8{"DataWordKey": 1},
+									GenericTopicNames: map[string]string{"TopicKey1": "TopicVal1"},
+									GenericDataWordNames: map[string]DataWordDef{
+										"DataWordKey": {
+											OnChainName: "DataWordKey",
+											Index:       1,
+										}},
 									PollingFilter: &PollingFilter{
 										Topic2:       evmtypes.HashArray{common.HexToHash("0x4abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52")},
 										Topic3:       evmtypes.HashArray{common.HexToHash("0x5abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52")},

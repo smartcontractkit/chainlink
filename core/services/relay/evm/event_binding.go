@@ -3,7 +3,9 @@ package evm
 import (
 	"context"
 	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 
@@ -214,7 +216,7 @@ func (e *eventBinding) decodeLogsIntoSequences(ctx context.Context, logs []logpo
 func (e *eventBinding) getLatestValue(ctx context.Context, confs evmtypes.Confirmations, params, into any) error {
 	checkedValues, err := e.toChecked(WrapItemType(e.contractName, e.eventName, true), params)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to convert params to checked type: %w", err)
 	}
 
 	filtersAndIndices, err := e.encodeCheckedTopicFilters(reflect.ValueOf(checkedValues))
@@ -295,7 +297,12 @@ func createTopicFilters(filtersAndIndices []*common.Hash) (query.Expression, err
 // encodeCheckedTopicFilters accepts checked chain types and encodes them to match onchain topics.
 func (e *eventBinding) encodeCheckedTopicFilters(checkedTypes reflect.Value) ([]*common.Hash, error) {
 	// convert onChain params to native types similarly to generated abi wrappers, for e.g. fixed bytes32 abi type to [32]uint8.
-	nativeParams, err := e.eventTypes[e.eventName].ToNative(checkedTypes)
+	codecType, exists := e.eventTypes[e.eventName]
+	if !exists {
+		return nil, fmt.Errorf("cannot find codec entry for %q topic", e.eventName)
+	}
+
+	nativeParams, err := codecType.ToNative(checkedTypes)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +361,7 @@ func (e *eventBinding) makeTopics(topics []any) ([]*common.Hash, error) {
 			if err != nil {
 				return nil, err
 			}
-			topics[i] = crypto.Keccak256Hash(packed)
+			topic = crypto.Keccak256Hash(packed)
 		}
 
 		hashableTopics = append(hashableTopics, topic)
@@ -446,16 +453,11 @@ func (e *eventBinding) remapExpression(key string, expression query.Expression) 
 func (e *eventBinding) remapPrimitive(expression query.Expression) (query.Expression, error) {
 	switch primitive := expression.Primitive.(type) {
 	case *primitives.Comparator:
-		dwInfo, isDW := e.dataWordsInfo[primitive.Name]
-		hashedValComps, err := e.encodeComparator(*primitive, isDW)
+		hashedValComps, err := e.encodeComparator(primitive)
 		if err != nil {
 			return query.Expression{}, fmt.Errorf("failed to encode comparator %q: %w", primitive.Name, err)
 		}
-		if isDW {
-			// TODO fix dw indexing to start from 1, or not
-			return logpoller.NewEventByWordFilter(dwInfo.index, hashedValComps), nil
-		}
-		return logpoller.NewEventByTopicFilter(e.topics[primitive.Name].Index, hashedValComps), nil
+		return hashedValComps, nil
 	case *primitives.Confidence:
 		confirmations, err := confidenceToConfirmations(e.confirmationsMapping, primitive.ConfidenceLevel)
 		if err != nil {
@@ -467,30 +469,41 @@ func (e *eventBinding) remapPrimitive(expression query.Expression) (query.Expres
 	}
 }
 
-func (e *eventBinding) encodeComparator(comparator primitives.Comparator, isDW bool) ([]logpoller.HashedValueComparator, error) {
+func (e *eventBinding) encodeComparator(comparator *primitives.Comparator) (query.Expression, error) {
+	dwInfo, isDW := e.dataWordsInfo[comparator.Name]
+	if !isDW {
+		if _, ok := e.topics[comparator.Name]; !ok {
+			return query.Expression{}, fmt.Errorf("comparator doesn't match any of the indexed topics %v or data words %v", slices.Collect(maps.Keys(e.topics)), slices.Collect(maps.Keys(e.dataWordsInfo)))
+		}
+	}
+
 	var hashedValComps []logpoller.HashedValueComparator
 	for _, valComp := range comparator.ValueComparators {
-		valChecked, err := e.toChecked(WrapItemType(e.contractName, e.eventName+"."+comparator.Name, true), valComp.Value)
+		checkedVal, err := e.toChecked(WrapItemType(e.contractName, e.eventName+"."+comparator.Name, true), valComp.Value)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert value to checked type: %w", err)
+			return query.Expression{}, fmt.Errorf("failed to convert value to checked type: %w", err)
 		}
 
 		hashedValComp := logpoller.HashedValueComparator{Operator: valComp.Operator}
 		if isDW {
-			hashedValComp.Value, err = e.encodeCheckedValComparatorDataWord(comparator.Name, valChecked)
+			hashedValComp.Value, err = e.encodeValComparatorDataWord(comparator.Name, checkedVal)
 		} else {
-			hashedValComp.Value, err = e.encodeCheckedValComparatorTopic(comparator.Name, valChecked)
+			hashedValComp.Value, err = e.encodeValComparatorTopic(comparator.Name, checkedVal)
 		}
 		if err != nil {
-			return nil, err
+			return query.Expression{}, err
 		}
 		hashedValComps = append(hashedValComps, hashedValComp)
 	}
 
-	return hashedValComps, nil
+	if isDW {
+		return logpoller.NewEventByWordFilter(dwInfo.index, hashedValComps), nil
+	}
+
+	return logpoller.NewEventByTopicFilter(e.topics[comparator.Name].Index, hashedValComps), nil
 }
 
-func (e *eventBinding) encodeCheckedValComparatorDataWord(valCompName string, checkedVal any) (hash common.Hash, err error) {
+func (e *eventBinding) encodeValComparatorDataWord(valCompName string, checkedVal any) (hash common.Hash, err error) {
 	defer func() {
 		// shouldn't happen, but reflection can panic
 		if r := recover(); r != nil {
@@ -498,7 +511,20 @@ func (e *eventBinding) encodeCheckedValComparatorDataWord(valCompName string, ch
 		}
 	}()
 
-	nativeParams, err := e.eventTypes[valCompName].ToNative(reflect.ValueOf(checkedVal))
+	dwID := e.eventName + "." + valCompName
+	dwTyp, ok := e.eventTypes[dwID]
+	if !ok {
+		return common.Hash{}, fmt.Errorf("cannot find type for data word")
+	}
+
+	if reflect.ValueOf(checkedVal).Kind() != reflect.Pointer {
+		reflectedValue := reflect.ValueOf(checkedVal)
+		ptr := reflect.New(reflectedValue.Type()).Elem()
+		ptr = reflect.New(reflectedValue.Type())
+		ptr.Elem().Set(reflectedValue)
+		checkedVal = ptr.Interface()
+	}
+	nativeParams, err := dwTyp.ToNative(reflect.ValueOf(checkedVal))
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -507,7 +533,6 @@ func (e *eventBinding) encodeCheckedValComparatorDataWord(valCompName string, ch
 		nativeParams = reflect.Indirect(nativeParams)
 	}
 
-	// TODO recalculate dwIndex for fields inside of nested structs, this will only work with static types that don't have a dynamic type before them
 	dwInfo, ok := e.dataWordsInfo[valCompName]
 	if !ok {
 		return common.Hash{}, fmt.Errorf("cannot find data word maping for %s", valCompName)
@@ -521,7 +546,7 @@ func (e *eventBinding) encodeCheckedValComparatorDataWord(valCompName string, ch
 	return common.BytesToHash(packedArgs), nil
 }
 
-func (e *eventBinding) encodeCheckedValComparatorTopic(valCompName string, checkedVal any) (hash common.Hash, err error) {
+func (e *eventBinding) encodeValComparatorTopic(valCompName string, checkedVal any) (hash common.Hash, err error) {
 	defer func() {
 		// shouldn't happen, but reflection can panic
 		if r := recover(); r != nil {
@@ -541,6 +566,7 @@ func (e *eventBinding) encodeCheckedValComparatorTopic(valCompName string, check
 		}
 	}
 
+	// TODO underlying checked types are messed up here
 	topics := reflect.New(reflect.StructOf(topicFields))
 	topics.Elem().FieldByName(valCompName).Set(reflect.ValueOf(checkedVal))
 

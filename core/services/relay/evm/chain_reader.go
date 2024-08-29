@@ -254,7 +254,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 
 	filtersTypes, filtersModifiers := make(map[string]types.CodecEntry), make(map[string]codec.Modifier)
 	topicsInputIdentifier := WrapItemType(contractName, eventName, true)
-	filtersTypes[topicsInputIdentifier], filtersModifiers[topicsInputIdentifier], err = cr.getEventTopicsInput(topicsInputIdentifier, chainReaderDefinition.InputModifications)
+	filtersTypes[eventName], filtersModifiers[topicsInputIdentifier], err = cr.getEventTopicsInput(topicsInputIdentifier, chainReaderDefinition.InputModifications)
 	if err != nil {
 		return err
 	}
@@ -275,13 +275,13 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 			return err
 		}
 
-		dwsInfo, dWSCodecTypeInfo, err := cr.initDWQuerying(contractName, eventName, eventDws, eventDefinitions.GenericDataWordNames)
+		dWSCodecTypeInfo, dataWordsInfo, err := cr.initDWQuerying(contractName, eventName, eventDws, eventDefinitions.GenericDataWordNames)
 		if err != nil {
 			return err
 		}
 
 		eb.topics = topics
-		eb.dataWordsInfo = dwsInfo
+		eb.dataWordsInfo = dataWordsInfo
 		maps.Copy(filtersTypes, dWSCodecTypeInfo)
 	}
 
@@ -310,33 +310,35 @@ func (cr *chainReader) initTopicQuerying(contractName, eventName string, eventIn
 }
 
 // initDWQuerying adds codec types for data words that are used for typing over the wire bytes used in value comparator QueryKey filters.
-func (cr *chainReader) initDWQuerying(contractName, eventName string, dataWordsInfo []dataWordInfo, genericDataWordNames map[string]uint8) (map[string]dataWordInfo, map[string]types.CodecEntry, error) {
+func (cr *chainReader) initDWQuerying(contractName, eventName string, eventDWs eventDataWords, cfgDWs map[string]types.DataWordDef) (map[string]types.CodecEntry, eventDataWords, error) {
 	dwsCodecEntries := make(map[string]types.CodecEntry)
-	dwsInfo := make(map[string]dataWordInfo)
+	remappedEventDataWords := make(map[string]dataWordInfo)
 
-	for genericDataWordName, dwIndex := range genericDataWordNames {
-		founDW := false
-		for _, dwInfo := range dataWordsInfo {
-			if dwInfo.index != dwIndex {
+	for genericName, cfgDWInfo := range cfgDWs {
+		foundDW := false
+		for _, dwInfo := range eventDWs {
+			if dwInfo.index != cfgDWInfo.Index {
+				if dwInfo.typ.Name == cfgDWInfo.OnChainName {
+					return nil, nil, fmt.Errorf("failed to find data word with index %d for event: %q data word: %q", dwInfo.index, eventName, genericName)
+				}
 				continue
 			}
 
-			founDW = true
-			dwName := eventName + "." + genericDataWordName
-
-			if err := cr.addEncoderDef(contractName, dwName, abi.Arguments{dataWordsInfo[dwIndex].typ}, nil, nil); err != nil {
-				return nil, nil, fmt.Errorf("%w: failed to init codec for data word %s on index %d querying for event: %q", err, dwName, dwIndex, eventName)
+			foundDW = true
+			itemType := eventName + "." + genericName
+			if err := cr.addEncoderDef(contractName, itemType, abi.Arguments{abi.Argument{Type: dwInfo.typ.Type}}, nil, nil); err != nil {
+				return nil, nil, fmt.Errorf("%w: failed to init codec for data word %s on index %d querying for event: %q", err, genericName, dwInfo.index, eventName)
 			}
 
-			dwsInfo[genericDataWordName] = dataWordsInfo[dwIndex]
-			dwsCodecEntries[genericDataWordName] = cr.parsed.EncoderDefs[WrapItemType(contractName, dwName, true)]
+			dwsCodecEntries[itemType] = cr.parsed.EncoderDefs[WrapItemType(contractName, itemType, true)]
+			remappedEventDataWords[genericName] = dwInfo
 			break
 		}
-		if !founDW {
-			return nil, nil, fmt.Errorf("failed to find data word with index %d for event: %q, its either out of bounds or can't be searched for", dwIndex, eventName)
+		if !foundDW {
+			return nil, nil, fmt.Errorf("failed to find data word: %q with index %d for event: %q, its either out of bounds or can't be searched for", genericName, cfgDWInfo.Index, eventName)
 		}
 	}
-	return dwsInfo, dwsCodecEntries, nil
+	return dwsCodecEntries, remappedEventDataWords, nil
 }
 
 // getEventTopicsInput returns codec entry for expected incoming event topic and the modifier to be applied to the params.
@@ -390,9 +392,8 @@ func getEventTypes(event abi.Event) ([]abi.Argument, types.CodecEntry, eventData
 	indexedTypes := make([]abi.Argument, 0, len(event.Inputs))
 	dataWords := eventDataWords{}
 	hadDynamicType := false
-	dwIndex := 1
+	dwIndex := 0
 
-	fmt.Println("event inputs ", event.Inputs)
 	for _, input := range event.Inputs {
 		if !input.Indexed {
 			// there are some cases where we can calculate the exact data word index even if there was a dynamic type before, but it is complex and probably not needed.
@@ -403,11 +404,10 @@ func getEventTypes(event abi.Event) ([]abi.Argument, types.CodecEntry, eventData
 				continue
 			}
 
-			fmt.Println("add dataWord ", input.Name)
-			dataWords = append(dataWords, dataWordInfo{
+			dataWords[event.Name+"."+input.Name] = dataWordInfo{
 				index: uint8(dwIndex),
-				typ:   abi.Argument{Name: input.Name, Type: input.Type},
-			})
+				typ:   input,
+			}
 			dwIndex++
 			continue
 		}
@@ -447,7 +447,7 @@ func ConfirmationsFromConfig(values map[string]int) (map[primitives.ConfidenceLe
 
 // eventDataWords maps event hashes to an ordered list of data word info.
 // if a data word has a preceding data word that is dynamic, the exact data word index can't be known in advance and has to be calculated using the actual log data.
-type eventDataWords []dataWordInfo
+type eventDataWords map[string]dataWordInfo
 
 // For e.g. first evm data word(32bytes) of USDC log event is value so the key can be called value
 // dataWordInfo contains all the information about a single evm Data word.

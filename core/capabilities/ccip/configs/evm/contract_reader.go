@@ -194,11 +194,6 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 				consts.EventNameCCIPMessageSent: {
 					ChainSpecificName: mustGetEventName("CCIPMessageSent", onrampABI),
 					ReadType:          evmrelaytypes.Event,
-					EventDefinitions: &evmrelaytypes.EventDefinitions{
-						GenericDataWordNames: map[string]uint8{
-							consts.EventAttributeSequenceNumber: 5,
-						},
-					},
 				},
 			},
 		},
