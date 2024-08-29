@@ -1,4 +1,4 @@
-package evmtesting
+package evm
 
 import (
 	"context"

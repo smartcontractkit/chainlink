@@ -251,13 +251,13 @@ func (h *helper) Context(t *testing.T) context.Context {
 
 func (h *helper) ChainReaderEVMClient(ctx context.Context, t *testing.T, ht logpoller.HeadTracker, conf types.ChainReaderConfig) client.Client {
 	// wrap the client so that we can mock historical contract state
-	cwh := &ClientWithContractHistory{Client: h.Client(t), HT: ht}
+	cwh := &evm.ClientWithContractHistory{Client: h.Client(t), HT: ht}
 	require.NoError(t, cwh.Init(ctx, conf))
 	return cwh
 }
 
 func (h *helper) WrappedChainWriter(cw clcommontypes.ChainWriter, client client.Client) clcommontypes.ChainWriter {
-	cwhw := NewChainWriterHistoricalWrapper(cw, client.(*ClientWithContractHistory))
+	cwhw := evm.NewChainWriterHistoricalWrapper(cw, client.(*evm.ClientWithContractHistory))
 	return cwhw
 }
 
