@@ -32,7 +32,8 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
   /// @param l2GasPerPubdataByteLimit updated gas per pubdata byte limit
   event GasPerPubdataByteLimitUpdated(uint32 l2GasPerPubdataByteLimit);
 
-  error InvalidChainID;
+  /// @notice ChainID is not a valid value
+  error InvalidChainID();
 
   /// @param l1CrossDomainMessengerAddress address the Bridgehub contract address
   /// @param l2UptimeFeedAddr the address of the ZKSyncSequencerUptimeFeedInterface contract address
