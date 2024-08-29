@@ -37,10 +37,10 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.21
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240828152114-571392f2833a
-	github.com/smartcontractkit/chainlink-testing-framework v1.34.10-0.20240828122712-9ea5d6ac33fe
+	github.com/smartcontractkit/chainlink-testing-framework v1.34.10
 	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.1
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v0.0.0-20240822140612-df8e03c10dc1
-	github.com/smartcontractkit/chainlink-testing-framework/seth v1.2.1-0.20240827112945-bd8c580392d6
+	github.com/smartcontractkit/chainlink-testing-framework/seth v1.2.1
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v0.4.10
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7

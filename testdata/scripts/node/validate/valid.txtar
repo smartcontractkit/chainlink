@@ -60,6 +60,7 @@ FeedsManager = true
 LogPoller = false
 UICSAKeys = false
 CCIP = true
+MultiFeedsManagers = false
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1h0m0s'
