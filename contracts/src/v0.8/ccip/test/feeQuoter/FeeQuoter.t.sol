@@ -1706,7 +1706,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(notAFeeToken, 1);
     message.feeToken = notAFeeToken;
 
-    vm.expectRevert(abi.encodeWithSelector(FeeQuoter.TokenNotSupported.selector, notAFeeToken));
+    vm.expectRevert(abi.encodeWithSelector(FeeQuoter.FeeTokenNotSupported.selector, notAFeeToken));
 
     s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
   }
