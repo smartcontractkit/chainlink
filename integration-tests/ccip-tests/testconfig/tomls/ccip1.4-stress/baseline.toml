@@ -7,8 +7,15 @@
 ##
 ## make test_load_ccip testimage=<aws account number>.dkr.ecr.<aws region>.amazonaws.com/chainlink-ccip-tests:ccip-develop  \
 ##      testname=TestLoadCCIPStableRequestTriggeringWithNetworkChaos \
-##      override_toml=./testconfig/tomls/ccip-1.4-stress/baseline.toml \
-##      secret_toml=./testconfig/tomls/secrets.toml
+##      override_toml=./testconfig/tomls/ccip-1.4-stress/baseline.toml
+
+## Adjust this value depending on what you want to test.
+# Using releases and git tag requires changing the image name to the correct one in `~/.testsecrets`, e.g.
+# E2E_TEST_CHAINLINK_IMAGE="public.ecr.aws/w0i8p0z9/chainlink-ccip"
+# If you want to use a specific commit or a branch you need to switch to the internal ECR in `~/.testsecrets`
+# E2E_TEST_CHAINLINK_IMAGE="<aws account number>.dkr.ecr.<aws region>.amazonaws.com/chainlink-ccip"
+[CCIP.Env.NewCLCluster.Common.ChainlinkImage]
+version = "2.14.0-ccip1.5.0"
 
 [CCIP]
 [CCIP.ContractVersions]
@@ -22,7 +29,7 @@ CommitStore = '1.2.0'
 TTL = '10h'
 
 [CCIP.Env.Network]
-selected_networks= ['PRIVATE-CHAIN-1', 'PRIVATE-CHAIN-2']
+selected_networks = ['PRIVATE-CHAIN-1', 'PRIVATE-CHAIN-2']
 
 [CCIP.Env.Network.EVMNetworks.PRIVATE-CHAIN-1]
 evm_name = 'private-chain-1'
@@ -152,7 +159,7 @@ BatchGasLimit = 11000000
 TimeoutForPriceUpdate = '15m'
 NoOfTokensPerChain = 10
 NoOfTokensWithDynamicPrice = 10
-DynamicPriceUpdateInterval ='15s'
+DynamicPriceUpdateInterval = '15s'
 CCIPOwnerTokens = true
 
 [CCIP.Groups.load.LoadProfile]
@@ -164,7 +171,7 @@ NetworkChaosDelay = '100ms'
 
 # to represent 20%, 60%, 15%, 5% of the total messages
 [CCIP.Groups.load.LoadProfile.MsgProfile]
-Frequencies = [4,12,3,1]
+Frequencies = [4, 12, 3, 1]
 
 [[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
 MsgType = 'Token'
