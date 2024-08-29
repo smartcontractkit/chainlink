@@ -145,9 +145,18 @@ func (r *CreateFeedsManagerPayloadResolver) ToCreateFeedsManagerSuccess() (*Crea
 	return nil, false
 }
 
+// TODO: delete once multiple feeds managers support is released
 func (r *CreateFeedsManagerPayloadResolver) ToSingleFeedsManagerError() (*SingleFeedsManagerErrorResolver, bool) {
 	if r.err != nil && errors.Is(r.err, feeds.ErrSingleFeedsManager) {
 		return NewSingleFeedsManagerError(r.err.Error()), true
+	}
+
+	return nil, false
+}
+
+func (r *CreateFeedsManagerPayloadResolver) ToDuplicateFeedsManagerError() (*DuplicateFeedsManagerErrorResolver, bool) {
+	if r.err != nil && errors.Is(r.err, feeds.ErrDuplicateFeedsManager) {
+		return NewDuplicateFeedsManagerError(r.err.Error()), true
 	}
 
 	return nil, false
@@ -182,6 +191,7 @@ func (r *CreateFeedsManagerSuccessResolver) FeedsManager() *FeedsManagerResolver
 }
 
 // SingleFeedsManagerErrorResolver -
+// TODO: delete once multiple feeds managers support is released
 type SingleFeedsManagerErrorResolver struct {
 	message string
 }
@@ -197,6 +207,25 @@ func (r *SingleFeedsManagerErrorResolver) Message() string {
 }
 
 func (r *SingleFeedsManagerErrorResolver) Code() ErrorCode {
+	return ErrorCodeUnprocessable
+}
+
+// DuplicateFeedsManagerErrorResolver -
+type DuplicateFeedsManagerErrorResolver struct {
+	message string
+}
+
+func NewDuplicateFeedsManagerError(message string) *DuplicateFeedsManagerErrorResolver {
+	return &DuplicateFeedsManagerErrorResolver{
+		message: message,
+	}
+}
+
+func (r *DuplicateFeedsManagerErrorResolver) Message() string {
+	return r.message
+}
+
+func (r *DuplicateFeedsManagerErrorResolver) Code() ErrorCode {
 	return ErrorCodeUnprocessable
 }
 
