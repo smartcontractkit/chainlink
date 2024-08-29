@@ -9,9 +9,7 @@ import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAcc
 
 import {IBridgehub, L2TransactionRequestDirect} from "@zksync/contracts/l1-contracts/contracts/bridgehub/IBridgehub.sol";
 
-///
 /// @title ZKSyncValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
-///
 contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
   int256 private constant ANSWER_SEQ_OFFLINE = 1;
   uint32 private s_gasLimit;
@@ -26,17 +24,19 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
   uint32 private constant TEST_NET_CHAIN_ID = 300;
   uint32 private constant MAIN_NET_CHAIN_ID = 324;
 
-  ///
   /// @notice emitted when gas cost to spend on L2 is updated
   /// @param gasLimit updated gas cost
-  ///
   event GasLimitUpdated(uint32 gasLimit);
 
-  ///
+  /// @notice emitted when the gas per pubdata byte limit is updated
+  /// @param l2GasPerPubdataByteLimit updated gas per pubdata byte limit
+  event GasPerPubdataByteLimitUpdated(uint32 l2GasPerPubdataByteLimit);
+
+  error InvalidChainID;
+
   /// @param l1CrossDomainMessengerAddress address the Bridgehub contract address
   /// @param l2UptimeFeedAddr the address of the ZKSyncSequencerUptimeFeedInterface contract address
   /// @param gasLimit the gasLimit to use for sending a message from L1 to L2
-  ///
   constructor(
     address l1CrossDomainMessengerAddress,
     address l2UptimeFeedAddr,
@@ -53,63 +53,60 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     s_gasLimit = gasLimit;
 
     // Check if the chainId is one of the valid values
-    require(chainId == TEST_NET_CHAIN_ID || chainId == MAIN_NET_CHAIN_ID, "Invalid chain id");
+    if (chainId != TEST_NET_CHAIN_ID && chainId != MAIN_NET_CHAIN_ID) {
+      revert InvalidChainID();
+    }
+
     i_chainId = chainId;
 
     s_l2GasPerPubdataByteLimit = l2GasPerPubdataByteLimit;
   }
 
-  ///
   /// @inheritdoc TypeAndVersionInterface
-  ///
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "ZKSyncValidator 1.0.0";
   }
 
-  ///
   /// @notice sets the new gas cost to spend when sending cross chain message
   /// @param gasLimit the updated gas cost
-  ///
   function setGasLimit(uint32 gasLimit) external onlyOwner {
+    if (s_gasLimit == gasLimit) {
+      return;
+    }
+
     s_gasLimit = gasLimit;
     emit GasLimitUpdated(gasLimit);
   }
 
-  ///
   /// @notice fetches the gas cost of sending a cross chain message
-  ///
   function getGasLimit() external view returns (uint32) {
     return s_gasLimit;
   }
 
-  ///
-  /// @notice sets the l2GasPerPubdataByteLimit TODO complete this
+  /// @notice sets the l2GasPerPubdataByteLimit for the L2 transaction request
   /// @param l2GasPerPubdataByteLimit the updated l2GasPerPubdataByteLimit
-  ///
   function setL2GasPerPubdataByteLimit(uint32 l2GasPerPubdataByteLimit) external onlyOwner {
+    if (s_l2GasPerPubdataByteLimit == l2GasPerPubdataByteLimit) {
+      return;
+    }
+
     s_l2GasPerPubdataByteLimit = l2GasPerPubdataByteLimit;
-    // emit GasLimitUpdated(gasLimit); TODO do we need to?
+    emit GasPerPubdataByteLimitUpdated(l2GasPerPubdataByteLimit);
   }
 
-  ///
-  /// @notice fetches the l2GasPerPubdataByteLimit // TODO complete this
-  ///
+  /// @notice fetches the l2GasPerPubdataByteLimit // for the L2 transaction request
   function getL2GasPerPubdataByteLimit() external view returns (uint32) {
     return s_l2GasPerPubdataByteLimit;
   }
 
-  ///
   /// @notice fetches the chain id
-  ///
   function getChainId() external view returns (uint32) {
     return i_chainId;
   }
 
-  ///
   /// @notice validate method sends an xDomain L2 tx to update Uptime Feed contract on L2.
   /// @dev A message is sent using the Bridgehub. This method is accessed controlled.
   /// @param currentAnswer new aggregator answer - value of 1 considers the sequencer offline.
-  ///
   function validate(
     uint256 /* previousRoundId */,
     int256 /* previousAnswer */,
