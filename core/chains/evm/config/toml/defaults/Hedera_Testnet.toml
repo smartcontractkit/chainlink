@@ -6,8 +6,6 @@ FinalityDepth = 10
 # Hedera has high TPS, so polling less often 
 LogPollInterval = '10s'
 MinIncomingConfirmations = 1
-# Turning off the liveness detection, since the Websocket connection is not reliable, can be turned on if needed
-NoNewHeadsThreshold = '0'
 
 [BalanceMonitor]
 Enabled = true
@@ -29,5 +27,4 @@ ResendAfterThreshold = '1m'
 
 
 [NodePool]
-# Disabling sync threshold check for testing
-SyncThreshold = 0
+SyncThreshold = 10
