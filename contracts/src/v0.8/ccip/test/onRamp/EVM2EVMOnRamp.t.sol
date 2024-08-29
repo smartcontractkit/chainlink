@@ -1407,6 +1407,32 @@ contract EVM2EVMOnRamp_getFee is EVM2EVMOnRamp_getFeeSetup {
     }
   }
 
+  function test_GetFeeOfZeroForTokenMessage_Success() public {
+    Client.EVM2AnyMessage memory message = _generateEmptyMessage();
+
+    uint256 feeAmount = s_onRamp.getFee(DEST_CHAIN_SELECTOR, message);
+    assertTrue(feeAmount > 0);
+
+    EVM2EVMOnRamp.FeeTokenConfigArgs[] memory feeTokenConfigArgs = new EVM2EVMOnRamp.FeeTokenConfigArgs[](1);
+    feeTokenConfigArgs[0] = EVM2EVMOnRamp.FeeTokenConfigArgs({
+      token: message.feeToken,
+      networkFeeUSDCents: 0,
+      gasMultiplierWeiPerEth: 0,
+      premiumMultiplierWeiPerEth: 0,
+      enabled: true
+    });
+
+    s_onRamp.setFeeTokenConfig(feeTokenConfigArgs);
+    EVM2EVMOnRamp.DynamicConfig memory config =
+      generateDynamicOnRampConfig(address(s_sourceRouter), address(s_feeQuoter));
+    config.destDataAvailabilityMultiplierBps = 0;
+
+    s_onRamp.setDynamicConfig(config);
+
+    feeAmount = s_onRamp.getFee(DEST_CHAIN_SELECTOR, message);
+    assertEq(0, feeAmount);
+  }
+
   function test_ZeroDataAvailabilityMultiplier_Success() public {
     EVM2EVMOnRamp.DynamicConfig memory dynamicConfig = s_onRamp.getDynamicConfig();
     dynamicConfig.destDataAvailabilityMultiplierBps = 0;
