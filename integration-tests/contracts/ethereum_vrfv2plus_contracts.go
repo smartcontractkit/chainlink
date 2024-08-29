@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/montanaflynn/stats"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
@@ -433,6 +433,18 @@ func (v *EthereumVRFCoordinatorV2_5) GetLinkNativeFeed(ctx context.Context) (com
 		return common.Address{}, err
 	}
 	return address, nil
+}
+
+func (v *EthereumVRFCoordinatorV2_5) GetConfig(ctx context.Context) (vrf_coordinator_v2_5.SConfig, error) {
+	opts := &bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}
+	config, err := v.coordinator.SConfig(opts)
+	if err != nil {
+		return vrf_coordinator_v2_5.SConfig{}, err
+	}
+	return config, nil
 }
 
 // OwnerCancelSubscription cancels subscription by Coordinator owner

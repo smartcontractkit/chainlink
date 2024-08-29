@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/go-cmp/cmp"
@@ -127,12 +127,6 @@ func TestVRFv2Plus(t *testing.T) {
 		require.Equal(t, isNativeBilling, randomWordsFulfilledEvent.NativePayment, "RandomWordsFulfilled Event's `NativePayment` field should be false")
 		require.True(t, randomWordsFulfilledEvent.Success, "RandomWordsFulfilled Event's `Success` field should be true")
 
-		expectedSubBalanceJuels := new(big.Int).Sub(subBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
-		subscription, err = vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subIDForRequestRandomness)
-		require.NoError(t, err, "error getting subscription information")
-		subBalanceAfterRequest := subscription.Balance
-		require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
-
 		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
@@ -143,6 +137,19 @@ func TestVRFv2Plus(t *testing.T) {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 		}
+		t.Run("Verify Billing", func(t *testing.T) {
+			actualSubPaymentJuels := randomWordsFulfilledEvent.Payment
+
+			expectedSubBalanceJuels := new(big.Int).Sub(subBalanceBeforeRequest, actualSubPaymentJuels)
+			subscription, err = vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subIDForRequestRandomness)
+			require.NoError(t, err, "error getting subscription information")
+			subBalanceAfterRequest := subscription.Balance
+			require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
+
+			//todo - need to refactor the test so that when running on live testnet and deploying a new environment,
+			// we would load real Link Token and Link/ETH feed addresses from the config
+		})
+
 	})
 	t.Run("Native Billing", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
@@ -183,12 +190,6 @@ func TestVRFv2Plus(t *testing.T) {
 		require.False(t, randomWordsFulfilledEvent.OnlyPremium)
 		require.Equal(t, isNativeBilling, randomWordsFulfilledEvent.NativePayment)
 		require.True(t, randomWordsFulfilledEvent.Success)
-		expectedSubBalanceWei := new(big.Int).Sub(subNativeTokenBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
-		subscription, err = vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
-		require.NoError(t, err)
-		subBalanceAfterRequest := subscription.NativeBalance
-		require.Equal(t, expectedSubBalanceWei, subBalanceAfterRequest)
-
 		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
@@ -199,92 +200,51 @@ func TestVRFv2Plus(t *testing.T) {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 		}
-	})
-	t.Run("VRF Node waits block confirmation number specified by the consumer before sending fulfilment on-chain", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
-		testConfig := configCopy.VRFv2Plus.General
-		var isNativeBilling = true
+		t.Run("Verify Billing", func(t *testing.T) {
+			actualSubPaymentWei := randomWordsFulfilledEvent.Payment
+			expectedSubBalanceWei := new(big.Int).Sub(subNativeTokenBalanceBeforeRequest, actualSubPaymentWei)
+			subscription, err = vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
+			require.NoError(t, err)
+			subBalanceAfterRequest := subscription.NativeBalance
+			require.Equal(t, expectedSubBalanceWei, subBalanceAfterRequest)
 
-		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
-			testcontext.Get(t),
-			sethClient,
-			vrfContracts.CoordinatorV2Plus,
-			configCopy,
-			vrfContracts.LinkToken,
-			1,
-			1,
-			l,
-		)
-		require.NoError(t, err, "error setting up new consumers and subs")
-		subID := subIDs[0]
-		subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
-		require.NoError(t, err, "error getting subscription information")
-		vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
-		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
+			// verify that the actual sub payment is within the expected range - this cannot be checked on SIMULATED env
+			coordinatorConfig, err := vrfContracts.CoordinatorV2Plus.GetConfig(testcontext.Get(t))
+			require.NoError(t, err, "error getting coordinator config")
+			//check that Coordinator config is correct
+			require.Equal(t, *configCopy.VRFv2Plus.General.FulfillmentFlatFeeNativePPM, coordinatorConfig.FulfillmentFlatFeeNativePPM)
+			require.Equal(t, *configCopy.VRFv2Plus.General.NativePremiumPercentage, coordinatorConfig.NativePremiumPercentage)
+			require.Equal(t, *configCopy.VRFv2Plus.General.GasAfterPaymentCalculation, coordinatorConfig.GasAfterPaymentCalculation)
+			// check that the actual sub payment is within the expected range and is according to the coordinator config's billing settings
+			fulfillmentTxHash := randomWordsFulfilledEvent.Raw.TxHash
+			fulfillmentTxReceipt, err := sethClient.Client.TransactionReceipt(testcontext.Get(t), fulfillmentTxHash)
+			require.NoError(t, err, "error getting fulfilment tx receipt")
 
-		expectedBlockNumberWait := uint16(10)
-		testConfig.MinimumConfirmations = ptr.Ptr[uint16](expectedBlockNumberWait)
-		randomWordsRequestedEvent, randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
-			consumers[0],
-			vrfContracts.CoordinatorV2Plus,
-			vrfKey,
-			subID,
-			isNativeBilling,
-			testConfig,
-			l,
-			0,
-		)
-		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+			txGasUsed := new(big.Int).SetUint64(fulfillmentTxReceipt.GasUsed)
+			// we don't have that information for older Geth versions
+			if fulfillmentTxReceipt.EffectiveGasPrice == nil {
+				fulfillmentTxReceipt.EffectiveGasPrice = new(big.Int).SetUint64(0)
+			}
+			fulfillmentTxFeeWei := new(big.Int).Mul(txGasUsed, fulfillmentTxReceipt.EffectiveGasPrice)
 
-		// check that VRF node waited at least the number of blocks specified by the consumer in the rand request min confs field
-		blockNumberWait := randomWordsRequestedEvent.Raw.BlockNumber - randomWordsFulfilledEvent.Raw.BlockNumber
-		require.GreaterOrEqual(t, blockNumberWait, uint64(expectedBlockNumberWait))
+			premiumFeeInDecimal := new(big.Float).Quo(big.NewFloat(float64(*configCopy.VRFv2Plus.General.CoordinatorNativePremiumPercentage)), big.NewFloat(100))
+			premiumFeeRatio := new(big.Float).Add(premiumFeeInDecimal, big.NewFloat(1))
+			// since - tx fee * (premium fee in decimal + 1) = expected sub payment
+			fulfillmentTxFeeWeiFloat64, _ := fulfillmentTxFeeWei.Float64()
+			expectedSubPaymentWeiWithoutFlatFee := new(big.Float).Mul(big.NewFloat(fulfillmentTxFeeWeiFloat64), premiumFeeRatio)
+			flatFee := new(big.Float).Mul(big.NewFloat(float64(*configCopy.VRFv2Plus.General.FulfillmentFlatFeeNativePPM)), big.NewFloat(1e12))
+			expectedSubPaymentWeiWitFlatFee := new(big.Float).Add(expectedSubPaymentWeiWithoutFlatFee, flatFee)
+			vrfv2plus.LogPaymentDetails(l, fulfillmentTxFeeWei, fulfillmentTxReceipt, actualSubPaymentWei, expectedSubPaymentWeiWitFlatFee, configCopy)
+			actualSubPaymentWeiFloat, _ := actualSubPaymentWei.Float64()
+			expectedSubPaymentWeiFloat, _ := expectedSubPaymentWeiWitFlatFee.Float64()
 
-		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
-		require.NoError(t, err, "error getting rand request status")
-		require.True(t, status.Fulfilled)
-		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
-	})
-	t.Run("CL Node VRF Job Runs", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
-		var isNativeBilling = false
+			//verify that the actual sub payment is more than TX fee
+			require.Equal(t, 1, actualSubPaymentWei.Cmp(fulfillmentTxFeeWei), "the actual sub payment has to be more than the TX fee")
 
-		consumers, subIDsForRequestRandomness, err := vrfv2plus.SetupNewConsumersAndSubs(
-			testcontext.Get(t),
-			sethClient,
-			vrfContracts.CoordinatorV2Plus,
-			configCopy,
-			vrfContracts.LinkToken,
-			1,
-			1,
-			l,
-		)
-		require.NoError(t, err, "error setting up new consumers and subs")
-		subIDForRequestRandomness := subIDsForRequestRandomness[0]
-		subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subIDForRequestRandomness)
-		require.NoError(t, err, "error getting subscription information")
-		vrfcommon.LogSubDetails(l, subscription, subIDForRequestRandomness.String(), vrfContracts.CoordinatorV2Plus)
-		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForRequestRandomness...)
-
-		jobRunsBeforeTest, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
-		require.NoError(t, err, "error reading job runs")
-
-		// test and assert
-		_, _, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
-			consumers[0],
-			vrfContracts.CoordinatorV2Plus,
-			vrfKey,
-			subIDForRequestRandomness,
-			isNativeBilling,
-			configCopy.VRFv2Plus.General,
-			l,
-			0,
-		)
-		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
-
-		jobRuns, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
-		require.NoError(t, err, "error reading job runs")
-		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
+			tolerance := *testConfig.SubBillingTolerance
+			isWithinTolerance, diff := actions.WithinTolerance(actualSubPaymentWeiFloat, expectedSubPaymentWeiFloat, tolerance)
+			require.True(t, isWithinTolerance, fmt.Sprintf("Expected the actual sub payment to be within %f tolerance of the expected sub payment. Diff: %f", tolerance, diff))
+		})
 	})
 	t.Run("Direct Funding", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
@@ -398,6 +358,92 @@ func TestVRFv2Plus(t *testing.T) {
 				require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 			}
 		})
+	})
+	t.Run("VRF Node waits block confirmation number specified by the consumer before sending fulfilment on-chain", func(t *testing.T) {
+		configCopy := config.MustCopy().(tc.TestConfig)
+		testConfig := configCopy.VRFv2Plus.General
+		var isNativeBilling = true
+
+		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
+			sethClient,
+			vrfContracts.CoordinatorV2Plus,
+			configCopy,
+			vrfContracts.LinkToken,
+			1,
+			1,
+			l,
+		)
+		require.NoError(t, err, "error setting up new consumers and subs")
+		subID := subIDs[0]
+		subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
+		require.NoError(t, err, "error getting subscription information")
+		vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
+		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
+
+		expectedBlockNumberWait := uint16(10)
+		testConfig.MinimumConfirmations = ptr.Ptr[uint16](expectedBlockNumberWait)
+		randomWordsRequestedEvent, randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+			consumers[0],
+			vrfContracts.CoordinatorV2Plus,
+			vrfKey,
+			subID,
+			isNativeBilling,
+			testConfig,
+			l,
+			0,
+		)
+		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+
+		// check that VRF node waited at least the number of blocks specified by the consumer in the rand request min confs field
+		blockNumberWait := randomWordsRequestedEvent.Raw.BlockNumber - randomWordsFulfilledEvent.Raw.BlockNumber
+		require.GreaterOrEqual(t, blockNumberWait, uint64(expectedBlockNumberWait))
+
+		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+		require.NoError(t, err, "error getting rand request status")
+		require.True(t, status.Fulfilled)
+		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+	})
+	t.Run("CL Node VRF Job Runs", func(t *testing.T) {
+		configCopy := config.MustCopy().(tc.TestConfig)
+		var isNativeBilling = false
+
+		consumers, subIDsForRequestRandomness, err := vrfv2plus.SetupNewConsumersAndSubs(
+			testcontext.Get(t),
+			sethClient,
+			vrfContracts.CoordinatorV2Plus,
+			configCopy,
+			vrfContracts.LinkToken,
+			1,
+			1,
+			l,
+		)
+		require.NoError(t, err, "error setting up new consumers and subs")
+		subIDForRequestRandomness := subIDsForRequestRandomness[0]
+		subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subIDForRequestRandomness)
+		require.NoError(t, err, "error getting subscription information")
+		vrfcommon.LogSubDetails(l, subscription, subIDForRequestRandomness.String(), vrfContracts.CoordinatorV2Plus)
+		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForRequestRandomness...)
+
+		jobRunsBeforeTest, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
+		require.NoError(t, err, "error reading job runs")
+
+		// test and assert
+		_, _, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+			consumers[0],
+			vrfContracts.CoordinatorV2Plus,
+			vrfKey,
+			subIDForRequestRandomness,
+			isNativeBilling,
+			configCopy.VRFv2Plus.General,
+			l,
+			0,
+		)
+		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+
+		jobRuns, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
+		require.NoError(t, err, "error reading job runs")
+		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 	})
 	t.Run("Canceling Sub And Returning Funds", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
@@ -748,8 +794,8 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	config, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.VRFv2Plus)
 	require.NoError(t, err, "Error getting config")
 	vrfv2PlusConfig := config.VRFv2Plus
-	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
-
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	chainID := network.ChainID
 	cleanupFn := func() {
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
@@ -1698,7 +1744,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 	env, vrfContracts, vrfKey, nodeTypeToNodeMap, sethClient, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
 
-	t.Run("Timed out request fulfilled after node restart with replay", func(t *testing.T) {
+	t.Run("Replaying Requests", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		var isNativeBilling = false
 
@@ -1916,7 +1962,6 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 		env                          *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
-		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 		sethClient                   *seth.Client
 	)
@@ -1938,7 +1983,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
@@ -2095,7 +2140,6 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		env                          *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
-		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
 		sethClient                   *seth.Client
@@ -2115,7 +2159,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {

@@ -23,6 +23,7 @@ cd tools/docker
 
 ### Compose script env vars
 The following env vars are used for the compose script :
+- `WITH_OBSERVABILITY=true` to enable grafana, prometheus and alertmanager
 - `GETH_MODE=true` to use geth instead of parity
 - `CHAIN_ID=<number>` to specify the chainID (default is 34055 for parity and 1337 for geth)
 - `HTTPURL=<url>` to specify the RPC node HTTP url (default is set if you use geth or parity)
@@ -33,6 +34,10 @@ If you specify both `HTTPURL` and `WSURL`, it won't run the devnet RPC node.
 for example :
 ```sh
 CHAIN_ID=11155111 WSURL=wss://eth.sepolia HTTPURL=https://eth.sepolia ./compose dev
+```
+
+```sh
+WITH_OBSERVABILITY=true ./compose up
 ```
 
 ## Dev

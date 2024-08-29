@@ -38,7 +38,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -1283,4 +1284,13 @@ func ContinuouslyGenerateTXsOnChain(sethClient *seth.Client, stopChannel chan bo
 			l.Info().Str("Count", count.String()).Msg("Number of generated transactions on chain")
 		}
 	}
+}
+
+func WithinTolerance(a, b, tolerance float64) (bool, float64) {
+	if a == b {
+		return true, 0
+	}
+	diff := math.Abs(a - b)
+	isWithinTolerance := diff < tolerance
+	return isWithinTolerance, diff
 }

@@ -258,10 +258,11 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 
 	full.Feature = toml.Feature{
-		FeedsManager: ptr(true),
-		LogPoller:    ptr(true),
-		UICSAKeys:    ptr(true),
-		CCIP:         ptr(true),
+		FeedsManager:       ptr(true),
+		LogPoller:          ptr(true),
+		UICSAKeys:          ptr(true),
+		CCIP:               ptr(true),
+		MultiFeedsManagers: ptr(true),
 	}
 	full.Database = toml.Database{
 		DefaultIdleInTxSessionTimeout: commoncfg.MustNewDuration(time.Minute),
@@ -615,6 +616,7 @@ func TestConfig_Marshal(t *testing.T) {
 						TransactionAlreadyMined:           ptr[string]("(: |^)transaction already mined"),
 						Fatal:                             ptr[string]("(: |^)fatal"),
 						ServiceUnavailable:                ptr[string]("(: |^)service unavailable"),
+						TooManyResults:                    ptr[string]("(: |^)too many results"),
 					},
 				},
 				OCR: evmcfg.OCR{
@@ -774,6 +776,7 @@ FeedsManager = true
 LogPoller = true
 UICSAKeys = true
 CCIP = true
+MultiFeedsManagers = true
 `},
 		{"Database", Config{Core: toml.Core{Database: full.Database}}, `[Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
@@ -1090,6 +1093,7 @@ L2Full = '(: |^)l2 full'
 TransactionAlreadyMined = '(: |^)transaction already mined'
 Fatal = '(: |^)fatal'
 ServiceUnavailable = '(: |^)service unavailable'
+TooManyResults = '(: |^)too many results'
 
 [EVM.OCR]
 ContractConfirmations = 11
