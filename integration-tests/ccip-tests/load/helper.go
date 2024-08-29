@@ -201,6 +201,7 @@ func (l *LoadArgs) ValidateCurseFollowedByUncurse() {
 		lane.Source.TransferAmount = []*big.Int{}
 		failedTx, _, _, err := lane.Source.SendRequest(
 			lane.Dest.ReceiverDapp.EthAddress,
+			false,
 			big.NewInt(actions.DefaultDestinationGasLimit), // gas limit
 		)
 		if lane.Source.Common.ChainClient.GetNetworkConfig().MinimumConfirmations > 0 {

@@ -1045,6 +1045,7 @@ func (e *CCIPContractsDeployer) DeployOnRamp(
 					DefaultTokenFeeUSDCents:           50,
 					DefaultTokenDestGasOverhead:       125_000,
 					DefaultTokenDestBytesOverhead:     500,
+					EnforceOutOfOrder:                 false,
 				},
 				evm_2_evm_onramp.RateLimiterConfig{
 					Capacity: opts.Capacity,

@@ -132,8 +132,9 @@ func (c *CCIPE2ELoad) BeforeAllCall() {
 		c.EOAReceiver = c.msg.Receiver
 	}
 	if c.SendMaxDataIntermittentlyInMsgCount > 0 {
-		c.MaxDataBytes, err = sourceCCIP.OnRamp.Instance.GetDynamicConfig(nil)
+		cfg, err := sourceCCIP.OnRamp.Instance.GetDynamicConfig(nil)
 		require.NoError(c.t, err, "failed to fetch dynamic config")
+		c.MaxDataBytes = cfg.MaxDataBytes
 	}
 	// if the msg is sent via multicall, transfer the token transfer amount to multicall contract
 	if sourceCCIP.Common.MulticallEnabled &&
@@ -189,11 +190,11 @@ func (c *CCIPE2ELoad) CCIPMsg() (router.ClientEVM2AnyMessage, *testreporters.Req
 	if !msgDetails.IsTokenTransfer() {
 		msg.TokenAmounts = []router.ClientEVMTokenAmount{}
 	}
-	extraArgsV1, err := testhelpers.GetEVMExtraArgsV1(big.NewInt(gasLimit), false)
+	extraArgs, err := testhelpers.GetEVMExtraArgsV2(big.NewInt(gasLimit), false)
 	if err != nil {
 		return router.ClientEVM2AnyMessage{}, stats, err
 	}
-	msg.ExtraArgs = extraArgsV1
+	msg.ExtraArgs = extraArgs
 	// if gaslimit is 0, set the receiver to EOA
 	if gasLimit == 0 {
 		msg.Receiver = c.EOAReceiver
