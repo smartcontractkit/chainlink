@@ -10,6 +10,7 @@ import (
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
@@ -86,7 +87,7 @@ func deployContract[C Contracts](
 		lggr.Errorw("Failed to deploy contract", "err", contractDeploy.Err)
 		return nil, contractDeploy.Err
 	}
-	err := chain.Confirm(contractDeploy.Tx.Hash())
+	_, err := chain.Confirm(contractDeploy.Tx.Hash())
 	if err != nil {
 		lggr.Errorw("Failed to confirm deployment", "err", err)
 		return nil, err
@@ -157,7 +158,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 			// TODO: We enable the deployer initially to set prices
 			AddedCallers: []common.Address{chainState.EvmOffRampV160.Address(), chain.DeployerKey.From},
 		})
-		if err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 			e.Logger.Errorw("Failed to confirm price registry authorized caller update", "err", err)
 			return ab, err
 		}
@@ -165,7 +166,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 		tx, err = chainState.NonceManager.ApplyAuthorizedCallerUpdates(chain.DeployerKey, nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
 			AddedCallers: []common.Address{chainState.EvmOffRampV160.Address(), chainState.EvmOnRampV160.Address()},
 		})
-		if err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 			e.Logger.Errorw("Failed to update nonce manager with ramps", "err", err)
 			return ab, err
 		}

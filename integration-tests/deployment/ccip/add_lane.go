@@ -21,7 +21,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 			OnRamp:            state.Chains[from].EvmOnRampV160.Address(),
 		},
 	}, []router.RouterOffRamp{}, []router.RouterOffRamp{})
-	if err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {
 		return err
 	}
 	tx, err = state.Chains[from].EvmOnRampV160.ApplyDestChainConfigUpdates(e.Chains[from].DeployerKey,
@@ -31,7 +31,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 				Router:            state.Chains[from].Router.Address(),
 			},
 		})
-	if err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {
 		return err
 	}
 
@@ -53,7 +53,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 					UsdPerUnitGas:     big.NewInt(2e12),
 				},
 			}})
-	if err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {
 		return err
 	}
 
@@ -65,7 +65,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 				DestChainConfig:   defaultPriceRegistryDestChainConfig(),
 			},
 		})
-	if err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {
 		return err
 	}
 
@@ -78,7 +78,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 				OnRamp:              common.LeftPadBytes(state.Chains[from].EvmOnRampV160.Address().Bytes(), 32),
 			},
 		})
-	if err := deployment.ConfirmIfNoError(e.Chains[to], tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoError(e.Chains[to], tx, err); err != nil {
 		return err
 	}
 	tx, err = state.Chains[to].Router.ApplyRampUpdates(e.Chains[to].DeployerKey, []router.RouterOnRamp{}, []router.RouterOffRamp{}, []router.RouterOffRamp{
@@ -87,7 +87,8 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 			OffRamp:             state.Chains[to].EvmOffRampV160.Address(),
 		},
 	})
-	return deployment.ConfirmIfNoError(e.Chains[to], tx, err)
+	_, err = deployment.ConfirmIfNoError(e.Chains[to], tx, err)
+	return err
 }
 
 func defaultPriceRegistryDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
