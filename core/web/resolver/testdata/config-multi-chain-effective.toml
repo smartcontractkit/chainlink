@@ -360,6 +360,9 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2.Automation]
 GasLimit = 10500000
 
+[EVM.Workflow]
+GasLimitDefault = 400000
+
 [[EVM.Nodes]]
 Name = 'primary'
 WSURL = 'wss://web.socket/mainnet'
@@ -461,6 +464,9 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2.Automation]
 GasLimit = 5400000
 
+[EVM.Workflow]
+GasLimitDefault = 400000
+
 [[EVM.Nodes]]
 Name = 'foo'
 WSURL = 'wss://web.socket/test/foo'
@@ -555,6 +561,9 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2]
 [EVM.OCR2.Automation]
 GasLimit = 5400000
+
+[EVM.Workflow]
+GasLimitDefault = 400000
 
 [[EVM.Nodes]]
 Name = 'bar'
