@@ -1,6 +1,7 @@
 package txmgr
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -1116,7 +1117,7 @@ func hasReceiptInLongestChain[
 	for {
 		for _, attempt := range etx.TxAttempts {
 			for _, receipt := range attempt.Receipts {
-				if receipt.GetBlockHash().String() == head.BlockHash().String() && receipt.GetBlockNumber().Int64() == head.BlockNumber() {
+				if bytes.Equal(receipt.GetBlockHash().Bytes(), head.BlockHash().Bytes()) && receipt.GetBlockNumber().Int64() == head.BlockNumber() {
 					return true
 				}
 			}
