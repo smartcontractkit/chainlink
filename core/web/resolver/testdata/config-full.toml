@@ -7,6 +7,7 @@ FeedsManager = true
 LogPoller = true
 UICSAKeys = true
 CCIP = true
+MultiFeedsManagers = false
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
@@ -393,6 +394,9 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2]
 [EVM.OCR2.Automation]
 GasLimit = 540
+
+[EVM.Workflow]
+GasLimitDefault = 400000
 
 [[EVM.Nodes]]
 Name = 'foo'

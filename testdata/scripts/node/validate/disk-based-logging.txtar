@@ -63,6 +63,7 @@ FeedsManager = true
 LogPoller = false
 UICSAKeys = false
 CCIP = true
+MultiFeedsManagers = false
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1h0m0s'
@@ -404,6 +405,9 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2]
 [EVM.OCR2.Automation]
 GasLimit = 10500000
+
+[EVM.Workflow]
+GasLimitDefault = 400000
 
 [[EVM.Nodes]]
 Name = 'fake'

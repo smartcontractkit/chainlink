@@ -258,10 +258,11 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 
 	full.Feature = toml.Feature{
-		FeedsManager: ptr(true),
-		LogPoller:    ptr(true),
-		UICSAKeys:    ptr(true),
-		CCIP:         ptr(true),
+		FeedsManager:       ptr(true),
+		LogPoller:          ptr(true),
+		UICSAKeys:          ptr(true),
+		CCIP:               ptr(true),
+		MultiFeedsManagers: ptr(true),
 	}
 	full.Database = toml.Database{
 		DefaultIdleInTxSessionTimeout: commoncfg.MustNewDuration(time.Minute),
@@ -631,6 +632,9 @@ func TestConfig_Marshal(t *testing.T) {
 						GasLimit: ptr[uint32](540),
 					},
 				},
+				Workflow: evmcfg.Workflow{
+					GasLimitDefault: ptr[uint64](400000),
+				},
 			},
 			Nodes: []*evmcfg.Node{
 				{
@@ -775,6 +779,7 @@ FeedsManager = true
 LogPoller = true
 UICSAKeys = true
 CCIP = true
+MultiFeedsManagers = true
 `},
 		{"Database", Config{Core: toml.Core{Database: full.Database}}, `[Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
@@ -1105,6 +1110,9 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2.Automation]
 GasLimit = 540
 
+[EVM.Workflow]
+GasLimitDefault = 400000
+
 [[EVM.Nodes]]
 Name = 'foo'
 WSURL = 'wss://web.socket/test/foo'
@@ -1240,6 +1248,9 @@ func TestConfig_full(t *testing.T) {
 		}
 		if got.EVM[c].Workflow.ForwarderAddress == nil {
 			got.EVM[c].Workflow.ForwarderAddress = &addr
+		}
+		if got.EVM[c].Workflow.GasLimitDefault == nil {
+			got.EVM[c].Workflow.GasLimitDefault = ptr(uint64(400000))
 		}
 		for n := range got.EVM[c].Nodes {
 			if got.EVM[c].Nodes[n].WSURL == nil {
