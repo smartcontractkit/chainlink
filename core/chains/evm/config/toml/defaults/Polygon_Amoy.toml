@@ -21,7 +21,6 @@ BumpThreshold = 5
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '4s'
-HasMempool = true
 
 [HeadTracker]
 HistoryDepth = 2000
