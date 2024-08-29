@@ -101,11 +101,9 @@ contract MultiAggregateRateLimiterSetup is BaseTest, FeeQuoterSetup {
     });
   }
 
-  function _generateAny2EVMMessageNoTokens(uint64 sourceChainSelector)
-    internal
-    pure
-    returns (Client.Any2EVMMessage memory)
-  {
+  function _generateAny2EVMMessageNoTokens(
+    uint64 sourceChainSelector
+  ) internal pure returns (Client.Any2EVMMessage memory) {
     return _generateAny2EVMMessage(sourceChainSelector, new Client.EVMTokenAmount[](0));
   }
 }
@@ -1180,11 +1178,9 @@ contract MultiAggregateRateLimiter_onOutboundMessage is MultiAggregateRateLimite
     s_rateLimiter.onOutboundMessage(CHAIN_SELECTOR_1, _generateEVM2AnyMessageNoTokens());
   }
 
-  function _generateEVM2AnyMessage(Client.EVMTokenAmount[] memory tokenAmounts)
-    public
-    view
-    returns (Client.EVM2AnyMessage memory)
-  {
+  function _generateEVM2AnyMessage(
+    Client.EVMTokenAmount[] memory tokenAmounts
+  ) public view returns (Client.EVM2AnyMessage memory) {
     return Client.EVM2AnyMessage({
       receiver: abi.encode(OWNER),
       data: "",

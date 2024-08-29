@@ -63,10 +63,9 @@ contract CCIPConfigSetup is Test {
     if (i < right) _sort(arr, i, right);
   }
 
-  function _addChainConfig(uint256 numNodes)
-    internal
-    returns (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters)
-  {
+  function _addChainConfig(
+    uint256 numNodes
+  ) internal returns (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) {
     p2pIds = _makeBytes32Array(numNodes, 0);
     _sort(p2pIds, 0, int256(numNodes - 1));
     signers = _makeBytesArray(numNodes, 10);

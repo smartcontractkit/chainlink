@@ -234,11 +234,9 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     });
   }
 
-  function _convertToGeneralMessage(Internal.Any2EVMRampMessage memory original)
-    internal
-    view
-    returns (Client.Any2EVMMessage memory message)
-  {
+  function _convertToGeneralMessage(
+    Internal.Any2EVMRampMessage memory original
+  ) internal view returns (Client.Any2EVMMessage memory message) {
     uint256 numberOfTokens = original.tokenAmounts.length;
     Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](numberOfTokens);
 
@@ -374,11 +372,9 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     return reports;
   }
 
-  function _getGasLimitsFromMessages(Internal.Any2EVMRampMessage[] memory messages)
-    internal
-    pure
-    returns (uint256[] memory)
-  {
+  function _getGasLimitsFromMessages(
+    Internal.Any2EVMRampMessage[] memory messages
+  ) internal pure returns (uint256[] memory) {
     uint256[] memory gasLimits = new uint256[](messages.length);
     for (uint256 i = 0; i < messages.length; ++i) {
       gasLimits[i] = messages[i].gasLimit;
@@ -405,11 +401,9 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     assertEq(address(config1.router), address(config2.router));
   }
 
-  function _getDefaultSourceTokenData(Client.EVMTokenAmount[] memory srcTokenAmounts)
-    internal
-    view
-    returns (Internal.RampTokenAmount[] memory)
-  {
+  function _getDefaultSourceTokenData(
+    Client.EVMTokenAmount[] memory srcTokenAmounts
+  ) internal view returns (Internal.RampTokenAmount[] memory) {
     Internal.RampTokenAmount[] memory sourceTokenData = new Internal.RampTokenAmount[](srcTokenAmounts.length);
     for (uint256 i = 0; i < srcTokenAmounts.length; ++i) {
       sourceTokenData[i] = Internal.RampTokenAmount({

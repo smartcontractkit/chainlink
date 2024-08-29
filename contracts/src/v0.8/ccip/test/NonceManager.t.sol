@@ -623,11 +623,9 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     assertEq(startNonce + 2, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender));
   }
 
-  function _generateSingleLaneRampReportFromMessages(Internal.EVM2EVMMessage[] memory messages)
-    internal
-    pure
-    returns (Internal.ExecutionReport memory)
-  {
+  function _generateSingleLaneRampReportFromMessages(
+    Internal.EVM2EVMMessage[] memory messages
+  ) internal pure returns (Internal.ExecutionReport memory) {
     bytes[][] memory offchainTokenData = new bytes[][](messages.length);
 
     for (uint256 i = 0; i < messages.length; ++i) {

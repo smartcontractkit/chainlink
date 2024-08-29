@@ -374,11 +374,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// @return sequenceNumber The last used sequence number
   /// @return allowListEnabled boolean indicator to specify if allowList check is enabled
   /// @return router address of the router
-  function getDestChainConfig(uint64 destChainSelector)
-    public
-    view
-    returns (uint64 sequenceNumber, bool allowListEnabled, address router)
-  {
+  function getDestChainConfig(
+    uint64 destChainSelector
+  ) public view returns (uint64 sequenceNumber, bool allowListEnabled, address router) {
     DestChainConfig storage config = s_destChainConfigs[destChainSelector];
     sequenceNumber = config.sequenceNumber;
     allowListEnabled = config.allowListEnabled;

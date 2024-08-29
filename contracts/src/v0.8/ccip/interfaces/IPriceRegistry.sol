@@ -32,10 +32,9 @@ interface IPriceRegistry {
   /// PriceRegistry does not contain chain-specific logic to parse destination chain price components.
   /// @param destChainSelector The destination chain to get the price for.
   /// @return gasPrice The encoded gasPrice for the given destination chain ID.
-  function getDestinationChainGasPrice(uint64 destChainSelector)
-    external
-    view
-    returns (Internal.TimestampedPackedUint224 memory);
+  function getDestinationChainGasPrice(
+    uint64 destChainSelector
+  ) external view returns (Internal.TimestampedPackedUint224 memory);
 
   /// @notice Gets the fee token price and the gas price, both denominated in dollars.
   /// @param token The source token to get the price for.

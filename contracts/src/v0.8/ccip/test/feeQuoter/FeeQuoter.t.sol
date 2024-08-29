@@ -725,9 +725,9 @@ contract FeeQuoter_updateTokenPriceFeeds is FeeQuoterSetup {
 }
 
 contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
-  function test_Fuzz_applyDestChainConfigUpdates_Success(FeeQuoter.DestChainConfigArgs memory destChainConfigArgs)
-    public
-  {
+  function test_Fuzz_applyDestChainConfigUpdates_Success(
+    FeeQuoter.DestChainConfigArgs memory destChainConfigArgs
+  ) public {
     vm.assume(destChainConfigArgs.destChainSelector != 0);
     vm.assume(destChainConfigArgs.destChainConfig.maxPerMsgGasLimit != 0);
     destChainConfigArgs.destChainConfig.defaultTxGasLimit = uint32(

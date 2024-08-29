@@ -325,21 +325,17 @@ abstract contract TokenPool is IPoolV1, OwnerIsCreator {
 
   /// @notice Gets the token bucket with its values for the block it was requested at.
   /// @return The token bucket.
-  function getCurrentOutboundRateLimiterState(uint64 remoteChainSelector)
-    external
-    view
-    returns (RateLimiter.TokenBucket memory)
-  {
+  function getCurrentOutboundRateLimiterState(
+    uint64 remoteChainSelector
+  ) external view returns (RateLimiter.TokenBucket memory) {
     return s_remoteChainConfigs[remoteChainSelector].outboundRateLimiterConfig._currentTokenBucketState();
   }
 
   /// @notice Gets the token bucket with its values for the block it was requested at.
   /// @return The token bucket.
-  function getCurrentInboundRateLimiterState(uint64 remoteChainSelector)
-    external
-    view
-    returns (RateLimiter.TokenBucket memory)
-  {
+  function getCurrentInboundRateLimiterState(
+    uint64 remoteChainSelector
+  ) external view returns (RateLimiter.TokenBucket memory) {
     return s_remoteChainConfigs[remoteChainSelector].inboundRateLimiterConfig._currentTokenBucketState();
   }
 
