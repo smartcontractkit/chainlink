@@ -8,8 +8,6 @@ env CL_CHAIN_DEFAULTS=
 exec chainlink node -c config.toml -s secrets.toml validate
 ! cmp stdout out.txt
 
-# negative path testing with failing validate command not working in CI: BCF-3370
-
 # overrides outside of evm suffix, FinalityTagEnabled should not match as override is not applied
 env CL_CHAIN_DEFAULTS=default_overrides2
 ! exec chainlink node -c config.toml -s secrets.toml validate
