@@ -144,9 +144,10 @@ contract ZKSyncSequencerUptimeFeed is
   /// @param timestamp Block timestamp of status update
   function updateStatus(bool status, uint64 timestamp) external override {
     FeedState memory feedState = s_feedState;
-    address aliasedSender = AddressAliasHelper.applyL1ToL2Alias(s_l1Sender);
+    address aliasedL1Sender = AddressAliasHelper.applyL1ToL2Alias(s_l1Sender);
 
-    if (msg.sender != address(s_l2SharedBridge) || s_l2SharedBridge.l1Bridge() != aliasedSender) {
+    if (msg.sender != aliasedL1Sender) {
+      // TODO can we test this? || s_l2SharedBridge.senderAddress() != aliasedL1Sender) {
       revert InvalidSender();
     }
 
