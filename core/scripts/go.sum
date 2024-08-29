@@ -516,6 +516,8 @@ github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/me
 github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0/go.mod h1:fyg7847qk6SyHyPtNmDHnmrv/HOrqktSC+C9fM+CJOE=
 github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 h1:tfuBGBXKqDEevZMzYi5KSi8KkcZtzBcTgAUUtapy0OI=
 github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572/go.mod h1:9Pwr4B2jHnOSGXyyzV8ROjYa2ojvAY6HCGYYfMoC3Ls=
+github.com/go-viper/mapstructure/v2 v2.1.0 h1:gHnMa2Y/pIxElCH2GlZZ1lZSsn6XMtufpGyP1XxdC/w=
+github.com/go-viper/mapstructure/v2 v2.1.0/go.mod h1:oJDH3BJKyqBA2TXFhDsKDGDTlndYOZ6rGS0BRZIxGhM=
 github.com/go-webauthn/webauthn v0.9.4 h1:YxvHSqgUyc5AK2pZbqkWWR55qKeDPhP8zLDr6lpIc2g=
 github.com/go-webauthn/webauthn v0.9.4/go.mod h1:LqupCtzSef38FcxzaklmOn7AykGKhAhr9xlRbdbgnTw=
 github.com/go-webauthn/x v0.1.5 h1:V2TCzDU2TGLd0kSZOXdrqDVV5JB9ILnKxA9S53CSBw0=
@@ -1186,8 +1188,8 @@ github.com/smartcontractkit/chainlink-automation v1.0.4 h1:iyW181JjKHLNMnDleI8um
 github.com/smartcontractkit/chainlink-automation v1.0.4/go.mod h1:u4NbPZKJ5XiayfKHD/v3z3iflQWqvtdhj13jVZXj/cM=
 github.com/smartcontractkit/chainlink-ccip v0.0.0-20240806144315-04ac101e9c95 h1:LAgJTg9Yr/uCo2g7Krp88Dco2U45Y6sbJVl8uKoLkys=
 github.com/smartcontractkit/chainlink-ccip v0.0.0-20240806144315-04ac101e9c95/go.mod h1:/ZWraCBaDDgaIN1prixYcbVvIk/6HeED9+8zbWQ+TMo=
-github.com/smartcontractkit/chainlink-common v0.2.2-0.20240828200108-9a4a569cc790 h1:+JF8gZqO+zje0wz96u0OEz6yCzL6cjUhAp3GdCp0XPw=
-github.com/smartcontractkit/chainlink-common v0.2.2-0.20240828200108-9a4a569cc790/go.mod h1:bE6E7KwB8dkFUWKxJTTTtrNAl9xFPGlurKpDVhRz1tk=
+github.com/smartcontractkit/chainlink-common v0.2.2-0.20240829145110-4a45c426fbe8 h1:MOFuL1J4/rRcR0x09qSlOsKIiq4I7YzbZcQ421KqUZA=
+github.com/smartcontractkit/chainlink-common v0.2.2-0.20240829145110-4a45c426fbe8/go.mod h1:TJSY2ETKiXLRPvGHNO7Dp1tlpFIPSCWwN3iIdrsadIE=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45 h1:NBQLtqk8zsyY4qTJs+NElI3aDFTcAo83JHvqD04EvB0=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45/go.mod h1:LV0h7QBQUpoC2UUi6TcUvcIFm1xjP/DtEcqV8+qeLUs=
 github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240820130645-cf4b159fbba2 h1:KH6tpCw5hu8u6UTtgll7a8mE4sIbHCbmtzHJdKuRwBw=

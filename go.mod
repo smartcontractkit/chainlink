@@ -28,6 +28,7 @@ require (
 	github.com/gin-contrib/size v0.0.0-20230212012657-e14a14094dc4
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-ldap/ldap/v3 v3.4.6
+	github.com/go-viper/mapstructure/v2 v2.1.0
 	github.com/go-webauthn/webauthn v0.9.4
 	github.com/google/pprof v0.0.0-20231023181126-ff6d637d2a7b
 	github.com/google/uuid v1.6.0
@@ -53,7 +54,6 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/gomega v1.30.0
@@ -75,7 +75,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.21
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240806144315-04ac101e9c95
-	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240828200108-9a4a569cc790
+	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240829145110-4a45c426fbe8
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240820130645-cf4b159fbba2
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240710170203-5b41615da827
@@ -272,6 +272,7 @@ require (
 	github.com/mimoo/StrobeGo v0.0.0-20210601165009-122bf33a46e0 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -354,9 +355,6 @@ replace (
 
 	// until merged upstream: https://github.com/hashicorp/go-plugin/pull/257
 	github.com/hashicorp/go-plugin => github.com/smartcontractkit/go-plugin v0.0.0-20240208201424-b3b91517de16
-
-	// until nolag updates merged upstream
-	github.com/mitchellh/mapstructure => github.com/nolag/mapstructure v1.5.2-0.20240625151721-90ea83a3f479
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
