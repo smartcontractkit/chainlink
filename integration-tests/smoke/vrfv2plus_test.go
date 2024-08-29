@@ -1463,28 +1463,36 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		metrics, err := consumers[0].GetLoadTestMetrics(testcontext.Get(t))
 		require.Equal(t, 0, metrics.RequestCount.Cmp(big.NewInt(1)))
 		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(0)))
-
-		var clNodeTxs *client.TransactionsData
-		var txHash string
 		gom := gomega.NewGomegaWithT(t)
-		gom.Eventually(func(g gomega.Gomega) {
-			clNodeTxs, _, err = nodeTypeToNodeMap[vrfcommon.BHS].CLNode.API.ReadTransactions()
-			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "error getting CL Node transactions")
-			l.Info().Int("Number of TXs", len(clNodeTxs.Data)).Msg("BHS Node txs")
-			g.Expect(len(clNodeTxs.Data)).Should(gomega.BeNumerically("==", 1), "Expected 1 tx posted by BHS Node, but found %d", len(clNodeTxs.Data))
-			txHash = clNodeTxs.Data[0].Attributes.Hash
-		}, "2m", "1s").Should(gomega.Succeed())
 
-		require.Equal(t, strings.ToLower(vrfContracts.BHS.Address()), strings.ToLower(clNodeTxs.Data[0].Attributes.To))
+		if !*configCopy.VRFv2Plus.General.UseExistingEnv {
+			l.Info().Msg("Checking BHS Node's transactions")
+			var clNodeTxs *client.TransactionsData
+			var txHash string
+			gom.Eventually(func(g gomega.Gomega) {
+				clNodeTxs, _, err = nodeTypeToNodeMap[vrfcommon.BHS].CLNode.API.ReadTransactions()
+				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "error getting CL Node transactions")
+				g.Expect(len(clNodeTxs.Data)).Should(gomega.BeNumerically("==", 1), "Expected 1 tx posted by BHS Node, but found %d", len(clNodeTxs.Data))
+				txHash = clNodeTxs.Data[0].Attributes.Hash
+				l.Info().
+					Str("TX Hash", txHash).
+					Int("Number of TXs", len(clNodeTxs.Data)).
+					Msg("BHS Node txs")
+			}, "2m", "1s").Should(gomega.Succeed())
 
-		bhsStoreTx, _, err := sethClient.Client.TransactionByHash(testcontext.Get(t), common.HexToHash(txHash))
-		require.NoError(t, err, "error getting tx from hash")
+			require.Equal(t, strings.ToLower(vrfContracts.BHS.Address()), strings.ToLower(clNodeTxs.Data[0].Attributes.To))
 
-		bhsStoreTxInputData, err := actions.DecodeTxInputData(blockhash_store.BlockhashStoreABI, bhsStoreTx.Data())
-		l.Info().
-			Str("Block Number", bhsStoreTxInputData["n"].(*big.Int).String()).
-			Msg("BHS Node's Store Blockhash for Blocknumber Method TX")
-		require.Equal(t, randRequestBlockNumber, bhsStoreTxInputData["n"].(*big.Int).Uint64())
+			bhsStoreTx, _, err := sethClient.Client.TransactionByHash(testcontext.Get(t), common.HexToHash(txHash))
+			require.NoError(t, err, "error getting tx from hash")
+
+			bhsStoreTxInputData, err := actions.DecodeTxInputData(blockhash_store.BlockhashStoreABI, bhsStoreTx.Data())
+			l.Info().
+				Str("Block Number", bhsStoreTxInputData["n"].(*big.Int).String()).
+				Msg("BHS Node's Store Blockhash for Blocknumber Method TX")
+			require.Equal(t, randRequestBlockNumber, bhsStoreTxInputData["n"].(*big.Int).Uint64())
+		} else {
+			l.Warn().Msg("Skipping BHS Node's transactions check as existing env is used")
+		}
 
 		var randRequestBlockHash [32]byte
 		gom.Eventually(func(g gomega.Gomega) {
@@ -1516,7 +1524,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 	configPtr := &config
 
-	// BHF job config
+	// BHF job config - NOTE - not possible to create BHF job spec with waitBlocks being less than 256 blocks
 	config.VRFv2Plus.General.BHFJobWaitBlocks = ptr.Ptr(260)
 	config.VRFv2Plus.General.BHFJobLookBackBlocks = ptr.Ptr(500)
 	config.VRFv2Plus.General.BHFJobPollPeriod = ptr.Ptr(blockchain.StrDuration{Duration: time.Second * 30})

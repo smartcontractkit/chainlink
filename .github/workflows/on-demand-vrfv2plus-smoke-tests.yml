@@ -16,7 +16,7 @@ on:
       test_list_regex:
         description: "Regex for 'Selected Tests' to run"
         required: false
-        default: "(TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS|TestVRFV2PlusWithBHF)"
+        default: "(TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS)"
       test_secrets_override_key:
         description: 'Key to run tests with custom test secrets'
         required: false
