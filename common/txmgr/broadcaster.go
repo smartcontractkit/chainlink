@@ -558,10 +558,9 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		eb.sequenceTracker.GenerateNextSequence(etx.FromAddress, *etx.Sequence)
 		return err, true
 	case client.Underpriced:
-		bumpedAttempt, retryable, newErr := eb.replaceAttemptWithBumpedGas(ctx, lgr, err, etx, attempt)
-		if newErr != nil {
-			err = fmt.Errorf("%v, failed to create bumped attempt, %v", err, newErr)
-			return err, retryable
+		bumpedAttempt, retryable, replaceErr := eb.replaceAttemptWithBumpedGas(ctx, lgr, err, etx, attempt)
+		if replaceErr != nil {
+			return replaceErr, retryable
 		}
 
 		return eb.handleInProgressTx(ctx, etx, bumpedAttempt, initialBroadcastAt, retryCount+1)
@@ -571,17 +570,16 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		// replace the current attempt, and retry after the backoff duration.
 		// The new attempt must be replaced immediately because of a database constraint.
 		eb.SvcErrBuffer.Append(err)
-		if _, _, newErr := eb.replaceAttemptWithNewEstimation(ctx, lgr, etx, attempt); newErr != nil {
-			err = fmt.Errorf("%v, failed to create re-estimated attempt, %v", err, newErr)
+		if _, _, replaceErr := eb.replaceAttemptWithNewEstimation(ctx, lgr, etx, attempt); replaceErr != nil {
+			return replaceErr, true
 		}
 		return err, true
 	case client.Retryable:
 		return err, true
 	case client.FeeOutOfValidRange:
-		replacementAttempt, retryable, newErr := eb.replaceAttemptWithNewEstimation(ctx, lgr, etx, attempt)
-		if newErr != nil {
-			err = fmt.Errorf("%v, failed to create re-estimated attempt, %v", err, newErr)
-			return err, retryable
+		replacementAttempt, retryable, replaceErr := eb.replaceAttemptWithNewEstimation(ctx, lgr, etx, attempt)
+		if replaceErr != nil {
+			return replaceErr, retryable
 		}
 
 		lgr.Warnw("L2 rejected transaction due to incorrect fee, re-estimated and will try again",
