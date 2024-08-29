@@ -78,7 +78,7 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
-    "@zksync/contracts": "git+https://github.com/matter-labs/era-contracts.git#vv-evm-simplify-fetchDeployedCodeLen-89245ad",
+    "@zksync/contracts": "git+https://github.com/matter-labs/era-contracts.git",
     "@arbitrum/nitro-contracts": "1.1.1",
     "@arbitrum/token-bridge-contracts": "1.1.2",
     "@changesets/changelog-github": "^0.5.0",
