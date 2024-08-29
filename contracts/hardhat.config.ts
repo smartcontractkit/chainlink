@@ -139,16 +139,6 @@ let config = {
         version: '0.8.19',
         settings: COMPILER_SETTINGS,
       },
-      'contracts/node_modules/@zksync/contracts/l2-contracts/contracts/bridge/interfaces/IL2SharedBridge.sol':
-        {
-          version: '0.8.20',
-          settings: COMPILER_SETTINGS,
-        },
-      'node_modules/@zksync/contracts/l1-contracts/contracts/vendor/AddressAliasHelper.sol':
-        {
-          version: '0.8.24',
-          settings: COMPILER_SETTINGS,
-        },
     },
   },
   mocha: {
