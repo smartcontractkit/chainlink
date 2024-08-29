@@ -57,7 +57,7 @@ test = 'src/v0.8/automation/test'
 optimizer_runs = 1_000_000
 src = 'src/v0.8/l2ep'
 test = 'src/v0.8/l2ep/test'
-solc_version = '0.8.19'
+solc_version = '0.8.20'
 
 [profile.llo-feeds]
 optimizer_runs = 1_000_000
