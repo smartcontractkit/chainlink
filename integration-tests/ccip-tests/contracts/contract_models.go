@@ -1856,26 +1856,6 @@ func (onRamp *OnRamp) ApplyPoolUpdates(tokens []common.Address, pools []common.A
 	return onRamp.client.ProcessTransaction(tx)
 }
 
-// SetDynamicConfig sets the dynamic config for the onramp
-// Note that you cannot set only a single field, you must set all fields or they will be reset to zero values
-// You can use GetDynamicConfig to get the current config and modify it as needed
-func (onRamp *OnRamp) SetDynamicConfig(dynamicConfig evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig) error {
-	opts, err := onRamp.client.TransactionOpts(onRamp.client.GetDefaultWallet())
-	if err != nil {
-		return fmt.Errorf("failed to get transaction opts: %w", err)
-	}
-	tx, err := onRamp.Instance.SetDynamicConfig(opts, dynamicConfig)
-	if err != nil {
-		return fmt.Errorf("failed to set dynamic config: %w", err)
-	}
-	onRamp.logger.Info().
-		Interface("Config", dynamicConfig).
-		Str("onRamp", onRamp.Address()).
-		Str(Network, onRamp.client.GetNetworkConfig().Name).
-		Msg("Setting Dynamic Config in OnRamp")
-	return onRamp.client.ProcessTransaction(tx)
-}
-
 // OffRamp represents the OffRamp CCIP contract on the destination chain
 type OffRamp struct {
 	client     blockchain.EVMClient

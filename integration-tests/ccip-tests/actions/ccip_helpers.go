@@ -1752,7 +1752,10 @@ func (sourceCCIP *SourceCCIPModule) CCIPMsg(
 	}
 
 	var extraArgs []byte
-	if sourceCCIP.OnRamp.Instance.V1_2_0 != nil {
+	matchErr := contracts.MatchContractVersionsOrAbove(map[contracts.Name]contracts.Version{
+		contracts.OnRampContract: contracts.V1_5_0_dev,
+	})
+	if matchErr != nil {
 		extraArgs, err = testhelpers.GetEVMExtraArgsV1(gasLimit, allowOutOfOrder)
 	} else {
 		extraArgs, err = testhelpers.GetEVMExtraArgsV2(gasLimit, allowOutOfOrder)
