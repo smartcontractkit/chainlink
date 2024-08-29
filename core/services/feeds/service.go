@@ -37,11 +37,13 @@ import (
 )
 
 var (
-	ErrOCR2Disabled         = errors.New("ocr2 is disabled")
-	ErrOCRDisabled          = errors.New("ocr is disabled")
-	ErrSingleFeedsManager   = errors.New("only a single feeds manager is supported")
-	ErrJobAlreadyExists     = errors.New("a job for this contract address already exists - please use the 'force' option to replace it")
-	ErrFeedsManagerDisabled = errors.New("feeds manager is disabled")
+	ErrOCR2Disabled = errors.New("ocr2 is disabled")
+	ErrOCRDisabled  = errors.New("ocr is disabled")
+	// TODO: delete once multiple feeds managers support is released
+	ErrSingleFeedsManager    = errors.New("only a single feeds manager is supported")
+	ErrDuplicateFeedsManager = errors.New("manager was previously registered using the same public key")
+	ErrJobAlreadyExists      = errors.New("a job for this contract address already exists - please use the 'force' option to replace it")
+	ErrFeedsManagerDisabled  = errors.New("feeds manager is disabled")
 
 	promJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "feeds_job_proposal_requests",
@@ -77,7 +79,6 @@ type Service interface {
 	Start(ctx context.Context) error
 	Close() error
 
-	CountManagers(ctx context.Context) (int64, error)
 	GetManager(ctx context.Context, id int64) (*FeedsManager, error)
 	ListManagers(ctx context.Context) ([]FeedsManager, error)
 	ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsManager, error)
@@ -185,15 +186,23 @@ type RegisterManagerParams struct {
 
 // RegisterManager registers a new ManagerService and attempts to establish a
 // connection.
-//
-// Only a single feeds manager is currently supported.
 func (s *service) RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error) {
-	count, err := s.CountManagers(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if count >= 1 {
-		return 0, ErrSingleFeedsManager
+	if s.gCfg.FeatureMultiFeedsManagers() {
+		exists, err := s.orm.ManagerExists(ctx, params.PublicKey)
+		if err != nil {
+			return 0, err
+		}
+		if exists {
+			return 0, ErrDuplicateFeedsManager
+		}
+	} else {
+		count, err := s.CountManagers(ctx)
+		if err != nil {
+			return 0, err
+		}
+		if count >= 1 {
+			return 0, ErrSingleFeedsManager
+		}
 	}
 
 	mgr := FeedsManager{
@@ -204,7 +213,7 @@ func (s *service) RegisterManager(ctx context.Context, params RegisterManagerPar
 
 	var id int64
 
-	err = s.orm.Transact(ctx, func(tx ORM) error {
+	err := s.orm.Transact(ctx, func(tx ORM) error {
 		var txerr error
 
 		id, txerr = tx.CreateManager(ctx, &mgr)
@@ -324,6 +333,7 @@ func (s *service) ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsMa
 }
 
 // CountManagers gets the total number of manager services
+// TODO: delete once multiple feeds managers support is released
 func (s *service) CountManagers(ctx context.Context) (int64, error) {
 	return s.orm.CountManagers(ctx)
 }
@@ -1446,7 +1456,6 @@ func (ns NullService) Close() error                    { return nil }
 func (ns NullService) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	return ErrFeedsManagerDisabled
 }
-func (ns NullService) CountManagers(ctx context.Context) (int64, error) { return 0, nil }
 func (ns NullService) CountJobProposalsByStatus(ctx context.Context) (*JobProposalCounts, error) {
 	return nil, ErrFeedsManagerDisabled
 }
