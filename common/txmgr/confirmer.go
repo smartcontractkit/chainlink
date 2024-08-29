@@ -629,7 +629,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) res
 	if !etx.PipelineTaskRunID.Valid || ec.resumeCallback == nil || !etx.SignalCallback {
 		return nil
 	}
-	err := ec.resumeCallback(ctx, etx.PipelineTaskRunID.UUID, nil, fmt.Errorf("transaction was terminally stuck: %s", ec.stuckTxDetector.StuckTxFatalError()))
+	err := ec.resumeCallback(ctx, etx.PipelineTaskRunID.UUID, nil, errors.New(ec.stuckTxDetector.StuckTxFatalError()))
 	if errors.Is(err, sql.ErrNoRows) {
 		ec.lggr.Debugw("callback missing or already resumed", "etxID", etx.ID)
 	} else if err != nil {
