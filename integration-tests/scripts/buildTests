@@ -23,8 +23,16 @@ for x in $tosplit
 do
     if [ "$x" = "load" ]; then
       echo "Changing directory and executing go test -c ./... for 'load' package"
+      pwd
       pushd "./load" && go test -c -tags embed -o .. ./...
+      ls
       popd
+      pwd
+      ls
+      pushd "./ccip-tests/load" && go test -c -tags embed -o ../.. ./...
+      popd
+      pwd
+      ls
     elif [ "$x" = "ccip-load" ]; then
       echo "Changing directory and executing go test -c ./... for 'ccip-load' package"
       pwd
