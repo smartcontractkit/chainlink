@@ -49,9 +49,10 @@ type CommitStore struct {
 	commitReportArgs          abi.Arguments
 
 	// Dynamic config
-	configMu          sync.RWMutex
-	gasPriceEstimator *prices.DAGasPriceEstimator
-	offchainConfig    cciptypes.CommitOffchainConfig
+	configMu           sync.RWMutex
+	gasPriceEstimator  *prices.DAGasPriceEstimator
+	offchainConfig     cciptypes.CommitOffchainConfig
+	feeEstimatorConfig ccipdata.FeeEstimatorConfigReader
 }
 
 func (c *CommitStore) GetCommitStoreStaticConfig(ctx context.Context) (cciptypes.CommitStoreStaticConfig, error) {
@@ -255,6 +256,7 @@ func (c *CommitStore) ChangeConfig(_ context.Context, onchainConfig []byte, offc
 		c.sourceMaxGasPrice,
 		int64(offchainConfigParsed.ExecGasPriceDeviationPPB),
 		int64(offchainConfigParsed.DAGasPriceDeviationPPB),
+		c.feeEstimatorConfig,
 	)
 	c.offchainConfig = ccipdata.NewCommitOffchainConfig(
 		offchainConfigParsed.ExecGasPriceDeviationPPB,
@@ -430,7 +432,7 @@ func (c *CommitStore) RegisterFilters() error {
 	return logpollerutil.RegisterLpFilters(c.lp, c.filters)
 }
 
-func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller) (*CommitStore, error) {
+func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (*CommitStore, error) {
 	commitStore, err := commit_store_1_2_0.NewCommitStore(addr, ec)
 	if err != nil {
 		return nil, err
@@ -463,7 +465,8 @@ func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, l
 		configMu:                  sync.RWMutex{},
 
 		// The fields below are initially empty and set on ChangeConfig method
-		offchainConfig:    cciptypes.CommitOffchainConfig{},
-		gasPriceEstimator: nil,
+		offchainConfig:     cciptypes.CommitOffchainConfig{},
+		gasPriceEstimator:  nil,
+		feeEstimatorConfig: feeEstimatorConfig,
 	}, nil
 }

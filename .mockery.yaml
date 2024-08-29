@@ -499,6 +499,9 @@ packages:
       PriceRegistryReader:
         config:
           filename: price_registry_reader_mock.go
+      FeeEstimatorConfigReader:
+        config:
+          filename: fee_estimator_config_mock.go
       TokenPoolReader:
         config:
           filename: token_pool_reader_mock.go

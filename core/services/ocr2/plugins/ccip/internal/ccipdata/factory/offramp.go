@@ -26,16 +26,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
 )
 
-func NewOffRampReader(lggr logger.Logger, versionFinder VersionFinder, addr cciptypes.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, registerFilters bool) (ccipdata.OffRampReader, error) {
-	return initOrCloseOffRampReader(lggr, versionFinder, addr, destClient, lp, estimator, destMaxGasPrice, false, registerFilters)
+func NewOffRampReader(lggr logger.Logger, versionFinder VersionFinder, addr cciptypes.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, registerFilters bool, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (ccipdata.OffRampReader, error) {
+	return initOrCloseOffRampReader(lggr, versionFinder, addr, destClient, lp, estimator, destMaxGasPrice, false, registerFilters, feeEstimatorConfig)
 }
 
-func CloseOffRampReader(lggr logger.Logger, versionFinder VersionFinder, addr cciptypes.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int) error {
-	_, err := initOrCloseOffRampReader(lggr, versionFinder, addr, destClient, lp, estimator, destMaxGasPrice, true, false)
+func CloseOffRampReader(lggr logger.Logger, versionFinder VersionFinder, addr cciptypes.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) error {
+	_, err := initOrCloseOffRampReader(lggr, versionFinder, addr, destClient, lp, estimator, destMaxGasPrice, true, false, feeEstimatorConfig)
 	return err
 }
 
-func initOrCloseOffRampReader(lggr logger.Logger, versionFinder VersionFinder, addr cciptypes.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, closeReader bool, registerFilters bool) (ccipdata.OffRampReader, error) {
+func initOrCloseOffRampReader(lggr logger.Logger, versionFinder VersionFinder, addr cciptypes.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, closeReader bool, registerFilters bool, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (ccipdata.OffRampReader, error) {
 	contractType, version, err := versionFinder.TypeAndVersion(addr, destClient)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to read type and version")
@@ -53,7 +53,7 @@ func initOrCloseOffRampReader(lggr logger.Logger, versionFinder VersionFinder, a
 
 	switch version.String() {
 	case ccipdata.V1_0_0, ccipdata.V1_1_0:
-		offRamp, err := v1_0_0.NewOffRamp(lggr, evmAddr, destClient, lp, estimator, destMaxGasPrice)
+		offRamp, err := v1_0_0.NewOffRamp(lggr, evmAddr, destClient, lp, estimator, destMaxGasPrice, feeEstimatorConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -62,7 +62,7 @@ func initOrCloseOffRampReader(lggr logger.Logger, versionFinder VersionFinder, a
 		}
 		return offRamp, offRamp.RegisterFilters()
 	case ccipdata.V1_2_0:
-		offRamp, err := v1_2_0.NewOffRamp(lggr, evmAddr, destClient, lp, estimator, destMaxGasPrice)
+		offRamp, err := v1_2_0.NewOffRamp(lggr, evmAddr, destClient, lp, estimator, destMaxGasPrice, feeEstimatorConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -71,7 +71,7 @@ func initOrCloseOffRampReader(lggr logger.Logger, versionFinder VersionFinder, a
 		}
 		return offRamp, offRamp.RegisterFilters()
 	case ccipdata.V1_5_0:
-		offRamp, err := v1_5_0.NewOffRamp(lggr, evmAddr, destClient, lp, estimator, destMaxGasPrice)
+		offRamp, err := v1_5_0.NewOffRamp(lggr, evmAddr, destClient, lp, estimator, destMaxGasPrice, feeEstimatorConfig)
 		if err != nil {
 			return nil, err
 		}

@@ -6,18 +6,16 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
-
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
 
 var _ cciptypes.CommitStoreReader = (*IncompleteSourceCommitStoreReader)(nil)
@@ -26,16 +24,18 @@ var _ cciptypes.CommitStoreReader = (*IncompleteDestCommitStoreReader)(nil)
 // IncompleteSourceCommitStoreReader is an implementation of CommitStoreReader with the only valid methods being
 // GasPriceEstimator, ChangeConfig, and OffchainConfig
 type IncompleteSourceCommitStoreReader struct {
-	estimator         gas.EvmFeeEstimator
-	gasPriceEstimator *prices.DAGasPriceEstimator
-	sourceMaxGasPrice *big.Int
-	offchainConfig    cciptypes.CommitOffchainConfig
+	estimator          gas.EvmFeeEstimator
+	gasPriceEstimator  *prices.DAGasPriceEstimator
+	sourceMaxGasPrice  *big.Int
+	offchainConfig     cciptypes.CommitOffchainConfig
+	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider
 }
 
-func NewIncompleteSourceCommitStoreReader(estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int) *IncompleteSourceCommitStoreReader {
+func NewIncompleteSourceCommitStoreReader(estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int, feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider) *IncompleteSourceCommitStoreReader {
 	return &IncompleteSourceCommitStoreReader{
-		estimator:         estimator,
-		sourceMaxGasPrice: sourceMaxGasPrice,
+		estimator:          estimator,
+		sourceMaxGasPrice:  sourceMaxGasPrice,
+		feeEstimatorConfig: feeEstimatorConfig,
 	}
 }
 
@@ -55,6 +55,7 @@ func (i *IncompleteSourceCommitStoreReader) ChangeConfig(ctx context.Context, on
 		i.sourceMaxGasPrice,
 		int64(offchainConfigParsed.ExecGasPriceDeviationPPB),
 		int64(offchainConfigParsed.DAGasPriceDeviationPPB),
+		i.feeEstimatorConfig,
 	)
 	i.offchainConfig = ccip.NewCommitOffchainConfig(
 		offchainConfigParsed.ExecGasPriceDeviationPPB,
@@ -133,8 +134,15 @@ type IncompleteDestCommitStoreReader struct {
 	cs cciptypes.CommitStoreReader
 }
 
-func NewIncompleteDestCommitStoreReader(lggr logger.Logger, versionFinder ccip.VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller) (*IncompleteDestCommitStoreReader, error) {
-	cs, err := ccip.NewCommitStoreReader(lggr, versionFinder, address, ec, lp)
+func NewIncompleteDestCommitStoreReader(
+	lggr logger.Logger,
+	versionFinder ccip.VersionFinder,
+	address cciptypes.Address,
+	ec client.Client,
+	lp logpoller.LogPoller,
+	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider,
+) (*IncompleteDestCommitStoreReader, error) {
+	cs, err := ccip.NewCommitStoreReader(lggr, versionFinder, address, ec, lp, feeEstimatorConfig)
 	if err != nil {
 		return nil, err
 	}

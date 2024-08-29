@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/usdc"
 )
 
@@ -39,6 +40,8 @@ type SrcExecProvider struct {
 	usdcAttestationAPITimeoutSeconds       int
 	usdcAttestationAPIIntervalMilliseconds int
 	usdcSrcMsgTransmitterAddr              common.Address
+
+	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider
 
 	// these values are nil and are updated for Close()
 	seenOnRampAddress       *cciptypes.Address
@@ -59,6 +62,7 @@ func NewSrcExecProvider(
 	usdcAttestationAPITimeoutSeconds int,
 	usdcAttestationAPIIntervalMilliseconds int,
 	usdcSrcMsgTransmitterAddr common.Address,
+	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider,
 ) (commontypes.CCIPExecProvider, error) {
 	var usdcReader *ccip.USDCReaderImpl
 	var err error
@@ -82,6 +86,7 @@ func NewSrcExecProvider(
 		usdcAttestationAPITimeoutSeconds:       usdcAttestationAPITimeoutSeconds,
 		usdcAttestationAPIIntervalMilliseconds: usdcAttestationAPIIntervalMilliseconds,
 		usdcSrcMsgTransmitterAddr:              usdcSrcMsgTransmitterAddr,
+		feeEstimatorConfig:                     feeEstimatorConfig,
 	}, nil
 }
 
@@ -163,7 +168,7 @@ func (s *SrcExecProvider) GetTransactionStatus(ctx context.Context, transactionI
 }
 
 func (s *SrcExecProvider) NewCommitStoreReader(ctx context.Context, addr cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
-	commitStoreReader = NewIncompleteSourceCommitStoreReader(s.estimator, s.maxGasPrice)
+	commitStoreReader = NewIncompleteSourceCommitStoreReader(s.estimator, s.maxGasPrice, s.feeEstimatorConfig)
 	return
 }
 
@@ -176,6 +181,10 @@ func (s *SrcExecProvider) NewOnRampReader(ctx context.Context, onRampAddress cci
 
 	versionFinder := ccip.NewEvmVersionFinder()
 	onRampReader, err = ccip.NewOnRampReader(s.lggr, versionFinder, sourceChainSelector, destChainSelector, onRampAddress, s.lp, s.client)
+	if err != nil {
+		return nil, err
+	}
+	s.feeEstimatorConfig.SetOnRampReader(onRampReader)
 	return
 }
 
@@ -236,6 +245,7 @@ type DstExecProvider struct {
 	configWatcher       *configWatcher
 	gasEstimator        gas.EvmFeeEstimator
 	maxGasPrice         big.Int
+	feeEstimatorConfig  estimatorconfig.FeeEstimatorConfigProvider
 	txm                 txmgr.TxManager
 	offRampAddress      cciptypes.Address
 
@@ -253,6 +263,7 @@ func NewDstExecProvider(
 	configWatcher *configWatcher,
 	gasEstimator gas.EvmFeeEstimator,
 	maxGasPrice big.Int,
+	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider,
 	txm txmgr.TxManager,
 	offRampAddress cciptypes.Address,
 ) (commontypes.CCIPExecProvider, error) {
@@ -266,6 +277,7 @@ func NewDstExecProvider(
 		configWatcher:       configWatcher,
 		gasEstimator:        gasEstimator,
 		maxGasPrice:         maxGasPrice,
+		feeEstimatorConfig:  feeEstimatorConfig,
 		txm:                 txm,
 		offRampAddress:      offRampAddress,
 	}, nil
@@ -295,10 +307,10 @@ func (d *DstExecProvider) Close() error {
 		if d.seenCommitStoreAddr == nil {
 			return nil
 		}
-		return ccip.CloseCommitStoreReader(d.lggr, versionFinder, *d.seenCommitStoreAddr, d.client, d.lp)
+		return ccip.CloseCommitStoreReader(d.lggr, versionFinder, *d.seenCommitStoreAddr, d.client, d.lp, d.feeEstimatorConfig)
 	})
 	unregisterFuncs = append(unregisterFuncs, func() error {
-		return ccip.CloseOffRampReader(d.lggr, versionFinder, d.offRampAddress, d.client, d.lp, nil, big.NewInt(0))
+		return ccip.CloseOffRampReader(d.lggr, versionFinder, d.offRampAddress, d.client, d.lp, nil, big.NewInt(0), d.feeEstimatorConfig)
 	})
 
 	var multiErr error
@@ -346,12 +358,12 @@ func (d *DstExecProvider) NewCommitStoreReader(ctx context.Context, addr cciptyp
 	d.seenCommitStoreAddr = &addr
 
 	versionFinder := ccip.NewEvmVersionFinder()
-	commitStoreReader, err = NewIncompleteDestCommitStoreReader(d.lggr, versionFinder, addr, d.client, d.lp)
+	commitStoreReader, err = NewIncompleteDestCommitStoreReader(d.lggr, versionFinder, addr, d.client, d.lp, d.feeEstimatorConfig)
 	return
 }
 
 func (d *DstExecProvider) NewOffRampReader(ctx context.Context, offRampAddress cciptypes.Address) (offRampReader cciptypes.OffRampReader, err error) {
-	offRampReader, err = ccip.NewOffRampReader(d.lggr, d.versionFinder, offRampAddress, d.client, d.lp, d.gasEstimator, &d.maxGasPrice, true)
+	offRampReader, err = ccip.NewOffRampReader(d.lggr, d.versionFinder, offRampAddress, d.client, d.lp, d.gasEstimator, &d.maxGasPrice, true, d.feeEstimatorConfig)
 	return
 }
 

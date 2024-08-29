@@ -30,16 +30,16 @@ const (
 var _ ccipdata.OnRampReader = &OnRamp{}
 
 type OnRamp struct {
-	address                          common.Address
-	onRamp                           *evm_2_evm_onramp_1_0_0.EVM2EVMOnRamp
-	lp                               logpoller.LogPoller
-	lggr                             logger.Logger
-	client                           client.Client
-	leafHasher                       ccipdata.LeafHasherInterface[[32]byte]
-	sendRequestedEventSig            common.Hash
-	sendRequestedSeqNumberWord       int
-	filters                          []logpoller.Filter
-	cachedSourcePriceRegistryAddress cache.AutoSync[cciptypes.Address]
+	address                    common.Address
+	onRamp                     *evm_2_evm_onramp_1_0_0.EVM2EVMOnRamp
+	lp                         logpoller.LogPoller
+	lggr                       logger.Logger
+	client                     client.Client
+	leafHasher                 ccipdata.LeafHasherInterface[[32]byte]
+	sendRequestedEventSig      common.Hash
+	sendRequestedSeqNumberWord int
+	filters                    []logpoller.Filter
+	cachedOnRampDynamicConfig  cache.AutoSync[cciptypes.OnRampDynamicConfig]
 	// Static config can be cached, because it's never expected to change.
 	// The only way to change that is through the contract's constructor (redeployment)
 	cachedStaticConfig cache.OnceCtxFunction[evm_2_evm_onramp_1_0_0.EVM2EVMOnRampStaticConfig]
@@ -90,7 +90,7 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 		// offset || sourceChainID || seqNum || ...
 		sendRequestedSeqNumberWord: 2,
 		sendRequestedEventSig:      eventSig,
-		cachedSourcePriceRegistryAddress: cache.NewLogpollerEventsBased[cciptypes.Address](
+		cachedOnRampDynamicConfig: cache.NewLogpollerEventsBased[cciptypes.OnRampDynamicConfig](
 			sourceLP,
 			[]common.Hash{configSetEventSig},
 			onRampAddress,
@@ -104,36 +104,36 @@ func (o *OnRamp) Address(context.Context) (cciptypes.Address, error) {
 	return cciptypes.Address(o.onRamp.Address().String()), nil
 }
 
-func (o *OnRamp) GetDynamicConfig(context.Context) (cciptypes.OnRampDynamicConfig, error) {
-	if o.onRamp == nil {
-		return cciptypes.OnRampDynamicConfig{}, fmt.Errorf("onramp not initialized")
-	}
-	legacyDynamicConfig, err := o.onRamp.GetDynamicConfig(nil)
-	if err != nil {
-		return cciptypes.OnRampDynamicConfig{}, err
-	}
-	return cciptypes.OnRampDynamicConfig{
-		Router:                            cciptypes.Address(legacyDynamicConfig.Router.String()),
-		MaxNumberOfTokensPerMsg:           legacyDynamicConfig.MaxTokensLength,
-		DestGasOverhead:                   0,
-		DestGasPerPayloadByte:             0,
-		DestDataAvailabilityOverheadGas:   0,
-		DestGasPerDataAvailabilityByte:    0,
-		DestDataAvailabilityMultiplierBps: 0,
-		PriceRegistry:                     cciptypes.Address(legacyDynamicConfig.PriceRegistry.String()),
-		MaxDataBytes:                      legacyDynamicConfig.MaxDataSize,
-		MaxPerMsgGasLimit:                 uint32(legacyDynamicConfig.MaxGasLimit),
-	}, nil
+func (o *OnRamp) GetDynamicConfig(ctx context.Context) (cciptypes.OnRampDynamicConfig, error) {
+	return o.cachedOnRampDynamicConfig.Get(ctx, func(ctx context.Context) (cciptypes.OnRampDynamicConfig, error) {
+		if o.onRamp == nil {
+			return cciptypes.OnRampDynamicConfig{}, fmt.Errorf("onramp not initialized")
+		}
+		legacyDynamicConfig, err := o.onRamp.GetDynamicConfig(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return cciptypes.OnRampDynamicConfig{}, err
+		}
+		return cciptypes.OnRampDynamicConfig{
+			Router:                            cciptypes.Address(legacyDynamicConfig.Router.String()),
+			MaxNumberOfTokensPerMsg:           legacyDynamicConfig.MaxTokensLength,
+			DestGasOverhead:                   0,
+			DestGasPerPayloadByte:             0,
+			DestDataAvailabilityOverheadGas:   0,
+			DestGasPerDataAvailabilityByte:    0,
+			DestDataAvailabilityMultiplierBps: 0,
+			PriceRegistry:                     cciptypes.Address(legacyDynamicConfig.PriceRegistry.String()),
+			MaxDataBytes:                      legacyDynamicConfig.MaxDataSize,
+			MaxPerMsgGasLimit:                 uint32(legacyDynamicConfig.MaxGasLimit),
+		}, nil
+	})
 }
 
 func (o *OnRamp) SourcePriceRegistryAddress(ctx context.Context) (cciptypes.Address, error) {
-	return o.cachedSourcePriceRegistryAddress.Get(ctx, func(ctx context.Context) (cciptypes.Address, error) {
-		c, err := o.GetDynamicConfig(ctx)
-		if err != nil {
-			return "", err
-		}
-		return c.PriceRegistry, nil
-	})
+	c, err := o.GetDynamicConfig(ctx)
+	if err != nil {
+		return "", err
+	}
+	return c.PriceRegistry, nil
 }
 
 func (o *OnRamp) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, finalized bool) ([]cciptypes.EVM2EVMMessageWithTxMeta, error) {
@@ -165,8 +165,8 @@ func (o *OnRamp) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, s
 	return res, nil
 }
 
-func (o *OnRamp) RouterAddress(context.Context) (cciptypes.Address, error) {
-	config, err := o.onRamp.GetDynamicConfig(nil)
+func (o *OnRamp) RouterAddress(ctx context.Context) (cciptypes.Address, error) {
+	config, err := o.onRamp.GetDynamicConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return "", err
 	}

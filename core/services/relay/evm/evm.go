@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -406,6 +407,8 @@ func (r *Relayer) NewCCIPCommitProvider(rargs commontypes.RelayArgs, pargs commo
 	sourceStartBlock := commitPluginConfig.SourceStartBlock
 	destStartBlock := commitPluginConfig.DestStartBlock
 
+	feeEstimatorConfig := estimatorconfig.NewFeeEstimatorConfigService()
+
 	// The src chain implementation of this provider does not need a configWatcher or contractTransmitter;
 	// bail early.
 	if commitPluginConfig.IsSourceProvider {
@@ -416,6 +419,7 @@ func (r *Relayer) NewCCIPCommitProvider(rargs commontypes.RelayArgs, pargs commo
 			r.chain.LogPoller(),
 			r.chain.GasEstimator(),
 			r.chain.Config().EVM().GasEstimator().PriceMax().ToInt(),
+			feeEstimatorConfig,
 		), nil
 	}
 
@@ -451,6 +455,7 @@ func (r *Relayer) NewCCIPCommitProvider(rargs commontypes.RelayArgs, pargs commo
 		*r.chain.Config().EVM().GasEstimator().PriceMax().ToInt(),
 		*contractTransmitter,
 		configWatcher,
+		feeEstimatorConfig,
 	), nil
 }
 
@@ -473,6 +478,8 @@ func (r *Relayer) NewCCIPExecProvider(rargs commontypes.RelayArgs, pargs commont
 
 	usdcConfig := execPluginConfig.USDCConfig
 
+	feeEstimatorConfig := estimatorconfig.NewFeeEstimatorConfigService()
+
 	// The src chain implementation of this provider does not need a configWatcher or contractTransmitter;
 	// bail early.
 	if execPluginConfig.IsSourceProvider {
@@ -489,6 +496,7 @@ func (r *Relayer) NewCCIPExecProvider(rargs commontypes.RelayArgs, pargs commont
 			int(usdcConfig.AttestationAPITimeoutSeconds),
 			usdcConfig.AttestationAPIIntervalMilliseconds,
 			usdcConfig.SourceMessageTransmitterAddress,
+			feeEstimatorConfig,
 		)
 	}
 
@@ -524,6 +532,7 @@ func (r *Relayer) NewCCIPExecProvider(rargs commontypes.RelayArgs, pargs commont
 		configWatcher,
 		r.chain.GasEstimator(),
 		*r.chain.Config().EVM().GasEstimator().PriceMax().ToInt(),
+		feeEstimatorConfig,
 		r.chain.TxManager(),
 		cciptypes.Address(rargs.ContractID),
 	)

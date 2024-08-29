@@ -70,6 +70,7 @@ type OffRamp struct {
 	*v1_2_0.OffRamp
 	offRampV150           evm_2_evm_offramp.EVM2EVMOffRampInterface
 	cachedRateLimitTokens cache.AutoSync[cciptypes.OffRampTokens]
+	feeEstimatorConfig    ccipdata.FeeEstimatorConfigReader
 }
 
 // GetTokens Returns no data as the offRamps no longer have this information.
@@ -155,7 +156,7 @@ func (o *OffRamp) ChangeConfig(ctx context.Context, onchainConfigBytes []byte, o
 		PermissionLessExecutionThresholdSeconds: time.Second * time.Duration(onchainConfigParsed.PermissionLessExecutionThresholdSeconds),
 		Router:                                  cciptypes.Address(onchainConfigParsed.Router.String()),
 	}
-	priceEstimator := prices.NewDAGasPriceEstimator(o.Estimator, o.DestMaxGasPrice, 0, 0)
+	priceEstimator := prices.NewDAGasPriceEstimator(o.Estimator, o.DestMaxGasPrice, 0, 0, o.feeEstimatorConfig)
 
 	o.UpdateDynamicConfig(onchainConfig, offchainConfig, priceEstimator)
 
@@ -166,8 +167,16 @@ func (o *OffRamp) ChangeConfig(ctx context.Context, onchainConfigBytes []byte, o
 		cciptypes.Address(destWrappedNative.String()), nil
 }
 
-func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int) (*OffRamp, error) {
-	v120, err := v1_2_0.NewOffRamp(lggr, addr, ec, lp, estimator, destMaxGasPrice)
+func NewOffRamp(
+	lggr logger.Logger,
+	addr common.Address,
+	ec client.Client,
+	lp logpoller.LogPoller,
+	estimator gas.EvmFeeEstimator,
+	destMaxGasPrice *big.Int,
+	feeEstimatorConfig ccipdata.FeeEstimatorConfigReader,
+) (*OffRamp, error) {
+	v120, err := v1_2_0.NewOffRamp(lggr, addr, ec, lp, estimator, destMaxGasPrice, feeEstimatorConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -180,8 +189,9 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 	v120.ExecutionReportArgs = abihelpers.MustGetMethodInputs("manuallyExecute", abiOffRamp)[:1]
 
 	return &OffRamp{
-		OffRamp:     v120,
-		offRampV150: offRamp,
+		feeEstimatorConfig: feeEstimatorConfig,
+		OffRamp:            v120,
+		offRampV150:        offRamp,
 		cachedRateLimitTokens: cache.NewLogpollerEventsBased[cciptypes.OffRampTokens](
 			lp,
 			[]common.Hash{RateLimitTokenAddedEvent, RateLimitTokenRemovedEvent},

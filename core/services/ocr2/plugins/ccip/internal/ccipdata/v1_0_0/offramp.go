@@ -156,6 +156,7 @@ type OffRamp struct {
 	eventSig                common.Hash
 	cachedOffRampTokens     cache.AutoSync[cciptypes.OffRampTokens]
 	sourceToDestTokensCache sync.Map
+	feeEstimatorConfig      ccipdata.FeeEstimatorConfigReader
 
 	// Dynamic config
 	// configMu guards all the dynamic config fields.
@@ -627,7 +628,7 @@ func (o *OffRamp) RegisterFilters() error {
 	return logpollerutil.RegisterLpFilters(o.lp, o.filters)
 }
 
-func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int) (*OffRamp, error) {
+func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (*OffRamp, error) {
 	offRamp, err := evm_2_evm_offramp_1_0_0.NewEVM2EVMOffRamp(addr, ec)
 	if err != nil {
 		return nil, err
@@ -682,8 +683,9 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 			offRamp.Address(),
 		),
 		// values set on the fly after ChangeConfig is called
-		gasPriceEstimator: prices.ExecGasPriceEstimator{},
-		offchainConfig:    cciptypes.ExecOffchainConfig{},
-		onchainConfig:     cciptypes.ExecOnchainConfig{},
+		gasPriceEstimator:  prices.ExecGasPriceEstimator{},
+		offchainConfig:     cciptypes.ExecOffchainConfig{},
+		onchainConfig:      cciptypes.ExecOnchainConfig{},
+		feeEstimatorConfig: feeEstimatorConfig,
 	}, nil
 }
