@@ -9,7 +9,7 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/web/sdk/client/internal/doer"
+	"github.com/smartcontractkit/chainlink/integration-tests/web/sdk/client/doer"
 	"github.com/smartcontractkit/chainlink/integration-tests/web/sdk/generated"
 )
 
