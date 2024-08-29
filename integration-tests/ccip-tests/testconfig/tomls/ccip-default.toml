@@ -229,6 +229,10 @@ BlockHistorySize = 200
 EIP1559FeeCapBufferBlocks = 0
 """
 
+# Run by default using latest version from `ccip-develop` branch, override this value to use a specific version
+[CCIP.Env.NewCLCluster.Common.ChainlinkImage]
+version = "ccip-develop"
+
 # the following configs are specific to each test type, smoke, load , chaos, etc...
 [CCIP.Groups]
 [CCIP.Groups.smoke]

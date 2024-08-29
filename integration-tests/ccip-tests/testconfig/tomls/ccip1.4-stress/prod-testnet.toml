@@ -903,9 +903,6 @@ Data = """
 [CCIP.Env]
 TTL = '2h'
 
-[CCIP.Env.NewCLCluster.Common.ChainlinkImage]
-version = "ccip-develop"
-
 [CCIP.Env.Network]
 selected_networks = [
     'AVALANCHE_FUJI',
