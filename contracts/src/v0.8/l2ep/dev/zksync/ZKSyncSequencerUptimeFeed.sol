@@ -7,7 +7,6 @@ import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {ZKSyncSequencerUptimeFeedInterface} from "./../interfaces/ZKSyncSequencerUptimeFeedInterface.sol";
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
-import {IL2SharedBridge} from "@zksync/contracts/l2-contracts/contracts/bridge/interfaces/IL2SharedBridge.sol";
 import {AddressAliasHelper} from "@zksync/contracts/l2-contracts/contracts/vendor/AddressAliasHelper.sol";
 
 /// @title ZKSyncSequencerUptimeFeed - L2 sequencer uptime status aggregator
@@ -58,15 +57,10 @@ contract ZKSyncSequencerUptimeFeed is
   FeedState private s_feedState = FeedState({latestRoundId: 0, latestStatus: false, startedAt: 0, updatedAt: 0});
   mapping(uint80 => Round) private s_rounds;
 
-  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
-  IL2SharedBridge private immutable s_l2SharedBridge;
-
   /// @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
-  /// @param l2CrossDomainMessengerAddr Address of the L2CrossDomainMessenger contract
   /// @param initialStatus The initial status of the feed
-  constructor(address l1SenderAddress, address l2CrossDomainMessengerAddr, bool initialStatus) {
+  constructor(address l1SenderAddress, bool initialStatus) {
     _setL1Sender(l1SenderAddress);
-    s_l2SharedBridge = IL2SharedBridge(l2CrossDomainMessengerAddr);
     uint64 timestamp = uint64(block.timestamp);
 
     // Initialise roundId == 1 as the first round
@@ -147,7 +141,6 @@ contract ZKSyncSequencerUptimeFeed is
     address aliasedL1Sender = AddressAliasHelper.applyL1ToL2Alias(s_l1Sender);
 
     if (msg.sender != aliasedL1Sender) {
-      // TODO can we test this? || s_l2SharedBridge.senderAddress() != aliasedL1Sender) {
       revert InvalidSender();
     }
 
