@@ -52,8 +52,8 @@ func NewDispatcher(cfg config.Dispatcher, peerWrapper p2ptypes.PeerWrapper, sign
 	rl, err := common.NewRateLimiter(common.RateLimiterConfig{
 		GlobalRPS:      cfg.RateLimit().GlobalRPS(),
 		GlobalBurst:    cfg.RateLimit().GlobalBurst(),
-		PerSenderRPS:   cfg.RateLimit().RPS(),
-		PerSenderBurst: cfg.RateLimit().Burst(),
+		PerSenderRPS:   cfg.RateLimit().PerSenderRPS(),
+		PerSenderBurst: cfg.RateLimit().PerSenderBurst(),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create rate limiter")

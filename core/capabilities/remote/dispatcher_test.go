@@ -48,11 +48,11 @@ func (c testRateLimitConfig) GlobalBurst() int {
 	return c.globalBurst
 }
 
-func (c testRateLimitConfig) RPS() float64 {
+func (c testRateLimitConfig) PerSenderRPS() float64 {
 	return c.rps
 }
 
-func (c testRateLimitConfig) Burst() int {
+func (c testRateLimitConfig) PerSenderBurst() int {
 	return c.burst
 }
 

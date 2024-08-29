@@ -3,8 +3,8 @@ package config
 type DispatcherRateLimit interface {
 	GlobalRPS() float64
 	GlobalBurst() int
-	RPS() float64
-	Burst() int
+	PerSenderRPS() float64
+	PerSenderBurst() int
 }
 
 type Dispatcher interface {

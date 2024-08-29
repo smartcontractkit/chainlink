@@ -55,11 +55,11 @@ func (r *dispatcherRateLimit) GlobalBurst() int {
 	return *r.r.GlobalBurst
 }
 
-func (r *dispatcherRateLimit) RPS() float64 {
+func (r *dispatcherRateLimit) PerSenderRPS() float64 {
 	return *r.r.PerSenderRPS
 }
 
-func (r *dispatcherRateLimit) Burst() int {
+func (r *dispatcherRateLimit) PerSenderBurst() int {
 	return *r.r.PerSenderBurst
 }
 
