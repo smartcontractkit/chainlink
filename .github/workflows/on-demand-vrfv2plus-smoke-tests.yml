@@ -16,7 +16,7 @@ on:
       test_list_regex:
         description: "Regex for 'Selected Tests' to run"
         required: false
-        default: "(TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS)"
+        default: "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS"
       test_secrets_override_key:
         description: 'Key to run tests with custom test secrets'
         required: false
@@ -81,7 +81,7 @@ jobs:
         if: ${{ github.event.inputs.test_suite == 'Selected Tests' }}
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
         with:
-          test_command_to_run: cd ./integration-tests/smoke && go test -v -count=1 -parallel=1 -timeout 2h -run "${{ inputs.test_list_regex }}"
+          test_command_to_run: cd ./integration-tests/smoke && go test -v -count=1 -parallel=1 -timeout 2h -run "${{ inputs.test_list_regex }}" 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs=false
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           test_secrets_override_base64: ${{ secrets[inputs.test_secrets_override_key] }}
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
