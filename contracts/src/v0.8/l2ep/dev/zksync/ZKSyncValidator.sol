@@ -70,12 +70,10 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
   /// @notice sets the new gas cost to spend when sending cross chain message
   /// @param gasLimit the updated gas cost
   function setGasLimit(uint32 gasLimit) external onlyOwner {
-    if (s_gasLimit == gasLimit) {
-      return;
+    if (s_gasLimit != gasLimit) {
+      s_gasLimit = gasLimit;
+      emit GasLimitUpdated(gasLimit);
     }
-
-    s_gasLimit = gasLimit;
-    emit GasLimitUpdated(gasLimit);
   }
 
   /// @notice fetches the gas cost of sending a cross chain message
@@ -86,12 +84,10 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
   /// @notice sets the l2GasPerPubdataByteLimit for the L2 transaction request
   /// @param l2GasPerPubdataByteLimit the updated l2GasPerPubdataByteLimit
   function setL2GasPerPubdataByteLimit(uint32 l2GasPerPubdataByteLimit) external onlyOwner {
-    if (s_l2GasPerPubdataByteLimit == l2GasPerPubdataByteLimit) {
-      return;
+    if (s_l2GasPerPubdataByteLimit != l2GasPerPubdataByteLimit) {
+      s_l2GasPerPubdataByteLimit = l2GasPerPubdataByteLimit;
+      emit GasPerPubdataByteLimitUpdated(l2GasPerPubdataByteLimit);
     }
-
-    s_l2GasPerPubdataByteLimit = l2GasPerPubdataByteLimit;
-    emit GasPerPubdataByteLimitUpdated(l2GasPerPubdataByteLimit);
   }
 
   /// @notice fetches the l2GasPerPubdataByteLimit // for the L2 transaction request
