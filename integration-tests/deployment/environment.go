@@ -15,6 +15,8 @@ import (
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
+
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -32,6 +34,7 @@ type OffchainClient interface {
 	// The job distributor grpc interface can be used to abstract offchain read/writes
 	jobv1.JobServiceClient
 	nodev1.NodeServiceClient
+	csav1.CSAServiceClient
 }
 
 type Chain struct {
@@ -147,49 +150,50 @@ func MustPeerIDFromString(s string) p2pkey.PeerID {
 // OCR config for example.
 func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 	var nodes []Node
-	for _, node := range nodeIDs {
-		// TODO: Filter should accept multiple nodes
-		nodeChainConfigs, err := oc.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
-			NodeId: node,
-		}})
+	nodeChainConfigs, err := oc.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
+		NodeIds: nodeIDs,
+	}})
+	if err != nil {
+		return nil, err
+	}
+	if len(nodeChainConfigs.ChainConfigs) != len(nodeIDs) {
+		return nil, fmt.Errorf("expected %d chain configs, got %d", len(nodeIDs), len(nodeChainConfigs.ChainConfigs))
+	}
+	selToOCRConfig := make(map[uint64]OCRConfig)
+	for _, chainConfig := range nodeChainConfigs.ChainConfigs {
+		if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_SOLANA {
+			// Note supported for CCIP yet.
+			continue
+		}
+		evmChainID, err := strconv.Atoi(chainConfig.Chain.Id)
 		if err != nil {
 			return nil, err
 		}
-		selToOCRConfig := make(map[uint64]OCRConfig)
-		for _, chainConfig := range nodeChainConfigs.ChainConfigs {
-			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_SOLANA {
-				// Note supported for CCIP yet.
-				continue
-			}
-			evmChainID, err := strconv.Atoi(chainConfig.Chain.Id)
-			if err != nil {
-				return nil, err
-			}
-			sel, err := chain_selectors.SelectorFromChainId(uint64(evmChainID))
-			if err != nil {
-				return nil, err
-			}
-			b := common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OffchainPublicKey)
-			var opk types2.OffchainPublicKey
-			copy(opk[:], b)
+		sel, err := chain_selectors.SelectorFromChainId(uint64(evmChainID))
+		if err != nil {
+			return nil, err
+		}
+		b := common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OffchainPublicKey)
+		var opk types2.OffchainPublicKey
+		copy(opk[:], b)
 
-			b = common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.ConfigPublicKey)
-			var cpk types3.ConfigEncryptionPublicKey
-			copy(cpk[:], b)
+		b = common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.ConfigPublicKey)
+		var cpk types3.ConfigEncryptionPublicKey
+		copy(cpk[:], b)
 
-			selToOCRConfig[sel] = OCRConfig{
-				OffchainPublicKey:         opk,
-				OnchainPublicKey:          common.HexToAddress(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress).Bytes(),
-				PeerID:                    MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
-				TransmitAccount:           types2.Account(chainConfig.AccountAddress),
-				ConfigEncryptionPublicKey: cpk,
-				IsBootstrap:               chainConfig.Ocr2Config.IsBootstrap,
-				MultiAddr:                 chainConfig.Ocr2Config.Multiaddr,
-			}
+		selToOCRConfig[sel] = OCRConfig{
+			OffchainPublicKey:         opk,
+			OnchainPublicKey:          common.HexToAddress(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress).Bytes(),
+			PeerID:                    MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
+			TransmitAccount:           types2.Account(chainConfig.AccountAddress),
+			ConfigEncryptionPublicKey: cpk,
+			IsBootstrap:               chainConfig.Ocr2Config.IsBootstrap,
+			MultiAddr:                 chainConfig.Ocr2Config.Multiaddr,
 		}
 		nodes = append(nodes, Node{
 			SelToOCRConfig: selToOCRConfig,
 		})
 	}
+
 	return nodes, nil
 }
