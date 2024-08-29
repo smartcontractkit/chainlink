@@ -562,7 +562,7 @@ func (h *homeChain) AddDON(
 	iter, err := h.capabilityRegistry.FilterConfigSet(&bind.FilterOpts{
 		Start: h.backend.Blockchain().CurrentBlock().Number.Uint64() - 1,
 		End:   &endBlock,
-	})
+	}, []uint32{})
 	require.NoError(t, err, "failed to filter config set events")
 	var donID uint32
 	for iter.Next() {
