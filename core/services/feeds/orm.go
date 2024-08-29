@@ -826,6 +826,7 @@ SELECT exists (
 	FROM job_proposals
 	INNER JOIN jobs ON job_proposals.external_job_id = jobs.external_job_id
 	WHERE jobs.id = $1
+	AND job_proposals.status <> 'deleted'
 );
 `
 
