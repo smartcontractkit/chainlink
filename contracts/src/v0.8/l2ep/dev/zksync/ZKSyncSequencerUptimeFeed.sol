@@ -143,12 +143,9 @@ contract ZKSyncSequencerUptimeFeed is
   /// @param status Sequencer status
   /// @param timestamp Block timestamp of status update
   function updateStatus(bool status, uint64 timestamp) external override {
-    // TODO: Address aliasing will be necessary to check on the L2 the L1 caller.
-    // The aliasing can be applied using AddressAliasHelper.applyL1ToL2Alias(msg.sender).
-
     FeedState memory feedState = s_feedState;
     address aliasedSender = AddressAliasHelper.applyL1ToL2Alias(s_l1Sender);
-    // TODO find the address of the validator, not the l1bridge
+
     if (msg.sender != address(s_l2SharedBridge) || s_l2SharedBridge.l1Bridge() != aliasedSender) {
       revert InvalidSender();
     }
