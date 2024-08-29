@@ -403,6 +403,9 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2.Automation]
 GasLimit = 10500000
 
+[EVM.Workflow]
+GasLimitDefault = 400000
+
 [[EVM.Nodes]]
 Name = 'fake'
 WSURL = 'wss://foo.bar/ws'
