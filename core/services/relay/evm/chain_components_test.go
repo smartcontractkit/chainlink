@@ -31,6 +31,7 @@ import (
 
 	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -285,6 +286,8 @@ func (h *helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 	})
+
+	clconfig.EVMConfigs()[0].GasEstimator.PriceMax = assets.GWei(100)
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, clconfig, h.sim, db, client)
 	err := app.Start(h.Context(t))
