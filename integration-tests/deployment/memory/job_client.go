@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc"
 
-	csav1 "github.com/smartcontractkit/ccip/integration-tests/deployment/jd/csa/v1"
+	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
