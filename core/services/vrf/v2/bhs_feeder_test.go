@@ -63,7 +63,7 @@ func TestStartHeartbeats(t *testing.T) {
 
 	heartbeatPeriod := 5 * time.Second
 
-	t.Run("bhs_feeder_startheartbeats_happy_path", func(tt *testing.T) {
+	t.Run("bhs_feeder_startheartbeats_happy_path", func(t *testing.T) {
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, keys...)
 		require.NoError(t, app.Start(testutils.Context(t)))
 
