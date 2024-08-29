@@ -97,7 +97,7 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 			ConfigurationContract: ccipConfig.Address,
 		},
 	})
-	if err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to add capabilities", "err", err)
 		return ab, common.Address{}, err
 	}
@@ -108,7 +108,7 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 			Name:  "NodeOperator",
 		},
 	})
-	if err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to add node operators", "err", err)
 		return ab, common.Address{}, err
 	}
@@ -143,7 +143,8 @@ func AddNodes(
 	if err != nil {
 		return err
 	}
-	return chain.Confirm(tx.Hash())
+	_, err = chain.Confirm(tx.Hash())
+	return err
 }
 
 func SetupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg []byte) ccip_config.CCIPConfigTypesChainConfigInfo {
@@ -182,7 +183,7 @@ func AddChainConfig(
 		chainConfig,
 	}
 	tx, err := ccipConfig.ApplyChainConfigUpdates(h.DeployerKey, nil, inputConfig)
-	if err := deployment.ConfirmIfNoError(h, tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoError(h, tx, err); err != nil {
 		return ccip_config.CCIPConfigTypesChainConfigInfo{}, err
 	}
 	lggr.Infow("Applied chain config updates", "chainConfig", chainConfig)
@@ -313,7 +314,7 @@ func AddDON(
 			Config:       encodedConfigs,
 		},
 	}, false, false, f)
-	if err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
 		return err
 	}
 
@@ -372,7 +373,7 @@ func AddDON(
 	}
 
 	tx, err = offRamp.SetOCR3Configs(dest.DeployerKey, offrampOCR3Configs)
-	if err := deployment.ConfirmIfNoError(dest, tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoError(dest, tx, err); err != nil {
 		return err
 	}
 
