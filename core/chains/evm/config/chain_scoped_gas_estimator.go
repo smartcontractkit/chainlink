@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -110,6 +112,10 @@ func (g *gasEstimatorConfig) LimitJobType() LimitJobType {
 
 func (g *gasEstimatorConfig) EstimateGasLimit() bool {
 	return *g.c.EstimateGasLimit
+}
+
+func (g *gasEstimatorConfig) CacheTimeout() time.Duration {
+	return g.c.CacheTimeout.Duration()
 }
 
 type limitJobTypeConfig struct {

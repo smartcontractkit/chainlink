@@ -20,6 +20,7 @@ type ArbConfig interface {
 	LimitMax() uint64
 	BumpPercent() uint16
 	BumpMin() *assets.Wei
+	CacheTimeout() time.Duration
 }
 
 // arbitrumEstimator is an Estimator which extends SuggestedPriceEstimator to use getPricesInArbGas() for gas limit estimation.

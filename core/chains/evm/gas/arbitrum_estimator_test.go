@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -25,9 +26,10 @@ import (
 )
 
 type arbConfig struct {
-	v           uint64
-	bumpPercent uint16
-	bumpMin     *assets.Wei
+	v            uint64
+	bumpPercent  uint16
+	bumpMin      *assets.Wei
+	cacheTimeout time.Duration
 }
 
 func (a *arbConfig) LimitMax() uint64 {
@@ -40,6 +42,10 @@ func (a *arbConfig) BumpPercent() uint16 {
 
 func (a *arbConfig) BumpMin() *assets.Wei {
 	return a.bumpMin
+}
+
+func (a *arbConfig) CacheTimeout() time.Duration {
+	return a.cacheTimeout
 }
 
 func TestArbitrumEstimator(t *testing.T) {

@@ -29,6 +29,7 @@ var (
 type suggestedPriceConfig interface {
 	BumpPercent() uint16
 	BumpMin() *assets.Wei
+	CacheTimeout() time.Duration
 }
 
 type suggestedPriceEstimatorClient interface {
@@ -39,10 +40,9 @@ type suggestedPriceEstimatorClient interface {
 type SuggestedPriceEstimator struct {
 	services.StateMachine
 
-	cfg        suggestedPriceConfig
-	client     suggestedPriceEstimatorClient
-	pollPeriod time.Duration
-	logger     logger.Logger
+	cfg    suggestedPriceConfig
+	client suggestedPriceEstimatorClient
+	logger logger.Logger
 
 	gasPriceMu sync.RWMutex
 	GasPrice   *assets.Wei
@@ -59,7 +59,6 @@ type SuggestedPriceEstimator struct {
 func NewSuggestedPriceEstimator(lggr logger.Logger, client feeEstimatorClient, cfg suggestedPriceConfig, l1Oracle rollups.L1Oracle) EvmEstimator {
 	return &SuggestedPriceEstimator{
 		client:         client,
-		pollPeriod:     10 * time.Second,
 		logger:         logger.Named(lggr, "SuggestedPriceEstimator"),
 		cfg:            cfg,
 		chForceRefetch: make(chan (chan struct{})),
@@ -104,9 +103,9 @@ func (o *SuggestedPriceEstimator) run() {
 	close(o.chInitialised)
 
 	t := services.TickerConfig{
-		Initial:   o.pollPeriod,
+		Initial:   o.cfg.CacheTimeout(),
 		JitterPct: services.DefaultJitter,
-	}.NewTicker(o.pollPeriod)
+	}.NewTicker(o.cfg.CacheTimeout())
 
 	for {
 		select {

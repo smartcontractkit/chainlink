@@ -614,6 +614,7 @@ func (g *TestGasEstimatorConfig) PriceMaxKey(addr common.Address) *assets.Wei {
 	return assets.GWei(1)
 }
 func (g *TestGasEstimatorConfig) EstimateGasLimit() bool { return false }
+func (g *TestGasEstimatorConfig) CacheTimeout() time.Duration { return 10 * time.Second }
 
 func (e *TestEvmConfig) GasEstimator() evmconfig.GasEstimator {
 	return &TestGasEstimatorConfig{bumpThreshold: e.BumpThreshold}

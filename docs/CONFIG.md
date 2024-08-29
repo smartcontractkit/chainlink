@@ -1887,6 +1887,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -1985,6 +1986,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -2083,6 +2085,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -2181,6 +2184,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -2280,6 +2284,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -2378,6 +2383,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 mwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -2476,6 +2482,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 mwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -2575,6 +2582,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -2673,6 +2681,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -2770,6 +2779,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -2867,6 +2877,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -2965,6 +2976,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -3064,6 +3076,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -3162,6 +3175,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -3260,6 +3274,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -3358,6 +3373,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -3456,6 +3472,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -3554,6 +3571,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -3652,6 +3670,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -3750,6 +3769,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -3848,6 +3868,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -3946,6 +3967,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -4045,6 +4067,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -4143,6 +4166,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -4240,6 +4264,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -4338,6 +4363,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -4436,6 +4462,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -4534,6 +4561,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '100 gwei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -4632,6 +4660,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '100 gwei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -4729,6 +4758,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 micro'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -4827,6 +4857,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -4925,6 +4956,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -5023,6 +5055,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -5121,6 +5154,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -5218,6 +5252,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -5316,6 +5351,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -5414,6 +5450,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -5513,6 +5550,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -5612,6 +5650,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -5711,6 +5750,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -5809,6 +5849,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -5907,6 +5948,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -6005,6 +6047,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -6103,6 +6146,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -6200,6 +6244,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -6297,6 +6342,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -6394,6 +6440,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -6492,6 +6539,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -6590,6 +6638,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -6687,6 +6736,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -6785,6 +6835,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -6883,6 +6934,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -6982,6 +7034,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -7081,6 +7134,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -7179,6 +7233,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -7277,6 +7332,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -7375,6 +7431,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -7473,6 +7530,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -7571,6 +7629,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -7669,6 +7728,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -7767,6 +7827,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -8129,6 +8190,7 @@ BumpMin = '5 gwei' # Default
 BumpPercent = 20 # Default
 BumpThreshold = 3 # Default
 BumpTxDepth = 16 # Example
+CacheTimeout = '10s' # Default
 EIP1559DynamicFees = false # Default
 FeeCapDefault = '100 gwei' # Default
 TipCapDefault = '1 wei' # Default
@@ -8250,6 +8312,17 @@ BumpThreshold is the number of blocks to wait for a transaction stuck in the mem
 BumpTxDepth = 16 # Example
 ```
 BumpTxDepth is the number of transactions to gas bump starting from oldest. Set to 0 for no limit (i.e. bump all). Can not be greater than EVM.Transactions.MaxInFlight. If not set, defaults to EVM.Transactions.MaxInFlight.
+
+### CacheTimeout
+```toml
+CacheTimeout = '10s' # Default
+```
+CacheTimeout is the time to wait in order to refresh the cached values stored in the SuggestedPrice estimator. A small jitter is applied so the timeout won't be exactly the same each time.
+
+You want this value to be close to the block time. For slower chains, like Ethereum, you can set it to 12s, the same as the block time. For faster chains you can skip a block or two
+and set it to two times the block time i.e. on Optimism you can set it to 4s. Ideally, you don't want to go lower than 1s since the RTT times of the RPC requests will be comparable to
+the timeout. The estimator is already adding a buffer to account for a potential increase in prices within one or two blocks. On the other hand, slower frequency will fail to refresh
+the prices and end up in stale values.
 
 ### EIP1559DynamicFees
 ```toml

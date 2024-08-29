@@ -572,6 +572,8 @@ type GasEstimator struct {
 	TipCapDefault *assets.Wei
 	TipCapMin     *assets.Wei
 
+	CacheTimeout *commonconfig.Duration
+
 	BlockHistory BlockHistoryEstimator `toml:",omitempty"`
 }
 
@@ -664,6 +666,9 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	}
 	if v := f.PriceMin; v != nil {
 		e.PriceMin = v
+	}
+	if v := f.CacheTimeout; v != nil {
+		e.CacheTimeout = v
 	}
 	e.LimitJobType.setFrom(&f.LimitJobType)
 	e.BlockHistory.setFrom(&f.BlockHistory)

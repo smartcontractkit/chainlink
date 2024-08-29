@@ -368,6 +368,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+CacheTimeout = '10s'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 25

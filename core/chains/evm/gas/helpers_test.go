@@ -158,6 +158,7 @@ type MockGasEstimatorConfig struct {
 	LimitMaxF           uint64
 	ModeF               string
 	EstimateGasLimitF   bool
+	CacheTimeoutF       time.Duration
 }
 
 func NewMockGasConfig() *MockGasEstimatorConfig {
@@ -218,4 +219,8 @@ func (m *MockGasEstimatorConfig) Mode() string {
 
 func (m *MockGasEstimatorConfig) EstimateGasLimit() bool {
 	return m.EstimateGasLimitF
+}
+
+func (m *MockGasEstimatorConfig) CacheTimeout() time.Duration {
+	return m.CacheTimeoutF
 }

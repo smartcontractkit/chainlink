@@ -76,23 +76,24 @@ func (g *TestGasEstimatorConfig) BlockHistory() evmconfig.BlockHistory {
 	return &TestBlockHistoryConfig{}
 }
 
-func (g *TestGasEstimatorConfig) EIP1559DynamicFees() bool   { return false }
-func (g *TestGasEstimatorConfig) LimitDefault() uint64       { return 42 }
-func (g *TestGasEstimatorConfig) BumpPercent() uint16        { return 42 }
-func (g *TestGasEstimatorConfig) BumpThreshold() uint64      { return g.bumpThreshold }
-func (g *TestGasEstimatorConfig) BumpMin() *assets.Wei       { return assets.NewWeiI(42) }
-func (g *TestGasEstimatorConfig) FeeCapDefault() *assets.Wei { return assets.NewWeiI(42) }
-func (g *TestGasEstimatorConfig) PriceDefault() *assets.Wei  { return assets.NewWeiI(42) }
-func (g *TestGasEstimatorConfig) TipCapDefault() *assets.Wei { return assets.NewWeiI(42) }
-func (g *TestGasEstimatorConfig) TipCapMin() *assets.Wei     { return assets.NewWeiI(42) }
-func (g *TestGasEstimatorConfig) LimitMax() uint64           { return 0 }
-func (g *TestGasEstimatorConfig) LimitMultiplier() float32   { return 0 }
-func (g *TestGasEstimatorConfig) BumpTxDepth() uint32        { return 42 }
-func (g *TestGasEstimatorConfig) LimitTransfer() uint64      { return 42 }
-func (g *TestGasEstimatorConfig) PriceMax() *assets.Wei      { return assets.NewWeiI(42) }
-func (g *TestGasEstimatorConfig) PriceMin() *assets.Wei      { return assets.NewWeiI(42) }
-func (g *TestGasEstimatorConfig) Mode() string               { return "FixedPrice" }
-func (g *TestGasEstimatorConfig) EstimateGasLimit() bool     { return false }
+func (g *TestGasEstimatorConfig) EIP1559DynamicFees() bool    { return false }
+func (g *TestGasEstimatorConfig) LimitDefault() uint64        { return 42 }
+func (g *TestGasEstimatorConfig) BumpPercent() uint16         { return 42 }
+func (g *TestGasEstimatorConfig) BumpThreshold() uint64       { return g.bumpThreshold }
+func (g *TestGasEstimatorConfig) BumpMin() *assets.Wei        { return assets.NewWeiI(42) }
+func (g *TestGasEstimatorConfig) FeeCapDefault() *assets.Wei  { return assets.NewWeiI(42) }
+func (g *TestGasEstimatorConfig) PriceDefault() *assets.Wei   { return assets.NewWeiI(42) }
+func (g *TestGasEstimatorConfig) TipCapDefault() *assets.Wei  { return assets.NewWeiI(42) }
+func (g *TestGasEstimatorConfig) TipCapMin() *assets.Wei      { return assets.NewWeiI(42) }
+func (g *TestGasEstimatorConfig) LimitMax() uint64            { return 0 }
+func (g *TestGasEstimatorConfig) LimitMultiplier() float32    { return 0 }
+func (g *TestGasEstimatorConfig) BumpTxDepth() uint32         { return 42 }
+func (g *TestGasEstimatorConfig) LimitTransfer() uint64       { return 42 }
+func (g *TestGasEstimatorConfig) PriceMax() *assets.Wei       { return assets.NewWeiI(42) }
+func (g *TestGasEstimatorConfig) PriceMin() *assets.Wei       { return assets.NewWeiI(42) }
+func (g *TestGasEstimatorConfig) Mode() string                { return "FixedPrice" }
+func (g *TestGasEstimatorConfig) EstimateGasLimit() bool      { return false }
+func (g *TestGasEstimatorConfig) CacheTimeout() time.Duration { return 10 * time.Second }
 func (g *TestGasEstimatorConfig) LimitJobType() evmconfig.LimitJobType {
 	return &TestLimitJobTypeConfig{}
 }

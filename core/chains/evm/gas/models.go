@@ -75,6 +75,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		"priceMax", geCfg.PriceMax(),
 		"priceMin", geCfg.PriceMin(),
 		"estimateGasLimit", geCfg.EstimateGasLimit(),
+		"cacheTimeout", geCfg.CacheTimeout(),
 	)
 	df := geCfg.EIP1559DynamicFees()
 
