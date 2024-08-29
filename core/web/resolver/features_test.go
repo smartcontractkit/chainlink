@@ -15,6 +15,7 @@ func Test_ToFeatures(t *testing.T) {
 			... on Features {
 				csa
 				feedsManager
+				multiFeedsManagers
 			}	
 		}
 	}`
@@ -29,6 +30,7 @@ func Test_ToFeatures(t *testing.T) {
 					t, f := true, false
 					c.Feature.UICSAKeys = &f
 					c.Feature.FeedsManager = &t
+					c.Feature.MultiFeedsManagers = &f
 				}))
 			},
 			query: query,
@@ -36,7 +38,8 @@ func Test_ToFeatures(t *testing.T) {
 			{
 				"features": {
 					"csa": false,
-					"feedsManager": true
+					"feedsManager": true,
+					"multiFeedsManagers": false
 				}
 			}`,
 		},
