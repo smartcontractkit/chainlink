@@ -215,24 +215,22 @@ func (e *eventBinding) getLatestValue(ctx context.Context, confs evmtypes.Confir
 	topicTypeID := WrapItemType(e.contractName, e.eventName, true)
 	onChainTypedVal, err := e.toNativeOnChainType(topicTypeID, params)
 	if err != nil {
-		return fmt.Errorf("failed to convert params to checked type: %w", err)
+		return fmt.Errorf("failed to convert params to native on chain types: %w", err)
 	}
 
-	filtersAndIndices, err := e.encodeTopicFilters(topicTypeID, onChainTypedVal)
+	filterTopics, err := e.extractFilterTopics(topicTypeID, onChainTypedVal)
 	if err != nil {
 		return err
 	}
 
-	hasFilter := false
-	for _, filters := range filtersAndIndices {
-		if filters != nil {
-			hasFilter = true
-		}
+	hashedTopics, err := e.hashTopics(topicTypeID, filterTopics)
+	if err != nil {
+		return err
 	}
 
 	var log *logpoller.Log
-	if hasFilter {
-		if log, err = e.getLatestLog(ctx, confs, filtersAndIndices); err != nil {
+	if len(hashedTopics) != 0 {
+		if log, err = e.getLatestLog(ctx, confs, hashedTopics); err != nil {
 			return err
 		}
 	} else {
@@ -244,10 +242,10 @@ func (e *eventBinding) getLatestValue(ctx context.Context, confs evmtypes.Confir
 	return e.decodeLog(ctx, log, into)
 }
 
-func (e *eventBinding) getLatestLog(ctx context.Context, confs evmtypes.Confirmations, filtersAndIndices []*common.Hash) (*logpoller.Log, error) {
+func (e *eventBinding) getLatestLog(ctx context.Context, confs evmtypes.Confirmations, hashedTopics []common.Hash) (*logpoller.Log, error) {
 	// Create limiter and filter for the query.
 	limiter := query.NewLimitAndSort(query.CountLimit(1), query.NewSortBySequence(query.Desc))
-	topicFilters, err := createTopicFilters(filtersAndIndices)
+	topicFilters, err := createTopicFilters(hashedTopics)
 	if err != nil {
 		return nil, err
 	}
@@ -274,46 +272,42 @@ func (e *eventBinding) getLatestLog(ctx context.Context, confs evmtypes.Confirma
 	return &logs[0], err
 }
 
-func createTopicFilters(filtersAndIndices []*common.Hash) (query.Expression, error) {
+func createTopicFilters(hashedTopics []common.Hash) (query.Expression, error) {
 	var expressions []query.Expression
-	for topicID, fai := range filtersAndIndices {
-		if fai == nil {
-			continue
-		}
+	for topicID, hash := range hashedTopics {
 		// first topic index is 1-based, so we add 1.
 		expressions = append(expressions, logpoller.NewEventByTopicFilter(
-			uint64(topicID+1), []logpoller.HashedValueComparator{{Value: *fai, Operator: primitives.Eq}},
+			uint64(topicID+1), []logpoller.HashedValueComparator{{Value: hash, Operator: primitives.Eq}},
 		))
 	}
 
 	if len(expressions) == 0 {
-		return query.Expression{}, fmt.Errorf("%w: no topc filters found during query creation", commontypes.ErrInternal)
+		return query.Expression{}, fmt.Errorf("%w: no topic filters found during query creation", commontypes.ErrInternal)
 	}
 
 	return query.And(expressions...), nil
 }
 
-// encodeTopicFilters accepts onChain types and encodes them to match onchain topics.
-func (e *eventBinding) encodeTopicFilters(topicTypeID string, value any) (topics []*common.Hash, err error) {
+// extractFilterTopics extracts filter topics from input params and returns them as a slice of any.
+// returned slice will retain the order of the topics and fill in missing topics with nil.
+func (e *eventBinding) extractFilterTopics(topicTypeID string, value any) (filterTopics []any, err error) {
 	item := reflect.ValueOf(value)
-	var params []any
 	switch item.Kind() {
 	case reflect.Array, reflect.Slice:
 		native, err := representArray(item, e.eventTypes[topicTypeID])
 		if err != nil {
 			return nil, err
 		}
-		params = []any{native}
+		filterTopics = []any{native}
 	case reflect.Struct, reflect.Map:
-		if params, err = unrollItem(item, e.eventTypes[topicTypeID]); err != nil {
+		if filterTopics, err = unrollItem(item, e.eventTypes[topicTypeID]); err != nil {
 			return nil, err
 		}
 	default:
 		return nil, fmt.Errorf("%w: cannot encode kind %v", commontypes.ErrInvalidType, item.Kind())
 	}
 
-	// abi params allow you to Pack a pointers, but makeTopics doesn't work with pointers.
-	return e.makeTopics(topicTypeID, derefValues(params))
+	return filterTopics, nil
 }
 
 func derefValues(topics []any) []any {
@@ -330,18 +324,21 @@ func derefValues(topics []any) []any {
 	return topics
 }
 
-// makeTopics encodes and hashes params filtering values to match onchain indexed topics.
-func (e *eventBinding) makeTopics(topicTypeID string, topics []any) ([]*common.Hash, error) {
+// hashTopics hashes topic filters values to match on chain indexed topics.
+func (e *eventBinding) hashTopics(topicTypeID string, topics []any) ([]common.Hash, error) {
 	var hashableTopics []any
-	nonHashableTopics := make(map[int]bool)
-	for i, topic := range topics {
+	for i, topic := range derefValues(topics) {
 		if topic == nil {
-			nonHashableTopics[i] = true
 			continue
 		}
 
 		// make topic value for non-fixed bytes array manually because geth MakeTopics doesn't support it
-		if abiArg := e.eventTypes[topicTypeID].Args()[i]; abiArg.Type.T == abi.ArrayTy && (abiArg.Type.Elem != nil && abiArg.Type.Elem.T == abi.UintTy) {
+		eventTyp, exists := e.eventTypes[topicTypeID]
+		if !exists {
+			return nil, fmt.Errorf("cannot find event type entry")
+		}
+
+		if abiArg := eventTyp.Args()[i]; abiArg.Type.T == abi.ArrayTy && (abiArg.Type.Elem != nil && abiArg.Type.Elem.T == abi.UintTy) {
 			packed, err := abi.Arguments{abiArg}.Pack(topic)
 			if err != nil {
 				return nil, err
@@ -350,7 +347,6 @@ func (e *eventBinding) makeTopics(topicTypeID string, topics []any) ([]*common.H
 		}
 
 		hashableTopics = append(hashableTopics, topic)
-		nonHashableTopics[i] = false
 	}
 
 	hashes, err := abi.MakeTopics(hashableTopics)
@@ -362,15 +358,7 @@ func (e *eventBinding) makeTopics(topicTypeID string, topics []any) ([]*common.H
 		return nil, fmt.Errorf("%w: expected 1 filter set, got %d", commontypes.ErrInternal, len(hashes))
 	}
 
-	var ptrHashes []*common.Hash
-	for i, hash := range hashes[0] {
-		if nonHashableTopics[i] {
-			ptrHashes = append(ptrHashes, nil)
-		}
-		ptrHashes = append(ptrHashes, &hash)
-	}
-
-	return ptrHashes, nil
+	return hashes[0], nil
 }
 
 // derefValues dereferences pointers to nil values to nil.
@@ -457,7 +445,7 @@ func (e *eventBinding) remapPrimitive(expression query.Expression) (query.Expres
 func (e *eventBinding) encodeComparator(comparator *primitives.Comparator) (query.Expression, error) {
 	dwInfo, isDW := e.dataWordsInfo[comparator.Name]
 	if !isDW {
-		if _, ok := e.topics[comparator.Name]; !ok {
+		if _, exists := e.topics[comparator.Name]; !exists {
 			return query.Expression{}, fmt.Errorf("comparator name doesn't match any of the indexed topics or data words")
 		}
 	}
@@ -467,14 +455,14 @@ func (e *eventBinding) encodeComparator(comparator *primitives.Comparator) (quer
 	for _, valComp := range comparator.ValueComparators {
 		onChainTypedVal, err := e.toNativeOnChainType(itemType, valComp.Value)
 		if err != nil {
-			return query.Expression{}, fmt.Errorf("failed to convert value to checked type: %w", err)
+			return query.Expression{}, fmt.Errorf("failed to convert comparator value to native on chain type: %w", err)
 		}
 
 		hashedValComp := logpoller.HashedValueComparator{Operator: valComp.Operator}
 		if isDW {
 			hashedValComp.Value, err = e.encodeValComparatorDataWord(comparator.Name, onChainTypedVal)
 		} else {
-			hashedValComp.Value, err = e.encodeValComparatorTopic(itemType, comparator.Name, onChainTypedVal)
+			hashedValComp.Value, err = e.encodeValComparatorTopic(itemType, onChainTypedVal)
 		}
 		if err != nil {
 			return query.Expression{}, err
@@ -490,9 +478,9 @@ func (e *eventBinding) encodeComparator(comparator *primitives.Comparator) (quer
 }
 
 func (e *eventBinding) encodeValComparatorDataWord(valCompName string, nativeType any) (hash common.Hash, err error) {
-	dwInfo, ok := e.dataWordsInfo[valCompName]
-	if !ok {
-		return common.Hash{}, fmt.Errorf("cannot find data word maping for %s", valCompName)
+	dwInfo, exists := e.dataWordsInfo[valCompName]
+	if !exists {
+		return common.Hash{}, fmt.Errorf("cannot find data word mapping for %s", valCompName)
 	}
 
 	packedArgs, err := abi.Arguments{dwInfo.typ}.Pack(nativeType)
@@ -503,54 +491,51 @@ func (e *eventBinding) encodeValComparatorDataWord(valCompName string, nativeTyp
 	return common.BytesToHash(packedArgs), nil
 }
 
-func (e *eventBinding) encodeValComparatorTopic(topicTypeID, valCompName string, checkedVal any) (hash common.Hash, err error) {
-	hashedTopics, err := e.makeTopics(topicTypeID, derefValues([]any{checkedVal}))
+func (e *eventBinding) encodeValComparatorTopic(topicTypeID string, value any) (hash common.Hash, err error) {
+	hashedTopics, err := e.hashTopics(topicTypeID, []any{value})
 	if err != nil {
 		return common.Hash{}, err
 	}
 
-	if hashedTopic := hashedTopics[0]; hashedTopic != nil {
-		return *hashedTopic, nil
-	}
-
-	return common.Hash{}, fmt.Errorf("event %q topic %q is nil in hashed values %v", e.eventName, valCompName, hashedTopics)
+	return hashedTopics[0], nil
 }
 
 // toNativeOnChainType injects value into a type that matches onchain types.
 func (e *eventBinding) toNativeOnChainType(itemType string, value any) (any, error) {
-	onChain, err := e.codec.CreateType(itemType, true)
+	offChain, err := e.codec.CreateType(itemType, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create type: %w", err)
 	}
 
 	// apply map struct evm hooks to correct incoming values
-	if err = mapstructureDecode(value, onChain); err != nil {
+	if err = mapstructureDecode(value, offChain); err != nil {
 		return nil, err
 	}
 
-	// convert caller chain agnostic params types to types representing onchain abi types, for e.g. bytes32. and apply modifiers
+	// apply modifiers if present
+	onChain := offChain
 	if modifier, exists := e.eventModifiers[itemType]; exists {
-		onChain, err = modifier.TransformToOnChain(onChain, "" /* unused */)
+		onChain, err = modifier.TransformToOnChain(offChain, "" /* unused */)
 		if err != nil {
-			return nil, fmt.Errorf("failed to apply modifiers to offchain type: %w", err)
+			return nil, fmt.Errorf("failed to apply modifiers to offchain type %T: %w", onChain, err)
 		}
 	}
 
-	typ, ok := e.eventTypes[itemType]
-	if !ok {
-		return query.Expression{}, fmt.Errorf("cannot find codec entry for %q item type", itemType)
+	typ, exists := e.eventTypes[itemType]
+	if !exists {
+		return query.Expression{}, fmt.Errorf("cannot find event type entry")
 	}
 
-	nativeType, err := typ.ToNative(reflect.ValueOf(onChain))
+	native, err := typ.ToNative(reflect.ValueOf(onChain))
 	if err != nil {
 		return query.Expression{}, err
 	}
 
-	for nativeType.Kind() == reflect.Pointer {
-		nativeType = reflect.Indirect(nativeType)
+	for native.Kind() == reflect.Pointer {
+		native = reflect.Indirect(native)
 	}
 
-	return nativeType.Interface(), nil
+	return native.Interface(), nil
 }
 
 func (e *eventBinding) validateBound() error {
