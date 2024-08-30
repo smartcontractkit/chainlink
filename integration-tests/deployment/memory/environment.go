@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
@@ -37,12 +37,12 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 		require.NoError(t, err)
 		chains[sel] = deployment.Chain{
 			Selector:    sel,
-			Client:      chain.Backend,
+			Client:      chain.Backend.Client(),
 			DeployerKey: chain.DeployerKey,
-			Confirm: func(tx common.Hash) (uint64, error) {
+			Confirm: func(tx common.Hash) error {
 				for {
 					chain.Backend.Commit()
-					receipt, err := chain.Backend.TransactionReceipt(context.Background(), tx)
+					receipt, err := chain.Backend.Client().TransactionReceipt(context.Background(), tx)
 					if err != nil {
 						t.Log("failed to get receipt", err)
 						continue
@@ -50,7 +50,7 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 					if receipt.Status == 0 {
 						t.Logf("Status (reverted) %d for txhash %s\n", receipt.Status, tx.String())
 					}
-					return receipt.BlockNumber.Uint64(), nil
+					return nil
 				}
 			},
 		}
@@ -66,7 +66,7 @@ func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment
 			t.Fatal(err)
 		}
 		mchains[evmChainID] = EVMChain{
-			Backend:     chain.Client.(*backends.SimulatedBackend),
+			Backend:     chain.Client.(*simulated.Backend),
 			DeployerKey: chain.DeployerKey,
 		}
 	}

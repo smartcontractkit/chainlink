@@ -940,7 +940,7 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 	configBlock := c.SetupOnchainConfig(t, commitOnchainConfig, commitOffchainConfig, execOnchainConfig, execOffchainConfig)
 	c.Nodes = nodes
 	c.Bootstrap = bootstrapNode
-	return bootstrapNode, nodes, configBlock
+	return bootstrapNode, nodes, uint64(configBlock)
 }
 
 func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeline string, priceGetterConfig string, usdcAttestationAPI string) integrationtesthelpers.CCIPJobSpecParams {

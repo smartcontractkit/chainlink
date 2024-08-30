@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
@@ -22,14 +23,13 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper_1_2_0"
@@ -38,8 +38,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
@@ -97,7 +98,8 @@ func NewCommitOffchainConfig(
 	ExecGasPriceDeviationPPB uint32,
 	TokenPriceHeartBeat config.Duration,
 	TokenPriceDeviationPPB uint32,
-	InflightCacheExpiry config.Duration) CommitOffchainConfig {
+	InflightCacheExpiry config.Duration,
+	priceReportingDisabled bool) CommitOffchainConfig {
 	return CommitOffchainConfig{v1_2_0.JSONCommitOffchainConfig{
 		GasPriceHeartBeat:        GasPriceHeartBeat,
 		DAGasPriceDeviationPPB:   DAGasPriceDeviationPPB,
@@ -105,6 +107,7 @@ func NewCommitOffchainConfig(
 		TokenPriceHeartBeat:      TokenPriceHeartBeat,
 		TokenPriceDeviationPPB:   TokenPriceDeviationPPB,
 		InflightCacheExpiry:      InflightCacheExpiry,
+		PriceReportingDisabled:   priceReportingDisabled,
 	}}
 }
 
@@ -124,23 +127,13 @@ type ExecOnchainConfig struct {
 	v1_5_0.ExecOnchainConfig
 }
 
-func NewExecOnchainConfig(
-	PermissionLessExecutionThresholdSeconds uint32,
-	Router common.Address,
-	PriceRegistry common.Address,
-	MaxNumberOfTokensPerMsg uint16,
-	MaxDataBytes uint32,
-	MaxPoolReleaseOrMintGas uint32,
-	MaxTokenTransferGas uint32,
-) ExecOnchainConfig {
+func NewExecOnchainConfig(PermissionLessExecutionThresholdSeconds uint32, Router common.Address, PriceRegistry common.Address, MaxNumberOfTokensPerMsg uint16, MaxDataBytes uint32) ExecOnchainConfig {
 	return ExecOnchainConfig{v1_5_0.ExecOnchainConfig{
 		PermissionLessExecutionThresholdSeconds: PermissionLessExecutionThresholdSeconds,
 		Router:                                  Router,
 		PriceRegistry:                           PriceRegistry,
 		MaxNumberOfTokensPerMsg:                 MaxNumberOfTokensPerMsg,
 		MaxDataBytes:                            MaxDataBytes,
-		MaxPoolReleaseOrMintGas:                 MaxPoolReleaseOrMintGas,
-		MaxTokenTransferGas:                     MaxTokenTransferGas,
 	}}
 }
 
@@ -183,8 +176,8 @@ type Common struct {
 	CustomToken        *link_token_interface.LinkToken
 	WrappedNative      *weth9.WETH9
 	WrappedNativePool  *lock_release_token_pool.LockReleaseTokenPool
-	ARM                *mock_arm_contract.MockARMContract
-	ARMProxy           *arm_proxy_contract.ARMProxyContract
+	ARM                *mock_rmn_contract.MockRMNContract
+	ARMProxy           *rmn_proxy_contract.RMNProxyContract
 	PriceRegistry      *price_registry_1_2_0.PriceRegistry
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 }
@@ -323,8 +316,7 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 			MaxDataBytes:                      1e5,
 			MaxPerMsgGasLimit:                 4_000_000,
 			DefaultTokenFeeUSDCents:           50,
-			DefaultTokenDestGasOverhead:       34_000,
-			DefaultTokenDestBytesOverhead:     500,
+			DefaultTokenDestGasOverhead:       DefaultTokenDestGasOverhead,
 		},
 		evm_2_evm_onramp.RateLimiterConfig{
 			IsEnabled: true,
@@ -353,7 +345,7 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 				MinFeeUSDCents:            50,           // $0.5
 				MaxFeeUSDCents:            1_000_000_00, // $ 1 million
 				DeciBps:                   5_0,          // 5 bps
-				DestGasOverhead:           34_000,
+				DestGasOverhead:           110_000,
 				DestBytesOverhead:         32,
 				AggregateRateLimitEnabled: true,
 			},
@@ -581,7 +573,7 @@ func (c *CCIPContracts) SetupExecOCR2Config(t *testing.T, execOnchainConfig, exe
 	c.Dest.Chain.Commit()
 }
 
-func (c *CCIPContracts) SetupOnchainConfig(t *testing.T, commitOnchainConfig, commitOffchainConfig, execOnchainConfig, execOffchainConfig []byte) uint64 {
+func (c *CCIPContracts) SetupOnchainConfig(t *testing.T, commitOnchainConfig, commitOffchainConfig, execOnchainConfig, execOffchainConfig []byte) int64 {
 	// Note We do NOT set the payees, payment is done in the OCR2Base implementation
 	blockBeforeConfig, err := c.Dest.Chain.Client().BlockByNumber(context.Background(), nil)
 	require.NoError(t, err)
@@ -589,7 +581,7 @@ func (c *CCIPContracts) SetupOnchainConfig(t *testing.T, commitOnchainConfig, co
 	c.SetupCommitOCR2Config(t, commitOnchainConfig, commitOffchainConfig)
 	c.SetupExecOCR2Config(t, execOnchainConfig, execOffchainConfig)
 
-	return blockBeforeConfig.Number().Uint64()
+	return blockBeforeConfig.Number().Int64()
 }
 
 func (c *CCIPContracts) SendMessage(t *testing.T, gasLimit, tokenAmount *big.Int, receiverAddr common.Address) {
@@ -653,10 +645,8 @@ func SetAdminAndRegisterPool(t *testing.T,
 	poolAddress common.Address) {
 	_, err := tokenAdminRegistry.ProposeAdministrator(user, tokenAddress, user.From)
 	require.NoError(t, err)
-	chain.Commit()
 	_, err = tokenAdminRegistry.AcceptAdminRole(user, tokenAddress)
 	require.NoError(t, err)
-	chain.Commit()
 	_, err = tokenAdminRegistry.SetPool(user, tokenAddress, poolAddress)
 	require.NoError(t, err)
 
@@ -671,38 +661,38 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	// │                         Deploy RMN                           │
 	// ================================================================
 
-	armSourceAddress, _, _, err := mock_arm_contract.DeployMockARMContract(
+	armSourceAddress, _, _, err := mock_rmn_contract.DeployMockRMNContract(
 		sourceUser,
 		sourceChain.Client(),
 	)
 	require.NoError(t, err)
-	sourceARM, err := mock_arm_contract.NewMockARMContract(armSourceAddress, sourceChain.Client())
+	sourceARM, err := mock_rmn_contract.NewMockRMNContract(armSourceAddress, sourceChain.Client())
 	require.NoError(t, err)
-	armProxySourceAddress, _, _, err := arm_proxy_contract.DeployARMProxyContract(
+	armProxySourceAddress, _, _, err := rmn_proxy_contract.DeployRMNProxyContract(
 		sourceUser,
 		sourceChain.Client(),
 		armSourceAddress,
 	)
 	require.NoError(t, err)
-	sourceARMProxy, err := arm_proxy_contract.NewARMProxyContract(armProxySourceAddress, sourceChain.Client())
+	sourceARMProxy, err := rmn_proxy_contract.NewRMNProxyContract(armProxySourceAddress, sourceChain.Client())
 	require.NoError(t, err)
 	sourceChain.Commit()
 
-	armDestAddress, _, _, err := mock_arm_contract.DeployMockARMContract(
+	armDestAddress, _, _, err := mock_rmn_contract.DeployMockRMNContract(
 		destUser,
 		destChain.Client(),
 	)
 	require.NoError(t, err)
-	armProxyDestAddress, _, _, err := arm_proxy_contract.DeployARMProxyContract(
+	armProxyDestAddress, _, _, err := rmn_proxy_contract.DeployRMNProxyContract(
 		destUser,
 		destChain.Client(),
 		armDestAddress,
 	)
 	require.NoError(t, err)
 	destChain.Commit()
-	destARM, err := mock_arm_contract.NewMockARMContract(armDestAddress, destChain.Client())
+	destARM, err := mock_rmn_contract.NewMockRMNContract(armDestAddress, destChain.Client())
 	require.NoError(t, err)
-	destARMProxy, err := arm_proxy_contract.NewARMProxyContract(armProxyDestAddress, destChain.Client())
+	destARMProxy, err := rmn_proxy_contract.NewRMNProxyContract(armProxyDestAddress, destChain.Client())
 	require.NoError(t, err)
 
 	// ================================================================
@@ -845,10 +835,8 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.Equal(t, destUser.From.String(), o.String())
 	_, err = destLinkPool.SetRebalancer(destUser, destUser.From)
 	require.NoError(t, err)
-	destChain.Commit()
 	_, err = destLinkToken.Approve(destUser, destPoolLinkAddress, Link(200))
 	require.NoError(t, err)
-	destChain.Commit()
 	_, err = destLinkPool.ProvideLiquidity(destUser, Link(200))
 	require.NoError(t, err)
 	destChain.Commit()
@@ -1052,8 +1040,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			MaxDataBytes:                      1e5,
 			MaxPerMsgGasLimit:                 4_000_000,
 			DefaultTokenFeeUSDCents:           50,
-			DefaultTokenDestGasOverhead:       34_000,
-			DefaultTokenDestBytesOverhead:     500,
+			DefaultTokenDestGasOverhead:       DefaultTokenDestGasOverhead,
 		},
 		evm_2_evm_onramp.RateLimiterConfig{
 			IsEnabled: true,
@@ -1082,7 +1069,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 				MinFeeUSDCents:            50,           // $0.5
 				MaxFeeUSDCents:            1_000_000_00, // $ 1 million
 				DeciBps:                   5_0,          // 5 bps
-				DestGasOverhead:           34_000,
+				DestGasOverhead:           350_000,
 				DestBytesOverhead:         32,
 				AggregateRateLimitEnabled: true,
 			},
@@ -1283,13 +1270,14 @@ type ManualExecArgs struct {
 	DestDeployedAt     uint64 // destination block number for the initial destination contract deployment.
 	// Can be any number before the tx was reverted in destination chain. Preferably this needs to be set up with
 	// a value greater than zero to avoid performance issue in locating approximate destination block
-	SendReqLogIndex uint   // log index of the CCIPSendRequested log in source chain
-	SendReqTxHash   string // tx hash of the ccip-send transaction for which execution was reverted
-	CommitStore     string
-	OnRamp          string
-	OffRamp         string
-	SeqNr           uint64
-	GasLimit        *big.Int
+	SendReqLogIndex   uint   // log index of the CCIPSendRequested log in source chain
+	SendReqTxHash     string // tx hash of the ccip-send transaction for which execution was reverted
+	CommitStore       string
+	OnRamp            string
+	OffRamp           string
+	SeqNr             uint64
+	GasLimit          *big.Int
+	TokenGasOverrides []uint32
 }
 
 // ApproxDestStartBlock attempts to locate a block in destination chain with timestamp closest to the timestamp of the block
@@ -1452,7 +1440,9 @@ func (args *ManualExecArgs) execute(report *commit_store.CommitStoreCommitReport
 	var leaves [][32]byte
 	var curr, prove int
 	var msgs []evm_2_evm_offramp.InternalEVM2EVMMessage
-	var manualExecGasLimits []*big.Int
+
+	// CCIP-2950 TestHelper for CCIPContracts and initialisation of EVM2EVMOffRampGasLimitOverride
+	var manualExecGasLimits []*evm_2_evm_offramp.EVM2EVMOffRampGasLimitOverride
 	var tokenData [][][]byte
 	sendRequestedIterator, err := onRampContract.FilterCCIPSendRequested(&bind.FilterOpts{
 		Start: args.SourceStartBlock.Uint64(),
@@ -1497,7 +1487,26 @@ func (args *ManualExecArgs) execute(report *commit_store.CommitStoreCommitReport
 				if args.GasLimit != nil {
 					msg.GasLimit = args.GasLimit
 				}
-				manualExecGasLimits = append(manualExecGasLimits, msg.GasLimit)
+
+				tokenGasOverrides := make([]uint32, len(msg.TokenAmounts))
+
+				if args.TokenGasOverrides != nil && len(args.TokenGasOverrides) == len(msg.TokenAmounts) {
+					copy(tokenGasOverrides, args.TokenGasOverrides)
+				} else {
+					// Initialize each element in the slice to a new big.Int value in one line using a loop
+					for i := range tokenGasOverrides {
+						tokenGasOverrides[i] = 0
+					}
+				}
+
+				// CCIP-2950 create a new object for evm_2_evm_offramp.EVM2EVMOffRampGasLimitOverride
+				evm2evmOffRampGasLimitOverride := &evm_2_evm_offramp.EVM2EVMOffRampGasLimitOverride{
+					ReceiverExecutionGasLimit: msg.GasLimit,
+					TokenGasOverrides:         tokenGasOverrides,
+				}
+
+				manualExecGasLimits = append(manualExecGasLimits, evm2evmOffRampGasLimitOverride)
+
 				var msgTokenData [][]byte
 				for range sendRequestedIterator.Event.Message.TokenAmounts {
 					msgTokenData = append(msgTokenData, []byte{})
@@ -1536,8 +1545,17 @@ func (args *ManualExecArgs) execute(report *commit_store.CommitStoreCommitReport
 	if err != nil {
 		return nil, err
 	}
+
+	// Convert manualExecGasLimits to a slice of structs before calling ManuallyExecute
+	manualExecGasLimitOverrides := make([]evm_2_evm_offramp.EVM2EVMOffRampGasLimitOverride, len(manualExecGasLimits))
+	for i, limitOverride := range manualExecGasLimits {
+		if limitOverride != nil {
+			manualExecGasLimitOverrides[i] = *limitOverride
+		}
+	}
+
 	// Execute.
-	return offRamp.ManuallyExecute(args.DestUser, offRampProof, manualExecGasLimits)
+	return offRamp.ManuallyExecute(args.DestUser, offRampProof, manualExecGasLimitOverrides)
 }
 
 func (c *CCIPContracts) ExecuteMessage(

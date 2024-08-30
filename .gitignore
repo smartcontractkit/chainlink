@@ -107,3 +107,5 @@ override*.toml
 .venv/
 
 ocr_soak_report.csv
+
+vendor/*

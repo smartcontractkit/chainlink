@@ -189,6 +189,7 @@ chainlink_node_funding = 0.7
 
 [VRFv2Plus]
 [VRFv2Plus.General]
+sub_billing_tolerance_wei = 1e15
 use_test_coordinator = false
 cancel_subs_after_test_run = true
 use_existing_env = false

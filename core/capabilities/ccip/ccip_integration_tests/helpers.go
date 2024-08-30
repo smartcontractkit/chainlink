@@ -8,16 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
-	"github.com/stretchr/testify/require"
-
-	chainsel "github.com/smartcontractkit/chain-selectors"
-	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -26,30 +18,41 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+
+	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/stretchr/testify/require"
 )
 
 var (
 	homeChainID                = chainsel.GETH_TESTNET.EvmChainID
-	ccipSendRequestedTopic     = evm_2_evm_multi_onramp.EVM2EVMMultiOnRampCCIPSendRequested{}.Topic()
-	commitReportAcceptedTopic  = evm_2_evm_multi_offramp.EVM2EVMMultiOffRampCommitReportAccepted{}.Topic()
-	executionStateChangedTopic = evm_2_evm_multi_offramp.EVM2EVMMultiOffRampExecutionStateChanged{}.Topic()
+	ccipSendRequestedTopic     = onramp.OnRampCCIPSendRequested{}.Topic()
+	commitReportAcceptedTopic  = offramp.OffRampCommitReportAccepted{}.Topic()
+	executionStateChangedTopic = offramp.OffRampExecutionStateChanged{}.Topic()
 )
 
 const (
@@ -102,11 +105,11 @@ type onchainUniverse struct {
 	linkToken          *link_token.LinkToken
 	weth               *weth9.WETH9
 	router             *router.Router
-	rmnProxy           *arm_proxy_contract.ARMProxyContract
-	rmn                *mock_arm_contract.MockARMContract
-	onramp             *evm_2_evm_multi_onramp.EVM2EVMMultiOnRamp
-	offramp            *evm_2_evm_multi_offramp.EVM2EVMMultiOffRamp
-	priceRegistry      *price_registry.PriceRegistry
+	rmnProxy           *rmn_proxy_contract.RMNProxyContract
+	rmn                *mock_rmn_contract.MockRMNContract
+	onramp             *onramp.OnRamp
+	offramp            *offramp.OffRamp
+	priceRegistry      *fee_quoter.FeeQuoter
 	tokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	nonceManager       *nonce_manager.NonceManager
 	receiver           *maybe_revert_message_receiver.MaybeRevertMessageReceiver
@@ -179,8 +182,8 @@ func createUniverses(
 		backend := base.backend
 		// deploy the CCIP contracts
 		linkToken := deployLinkToken(t, owner, backend, chainID)
-		rmn := deployMockARMContract(t, owner, backend, chainID)
-		rmnProxy := deployARMProxyContract(t, owner, backend, rmn.Address(), chainID)
+		rmn := deployMockRMNContract(t, owner, backend, chainID)
+		rmnProxy := deployRMNProxyContract(t, owner, backend, rmn.Address(), chainID)
 		weth := deployWETHContract(t, owner, backend, chainID)
 		rout := deployRouter(t, owner, backend, weth.Address(), rmnProxy.Address(), chainID)
 		priceRegistry := deployPriceRegistry(t, owner, backend, linkToken.Address(), weth.Address(), big.NewInt(1e18), chainID)
@@ -190,50 +193,50 @@ func createUniverses(
 		// ======================================================================
 		//							OnRamp
 		// ======================================================================
-		onRampAddr, _, _, err := evm_2_evm_multi_onramp.DeployEVM2EVMMultiOnRamp(
+		onRampAddr, _, _, err := onramp.DeployOnRamp(
 			owner,
 			backend.Client(),
-			evm_2_evm_multi_onramp.EVM2EVMMultiOnRampStaticConfig{
+			onramp.OnRampStaticConfig{
 				ChainSelector:      getSelector(chainID),
 				RmnProxy:           rmnProxy.Address(),
 				NonceManager:       nonceManager.Address(),
 				TokenAdminRegistry: tokenAdminRegistry.Address(),
 			},
-			evm_2_evm_multi_onramp.EVM2EVMMultiOnRampDynamicConfig{
-				Router:        rout.Address(),
-				PriceRegistry: priceRegistry.Address(),
+			onramp.OnRampDynamicConfig{
+				FeeQuoter: priceRegistry.Address(),
 				// `withdrawFeeTokens` onRamp function is not part of the message flow
 				// so we can set this to any address
 				FeeAggregator: testutils.NewAddress(),
 			},
+			// Destination chain configs will be set up later once we have all chains
+			[]onramp.OnRampDestChainConfigArgs{},
 		)
 		require.NoErrorf(t, err, "failed to deploy onramp on chain id %d", chainID)
 		backend.Commit()
-		onramp, err := evm_2_evm_multi_onramp.NewEVM2EVMMultiOnRamp(onRampAddr, backend.Client())
+		onramp, err := onramp.NewOnRamp(onRampAddr, backend.Client())
 		require.NoError(t, err)
 
 		// ======================================================================
 		//							OffRamp
 		// ======================================================================
-		offrampAddr, _, _, err := evm_2_evm_multi_offramp.DeployEVM2EVMMultiOffRamp(
+		offrampAddr, _, _, err := offramp.DeployOffRamp(
 			owner,
 			backend.Client(),
-			evm_2_evm_multi_offramp.EVM2EVMMultiOffRampStaticConfig{
+			offramp.OffRampStaticConfig{
 				ChainSelector:      getSelector(chainID),
 				RmnProxy:           rmnProxy.Address(),
 				TokenAdminRegistry: tokenAdminRegistry.Address(),
 				NonceManager:       nonceManager.Address(),
 			},
-			evm_2_evm_multi_offramp.EVM2EVMMultiOffRampDynamicConfig{
-				Router:        rout.Address(),
-				PriceRegistry: priceRegistry.Address(),
+			offramp.OffRampDynamicConfig{
+				FeeQuoter: priceRegistry.Address(),
 			},
 			// Source chain configs will be set up later once we have all chains
-			[]evm_2_evm_multi_offramp.EVM2EVMMultiOffRampSourceChainConfigArgs{},
+			[]offramp.OffRampSourceChainConfigArgs{},
 		)
 		require.NoErrorf(t, err, "failed to deploy offramp on chain id %d", chainID)
 		backend.Commit()
-		offramp, err := evm_2_evm_multi_offramp.NewEVM2EVMMultiOffRamp(offrampAddr, backend.Client())
+		offramp, err := offramp.NewOffRamp(offrampAddr, backend.Client())
 		require.NoError(t, err)
 
 		receiverAddress, _, _, err := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(
@@ -316,8 +319,8 @@ func createChains(t *testing.T, numChains int) map[uint64]chainBase {
 
 	for chainID := chainsel.TEST_90000001.EvmChainID; len(chains) < numChains && chainID < chainsel.TEST_90000020.EvmChainID; chainID++ {
 		owner := testutils.MustNewSimTransactor(t)
-		backend := simulated.NewBackend(types.GenesisAlloc{
-			owner.From: types.Account{
+		backend := simulated.NewBackend(core.GenesisAlloc{
+			owner.From: core.GenesisAccount{
 				Balance: assets.Ether(10_000).ToInt(),
 			},
 		}, simulated.WithBlockGasLimit(30e6))
@@ -565,7 +568,7 @@ func (h *homeChain) AddDON(
 	iter, err := h.capabilityRegistry.FilterConfigSet(&bind.FilterOpts{
 		Start: endBlock - 1,
 		End:   &endBlock,
-	})
+	}, []uint32{})
 	require.NoError(t, err, "failed to filter config set events")
 	var donID uint32
 	for iter.Next() {
@@ -585,14 +588,14 @@ func (h *homeChain) AddDON(
 	}
 
 	// get the config digest from the ccip config contract and set config on the offramp.
-	var offrampOCR3Configs []evm_2_evm_multi_offramp.MultiOCR3BaseOCRConfigArgs
+	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
 		ocrConfig, err1 := h.ccipConfig.GetOCRConfig(&bind.CallOpts{
 			Context: testutils.Context(t),
 		}, donID, uint8(pluginType))
 		require.NoError(t, err1, "failed to get OCR3 config from ccip config contract")
 		require.Len(t, ocrConfig, 1, "expected exactly one OCR3 config")
-		offrampOCR3Configs = append(offrampOCR3Configs, evm_2_evm_multi_offramp.MultiOCR3BaseOCRConfigArgs{
+		offrampOCR3Configs = append(offrampOCR3Configs, offramp.MultiOCR3BaseOCRConfigArgs{
 			ConfigDigest:                   ocrConfig[0].ConfigDigest,
 			OcrPluginType:                  uint8(pluginType),
 			F:                              f,
@@ -633,6 +636,7 @@ func connectUniverses(
 	for _, uni := range universes {
 		wireRouter(t, uni, universes)
 		wirePriceRegistry(t, uni, universes)
+		wireOnRamp(t, uni, universes)
 		wireOffRamp(t, uni, universes)
 		initRemoteChainsGasPrices(t, uni, universes)
 	}
@@ -654,7 +658,6 @@ func setupUniverseBasics(t *testing.T, uni onchainUniverse) {
 	// =============================================================================
 	_, err := uni.linkToken.GrantMintRole(owner, owner.From)
 	require.NoError(t, err)
-	uni.backend.Commit()
 	_, err = uni.linkToken.Mint(owner, owner.From, e18Mult(1000))
 	require.NoError(t, err)
 	uni.backend.Commit()
@@ -663,7 +666,7 @@ func setupUniverseBasics(t *testing.T, uni onchainUniverse) {
 	//						Price updates for tokens
 	//			These are the prices of the fee tokens of local chain in USD
 	// =============================================================================
-	tokenPriceUpdates := []price_registry.InternalTokenPriceUpdate{
+	tokenPriceUpdates := []fee_quoter.InternalTokenPriceUpdate{
 		{
 			SourceToken: uni.linkToken.Address(),
 			UsdPerToken: e18Mult(20),
@@ -673,13 +676,13 @@ func setupUniverseBasics(t *testing.T, uni onchainUniverse) {
 			UsdPerToken: e18Mult(4000),
 		},
 	}
-	_, err = uni.priceRegistry.UpdatePrices(owner, price_registry.InternalPriceUpdates{
+	_, err = uni.priceRegistry.UpdatePrices(owner, fee_quoter.InternalPriceUpdates{
 		TokenPriceUpdates: tokenPriceUpdates,
 	})
 	require.NoErrorf(t, err, "failed to update prices in price registry on chain id %d", uni.chainID)
 	uni.backend.Commit()
 
-	_, err = uni.priceRegistry.ApplyAuthorizedCallerUpdates(owner, price_registry.AuthorizedCallersAuthorizedCallerArgs{
+	_, err = uni.priceRegistry.ApplyAuthorizedCallerUpdates(owner, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
 		AddedCallers: []common.Address{
 			uni.offramp.Address(),
 		},
@@ -732,12 +735,12 @@ func wireRouter(t *testing.T, uni onchainUniverse, universes map[uint64]onchainU
 // Setting OnRampDestChainConfigs
 func wirePriceRegistry(t *testing.T, uni onchainUniverse, universes map[uint64]onchainUniverse) {
 	owner := uni.owner
-	var priceRegistryDestChainConfigArgs []price_registry.PriceRegistryDestChainConfigArgs
+	var priceRegistryDestChainConfigArgs []fee_quoter.FeeQuoterDestChainConfigArgs
 	for remoteChainID := range universes {
 		if remoteChainID == uni.chainID {
 			continue
 		}
-		priceRegistryDestChainConfigArgs = append(priceRegistryDestChainConfigArgs, price_registry.PriceRegistryDestChainConfigArgs{
+		priceRegistryDestChainConfigArgs = append(priceRegistryDestChainConfigArgs, fee_quoter.FeeQuoterDestChainConfigArgs{
 			DestChainSelector: getSelector(remoteChainID),
 			DestChainConfig:   defaultPriceRegistryDestChainConfig(t),
 		})
@@ -747,17 +750,36 @@ func wirePriceRegistry(t *testing.T, uni onchainUniverse, universes map[uint64]o
 	uni.backend.Commit()
 }
 
+// Setting OnRampDestChainConfigs
+func wireOnRamp(t *testing.T, uni onchainUniverse, universes map[uint64]onchainUniverse) {
+	owner := uni.owner
+	var onrampSourceChainConfigArgs []onramp.OnRampDestChainConfigArgs
+	for remoteChainID := range universes {
+		if remoteChainID == uni.chainID {
+			continue
+		}
+		onrampSourceChainConfigArgs = append(onrampSourceChainConfigArgs, onramp.OnRampDestChainConfigArgs{
+			DestChainSelector: getSelector(remoteChainID),
+			Router:            uni.router.Address(),
+		})
+	}
+	_, err := uni.onramp.ApplyDestChainConfigUpdates(owner, onrampSourceChainConfigArgs)
+	require.NoErrorf(t, err, "failed to apply dest chain config updates on onramp with chain id %d", uni.chainID)
+	uni.backend.Commit()
+}
+
 // Setting OffRampSourceChainConfigs
 func wireOffRamp(t *testing.T, uni onchainUniverse, universes map[uint64]onchainUniverse) {
 	owner := uni.owner
-	var offrampSourceChainConfigArgs []evm_2_evm_multi_offramp.EVM2EVMMultiOffRampSourceChainConfigArgs
+	var offrampSourceChainConfigArgs []offramp.OffRampSourceChainConfigArgs
 	for remoteChainID, remoteUniverse := range universes {
 		if remoteChainID == uni.chainID {
 			continue
 		}
-		offrampSourceChainConfigArgs = append(offrampSourceChainConfigArgs, evm_2_evm_multi_offramp.EVM2EVMMultiOffRampSourceChainConfigArgs{
-			SourceChainSelector: getSelector(remoteChainID), // for each destination chain, add a source chain config
+		offrampSourceChainConfigArgs = append(offrampSourceChainConfigArgs, offramp.OffRampSourceChainConfigArgs{
+			SourceChainSelector: getSelector(remoteChainID),
 			IsEnabled:           true,
+			Router:              uni.router.Address(),
 			OnRamp:              remoteUniverse.onramp.Address().Bytes(),
 		})
 	}
@@ -785,26 +807,25 @@ func getSelector(chainID uint64) uint64 {
 
 // initRemoteChainsGasPrices sets the gas prices for all chains except the local chain in the local price registry
 func initRemoteChainsGasPrices(t *testing.T, uni onchainUniverse, universes map[uint64]onchainUniverse) {
-	var gasPriceUpdates []price_registry.InternalGasPriceUpdate
+	var gasPriceUpdates []fee_quoter.InternalGasPriceUpdate
 	for remoteChainID := range universes {
 		if remoteChainID == uni.chainID {
 			continue
 		}
 		gasPriceUpdates = append(gasPriceUpdates,
-			price_registry.InternalGasPriceUpdate{
+			fee_quoter.InternalGasPriceUpdate{
 				DestChainSelector: getSelector(remoteChainID),
 				UsdPerUnitGas:     big.NewInt(2e12),
 			},
 		)
 	}
-	_, err := uni.priceRegistry.UpdatePrices(uni.owner, price_registry.InternalPriceUpdates{
+	_, err := uni.priceRegistry.UpdatePrices(uni.owner, fee_quoter.InternalPriceUpdates{
 		GasPriceUpdates: gasPriceUpdates,
 	})
 	require.NoError(t, err)
-	uni.backend.Commit()
 }
 
-func defaultPriceRegistryDestChainConfig(t *testing.T) price_registry.PriceRegistryDestChainConfig {
+func defaultPriceRegistryDestChainConfig(t *testing.T) fee_quoter.FeeQuoterDestChainConfig {
 	// https://github.com/smartcontractkit/ccip/blob/c4856b64bd766f1ddbaf5d13b42d3c4b12efde3a/contracts/src/v0.8/ccip/libraries/Internal.sol#L337-L337
 	/*
 		```Solidity
@@ -814,7 +835,7 @@ func defaultPriceRegistryDestChainConfig(t *testing.T) price_registry.PriceRegis
 	*/
 	evmFamilySelector, err := hex.DecodeString("2812d52c")
 	require.NoError(t, err)
-	return price_registry.PriceRegistryDestChainConfig{
+	return fee_quoter.FeeQuoterDestChainConfig{
 		IsEnabled:                         true,
 		MaxNumberOfTokensPerMsg:           10,
 		MaxDataBytes:                      256,
@@ -826,7 +847,6 @@ func defaultPriceRegistryDestChainConfig(t *testing.T) price_registry.PriceRegis
 		DestGasPerDataAvailabilityByte:    100,
 		DestDataAvailabilityMultiplierBps: 1,
 		DefaultTokenDestGasOverhead:       125_000,
-		DefaultTokenDestBytesOverhead:     32,
 		DefaultTxGasLimit:                 200_000,
 		GasMultiplierWeiPerEth:            1,
 		NetworkFeeUSDCents:                1,
@@ -843,20 +863,20 @@ func deployLinkToken(t *testing.T, owner *bind.TransactOpts, backend *simulated.
 	return linkToken
 }
 
-func deployMockARMContract(t *testing.T, owner *bind.TransactOpts, backend *simulated.Backend, chainID uint64) *mock_arm_contract.MockARMContract {
-	rmnAddr, _, _, err := mock_arm_contract.DeployMockARMContract(owner, backend.Client())
+func deployMockRMNContract(t *testing.T, owner *bind.TransactOpts, backend *simulated.Backend, chainID uint64) *mock_rmn_contract.MockRMNContract {
+	rmnAddr, _, _, err := mock_rmn_contract.DeployMockRMNContract(owner, backend.Client())
 	require.NoErrorf(t, err, "failed to deploy mock arm on chain id %d", chainID)
 	backend.Commit()
-	rmn, err := mock_arm_contract.NewMockARMContract(rmnAddr, backend.Client())
+	rmn, err := mock_rmn_contract.NewMockRMNContract(rmnAddr, backend.Client())
 	require.NoError(t, err)
 	return rmn
 }
 
-func deployARMProxyContract(t *testing.T, owner *bind.TransactOpts, backend *simulated.Backend, rmnAddr common.Address, chainID uint64) *arm_proxy_contract.ARMProxyContract {
-	rmnProxyAddr, _, _, err := arm_proxy_contract.DeployARMProxyContract(owner, backend.Client(), rmnAddr)
+func deployRMNProxyContract(t *testing.T, owner *bind.TransactOpts, backend *simulated.Backend, rmnAddr common.Address, chainID uint64) *rmn_proxy_contract.RMNProxyContract {
+	rmnProxyAddr, _, _, err := rmn_proxy_contract.DeployRMNProxyContract(owner, backend.Client(), rmnAddr)
 	require.NoErrorf(t, err, "failed to deploy arm proxy on chain id %d", chainID)
 	backend.Commit()
-	rmnProxy, err := arm_proxy_contract.NewARMProxyContract(rmnProxyAddr, backend.Client())
+	rmnProxy, err := rmn_proxy_contract.NewRMNProxyContract(rmnProxyAddr, backend.Client())
 	require.NoError(t, err)
 	return rmnProxy
 }
@@ -887,11 +907,11 @@ func deployPriceRegistry(
 	wethAddr common.Address,
 	maxFeeJuelsPerMsg *big.Int,
 	chainID uint64,
-) *price_registry.PriceRegistry {
-	priceRegistryAddr, _, _, err := price_registry.DeployPriceRegistry(
+) *fee_quoter.FeeQuoter {
+	priceRegistryAddr, _, _, err := fee_quoter.DeployFeeQuoter(
 		owner,
 		backend.Client(),
-		price_registry.PriceRegistryStaticConfig{
+		fee_quoter.FeeQuoterStaticConfig{
 			MaxFeeJuelsPerMsg:  maxFeeJuelsPerMsg,
 			LinkToken:          linkAddr,
 			StalenessThreshold: 24 * 60 * 60, // 24 hours
@@ -901,10 +921,10 @@ func deployPriceRegistry(
 		}, // price updaters, will be set to offramp later
 		[]common.Address{linkAddr, wethAddr}, // fee tokens
 		// empty for now, need to fill in when testing token transfers
-		[]price_registry.PriceRegistryTokenPriceFeedUpdate{},
+		[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
 		// empty for now, need to fill in when testing token transfers
-		[]price_registry.PriceRegistryTokenTransferFeeConfigArgs{},
-		[]price_registry.PriceRegistryPremiumMultiplierWeiPerEthArgs{
+		[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{},
+		[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
 			{
 				PremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
 				Token:                      linkAddr,
@@ -915,11 +935,11 @@ func deployPriceRegistry(
 			},
 		},
 		// Destination chain configs will be set up later once we have all chains
-		[]price_registry.PriceRegistryDestChainConfigArgs{},
+		[]fee_quoter.FeeQuoterDestChainConfigArgs{},
 	)
 	require.NoErrorf(t, err, "failed to deploy price registry on chain id %d", chainID)
 	backend.Commit()
-	priceRegistry, err := price_registry.NewPriceRegistry(priceRegistryAddr, backend.Client())
+	priceRegistry, err := fee_quoter.NewFeeQuoter(priceRegistryAddr, backend.Client())
 	require.NoError(t, err)
 	return priceRegistry
 }
