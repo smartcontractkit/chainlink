@@ -52,11 +52,11 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
       revert InvalidChainID();
     }
 
-    if (l1CrossDomainMessengerAddress != address(0)) {
+    if (l1CrossDomainMessengerAddress == address(0)) {
       revert ZeroAddressNotAllowed("Invalid xDomain Messenger address");
     }
 
-    if (l2UptimeFeedAddr != address(0)) {
+    if (l2UptimeFeedAddr == address(0)) {
       revert ZeroAddressNotAllowed("Invalid ZKSyncSequencerUptimeFeedInterface contract address");
     }
 
