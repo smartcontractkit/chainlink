@@ -17,11 +17,17 @@ func main() {
 	}
 
 	result := <-chResp
+	if result.Err != nil {
+		panic("doom")
+	}
 	fmt.Printf("Result %v", result)
 
 	// Proposed API 1
 	api1CBC := ProposedAPI1CallbackCapability{}
 	err = api1CBC.Execute(context.Background(), CapabilityRequest{}, func(response CapabilityResponse) {
+		if response.Err != nil {
+			panic("doom")
+		}
 		fmt.Printf("API 1 response %v", response)
 	})
 	if err != nil {
