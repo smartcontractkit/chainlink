@@ -1,0 +1,67 @@
+#
+# This action creates or updates a Release Preview PR that shows which changes are going to be part of the next release.
+#
+
+name: Release Preview - Changeset
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  changesets-release-preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: change
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          filters: |
+            core-changeset:
+              - '.changeset/**'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+        if: steps.change.outputs.core-changeset == 'true'
+        with:
+          version: ^9.0.0
+
+      - name: Setup node
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        if: steps.change.outputs.core-changeset == 'true'
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: ./pnpm-lock.yaml
+
+      - name: Generate new changelog
+        if: steps.change.outputs.core-changeset == 'true'
+        id: changelog
+        run: pnpm install && ./tools/ci/format_changelog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release preview PR
+        if: steps.change.outputs.core-changeset == 'true'
+        uses: peter-evans/create-pull-request@6d6857d36972b65feb161a90e484f2984215f83e # v6.0.5
+        with:
+          git-token: ${{ secrets.GITHUB_TOKEN }}
+          add-paths: |
+            .changeset/**
+            CHANGELOG.md
+          commit-message: "changeset: release preview"
+          committer: app-token-issuer-releng[bot] <app-token-issuer-releng[bot]@users.noreply.github.com>
+          branch: changesets/release-preview
+          title: "[DO NOT MERGE] Changeset Release Preview - v${{ steps.changelog.outputs.version }}"
+          body: ${{ steps.changelog.outputs.pr_body }}
+          draft: true
+          labels: |
+            release-preview
+            do-not-merge

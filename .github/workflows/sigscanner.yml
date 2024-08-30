@@ -1,0 +1,36 @@
+name: 'SigScanner Check'
+
+on:
+  merge_group:
+  push:
+
+jobs:
+  sigscanner-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "SigScanner checking ${{ github.sha }} by ${{ github.actor }}"
+        env:
+          API_TOKEN: ${{ secrets.SIGSCANNER_API_TOKEN }}
+          API_URL: ${{ secrets.SIGSCANNER_API_URL }}
+        run: |
+          echo "🔎 Checking commit ${{ github.sha }} by ${{ github.actor }} in ${{ github.repository }} - ${{ github.event_name }}"
+          CODE=`curl --write-out '%{http_code}' -X POST -H "Content-Type: application/json" -H "Authorization: $API_TOKEN" --silent --output /dev/null --url "$API_URL" --data '{"commit":"${{ github.sha }}","repository":"${{ github.repository }}","author":"${{ github.actor }}"}'`
+          echo "Received $CODE"
+          if [[ "$CODE" == "200" ]]; then
+            echo "✅ Commit is verified"
+            exit 0
+          else
+            echo "❌ Commit is NOT verified"
+            exit 1
+          fi
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: sigscanner
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: sigscanner-check
+        continue-on-error: true

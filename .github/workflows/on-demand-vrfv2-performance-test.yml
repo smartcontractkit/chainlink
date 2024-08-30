@@ -1,0 +1,99 @@
+name: On Demand VRFV2 Performance Test
+on:
+  workflow_dispatch:
+    inputs:
+      base64Config:
+        description: base64-ed config
+        required: true
+        type: string 
+      performanceTestType:
+        description: Performance Test Type of test to run
+        type: choice
+        options:
+          - "Smoke"
+          - "Soak"
+          - "Load"
+          - "Stress"
+          - "Spike"
+      test_list_regex:
+        description: "Regex for tests to run"
+        required: false
+        default: "(TestVRFV2Performance)"
+      test_secrets_override_key:
+        description: 'Key to run tests with custom test secrets'
+        required: false
+        type: string 
+
+jobs:
+  vrfv2_performance_test:
+    name: VRFV2 Performance Test
+    environment: integration
+    runs-on: ubuntu22.04-8cores-32GB
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    env:
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      TEST_TYPE: ${{ inputs.performanceTestType }}
+      TEST_LOG_LEVEL: debug
+      REF_NAME: ${{ github.head_ref || github.ref_name }}
+      SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
+      SLACK_CHANNEL: ${{ secrets.QA_VRF_SLACK_CHANNEL }}
+      GRAFANA_URL: "http://localhost:8080/primary"
+      GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+      GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      WASP_LOG_LEVEL: info
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: on-demand-vrfv2-performance-test
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: ${{ inputs.network }} VRFV2 Performance Test
+        continue-on-error: true
+      - name: Checkout code
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          fetch-depth: 0
+      - name: Mask base64 config
+        run: |
+          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV          
+      - name: Merge and export base64 config
+        uses: ./.github/actions/setup-merge-base64-config
+        with:
+          base64Config: ${{ env.BASE64_CONFIG_OVERRIDE }}
+      - name: Send details to Step Summary
+        shell: bash
+        run: |
+          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${{ env.CHAINLINK_IMAGE }}\`" >>$GITHUB_STEP_SUMMARY
+          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
+          echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
+          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY          
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
+        with:
+          test_command_to_run: cd ./integration-tests/load && go test -v -count=1 -timeout 24h -run "${{ inputs.test_list_regex }}" ./vrfv2
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_secrets_override_base64: ${{ secrets[inputs.test_secrets_override_key] }}
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ env.CHAINLINK_VERSION }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_name: vrf-test-logs
+          artifacts_location: ./integration-tests/load/vrfv2/logs/
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          should_cleanup: false
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
