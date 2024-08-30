@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-interface IDestinationVerifierProxy {
+import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
+
+interface IDestinationVerifierProxy is IERC165 {
   /**
    * @notice Verifies that the data encoded has been signed
    * correctly by routing to the verifier, and bills the user if applicable.

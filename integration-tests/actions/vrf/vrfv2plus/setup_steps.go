@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/shopspring/decimal"
 	"golang.org/x/sync/errgroup"
@@ -63,12 +63,10 @@ func CreateVRFV2PlusJob(
 	if vrfJobSpecConfig.BatchFulfillmentEnabled {
 		jobSpec.BatchCoordinatorAddress = vrfJobSpecConfig.BatchCoordinatorAddress
 	}
-
 	job, err := chainlinkNode.MustCreateJob(&jobSpec)
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrCreatingVRFv2PlusJob, err)
 	}
-
 	return job, nil
 }
 
@@ -87,7 +85,6 @@ func SetupVRFV2_5Environment(
 ) (*vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
 	l.Info().Msg("Starting VRFV2 Plus environment setup")
 	configGeneral := vrfv2PlusTestConfig.GetVRFv2PlusConfig().General
-
 	vrfContracts, err := SetupVRFV2PlusContracts(
 		sethClient,
 		linkToken,
@@ -361,7 +358,7 @@ func SetupVRFV2PlusWrapperForNewEnv(
 		vrfv2PlusConfig,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)
+		return nil, nil, err
 	}
 	// once the wrapper is deployed, wrapper address will become consumer of external EOA subscription
 	err = vrfContracts.CoordinatorV2Plus.AddConsumer(wrapperSubId, wrapperContracts.VRFV2PlusWrapper.Address())

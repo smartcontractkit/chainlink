@@ -521,6 +521,7 @@ func (a *Automation) setFrom(f *Automation) {
 type Workflow struct {
 	FromAddress      *types.EIP55Address `toml:",omitempty"`
 	ForwarderAddress *types.EIP55Address `toml:",omitempty"`
+	GasLimitDefault  *uint64
 }
 
 func (m *Workflow) setFrom(f *Workflow) {
@@ -529,6 +530,10 @@ func (m *Workflow) setFrom(f *Workflow) {
 	}
 	if v := f.ForwarderAddress; v != nil {
 		m.ForwarderAddress = v
+	}
+
+	if v := f.GasLimitDefault; v != nil {
+		m.GasLimitDefault = v
 	}
 }
 
@@ -549,12 +554,12 @@ type GasEstimator struct {
 	PriceMax     *assets.Wei
 	PriceMin     *assets.Wei
 
-	LimitDefault       *uint64
-	LimitMax           *uint64
-	LimitMultiplier    *decimal.Decimal
-	LimitTransfer      *uint64
-	LimitJobType       GasLimitJobType `toml:",omitempty"`
-	EstimateGasLimit   *bool
+	LimitDefault     *uint64
+	LimitMax         *uint64
+	LimitMultiplier  *decimal.Decimal
+	LimitTransfer    *uint64
+	LimitJobType     GasLimitJobType `toml:",omitempty"`
+	EstimateGasLimit *bool
 
 	BumpMin       *assets.Wei
 	BumpPercent   *uint16
@@ -804,6 +809,7 @@ type ClientErrors struct {
 	TransactionAlreadyMined           *string `toml:",omitempty"`
 	Fatal                             *string `toml:",omitempty"`
 	ServiceUnavailable                *string `toml:",omitempty"`
+	TooManyResults                    *string `toml:",omitempty"`
 }
 
 func (r *ClientErrors) setFrom(f *ClientErrors) bool {
@@ -848,6 +854,9 @@ func (r *ClientErrors) setFrom(f *ClientErrors) bool {
 	}
 	if v := f.ServiceUnavailable; v != nil {
 		r.ServiceUnavailable = v
+	}
+	if v := f.TooManyResults; v != nil {
+		r.TooManyResults = v
 	}
 	return true
 }
