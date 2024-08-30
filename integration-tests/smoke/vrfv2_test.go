@@ -985,6 +985,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 		require.NoError(t, err, "error getting tx from hash")
 
 		bhsStoreTxInputData, err := actions.DecodeTxInputData(blockhash_store.BlockhashStoreABI, bhsStoreTx.Data())
+		require.NoError(t, err, "error decoding tx input data")
 		l.Info().
 			Str("Block Number", bhsStoreTxInputData["n"].(*big.Int).String()).
 			Msg("BHS Node's Store Blockhash for Blocknumber Method TX")
