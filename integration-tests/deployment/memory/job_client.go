@@ -2,6 +2,8 @@ package memory
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -23,11 +25,45 @@ func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts 
 
 func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
 	//TODO CCIP-3108
-	panic("implement me")
+	var fiterIds map[string]struct{}
+	include := func(id string) bool {
+		if in.Filter == nil || len(in.Filter.Ids) == 0 {
+			return true
+		}
+		// lazy init
+		if len(fiterIds) == 0 {
+			for _, id := range in.Filter.Ids {
+				fiterIds[id] = struct{}{}
+			}
+		}
+		_, ok := fiterIds[id]
+		return ok
+	}
+	var nodes []*nodev1.Node
+	for id, n := range j.Nodes {
+		if include(id) {
+			nodes = append(nodes, &nodev1.Node{
+				Id:          id,
+				PublicKey:   n.Keys.OCRKeyBundle.ID(), // is this the correct val?
+				IsEnabled:   true,
+				IsConnected: true,
+			})
+		}
+	}
+	return &nodev1.ListNodesResponse{
+		Nodes: nodes,
+	}, nil
+
 }
 
 func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error) {
-	n := j.Nodes[in.Filter.NodeId]
+	if in.Filter == nil {
+		return nil, errors.New("filter is required")
+	}
+	n, ok := j.Nodes[in.Filter.NodeId]
+	if !ok {
+		return nil, fmt.Errorf("node id not found: %d", in.Filter.NodeId)
+	}
 	offpk := n.Keys.OCRKeyBundle.OffchainPublicKey()
 	cpk := n.Keys.OCRKeyBundle.ConfigEncryptionPublicKey()
 	var chainConfigs []*nodev1.ChainConfig
