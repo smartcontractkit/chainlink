@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity ^0.8.19;
 
 import {Greeter} from "../../../tests/Greeter.sol";
 
@@ -22,7 +22,7 @@ contract L2EPTest is Test {
     uint256 startGasUsage,
     uint256 finalGasUsage,
     uint256 deviation
-  ) public {
+  ) public view {
     uint256 gasUsed = (startGasUsage - finalGasUsage) * tx.gasprice;
     assertLe(gasUsed, expectedGasUsage + deviation);
     assertGe(gasUsed, expectedGasUsage - deviation);
