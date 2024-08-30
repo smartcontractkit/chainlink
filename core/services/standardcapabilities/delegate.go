@@ -67,8 +67,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return nil, fmt.Errorf("failed to create relayer set: %w", err)
 	}
 
+	oracleFactory, err := generic.NewOracleFactory()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create oracle factory: %w", err)
+	}
+
 	standardCapability := newStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
-		pr, relayerSet)
+		pr, relayerSet, oracleFactory)
 
 	return []job.ServiceCtx{standardCapability}, nil
 }
