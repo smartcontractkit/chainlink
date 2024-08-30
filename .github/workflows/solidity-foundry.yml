@@ -78,6 +78,7 @@ jobs:
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
               - 'contracts/package.json'
+              - 'contracts/GNUmakefile'
             sol:
               - modified|added: 'contracts/src/v0.8/**/*.sol'
             sol_mod_only:
