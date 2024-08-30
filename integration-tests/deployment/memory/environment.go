@@ -147,8 +147,8 @@ type MemoryEnvironmentMultiDonConfig struct {
 
 func NewMultiDonMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentMultiDonConfig) deployment.MultiDonEnvironment {
 	out := deployment.MultiDonEnvironment{
-		Logger:       lggr,
-		Environments: make(map[string]deployment.Environment),
+		Logger:   lggr,
+		DonToEnv: make(map[string]deployment.Environment),
 	}
 	for name, c := range config.Configs {
 		chains := NewMemoryChains(t, c.Chains)
@@ -157,7 +157,7 @@ func NewMultiDonMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zap
 		for id := range nodes {
 			nodeIDs = append(nodeIDs, id)
 		}
-		out.Environments[name] = deployment.Environment{
+		out.DonToEnv[name] = deployment.Environment{
 			Name:     Memory,
 			Offchain: NewMemoryJobClient(nodes),
 			NodeIDs:  nodeIDs,

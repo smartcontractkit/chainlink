@@ -59,7 +59,7 @@ func TestDeploy(t *testing.T) {
 
 	var nodeToNop = make(map[string]kcr.CapabilitiesRegistryNodeOperator) //node -> nop
 	// assign nops to nodes
-	for _, env := range e.Environments {
+	for _, env := range e.DonToEnv {
 		for i, nodeID := range env.NodeIDs {
 			idx := i % len(testNops)
 			nop := testNops[idx]
@@ -77,7 +77,7 @@ func TestDeploy(t *testing.T) {
 	homeChain := e.Get(keystone.WFDonName).AllChainSelectors()[0]
 	deployReq := keystone.DeployRequest{
 		RegistryChain:     homeChain,
-		Env:               e,
+		Menv:              e,
 		DonToCapabilities: donsToDeploy,
 		NodeIDToNop:       nodeToNop,
 	}
