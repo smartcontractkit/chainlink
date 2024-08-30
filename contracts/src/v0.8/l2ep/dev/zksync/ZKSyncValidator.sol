@@ -35,7 +35,7 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
   /// @notice ChainID is not a valid value
   error InvalidChainID();
   /// @notice Address cannot be zero
-  error ZeroAddressNotAllowed(string message); 
+  error ZeroAddressNotAllowed(string message);
 
   /// @param l1CrossDomainMessengerAddress address the Bridgehub contract address
   /// @param l2UptimeFeedAddr the address of the ZKSyncSequencerUptimeFeedInterface contract address
@@ -55,7 +55,7 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     // solhint-disable-next-line gas-custom-errors
     if (l1CrossDomainMessengerAddress != address(0)) {
       revert ZeroAddressNotAllowed("Invalid xDomain Messenger address");
-    } 
+    }
 
     // solhint-disable-next-line gas-custom-errors
     if (l2UptimeFeedAddr != address(0)) {
