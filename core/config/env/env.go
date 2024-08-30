@@ -20,6 +20,7 @@ var (
 	ThresholdKeyShare            = Secret("CL_THRESHOLD_KEY_SHARE")
 	// Migrations env vars
 	EVMChainIDNotNullMigration0195 = "CL_EVM_CHAINID_NOT_NULL_MIGRATION_0195"
+	CustomDefaults                 = Var("CL_CHAIN_DEFAULTS")
 )
 
 // LOOPP commands and vars
