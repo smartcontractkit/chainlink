@@ -340,11 +340,11 @@ jobs:
           channel-id: "#team-test-tooling-internal"
           slack-message: ":x: :mild-panic-intensifies: Node Migration Tests Failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}\n${{ format('Notifying <!subteam^{0}|{0}>', secrets.GUARDIAN_SLACK_NOTIFICATION_HANDLE) }}"
 
-      - name: Fail the job if Core tests failed
+      - name: Fail the job if core tests not successful
         if: always() && needs.run-core-e2e-tests-workflow.result != 'success'
         run: exit 1
 
-      - name: Fail the job if lint failed
+      - name: Fail the job if lint not successful
         if: always() && needs.lint-integration-tests.result != 'success'
         run: exit 1
 
