@@ -7,10 +7,32 @@ import (
 	"reflect"
 )
 
-type CreateFeedsManagerInput struct {
+type FeedsManagerInput struct {
 	Name      string `json:"name"`
 	Uri       string `json:"uri"`
 	PublicKey string `json:"publicKey"`
+}
+
+type CreateFeedsManagerChainConfigInput struct {
+	FeedsManagerID       string `json:"feedsManagerID"`
+	ChainID              string `json:"chainID"`
+	ChainType            string `json:"chainType"`
+	AccountAddr          string `json:"accountAddr"`
+	AccountAddrPubKey    string `json:"accountAddrPubKey"`
+	AdminAddr            string `json:"adminAddr"`
+	FluxMonitorEnabled   bool   `json:"fluxMonitorEnabled"`
+	Ocr1Enabled          bool   `json:"ocr1Enabled"`
+	Ocr1IsBootstrap      bool   `json:"ocr1IsBootstrap"`
+	Ocr1Multiaddr        string `json:"ocr1Multiaddr"`
+	Ocr1P2PPeerID        string `json:"ocr1P2PPeerID"`
+	Ocr1KeyBundleID      string `json:"ocr1KeyBundleID"`
+	Ocr2Enabled          bool   `json:"ocr2Enabled"`
+	Ocr2IsBootstrap      bool   `json:"ocr2IsBootstrap"`
+	Ocr2Multiaddr        string `json:"ocr2Multiaddr"`
+	Ocr2ForwarderAddress string `json:"ocr2ForwarderAddress"`
+	Ocr2P2PPeerID        string `json:"ocr2P2PPeerID"`
+	Ocr2KeyBundleID      string `json:"ocr2KeyBundleID"`
+	Ocr2Plugins          string `json:"ocr2Plugins"`
 }
 
 func DecodeInput(in, out any) error {

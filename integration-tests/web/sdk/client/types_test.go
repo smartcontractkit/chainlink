@@ -19,7 +19,7 @@ func TestDecodeInput(t *testing.T) {
 	}{
 		{
 			name: "success",
-			args: args{&CreateFeedsManagerInput{
+			args: args{&FeedsManagerInput{
 				Name:      "name",
 				Uri:       "uri",
 				PublicKey: "publicKey",
@@ -29,7 +29,7 @@ func TestDecodeInput(t *testing.T) {
 		},
 		{
 			name: "non-pointer",
-			args: args{&CreateFeedsManagerInput{
+			args: args{&FeedsManagerInput{
 				Name:      "name",
 				Uri:       "uri",
 				PublicKey: "publicKey",
@@ -39,13 +39,22 @@ func TestDecodeInput(t *testing.T) {
 		},
 		{
 			name: "incorrect type",
-			args: args{&CreateFeedsManagerInput{
+			args: args{&FeedsManagerInput{
 				Name:      "name",
 				Uri:       "uri",
 				PublicKey: "publicKey",
 			}, generated.CreateFeedsManagerChainConfigInput{}},
 			wantErr:    true,
 			errMessage: "json: cannot unmarshal object into Go value of type generated.CreateFeedsManagerChainConfigInput",
+		},
+		{
+			name: "success",
+			args: args{&FeedsManagerInput{
+				Name:      "name",
+				Uri:       "uri",
+				PublicKey: "publicKey",
+			}, &generated.UpdateFeedsManagerInput{}},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
