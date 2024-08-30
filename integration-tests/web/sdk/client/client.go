@@ -9,8 +9,8 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/web/sdk/client/internal/doer"
-	"github.com/smartcontractkit/chainlink/integration-tests/web/sdk/internal/generated"
+	"github.com/smartcontractkit/chainlink/integration-tests/web/sdk/client/doer"
+	"github.com/smartcontractkit/chainlink/integration-tests/web/sdk/generated"
 )
 
 type Client interface {
@@ -23,6 +23,7 @@ type Client interface {
 	ListFeedsManagers(ctx context.Context) (*generated.ListFeedsManagersResponse, error)
 	CreateFeedsManager(ctx context.Context, cmd generated.CreateFeedsManagerInput) (*generated.CreateFeedsManagerResponse, error)
 	UpdateFeedsManager(ctx context.Context, id string, cmd generated.UpdateFeedsManagerInput) (*generated.UpdateFeedsManagerResponse, error)
+	CreateFeedsManagerChainConfig(ctx context.Context, cmd generated.CreateFeedsManagerChainConfigInput) (*generated.CreateFeedsManagerChainConfigResponse, error)
 	GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalResponse, error)
 	ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*generated.ApproveJobProposalSpecResponse, error)
 	CancelJobProposalSpec(ctx context.Context, id string) (*generated.CancelJobProposalSpecResponse, error)
@@ -103,6 +104,10 @@ func (c *client) CreateFeedsManager(ctx context.Context, cmd generated.CreateFee
 
 func (c *client) UpdateFeedsManager(ctx context.Context, id string, cmd generated.UpdateFeedsManagerInput) (*generated.UpdateFeedsManagerResponse, error) {
 	return generated.UpdateFeedsManager(ctx, c.gqlClient, id, cmd)
+}
+
+func (c *client) CreateFeedsManagerChainConfig(ctx context.Context, cmd generated.CreateFeedsManagerChainConfigInput) (*generated.CreateFeedsManagerChainConfigResponse, error) {
+	return generated.CreateFeedsManagerChainConfig(ctx, c.gqlClient, cmd)
 }
 
 func (c *client) GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalResponse, error) {

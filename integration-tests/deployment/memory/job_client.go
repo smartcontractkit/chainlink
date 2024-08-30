@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc"
 
+	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
@@ -14,6 +15,41 @@ import (
 
 type JobClient struct {
 	Nodes map[string]Node
+}
+
+func (j JobClient) UpdateJob(ctx context.Context, in *jobv1.UpdateJobRequest, opts ...grpc.CallOption) (*jobv1.UpdateJobResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (j JobClient) DisableNode(ctx context.Context, in *nodev1.DisableNodeRequest, opts ...grpc.CallOption) (*nodev1.DisableNodeResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (j JobClient) EnableNode(ctx context.Context, in *nodev1.EnableNodeRequest, opts ...grpc.CallOption) (*nodev1.EnableNodeResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (j JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeRequest, opts ...grpc.CallOption) (*nodev1.RegisterNodeResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (j JobClient) UpdateNode(ctx context.Context, in *nodev1.UpdateNodeRequest, opts ...grpc.CallOption) (*nodev1.UpdateNodeResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (j JobClient) GetKeypair(ctx context.Context, in *csav1.GetKeypairRequest, opts ...grpc.CallOption) (*csav1.GetKeypairResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (j JobClient) ListKeypairs(ctx context.Context, in *csav1.ListKeypairsRequest, opts ...grpc.CallOption) (*csav1.ListKeypairsResponse, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts ...grpc.CallOption) (*nodev1.GetNodeResponse, error) {
@@ -27,7 +63,7 @@ func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, o
 }
 
 func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error) {
-	n := j.Nodes[in.Filter.NodeId]
+	n := j.Nodes[in.Filter.NodeIds[0]]
 	offpk := n.Keys.OCRKeyBundle.OffchainPublicKey()
 	cpk := n.Keys.OCRKeyBundle.ConfigEncryptionPublicKey()
 	var chainConfigs []*nodev1.ChainConfig
@@ -54,7 +90,7 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 				},
 				Multiaddr:        n.Addr.String(),
 				Plugins:          nil,
-				ForwarderAddress: "",
+				ForwarderAddress: ptr(""),
 			},
 		})
 	}
@@ -97,8 +133,7 @@ func (j JobClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRequest, 
 		return nil, err
 	}
 	return &jobv1.ProposeJobResponse{Proposal: &jobv1.Proposal{
-		Id:      "",
-		Version: 0,
+		Id: "",
 		// Auto approve for now
 		Status:             jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED,
 		DeliveryStatus:     jobv1.ProposalDeliveryStatus_PROPOSAL_DELIVERY_STATUS_DELIVERED,
