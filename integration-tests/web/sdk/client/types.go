@@ -46,9 +46,5 @@ func DecodeInput(in, out any) error {
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonBytes))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(out); err != nil {
-		return err
-	}
-
-	return nil
+	return decoder.Decode(out)
 }
