@@ -2,6 +2,7 @@
 
 REPOS=~/repos
 CHAINLINK=$REPOS/chainlink
+CHAINLINK_CONFIG=$CHAINLINK/beholderdemo/.chainlink-sepolia
 BEHOLDER_DEMO=$REPOS/atlas/beholder
 
 
@@ -42,8 +43,8 @@ start_postgres() {
 
 start_chainlink() {
 	cd $CHAINLINK
-	echo "\n\nSratring chainlink node"
-	OTEL_SERVICE_NAME=beholderdemo ./chainlink node -c ~/.chainlink-sepolia/config.toml -s ~/.chainlink-sepolia/secrets.toml start || exit 1
+	echo "\n\nSratring chainlink node, config folder: $CHAINLINK_CONFIG"
+	OTEL_SERVICE_NAME=beholderdemo ./chainlink node -c $CHAINLINK_CONFIG/config.toml -s $CHAINLINK_CONFIG/demo-secrets.toml start || exit 1
 }
 
 build_chainlink_dev
