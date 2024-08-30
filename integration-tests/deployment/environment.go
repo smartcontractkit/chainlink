@@ -19,15 +19,16 @@ import (
 
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	//"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 type OnchainClient interface {
 	// For EVM specifically we can use existing geth interface
 	// to abstract chain clients.
 	bind.ContractBackend
+	bind.DeployBackend
 }
 
 type OffchainClient interface {
@@ -52,6 +53,30 @@ type Environment struct {
 	Offchain OffchainClient
 	NodeIDs  []string
 	Logger   logger.Logger
+}
+
+type MultiDonEnvironment struct {
+	Environments map[string]Environment
+	Logger       logger.Logger
+}
+
+func (mde MultiDonEnvironment) Get(name string) Environment {
+	return mde.Environments[name]
+}
+
+func (mde MultiDonEnvironment) ListChains() []Chain {
+	seen := make(map[uint64]struct{})
+	var chains []Chain
+	for _, env := range mde.Environments {
+		for _, chain := range env.Chains {
+			_, exists := seen[chain.Selector]
+			if !exists {
+				chains = append(chains, chain)
+				seen[chain.Selector] = struct{}{}
+			}
+		}
+	}
+	return chains
 }
 
 func (e Environment) AllChainSelectors() []uint64 {
@@ -146,9 +171,13 @@ func MustPeerIDFromString(s string) p2pkey.PeerID {
 	return p
 }
 
+type NodeChainConfigsLister interface {
+	ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...interface{}) (*nodev1.ListNodeChainConfigsResponse, error)
+}
+
 // Gathers all the node info through JD required to be able to set
 // OCR config for example.
-func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
+func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 	var nodes []Node
 	for _, node := range nodeIDs {
 		// TODO: Filter should accept multiple nodes
