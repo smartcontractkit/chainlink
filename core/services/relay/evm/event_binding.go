@@ -3,9 +3,7 @@ package evm
 import (
 	"context"
 	"fmt"
-	"maps"
 	"reflect"
-	"slices"
 	"strings"
 	"sync"
 
@@ -215,12 +213,12 @@ func (e *eventBinding) decodeLogsIntoSequences(ctx context.Context, logs []logpo
 
 func (e *eventBinding) getLatestValue(ctx context.Context, confs evmtypes.Confirmations, params, into any) error {
 	topicTypeID := WrapItemType(e.contractName, e.eventName, true)
-	onChainTypedVal, err := e.toOnChainType(topicTypeID, params)
+	onChainTypedVal, err := e.toNativeOnChainType(topicTypeID, params)
 	if err != nil {
 		return fmt.Errorf("failed to convert params to checked type: %w", err)
 	}
 
-	filtersAndIndices, err := e.encodeTopicFilters(topicTypeID, reflect.ValueOf(onChainTypedVal))
+	filtersAndIndices, err := e.encodeTopicFilters(topicTypeID, onChainTypedVal)
 	if err != nil {
 		return err
 	}
@@ -296,36 +294,22 @@ func createTopicFilters(filtersAndIndices []*common.Hash) (query.Expression, err
 }
 
 // encodeTopicFilters accepts onChain types and encodes them to match onchain topics.
-func (e *eventBinding) encodeTopicFilters(topicTypeID string, onChainTypedTopics reflect.Value) ([]*common.Hash, error) {
-	// convert onChain params to native types similarly to generated abi wrappers, for e.g. fixed bytes32 abi type to [32]uint8.
-	codecType, exists := e.eventTypes[topicTypeID]
-	if !exists {
-		return nil, fmt.Errorf("cannot find codec entry for %q topic", e.eventName)
-	}
-
-	nativeParams, err := codecType.ToNative(onChainTypedTopics)
-	if err != nil {
-		return nil, err
-	}
-
-	for nativeParams.Kind() == reflect.Pointer {
-		nativeParams = reflect.Indirect(nativeParams)
-	}
-
+func (e *eventBinding) encodeTopicFilters(topicTypeID string, value any) (topics []*common.Hash, err error) {
+	item := reflect.ValueOf(value)
 	var params []any
-	switch nativeParams.Kind() {
+	switch item.Kind() {
 	case reflect.Array, reflect.Slice:
-		native, err := representArray(nativeParams, e.eventTypes[topicTypeID])
+		native, err := representArray(item, e.eventTypes[topicTypeID])
 		if err != nil {
 			return nil, err
 		}
 		params = []any{native}
 	case reflect.Struct, reflect.Map:
-		if params, err = unrollItem(nativeParams, e.eventTypes[topicTypeID]); err != nil {
+		if params, err = unrollItem(item, e.eventTypes[topicTypeID]); err != nil {
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("%w: cannot encode kind %v", commontypes.ErrInvalidType, nativeParams.Kind())
+		return nil, fmt.Errorf("%w: cannot encode kind %v", commontypes.ErrInvalidType, item.Kind())
 	}
 
 	// abi params allow you to Pack a pointers, but makeTopics doesn't work with pointers.
@@ -474,23 +458,23 @@ func (e *eventBinding) encodeComparator(comparator *primitives.Comparator) (quer
 	dwInfo, isDW := e.dataWordsInfo[comparator.Name]
 	if !isDW {
 		if _, ok := e.topics[comparator.Name]; !ok {
-			return query.Expression{}, fmt.Errorf("comparator doesn't match any of the indexed topics %v or data words %v", slices.Collect(maps.Keys(e.topics)), slices.Collect(maps.Keys(e.dataWordsInfo)))
+			return query.Expression{}, fmt.Errorf("comparator name doesn't match any of the indexed topics or data words")
 		}
 	}
 
 	var hashedValComps []logpoller.HashedValueComparator
 	itemType := WrapItemType(e.contractName, e.eventName+"."+comparator.Name, true)
 	for _, valComp := range comparator.ValueComparators {
-		checkedVal, err := e.toOnChainType(itemType, valComp.Value)
+		onChainTypedVal, err := e.toNativeOnChainType(itemType, valComp.Value)
 		if err != nil {
 			return query.Expression{}, fmt.Errorf("failed to convert value to checked type: %w", err)
 		}
 
 		hashedValComp := logpoller.HashedValueComparator{Operator: valComp.Operator}
 		if isDW {
-			hashedValComp.Value, err = e.encodeValComparatorDataWord(itemType, comparator.Name, checkedVal)
+			hashedValComp.Value, err = e.encodeValComparatorDataWord(comparator.Name, onChainTypedVal)
 		} else {
-			hashedValComp.Value, err = e.encodeValComparatorTopic(itemType, comparator.Name, checkedVal)
+			hashedValComp.Value, err = e.encodeValComparatorTopic(itemType, comparator.Name, onChainTypedVal)
 		}
 		if err != nil {
 			return query.Expression{}, err
@@ -505,27 +489,13 @@ func (e *eventBinding) encodeComparator(comparator *primitives.Comparator) (quer
 	return logpoller.NewEventByTopicFilter(e.topics[comparator.Name].Index, hashedValComps), nil
 }
 
-func (e *eventBinding) encodeValComparatorDataWord(dwTypeID, valCompName string, checkedVal any) (hash common.Hash, err error) {
-	dwTyp, ok := e.eventTypes[dwTypeID]
-	if !ok {
-		return common.Hash{}, fmt.Errorf("cannot find type for data word")
-	}
-
-	nativeParams, err := dwTyp.ToNative(reflect.ValueOf(checkedVal))
-	if err != nil {
-		return common.Hash{}, err
-	}
-
-	for nativeParams.Kind() == reflect.Pointer {
-		nativeParams = reflect.Indirect(nativeParams)
-	}
-
+func (e *eventBinding) encodeValComparatorDataWord(valCompName string, nativeType any) (hash common.Hash, err error) {
 	dwInfo, ok := e.dataWordsInfo[valCompName]
 	if !ok {
 		return common.Hash{}, fmt.Errorf("cannot find data word maping for %s", valCompName)
 	}
 
-	packedArgs, err := abi.Arguments{dwInfo.typ}.Pack(nativeParams.Interface())
+	packedArgs, err := abi.Arguments{dwInfo.typ}.Pack(nativeType)
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -546,29 +516,41 @@ func (e *eventBinding) encodeValComparatorTopic(topicTypeID, valCompName string,
 	return common.Hash{}, fmt.Errorf("event %q topic %q is nil in hashed values %v", e.eventName, valCompName, hashedTopics)
 }
 
-// toOnChainType injects value into a type that matches onchain types.
-func (e *eventBinding) toOnChainType(itemType string, value any) (any, error) {
-	offChain, err := e.codec.CreateType(itemType, true)
+// toNativeOnChainType injects value into a type that matches onchain types.
+func (e *eventBinding) toNativeOnChainType(itemType string, value any) (any, error) {
+	onChain, err := e.codec.CreateType(itemType, true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create type %s: %w", itemType, err)
+		return nil, fmt.Errorf("failed to create type: %w", err)
 	}
 
 	// apply map struct evm hooks to correct incoming values
-	if err = mapstructureDecode(value, offChain); err != nil {
+	if err = mapstructureDecode(value, onChain); err != nil {
 		return nil, err
 	}
 
 	// convert caller chain agnostic params types to types representing onchain abi types, for e.g. bytes32. and apply modifiers
 	if modifier, exists := e.eventModifiers[itemType]; exists {
-		onChain, err := modifier.TransformToOnChain(offChain, "" /* unused */)
+		onChain, err = modifier.TransformToOnChain(onChain, "" /* unused */)
 		if err != nil {
-			return nil, fmt.Errorf("failed to transform %s to onchain: %w", itemType, err)
+			return nil, fmt.Errorf("failed to apply modifiers to offchain type: %w", err)
 		}
-		return onChain, nil
 	}
 
-	// if no modifiers are present for this type then skip them
-	return offChain, nil
+	typ, ok := e.eventTypes[itemType]
+	if !ok {
+		return query.Expression{}, fmt.Errorf("cannot find codec entry for %q item type", itemType)
+	}
+
+	nativeType, err := typ.ToNative(reflect.ValueOf(onChain))
+	if err != nil {
+		return query.Expression{}, err
+	}
+
+	for nativeType.Kind() == reflect.Pointer {
+		nativeType = reflect.Indirect(nativeType)
+	}
+
+	return nativeType.Interface(), nil
 }
 
 func (e *eventBinding) validateBound() error {
