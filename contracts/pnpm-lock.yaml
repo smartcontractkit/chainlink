@@ -36,7 +36,7 @@ importers:
         specifier: 0.1.0
         version: 0.1.0
       '@zksync/contracts':
-        specifier: git+https://github.com/matter-labs/era-contracts.git
+        specifier: git+https://github.com/matter-labs/era-contracts.git#446d391d34bdb48255d5f8fef8a8248925fc98b9
         version: era-contracts@https://codeload.github.com/matter-labs/era-contracts/tar.gz/446d391d34bdb48255d5f8fef8a8248925fc98b9
       semver:
         specifier: ^7.6.3
