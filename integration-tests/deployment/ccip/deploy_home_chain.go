@@ -326,7 +326,7 @@ func AddDON(
 	iter, err := capReg.FilterConfigSet(&bind.FilterOpts{
 		Start: endBlock - 1,
 		End:   &endBlock,
-	})
+	}, []uint32{})
 	if err != nil {
 		return err
 	}
