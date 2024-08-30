@@ -116,7 +116,7 @@ contract ChainReaderTester {
     string calldata differentField,
     int192 bigField,
     MidLevelTestStruct calldata nestedStruct
-) public {
+  ) public {
     emit Triggered(field, oracleId, oracleIds, account, accounts, differentField, bigField, nestedStruct);
   }
 
