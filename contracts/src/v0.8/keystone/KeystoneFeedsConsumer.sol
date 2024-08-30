@@ -87,9 +87,9 @@ contract KeystoneFeedsConsumer is IReceiver, OwnerIsCreator, IERC165 {
     // workflow_owner           // offset 74, size 20
     // report_name              // offset 94, size  2
     assembly {
-    // no shifting needed for bytes10 type
+      // no shifting needed for bytes10 type
       workflowName := mload(add(metadata, 64))
-    // shift right by 12 bytes to get the actual value
+      // shift right by 12 bytes to get the actual value
       workflowOwner := shr(mul(12, 8), mload(add(metadata, 74)))
     }
   }
