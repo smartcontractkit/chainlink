@@ -48,12 +48,12 @@ type Credentials struct {
 }
 
 func New(baseURI string, creds Credentials) (Client, error) {
-	e := endpoints{
+	ep := endpoints{
 		Sessions: baseURI + "/sessions",
 		Query:    baseURI + "/query",
 	}
 	c := &client{
-		endpoints:   e,
+		endpoints:   ep,
 		credentials: creds,
 	}
 
