@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
 )
@@ -23,8 +24,8 @@ const (
 )
 
 func startNewWSServer(t *testing.T, readTimeoutMillis uint32) (server network.WebSocketServer, acceptor *mocks.ConnectionAcceptor, url string) {
-	config := &network.WebSocketServerConfig{
-		HTTPServerConfig: network.HTTPServerConfig{
+	config := &config.WebSocketServerConfig{
+		HTTPServerConfig: config.HTTPServerConfig{
 			Host:                 WSTestHost,
 			Port:                 0,
 			Path:                 "/ws_test_path",

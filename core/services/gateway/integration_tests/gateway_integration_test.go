@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	coreConfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
@@ -87,9 +88,9 @@ func parseGatewayConfig(t *testing.T, tomlConfig string) *config.GatewayConfig {
 	return &cfg
 }
 
-func parseConnectorConfig(t *testing.T, tomlConfig string, nodeAddress string, nodeURL string) *connector.ConnectorConfig {
+func parseConnectorConfig(t *testing.T, tomlConfig string, nodeAddress string, nodeURL string) *coreConfig.GatewayConnectorConfig {
 	nodeConfig := fmt.Sprintf(tomlConfig, nodeAddress, nodeURL)
-	var cfg connector.ConnectorConfig
+	var cfg coreConfig.GatewayConnectorConfig
 	require.NoError(t, toml.Unmarshal([]byte(nodeConfig), &cfg))
 	return &cfg
 }
@@ -152,6 +153,13 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 
 	// Launch Connector
 	client := &client{privateKey: nodeKeys.PrivateKey}
+	// cannot use parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeUrl)
+	// (value of type *"github.com/smartcontractkit/chainlink/v2/core/config".GatewayConnectorConfig) as
+	// "github.com/smartcontractkit/chainlink/v2/core/config".GatewayConnectorConfig
+	// value in argument to connector.NewGatewayConnector: *"github.com/smartcontractkit/chainlink/v2/core/config".GatewayConnectorConfig
+	//  does not implement
+	//  "github.com/smartcontractkit/chainlink/v2/core/config".GatewayConnectorConfig (type *"github.com/smartcontractkit/chainlink/v2/core/config".GatewayConnectorConfig
+	//   is pointer to interface, not interface)compilerInvalidIfaceAssign
 	connector, err := connector.NewGatewayConnector(parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeUrl), client, client, clockwork.NewRealClock(), lggr)
 	require.NoError(t, err)
 	client.connector = connector

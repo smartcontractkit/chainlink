@@ -4,7 +4,7 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
 type CapabilitiesExternalRegistry interface {
@@ -18,7 +18,7 @@ type GatewayConnectorConfig interface {
 	NodeAddress() string
 	DonId() string
 	Gateways() []ConnectorGatewayConfig
-	WsClientConfig() network.WebSocketClientConfig
+	WsClientConfig() config.WebSocketClientConfig
 	AuthMinChallengeLen() int
 	AuthTimestampToleranceSec() uint32
 }

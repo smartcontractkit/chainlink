@@ -8,16 +8,12 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
 type WebSocketClient interface {
 	Connect(ctx context.Context, url *url.URL) (*websocket.Conn, error)
-}
-
-type WebSocketClientConfig struct {
-	HandshakeTimeoutMillis uint32
 }
 
 type webSocketClient struct {
@@ -26,7 +22,7 @@ type webSocketClient struct {
 	lggr      logger.Logger
 }
 
-func NewWebSocketClient(config WebSocketClientConfig, initiator ConnectionInitiator, lggr logger.Logger) WebSocketClient {
+func NewWebSocketClient(config config.WebSocketClientConfig, initiator ConnectionInitiator, lggr logger.Logger) WebSocketClient {
 	dialer := &websocket.Dialer{
 		HandshakeTimeout: time.Duration(config.HandshakeTimeoutMillis) * time.Millisecond,
 	}

@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
+	gatewayConfig "github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
@@ -1443,7 +1443,7 @@ type GatewayConnectorConfig struct {
 	NodeAddress               *string
 	DonId                     *string
 	Gateways                  []ConnectorGatewayConfig
-	WsClientConfig            *network.WebSocketClientConfig
+	WsClientConfig            *gatewayConfig.WebSocketClientConfig
 	AuthMinChallengeLen       *int
 	AuthTimestampToleranceSec *uint32
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
 )
@@ -23,7 +24,7 @@ const (
 )
 
 func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint32) (server network.HttpServer, handler *mocks.HTTPRequestHandler, url string) {
-	config := &network.HTTPServerConfig{
+	configLocal := &config.HTTPServerConfig{
 		Host:                 HTTPTestHost,
 		Port:                 0,
 		Path:                 HTTPTestPath,
@@ -36,7 +37,7 @@ func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint3
 	}
 
 	handler = mocks.NewHTTPRequestHandler(t)
-	server = network.NewHttpServer(config, logger.TestLogger(t))
+	server = network.NewHttpServer(configLocal, logger.TestLogger(t))
 	server.SetHTTPRequestHandler(handler)
 	err := server.Start(testutils.Context(t))
 	require.NoError(t, err)

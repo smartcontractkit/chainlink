@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
+	gatewayConfig "github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
 var _ config.Capabilities = (*capabilitiesConfig)(nil)
@@ -89,7 +89,7 @@ func (c *gatewayConnectorConfig) Gateways() []config.ConnectorGatewayConfig {
 	return t
 }
 
-func (c *gatewayConnectorConfig) WsClientConfig() network.WebSocketClientConfig {
+func (c *gatewayConnectorConfig) WsClientConfig() gatewayConfig.WebSocketClientConfig {
 	return *c.c.WsClientConfig
 }
 

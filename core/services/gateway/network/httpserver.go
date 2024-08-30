@@ -10,6 +10,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	gatewayConfig "github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -27,23 +29,9 @@ type HTTPRequestHandler interface {
 	ProcessRequest(ctx context.Context, rawRequest []byte) (rawResponse []byte, httpStatusCode int)
 }
 
-type HTTPServerConfig struct {
-	Host                 string
-	Port                 uint16
-	TLSEnabled           bool
-	TLSCertPath          string
-	TLSKeyPath           string
-	Path                 string
-	ContentTypeHeader    string
-	ReadTimeoutMillis    uint32
-	WriteTimeoutMillis   uint32
-	RequestTimeoutMillis uint32
-	MaxRequestBytes      int64
-}
-
 type httpServer struct {
 	services.StateMachine
-	config            *HTTPServerConfig
+	config            *gatewayConfig.HTTPServerConfig
 	listener          net.Listener
 	server            *http.Server
 	handler           HTTPRequestHandler
@@ -57,7 +45,7 @@ const (
 	HealthCheckResponse = "OK"
 )
 
-func NewHttpServer(config *HTTPServerConfig, lggr logger.Logger) HttpServer {
+func NewHttpServer(config *gatewayConfig.HTTPServerConfig, lggr logger.Logger) HttpServer {
 	baseCtx, cancelBaseCtx := context.WithCancel(context.Background())
 	server := &httpServer{
 		config:            config,

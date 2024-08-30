@@ -2,13 +2,34 @@ package config
 
 import (
 	"encoding/json"
-
-	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
+type HTTPServerConfig struct {
+	Host                 string
+	Port                 uint16
+	TLSEnabled           bool
+	TLSCertPath          string
+	TLSKeyPath           string
+	Path                 string
+	ContentTypeHeader    string
+	ReadTimeoutMillis    uint32
+	WriteTimeoutMillis   uint32
+	RequestTimeoutMillis uint32
+	MaxRequestBytes      int64
+}
+
+type WebSocketServerConfig struct {
+	HTTPServerConfig
+	HandshakeTimeoutMillis uint32
+}
+
+type WebSocketClientConfig struct {
+	HandshakeTimeoutMillis uint32
+}
+
 type GatewayConfig struct {
-	UserServerConfig        gw_net.HTTPServerConfig
-	NodeServerConfig        gw_net.WebSocketServerConfig
+	UserServerConfig        HTTPServerConfig
+	NodeServerConfig        WebSocketServerConfig
 	ConnectionManagerConfig ConnectionManagerConfig
 	Dons                    []DONConfig
 }

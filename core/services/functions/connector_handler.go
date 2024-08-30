@@ -83,6 +83,7 @@ func NewFunctionsConnectorHandler(pluginConfig *config.PluginConfig, signerKey *
 		allowedHeartbeatInitiators[strings.ToLower(initiator)] = struct{}{}
 	}
 	return &functionsConnectorHandler{
+		// pluginConfig.GatewayConnectorConfig.NodeAddress undefined (type *invalid type has no field or method NodeAddress)
 		nodeAddress:                pluginConfig.GatewayConnectorConfig.NodeAddress,
 		signerKey:                  signerKey,
 		storage:                    storage,

@@ -80,6 +80,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	subscriptions.On("Start", mock.Anything).Return(nil)
 	subscriptions.On("Close", mock.Anything).Return(nil)
 	config := &config.PluginConfig{
+		// undefined: gwconnector.ConnectorConfigcompilerUndeclaredImportedName
 		GatewayConnectorConfig: &gwconnector.ConnectorConfig{
 			NodeAddress: addr.Hex(),
 		},

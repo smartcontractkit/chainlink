@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -22,14 +23,9 @@ type WebSocketServer interface {
 	GetPort() int
 }
 
-type WebSocketServerConfig struct {
-	HTTPServerConfig
-	HandshakeTimeoutMillis uint32
-}
-
 type webSocketServer struct {
 	services.StateMachine
-	config            *WebSocketServerConfig
+	config            *config.WebSocketServerConfig
 	listener          net.Listener
 	server            *http.Server
 	acceptor          ConnectionAcceptor
@@ -39,7 +35,7 @@ type webSocketServer struct {
 	lggr              logger.Logger
 }
 
-func NewWebSocketServer(config *WebSocketServerConfig, acceptor ConnectionAcceptor, lggr logger.Logger) WebSocketServer {
+func NewWebSocketServer(config *config.WebSocketServerConfig, acceptor ConnectionAcceptor, lggr logger.Logger) WebSocketServer {
 	baseCtx, cancelBaseCtx := context.WithCancel(context.Background())
 	upgrader := &websocket.Upgrader{
 		HandshakeTimeout: time.Duration(config.HandshakeTimeoutMillis) * time.Millisecond,
