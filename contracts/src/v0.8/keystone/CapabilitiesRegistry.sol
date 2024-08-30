@@ -3,8 +3,8 @@ pragma solidity 0.8.24;
 
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
-import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
+import {ERC165Checker} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
 import {ICapabilityConfiguration} from "./interfaces/ICapabilityConfiguration.sol";
 
 /// @notice CapabilitiesRegistry is used to manage Nodes (including their links to Node
@@ -1021,8 +1021,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
       /// by implementing both getCapabilityConfiguration and
       /// beforeCapabilityConfigSet
       if (
-        capability.configurationContract.code.length == 0 ||
-        !IERC165(capability.configurationContract).supportsInterface(type(ICapabilityConfiguration).interfaceId)
+        !ERC165Checker.supportsInterface(capability.configurationContract, type(ICapabilityConfiguration).interfaceId)
       ) revert InvalidCapabilityConfigurationContractInterface(capability.configurationContract);
     }
     s_capabilities[hashedCapabilityId] = capability;

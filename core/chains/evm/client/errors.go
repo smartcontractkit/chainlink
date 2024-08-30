@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -62,6 +63,7 @@ const (
 	Fatal
 	ServiceUnavailable
 	TerminallyStuck
+	TooManyResults
 )
 
 type ClientErrors map[int]*regexp.Regexp
@@ -298,6 +300,7 @@ func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
 		TransactionAlreadyMined:           regexp.MustCompile(errsRegex.TransactionAlreadyMined()),
 		Fatal:                             regexp.MustCompile(errsRegex.Fatal()),
 		ServiceUnavailable:                regexp.MustCompile(errsRegex.ServiceUnavailable()),
+		TooManyResults:                    regexp.MustCompile(errsRegex.TooManyResults()),
 	}
 }
 
@@ -457,6 +460,11 @@ func isFatalSendError(err error) bool {
 	return false
 }
 
+var (
+	_ rpc.Error     = JsonError{}
+	_ rpc.DataError = JsonError{}
+)
+
 // go-ethereum@v1.10.0/rpc/json.go
 type JsonError struct {
 	Code    int         `json:"code"`
@@ -471,7 +479,17 @@ func (err JsonError) Error() string {
 	return err.Message
 }
 
-func (err *JsonError) String() string {
+// To satisfy rpc.Error interface
+func (err JsonError) ErrorCode() int {
+	return err.Code
+}
+
+// To satisfy rpc.DataError
+func (err JsonError) ErrorData() interface{} {
+	return err.Data
+}
+
+func (err JsonError) String() string {
 	return fmt.Sprintf("json-rpc error { Code = %d, Message = '%s', Data = '%v' }", err.Code, err.Message, err.Data)
 }
 
@@ -609,4 +627,89 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 	}
 	lggr.Criticalw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
 	return commonclient.Unknown
+}
+
+var infura = ClientErrors{
+	TooManyResults: regexp.MustCompile(`(: |^)query returned more than [0-9]+ results. Try with this block range \[0x[0-9A-F]+, 0x[0-9A-F]+\].$`),
+}
+
+var alchemy = ClientErrors{
+	TooManyResults: regexp.MustCompile(`(: |^)Log response size exceeded. You can make eth_getLogs requests with up to a [0-9A-Z]+ block range and no limit on the response size, or you can request any block range with a cap of [0-9A-Z]+ logs in the response. Based on your parameters and the response size limit, this block range should work: \[0x[0-9a-f]+, 0x[0-9a-f]+\]$`),
+}
+
+var quicknode = ClientErrors{
+	TooManyResults: regexp.MustCompile(`(: |^)eth_getLogs is limited to a [0-9,]+ range$`),
+}
+
+var simplyvc = ClientErrors{
+	TooManyResults: regexp.MustCompile(`too wide blocks range, the limit is [0-9,]+$`),
+}
+
+var drpc = ClientErrors{
+	TooManyResults: regexp.MustCompile(`(: |^)requested too many blocks from [0-9]+ to [0-9]+, maximum is set to [0-9,]+$`),
+}
+
+// Linkpool, Blockdaemon, and Chainstack all return "request timed out" if the log results are too large for them to process
+var defaultClient = ClientErrors{
+	TooManyResults: regexp.MustCompile(`request timed out`),
+}
+
+// JSON-RPC error codes which can indicate a refusal of the server to process an eth_getLogs request because the result set is too large
+const (
+	jsonRpcServerError = -32000 // Server error. SimplyVC uses this error code when too many results are returned
+
+	// Server timeout. When the rpc server has its own limit on how long it can take to compile the results
+	// Examples: Linkpool, Chainstack, Block Daemon
+	jsonRpcTimedOut = -32002
+
+	// See: https://github.com/ethereum/go-ethereum/blob/master/rpc/errors.go#L63
+	// Can occur if the rpc server is configured with a maximum byte limit on the response size of batch requests
+	jsonRpcResponseTooLarge = -32003
+
+	// Not implemented in geth by default, but is defined in EIP 1474 and implemented by infura and some other 3rd party rpc servers
+	// See: https://community.infura.io/t/getlogs-error-query-returned-more-than-1000-results/358/5
+	jsonRpcLimitExceeded = -32005 // See also: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1474.md
+
+	jsonRpcInvalidParams = -32602 // Invalid method params. Returned by alchemy if the block range is too large or there are too many results to return
+
+	jsonRpcQuicknodeTooManyResults = -32614 // Undocumented error code used by Quicknode for too many results error
+)
+
+func IsTooManyResults(err error, clientErrors config.ClientErrors) bool {
+	var rpcErr rpc.Error
+
+	if !pkgerrors.As(err, &rpcErr) {
+		return false
+	}
+	configErrors := ClientErrorRegexes(clientErrors)
+	if configErrors.ErrIs(rpcErr, TooManyResults) {
+		return true
+	}
+
+	switch rpcErr.ErrorCode() {
+	case jsonRpcResponseTooLarge:
+		return true
+	case jsonRpcLimitExceeded:
+		if infura.ErrIs(rpcErr, TooManyResults) {
+			return true
+		}
+	case jsonRpcInvalidParams:
+		if alchemy.ErrIs(rpcErr, TooManyResults) {
+			return true
+		}
+	case jsonRpcQuicknodeTooManyResults:
+		if quicknode.ErrIs(rpcErr, TooManyResults) {
+			return true
+		}
+	case jsonRpcTimedOut:
+		if defaultClient.ErrIs(rpcErr, TooManyResults) {
+			return true
+		}
+	case jsonRpcServerError:
+		if simplyvc.ErrIs(rpcErr, TooManyResults) ||
+			drpc.ErrIs(rpcErr, TooManyResults) {
+			return true
+		}
+	}
+	return false
 }

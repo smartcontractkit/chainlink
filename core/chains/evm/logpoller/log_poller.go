@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
@@ -113,6 +114,7 @@ type logPoller struct {
 	backfillBatchSize        int64         // batch size to use when backfilling finalized logs
 	rpcBatchSize             int64         // batch size to use for fallback RPC calls made in GetBlocks
 	logPrunePageSize         int64
+	clientErrors             config.ClientErrors
 	backupPollerNextBlock    int64 // next block to be processed by Backup LogPoller
 	backupPollerBlockDelay   int64 // how far behind regular LogPoller should BackupLogPoller run. 0 = disabled
 
@@ -143,6 +145,7 @@ type Opts struct {
 	KeepFinalizedBlocksDepth int64
 	BackupPollerBlockDelay   int64
 	LogPrunePageSize         int64
+	ClientErrors             config.ClientErrors
 }
 
 // NewLogPoller creates a log poller. Note there is an assumption
@@ -172,6 +175,7 @@ func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, headTracker HeadTracke
 		rpcBatchSize:             opts.RpcBatchSize,
 		keepFinalizedBlocksDepth: opts.KeepFinalizedBlocksDepth,
 		logPrunePageSize:         opts.LogPrunePageSize,
+		clientErrors:             opts.ClientErrors,
 		filters:                  make(map[string]Filter),
 		filterDirty:              true, // Always build Filter on first call to cache an empty filter if nothing registered yet.
 		finalityViolated:         new(atomic.Bool),
@@ -794,8 +798,6 @@ func (lp *logPoller) blocksFromLogs(ctx context.Context, logs []types.Log, endBl
 	return lp.GetBlocksRange(ctx, numbers)
 }
 
-const jsonRpcLimitExceeded = -32005 // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1474.md
-
 // backfill will query FilterLogs in batches for logs in the
 // block range [start, end] and save them to the db.
 // Retries until ctx cancelled. Will return an error if cancelled
@@ -807,13 +809,11 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 
 		gethLogs, err := lp.ec.FilterLogs(ctx, lp.Filter(big.NewInt(from), big.NewInt(to), nil))
 		if err != nil {
-			var rpcErr client.JsonError
-			if pkgerrors.As(err, &rpcErr) {
-				if rpcErr.Code != jsonRpcLimitExceeded {
-					lp.lggr.Errorw("Unable to query for logs", "err", err, "from", from, "to", to)
-					return err
-				}
+			if !client.IsTooManyResults(err, lp.clientErrors) {
+				lp.lggr.Errorw("Unable to query for logs", "err", err, "from", from, "to", to)
+				return err
 			}
+
 			if batchSize == 1 {
 				lp.lggr.Criticalw("Too many log results in a single block, failed to retrieve logs! Node may be running in a degraded state.", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
 				return err
