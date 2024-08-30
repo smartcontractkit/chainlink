@@ -13,9 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
