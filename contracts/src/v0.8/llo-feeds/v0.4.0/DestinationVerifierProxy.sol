@@ -5,16 +5,16 @@ import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {IDestinationVerifierProxy} from "./interfaces/IDestinationVerifierProxy.sol";
-import {IDestinationVerifier} from "./interfaces/IDestinationVerifier.sol";
+import {IDestinationVerifierProxyVerifier} from "./interfaces/IDestinationVerifierProxyVerifier.sol";
 
 /**
  * @title DestinationVerifierProxy
  * @author Michael Fletcher
  * @notice This contract will be used to route all requests through to the assigned verifier contract. This contract does not support individual feed configurations and is aimed at being a simple proxy for the verifier contract on any destination chain.
  */
-contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, TypeAndVersionInterface, IERC165 {
+contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, TypeAndVersionInterface {
   /// @notice The active verifier for this proxy
-  IDestinationVerifier private s_verifier;
+  IDestinationVerifierProxyVerifier private s_verifier;
 
   /// @notice This error is thrown whenever a zero address is passed
   error ZeroAddress();
@@ -26,7 +26,7 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "DestinationVerifierProxy 1.0.0";
+    return "DestinationVerifierProxy 0.4.0";
   }
 
   /// @inheritdoc IDestinationVerifierProxy
@@ -45,14 +45,10 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
   /// @inheritdoc IDestinationVerifierProxy
   function setVerifier(address verifierAddress) external onlyOwner {
     //check it supports the functions we need
-    if (
-      !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.s_accessController.selector) ||
-      !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.s_feeManager.selector) ||
-      !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.verify.selector) ||
-      !IERC165(verifierAddress).supportsInterface(IDestinationVerifier.verifyBulk.selector)
-    ) revert VerifierInvalid(verifierAddress);
+    if (!IERC165(verifierAddress).supportsInterface(type(IDestinationVerifierProxyVerifier).interfaceId))
+      revert VerifierInvalid(verifierAddress);
 
-    s_verifier = IDestinationVerifier(verifierAddress);
+    s_verifier = IDestinationVerifierProxyVerifier(verifierAddress);
   }
 
   /// @inheritdoc IDestinationVerifierProxy
@@ -69,11 +65,6 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
 
   /// @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-    return
-      interfaceId == this.setVerifier.selector ||
-      interfaceId == this.verify.selector ||
-      interfaceId == this.verifyBulk.selector ||
-      interfaceId == this.s_feeManager.selector ||
-      interfaceId == this.s_accessController.selector;
+    return interfaceId == type(IDestinationVerifierProxy).interfaceId;
   }
 }

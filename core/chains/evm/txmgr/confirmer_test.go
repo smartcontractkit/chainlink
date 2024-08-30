@@ -129,7 +129,7 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
 	lggr := logger.Test(t)
 	ge := config.EVM().GasEstimator()
-	feeEstimator := gas.NewEvmFeeEstimator(lggr, newEst, ge.EIP1559DynamicFees(), ge)
+	feeEstimator := gas.NewEvmFeeEstimator(lggr, newEst, ge.EIP1559DynamicFees(), ge, ethClient)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), config.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
@@ -1661,7 +1661,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
 		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint64(0), pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction..."))
 		ge := ccfg.EVM().GasEstimator()
-		feeEstimator := gas.NewEvmFeeEstimator(lggr, newEst, ge.EIP1559DynamicFees(), ge)
+		feeEstimator := gas.NewEvmFeeEstimator(lggr, newEst, ge.EIP1559DynamicFees(), ge, ethClient)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addresses, nil).Maybe()
@@ -1711,7 +1711,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
 		// Create confirmer with necessary state
 		ge := ccfg.EVM().GasEstimator()
-		feeEstimator := gas.NewEvmFeeEstimator(lggr, newEst, ge.EIP1559DynamicFees(), ge)
+		feeEstimator := gas.NewEvmFeeEstimator(lggr, newEst, ge.EIP1559DynamicFees(), ge, ethClient)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addresses, nil).Maybe()
@@ -2673,6 +2673,58 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	})
 }
 
+func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyStuckError(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].GasEstimator.PriceMax = assets.GWei(500)
+	})
+	txStore := cltest.NewTestTxStore(t, db)
+	ctx := tests.Context(t)
+
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+
+	// Use a mock keystore for this test
+	ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
+	currentHead := int64(30)
+	oldEnough := int64(19)
+	nonce := int64(0)
+	terminallyStuckError := "failed to add tx to the pool: not enough step counters to continue the execution"
+
+	t.Run("terminally stuck transaction replaced with purge attempt", func(t *testing.T) {
+		originalBroadcastAt := time.Unix(1616509100, 0)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress, originalBroadcastAt)
+		nonce++
+		attempt1_1 := etx.TxAttempts[0]
+		var dbAttempt txmgr.DbEthTxAttempt
+		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
+
+		// Return terminally stuck error on first rebroadcast
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return tx.Nonce() == uint64(*etx.Sequence)
+		}), fromAddress).Return(commonclient.TerminallyStuck, errors.New(terminallyStuckError)).Once()
+		// Return successful for purge attempt
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return tx.Nonce() == uint64(*etx.Sequence)
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
+
+		// Start processing transactions for rebroadcast
+		require.NoError(t, ec.RebroadcastWhereNecessary(tests.Context(t), currentHead))
+		var err error
+		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
+		require.NoError(t, err)
+
+		require.Len(t, etx.TxAttempts, 2)
+		purgeAttempt := etx.TxAttempts[0]
+		require.True(t, purgeAttempt.IsPurgeAttempt)
+	})
+}
+
 func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	t.Parallel()
 
@@ -3166,7 +3218,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 	fee := gas.EvmFee{Legacy: marketGasPrice}
 	bumpedLegacy := assets.GWei(30)
 	bumpedFee := gas.EvmFee{Legacy: bumpedLegacy}
-	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything).Return(fee, uint64(0), nil)
+	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything, mock.Anything, mock.Anything).Return(fee, uint64(0), nil)
 	feeEstimator.On("BumpFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(bumpedFee, uint64(10_000), nil)
 	autoPurgeThreshold := uint32(5)
 	autoPurgeMinAttempts := uint32(3)
@@ -3265,7 +3317,7 @@ func newEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient client.Cl
 	ge := config.EVM().GasEstimator()
 	estimator := gas.NewEvmFeeEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
 		return gas.NewFixedPriceEstimator(ge, nil, ge.BlockHistory(), lggr, nil)
-	}, ge.EIP1559DynamicFees(), ge)
+	}, ge.EIP1559DynamicFees(), ge, ethClient)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ks, estimator)
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), config.EVM().Transactions().AutoPurge(), estimator, txStore, ethClient)
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)

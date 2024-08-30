@@ -52,6 +52,7 @@ FeedsManager = true # Default
 LogPoller = false # Default
 UICSAKeys = false # Default
 CCIP = true # Default
+MultiFeedsManagers = false # Default
 ```
 
 
@@ -78,6 +79,12 @@ UICSAKeys enables CSA Keys in the UI.
 CCIP = true # Default
 ```
 CCIP enables the CCIP service.
+
+### MultiFeedsManagers
+```toml
+MultiFeedsManagers = false # Default
+```
+MultiFeedsManagers enables support for multiple feeds manager connections.
 
 ## Database
 ```toml
@@ -1233,6 +1240,60 @@ ChainID = '1' # Default
 ```
 ChainID identifies the target chain id where the remote registry is located.
 
+## Capabilities.Dispatcher
+```toml
+[Capabilities.Dispatcher]
+SupportedVersion = 1 # Default
+ReceiverBufferSize = 10000 # Default
+```
+
+
+### SupportedVersion
+```toml
+SupportedVersion = 1 # Default
+```
+SupportedVersion is the version of the version of message schema.
+
+### ReceiverBufferSize
+```toml
+ReceiverBufferSize = 10000 # Default
+```
+ReceiverBufferSize is the size of the buffer for incoming messages.
+
+## Capabilities.Dispatcher.RateLimit
+```toml
+[Capabilities.Dispatcher.RateLimit]
+GlobalRPS = 800 # Default
+GlobalBurst = 1000 # Default
+PerSenderRPS = 10 # Default
+PerSenderBurst = 50 # Default
+```
+
+
+### GlobalRPS
+```toml
+GlobalRPS = 800 # Default
+```
+GlobalRPS is the global rate limit for the dispatcher.
+
+### GlobalBurst
+```toml
+GlobalBurst = 1000 # Default
+```
+GlobalBurst is the global burst limit for the dispatcher.
+
+### PerSenderRPS
+```toml
+PerSenderRPS = 10 # Default
+```
+PerSenderRPS is the per-sender rate limit for the dispatcher.
+
+### PerSenderBurst
+```toml
+PerSenderBurst = 50 # Default
+```
+PerSenderBurst is the per-sender burst limit for the dispatcher.
+
 ## Capabilities.Peering
 ```toml
 [Capabilities.Peering]
@@ -1818,6 +1879,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1862,6 +1924,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 10500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -1912,6 +1977,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1956,6 +2022,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2006,6 +2075,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2050,6 +2120,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2100,6 +2173,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2144,6 +2218,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2195,6 +2272,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2239,6 +2317,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2289,6 +2370,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2333,6 +2415,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2383,6 +2468,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2427,6 +2513,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2478,6 +2567,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2522,6 +2612,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2567,11 +2660,12 @@ Enabled = true
 Mode = 'BlockHistory'
 PriceDefault = '5 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
+PriceMin = '3 gwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -2616,6 +2710,9 @@ ObservationGracePeriod = '500ms'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2665,6 +2762,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2709,6 +2807,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2758,6 +2859,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2802,6 +2904,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2852,6 +2957,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -2896,6 +3002,9 @@ ObservationGracePeriod = '500ms'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2947,6 +3056,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2991,6 +3101,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3041,6 +3154,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -3085,6 +3199,9 @@ ObservationGracePeriod = '500ms'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3135,6 +3252,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -3179,6 +3297,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3229,6 +3350,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '20 mwei'
 BumpPercent = 40
 BumpThreshold = 3
@@ -3273,6 +3395,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3323,6 +3448,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '100 mwei'
 BumpPercent = 40
 BumpThreshold = 3
@@ -3367,6 +3493,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3417,6 +3546,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -3461,6 +3591,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 3800000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3511,6 +3644,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -3555,6 +3689,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3605,6 +3742,7 @@ LimitDefault = 100000000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -3649,6 +3787,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3699,6 +3840,7 @@ LimitDefault = 100000000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -3743,6 +3885,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3793,6 +3938,7 @@ LimitDefault = 100000000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -3837,6 +3983,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3888,6 +4037,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -3932,6 +4082,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3982,6 +4135,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -4026,6 +4180,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4075,6 +4232,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -4119,6 +4277,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4169,6 +4330,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -4213,6 +4375,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4263,6 +4428,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '100 mwei'
 BumpPercent = 40
 BumpThreshold = 3
@@ -4307,6 +4473,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4357,6 +4526,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -4401,6 +4571,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4451,6 +4624,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -4495,6 +4669,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4544,6 +4721,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -4588,6 +4766,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4638,6 +4819,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '20 mwei'
 BumpPercent = 40
 BumpThreshold = 3
@@ -4682,6 +4864,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4732,6 +4917,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -4776,6 +4962,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4826,6 +5015,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '20 mwei'
 BumpPercent = 40
 BumpThreshold = 3
@@ -4870,6 +5060,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4920,6 +5113,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -4964,6 +5158,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 3800000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5013,6 +5210,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -5057,6 +5255,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5107,6 +5308,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -5151,6 +5353,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5201,6 +5406,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -5245,6 +5451,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5296,6 +5505,7 @@ LimitDefault = 500000
 LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -5340,6 +5550,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5391,6 +5604,7 @@ LimitDefault = 500000
 LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -5435,6 +5649,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5486,6 +5703,7 @@ LimitDefault = 500000
 LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -5530,6 +5748,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 14500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5580,6 +5801,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '2 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -5624,6 +5846,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5674,6 +5899,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -5718,6 +5944,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5768,6 +5997,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -5812,6 +6042,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5862,6 +6095,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '2 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -5906,6 +6140,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5955,6 +6192,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 40
 BumpThreshold = 3
@@ -5999,6 +6237,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6048,6 +6289,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -6092,6 +6334,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6141,6 +6386,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 40
 BumpThreshold = 3
@@ -6185,6 +6431,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6235,6 +6484,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -6279,6 +6529,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6329,6 +6582,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -6373,6 +6627,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6422,6 +6679,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -6466,6 +6724,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6516,6 +6777,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -6560,6 +6822,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6610,6 +6875,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -6654,6 +6920,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6705,6 +6974,7 @@ LimitDefault = 500000
 LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -6749,6 +7019,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6800,6 +7073,7 @@ LimitDefault = 500000
 LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -6844,6 +7118,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 14500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6894,6 +7171,7 @@ LimitDefault = 500000
 LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -6938,6 +7216,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 14500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6988,6 +7269,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '1 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -7032,6 +7314,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -7082,6 +7367,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '1 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -7126,6 +7412,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -7176,6 +7465,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -7220,6 +7510,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 10500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -7270,6 +7563,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -7314,6 +7608,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -7364,6 +7661,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -7408,6 +7706,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -7458,6 +7759,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+EstimateGasLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -7502,6 +7804,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -7819,6 +8124,7 @@ LimitDefault = 500_000 # Default
 LimitMax = 500_000 # Default
 LimitMultiplier = '1.0' # Default
 LimitTransfer = 21_000 # Default
+EstimateGasLimit = false # Default
 BumpMin = '5 gwei' # Default
 BumpPercent = 20 # Default
 BumpThreshold = 3 # Default
@@ -7912,6 +8218,12 @@ This factor is always applied, so includes L2 transactions which uses a default 
 LimitTransfer = 21_000 # Default
 ```
 LimitTransfer is the gas limit used for an ordinary ETH transfer.
+
+### EstimateGasLimit
+```toml
+EstimateGasLimit = false # Default
+```
+EstimateGasLimit enables estimating gas limits for transactions. This feature respects the gas limit provided during transaction creation as an upper bound.
 
 ### BumpMin
 ```toml
@@ -8322,6 +8634,7 @@ L2Full = '(: |^)l2 full' # Example
 TransactionAlreadyMined = '(: |^)transaction already mined' # Example
 Fatal = '(: |^)fatal' # Example
 ServiceUnavailable = '(: |^)service unavailable' # Example
+TooManyResults = '(: |^)too many results' # Example
 ```
 Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
 
@@ -8408,6 +8721,12 @@ Fatal is a regex pattern to match against fatal errors.
 ServiceUnavailable = '(: |^)service unavailable' # Example
 ```
 ServiceUnavailable is a regex pattern to match against service unavailable errors.
+
+### TooManyResults
+```toml
+TooManyResults = '(: |^)too many results' # Example
+```
+TooManyResults is a regex pattern to match an eth_getLogs error indicating the result set is too large to return
 
 ## EVM.OCR
 ```toml
@@ -8520,6 +8839,7 @@ GasLimit controls the gas limit for transmit transactions from ocr2automation jo
 [EVM.Workflow]
 FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+GasLimitDefault = 400_000 # Default
 ```
 
 
@@ -8534,6 +8854,12 @@ FromAddress is Address of the transmitter key to use for workflow writes.
 ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ```
 ForwarderAddress is the keystone forwarder contract address on chain.
+
+### GasLimitDefault
+```toml
+GasLimitDefault = 400_000 # Default
+```
+GasLimitDefault is the default gas limit for workflow transactions.
 
 ## Cosmos
 ```toml

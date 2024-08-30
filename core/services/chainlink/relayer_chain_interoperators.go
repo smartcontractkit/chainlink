@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	relay "github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
@@ -178,6 +178,23 @@ func InitStarknet(ctx context.Context, factory RelayerFactory, config StarkNetFa
 		}
 
 		for id, relayer := range starkRelayers {
+			op.srvs = append(op.srvs, relayer)
+			op.loopRelayers[id] = relayer
+		}
+
+		return nil
+	}
+}
+
+// InitAptos is a option for instantiating Aptos relayers
+func InitAptos(ctx context.Context, factory RelayerFactory, config AptosFactoryConfig) CoreRelayerChainInitFunc {
+	return func(op *CoreRelayerChainInteroperators) (err error) {
+		relayers, err := factory.NewAptos(config.Keystore, config.TOMLConfigs)
+		if err != nil {
+			return fmt.Errorf("failed to setup aptos relayer: %w", err)
+		}
+
+		for id, relayer := range relayers {
 			op.srvs = append(op.srvs, relayer)
 			op.loopRelayers[id] = relayer
 		}

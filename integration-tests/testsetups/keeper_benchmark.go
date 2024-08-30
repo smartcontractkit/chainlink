@@ -21,9 +21,10 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
-	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
@@ -198,7 +199,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Keep
 	for index := range keysToFund {
 		// Fund chainlink nodes
 		nodesToFund := k.chainlinkNodes
-		if inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_0 || inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_1 || inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_2 {
+		if inputs.RegistryVersions[index] >= ethereum.RegistryVersion_2_0 {
 			nodesToFund = k.chainlinkNodes[1:]
 		}
 		err = actions.FundChainlinkNodesAtKeyIndexFromRootAddress(k.log, k.chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(nodesToFund), k.Inputs.ChainlinkNodeFunding, index)

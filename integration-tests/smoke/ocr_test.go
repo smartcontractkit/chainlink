@@ -7,8 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"

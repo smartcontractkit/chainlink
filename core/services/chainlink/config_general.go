@@ -209,6 +209,10 @@ func (g *generalConfig) StarknetConfigs() starknet.TOMLConfigs {
 	return g.c.Starknet
 }
 
+func (g *generalConfig) AptosConfigs() RawConfigs {
+	return g.c.Aptos
+}
+
 func (g *generalConfig) Validate() error {
 	return g.validate(g.secrets.Validate)
 }
@@ -276,6 +280,10 @@ func (g *generalConfig) Feature() coreconfig.Feature {
 
 func (g *generalConfig) FeatureFeedsManager() bool {
 	return *g.c.Feature.FeedsManager
+}
+
+func (g *generalConfig) FeatureMultiFeedsManagers() bool {
+	return *g.c.Feature.MultiFeedsManagers
 }
 
 func (g *generalConfig) OCR() config.OCR {

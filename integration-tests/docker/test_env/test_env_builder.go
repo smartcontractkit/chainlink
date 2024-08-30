@@ -13,7 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
