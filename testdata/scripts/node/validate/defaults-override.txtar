@@ -1,10 +1,35 @@
+# test with default override
+env CL_CHAIN_DEFAULTS=default_overrides
 exec chainlink node -c config.toml -s secrets.toml validate
 cmp stdout out.txt
-exists $HOME/.chainlink
 
-exec chainlink -c config.toml -s secrets.toml node validate
-cmp stdout out.txt
-exists $HOME/.chainlink
+# remove override, FinalityTagEnabled should no longer match
+env CL_CHAIN_DEFAULTS=
+exec chainlink node -c config.toml -s secrets.toml validate
+! cmp stdout out.txt
+
+# overrides outside of evm suffix, FinalityTagEnabled should not match as override is not applied
+env CL_CHAIN_DEFAULTS=default_overrides2
+! exec chainlink node -c config.toml -s secrets.toml validate
+
+# duplicate chain IDs
+env CL_CHAIN_DEFAULTS=default_overrides3
+! exec chainlink node -c config.toml -s secrets.toml validate
+stderr 'contains duplicate ChainID'
+
+-- default_overrides/evm/Ethereum_Mainnet.toml --
+ChainID = '1'
+FinalityTagEnabled = true
+
+-- default_overrides2/Ethereum_Mainnet.toml --
+ChainID = '1'
+FinalityTagEnabled = true
+
+-- default_overrides3/evm/Ethereum_Mainnet.toml --
+ChainID = '1'
+
+-- default_overrides3/evm/Ethereum_Testnet.toml --
+ChainID = '1'
 
 -- config.toml --
 Log.Level = 'debug'
@@ -16,10 +41,6 @@ ChainID = '1'
 Name = 'fake'
 WSURL = 'wss://foo.bar/ws'
 HTTPURL = 'https://foo.bar'
-
-[Log.File]
-MaxSize = '1.00mb'
-Dir = ''
 
 -- secrets.toml --
 [Database]
@@ -40,10 +61,6 @@ Keystore = 'xxxxx'
 # Input Configuration:
 [Log]
 Level = 'debug'
-
-[Log.File]
-Dir = ''
-MaxSize = '1.00mb'
 
 [[EVM]]
 ChainID = '1'
@@ -112,7 +129,7 @@ UnixTS = false
 
 [Log.File]
 Dir = ''
-MaxSize = '1.00mb'
+MaxSize = '5.12gb'
 MaxAgeDays = 0
 MaxBackups = 1
 
@@ -330,7 +347,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'

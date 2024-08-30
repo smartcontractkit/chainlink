@@ -1286,3 +1286,12 @@ func ContinuouslyGenerateTXsOnChain(sethClient *seth.Client, stopChannel chan bo
 		}
 	}
 }
+
+func WithinTolerance(a, b, tolerance float64) (bool, float64) {
+	if a == b {
+		return true, 0
+	}
+	diff := math.Abs(a - b)
+	isWithinTolerance := diff < tolerance
+	return isWithinTolerance, diff
+}

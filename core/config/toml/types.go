@@ -1438,14 +1438,56 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 	}
 }
 
+type Dispatcher struct {
+	SupportedVersion   *int
+	ReceiverBufferSize *int
+	RateLimit          DispatcherRateLimit
+}
+
+func (d *Dispatcher) setFrom(f *Dispatcher) {
+	d.RateLimit.setFrom(&f.RateLimit)
+
+	if f.ReceiverBufferSize != nil {
+		d.ReceiverBufferSize = f.ReceiverBufferSize
+	}
+
+	if f.SupportedVersion != nil {
+		d.SupportedVersion = f.SupportedVersion
+	}
+}
+
+type DispatcherRateLimit struct {
+	GlobalRPS      *float64
+	GlobalBurst    *int
+	PerSenderRPS   *float64
+	PerSenderBurst *int
+}
+
+func (drl *DispatcherRateLimit) setFrom(f *DispatcherRateLimit) {
+	if f.GlobalRPS != nil {
+		drl.GlobalRPS = f.GlobalRPS
+	}
+	if f.GlobalBurst != nil {
+		drl.GlobalBurst = f.GlobalBurst
+	}
+	if f.PerSenderRPS != nil {
+		drl.PerSenderRPS = f.PerSenderRPS
+	}
+	if f.PerSenderBurst != nil {
+		drl.PerSenderBurst = f.PerSenderBurst
+	}
+}
+
 type Capabilities struct {
 	Peering          P2P              `toml:",omitempty"`
+	Dispatcher       Dispatcher       `toml:",omitempty"`
 	ExternalRegistry ExternalRegistry `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.Peering.setFrom(&f.Peering)
 	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
+	c.Dispatcher.setFrom(&f.Dispatcher)
 }
 
 type ThresholdKeyShareSecrets struct {
