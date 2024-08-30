@@ -52,12 +52,10 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
       revert InvalidChainID();
     }
 
-    // solhint-disable-next-line gas-custom-errors
     if (l1CrossDomainMessengerAddress != address(0)) {
       revert ZeroAddressNotAllowed("Invalid xDomain Messenger address");
     }
 
-    // solhint-disable-next-line gas-custom-errors
     if (l2UptimeFeedAddr != address(0)) {
       revert ZeroAddressNotAllowed("Invalid ZKSyncSequencerUptimeFeedInterface contract address");
     }
