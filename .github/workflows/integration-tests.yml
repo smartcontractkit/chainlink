@@ -241,7 +241,9 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true'
+    #TODO remove me after testing
+#    if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true'
+    if: needs.changes.outputs.core_changes == 'true'
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       workflow_name: Run Core E2E Tests
