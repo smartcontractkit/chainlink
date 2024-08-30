@@ -159,7 +159,7 @@ jobs:
               echo ::add-mask::$BASE64_CCIP_CONFIG_OVERRIDE
               echo "base_64_override=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_OUTPUT
           fi
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] && [[ "$(jq -r '.inputs.base64_test_input' "$GITHUB_EVENT_PATH")" != "" ]]; then  
             BASE64_CCIP_CONFIG_OVERRIDE=$(jq -r '.inputs.base64_test_input' $GITHUB_EVENT_PATH)
             echo ::add-mask::$BASE64_CCIP_CONFIG_OVERRIDE
             echo "base_64_override=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_OUTPUT
