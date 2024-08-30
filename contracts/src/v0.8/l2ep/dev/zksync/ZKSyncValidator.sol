@@ -34,6 +34,8 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
 
   /// @notice ChainID is not a valid value
   error InvalidChainID();
+  /// @notice Address cannot be zero
+  error ZeroAddressNotAllowed(string message); 
 
   /// @param l1CrossDomainMessengerAddress address the Bridgehub contract address
   /// @param l2UptimeFeedAddr the address of the ZKSyncSequencerUptimeFeedInterface contract address
@@ -45,19 +47,24 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     uint32 chainId,
     uint32 l2GasPerPubdataByteLimit
   ) {
-    // solhint-disable-next-line gas-custom-errors
-    require(l1CrossDomainMessengerAddress != address(0), "Invalid xDomain Messenger address");
-    // solhint-disable-next-line gas-custom-errors
-    require(l2UptimeFeedAddr != address(0), "Invalid ZKSyncSequencerUptimeFeedInterface contract address");
-    L1_CROSS_DOMAIN_MESSENGER_ADDRESS = l1CrossDomainMessengerAddress;
-    L2_UPTIME_FEED_ADDR = l2UptimeFeedAddr;
-    s_gasLimit = gasLimit;
-
     // Check if the chainId is one of the valid values
     if (chainId != TEST_NET_CHAIN_ID && chainId != MAIN_NET_CHAIN_ID) {
       revert InvalidChainID();
     }
 
+    // solhint-disable-next-line gas-custom-errors
+    if (l1CrossDomainMessengerAddress != address(0)) {
+      revert ZeroAddressNotAllowed("Invalid xDomain Messenger address");
+    } 
+
+    // solhint-disable-next-line gas-custom-errors
+    if (l2UptimeFeedAddr != address(0)) {
+      revert ZeroAddressNotAllowed("Invalid ZKSyncSequencerUptimeFeedInterface contract address");
+    }
+
+    L1_CROSS_DOMAIN_MESSENGER_ADDRESS = l1CrossDomainMessengerAddress;
+    L2_UPTIME_FEED_ADDR = l2UptimeFeedAddr;
+    s_gasLimit = gasLimit;
     i_chainId = chainId;
 
     s_l2GasPerPubdataByteLimit = l2GasPerPubdataByteLimit;
@@ -91,7 +98,7 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     }
   }
 
-  /// @notice fetches the l2GasPerPubdataByteLimit // for the L2 transaction request
+  /// @notice fetches the l2GasPerPubdataByteLimit for the L2 transaction request
   function getL2GasPerPubdataByteLimit() external view returns (uint32) {
     return s_l2GasPerPubdataByteLimit;
   }
