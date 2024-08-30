@@ -6,19 +6,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
-	ocr_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
-
-	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	ocr_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
 )
 
 // TestCRIBChaos an example of how we can run chaos tests with havoc and core CRIB

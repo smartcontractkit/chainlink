@@ -281,7 +281,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	o.mockServer = ctf_client.ConnectMockServer(o.testEnvironment)
 	require.NoError(o.t, err, "Creating mockserver clients shouldn't fail")
 
-	linkContract, err := actions.GetLinkTokenContract(o.log, sethClient, ocrTestConfig.GetActiveOCRConfig())
+	linkContract, err := actions.LinkTokenContract(o.log, sethClient, ocrTestConfig.GetActiveOCRConfig())
 	require.NoError(o.t, err, "Error loading/deploying link token contract")
 
 	// Fund Chainlink nodes, excluding the bootstrap node

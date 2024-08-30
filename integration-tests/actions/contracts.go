@@ -9,10 +9,10 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
-// GetLinkTokenContract returns a link token contract instance. Depending on test configuration, it either deploys a new one or uses an existing one.
-func GetLinkTokenContract(l zerolog.Logger, sethClient *seth.Client, configWithLinkToken tc.LinkTokenContractConfig) (*contracts.EthereumLinkToken, error) {
-	if configWithLinkToken.UseExistingLinkTokenContract() {
-		linkAddress, err := configWithLinkToken.GetLinkTokenContractAddress()
+// LinkTokenContract returns a link token contract instance. Depending on test configuration, it either deploys a new one or uses an existing one.
+func LinkTokenContract(l zerolog.Logger, sethClient *seth.Client, configWithLinkToken tc.LinkTokenContractConfig) (*contracts.EthereumLinkToken, error) {
+	if configWithLinkToken != nil && configWithLinkToken.UseExistingLinkTokenContract() {
+		linkAddress, err := configWithLinkToken.LinkTokenContractAddress()
 		if err != nil {
 			return nil, err
 		}

@@ -179,7 +179,7 @@ func TestOCRChaos(t *testing.T) {
 			})
 
 			ms := ctfClient.ConnectMockServer(testEnvironment)
-			linkContract, err := actions.GetLinkTokenContract(l, seth, config.OCR)
+			linkContract, err := actions.LinkTokenContract(l, seth, config.OCR)
 			require.NoError(t, err, "Error deploying link token contract")
 
 			err = actions.FundChainlinkNodesFromRootAddress(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), big.NewFloat(10))

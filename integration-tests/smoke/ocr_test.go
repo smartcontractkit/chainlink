@@ -113,7 +113,7 @@ func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
 	})
 
-	linkContract, err := actions.GetLinkTokenContract(l, sethClient, config.OCR)
+	linkContract, err := actions.LinkTokenContract(l, sethClient, config.OCR)
 	require.NoError(t, err, "Error loading/deploying link token contract")
 
 	ocrInstances, err := actions.SetupOCRv1Contracts(l, sethClient, config.OCR, common.HexToAddress(linkContract.Address()), contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes))

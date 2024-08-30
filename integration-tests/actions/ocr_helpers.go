@@ -238,7 +238,7 @@ func SetupOCRv1Cluster(
 	if err != nil {
 		return common.Address{}, err
 	}
-	linkContract, err := GetLinkTokenContract(l, seth, configWithLinkToken)
+	linkContract, err := LinkTokenContract(l, seth, configWithLinkToken)
 	if err != nil {
 		return common.Address{}, err
 	}

@@ -140,10 +140,11 @@ func (o *SoakConfig) Validate() error {
 	return nil
 }
 
+// For more information on the configuration of contracts, see https://smartcontract-it.atlassian.net/wiki/spaces/TT/pages/828407894/Contracts+addresses+in+TOML+convention
 type Contracts struct {
 	ShouldBeUsed                *bool                      `toml:"use"`
 	LinkTokenAddress            *string                    `toml:"link_token"`
-	OffchainAggregatorAddresses []string                   `toml:"offchain_aggregators"`
+	OffChainAggregatorAddresses []string                   `toml:"offchain_aggregators"`
 	Settings                    map[string]ContractSetting `toml:"Settings"`
 }
 
@@ -151,10 +152,10 @@ func (o *Contracts) Validate() error {
 	if o.LinkTokenAddress != nil && !common.IsHexAddress(*o.LinkTokenAddress) {
 		return errors.New("link_token must be a valid ethereum address")
 	}
-	if o.OffchainAggregatorAddresses != nil {
+	if o.OffChainAggregatorAddresses != nil {
 		allEnabled := make(map[bool]int)
 		allConfigure := make(map[bool]int)
-		for _, address := range o.OffchainAggregatorAddresses {
+		for _, address := range o.OffChainAggregatorAddresses {
 			if !common.IsHexAddress(address) {
 				return fmt.Errorf("offchain_aggregators must be valid ethereum addresses, but %s is not", address)
 			}
@@ -193,10 +194,11 @@ func (o *Config) UseExistingContracts() bool {
 	if o.Contracts.ShouldBeUsed != nil {
 		return *o.Contracts.ShouldBeUsed
 	}
+
 	return false
 }
 
-func (o *Config) GetLinkTokenContractAddress() (common.Address, error) {
+func (o *Config) LinkTokenContractAddress() (common.Address, error) {
 	if o.Contracts != nil && o.Contracts.LinkTokenAddress != nil {
 		return common.HexToAddress(*o.Contracts.LinkTokenAddress), nil
 	}
@@ -230,10 +232,10 @@ type ContractSetting struct {
 }
 
 type OffChainAggregatorsConfig interface {
-	GetOffChainAggregatorsContractsAddresses() []common.Address
+	OffChainAggregatorsContractsAddresses() []common.Address
 	UseExistingOffChainAggregatorsContracts() bool
 	ConfigureExistingOffChainAggregatorsContracts() bool
-	GetNumberOfContractsToDeploy() int
+	NumberOfContractsToDeploy() int
 }
 
 func (o *Config) UseExistingOffChainAggregatorsContracts() bool {
@@ -241,7 +243,7 @@ func (o *Config) UseExistingOffChainAggregatorsContracts() bool {
 		return false
 	}
 
-	if len(o.Contracts.OffchainAggregatorAddresses) == 0 {
+	if len(o.Contracts.OffChainAggregatorAddresses) == 0 {
 		return false
 	}
 
@@ -249,7 +251,7 @@ func (o *Config) UseExistingOffChainAggregatorsContracts() bool {
 		return true
 	}
 
-	for _, address := range o.Contracts.OffchainAggregatorAddresses {
+	for _, address := range o.Contracts.OffChainAggregatorAddresses {
 		if v, ok := o.Contracts.Settings[address]; ok {
 			return v.ShouldBeUsed != nil && *v.ShouldBeUsed
 		}
@@ -258,15 +260,16 @@ func (o *Config) UseExistingOffChainAggregatorsContracts() bool {
 	return true
 }
 
-func (o *Config) GetOffChainAggregatorsContractsAddresses() []common.Address {
+func (o *Config) OffChainAggregatorsContractsAddresses() []common.Address {
 	var ocrInstanceAddresses []common.Address
 	if !o.UseExistingOffChainAggregatorsContracts() {
 		return ocrInstanceAddresses
 	}
 
-	for _, address := range o.Contracts.OffchainAggregatorAddresses {
+	for _, address := range o.Contracts.OffChainAggregatorAddresses {
 		ocrInstanceAddresses = append(ocrInstanceAddresses, common.HexToAddress(address))
 	}
+
 	return ocrInstanceAddresses
 }
 
@@ -275,7 +278,7 @@ func (o *Config) ConfigureExistingOffChainAggregatorsContracts() bool {
 		return true
 	}
 
-	for _, address := range o.Contracts.OffchainAggregatorAddresses {
+	for _, address := range o.Contracts.OffChainAggregatorAddresses {
 		for maybeOcrAddress, setting := range o.Contracts.Settings {
 			if maybeOcrAddress == address {
 				return setting.Configure != nil && *setting.Configure
@@ -286,9 +289,10 @@ func (o *Config) ConfigureExistingOffChainAggregatorsContracts() bool {
 	return true
 }
 
-func (o *Config) GetNumberOfContractsToDeploy() int {
+func (o *Config) NumberOfContractsToDeploy() int {
 	if o.Common != nil && o.Common.NumberOfContracts != nil {
 		return *o.Common.NumberOfContracts
 	}
+
 	return 0
 }

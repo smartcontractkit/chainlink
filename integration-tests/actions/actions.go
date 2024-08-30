@@ -621,8 +621,12 @@ func SetupOCRv2Contracts(
 ) ([]contracts.OffchainAggregatorV2, error) {
 	var ocrInstances []contracts.OffchainAggregatorV2
 
+	if ocrContractsConfig == nil {
+		return nil, fmt.Errorf("you need to pass non-nil OffChainAggregatorsConfig to setup OCR contracts")
+	}
+
 	if !ocrContractsConfig.UseExistingOffChainAggregatorsContracts() {
-		for contractCount := 0; contractCount < ocrContractsConfig.GetNumberOfContractsToDeploy(); contractCount++ {
+		for contractCount := 0; contractCount < ocrContractsConfig.NumberOfContractsToDeploy(); contractCount++ {
 			ocrInstance, err := contracts.DeployOffchainAggregatorV2(
 				l,
 				seth,
@@ -638,7 +642,7 @@ func SetupOCRv2Contracts(
 			}
 		}
 	} else {
-		for _, address := range ocrContractsConfig.GetOffChainAggregatorsContractsAddresses() {
+		for _, address := range ocrContractsConfig.OffChainAggregatorsContractsAddresses() {
 			ocrInstance, err := contracts.LoadOffchainAggregatorV2(l, seth, address)
 			if err != nil {
 				return nil, fmt.Errorf("OCRv2 instance loading have failed: %w", err)
@@ -872,9 +876,13 @@ func setupAnyOCRv1Contracts(
 ) ([]contracts.OffchainAggregator, error) {
 	var ocrInstances []contracts.OffchainAggregator
 
+	if ocrContractsConfig == nil {
+		return nil, fmt.Errorf("you need to pass non-nil OffChainAggregatorsConfig to setup OCR contracts")
+	}
+
 	if !ocrContractsConfig.UseExistingOffChainAggregatorsContracts() {
 		// Deploy contracts
-		for contractCount := 0; contractCount < ocrContractsConfig.GetNumberOfContractsToDeploy(); contractCount++ {
+		for contractCount := 0; contractCount < ocrContractsConfig.NumberOfContractsToDeploy(); contractCount++ {
 			ocrInstance, err := contracts.DeployOffchainAggregator(logger, seth, linkTokenContractAddress, contracts.DefaultOffChainAggregatorOptions())
 			if err != nil {
 				return nil, fmt.Errorf("OCR instance deployment have failed: %w", err)
@@ -886,7 +894,7 @@ func setupAnyOCRv1Contracts(
 		}
 	} else {
 		// Load contract wrappers
-		for _, address := range ocrContractsConfig.GetOffChainAggregatorsContractsAddresses() {
+		for _, address := range ocrContractsConfig.OffChainAggregatorsContractsAddresses() {
 			ocrInstance, err := contracts.LoadOffChainAggregator(logger, seth, address)
 			if err != nil {
 				return nil, fmt.Errorf("OCR instance loading have failed: %w", err)

@@ -61,7 +61,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
 	})
 
-	linkContract, err := actions.GetLinkTokenContract(l, sethClient, config.OCR2)
+	linkContract, err := actions.LinkTokenContract(l, sethClient, config.OCR2)
 	require.NoError(t, err, "Error loading/deploying link token contract")
 
 	fundingAmount := big.NewFloat(.05)
