@@ -50,7 +50,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     uint32 sourceDomain;
   }
 
-  string public constant override typeAndVersion = "USDCTokenPool 1.4.0";
+  string public constant override typeAndVersion = "USDCTokenPool 1.5.0";
 
   // We restrict to the first version. New pool may be required for subsequent versions.
   uint32 public constant SUPPORTED_USDC_VERSION = 0;
@@ -94,35 +94,26 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   }
 
   /// @notice Burn the token in the pool
-  /// @dev Burn is not rate limited at per-pool level. Burn does not contribute to honey pot risk.
-  /// Benefits of rate limiting here does not justify the extra gas cost.
   /// @dev emits ITokenMessenger.DepositForBurn
   /// @dev Assumes caller has validated destinationReceiver
-  function lockOrBurn(Pool.LockOrBurnInV1 calldata lockOrBurnIn)
-    external
-    virtual
-    override
-    returns (Pool.LockOrBurnOutV1 memory)
-  {
+  function lockOrBurn(
+    Pool.LockOrBurnInV1 calldata lockOrBurnIn
+  ) public virtual override returns (Pool.LockOrBurnOutV1 memory) {
     _validateLockOrBurn(lockOrBurnIn);
 
     Domain memory domain = s_chainToDomain[lockOrBurnIn.remoteChainSelector];
     if (!domain.enabled) revert UnknownDomain(lockOrBurnIn.remoteChainSelector);
+
     if (lockOrBurnIn.receiver.length != 32) {
       revert InvalidReceiver(lockOrBurnIn.receiver);
     }
+    bytes32 decodedReceiver = abi.decode(lockOrBurnIn.receiver, (bytes32));
 
     // Since this pool is the msg sender of the CCTP transaction, only this contract
     // is able to call replaceDepositForBurn. Since this contract does not implement
     // replaceDepositForBurn, the tokens cannot be maliciously re-routed to another address.
     uint64 nonce = i_tokenMessenger.depositForBurnWithCaller(
-      // We set the domain.allowedCaller as the receiver of the funds, as this is the token pool. Since 1.5 the
-      // token pools receiver the funds to hop them through the offRamps.
-      lockOrBurnIn.amount,
-      domain.domainIdentifier,
-      domain.allowedCaller,
-      address(i_token),
-      domain.allowedCaller
+      lockOrBurnIn.amount, domain.domainIdentifier, decodedReceiver, address(i_token), domain.allowedCaller
     );
 
     emit Burned(msg.sender, lockOrBurnIn.amount);
@@ -144,11 +135,9 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   /// for that message, including its (nonce, sourceDomain). This way, the only
   /// non-reverting offchainTokenData that can be supplied is a valid attestation for the
   /// specific message that was sent on source.
-  function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
-    external
-    override
-    returns (Pool.ReleaseOrMintOutV1 memory)
-  {
+  function releaseOrMint(
+    Pool.ReleaseOrMintInV1 calldata releaseOrMintIn
+  ) public virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
     _validateReleaseOrMint(releaseOrMintIn);
     SourceTokenDataPayload memory sourceTokenDataPayload =
       abi.decode(releaseOrMintIn.sourcePoolData, (SourceTokenDataPayload));
@@ -160,8 +149,6 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     if (!i_messageTransmitter.receiveMessage(msgAndAttestation.message, msgAndAttestation.attestation)) {
       revert UnlockingUSDCFailed();
     }
-    // Since the tokens are minted to the pool, the pool has to send it to the offRamp
-    getToken().safeTransfer(msg.sender, releaseOrMintIn.amount);
 
     emit Minted(msg.sender, releaseOrMintIn.receiver, releaseOrMintIn.amount);
     return Pool.ReleaseOrMintOutV1({destinationAmount: releaseOrMintIn.amount});
