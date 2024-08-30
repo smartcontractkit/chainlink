@@ -1425,8 +1425,6 @@ github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1/go.mod h1:q6f4fe39oZPdsh1i57WznEZgxd8siidMaSFq3wdPmVg=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 h1:Dai1bn+Q5cpeGMQwRdjOdVjG8mmFFROVkSKuUgBErRQ=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1/go.mod h1:G5Sd/yzHWf26rQ+X0nG9E0buKPqRGPMJAfk2gwCzOOw=
-github.com/smartcontractkit/wasp v0.4.8-0.20240826201742-8c8d2e49efb0 h1:jpcpzNqvmOkpit1zjv7+tAH6Ga1xvpJREkA52kx0crY=
-github.com/smartcontractkit/wasp v0.4.8-0.20240826201742-8c8d2e49efb0/go.mod h1:gFD/Jh87jPSuuVTc9tACkZVY0h5SxnX96Tt8fYekdlA=
 github.com/smartcontractkit/wsrpc v0.8.1 h1:kk0SXLqWrWaZ3J6c7n8D0NZ2uTMBBBpG5dZZXZX8UGE=
 github.com/smartcontractkit/wsrpc v0.8.1/go.mod h1:yfg8v8fPLXkb6Mcnx6Pm/snP6jJ0r5Kf762Yd1a/KpA=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d/go.mod h1:OnSkiWE9lh6wB0YB77sQom3nweQdgAjqCqsofrRNTgc=

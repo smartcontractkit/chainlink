@@ -220,62 +220,6 @@ func (_c *Service_CountJobProposalsByStatus_Call) RunAndReturn(run func(context.
 	return _c
 }
 
-// CountManagers provides a mock function with given fields: ctx
-func (_m *Service) CountManagers(ctx context.Context) (int64, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CountManagers")
-	}
-
-	var r0 int64
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (int64, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) int64); ok {
-		r0 = rf(ctx)
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// Service_CountManagers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountManagers'
-type Service_CountManagers_Call struct {
-	*mock.Call
-}
-
-// CountManagers is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *Service_Expecter) CountManagers(ctx interface{}) *Service_CountManagers_Call {
-	return &Service_CountManagers_Call{Call: _e.mock.On("CountManagers", ctx)}
-}
-
-func (_c *Service_CountManagers_Call) Run(run func(ctx context.Context)) *Service_CountManagers_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *Service_CountManagers_Call) Return(_a0 int64, _a1 error) *Service_CountManagers_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *Service_CountManagers_Call) RunAndReturn(run func(context.Context) (int64, error)) *Service_CountManagers_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // CreateChainConfig provides a mock function with given fields: ctx, cfg
 func (_m *Service) CreateChainConfig(ctx context.Context, cfg feeds.ChainConfig) (int64, error) {
 	ret := _m.Called(ctx, cfg)
@@ -795,64 +739,6 @@ func (_c *Service_ListChainConfigsByManagerIDs_Call) Return(_a0 []feeds.ChainCon
 }
 
 func (_c *Service_ListChainConfigsByManagerIDs_Call) RunAndReturn(run func(context.Context, []int64) ([]feeds.ChainConfig, error)) *Service_ListChainConfigsByManagerIDs_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// ListJobProposals provides a mock function with given fields: ctx
-func (_m *Service) ListJobProposals(ctx context.Context) ([]feeds.JobProposal, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ListJobProposals")
-	}
-
-	var r0 []feeds.JobProposal
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) ([]feeds.JobProposal, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) []feeds.JobProposal); ok {
-		r0 = rf(ctx)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]feeds.JobProposal)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// Service_ListJobProposals_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListJobProposals'
-type Service_ListJobProposals_Call struct {
-	*mock.Call
-}
-
-// ListJobProposals is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *Service_Expecter) ListJobProposals(ctx interface{}) *Service_ListJobProposals_Call {
-	return &Service_ListJobProposals_Call{Call: _e.mock.On("ListJobProposals", ctx)}
-}
-
-func (_c *Service_ListJobProposals_Call) Run(run func(ctx context.Context)) *Service_ListJobProposals_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *Service_ListJobProposals_Call) Return(_a0 []feeds.JobProposal, _a1 error) *Service_ListJobProposals_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *Service_ListJobProposals_Call) RunAndReturn(run func(context.Context) ([]feeds.JobProposal, error)) *Service_ListJobProposals_Call {
 	_c.Call.Return(run)
 	return _c
 }
