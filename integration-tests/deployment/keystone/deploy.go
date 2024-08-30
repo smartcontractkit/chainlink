@@ -2,7 +2,6 @@ package keystone
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -20,64 +19,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 type DeployRequest struct {
 	RegistryChain uint64
-	Env           deployment.MultiDonEnvironment
+	Menv          deployment.MultiDonEnvironment
 
-	//DonToCapType      map[string]uint8
 	DonToCapabilities map[string][]kcr.CapabilitiesRegistryCapability                   // from external source
 	NodeIDToNop       map[string]capabilities_registry.CapabilitiesRegistryNodeOperator // maybe should be derivable from JD interface but doesn't seem to be notion of NOP in JD
 }
 
 type DeployResponse struct {
 	AddressBook deployment.AddressBook
-}
-
-// ocr2Node is a subset of the node configuration that is needed to register a node
-// with the capabilities registry. Signer and P2PKey are chain agnostic.
-type ocr2Node struct {
-	ID     string
-	Signer [32]byte
-	P2PKey p2pkey.PeerID
-}
-
-func newOcr2Node(id string, cfg *v1.OCR2Config) (*ocr2Node, error) {
-	if cfg == nil {
-		return nil, errors.New("nil ocr2config")
-	}
-	p := p2pkey.PeerID{}
-	if err := p.UnmarshalString(cfg.P2PKeyBundle.PeerId); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal peer id %s: %w", cfg.P2PKeyBundle.PeerId, err)
-	}
-
-	signer := cfg.OcrKeyBundle.OnchainSigningAddress
-	if len(signer) != 40 {
-		return nil, fmt.Errorf("invalid onchain signing address %s", cfg.OcrKeyBundle.OnchainSigningAddress)
-	}
-	signerB, err := hex.DecodeString(signer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert signer %s: %w", signer, err)
-	}
-
-	var sigb [32]byte
-	copy(sigb[:], signerB)
-
-	return &ocr2Node{
-		ID:     id,
-		Signer: sigb,
-		P2PKey: p,
-	}, nil
-}
-
-func nodeChainConfigsToOcr2Node(resp *v1.ListNodeChainConfigsResponse, id string) (*ocr2Node, error) {
-	if len(resp.ChainConfigs) == 0 {
-		return nil, errors.New("no chain configs")
-	}
-	cfg := resp.ChainConfigs[0]
-	return newOcr2Node(id, cfg.Ocr2Config)
 }
 
 func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*DeployResponse, error) {
@@ -88,9 +41,9 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 	var registry *capabilities_registry.CapabilitiesRegistry
 	var registryChain deployment.Chain
 
-	for _, chain := range req.Env.ListChains() {
+	for _, chain := range req.Menv.ListChains() {
 		lggr.Info("deploying contracts", "chain", chain)
-		deployResp, err := deployContracts(req.Env.Logger, deployContractsRequest{
+		deployResp, err := deployContracts(req.Menv.Logger, deployContractsRequest{
 			chain:           chain,
 			isRegistryChain: chain.Selector == req.RegistryChain,
 		},
@@ -108,43 +61,7 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 		}
 	}
 
-	// todo cleanup types
-	donNodes := make(map[string]map[string][]*v1.ChainConfig) // donid -> nodeid -> chainconfigs
-	donToOcr2Nodes := make(map[string][]*ocr2Node)
-	for donName, env := range req.Env.Environments {
-		donNodeSet, err := env.Offchain.ListNodes(ctx, &v1.ListNodesRequest{}) // each env is a don
-		if err != nil {
-			return nil, fmt.Errorf("failed to list nodes: %w", err)
-		}
-		if len(donNodeSet.Nodes) == 0 {
-			return nil, fmt.Errorf("no nodes found")
-		}
-		// each node in the nodeset may support mulitple chains
-		nodeCfgs := make(map[string][]*v1.ChainConfig)
-		for _, node := range donNodeSet.Nodes {
-			cfgResp, err := env.Offchain.ListNodeChainConfigs(ctx, &v1.ListNodeChainConfigsRequest{
-				Filter: &v1.ListNodeChainConfigsRequest_Filter{NodeId: node.Id},
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to list node chain configs for node %s: %w", node.Id, err)
-			}
-			nodeCfgs[node.Id] = cfgResp.ChainConfigs
-			// convert to ocr2 node and store
-			ocr2n, err := nodeChainConfigsToOcr2Node(cfgResp, node.Id)
-			if err != nil {
-				return nil, fmt.Errorf("failed to convert node chain configs to ocr2 node for id %s: %w", node.Id, err)
-			}
-			if _, ok := donToOcr2Nodes[donName]; !ok {
-				donToOcr2Nodes[donName] = make([]*ocr2Node, 0)
-			}
-			donToOcr2Nodes[donName] = append(donToOcr2Nodes[donName], ocr2n)
-		}
-		if len(nodeCfgs) == 0 {
-			return nil, fmt.Errorf("no node chain configs found for don %s", donName)
-		}
-		donNodes[donName] = nodeCfgs
-		req.Env.Logger.Infow("node chain configs", "don", donName, "configs", nodeCfgs)
-	}
+	donToOcr2Nodes, err := mapDonsToNodes(ctx, req.Menv)
 
 	donToNodeIDs := make(map[string][]string)
 	for donName, ocr2nodes := range donToOcr2Nodes {
@@ -206,7 +123,7 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 
 	nopOnchainIDtoParams := make(map[uint32]capabilities_registry.CapabilitiesRegistryNodeParams)
 	nodeIDToParams := make(map[string]capabilities_registry.CapabilitiesRegistryNodeParams)
-	for don, nodeCfgMap := range donNodes {
+	for don, ocr2nodes := range donToOcr2Nodes {
 		caps, ok := capabilitiesResp.donToCapabilities[don]
 		var hashedCapabilityIds [][32]byte
 		for _, cap := range caps {
@@ -216,43 +133,22 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 		if !ok {
 			return nil, fmt.Errorf("capabilities not found for node operator %s", don)
 		}
-		for nodeID, cfgs := range nodeCfgMap {
-			nop, ok := nodeToRegisterNop[nodeID]
+		for _, n := range ocr2nodes {
+			nop, ok := nodeToRegisterNop[n.ID]
 			if !ok {
-				return nil, fmt.Errorf("node operator not found for node %s", nodeID)
+				return nil, fmt.Errorf("node operator not found for node %s", n.ID)
 			}
 			params, ok := nopOnchainIDtoParams[nop.NodeOperatorId]
 			// the first time we see a node operator, we need to fetch its p2p id and signer
 			if !ok {
-				// any chain will do b/c signer and p2p are chain agnostic
-				cfg := cfgs[0]
-				p := p2pkey.PeerID{}
-				if err := p.UnmarshalString(cfg.Ocr2Config.P2PKeyBundle.PeerId); err != nil {
-					return nil, fmt.Errorf("failed to unmarshal peer id %s: %w", cfg.Ocr2Config.P2PKeyBundle.PeerId, err)
-				}
-
-				signer := cfg.Ocr2Config.OcrKeyBundle.OnchainSigningAddress
-				if len(signer) != 40 {
-					return nil, fmt.Errorf("invalid onchain signing address %s", cfg.Ocr2Config.OcrKeyBundle.OnchainSigningAddress)
-				}
-				signerB, err := hex.DecodeString(signer)
-				if err != nil {
-					return nil, fmt.Errorf("failed to convert signer %s: %w", signer, err)
-				}
-
-				var sigb [32]byte
-				copy(sigb[:], signerB)
-
-				// signer seems to be the account address, which is chain specific
-				// but p2p is the same for all chains
 				params = capabilities_registry.CapabilitiesRegistryNodeParams{
 					NodeOperatorId:      nop.NodeOperatorId,
-					Signer:              sigb,
-					P2pId:               p,
+					Signer:              n.Signer,
+					P2pId:               n.P2PKey,
 					HashedCapabilityIds: hashedCapabilityIds,
 				}
 			} else {
-				// when we have a node operator, we need to add any new capabilities
+				// when we have a node operator, we need to dedup capabilities against the existing ones
 				var newCapIds [][32]byte
 				for _, proposedCapId := range hashedCapabilityIds {
 					shouldAdd := true
@@ -269,7 +165,7 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 				params.HashedCapabilityIds = append(params.HashedCapabilityIds, newCapIds...)
 			}
 			nopOnchainIDtoParams[nop.NodeOperatorId] = params
-			nodeIDToParams[nodeID] = params
+			nodeIDToParams[n.ID] = params
 		}
 	}
 	lggr.Debugw("node params", "params", nopOnchainIDtoParams)
@@ -289,12 +185,12 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 
 	lggr.Infow("registered nodes", "nodes", nopOnchainIDtoParams)
 
-	for don, nodeCfgMap := range donNodes {
+	for don, ocr2nodes := range donToOcr2Nodes {
 		var p2pIds [][32]byte
-		for nodeID := range nodeCfgMap {
-			params, ok := nodeIDToParams[nodeID]
+		for _, n := range ocr2nodes {
+			params, ok := nodeIDToParams[n.ID]
 			if !ok {
-				return nil, fmt.Errorf("node params not found for node %s", nodeID)
+				return nil, fmt.Errorf("node params not found for node %s", n.ID)
 			}
 			p2pIds = append(p2pIds, params.P2pId)
 		}
@@ -345,8 +241,8 @@ type registerCapabilitiesRequest struct {
 }
 
 type registerCapabilitiesResponse struct {
-	donToCapabilities          map[string][]registeredCapability
-	offchainNodeIdToCapability map[string][]registeredCapability
+	donToCapabilities  map[string][]registeredCapability
+	nodeIdToCapability map[string][]registeredCapability
 }
 
 type registeredCapability struct {
@@ -354,16 +250,14 @@ type registeredCapability struct {
 	id [32]byte
 }
 
-type capabilityId [32]byte
-
 // func registerCapabilities(reg *capabilities_registry.CapabilitiesRegistry, chain deployment.Chain) error {
 func registerCapabilities(lggr logger.Logger, req registerCapabilitiesRequest) (*registerCapabilitiesResponse, error) {
 	if len(req.donToCapabilities) == 0 {
 		return nil, fmt.Errorf("no capabilities to register")
 	}
 	resp := &registerCapabilitiesResponse{
-		donToCapabilities:          make(map[string][]registeredCapability),
-		offchainNodeIdToCapability: make(map[string][]registeredCapability),
+		donToCapabilities:  make(map[string][]registeredCapability),
+		nodeIdToCapability: make(map[string][]registeredCapability),
 	}
 
 	uniqueOffchainNodeIDs := make(map[string]struct{})
@@ -372,9 +266,9 @@ func registerCapabilities(lggr logger.Logger, req registerCapabilitiesRequest) (
 			uniqueOffchainNodeIDs[nodeID] = struct{}{}
 		}
 	}
-	offchainNodeIDs := make([]string, 0)
+	nodeIDs := make([]string, 0)
 	for nodeID := range uniqueOffchainNodeIDs {
-		offchainNodeIDs = append(offchainNodeIDs, nodeID)
+		nodeIDs = append(nodeIDs, nodeID)
 	}
 
 	// capability could be hosted on multiple dons. need to deduplicate
@@ -403,7 +297,7 @@ func registerCapabilities(lggr logger.Logger, req registerCapabilitiesRequest) (
 			registerCaps = append(registerCaps, registerCap)
 		}
 		for _, nodeID := range nodeIds {
-			nodeCaps, ok := resp.offchainNodeIdToCapability[nodeID]
+			nodeCaps, ok := resp.nodeIdToCapability[nodeID]
 			if !ok {
 				nodeCaps = make([]registeredCapability, 0)
 			}
@@ -421,7 +315,7 @@ func registerCapabilities(lggr logger.Logger, req registerCapabilitiesRequest) (
 					newCaps = append(newCaps, cap)
 				}
 			}
-			resp.offchainNodeIdToCapability[nodeID] = append(resp.offchainNodeIdToCapability[nodeID], newCaps...)
+			resp.nodeIdToCapability[nodeID] = append(resp.nodeIdToCapability[nodeID], newCaps...)
 		}
 		resp.donToCapabilities[don] = registerCaps
 	}
@@ -489,43 +383,6 @@ func registerNOPS(ctx context.Context, req registerNOPSRequest) (*registerNOPSRe
 	return resp, nil
 }
 
-type registeredNode struct {
-	capabilities_registry.CapabilitiesRegistryNodeOperator
-	deployment.Node
-}
-
-type addNodesRequest struct {
-	chain        deployment.Chain
-	registry     *capabilities_registry.CapabilitiesRegistry
-	capNodeSet   map[capabilities_registry.CapabilitiesRegistryCapability][]registeredNode
-	nodeToCapSet map[string][]capabilities_registry.CapabilitiesRegistryCapability
-	nops         []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded
-	capabilities map[capabilities_registry.CapabilitiesRegistryCapability][32]byte
-}
-
-type addNodesResponse struct {
-	nodes map[capabilities_registry.CapabilitiesRegistryCapability][]capabilities_registry.CapabilitiesRegistryNodeParams
-}
-
-func addNodes(req addNodesRequest) (*addNodesResponse, error) {
-	return nil, nil
-}
-
-type addDonRequest struct {
-	chain       deployment.Chain
-	registry    *capabilities_registry.CapabilitiesRegistry
-	capNodeSets map[capabilities_registry.CapabilitiesRegistryCapability][]capabilities_registry.CapabilitiesRegistryNodeParams
-	capConfig   map[capabilities_registry.CapabilitiesRegistryCapability]*capabilitiespb.CapabilityConfig
-	capID       map[capabilities_registry.CapabilitiesRegistryCapability][32]byte
-}
-
-type addDonResponse struct{}
-
-func addDons(req addDonRequest) (*addDonResponse, error) {
-
-	return &addDonResponse{}, nil
-}
-
 func defaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfig {
 	switch capType {
 	// TODO: use the enum defined in ??
@@ -559,4 +416,51 @@ func defaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfi
 			DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
 		}
 	}
+}
+
+func nodeChainConfigsToOcr2Node(resp *v1.ListNodeChainConfigsResponse, id string) (*ocr2Node, error) {
+	if len(resp.ChainConfigs) == 0 {
+		return nil, errors.New("no chain configs")
+	}
+	cfg := resp.ChainConfigs[0]
+	return newOcr2Node(id, cfg.Ocr2Config)
+}
+
+func mapDonsToNodes(ctx context.Context, menv deployment.MultiDonEnvironment) (map[string][]*ocr2Node, error) {
+	// todo cleanup types
+	donToOcr2Nodes := make(map[string][]*ocr2Node)
+	for donName, env := range menv.DonToEnv {
+		donNodeSet, err := env.Offchain.ListNodes(ctx, &v1.ListNodesRequest{}) // each env is a don
+		if err != nil {
+			return nil, fmt.Errorf("failed to list nodes: %w", err)
+		}
+		if len(donNodeSet.Nodes) == 0 {
+			return nil, fmt.Errorf("no nodes found")
+		}
+		// each node in the nodeset may support mulitple chains
+		nodeCfgs := make(map[string][]*v1.ChainConfig)
+		for _, node := range donNodeSet.Nodes {
+			cfgResp, err := env.Offchain.ListNodeChainConfigs(ctx, &v1.ListNodeChainConfigsRequest{
+				Filter: &v1.ListNodeChainConfigsRequest_Filter{NodeId: node.Id},
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to list node chain configs for node %s: %w", node.Id, err)
+			}
+			nodeCfgs[node.Id] = cfgResp.ChainConfigs
+			// convert to ocr2 node and store
+			ocr2n, err := nodeChainConfigsToOcr2Node(cfgResp, node.Id)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert node chain configs to ocr2 node for id %s: %w", node.Id, err)
+			}
+			if _, ok := donToOcr2Nodes[donName]; !ok {
+				donToOcr2Nodes[donName] = make([]*ocr2Node, 0)
+			}
+			donToOcr2Nodes[donName] = append(donToOcr2Nodes[donName], ocr2n)
+		}
+		if len(nodeCfgs) == 0 {
+			return nil, fmt.Errorf("no node chain configs found for don %s", donName)
+		}
+		menv.Logger.Infow("node chain configs", "don", donName, "configs", nodeCfgs)
+	}
+	return donToOcr2Nodes, nil
 }

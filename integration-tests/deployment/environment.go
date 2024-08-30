@@ -53,18 +53,18 @@ type Environment struct {
 }
 
 type MultiDonEnvironment struct {
-	Environments map[string]Environment
-	Logger       logger.Logger
+	DonToEnv map[string]Environment
+	Logger   logger.Logger
 }
 
 func (mde MultiDonEnvironment) Get(name string) Environment {
-	return mde.Environments[name]
+	return mde.DonToEnv[name]
 }
 
 func (mde MultiDonEnvironment) ListChains() []Chain {
 	seen := make(map[uint64]struct{})
 	var chains []Chain
-	for _, env := range mde.Environments {
+	for _, env := range mde.DonToEnv {
 		for _, chain := range env.Chains {
 			_, exists := seen[chain.Selector]
 			if !exists {
