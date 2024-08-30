@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -38,6 +39,7 @@ import (
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
@@ -65,6 +67,7 @@ import (
 var (
 	OCR2AggregatorTransmissionContractABI abi.ABI
 	OCR2AggregatorLogDecoder              LogDecoder
+	OCR3CapabilityLogDecoder              LogDecoder
 )
 
 func init() {
@@ -74,6 +77,10 @@ func init() {
 		panic(err)
 	}
 	OCR2AggregatorLogDecoder, err = newOCR2AggregatorLogDecoder()
+	if err != nil {
+		panic(err)
+	}
+	OCR3CapabilityLogDecoder, err = newOCR3CapabilityLogDecoder()
 	if err != nil {
 		panic(err)
 	}
@@ -256,11 +263,70 @@ func (r *Relayer) HealthReport() (report map[string]error) {
 	return
 }
 
-func (r *Relayer) NewOCR3CapabilityProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.OCR3CapabilityProvider, error) {
-	pp, err := r.NewPluginProvider(rargs, pargs)
+// Modified newOCR2AggregatorLogDecoder to use OCR3Capability ABI
+func newOCR3CapabilityLogDecoder() (*ocr2AggregatorLogDecoder, error) {
+	const eventName = "ConfigSet"
+	abi, err := ocr3_capability.OCR3CapabilityMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
+	return &ocr2AggregatorLogDecoder{
+		eventName: eventName,
+		eventSig:  abi.Events[eventName].ID,
+		abi:       abi,
+	}, nil
+}
+
+func newOCR3CapabilityConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts) (*configWatcher, error) {
+	if !common.IsHexAddress(opts.ContractID) {
+		return nil, errors.New("invalid contractID, expected hex address")
+	}
+
+	aggregatorAddress := common.HexToAddress(opts.ContractID)
+	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
+		ChainID:         chain.Config().EVM().ChainID().Uint64(),
+		ContractAddress: aggregatorAddress,
+	}
+	return newContractConfigProvider(ctx, lggr, chain, opts, aggregatorAddress, OCR2AggregatorLogDecoder, offchainConfigDigester)
+}
+
+// NewPluginProvider, but customized to use a different config provider
+func (r *Relayer) NewOCR3CapabilityProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.OCR3CapabilityProvider, error) {
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	ctx := context.Background()
+	lggr := logger.Sugared(r.lggr).Named("PluginProvider").Named(rargs.ExternalJobID.String())
+	relayOpts := types.NewRelayOpts(rargs)
+	relayConfig, err := relayOpts.RelayConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get relay config: %w", err)
+	}
+
+	configWatcher, err := newOCR3CapabilityConfigProvider(ctx, r.lggr, r.chain, relayOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
+	if err != nil {
+		return nil, err
+	}
+
+	var chainReaderService ChainReaderService
+	if relayConfig.ChainReader != nil {
+		if chainReaderService, err = NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
+			return nil, err
+		}
+	} else {
+		lggr.Info("ChainReader missing from RelayConfig")
+	}
+
+	pp := NewPluginProvider(
+		chainReaderService,
+		r.codec,
+		transmitter,
+		configWatcher,
+		lggr,
+	)
 
 	fromAccount, err := pp.ContractTransmitter().FromAccount()
 	if err != nil {
