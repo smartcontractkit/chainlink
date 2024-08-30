@@ -101,6 +101,12 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     return i_chainId;
   }
 
+  /// @notice makes this contract payable
+  /// @dev receives funds:
+  ///  - to use them (if configured) to pay for L2 execution on L1
+  ///  - when withdrawing funds from L2 xDomain alias address (pay for L2 execution on L2)
+  receive() external payable {}
+
   /// @notice validate method sends an xDomain L2 tx to update Uptime Feed contract on L2.
   /// @dev A message is sent using the Bridgehub. This method is accessed controlled.
   /// @param currentAnswer new aggregator answer - value of 1 considers the sequencer offline.
@@ -131,9 +137,9 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     // Create the L2 transaction request
     L2TransactionRequestDirect memory l2TransactionRequestDirect = L2TransactionRequestDirect({
       chainId: i_chainId,
-      mintValue: 0,
+      mintValue: transactionBaseCostEstimate,
       l2Contract: L2_UPTIME_FEED_ADDR,
-      l2Value: transactionBaseCostEstimate,
+      l2Value: 0,
       l2Calldata: message,
       l2GasLimit: s_gasLimit,
       l2GasPerPubdataByteLimit: s_l2GasPerPubdataByteLimit,
@@ -142,7 +148,7 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     });
 
     // Make the xDomain call
-    bridgeHub.requestL2TransactionDirect(l2TransactionRequestDirect);
+    bridgeHub.requestL2TransactionDirect{value: transactionBaseCostEstimate}(l2TransactionRequestDirect);
 
     return true;
   }
