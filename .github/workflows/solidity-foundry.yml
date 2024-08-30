@@ -549,23 +549,23 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
 
       - name: Setup NodeJS
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
           version: ${{ needs.define-matrix.outputs.foundry-version }}
 
       - name: Run Forge fmt
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
         run: forge fmt --check
         id: fmt
         working-directory: contracts
@@ -573,7 +573,7 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
       - name: Collect Metrics
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
