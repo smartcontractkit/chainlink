@@ -57,7 +57,6 @@ test = 'src/v0.8/automation/test'
 optimizer_runs = 1_000_000
 src = 'src/v0.8/l2ep'
 test = 'src/v0.8/l2ep/test'
-auto_detect_solc = true
 
 [profile.llo-feeds]
 optimizer_runs = 1_000_000
