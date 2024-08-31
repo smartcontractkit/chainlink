@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
@@ -29,7 +28,7 @@ type MemoryEnvironmentConfig struct {
 
 // Needed for environment variables on the node which point to prexisitng addresses.
 // i.e. CapReg.
-func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
+func NewMemoryChains(t *testing.T, numChains int) (map[uint64]deployment.Chain, map[uint64]EVMChain) {
 	mchains := GenerateChains(t, numChains)
 	chains := make(map[uint64]deployment.Chain)
 	for cid, chain := range mchains {
@@ -55,21 +54,10 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 			},
 		}
 	}
-	return chains
+	return chains, mchains
 }
 
-func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, numNodes, numBootstraps int, registryConfig RegistryConfig) map[string]Node {
-	mchains := make(map[uint64]EVMChain)
-	for _, chain := range chains {
-		evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
-		if err != nil {
-			t.Fatal(err)
-		}
-		mchains[evmChainID] = EVMChain{
-			Backend:     chain.Client.(*simulated.Backend),
-			DeployerKey: chain.DeployerKey,
-		}
-	}
+func NewNodes(t *testing.T, logLevel zapcore.Level, mchains map[uint64]EVMChain, numNodes, numBootstraps int, registryConfig RegistryConfig) map[string]Node {
 	nodesByPeerID := make(map[string]Node)
 	ports := freeport.GetN(t, numNodes)
 	var existingNumBootstraps int
@@ -123,8 +111,8 @@ func NewMemoryEnvironmentFromChainsNodes(t *testing.T,
 
 // To be used by tests and any kind of deployment logic.
 func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) deployment.Environment {
-	chains := NewMemoryChains(t, config.Chains)
-	nodes := NewNodes(t, logLevel, chains, config.Nodes, config.Bootstraps, config.RegistryConfig)
+	chains, mchains := NewMemoryChains(t, config.Chains)
+	nodes := NewNodes(t, logLevel, mchains, config.Nodes, config.Bootstraps, config.RegistryConfig)
 	var nodeIDs []string
 	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)
