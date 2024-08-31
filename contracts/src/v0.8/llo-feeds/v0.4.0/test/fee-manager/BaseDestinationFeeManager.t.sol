@@ -108,7 +108,7 @@ contract BaseDestinationFeeManagerTest is Test {
     );
 
     //link the feeManager to the proxy
-    feeManagerProxy.setDestinationFeeManager(feeManager);
+    feeManagerProxy.setDestinationFeeManager(address(feeManager));
 
     //link the feeManager to the reward manager
     rewardManager.addFeeManager(address(feeManager));
@@ -142,6 +142,18 @@ contract BaseDestinationFeeManagerTest is Test {
 
     //set the discount
     feeManager.updateSubscriberDiscount(subscriber, feedId, token, uint64(discount));
+
+    //change back to the original address
+    changePrank(originalAddr);
+  }
+
+  function setSubscriberGlobalDiscount(address subscriber, address token, uint256 discount, address sender) public {
+    //record the current address and switch to the recipient
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    //set the discount
+    feeManager.updateSubscriberGlobalDiscount(subscriber, token, uint64(discount));
 
     //change back to the original address
     changePrank(originalAddr);

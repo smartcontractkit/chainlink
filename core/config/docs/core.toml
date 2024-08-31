@@ -15,6 +15,8 @@ LogPoller = false # Default
 UICSAKeys = false # Default
 # CCIP enables the CCIP service.
 CCIP = true # Default
+# MultiFeedsManagers enables support for multiple feeds manager connections.
+MultiFeedsManagers = false # Default
 
 [Database]
 # DefaultIdleInTxSessionTimeout is the maximum time allowed for a transaction to be open and idle before timing out. See Postgres `idle_in_transaction_session_timeout` for more details.
@@ -449,6 +451,22 @@ Address = '0x0' # Example
 NetworkID = 'evm' # Default
 # ChainID identifies the target chain id where the remote registry is located.
 ChainID = '1' # Default
+
+[Capabilities.Dispatcher]
+# SupportedVersion is the version of the version of message schema.
+SupportedVersion = 1 # Default
+# ReceiverBufferSize is the size of the buffer for incoming messages.
+ReceiverBufferSize = 10000 # Default
+
+[Capabilities.Dispatcher.RateLimit]
+# GlobalRPS is the global rate limit for the dispatcher.
+GlobalRPS = 800 # Default
+# GlobalBurst is the global burst limit for the dispatcher.
+GlobalBurst = 1000 # Default
+# PerSenderRPS is the per-sender rate limit for the dispatcher.
+PerSenderRPS = 10 # Default
+# PerSenderBurst is the per-sender burst limit for the dispatcher.
+PerSenderBurst = 50 # Default
 
 [Capabilities.Peering]
 # IncomingMessageBufferSize is the per-remote number of incoming

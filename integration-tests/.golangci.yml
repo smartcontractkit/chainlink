@@ -46,7 +46,7 @@ linters-settings:
       - name: errorf
       - name: empty-block
       - name: superfluous-else
-      - name: unused-parameter
+      #- name: unused-parameter
       - name: unreachable-code
       - name: redefines-builtin-id
       - name: waitgroup-by-value

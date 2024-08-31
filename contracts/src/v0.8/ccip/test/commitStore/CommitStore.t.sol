@@ -6,19 +6,19 @@ import {IRMN} from "../../interfaces/IRMN.sol";
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {CommitStore} from "../../CommitStore.sol";
-import {PriceRegistry} from "../../PriceRegistry.sol";
+import {FeeQuoter} from "../../FeeQuoter.sol";
 import {RMN} from "../../RMN.sol";
 import {MerkleMultiProof} from "../../libraries/MerkleMultiProof.sol";
 import {OCR2Abstract} from "../../ocr/OCR2Abstract.sol";
+import {FeeQuoterSetup} from "../feeQuoter/FeeQuoterSetup.t.sol";
 import {CommitStoreHelper} from "../helpers/CommitStoreHelper.sol";
 import {OCR2BaseSetup} from "../ocr/OCR2Base.t.sol";
-import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
 
-contract CommitStoreSetup is PriceRegistrySetup, OCR2BaseSetup {
+contract CommitStoreSetup is FeeQuoterSetup, OCR2BaseSetup {
   CommitStoreHelper internal s_commitStore;
 
-  function setUp() public virtual override(PriceRegistrySetup, OCR2BaseSetup) {
-    PriceRegistrySetup.setUp();
+  function setUp() public virtual override(FeeQuoterSetup, OCR2BaseSetup) {
+    FeeQuoterSetup.setUp();
     OCR2BaseSetup.setUp();
 
     s_commitStore = new CommitStoreHelper(
@@ -29,29 +29,28 @@ contract CommitStoreSetup is PriceRegistrySetup, OCR2BaseSetup {
         rmnProxy: address(s_mockRMN)
       })
     );
-    CommitStore.DynamicConfig memory dynamicConfig =
-      CommitStore.DynamicConfig({priceRegistry: address(s_priceRegistry)});
+    CommitStore.DynamicConfig memory dynamicConfig = CommitStore.DynamicConfig({priceRegistry: address(s_feeQuoter)});
     s_commitStore.setOCR2Config(
       s_valid_signers, s_valid_transmitters, s_f, abi.encode(dynamicConfig), s_offchainConfigVersion, abi.encode("")
     );
 
     address[] memory priceUpdaters = new address[](1);
     priceUpdaters[0] = address(s_commitStore);
-    s_priceRegistry.applyAuthorizedCallerUpdates(
+    s_feeQuoter.applyAuthorizedCallerUpdates(
       AuthorizedCallers.AuthorizedCallerArgs({addedCallers: priceUpdaters, removedCallers: new address[](0)})
     );
   }
 }
 
-contract CommitStoreRealRMNSetup is PriceRegistrySetup, OCR2BaseSetup {
+contract CommitStoreRealRMNSetup is FeeQuoterSetup, OCR2BaseSetup {
   CommitStoreHelper internal s_commitStore;
 
   RMN internal s_rmn;
 
   address internal constant BLESS_VOTE_ADDR = address(8888);
 
-  function setUp() public virtual override(PriceRegistrySetup, OCR2BaseSetup) {
-    PriceRegistrySetup.setUp();
+  function setUp() public virtual override(FeeQuoterSetup, OCR2BaseSetup) {
+    FeeQuoterSetup.setUp();
     OCR2BaseSetup.setUp();
 
     RMN.Voter[] memory voters = new RMN.Voter[](1);
@@ -67,17 +66,16 @@ contract CommitStoreRealRMNSetup is PriceRegistrySetup, OCR2BaseSetup {
         rmnProxy: address(s_rmn)
       })
     );
-    CommitStore.DynamicConfig memory dynamicConfig =
-      CommitStore.DynamicConfig({priceRegistry: address(s_priceRegistry)});
+    CommitStore.DynamicConfig memory dynamicConfig = CommitStore.DynamicConfig({priceRegistry: address(s_feeQuoter)});
     s_commitStore.setOCR2Config(
       s_valid_signers, s_valid_transmitters, s_f, abi.encode(dynamicConfig), s_offchainConfigVersion, abi.encode("")
     );
   }
 }
 
-contract CommitStore_constructor is PriceRegistrySetup, OCR2BaseSetup {
-  function setUp() public virtual override(PriceRegistrySetup, OCR2BaseSetup) {
-    PriceRegistrySetup.setUp();
+contract CommitStore_constructor is FeeQuoterSetup, OCR2BaseSetup {
+  function setUp() public virtual override(FeeQuoterSetup, OCR2BaseSetup) {
+    FeeQuoterSetup.setUp();
     OCR2BaseSetup.setUp();
   }
 
@@ -88,8 +86,7 @@ contract CommitStore_constructor is PriceRegistrySetup, OCR2BaseSetup {
       onRamp: 0x2C44CDDdB6a900Fa2B585dd299E03D12Fa4293Bc,
       rmnProxy: address(s_mockRMN)
     });
-    CommitStore.DynamicConfig memory dynamicConfig =
-      CommitStore.DynamicConfig({priceRegistry: address(s_priceRegistry)});
+    CommitStore.DynamicConfig memory dynamicConfig = CommitStore.DynamicConfig({priceRegistry: address(s_feeQuoter)});
 
     vm.expectEmit();
     emit CommitStore.ConfigSet(staticConfig, dynamicConfig);
@@ -113,7 +110,7 @@ contract CommitStore_constructor is PriceRegistrySetup, OCR2BaseSetup {
     // CommitStore initial values
     assertEq(0, commitStore.getLatestPriceEpochAndRound());
     assertEq(1, commitStore.getExpectedNextSequenceNumber());
-    assertEq(commitStore.typeAndVersion(), "CommitStore 1.5.0-dev");
+    assertEq(commitStore.typeAndVersion(), "CommitStore 1.5.0");
     assertEq(OWNER, commitStore.owner());
     assertTrue(commitStore.isUnpausedAndNotCursed());
   }
@@ -214,7 +211,7 @@ contract CommitStore_resetUnblessedRoots is CommitStoreRealRMNSetup {
     rootsToReset[2] = "3";
 
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getEmptyPriceUpdates(),
+      priceUpdates: _getEmptyPriceUpdates(),
       interval: CommitStore.Interval(1, 2),
       merkleRoot: rootsToReset[0]
     });
@@ -222,7 +219,7 @@ contract CommitStore_resetUnblessedRoots is CommitStoreRealRMNSetup {
     s_commitStore.report(abi.encode(report), ++s_latestEpochAndRound);
 
     report = CommitStore.CommitReport({
-      priceUpdates: getEmptyPriceUpdates(),
+      priceUpdates: _getEmptyPriceUpdates(),
       interval: CommitStore.Interval(3, 4),
       merkleRoot: rootsToReset[1]
     });
@@ -230,7 +227,7 @@ contract CommitStore_resetUnblessedRoots is CommitStoreRealRMNSetup {
     s_commitStore.report(abi.encode(report), ++s_latestEpochAndRound);
 
     report = CommitStore.CommitReport({
-      priceUpdates: getEmptyPriceUpdates(),
+      priceUpdates: _getEmptyPriceUpdates(),
       interval: CommitStore.Interval(5, 5),
       merkleRoot: rootsToReset[2]
     });
@@ -273,7 +270,7 @@ contract CommitStore_report is CommitStoreSetup {
     uint64 max1 = 931;
     bytes32 root = "Only a single root";
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getEmptyPriceUpdates(),
+      priceUpdates: _getEmptyPriceUpdates(),
       interval: CommitStore.Interval(1, max1),
       merkleRoot: root
     });
@@ -296,7 +293,7 @@ contract CommitStore_report is CommitStoreSetup {
     uint64 max1 = 12;
 
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
+      priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       interval: CommitStore.Interval(1, max1),
       merkleRoot: "test #2"
     });
@@ -316,7 +313,7 @@ contract CommitStore_report is CommitStoreSetup {
       IPriceRegistry(s_commitStore.getDynamicConfig().priceRegistry).getTokenPrice(s_sourceFeeToken).value;
 
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
+      priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       interval: CommitStore.Interval(1, maxSeq),
       merkleRoot: "stale report 1"
     });
@@ -329,7 +326,7 @@ contract CommitStore_report is CommitStoreSetup {
     assertEq(s_latestEpochAndRound, s_commitStore.getLatestPriceEpochAndRound());
 
     report = CommitStore.CommitReport({
-      priceUpdates: getEmptyPriceUpdates(),
+      priceUpdates: _getEmptyPriceUpdates(),
       interval: CommitStore.Interval(maxSeq + 1, maxSeq * 2),
       merkleRoot: "stale report 2"
     });
@@ -348,13 +345,13 @@ contract CommitStore_report is CommitStoreSetup {
 
   function test_OnlyTokenPriceUpdates_Success() public {
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
+      priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       interval: CommitStore.Interval(0, 0),
       merkleRoot: ""
     });
 
     vm.expectEmit();
-    emit PriceRegistry.UsdPerTokenUpdated(s_sourceFeeToken, 4e18, block.timestamp);
+    emit FeeQuoter.UsdPerTokenUpdated(s_sourceFeeToken, 4e18, block.timestamp);
 
     s_commitStore.report(abi.encode(report), ++s_latestEpochAndRound);
     assertEq(s_latestEpochAndRound, s_commitStore.getLatestPriceEpochAndRound());
@@ -362,13 +359,13 @@ contract CommitStore_report is CommitStoreSetup {
 
   function test_OnlyGasPriceUpdates_Success() public {
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
+      priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       interval: CommitStore.Interval(0, 0),
       merkleRoot: ""
     });
 
     vm.expectEmit();
-    emit PriceRegistry.UsdPerTokenUpdated(s_sourceFeeToken, 4e18, block.timestamp);
+    emit FeeQuoter.UsdPerTokenUpdated(s_sourceFeeToken, 4e18, block.timestamp);
 
     s_commitStore.report(abi.encode(report), ++s_latestEpochAndRound);
     assertEq(s_latestEpochAndRound, s_commitStore.getLatestPriceEpochAndRound());
@@ -380,19 +377,19 @@ contract CommitStore_report is CommitStoreSetup {
     uint224 tokenPrice2 = 5e18;
 
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, tokenPrice1),
+      priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, tokenPrice1),
       interval: CommitStore.Interval(0, 0),
       merkleRoot: ""
     });
 
     vm.expectEmit();
-    emit PriceRegistry.UsdPerTokenUpdated(s_sourceFeeToken, tokenPrice1, block.timestamp);
+    emit FeeQuoter.UsdPerTokenUpdated(s_sourceFeeToken, tokenPrice1, block.timestamp);
 
     s_commitStore.report(abi.encode(report), ++s_latestEpochAndRound);
     assertEq(s_latestEpochAndRound, s_commitStore.getLatestPriceEpochAndRound());
 
     report = CommitStore.CommitReport({
-      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, tokenPrice2),
+      priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, tokenPrice2),
       interval: CommitStore.Interval(1, maxSeq),
       merkleRoot: "stale report"
     });
@@ -427,7 +424,7 @@ contract CommitStore_report is CommitStoreSetup {
 
   function test_InvalidRootRevert() public {
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getEmptyPriceUpdates(),
+      priceUpdates: _getEmptyPriceUpdates(),
       interval: CommitStore.Interval(1, 4),
       merkleRoot: bytes32(0)
     });
@@ -439,7 +436,7 @@ contract CommitStore_report is CommitStoreSetup {
   function test_InvalidInterval_Revert() public {
     CommitStore.Interval memory interval = CommitStore.Interval(2, 2);
     CommitStore.CommitReport memory report =
-      CommitStore.CommitReport({priceUpdates: getEmptyPriceUpdates(), interval: interval, merkleRoot: bytes32(0)});
+      CommitStore.CommitReport({priceUpdates: _getEmptyPriceUpdates(), interval: interval, merkleRoot: bytes32(0)});
 
     vm.expectRevert(abi.encodeWithSelector(CommitStore.InvalidInterval.selector, interval));
 
@@ -449,7 +446,7 @@ contract CommitStore_report is CommitStoreSetup {
   function test_InvalidIntervalMinLargerThanMax_Revert() public {
     CommitStore.Interval memory interval = CommitStore.Interval(1, 0);
     CommitStore.CommitReport memory report =
-      CommitStore.CommitReport({priceUpdates: getEmptyPriceUpdates(), interval: interval, merkleRoot: bytes32(0)});
+      CommitStore.CommitReport({priceUpdates: _getEmptyPriceUpdates(), interval: interval, merkleRoot: bytes32(0)});
 
     vm.expectRevert(abi.encodeWithSelector(CommitStore.InvalidInterval.selector, interval));
 
@@ -458,7 +455,7 @@ contract CommitStore_report is CommitStoreSetup {
 
   function test_ZeroEpochAndRound_Revert() public {
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
+      priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       interval: CommitStore.Interval(0, 0),
       merkleRoot: bytes32(0)
     });
@@ -470,13 +467,13 @@ contract CommitStore_report is CommitStoreSetup {
 
   function test_OnlyPriceUpdateStaleReport_Revert() public {
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
+      priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       interval: CommitStore.Interval(0, 0),
       merkleRoot: bytes32(0)
     });
 
     vm.expectEmit();
-    emit PriceRegistry.UsdPerTokenUpdated(s_sourceFeeToken, 4e18, block.timestamp);
+    emit FeeQuoter.UsdPerTokenUpdated(s_sourceFeeToken, 4e18, block.timestamp);
     s_commitStore.report(abi.encode(report), ++s_latestEpochAndRound);
 
     vm.expectRevert(CommitStore.StaleReport.selector);
@@ -485,14 +482,14 @@ contract CommitStore_report is CommitStoreSetup {
 
   function test_RootAlreadyCommitted_Revert() public {
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getEmptyPriceUpdates(),
+      priceUpdates: _getEmptyPriceUpdates(),
       interval: CommitStore.Interval(1, 2),
       merkleRoot: "Only a single root"
     });
     s_commitStore.report(abi.encode(report), ++s_latestEpochAndRound);
 
     report = CommitStore.CommitReport({
-      priceUpdates: getEmptyPriceUpdates(),
+      priceUpdates: _getEmptyPriceUpdates(),
       interval: CommitStore.Interval(3, 3),
       merkleRoot: "Only a single root"
     });
@@ -510,7 +507,7 @@ contract CommitStore_verify is CommitStoreRealRMNSetup {
     s_commitStore.report(
       abi.encode(
         CommitStore.CommitReport({
-          priceUpdates: getEmptyPriceUpdates(),
+          priceUpdates: _getEmptyPriceUpdates(),
           interval: CommitStore.Interval(1, 2),
           merkleRoot: leaves[0]
         })
@@ -529,7 +526,7 @@ contract CommitStore_verify is CommitStoreRealRMNSetup {
     s_commitStore.report(
       abi.encode(
         CommitStore.CommitReport({
-          priceUpdates: getEmptyPriceUpdates(),
+          priceUpdates: _getEmptyPriceUpdates(),
           interval: CommitStore.Interval(1, 2),
           merkleRoot: leaves[0]
         })
