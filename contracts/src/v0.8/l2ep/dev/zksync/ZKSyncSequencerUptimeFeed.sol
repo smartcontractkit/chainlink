@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.0;
 
 import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterface.sol";
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
@@ -61,10 +61,9 @@ contract ZKSyncSequencerUptimeFeed is
   /// @param initialStatus The initial status of the feed
   constructor(address l1SenderAddress, bool initialStatus) {
     _setL1Sender(l1SenderAddress);
-    uint64 timestamp = uint64(block.timestamp);
 
     // Initialise roundId == 1 as the first round
-    _recordRound(1, initialStatus, timestamp);
+    _recordRound(1, initialStatus, uint64(block.timestamp));
   }
 
   /// @notice Check if a roundId is valid in this current contract state
@@ -113,10 +112,13 @@ contract ZKSyncSequencerUptimeFeed is
   /// @param status Sequencer status
   /// @param timestamp The L1 block timestamp of status update
   function _recordRound(uint80 roundId, bool status, uint64 timestamp) private {
-    uint64 updatedAt = uint64(block.timestamp);
-
-    s_rounds[roundId] = Round({status: status, startedAt: timestamp, updatedAt: updatedAt});
-    s_feedState = FeedState({latestRoundId: roundId, latestStatus: status, startedAt: timestamp, updatedAt: updatedAt});
+    s_rounds[roundId] = Round({status: status, startedAt: timestamp, updatedAt: uint64(block.timestamp)});
+    s_feedState = FeedState({
+      latestRoundId: roundId,
+      latestStatus: status,
+      startedAt: timestamp,
+      updatedAt: uint64(block.timestamp)
+    });
 
     emit NewRound(roundId, msg.sender, timestamp);
     emit AnswerUpdated(_getStatusAnswer(status), roundId, timestamp);
@@ -228,7 +230,7 @@ contract ZKSyncSequencerUptimeFeed is
       _getStatusAnswer(feedState.latestStatus),
       feedState.startedAt,
       feedState.updatedAt,
-      roundId
+      feedState.latestRoundId
     );
   }
 }

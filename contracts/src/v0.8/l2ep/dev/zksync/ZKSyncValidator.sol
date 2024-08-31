@@ -11,18 +11,20 @@ import {IBridgehub, L2TransactionRequestDirect} from "@zksync/contracts/l1-contr
 
 /// @title ZKSyncValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
 contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
-  int256 private constant ANSWER_SEQ_OFFLINE = 1;
-  uint32 private s_gasLimit;
-  uint32 private s_l2GasPerPubdataByteLimit;
-
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable L1_CROSS_DOMAIN_MESSENGER_ADDRESS;
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable L2_UPTIME_FEED_ADDR;
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
+  uint32 private immutable CHAIN_ID;
 
-  uint32 private immutable i_chainId;
+  /// Contract state variables
+  string public constant override typeAndVersion = "ZKSyncValidator 1.0.0";
   uint32 private constant TEST_NET_CHAIN_ID = 300;
   uint32 private constant MAIN_NET_CHAIN_ID = 324;
+  int256 private constant ANSWER_SEQ_OFFLINE = 1;
+  uint32 private s_l2GasPerPubdataByteLimit;
+  uint32 private s_gasLimit;
 
   /// @notice emitted when gas cost to spend on L2 is updated
   /// @param gasLimit updated gas cost
@@ -47,7 +49,6 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     uint32 chainId,
     uint32 l2GasPerPubdataByteLimit
   ) {
-    // Check if the chainId is one of the valid values
     if (chainId != TEST_NET_CHAIN_ID && chainId != MAIN_NET_CHAIN_ID) {
       revert InvalidChainID();
     }
@@ -62,15 +63,9 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
 
     L1_CROSS_DOMAIN_MESSENGER_ADDRESS = l1CrossDomainMessengerAddress;
     L2_UPTIME_FEED_ADDR = l2UptimeFeedAddr;
-    s_gasLimit = gasLimit;
-    i_chainId = chainId;
-
     s_l2GasPerPubdataByteLimit = l2GasPerPubdataByteLimit;
-  }
-
-  /// @inheritdoc TypeAndVersionInterface
-  function typeAndVersion() external pure virtual override returns (string memory) {
-    return "ZKSyncValidator 1.0.0";
+    s_gasLimit = gasLimit;
+    CHAIN_ID = chainId;
   }
 
   /// @notice sets the new gas cost to spend when sending cross chain message
@@ -103,7 +98,7 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
 
   /// @notice fetches the chain id
   function getChainId() external view returns (uint32) {
-    return i_chainId;
+    return CHAIN_ID;
   }
 
   /// @notice makes this contract payable
@@ -128,12 +123,15 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
       uint64(block.timestamp)
     );
 
+    // Empty bytes for factoryDeps
     bytes[] memory emptyBytes;
 
+    // Get a reference to the bridgehub contract
     IBridgehub bridgeHub = IBridgehub(L1_CROSS_DOMAIN_MESSENGER_ADDRESS);
 
+    // Get the L2 transaction base cost
     uint256 transactionBaseCostEstimate = bridgeHub.l2TransactionBaseCost(
-      i_chainId,
+      CHAIN_ID,
       tx.gasprice,
       s_gasLimit,
       s_l2GasPerPubdataByteLimit
@@ -141,7 +139,7 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
 
     // Create the L2 transaction request
     L2TransactionRequestDirect memory l2TransactionRequestDirect = L2TransactionRequestDirect({
-      chainId: i_chainId,
+      chainId: CHAIN_ID,
       mintValue: transactionBaseCostEstimate,
       l2Contract: L2_UPTIME_FEED_ADDR,
       l2Value: 0,
@@ -155,6 +153,7 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     // Make the xDomain call
     bridgeHub.requestL2TransactionDirect{value: transactionBaseCostEstimate}(l2TransactionRequestDirect);
 
+    // Return a success flag
     return true;
   }
 }
