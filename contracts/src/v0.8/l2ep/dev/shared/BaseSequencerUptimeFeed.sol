@@ -1,23 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.19;
 
 import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterface.sol";
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
-import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {ISequencerUptimeFeed} from "./../interfaces/ISequencerUptimeFeed.sol";
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
-import {AddressAliasHelper} from "@zksync/contracts/l2-contracts/contracts/vendor/AddressAliasHelper.sol";
 
-/// @title ZKSyncSequencerUptimeFeed - L2 sequencer uptime status aggregator
+/// @title L2 sequencer uptime status aggregator
 /// @notice L2 contract that receives status updates from a specific L1 address,
 ///  records a new answer if the status changed
-contract ZKSyncSequencerUptimeFeed is
-  AggregatorV2V3Interface,
-  ISequencerUptimeFeed,
-  ITypeAndVersion,
-  SimpleReadAccessController
-{
+abstract contract BaseSequencerUptimeFeed is AggregatorV2V3Interface, ISequencerUptimeFeed, SimpleReadAccessController {
   /// @dev Round info (for uptime history)
   struct Round {
     uint64 startedAt; // ─╮ The timestamp at which the round started
@@ -73,15 +66,8 @@ contract ZKSyncSequencerUptimeFeed is
     return roundId > 0 && roundId <= type(uint80).max && s_feedState.latestRoundId >= roundId;
   }
 
-  /// @notice versions:
-  /// - ZKSyncSequencerUptimeFeed 1.0.0: initial release
-  /// @inheritdoc ITypeAndVersion
-  function typeAndVersion() external pure virtual override returns (string memory) {
-    return "ZKSyncSequencerUptimeFeed 1.0.0";
-  }
-
   /// @return L1 sender address
-  function l1Sender() public view virtual returns (address) {
+  function getL1Sender() public view virtual returns (address) {
     return s_l1Sender;
   }
 
@@ -93,7 +79,7 @@ contract ZKSyncSequencerUptimeFeed is
   }
 
   /// @notice internal method that stores the L1 sender
-  function _setL1Sender(address to) private {
+  function _setL1Sender(address to) internal {
     address from = s_l1Sender;
     if (from != to) {
       s_l1Sender = to;
@@ -103,7 +89,7 @@ contract ZKSyncSequencerUptimeFeed is
 
   /// @dev Returns an AggregatorV2V3Interface compatible answer from status flag
   /// @param status The status flag to convert to an aggregator-compatible answer
-  function _getStatusAnswer(bool status) private pure returns (int256) {
+  function _getStatusAnswer(bool status) internal pure returns (int256) {
     return status ? int256(1) : int256(0);
   }
 
@@ -111,7 +97,7 @@ contract ZKSyncSequencerUptimeFeed is
   /// @param roundId The round ID to record
   /// @param status Sequencer status
   /// @param timestamp The L1 block timestamp of status update
-  function _recordRound(uint80 roundId, bool status, uint64 timestamp) private {
+  function _recordRound(uint80 roundId, bool status, uint64 timestamp) internal {
     s_rounds[roundId] = Round({status: status, startedAt: timestamp, updatedAt: uint64(block.timestamp)});
     s_feedState = FeedState({
       latestRoundId: roundId,
@@ -127,55 +113,30 @@ contract ZKSyncSequencerUptimeFeed is
   /// @notice Helper function to update when a round was last updated
   /// @param roundId The round ID to update
   /// @param status Sequencer status
-  function _updateRound(uint80 roundId, bool status) private {
-    uint64 updatedAt = uint64(block.timestamp);
+  function _updateRound(uint80 roundId, bool status) internal {
+    uint64 updatedAt = uint64(block.timestamp); // TODO check gas
     s_rounds[roundId].updatedAt = updatedAt;
     s_feedState.updatedAt = updatedAt;
     emit RoundUpdated(_getStatusAnswer(status), updatedAt);
   }
 
-  /// @notice Record a new status and timestamp if it has changed since the last round.
-  /// @dev This function will revert if not called from `l1Sender` via the L1->L2 messenger.
-  /// @param status Sequencer status
-  /// @param timestamp Block timestamp of status update
-  function updateStatus(bool status, uint64 timestamp) external override {
-    FeedState memory feedState = s_feedState;
-    address aliasedL1Sender = AddressAliasHelper.applyL1ToL2Alias(s_l1Sender);
-
-    if (msg.sender != aliasedL1Sender) {
-      revert InvalidSender();
-    }
-
-    // Ignore if latest recorded timestamp is newer
-    if (feedState.startedAt > timestamp) {
-      emit UpdateIgnored(feedState.latestStatus, feedState.startedAt, status, timestamp);
-      return;
-    }
-
-    if (feedState.latestStatus == status) {
-      _updateRound(feedState.latestRoundId, status);
-    } else {
-      feedState.latestRoundId += 1;
-      _recordRound(feedState.latestRoundId, status, timestamp);
-    }
+  function _getFeedState() internal view returns (FeedState memory) {
+    return s_feedState;
   }
 
   /// @inheritdoc AggregatorInterface
   function latestAnswer() external view override checkAccess returns (int256) {
-    FeedState memory feedState = s_feedState;
-    return _getStatusAnswer(feedState.latestStatus);
+    return _getStatusAnswer(s_feedState.latestStatus);
   }
 
   /// @inheritdoc AggregatorInterface
   function latestTimestamp() external view override checkAccess returns (uint256) {
-    FeedState memory feedState = s_feedState;
-    return feedState.startedAt;
+    return s_feedState.startedAt;
   }
 
   /// @inheritdoc AggregatorInterface
   function latestRound() external view override checkAccess returns (uint256) {
-    FeedState memory feedState = s_feedState;
-    return feedState.latestRoundId;
+    return s_feedState.latestRoundId;
   }
 
   /// @inheritdoc AggregatorInterface
