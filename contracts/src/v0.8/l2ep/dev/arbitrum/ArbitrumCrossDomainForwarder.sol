@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 // solhint-disable-next-line no-unused-import
 import {ForwarderInterface} from "../interfaces/ForwarderInterface.sol";
 
@@ -17,7 +17,7 @@ import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/ut
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
  *   can be considered to be owned by the `l1Owner`
  */
-contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainForwarder {
+contract ArbitrumCrossDomainForwarder is ITypeAndVersion, CrossDomainForwarder {
   /**
    * @notice creates a new Arbitrum xDomain Forwarder contract
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
@@ -31,7 +31,7 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * - ArbitrumCrossDomainForwarder 0.1.0: initial release
    * - ArbitrumCrossDomainForwarder 1.0.0: Use OZ Address, CrossDomainOwnable
    *
-   * @inheritdoc TypeAndVersionInterface
+   * @inheritdoc ITypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "ArbitrumCrossDomainForwarder 1.0.0";

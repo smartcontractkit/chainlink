@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {SequencerUptimeFeedInterface} from "../interfaces/SequencerUptimeFeedInterface.sol";
+import {ISequencerUptimeFeed} from "../interfaces/ISequencerUptimeFeed.sol";
 import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterface.sol";
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
 
@@ -15,8 +15,8 @@ import {IL2ScrollMessenger} from "@scroll-tech/contracts/L2/IL2ScrollMessenger.s
 /// @notice L2 contract that receives status updates, and records a new answer if the status changed
 contract ScrollSequencerUptimeFeed is
   AggregatorV2V3Interface,
-  SequencerUptimeFeedInterface,
-  TypeAndVersionInterface,
+  ISequencerUptimeFeed,
+  ITypeAndVersion,
   SimpleReadAccessController
 {
   string public constant override typeAndVersion = "ScrollSequencerUptimeFeed 1.0.0";

@@ -4,8 +4,8 @@ pragma solidity ^0.8.4;
 import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterface.sol";
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-import {SequencerUptimeFeedInterface} from "./../interfaces/SequencerUptimeFeedInterface.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
+import {ISequencerUptimeFeed} from "./../interfaces/ISequencerUptimeFeed.sol";
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
 import {IL2CrossDomainMessenger} from "@eth-optimism/contracts/L2/messaging/IL2CrossDomainMessenger.sol";
 
@@ -16,8 +16,8 @@ import {IL2CrossDomainMessenger} from "@eth-optimism/contracts/L2/messaging/IL2C
  */
 contract OptimismSequencerUptimeFeed is
   AggregatorV2V3Interface,
-  SequencerUptimeFeedInterface,
-  TypeAndVersionInterface,
+  ISequencerUptimeFeed,
+  ITypeAndVersion,
   SimpleReadAccessController
 {
   /// @dev Round info (for uptime history)
@@ -90,7 +90,7 @@ contract OptimismSequencerUptimeFeed is
    *
    * - OptimismSequencerUptimeFeed 1.0.0: initial release
    *
-   * @inheritdoc TypeAndVersionInterface
+   * @inheritdoc ITypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "OptimismSequencerUptimeFeed 1.0.0";

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {DelegateForwarderInterface} from "../interfaces/DelegateForwarderInterface.sol";
 // solhint-disable-next-line no-unused-import
 import {ForwarderInterface} from "../interfaces/ForwarderInterface.sol";
@@ -16,7 +16,7 @@ import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/ut
 /// @notice L2 Contract which receives messages from a specific L1 address and transparently forwards them to the destination.
 /// @dev Any other L2 contract which uses this contract's address as a privileged position,
 /// can be considered to be simultaneously owned by the `l1Owner` and L2 `owner`
-contract ScrollCrossDomainGovernor is DelegateForwarderInterface, TypeAndVersionInterface, CrossDomainForwarder {
+contract ScrollCrossDomainGovernor is DelegateForwarderInterface, ITypeAndVersion, CrossDomainForwarder {
   string public constant override typeAndVersion = "ScrollCrossDomainGovernor 1.0.0";
 
   address internal immutable i_scrollCrossDomainMessenger;

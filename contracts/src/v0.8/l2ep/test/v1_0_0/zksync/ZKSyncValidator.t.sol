@@ -2,7 +2,7 @@
 pragma solidity ^0.8.9;
 
 import {MockBridgehub} from "../../mocks/zksync/MockZKSyncL1Bridge.sol";
-import {SequencerUptimeFeedInterface} from "../../../dev/interfaces/SequencerUptimeFeedInterface.sol";
+import {ISequencerUptimeFeed} from "../../../dev/interfaces/ISequencerUptimeFeed.sol";
 import {ZKSyncValidator} from "../../../dev/zksync/ZKSyncValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
@@ -15,7 +15,7 @@ contract ZKSyncValidatorTest is L2EPTest {
   uint32 internal constant MAIN_NET_CHAIN_ID = 300;
   uint32 internal constant BAD_CHAIN_ID = 0;
 
-  SequencerUptimeFeedInterface internal s_zksyncSequencerUptimeFeed;
+  ISequencerUptimeFeed internal s_zksyncSequencerUptimeFeed;
   MockBridgehub internal s_mockZKSyncL1Bridge;
   ZKSyncValidator internal s_zksyncValidator;
 
@@ -120,7 +120,7 @@ contract ZKSyncValidator_Validate is ZKSyncValidatorTest {
 
     // Sets up the expected event data
     bytes memory message = abi.encodeWithSelector(
-      SequencerUptimeFeedInterface.updateStatus.selector,
+      ISequencerUptimeFeed.updateStatus.selector,
       false,
       futureTimestampInSeconds
     );
@@ -146,7 +146,7 @@ contract ZKSyncValidator_Validate is ZKSyncValidatorTest {
     vm.expectEmit(false, false, false, true);
     emit SentMessage(
       address(s_zksyncValidator),
-      abi.encodeWithSelector(SequencerUptimeFeedInterface.updateStatus.selector, true, futureTimestampInSeconds)
+      abi.encodeWithSelector(ISequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds)
     );
 
     // Runs the function (which produces the event to test)

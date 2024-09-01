@@ -2,8 +2,8 @@
 pragma solidity 0.8.19;
 
 import {AggregatorValidatorInterface} from "../../../shared/interfaces/AggregatorValidatorInterface.sol";
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-import {SequencerUptimeFeedInterface} from "../interfaces/SequencerUptimeFeedInterface.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
+import {ISequencerUptimeFeed} from "../interfaces/ISequencerUptimeFeed.sol";
 
 import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
 
@@ -11,7 +11,7 @@ import {IL1MessageQueue} from "@scroll-tech/contracts/L1/rollup/IL1MessageQueue.
 import {IL1ScrollMessenger} from "@scroll-tech/contracts/L1/IL1ScrollMessenger.sol";
 
 /// @title ScrollValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
-contract ScrollValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
+contract ScrollValidator is ITypeAndVersion, AggregatorValidatorInterface, SimpleWriteAccessController {
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable L1_CROSS_DOMAIN_MESSENGER_ADDRESS;
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
@@ -82,7 +82,7 @@ contract ScrollValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
       L2_UPTIME_FEED_ADDR,
       0,
       abi.encodeWithSelector(
-        SequencerUptimeFeedInterface.updateStatus.selector,
+        ISequencerUptimeFeed.updateStatus.selector,
         currentAnswer == ANSWER_SEQ_OFFLINE,
         uint64(block.timestamp)
       ),

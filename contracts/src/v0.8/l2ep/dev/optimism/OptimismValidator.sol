@@ -2,8 +2,8 @@
 pragma solidity ^0.8.0;
 
 import {AggregatorValidatorInterface} from "../../../shared/interfaces/AggregatorValidatorInterface.sol";
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-import {SequencerUptimeFeedInterface} from "./../interfaces/SequencerUptimeFeedInterface.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
+import {ISequencerUptimeFeed} from "./../interfaces/ISequencerUptimeFeed.sol";
 
 import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
 
@@ -12,7 +12,7 @@ import {IL1CrossDomainMessenger} from "@eth-optimism/contracts/L1/messaging/IL1C
 /**
  * @title OptimismValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
  */
-contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
+contract OptimismValidator is ITypeAndVersion, AggregatorValidatorInterface, SimpleWriteAccessController {
   int256 private constant ANSWER_SEQ_OFFLINE = 1;
   uint32 private s_gasLimit;
 
@@ -50,7 +50,7 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    *   - now calls `updateStatus` on an L2 OptimismSequencerUptimeFeed contract instead of
    *     directly calling the Flags contract
    *
-   * @inheritdoc TypeAndVersionInterface
+   * @inheritdoc ITypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "OptimismValidator 1.0.0";
@@ -84,7 +84,7 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
     // Encode the OptimismSequencerUptimeFeed call
-    bytes4 selector = SequencerUptimeFeedInterface.updateStatus.selector;
+    bytes4 selector = ISequencerUptimeFeed.updateStatus.selector;
     bool status = currentAnswer == ANSWER_SEQ_OFFLINE;
     uint64 timestamp = uint64(block.timestamp);
     // Encode `status` and `timestamp`

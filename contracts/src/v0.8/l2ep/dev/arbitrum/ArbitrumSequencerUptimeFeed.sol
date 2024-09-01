@@ -5,9 +5,9 @@ import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/c
 import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterface.sol";
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {FlagsInterface} from "../interfaces/FlagsInterface.sol";
-import {SequencerUptimeFeedInterface} from "../interfaces/SequencerUptimeFeedInterface.sol";
+import {ISequencerUptimeFeed} from "../interfaces/ISequencerUptimeFeed.sol";
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
 
 /**
@@ -18,8 +18,8 @@ import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAcces
  */
 contract ArbitrumSequencerUptimeFeed is
   AggregatorV2V3Interface,
-  SequencerUptimeFeedInterface,
-  TypeAndVersionInterface,
+  ISequencerUptimeFeed,
+  ITypeAndVersion,
   SimpleReadAccessController
 {
   /// @dev Round info (for uptime history)
@@ -120,7 +120,7 @@ contract ArbitrumSequencerUptimeFeed is
    *
    * - ArbitrumSequencerUptimeFeed 1.0.0: initial release
    *
-   * @inheritdoc TypeAndVersionInterface
+   * @inheritdoc ITypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "ArbitrumSequencerUptimeFeed 1.0.0";

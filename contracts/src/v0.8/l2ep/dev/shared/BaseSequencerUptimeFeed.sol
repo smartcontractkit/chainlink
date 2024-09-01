@@ -4,8 +4,8 @@ pragma solidity ^0.8.0;
 import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterface.sol";
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-import {SequencerUptimeFeedInterface} from "./../interfaces/SequencerUptimeFeedInterface.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
+import {ISequencerUptimeFeed} from "./../interfaces/ISequencerUptimeFeed.sol";
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
 import {AddressAliasHelper} from "@zksync/contracts/l2-contracts/contracts/vendor/AddressAliasHelper.sol";
 
@@ -14,8 +14,8 @@ import {AddressAliasHelper} from "@zksync/contracts/l2-contracts/contracts/vendo
 ///  records a new answer if the status changed
 contract ZKSyncSequencerUptimeFeed is
   AggregatorV2V3Interface,
-  SequencerUptimeFeedInterface,
-  TypeAndVersionInterface,
+  ISequencerUptimeFeed,
+  ITypeAndVersion,
   SimpleReadAccessController
 {
   /// @dev Round info (for uptime history)
@@ -75,7 +75,7 @@ contract ZKSyncSequencerUptimeFeed is
 
   /// @notice versions:
   /// - ZKSyncSequencerUptimeFeed 1.0.0: initial release
-  /// @inheritdoc TypeAndVersionInterface
+  /// @inheritdoc ITypeAndVersion
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "ZKSyncSequencerUptimeFeed 1.0.0";
   }

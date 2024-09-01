@@ -2,15 +2,15 @@
 pragma solidity ^0.8.0;
 
 import {AggregatorValidatorInterface} from "../../../shared/interfaces/AggregatorValidatorInterface.sol";
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-import {SequencerUptimeFeedInterface} from "./../interfaces/SequencerUptimeFeedInterface.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
+import {ISequencerUptimeFeed} from "./../interfaces/ISequencerUptimeFeed.sol";
 
 import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
 
 import {IBridgehub, L2TransactionRequestDirect} from "@zksync/contracts/l1-contracts/contracts/bridgehub/IBridgehub.sol";
 
 /// @title ZKSyncValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
-contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
+contract ZKSyncValidator is ITypeAndVersion, AggregatorValidatorInterface, SimpleWriteAccessController {
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable L1_CROSS_DOMAIN_MESSENGER_ADDRESS;
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
@@ -118,7 +118,7 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
   ) external override checkAccess returns (bool) {
     // Encode the SequencerUptimeFeedInterface call with `status` and `timestamp`
     bytes memory message = abi.encodeWithSelector(
-      SequencerUptimeFeedInterface.updateStatus.selector,
+      ISequencerUptimeFeed.updateStatus.selector,
       currentAnswer == ANSWER_SEQ_OFFLINE,
       uint64(block.timestamp)
     );

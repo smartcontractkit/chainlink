@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 // solhint-disable-next-line no-unused-import
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 // solhint-disable-next-line no-unused-import
 import {ForwarderInterface} from "../interfaces/ForwarderInterface.sol";
 import {DelegateForwarderInterface} from "../interfaces/DelegateForwarderInterface.sol";
@@ -30,7 +30,7 @@ contract ArbitrumCrossDomainGovernor is DelegateForwarderInterface, ArbitrumCros
    *
    * - ArbitrumCrossDomainGovernor 1.0.0: initial release
    *
-   * @inheritdoc TypeAndVersionInterface
+   * @inheritdoc ITypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "ArbitrumCrossDomainGovernor 1.0.0";
