@@ -156,6 +156,33 @@ abstract contract BaseSequencerUptimeFeed is AggregatorV2V3Interface, ISequencer
     return s_rounds[uint80(roundId)].startedAt;
   }
 
+  /**
+   * @notice Record a new status and timestamp if it has changed since the last round.
+   * @dev This function will revert if not called from `l1Sender` via the L1->L2 messenger.
+   *
+   * @param status Sequencer status
+   * @param timestamp Block timestamp of status update
+   */
+  function updateStatus(bool status, uint64 timestamp) external override {
+    _validateSender(s_l1Sender);
+
+    FeedState memory feedState = _getFeedState();
+    // Ignore if latest recorded timestamp is newer
+    if (feedState.startedAt > timestamp) {
+      emit UpdateIgnored(feedState.latestStatus, feedState.startedAt, status, timestamp);
+      return;
+    }
+
+    if (feedState.latestStatus == status) {
+      _updateRound(feedState.latestRoundId, status);
+    } else {
+      feedState.latestRoundId += 1;
+      _recordRound(feedState.latestRoundId, status, timestamp);
+    }
+  }
+
+  function _validateSender(address l1Sender) internal virtual;
+
   /// @inheritdoc AggregatorV3Interface
   function getRoundData(
     uint80 _roundId

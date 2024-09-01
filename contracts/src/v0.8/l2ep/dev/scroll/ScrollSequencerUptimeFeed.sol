@@ -32,31 +32,11 @@ contract ScrollSequencerUptimeFeed is ITypeAndVersion, BaseSequencerUptimeFeed {
     s_l2CrossDomainMessenger = IL2ScrollMessenger(l2CrossDomainMessengerAddr);
   }
 
-  /// @notice Record a new status and timestamp if it has changed since the last round.
-  /// @dev This function will revert if not called from `l1Sender` via the L1->L2 messenger.
-  ///
-  /// @param status Sequencer status
-  /// @param timestamp Block timestamp of status update
-  function updateStatus(bool status, uint64 timestamp) external override {
-    FeedState memory feedState = _getFeedState();
-
+  function _validateSender(address l1Sender) internal override {
     if (
-      msg.sender != address(s_l2CrossDomainMessenger) || s_l2CrossDomainMessenger.xDomainMessageSender() != l1Sender()
+      msg.sender != address(s_l2CrossDomainMessenger) || s_l2CrossDomainMessenger.xDomainMessageSender() != l1Sender
     ) {
       revert InvalidSender();
-    }
-
-    // Ignore if latest recorded timestamp is newer
-    if (feedState.startedAt > timestamp) {
-      emit UpdateIgnored(feedState.latestStatus, feedState.startedAt, status, timestamp);
-      return;
-    }
-
-    if (feedState.latestStatus == status) {
-      _updateRound(feedState.latestRoundId, status);
-    } else {
-      feedState.latestRoundId += 1;
-      _recordRound(feedState.latestRoundId, status, timestamp);
     }
   }
 }

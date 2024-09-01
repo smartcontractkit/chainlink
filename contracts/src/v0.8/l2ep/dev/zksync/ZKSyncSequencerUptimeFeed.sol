@@ -15,29 +15,11 @@ contract ZKSyncSequencerUptimeFeed is ITypeAndVersion, BaseSequencerUptimeFeed {
   /// @param initialStatus The initial status of the feed
   constructor(address l1SenderAddress, bool initialStatus) BaseSequencerUptimeFeed(l1SenderAddress, initialStatus) {}
 
-  /// @notice Record a new status and timestamp if it has changed since the last round.
-  /// @dev This function will revert if not called from `l1Sender` via the L1->L2 messenger.
-  /// @param status Sequencer status
-  /// @param timestamp Block timestamp of status update
-  function updateStatus(bool status, uint64 timestamp) external override {
-    address aliasedL1Sender = AddressAliasHelper.applyL1ToL2Alias(l1Sender());
+  function _validateSender(address l1Sender) internal override {
+    address aliasedL1Sender = AddressAliasHelper.applyL1ToL2Alias(l1Sender);
 
     if (msg.sender != aliasedL1Sender) {
       revert InvalidSender();
-    }
-
-    FeedState memory feedState = _getFeedState();
-    // Ignore if latest recorded timestamp is newer
-    if (feedState.startedAt > timestamp) {
-      emit UpdateIgnored(feedState.latestStatus, feedState.startedAt, status, timestamp);
-      return;
-    }
-
-    if (feedState.latestStatus == status) {
-      _updateRound(feedState.latestRoundId, status);
-    } else {
-      feedState.latestRoundId += 1;
-      _recordRound(feedState.latestRoundId, status, timestamp);
     }
   }
 }
