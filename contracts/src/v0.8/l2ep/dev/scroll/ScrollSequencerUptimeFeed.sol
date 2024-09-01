@@ -41,8 +41,7 @@ contract ScrollSequencerUptimeFeed is ITypeAndVersion, BaseSequencerUptimeFeed {
     FeedState memory feedState = _getFeedState();
 
     if (
-      msg.sender != address(s_l2CrossDomainMessenger) ||
-      s_l2CrossDomainMessenger.xDomainMessageSender() != getL1Sender()
+      msg.sender != address(s_l2CrossDomainMessenger) || s_l2CrossDomainMessenger.xDomainMessageSender() != l1Sender()
     ) {
       revert InvalidSender();
     }

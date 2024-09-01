@@ -33,7 +33,7 @@ contract ZKSyncSequencerUptimeFeed_Constructor is ZKSyncSequencerUptimeFeedTest 
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Checks L1 sender
-    address actualL1Addr = s_zksyncSequencerUptimeFeed.getL1Sender();
+    address actualL1Addr = s_zksyncSequencerUptimeFeed.l1Sender();
     assertEq(actualL1Addr, s_l1OwnerAddr);
 
     // Checks latest round data

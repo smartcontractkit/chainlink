@@ -20,7 +20,7 @@ contract ZKSyncSequencerUptimeFeed is ITypeAndVersion, BaseSequencerUptimeFeed {
   /// @param status Sequencer status
   /// @param timestamp Block timestamp of status update
   function updateStatus(bool status, uint64 timestamp) external override {
-    address aliasedL1Sender = AddressAliasHelper.applyL1ToL2Alias(getL1Sender());
+    address aliasedL1Sender = AddressAliasHelper.applyL1ToL2Alias(l1Sender());
 
     if (msg.sender != aliasedL1Sender) {
       revert InvalidSender();

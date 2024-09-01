@@ -49,7 +49,7 @@ contract ScrollSequencerUptimeFeed_Constructor is ScrollSequencerUptimeFeedTest 
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Checks L1 sender
-    address actualL1Addr = s_scrollSequencerUptimeFeed.getL1Sender();
+    address actualL1Addr = s_scrollSequencerUptimeFeed.l1Sender();
     assertEq(actualL1Addr, s_l1OwnerAddr);
 
     // Checks latest round data

@@ -67,7 +67,7 @@ abstract contract BaseSequencerUptimeFeed is AggregatorV2V3Interface, ISequencer
   }
 
   /// @return L1 sender address
-  function getL1Sender() public view virtual returns (address) {
+  function l1Sender() public view virtual returns (address) {
     return s_l1Sender;
   }
 
