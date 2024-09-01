@@ -5,20 +5,20 @@ import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterfac
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
 import {ISequencerUptimeFeed} from "./../interfaces/ISequencerUptimeFeed.sol";
+
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
 
 /// @title L2 sequencer uptime status aggregator
 /// @notice L2 contract that receives status updates from a specific L1 address,
 ///  records a new answer if the status changed
 abstract contract BaseSequencerUptimeFeed is AggregatorV2V3Interface, ISequencerUptimeFeed, SimpleReadAccessController {
-  /// @dev Round info (for uptime history)
+  /// @dev Round info for uptime history
   struct Round {
     uint64 startedAt; // ─╮ The timestamp at which the round started
     uint64 updatedAt; //  │ The timestamp at which the round was updated
     bool status; // ──────╯ The sequencer status for the round
   }
 
-  /// @dev Packed state struct to save sloads
   struct FeedState {
     uint80 latestRoundId; // ─╮ The ID of the latest round
     uint64 startedAt; //      │ The date at which the latest round started
@@ -79,11 +79,11 @@ abstract contract BaseSequencerUptimeFeed is AggregatorV2V3Interface, ISequencer
   }
 
   /// @notice internal method that stores the L1 sender
-  function _setL1Sender(address to) internal {
-    address from = s_l1Sender;
-    if (from != to) {
-      s_l1Sender = to;
-      emit L1SenderTransferred(from, to);
+  function _setL1Sender(address newSender) internal {
+    address oldSender = s_l1Sender;
+    if (oldSender != newSender) {
+      s_l1Sender = newSender;
+      emit L1SenderTransferred(oldSender, newSender);
     }
   }
 
@@ -114,10 +114,9 @@ abstract contract BaseSequencerUptimeFeed is AggregatorV2V3Interface, ISequencer
   /// @param roundId The round ID to update
   /// @param status Sequencer status
   function _updateRound(uint80 roundId, bool status) internal {
-    uint64 updatedAt = uint64(block.timestamp); // TODO check gas
-    s_rounds[roundId].updatedAt = updatedAt;
-    s_feedState.updatedAt = updatedAt;
-    emit RoundUpdated(_getStatusAnswer(status), updatedAt);
+    s_rounds[roundId].updatedAt = uint64(block.timestamp);
+    s_feedState.updatedAt = uint64(block.timestamp);
+    emit RoundUpdated(_getStatusAnswer(status), uint64(block.timestamp));
   }
 
   function _getFeedState() internal view returns (FeedState memory) {
@@ -171,7 +170,7 @@ abstract contract BaseSequencerUptimeFeed is AggregatorV2V3Interface, ISequencer
       revert NoDataPresent();
     }
 
-    Round memory round = s_rounds[_roundId];
+    Round storage round = s_rounds[_roundId];
 
     return (_roundId, _getStatusAnswer(round.status), uint256(round.startedAt), uint256(round.updatedAt), _roundId);
   }
@@ -184,7 +183,7 @@ abstract contract BaseSequencerUptimeFeed is AggregatorV2V3Interface, ISequencer
     checkAccess
     returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
   {
-    FeedState memory feedState = s_feedState;
+    FeedState storage feedState = s_feedState;
 
     return (
       feedState.latestRoundId,
