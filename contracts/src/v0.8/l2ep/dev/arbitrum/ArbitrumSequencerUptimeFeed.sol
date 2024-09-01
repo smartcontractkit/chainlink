@@ -6,7 +6,7 @@ import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterfac
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-import {FlagsInterface} from "../interfaces/FlagsInterface.sol";
+import {IFlags} from "../interfaces/IFlags.sol";
 import {ISequencerUptimeFeed} from "../interfaces/ISequencerUptimeFeed.sol";
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
 
@@ -62,7 +62,7 @@ contract ArbitrumSequencerUptimeFeed is
 
   /// @dev Flags contract to raise/lower flags on, during status transitions
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
-  FlagsInterface public immutable FLAGS;
+  IFlags public immutable FLAGS;
   /// @dev L1 address
   address private s_l1Sender;
   /// @dev s_latestRoundId == 0 means this contract is uninitialized.
@@ -76,7 +76,7 @@ contract ArbitrumSequencerUptimeFeed is
   constructor(address flagsAddress, address l1SenderAddress) {
     _setL1Sender(l1SenderAddress);
 
-    FLAGS = FlagsInterface(flagsAddress);
+    FLAGS = IFlags(flagsAddress);
   }
 
   /**

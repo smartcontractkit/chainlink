@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-import {ForwarderInterface} from "../interfaces/ForwarderInterface.sol";
+import {IForwarder} from "../interfaces/IForwarder.sol";
 
 import {CrossDomainForwarder} from "../CrossDomainForwarder.sol";
 import {CrossDomainOwnable} from "../CrossDomainOwnable.sol";
@@ -28,7 +28,7 @@ contract ScrollCrossDomainForwarder is ITypeAndVersion, CrossDomainForwarder {
   }
 
   /// @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` being the L1 owner address
-  /// @inheritdoc ForwarderInterface
+  /// @inheritdoc IForwarder
   function forward(address target, bytes memory data) external override onlyL1Owner {
     Address.functionCall(target, data, "Forwarder call reverted");
   }
