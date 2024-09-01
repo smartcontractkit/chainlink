@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {AggregatorValidatorInterface} from "../../../shared/interfaces/AggregatorValidatorInterface.sol";
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-import {ZKSyncSequencerUptimeFeedInterface} from "./../interfaces/ZKSyncSequencerUptimeFeedInterface.sol";
+import {SequencerUptimeFeedInterface} from "./../interfaces/SequencerUptimeFeedInterface.sol";
 
 import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
 
@@ -40,7 +40,7 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
   error ZeroAddressNotAllowed(string message);
 
   /// @param l1CrossDomainMessengerAddress address the Bridgehub contract address
-  /// @param l2UptimeFeedAddr the address of the ZKSyncSequencerUptimeFeedInterface contract address
+  /// @param l2UptimeFeedAddr the address of the SequencerUptimeFeedInterface contract address
   /// @param gasLimit the gasLimit to use for sending a message from L1 to L2
   constructor(
     address l1CrossDomainMessengerAddress,
@@ -58,7 +58,7 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     }
 
     if (l2UptimeFeedAddr == address(0)) {
-      revert ZeroAddressNotAllowed("Invalid ZKSyncSequencerUptimeFeedInterface contract address");
+      revert ZeroAddressNotAllowed("Invalid SequencerUptimeFeedInterface contract address");
     }
 
     L1_CROSS_DOMAIN_MESSENGER_ADDRESS = l1CrossDomainMessengerAddress;
@@ -116,9 +116,9 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     uint256 /* currentRoundId */,
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
-    // Encode the ZKSyncSequencerUptimeFeedInterface call with `status` and `timestamp`
+    // Encode the SequencerUptimeFeedInterface call with `status` and `timestamp`
     bytes memory message = abi.encodeWithSelector(
-      ZKSyncSequencerUptimeFeedInterface.updateStatus.selector,
+      SequencerUptimeFeedInterface.updateStatus.selector,
       currentAnswer == ANSWER_SEQ_OFFLINE,
       uint64(block.timestamp)
     );

@@ -7,7 +7,7 @@ import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Inte
 import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {FlagsInterface} from "../interfaces/FlagsInterface.sol";
-import {ArbitrumSequencerUptimeFeedInterface} from "../interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
+import {SequencerUptimeFeedInterface} from "../interfaces/SequencerUptimeFeedInterface.sol";
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
 
 /**
@@ -18,7 +18,7 @@ import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAcces
  */
 contract ArbitrumSequencerUptimeFeed is
   AggregatorV2V3Interface,
-  ArbitrumSequencerUptimeFeedInterface,
+  SequencerUptimeFeedInterface,
   TypeAndVersionInterface,
   SimpleReadAccessController
 {

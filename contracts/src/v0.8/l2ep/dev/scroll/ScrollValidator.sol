@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {AggregatorValidatorInterface} from "../../../shared/interfaces/AggregatorValidatorInterface.sol";
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-import {ScrollSequencerUptimeFeedInterface} from "../interfaces/ScrollSequencerUptimeFeedInterface.sol";
+import {SequencerUptimeFeedInterface} from "../interfaces/SequencerUptimeFeedInterface.sol";
 
 import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
 
@@ -82,7 +82,7 @@ contract ScrollValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
       L2_UPTIME_FEED_ADDR,
       0,
       abi.encodeWithSelector(
-        ScrollSequencerUptimeFeedInterface.updateStatus.selector,
+        SequencerUptimeFeedInterface.updateStatus.selector,
         currentAnswer == ANSWER_SEQ_OFFLINE,
         uint64(block.timestamp)
       ),

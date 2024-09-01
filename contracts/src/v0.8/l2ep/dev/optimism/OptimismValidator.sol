@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {AggregatorValidatorInterface} from "../../../shared/interfaces/AggregatorValidatorInterface.sol";
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-import {OptimismSequencerUptimeFeedInterface} from "./../interfaces/OptimismSequencerUptimeFeedInterface.sol";
+import {SequencerUptimeFeedInterface} from "./../interfaces/SequencerUptimeFeedInterface.sol";
 
 import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
 
@@ -84,7 +84,7 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
     // Encode the OptimismSequencerUptimeFeed call
-    bytes4 selector = OptimismSequencerUptimeFeedInterface.updateStatus.selector;
+    bytes4 selector = SequencerUptimeFeedInterface.updateStatus.selector;
     bool status = currentAnswer == ANSWER_SEQ_OFFLINE;
     uint64 timestamp = uint64(block.timestamp);
     // Encode `status` and `timestamp`

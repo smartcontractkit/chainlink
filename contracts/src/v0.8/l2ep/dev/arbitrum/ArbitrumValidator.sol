@@ -7,7 +7,7 @@ import {AccessControllerInterface} from "../../../shared/interfaces/AccessContro
 import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
 
 /* ./dev dependencies - to be moved from ./dev after audit */
-import {ArbitrumSequencerUptimeFeedInterface} from "../interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
+import {SequencerUptimeFeedInterface} from "../interfaces/SequencerUptimeFeedInterface.sol";
 import {IArbitrumDelayedInbox} from "../interfaces/IArbitrumDelayedInbox.sol";
 import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
@@ -264,7 +264,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     // Excess gas on L2 will be sent to the L2 xDomain alias address of this contract
     address refundAddr = L2_ALIAS;
     // Encode the ArbitrumSequencerUptimeFeed call
-    bytes4 selector = ArbitrumSequencerUptimeFeedInterface.updateStatus.selector;
+    bytes4 selector = SequencerUptimeFeedInterface.updateStatus.selector;
     bool status = currentAnswer == ANSWER_SEQ_OFFLINE;
     uint64 timestamp = uint64(block.timestamp);
     // Encode `status` and `timestamp`

@@ -5,7 +5,7 @@ import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterfac
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-import {OptimismSequencerUptimeFeedInterface} from "./../interfaces/OptimismSequencerUptimeFeedInterface.sol";
+import {SequencerUptimeFeedInterface} from "./../interfaces/SequencerUptimeFeedInterface.sol";
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
 import {IL2CrossDomainMessenger} from "@eth-optimism/contracts/L2/messaging/IL2CrossDomainMessenger.sol";
 
@@ -16,7 +16,7 @@ import {IL2CrossDomainMessenger} from "@eth-optimism/contracts/L2/messaging/IL2C
  */
 contract OptimismSequencerUptimeFeed is
   AggregatorV2V3Interface,
-  OptimismSequencerUptimeFeedInterface,
+  SequencerUptimeFeedInterface,
   TypeAndVersionInterface,
   SimpleReadAccessController
 {
