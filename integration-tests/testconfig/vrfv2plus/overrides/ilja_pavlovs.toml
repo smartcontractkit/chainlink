@@ -3,3 +3,4 @@ selected_networks = ["ARBITRUM_SEPOLIA"]
 
 [ARBITRUM_SEPOLIA.VRFv2Plus.General]
 use_existing_env = true
+
