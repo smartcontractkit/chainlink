@@ -43,14 +43,22 @@ type eventBinding struct {
 	eventModifiers map[string]codec.Modifier
 	// topics map a generic topic name (key) to topic data
 	topics map[string]topicDetail
-	// dataWordsInfo key is the generic dataWordName which maps to data word info
-	dataWordsInfo        map[string]dataWordInfo
+	// dataWords key is the generic dataWordName.
+	dataWords            map[string]dataWordDetail
 	confirmationsMapping map[primitives.ConfidenceLevel]evmtypes.Confirmations
+	// TODO add lggr and detailed logs for all internal errors BCI-4130
 }
 
 type topicDetail struct {
 	abi.Argument
 	Index uint64
+}
+
+// dataWordDetail contains all the information about a single evm Data word.
+// For e.g. first evm data word(32bytes) of USDC log event is uint256 var called value.
+type dataWordDetail struct {
+	index uint8
+	abi.Argument
 }
 
 var _ readBinding = &eventBinding{}
@@ -141,12 +149,40 @@ func (e *eventBinding) GetLatestValue(ctx context.Context, confidenceLevel primi
 		return err
 	}
 
-	confirmations, err := confidenceToConfirmations(e.confirmationsMapping, confidenceLevel)
+	confs, err := confidenceToConfirmations(e.confirmationsMapping, confidenceLevel)
 	if err != nil {
 		return err
 	}
 
-	return e.getLatestValue(ctx, confirmations, params, into)
+	topicTypeID := WrapItemType(e.contractName, e.eventName, true)
+
+	onChainTypedVal, err := e.toNativeOnChainType(topicTypeID, params)
+	if err != nil {
+		return fmt.Errorf("failed to convert params to native on chain types: %w", err)
+	}
+
+	filterTopics, err := e.extractFilterTopics(topicTypeID, onChainTypedVal)
+	if err != nil {
+		return err
+	}
+
+	var log *logpoller.Log
+	if len(filterTopics) != 0 {
+		hashedTopics, err := e.hashTopics(topicTypeID, filterTopics)
+		if err != nil {
+			return err
+		}
+
+		if log, err = e.getLatestLog(ctx, confs, hashedTopics); err != nil {
+			return err
+		}
+	} else {
+		if log, err = e.lp.LatestLogByEventSigWithConfs(ctx, e.hash, e.address, confs); err != nil {
+			return wrapInternalErr(err)
+		}
+	}
+
+	return e.decodeLog(ctx, log, into)
 }
 
 func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
@@ -156,7 +192,7 @@ func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, lim
 
 	remapped, err := e.remap(filter)
 	if err != nil {
-		return nil, fmt.Errorf("failed to remap chain agnostic querying filters to chain specific filters: %w", err)
+		return nil, err
 	}
 
 	// filter should always use the address and event sig
@@ -177,6 +213,36 @@ func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, lim
 	}
 
 	return e.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
+}
+
+func (e *eventBinding) getLatestLog(ctx context.Context, confs evmtypes.Confirmations, hashedTopics []common.Hash) (*logpoller.Log, error) {
+	// Create limiter and filter for the query.
+	limiter := query.NewLimitAndSort(query.CountLimit(1), query.NewSortBySequence(query.Desc))
+	topicFilters, err := createTopicFilters(hashedTopics)
+	if err != nil {
+		return nil, err
+	}
+
+	filter, err := logpoller.Where(
+		topicFilters,
+		logpoller.NewAddressFilter(e.address),
+		logpoller.NewEventSigFilter(e.hash),
+		logpoller.NewConfirmationsFilter(confs),
+	)
+	if err != nil {
+		return nil, wrapInternalErr(err)
+	}
+
+	// Gets the latest log that matches the filter and limiter.
+	logs, err := e.lp.FilteredLogs(ctx, filter, limiter, e.contractName+"-"+e.address.String()+"-"+e.eventName)
+	if err != nil {
+		return nil, wrapInternalErr(err)
+	}
+
+	if len(logs) == 0 {
+		return nil, fmt.Errorf("%w: no events found", commontypes.ErrNotFound)
+	}
+	return &logs[0], err
 }
 
 func (e *eventBinding) decodeLogsIntoSequences(ctx context.Context, logs []logpoller.Log, into any) ([]commontypes.Sequence, error) {
@@ -211,85 +277,8 @@ func (e *eventBinding) decodeLogsIntoSequences(ctx context.Context, logs []logpo
 	return sequences, nil
 }
 
-func (e *eventBinding) getLatestValue(ctx context.Context, confs evmtypes.Confirmations, params, into any) error {
-	topicTypeID := WrapItemType(e.contractName, e.eventName, true)
-	onChainTypedVal, err := e.toNativeOnChainType(topicTypeID, params)
-	if err != nil {
-		return fmt.Errorf("failed to convert params to native on chain types: %w", err)
-	}
-
-	filterTopics, err := e.extractFilterTopics(topicTypeID, onChainTypedVal)
-	if err != nil {
-		return err
-	}
-
-	hashedTopics, err := e.hashTopics(topicTypeID, filterTopics)
-	if err != nil {
-		return err
-	}
-
-	var log *logpoller.Log
-	if len(hashedTopics) != 0 {
-		if log, err = e.getLatestLog(ctx, confs, hashedTopics); err != nil {
-			return err
-		}
-	} else {
-		if log, err = e.lp.LatestLogByEventSigWithConfs(ctx, e.hash, e.address, confs); err != nil {
-			return wrapInternalErr(err)
-		}
-	}
-
-	return e.decodeLog(ctx, log, into)
-}
-
-func (e *eventBinding) getLatestLog(ctx context.Context, confs evmtypes.Confirmations, hashedTopics []common.Hash) (*logpoller.Log, error) {
-	// Create limiter and filter for the query.
-	limiter := query.NewLimitAndSort(query.CountLimit(1), query.NewSortBySequence(query.Desc))
-	topicFilters, err := createTopicFilters(hashedTopics)
-	if err != nil {
-		return nil, err
-	}
-
-	filter, err := logpoller.Where(
-		topicFilters,
-		logpoller.NewAddressFilter(e.address),
-		logpoller.NewEventSigFilter(e.hash),
-		logpoller.NewConfirmationsFilter(confs),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
-	}
-
-	// Gets the latest log that matches the filter and limiter.
-	logs, err := e.lp.FilteredLogs(ctx, filter, limiter, e.contractName+"-"+e.address.String()+"-"+e.eventName)
-	if err != nil {
-		return nil, wrapInternalErr(err)
-	}
-
-	if len(logs) == 0 {
-		return nil, fmt.Errorf("%w: no events found", commontypes.ErrNotFound)
-	}
-	return &logs[0], err
-}
-
-func createTopicFilters(hashedTopics []common.Hash) (query.Expression, error) {
-	var expressions []query.Expression
-	for topicID, hash := range hashedTopics {
-		// first topic index is 1-based, so we add 1.
-		expressions = append(expressions, logpoller.NewEventByTopicFilter(
-			uint64(topicID+1), []logpoller.HashedValueComparator{{Value: hash, Operator: primitives.Eq}},
-		))
-	}
-
-	if len(expressions) == 0 {
-		return query.Expression{}, fmt.Errorf("%w: no topic filters found during query creation", commontypes.ErrInternal)
-	}
-
-	return query.And(expressions...), nil
-}
-
 // extractFilterTopics extracts filter topics from input params and returns them as a slice of any.
-// returned slice will retain the order of the topics and fill in missing topics with nil.
+// returned slice will retain the order of the topics and fill in missing topics with nil, if all values are nil, empty slice is returned.
 func (e *eventBinding) extractFilterTopics(topicTypeID string, value any) (filterTopics []any, err error) {
 	item := reflect.ValueOf(value)
 	switch item.Kind() {
@@ -307,21 +296,16 @@ func (e *eventBinding) extractFilterTopics(topicTypeID string, value any) (filte
 		return nil, fmt.Errorf("%w: cannot encode kind %v", commontypes.ErrInvalidType, item.Kind())
 	}
 
-	return filterTopics, nil
-}
-
-func derefValues(topics []any) []any {
-	for i, topic := range topics {
-		rTopic := reflect.ValueOf(topic)
-		if rTopic.Kind() == reflect.Pointer {
-			if rTopic.IsNil() {
-				topics[i] = nil
-			} else {
-				topics[i] = rTopic.Elem().Interface()
-			}
+	noValues := true
+	for _, topic := range filterTopics {
+		if topic != nil {
+			noValues = false
 		}
 	}
-	return topics
+	if noValues {
+		return []any{}, nil
+	}
+	return filterTopics, nil
 }
 
 // hashTopics hashes topic filters values to match on chain indexed topics.
@@ -333,12 +317,12 @@ func (e *eventBinding) hashTopics(topicTypeID string, topics []any) ([]common.Ha
 		}
 
 		// make topic value for non-fixed bytes array manually because geth MakeTopics doesn't support it
-		eventTyp, exists := e.eventTypes[topicTypeID]
+		topicTyp, exists := e.eventTypes[topicTypeID]
 		if !exists {
 			return nil, fmt.Errorf("cannot find event type entry")
 		}
 
-		if abiArg := eventTyp.Args()[i]; abiArg.Type.T == abi.ArrayTy && (abiArg.Type.Elem != nil && abiArg.Type.Elem.T == abi.UintTy) {
+		if abiArg := topicTyp.Args()[i]; abiArg.Type.T == abi.ArrayTy && (abiArg.Type.Elem != nil && abiArg.Type.Elem.T == abi.UintTy) {
 			packed, err := abi.Arguments{abiArg}.Pack(topic)
 			if err != nil {
 				return nil, err
@@ -360,8 +344,6 @@ func (e *eventBinding) hashTopics(topicTypeID string, topics []any) ([]common.Ha
 
 	return hashes[0], nil
 }
-
-// derefValues dereferences pointers to nil values to nil.
 
 func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into any) error {
 	// decode non indexed topics and apply output modifiers
@@ -387,6 +369,7 @@ func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 	return mapstructureDecode(topicsInto, into)
 }
 
+// remap chain agnostic primitives to chain specific logPoller primitives.
 func (e *eventBinding) remap(filter query.KeyFilter) (remapped query.KeyFilter, err error) {
 	for _, expression := range filter.Expressions {
 		remappedExpression, err := e.remapExpression(filter.Key, expression)
@@ -422,7 +405,6 @@ func (e *eventBinding) remapExpression(key string, expression query.Expression) 
 	return e.remapPrimitive(expression)
 }
 
-// remap chain agnostic primitives to chain specific
 func (e *eventBinding) remapPrimitive(expression query.Expression) (query.Expression, error) {
 	switch primitive := expression.Primitive.(type) {
 	case *primitives.Comparator:
@@ -443,7 +425,7 @@ func (e *eventBinding) remapPrimitive(expression query.Expression) (query.Expres
 }
 
 func (e *eventBinding) encodeComparator(comparator *primitives.Comparator) (query.Expression, error) {
-	dwInfo, isDW := e.dataWordsInfo[comparator.Name]
+	dwInfo, isDW := e.dataWords[comparator.Name]
 	if !isDW {
 		if _, exists := e.topics[comparator.Name]; !exists {
 			return query.Expression{}, fmt.Errorf("comparator name doesn't match any of the indexed topics or data words")
@@ -460,7 +442,7 @@ func (e *eventBinding) encodeComparator(comparator *primitives.Comparator) (quer
 
 		hashedValComp := logpoller.HashedValueComparator{Operator: valComp.Operator}
 		if isDW {
-			hashedValComp.Value, err = e.encodeValComparatorDataWord(comparator.Name, onChainTypedVal)
+			hashedValComp.Value, err = e.encodeValComparatorDataWord(itemType, onChainTypedVal)
 		} else {
 			hashedValComp.Value, err = e.encodeValComparatorTopic(itemType, onChainTypedVal)
 		}
@@ -477,13 +459,13 @@ func (e *eventBinding) encodeComparator(comparator *primitives.Comparator) (quer
 	return logpoller.NewEventByTopicFilter(e.topics[comparator.Name].Index, hashedValComps), nil
 }
 
-func (e *eventBinding) encodeValComparatorDataWord(valCompName string, nativeType any) (hash common.Hash, err error) {
-	dwInfo, exists := e.dataWordsInfo[valCompName]
+func (e *eventBinding) encodeValComparatorDataWord(dwTypeID string, value any) (hash common.Hash, err error) {
+	dwTypes, exists := e.eventTypes[dwTypeID]
 	if !exists {
-		return common.Hash{}, fmt.Errorf("cannot find data word mapping for %s", valCompName)
+		return common.Hash{}, fmt.Errorf("cannot find data word type for %s", dwTypeID)
 	}
 
-	packedArgs, err := abi.Arguments{dwInfo.typ}.Pack(nativeType)
+	packedArgs, err := dwTypes.Args().Pack(value)
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -500,7 +482,7 @@ func (e *eventBinding) encodeValComparatorTopic(topicTypeID string, value any) (
 	return hashedTopics[0], nil
 }
 
-// toNativeOnChainType injects value into a type that matches onchain types.
+// toNativeOnChainType converts value into its on chain version by applying codec modifiers, map structure hooks and abi typing.
 func (e *eventBinding) toNativeOnChainType(itemType string, value any) (any, error) {
 	offChain, err := e.codec.CreateType(itemType, true)
 	if err != nil {
@@ -548,6 +530,37 @@ func (e *eventBinding) validateBound() error {
 		)
 	}
 	return nil
+}
+
+func createTopicFilters(hashedTopics []common.Hash) (query.Expression, error) {
+	var expressions []query.Expression
+	for topicID, hash := range hashedTopics {
+		// first topic index is 1-based, so we add 1.
+		expressions = append(expressions, logpoller.NewEventByTopicFilter(
+			uint64(topicID+1), []logpoller.HashedValueComparator{{Value: hash, Operator: primitives.Eq}},
+		))
+	}
+
+	if len(expressions) == 0 {
+		return query.Expression{}, fmt.Errorf("%w: no topic filters found during query creation", commontypes.ErrInternal)
+	}
+
+	return query.And(expressions...), nil
+}
+
+// derefValues dereferences pointers to nil values to nil.
+func derefValues(topics []any) []any {
+	for i, topic := range topics {
+		rTopic := reflect.ValueOf(topic)
+		if rTopic.Kind() == reflect.Pointer {
+			if rTopic.IsNil() {
+				topics[i] = nil
+			} else {
+				topics[i] = rTopic.Elem().Interface()
+			}
+		}
+	}
+	return topics
 }
 
 func wrapInternalErr(err error) error {

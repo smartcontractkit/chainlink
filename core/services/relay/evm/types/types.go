@@ -99,13 +99,10 @@ type ChainReaderDefinition chainReaderDefinitionFields
 type EventDefinitions struct {
 	// GenericTopicNames helps QueryingKeys not rely on EVM specific topic names. Key is chain specific name, value is generic name.
 	// This helps us translate chain agnostic querying key "transfer-value" to EVM specific "evmTransferEvent-weiAmountTopic".
-	// GenericTopicNames requires InputFields to be defined for every generic topic mapping.
 	GenericTopicNames map[string]string `json:"genericTopicNames,omitempty"`
-	// key is a predefined generic name for evm log event data word and maps to data word indexes that should start from 0.
-	// for e.g. first evm data word(32bytes) of USDC log event is value so the key can be called value
-	GenericDataWordNames map[string]DataWordDef `json:"genericDataWordNames,omitempty"`
-	// Deprecated: not needed anymore
-	InputFields []string `json:"inputFields,omitempty"`
+	// GenericDataWordDefs key is generic name for evm log event data word that maps to on chain name and data word indexes that should start from 0.
+	// For e.g. first evm data word(32bytes) of USDC log event is value so the key can be called value.
+	GenericDataWordDefs map[string]DataWordDef `json:"genericDataWordDefs,omitempty"`
 	// PollingFilter should be defined on a contract level in ContractPollingFilter,
 	// unless event needs to override the contract level filter options.
 	// This will create a separate log poller filter for this event.
