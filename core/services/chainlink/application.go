@@ -442,7 +442,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				loopRegistrarConfig,
 				telemetryManager,
 				pipelineRunner,
-				opts.RelayerChainInteroperators),
+				opts.RelayerChainInteroperators,
+				keyStore.OCR2(),
+			),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)

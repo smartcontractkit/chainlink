@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -34,15 +36,20 @@ type Delegate struct {
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	pipelineRunner        pipeline.Runner
 	relayers              RelayGetter
+	ocrKs                 keystore.OCR2
 
 	isNewlyCreatedJob bool
 }
 
 func NewDelegate(logger logger.Logger, ds sqlutil.DataSource, jobORM job.ORM, registry core.CapabilitiesRegistry,
 	cfg plugins.RegistrarConfig, monitoringEndpointGen telemetry.MonitoringEndpointGenerator, pipelineRunner pipeline.Runner,
-	relayers RelayGetter) *Delegate {
+	relayers RelayGetter,
+	ocrKs keystore.OCR2,
+) *Delegate {
 	return &Delegate{logger: logger, ds: ds, jobORM: jobORM, registry: registry, cfg: cfg, monitoringEndpointGen: monitoringEndpointGen, pipelineRunner: pipelineRunner,
-		relayers: relayers, isNewlyCreatedJob: false}
+		relayers: relayers, isNewlyCreatedJob: false,
+		ocrKs: ocrKs,
+	}
 }
 
 func (d *Delegate) JobType() job.Type {
@@ -67,11 +74,27 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return nil, fmt.Errorf("failed to create relayer set: %w", err)
 	}
 
-	oracleFactory, err := generic.NewOracleFactory()
+	keyBundles, err := d.ocrKs.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	if len(keyBundles) > 1 {
+		return nil, fmt.Errorf("expected only one OCR key bundle, but found found: %s", len(keyBundles))
+	}
+
+	// KeyBundle - figure out if we create one on startup.
+	// COuld we KeyBundles.getAll() and then use the first one?
+	oracleFactory, err := generic.NewOracleFactory(generic.OracleFactoryParams{
+		Logger:   log,
+		JobORM:   d.jobORM,
+		JobID:    spec.ID,
+		JobName:  spec.Name.ValueOrZero(),
+		Database: ocr2.NewDB(d.ds, spec.ID, 0, log),
+		Kb:       keyBundles[0],
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create oracle factory: %w", err)
 	}
-
 	standardCapability := newStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
 		pr, relayerSet, oracleFactory)
 
