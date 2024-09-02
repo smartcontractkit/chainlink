@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-
 import {BaseSequencerUptimeFeed} from "../shared/BaseSequencerUptimeFeed.sol";
 
 import {IL2CrossDomainMessenger} from "@eth-optimism/contracts/L2/messaging/IL2CrossDomainMessenger.sol";
@@ -12,7 +10,7 @@ import {IL2CrossDomainMessenger} from "@eth-optimism/contracts/L2/messaging/IL2C
  * @notice L2 contract that receives status updates from a specific L1 address,
  *  records a new answer if the status changed
  */
-contract OptimismSequencerUptimeFeed is ITypeAndVersion, BaseSequencerUptimeFeed {
+contract OptimismSequencerUptimeFeed is BaseSequencerUptimeFeed {
   string public constant override typeAndVersion = "OptimismSequencerUptimeFeed 1.1.0-dev";
 
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i

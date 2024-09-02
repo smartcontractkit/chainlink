@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterface.sol";
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
@@ -11,7 +12,12 @@ import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAcces
 /// @title L2 sequencer uptime status aggregator
 /// @notice L2 contract that receives status updates from a specific L1 address,
 ///  records a new answer if the status changed
-abstract contract BaseSequencerUptimeFeed is AggregatorV2V3Interface, ISequencerUptimeFeed, SimpleReadAccessController {
+abstract contract BaseSequencerUptimeFeed is
+  ITypeAndVersion,
+  AggregatorV2V3Interface,
+  ISequencerUptimeFeed,
+  SimpleReadAccessController
+{
   /// @dev Round info for uptime history
   struct Round {
     uint64 startedAt; // ─╮ The timestamp at which the round started

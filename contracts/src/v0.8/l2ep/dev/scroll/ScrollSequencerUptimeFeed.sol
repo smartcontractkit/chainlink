@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-
 import {BaseSequencerUptimeFeed} from "../shared/BaseSequencerUptimeFeed.sol";
 
 import {IL2ScrollMessenger} from "@scroll-tech/contracts/L2/IL2ScrollMessenger.sol";
 
 /// @title ScrollSequencerUptimeFeed - L2 sequencer uptime status aggregator
 /// @notice L2 contract that receives status updates, and records a new answer if the status changed
-contract ScrollSequencerUptimeFeed is ITypeAndVersion, BaseSequencerUptimeFeed {
+contract ScrollSequencerUptimeFeed is BaseSequencerUptimeFeed {
   error ZeroAddress();
 
   string public constant override typeAndVersion = "ScrollSequencerUptimeFeed 1.1.0-dev";

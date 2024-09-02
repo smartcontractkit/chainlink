@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-import {AddressAliasHelper} from "@zksync/contracts/l2-contracts/contracts/vendor/AddressAliasHelper.sol";
 import {BaseSequencerUptimeFeed} from "../shared/BaseSequencerUptimeFeed.sol";
+
+import {AddressAliasHelper} from "@zksync/contracts/l2-contracts/contracts/vendor/AddressAliasHelper.sol";
 
 /// @title ZKSyncSequencerUptimeFeed - L2 sequencer uptime status aggregator
 /// @notice L2 contract that receives status updates from a specific L1 address,
 ///  records a new answer if the status changed
-contract ZKSyncSequencerUptimeFeed is ITypeAndVersion, BaseSequencerUptimeFeed {
+contract ZKSyncSequencerUptimeFeed is BaseSequencerUptimeFeed {
   string public constant override typeAndVersion = "ZKSyncSequencerUptimeFeed 1.1.0-dev";
 
   /// @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
