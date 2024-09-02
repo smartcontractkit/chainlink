@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
@@ -115,7 +116,7 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 		)
 		require.NoError(t, err)
 		return len(reports) == numReports-1
-	}, 10*time.Second, 50*time.Millisecond)
+	}, tests.WaitTimeout(t), 50*time.Millisecond)
 
 	assert.Len(t, reports[0].Report.MerkleRoots, 1)
 	assert.Equal(t, chainS1, reports[0].Report.MerkleRoots[0].ChainSel)
@@ -268,7 +269,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 		)
 		require.NoError(t, err)
 		return len(msgs) == 2
-	}, 10*time.Second, 100*time.Millisecond)
+	}, tests.WaitTimeout(t), 100*time.Millisecond)
 
 	require.Len(t, msgs, 2)
 	// sort to ensure ascending order of sequence numbers.

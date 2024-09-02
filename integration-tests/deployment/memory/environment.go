@@ -39,7 +39,7 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 			Selector:    sel,
 			Client:      chain.Backend,
 			DeployerKey: chain.DeployerKey,
-			Confirm: func(tx common.Hash) error {
+			Confirm: func(tx common.Hash) (uint64, error) {
 				for {
 					chain.Backend.Commit()
 					receipt, err := chain.Backend.TransactionReceipt(context.Background(), tx)
@@ -50,7 +50,7 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 					if receipt.Status == 0 {
 						t.Logf("Status (reverted) %d for txhash %s\n", receipt.Status, tx.String())
 					}
-					return nil
+					return receipt.BlockNumber.Uint64(), nil
 				}
 			},
 		}
@@ -71,15 +71,18 @@ func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment
 		}
 	}
 	nodesByPeerID := make(map[string]Node)
-	ports := freeport.GetN(t, numNodes)
-	var existingNumBootstraps int
+	ports := freeport.GetN(t, numBootstraps+numNodes)
+	// bootstrap nodes must be separate nodes from plugin nodes,
+	// since we won't run a bootstrapper and a plugin oracle on the same
+	// chainlink node in production.
+	for i := 0; i < numBootstraps; i++ {
+		node := NewNode(t, ports[i], mchains, logLevel, true /* bootstrap */, registryConfig)
+		nodesByPeerID[node.Keys.PeerID.String()] = *node
+		// Note in real env, this ID is allocated by JD.
+	}
 	for i := 0; i < numNodes; i++ {
-		bootstrap := false
-		if existingNumBootstraps < numBootstraps {
-			bootstrap = true
-			existingNumBootstraps++
-		}
-		node := NewNode(t, ports[i], mchains, logLevel, bootstrap, registryConfig)
+		// grab port offset by numBootstraps, since above loop also takes some ports.
+		node := NewNode(t, ports[numBootstraps+i], mchains, logLevel, false /* bootstrap */, registryConfig)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
