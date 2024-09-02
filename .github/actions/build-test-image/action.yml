@@ -95,7 +95,7 @@ runs:
       # Do not include testconfig/ in the hash to avoid rebuilding the image when only testconfig/ changes
       shell: sh
       run: |
-        HASH_VALUE=$(echo ${{ hashFiles('integration-tests/**', '!integration-tests/testconfig/**') }})
+        HASH_VALUE=$(find integration-tests -type f ! -path 'integration-tests/testconfig/*/*.toml' ! -path 'integration-tests/*/__debug_bin*' -exec sha256sum {} + | sort -k 2 | sha256sum | awk '{print $1}')
         echo "Computed hash: $HASH_VALUE"
         echo "hash_value=$HASH_VALUE" >> $GITHUB_OUTPUT
 
