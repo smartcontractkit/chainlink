@@ -29,7 +29,7 @@ contract OptimismSequencerUptimeFeed is BaseSequencerUptimeFeed {
     s_l2CrossDomainMessenger = IL2CrossDomainMessenger(l2CrossDomainMessengerAddr);
   }
 
-  function _validateSender(address l1Sender) internal override {
+  function _validateSender(address l1Sender) internal view override {
     if (
       msg.sender != address(s_l2CrossDomainMessenger) || s_l2CrossDomainMessenger.xDomainMessageSender() != l1Sender
     ) {
