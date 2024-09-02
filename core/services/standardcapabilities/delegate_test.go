@@ -78,6 +78,7 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 
 			[oracleFactory]
 			enabled=true
+			traceLogging=true
 			bootstrapPeers = [
 				"12D3KooWEBVwbfdhKnicois7FTYVsBFGFcoMhMCKXQC57BQyZMhz@localhost:6690"
 			]
@@ -85,7 +86,8 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 			expectedSpec: &job.StandardCapabilitiesSpec{
 				Command: "path/to/binary",
 				OracleFactory: job.JSONConfig{
-					"enabled": true,
+					"enabled":      true,
+					"traceLogging": true,
 					"bootstrapPeers": []interface{}{
 						"12D3KooWEBVwbfdhKnicois7FTYVsBFGFcoMhMCKXQC57BQyZMhz@localhost:6690",
 					},

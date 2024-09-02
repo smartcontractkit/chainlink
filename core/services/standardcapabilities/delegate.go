@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -37,6 +38,7 @@ type Delegate struct {
 	pipelineRunner        pipeline.Runner
 	relayers              RelayGetter
 	ocrKs                 keystore.OCR2
+	peerWrapper           *ocrcommon.SingletonPeerWrapper
 
 	isNewlyCreatedJob bool
 }
@@ -45,10 +47,12 @@ func NewDelegate(logger logger.Logger, ds sqlutil.DataSource, jobORM job.ORM, re
 	cfg plugins.RegistrarConfig, monitoringEndpointGen telemetry.MonitoringEndpointGenerator, pipelineRunner pipeline.Runner,
 	relayers RelayGetter,
 	ocrKs keystore.OCR2,
+	peerWrapper *ocrcommon.SingletonPeerWrapper,
 ) *Delegate {
 	return &Delegate{logger: logger, ds: ds, jobORM: jobORM, registry: registry, cfg: cfg, monitoringEndpointGen: monitoringEndpointGen, pipelineRunner: pipelineRunner,
 		relayers: relayers, isNewlyCreatedJob: false,
-		ocrKs: ocrKs,
+		ocrKs:       ocrKs,
+		peerWrapper: peerWrapper,
 	}
 }
 
@@ -87,16 +91,19 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return nil, errors.Wrap(err, "failed to unmarshal oracle factory config")
 	}
 
-	// KeyBundle - figure out if we create one on startup.
-	// COuld we KeyBundles.getAll() and then use the first one?
+	if oracleFactoryConfig.Enabled && d.peerWrapper == nil {
+		return nil, errors.New("P2P stack required for Oracle Factory")
+	}
+
 	oracleFactory, err := generic.NewOracleFactory(generic.OracleFactoryParams{
-		Logger:   log,
-		JobORM:   d.jobORM,
-		JobID:    spec.ID,
-		JobName:  spec.Name.ValueOrZero(),
-		Database: ocr2.NewDB(d.ds, spec.ID, 0, log),
-		Kb:       keyBundles[0],
-		Config:   oracleFactoryConfig,
+		Logger:      log,
+		JobORM:      d.jobORM,
+		JobID:       spec.ID,
+		JobName:     spec.Name.ValueOrZero(),
+		Database:    ocr2.NewDB(d.ds, spec.ID, 0, log),
+		Kb:          keyBundles[0],
+		Config:      oracleFactoryConfig,
+		PeerWrapper: d.peerWrapper,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create oracle factory: %w", err)

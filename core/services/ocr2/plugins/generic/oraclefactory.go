@@ -22,12 +22,14 @@ import (
 
 type oracleFactoryConfig struct {
 	Enabled        bool
+	TraceLogging   bool
 	BootstrapPeers []commontypes.BootstrapperLocator
 }
 
 func NewOracleFactoryConfig(config job.JSONConfig) (*oracleFactoryConfig, error) {
 	var ofc struct {
 		Enabled        bool     `json:"enabled"`
+		TraceLogging   bool     `json:"traceLogging"`
 		BootstrapPeers []string `json:"bootstrapPeers"`
 	}
 	err := json.Unmarshal(config.Bytes(), &ofc)
@@ -51,60 +53,60 @@ func NewOracleFactoryConfig(config job.JSONConfig) (*oracleFactoryConfig, error)
 
 	return &oracleFactoryConfig{
 		Enabled:        true,
+		TraceLogging:   ofc.TraceLogging,
 		BootstrapPeers: bootstrapPeers,
 	}, nil
 }
 
 type oracleFactory struct {
-	database ocr3types.Database
-	jobID    int32
-	jobName  string
-	jobORM   job.ORM
-	kb       ocr2key.KeyBundle
-	lggr     logger.Logger
-	config   *oracleFactoryConfig
+	database    ocr3types.Database
+	jobID       int32
+	jobName     string
+	jobORM      job.ORM
+	kb          ocr2key.KeyBundle
+	lggr        logger.Logger
+	config      *oracleFactoryConfig
+	peerWrapper *ocrcommon.SingletonPeerWrapper
 }
 
 type OracleFactoryParams struct {
-	Database ocr3types.Database
-	JobID    int32
-	JobName  string
-	JobORM   job.ORM
-	Kb       ocr2key.KeyBundle
-	Logger   logger.Logger
-	Config   *oracleFactoryConfig
+	Database    ocr3types.Database
+	JobID       int32
+	JobName     string
+	JobORM      job.ORM
+	Kb          ocr2key.KeyBundle
+	Logger      logger.Logger
+	Config      *oracleFactoryConfig
+	PeerWrapper *ocrcommon.SingletonPeerWrapper
 }
 
 func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 	return &oracleFactory{
-		database: params.Database,
-		jobID:    params.JobID,
-		jobName:  params.JobName,
-		jobORM:   params.JobORM,
-		kb:       params.Kb,
-		lggr:     params.Logger,
-		config:   params.Config,
+		database:    params.Database,
+		jobID:       params.JobID,
+		jobName:     params.JobName,
+		jobORM:      params.JobORM,
+		kb:          params.Kb,
+		lggr:        params.Logger,
+		config:      params.Config,
+		peerWrapper: params.PeerWrapper,
 	}, nil
 }
 
 func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (core.Oracle, error) {
-	// Could come from the capability spec config. Unsure about this as it feels wrong to expose implementation details of OCR config to the capability spec.
-	traceLogging := false
-	ocrLogger := ocrcommon.NewOCRWrapper(of.lggr, traceLogging, func(ctx context.Context, msg string) {
-		logger.Sugared(of.lggr).ErrorIf(of.jobORM.RecordError(ctx, of.jobID, msg), "unable to record error")
-	})
-
-	// create the oracle from config values
 	oracle, err := ocr.NewOracle(ocr.OCR3OracleArgs[[]byte]{
-		LocalConfig:            args.LocalConfig,
-		ContractConfigTracker:  args.ContractConfigTracker,
-		ContractTransmitter:    args.ContractTransmitter,
-		OffchainConfigDigester: args.OffchainConfigDigester,
-		ReportingPluginFactory: args.ReportingPluginFactoryService,
-		// BinaryNetworkEndpointFactory: d.cfg.BinaryNetworkEndpointFactory,
-		V2Bootstrappers:    of.config.BootstrapPeers,
-		Database:           of.database,
-		Logger:             ocrLogger,
+		LocalConfig:                  args.LocalConfig,
+		ContractConfigTracker:        args.ContractConfigTracker,
+		ContractTransmitter:          args.ContractTransmitter,
+		OffchainConfigDigester:       args.OffchainConfigDigester,
+		ReportingPluginFactory:       args.ReportingPluginFactoryService,
+		BinaryNetworkEndpointFactory: of.peerWrapper.Peer2,
+		V2Bootstrappers:              of.config.BootstrapPeers,
+		Database:                     of.database,
+		Logger: ocrcommon.NewOCRWrapper(of.lggr, of.config.TraceLogging, func(ctx context.Context, msg string) {
+			logger.Sugared(of.lggr).ErrorIf(of.jobORM.RecordError(ctx, of.jobID, msg), "unable to record error")
+		}),
+		// TODO?
 		MonitoringEndpoint: &telemetry.NoopAgent{},
 		OffchainKeyring:    of.kb,
 		OnchainKeyring:     ocrcommon.NewOCR3OnchainKeyringAdapter(of.kb),

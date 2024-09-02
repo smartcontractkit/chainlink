@@ -438,16 +438,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineRunner,
 				cfg.JobPipeline(),
 			),
-			job.StandardCapabilities: standardcapabilities.NewDelegate(
-				globalLogger,
-				opts.DS, jobORM,
-				opts.CapabilitiesRegistry,
-				loopRegistrarConfig,
-				telemetryManager,
-				pipelineRunner,
-				opts.RelayerChainInteroperators,
-				keyStore.OCR2(),
-			),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
@@ -486,6 +476,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	} else {
 		return nil, fmt.Errorf("P2P stack required for OCR or OCR2")
 	}
+
+	delegates[job.StandardCapabilities] = standardcapabilities.NewDelegate(
+		globalLogger,
+		opts.DS, jobORM,
+		opts.CapabilitiesRegistry,
+		loopRegistrarConfig,
+		telemetryManager,
+		pipelineRunner,
+		opts.RelayerChainInteroperators,
+		keyStore.OCR2(),
+		peerWrapper,
+	)
 
 	if cfg.OCR().Enabled() {
 		delegates[job.OffchainReporting] = ocr.NewDelegate(
