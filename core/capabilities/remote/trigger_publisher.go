@@ -2,7 +2,7 @@ package remote
 
 import (
 	"context"
-	sync "sync"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"

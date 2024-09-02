@@ -3,8 +3,6 @@
 package mock_contracts
 
 import (
-	big "math/big"
-
 	bind "github.com/ethereum/go-ethereum/accounts/abi/bind"
 	common "github.com/ethereum/go-ethereum/common"
 
@@ -240,9 +238,9 @@ func (_c *EVM2EVMOffRampInterface_CurrentRateLimiterState_Call) RunAndReturn(run
 	return _c
 }
 
-// ExecuteSingleMessage provides a mock function with given fields: opts, message, offchainTokenData
-func (_m *EVM2EVMOffRampInterface) ExecuteSingleMessage(opts *bind.TransactOpts, message evm_2_evm_offramp.InternalEVM2EVMMessage, offchainTokenData [][]byte) (*types.Transaction, error) {
-	ret := _m.Called(opts, message, offchainTokenData)
+// ExecuteSingleMessage provides a mock function with given fields: opts, message, offchainTokenData, tokenGasOverrides
+func (_m *EVM2EVMOffRampInterface) ExecuteSingleMessage(opts *bind.TransactOpts, message evm_2_evm_offramp.InternalEVM2EVMMessage, offchainTokenData [][]byte, tokenGasOverrides []uint32) (*types.Transaction, error) {
+	ret := _m.Called(opts, message, offchainTokenData, tokenGasOverrides)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ExecuteSingleMessage")
@@ -250,19 +248,19 @@ func (_m *EVM2EVMOffRampInterface) ExecuteSingleMessage(opts *bind.TransactOpts,
 
 	var r0 *types.Transaction
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalEVM2EVMMessage, [][]byte) (*types.Transaction, error)); ok {
-		return rf(opts, message, offchainTokenData)
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalEVM2EVMMessage, [][]byte, []uint32) (*types.Transaction, error)); ok {
+		return rf(opts, message, offchainTokenData, tokenGasOverrides)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalEVM2EVMMessage, [][]byte) *types.Transaction); ok {
-		r0 = rf(opts, message, offchainTokenData)
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalEVM2EVMMessage, [][]byte, []uint32) *types.Transaction); ok {
+		r0 = rf(opts, message, offchainTokenData, tokenGasOverrides)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Transaction)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalEVM2EVMMessage, [][]byte) error); ok {
-		r1 = rf(opts, message, offchainTokenData)
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalEVM2EVMMessage, [][]byte, []uint32) error); ok {
+		r1 = rf(opts, message, offchainTokenData, tokenGasOverrides)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -279,13 +277,14 @@ type EVM2EVMOffRampInterface_ExecuteSingleMessage_Call struct {
 //   - opts *bind.TransactOpts
 //   - message evm_2_evm_offramp.InternalEVM2EVMMessage
 //   - offchainTokenData [][]byte
-func (_e *EVM2EVMOffRampInterface_Expecter) ExecuteSingleMessage(opts interface{}, message interface{}, offchainTokenData interface{}) *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call {
-	return &EVM2EVMOffRampInterface_ExecuteSingleMessage_Call{Call: _e.mock.On("ExecuteSingleMessage", opts, message, offchainTokenData)}
+//   - tokenGasOverrides []uint32
+func (_e *EVM2EVMOffRampInterface_Expecter) ExecuteSingleMessage(opts interface{}, message interface{}, offchainTokenData interface{}, tokenGasOverrides interface{}) *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call {
+	return &EVM2EVMOffRampInterface_ExecuteSingleMessage_Call{Call: _e.mock.On("ExecuteSingleMessage", opts, message, offchainTokenData, tokenGasOverrides)}
 }
 
-func (_c *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call) Run(run func(opts *bind.TransactOpts, message evm_2_evm_offramp.InternalEVM2EVMMessage, offchainTokenData [][]byte)) *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call {
+func (_c *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call) Run(run func(opts *bind.TransactOpts, message evm_2_evm_offramp.InternalEVM2EVMMessage, offchainTokenData [][]byte, tokenGasOverrides []uint32)) *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.TransactOpts), args[1].(evm_2_evm_offramp.InternalEVM2EVMMessage), args[2].([][]byte))
+		run(args[0].(*bind.TransactOpts), args[1].(evm_2_evm_offramp.InternalEVM2EVMMessage), args[2].([][]byte), args[3].([]uint32))
 	})
 	return _c
 }
@@ -295,7 +294,7 @@ func (_c *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call) Return(_a0 *types.T
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call) RunAndReturn(run func(*bind.TransactOpts, evm_2_evm_offramp.InternalEVM2EVMMessage, [][]byte) (*types.Transaction, error)) *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call {
+func (_c *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call) RunAndReturn(run func(*bind.TransactOpts, evm_2_evm_offramp.InternalEVM2EVMMessage, [][]byte, []uint32) (*types.Transaction, error)) *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -354,6 +353,64 @@ func (_c *EVM2EVMOffRampInterface_FilterAdminSet_Call) Return(_a0 *evm_2_evm_off
 }
 
 func (_c *EVM2EVMOffRampInterface_FilterAdminSet_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampAdminSetIterator, error)) *EVM2EVMOffRampInterface_FilterAdminSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// FilterAlreadyAttempted provides a mock function with given fields: opts
+func (_m *EVM2EVMOffRampInterface) FilterAlreadyAttempted(opts *bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttemptedIterator, error) {
+	ret := _m.Called(opts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FilterAlreadyAttempted")
+	}
+
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttemptedIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttemptedIterator, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttemptedIterator); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttemptedIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// EVM2EVMOffRampInterface_FilterAlreadyAttempted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterAlreadyAttempted'
+type EVM2EVMOffRampInterface_FilterAlreadyAttempted_Call struct {
+	*mock.Call
+}
+
+// FilterAlreadyAttempted is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+func (_e *EVM2EVMOffRampInterface_Expecter) FilterAlreadyAttempted(opts interface{}) *EVM2EVMOffRampInterface_FilterAlreadyAttempted_Call {
+	return &EVM2EVMOffRampInterface_FilterAlreadyAttempted_Call{Call: _e.mock.On("FilterAlreadyAttempted", opts)}
+}
+
+func (_c *EVM2EVMOffRampInterface_FilterAlreadyAttempted_Call) Run(run func(opts *bind.FilterOpts)) *EVM2EVMOffRampInterface_FilterAlreadyAttempted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOffRampInterface_FilterAlreadyAttempted_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttemptedIterator, _a1 error) *EVM2EVMOffRampInterface_FilterAlreadyAttempted_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOffRampInterface_FilterAlreadyAttempted_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttemptedIterator, error)) *EVM2EVMOffRampInterface_FilterAlreadyAttempted_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1634,7 +1691,7 @@ func (_c *EVM2EVMOffRampInterface_LatestConfigDigestAndEpoch_Call) RunAndReturn(
 }
 
 // ManuallyExecute provides a mock function with given fields: opts, report, gasLimitOverrides
-func (_m *EVM2EVMOffRampInterface) ManuallyExecute(opts *bind.TransactOpts, report evm_2_evm_offramp.InternalExecutionReport, gasLimitOverrides []*big.Int) (*types.Transaction, error) {
+func (_m *EVM2EVMOffRampInterface) ManuallyExecute(opts *bind.TransactOpts, report evm_2_evm_offramp.InternalExecutionReport, gasLimitOverrides []evm_2_evm_offramp.EVM2EVMOffRampGasLimitOverride) (*types.Transaction, error) {
 	ret := _m.Called(opts, report, gasLimitOverrides)
 
 	if len(ret) == 0 {
@@ -1643,10 +1700,10 @@ func (_m *EVM2EVMOffRampInterface) ManuallyExecute(opts *bind.TransactOpts, repo
 
 	var r0 *types.Transaction
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalExecutionReport, []*big.Int) (*types.Transaction, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalExecutionReport, []evm_2_evm_offramp.EVM2EVMOffRampGasLimitOverride) (*types.Transaction, error)); ok {
 		return rf(opts, report, gasLimitOverrides)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalExecutionReport, []*big.Int) *types.Transaction); ok {
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalExecutionReport, []evm_2_evm_offramp.EVM2EVMOffRampGasLimitOverride) *types.Transaction); ok {
 		r0 = rf(opts, report, gasLimitOverrides)
 	} else {
 		if ret.Get(0) != nil {
@@ -1654,7 +1711,7 @@ func (_m *EVM2EVMOffRampInterface) ManuallyExecute(opts *bind.TransactOpts, repo
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalExecutionReport, []*big.Int) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalExecutionReport, []evm_2_evm_offramp.EVM2EVMOffRampGasLimitOverride) error); ok {
 		r1 = rf(opts, report, gasLimitOverrides)
 	} else {
 		r1 = ret.Error(1)
@@ -1671,14 +1728,14 @@ type EVM2EVMOffRampInterface_ManuallyExecute_Call struct {
 // ManuallyExecute is a helper method to define mock.On call
 //   - opts *bind.TransactOpts
 //   - report evm_2_evm_offramp.InternalExecutionReport
-//   - gasLimitOverrides []*big.Int
+//   - gasLimitOverrides []evm_2_evm_offramp.EVM2EVMOffRampGasLimitOverride
 func (_e *EVM2EVMOffRampInterface_Expecter) ManuallyExecute(opts interface{}, report interface{}, gasLimitOverrides interface{}) *EVM2EVMOffRampInterface_ManuallyExecute_Call {
 	return &EVM2EVMOffRampInterface_ManuallyExecute_Call{Call: _e.mock.On("ManuallyExecute", opts, report, gasLimitOverrides)}
 }
 
-func (_c *EVM2EVMOffRampInterface_ManuallyExecute_Call) Run(run func(opts *bind.TransactOpts, report evm_2_evm_offramp.InternalExecutionReport, gasLimitOverrides []*big.Int)) *EVM2EVMOffRampInterface_ManuallyExecute_Call {
+func (_c *EVM2EVMOffRampInterface_ManuallyExecute_Call) Run(run func(opts *bind.TransactOpts, report evm_2_evm_offramp.InternalExecutionReport, gasLimitOverrides []evm_2_evm_offramp.EVM2EVMOffRampGasLimitOverride)) *EVM2EVMOffRampInterface_ManuallyExecute_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.TransactOpts), args[1].(evm_2_evm_offramp.InternalExecutionReport), args[2].([]*big.Int))
+		run(args[0].(*bind.TransactOpts), args[1].(evm_2_evm_offramp.InternalExecutionReport), args[2].([]evm_2_evm_offramp.EVM2EVMOffRampGasLimitOverride))
 	})
 	return _c
 }
@@ -1688,7 +1745,7 @@ func (_c *EVM2EVMOffRampInterface_ManuallyExecute_Call) Return(_a0 *types.Transa
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ManuallyExecute_Call) RunAndReturn(run func(*bind.TransactOpts, evm_2_evm_offramp.InternalExecutionReport, []*big.Int) (*types.Transaction, error)) *EVM2EVMOffRampInterface_ManuallyExecute_Call {
+func (_c *EVM2EVMOffRampInterface_ManuallyExecute_Call) RunAndReturn(run func(*bind.TransactOpts, evm_2_evm_offramp.InternalExecutionReport, []evm_2_evm_offramp.EVM2EVMOffRampGasLimitOverride) (*types.Transaction, error)) *EVM2EVMOffRampInterface_ManuallyExecute_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1805,6 +1862,64 @@ func (_c *EVM2EVMOffRampInterface_ParseAdminSet_Call) Return(_a0 *evm_2_evm_offr
 }
 
 func (_c *EVM2EVMOffRampInterface_ParseAdminSet_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampAdminSet, error)) *EVM2EVMOffRampInterface_ParseAdminSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ParseAlreadyAttempted provides a mock function with given fields: log
+func (_m *EVM2EVMOffRampInterface) ParseAlreadyAttempted(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttempted, error) {
+	ret := _m.Called(log)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ParseAlreadyAttempted")
+	}
+
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttempted
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttempted, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttempted); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttempted)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// EVM2EVMOffRampInterface_ParseAlreadyAttempted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseAlreadyAttempted'
+type EVM2EVMOffRampInterface_ParseAlreadyAttempted_Call struct {
+	*mock.Call
+}
+
+// ParseAlreadyAttempted is a helper method to define mock.On call
+//   - log types.Log
+func (_e *EVM2EVMOffRampInterface_Expecter) ParseAlreadyAttempted(log interface{}) *EVM2EVMOffRampInterface_ParseAlreadyAttempted_Call {
+	return &EVM2EVMOffRampInterface_ParseAlreadyAttempted_Call{Call: _e.mock.On("ParseAlreadyAttempted", log)}
+}
+
+func (_c *EVM2EVMOffRampInterface_ParseAlreadyAttempted_Call) Run(run func(log types.Log)) *EVM2EVMOffRampInterface_ParseAlreadyAttempted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOffRampInterface_ParseAlreadyAttempted_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttempted, _a1 error) *EVM2EVMOffRampInterface_ParseAlreadyAttempted_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOffRampInterface_ParseAlreadyAttempted_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttempted, error)) *EVM2EVMOffRampInterface_ParseAlreadyAttempted_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -3096,6 +3211,65 @@ func (_c *EVM2EVMOffRampInterface_WatchAdminSet_Call) Return(_a0 event.Subscript
 }
 
 func (_c *EVM2EVMOffRampInterface_WatchAdminSet_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampAdminSet) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchAdminSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// WatchAlreadyAttempted provides a mock function with given fields: opts, sink
+func (_m *EVM2EVMOffRampInterface) WatchAlreadyAttempted(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttempted) (event.Subscription, error) {
+	ret := _m.Called(opts, sink)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WatchAlreadyAttempted")
+	}
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttempted) (event.Subscription, error)); ok {
+		return rf(opts, sink)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttempted) event.Subscription); ok {
+		r0 = rf(opts, sink)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttempted) error); ok {
+		r1 = rf(opts, sink)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// EVM2EVMOffRampInterface_WatchAlreadyAttempted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchAlreadyAttempted'
+type EVM2EVMOffRampInterface_WatchAlreadyAttempted_Call struct {
+	*mock.Call
+}
+
+// WatchAlreadyAttempted is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttempted
+func (_e *EVM2EVMOffRampInterface_Expecter) WatchAlreadyAttempted(opts interface{}, sink interface{}) *EVM2EVMOffRampInterface_WatchAlreadyAttempted_Call {
+	return &EVM2EVMOffRampInterface_WatchAlreadyAttempted_Call{Call: _e.mock.On("WatchAlreadyAttempted", opts, sink)}
+}
+
+func (_c *EVM2EVMOffRampInterface_WatchAlreadyAttempted_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttempted)) *EVM2EVMOffRampInterface_WatchAlreadyAttempted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttempted))
+	})
+	return _c
+}
+
+func (_c *EVM2EVMOffRampInterface_WatchAlreadyAttempted_Call) Return(_a0 event.Subscription, _a1 error) *EVM2EVMOffRampInterface_WatchAlreadyAttempted_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *EVM2EVMOffRampInterface_WatchAlreadyAttempted_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampAlreadyAttempted) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchAlreadyAttempted_Call {
 	_c.Call.Return(run)
 	return _c
 }
