@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.9;
 
 import {IBridgehub, L2TransactionRequestDirect, L2TransactionRequestTwoBridgesOuter} from "@zksync/contracts/l1-contracts/contracts/bridgehub/IBridgehub.sol";
 import {IL1SharedBridge} from "@zksync/contracts/l1-contracts/contracts/bridge/interfaces/IL1SharedBridge.sol";

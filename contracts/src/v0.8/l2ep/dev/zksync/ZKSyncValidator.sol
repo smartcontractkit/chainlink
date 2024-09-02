@@ -11,8 +11,8 @@ import {IBridgehub, L2TransactionRequestDirect} from "@zksync/contracts/l1-contr
 contract ZKSyncValidator is BaseValidator {
   /// Contract state variables
   string public constant override typeAndVersion = "ZKSyncValidator 1.1.0-dev";
-  uint32 private constant TEST_NET_CHAIN_ID = 300;
-  uint32 private constant MAIN_NET_CHAIN_ID = 324;
+  uint32 private constant ZKSYNC_TEST_NET_CHAIN_ID = 300;
+  uint32 private constant ZKSYNC_MAIN_NET_CHAIN_ID = 324;
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   uint32 private immutable CHAIN_ID;
   /// @dev how much l2 gas each byte of pubdata costs
@@ -35,7 +35,7 @@ contract ZKSyncValidator is BaseValidator {
     uint32 chainId,
     uint32 l2GasPerPubdataByteLimit
   ) BaseValidator(l1CrossDomainMessengerAddress, l2UptimeFeedAddr, gasLimit) {
-    if (chainId != TEST_NET_CHAIN_ID && chainId != MAIN_NET_CHAIN_ID) {
+    if (chainId != ZKSYNC_TEST_NET_CHAIN_ID && chainId != ZKSYNC_MAIN_NET_CHAIN_ID) {
       revert InvalidChainID();
     }
 
