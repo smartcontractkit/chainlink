@@ -1,5 +1,5 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts': minor
 ---
 
 #internal Change Chain Reader testing contract
