@@ -112,7 +112,7 @@ type DeployCCIPContractConfig struct {
 // For example a list of contracts to skip deploying if they already exist.
 // Or mock vs real RMN.
 // Deployment produces an address book of everything it deployed.
-func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (deployment.AddressBook, error) {
+func DeployCCIPContracts(e deployment.Environment[deployment.Chain], c DeployCCIPContractConfig) (deployment.AddressBook, error) {
 	var ab deployment.AddressBook = deployment.NewMemoryAddressBook()
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil || len(nodes) == 0 {
@@ -203,7 +203,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 	return ab, nil
 }
 
-func DeployChainContracts(e deployment.Environment, chain deployment.Chain, ab deployment.AddressBook) (deployment.AddressBook, error) {
+func DeployChainContracts(e deployment.Environment[deployment.Chain], chain deployment.Chain, ab deployment.AddressBook) (deployment.AddressBook, error) {
 	ccipReceiver, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver] {
 			receiverAddr, tx, receiver, err2 := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(

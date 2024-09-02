@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
-func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) error {
+func AddLane(e deployment.Environment[deployment.Chain], state CCIPOnChainState, from, to uint64) error {
 	// TODO: Batch
 	tx, err := state.Chains[from].Router.ApplyRampUpdates(e.Chains[from].DeployerKey, []router.RouterOnRamp{
 		{

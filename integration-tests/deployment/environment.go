@@ -8,6 +8,8 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet"
+	"github.com/smartcontractkit/chainlink/integration-tests/solclient"
 	"math/big"
 	"strconv"
 
@@ -41,6 +43,12 @@ type OffchainClient interface {
 	csav1.CSAServiceClient
 	// sometimes we need to connect to the nodes directly to execute actions that are not supported by JD/FMS
 	NodeClients() []*client.ChainlinkK8sClient
+}
+
+type SolanaChain struct {
+	ChainId  uint64
+	Deployer *gauntlet.SolanaGauntlet
+	Client   *solclient.Client
 }
 
 // TODO: we should rename it EVM chain, as it's not generic at all
@@ -118,16 +126,16 @@ type Mocks struct {
 	KillGrave *ctfTestEnv.Killgrave
 }
 
-type Environment struct {
+type Environment[GenericChain any] struct {
 	Name     string
-	Chains   map[uint64]Chain
+	Chains   map[uint64]GenericChain
 	Offchain OffchainClient
 	NodeIDs  []string
 	Mocks    Mocks
 	Logger   logger.Logger
 }
 
-func (e Environment) AllChainSelectors() []uint64 {
+func (e Environment[GenericChain]) AllChainSelectors() []uint64 {
 	var selectors []uint64
 	for sel := range e.Chains {
 		selectors = append(selectors, sel)

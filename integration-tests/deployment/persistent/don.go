@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/solclient"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -199,7 +200,7 @@ func NewEVMOnlyChainlinkConfigs(donConfig testconfig.ChainlinkDeployment, chains
 	// TODO probably best to put it in a reusable method, use it here and also in integration-tests/ccip-tests/testsetups/test_env.go
 	if len(donConfig.Nodes) > 0 {
 		for range donConfig.Nodes {
-			toml, _, err := testsetups.SetNodeConfig(
+			toml, _, err := testsetups.SetEVMNodeConfig(
 				evmNetworks,
 				donConfig.Common.BaseConfigTOML,
 				donConfig.Common.CommonChainConfigTOML,
@@ -213,7 +214,7 @@ func NewEVMOnlyChainlinkConfigs(donConfig testconfig.ChainlinkDeployment, chains
 	} else {
 		// if no individual nodes are specified, then deploy the number of nodes specified in the env input with common config
 		for i := 0; i < noOfNodes; i++ {
-			toml, _, err := testsetups.SetNodeConfig(
+			toml, _, err := testsetups.SetEVMNodeConfig(
 				evmNetworks,
 				donConfig.Common.BaseConfigTOML,
 				donConfig.Common.CommonChainConfigTOML,
@@ -221,6 +222,45 @@ func NewEVMOnlyChainlinkConfigs(donConfig testconfig.ChainlinkDeployment, chains
 			)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to create node config")
+			}
+			clNodeConfigs = append(clNodeConfigs, toml)
+		}
+	}
+
+	return clNodeConfigs, nil
+}
+
+func NewSolanaChainlinkConfigs(donConfig testconfig.ChainlinkDeployment, solNetworks map[uint64]*solclient.SolNetwork, chains map[uint64]deployment.SolanaChain) ([]*chainlink.Config, error) {
+	var clNodeConfigs []*chainlink.Config
+
+	networks := []*solclient.SolNetwork{}
+	for _, network := range solNetworks {
+		networks = append(networks, network)
+	}
+
+	noOfNodes := pointer.GetInt(donConfig.NoOfNodes)
+	// if individual nodes are specified, then deploy them with specified configs
+	// TODO probably best to put it in a reusable method, use it here and also in integration-tests/ccip-tests/testsetups/test_env.go
+	if len(donConfig.Nodes) > 0 {
+		for range donConfig.Nodes {
+			toml, _, err := testsetups.SetSolanaNodeConfig(
+				networks,
+				donConfig.Common.BaseConfigTOML,
+			)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to create Solana node config")
+			}
+			clNodeConfigs = append(clNodeConfigs, toml)
+		}
+	} else {
+		// if no individual nodes are specified, then deploy the number of nodes specified in the env input with common config
+		for i := 0; i < noOfNodes; i++ {
+			toml, _, err := testsetups.SetSolanaNodeConfig(
+				networks,
+				donConfig.Common.BaseConfigTOML,
+			)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to create Solana node config")
 			}
 			clNodeConfigs = append(clNodeConfigs, toml)
 		}
