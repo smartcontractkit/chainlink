@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -154,6 +155,10 @@ func (j JobClient) RevokeJob(ctx context.Context, in *jobv1.RevokeJobRequest, op
 func (j JobClient) DeleteJob(ctx context.Context, in *jobv1.DeleteJobRequest, opts ...grpc.CallOption) (*jobv1.DeleteJobResponse, error) {
 	//TODO CCIP-3108 implement me
 	panic("implement me")
+}
+
+func (j JobClient) NodeClients() []*client.ChainlinkK8sClient {
+	panic("not supported by in-memory job client")
 }
 
 func NewMemoryJobClient(nodesByPeerID map[string]Node) *JobClient {
