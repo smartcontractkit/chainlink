@@ -2,8 +2,9 @@
 pragma solidity ^0.8.9;
 
 import {MockBridgehub} from "../../mocks/zksync/MockZKSyncL1Bridge.sol";
-import {ZKSyncSequencerUptimeFeedInterface} from "../../../dev/interfaces/ZKSyncSequencerUptimeFeedInterface.sol";
+import {ISequencerUptimeFeed} from "../../../dev/interfaces/ISequencerUptimeFeed.sol";
 import {ZKSyncValidator} from "../../../dev/zksync/ZKSyncValidator.sol";
+import {BaseValidator} from "../../../dev/shared/BaseValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract ZKSyncValidatorTest is L2EPTest {
@@ -15,7 +16,7 @@ contract ZKSyncValidatorTest is L2EPTest {
   uint32 internal constant MAIN_NET_CHAIN_ID = 300;
   uint32 internal constant BAD_CHAIN_ID = 0;
 
-  ZKSyncSequencerUptimeFeedInterface internal s_zksyncSequencerUptimeFeed;
+  ISequencerUptimeFeed internal s_zksyncSequencerUptimeFeed;
   MockBridgehub internal s_mockZKSyncL1Bridge;
   ZKSyncValidator internal s_zksyncValidator;
 
@@ -52,9 +53,7 @@ contract ZKSyncValidator_Constructor is ZKSyncValidatorTest {
 
   /// @notice it correctly validates that the L1 bridge address is not zero
   function test_ConstructingRevertedWithZeroL1BridgeAddress() public {
-    vm.expectRevert(
-      abi.encodeWithSelector(ZKSyncValidator.ZeroAddressNotAllowed.selector, "Invalid xDomain Messenger address")
-    );
+    vm.expectRevert(BaseValidator.L1CrossDomainMessengerAddressZero.selector);
     new ZKSyncValidator(
       address(0),
       DUMMY_L2_UPTIME_FEED_ADDR,
@@ -66,12 +65,7 @@ contract ZKSyncValidator_Constructor is ZKSyncValidatorTest {
 
   /// @notice it correctly validates that the L2 Uptime feed address is not zero
   function test_ConstructingRevertedWithZeroL2UpdateFeedAddress() public {
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        ZKSyncValidator.ZeroAddressNotAllowed.selector,
-        "Invalid ZKSyncSequencerUptimeFeedInterface contract address"
-      )
-    );
+    vm.expectRevert(BaseValidator.L2UptimeFeedAddrZero.selector);
     new ZKSyncValidator(
       DUMMY_L1_XDOMAIN_MSNGR_ADDR,
       address(0),
@@ -120,7 +114,7 @@ contract ZKSyncValidator_Validate is ZKSyncValidatorTest {
 
     // Sets up the expected event data
     bytes memory message = abi.encodeWithSelector(
-      ZKSyncSequencerUptimeFeedInterface.updateStatus.selector,
+      ISequencerUptimeFeed.updateStatus.selector,
       false,
       futureTimestampInSeconds
     );
@@ -146,7 +140,7 @@ contract ZKSyncValidator_Validate is ZKSyncValidatorTest {
     vm.expectEmit(false, false, false, true);
     emit SentMessage(
       address(s_zksyncValidator),
-      abi.encodeWithSelector(ZKSyncSequencerUptimeFeedInterface.updateStatus.selector, true, futureTimestampInSeconds)
+      abi.encodeWithSelector(ISequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds)
     );
 
     // Runs the function (which produces the event to test)

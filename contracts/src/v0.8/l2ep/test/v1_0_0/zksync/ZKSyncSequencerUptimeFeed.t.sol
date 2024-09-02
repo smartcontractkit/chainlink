@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {ZKSyncSequencerUptimeFeed} from "../../../dev/zksync/ZKSyncSequencerUptimeFeed.sol";
+import {BaseSequencerUptimeFeed} from "../../../dev/shared/BaseSequencerUptimeFeed.sol";
 import {FeedConsumer} from "../../../../tests/FeedConsumer.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 import {AddressAliasHelper} from "@zksync/contracts/l2-contracts/contracts/vendor/AddressAliasHelper.sol";
@@ -49,7 +50,7 @@ contract ZKSyncSequencerUptimeFeed_UpdateStatus is ZKSyncSequencerUptimeFeedTest
     vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
-    vm.expectRevert(ZKSyncSequencerUptimeFeed.InvalidSender.selector);
+    vm.expectRevert(BaseSequencerUptimeFeed.InvalidSender.selector);
     s_zksyncSequencerUptimeFeed.updateStatus(true, uint64(1));
   }
 
@@ -227,7 +228,7 @@ contract ZKSyncSequencerUptimeFeed_AggregatorV3Interface is ZKSyncSequencerUptim
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(ZKSyncSequencerUptimeFeed.NoDataPresent.selector);
+    vm.expectRevert(BaseSequencerUptimeFeed.NoDataPresent.selector);
     s_zksyncSequencerUptimeFeed.getRoundData(2);
   }
 
@@ -237,7 +238,7 @@ contract ZKSyncSequencerUptimeFeed_AggregatorV3Interface is ZKSyncSequencerUptim
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(ZKSyncSequencerUptimeFeed.NoDataPresent.selector);
+    vm.expectRevert(BaseSequencerUptimeFeed.NoDataPresent.selector);
     s_zksyncSequencerUptimeFeed.getAnswer(2);
   }
 
@@ -247,7 +248,7 @@ contract ZKSyncSequencerUptimeFeed_AggregatorV3Interface is ZKSyncSequencerUptim
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(ZKSyncSequencerUptimeFeed.NoDataPresent.selector);
+    vm.expectRevert(BaseSequencerUptimeFeed.NoDataPresent.selector);
     s_zksyncSequencerUptimeFeed.getTimestamp(2);
   }
 }

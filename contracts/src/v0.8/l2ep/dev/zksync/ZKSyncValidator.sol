@@ -1,34 +1,21 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.19;
 
-import {AggregatorValidatorInterface} from "../../../shared/interfaces/AggregatorValidatorInterface.sol";
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-import {ZKSyncSequencerUptimeFeedInterface} from "./../interfaces/ZKSyncSequencerUptimeFeedInterface.sol";
+import {ISequencerUptimeFeed} from "./../interfaces/ISequencerUptimeFeed.sol";
 
-import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
+import {BaseValidator} from "../shared/BaseValidator.sol";
 
 import {IBridgehub, L2TransactionRequestDirect} from "@zksync/contracts/l1-contracts/contracts/bridgehub/IBridgehub.sol";
 
 /// @title ZKSyncValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
-contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
-  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
-  address public immutable L1_CROSS_DOMAIN_MESSENGER_ADDRESS;
-  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
-  address public immutable L2_UPTIME_FEED_ADDR;
-  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
-  uint32 private immutable CHAIN_ID;
-
+contract ZKSyncValidator is BaseValidator {
   /// Contract state variables
-  string public constant override typeAndVersion = "ZKSyncValidator 1.0.0";
+  string public constant override typeAndVersion = "ZKSyncValidator 1.1.0-dev";
   uint32 private constant TEST_NET_CHAIN_ID = 300;
   uint32 private constant MAIN_NET_CHAIN_ID = 324;
-  int256 private constant ANSWER_SEQ_OFFLINE = 1;
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
+  uint32 private immutable CHAIN_ID;
   uint32 private s_l2GasPerPubdataByteLimit;
-  uint32 private s_gasLimit;
-
-  /// @notice emitted when gas cost to spend on L2 is updated
-  /// @param gasLimit updated gas cost
-  event GasLimitUpdated(uint32 gasLimit);
 
   /// @notice emitted when the gas per pubdata byte limit is updated
   /// @param l2GasPerPubdataByteLimit updated gas per pubdata byte limit
@@ -36,11 +23,9 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
 
   /// @notice ChainID is not a valid value
   error InvalidChainID();
-  /// @notice Address cannot be zero
-  error ZeroAddressNotAllowed(string message);
 
   /// @param l1CrossDomainMessengerAddress address the Bridgehub contract address
-  /// @param l2UptimeFeedAddr the address of the ZKSyncSequencerUptimeFeedInterface contract address
+  /// @param l2UptimeFeedAddr the address of the SequencerUptimeFeedInterface contract address
   /// @param gasLimit the gasLimit to use for sending a message from L1 to L2
   constructor(
     address l1CrossDomainMessengerAddress,
@@ -48,38 +33,13 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     uint32 gasLimit,
     uint32 chainId,
     uint32 l2GasPerPubdataByteLimit
-  ) {
+  ) BaseValidator(l1CrossDomainMessengerAddress, l2UptimeFeedAddr, gasLimit) {
     if (chainId != TEST_NET_CHAIN_ID && chainId != MAIN_NET_CHAIN_ID) {
       revert InvalidChainID();
     }
 
-    if (l1CrossDomainMessengerAddress == address(0)) {
-      revert ZeroAddressNotAllowed("Invalid xDomain Messenger address");
-    }
-
-    if (l2UptimeFeedAddr == address(0)) {
-      revert ZeroAddressNotAllowed("Invalid ZKSyncSequencerUptimeFeedInterface contract address");
-    }
-
-    L1_CROSS_DOMAIN_MESSENGER_ADDRESS = l1CrossDomainMessengerAddress;
-    L2_UPTIME_FEED_ADDR = l2UptimeFeedAddr;
     s_l2GasPerPubdataByteLimit = l2GasPerPubdataByteLimit;
-    s_gasLimit = gasLimit;
     CHAIN_ID = chainId;
-  }
-
-  /// @notice sets the new gas cost to spend when sending cross chain message
-  /// @param gasLimit the updated gas cost
-  function setGasLimit(uint32 gasLimit) external onlyOwner {
-    if (s_gasLimit != gasLimit) {
-      s_gasLimit = gasLimit;
-      emit GasLimitUpdated(gasLimit);
-    }
-  }
-
-  /// @notice fetches the gas cost of sending a cross chain message
-  function getGasLimit() external view returns (uint32) {
-    return s_gasLimit;
   }
 
   /// @notice sets the l2GasPerPubdataByteLimit for the L2 transaction request
@@ -101,12 +61,6 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     return CHAIN_ID;
   }
 
-  /// @notice makes this contract payable
-  /// @dev receives funds:
-  ///  - to use them (if configured) to pay for L2 execution on L1
-  ///  - when withdrawing funds from L2 xDomain alias address (pay for L2 execution on L2)
-  receive() external payable {}
-
   /// @notice validate method sends an xDomain L2 tx to update Uptime Feed contract on L2.
   /// @dev A message is sent using the Bridgehub. This method is accessed controlled.
   /// @param currentAnswer new aggregator answer - value of 1 considers the sequencer offline.
@@ -116,9 +70,9 @@ contract ZKSyncValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     uint256 /* currentRoundId */,
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
-    // Encode the ZKSyncSequencerUptimeFeedInterface call with `status` and `timestamp`
+    // Encode the SequencerUptimeFeedInterface call with `status` and `timestamp`
     bytes memory message = abi.encodeWithSelector(
-      ZKSyncSequencerUptimeFeedInterface.updateStatus.selector,
+      ISequencerUptimeFeed.updateStatus.selector,
       currentAnswer == ANSWER_SEQ_OFFLINE,
       uint64(block.timestamp)
     );
