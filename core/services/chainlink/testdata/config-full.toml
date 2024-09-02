@@ -7,6 +7,7 @@ FeedsManager = true
 LogPoller = true
 UICSAKeys = true
 CCIP = true
+MultiFeedsManagers = true
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
@@ -262,6 +263,16 @@ DeltaDial = '1m0s'
 DeltaReconcile = '2s'
 ListenAddresses = ['foo', 'bar']
 
+[Capabilities.Dispatcher]
+SupportedVersion = 1
+ReceiverBufferSize = 10000
+
+[Capabilities.Dispatcher.RateLimit]
+GlobalRPS = 800.0
+GlobalBurst = 1000
+PerSenderRPS = 10.0
+PerSenderBurst = 50
+
 [Capabilities.ExternalRegistry]
 Address = ''
 NetworkID = 'evm'
@@ -381,6 +392,7 @@ L2Full = '(: |^)l2 full'
 TransactionAlreadyMined = '(: |^)transaction already mined'
 Fatal = '(: |^)fatal'
 ServiceUnavailable = '(: |^)service unavailable'
+TooManyResults = '(: |^)too many results'
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -393,6 +405,9 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2]
 [EVM.OCR2.Automation]
 GasLimit = 540
+
+[EVM.Workflow]
+GasLimitDefault = 400000
 
 [[EVM.Nodes]]
 Name = 'foo'

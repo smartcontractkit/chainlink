@@ -41,6 +41,8 @@ import (
 
 const chainID = 1337
 
+var CapabilityID = fmt.Sprintf("%s@%s", CcipCapabilityLabelledName, CcipCapabilityVersion)
+
 func NewReader(
 	t *testing.T,
 	logPoller logpoller.LogPoller,
@@ -81,8 +83,6 @@ const (
 	CcipCapabilityLabelledName = "ccip"
 	CcipCapabilityVersion      = "v1.0"
 )
-
-var CapabilityID = fmt.Sprintf("%s@%s", CcipCapabilityLabelledName, CcipCapabilityVersion)
 
 type TestUniverse struct {
 	Transactor      *bind.TransactOpts
@@ -232,9 +232,12 @@ func (t *TestUniverse) AddCapability(p2pIDs [][32]byte) {
 }
 
 func NewHomeChainReader(t *testing.T, logPoller logpoller.LogPoller, headTracker logpoller.HeadTracker, client client.Client, ccAddress common.Address) ccipreader.HomeChain {
-	cr := NewReader(t, logPoller, headTracker, client, ccAddress, configsevm.HomeChainReaderConfigRaw())
+	cr := NewReader(t, logPoller, headTracker, client, ccAddress, configsevm.HomeChainReaderConfigRaw)
 
-	hcr := ccipreader.NewHomeChainReader(cr, logger.TestLogger(t), 500*time.Millisecond)
+	hcr := ccipreader.NewHomeChainReader(cr, logger.TestLogger(t), 500*time.Millisecond, types.BoundContract{
+		Address: ccAddress.String(),
+		Name:    consts.ContractNameCCIPConfig,
+	})
 	require.NoError(t, hcr.Start(testutils.Context(t)))
 	t.Cleanup(func() { require.NoError(t, hcr.Close()) })
 

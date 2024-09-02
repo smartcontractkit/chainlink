@@ -97,7 +97,7 @@ jobs:
           # other inputs
           duplicate-authorization-header: "true"
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@00c164251be2a7c5b2b23a6e5f7014982f232c14 # v2.3.32
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@94cb11f4bd545607a2f221c6685052b3abee723d # v2.3.32
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}
           E2E_TEST_SELECTED_NETWORK: ${{ env.SELECTED_NETWORKS }}
