@@ -265,16 +265,6 @@ func TestFeeHistoryEstimatorGetDynamicFee(t *testing.T) {
 		assert.Equal(t, (*assets.Wei)(avrgPriorityFee), dynamicFee.TipCap)
 	})
 
-	t.Run("fails if BlockHistorySize is zero and tries to fetch new prices", func(t *testing.T) {
-		client := mocks.NewFeeHistoryEstimatorClient(t)
-
-		cfg := gas.FeeHistoryEstimatorConfig{BlockHistorySize: 0}
-
-		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.GetDynamicFee(tests.Context(t), maxPrice)
-		assert.Error(t, err)
-	})
-
 	t.Run("fails if dynamic prices have not been set yet", func(t *testing.T) {
 		cfg := gas.FeeHistoryEstimatorConfig{}
 

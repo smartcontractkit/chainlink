@@ -175,7 +175,7 @@ func (f *FeeHistoryEstimator) RefreshGasPrice() error {
 
 	gasPrice, err := f.client.SuggestGasPrice(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to fetch gas price: %s", err)
+		return fmt.Errorf("failed to fetch gas price: %w", err)
 	}
 
 	promFeeHistoryEstimatorGasPrice.WithLabelValues(f.chainID.String()).Set(float64(gasPrice.Int64()))
@@ -230,7 +230,7 @@ func (f *FeeHistoryEstimator) RefreshDynamicPrice() error {
 	// RewardPercentile will be used for maxPriorityFeePerGas estimations and connectivityPercentile to set the highest threshold for bumping.
 	feeHistory, err := f.client.FeeHistory(ctx, max(f.config.BlockHistorySize, 1), []float64{f.config.RewardPercentile, ConnectivityPercentile})
 	if err != nil {
-		return fmt.Errorf("failed to fetch dynamic prices: %s", err)
+		return fmt.Errorf("failed to fetch dynamic prices: %w", err)
 	}
 
 	// eth_feeHistory doesn't return the latest baseFee of the range but rather the latest + 1, because it can be derived from the existing
@@ -277,8 +277,8 @@ func (f *FeeHistoryEstimator) RefreshDynamicPrice() error {
 	promFeeHistoryEstimatorMaxPriorityFeePerGas.WithLabelValues(f.chainID.String()).Set(float64(maxPriorityFeePerGas.Int64()))
 	promFeeHistoryEstimatorMaxFeePerGas.WithLabelValues(f.chainID.String()).Set(float64(maxFeePerGas.Int64()))
 
-	f.logger.Debugf("Fetched new dynamic prices, nextBlock#: %v - oldestBlock#: %v - maxFeePerGas: %v - maxPriorityFeePerGas: %v - maxPriorityFeeThreshold: %v",
-		nextBlock, feeHistory.OldestBlock, maxFeePerGas, maxPriorityFeePerGas, priorityFeeThresholdWei)
+	f.logger.Debugf("Fetched new dynamic prices, nextBlock#: %v - oldestBlock#: %v - nexBaseFee: %v - maxFeePerGas: %v - maxPriorityFeePerGas: %v - maxPriorityFeeThreshold: %v",
+		nextBlock, feeHistory.OldestBlock, nextBaseFee, maxFeePerGas, maxPriorityFeePerGas, priorityFeeThresholdWei)
 
 	f.priorityFeeThresholdMu.Lock()
 	f.priorityFeeThreshold = priorityFeeThresholdWei
@@ -318,10 +318,10 @@ func (f *FeeHistoryEstimator) BumpLegacyGas(ctx context.Context, originalGasPric
 	bumpedGasPrice := originalGasPrice.AddPercentage(f.config.BumpPercent)
 	bumpedGasPrice, err = LimitBumpedFee(originalGasPrice, currentGasPrice, bumpedGasPrice, maxPrice)
 	if err != nil {
-		return nil, 0, fmt.Errorf("gas price error: %s", err.Error())
+		return nil, 0, fmt.Errorf("gas price error: %w", err)
 	}
 
-	f.logger.Debugw("bumped gas price", "originalGasPrice", originalGasPrice, "bumpedGasPrice", bumpedGasPrice)
+	f.logger.Debugw("bumped gas price", "originalGasPrice", originalGasPrice, "marketGasPrice", currentGasPrice, "bumpedGasPrice", bumpedGasPrice)
 
 	return bumpedGasPrice, gasLimit, nil
 }
@@ -360,7 +360,7 @@ func (f *FeeHistoryEstimator) BumpDynamicFee(ctx context.Context, originalFee Dy
 
 	bumpedMaxPriorityFeePerGas, err = LimitBumpedFee(originalFee.TipCap, currentDynamicPrice.TipCap, bumpedMaxPriorityFeePerGas, maxPrice)
 	if err != nil {
-		return bumped, fmt.Errorf("maxPriorityFeePerGas error: %s", err.Error())
+		return bumped, fmt.Errorf("maxPriorityFeePerGas error: %w", err)
 	}
 
 	priorityFeeThreshold, e := f.getPriorityFeeThreshold()
@@ -369,17 +369,17 @@ func (f *FeeHistoryEstimator) BumpDynamicFee(ctx context.Context, originalFee Dy
 	}
 
 	if bumpedMaxPriorityFeePerGas.Cmp(priorityFeeThreshold) > 0 {
-		return bumped, fmt.Errorf("bumpedMaxPriorityFeePergas: %s is above market's %sth percentile: %s, bumping is halted",
+		return bumped, fmt.Errorf("bumpedMaxPriorityFeePerGas: %s is above market's %sth percentile: %s, bumping is halted",
 			bumpedMaxPriorityFeePerGas, strconv.Itoa(ConnectivityPercentile), priorityFeeThreshold)
 	}
 
 	bumpedMaxFeePerGas, err = LimitBumpedFee(originalFee.FeeCap, currentDynamicPrice.FeeCap, bumpedMaxFeePerGas, maxPrice)
 	if err != nil {
-		return bumped, fmt.Errorf("maxFeePerGas error: %s", err.Error())
+		return bumped, fmt.Errorf("maxFeePerGas error: %w", err)
 	}
 
 	bumpedFee := DynamicFee{FeeCap: bumpedMaxFeePerGas, TipCap: bumpedMaxPriorityFeePerGas}
-	f.logger.Debugw("bumped dynamic fee", "originalFee", originalFee, "bumpedFee", bumpedFee)
+	f.logger.Debugw("bumped dynamic fee", "originalFee", originalFee, "marketFee", currentDynamicPrice, "bumpedFee", bumpedFee)
 
 	return bumpedFee, nil
 }
