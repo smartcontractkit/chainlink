@@ -90,10 +90,20 @@ func (s *LogEventTriggerService) RegisterTrigger(ctx context.Context, req capabi
 	if err != nil {
 		return nil, fmt.Errorf("log_event_trigger %v", err)
 	}
+	s.lggr.Debugw("log_event_trigger::RegisterTrigger", "triggerId", req.TriggerID)
 	return respCh, nil
 }
 
 func (s *LogEventTriggerService) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
+	trigger, ok := s.triggers.Read(req.TriggerID)
+	if !ok {
+		return fmt.Errorf("triggerId %s not found", req.TriggerID)
+	}
+	// Close callback channel
+	close(trigger.ch)
+	// Remove from triggers context
+	s.triggers.Delete(req.TriggerID)
+	s.lggr.Debugw("log_event_trigger::UnregisterTrigger", "triggerId", req.TriggerID)
 	return nil
 }
 
