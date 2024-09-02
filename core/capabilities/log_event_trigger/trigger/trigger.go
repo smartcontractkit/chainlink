@@ -43,7 +43,7 @@ type logEventTrigger struct {
 
 // Log Event Trigger Capabilities Manager
 // Manages different log event triggers using an underlying triggerStore
-type LogEventTriggerManager struct {
+type LogEventTriggerService struct {
 	capabilities.CapabilityInfo
 	capabilities.Validator[Config, struct{}, capabilities.TriggerResponse]
 	lggr     logger.Logger
@@ -54,17 +54,17 @@ type Params struct {
 	Logger logger.Logger
 }
 
-var _ capabilities.TriggerCapability = (*LogEventTriggerManager)(nil)
-var _ services.Service = &LogEventTriggerManager{}
+var _ capabilities.TriggerCapability = (*LogEventTriggerService)(nil)
+var _ services.Service = &LogEventTriggerService{}
 
 // Creates a new Cron Trigger Service.
 // Scheduling will commence on calling .Start()
-func New(p Params) *LogEventTriggerManager {
+func NewLogEventTriggerService(p Params) *LogEventTriggerService {
 	l := logger.Named(p.Logger, "Log Event Trigger Capability Service")
 
 	logEventStore := NewCapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]()
 
-	return &LogEventTriggerManager{
+	return &LogEventTriggerService{
 		CapabilityInfo: logEventTriggerInfo,
 		lggr:           l,
 		triggers:       logEventStore,
@@ -73,7 +73,7 @@ func New(p Params) *LogEventTriggerManager {
 
 // Register a new trigger
 // Can register triggers before the service is actively scheduling
-func (s *LogEventTriggerManager) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
+func (s *LogEventTriggerService) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	if req.Config == nil {
 		return nil, errors.New("config is required to register a log event trigger")
 	}
@@ -93,30 +93,30 @@ func (s *LogEventTriggerManager) RegisterTrigger(ctx context.Context, req capabi
 	return respCh, nil
 }
 
-func (s *LogEventTriggerManager) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
+func (s *LogEventTriggerService) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
 	return nil
 }
 
 // Start the service.
-func (s *LogEventTriggerManager) Start(ctx context.Context) error {
+func (s *LogEventTriggerService) Start(ctx context.Context) error {
 	return nil
 }
 
 // Close stops the Service.
 // After this call the Service cannot be started again,
 // The service will need to be re-built to start scheduling again.
-func (s *LogEventTriggerManager) Close() error {
+func (s *LogEventTriggerService) Close() error {
 	return nil
 }
 
-func (s *LogEventTriggerManager) Ready() error {
+func (s *LogEventTriggerService) Ready() error {
 	return nil
 }
 
-func (s *LogEventTriggerManager) HealthReport() map[string]error {
+func (s *LogEventTriggerService) HealthReport() map[string]error {
 	return map[string]error{s.Name(): nil}
 }
 
-func (s *LogEventTriggerManager) Name() string {
+func (s *LogEventTriggerService) Name() string {
 	return "Service"
 }

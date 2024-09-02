@@ -17,7 +17,7 @@ const (
 	serviceName = "LogEventTriggerCapability"
 )
 
-type LogEventServiceGRPC struct {
+type LogEventTriggerGRPCService struct {
 	trigger capabilities.TriggerCapability
 	s       *loop.Server
 }
@@ -35,7 +35,7 @@ func main() {
 		HandshakeConfig: loop.StandardCapabilitiesHandshakeConfig(),
 		Plugins: map[string]plugin.Plugin{
 			loop.PluginStandardCapabilitiesName: &loop.StandardCapabilitiesLoop{
-				PluginServer: &LogEventServiceGRPC{
+				PluginServer: &LogEventTriggerGRPCService{
 					s: s,
 				},
 				BrokerConfig: loop.BrokerConfig{Logger: s.Logger, StopCh: stopCh, GRPCOpts: s.GRPCOpts},
@@ -45,27 +45,27 @@ func main() {
 	})
 }
 
-func (cs *LogEventServiceGRPC) Start(ctx context.Context) error {
+func (cs *LogEventTriggerGRPCService) Start(ctx context.Context) error {
 	return nil
 }
 
-func (cs *LogEventServiceGRPC) Close() error {
+func (cs *LogEventTriggerGRPCService) Close() error {
 	return nil
 }
 
-func (cs *LogEventServiceGRPC) Ready() error {
+func (cs *LogEventTriggerGRPCService) Ready() error {
 	return nil
 }
 
-func (cs *LogEventServiceGRPC) HealthReport() map[string]error {
+func (cs *LogEventTriggerGRPCService) HealthReport() map[string]error {
 	return nil
 }
 
-func (cs *LogEventServiceGRPC) Name() string {
+func (cs *LogEventTriggerGRPCService) Name() string {
 	return serviceName
 }
 
-func (cs *LogEventServiceGRPC) Infos(ctx context.Context) ([]capabilities.CapabilityInfo, error) {
+func (cs *LogEventTriggerGRPCService) Infos(ctx context.Context) ([]capabilities.CapabilityInfo, error) {
 	triggerInfo, err := cs.trigger.Info(ctx)
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func (cs *LogEventServiceGRPC) Infos(ctx context.Context) ([]capabilities.Capabi
 	}, nil
 }
 
-func (cs *LogEventServiceGRPC) Initialise(
+func (cs *LogEventTriggerGRPCService) Initialise(
 	ctx context.Context,
 	config string,
 	telemetryService core.TelemetryService,
@@ -87,7 +87,7 @@ func (cs *LogEventServiceGRPC) Initialise(
 	relayerSet core.RelayerSet,
 ) error {
 	cs.s.Logger.Debugf("Initialising %s", serviceName)
-	cs.trigger = trigger.New(trigger.Params{
+	cs.trigger = trigger.NewLogEventTriggerService(trigger.Params{
 		Logger: cs.s.Logger,
 	})
 
