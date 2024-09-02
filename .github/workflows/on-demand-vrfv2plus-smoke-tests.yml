@@ -62,8 +62,8 @@ jobs:
       - name: Show test config override path in summary
         if: ${{ inputs.test_config_override_path }}
         run: |
-          echo "### Test config override path" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ inputs.test_config_override_path }}\`" >>$GITHUB_STEP_SUMMARY          
+          echo "### Test config override path" >> $GITHUB_STEP_SUMMARY
+          echo "[${{ inputs.test_config_override_path }}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/${{ github.sha }}/${{ inputs.test_config_override_path }})" >> $GITHUB_STEP_SUMMARY
       - name: Run Tests
         if: ${{ github.event.inputs.test_suite == 'Selected Tests' }}
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@94cb11f4bd545607a2f221c6685052b3abee723d # v2.3.32
