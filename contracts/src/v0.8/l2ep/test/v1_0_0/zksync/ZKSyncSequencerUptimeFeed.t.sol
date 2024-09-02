@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.24;
 
 import {ZKSyncSequencerUptimeFeed} from "../../../dev/zksync/ZKSyncSequencerUptimeFeed.sol";
 import {BaseSequencerUptimeFeed} from "../../../dev/shared/BaseSequencerUptimeFeed.sol";

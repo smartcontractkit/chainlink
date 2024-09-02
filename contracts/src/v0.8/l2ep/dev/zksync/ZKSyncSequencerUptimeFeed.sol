@@ -15,7 +15,7 @@ contract ZKSyncSequencerUptimeFeed is BaseSequencerUptimeFeed {
   /// @param initialStatus The initial status of the feed
   constructor(address l1SenderAddress, bool initialStatus) BaseSequencerUptimeFeed(l1SenderAddress, initialStatus) {}
 
-  function _validateSender(address l1Sender) internal override {
+  function _validateSender(address l1Sender) internal view override {
     address aliasedL1Sender = AddressAliasHelper.applyL1ToL2Alias(l1Sender);
 
     if (msg.sender != aliasedL1Sender) {

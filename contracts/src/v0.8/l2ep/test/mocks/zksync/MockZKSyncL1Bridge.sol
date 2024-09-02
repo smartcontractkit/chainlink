@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity 0.8.24;
 
 import {IBridgehub, L2TransactionRequestDirect, L2TransactionRequestTwoBridgesOuter} from "@zksync/contracts/l1-contracts/contracts/bridgehub/IBridgehub.sol";
 import {IL1SharedBridge} from "@zksync/contracts/l1-contracts/contracts/bridge/interfaces/IL1SharedBridge.sol";
@@ -10,11 +10,12 @@ contract MockBridgehub is IBridgehub {
   address public admin;
   address public sharedBridgeAddr;
 
-  mapping(address => bool) public registeredStateTransitionManagers;
-  mapping(uint256 => address) public stateTransitionManagers;
-  mapping(address => bool) public registeredTokens;
-  mapping(uint256 => address) public baseTokens;
-  mapping(uint256 => address) public hyperchains;
+  mapping(address stateTransitionManager => bool stateTransitionManagerIsRegistered)
+    public registeredStateTransitionManagers;
+  mapping(uint256 chainId => address stateTransitionManagerAddress) public stateTransitionManagers;
+  mapping(address baseToken => bool tokenIsRegistered) public registeredTokens;
+  mapping(uint256 chainId => address baseToken) public baseTokens;
+  mapping(uint256 chainId => address hyperChain) public hyperchains;
 
   /// Generic error for unauthorized actions
   error NotAuthorized(string msg);
