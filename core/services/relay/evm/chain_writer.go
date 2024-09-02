@@ -122,11 +122,16 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		}
 	}
 
+	gasLimit := methodConfig.GasLimit
+	if meta != nil && meta.GasLimit != nil {
+		gasLimit = meta.GasLimit.Uint64()
+	}
+
 	req := evmtxmgr.TxRequest{
 		FromAddress:    methodConfig.FromAddress,
 		ToAddress:      common.HexToAddress(toAddress),
 		EncodedPayload: calldata,
-		FeeLimit:       methodConfig.GasLimit,
+		FeeLimit:       gasLimit,
 		Meta:           txMeta,
 		IdempotencyKey: &transactionID,
 		Strategy:       w.sendStrategy,
@@ -186,7 +191,7 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 		return nil, fmt.Errorf("gas estimator not available")
 	}
 
-	fee, _, err := w.ge.GetFee(ctx, nil, 0, w.maxGasPrice)
+	fee, _, err := w.ge.GetFee(ctx, nil, 0, w.maxGasPrice, nil, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -43,7 +43,7 @@ mockery: $(mockery) ## Install mockery.
 
 .PHONY: foundry
 foundry: ## Install foundry.
-	foundryup --version nightly-de33b6af53005037b463318d2628b5cfcaf39916
+	foundryup --version nightly-515a4cc8aba1627a717a1057ff4f09c8cd3bf51f
 
 .PHONY: foundry-refresh
 foundry-refresh: foundry
@@ -87,6 +87,16 @@ wrappers: pnpmdep mockery abigen ## Recompiles solidity contracts and their go w
 wrappers-all: pnpmdep mockery abigen ## Recompiles solidity contracts and their go wrappers.
 	# go_generate contains a call to  compile all contracts before generating wrappers
 	go generate ../core/gethwrappers/go_generate.go
+
+# Use this to generate compiled JSON artifacts for gauntlet-plus-plus.
+# This is currently only used for CCIP.
+# example: make artifact-generate contract=LockReleaseTokenPoolAndProxy solcversion=0.8.24 artifactpath=../../gauntlet-plus-plus/packages-ethereum/operations-ccip/src/artifacts/1.5.0/lock-release-token-pool-and-proxy.json
+artifact-generate: export FOUNDRY_PROFILE=ccip
+.PHONY: artifact-generate
+artifact-generate:
+	chmod +x ./scripts/generate_compiled_json_ccip.sh
+	./scripts/generate_compiled_json_ccip.sh $(contract) $(solcversion) $(artifactpath)
+
 
 help:
 	@echo ""

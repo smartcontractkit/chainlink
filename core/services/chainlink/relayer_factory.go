@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/pelletier/go-toml/v2"
 
@@ -37,6 +38,7 @@ type RelayerFactory struct {
 	loop.GRPCOpts
 	MercuryPool          wsrpc.Pool
 	CapabilitiesRegistry coretypes.CapabilitiesRegistry
+	HTTPClient           *http.Client
 }
 
 type DummyFactoryConfig struct {
@@ -85,6 +87,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 			MercuryPool:          r.MercuryPool,
 			TransmitterConfig:    config.MercuryTransmitter,
 			CapabilitiesRegistry: r.CapabilitiesRegistry,
+			HTTPClient:           r.HTTPClient,
 		}
 		relayer, err2 := evmrelay.NewRelayer(lggr.Named(relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {

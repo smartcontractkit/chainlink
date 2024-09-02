@@ -1,5 +1,7 @@
 project_name: chainlink
 
+version: 2
+
 env:
   - ZIG_EXEC={{ if index .Env "ZIG_EXEC"  }}{{ .Env.ZIG_EXEC }}{{ else }}zig{{ end }}
   - IMAGE_PREFIX={{ if index .Env "IMAGE_PREFIX"  }}{{ .Env.IMAGE_PREFIX }}{{ else }}localhost:5001{{ end }}
@@ -190,16 +192,23 @@ docker_manifests:
 # See https://goreleaser.com/customization/docker_sign/
 docker_signs:
   - artifacts: all
-    stdin: "{{ .Env.COSIGN_PASSWORD }}"
+    args:
+      - "sign"
+      - "${artifact}"
+      - "--yes"
 
 checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  name_template: "{{ .Env.CHAINLINK_VERSION }}-{{ .ShortCommit }}"
+  version_template: "{{ .Env.CHAINLINK_VERSION }}-{{ .ShortCommit }}"
 
 partial:
   by: target
+
+# See https://goreleaser.com/customization/release/
+release:
+  disable: true
 
 changelog:
   sort: asc

@@ -2,6 +2,7 @@ package v1_0_0
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -11,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -90,7 +91,7 @@ func encodeCommitReport(commitReportArgs abi.Arguments, report cciptypes.CommitS
 	var usdPerUnitGas = big.NewInt(0)
 	var destChainSelector = uint64(0)
 	if len(report.GasPrices) > 1 {
-		return []byte{}, errors.Errorf("CommitStore V1_0_0 can only accept 1 gas price, received: %d", len(report.GasPrices))
+		return []byte{}, fmt.Errorf("CommitStore V1_0_0 can only accept 1 gas price, received: %d", len(report.GasPrices))
 	}
 	if len(report.GasPrices) > 0 {
 		usdPerUnitGas = report.GasPrices[0].Value
@@ -133,7 +134,7 @@ func DecodeCommitReport(commitReportArgs abi.Arguments, report []byte) (cciptype
 		MerkleRoot [32]byte `json:"merkleRoot"`
 	})
 	if !ok {
-		return cciptypes.CommitStoreReport{}, errors.Errorf("invalid commit report got %T", unpacked[0])
+		return cciptypes.CommitStoreReport{}, fmt.Errorf("invalid commit report got %T", unpacked[0])
 	}
 
 	var tokenPriceUpdates []cciptypes.TokenPrice
@@ -382,7 +383,7 @@ func (c *CommitStore) GetLatestPriceEpochAndRound(ctx context.Context) (uint64, 
 }
 
 func (c *CommitStore) IsDestChainHealthy(context.Context) (bool, error) {
-	if err := c.lp.Healthy(); err != nil {
+	if err := errors.Join(maps.Values(c.lp.HealthReport())...); err != nil {
 		return false, nil
 	}
 	return true, nil

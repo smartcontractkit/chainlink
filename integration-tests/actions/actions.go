@@ -38,7 +38,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -489,7 +490,8 @@ func DeployForwarderContracts(
 	operatorFactoryInstance = &instance
 
 	for i := 0; i < numberOfOperatorForwarderPairs; i++ {
-		decodedTx, err := seth.Decode(operatorFactoryInstance.DeployNewOperatorAndForwarder())
+		tx, deployErr := operatorFactoryInstance.DeployNewOperatorAndForwarder()
+		decodedTx, err := seth.Decode(tx, deployErr)
 		require.NoError(t, err, "Deploying new operator with proposed ownership with forwarder shouldn't fail")
 
 		for i, event := range decodedTx.Events {
@@ -1243,6 +1245,11 @@ func IsOPStackChain(chainID int64) bool {
 		chainID == 11155420 //OPTIMISM SEPOLIA
 }
 
+func IsArbitrumChain(chainID int64) bool {
+	return chainID == 42161 || //Arbitrum MAINNET
+		chainID == 421614 //Arbitrum Sepolia
+}
+
 func RandBool() bool {
 	return rand.Intn(2) == 1
 }
@@ -1278,4 +1285,13 @@ func ContinuouslyGenerateTXsOnChain(sethClient *seth.Client, stopChannel chan bo
 			l.Info().Str("Count", count.String()).Msg("Number of generated transactions on chain")
 		}
 	}
+}
+
+func WithinTolerance(a, b, tolerance float64) (bool, float64) {
+	if a == b {
+		return true, 0
+	}
+	diff := math.Abs(a - b)
+	isWithinTolerance := diff < tolerance
+	return isWithinTolerance, diff
 }

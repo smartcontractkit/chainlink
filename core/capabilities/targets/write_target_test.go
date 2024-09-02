@@ -86,7 +86,7 @@ func TestWriteTarget(t *testing.T) {
 			TransmissionId:  [32]byte{},
 			Transmitter:     common.HexToAddress("0x0"),
 		}
-	}).Once()
+	})
 
 	cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, mock.Anything, mock.Anything).Return(nil).Once()
 
@@ -103,18 +103,6 @@ func TestWriteTarget(t *testing.T) {
 		require.NotNil(t, response)
 	})
 
-	t.Run("fails when ChainReader's GetLatestValue returns error", func(t *testing.T) {
-		req := capabilities.CapabilityRequest{
-			Metadata: validMetadata,
-			Config:   config,
-			Inputs:   validInputs,
-		}
-		cr.On("GetLatestValue", mock.Anything, "forwarder", "getTransmissionInfo", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("reader error"))
-
-		_, err = writeTarget.Execute(ctx, req)
-		require.Error(t, err)
-	})
-
 	t.Run("fails when ChainWriter's SubmitTransaction returns error", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
 			Metadata: validMetadata,
@@ -122,6 +110,67 @@ func TestWriteTarget(t *testing.T) {
 			Inputs:   validInputs,
 		}
 		cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, mock.Anything, mock.Anything).Return(errors.New("writer error"))
+
+		_, err = writeTarget.Execute(ctx, req)
+		require.Error(t, err)
+	})
+
+	t.Run("passes gas limit set on config to the chain writer", func(t *testing.T) {
+		configGasLimit, err := values.NewMap(map[string]any{
+			"Address":  forwarderAddr,
+			"GasLimit": 500000,
+		})
+		require.NoError(t, err)
+		req := capabilities.CapabilityRequest{
+			Metadata: validMetadata,
+			Config:   configGasLimit,
+			Inputs:   validInputs,
+		}
+
+		meta := types.TxMeta{WorkflowExecutionID: &req.Metadata.WorkflowExecutionID, GasLimit: big.NewInt(500000)}
+		cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, &meta, mock.Anything).Return(types.ErrSettingTransactionGasLimitNotSupported)
+
+		_, err2 := writeTarget.Execute(ctx, req)
+		require.Error(t, err2)
+	})
+
+	t.Run("retries without gas limit when ChainWriter's SubmitTransaction returns error due to gas limit not supported", func(t *testing.T) {
+		configGasLimit, err := values.NewMap(map[string]any{
+			"Address":  forwarderAddr,
+			"GasLimit": 500000,
+		})
+		require.NoError(t, err)
+		req := capabilities.CapabilityRequest{
+			Metadata: validMetadata,
+			Config:   configGasLimit,
+			Inputs:   validInputs,
+		}
+
+		meta := types.TxMeta{WorkflowExecutionID: &req.Metadata.WorkflowExecutionID, GasLimit: big.NewInt(500000)}
+		cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, &meta, mock.Anything).Return(types.ErrSettingTransactionGasLimitNotSupported)
+		meta = types.TxMeta{WorkflowExecutionID: &req.Metadata.WorkflowExecutionID}
+		cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, &meta, mock.Anything).Return(nil)
+
+		configGasLimit, err = values.NewMap(map[string]any{
+			"Address": forwarderAddr,
+		})
+		req = capabilities.CapabilityRequest{
+			Metadata: validMetadata,
+			Config:   configGasLimit,
+			Inputs:   validInputs,
+		}
+
+		_, err2 := writeTarget.Execute(ctx, req)
+		require.Error(t, err2)
+	})
+
+	t.Run("fails when ChainReader's GetLatestValue returns error", func(t *testing.T) {
+		req := capabilities.CapabilityRequest{
+			Metadata: validMetadata,
+			Config:   config,
+			Inputs:   validInputs,
+		}
+		cr.On("GetLatestValue", mock.Anything, "forwarder", "getTransmissionInfo", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("reader error"))
 
 		_, err = writeTarget.Execute(ctx, req)
 		require.Error(t, err)

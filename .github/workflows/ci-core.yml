@@ -45,7 +45,9 @@ jobs:
         with:
           filters: |
             changes:
+              - 'integration-tests/deployment/**'
               - '!integration-tests/**'
+              - 'integration-tests/deployment/**'
       - name: Ignore Filter On Workflow Dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
@@ -89,6 +91,11 @@ jobs:
           - cmd: go_core_tests
             id: core_unit
             os: ubuntu22.04-32cores-128GB
+            printResults: true
+          - cmd: go_core_ccip_deployment_tests
+            id: core_unit
+            os: ubuntu22.04-32cores-128GB
+            printResults: true
           - cmd: go_core_race_tests
             id: core_race
             # use 64cores for overnight runs only due to massive number of runs from PRs
@@ -177,9 +184,11 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
         run: ./tools/bin/${{ matrix.type.cmd }} ./...
       - name: Print Filtered Test Results
-        if: ${{ failure() && matrix.type.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true'  && steps.run-tests.conclusion == 'failure' }}
+        if: ${{ failure() && needs.filter.outputs.changes == 'true' && steps.run-tests.conclusion == 'failure' }}
         run: |
-          cat output.txt | gotestloghelper -ci
+          if [[ "${{ matrix.type.printResults }}"  == "true" ]]; then
+            cat output.txt | gotestloghelper -ci
+          fi
       - name: Print Races
         id: print-races
         if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.changes == 'true' }}
@@ -319,7 +328,7 @@ jobs:
             -gh_run_id=$GITHUB_RUN_ID \
             -gh_repo=$GITHUB_REPO \
             -command=./tools/bin/go_core_tests \
-            `ls -R ./artifacts/go_core_tests*/output.txt`
+            `ls -R ./artifacts/output.txt`
       - name: Store logs artifacts
         if: ${{ needs.filter.outputs.changes == 'true' && always() }}
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1

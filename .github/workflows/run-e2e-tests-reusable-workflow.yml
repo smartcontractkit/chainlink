@@ -10,11 +10,11 @@ on:
         type: string
         default: 'Run E2E Tests'
       chainlink_version:
-        description: 'Enter Chainlink version to use for the tests. Example: "v2.10.0" or sha'
+        description: 'Enter Chainlink version to use for the tests. Example: v2.10.0, develop or commit sha'
         required: false
         type: string
       chainlink_upgrade_version:
-        description: 'Enter Chainlink version to upgrade to for upgrade tests. Example: "v2.10.0" or sha'
+        description: 'Enter Chainlink version to use for the upgrade tests. Example: v2.10.0, develop or commit sha'
         required: false
         type: string
       test_ids:
@@ -52,10 +52,9 @@ on:
         required: false
         type: string
       slack_notification_after_tests:
-        description: 'Set to "true" to send a slack notification after the tests'
+        description: 'Set to "always" to always send a slack notification after the tests. Set "on_failure" to send a notification only on test failure'
         required: false
-        type: boolean
-        default: false
+        type: string
       slack_notification_after_tests_channel_id:
         description: 'Slack channel ID to send the notification to'
         required: false
@@ -134,8 +133,8 @@ on:
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   QA_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-  GITHUB_SHA: ${{ github.sha }}
-  GITHUB_SHA_PLUGINS: ${{ github.sha }}-plugins
+  DEFAULT_CHAINLINK_VERSION: ${{ inputs.chainlink_version || github.sha }}
+  DEFAULT_CHAINLINK_PLUGINS_VERSION: ${{ inputs.chainlink_version != '' && format('{0}-plugins', inputs.chainlink_version) || format('{0}-plugins', github.sha) }}
   CHAINLINK_ENV_USER: ${{ github.actor }}
   CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
   SELECTED_NETWORKS: SIMULATED
@@ -408,7 +407,7 @@ jobs:
 
   # Run Docker tests
   run-docker-tests:
-    name: Run ${{ matrix.tests.id }}
+    name: ${{ matrix.tests.id }}
     needs: [load-test-configurations, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr, get_latest_chainlink_release_version]
     # Run when none of the needed jobs fail or are cancelled (skipped or successful jobs are ok)
     if: ${{ needs.load-test-configurations.outputs.run-docker-tests == 'true' && always() && !failure() && !cancelled() }}
@@ -435,7 +434,7 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: ${{ inputs.workflow_name }} / Run ${{ matrix.tests.id }}
+          this-job-name: ${{ inputs.workflow_name }} / ${{ matrix.tests.id }}
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
 
@@ -449,6 +448,7 @@ jobs:
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
         id: setup-gap
+        timeout-minutes: 3
         with:
           aws-region: ${{ secrets.AWS_REGION }}
           aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
@@ -483,7 +483,7 @@ jobs:
 
       - name: Run tests
         id: run_tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@00c164251be2a7c5b2b23a6e5f7014982f232c14 # v2.3.32
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@94cb11f4bd545607a2f221c6685052b3abee723d # v2.3.32
         env:
           DETACH_RUNNER: true
           E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || inputs.chainlink_version || github.sha }}
@@ -499,7 +499,7 @@ jobs:
           E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           E2E_TEST_GRAFANA_BASE_URL: "http://localhost:8080/primary"
-          E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          E2E_TEST_GRAFANA_DASHBOARD_URL: ${{ matrix.tests.test_env_vars.E2E_TEST_GRAFANA_DASHBOARD_URL || '/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs' }} 
           E2E_TEST_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
           E2E_TEST_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
           E2E_TEST_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
@@ -626,7 +626,7 @@ jobs:
   run-k8s-runner-tests:
     needs: [load-test-configurations, prepare-remote-runner-test-image, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr, get_latest_chainlink_release_version]
     if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }}
-    name: Run ${{ matrix.tests.id }}
+    name: ${{ matrix.tests.id }}
     runs-on: ${{ matrix.tests.runs_on }}
     strategy:
       fail-fast: false
@@ -650,7 +650,7 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: ${{ inputs.workflow_name }} / Run ${{ matrix.tests.id }}
+          this-job-name: ${{ inputs.workflow_name }} / ${{ matrix.tests.id }}
         continue-on-error: true
 
       - name: Checkout repository
@@ -665,7 +665,7 @@ jobs:
 
       - name: Run tests
         id: run_tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@00c164251be2a7c5b2b23a6e5f7014982f232c14 # v2.3.32
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@94cb11f4bd545607a2f221c6685052b3abee723d # v2.3.32
         env:
           DETACH_RUNNER: true
           RR_MEM: ${{ matrix.tests.remote_runner_memory }}
@@ -689,12 +689,13 @@ jobs:
           E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           E2E_TEST_GRAFANA_BASE_URL: "http://localhost:8080/primary"
-          E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          E2E_TEST_GRAFANA_DASHBOARD_URL: ${{ matrix.tests.test_env_vars.E2E_TEST_GRAFANA_DASHBOARD_URL || '/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs' }} 
           E2E_TEST_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
           E2E_TEST_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
           E2E_TEST_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
           E2E_TEST_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
           E2E_TEST_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
+          DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
         with:
           test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: make gomod
@@ -756,7 +757,7 @@ jobs:
 
       - name: Send Slack notification
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
-        if: ${{ inputs.slack_notification_after_tests }}
+        if: ${{ inputs.slack_notification_after_tests == 'true' || inputs.slack_notification_after_tests == 'always' || (inputs.slack_notification_after_tests == 'on_failure' && contains(join(needs.*.result, ','), 'failure')) }}
         id: slack
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -769,7 +770,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "${{ inputs.slack_notification_after_tests_name }} - ${{ steps.combine_results.outputs.result == 'failure' && 'Failed :x:' || steps.combine_results.outputs.result == 'cancelled' && 'Cancelled :warning:' || 'Passed :white_check_mark:' }}"
+                    "text": "${{ inputs.slack_notification_after_tests_name }} - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Cancelled :warning:' || 'Passed :white_check_mark:' }}"
                   }
                 },
                 {
