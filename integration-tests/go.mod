@@ -36,8 +36,9 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240808195812-ae0378684685
 	github.com/smartcontractkit/chain-selectors v1.0.21
 	github.com/smartcontractkit/chainlink-automation v1.0.4
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240828115624-442f1cff195b
 	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240902092205-6c13b641e59c
-	github.com/smartcontractkit/chainlink-testing-framework v1.34.10
+	github.com/smartcontractkit/chainlink-testing-framework v1.35.0
 	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.1
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v0.1.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.2.1
@@ -402,7 +403,6 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240828115624-442f1cff195b // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240820130645-cf4b159fbba2 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240710170203-5b41615da827 // indirect
