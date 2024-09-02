@@ -521,7 +521,7 @@ func (a *Automation) setFrom(f *Automation) {
 type Workflow struct {
 	FromAddress      *types.EIP55Address `toml:",omitempty"`
 	ForwarderAddress *types.EIP55Address `toml:",omitempty"`
-	DefaultGasLimit  uint64
+	GasLimitDefault  *uint64
 }
 
 func (m *Workflow) setFrom(f *Workflow) {
@@ -532,7 +532,9 @@ func (m *Workflow) setFrom(f *Workflow) {
 		m.ForwarderAddress = v
 	}
 
-	m.DefaultGasLimit = f.DefaultGasLimit
+	if v := f.GasLimitDefault; v != nil {
+		m.GasLimitDefault = v
+	}
 }
 
 type BalanceMonitor struct {
@@ -807,6 +809,7 @@ type ClientErrors struct {
 	TransactionAlreadyMined           *string `toml:",omitempty"`
 	Fatal                             *string `toml:",omitempty"`
 	ServiceUnavailable                *string `toml:",omitempty"`
+	TooManyResults                    *string `toml:",omitempty"`
 }
 
 func (r *ClientErrors) setFrom(f *ClientErrors) bool {
@@ -851,6 +854,9 @@ func (r *ClientErrors) setFrom(f *ClientErrors) bool {
 	}
 	if v := f.ServiceUnavailable; v != nil {
 		r.ServiceUnavailable = v
+	}
+	if v := f.TooManyResults; v != nil {
+		r.TooManyResults = v
 	}
 	return true
 }

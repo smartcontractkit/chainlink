@@ -41,7 +41,7 @@
 
 ## Introduction
 
-[Seth](https://github.com/smartcontractkit/seth) is the Ethereum client we use for integration tests. It is designed to be a thin wrapper over `go-ethereum` client that adds a couple of key features:
+[Seth](https://github.com/smartcontractkit/chainlink-testing-framework/tree/main/seth) is the Ethereum client we use for integration tests. It is designed to be a thin wrapper over `go-ethereum` client that adds a couple of key features:
 * key management
 * transaction decoding and tracing
 * gas estimation
@@ -65,7 +65,7 @@ tracing_level = "all" # trace all transactions regardless of whether they are re
 ```
 
 ### Documentation and Further Details
-For a comprehensive description of all available configuration options, refer to the `[Seth]` section of configuration documentation in the [default.toml](./testconfig/default.toml) file or consult the Seth [README.md on GitHub](https://github.com/smartcontractkit/seth/blob/master/README.md).
+For a comprehensive description of all available configuration options, refer to the `[Seth]` section of configuration documentation in the [default.toml](./testconfig/default.toml) file or consult the Seth [README.md on GitHub](https://github.com/smartcontractkit/chainlink-testing-framework/tree/main/seth/blob/master/README.md).
 
 ## How to set Seth logging level
 ### Locally
@@ -155,7 +155,7 @@ The most important thing to keep in mind that the CLI requires you to provide a 
 * `keys` commands requires `SETH_KEYFILE_PATH`, `SETH_CONFIG_PATH` and `SETH_ROOT_PRIVATE_KEY` environment variables
 * `gas` and `stats` command requires `SETH_CONFIG_PATH` environment variable
 
-You can find a sample `Seth.toml` file [here](https://github.com/smartcontractkit/seth/blob/master/seth.toml). Currently, you cannot use your test TOML file as a Seth configuration file, but we will add ability that in the future.
+You can find a sample `Seth.toml` file [here](https://github.com/smartcontractkit/chainlink-testing-framework/tree/main/seth/blob/master/seth.toml). Currently, you cannot use your test TOML file as a Seth configuration file, but we will add ability that in the future.
 
 ## How to get Fallback (Hardcoded) Values
 There are two primary methods to obtain fallback values for network configuration:
@@ -166,7 +166,7 @@ There are two primary methods to obtain fallback values for network configuratio
 1. **Clone the Seth Repository:**
    Clone the repository from GitHub using:
 ```bash
-git clone https://github.com/smartcontractkit/seth
+git clone https://github.com/smartcontractkit/chainlink-testing-framework/tree/main/seth
 ```
 
 2. **Run Seth CLI:**

@@ -28,6 +28,9 @@ on:
 
 env:
   FOUNDRY_PROFILE: ci
+  # Unfortunately, we can't use the "default" field in the inputs section, because it does not have
+  # access to the workflow context
+  head_ref:  ${{ inputs.commit_to_use || github.sha }}
 
 jobs:
   changes:
@@ -36,13 +39,13 @@ jobs:
     outputs:
       product_changes: ${{ steps.changes-transform.outputs.product_changes }}
       product_files: ${{ steps.changes-transform.outputs.product_files }}
-      changeset_changes: ${{ steps.changes-dorny.outputs.changeset }}
-      changeset_files: ${{ steps.changes-dorny.outputs.changeset_files }}
+      changeset_changes: ${{ steps.changes.outputs.changeset }}
+      changeset_files: ${{ steps.changes.outputs.changeset_files }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          ref: ${{ inputs.commit_to_use || github.sha }}
+          ref: ${{ env.head_ref }}
       - name: Find modified contracts
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes-dorny
@@ -144,13 +147,13 @@ jobs:
         shell: bash
         run: |
           echo "Product: ${{ inputs.product }}" > contracts/commit_sha_base_ref.txt
-          echo "Commit SHA used to generate artifacts: ${{ inputs.commit_to_use || github.sha }}" >> contracts/commit_sha_base_ref.txt
+          echo "Commit SHA used to generate artifacts: ${{ env.head_ref }}" >> contracts/commit_sha_base_ref.txt
           echo "Base reference SHA used to find modified contracts: ${{ inputs.base_ref }}" >> contracts/commit_sha_base_ref.txt     
           
           IFS=',' read -r -a modified_files <<< "${{ needs.changes.outputs.product_files }}"
           echo "# Modified contracts:" > contracts/modified_contracts.md
           for file in "${modified_files[@]}"; do
-            echo " - [$file](${{ github.server_url }}/${{ github.repository }}/blob/${{ inputs.commit_to_use || github.sha }}/$file)" >> contracts/modified_contracts.md
+            echo " - [$file](${{ github.server_url }}/${{ github.repository }}/blob/${{ env.head_ref }}/$file)" >> contracts/modified_contracts.md
             echo "$file" >> contracts/modified_contracts.txt
           done
 
@@ -187,7 +190,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          ref: ${{ inputs.commit_to_use || github.sha }}
+          ref: ${{ env.head_ref }}
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -268,7 +271,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           fetch-depth: 0
-          ref: ${{ inputs.commit_to_use || github.sha }}
+          ref: ${{ env.head_ref }}
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -315,7 +318,7 @@ jobs:
           cp contracts/foundry.toml foundry.toml    
           
           echo "::debug::Processing contracts: $contract_list"
-          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ inputs.commit_to_use || github.sha }}/" contracts/configs/slither/.slither.config-artifacts.json "." "$contract_list" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
+          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ env.head_ref }}/" contracts/configs/slither/.slither.config-artifacts.json "." "$contract_list" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
 
       - name: Upload UMLs and Slither reports
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
@@ -343,6 +346,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [coverage-and-book, uml-static-analysis, gather-basic-info, changes]
     steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ env.head_ref }}
+
       - name: Download all artifacts
         uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
         with:
@@ -352,7 +360,7 @@ jobs:
       - name: Upload all artifacts as single package
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
-          name: review-artifacts-${{ inputs.product }}-${{ inputs.base_ref }}-${{ inputs.commit_to_use || github.sha }}
+          name: review-artifacts-${{ inputs.product }}-${{ inputs.base_ref }}-${{ env.head_ref }}
           path: review_artifacts
 
       - name: Remove temporary artifacts
@@ -361,18 +369,46 @@ jobs:
           name: tmp-*
 
       - name: Print Artifact URL in job summary
+        id: gather-all-artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
-          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts-${{ inputs.product }}-${{ inputs.commit_to_use || github.sha }}") | .id')
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts-${{ inputs.product }}-${{ env.head_ref }}") | .id')
           echo "Artifact ID: $ARTIFACT_ID"
           
           echo "# Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
           echo "Product: **${{ inputs.product }}**" >> $GITHUB_STEP_SUMMARY
           echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
-          echo "Commit SHA used: **${{ inputs.commit_to_use || github.sha }}**" >> $GITHUB_STEP_SUMMARY
-          echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID)" >> $GITHUB_STEP_SUMMARY
+          echo "Commit SHA used: **${{ env.head_ref }}**" >> $GITHUB_STEP_SUMMARY
+
+          artifact_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID"
+          echo "[Artifact URL]($artifact_url)" >> $GITHUB_STEP_SUMMARY
+          echo "artifact-url=$artifact_url" >> $GITHUB_OUTPUT
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Setup Jira
+        working-directory: ./.github/scripts/jira
+        run: pnpm i
+
+      - name: Create Traceability
+        working-directory: ./.github/scripts/jira
+        run: |
+          pnpm issue:traceability
+        env:
+          CHANGESET_FILES: ${{ needs.changes.outputs.changeset_files }}
+          CHAINLINK_PRODUCT: ${{ inputs.product }}
+          BASE_REF: ${{ inputs.base_ref }}
+          HEAD_REF: ${{ env.head_ref }}
+          ARTIFACT_URL: ${{ steps.gather-all-artifacts.outputs.artifact-url }}
+
+          JIRA_HOST: ${{ vars.JIRA_HOST }} 
+          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   notify-no-changes:
     if: ${{ needs.changes.outputs.product_changes == 'false' }}
@@ -384,9 +420,9 @@ jobs:
         run: |
           echo "# Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
           echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
-          echo "Commit SHA used: **${{ inputs.commit_to_use || github.sha }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Commit SHA used: **${{ env.head_ref }}**" >> $GITHUB_STEP_SUMMARY
           echo "## Reason: No modified Solidity files found for ${{ inputs.product }}" >> $GITHUB_STEP_SUMMARY
-          echo "* no modified Solidity files found between ${{ inputs.base_ref }} and ${{ inputs.commit_to_use || github.sha }} commits" >> $GITHUB_STEP_SUMMARY
+          echo "* no modified Solidity files found between ${{ inputs.base_ref }} and ${{ env.head_ref }} commits" >> $GITHUB_STEP_SUMMARY
           echo "* or they are located outside of ./contracts/src/v0.8 folder" >> $GITHUB_STEP_SUMMARY
           echo "* or they were limited to test files" >> $GITHUB_STEP_SUMMARY
           exit 1
