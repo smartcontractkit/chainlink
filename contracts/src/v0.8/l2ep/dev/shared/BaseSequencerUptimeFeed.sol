@@ -37,6 +37,8 @@ abstract contract BaseSequencerUptimeFeed is
   /// @notice Replacement for AggregatorV3Interface "No data present"
   error NoDataPresent();
 
+  error L1SenderAddrZero();
+
   event L1SenderTransferred(address indexed from, address indexed to);
   /// @dev Emitted when an `updateStatus` call is ignored due to unchanged status or stale timestamp
   event UpdateIgnored(bool latestStatus, uint64 latestTimestamp, bool incomingStatus, uint64 incomingTimestamp);
@@ -59,6 +61,9 @@ abstract contract BaseSequencerUptimeFeed is
   /// @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
   /// @param initialStatus The initial status of the feed
   constructor(address l1SenderAddress, bool initialStatus) {
+    if (l1SenderAddress == address(0)) {
+      revert L1SenderAddrZero();
+    }
     _setL1Sender(l1SenderAddress);
 
     // Initialise roundId == 1 as the first round
