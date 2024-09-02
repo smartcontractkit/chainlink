@@ -135,7 +135,10 @@ func (f *FeeHistoryEstimator) Close() error {
 func (f *FeeHistoryEstimator) run() {
 	defer f.wg.Done()
 
-	t := services.NewTicker(f.config.CacheTimeout)
+	t := services.TickerConfig{
+		JitterPct: services.DefaultJitter,
+	}.NewTicker(f.config.CacheTimeout)
+
 	for {
 		select {
 		case <-f.stopCh:
