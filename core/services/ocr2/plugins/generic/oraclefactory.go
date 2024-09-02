@@ -41,14 +41,14 @@ func NewOracleFactoryConfig(config job.JSONConfig) (*oracleFactoryConfig, error)
 		return &oracleFactoryConfig{}, nil
 	}
 
+	// If Oracle Factory is enabled, it must have at least one bootstrap peer
+	if len(ofc.BootstrapPeers) == 0 {
+		return nil, errors.New("no bootstrap peers found")
+	}
+
 	bootstrapPeers, err := ocrcommon.ParseBootstrapPeers(ofc.BootstrapPeers)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse bootstrap peers")
-	}
-
-	// If Oracle Factory is enabled, it must have at least one bootstrap peer
-	if len(bootstrapPeers) == 0 {
-		return nil, errors.New("no bootstrap peers found")
 	}
 
 	return &oracleFactoryConfig{

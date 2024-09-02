@@ -792,7 +792,6 @@ func (d *Delegate) newServicesGenericPlugin(
 			OnchainKeyring:               onchainKeyringAdapter,
 			MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 		}
-		// This would be newReportingPluginFactory that returns the service
 		oracleArgs.ReportingPluginFactory = plugin
 		srvs = append(srvs, plugin)
 		oracle, err := libocr2.NewOracle(oracleArgs)
