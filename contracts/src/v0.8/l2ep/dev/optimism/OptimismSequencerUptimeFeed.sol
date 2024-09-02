@@ -13,7 +13,7 @@ import {IL2CrossDomainMessenger} from "@eth-optimism/contracts/L2/messaging/IL2C
  *  records a new answer if the status changed
  */
 contract OptimismSequencerUptimeFeed is ITypeAndVersion, BaseSequencerUptimeFeed {
-  string public constant override typeAndVersion = "OptimismSequencerUptimeFeed 1.0.0";
+  string public constant override typeAndVersion = "OptimismSequencerUptimeFeed 1.1.0-dev";
 
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   IL2CrossDomainMessenger private immutable s_l2CrossDomainMessenger;

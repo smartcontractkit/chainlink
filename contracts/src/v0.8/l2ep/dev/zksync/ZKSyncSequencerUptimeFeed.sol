@@ -9,7 +9,7 @@ import {BaseSequencerUptimeFeed} from "../shared/BaseSequencerUptimeFeed.sol";
 /// @notice L2 contract that receives status updates from a specific L1 address,
 ///  records a new answer if the status changed
 contract ZKSyncSequencerUptimeFeed is ITypeAndVersion, BaseSequencerUptimeFeed {
-  string public constant override typeAndVersion = "ZKSyncSequencerUptimeFeed 1.0.0";
+  string public constant override typeAndVersion = "ZKSyncSequencerUptimeFeed 1.1.0-dev";
 
   /// @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
   /// @param initialStatus The initial status of the feed

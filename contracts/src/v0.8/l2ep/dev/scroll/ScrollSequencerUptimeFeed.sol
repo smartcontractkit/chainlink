@@ -12,7 +12,7 @@ import {IL2ScrollMessenger} from "@scroll-tech/contracts/L2/IL2ScrollMessenger.s
 contract ScrollSequencerUptimeFeed is ITypeAndVersion, BaseSequencerUptimeFeed {
   error ZeroAddress();
 
-  string public constant override typeAndVersion = "ScrollSequencerUptimeFeed 1.0.0";
+  string public constant override typeAndVersion = "ScrollSequencerUptimeFeed 1.1.0-dev";
 
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   IL2ScrollMessenger private immutable s_l2CrossDomainMessenger;

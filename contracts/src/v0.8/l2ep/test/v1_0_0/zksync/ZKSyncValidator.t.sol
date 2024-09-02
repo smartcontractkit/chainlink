@@ -4,6 +4,7 @@ pragma solidity ^0.8.9;
 import {MockBridgehub} from "../../mocks/zksync/MockZKSyncL1Bridge.sol";
 import {ISequencerUptimeFeed} from "../../../dev/interfaces/ISequencerUptimeFeed.sol";
 import {ZKSyncValidator} from "../../../dev/zksync/ZKSyncValidator.sol";
+import {BaseValidator} from "../../../dev/shared/BaseValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract ZKSyncValidatorTest is L2EPTest {
@@ -52,9 +53,7 @@ contract ZKSyncValidator_Constructor is ZKSyncValidatorTest {
 
   /// @notice it correctly validates that the L1 bridge address is not zero
   function test_ConstructingRevertedWithZeroL1BridgeAddress() public {
-    vm.expectRevert(
-      abi.encodeWithSelector(ZKSyncValidator.ZeroAddressNotAllowed.selector, "Invalid xDomain Messenger address")
-    );
+    vm.expectRevert(BaseValidator.L1CrossDomainMessengerAddressZero.selector);
     new ZKSyncValidator(
       address(0),
       DUMMY_L2_UPTIME_FEED_ADDR,
@@ -66,12 +65,7 @@ contract ZKSyncValidator_Constructor is ZKSyncValidatorTest {
 
   /// @notice it correctly validates that the L2 Uptime feed address is not zero
   function test_ConstructingRevertedWithZeroL2UpdateFeedAddress() public {
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        ZKSyncValidator.ZeroAddressNotAllowed.selector,
-        "Invalid SequencerUptimeFeedInterface contract address"
-      )
-    );
+    vm.expectRevert(BaseValidator.L2UptimeFeedAddrZero.selector);
     new ZKSyncValidator(
       DUMMY_L1_XDOMAIN_MSNGR_ADDR,
       address(0),
