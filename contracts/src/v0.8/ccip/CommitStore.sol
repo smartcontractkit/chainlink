@@ -59,7 +59,7 @@ contract CommitStore is ICommitStore, ITypeAndVersion, OCR2Base {
   }
 
   // STATIC CONFIG
-  string public constant override typeAndVersion = "CommitStore 1.5.0-dev";
+  string public constant override typeAndVersion = "CommitStore 1.5.0";
   // Chain ID of this chain
   uint64 internal immutable i_chainSelector;
   // Chain ID of the source chain

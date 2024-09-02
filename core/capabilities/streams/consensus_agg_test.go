@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/datafeeds"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -98,26 +97,18 @@ func newObservations(t *testing.T, nNodes int, feeds []feed, minRequiredSignatur
 			reportList = append(reportList, signedStreamsReport)
 		}
 
-		payloadVal, err := values.Wrap(reportList)
-		require.NoError(t, err)
-
-		meta := datastreams.SignersMetadata{
+		meta := datastreams.Metadata{
 			Signers:               allowedSigners,
 			MinRequiredSignatures: minRequiredSignatures,
 		}
-		metaVal, err := values.Wrap(meta)
+		p := datastreams.StreamsTriggerEvent{
+			Payload:  reportList,
+			Metadata: meta,
+		}
+		outputs, err := values.WrapMap(p)
 		require.NoError(t, err)
 
-		triggerEvent := capabilities.TriggerEvent{
-			TriggerType: triggerID,
-			ID:          "unused",
-			Timestamp:   "1234",
-			Metadata:    metaVal,
-			Payload:     payloadVal,
-		}
-		wrappedEvent, err := values.Wrap(triggerEvent)
-		require.NoError(t, err)
-		observations[commontypes.OracleID(i)] = []values.Value{wrappedEvent}
+		observations[commontypes.OracleID(i)] = []values.Value{outputs}
 	}
 	return observations
 }
