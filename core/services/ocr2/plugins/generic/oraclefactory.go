@@ -2,9 +2,12 @@ package generic
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/smartcontractkit/libocr/commontypes"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
@@ -17,6 +20,41 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
+type oracleFactoryConfig struct {
+	Enabled        bool
+	BootstrapPeers []commontypes.BootstrapperLocator
+}
+
+func NewOracleFactoryConfig(config job.JSONConfig) (*oracleFactoryConfig, error) {
+	var ofc struct {
+		Enabled        bool     `json:"enabled"`
+		BootstrapPeers []string `json:"bootstrapPeers"`
+	}
+	err := json.Unmarshal(config.Bytes(), &ofc)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal oracle factory config")
+	}
+
+	if !ofc.Enabled {
+		return &oracleFactoryConfig{}, nil
+	}
+
+	bootstrapPeers, err := ocrcommon.ParseBootstrapPeers(ofc.BootstrapPeers)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse bootstrap peers")
+	}
+
+	// If Oracle Factory is enabled, it must have at least one bootstrap peer
+	if len(bootstrapPeers) == 0 {
+		return nil, errors.New("no bootstrap peers found")
+	}
+
+	return &oracleFactoryConfig{
+		Enabled:        true,
+		BootstrapPeers: bootstrapPeers,
+	}, nil
+}
+
 type oracleFactory struct {
 	database ocr3types.Database
 	jobID    int32
@@ -24,6 +62,7 @@ type oracleFactory struct {
 	jobORM   job.ORM
 	kb       ocr2key.KeyBundle
 	lggr     logger.Logger
+	config   *oracleFactoryConfig
 }
 
 type OracleFactoryParams struct {
@@ -33,6 +72,7 @@ type OracleFactoryParams struct {
 	JobORM   job.ORM
 	Kb       ocr2key.KeyBundle
 	Logger   logger.Logger
+	Config   *oracleFactoryConfig
 }
 
 func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
@@ -43,6 +83,7 @@ func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 		jobORM:   params.JobORM,
 		kb:       params.Kb,
 		lggr:     params.Logger,
+		config:   params.Config,
 	}, nil
 }
 
@@ -61,10 +102,9 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		OffchainConfigDigester: args.OffchainConfigDigester,
 		ReportingPluginFactory: args.ReportingPluginFactoryService,
 		// BinaryNetworkEndpointFactory: d.cfg.BinaryNetworkEndpointFactory,
-		// V2Bootstrappers:              d.cfg.V2Bootstrappers,
-		Database: of.database,
-		Logger:   ocrLogger,
-		// TODO: This is Relayer Dependent - can we make it Relayer agnostic?
+		V2Bootstrappers:    of.config.BootstrapPeers,
+		Database:           of.database,
+		Logger:             ocrLogger,
 		MonitoringEndpoint: &telemetry.NoopAgent{},
 		OffchainKeyring:    of.kb,
 		OnchainKeyring:     ocrcommon.NewOCR3OnchainKeyringAdapter(of.kb),

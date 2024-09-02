@@ -79,7 +79,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return nil, err
 	}
 	if len(keyBundles) > 1 {
-		return nil, fmt.Errorf("expected only one OCR key bundle, but found found: %s", len(keyBundles))
+		return nil, fmt.Errorf("expected only one OCR key bundle, but found found: %d", len(keyBundles))
+	}
+
+	oracleFactoryConfig, err := generic.NewOracleFactoryConfig(spec.StandardCapabilitiesSpec.OracleFactory)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal oracle factory config")
 	}
 
 	// KeyBundle - figure out if we create one on startup.
@@ -91,6 +96,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		JobName:  spec.Name.ValueOrZero(),
 		Database: ocr2.NewDB(d.ds, spec.ID, 0, log),
 		Kb:       keyBundles[0],
+		Config:   oracleFactoryConfig,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create oracle factory: %w", err)
@@ -133,6 +139,11 @@ func ValidatedStandardCapabilitiesSpec(tomlString string) (job.Job, error) {
 
 	if len(jb.StandardCapabilitiesSpec.Command) == 0 {
 		return jb, errors.Errorf("standard capabilities command must be set")
+	}
+
+	_, err = generic.NewOracleFactoryConfig(jb.StandardCapabilitiesSpec.OracleFactory)
+	if err != nil {
+		return jb, errors.Wrap(err, "failed to unmarshal oracle factory config")
 	}
 
 	return jb, nil

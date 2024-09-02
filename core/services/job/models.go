@@ -896,11 +896,12 @@ func (w *WorkflowSpec) Validate() error {
 }
 
 type StandardCapabilitiesSpec struct {
-	ID        int32
-	CreatedAt time.Time `toml:"-"`
-	UpdatedAt time.Time `toml:"-"`
-	Command   string    `toml:"command"`
-	Config    string    `toml:"config"`
+	ID            int32
+	CreatedAt     time.Time  `toml:"-"`
+	UpdatedAt     time.Time  `toml:"-"`
+	Command       string     `toml:"command"`
+	Config        string     `toml:"config"`
+	OracleFactory JSONConfig `toml:"oracleFactory"`
 }
 
 func (w *StandardCapabilitiesSpec) GetID() string {
