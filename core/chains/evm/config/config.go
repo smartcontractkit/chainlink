@@ -96,6 +96,7 @@ type ClientErrors interface {
 	TransactionAlreadyMined() string
 	Fatal() string
 	ServiceUnavailable() string
+	TooManyResults() string
 }
 
 type Transactions interface {
@@ -166,6 +167,7 @@ type FeeHistory interface {
 type Workflow interface {
 	FromAddress() *types.EIP55Address
 	ForwarderAddress() *types.EIP55Address
+	GasLimitDefault() *uint64
 }
 
 type NodePool interface {

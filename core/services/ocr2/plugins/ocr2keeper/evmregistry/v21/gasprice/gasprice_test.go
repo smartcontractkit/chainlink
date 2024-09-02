@@ -86,13 +86,13 @@ func TestGasPrice_Check(t *testing.T) {
 			ctx := testutils.Context(t)
 			ge := gasMocks.NewEvmFeeEstimator(t)
 			if test.FailedToGetFee {
-				ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+				ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 					gas.EvmFee{},
 					feeLimit,
 					errors.New("failed to retrieve gas price"),
 				)
 			} else if test.CurrentLegacyGasPrice != nil {
-				ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+				ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 					gas.EvmFee{
 						Legacy: assets.NewWei(test.CurrentLegacyGasPrice),
 					},
@@ -100,7 +100,7 @@ func TestGasPrice_Check(t *testing.T) {
 					nil,
 				)
 			} else if test.CurrentDynamicGasPrice != nil {
-				ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+				ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 					gas.EvmFee{
 						DynamicFeeCap: assets.NewWei(test.CurrentDynamicGasPrice),
 						DynamicTipCap: assets.NewWei(big.NewInt(1_000_000_000)),

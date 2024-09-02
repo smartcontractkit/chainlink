@@ -8,7 +8,8 @@ import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/inter
 import {Common} from "../libraries/Common.sol";
 import {IAccessController} from "../../shared/interfaces/IAccessController.sol";
 import {IDestinationVerifierProxy} from "./interfaces/IDestinationVerifierProxy.sol";
-import {IDestinationFeeManager} from "./interfaces/IDestinationFeeManager.sol";
+import {IDestinationVerifierProxyVerifier} from "./interfaces/IDestinationVerifierProxyVerifier.sol";
+import {IDestinationVerifierFeeManager} from "./interfaces/IDestinationVerifierFeeManager.sol";
 
 // OCR2 standard
 uint256 constant MAX_NUM_ORACLES = 31;
@@ -18,7 +19,12 @@ uint256 constant MAX_NUM_ORACLES = 31;
  * @author Michael Fletcher
  * @notice This contract will be used to verify reports based on the oracle signatures. This is not the source verifier which required individual fee configurations, instead, this checks that a report has been signed by one of the configured oracles.
  */
-contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVersionInterface, IERC165 {
+contract DestinationVerifier is
+  IDestinationVerifier,
+  IDestinationVerifierProxyVerifier,
+  ConfirmedOwner,
+  TypeAndVersionInterface
+{
   /// @notice The list of DON configurations by hash(address|donConfigId) - set to true if the signer is part of the config
   mapping(bytes32 => bool) private s_signerByAddressAndDonConfigId;
 
@@ -84,9 +90,6 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
   /// @notice This error is thrown whenever a config does not exist
   error DonConfigDoesNotExist();
 
-  /// @notice this error is thrown when the verifierProxy is incorrect when initialising
-  error VerifierProxyInvalid();
-
   /// @notice This error is thrown when the activation time is either in the future or less than the current configs
   error BadActivationTime();
 
@@ -105,7 +108,8 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     bytes24 indexed donConfigId,
     address[] signers,
     uint8 f,
-    Common.AddressAndWeight[] recipientAddressesAndWeights
+    Common.AddressAndWeight[] recipientAddressesAndWeights,
+    uint16 donConfigIndex
   );
 
   /// @notice This event is emitted when a new fee manager is set
@@ -137,18 +141,25 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     i_verifierProxy = IDestinationVerifierProxy(verifierProxy);
   }
 
-  /// @inheritdoc IDestinationVerifier
+  /// @inheritdoc IDestinationVerifierProxyVerifier
   function verify(
     bytes calldata signedReport,
     bytes calldata parameterPayload,
     address sender
-  ) external payable override checkValidProxy checkAccess(sender) returns (bytes memory) {
+  ) external payable override onlyProxy checkAccess(sender) returns (bytes memory) {
     (bytes memory verifierResponse, bytes32 donConfigId) = _verify(signedReport, sender);
 
     address fm = s_feeManager;
     if (fm != address(0)) {
       //process the fee and catch the error
-      try IDestinationFeeManager(fm).processFee{value: msg.value}(donConfigId, signedReport, parameterPayload, sender) {
+      try
+        IDestinationVerifierFeeManager(fm).processFee{value: msg.value}(
+          donConfigId,
+          signedReport,
+          parameterPayload,
+          sender
+        )
+      {
         //do nothing
       } catch {
         // we purposefully obfuscate the error here to prevent information leaking leading to free verifications
@@ -159,12 +170,12 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     return verifierResponse;
   }
 
-  /// @inheritdoc IDestinationVerifier
+  /// @inheritdoc IDestinationVerifierProxyVerifier
   function verifyBulk(
     bytes[] calldata signedReports,
     bytes calldata parameterPayload,
     address sender
-  ) external payable override checkValidProxy checkAccess(sender) returns (bytes[] memory) {
+  ) external payable override onlyProxy checkAccess(sender) returns (bytes[] memory) {
     bytes[] memory verifierResponses = new bytes[](signedReports.length);
     bytes32[] memory donConfigs = new bytes32[](signedReports.length);
 
@@ -178,7 +189,12 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     if (fm != address(0)) {
       //process the fee and catch the error
       try
-        IDestinationFeeManager(fm).processFeeBulk{value: msg.value}(donConfigs, signedReports, parameterPayload, sender)
+        IDestinationVerifierFeeManager(fm).processFeeBulk{value: msg.value}(
+          donConfigs,
+          signedReports,
+          parameterPayload,
+          sender
+        )
       {
         //do nothing
       } catch {
@@ -276,7 +292,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     uint8 f,
     Common.AddressAndWeight[] memory recipientAddressesAndWeights,
     uint32 activationTime
-  ) internal checkConfigValid(signers.length, f) onlyOwner {
+  ) internal {
     // Duplicate addresses would break protocol rules
     if (Common._hasDuplicateAddresses(signers)) {
       revert NonUniqueSignatures();
@@ -304,7 +320,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
 
     // Check the activation time is greater than the latest config
     uint256 donConfigLength = s_donConfigs.length;
-    if (donConfigLength > 0 && s_donConfigs[donConfigLength - 1].activationTime > activationTime) {
+    if (donConfigLength > 0 && s_donConfigs[donConfigLength - 1].activationTime >= activationTime) {
       revert BadActivationTime();
     }
 
@@ -315,22 +331,22 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
 
     // We may want to register these later or skip this step in the unlikely scenario they've previously been registered in the RewardsManager
     if (recipientAddressesAndWeights.length != 0) {
-      IDestinationFeeManager(s_feeManager).setFeeRecipients(donConfigId, recipientAddressesAndWeights);
+      if (s_feeManager == address(0)) {
+        revert FeeManagerInvalid();
+      }
+      IDestinationVerifierFeeManager(s_feeManager).setFeeRecipients(donConfigId, recipientAddressesAndWeights);
     }
 
     // push the DonConfig
     s_donConfigs.push(DonConfig(donConfigId, f, true, activationTime));
 
-    emit ConfigSet(donConfigId, signers, f, recipientAddressesAndWeights);
+    emit ConfigSet(donConfigId, signers, f, recipientAddressesAndWeights, uint16(donConfigLength));
   }
 
   /// @inheritdoc IDestinationVerifier
   function setFeeManager(address feeManager) external override onlyOwner {
-    if (
-      !IERC165(feeManager).supportsInterface(IDestinationFeeManager.processFee.selector) ||
-      !IERC165(feeManager).supportsInterface(IDestinationFeeManager.processFeeBulk.selector) ||
-      !IERC165(feeManager).supportsInterface(IDestinationFeeManager.setFeeRecipients.selector)
-    ) revert FeeManagerInvalid();
+    if (!IERC165(feeManager).supportsInterface(type(IDestinationVerifierFeeManager).interfaceId))
+      revert FeeManagerInvalid();
 
     address oldFeeManager = s_feeManager;
     s_feeManager = feeManager;
@@ -400,7 +416,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     _;
   }
 
-  modifier checkValidProxy() {
+  modifier onlyProxy() {
     if (address(i_verifierProxy) != msg.sender) {
       revert AccessForbidden();
     }
@@ -416,19 +432,12 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
   /// @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
     return
-      interfaceId == this.verify.selector ||
-      interfaceId == this.verifyBulk.selector ||
-      interfaceId == this.s_accessController.selector ||
-      interfaceId == this.s_feeManager.selector ||
-      interfaceId == this.setConfig.selector ||
-      interfaceId == this.setConfigWithActivationTime.selector ||
-      interfaceId == this.setFeeManager.selector ||
-      interfaceId == this.setAccessController.selector ||
-      interfaceId == this.setConfigActive.selector;
+      interfaceId == type(IDestinationVerifier).interfaceId ||
+      interfaceId == type(IDestinationVerifierProxyVerifier).interfaceId;
   }
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "DestinationVerifier 1.0.0";
+    return "DestinationVerifier 0.4.0";
   }
 }

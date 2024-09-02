@@ -419,7 +419,7 @@ func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.
 	res, err := c.b.CallContract(ctx, msg, blockNumber)
 	if err != nil {
 		dataErr := revertError{}
-		if errors.Is(err, &dataErr) {
+		if errors.As(err, &dataErr) {
 			return nil, &JsonError{Data: dataErr.ErrorData(), Message: dataErr.Error(), Code: 3}
 		}
 		// Generic revert, no data
@@ -438,7 +438,7 @@ func (c *SimulatedBackendClient) PendingCallContract(ctx context.Context, msg et
 	res, err := c.b.PendingCallContract(ctx, msg)
 	if err != nil {
 		dataErr := revertError{}
-		if errors.Is(err, &dataErr) {
+		if errors.As(err, &dataErr) {
 			return nil, &JsonError{Data: dataErr.ErrorData(), Message: dataErr.Error(), Code: 3}
 		}
 		// Generic revert, no data

@@ -78,7 +78,7 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 	if err != nil {
 		return fmt.Errorf("failed to convert message sender to PeerID: %w", err)
 	}
-	
+
 	if err := e.addRequester(requester); err != nil {
 		return fmt.Errorf("failed to add requester to request: %w", err)
 	}
