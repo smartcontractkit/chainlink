@@ -1,4 +1,4 @@
-package log_event_trigger
+package main
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/log_event_trigger/trigger"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/log_event_trigger"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -87,7 +87,7 @@ func (cs *LogEventTriggerGRPCService) Initialise(
 	relayerSet core.RelayerSet,
 ) error {
 	cs.s.Logger.Debugf("Initialising %s", serviceName)
-	cs.trigger = trigger.NewLogEventTriggerService(trigger.Params{
+	cs.trigger = log_event_trigger.NewLogEventTriggerService(log_event_trigger.Params{
 		Logger: cs.s.Logger,
 	})
 

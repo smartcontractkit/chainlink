@@ -1,4 +1,4 @@
-package trigger
+package log_event_trigger
 
 import (
 	"context"
