@@ -430,10 +430,6 @@ func (p *Common) Validate() error {
 	// read the default network config, if specified
 	p.Network.UpperCaseNetworkNames()
 	p.Network.OverrideURLsAndKeysFromEVMNetwork()
-	err := p.Network.Default()
-	if err != nil {
-		return fmt.Errorf("error reading default network config %w", err)
-	}
 	if err := p.Network.Validate(); err != nil {
 		return fmt.Errorf("error validating networks config %w", err)
 	}

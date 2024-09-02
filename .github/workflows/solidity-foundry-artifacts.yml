@@ -374,7 +374,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
-          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts-${{ inputs.product }}-${{ env.head_ref }}") | .id')
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts-${{ inputs.product }}-${{ inputs.base_ref }}-${{ env.head_ref }}") | .id')
           echo "Artifact ID: $ARTIFACT_ID"
           
           echo "# Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
@@ -404,7 +404,7 @@ jobs:
           HEAD_REF: ${{ env.head_ref }}
           ARTIFACT_URL: ${{ steps.gather-all-artifacts.outputs.artifact-url }}
 
-          JIRA_HOST: ${{ vars.JIRA_HOST }} 
+          JIRA_HOST: ${{ vars.JIRA_HOST }}
           JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
