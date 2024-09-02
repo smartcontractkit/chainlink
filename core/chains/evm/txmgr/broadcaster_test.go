@@ -1524,10 +1524,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM evm.txes WHERE nonce = $1`, localNextNonce)
 	})
 
-	t.Run("eth tx is replaced with new re-estimated tx if eth node returns insufficient eth", func(t *testing.T) {
+	t.Run("if eth node returns insufficient eth, eth tx is replaced with new re-estimated tx, and keep in progress", func(t *testing.T) {
 		insufficientEthError := "insufficient funds for transfer"
 		localNextNonce := getLocalNextNonce(t, nonceTracker, fromAddress)
-		mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
+		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
 		}), fromAddress).Return(commonclient.InsufficientFunds, errors.New(insufficientEthError)).Once()
@@ -1537,20 +1537,17 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Contains(t, err.Error(), "insufficient funds for transfer")
 		assert.True(t, retryable)
 
-		// Check it was saved correctly with replaced attempt
-		output, err := txStore.FindTxsByStateAndFromAddresses(ctx, []gethCommon.Address{fromAddress}, txmgrcommon.TxInProgress, testutils.FixtureChainID)
-		updated_etx := output[0]
+		// Check it was saved correctly with its attempt
+		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
-		assert.NotEqual(t, 0, len(output))
-		assert.NotNil(t, updated_etx.CreatedAt)
-		assert.Nil(t, updated_etx.BroadcastAt)
-		assert.Nil(t, updated_etx.InitialBroadcastAt)
-		require.NotNil(t, updated_etx.Sequence)
-		assert.False(t, updated_etx.Error.Valid)
-		assert.Equal(t, txmgrcommon.TxInProgress, updated_etx.State)
-		require.Len(t, updated_etx.TxAttempts, 1)
 
-		attempt := updated_etx.TxAttempts[0]
+		assert.Nil(t, etx.BroadcastAt)
+		assert.Nil(t, etx.InitialBroadcastAt)
+		require.NotNil(t, etx.Sequence)
+		assert.False(t, etx.Error.Valid)
+		assert.Equal(t, txmgrcommon.TxInProgress, etx.State)
+		require.Len(t, etx.TxAttempts, 1)
+		attempt := etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
 		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
 	})
