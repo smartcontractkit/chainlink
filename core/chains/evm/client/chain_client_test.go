@@ -761,7 +761,6 @@ func TestEthClient_BatchCallContext(t *testing.T) {
 		}
 
 		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
-			fmt.Printf("Handling method: %s with params: %s\n", method, params.String())
 			switch method {
 			case "eth_subscribe":
 				resp.Result = `"0x00"`

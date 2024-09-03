@@ -146,7 +146,6 @@ func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 	}()
 
 	if err != nil {
-		txSender.wg.Wait()
 		return 0, err
 	}
 
@@ -168,7 +167,7 @@ func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) broadcastTxAsync(ctx conte
 
 func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) reportSendTxAnomalies(tx TX, txResults <-chan sendTxResult) {
 	defer txSender.wg.Done()
-	resultsByCode := sendTxErrors{}
+	resultsByCode := sendTxResults{}
 	// txResults eventually will be closed
 	for txResult := range txResults {
 		resultsByCode[txResult.ResultCode] = append(resultsByCode[txResult.ResultCode], txResult.Err)
@@ -181,9 +180,9 @@ func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) reportSendTxAnomalies(tx T
 	}
 }
 
-type sendTxErrors map[SendTxReturnCode][]error
+type sendTxResults map[SendTxReturnCode][]error
 
-func aggregateTxResults(resultsByCode sendTxErrors) (returnCode SendTxReturnCode, txResult error, err error) {
+func aggregateTxResults(resultsByCode sendTxResults) (returnCode SendTxReturnCode, txResult error, err error) {
 	severeCode, severeErrors, hasSevereErrors := findFirstIn(resultsByCode, sendTxSevereErrors)
 	successCode, successResults, hasSuccess := findFirstIn(resultsByCode, sendTxSuccessfulCodes)
 	if hasSuccess {
@@ -217,7 +216,7 @@ func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) collectTxResults(ctx conte
 		return 0, ErroringNodeError
 	}
 	requiredResults := int(math.Ceil(float64(healthyNodesNum) * sendTxQuorum))
-	errorsByCode := sendTxErrors{}
+	errorsByCode := sendTxResults{}
 	var softTimeoutChan <-chan time.Time
 	var resultsCount int
 loop:

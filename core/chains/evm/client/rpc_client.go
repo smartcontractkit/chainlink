@@ -2,8 +2,6 @@ package client
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -159,132 +157,6 @@ func NewRPCClient(
 	r.rpcLog = logger.Sugared(lggr).Named("RPC")
 
 	return r
-}
-
-func (r *RpcClient) BatchCallContext(rootCtx context.Context, b []rpc.BatchElem) error {
-	// Astar's finality tags provide weaker finality guarantees than we require.
-	// Fetch latest finalized block using Astar's custom requests and populate it after batch request completes
-	var astarRawLatestFinalizedBlock json.RawMessage
-	var requestedFinalizedBlock bool
-	if r.chainType == chaintype.ChainAstar {
-		for _, el := range b {
-			if !isRequestingFinalizedBlock(el) {
-				continue
-			}
-
-			requestedFinalizedBlock = true
-			err := r.astarLatestFinalizedBlock(rootCtx, &astarRawLatestFinalizedBlock)
-			if err != nil {
-				return fmt.Errorf("failed to get astar latest finalized block: %w", err)
-			}
-
-			break
-		}
-	}
-
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(rootCtx, r.largePayloadRpcTimeout)
-	defer cancel()
-	lggr := r.newRqLggr().With("nBatchElems", len(b), "batchElems", b)
-
-	lggr.Trace("RPC call: evmclient.Client#BatchCallContext")
-	start := time.Now()
-	var err error
-	if http != nil {
-		err = r.wrapHTTP(http.rpc.BatchCallContext(ctx, b))
-	} else {
-		err = r.wrapWS(ws.rpc.BatchCallContext(ctx, b))
-	}
-	duration := time.Since(start)
-
-	r.logResult(lggr, err, duration, r.getRPCDomain(), "BatchCallContext")
-	if err != nil {
-		return err
-	}
-
-	if r.chainType == chaintype.ChainAstar && requestedFinalizedBlock {
-		// populate requested finalized block with correct value
-		for _, el := range b {
-			if !isRequestingFinalizedBlock(el) {
-				continue
-			}
-
-			el.Error = nil
-			err = json.Unmarshal(astarRawLatestFinalizedBlock, el.Result)
-			if err != nil {
-				el.Error = fmt.Errorf("failed to unmarshal astar finalized block into provided struct: %w", err)
-			}
-		}
-	}
-
-	return nil
-}
-
-func isRequestingFinalizedBlock(el rpc.BatchElem) bool {
-	isGetBlock := el.Method == "eth_getBlockByNumber" && len(el.Args) > 0
-	if !isGetBlock {
-		return false
-	}
-
-	if el.Args[0] == rpc.FinalizedBlockNumber {
-		return true
-	}
-
-	switch arg := el.Args[0].(type) {
-	case string:
-		return arg == rpc.FinalizedBlockNumber.String()
-	case fmt.Stringer:
-		return arg.String() == rpc.FinalizedBlockNumber.String()
-	default:
-		return false
-	}
-}
-
-func (r *RpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.Head, sub commontypes.Subscription, err error) {
-	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
-	defer cancel()
-
-	args := []interface{}{rpcSubscriptionMethodNewHeads}
-	start := time.Now()
-	lggr := r.newRqLggr().With("args", args)
-
-	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
-	defer func() {
-		duration := time.Since(start)
-		r.logResult(lggr, err, duration, r.getRPCDomain(), "EthSubscribe")
-		err = r.wrapWS(err)
-	}()
-
-	channel := make(chan *evmtypes.Head)
-	forwarder := newSubForwarder(channel, func(head *evmtypes.Head) *evmtypes.Head {
-		head.EVMChainID = ubig.New(r.chainID)
-		r.onNewHead(ctx, chStopInFlight, head)
-		return head
-	}, r.wrapRPCClientError)
-
-	err = forwarder.start(ws.rpc.EthSubscribe(ctx, forwarder.srcCh, args...))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = r.registerSub(forwarder, chStopInFlight)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return channel, forwarder, err
-}
-
-func (r *RpcClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
-	interval := r.cfg.FinalizedBlockPollInterval()
-	if interval == 0 {
-		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
-	}
-	timeout := interval
-	poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.LatestFinalizedBlock, timeout, r.rpcLog)
-	if err := poller.Start(ctx); err != nil {
-		return nil, nil, err
-	}
-	return channel, &poller, nil
 }
 
 func (r *RpcClient) Ping(ctx context.Context) error {
@@ -483,6 +355,132 @@ func (r *RpcClient) CallContext(ctx context.Context, result interface{}, method 
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "CallContext")
 
 	return err
+}
+
+func (r *RpcClient) BatchCallContext(rootCtx context.Context, b []rpc.BatchElem) error {
+	// Astar's finality tags provide weaker finality guarantees than we require.
+	// Fetch latest finalized block using Astar's custom requests and populate it after batch request completes
+	var astarRawLatestFinalizedBlock json.RawMessage
+	var requestedFinalizedBlock bool
+	if r.chainType == chaintype.ChainAstar {
+		for _, el := range b {
+			if !isRequestingFinalizedBlock(el) {
+				continue
+			}
+
+			requestedFinalizedBlock = true
+			err := r.astarLatestFinalizedBlock(rootCtx, &astarRawLatestFinalizedBlock)
+			if err != nil {
+				return fmt.Errorf("failed to get astar latest finalized block: %w", err)
+			}
+
+			break
+		}
+	}
+
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(rootCtx, r.largePayloadRpcTimeout)
+	defer cancel()
+	lggr := r.newRqLggr().With("nBatchElems", len(b), "batchElems", b)
+
+	lggr.Trace("RPC call: evmclient.Client#BatchCallContext")
+	start := time.Now()
+	var err error
+	if http != nil {
+		err = r.wrapHTTP(http.rpc.BatchCallContext(ctx, b))
+	} else {
+		err = r.wrapWS(ws.rpc.BatchCallContext(ctx, b))
+	}
+	duration := time.Since(start)
+
+	r.logResult(lggr, err, duration, r.getRPCDomain(), "BatchCallContext")
+	if err != nil {
+		return err
+	}
+
+	if r.chainType == chaintype.ChainAstar && requestedFinalizedBlock {
+		// populate requested finalized block with correct value
+		for _, el := range b {
+			if !isRequestingFinalizedBlock(el) {
+				continue
+			}
+
+			el.Error = nil
+			err = json.Unmarshal(astarRawLatestFinalizedBlock, el.Result)
+			if err != nil {
+				el.Error = fmt.Errorf("failed to unmarshal astar finalized block into provided struct: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func isRequestingFinalizedBlock(el rpc.BatchElem) bool {
+	isGetBlock := el.Method == "eth_getBlockByNumber" && len(el.Args) > 0
+	if !isGetBlock {
+		return false
+	}
+
+	if el.Args[0] == rpc.FinalizedBlockNumber {
+		return true
+	}
+
+	switch arg := el.Args[0].(type) {
+	case string:
+		return arg == rpc.FinalizedBlockNumber.String()
+	case fmt.Stringer:
+		return arg.String() == rpc.FinalizedBlockNumber.String()
+	default:
+		return false
+	}
+}
+
+func (r *RpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.Head, sub commontypes.Subscription, err error) {
+	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
+	defer cancel()
+
+	args := []interface{}{rpcSubscriptionMethodNewHeads}
+	start := time.Now()
+	lggr := r.newRqLggr().With("args", args)
+
+	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
+	defer func() {
+		duration := time.Since(start)
+		r.logResult(lggr, err, duration, r.getRPCDomain(), "EthSubscribe")
+		err = r.wrapWS(err)
+	}()
+
+	channel := make(chan *evmtypes.Head)
+	forwarder := newSubForwarder(channel, func(head *evmtypes.Head) *evmtypes.Head {
+		head.EVMChainID = ubig.New(r.chainID)
+		r.onNewHead(ctx, chStopInFlight, head)
+		return head
+	}, r.wrapRPCClientError)
+
+	err = forwarder.start(ws.rpc.EthSubscribe(ctx, forwarder.srcCh, args...))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = r.registerSub(forwarder, chStopInFlight)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return channel, forwarder, err
+}
+
+func (r *RpcClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
+	interval := r.cfg.FinalizedBlockPollInterval()
+	if interval == 0 {
+		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
+	}
+	timeout := interval
+	poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.LatestFinalizedBlock, timeout, r.rpcLog)
+	if err := poller.Start(ctx); err != nil {
+		return nil, nil, err
+	}
+	return channel, &poller, nil
 }
 
 // GethClient wrappers

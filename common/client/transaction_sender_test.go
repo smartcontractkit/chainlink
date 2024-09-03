@@ -289,13 +289,13 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 		Name                string
 		ExpectedTxResult    string
 		ExpectedCriticalErr string
-		ResultsByCode       sendTxErrors
+		ResultsByCode       sendTxResults
 	}{
 		{
 			Name:                "Returns success and logs critical error on success and Fatal",
 			ExpectedTxResult:    "success",
 			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got success and severe error",
-			ResultsByCode: sendTxErrors{
+			ResultsByCode: sendTxResults{
 				Successful: {errors.New("success")},
 				Fatal:      {errors.New("fatal")},
 			},
@@ -304,7 +304,7 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 			Name:                "Returns TransactionAlreadyKnown and logs critical error on TransactionAlreadyKnown and Fatal",
 			ExpectedTxResult:    "tx_already_known",
 			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got success and severe error",
-			ResultsByCode: sendTxErrors{
+			ResultsByCode: sendTxResults{
 				TransactionAlreadyKnown: {errors.New("tx_already_known")},
 				Unsupported:             {errors.New("unsupported")},
 			},
@@ -313,7 +313,7 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 			Name:                "Prefers sever error to temporary",
 			ExpectedTxResult:    "underpriced",
 			ExpectedCriticalErr: "",
-			ResultsByCode: sendTxErrors{
+			ResultsByCode: sendTxResults{
 				Retryable:   {errors.New("retryable")},
 				Underpriced: {errors.New("underpriced")},
 			},
@@ -322,7 +322,7 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 			Name:                "Returns temporary error",
 			ExpectedTxResult:    "retryable",
 			ExpectedCriticalErr: "",
-			ResultsByCode: sendTxErrors{
+			ResultsByCode: sendTxResults{
 				Retryable: {errors.New("retryable")},
 			},
 		},
@@ -330,7 +330,7 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 			Name:                "Insufficient funds is treated as  error",
 			ExpectedTxResult:    "",
 			ExpectedCriticalErr: "",
-			ResultsByCode: sendTxErrors{
+			ResultsByCode: sendTxResults{
 				Successful:        {nil},
 				InsufficientFunds: {errors.New("insufficientFunds")},
 			},
@@ -339,13 +339,13 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 			Name:                "Logs critical error on empty ResultsByCode",
 			ExpectedTxResult:    "expected at least one response on SendTransaction",
 			ExpectedCriticalErr: "expected at least one response on SendTransaction",
-			ResultsByCode:       sendTxErrors{},
+			ResultsByCode:       sendTxResults{},
 		},
 		{
 			Name:                "Zk terminally stuck",
 			ExpectedTxResult:    "not enough keccak counters to continue the execution",
 			ExpectedCriticalErr: "",
-			ResultsByCode: sendTxErrors{
+			ResultsByCode: sendTxResults{
 				TerminallyStuck: {errors.New("not enough keccak counters to continue the execution")},
 			},
 		},
