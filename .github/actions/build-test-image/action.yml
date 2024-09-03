@@ -106,7 +106,7 @@ runs:
       # Do not include testconfig/ in the hash to avoid rebuilding the image when only testconfig/ changes
       shell: sh
       run: |
-        HASH_VALUE=$(find integration-tests -type f ! -path 'integration-tests/testconfig/*/*.toml' ! -path '.github/*/*' ! -path '*/*.md' ! -path '*/*.MD' ! -path 'integration-tests/*/__debug_bin*' -exec sha256sum {} + | sort -k 2 | sha256sum | awk '{print $1}')
+        HASH_VALUE=$(find integration-tests -type f ! -path 'integration-tests/testconfig/overrides/*.toml' ! -path 'integration-tests/testconfig/overrides/*/*.toml' ! -path 'integration-tests/testconfig/*/overrides/*.toml' ! -path 'integration-tests/testconfig/*/overrides/*/*.toml' ! -path 'integration-tests/ccip-tests/testconfig/*/overrides/*.toml' ! -path 'integration-tests/ccip-tests/testconfig/*/overrides/*/*.toml' ! -path '.github/*/*' ! -path '*/*.md' ! -path '*/*.MD' ! -path 'integration-tests/*/__debug_bin*' ! -path '*/*.MD' ! -path 'integration-tests/*/tmp-manifest*.yaml' ! -path '*/*.MD' ! -path 'integration-tests/*/*.log' ! -path 'integration-tests/*/*_dump.sql' ! -path 'integration-tests/*/.test_summary/*' -exec sha256sum {} + | sort -k 2 | sha256sum | awk '{print $1}')
         echo "Computed hash: $HASH_VALUE"
         echo "hash_value=$HASH_VALUE" >> $GITHUB_OUTPUT
 
