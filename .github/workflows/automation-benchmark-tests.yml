@@ -20,7 +20,12 @@ on:
         required: true
         default: U02Q14G80TY
         type: string
-  
+      chainlink_version:
+        description: Chainlink image version to use
+        default: develop
+        required: true
+        type: string
+
 jobs:
   automation_benchmark:
     environment: integration
@@ -51,7 +56,12 @@ jobs:
         run: |
           echo "### Test config override path" >> $GITHUB_STEP_SUMMARY
           echo "[${{ inputs.test_config_override_path }}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/${{ github.sha }}/${{ inputs.test_config_override_path }})" >> $GITHUB_STEP_SUMMARY
+      - name: Show chainlink version in summary
+        run: |
+          echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
+          echo "${{ inputs.chainlink_version }}" >> $GITHUB_STEP_SUMMARY          
       - name: Build Test Image
+        id: build_test_image
         uses: ./.github/actions/build-test-image
         with:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -64,14 +74,14 @@ jobs:
           DETACH_RUNNER: true
           TEST_SUITE: benchmark
           TEST_ARGS: -test.timeout 720h
-          ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
+          ENV_JOB_IMAGE: ${{ steps.build_test_image.outputs.test_image }}
           INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
           TEST_TYPE: ${{ github.event.inputs.testType }}
           TEST_TEST_TYPE: ${{ github.event.inputs.testType }}
           RR_MEM: 4Gi
           TEST_LOG_LEVEL: info
           E2E_TEST_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-          E2E_TEST_CHAINLINK_VERSION: ${{ github.sha }} # Default chainlink version if not overrided in the test config 
+          E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_version }}
         with:
           test_command_to_run: cd integration-tests && go test -timeout 30m -v -run ^TestAutomationBenchmark$ ./benchmark -count=1
           test_download_vendor_packages_command: make gomod
