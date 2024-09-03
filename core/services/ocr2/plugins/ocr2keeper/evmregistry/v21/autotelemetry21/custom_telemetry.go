@@ -126,7 +126,8 @@ func (e *AutomationCustomTelemetryService) Close() error {
 
 func (e *AutomationCustomTelemetryService) sendNodeVersionMsg() {
 	e.mu.RLock()
-	defer e.mu.RUnlock()
+	configDigest := e.configDigest
+	e.mu.RUnlock()
 
 	vMsg := &telem.NodeVersion{
 		Timestamp:    uint64(time.Now().UTC().UnixMilli()),
