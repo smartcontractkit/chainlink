@@ -7,9 +7,9 @@ import {Configurator} from "../../Configurator.sol";
 // methods/structures so that golang code can access them, and we get
 // reliable type checking on their usage
 contract ExposedConfigurator is Configurator {
-    constructor() {}
+  constructor() {}
 
-    function exposedReadConfigurationStates(bytes32 donId) public view returns (ConfigurationState memory) {
-        return s_configurationStates[donId];
-    }
+  function exposedReadConfigurationStates(bytes32 donId) public view returns (ConfigurationState memory) {
+    return s_configurationStates[donId];
+  }
 }
