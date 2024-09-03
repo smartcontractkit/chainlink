@@ -17,7 +17,7 @@ import (
 	"github.com/manifoldco/promptui"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 )
 
 func waitForWorkflowRun(branch, ghUser string) (string, error) {

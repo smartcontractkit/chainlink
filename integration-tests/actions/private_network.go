@@ -3,9 +3,9 @@ package actions
 import (
 	"github.com/rs/zerolog"
 
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	ctf_config_types "github.com/smartcontractkit/chainlink-testing-framework/config/types"
-	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	ctf_config_types "github.com/smartcontractkit/chainlink-testing-framework/lib/config/types"
+	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 )
 
 func EthereumNetworkConfigFromConfig(l zerolog.Logger, config ctf_config.GlobalTestConfig) (network ctf_test_env.EthereumNetwork, err error) {

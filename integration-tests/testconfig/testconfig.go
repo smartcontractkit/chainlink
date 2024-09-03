@@ -19,12 +19,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 
 	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	f_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/functions"

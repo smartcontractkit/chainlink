@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
 	pkg_seth "github.com/smartcontractkit/chainlink-testing-framework/seth"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 )
 
 // DynamicArtifactDirConfigFn returns a function that sets Seth's artifacts directory to a unique directory for the test

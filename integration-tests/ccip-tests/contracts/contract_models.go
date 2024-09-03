@@ -17,7 +17,7 @@ import (
 	"github.com/rs/zerolog"
 	"golang.org/x/exp/rand"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 
