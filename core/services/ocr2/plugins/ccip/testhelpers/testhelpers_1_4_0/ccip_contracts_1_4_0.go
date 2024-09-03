@@ -789,6 +789,9 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	sourceChain, sourceUser := testhelpers.SetupChain(t)
 	destChain, destUser := testhelpers.SetupChain(t)
 
+	sourceChain.Commit()
+	destChain.Commit()
+
 	armSourceAddress, _, _, err := mock_rmn_contract.DeployMockRMNContract(
 		sourceUser,
 		sourceChain.Client(),
@@ -846,9 +849,10 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 
 	sourceRouterAddress, _, _, err := router.DeployRouter(sourceUser, sourceChain.Client(), sourceWeth9addr, armProxySourceAddress)
 	require.NoError(t, err)
+	sourceChain.Commit()
+
 	sourceRouter, err := router.NewRouter(sourceRouterAddress, sourceChain.Client())
 	require.NoError(t, err)
-	sourceChain.Commit()
 
 	sourceWeth9PoolAddress, _, _, err := lock_release_token_pool_1_0_0.DeployLockReleaseTokenPool(
 		sourceUser,
@@ -1087,6 +1091,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		armProxyDestAddress,
 	)
 	require.NoError(t, err)
+	destChain.Commit()
 	destWrappedPool, err := lock_release_token_pool_1_0_0.NewLockReleaseTokenPool(destWrappedPoolAddress, destChain.Client())
 	require.NoError(t, err)
 
@@ -1191,6 +1196,8 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	destChain.Commit()
 	_, err = destPriceRegistry.ApplyPriceUpdatersUpdates(destUser, []common.Address{commitStoreAddress}, []common.Address{})
 	require.NoError(t, err)
+	destChain.Commit()
+
 	_, err = destRouter.ApplyRampUpdates(destUser, nil,
 		nil, []router.RouterOffRamp{{SourceChainSelector: sourceChainSelector, OffRamp: offRampAddress}})
 	require.NoError(t, err)

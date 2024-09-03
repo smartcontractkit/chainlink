@@ -113,14 +113,14 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 			10,
 		)
 		require.NoError(t, err)
-		return len(reports) == numReports-1
+		return len(reports) == numReports
 	}, 10*time.Second, 50*time.Millisecond)
 
 	assert.Len(t, reports[0].Report.MerkleRoots, 1)
 	assert.Equal(t, chainS1, reports[0].Report.MerkleRoots[0].ChainSel)
 	assert.Equal(t, cciptypes.SeqNum(10), reports[0].Report.MerkleRoots[0].SeqNumsRange.Start())
 	assert.Equal(t, cciptypes.SeqNum(20), reports[0].Report.MerkleRoots[0].SeqNumsRange.End())
-	assert.Equal(t, "0x0200000000000000000000000000000000000000000000000000000000000000",
+	assert.Equal(t, "0x0100000000000000000000000000000000000000000000000000000000000000",
 		reports[0].Report.MerkleRoots[0].MerkleRoot.String())
 
 	assert.Equal(t, tokenA.String(), string(reports[0].Report.PriceUpdates.TokenPriceUpdates[0].TokenID))

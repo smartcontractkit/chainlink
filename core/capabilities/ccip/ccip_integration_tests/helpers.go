@@ -658,6 +658,7 @@ func setupUniverseBasics(t *testing.T, uni onchainUniverse) {
 	// =============================================================================
 	_, err := uni.linkToken.GrantMintRole(owner, owner.From)
 	require.NoError(t, err)
+	uni.backend.Commit()
 	_, err = uni.linkToken.Mint(owner, owner.From, e18Mult(1000))
 	require.NoError(t, err)
 	uni.backend.Commit()
@@ -823,6 +824,7 @@ func initRemoteChainsGasPrices(t *testing.T, uni onchainUniverse, universes map[
 		GasPriceUpdates: gasPriceUpdates,
 	})
 	require.NoError(t, err)
+	uni.backend.Commit()
 }
 
 func defaultPriceRegistryDestChainConfig(t *testing.T) fee_quoter.FeeQuoterDestChainConfig {

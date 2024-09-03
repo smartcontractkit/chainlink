@@ -72,8 +72,8 @@ func initializePingPongContracts(
 			backend.Commit()
 			// Fund the ping pong contract with LINK
 			_, err = universe.linkToken.Transfer(owner, pingPong.Address(), e18Mult(10))
-			backend.Commit()
 			require.NoError(t, err)
+			backend.Commit()
 			pingPongs[chainID][chainToConnect] = pingPong
 		}
 	}
