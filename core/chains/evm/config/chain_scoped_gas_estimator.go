@@ -108,6 +108,10 @@ func (g *gasEstimatorConfig) LimitJobType() LimitJobType {
 	return &limitJobTypeConfig{c: g.c.LimitJobType}
 }
 
+func (g *gasEstimatorConfig) EstimateLimit() bool {
+	return *g.c.EstimateLimit
+}
+
 type limitJobTypeConfig struct {
 	c toml.GasLimitJobType
 }

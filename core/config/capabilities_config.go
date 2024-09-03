@@ -13,5 +13,6 @@ type CapabilitiesExternalRegistry interface {
 
 type Capabilities interface {
 	Peering() P2P
+	Dispatcher() Dispatcher
 	ExternalRegistry() CapabilitiesExternalRegistry
 }

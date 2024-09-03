@@ -6,6 +6,7 @@ import (
 
 	it "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/onsi/gomega"
@@ -30,26 +31,27 @@ func TestIntegration_Launcher(t *testing.T) {
 	p2pIDs := it.P2pIDsFromInts(arr)
 	uni.AddCapability(p2pIDs)
 
+	db := pgtest.NewSqlxDB(t)
 	regSyncer, err := registrysyncer.New(lggr,
 		func() (p2ptypes.PeerID, error) {
 			return p2pIDs[0], nil
 		},
 		uni,
 		uni.CapReg.Address().String(),
+		registrysyncer.NewORM(db, lggr),
 	)
 	require.NoError(t, err)
 
-	hcr := uni.HomeChainReader
-
+	oracleCreator := &oracleCreatorPrints{
+		t: t,
+	}
 	launcher := New(
 		it.CapabilityID,
 		p2pIDs[0],
 		logger.TestLogger(t),
-		hcr,
-		&oracleCreatorPrints{
-			t: t,
-		},
+		uni.HomeChainReader,
 		1*time.Second,
+		oracleCreator,
 	)
 	regSyncer.AddLauncher(launcher)
 
@@ -106,14 +108,14 @@ type oracleCreatorPrints struct {
 	t *testing.T
 }
 
-func (o *oracleCreatorPrints) CreatePluginOracle(pluginType cctypes.PluginType, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
+func (o *oracleCreatorPrints) Create(config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
+	pluginType := cctypes.PluginType(config.Config.PluginType)
 	o.t.Logf("Creating plugin oracle (pluginType: %s) with config %+v\n", pluginType, config)
 	return &oraclePrints{pluginType: pluginType, config: config, t: o.t}, nil
 }
 
-func (o *oracleCreatorPrints) CreateBootstrapOracle(config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
-	o.t.Logf("Creating bootstrap oracle with config %+v\n", config)
-	return &oraclePrints{pluginType: cctypes.PluginTypeCCIPCommit, config: config, isBootstrap: true, t: o.t}, nil
+func (o *oracleCreatorPrints) Type() cctypes.OracleType {
+	return cctypes.OracleTypePlugin
 }
 
 var _ cctypes.OracleCreator = &oracleCreatorPrints{}

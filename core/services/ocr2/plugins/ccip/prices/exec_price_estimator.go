@@ -26,7 +26,7 @@ func NewExecGasPriceEstimator(estimator gas.EvmFeeEstimator, maxGasPrice *big.In
 }
 
 func (g ExecGasPriceEstimator) GetGasPrice(ctx context.Context) (*big.Int, error) {
-	gasPriceWei, _, err := g.estimator.GetFee(ctx, nil, 0, assets.NewWei(g.maxGasPrice))
+	gasPriceWei, _, err := g.estimator.GetFee(ctx, nil, 0, assets.NewWei(g.maxGasPrice), nil, nil)
 	if err != nil {
 		return nil, err
 	}

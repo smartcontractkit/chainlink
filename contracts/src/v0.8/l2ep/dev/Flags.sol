@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.24;
 
 import {SimpleReadAccessController} from "../../shared/access/SimpleReadAccessController.sol";
 import {AccessControllerInterface} from "../../shared/interfaces/AccessControllerInterface.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
 /* dev dependencies - to be re/moved after audit */
-import {FlagsInterface} from "./interfaces/FlagsInterface.sol";
+import {IFlags} from "./interfaces/IFlags.sol";
 
 /**
  * @title The Flags contract
@@ -18,7 +18,7 @@ import {FlagsInterface} from "./interfaces/FlagsInterface.sol";
  * FlagOn events you should filter for addresses you care about.
  */
 // solhint-disable gas-custom-errors
-contract Flags is ITypeAndVersion, FlagsInterface, SimpleReadAccessController {
+contract Flags is ITypeAndVersion, IFlags, SimpleReadAccessController {
   AccessControllerInterface public raisingAccessController;
   AccessControllerInterface public loweringAccessController;
 

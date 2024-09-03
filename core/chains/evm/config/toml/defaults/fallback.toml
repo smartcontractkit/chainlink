@@ -47,6 +47,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMin = '1'
+EstimateLimit = false
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -83,3 +84,6 @@ ObservationGracePeriod = '1s'
 
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400_000

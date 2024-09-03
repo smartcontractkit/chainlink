@@ -11,6 +11,7 @@ import {Math} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/ma
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IDestinationRewardManager} from "./interfaces/IDestinationRewardManager.sol";
 import {IDestinationFeeManager} from "./interfaces/IDestinationFeeManager.sol";
+import {IDestinationVerifierFeeManager} from "./interfaces/IDestinationVerifierFeeManager.sol";
 
 /**
  * @title FeeManager
@@ -18,11 +19,19 @@ import {IDestinationFeeManager} from "./interfaces/IDestinationFeeManager.sol";
  * @author Austin Born
  * @notice This contract is used for the handling of fees required for users verifying reports.
  */
-contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAndVersionInterface {
+contract DestinationFeeManager is
+  IDestinationFeeManager,
+  IDestinationVerifierFeeManager,
+  ConfirmedOwner,
+  TypeAndVersionInterface
+{
   using SafeERC20 for IERC20;
 
   /// @notice list of subscribers and their discounts subscriberDiscounts[subscriber][feedId][token]
   mapping(address => mapping(bytes32 => mapping(address => uint256))) public s_subscriberDiscounts;
+
+  /// @notice map of global discounts
+  mapping(address => mapping(address => uint256)) public s_globalDiscounts;
 
   /// @notice keep track of any subsidised link that is owed to the reward manager.
   mapping(bytes32 => uint256) public s_linkDeficit;
@@ -150,11 +159,6 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     IERC20(i_linkAddress).approve(address(i_rewardManager), type(uint256).max);
   }
 
-  modifier onlyOwnerOrVerifier() {
-    if (msg.sender != s_verifierAddressList[msg.sender] && msg.sender != owner()) revert Unauthorized();
-    _;
-  }
-
   modifier onlyVerifier() {
     if (msg.sender != s_verifierAddressList[msg.sender]) revert Unauthorized();
     _;
@@ -162,26 +166,17 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "DestinationFeeManager 1.0.0";
+    return "DestinationFeeManager 0.4.0";
   }
 
   /// @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-    //for each function in IDestinationFeeManager we need to check if it matches the selector
     return
-      interfaceId == this.getFeeAndReward.selector ||
-      interfaceId == this.setNativeSurcharge.selector ||
-      interfaceId == this.updateSubscriberDiscount.selector ||
-      interfaceId == this.withdraw.selector ||
-      interfaceId == this.linkAvailableForPayment.selector ||
-      interfaceId == this.payLinkDeficit.selector ||
-      interfaceId == this.addVerifier.selector ||
-      interfaceId == this.removeVerifier.selector ||
-      interfaceId == this.processFee.selector ||
-      interfaceId == this.processFeeBulk.selector ||
-      interfaceId == this.setFeeRecipients.selector;
+      interfaceId == type(IDestinationFeeManager).interfaceId ||
+      interfaceId == type(IDestinationVerifierFeeManager).interfaceId;
   }
 
+  /// @inheritdoc IDestinationVerifierFeeManager
   function processFee(
     bytes32 recipient,
     bytes calldata payload,
@@ -209,7 +204,7 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     }
   }
 
-  /// @inheritdoc IDestinationFeeManager
+  /// @inheritdoc IDestinationVerifierFeeManager
   function processFeeBulk(
     bytes32[] memory poolIds,
     bytes[] calldata payloads,
@@ -304,8 +299,13 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
       revert ExpiredReport();
     }
 
-    //get the discount being applied
+    //check if feed discount has been applied
     uint256 discount = s_subscriberDiscounts[subscriber][feedId][quoteAddress];
+
+    if (discount == 0) {
+      //check if a global discount has been applied
+      discount = s_globalDiscounts[subscriber][quoteAddress];
+    }
 
     //the reward is always set in LINK
     reward.assetAddress = i_linkAddress;
@@ -326,11 +326,11 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     return (fee, reward, discount);
   }
 
-  /// @inheritdoc IDestinationFeeManager
+  /// @inheritdoc IDestinationVerifierFeeManager
   function setFeeRecipients(
     bytes32 configDigest,
     Common.AddressAndWeight[] calldata rewardRecipientAndWeights
-  ) external onlyOwnerOrVerifier {
+  ) external onlyVerifier {
     i_rewardManager.setRewardRecipients(configDigest, rewardRecipientAndWeights);
   }
 
@@ -358,6 +358,17 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     s_subscriberDiscounts[subscriber][feedId][token] = discount;
 
     emit SubscriberDiscountUpdated(subscriber, feedId, token, discount);
+  }
+
+  function updateSubscriberGlobalDiscount(address subscriber, address token, uint64 discount) external onlyOwner {
+    //make sure the discount is not greater than the total discount that can be applied
+    if (discount > PERCENTAGE_SCALAR) revert InvalidDiscount();
+    //make sure the token is either LINK or native
+    if (token != i_linkAddress && token != i_nativeAddress) revert InvalidAddress();
+
+    s_globalDiscounts[subscriber][token] = discount;
+
+    emit SubscriberDiscountUpdated(subscriber, bytes32(0), token, discount);
   }
 
   /// @inheritdoc IDestinationFeeManager
@@ -550,8 +561,13 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
   /// @inheritdoc IDestinationFeeManager
   function setRewardManager(address rewardManagerAddress) external onlyOwner {
     if (rewardManagerAddress == address(0)) revert InvalidAddress();
+
+    if (!IERC165(rewardManagerAddress).supportsInterface(type(IDestinationRewardManager).interfaceId)) {
+      revert InvalidAddress();
+    }
+
     IERC20(i_linkAddress).approve(address(i_rewardManager), 0);
     i_rewardManager = IDestinationRewardManager(rewardManagerAddress);
-    IERC20(i_linkAddress).approve(address(i_rewardManager), type(uint256).max);
+    IERC20(i_linkAddress).approve(address(rewardManagerAddress), type(uint256).max);
   }
 }

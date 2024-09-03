@@ -15,11 +15,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
@@ -119,7 +119,7 @@ func (s *streams) Lookup(ctx context.Context, checkResults []ocr2keepers.CheckRe
 
 // buildResult checks if the upkeep is allowed by Mercury and builds a streams lookup request from the check result
 func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keepers.CheckResult, checkResults []ocr2keepers.CheckResult, lookups map[int]*mercury.StreamsLookup) {
-	lookupLggr := s.lggr.With("where", "StreamsLookup")
+	lookupLggr := logger.Sugared(s.lggr).With("where", "StreamsLookup")
 	if checkResult.IneligibilityReason != uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
 		// Streams Lookup only works when upkeep target check reverts
 		prommetrics.AutomationStreamsLookupError.WithLabelValues(prommetrics.StreamsLookupErrorReasonNotReverted).Inc()

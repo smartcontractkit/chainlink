@@ -6,10 +6,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -17,7 +18,7 @@ const (
 	V1_1_0 = "1.1.0"
 	V1_2_0 = "1.2.0"
 	V1_4_0 = "1.4.0"
-	V1_5_0 = "1.5.0-dev"
+	V1_5_0 = "1.5.0"
 	V1_6_0 = "1.6.0-dev"
 )
 

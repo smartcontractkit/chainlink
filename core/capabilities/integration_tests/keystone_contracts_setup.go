@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -38,6 +37,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+)
+
+const (
+	CapabilityTypeTrigger   = 0
+	CapabilityTypeAction    = 1
+	CapabilityTypeConsensus = 2
+	CapabilityTypeTarget    = 3
 )
 
 type peer struct {
@@ -102,15 +108,16 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	streamsTrigger := kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "streams-trigger",
 		Version:        "1.0.0",
-		CapabilityType: uint8(capabilities.CapabilityTypeTrigger),
+		CapabilityType: CapabilityTypeTrigger,
 	}
 	sid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, streamsTrigger.LabelledName, streamsTrigger.Version)
 	require.NoError(t, err)
 
 	writeChain := kcr.CapabilitiesRegistryCapability{
-		LabelledName:   "write_geth-testnet",
-		Version:        "1.0.0",
-		CapabilityType: uint8(capabilities.CapabilityTypeTarget),
+		LabelledName: "write_geth-testnet",
+		Version:      "1.0.0",
+
+		CapabilityType: CapabilityTypeTarget,
 	}
 	wid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, writeChain.LabelledName, writeChain.Version)
 	if err != nil {
@@ -120,7 +127,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	ocr := kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "offchain_reporting",
 		Version:        "1.0.0",
-		CapabilityType: uint8(capabilities.CapabilityTypeConsensus),
+		CapabilityType: CapabilityTypeConsensus,
 	}
 	ocrid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, ocr.LabelledName, ocr.Version)
 	require.NoError(t, err)
@@ -209,7 +216,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	triggerCapabilityConfig := newCapabilityConfig()
 	triggerCapabilityConfig.RemoteConfig = &pb.CapabilityConfig_RemoteTriggerConfig{
 		RemoteTriggerConfig: &pb.RemoteTriggerConfig{
-			RegistrationRefresh: durationpb.New(60000 * time.Millisecond),
+			RegistrationRefresh: durationpb.New(1000 * time.Millisecond),
 			RegistrationExpiry:  durationpb.New(60000 * time.Millisecond),
 			// F + 1
 			MinResponsesToAggregate: uint32(triggerDon.F) + 1,
@@ -234,6 +241,12 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	require.NoError(t, err)
 
 	targetCapabilityConfig := newCapabilityConfig()
+
+	configWithLimit, err := values.WrapMap(map[string]any{"gasLimit": 500000})
+	require.NoError(t, err)
+
+	targetCapabilityConfig.DefaultConfig = values.Proto(configWithLimit).GetMapValue()
+
 	targetCapabilityConfig.RemoteConfig = &pb.CapabilityConfig_RemoteTargetConfig{
 		RemoteTargetConfig: &pb.RemoteTargetConfig{
 			RequestHashExcludedAttributes: []string{"signed_report.Signatures"},

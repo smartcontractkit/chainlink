@@ -669,10 +669,8 @@ func (o *evmTxStore) loadEthTxAttemptsReceipts(ctx context.Context, etx *Tx) (er
 	return o.loadEthTxesAttemptsReceipts(ctx, []*Tx{etx})
 }
 
-func (o *evmTxStore) loadEthTxesAttemptsReceipts(ctx context.Context, etxs []*Tx) (err error) {
-	if len(etxs) == 0 {
-		return nil
-	}
+// initEthTxesAttempts takes an input txes slice, return an initialized attempt map and attemptHashes slice
+func initEthTxesAttempts(etxs []*Tx) (map[common.Hash]*TxAttempt, [][]byte) {
 	attemptHashM := make(map[common.Hash]*TxAttempt, len(etxs)) // len here is lower bound
 	attemptHashes := make([][]byte, len(etxs))                  // len here is lower bound
 	for _, etx := range etxs {
@@ -681,12 +679,53 @@ func (o *evmTxStore) loadEthTxesAttemptsReceipts(ctx context.Context, etxs []*Tx
 			attemptHashes = append(attemptHashes, attempt.Hash.Bytes())
 		}
 	}
+
+	return attemptHashM, attemptHashes
+}
+
+func (o *evmTxStore) loadEthTxesAttemptsReceipts(ctx context.Context, etxs []*Tx) (err error) {
+	if len(etxs) == 0 {
+		return nil
+	}
+
+	attemptHashM, attemptHashes := initEthTxesAttempts(etxs)
 	var rs []DbReceipt
 	if err = o.q.SelectContext(ctx, &rs, `SELECT * FROM evm.receipts WHERE tx_hash = ANY($1)`, pq.Array(attemptHashes)); err != nil {
 		return pkgerrors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load evm.receipts")
 	}
 
 	var receipts []*evmtypes.Receipt = fromDBReceipts(rs)
+
+	for _, receipt := range receipts {
+		attempt := attemptHashM[receipt.TxHash]
+		// Although the attempts struct supports multiple receipts, the expectation for EVM is that there is only one receipt
+		// per tx and therefore attempt too.
+		attempt.Receipts = append(attempt.Receipts, receipt)
+	}
+	return nil
+}
+
+// loadEthTxesAttemptsWithPartialReceipts loads ethTxes with attempts and partial receipts values for optimization
+func (o *evmTxStore) loadEthTxesAttemptsWithPartialReceipts(ctx context.Context, etxs []*Tx) (err error) {
+	if len(etxs) == 0 {
+		return nil
+	}
+
+	attemptHashM, attemptHashes := initEthTxesAttempts(etxs)
+	var rs []DbReceipt
+	if err = o.q.SelectContext(ctx, &rs, `SELECT evm.receipts.block_hash, evm.receipts.block_number, evm.receipts.transaction_index, evm.receipts.tx_hash FROM evm.receipts WHERE tx_hash = ANY($1)`, pq.Array(attemptHashes)); err != nil {
+		return pkgerrors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load evm.receipts")
+	}
+
+	receipts := make([]*evmtypes.Receipt, len(rs))
+	for i := 0; i < len(rs); i++ {
+		receipts[i] = &evmtypes.Receipt{
+			BlockHash:        rs[i].BlockHash,
+			BlockNumber:      big.NewInt(rs[i].BlockNumber),
+			TransactionIndex: rs[i].TransactionIndex,
+			TxHash:           rs[i].TxHash,
+		}
+	}
 
 	for _, receipt := range receipts {
 		attempt := attemptHashM[receipt.TxHash]
@@ -1173,7 +1212,9 @@ ORDER BY nonce ASC
 		if err = orm.LoadTxesAttempts(ctx, etxs); err != nil {
 			return pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load evm.tx_attempts")
 		}
-		err = orm.loadEthTxesAttemptsReceipts(ctx, etxs)
+
+		// retrieve tx with attempts and partial receipt values for optimization purpose
+		err = orm.loadEthTxesAttemptsWithPartialReceipts(ctx, etxs)
 		return pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load evm.receipts")
 	})
 	return etxs, pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed")
@@ -2081,24 +2122,18 @@ func (o *evmTxStore) UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context,
 	return err
 }
 
-// Returns all confirmed transactions with receipt block nums older than or equal to the finalized block number
+// FindConfirmedTxesReceipts Returns all confirmed transactions with receipt block nums older than or equal to the finalized block number
 func (o *evmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []Receipt, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
-	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
-		sql := `SELECT evm.receipts.* FROM evm.receipts
+
+	// note the receipts are partially loaded for performance reason
+	query := `SELECT evm.receipts.id, evm.receipts.tx_hash, evm.receipts.block_hash, evm.receipts.block_number FROM evm.receipts
 		INNER JOIN evm.tx_attempts ON evm.tx_attempts.hash = evm.receipts.tx_hash
 		INNER JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id
 		WHERE evm.txes.state = 'confirmed' AND evm.receipts.block_number <= $1 AND evm.txes.evm_chain_id = $2`
-		var dbReceipts []DbReceipt
-		err = o.q.SelectContext(ctx, &dbReceipts, sql, finalizedBlockNum, chainID.String())
-		if len(dbReceipts) == 0 {
-			return nil
-		}
-		receipts = dbReceipts
-		return nil
-	})
+	err = o.q.SelectContext(ctx, &receipts, query, finalizedBlockNum, chainID.String())
 	return receipts, err
 }
 
