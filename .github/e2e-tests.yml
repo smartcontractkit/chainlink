@@ -708,7 +708,7 @@ runner-test-matrix:
     path: integration-tests/smoke/vrfv2plus_test.go
     runs_on: ubuntu-latest
     test_env_type: docker
-    test_cmd: cd integration-tests && go test -v -test.run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -test.parallel=1 -timeout 2h -count=1 -json
+    test_cmd: cd integration-tests/smoke && go test -v -test.run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -test.parallel=1 -timeout 2h -count=1 -json
 
   - id: smoke/vrf_test.go:*
     path: integration-tests/smoke/vrf_test.go
