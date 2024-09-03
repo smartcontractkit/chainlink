@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.0;
 
-// solhint-disable-next-line interface-starts-with-i
-interface FlagsInterface {
+interface IFlags {
   function getFlag(address) external view returns (bool);
 
   function getFlags(address[] calldata) external view returns (bool[] memory);

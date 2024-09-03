@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-/// @title CrossDomainOwnableInterface - A contract with helpers for cross-domain contract ownership
-// solhint-disable-next-line interface-starts-with-i
-interface CrossDomainOwnableInterface {
+/// @title A contract with helpers for cross-domain contract ownership
+interface ICrossDomainOwnable {
   event L1OwnershipTransferRequested(address indexed from, address indexed to);
 
   event L1OwnershipTransferred(address indexed from, address indexed to);
