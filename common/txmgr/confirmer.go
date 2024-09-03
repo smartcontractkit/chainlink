@@ -626,7 +626,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sep
 }
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resumeFailedTaskRuns(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	if !etx.PipelineTaskRunID.Valid || ec.resumeCallback == nil || !etx.SignalCallback {
+	if !etx.PipelineTaskRunID.Valid || ec.resumeCallback == nil || !etx.SignalCallback || etx.CallbackCompleted {
 		return nil
 	}
 	err := ec.resumeCallback(ctx, etx.PipelineTaskRunID.UUID, nil, errors.New(ec.stuckTxDetector.StuckTxFatalError()))
@@ -636,7 +636,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) res
 		return fmt.Errorf("failed to resume pipeline: %w", err)
 	} else {
 		// Mark tx as having completed callback
-		if err := ec.txStore.UpdateTxCallbackCompleted(ctx, etx.PipelineTaskRunID.UUID, ec.chainID); err != nil {
+		if err = ec.txStore.UpdateTxCallbackCompleted(ctx, etx.PipelineTaskRunID.UUID, ec.chainID); err != nil {
 			return err
 		}
 	}
