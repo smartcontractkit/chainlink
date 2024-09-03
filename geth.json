@@ -1,0 +1,10 @@
+[
+  {
+    "name": "evm-implementation-compatibility-test-01",
+    "os": "ubuntu-latest",
+    "product": "cron",
+    "eth_implementation": "geth",
+    "docker_image": "ethereum/client-go:v1.14.3",
+    "run": "-run 'TestCronBasic' ./smoke/cron_test.go"
+  }
+]
