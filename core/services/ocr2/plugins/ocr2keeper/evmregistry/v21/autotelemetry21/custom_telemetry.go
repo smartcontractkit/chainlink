@@ -3,6 +3,7 @@ package autotelemetry21
 import (
 	"context"
 	"encoding/hex"
+	"sync"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -29,6 +30,7 @@ type AutomationCustomTelemetryService struct {
 	lggr                  logger.Logger
 	configDigest          [32]byte
 	contractConfigTracker types.ContractConfigTracker
+	mu                    sync.RWMutex
 }
 
 // NewAutomationCustomTelemetryService creates a telemetry service for new blocks and node version
@@ -67,7 +69,9 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 						e.lggr.Errorf("Error occurred while getting newestConfigDetails in configDigest loop %s", err)
 					}
 					if newConfigDigest != e.configDigest {
+						e.mu.Lock()
 						e.configDigest = newConfigDigest
+						e.mu.Unlock()
 						e.sendNodeVersionMsg()
 					}
 				case <-hourTicker.C:
@@ -121,6 +125,9 @@ func (e *AutomationCustomTelemetryService) Close() error {
 }
 
 func (e *AutomationCustomTelemetryService) sendNodeVersionMsg() {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
 	vMsg := &telem.NodeVersion{
 		Timestamp:    uint64(time.Now().UTC().UnixMilli()),
 		NodeVersion:  static.Version,
@@ -141,6 +148,9 @@ func (e *AutomationCustomTelemetryService) sendNodeVersionMsg() {
 }
 
 func (e *AutomationCustomTelemetryService) sendBlockNumberMsg(blockKey ocr2keepers.BlockKey) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
 	blockNumMsg := &telem.BlockNumber{
 		Timestamp:    uint64(time.Now().UTC().UnixMilli()),
 		BlockNumber:  uint64(blockKey.Number),
