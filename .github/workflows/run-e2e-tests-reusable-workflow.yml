@@ -141,7 +141,7 @@ env:
   MOD_CACHE_VERSION: 1
   TEST_LOG_LEVEL: ${{ inputs.test_log_level }}
   METRICS_COLLECTION_ID: chainlink-e2e-tests
-  CL_DATABASE_URL: postgres://postgres:password@localhost:5432/postgres?sslmode=disable # This is a dummy value only required for the tests to run
+  CL_DATABASE_URL: postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable # This is a dummy value only required for the tests to run
 
 jobs:
   validate-inputs:
