@@ -160,16 +160,29 @@ jobs:
           fi
       - name: Install jq
         run: sudo apt-get install jq
+
       - name: Create matrix for required Chainlink image versions
         id: set-required-chainlink-image-versions-matrix
         run: |
-          if [[ "${{ inputs.require_chainlink_image_versions_in_qa_ecr }}" != '' ]]; then
-            image_versions=$(echo "${{ inputs.require_chainlink_image_versions_in_qa_ecr }}" | jq -Rc 'split(",") | if . == [""] then [] else . end')
-            echo "versions=$image_versions" >> $GITHUB_OUTPUT
-          elif [[ "${{ env.DEFAULT_CHAINLINK_VERSION }}" == "${{ github.sha }}" ]]; then
-            echo "Setting ${{env.DEFAULT_CHAINLINK_VERSION}} as a required Chainlink image version in QA ECR"
-            echo "versions=$env.DEFAULT_CHAINLINK_VERSION" >> $GITHUB_OUTPUT
+          image_versions="${{ inputs.require_chainlink_image_versions_in_qa_ecr }}"
+          default_version="${{ env.DEFAULT_CHAINLINK_VERSION }}"
+          current_sha="${{ github.sha }}"
+
+          if [[ "$default_version" == "$current_sha" ]]; then
+            # Append the current SHA to required image versions
+            if [[ -z "$image_versions" ]]; then
+              image_versions="${{ github.sha }}"
+            else
+              image_versions+=",${{ github.sha }}"
+            fi            
           fi
+
+          # Convert the comma-separated string to a JSON array
+          image_versions=$(echo "$image_versions" | jq -Rc 'split(",") | if . == [""] then [] else . end')
+
+          echo "Required Chainlink image versions: $image_versions"   
+          echo "versions=$image_versions" >> $GITHUB_OUTPUT
+
       - name: Create matrix for required Chainlink plugin versions
         id: set-required-chainlink-plugin-versions-matrix
         run: |
@@ -445,7 +458,12 @@ jobs:
           echo "### Test config override path" >> $GITHUB_STEP_SUMMARY
           echo "[${{ env.TEST_CONFIG_OVERRIDE_PATH }}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/${{ github.sha }}/${{ env.TEST_CONFIG_OVERRIDE_PATH }})" >> $GITHUB_STEP_SUMMARY
 
-      - name: Show test configuration
+      - name: Show chainlink version in summary
+        run: |
+          echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
+          echo "${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Show test configuration in logs
         run: echo '${{ toJson(matrix.tests) }}' | jq .
 
       - name: Setup GAP for Grafana
@@ -669,11 +687,19 @@ jobs:
           echo "### Test config override path" >> $GITHUB_STEP_SUMMARY
           echo "[${{ env.TEST_CONFIG_OVERRIDE_PATH }}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/${{ github.sha }}/${{ env.TEST_CONFIG_OVERRIDE_PATH }})" >> $GITHUB_STEP_SUMMARY
 
-      - name: Show Test Configuration
-        run: echo '${{ toJson(matrix.tests) }}' | jq .
-      - name: Show Remote Runner Version
+      - name: Show chainlink version in summary
+        run: |
+          echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
+          echo "${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}" >> $GITHUB_STEP_SUMMARY                    
+
+      - name: Show remote runner version in summary
         run: |
           echo "Remote Runner Version: ${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}"
+          echo "### Remote Runner Version" >> $GITHUB_STEP_SUMMARY
+          echo "${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Show test configuration in logs
+        run: echo '${{ toJson(matrix.tests) }}' | jq .
 
       - name: Run tests
         id: run_tests
