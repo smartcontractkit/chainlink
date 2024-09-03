@@ -15,6 +15,8 @@ import (
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
+
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -32,6 +34,7 @@ type OffchainClient interface {
 	// The job distributor grpc interface can be used to abstract offchain read/writes
 	jobv1.JobServiceClient
 	nodev1.NodeServiceClient
+	csav1.CSAServiceClient
 }
 
 type Chain struct {
@@ -40,7 +43,7 @@ type Chain struct {
 	Client   OnchainClient
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
 	DeployerKey *bind.TransactOpts
-	Confirm     func(tx common.Hash) error
+	Confirm     func(tx common.Hash) (uint64, error)
 }
 
 type Environment struct {
@@ -59,15 +62,15 @@ func (e Environment) AllChainSelectors() []uint64 {
 	return selectors
 }
 
-func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) error {
+func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, error) {
 	if err != nil {
 		//revive:disable
 		var d rpc.DataError
 		ok := errors.As(err, &d)
 		if ok {
-			return fmt.Errorf("got Data Error: %s", d.ErrorData())
+			return 0, fmt.Errorf("got Data Error: %s", d.ErrorData())
 		}
-		return err
+		return 0, err
 	}
 	return chain.Confirm(tx.Hash())
 }
@@ -150,7 +153,7 @@ func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 	for _, node := range nodeIDs {
 		// TODO: Filter should accept multiple nodes
 		nodeChainConfigs, err := oc.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
-			NodeId: node,
+			NodeIds: []string{node},
 		}})
 		if err != nil {
 			return nil, err
@@ -191,5 +194,6 @@ func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 			SelToOCRConfig: selToOCRConfig,
 		})
 	}
+
 	return nodes, nil
 }
