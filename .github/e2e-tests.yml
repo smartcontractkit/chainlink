@@ -678,38 +678,6 @@ runner-test-matrix:
     workflows:
       - On Demand VRFV2 Performance Test
 
-  - id: TestVRFv2Plus_LinkBilling
-    path: integration-tests/smoke/vrfv2plus_test.go
-    runs_on: ubuntu-latest
-    test_env_type: docker
-    test_cmd: cd integration-tests && go test -v -test.run ^TestVRFv2Plus$/^Link_Billing$ smoke/vrfv2plus_test.go -test.parallel=1 -timeout 30m -count=1 -json
-
-  - id: TestVRFv2Plus_NativeBilling
-    path: integration-tests/smoke/vrfv2plus_test.go
-    runs_on: ubuntu-latest
-    test_env_type: docker
-    test_cmd: cd integration-tests && go test -v -test.run ^TestVRFv2Plus$/^Native_Billing$ smoke/vrfv2plus_test.go -test.parallel=1 -timeout 30m -count=1 -json
-
-  - id: TestVRFv2Plus_DirectFunding
-    path: integration-tests/smoke/vrfv2plus_test.go
-    runs_on: ubuntu-latest
-    test_env_type: docker
-    test_cmd: cd integration-tests && go test -v -test.run ^TestVRFv2Plus$/^DirectFunding$ smoke/vrfv2plus_test.go -test.parallel=1 -timeout 30m -count=1 -json
-
-  - id: TestVRFV2PlusWithBHS
-    path: integration-tests/smoke/vrfv2plus_test.go
-    runs_on: ubuntu-latest
-    test_env_type: docker
-    test_cmd: cd integration-tests && go test -v -test.run TestVRFV2PlusWithBHS smoke/vrfv2plus_test.go -test.parallel=1 -timeout 30m -count=1 -json
-
-  # Run all VRFv2Plus tests on live testnets (test_config_override_path required)
-  # Tests have to run in sequence because of a single private key used
-  - id: TestVRFv2Plus_LiveTestnets
-    path: integration-tests/smoke/vrfv2plus_test.go
-    runs_on: ubuntu-latest
-    test_env_type: docker
-    test_cmd: cd integration-tests/smoke && go test -v -test.run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -test.parallel=1 -timeout 2h -count=1 -json
-
   - id: smoke/vrf_test.go:*
     path: integration-tests/smoke/vrf_test.go
     test_env_type: docker
@@ -739,6 +707,14 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/vrfv2plus_test.go -timeout 30m -count=1 -test.parallel=9 -json
     pyroscope_env: ci-smoke-vrf2plus-evm-simulated
+
+  # Run VRFv2Plus tests on live testnets (test_config_override_path required)
+  # Tests have to run in sequence because of a single private key used
+  - id: TestVRFv2Plus_LiveTestnets
+    path: integration-tests/smoke/vrfv2plus_test.go
+    runs_on: ubuntu-latest
+    test_env_type: docker
+    test_cmd: cd integration-tests/smoke && go test -v -test.run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -test.parallel=1 -timeout 2h -count=1 -json
 
   # END: VRF tests
 
