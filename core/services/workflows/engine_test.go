@@ -349,7 +349,9 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Tri
 	require.NoError(t, err)
 	tr := capabilities.TriggerResponse{
 		Event: capabilities.TriggerEvent{
-			Outputs: resp,
+			TriggerType: mt.ID,
+			ID:          time.Now().UTC().Format(time.RFC3339),
+			Outputs:     resp,
 		},
 	}
 	mt.triggerEvent = &tr
