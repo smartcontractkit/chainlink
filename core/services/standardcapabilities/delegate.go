@@ -15,6 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -82,8 +84,20 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	if err != nil {
 		return nil, err
 	}
+
 	if len(keyBundles) > 1 {
-		return nil, fmt.Errorf("expected only one OCR key bundle, but found found: %d", len(keyBundles))
+		return nil, fmt.Errorf("expected exactly one OCR key bundle, but found: %d", len(keyBundles))
+	}
+
+	var keyBundle ocr2key.KeyBundle
+
+	if len(keyBundles) == 0 {
+		keyBundle, err = d.ocrKs.Create(ctx, chaintype.EVM)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create OCR key bundle")
+		}
+	} else {
+		keyBundle = keyBundles[0]
 	}
 
 	oracleFactoryConfig, err := generic.NewOracleFactoryConfig(spec.StandardCapabilitiesSpec.OracleFactory)
@@ -101,7 +115,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		JobID:       spec.ID,
 		JobName:     spec.Name.ValueOrZero(),
 		Database:    ocr2.NewDB(d.ds, spec.ID, 0, log),
-		Kb:          keyBundles[0],
+		Kb:          keyBundle,
 		Config:      oracleFactoryConfig,
 		PeerWrapper: d.peerWrapper,
 	})
