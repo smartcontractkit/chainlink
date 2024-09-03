@@ -708,13 +708,23 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test smoke/vrfv2plus_test.go -timeout 30m -count=1 -test.parallel=9 -json
     pyroscope_env: ci-smoke-vrf2plus-evm-simulated
 
-  # Run VRFv2Plus tests on live testnets (test_config_override_path required)
+  # VRFv2Plus tests on any live testnet (test_config_override_path required)
   # Tests have to run in sequence because of a single private key used
   - id: TestVRFv2Plus_LiveTestnets
     path: integration-tests/smoke/vrfv2plus_test.go
     runs_on: ubuntu-latest
     test_env_type: docker
     test_cmd: cd integration-tests/smoke && go test -v -test.run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -test.parallel=1 -timeout 2h -count=1 -json
+
+  # VRFv2Plus release tests on Sepolia testnet
+  - id: TestVRFv2Plus_Release_Sepolia
+    path: integration-tests/smoke/vrfv2plus_test.go
+    runs_on: ubuntu-latest
+    test_env_type: docker
+    test_cmd: cd integration-tests/smoke && go test -v -test.run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -test.parallel=1 -timeout 2h -count=1 -json
+    test_config_override_path: integration-tests/testconfig/vrfv2plus/overrides/release_testing/sepolia_release_test_config.toml
+    # workflows:
+    #   - Nightly E2E Tests
 
   # END: VRF tests
 
