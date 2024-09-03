@@ -41,6 +41,16 @@ runner-test-matrix:
     test_env_vars:
       TEST_SUITE: soak
 
+  - id: soak/ocr_test.go:TestOCRv2Soak_WemixTestnet
+    path: integration-tests/soak/ocr_test.go
+    test_env_type: k8s-remote-runner
+    runs_on: ubuntu-latest
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_config_override_path: integration-tests/testconfig/ocr2/overrides/wemix_testnet.toml
+    test_secrets_required: true
+    test_env_vars:
+      TEST_SUITE: soak
+
   - id: soak/ocr_test.go:^TestForwarderOCRv1Soak$
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
