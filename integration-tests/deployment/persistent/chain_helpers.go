@@ -17,8 +17,8 @@ import (
 // TODO in the future Seth config should be part of the test config
 func EVMChainConfigFromTestConfig(testCfg ccipconfig.Config, sethConfig *seth.Config) (persistent_types.ChainConfig, error) {
 	evmChainConfig := persistent_types.ChainConfig{
-		NewEVMChains:      make([]persistent_types.NewEVMChainConfig, 0),
-		ExistingEVMChains: make([]persistent_types.ExistingEVMChainConfig, 0),
+		NewEVMChains:      make([]persistent_types.NewEVMChainProducer, 0),
+		ExistingEVMChains: make([]persistent_types.ExistingEVMChainProducer, 0),
 	}
 
 	var getSimulatedNetworkFromTestConfig = func(testConfig ccipconfig.Config, chainId uint64) (ctf_config.EthereumNetworkConfig, error) {
@@ -43,7 +43,7 @@ func EVMChainConfigFromTestConfig(testCfg ccipconfig.Config, sethConfig *seth.Co
 				return evmChainConfig, err
 			}
 			privateNetworkCfg.DockerNetworkNames = []string{dockerNetwork.Name}
-			var chainConfig persistent_types.NewEVMChainConfig
+			var chainConfig persistent_types.NewEVMChainProducer
 			if sethConfig == nil {
 				chainConfig = geth_chain.CreateNewEVMChainWithGeth(&privateNetworkCfg)
 			} else {
@@ -54,7 +54,7 @@ func EVMChainConfigFromTestConfig(testCfg ccipconfig.Config, sethConfig *seth.Co
 			}
 			evmChainConfig.NewEVMChains = append(evmChainConfig.NewEVMChains, chainConfig)
 		} else {
-			var chainConfig persistent_types.ExistingEVMChainConfig
+			var chainConfig persistent_types.ExistingEVMChainProducer
 			if sethConfig == nil {
 				chainConfig = geth_chain.CreateExistingEVMChainConfigWithGeth(network)
 			} else {

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
@@ -183,12 +184,12 @@ func NewDockerDON(newDonConfig *NewDockerDONConfig) (DON, error) {
 	return don, nil
 }
 
-func NewEVMOnlyChainlinkConfigs(donConfig testconfig.ChainlinkDeployment, chains map[uint64]deployment.Chain) ([]*chainlink.Config, error) {
+func NewEVMOnlyChainlinkConfigs(donConfig testconfig.ChainlinkDeployment, chains map[uint64]deployment.Chain, rpcProviders map[uint64]persistent_types.RpcProvider) ([]*chainlink.Config, error) {
 	var evmNetworks []blockchain.EVMNetwork
-	for _, chain := range chains {
-		evmNetwork := chain.EVMNetworkWithRPCs.EVMNetwork()
-		evmNetwork.HTTPURLs = chain.EVMNetworkWithRPCs.PrivateHttpUrls()
-		evmNetwork.URLs = chain.EVMNetworkWithRPCs.PrivateWsUrls()
+	for _, rpcProvider := range rpcProviders {
+		evmNetwork := rpcProvider.EVMNetwork()
+		evmNetwork.HTTPURLs = rpcProvider.PrivateHttpUrls()
+		evmNetwork.URLs = rpcProvider.PrivateWsUrls()
 		evmNetworks = append(evmNetworks, evmNetwork)
 	}
 

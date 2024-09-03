@@ -16,7 +16,7 @@ type EnvironmentConfig struct {
 }
 
 func NewEnvironment(lggr logger.Logger, config EnvironmentConfig) (*deployment.Environment, error) {
-	chains, err := NewChains(lggr, config.ChainConfig)
+	chains, rpcProviders, err := NewChains(lggr, config.ChainConfig)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create Chains")
 	}
@@ -24,7 +24,7 @@ func NewEnvironment(lggr logger.Logger, config EnvironmentConfig) (*deployment.E
 	// TODO add logstream
 	// TODO add clean ups? although that should be related to test, not to environment
 	if config.DONConfig.NewDON != nil {
-		clNodesConfigs, err := NewEVMOnlyChainlinkConfigs(config.DONConfig.NewDON.ChainlinkDeployment, chains)
+		clNodesConfigs, err := NewEVMOnlyChainlinkConfigs(config.DONConfig.NewDON.ChainlinkDeployment, chains, rpcProviders)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create chainlink configs")
 		}

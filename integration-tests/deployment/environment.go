@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -53,56 +52,9 @@ type Chain struct {
 	DeployerKey *bind.TransactOpts
 	// Rename to something more universal, as these keys are not only for deploying, but also for other actions
 	DeployerKeys []*bind.TransactOpts
-	// we need that data to set up chainlink nodes (we need the RPC URLs)
-	// TODO wonder if I could get rid of this field, I could probably return it next to Chain from specific implementations
-	// And pass that data to the nodes instead of storing it here
-	EVMNetworkWithRPCs RpcProvider
 	// Function to execute if transaction submission fails.
 	RetrySubmit func(tx *types.Transaction, err error) (*types.Transaction, error)
 	Confirm     func(tx common.Hash) (uint64, error)
-}
-
-// a bit unfortunate, but we need to be able to pass "private" urls of chains to chainlink nodes
-// when running in Docker; that's unless we create a DNS/proxy that would allow to access private
-// chains using the same URL both from inside docker containers and from the machine where test code executes
-type RpcProvider interface {
-	EVMNetwork() blockchain.EVMNetwork
-	PrivateHttpUrls() []string
-	PrivateWsUrls() []string
-	PublicHttpUrls() []string
-	PublicWsUrls() []string
-}
-
-func NewEVMNetworkWithRPCs(evmNetwork blockchain.EVMNetwork, rpcProvider ctfTestEnv.RpcProvider) RpcProvider {
-	return &EVMNetworkWithRPCs{
-		evmNetwork,
-		rpcProvider,
-	}
-}
-
-type EVMNetworkWithRPCs struct {
-	evmNetwork blockchain.EVMNetwork
-	ctfTestEnv.RpcProvider
-}
-
-func (s *EVMNetworkWithRPCs) EVMNetwork() blockchain.EVMNetwork {
-	return s.evmNetwork
-}
-
-func (s *EVMNetworkWithRPCs) PrivateHttpUrls() []string {
-	return s.RpcProvider.PrivateHttpUrls()
-}
-
-func (s *EVMNetworkWithRPCs) PrivateWsUrls() []string {
-	return s.RpcProvider.PrivateWsUrsl()
-}
-
-func (s *EVMNetworkWithRPCs) PublicHttpUrls() []string {
-	return s.PublicHttpUrls()
-}
-
-func (s *EVMNetworkWithRPCs) PublicWsUrls() []string {
-	return s.RpcProvider.PublicWsUrls()
 }
 
 // NoOpRetrySubmit is a retry submit function that does nothing.

@@ -22,7 +22,7 @@ import (
 	"strings"
 )
 
-func CreateNewEVMChainWithSeth(config ctf_config.EthereumNetworkConfig, sethConfig seth.Config) (persistent_types.NewEVMChainConfig, error) {
+func CreateNewEVMChainWithSeth(config ctf_config.EthereumNetworkConfig, sethConfig seth.Config) (persistent_types.NewEVMChainProducer, error) {
 	contractsRootFolder, err := findGethWrappersFolderRoot(5)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to find contracts root folder")
@@ -42,14 +42,14 @@ type NewEVMChainWithSeth struct {
 	contractsRootFolder string
 }
 
-func (n *NewEVMChainWithSeth) Chain() (deployment.Chain, error) {
+func (n *NewEVMChainWithSeth) Chain() (deployment.Chain, persistent_types.RpcProvider, error) {
 	chain := deployment.Chain{}
 	if n.config.GetEthereumVersion() == nil {
-		return chain, fmt.Errorf("ethereum version is required")
+		return chain, nil, fmt.Errorf("ethereum version is required")
 	}
 
 	if n.config.GetExecutionLayer() == nil {
-		return chain, fmt.Errorf("execution layer is required")
+		return chain, nil, fmt.Errorf("execution layer is required")
 	}
 
 	ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
@@ -62,12 +62,12 @@ func (n *NewEVMChainWithSeth) Chain() (deployment.Chain, error) {
 		Build()
 
 	if err != nil {
-		return chain, err
+		return chain, nil, err
 	}
 
 	evmNetwork, rpcProvider, err := network.Start()
 	if err != nil {
-		return chain, err
+		return chain, nil, err
 	}
 
 	evmNetwork.Name = fmt.Sprintf("%s-%d", *n.config.GetExecutionLayer(), evmNetwork.ChainID)
@@ -79,7 +79,7 @@ func (n *NewEVMChainWithSeth) Chain() (deployment.Chain, error) {
 		Build()
 
 	if err != nil {
-		return chain, errors.Wrapf(err, "failed to create seth client")
+		return chain, nil, errors.Wrapf(err, "failed to create seth client")
 	}
 
 	return n.Build(sethClient, evmNetwork, rpcProvider)
@@ -122,7 +122,7 @@ func (e *ExistingEVMChainConfigWithSeth) EVMNetwork() blockchain.EVMNetwork {
 	return e.evmNetwork
 }
 
-func CreateExistingEVMChainWithSeth(evmNetwork blockchain.EVMNetwork, sethConfig seth.Config) (persistent_types.ExistingEVMChainConfig, error) {
+func CreateExistingEVMChainWithSeth(evmNetwork blockchain.EVMNetwork, sethConfig seth.Config) (persistent_types.ExistingEVMChainProducer, error) {
 	contractsRootFolder, err := findGethWrappersFolderRoot(5)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to find contracts root folder")
@@ -135,11 +135,11 @@ func CreateExistingEVMChainWithSeth(evmNetwork blockchain.EVMNetwork, sethConfig
 	}, nil
 }
 
-func (e *ExistingEVMChainConfigWithSeth) Chain() (deployment.Chain, error) {
+func (e *ExistingEVMChainConfigWithSeth) Chain() (deployment.Chain, persistent_types.RpcProvider, error) {
 	chain := deployment.Chain{}
 	c, err := seth_utils.MergeSethAndEvmNetworkConfigs(e.evmNetwork, e.sethConfig)
 	if err != nil {
-		return chain, fmt.Errorf("failed to merge seth and evm network configs: %w", err)
+		return chain, nil, fmt.Errorf("failed to merge seth and evm network configs: %w", err)
 	}
 
 	sethClient, err := seth.NewClientBuilderWithConfig(&c).
@@ -147,22 +147,15 @@ func (e *ExistingEVMChainConfigWithSeth) Chain() (deployment.Chain, error) {
 		WithGethWrappersFolders([]string{fmt.Sprintf("%s/ccip", e.contractsRootFolder)}).
 		Build()
 	if err != nil {
-		return chain, fmt.Errorf("failed to create seth client: %w", err)
+		return chain, nil, fmt.Errorf("failed to create seth client: %w", err)
 	}
 
-	rpcProvider := ctf_test_env.NewRPCProvider(e.evmNetwork.HTTPURLs, e.evmNetwork.URLs, e.evmNetwork.HTTPURLs, e.evmNetwork.URLs)
-
-	chain, err = e.Build(sethClient, e.evmNetwork, rpcProvider)
-	if err != nil {
-		return chain, err
-	}
-
-	return chain, nil
+	return e.Build(sethClient, e.evmNetwork, ctf_test_env.NewRPCProvider(e.evmNetwork.HTTPURLs, e.evmNetwork.URLs, e.evmNetwork.HTTPURLs, e.evmNetwork.URLs))
 }
 
 type SethChainBuilder struct{}
 
-func (s *SethChainBuilder) Build(sethClient *seth.Client, evmNetwork blockchain.EVMNetwork, rpcProvider ctf_test_env.RpcProvider) (deployment.Chain, error) {
+func (s *SethChainBuilder) Build(sethClient *seth.Client, evmNetwork blockchain.EVMNetwork, rpcProvider ctf_test_env.RpcProvider) (deployment.Chain, persistent_types.RpcProvider, error) {
 	shouldRetryOnErrFn := func(err error) bool {
 		// some retry logic here
 		return true
@@ -176,7 +169,7 @@ func (s *SethChainBuilder) Build(sethClient *seth.Client, evmNetwork blockchain.
 
 	sel, err := chainselectors.SelectorFromChainId(uint64(evmNetwork.ChainID))
 	if err != nil {
-		return deployment.Chain{}, err
+		return deployment.Chain{}, nil, err
 	}
 
 	return deployment.Chain{
@@ -200,7 +193,6 @@ func (s *SethChainBuilder) Build(sethClient *seth.Client, evmNetwork blockchain.
 
 			return keys
 		}(),
-		EVMNetworkWithRPCs: deployment.NewEVMNetworkWithRPCs(evmNetwork, rpcProvider),
 		Confirm: func(txHash common.Hash) (uint64, error) {
 			ctx, cancelFn := context.WithTimeout(context.Background(), sethClient.Cfg.Network.TxnTimeout.Duration())
 			tx, _, err := sethClient.Client.TransactionByHash(ctx, txHash)
@@ -242,7 +234,7 @@ func (s *SethChainBuilder) Build(sethClient *seth.Client, evmNetwork blockchain.
 
 			return tx, sethClient.DecodeSendErr(retryErr)
 		},
-	}, nil
+	}, persistent_types.NewEVMNetworkWithRPCs(evmNetwork, rpcProvider), nil
 }
 
 // findGethWrappersFolderRoot finds the root folder of the geth wrappers. It looks for a file named ".geth_wrappers_root" or ".repo_root" in the current directory and its `folderLimit` parents.

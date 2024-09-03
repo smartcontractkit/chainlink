@@ -72,7 +72,7 @@ func TestDeployCapReg_NewDevnet_Concurrent(t *testing.T) {
 
 	envConfig := persistent.EnvironmentConfig{
 		ChainConfig: persistent_types.ChainConfig{
-			NewEVMChains: []persistent_types.NewEVMChainConfig{firstChain, secondChain},
+			NewEVMChains: []persistent_types.NewEVMChainProducer{firstChain, secondChain},
 		},
 	}
 
@@ -141,7 +141,7 @@ func TestDeployCCIPContractsNewDevnet(t *testing.T) {
 
 	envConfig := persistent.EnvironmentConfig{
 		ChainConfig: persistent_types.ChainConfig{
-			NewEVMChains: []persistent_types.NewEVMChainConfig{firstChain, secondChain},
+			NewEVMChains: []persistent_types.NewEVMChainProducer{firstChain, secondChain},
 		},
 		DONConfig: persistent.DONConfig{
 			NewDON: &persistent.NewDockerDONConfig{
@@ -264,7 +264,7 @@ func TestDeployCCIPContractsExistingDevnet(t *testing.T) {
 
 	envConfig := persistent.EnvironmentConfig{
 		ChainConfig: persistent_types.ChainConfig{
-			ExistingEVMChains: []persistent_types.ExistingEVMChainConfig{firstChain, secondChain},
+			ExistingEVMChains: []persistent_types.ExistingEVMChainProducer{firstChain, secondChain},
 		},
 	}
 	e, err := persistent.NewEnvironment(lggr, envConfig)
