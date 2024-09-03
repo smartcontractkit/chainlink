@@ -326,7 +326,7 @@ func (f *FeeHistoryEstimator) BumpLegacyGas(ctx context.Context, originalGasPric
 	bumpedGasPrice := originalGasPrice.AddPercentage(f.config.BumpPercent)
 	bumpedGasPrice, err = LimitBumpedFee(originalGasPrice, currentGasPrice, bumpedGasPrice, maxPrice)
 	if err != nil {
-		return nil, 0, fmt.Errorf("gas price error: %w", err)
+		return nil, 0, fmt.Errorf("failed to limit gas price: %w", err)
 	}
 
 	f.logger.Debugw("bumped gas price", "originalGasPrice", originalGasPrice, "marketGasPrice", currentGasPrice, "bumpedGasPrice", bumpedGasPrice)
@@ -376,7 +376,7 @@ func (f *FeeHistoryEstimator) BumpDynamicFee(ctx context.Context, originalFee Dy
 
 	bumpedMaxPriorityFeePerGas, err = LimitBumpedFee(originalFee.TipCap, currentDynamicPrice.TipCap, bumpedMaxPriorityFeePerGas, maxPrice)
 	if err != nil {
-		return bumped, fmt.Errorf("maxPriorityFeePerGas error: %w", err)
+		return bumped, fmt.Errorf("failed to limit maxPriorityFeePerGas: %w", err)
 	}
 
 	priorityFeeThreshold, e := f.getPriorityFeeThreshold()
@@ -391,7 +391,7 @@ func (f *FeeHistoryEstimator) BumpDynamicFee(ctx context.Context, originalFee Dy
 
 	bumpedMaxFeePerGas, err = LimitBumpedFee(originalFee.FeeCap, currentDynamicPrice.FeeCap, bumpedMaxFeePerGas, maxPrice)
 	if err != nil {
-		return bumped, fmt.Errorf("maxFeePerGas error: %w", err)
+		return bumped, fmt.Errorf("failed to limit maxFeePerGas: %w", err)
 	}
 
 	bumpedFee := DynamicFee{FeeCap: bumpedMaxFeePerGas, TipCap: bumpedMaxPriorityFeePerGas}
