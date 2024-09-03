@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
@@ -43,7 +43,7 @@ type PluginConfig struct {
 	MaxSecretsSizesList                      []uint32                                  `json:"maxSecretsSizesList"`
 	MinimumSubscriptionBalance               assets.Link                               `json:"minimumSubscriptionBalance"`
 	AllowedHeartbeatInitiators               []string                                  `json:"allowedHeartbeatInitiators"`
-	GatewayConnectorConfig                   *connector.ConnectorConfig                `json:"gatewayConnectorConfig"`
+	GatewayConnectorConfig                   config.GatewayConnectorConfig             `json:"gatewayConnectorConfig"`
 	OnchainAllowlist                         *allowlist.OnchainAllowlistConfig         `json:"onchainAllowlist"`
 	OnchainSubscriptions                     *subscriptions.OnchainSubscriptionsConfig `json:"onchainSubscriptions"`
 	RateLimiter                              *common.RateLimiterConfig                 `json:"rateLimiter"`

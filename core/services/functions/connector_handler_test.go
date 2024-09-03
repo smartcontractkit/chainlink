@@ -14,13 +14,13 @@ import (
 	"github.com/onsi/gomega"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	coreConfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	sfmocks "github.com/smartcontractkit/chainlink/v2/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
-	gwconnector "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	fallowMocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist/mocks"
@@ -79,9 +79,9 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	allowlist.On("Close", mock.Anything).Return(nil)
 	subscriptions.On("Start", mock.Anything).Return(nil)
 	subscriptions.On("Close", mock.Anything).Return(nil)
-	config := &config.PluginConfig{
-		// undefined: gwconnector.ConnectorConfigcompilerUndeclaredImportedName
-		GatewayConnectorConfig: &gwconnector.ConnectorConfig{
+	config := config.PluginConfig{
+		// invalid composite literal type "github.com/smartcontractkit/chainlink/v2/core/config".GatewayConnectorConfigcompilerInvalidLit
+		GatewayConnectorConfig: coreConfig.GatewayConnectorConfig{
 			NodeAddress: addr.Hex(),
 		},
 		MinimumSubscriptionBalance: *assets.NewLinkFromJuels(100),

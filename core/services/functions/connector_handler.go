@@ -74,7 +74,7 @@ func InternalId(sender []byte, requestId []byte) RequestID {
 	return RequestID(crypto.Keccak256Hash(append(sender, requestId...)).Bytes())
 }
 
-func NewFunctionsConnectorHandler(pluginConfig *config.PluginConfig, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist fallow.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions fsub.OnchainSubscriptions, listener FunctionsListener, offchainTransmitter OffchainTransmitter, lggr logger.Logger) (*functionsConnectorHandler, error) {
+func NewFunctionsConnectorHandler(pluginConfig config.PluginConfig, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist fallow.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions fsub.OnchainSubscriptions, listener FunctionsListener, offchainTransmitter OffchainTransmitter, lggr logger.Logger) (*functionsConnectorHandler, error) {
 	if signerKey == nil || storage == nil || allowlist == nil || rateLimiter == nil || subscriptions == nil || listener == nil || offchainTransmitter == nil {
 		return nil, fmt.Errorf("all dependencies must be non-nil")
 	}
@@ -83,8 +83,7 @@ func NewFunctionsConnectorHandler(pluginConfig *config.PluginConfig, signerKey *
 		allowedHeartbeatInitiators[strings.ToLower(initiator)] = struct{}{}
 	}
 	return &functionsConnectorHandler{
-		// pluginConfig.GatewayConnectorConfig.NodeAddress undefined (type *invalid type has no field or method NodeAddress)
-		nodeAddress:                pluginConfig.GatewayConnectorConfig.NodeAddress,
+		nodeAddress:                pluginConfig.GatewayConnectorConfig.NodeAddress(),
 		signerKey:                  signerKey,
 		storage:                    storage,
 		allowlist:                  allowlist,
