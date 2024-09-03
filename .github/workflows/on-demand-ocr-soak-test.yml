@@ -80,6 +80,7 @@ jobs:
           echo "### Test config override path" >> $GITHUB_STEP_SUMMARY
           echo "[${{ inputs.test_config_override_path }}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/${{ github.sha }}/${{ inputs.test_config_override_path }})" >> $GITHUB_STEP_SUMMARY          
       - name: Build Image
+        id: build_test_image
         uses: ./.github/actions/build-test-image
         with:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -91,7 +92,7 @@ jobs:
           DETACH_RUNNER: true
           TEST_SUITE: soak
           TEST_ARGS: -test.timeout 900h -test.memprofile memprofile.out -test.cpuprofile profile.out
-          ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
+          ENV_JOB_IMAGE: ${{ steps.build_test_image.outputs.test_image }}
           # We can comment these out when we have a stable soak test and aren't worried about resource consumption
           TEST_UPLOAD_CPU_PROFILE: true
           TEST_UPLOAD_MEM_PROFILE: true

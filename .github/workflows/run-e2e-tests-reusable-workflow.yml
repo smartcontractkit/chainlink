@@ -598,6 +598,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Build Test Runner Image
+        id: build-test-runner-image
         uses: ./.github/actions/build-test-image
         if: ${{ inputs.with_existing_remote_runner_version == '' }}
         with:
@@ -608,7 +609,9 @@ jobs:
         id: set-remote-runner-version
         run: |
           if [[ -z "${{ inputs.with_existing_remote_runner_version }}" ]]; then
-            echo "remote-runner-version=${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "remote-runner-image=${{ steps.build-test-runner-image.outputs.test_image }}" >> $GITHUB_OUTPUT
+            echo "remote-runner-repository=${{ steps.build-test-runner-image.outputs.test_image_repository }}" >> $GITHUB_OUTPUT
+            echo "remote-runner-version=${{ steps.build-test-runner-image.outputs.test_image_tag }}" >> $GITHUB_OUTPUT
           else
             echo "remote-runner-version=${{ inputs.with_existing_remote_runner_version }}" >> $GITHUB_OUTPUT
           fi

@@ -26,6 +26,17 @@ inputs:
     description: The AWS region the ECR repository is located in, should only be needed for public ECR repositories, used in configuring docker/login-action
     required: true
 
+outputs:
+  test_image:
+    description: The full name of the test image that was built
+    value: ${{ steps.image_outputs.outputs.test_image }}  
+  test_image_tag:
+    description: The tag of the test image that was built
+    value: ${{ steps.image_outputs.outputs.test_image_tag }}
+  test_image_repository:
+    description: The repository of the test image that was built
+    value: ${{ steps.image_outputs.outputs.test_image_repo }}  
+
 runs:
   using: composite
   steps:
@@ -129,4 +140,11 @@ runs:
       run: |
         echo "### ${INPUTS_REPOSITORY} image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
         echo "\`${INPUTS_TAG}\`" >>$GITHUB_STEP_SUMMARY
+    - name: Set outputs
+      id: image_outputs
+      shell: sh
+      run: |
+        echo "test_image_repo=${{ inputs.repository }}" >> $GITHUB_OUTPUT
+        echo "test_image_tag=${{ inputs.tag || steps.test_runner_hash.outputs.hash_value }}" >> $GITHUB_OUTPUT
+        echo "test_image=${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/${{ inputs.repository }}:${{ inputs.tag || steps.test_runner_hash.outputs.hash_value }}" >> $GITHUB_OUTPUT
     # End Test Runner Logic
