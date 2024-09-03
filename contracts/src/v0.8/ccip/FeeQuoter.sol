@@ -467,8 +467,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint256 numberOfTokens = message.tokenAmounts.length;
     _validateMessage(destChainConfig, message.data.length, numberOfTokens, message.receiver);
 
-    uint64 premiumMultiplierWeiPerEth = s_premiumMultiplierWeiPerEth[message.feeToken];
-
     // The below call asserts that feeToken is a supported token
     (uint224 feeTokenPrice, uint224 packedGasPrice) = getTokenAndGasPrices(message.feeToken, destChainSelector);
 
@@ -511,7 +509,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     // NOTE: when supporting non-EVM chains, revisit how generic this fee logic can be
     // NOTE: revisit parsing non-EVM args
-
     uint256 executionCost = uint112(packedGasPrice)
       * (
         destChainConfig.destGasOverhead + (message.data.length * destChainConfig.destGasPerPayloadByte) + tokenTransferGas
@@ -521,7 +518,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     // Calculate number of fee tokens to charge.
     // Total USD fee is in 36 decimals, feeTokenPrice is in 18 decimals USD for 1e18 smallest token denominations.
     // Result of the division is the number of smallest token denominations.
-    return ((premiumFee * premiumMultiplierWeiPerEth) + executionCost + dataAvailabilityCost) / feeTokenPrice;
+    return ((premiumFee * s_premiumMultiplierWeiPerEth[message.feeToken]) + executionCost + dataAvailabilityCost)
+      / feeTokenPrice;
   }
 
   /// @notice Sets the fee configuration for a token.

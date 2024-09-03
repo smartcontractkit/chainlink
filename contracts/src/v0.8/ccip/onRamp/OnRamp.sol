@@ -99,7 +99,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   //solhint-disable gas-struct-packing
   struct AllowListConfigArgs {
     uint64 destChainSelector; // ─────────────╮ Destination chain selector
-      //                                      │ destChainSelector and allowListEnabled are packed in the same slot
+    //                                        │ destChainSelector and allowListEnabled are packed in the same slot
     bool allowListEnabled; // ────────────────╯ boolean indicator to specify if allowList check is enabled.
     address[] addedAllowlistedSenders; // list of senders to be added to the allowedSendersList
     address[] removedAllowlistedSenders; // list of senders to be removed from the allowedSendersList
@@ -208,7 +208,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
       }),
       sender: originalSender,
       data: message.data,
-      extraArgs: message.extraArgs,
+      extraArgs: convertedExtraArgs,
       receiver: message.receiver,
       feeToken: message.feeToken,
       feeTokenAmount: feeTokenAmount,
@@ -231,9 +231,6 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     for (uint256 i = 0; i < newMessage.tokenAmounts.length; ++i) {
       newMessage.tokenAmounts[i].destExecData = destExecDataPerToken[i];
     }
-
-    // Override extraArgs with latest version
-    newMessage.extraArgs = convertedExtraArgs;
 
     // Hash only after all fields have been set
     newMessage.header.messageId = Internal._hash(
@@ -425,8 +422,8 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
         }
       }
 
-      for (uint256 k = 0; k < allowListConfigArgs.removedAllowlistedSenders.length; ++k) {
-        destChainConfig.allowedSendersList.remove(allowListConfigArgs.removedAllowlistedSenders[k]);
+      for (uint256 j = 0; j < allowListConfigArgs.removedAllowlistedSenders.length; ++j) {
+        destChainConfig.allowedSendersList.remove(allowListConfigArgs.removedAllowlistedSenders[j]);
       }
 
       if (allowListConfigArgs.removedAllowlistedSenders.length > 0) {

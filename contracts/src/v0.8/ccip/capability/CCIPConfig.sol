@@ -6,7 +6,6 @@ import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {ICapabilitiesRegistry} from "./interfaces/ICapabilitiesRegistry.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
-
 import {SortedSetValidationUtil} from "../../shared/util/SortedSetValidationUtil.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {CCIPConfigTypes} from "./libraries/CCIPConfigTypes.sol";
@@ -26,7 +25,6 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
   /// @param chainSelector The chain selector.
   /// @param chainConfig The chain configuration.
   event ChainConfigSet(uint64 chainSelector, CCIPConfigTypes.ChainConfig chainConfig);
-
   /// @notice Emitted when a chain's configuration is removed.
   /// @param chainSelector The chain selector.
   event ChainConfigRemoved(uint64 chainSelector);
@@ -172,9 +170,8 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
       revert OnlyCapabilitiesRegistryCanCall();
     }
 
-    CCIPConfigTypes.OCR3Config[] memory ocr3Configs = abi.decode(config, (CCIPConfigTypes.OCR3Config[]));
     (CCIPConfigTypes.OCR3Config[] memory commitConfigs, CCIPConfigTypes.OCR3Config[] memory execConfigs) =
-      _groupByPluginType(ocr3Configs);
+      _groupByPluginType(abi.decode(config, (CCIPConfigTypes.OCR3Config[])));
     if (commitConfigs.length > 0) {
       _updatePluginConfig(donId, Internal.OCRPluginType.Commit, commitConfigs);
     }
@@ -363,8 +360,8 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
     // access in the for loop below.
     commitConfigs = new CCIPConfigTypes.OCR3Config[](MAX_OCR3_CONFIGS_PER_PLUGIN);
     execConfigs = new CCIPConfigTypes.OCR3Config[](MAX_OCR3_CONFIGS_PER_PLUGIN);
-    uint256 commitCount;
-    uint256 execCount;
+    uint256 commitCount = 0;
+    uint256 execCount = 0;
     for (uint256 i = 0; i < ocr3Configs.length; ++i) {
       if (ocr3Configs[i].pluginType == Internal.OCRPluginType.Commit) {
         commitConfigs[commitCount] = ocr3Configs[i];
@@ -418,9 +415,7 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
     SortedSetValidationUtil._checkIsValidUniqueSubset(cfg.bootstrapP2PIds, cfg.p2pIds);
 
     // Check that the readers are in the capabilities registry.
-    for (uint256 i = 0; i < cfg.signers.length; ++i) {
-      _ensureInRegistry(cfg.p2pIds[i]);
-    }
+    _ensureInRegistry(cfg.p2pIds);
   }
 
   /// @notice Computes the digest of the provided configuration.
@@ -486,13 +481,10 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
     // Process additions next.
     for (uint256 i = 0; i < chainConfigAdds.length; ++i) {
       CCIPConfigTypes.ChainConfig memory chainConfig = chainConfigAdds[i].chainConfig;
-      bytes32[] memory readers = chainConfig.readers;
       uint64 chainSelector = chainConfigAdds[i].chainSelector;
 
       // Verify that the provided readers are present in the capabilities registry.
-      for (uint256 j = 0; j < readers.length; j++) {
-        _ensureInRegistry(readers[j]);
-      }
+      _ensureInRegistry(chainConfig.readers);
 
       // Verify that fChain is positive.
       if (chainConfig.fChain == 0) {
@@ -507,11 +499,13 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
   }
 
   /// @notice Helper function to ensure that a node is in the capabilities registry.
-  /// @param p2pId The P2P ID of the node to check.
-  function _ensureInRegistry(bytes32 p2pId) internal view {
-    ICapabilitiesRegistry.NodeInfo memory node = ICapabilitiesRegistry(i_capabilitiesRegistry).getNode(p2pId);
-    if (node.p2pId == bytes32("")) {
-      revert NodeNotInRegistry(p2pId);
+  /// @param p2pIds The P2P IDs of the node to check.
+  function _ensureInRegistry(bytes32[] memory p2pIds) internal view {
+    for (uint256 i = 0; i < p2pIds.length; ++i) {
+      // TODO add a method that does the validation in the ICapabilitiesRegistry contract
+      if (ICapabilitiesRegistry(i_capabilitiesRegistry).getNode(p2pIds[i]).p2pId == bytes32("")) {
+        revert NodeNotInRegistry(p2pIds[i]);
+      }
     }
   }
 }
