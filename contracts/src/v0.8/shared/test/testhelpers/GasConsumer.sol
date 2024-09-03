@@ -9,8 +9,9 @@ contract GasConsumer {
       } lt(0, 1) {
 
       } {
-        // If 60 gas is remaining, then exit the loop by returning. 60 was determined by manual binary search to be the minimal amount of gas needed but less than the cost of another loop
-        if lt(gas(), 60) {
+        // If 100 gas is remaining, then exit the loop by returning. 100 was determined by manual binary search to be
+        // the minimal amount of gas needed but less than the cost of another loop
+        if lt(gas(), 100) {
           return(0x0, 0x0) // Return with no return data
         }
       }

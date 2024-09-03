@@ -104,9 +104,9 @@ func prependMetadataFields(meta consensustypes.Metadata, userPayload []byte) ([]
 	result = append(result, tsBytes...)
 
 	// 4. DON ID (4 bytes)
-	if result, err = decodeAndAppend(meta.DONID, 4, result, "DONID"); err != nil {
-		return nil, err
-	}
+	donIDBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(donIDBytes, meta.DONID)
+	result = append(result, donIDBytes...)
 
 	// 5. DON config version (4 bytes)
 	cfgVersionBytes := make([]byte, 4)

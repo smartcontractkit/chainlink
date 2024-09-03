@@ -5,7 +5,10 @@
 package types
 
 import (
+	"context"
+
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -16,20 +19,19 @@ const (
 	MethodExecute           = "Execute"
 )
 
-//go:generate mockery --quiet --name Dispatcher --output ./mocks/ --case=underscore
 type Dispatcher interface {
-	SetReceiver(capabilityId string, donId string, receiver Receiver) error
-	RemoveReceiver(capabilityId string, donId string)
+	services.Service
+	SetReceiver(capabilityId string, donId uint32, receiver Receiver) error
+	RemoveReceiver(capabilityId string, donId uint32)
 	Send(peerID p2ptypes.PeerID, msgBody *MessageBody) error
 }
 
-//go:generate mockery --quiet --name Receiver --output ./mocks/ --case=underscore
 type Receiver interface {
-	Receive(msg *MessageBody)
+	Receive(ctx context.Context, msg *MessageBody)
 }
 
 type Aggregator interface {
-	Aggregate(eventID string, responses [][]byte) (commoncap.CapabilityResponse, error)
+	Aggregate(eventID string, responses [][]byte) (commoncap.TriggerResponse, error)
 }
 
 // NOTE: this type will become part of the Registry (KS-108)

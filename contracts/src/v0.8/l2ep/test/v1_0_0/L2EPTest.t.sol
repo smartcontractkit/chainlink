@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity ^0.8.24;
 
 import {Greeter} from "../../../tests/Greeter.sol";
 
@@ -12,21 +12,6 @@ contract L2EPTest is Test {
   address internal s_l1OwnerAddr = vm.addr(0x2);
   address internal s_eoaValidator = vm.addr(0x3);
   address internal s_deployerAddr = vm.addr(0x4);
-
-  /// @param expectedGasUsage - the expected gas usage
-  /// @param startGasUsage - the gas usage before the code of interest is run
-  /// @param finalGasUsage - the gas usage after the code of interest is run
-  /// @param deviation - the amount of gas that the actual usage is allowed to deviate by (e.g. (expectedGas - deviation) <= actualGasUsage <= (expectedGas + deviation))
-  function assertGasUsageIsCloseTo(
-    uint256 expectedGasUsage,
-    uint256 startGasUsage,
-    uint256 finalGasUsage,
-    uint256 deviation
-  ) public {
-    uint256 gasUsed = (startGasUsage - finalGasUsage) * tx.gasprice;
-    assertLe(gasUsed, expectedGasUsage + deviation);
-    assertGe(gasUsed, expectedGasUsage - deviation);
-  }
 
   /// @param selector - the function selector
   /// @param greeterAddr - the address of the Greeter contract

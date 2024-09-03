@@ -179,3 +179,11 @@ func (e *EVMConfig) OperatorFactoryAddress() string {
 func (e *EVMConfig) LogPrunePageSize() uint32 {
 	return *e.C.LogPrunePageSize
 }
+
+func (e *EVMConfig) FinalizedBlockOffset() uint32 {
+	return *e.C.FinalizedBlockOffset
+}
+
+func (e *EVMConfig) NoNewFinalizedHeadsThreshold() time.Duration {
+	return e.C.NoNewFinalizedHeadsThreshold.Duration()
+}

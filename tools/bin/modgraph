@@ -9,9 +9,9 @@ echo "# smartcontractkit Go modules
 flowchart LR
   subgraph chains
     chainlink-cosmos
-    chainlink-evm
     chainlink-solana
     chainlink-starknet/relayer
+    chainlink-evm
   end
 
   subgraph products
@@ -23,8 +23,13 @@ flowchart LR
     chainlink-vrf
   end
 
+  subgraph tdh2
+    tdh2/go/tdh2
+    tdh2/go/ocr2/decryptionplugin
+  end
+
   classDef outline stroke-dasharray:6,fill:none;
-  class chains,products outline
+  class chains,products,tdh2 outline
 "
 go mod graph | \
   # org only

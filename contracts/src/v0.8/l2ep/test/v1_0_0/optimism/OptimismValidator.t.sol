@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.24;
+
+import {ISequencerUptimeFeed} from "../../../dev/interfaces/ISequencerUptimeFeed.sol";
 
 import {MockOptimismL1CrossDomainMessenger} from "../../../../tests/MockOptimismL1CrossDomainMessenger.sol";
 import {MockOptimismL2CrossDomainMessenger} from "../../../../tests/MockOptimismL2CrossDomainMessenger.sol";
@@ -73,7 +75,7 @@ contract OptimismValidator_Validate is OptimismValidatorTest {
     emit SentMessage(
       L2_SEQ_STATUS_RECORDER_ADDRESS, // target
       address(s_optimismValidator), // sender
-      abi.encodeWithSelector(OptimismSequencerUptimeFeed.updateStatus.selector, false, futureTimestampInSeconds), // message
+      abi.encodeWithSelector(ISequencerUptimeFeed.updateStatus.selector, false, futureTimestampInSeconds), // message
       0, // nonce
       INIT_GAS_LIMIT // gas limit
     );
@@ -97,7 +99,7 @@ contract OptimismValidator_Validate is OptimismValidatorTest {
     emit SentMessage(
       L2_SEQ_STATUS_RECORDER_ADDRESS, // target
       address(s_optimismValidator), // sender
-      abi.encodeWithSelector(OptimismSequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds), // message
+      abi.encodeWithSelector(ISequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds), // message
       0, // nonce
       INIT_GAS_LIMIT // gas limit
     );

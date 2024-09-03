@@ -27,6 +27,8 @@ version = "your tag"
 
 The `./testconfig/overrides.toml` file **should never be committed** and has been added to the [.gitignore](../.gitignore) file as it can often contain secrets like private keys and RPC URLs.
 
+For more information on how to configure the tests, see the [testconfig README](./testconfig/README.md).
+
 ## Build
 
 If you'd like to run the tests on a local build of Chainlink, you can point to your own docker image, or build a fresh one with `make`.
@@ -51,7 +53,7 @@ It's generally recommended to run only one test at a time on a local machine as 
 
 ### Configure Seth
 
-Our new evm client is Seth. Detailed instructions on how to configure it can be found in the [Seth README](./README_SETH.md) in this repo as well as in [Seth repository](https://github.com/smartcontractkit/seth).
+Our new evm client is Seth. Detailed instructions on how to configure it can be found in the [Seth README](./README_SETH.md) in this repo as well as in [Seth repository](https://github.com/smartcontractkit/chainlink-testing-framework/tree/main/seth).
 
 ## Analyze
 
@@ -60,3 +62,76 @@ You can see the results of each test in the terminal with normal `go test` outpu
 ## Running Soak, Performance, Benchmark, and Chaos Tests
 
 These tests remain bound to a Kubernetes run environment, and require more complex setup and running instructions not documented here. We endeavor to make these easier to run and configure, but for the time being please seek a member of the QA/Test Tooling team if you want to run these.
+
+### How to run reorg tests
+Run soak/ocr_test.go with reorg below finality and `FinalityTagEnabled=false`
+
+```bash
+make test_soak_ocr_reorg_1
+```
+
+Run soak/ocr_test.go with reorg below finality and `FinalityTagEnabled=true`:
+
+```bash
+make test_soak_ocr_reorg_2
+```
+
+Run reorg/automation_reorg_test.go with reorg settings:
+
+1. Use Simulated Geth network and put GethReorgConfig in overrides.toml
+
+    ```toml
+    [Network]
+    selected_networks=["simulated"]
+    [Network.GethReorgConfig]
+    enabled = true
+    depth = 10
+    delay_create = "3s"
+    ```
+
+2. Then run the test:
+    ```bash
+    make test_reorg_automation
+    ```
+
+Run reorg above finality docker test:
+
+```bash
+go test -v -run ^TestReorgAboveFinality_FinalityTagDisabled$ ./smoke
+```
+
+### How to run gas simulation tests
+
+Run soak/ocr_test.go with gas spike:
+
+```bash
+make test_soak_ocr_gas_spike
+```
+
+Run soak/ocr_test.go with changing gas limit creating block congestion:
+
+```bash
+make test_soak_ocr_gas_limit_change
+```
+
+Note: you can update gas simulation params for the tests below in in testconfig/ocr.toml
+
+### How to run tests with RPC node failure
+
+Run soak/ocr_test.go with RPC network chaos by bringing down network to RPC node for all Chainlink Nodes:
+
+```bash
+make test_soak_ocr_rpc_down_all_cl_nodes
+```
+
+Run soak/ocr_test.go with RPC network chaos by bringing down network to RPC node for 50 percent of Chainlink Nodes:
+
+```bash
+make test_soak_ocr_rpc_down_half_cl_nodes
+```
+
+### Debugging HTTP and RPC clients
+```bash
+export SETH_LOG_LEVEL=debug
+export RESTY_DEBUG=true
+```

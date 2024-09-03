@@ -11,4 +11,5 @@ USAGE:
 
 OPTIONS:
    --dangerWillRobinson  set to true to enable dropping non-test databases
+   --force               set to true to force the reset by dropping any existing connections to the database
    

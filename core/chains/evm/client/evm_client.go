@@ -3,6 +3,7 @@ package client
 import (
 	"math/big"
 	"net/url"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -17,16 +18,17 @@ func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, cli
 	var empty url.URL
 	var primaries []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]
 	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient]
+	largePayloadRPCTimeout, defaultRPCTimeout := getRPCTimeouts(chainType)
 	for i, node := range nodes {
 		if node.SendOnly != nil && *node.SendOnly {
 			rpc := NewRPCClient(lggr, empty, (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID,
-				commonclient.Secondary)
+				commonclient.Secondary, cfg.FinalizedBlockPollInterval(), largePayloadRPCTimeout, defaultRPCTimeout, chainType)
 			sendonly := commonclient.NewSendOnlyNode(lggr, (url.URL)(*node.HTTPURL),
 				*node.Name, chainID, rpc)
 			sendonlys = append(sendonlys, sendonly)
 		} else {
 			rpc := NewRPCClient(lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i),
-				chainID, commonclient.Primary)
+				chainID, commonclient.Primary, cfg.FinalizedBlockPollInterval(), largePayloadRPCTimeout, defaultRPCTimeout, chainType)
 			primaryNode := commonclient.NewNode(cfg, chainCfg,
 				lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID, *node.Order,
 				rpc, "EVM")
@@ -35,5 +37,13 @@ func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, cli
 	}
 
 	return NewChainClient(lggr, cfg.SelectionMode(), cfg.LeaseDuration(), chainCfg.NodeNoNewHeadsThreshold(),
-		primaries, sendonlys, chainID, chainType, clientErrors)
+		primaries, sendonlys, chainID, chainType, clientErrors, cfg.DeathDeclarationDelay())
+}
+
+func getRPCTimeouts(chainType chaintype.ChainType) (largePayload, defaultTimeout time.Duration) {
+	if chaintype.ChainHedera == chainType {
+		return 30 * time.Second, commonclient.QueryTimeout
+	}
+
+	return commonclient.QueryTimeout, commonclient.QueryTimeout
 }

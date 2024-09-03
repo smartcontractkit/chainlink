@@ -7,6 +7,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -22,6 +23,7 @@ func newEvmTxm(
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
 	opts ChainRelayExtenderConfig,
+	headTracker httypes.HeadTracker,
 ) (txm txmgr.TxManager,
 	estimator gas.EvmFeeEstimator,
 	err error,
@@ -43,7 +45,9 @@ func newEvmTxm(
 
 	// build estimator from factory
 	if opts.GenGasEstimator == nil {
-		estimator = gas.NewEstimator(lggr, client, cfg, cfg.GasEstimator())
+		if estimator, err = gas.NewEstimator(lggr, client, cfg, cfg.GasEstimator()); err != nil {
+			return nil, nil, fmt.Errorf("failed to initialize estimator: %w", err)
+		}
 	} else {
 		estimator = opts.GenGasEstimator(chainID)
 	}
@@ -61,7 +65,8 @@ func newEvmTxm(
 			lggr,
 			logPoller,
 			opts.KeyStore,
-			estimator)
+			estimator,
+			headTracker)
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}

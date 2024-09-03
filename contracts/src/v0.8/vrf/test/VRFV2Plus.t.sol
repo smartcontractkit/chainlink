@@ -513,26 +513,33 @@ contract VRFV2Plus is BaseTest {
     assertEq(fulfilled, false);
     assertTrue(s_testCoordinator.pendingRequestExists(subId));
 
-    // Uncomment these console logs to see info about the request:
-    // console.log("requestId: ", requestId);
-    // console.log("preSeed: ", preSeed);
-    // console.log("sender: ", address(s_testConsumer));
-
     // Move on to the next block.
     // Store the previous block's blockhash, and assert that it is as expected.
     vm.roll(requestBlock + 1);
     s_bhs.store(requestBlock);
-    assertEq(hex"0000000000000000000000000000000000000000000000000000000000000014", s_bhs.getBlockhash(requestBlock));
+    assertEq(hex"731dc163f73d31d8c68f9917ce4ff967753939f70432973c04fd2c2a48148607", s_bhs.getBlockhash(requestBlock));
 
     // Fulfill the request.
-    // Proof generated via the generate-proof-v2-plus script command. Example usage:
+    // Proof generated via the generate-proof-v2-plus script command.
+    // 1st step: Uncomment these 3 console logs to see info about the request and run the test to get output:
+    // console.log("requestId: ", requestId);
+    // console.log("preSeed: ", preSeed);
+    // console.log("sender: ", address(s_testConsumer));
+    // 2nd step: Update pre-seed in the command commented out below with new value printed in console logs.
+    // 3rd step: export the following environment variables to run the generate-proof-v2-plus script.
+    // export ETH_URL=https://ethereum-sepolia-rpc.publicnode.com # or any other RPC provider you prefer
+    // export ETH_CHAIN_ID=11155111 # or switch to any other chain
+    // export ACCOUNT_KEY=<your test EOA private key>
+    // 4th step: run the command and copy the command output in the proof section below.
     /*
+        Run from this folder: chainlink/core/scripts/vrfv2plus/testnet
         go run . generate-proof-v2-plus \
         -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
-        -pre-seed 58424872742560034068603954318478134981993109073728628043159461959392650534066 \
-        -block-hash 0x0000000000000000000000000000000000000000000000000000000000000014 \
+        -pre-seed 77134414723242246520332717536018735794426514244521954002798799849127623496871 \
+        -block-hash 0x731dc163f73d31d8c68f9917ce4ff967753939f70432973c04fd2c2a48148607 \
         -block-num 20 \
-        -sender 0x90A8820424CC8a819d14cBdE54D12fD3fbFa9bb2
+        -sender 0x90A8820424CC8a819d14cBdE54D12fD3fbFa9bb2 \
+        -native-payment false
     */
     proof = VRF.Proof({
       pk: [
@@ -540,22 +547,22 @@ contract VRFV2Plus is BaseTest {
         62070622898698443831883535403436258712770888294397026493185421712108624767191
       ],
       gamma: [
-        38041205470219573731614166317842050442610096576830191475863676359766283013831,
-        31897503406364148988967447112698248795931483458172800286988696482435433838056
+        103927982338770370318312316555080928288985522873495041111817988974598585393796,
+        56789421278806198480964888112155620425048056183534931202752833185923411715624
       ],
-      c: 114706080610174375269579192101772790158458728655229562781479812703475130740224,
-      s: 91869928024010088265014058436030407245056128545665425448353233998362687232253,
-      seed: 58424872742560034068603954318478134981993109073728628043159461959392650534066,
-      uWitness: 0x1514536B09a51E671d070312bcD3653386d5a82b,
+      c: 23645475075665525321781505993434124657388421977074956645288621921391376468128,
+      s: 106817081950846808215350231311242951539230271757396902089035477907017240898689,
+      seed: 77134414723242246520332717536018735794426514244521954002798799849127623496871,
+      uWitness: 0xD6899602060d574DE03FE1cf76fDf66afE12d549,
       cGammaWitness: [
-        90605489216274499662544489893800286859751132311034850249229378789467669572783,
-        76568417372883461229305641415175605031997103681542349721251313705711146936024
+        9892458071712426452033749279561067220589549155902380165087951541202159693388,
+        61235995320721681444549354910430438435754757626312862714628885100042911955139
       ],
       sHashWitness: [
-        43417948503950579681520475434461454031791886587406480417092620950034789197994,
-        100772571879140362396088596211082924128900752544164141322636815729889228000249
+        101478618362722903511580105256015180591690884037598276249676652094434483808775,
+        82512235485399822034680598942438982472006937353405384896956013889074719896188
       ],
-      zInv: 82374292458278672300647114418593830323283909625362447038989596015264004164958
+      zInv: 82281039329215616805111360985152709712368762415186906218863971780664103705723
     });
     rc = VRFTypes.RequestCommitmentV2Plus({
       blockNum: requestBlock,
@@ -602,24 +609,30 @@ contract VRFV2Plus is BaseTest {
     assertEq(fulfilled, false);
     assertTrue(s_testCoordinator.pendingRequestExists(subId));
 
-    // Uncomment these console logs to see info about the request:
-    // console.log("requestId: ", requestId);
-    // console.log("preSeed: ", preSeed);
-    // console.log("sender: ", address(s_testConsumer));
-
     // Move on to the next block.
     // Store the previous block's blockhash, and assert that it is as expected.
     vm.roll(requestBlock + 1);
     s_bhs.store(requestBlock);
-    assertEq(hex"000000000000000000000000000000000000000000000000000000000000000a", s_bhs.getBlockhash(requestBlock));
+    assertEq(hex"1a192fabce13988b84994d4296e6cdc418d55e2f1d7f942188d4040b94fc57ac", s_bhs.getBlockhash(requestBlock));
 
     // Fulfill the request.
-    // Proof generated via the generate-proof-v2-plus script command. Example usage:
+    // Proof generated via the generate-proof-v2-plus script command.
+    // 1st step: Uncomment these 3 console logs to see info about the request and run the test to get output:
+    // console.log("requestId: ", requestId);
+    // console.log("preSeed: ", preSeed);
+    // console.log("sender: ", address(s_testConsumer));
+    // 2nd step: Update pre-seed in the command commented out below with new value printed in console logs.
+    // 3rd step: export the following environment variables to run the generate-proof-v2-plus script.
+    // export ETH_URL=https://ethereum-sepolia-rpc.publicnode.com # or any other RPC provider you prefer
+    // export ETH_CHAIN_ID=11155111 # or switch to any other chain
+    // export ACCOUNT_KEY=<your test EOA private key>
+    // 4th step: run the command and copy the command output in the proof section below.
     /*
+       Run from this folder: chainlink/core/scripts/vrfv2plus/testnet
        go run . generate-proof-v2-plus \
         -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
-        -pre-seed 83266692323404068105564931899467966321583332182309426611016082057597749986430 \
-        -block-hash 0x000000000000000000000000000000000000000000000000000000000000000a \
+        -pre-seed 88177119495082281213609405072572269421661478022189589823108119237563684383163 \
+        -block-hash 0x1a192fabce13988b84994d4296e6cdc418d55e2f1d7f942188d4040b94fc57ac \
         -block-num 10 \
         -sender 0x90A8820424CC8a819d14cBdE54D12fD3fbFa9bb2 \
         -native-payment true
@@ -630,22 +643,22 @@ contract VRFV2Plus is BaseTest {
         62070622898698443831883535403436258712770888294397026493185421712108624767191
       ],
       gamma: [
-        47144451677122876068574640250190132179872561942855874114516471019540736524783,
-        63001220656590641645486673489302242739512599229187442248048295264418080499391
+        102142782721757938350759722545721736888276217484353597703162772276193136052353,
+        87167280284008869627768921028415708350806510214000539818296353518495698939660
       ],
-      c: 42928477813589729783511577059394077774341588261592343937605454161333818133643,
-      s: 14447529458406454898597883219032514356523135029224613793880920230249515634875,
-      seed: 83266692323404068105564931899467966321583332182309426611016082057597749986430,
-      uWitness: 0x5Ed3bb2AA8EAFe168a23079644d5dfBf892B1038,
+      c: 78738462581063211677832865654743924688552792392007862664964608134754001810280,
+      s: 97066881804257970453329086439696419448135613089654606517271688187030953014593,
+      seed: 88177119495082281213609405072572269421661478022189589823108119237563684383163,
+      uWitness: 0xa335ea8dF652d5331a276B60b16c9733435D4f73,
       cGammaWitness: [
-        40742088032247467257043132769297935807697466810312051815364187117543257089153,
-        110399474382135664619186049639190334359061769014381608543009407662815758204131
+        114435126227922602743444254494036972095649501991695809092954325430947992864624,
+        63032211040463927862594425238691911311087931119674607521158894139074063158678
       ],
       sHashWitness: [
-        26556776392895292893984393164594214244553035014769995354896600239759043777485,
-        67126706735912782218279556535631175449291035782208850310724682668198932501077
+        105043781471073183057173130563345930784924139079040814418442661347864735908726,
+        68696469914696211053833437482938344908217760552761185546164836556562945431554
       ],
-      zInv: 88742453392918610091640193378775723954629905126315835248392650970979000380325
+      zInv: 73325637847357165955904789471972164751975373195750497508525598331798833112175
     });
     rc = VRFTypes.RequestCommitmentV2Plus({
       blockNum: requestBlock,
@@ -702,24 +715,24 @@ contract VRFV2Plus is BaseTest {
     (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
 
-    // The cost of fulfillRandomWords is approximately 70_000 gas.
+    // The cost of fulfillRandomWords is approximately 72_100 gas.
     // gasAfterPaymentCalculation is 50_000.
     //
     // The cost of the VRF fulfillment charged to the user is:
     // baseFeeWei = weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft())
     // network gas price is capped at gas lane max gas (5000 gwei)
-    // baseFeeWei = 5e12 * (50_000 + 70_000)
-    // baseFeeWei = 6e17
+    // baseFeeWei = 5e12 * (50_000 + 72_100)
+    // baseFeeWei = 6.11e17
     // flatFeeWei = 1e12 * (fulfillmentFlatFeeNativePPM)
     // flatFeeWei = 1e12 * 500_000 = 5e17
     // ...
     // billed_fee = baseFeeWei * (linkPremiumPercentage / 100) + 5e17
-    // billed_fee = 6e17 * 0.15 + 5e17
-    // billed_fee = 5.9e+17
+    // billed_fee = 6.11e17 * 0.15 + 5e17
+    // billed_fee = 5.9157e+17
     (, uint96 nativeBalanceAfter, , , ) = s_testCoordinator.getSubscription(subId);
     // 1e15 is less than 1 percent discrepancy
-    assertApproxEqAbs(payment, 5.9 * 1e17, 1e15);
-    assertApproxEqAbs(nativeBalanceAfter, nativeBalanceBefore - 5.9 * 1e17, 1e15);
+    assertApproxEqAbs(payment, 5.9157 * 1e17, 1e15);
+    assertApproxEqAbs(nativeBalanceAfter, nativeBalanceBefore - 5.9157 * 1e17, 1e15);
     assertFalse(s_testCoordinator.pendingRequestExists(subId));
   }
 
@@ -750,26 +763,26 @@ contract VRFV2Plus is BaseTest {
     (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
 
-    // The cost of fulfillRandomWords is approximately 86_000 gas.
+    // The cost of fulfillRandomWords is approximately 89_100 gas.
     // gasAfterPaymentCalculation is 50_000.
     //
     // The cost of the VRF fulfillment charged to the user is:
     // paymentNoFee = (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft() + l1CostWei) / link_native_ratio)
     // network gas price is capped at gas lane max gas (5000 gwei)
-    // paymentNoFee = (5e12 * (50_000 + 86_000 + 0)) / .5
-    // paymentNoFee = 1.36e+18
+    // paymentNoFee = (5e12 * (50_000 + 89_100 + 0)) / .5
+    // paymentNoFee = 1.391e+18
     // flatFeeWei = 1e12 * (fulfillmentFlatFeeNativePPM - fulfillmentFlatFeeLinkDiscountPPM)
     // flatFeeWei = 1e12 * (500_000 - 100_000)
     // flatFeeJuels = 1e18 * flatFeeWei / link_native_ratio
     // flatFeeJuels = 4e17 / 0.5 = 8e17
     // billed_fee = paymentNoFee * (10 / 100) + 8e17
-    // billed_fee = 1.36e+18 * 0.1 + 8e17
-    // billed_fee = 9.36e+17
+    // billed_fee = 1.391e+18 * 0.1 + 8e17
+    // billed_fee = 9.391e+17
     // note: delta is doubled from the native test to account for more variance due to the link/native ratio
     (uint96 linkBalanceAfter, , , , ) = s_testCoordinator.getSubscription(subId);
     // 1e15 is less than 1 percent discrepancy
-    assertApproxEqAbs(payment, 9.36 * 1e17, 1e15);
-    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 9.36 * 1e17, 1e15);
+    assertApproxEqAbs(payment, 9.391 * 1e17, 1e15);
+    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 9.391 * 1e17, 1e15);
     assertFalse(s_testCoordinator.pendingRequestExists(subId));
   }
 
@@ -834,24 +847,30 @@ contract VRFV2Plus is BaseTest {
     );
     assertTrue(s_testCoordinator.pendingRequestExists(subId));
 
-    // 3. Fulfill the request above
-    //console.log("requestId: ", requestId);
-    //console.log("preSeed: ", preSeed);
-    //console.log("sender: ", address(consumer));
-
     // Move on to the next block.
     // Store the previous block's blockhash, and assert that it is as expected.
     vm.roll(requestBlock + 1);
     s_bhs.store(requestBlock);
-    assertEq(hex"000000000000000000000000000000000000000000000000000000000000000a", s_bhs.getBlockhash(requestBlock));
+    assertEq(hex"1a192fabce13988b84994d4296e6cdc418d55e2f1d7f942188d4040b94fc57ac", s_bhs.getBlockhash(requestBlock));
 
-    // Fulfill the request.
-    // Proof generated via the generate-proof-v2-plus script command. Example usage:
+    // 3. Fulfill the request above
+    // Proof generated via the generate-proof-v2-plus script command.
+    // 1st step: Uncomment these 3 console logs to see info about the request and run the test to get output:
+    // console.log("requestId: ", requestId);
+    // console.log("preSeed: ", preSeed);
+    // console.log("sender: ", address(s_testConsumer));
+    // 2nd step: Update pre-seed in the command commented out below with new value printed in console logs.
+    // 3rd step: export the following environment variables to run the generate-proof-v2-plus script.
+    // export ETH_URL=https://ethereum-sepolia-rpc.publicnode.com # or any other RPC provider you prefer
+    // export ETH_CHAIN_ID=11155111 # or switch to any other chain
+    // export ACCOUNT_KEY=<your test EOA private key>
+    // 4th step: run the command and copy the command output in the proof section below.
     /*
+      Run from this folder: chainlink/core/scripts/vrfv2plus/testnet
       go run . generate-proof-v2-plus \
       -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
-      -pre-seed 94043941380654896554739370173616551044559721638888689173752661912204412136884 \
-      -block-hash 0x000000000000000000000000000000000000000000000000000000000000000a \
+      -pre-seed 78857362017365444144484359594634073685493503942324326290718892836953423263381 \
+      -block-hash 0x1a192fabce13988b84994d4296e6cdc418d55e2f1d7f942188d4040b94fc57ac \
       -block-num 10 \
       -sender 0x44CAfC03154A0708F9DCf988681821f648dA74aF \
       -native-payment true
@@ -862,22 +881,22 @@ contract VRFV2Plus is BaseTest {
         62070622898698443831883535403436258712770888294397026493185421712108624767191
       ],
       gamma: [
-        18593555375562408458806406536059989757338587469093035962641476877033456068708,
-        55675218112764789548330682504442195066741636758414578491295297591596761905475
+        65913937398148449626792563067325648649534055460473988721938103219381973178278,
+        63156327344180203180831822252171874192175272818200597638000091892096122362120
       ],
-      c: 56595337384472359782910435918403237878894172750128610188222417200315739516270,
-      s: 60666722370046279064490737533582002977678558769715798604164042022636022215663,
-      seed: 94043941380654896554739370173616551044559721638888689173752661912204412136884,
-      uWitness: 0xEdbE15fd105cfEFb9CCcbBD84403d1F62719E50d,
+      c: 96524997218413735279221574381819903278651909890109201564980667824986706861580,
+      s: 32941032142956097592442894642111025677491308239274769364799856748447418202313,
+      seed: 78857362017365444144484359594634073685493503942324326290718892836953423263381,
+      uWitness: 0xda613621Dc2347d9A6670a1cBA812d52A7ec3A3A,
       cGammaWitness: [
-        11752391553651713021860307604522059957920042356542944931263270793211985356642,
-        14713353048309058367510422609936133400473710094544154206129568172815229277104
+        6776842114900054689355891239487365968068230823400902903493665825747641410781,
+        753482930067864853610521010650481816782338376846697006021590704037205560592
       ],
       sHashWitness: [
-        109716108880570827107616596438987062129934448629902940427517663799192095060206,
-        79378277044196229730810703755304140279837983575681427317104232794580059801930
+        76619528582417858778905184311764104068650968652636772643050945629834129417915,
+        27947566794040118487986033070014357750801611688958204148187927873566412002355
       ],
-      zInv: 18898957977631212231148068121702167284572066246731769473720131179584458697812
+      zInv: 77351076831418813780936064446565588198113457019145030499544500588309236458362
     });
     VRFTypes.RequestCommitmentV2Plus memory rc = VRFTypes.RequestCommitmentV2Plus({
       blockNum: requestBlock,
@@ -988,20 +1007,26 @@ contract VRFV2Plus is BaseTest {
     // Store the previous block's blockhash, and assert that it is as expected.
     vm.roll(requestBlock + 1);
     s_bhs.store(requestBlock);
-    assertEq(hex"000000000000000000000000000000000000000000000000000000000000000a", s_bhs.getBlockhash(requestBlock));
+    assertEq(hex"1a192fabce13988b84994d4296e6cdc418d55e2f1d7f942188d4040b94fc57ac", s_bhs.getBlockhash(requestBlock));
 
     // 3. Fulfill the 1st request above
-    console.log("requestId: ", requestId1);
-    console.log("preSeed: ", preSeed1);
-    console.log("sender: ", address(consumer1));
-
-    // Fulfill the request.
-    // Proof generated via the generate-proof-v2-plus script command. Example usage:
+    // Proof generated via the generate-proof-v2-plus script command.
+    // 1st step: Uncomment these 3 console logs to see info about the request and run the test to get output:
+    // console.log("requestId: ", requestId);
+    // console.log("preSeed: ", preSeed);
+    // console.log("sender: ", address(s_testConsumer));
+    // 2nd step: Update pre-seed in the command commented out below with new value printed in console logs.
+    // 3rd step: export the following environment variables to run the generate-proof-v2-plus script.
+    // export ETH_URL=https://ethereum-sepolia-rpc.publicnode.com # or any other RPC provider you prefer
+    // export ETH_CHAIN_ID=11155111 # or switch to any other chain
+    // export ACCOUNT_KEY=<your test EOA private key>
+    // 4th step: run the command and copy the command output in the proof section below.
     /*
+      Run from this folder: chainlink/core/scripts/vrfv2plus/testnet
       go run . generate-proof-v2-plus \
       -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
-      -pre-seed 94043941380654896554739370173616551044559721638888689173752661912204412136884 \
-      -block-hash 0x000000000000000000000000000000000000000000000000000000000000000a \
+      -pre-seed 78857362017365444144484359594634073685493503942324326290718892836953423263381 \
+      -block-hash 0x1a192fabce13988b84994d4296e6cdc418d55e2f1d7f942188d4040b94fc57ac \
       -block-num 10 \
       -sender 0x44CAfC03154A0708F9DCf988681821f648dA74aF \
       -native-payment true
@@ -1012,22 +1037,22 @@ contract VRFV2Plus is BaseTest {
         62070622898698443831883535403436258712770888294397026493185421712108624767191
       ],
       gamma: [
-        18593555375562408458806406536059989757338587469093035962641476877033456068708,
-        55675218112764789548330682504442195066741636758414578491295297591596761905475
+        65913937398148449626792563067325648649534055460473988721938103219381973178278,
+        63156327344180203180831822252171874192175272818200597638000091892096122362120
       ],
-      c: 56595337384472359782910435918403237878894172750128610188222417200315739516270,
-      s: 60666722370046279064490737533582002977678558769715798604164042022636022215663,
-      seed: 94043941380654896554739370173616551044559721638888689173752661912204412136884,
-      uWitness: 0xEdbE15fd105cfEFb9CCcbBD84403d1F62719E50d,
+      c: 103296526941774692908067234360350834482645116475454593803823148315342533216203,
+      s: 50291245814080656739779812653411869801334231723444391096753849942661931376590,
+      seed: 78857362017365444144484359594634073685493503942324326290718892836953423263381,
+      uWitness: 0x38500711AdcB471ac1A566c4b915759eb9cBCE2F,
       cGammaWitness: [
-        11752391553651713021860307604522059957920042356542944931263270793211985356642,
-        14713353048309058367510422609936133400473710094544154206129568172815229277104
+        56476970720509547210740928951846471668018949971632948991136782499758110143588,
+        44326075300781389077656415325167171692706436527877070415603658305817367373598
       ],
       sHashWitness: [
-        109716108880570827107616596438987062129934448629902940427517663799192095060206,
-        79378277044196229730810703755304140279837983575681427317104232794580059801930
+        109524696164787283409393383708118913934136014139634321235031691839206768278439,
+        52690039857779635909051684567562068782378693408005554345469129234366171822741
       ],
-      zInv: 18898957977631212231148068121702167284572066246731769473720131179584458697812
+      zInv: 108537983043800425266290112227943788107669768716438017124275578856644517258573
     });
     VRFTypes.RequestCommitmentV2Plus memory rc = VRFTypes.RequestCommitmentV2Plus({
       blockNum: requestBlock,
@@ -1040,18 +1065,24 @@ contract VRFV2Plus is BaseTest {
     s_testCoordinator.fulfillRandomWords(proof, rc, true /* onlyPremium */);
     assertTrue(s_testCoordinator.pendingRequestExists(subId));
 
-    //4. Fulfill the 2nd request
-    console.log("requestId: ", requestId2);
-    console.log("preSeed: ", preSeed2);
-    console.log("sender: ", address(consumer2));
-
-    // Fulfill the request.
-    // Proof generated via the generate-proof-v2-plus script command. Example usage:
+    // 4. Fulfill the 2nd request
+    // Proof generated via the generate-proof-v2-plus script command.
+    // 1st step: Uncomment these 3 console logs to see info about the request and run the test to get output:
+    // console.log("requestId: ", requestId);
+    // console.log("preSeed: ", preSeed);
+    // console.log("sender: ", address(s_testConsumer));
+    // 2nd step: Update pre-seed in the command commented out below with new value printed in console logs.
+    // 3rd step: export the following environment variables to run the generate-proof-v2-plus script.
+    // export ETH_URL=https://ethereum-sepolia-rpc.publicnode.com # or any other RPC provider you prefer
+    // export ETH_CHAIN_ID=11155111 # or switch to any other chain
+    // export ACCOUNT_KEY=<your test EOA private key>
+    // 4th step: run the command and copy the command output in the proof section below.
     /*
+      Run from this folder: chainlink/core/scripts/vrfv2plus/testnet
       go run . generate-proof-v2-plus \
       -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
-      -pre-seed 60086281972849674111646805013521068579710860774417505336898013292594859262126 \
-      -block-hash 0x000000000000000000000000000000000000000000000000000000000000000a \
+      -pre-seed 53330100288105770463016865504321558518073051667771993294213115153676065708950 \
+      -block-hash 0x1a192fabce13988b84994d4296e6cdc418d55e2f1d7f942188d4040b94fc57ac \
       -block-num 10 \
       -sender 0xf5a165378E120f93784395aDF1E08a437e902865 \
       -native-payment true
@@ -1062,22 +1093,22 @@ contract VRFV2Plus is BaseTest {
         62070622898698443831883535403436258712770888294397026493185421712108624767191
       ],
       gamma: [
-        8781676794493524976318989249067879326013864868749595045909181134740761572122,
-        70144896394968351242907510966944756907625107566821127114847472296460405612124
+        7260273098301741284457725182313945178888499328441106869722941415453613782770,
+        91648498042618923465107471165504200585847250228048015102713552756245653299952
       ],
-      c: 67847193668837615807355025316836592349514589069599294392546721746916067719949,
-      s: 114946531382736685625345450298146929067341928840493664822961336014597880904075,
-      seed: 60086281972849674111646805013521068579710860774417505336898013292594859262126,
-      uWitness: 0xe1de4fD69277D0C5516cAE4d760b1d08BC340A28,
+      c: 64987886290696558870328339791409334400119338012796549091587853494368167422332,
+      s: 69469162696695326295567645789624554797683340898724555794078876350372084267572,
+      seed: 53330100288105770463016865504321558518073051667771993294213115153676065708950,
+      uWitness: 0xa6ce21aD47eC5E90Ac7a2c6152D9710234Afe8ab,
       cGammaWitness: [
-        90301582727701442026215692513959255065128476395727596945643431833363167168678,
-        61501369717028493801369453424028509804064958915788808540582630993703331669978
+        57318358662553647785891634403735348577492991113152343207139729697842283565417,
+        57942043484796308689103390068712967247519265087617809262260051163954389512396
       ],
       sHashWitness: [
-        98738650825542176387169085844714248077697103572877410412808249468787326424906,
-        85647963391545223707301702874240345890884970941786094239896961457539737216630
+        113345999157319332195230171660555736547709417795439282230372737104445523493539,
+        113358219039155973560933190466797830695088313506343976960055230355894888727567
       ],
-      zInv: 29080001901010358083725892808339807464533563010468652346220922643802059192842
+      zInv: 68349552569605209428774574139615352877146713490794995768725549089572297658255
     });
     rc = VRFTypes.RequestCommitmentV2Plus({
       blockNum: requestBlock,
@@ -1095,5 +1126,35 @@ contract VRFV2Plus is BaseTest {
     VRFV2PlusLoadTestWithMetrics consumer = new VRFV2PlusLoadTestWithMetrics(address(s_testCoordinator));
     s_testCoordinator.addConsumer(subId, address(consumer));
     return consumer;
+  }
+
+  function test_RemoveConsumer() public {
+    uint256 subId = s_testCoordinator.createSubscription();
+    uint256 consumersLength = s_testCoordinator.MAX_CONSUMERS();
+    address[] memory consumers = getRandomAddresses(consumersLength);
+    for (uint256 i = 0; i < consumersLength; ++i) {
+      s_testCoordinator.addConsumer(subId, consumers[i]);
+    }
+
+    // test remove consumers from multiple positions to have better gas distribution
+    address earlyConsumerAddress = consumers[0];
+    s_testCoordinator.removeConsumer(subId, earlyConsumerAddress);
+    (, , , , consumers) = s_testCoordinator.getSubscription(subId);
+    assertEq(consumers.length, consumersLength - 1);
+    assertFalse(addressIsIn(earlyConsumerAddress, consumers));
+
+    consumersLength = consumers.length;
+    address middleConsumerAddress = consumers[consumersLength / 2];
+    s_testCoordinator.removeConsumer(subId, middleConsumerAddress);
+    (, , , , consumers) = s_testCoordinator.getSubscription(subId);
+    assertEq(consumers.length, consumersLength - 1);
+    assertFalse(addressIsIn(middleConsumerAddress, consumers));
+
+    consumersLength = consumers.length;
+    address lateConsumerAddress = consumers[consumersLength - 1];
+    s_testCoordinator.removeConsumer(subId, lateConsumerAddress);
+    (, , , , consumers) = s_testCoordinator.getSubscription(subId);
+    assertEq(consumers.length, consumersLength - 1);
+    assertFalse(addressIsIn(lateConsumerAddress, consumers));
   }
 }

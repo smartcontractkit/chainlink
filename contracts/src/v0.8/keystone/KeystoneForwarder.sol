@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.24;
+
+import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
-import {IRouter} from "./interfaces/IRouter.sol";
-import {IForwarder} from "./interfaces/IForwarder.sol";
-
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
+
+import {IReceiver} from "./interfaces/IReceiver.sol";
+import {IRouter} from "./interfaces/IRouter.sol";
 
 /// @notice This is an entry point for `write_${chain}` Target capability. It
 /// allows nodes to determine if reports have been processed (successfully or
 /// not) in a decentralized and product-agnostic way by recording processed
 /// reports.
-contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
+contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   /// @notice This error is returned when the report is shorter than
   /// REPORT_METADATA_LENGTH, which is the minimum length of a report.
   error InvalidReport();
@@ -49,7 +51,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   error InvalidConfig(uint64 configId);
 
   /// @notice This error is thrown whenever a signer address is not in the
-  /// configuration.
+  /// configuration or when trying to set a zero address as a signer.
   /// @param signer The signer address that was not in the configuration
   error InvalidSigner(address signer);
 
@@ -64,11 +66,9 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     mapping(address signer => uint256 position) _positions; // 1-indexed to detect unset values
   }
 
-  address internal s_router;
-
   /// @notice Contains the configuration for each DON ID
   // @param configId (uint64(donId) << 32) | configVersion
-  mapping(uint64 configId => OracleSet) internal s_configs;
+  mapping(uint64 configId => OracleSet oracleSet) internal s_configs;
 
   event ConfigSet(uint32 indexed donId, uint32 indexed configVersion, uint8 f, address[] signers);
 
@@ -81,16 +81,137 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     bool result
   );
 
-  string public constant override typeAndVersion = "KeystoneForwarder 1.0.0";
+  string public constant override typeAndVersion = "Forwarder and Router 1.0.0";
 
-  constructor(address router) OwnerIsCreator() {
-    s_router = router;
+  constructor() OwnerIsCreator() {
+    s_forwarders[address(this)] = true;
   }
 
   uint256 internal constant MAX_ORACLES = 31;
   uint256 internal constant METADATA_LENGTH = 109;
   uint256 internal constant FORWARDER_METADATA_LENGTH = 45;
   uint256 internal constant SIGNATURE_LENGTH = 65;
+
+  /// @dev The gas we require to revert in case of a revert in the call to the
+  /// receiver. This is more than enough and does not attempt to be exact.
+  uint256 internal constant REQUIRED_GAS_FOR_ROUTING = 40_000;
+
+  // ================================================================
+  // │                          Router                              │
+  // ================================================================
+
+  mapping(address forwarder => bool isForwarder) internal s_forwarders;
+  mapping(bytes32 transmissionId => Transmission transmission) internal s_transmissions;
+
+  function addForwarder(address forwarder) external onlyOwner {
+    s_forwarders[forwarder] = true;
+    emit ForwarderAdded(forwarder);
+  }
+
+  function removeForwarder(address forwarder) external onlyOwner {
+    s_forwarders[forwarder] = false;
+    emit ForwarderRemoved(forwarder);
+  }
+
+  function route(
+    bytes32 transmissionId,
+    address transmitter,
+    address receiver,
+    bytes calldata metadata,
+    bytes calldata validatedReport
+  ) public returns (bool) {
+    if (!s_forwarders[msg.sender]) revert UnauthorizedForwarder();
+    uint256 gasLeft = gasleft();
+    if (gasLeft < REQUIRED_GAS_FOR_ROUTING) revert InsufficientGasForRouting(transmissionId);
+
+    Transmission memory transmission = s_transmissions[transmissionId];
+    if (transmission.success || transmission.invalidReceiver) revert AlreadyAttempted(transmissionId);
+
+    uint256 gasLimit = gasLeft - REQUIRED_GAS_FOR_ROUTING;
+    s_transmissions[transmissionId].transmitter = transmitter;
+    s_transmissions[transmissionId].gasLimit = uint80(gasLimit);
+
+    if (receiver.code.length == 0) {
+      s_transmissions[transmissionId].invalidReceiver = true;
+      return false;
+    }
+
+    try IERC165(receiver).supportsInterface(type(IReceiver).interfaceId) {
+      bool success;
+      bytes memory payload = abi.encodeCall(IReceiver.onReport, (metadata, validatedReport));
+
+      assembly {
+        // call and return whether we succeeded. ignore return data
+        // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
+        success := call(gasLimit, receiver, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
+      }
+
+      if (success) {
+        s_transmissions[transmissionId].success = true;
+      }
+      return success;
+    } catch {
+      s_transmissions[transmissionId].invalidReceiver = true;
+      return false;
+    }
+  }
+
+  function getTransmissionId(
+    address receiver,
+    bytes32 workflowExecutionId,
+    bytes2 reportId
+  ) public pure returns (bytes32) {
+    // This is slightly cheaper compared to
+    // keccak256(abi.encode(receiver, workflowExecutionId, reportId));
+    return keccak256(bytes.concat(bytes20(uint160(receiver)), workflowExecutionId, reportId));
+  }
+
+  function getTransmissionInfo(
+    address receiver,
+    bytes32 workflowExecutionId,
+    bytes2 reportId
+  ) external view returns (TransmissionInfo memory) {
+    bytes32 transmissionId = getTransmissionId(receiver, workflowExecutionId, reportId);
+
+    Transmission memory transmission = s_transmissions[transmissionId];
+
+    TransmissionState state;
+
+    if (transmission.transmitter == address(0)) {
+      state = IRouter.TransmissionState.NOT_ATTEMPTED;
+    } else if (transmission.invalidReceiver) {
+      state = IRouter.TransmissionState.INVALID_RECEIVER;
+    } else {
+      state = transmission.success ? IRouter.TransmissionState.SUCCEEDED : IRouter.TransmissionState.FAILED;
+    }
+
+    return
+      TransmissionInfo({
+        gasLimit: transmission.gasLimit,
+        invalidReceiver: transmission.invalidReceiver,
+        state: state,
+        success: transmission.success,
+        transmissionId: transmissionId,
+        transmitter: transmission.transmitter
+      });
+  }
+
+  /// @notice Get transmitter of a given report or 0x0 if it wasn't transmitted yet
+  function getTransmitter(
+    address receiver,
+    bytes32 workflowExecutionId,
+    bytes2 reportId
+  ) external view returns (address) {
+    return s_transmissions[getTransmissionId(receiver, workflowExecutionId, reportId)].transmitter;
+  }
+
+  function isForwarder(address forwarder) external view returns (bool) {
+    return s_forwarders[forwarder];
+  }
+
+  // ================================================================
+  // │                          Forwarder                           │
+  // ================================================================
 
   function setConfig(uint32 donId, uint32 configVersion, uint8 f, address[] calldata signers) external onlyOwner {
     if (f == 0) revert FaultToleranceMustBePositive();
@@ -108,6 +229,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     for (uint256 i = 0; i < signers.length; ++i) {
       // assign indices, detect duplicates
       address signer = signers[i];
+      if (signer == address(0)) revert InvalidSigner(signer);
       if (s_configs[configId]._positions[signer] != 0) revert DuplicateSigner(signer);
       s_configs[configId]._positions[signer] = i + 1;
     }
@@ -170,7 +292,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
       }
     }
 
-    bool success = IRouter(s_router).route(
+    bool success = this.route(
       getTransmissionId(receiver, workflowExecutionId, reportId),
       msg.sender,
       receiver,
@@ -179,36 +301,6 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     );
 
     emit ReportProcessed(receiver, workflowExecutionId, reportId, success);
-  }
-
-  function getTransmitter(
-    address receiver,
-    bytes32 workflowExecutionId,
-    bytes2 reportId
-  ) external view returns (address) {
-    return IRouter(s_router).getTransmitter(getTransmissionId(receiver, workflowExecutionId, reportId));
-  }
-
-  function getTransmissionState(
-    address receiver,
-    bytes32 workflowExecutionId,
-    bytes2 reportId
-  ) external view returns (IRouter.TransmissionState) {
-    return IRouter(s_router).getTransmissionState(getTransmissionId(receiver, workflowExecutionId, reportId));
-  }
-
-  function getTransmissionId(
-    address receiver,
-    bytes32 workflowExecutionId,
-    bytes2 reportId
-  ) public pure returns (bytes32) {
-    // This is slightly cheaper compared to
-    // keccak256(abi.encode(receiver, workflowExecutionId, reportId));
-    return keccak256(bytes.concat(bytes20(uint160(receiver)), workflowExecutionId, reportId));
-  }
-
-  function getRouter() external view returns (address) {
-    return s_router;
   }
 
   // solhint-disable-next-line chainlink-solidity/explicit-returns

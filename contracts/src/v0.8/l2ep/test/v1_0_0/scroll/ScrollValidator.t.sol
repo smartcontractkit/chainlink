@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.24;
+
+import {ISequencerUptimeFeed} from "../../../dev/interfaces/ISequencerUptimeFeed.sol";
 
 import {MockScrollL1CrossDomainMessenger} from "../../mocks/scroll/MockScrollL1CrossDomainMessenger.sol";
 import {MockScrollL2CrossDomainMessenger} from "../../mocks/scroll/MockScrollL2CrossDomainMessenger.sol";
@@ -87,7 +89,7 @@ contract ScrollValidator_Validate is ScrollValidatorTest {
       0, // value
       0, // nonce
       INIT_GAS_LIMIT, // gas limit
-      abi.encodeWithSelector(ScrollSequencerUptimeFeed.updateStatus.selector, false, futureTimestampInSeconds) // message
+      abi.encodeWithSelector(ISequencerUptimeFeed.updateStatus.selector, false, futureTimestampInSeconds) // message
     );
 
     // Runs the function (which produces the event to test)
@@ -112,7 +114,7 @@ contract ScrollValidator_Validate is ScrollValidatorTest {
       0, // value
       0, // nonce
       INIT_GAS_LIMIT, // gas limit
-      abi.encodeWithSelector(ScrollSequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds) // message
+      abi.encodeWithSelector(ISequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds) // message
     );
 
     // Runs the function (which produces the event to test)

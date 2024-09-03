@@ -28,17 +28,17 @@ compileContract () {
       "$ROOT"/contracts/src/v0.8/"$1"
 }
 
-compileContract llo-feeds/Verifier.sol
-compileContract llo-feeds/VerifierProxy.sol
-compileContract llo-feeds/FeeManager.sol
-compileContract llo-feeds/RewardManager.sol
-
+compileContract llo-feeds/v0.3.0/Verifier.sol
+compileContract llo-feeds/v0.3.0/VerifierProxy.sol
+compileContract llo-feeds/v0.3.0/FeeManager.sol
+compileContract llo-feeds/v0.3.0/RewardManager.sol
+compileContract llo-feeds/v0.4.0/DestinationVerifier.sol
+compileContract llo-feeds/v0.4.0/DestinationVerifierProxy.sol
+compileContract llo-feeds/v0.4.0/DestinationFeeManager.sol
+compileContract llo-feeds/v0.4.0/DestinationRewardManager.sol
+compileContract llo-feeds/v0.5.0/configuration/ChannelConfigStore.sol
+compileContract llo-feeds/v0.5.0/configuration/Configurator.sol
 
 # Test | Mocks
-compileContract llo-feeds/test/mocks/ErroredVerifier.sol
-compileContract llo-feeds/test/mocks/ExposedVerifier.sol
-
-# LLO
-compileContract llo-feeds/dev/ChannelConfigStore.sol
-compileContract llo-feeds/dev/ChannelVerifier.sol
-compileContract llo-feeds/dev/test/mocks/ExposedChannelVerifier.sol
+compileContract llo-feeds/v0.3.0/test/mocks/ErroredVerifier.sol
+compileContract llo-feeds/v0.3.0/test/mocks/ExposedVerifier.sol

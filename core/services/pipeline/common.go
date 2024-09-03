@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"reflect"
 	"sort"
@@ -10,14 +11,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/google/uuid"
-	"github.com/mitchellh/mapstructure"
 	pkgerrors "github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/v2/core/null"
@@ -28,6 +30,7 @@ const (
 	BlockhashStoreJobType          string = "blockhashstore"
 	BootstrapJobType               string = "bootstrap"
 	CronJobType                    string = "cron"
+	CCIPJobType                    string = "ccip"
 	DirectRequestJobType           string = "directrequest"
 	FluxMonitorJobType             string = "fluxmonitor"
 	GatewayJobType                 string = "gateway"
@@ -42,8 +45,6 @@ const (
 	WorkflowJobType                string = "workflow"
 	StandardCapabilitiesJobType    string = "standardcapabilities"
 )
-
-//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 
 type (
 	Task interface {
@@ -231,7 +232,7 @@ func (trrs TaskRunResults) GetTaskRunResultsFinishedAt() time.Time {
 
 // FinalResult pulls the FinalResult for the pipeline_run from the task runs
 // It needs to respect the output index of each task
-func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
+func (trrs TaskRunResults) FinalResult() FinalResult {
 	var found bool
 	var fr FinalResult
 	sort.Slice(trrs, func(i, j int) bool {
@@ -247,7 +248,7 @@ func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
 	}
 
 	if !found {
-		l.Panicw("Expected at least one task to be final", "tasks", trrs)
+		panic(fmt.Sprintf("expected at least one task to be final: %v", trrs))
 	}
 	return fr
 }

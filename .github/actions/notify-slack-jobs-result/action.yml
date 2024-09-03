@@ -25,6 +25,9 @@ inputs:
   slack_thread_ts:
     description: "The Slack thread timestamp to post the message to, handy for keeping multiple related results in a single thread"
     required: false
+  base64_parsed_results:
+    description: "Base64 encoded parsed results to use"
+    required: false
 
 runs:
   using: composite
@@ -33,43 +36,54 @@ runs:
       shell: bash
       id: test-results
       run: |
-        # I feel like there's some clever, fully jq way to do this, but I ain't got the motivation to figure it out
-        echo "Querying test results at https://api.github.com/repos/${{inputs.github_repository}}/actions/runs/${{ inputs.workflow_run_id }}/jobs"
-
-        # we can get a maximum of 100 jobs per page, after that we need to start using pagination
-        PARSED_RESULTS=$(curl \
-        -H "Authorization: Bearer ${{ inputs.github_token }}" \
-        'https://api.github.com/repos/${{inputs.github_repository}}/actions/runs/${{ inputs.workflow_run_id }}/jobs?per_page=100' \
-        | jq -r --arg pattern "${{ inputs.github_job_name_regex }}" '.jobs[]
-        | select(.name | test($pattern)) as $job
-        | $job.steps[]
-        | select(.name == "Run Tests")
-        | { conclusion: (if .conclusion == "success" then ":white_check_mark:" else ":x:" end), cap: ("*" + ($job.name | capture($pattern).cap) + "*"), html_url: $job.html_url }')
-
+        if [ -n "${{ inputs.base64_parsed_results }}" ]; then
+          echo "Using base64 parsed results"
+          PARSED_RESULTS=$(echo "${{ inputs.base64_parsed_results }}" | base64 -d)
+        else
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/workflowresultparser@v1.0.0
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
+        
+          workflowresultparser -workflowRunID ${{ inputs.workflow_run_id }} -githubToken ${{ inputs.github_token }} -githubRepo "${{ inputs.github_repository }}" -jobNameRegex "${{ inputs.github_job_name_regex }}" -outputFile=output.json
+        
+          if [ ! -f output.json ]; then
+            PARSED_RESULTS='""'
+          else 
+            PARSED_RESULTS=$(cat output.json | jq -c "select(has(\"results\")) | .results[]")
+          fi
+        
+        fi
+        
         echo "Parsed Results:"
         echo $PARSED_RESULTS
-
+        
         ALL_SUCCESS=true
-        echo "Checking for failures"
-        echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'
-        for row in $(echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'); do
-            ALL_SUCCESS=false
-            break
-        done
-        echo "Success: $ALL_SUCCESS"
-
-        echo all_success=$ALL_SUCCESS >> $GITHUB_OUTPUT
-
-        FORMATTED_RESULTS=$(echo $PARSED_RESULTS | jq -s '[.[]
-        | {
-          conclusion: .conclusion,
-          cap: .cap,
-          html_url: .html_url
-          }
-        ]
-        | map("{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"<\(.html_url)|\(.cap)>: \(.conclusion)\"}}")
-        | join(",")')
-
+        
+        if [ "$PARSED_RESULTS" != '""' ]; then
+          echo "Checking for failures"
+          echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'
+          for row in $(echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'); do
+              ALL_SUCCESS=false
+              break
+          done
+          echo "Success: $ALL_SUCCESS"
+  
+          echo all_success=$ALL_SUCCESS >> $GITHUB_OUTPUT
+  
+          FORMATTED_RESULTS=$(echo $PARSED_RESULTS | jq -s '[.[]
+          | {
+            conclusion: .conclusion,
+            cap: .cap,
+            html_url: .html_url
+            }
+          ]
+          | map("{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"<\(.html_url)|\(.cap)>: \(.conclusion)\"}}")
+          | join(",")')
+        else
+          echo "Nothing to post, no results found"
+          exit 0
+        fi
+      
         echo "Formatted Results:"
         echo $FORMATTED_RESULTS
 
@@ -82,6 +96,7 @@ runs:
         echo results=$CLEAN_RESULTS >> $GITHUB_OUTPUT
     - name: Post Results
       uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+      if: steps.test-results.outputs.results != ''
       env:
         SLACK_BOT_TOKEN: ${{ inputs.slack_bot_token }}
       with:
@@ -108,4 +123,4 @@ runs:
                 ]
               }
             ]
-            }
+          }

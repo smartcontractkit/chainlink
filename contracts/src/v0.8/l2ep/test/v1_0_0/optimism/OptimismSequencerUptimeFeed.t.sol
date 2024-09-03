@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.24;
 
 import {MockOptimismL1CrossDomainMessenger} from "../../../../tests/MockOptimismL1CrossDomainMessenger.sol";
 import {MockOptimismL2CrossDomainMessenger} from "../../../../tests/MockOptimismL2CrossDomainMessenger.sol";
 import {OptimismSequencerUptimeFeed} from "../../../dev/optimism/OptimismSequencerUptimeFeed.sol";
+import {BaseSequencerUptimeFeed} from "../../../dev/shared/BaseSequencerUptimeFeed.sol";
 import {FeedConsumer} from "../../../../tests/FeedConsumer.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
@@ -61,7 +62,7 @@ contract OptimismSequencerUptimeFeed_UpdateStatus is OptimismSequencerUptimeFeed
     vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
-    vm.expectRevert(OptimismSequencerUptimeFeed.InvalidSender.selector);
+    vm.expectRevert(BaseSequencerUptimeFeed.InvalidSender.selector);
     s_optimismSequencerUptimeFeed.updateStatus(true, uint64(1));
   }
 
@@ -74,7 +75,7 @@ contract OptimismSequencerUptimeFeed_UpdateStatus is OptimismSequencerUptimeFeed
     s_mockOptimismL2CrossDomainMessenger.setSender(s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
-    vm.expectRevert(OptimismSequencerUptimeFeed.InvalidSender.selector);
+    vm.expectRevert(BaseSequencerUptimeFeed.InvalidSender.selector);
     s_optimismSequencerUptimeFeed.updateStatus(true, uint64(1));
   }
 
@@ -257,7 +258,7 @@ contract OptimismSequencerUptimeFeed_AggregatorV3Interface is OptimismSequencerU
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(OptimismSequencerUptimeFeed.NoDataPresent.selector);
+    vm.expectRevert(BaseSequencerUptimeFeed.NoDataPresent.selector);
     s_optimismSequencerUptimeFeed.getRoundData(2);
   }
 
@@ -267,7 +268,7 @@ contract OptimismSequencerUptimeFeed_AggregatorV3Interface is OptimismSequencerU
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(OptimismSequencerUptimeFeed.NoDataPresent.selector);
+    vm.expectRevert(BaseSequencerUptimeFeed.NoDataPresent.selector);
     s_optimismSequencerUptimeFeed.getAnswer(2);
   }
 
@@ -277,7 +278,7 @@ contract OptimismSequencerUptimeFeed_AggregatorV3Interface is OptimismSequencerU
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(OptimismSequencerUptimeFeed.NoDataPresent.selector);
+    vm.expectRevert(BaseSequencerUptimeFeed.NoDataPresent.selector);
     s_optimismSequencerUptimeFeed.getTimestamp(2);
   }
 }
@@ -316,209 +317,5 @@ contract OptimismSequencerUptimeFeed_ProtectReadsOnAggregatorV2V3InterfaceFuncti
     assertEq(feedConsumer.latestAnswer(), 0);
     assertEq(roundId, 1);
     assertEq(answer, 0);
-  }
-}
-
-contract OptimismSequencerUptimeFeed_GasCosts is OptimismSequencerUptimeFeedTest {
-  /// @notice it should consume a known amount of gas for updates
-  function test_GasCosts() public {
-    // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockOptimismL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
-
-    // Assert initial conditions
-    uint256 timestamp = s_optimismSequencerUptimeFeed.latestTimestamp();
-    assertEq(s_optimismSequencerUptimeFeed.latestAnswer(), 0);
-
-    // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed;
-    uint256 gasStart;
-    uint256 gasFinal;
-
-    // measures gas used for no update
-    expectedGasUsed = 10197; // NOTE: used to be 38594 in hardhat tests
-    gasStart = gasleft();
-    s_optimismSequencerUptimeFeed.updateStatus(false, uint64(timestamp + 1000));
-    gasFinal = gasleft();
-    assertEq(s_optimismSequencerUptimeFeed.latestAnswer(), 0);
-    assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-
-    // measures gas used for update
-    expectedGasUsed = 33348; // NOTE: used to be 60170 in hardhat tests
-    gasStart = gasleft();
-    s_optimismSequencerUptimeFeed.updateStatus(true, uint64(timestamp + 1000));
-    gasFinal = gasleft();
-    assertEq(s_optimismSequencerUptimeFeed.latestAnswer(), 1);
-    assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-  }
-}
-
-contract OptimismSequencerUptimeFeed_AggregatorInterfaceGasCosts is OptimismSequencerUptimeFeedTest {
-  /// @notice it should consume a known amount of gas for getRoundData(uint80)
-  function test_GasUsageForGetRoundData() public {
-    // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockOptimismL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
-
-    // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 4504; // NOTE: used to be 30952 in hardhat tests
-    uint256 gasStart;
-    uint256 gasFinal;
-
-    // Initializes a round
-    uint256 timestamp = s_optimismSequencerUptimeFeed.latestTimestamp() + 1000;
-    s_optimismSequencerUptimeFeed.updateStatus(true, uint64(timestamp));
-
-    // Measures gas usage
-    gasStart = gasleft();
-    s_optimismSequencerUptimeFeed.getRoundData(1);
-    gasFinal = gasleft();
-
-    // Checks that gas usage is within expected range
-    assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-  }
-
-  /// @notice it should consume a known amount of gas for latestRoundData()
-  function test_GasUsageForLatestRoundData() public {
-    // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockOptimismL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
-
-    // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 2154; // NOTE: used to be 28523 in hardhat tests
-    uint256 gasStart;
-    uint256 gasFinal;
-
-    // Initializes a round
-    uint256 timestamp = s_optimismSequencerUptimeFeed.latestTimestamp() + 1000;
-    s_optimismSequencerUptimeFeed.updateStatus(true, uint64(timestamp));
-
-    // Measures gas usage
-    gasStart = gasleft();
-    s_optimismSequencerUptimeFeed.latestRoundData();
-    gasFinal = gasleft();
-
-    // Checks that gas usage is within expected range
-    assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-  }
-
-  /// @notice it should consume a known amount of gas for latestAnswer()
-  function test_GasUsageForLatestAnswer() public {
-    // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockOptimismL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
-
-    // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1722; // NOTE: used to be 28329 in hardhat tests
-    uint256 gasStart;
-    uint256 gasFinal;
-
-    // Initializes a round
-    uint256 timestamp = s_optimismSequencerUptimeFeed.latestTimestamp() + 1000;
-    s_optimismSequencerUptimeFeed.updateStatus(true, uint64(timestamp));
-
-    // Measures gas usage
-    gasStart = gasleft();
-    s_optimismSequencerUptimeFeed.latestAnswer();
-    gasFinal = gasleft();
-
-    // Checks that gas usage is within expected range
-    assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-  }
-
-  /// @notice it should consume a known amount of gas for latestTimestamp()
-  function test_GasUsageForLatestTimestamp() public {
-    // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockOptimismL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
-
-    // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1598; // NOTE: used to be 28229 in hardhat tests
-    uint256 gasStart;
-    uint256 gasFinal;
-
-    // Initializes a round
-    uint256 timestamp = s_optimismSequencerUptimeFeed.latestTimestamp() + 1000;
-    s_optimismSequencerUptimeFeed.updateStatus(true, uint64(timestamp));
-
-    // Measures gas usage
-    gasStart = gasleft();
-    s_optimismSequencerUptimeFeed.latestTimestamp();
-    gasFinal = gasleft();
-
-    // Checks that gas usage is within expected range
-    assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-  }
-
-  /// @notice it should consume a known amount of gas for latestRound()
-  function test_GasUsageForLatestRound() public {
-    // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockOptimismL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
-
-    // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1632; // NOTE: used to be 28245 in hardhat tests
-    uint256 gasStart;
-    uint256 gasFinal;
-
-    // Initializes a round
-    uint256 timestamp = s_optimismSequencerUptimeFeed.latestTimestamp() + 1000;
-    s_optimismSequencerUptimeFeed.updateStatus(true, uint64(timestamp));
-
-    // Measures gas usage
-    gasStart = gasleft();
-    s_optimismSequencerUptimeFeed.latestRound();
-    gasFinal = gasleft();
-
-    // Checks that gas usage is within expected range
-    assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-  }
-
-  /// @notice it should consume a known amount of gas for getAnswer()
-  function test_GasUsageForGetAnswer() public {
-    // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockOptimismL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
-
-    // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 3929; // NOTE: used to be 30682 in hardhat tests
-    uint256 gasStart;
-    uint256 gasFinal;
-
-    // Initializes a round
-    uint256 timestamp = s_optimismSequencerUptimeFeed.latestTimestamp() + 1000;
-    s_optimismSequencerUptimeFeed.updateStatus(true, uint64(timestamp));
-
-    // Measures gas usage
-    gasStart = gasleft();
-    s_optimismSequencerUptimeFeed.getAnswer(1);
-    gasFinal = gasleft();
-
-    // Checks that gas usage is within expected range
-    assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-  }
-
-  /// @notice it should consume a known amount of gas for getTimestamp()
-  function test_GasUsageForGetTimestamp() public {
-    // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockOptimismL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
-
-    // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 3817; // NOTE: used to be 30570 in hardhat tests
-    uint256 gasStart;
-    uint256 gasFinal;
-
-    // Initializes a round
-    uint256 timestamp = s_optimismSequencerUptimeFeed.latestTimestamp() + 1000;
-    s_optimismSequencerUptimeFeed.updateStatus(true, uint64(timestamp));
-
-    // Measures gas usage
-    gasStart = gasleft();
-    s_optimismSequencerUptimeFeed.getTimestamp(1);
-    gasFinal = gasleft();
-
-    // Checks that gas usage is within expected range
-    assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
   }
 }

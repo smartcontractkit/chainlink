@@ -22,7 +22,7 @@ func main() {
 		fullRepo               = owner + "/" + repo
 		tagPath                = "operator_ui/TAG"
 		unpackDir              = "core/web/assets"
-		downloadTimeoutSeconds = 10
+		downloadTimeoutSeconds = 30
 	)
 	// Grab first argument as root directory
 	if len(os.Args) < 2 {

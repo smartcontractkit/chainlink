@@ -21,6 +21,11 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+const (
+	workflowID1          = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
+	workflowExecutionID1 = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
+)
+
 func Test_Client_DonTopologies(t *testing.T) {
 	ctx := testutils.Context(t)
 
@@ -33,9 +38,9 @@ func Test_Client_DonTopologies(t *testing.T) {
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		responseValue, err := response.Value.Unwrap()
+		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
-		assert.Equal(t, "aValue1", responseValue.(string))
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
 	}
 
 	capability := &TestCapability{}
@@ -64,9 +69,9 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		responseValue, err := response.Value.Unwrap()
+		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
-		assert.Equal(t, "aValue1", responseValue.(string))
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
 	}
 
 	capability := &TestCapability{}
@@ -130,7 +135,7 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 	}
 
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      1,
 		Members: capabilityPeers,
 		F:       capabilityDonF,
 	}
@@ -149,10 +154,10 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 
 	workflowDonInfo := commoncap.DON{
 		Members: workflowPeers,
-		ID:      "workflow-don",
+		ID:      2,
 	}
 
-	broker := newTestMessageBroker()
+	broker := newTestAsyncMessageBroker(t, 100)
 
 	receivers := make([]remotetypes.Receiver, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
@@ -172,6 +177,8 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 		callers[i] = caller
 	}
 
+	servicetest.Run(t, broker)
+
 	executeInputs, err := values.NewMap(
 		map[string]any{
 			"executeValue1": "aValue1",
@@ -190,8 +197,8 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 			responseCh, err := caller.Execute(ctx,
 				commoncap.CapabilityRequest{
 					Metadata: commoncap.RequestMetadata{
-						WorkflowID:          "workflowID",
-						WorkflowExecutionID: "workflowExecutionID",
+						WorkflowID:          workflowID1,
+						WorkflowExecutionID: workflowExecutionID1,
 					},
 					Config: transmissionSchedule,
 					Inputs: executeInputs,
@@ -227,12 +234,15 @@ func newTestServer(peerID p2ptypes.PeerID, dispatcher remotetypes.Dispatcher, wo
 	}
 }
 
-func (t *clientTestServer) Receive(msg *remotetypes.MessageBody) {
+func (t *clientTestServer) Receive(_ context.Context, msg *remotetypes.MessageBody) {
 	t.mux.Lock()
 	defer t.mux.Unlock()
 
 	sender := toPeerID(msg.Sender)
-	messageID := target.GetMessageID(msg)
+	messageID, err := target.GetMessageID(msg)
+	if err != nil {
+		panic(err)
+	}
 
 	if t.messageIDToSenders[messageID] == nil {
 		t.messageIDToSenders[messageID] = make(map[p2ptypes.PeerID]bool)
@@ -257,7 +267,7 @@ func (t *clientTestServer) Receive(msg *remotetypes.MessageBody) {
 		for receiver := range t.messageIDToSenders[messageID] {
 			var responseMsg = &remotetypes.MessageBody{
 				CapabilityId:    "cap_id@1.0.0",
-				CapabilityDonId: "capability-don",
+				CapabilityDonId: 1,
 				CallerDonId:     t.workflowDonInfo.ID,
 				Method:          remotetypes.MethodExecute,
 				MessageId:       []byte(messageID),
@@ -295,7 +305,7 @@ func NewTestDispatcher() *TestDispatcher {
 }
 
 func (t *TestDispatcher) SendToReceiver(msgBody *remotetypes.MessageBody) {
-	t.receiver.Receive(msgBody)
+	t.receiver.Receive(context.Background(), msgBody)
 }
 
 func (t *TestDispatcher) SetReceiver(capabilityId string, donId string, receiver remotetypes.Receiver) error {

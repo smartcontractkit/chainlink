@@ -25,6 +25,7 @@ type AppConfig interface {
 	CosmosEnabled() bool
 	SolanaEnabled() bool
 	StarkNetEnabled() bool
+	AptosEnabled() bool
 
 	Validate() error
 	ValidateDB() error
@@ -55,6 +56,8 @@ type AppConfig interface {
 	Threshold() Threshold
 	WebServer() WebServer
 	Tracing() Tracing
+
+	FeatureMultiFeedsManagers() bool
 }
 
 type DatabaseBackupMode string

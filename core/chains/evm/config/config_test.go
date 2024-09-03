@@ -243,6 +243,7 @@ func TestChainScopedConfig_GasEstimator(t *testing.T) {
 	assert.Equal(t, assets.GWei(100), ge.FeeCapDefault())
 	assert.Equal(t, assets.NewWeiI(1), ge.TipCapDefault())
 	assert.Equal(t, assets.NewWeiI(1), ge.TipCapMin())
+	assert.Equal(t, false, ge.EstimateLimit())
 }
 
 func TestChainScopedConfig_BSCDefaults(t *testing.T) {
@@ -326,6 +327,8 @@ func TestNodePoolConfig(t *testing.T) {
 	require.Equal(t, time.Duration(10000000000), cfg.EVM().NodePool().PollInterval())
 	require.Equal(t, uint32(5), cfg.EVM().NodePool().PollFailureThreshold())
 	require.Equal(t, false, cfg.EVM().NodePool().NodeIsSyncingEnabled())
+	require.Equal(t, false, cfg.EVM().NodePool().EnforceRepeatableRead())
+	require.Equal(t, time.Duration(10000000000), cfg.EVM().NodePool().DeathDeclarationDelay())
 }
 
 func TestClientErrorsConfig(t *testing.T) {
@@ -351,6 +354,7 @@ func TestClientErrorsConfig(t *testing.T) {
 					TransactionAlreadyMined:           ptr("client error transaction already mined"),
 					Fatal:                             ptr("client error fatal"),
 					ServiceUnavailable:                ptr("client error service unavailable"),
+					TooManyResults:                    ptr("client error too many results"),
 				},
 			}
 		})
@@ -370,6 +374,7 @@ func TestClientErrorsConfig(t *testing.T) {
 		assert.Equal(t, "client error transaction already mined", errors.TransactionAlreadyMined())
 		assert.Equal(t, "client error fatal", errors.Fatal())
 		assert.Equal(t, "client error service unavailable", errors.ServiceUnavailable())
+		assert.Equal(t, "client error too many results", errors.TooManyResults())
 	})
 }
 
