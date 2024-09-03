@@ -30,7 +30,12 @@ on:
       test_secrets_override_key:
         description: 'Key to run tests with custom test secrets'
         required: false
-        type: string 
+        type: string
+      chainlink_version:
+        description: Chainlink image version to use
+        default: develop
+        required: true
+        type: string
         
 jobs:
   ocr_soak_test:
@@ -97,6 +102,7 @@ jobs:
           TEST_UPLOAD_CPU_PROFILE: true
           TEST_UPLOAD_MEM_PROFILE: true
           E2E_TEST_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+          E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_version }}
           E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
