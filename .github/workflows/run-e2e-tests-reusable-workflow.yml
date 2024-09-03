@@ -62,6 +62,10 @@ on:
         description: 'Name of the slack notification'
         required: false
         type: string
+      slack_notification_after_tests_notify_user_id_on_failure:
+        description: 'Set Slack user id to notify on test failure'
+        required: false
+        type: string
       test_log_upload_on_failure:
         description: 'Set to "true" to upload the test log on failure as Github artifact'
         required: false
@@ -820,6 +824,32 @@ jobs:
                 }
               ]
             }
+        
+      - name: Notify user in Slack message if tests failed
+        # if: ${{ inputs.slack_notification_after_tests == 'on_failure' && contains(join(needs.*.result, ','), 'failure') && inputs.slack_notification_after_tests_notify_user_id_on_failure != '' }}
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        with:
+          channel-id: ${{ inputs.slack_notification_after_tests_channel_id }}
+          payload: |
+            {
+              "thread_ts": "${{ steps.slack.outputs.thread_ts }}",
+              "attachments": [
+                {
+                  "color": "${{ '#C62828' }}",
+                  "blocks": [
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "Notifying <@${{ inputs.slack_notification_after_tests_notify_user_id_on_failure }}>, please check the test results."
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
   # Run K8s tests using new remote runner
   # remote-runner-k8s-tests:
