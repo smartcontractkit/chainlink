@@ -419,6 +419,7 @@ jobs:
       contents: read
     env:
       LATEST_CHAINLINK_RELEASE_VERSION: ${{ needs.get_latest_chainlink_release_version.outputs.latest_chainlink_release_version }}
+      TEST_CONFIG_OVERRIDE_PATH: ${{ matrix.tests.test_config_override_path || inputs.test_config_override_path }}
     steps:
       - name: Collect Metrics
         if: always()
@@ -437,6 +438,13 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Install jq
         run: sudo apt-get install -y jq
+
+      - name: Show test config override path in summary
+        if: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}
+        run: |
+          echo "### Test config override path" >> $GITHUB_STEP_SUMMARY
+          echo "[${{ env.TEST_CONFIG_OVERRIDE_PATH }}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/${{ github.sha }}/${{ env.TEST_CONFIG_OVERRIDE_PATH }})" >> $GITHUB_STEP_SUMMARY
+
       - name: Show test configuration
         run: echo '${{ toJson(matrix.tests) }}' | jq .
 
@@ -504,7 +512,7 @@ jobs:
           test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd $(dirname ${{ matrix.tests.path }}) && go mod download
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
-          test_config_override_path: ${{ matrix.tests.test_config_override_path || inputs.test_config_override_path }}
+          test_config_override_path: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}
           test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
           test_suite: ${{ matrix.tests.test_env_vars.TEST_SUITE }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
@@ -636,6 +644,7 @@ jobs:
       contents: read
     env:
       LATEST_CHAINLINK_RELEASE_VERSION: ${{ needs.get_latest_chainlink_release_version.outputs.latest_chainlink_release_version }}
+      TEST_CONFIG_OVERRIDE_PATH: ${{ matrix.tests.test_config_override_path || inputs.test_config_override_path }}
     steps:
       - name: Collect Metrics
         if: always()
@@ -653,6 +662,13 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Install jq
         run: sudo apt-get install -y jq
+
+      - name: Show test config override path in summary
+        if: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}
+        run: |
+          echo "### Test config override path" >> $GITHUB_STEP_SUMMARY
+          echo "[${{ env.TEST_CONFIG_OVERRIDE_PATH }}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/${{ github.sha }}/${{ env.TEST_CONFIG_OVERRIDE_PATH }})" >> $GITHUB_STEP_SUMMARY
+
       - name: Show Test Configuration
         run: echo '${{ toJson(matrix.tests) }}' | jq .
       - name: Show Remote Runner Version
@@ -696,7 +712,7 @@ jobs:
           test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: make gomod
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
-          test_config_override_path: ${{ matrix.tests.test_config_override_path || inputs.test_config_override_path }}
+          test_config_override_path: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}
           test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
           test_suite: ${{ matrix.tests.test_env_vars.TEST_SUITE }}
           token: ${{ secrets.GH_TOKEN }}
