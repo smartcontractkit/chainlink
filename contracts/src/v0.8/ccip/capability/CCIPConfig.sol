@@ -6,6 +6,7 @@ import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {ICapabilitiesRegistry} from "./interfaces/ICapabilitiesRegistry.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {SortedSetValidationUtil} from "../../shared/util/SortedSetValidationUtil.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {CCIPConfigTypes} from "./libraries/CCIPConfigTypes.sol";
 
@@ -34,6 +35,8 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
   error ChainSelectorNotSet();
   error TooManyOCR3Configs();
   error TooManySigners();
+  error TooManyTransmitters();
+  error TooManyBootstrapP2PIds();
   error P2PIdsLengthNotMatching(uint256 p2pIdsLength, uint256 signersLength, uint256 transmittersLength);
   error NotEnoughTransmitters(uint256 got, uint256 minimum);
   error FMustBePositive();
@@ -57,15 +60,6 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
   /// @notice The canonical capabilities registry address.
   address internal immutable i_capabilitiesRegistry;
 
-  uint8 internal constant MAX_OCR3_CONFIGS_PER_PLUGIN = 2;
-  uint8 internal constant MAX_OCR3_CONFIGS_PER_DON = 4;
-  uint256 internal constant CONFIG_DIGEST_PREFIX_MASK = type(uint256).max << (256 - 16); // 0xFFFF00..0
-  /// @dev must be equal to libocr multi role: https://github.com/smartcontractkit/libocr/blob/ae747ca5b81236ffdbf1714318c652e923a5ff4d/offchainreporting2plus/types/config_digest.go#L28
-  uint256 internal constant CONFIG_DIGEST_PREFIX = 0x000a << (256 - 16); // 0x000a00..00
-  bytes32 internal constant EMPTY_ENCODED_ADDRESS_HASH = keccak256(abi.encode(address(0)));
-  /// @dev 256 is the hard limit due to the bit encoding of their indexes into a uint256.
-  uint256 internal constant MAX_NUM_ORACLES = 256;
-
   /// @notice chain configuration for each chain that CCIP is deployed on.
   mapping(uint64 chainSelector => CCIPConfigTypes.ChainConfig chainConfig) internal s_chainConfigurations;
 
@@ -78,6 +72,13 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
   mapping(
     uint32 donId => mapping(Internal.OCRPluginType pluginType => CCIPConfigTypes.OCR3ConfigWithMeta[] ocr3Configs)
   ) internal s_ocr3Configs;
+
+  uint8 internal constant MAX_OCR3_CONFIGS_PER_PLUGIN = 2;
+  uint8 internal constant MAX_OCR3_CONFIGS_PER_DON = 4;
+  uint8 internal constant MAX_NUM_ORACLES = 31;
+  uint256 internal constant CONFIG_DIGEST_PREFIX_MASK = type(uint256).max << (256 - 16); // 0xFFFF00..0
+  /// @dev must be equal to libocr multi role: https://github.com/smartcontractkit/libocr/blob/ae747ca5b81236ffdbf1714318c652e923a5ff4d/offchainreporting2plus/types/config_digest.go#L28
+  uint256 internal constant CONFIG_DIGEST_PREFIX = 0x000a << (256 - 16); // 0x000a00..00
 
   /// @param capabilitiesRegistry the canonical capabilities registry address.
   constructor(address capabilitiesRegistry) {
@@ -387,23 +388,31 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
     if (cfg.pluginType != Internal.OCRPluginType.Commit && cfg.pluginType != Internal.OCRPluginType.Execution) {
       revert InvalidPluginType();
     }
-    if (cfg.offrampAddress.length == 0 || keccak256(cfg.offrampAddress) == EMPTY_ENCODED_ADDRESS_HASH) {
-      revert OfframpAddressCannotBeZero();
-    }
+    // TODO: can we do more sophisticated validation than this?
+    if (cfg.offrampAddress.length == 0) revert OfframpAddressCannotBeZero();
     if (!s_remoteChainSelectors.contains(cfg.chainSelector)) revert ChainSelectorNotFound(cfg.chainSelector);
+
+    // Some of these checks below are done in OCR2/3Base config validation, so we do them again here.
+    // Role DON OCR configs will have all the Role DON signers but only a subset of transmitters.
+    if (cfg.signers.length > MAX_NUM_ORACLES) revert TooManySigners();
+    if (cfg.transmitters.length > MAX_NUM_ORACLES) revert TooManyTransmitters();
 
     // We check for chain config presence above, so fChain here must be non-zero.
     uint256 minTransmittersLength = 3 * s_chainConfigurations[cfg.chainSelector].fChain + 1;
     if (cfg.transmitters.length < minTransmittersLength) {
       revert NotEnoughTransmitters(cfg.transmitters.length, minTransmittersLength);
     }
-    uint256 numberOfSigners = cfg.signers.length;
-    if (numberOfSigners > MAX_NUM_ORACLES) revert TooManySigners();
-    if (numberOfSigners != cfg.p2pIds.length || numberOfSigners != cfg.transmitters.length) {
+    if (cfg.F == 0) revert FMustBePositive();
+    if (cfg.signers.length <= 3 * cfg.F) revert FTooHigh();
+
+    if (cfg.p2pIds.length != cfg.signers.length || cfg.p2pIds.length != cfg.transmitters.length) {
       revert P2PIdsLengthNotMatching(cfg.p2pIds.length, cfg.signers.length, cfg.transmitters.length);
     }
-    if (cfg.F == 0) revert FMustBePositive();
-    if (numberOfSigners <= 3 * cfg.F) revert FTooHigh();
+    if (cfg.bootstrapP2PIds.length > cfg.p2pIds.length) revert TooManyBootstrapP2PIds();
+
+    // check for duplicate p2p ids and bootstrapP2PIds.
+    // check that p2p ids in cfg.bootstrapP2PIds are included in cfg.p2pIds.
+    SortedSetValidationUtil._checkIsValidUniqueSubset(cfg.bootstrapP2PIds, cfg.p2pIds);
 
     // Check that the readers are in the capabilities registry.
     _ensureInRegistry(cfg.p2pIds);
@@ -431,6 +440,7 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
           ocr3Config.pluginType,
           ocr3Config.offrampAddress,
           configCount,
+          ocr3Config.bootstrapP2PIds,
           ocr3Config.p2pIds,
           ocr3Config.signers,
           ocr3Config.transmitters,
