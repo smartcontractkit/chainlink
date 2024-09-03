@@ -186,10 +186,9 @@ jobs:
       - name: Create matrix for required Chainlink plugin versions
         id: set-required-chainlink-plugin-versions-matrix
         run: |
-          if [[ "${{ inputs.require_chainlink_plugin_versions_in_qa_ecr }}" != '' ]]; then
-            image_versions=$(echo "${{ inputs.require_chainlink_plugin_versions_in_qa_ecr }}" | jq -Rc 'split(",") | if . == [""] then [] else . end')
-            echo "versions=$image_versions" >> $GITHUB_OUTPUT
-          fi          
+          image_versions=$(echo "${{ inputs.require_chainlink_plugin_versions_in_qa_ecr }}" | jq -Rc 'split(",") | if . == [""] then [] else . end')
+          echo "Required Chainlink plugin image versions: $image_versions"   
+          echo "versions=$image_versions" >> $GITHUB_OUTPUT
 
   check-test-configurations:
     name: Check test configurations
@@ -359,7 +358,7 @@ jobs:
   require-chainlink-image-versions-in-qa-ecr:
     name: Build Chainlink image
     needs: [validate-inputs, load-test-configurations]
-    if: ${{ needs.validate-inputs.outputs.require_chainlink_image_versions_in_qa_ecr_matrix != '' }}
+    if: fromJson(needs.validate-inputs.outputs.require_chainlink_image_versions_in_qa_ecr_matrix).length > 0
     runs-on: ubuntu-latest
     environment: integration
     permissions:
@@ -388,7 +387,7 @@ jobs:
   require-chainlink-plugin-versions-in-qa-ecr:
     name: Build Chainlink plugins
     needs: [validate-inputs, load-test-configurations]
-    if: ${{ needs.validate-inputs.outputs.require_chainlink_plugin_versions_in_qa_ecr_matrix != '' }}
+    if: fromJson(needs.validate-inputs.outputs.require_chainlink_plugin_versions_in_qa_ecr_matrix).length > 0
     runs-on: ubuntu-latest
     environment: integration
     permissions:

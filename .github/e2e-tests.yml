@@ -703,6 +703,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests && go test -v -test.run TestVRFV2PlusWithBHS smoke/vrfv2plus_test.go -test.parallel=1 -timeout 30m -count=1 -json
 
   # Run all VRFv2Plus tests on live testnets (test_config_override_path required)
+  # Tests have to run in sequence because of a single private key used
   - id: TestVRFv2Plus_LiveTestnets
     path: integration-tests/smoke/vrfv2plus_test.go
     runs_on: ubuntu-latest
