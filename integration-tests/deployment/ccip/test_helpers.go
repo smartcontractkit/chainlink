@@ -33,7 +33,7 @@ func Context(tb testing.TB) context.Context {
 
 type DeployedTestEnvironment struct {
 	Ab           deployment.AddressBook
-	Env          deployment.Environment
+	Env          deployment.Environment[deployment.Chain]
 	HomeChainSel uint64
 	Nodes        map[string]memory.Node
 }

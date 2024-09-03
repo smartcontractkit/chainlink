@@ -3,8 +3,18 @@ package utils
 import (
 	"math/big"
 	"net"
+	"path/filepath"
+	"runtime"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+)
+
+var (
+	_, b, _, _ = runtime.Caller(0)
+	// ProjectRoot Root folder of this project
+	ProjectRoot = filepath.Join(filepath.Dir(b), "/../..")
+	// ContractsDir path to our contracts
+	ContractsDir = filepath.Join(ProjectRoot, "contracts", "target", "deploy")
 )
 
 func MustURL(s string) *commonconfig.URL {

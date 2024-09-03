@@ -145,7 +145,7 @@ func (s CCIPOnChainState) Snapshot(chains []uint64) (CCIPSnapShot, error) {
 	return snapshot, nil
 }
 
-func SnapshotState(e deployment.Environment, ab deployment.AddressBook) (CCIPSnapShot, error) {
+func SnapshotState(e deployment.Environment[deployment.Chain], ab deployment.AddressBook) (CCIPSnapShot, error) {
 	state, err := LoadOnchainState(e, ab)
 	if err != nil {
 		return CCIPSnapShot{}, err
@@ -153,7 +153,7 @@ func SnapshotState(e deployment.Environment, ab deployment.AddressBook) (CCIPSna
 	return state.Snapshot(e.AllChainSelectors())
 }
 
-func LoadOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIPOnChainState, error) {
+func LoadOnchainState(e deployment.Environment[deployment.Chain], ab deployment.AddressBook) (CCIPOnChainState, error) {
 	state := CCIPOnChainState{
 		Chains: make(map[uint64]CCIPChainState),
 	}

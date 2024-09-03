@@ -812,6 +812,7 @@ github.com/gorilla/handlers v1.5.1 h1:9lRY6j8DEeeBT10CvO9hGW0gmky0BprnvDI5vfhUHH
 github.com/gorilla/handlers v1.5.1/go.mod h1:t8XrUpc4KVXb7HGyJ4/cEnwQiaxrX/hz1Zv/4g96P1Q=
 github.com/gorilla/mux v1.8.0 h1:i40aqfkR1h2SlN9hojwV5ZA91wcXFOvkdNIeFDP5koI=
 github.com/gorilla/mux v1.8.0/go.mod h1:DVbg23sWSpFRCP0SfiEN6jmj59UnW/n46BH5rLB71So=
+github.com/gorilla/rpc v1.2.0 h1:WvvdC2lNeT1SP32zrIce5l0ECBfbAlmrmSBsuc57wfk=
 github.com/gorilla/rpc v1.2.0/go.mod h1:V4h9r+4sF5HnzqbwIez0fKSpANP0zlYd3qR7p36jkTQ=
 github.com/gorilla/securecookie v1.1.2 h1:YCIWL56dvtr73r6715mJs5ZvhtnY73hBvEF8kXD8ePA=
 github.com/gorilla/securecookie v1.1.2/go.mod h1:NfCASbcHqRSY+3a8tlWJwsQap2VX5pwzwo4h3eOamfo=
@@ -1437,16 +1438,12 @@ github.com/smartcontractkit/chainlink-solana v1.1.1-0.20240821170223-a2f5c39f457
 github.com/smartcontractkit/chainlink-solana v1.1.1-0.20240821170223-a2f5c39f457f/go.mod h1:Ml88TJTwZCj6yHDkAEN/EhxVutzSlk+kDZgfibRIqF0=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240709043547-03612098f799 h1:HyLTySm7BR+oNfZqDTkVJ25wnmcTtxBBD31UkFL+kEM=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240709043547-03612098f799/go.mod h1:UVFRacRkP7O7TQAzFmR52v5mUlxf+G1ovMlCQAB/cHU=
-github.com/smartcontractkit/chainlink-testing-framework v1.35.0 h1:5FzS4YOwzjRe59VMM7MmEyjgJCq4/aXR1fzdEJEPiL8=
-github.com/smartcontractkit/chainlink-testing-framework v1.35.0/go.mod h1:ekYJbRAxXcs/YgOjHsY9/tlvDvXzv3lxcZK2eFUZduc=
 github.com/smartcontractkit/chainlink-testing-framework v1.35.1-0.20240902141742-497449e83c55 h1:+FFhAO4Trqdgx6pRnGSoEqJzPQjQGA+LygF5Nb1hbGM=
 github.com/smartcontractkit/chainlink-testing-framework v1.35.1-0.20240902141742-497449e83c55/go.mod h1:ekYJbRAxXcs/YgOjHsY9/tlvDvXzv3lxcZK2eFUZduc=
 github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.1 h1:1/r1wQZ4TOFpZ13w94r7amdF096Z96RuEnkOmrz1BGE=
 github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.1/go.mod h1:DC8sQMyTlI/44UCTL8QWFwb0bYNoXCfjwCv2hMivYZU=
 github.com/smartcontractkit/chainlink-testing-framework/havoc v0.1.0 h1:eHsvf2SklyyZ5fTHJIsIZ3eUnfO0TJU2BSZ7j8kLvzM=
 github.com/smartcontractkit/chainlink-testing-framework/havoc v0.1.0/go.mod h1:7AOGJdlSPycsHxgbOLP9EJyHxRxB9+dD2Q7lJFMPwWk=
-github.com/smartcontractkit/chainlink-testing-framework/seth v1.2.1 h1:GRAAvtn2+jhO/8Z3lig10eQXVcV4VuOI4UgCyoPdJBg=
-github.com/smartcontractkit/chainlink-testing-framework/seth v1.2.1/go.mod h1:afY3QmNgeR/VI1pRbGH8g3YXGy7C2RrFOwUzEFvL3L8=
 github.com/smartcontractkit/chainlink-testing-framework/seth v1.2.2-0.20240828151949-bb48d6ef8630 h1:8igJBdOqd39sSnbyizKOvTD7YAm7k5WPcJ2e2sb7TvA=
 github.com/smartcontractkit/chainlink-testing-framework/seth v1.2.2-0.20240828151949-bb48d6ef8630/go.mod h1:afY3QmNgeR/VI1pRbGH8g3YXGy7C2RrFOwUzEFvL3L8=
 github.com/smartcontractkit/chainlink-testing-framework/wasp v0.4.10 h1:s7e9YPU/ECQ9xCyLc60ApFbf0blMjg9LWi31CAEjaZY=

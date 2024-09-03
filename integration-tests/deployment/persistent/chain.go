@@ -5,13 +5,35 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"
+	"github.com/smartcontractkit/chainlink/integration-tests/solclient"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+func NewSolanaChains(lggr logger.Logger, config persistent_types.ChainConfig) (map[uint64]deployment.SolanaChain, map[uint64]*solclient.SolNetwork, error) {
+	lggr.Info("Creating persistent Solana chains")
+	if len(config.NewSolanaChains) == 0 {
+		return nil, nil, errors.New("no new Solana chains provided")
+	}
+
+	chains := make(map[uint64]deployment.SolanaChain)
+	networks := make(map[uint64]*solclient.SolNetwork)
+	for _, config := range config.NewSolanaChains {
+		chain, solNetwork, err := config.Chain()
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to create Solana chain")
+		}
+
+		chains[chain.ChainId] = chain
+		networks[chain.ChainId] = solNetwork
+	}
+
+	return chains, networks, nil
+}
 
 // NewChains creates Chains based on the provided configuration. It returns a map of chain id to chain.
 // You can mix existing and new Chains in the configuration, meaning that you can have Chains that are already running and Chains that will be started by the test environment.
 func NewChains(lggr logger.Logger, config persistent_types.ChainConfig) (map[uint64]deployment.Chain, error) {
-	lggr.Info("Creating persistent Chains")
+	lggr.Info("Creating persistent EVM chains")
 	existingChains, err := newExistingChains(config.ExistingEVMChains)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create existing Chains")

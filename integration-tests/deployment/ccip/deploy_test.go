@@ -76,7 +76,7 @@ func TestDeployCapReg_NewDevnet_Concurrent(t *testing.T) {
 		},
 	}
 
-	e, err := persistent.NewEnvironment(lggr, envConfig)
+	e, err := persistent.NewEVMEnvironment(lggr, envConfig)
 	require.NoError(t, err, "Error creating new persistent environment")
 	testDeployCapRegWithEnv_Concurrent(t, lggr, *e)
 }
@@ -208,7 +208,7 @@ DeltaReconcile = '5s'
 		},
 	}
 
-	e, err := persistent.NewEnvironment(lggr, envConfig)
+	e, err := persistent.NewEVMEnvironment(lggr, envConfig)
 	require.NoError(t, err, "Error creating new persistent environment")
 	testDeployCCIPContractsWithEnv(t, lggr, *e)
 }
@@ -228,7 +228,7 @@ func TestDeployCCIPContractsNewDevnet_FromTestConfig(t *testing.T) {
 		ChainConfig: chainCfg,
 	}
 
-	e, err := persistent.NewEnvironment(lggr, envConfig)
+	e, err := persistent.NewEVMEnvironment(lggr, envConfig)
 	require.NoError(t, err, "Error creating new persistent environment")
 	testDeployCCIPContractsWithEnv(t, lggr, *e)
 }
@@ -267,12 +267,12 @@ func TestDeployCCIPContractsExistingDevnet(t *testing.T) {
 			ExistingEVMChains: []persistent_types.ExistingEVMChainConfig{firstChain, secondChain},
 		},
 	}
-	e, err := persistent.NewEnvironment(lggr, envConfig)
+	e, err := persistent.NewEVMEnvironment(lggr, envConfig)
 	require.NoError(t, err, "Error creating new persistent environment")
 	testDeployCCIPContractsWithEnv(t, lggr, *e)
 }
 
-func testDeployCCIPContractsWithEnv(t *testing.T, lggr logger.Logger, e deployment.Environment) {
+func testDeployCCIPContractsWithEnv(t *testing.T, lggr logger.Logger, e deployment.Environment[deployment.Chain]) {
 	var ab deployment.AddressBook
 	// Deploy all the CCIP contracts.
 	for _, chain := range e.AllChainSelectors() {
@@ -305,7 +305,7 @@ func testDeployCCIPContractsWithEnv(t *testing.T, lggr logger.Logger, e deployme
 	fmt.Println(string(b))
 }
 
-func testDeployCapRegWithEnv_Concurrent(t *testing.T, lggr logger.Logger, e deployment.Environment) {
+func testDeployCapRegWithEnv_Concurrent(t *testing.T, lggr logger.Logger, e deployment.Environment[deployment.Chain]) {
 	var ab deployment.AddressBook
 	// Deploy all the CCIP contracts.
 	ab, _, err := DeployCapReg_Concurrent(lggr, e.Chains, e.AllChainSelectors())

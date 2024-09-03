@@ -3,6 +3,8 @@ package node
 import (
 	"bytes"
 	"fmt"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	"github.com/smartcontractkit/chainlink/integration-tests/solclient"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -63,5 +65,27 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg
 	}
 	return func(c *chainlink.Config) {
 		c.EVM = evmConfigs
+	}
+}
+
+func WithSolanaNetworks(solNetworks []*solclient.SolNetwork) node.NodeConfigOpt {
+	var solConfigs []*solcfg.TOMLConfig
+	for _, network := range solNetworks {
+		var solNodes []*solcfg.Node
+		for i := range network.URLs {
+			solNodes = append(solNodes, &solcfg.Node{
+				Name: ptr.Ptr(fmt.Sprintf("%s-%d", network.Name, i)),
+				URL:  itutils.MustURL(network.URLs[i]),
+			})
+		}
+		solConfig := &solcfg.TOMLConfig{
+			ChainID: ptr.Ptr(fmt.Sprint(network.ChainID)),
+			Nodes:   solNodes,
+		}
+		solConfigs = append(solConfigs, solConfig)
+	}
+
+	return func(c *chainlink.Config) {
+		c.Solana = solConfigs
 	}
 }

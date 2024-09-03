@@ -21,7 +21,7 @@ func SimTransactOpts() *bind.TransactOpts {
 }
 
 func GenerateAcceptOwnershipProposal(
-	e deployment.Environment,
+	e deployment.Environment[deployment.Chain],
 	chains []uint64,
 	ab deployment.AddressBook,
 ) (deployment.Proposal, error) {
@@ -58,7 +58,7 @@ func GenerateAcceptOwnershipProposal(
 	return deployment.Proposal{ValidUntil: uint32(time.Now().Unix()), Ops: ops}, nil
 }
 
-func ApplyProposal(env deployment.Environment, p deployment.Proposal, state CCIPOnChainState) error {
+func ApplyProposal(env deployment.Environment[deployment.Chain], p deployment.Proposal, state CCIPOnChainState) error {
 	// TODO
 	return nil
 }
