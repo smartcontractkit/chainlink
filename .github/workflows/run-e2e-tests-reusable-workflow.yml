@@ -166,6 +166,9 @@ jobs:
           if [[ "${{ inputs.require_chainlink_image_versions_in_qa_ecr }}" != '' ]]; then
             image_versions=$(echo "${{ inputs.require_chainlink_image_versions_in_qa_ecr }}" | jq -Rc 'split(",") | if . == [""] then [] else . end')
             echo "versions=$image_versions" >> $GITHUB_OUTPUT
+          elif [[ "${{ env.DEFAULT_CHAINLINK_VERSION }}" == "${{ github.sha }}" ]]; then
+            echo "Setting ${{env.DEFAULT_CHAINLINK_VERSION}} as a required Chainlink image version in QA ECR"
+            echo "versions=$env.DEFAULT_CHAINLINK_VERSION" >> $GITHUB_OUTPUT
           fi
       - name: Create matrix for required Chainlink plugin versions
         id: set-required-chainlink-plugin-versions-matrix
