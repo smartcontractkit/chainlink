@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -102,7 +104,7 @@ type RpcClient struct {
 
 	// Need to track subscriptions because closing the RPC does not (always?)
 	// close the underlying subscription
-	subs []ethereum.Subscription
+	subs map[ethereum.Subscription]struct{}
 
 	// chStopInFlight can be closed to immediately cancel all in-flight requests on
 	// this RpcClient. Closing and replacing should be serialized through
@@ -155,6 +157,7 @@ func NewRPCClient(
 		"evmChainID", chainID,
 	)
 	r.rpcLog = logger.Sugared(lggr).Named("RPC")
+	r.subs = map[ethereum.Subscription]struct{}{}
 
 	return r
 }
@@ -177,15 +180,11 @@ func (r *RpcClient) UnsubscribeAllExcept(subs ...commontypes.Subscription) {
 		keepSubs[sub] = struct{}{}
 	}
 
-	for _, sub := range r.subs {
+	for sub := range r.subs {
 		if _, keep := keepSubs[sub]; !keep {
 			sub.Unsubscribe()
+			delete(r.subs, sub)
 		}
-	}
-
-	r.subs = []ethereum.Subscription{}
-	for sub := range keepSubs {
-		r.subs = append(r.subs, sub)
 	}
 }
 
@@ -327,7 +326,7 @@ func (r *RpcClient) registerSub(sub ethereum.Subscription, stopInFLightCh chan s
 	default:
 	}
 	// TODO: BCI-3358 - delete sub when caller unsubscribes.
-	r.subs = append(r.subs, sub)
+	r.subs[sub] = struct{}{}
 	return nil
 }
 
