@@ -79,7 +79,7 @@ func (w *workflow) dependents(start string) ([]*step, error) {
 // step wraps a Vertex with additional context for execution that is mutated by the engine
 type step struct {
 	workflows.Vertex
-	capability capabilities.CallbackCapability
+	capability capabilities.ExecutableCapability
 	info       capabilities.CapabilityInfo
 	config     *values.Map
 }

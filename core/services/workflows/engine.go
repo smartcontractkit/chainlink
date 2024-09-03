@@ -182,7 +182,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 
 	// We configure actions, consensus and targets here, and
 	// they all satisfy the `CallbackCapability` interface
-	cc, ok := cp.(capabilities.CallbackCapability)
+	cc, ok := cp.(capabilities.ExecutableCapability)
 	if !ok {
 		return newCPErr("capability does not satisfy CallbackCapability")
 	}
@@ -762,12 +762,12 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		},
 	}
 
-	output, err := executeSyncAndUnwrapSingleValue(ctx, step.capability, tr)
+	output, err := step.capability.Execute(ctx, tr)
 	if err != nil {
 		return inputsMap, nil, err
 	}
 
-	return inputsMap, output, err
+	return inputsMap, output.Value, err
 }
 
 func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
@@ -958,24 +958,6 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	}
 
 	return engine, nil
-}
-
-// ExecuteSyncAndUnwrapSingleValue is a convenience method that executes a capability synchronously and unwraps the
-// result if it is a single value otherwise returns the list.
-func executeSyncAndUnwrapSingleValue(ctx context.Context, cap capabilities.CallbackCapability, req capabilities.CapabilityRequest) (values.Value, error) {
-	l, err := capabilities.ExecuteSync(ctx, cap, req)
-	if err != nil {
-		return nil, err
-	}
-
-	// `ExecuteSync` returns a `values.List` even if there was
-	// just one return value. If that is the case, let's unwrap the
-	// single value to make it easier to use in -- for example -- variable interpolation.
-	if len(l.Underlying) > 1 {
-		return l, nil
-	}
-
-	return l.Underlying[0], nil
 }
 
 // Logging keys
