@@ -229,8 +229,7 @@ func (e *eventBinding) getLatestValueWithFilters(
 
 	// Create limiter and filter for the query.
 	limiter := query.NewLimitAndSort(query.CountLimit(1), query.NewSortBySequence(query.Desc))
-	filter, err := query.Where(
-		"",
+	filter, err := logpoller.Where(
 		logpoller.NewAddressFilter(e.address),
 		logpoller.NewEventSigFilter(e.hash),
 		logpoller.NewConfirmationsFilter(confs),
@@ -241,7 +240,7 @@ func (e *eventBinding) getLatestValueWithFilters(
 	}
 
 	// Gets the latest log that matches the filter and limiter.
-	logs, err := e.lp.FilteredLogs(ctx, filter.Expressions, limiter, e.contractName+"-"+e.address.String()+"-"+e.eventName)
+	logs, err := e.lp.FilteredLogs(ctx, filter, limiter, e.contractName+"-"+e.address.String()+"-"+e.eventName)
 	if err != nil {
 		return wrapInternalErr(err)
 	}
