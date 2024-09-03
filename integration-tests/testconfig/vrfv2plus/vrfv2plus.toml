@@ -1,4 +1,8 @@
 # default config
+
+[Network]
+selected_networks = ["SIMULATED"]
+
 [NodeConfig]
 BaseConfigTOML = """
 [Feature]
