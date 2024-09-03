@@ -86,4 +86,4 @@ ObservationGracePeriod = '1s'
 GasLimit = 5400000
 
 [Workflow]
-DefaultGasLimit = 400_000
+GasLimitDefault = 400_000

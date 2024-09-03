@@ -43,7 +43,7 @@ type triggerEventKey struct {
 }
 
 type subRegState struct {
-	callback   chan commoncap.CapabilityResponse
+	callback   chan commoncap.TriggerResponse
 	rawRequest []byte
 }
 
@@ -98,8 +98,8 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 	return s.capInfo, nil
 }
 
-func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
-	rawRequest, err := pb.MarshalCapabilityRequest(request)
+func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
+	rawRequest, err := pb.MarshalTriggerRegistrationRequest(request)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 	regState, ok := s.registeredWorkflows[request.Metadata.WorkflowID]
 	if !ok {
 		regState = &subRegState{
-			callback:   make(chan commoncap.CapabilityResponse, defaultSendChannelBufferSize),
+			callback:   make(chan commoncap.TriggerResponse, defaultSendChannelBufferSize),
 			rawRequest: rawRequest,
 		}
 		s.registeredWorkflows[request.Metadata.WorkflowID] = regState
@@ -160,7 +160,7 @@ func (s *triggerSubscriber) registrationLoop() {
 	}
 }
 
-func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commoncap.CapabilityRequest) error {
+func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

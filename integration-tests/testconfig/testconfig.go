@@ -72,6 +72,12 @@ type Ocr2TestConfig interface {
 	GetOCR2Config() *ocr_config.Config
 }
 
+const (
+	E2E_TEST_DATA_STREAMS_URL_ENV      = "E2E_TEST_DATA_STREAMS_URL"
+	E2E_TEST_DATA_STREAMS_USERNAME_ENV = "E2E_TEST_DATA_STREAMS_USERNAME"
+	E2E_TEST_DATA_STREAMS_PASSWORD_ENV = "E2E_TEST_DATA_STREAMS_PASSWORD"
+)
+
 type TestConfig struct {
 	ctf_config.TestConfig
 
@@ -404,6 +410,55 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 	return testConfig, nil
 }
 
+// Read config values from environment variables
+func (c *TestConfig) ReadFromEnvVar() error {
+	logger := logging.GetTestLogger(nil)
+
+	// Read values for base config from env vars
+	err := c.TestConfig.ReadFromEnvVar()
+	if err != nil {
+		return errors.Wrapf(err, "error reading test config values from env vars")
+	}
+
+	dsURL := ctf_config.MustReadEnvVar_String(E2E_TEST_DATA_STREAMS_URL_ENV)
+	if dsURL != "" {
+		if c.Automation == nil {
+			c.Automation = &a_config.Config{}
+		}
+		if c.Automation.DataStreams == nil {
+			c.Automation.DataStreams = &a_config.DataStreams{}
+		}
+		logger.Debug().Msgf("Using %s env var to override Automation.DataStreams.URL", E2E_TEST_DATA_STREAMS_URL_ENV)
+		c.Automation.DataStreams.URL = &dsURL
+	}
+
+	dsUsername := ctf_config.MustReadEnvVar_String(E2E_TEST_DATA_STREAMS_USERNAME_ENV)
+	if dsUsername != "" {
+		if c.Automation == nil {
+			c.Automation = &a_config.Config{}
+		}
+		if c.Automation.DataStreams == nil {
+			c.Automation.DataStreams = &a_config.DataStreams{}
+		}
+		logger.Debug().Msgf("Using %s env var to override Automation.DataStreams.Username", E2E_TEST_DATA_STREAMS_USERNAME_ENV)
+		c.Automation.DataStreams.Username = &dsUsername
+	}
+
+	dsPassword := ctf_config.MustReadEnvVar_String(E2E_TEST_DATA_STREAMS_PASSWORD_ENV)
+	if dsPassword != "" {
+		if c.Automation == nil {
+			c.Automation = &a_config.Config{}
+		}
+		if c.Automation.DataStreams == nil {
+			c.Automation.DataStreams = &a_config.DataStreams{}
+		}
+		logger.Debug().Msgf("Using %s env var to override Automation.DataStreams.Password", E2E_TEST_DATA_STREAMS_PASSWORD_ENV)
+		c.Automation.DataStreams.Password = &dsPassword
+	}
+
+	return nil
+}
+
 func (c *TestConfig) logRiskySettings(logger zerolog.Logger) {
 	isAnySimulated := false
 	for _, network := range c.Network.SelectedNetworks {
@@ -522,10 +577,6 @@ func (c *TestConfig) readNetworkConfiguration() error {
 
 	c.Network.UpperCaseNetworkNames()
 	c.Network.OverrideURLsAndKeysFromEVMNetwork()
-	err := c.Network.Default()
-	if err != nil {
-		return errors.Wrapf(err, "error reading default network config")
-	}
 
 	// this is the only value we need to generate dynamically before starting a new simulated chain
 	if c.PrivateEthereumNetwork != nil && c.PrivateEthereumNetwork.EthereumChainConfig != nil {

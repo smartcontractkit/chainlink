@@ -51,7 +51,6 @@ This file is recommended for local use to adjust dynamic variables or modify pre
 
 ```toml
 [ChainlinkImage]
-image = "your image name"
 version = "your tag"
 ```
 
@@ -64,7 +63,6 @@ cat << EOF > config.toml
 selected_networks=["$SELECTED_NETWORKS"]
 
 [ChainlinkImage]
-image="<SET USING E2E_TEST_CHAINLINK_IMAGE TEST SECRET ENV VAR>"
 version="$CHAINLINK_VERSION"
 postgres_version="$CHAINLINK_POSTGRES_VERSION"
 
@@ -88,6 +86,19 @@ This variable is automatically relayed to Kubernetes-based tests, eliminating th
 Test secrets are not stored directly within the `TestConfig` TOML for security reasons. Instead, they are passed into `TestConfig` via environment variables. This ensures sensitive data is handled securely throughout our testing processes.
 
 For detailed instructions on how to set test secrets both locally and within CI environments, please visit: [Test Secrets Guide in CTF](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md#test-secrets)
+
+### All test secrets
+
+See [All E2E Test Secrets in CTF](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md#all-e2e-test-secrets). 
+
+### Core repo specific test secrets
+
+| Secret                        | Env Var                                                             | Example                                      | Description                                                                          |
+| ----------------------------- | ------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Data Streams Url              | `E2E_TEST_DATA_STREAMS_URL`                                         | `E2E_TEST_DATA_STREAMS_URL=url`              | Required by some automation tests to connect to data streams.                         |
+| Data Streams Username         | `E2E_TEST_DATA_STREAMS_USERNAME`                                    | `E2E_TEST_DATA_STREAMS_USERNAME=username`    | Required by some automation tests to connect to data streams.    |
+| Data Streams Password         | `E2E_TEST_DATA_STREAMS_PASSWORD`                                    | `E2E_TEST_DATA_STREAMS_PASSWORD=password`    | Required by some automation tests to connect to data streams. |
+
 
 ## Named Configurations
 

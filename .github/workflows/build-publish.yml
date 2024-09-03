@@ -51,13 +51,9 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           ecr-hostname: ${{ env.ECR_HOSTNAME }}
           ecr-image-name: ${{ env.ECR_IMAGE_NAME }}
-          sign-images: true
-          sign-method: "keypair"
-          cosign-private-key: ${{ secrets.COSIGN_PRIVATE_KEY }}
-          cosign-public-key: ${{ secrets.COSIGN_PUBLIC_KEY }}
-          cosign-password: ${{ secrets.COSIGN_PASSWORD }}
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          sign-images: true
           verify-signature: true
 
       - name: Collect Metrics
@@ -97,7 +93,6 @@ jobs:
         id: goreleaser-build-sign-publish
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
-          enable-docker-publish: "true"
           docker-registry: ${{ env.ECR_HOSTNAME}}
           docker-image-name: ${{ env.ECR_IMAGE_NAME }}
           docker-image-tag: ${{ github.ref_name }}
@@ -105,11 +100,8 @@ jobs:
           goreleaser-config: .goreleaser.develop.yaml
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
           zig-version: 0.11.0
-          enable-cosign: "true"
-          cosign-version: 3.4.0
-          cosign-password: ${{ secrets.COSIGN_PASSWORD }}
-          cosign-public-key: ${{ secrets.COSIGN_PUBLIC_KEY }}
-          cosign-private-key: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          enable-cosign: true
+          cosign-version: "v2.4.0"
 
       - name: Output image name and digest
         shell: sh

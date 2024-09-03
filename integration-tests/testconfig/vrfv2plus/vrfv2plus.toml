@@ -189,6 +189,7 @@ chainlink_node_funding = 0.7
 
 [VRFv2Plus]
 [VRFv2Plus.General]
+sub_billing_tolerance_wei = 1e15
 use_test_coordinator = false
 cancel_subs_after_test_run = true
 use_existing_env = false
@@ -290,19 +291,17 @@ bhs_test_rate_limit_unit_duration = "3s"
 bhs_test_rps = 1
 
 #SOAK TEST CONFIG
-[Soak.Common]
-chainlink_node_funding = 0.1
 
 [Soak.VRFv2Plus.General]
 randomness_request_count_per_request = 4 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
 number_of_sending_keys_to_create = 0
-subscription_funding_amount_link = 50
-subscription_funding_amount_native=10
+subscription_funding_amount_link = 500
+subscription_funding_amount_native = 100
 
 [Soak.VRFv2Plus.Performance]
-test_duration = "2m"
+test_duration = "2h"
 rate_limit_unit_duration = "10s"
 rps = 1
 bhs_test_duration = "1m"
@@ -334,16 +333,16 @@ bhs_test_rps = 1
 chainlink_node_funding = 0.1
 
 [Stress.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+randomness_request_count_per_request = 30 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
 number_of_sending_keys_to_create = 0
-subscription_funding_amount_link = 5.0
-subscription_funding_amount_native=1
+subscription_funding_amount_link = 500
+subscription_funding_amount_native=100
 
 [Stress.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
+test_duration = "10m"
+rate_limit_unit_duration = "10s"
 rps = 1
 bhs_test_duration = "1m"
 bhs_test_rate_limit_unit_duration = "3s"
@@ -444,55 +443,33 @@ wait_for_256_blocks_timeout = "15m"
 wrapper_consumer_funding_amount_native_token = 1.0
 wrapper_consumer_funding_amount_link = 3
 
-
-[POLYGON_AMOY-Smoke.VRFv2Plus.Performance]
-test_duration = "2s"
-rate_limit_unit_duration = "15s"
-rps = 1
-
-
-#SOAK TEST CONFIG
 [POLYGON_AMOY-Soak.VRFv2Plus.General]
-randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request = 4 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 subscription_funding_amount_link = 500
-subscription_funding_amount_native = 200
+subscription_funding_amount_native = 100
 
 [POLYGON_AMOY-Soak.VRFv2Plus.Performance]
-test_duration = "5h"
-rate_limit_unit_duration = "3s"
+test_duration = "2h"
+rate_limit_unit_duration = "10s"
 rps = 1
 
-# LOAD TEST CONFIG
-[POLYGON_AMOY-Load.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
-number_of_sub_to_create = 1
-subscription_funding_amount_link = 300
-subscription_funding_amount_native = 300
-
-[POLYGON_AMOY-Load.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-
-# STRESS TEST CONFIG
 [POLYGON_AMOY-Stress.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+randomness_request_count_per_request = 150 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 5.0
-subscription_funding_amount_native = 0.1
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
+subscription_funding_amount_native=100
 
 [POLYGON_AMOY-Stress.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
+test_duration = "10m"
+rate_limit_unit_duration = "1m"
 rps = 1
 
 ### ARBITRUM SEPOLIA Config
-
 [ARBITRUM_SEPOLIA.VRFv2Plus.General]
 use_test_coordinator = true
 #todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
@@ -589,52 +566,31 @@ wait_for_256_blocks_timeout = "100s"
 wrapper_consumer_funding_amount_native_token = 1.0
 wrapper_consumer_funding_amount_link = 5
 
-[ARBITRUM_SEPOLIA-Smoke.VRFv2Plus.Performance]
-test_duration = "1s"
-rate_limit_unit_duration = "10s"
-rps = 1
-
-
-#SOAK TEST CONFIG
 [ARBITRUM_SEPOLIA-Soak.VRFv2Plus.General]
 randomness_request_count_per_request = 4 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 300
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
 subscription_funding_amount_native = 100
 
 [ARBITRUM_SEPOLIA-Soak.VRFv2Plus.Performance]
-test_duration = "1h"
+test_duration = "2h"
 rate_limit_unit_duration = "10s"
 rps = 1
 
-# LOAD TEST CONFIG
-[ARBITRUM_SEPOLIA-Load.VRFv2Plus.General]
-randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+[ARBITRUM_SEPOLIA-Stress.VRFv2Plus.General]
+randomness_request_count_per_request = 150 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 100
-subscription_funding_amount_native = 60
-
-[ARBITRUM_SEPOLIA-Load.VRFv2Plus.Performance]
-test_duration = "30m"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-
-# STRESS TEST CONFIG
-[ARBITRUM_SEPOLIA-Stress.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
-number_of_sub_to_create = 1
-subscription_funding_amount_link = 5.0
-subscription_funding_amount_native = 0.1
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
+subscription_funding_amount_native=100
 
 [ARBITRUM_SEPOLIA-Stress.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
+test_duration = "10m"
+rate_limit_unit_duration = "1m"
 rps = 1
-
 
 ### AVALANCHE FUJI Config
 [AVALANCHE_FUJI.Common]
@@ -717,50 +673,30 @@ wait_for_256_blocks_timeout = "10m"
 wrapper_consumer_funding_amount_native_token = 1.0
 wrapper_consumer_funding_amount_link = 5
 
-[AVALANCHE_FUJI-Smoke.VRFv2Plus.Performance]
-test_duration = "2s"
+[AVALANCHE_FUJI-Soak.VRFv2Plus.General]
+randomness_request_count_per_request = 4 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
+subscription_funding_amount_native = 100
+
+[AVALANCHE_FUJI-Soak.VRFv2Plus.Performance]
+test_duration = "2h"
 rate_limit_unit_duration = "10s"
 rps = 1
 
-
-#SOAK TEST CONFIG
-[AVALANCHE_FUJI-Soak.VRFv2Plus.General]
-randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+[AVALANCHE_FUJI-Stress.VRFv2Plus.General]
+randomness_request_count_per_request = 60 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 400
-subscription_funding_amount_native = 200
-
-[AVALANCHE_FUJI-Soak.VRFv2Plus.Performance]
-test_duration = "5h"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-# LOAD TEST CONFIG
-[AVALANCHE_FUJI-Load.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
-number_of_sub_to_create = 1
-subscription_funding_amount_link = 300
-subscription_funding_amount_native = 300
-
-[AVALANCHE_FUJI-Load.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-
-# STRESS TEST CONFIG
-[AVALANCHE_FUJI-Stress.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
-number_of_sub_to_create = 1
-subscription_funding_amount_link = 5.0
-subscription_funding_amount_native = 0.1
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
+subscription_funding_amount_native=100
 
 [AVALANCHE_FUJI-Stress.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
+test_duration = "10m"
+rate_limit_unit_duration = "1m"
 rps = 1
 
 ### ETH SEPOLIA Config
@@ -842,48 +778,30 @@ wait_for_256_blocks_timeout = "70m"
 wrapper_consumer_funding_amount_native_token = 1.0
 wrapper_consumer_funding_amount_link = 3
 
-[SEPOLIA-Smoke.VRFv2Plus.Performance]
-test_duration = "2s"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-#SOAK TEST CONFIG
 [SEPOLIA-Soak.VRFv2Plus.General]
-randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request = 4 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 subscription_funding_amount_link = 500
-subscription_funding_amount_native = 200
+subscription_funding_amount_native = 100
 
 [SEPOLIA-Soak.VRFv2Plus.Performance]
 test_duration = "2h"
-rate_limit_unit_duration = "3s"
+rate_limit_unit_duration = "10s"
 rps = 1
 
-# LOAD TEST CONFIG
-[SEPOLIA-Load.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
-number_of_sub_to_create = 1
-subscription_funding_amount_link = 5.0
-subscription_funding_amount_native = 30
-
-[SEPOLIA-Load.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-# STRESS TEST CONFIG
 [SEPOLIA-Stress.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+randomness_request_count_per_request = 30 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 5.0
-subscription_funding_amount_native = 0.1
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
+subscription_funding_amount_native=100
 
 [SEPOLIA-Stress.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
+test_duration = "10m"
+rate_limit_unit_duration = "1m"
 rps = 1
 
 ### BSC TESTNET Config
@@ -965,52 +883,31 @@ wait_for_256_blocks_timeout = "15m"
 wrapper_consumer_funding_amount_native_token = 1.0
 wrapper_consumer_funding_amount_link = 5
 
-[BSC_TESTNET-Smoke.VRFv2Plus.Performance]
-test_duration = "15s"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-
-#SOAK TEST CONFIG
 [BSC_TESTNET-Soak.VRFv2Plus.General]
-randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request = 4 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 400
-subscription_funding_amount_native = 200
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
+subscription_funding_amount_native = 100
 
 [BSC_TESTNET-Soak.VRFv2Plus.Performance]
-test_duration = "5h"
-rate_limit_unit_duration = "3s"
+test_duration = "2h"
+rate_limit_unit_duration = "10s"
 rps = 1
 
-# LOAD TEST CONFIG
-[BSC_TESTNET-Load.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
-number_of_sub_to_create = 1
-subscription_funding_amount_link = 300
-subscription_funding_amount_native = 300
-
-[BSC_TESTNET-Load.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-
-# STRESS TEST CONFIG
 [BSC_TESTNET-Stress.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+randomness_request_count_per_request = 60 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 5.0
-subscription_funding_amount_native = 0.1
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
+subscription_funding_amount_native=100
 
 [BSC_TESTNET-Stress.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
+test_duration = "10m"
+rate_limit_unit_duration = "1m"
 rps = 1
-
 
 ### NEXON QA Config
 [NEXON_QA.VRFv2Plus.General]
@@ -1052,51 +949,30 @@ wait_for_256_blocks_timeout = "25m"
 wrapper_consumer_funding_amount_link = 21
 wrapper_consumer_funding_amount_native_token = 3
 
-
-[NEXON_QA-Smoke.VRFv2Plus.Performance]
-test_duration = "2s"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-
-#SOAK TEST CONFIG
 [NEXON_QA-Soak.VRFv2Plus.General]
-randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request = 4 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 400
-subscription_funding_amount_native = 200
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
+subscription_funding_amount_native = 100
 
 [NEXON_QA-Soak.VRFv2Plus.Performance]
-test_duration = "5h"
-rate_limit_unit_duration = "3s"
+test_duration = "2h"
+rate_limit_unit_duration = "10s"
 rps = 1
 
-# LOAD TEST CONFIG
-[NEXON_QA-Load.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
-number_of_sub_to_create = 1
-subscription_funding_amount_link = 300
-subscription_funding_amount_native = 300
-
-[NEXON_QA-Load.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-
-# STRESS TEST CONFIG
 [NEXON_QA-Stress.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+randomness_request_count_per_request = 60 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 5.0
-subscription_funding_amount_native = 2
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
+subscription_funding_amount_native=100
 
 [NEXON_QA-Stress.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
+test_duration = "10m"
+rate_limit_unit_duration = "1m"
 rps = 1
 
 ### NEXON DEV Config
@@ -1138,52 +1014,31 @@ wait_for_256_blocks_timeout = "25m"
 wrapper_consumer_funding_amount_link = 21
 wrapper_consumer_funding_amount_native_token = 3
 
-[NEXON_DEV-Smoke.VRFv2Plus.Performance]
-test_duration = "2s"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-
-#SOAK TEST CONFIG
 [NEXON_DEV-Soak.VRFv2Plus.General]
-randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request = 4 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 400
-subscription_funding_amount_native = 200
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
+subscription_funding_amount_native = 100
 
 [NEXON_DEV-Soak.VRFv2Plus.Performance]
-test_duration = "5h"
-rate_limit_unit_duration = "3s"
+test_duration = "2h"
+rate_limit_unit_duration = "10s"
 rps = 1
 
-# LOAD TEST CONFIG
-[NEXON_DEV-Load.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
-number_of_sub_to_create = 1
-subscription_funding_amount_link = 300
-subscription_funding_amount_native = 300
-
-[NEXON_DEV-Load.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-
-# STRESS TEST CONFIG
 [NEXON_DEV-Stress.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+randomness_request_count_per_request = 60 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 5.0
-subscription_funding_amount_native = 0.1
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
+subscription_funding_amount_native=100
 
 [NEXON_DEV-Stress.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
+test_duration = "10m"
+rate_limit_unit_duration = "1m"
 rps = 1
-
 
 ### NEXON TEST Config
 [NEXON_TEST.VRFv2Plus.General]
@@ -1225,50 +1080,30 @@ wait_for_256_blocks_timeout = "25m"
 wrapper_consumer_funding_amount_link = 5
 wrapper_consumer_funding_amount_native_token = 3
 
-[NEXON_TEST-Smoke.VRFv2Plus.Performance]
-test_duration = "2s"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-
-#SOAK TEST CONFIG
 [NEXON_TEST-Soak.VRFv2Plus.General]
-randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request = 4 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 400
-subscription_funding_amount_native = 200
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
+subscription_funding_amount_native = 100
 
 [NEXON_TEST-Soak.VRFv2Plus.Performance]
-test_duration = "5h"
-rate_limit_unit_duration = "3s"
+test_duration = "2h"
+rate_limit_unit_duration = "10s"
 rps = 1
 
-# LOAD TEST CONFIG
-[NEXON_TEST-Load.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
-number_of_sub_to_create = 1
-subscription_funding_amount_link = 300
-subscription_funding_amount_native = 300
-
-[NEXON_TEST-Load.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-
-# STRESS TEST CONFIG
 [NEXON_TEST-Stress.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+randomness_request_count_per_request = 60 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 5.0
-subscription_funding_amount_native = 0.1
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
+subscription_funding_amount_native=100
 
 [NEXON_TEST-Stress.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
+test_duration = "10m"
+rate_limit_unit_duration = "1m"
 rps = 1
 
 
@@ -1308,50 +1143,28 @@ wait_for_256_blocks_timeout = "25m"
 wrapper_consumer_funding_amount_link = 21
 wrapper_consumer_funding_amount_native_token = 3
 
-[NEXON_STAGE-Smoke.VRFv2Plus.Performance]
-test_duration = "2s"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-
-#SOAK TEST CONFIG
 [NEXON_STAGE-Soak.VRFv2Plus.General]
-randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request = 4 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 400
-subscription_funding_amount_native = 200
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
+subscription_funding_amount_native = 100
 
 [NEXON_STAGE-Soak.VRFv2Plus.Performance]
-test_duration = "5h"
-rate_limit_unit_duration = "3s"
+test_duration = "2h"
+rate_limit_unit_duration = "10s"
 rps = 1
 
-# LOAD TEST CONFIG
-[NEXON_STAGE-Load.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
-number_of_sub_to_create = 1
-subscription_funding_amount_link = 300
-subscription_funding_amount_native = 300
-
-[NEXON_STAGE-Load.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
-rps = 1
-
-
-# STRESS TEST CONFIG
 [NEXON_STAGE-Stress.VRFv2Plus.General]
-randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
-randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+randomness_request_count_per_request = 60 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 5.0
-subscription_funding_amount_native = 0.1
+number_of_sending_keys_to_create = 0
+subscription_funding_amount_link = 500
+subscription_funding_amount_native=100
 
 [NEXON_STAGE-Stress.VRFv2Plus.Performance]
-test_duration = "2m"
-rate_limit_unit_duration = "3s"
+test_duration = "10m"
+rate_limit_unit_duration = "1m"
 rps = 1
-
-
