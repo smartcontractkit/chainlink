@@ -11,6 +11,7 @@ NoNewFinalizedHeadsThreshold = '12m'
 MaxQueued = 5000
 
 [GasEstimator]
+Mode = 'FeeHistory'
 PriceDefault = '25 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '25 gwei'
@@ -18,8 +19,8 @@ EIP1559DynamicFees = true
 BumpMin = '20 gwei'
 BumpThreshold = 5
 
-[GasEstimator.BlockHistory]
-BlockHistorySize = 24
+[GasEstimator.FeeHistory]
+CacheTimeout = '4s'
 
 [HeadTracker]
 HistoryDepth = 2000
