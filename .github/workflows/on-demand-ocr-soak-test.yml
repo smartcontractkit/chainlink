@@ -74,16 +74,15 @@ jobs:
           SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
           echo ::add-mask::$SLACK_USER
           echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
-      - name: Setup Push Tag
-        shell: bash
-        run: |
-          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
       - name: Show test config override path in summary
         if: ${{ inputs.test_config_override_path }}
         run: |
           echo "### Test config override path" >> $GITHUB_STEP_SUMMARY
           echo "[${{ inputs.test_config_override_path }}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/${{ github.sha }}/${{ inputs.test_config_override_path }})" >> $GITHUB_STEP_SUMMARY          
+      - name: Show chainlink version in summary
+        run: |
+          echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
+          echo "${{ inputs.chainlink_version }}" >> $GITHUB_STEP_SUMMARY
       - name: Build Image
         id: build_test_image
         uses: ./.github/actions/build-test-image
