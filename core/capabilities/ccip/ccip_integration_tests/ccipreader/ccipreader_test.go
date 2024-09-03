@@ -353,6 +353,65 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	require.Equal(t, cciptypes.SeqNum(25)+1, seqNum)
 }
 
+func TestCCIPReader_Nonces(t *testing.T) {
+	ctx := testutils.Context(t)
+	var nonces = map[cciptypes.ChainSelector]map[common.Address]uint64{
+		chainS1: {
+			utils.RandomAddress(): 10,
+			utils.RandomAddress(): 20,
+		},
+		chainS2: {
+			utils.RandomAddress(): 30,
+			utils.RandomAddress(): 40,
+		},
+		chainS3: {
+			utils.RandomAddress(): 50,
+			utils.RandomAddress(): 60,
+		},
+	}
+
+	cfg := evmtypes.ChainReaderConfig{
+		Contracts: map[string]evmtypes.ChainContractReader{
+			consts.ContractNameNonceManager: {
+				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
+				Configs: map[string]*evmtypes.ChainReaderDefinition{
+					consts.MethodNameGetInboundNonce: {
+						ChainSpecificName: "getInboundNonce",
+						ReadType:          evmtypes.Method,
+					},
+				},
+			},
+		},
+	}
+
+	s := testSetup(ctx, t, chainD, chainD, nil, cfg)
+
+	// Add some nonces. The test contract isn't using source
+	for chain, addrs := range nonces {
+		for addr, nonce := range addrs {
+			_, err := s.contract.SetInboundNonce(s.auth, uint64(chain), nonce, addr.Bytes())
+			assert.NoError(t, err)
+		}
+	}
+	s.sb.Commit()
+
+	for sourceChain, addrs := range nonces {
+
+		var addrQuery []string
+		for addr := range addrs {
+			addrQuery = append(addrQuery, addr.String())
+		}
+		addrQuery = append(addrQuery, utils.RandomAddress().String())
+
+		results, err := s.reader.Nonces(ctx, sourceChain, chainD, addrQuery)
+		assert.NoError(t, err)
+		assert.Len(t, results, len(addrQuery))
+		for addr, nonce := range addrs {
+			assert.Equal(t, nonce, results[addr.String()])
+		}
+	}
+}
+
 func testSetup(ctx context.Context, t *testing.T, readerChain, destChain cciptypes.ChainSelector, onChainSeqNums map[cciptypes.ChainSelector]cciptypes.SeqNum, cfg evmtypes.ChainReaderConfig) *testSetupData {
 	const chainID = 1337
 
