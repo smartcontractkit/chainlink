@@ -5,7 +5,7 @@ on:
       test_ids:
         description: Commas separated list of test IDs to run (see .github/e2e-tests.yml)
         required: false
-        default: TestVRFv2Plus_LinkBilling,TestVRFv2Plus_NativeBilling
+        default: TestVRFv2Plus_LinkBilling,TestVRFv2Plus_NativeBilling,TestVRFv2Plus_DirectFunding,TestVRFV2PlusWithBHS
       test_config_override_path:
         description: Path to a test config file used to override the default test config
         required: false

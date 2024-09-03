@@ -690,6 +690,18 @@ runner-test-matrix:
     test_env_type: docker
     test_cmd: cd integration-tests && go test -v -test.run ^TestVRFv2Plus$/^Native_Billing$ smoke/vrfv2plus_test.go -test.parallel=1 -timeout 30m -count=1 -json
 
+  - id: TestVRFv2Plus_DirectFunding
+    path: integration-tests/smoke/vrfv2plus_test.go
+    runs_on: ubuntu-latest
+    test_env_type: docker
+    test_cmd: cd integration-tests && go test -v -test.run ^TestVRFv2Plus$/^DirectFunding$ smoke/vrfv2plus_test.go -test.parallel=1 -timeout 30m -count=1 -json
+
+  - id: TestVRFV2PlusWithBHS
+    path: integration-tests/smoke/vrfv2plus_test.go
+    runs_on: ubuntu-latest
+    test_env_type: docker
+    test_cmd: cd integration-tests && go test -v -test.run TestVRFV2PlusWithBHS smoke/vrfv2plus_test.go -test.parallel=1 -timeout 30m -count=1 -json
+
   - id: smoke/vrf_test.go:*
     path: integration-tests/smoke/vrf_test.go
     test_env_type: docker
