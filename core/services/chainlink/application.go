@@ -577,6 +577,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			jobSpawner,
 			keyStore,
 			cfg,
+			cfg.Feature(),
 			cfg.Insecure(),
 			cfg.JobPipeline(),
 			cfg.OCR(),
