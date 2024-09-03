@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 // solhint-disable-next-line no-unused-import

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.24;
 
 import {MockBridgehub} from "../../mocks/zksync/MockZKSyncL1Bridge.sol";
 import {ISequencerUptimeFeed} from "../../../dev/interfaces/ISequencerUptimeFeed.sol";
