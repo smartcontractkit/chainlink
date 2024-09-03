@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -417,6 +418,11 @@ func (e *Engine) loop(ctx context.Context) {
 			}
 
 			te := resp.Event
+
+			if te.ID == "" {
+				e.logger.With(tIDKey, te.TriggerType).Error("trigger event ID is empty; not executing")
+				continue
+			}
 
 			executionID, err := generateExecutionID(e.workflow.id, te.ID)
 			if err != nil {

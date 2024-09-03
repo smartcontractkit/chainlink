@@ -2,25 +2,25 @@
 The deployment package in the integration-tests Go module serves
 as a product agnostic set of environment abstractions used
 to deploy and configure products including both on/offchain
-dependencies. The environment abstractions allow for 
+dependencies. The environment abstractions allow for
 complex and critical deployment/configuration logic to be tested
 against ephemeral environments and then exposed for use in persistent
-environments like testnet/mainnet. 
+environments like testnet/mainnet.
 
 ### Directory structure
 
-/deployment 
+/deployment
 - package name `deployment`
 - Product agnostic environment abstractions and helpers using those
-abstractions
+  abstractions
 
 /deployment/memory
 - package name `memory`
 - In-memory environment for fast integration testing
-- EVM only 
+- EVM only
 
 /deployment/docker
-- Coming soon 
+- Coming soon
 - package name `docker`
 - Docker environment for higher fidelity testing
 - Support non-EVMs
@@ -30,12 +30,12 @@ abstractions
 - Files and tests per product deployment/configuration workflows
 - Tests can use deployment/memory for fast integration testing
 - TODO: System state representation is defined here, need to define
-an interface to comply with for all products.
+  an interface to comply with for all products.
 
 /deployment/ccip/changeset
-- package name `changeset` imported as `ccipchangesets` 
-- These function like scripts describing state transitions 
-you wish to apply to _persistent_ environments like testnet/mainnet
+- package name `changeset` imported as `ccipchangesets`
+- These function like scripts describing state transitions
+  you wish to apply to _persistent_ environments like testnet/mainnet
 - Ordered list of Go functions following the format
 ```Go
 0001_descriptive_name.go
