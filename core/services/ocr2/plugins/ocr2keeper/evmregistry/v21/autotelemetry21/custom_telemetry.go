@@ -68,10 +68,15 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 					if err != nil {
 						e.lggr.Errorf("Error occurred while getting newestConfigDetails in configDigest loop %s", err)
 					}
+					configChanged := false
+					e.mu.Lock()
 					if newConfigDigest != e.configDigest {
-						e.mu.Lock()
 						e.configDigest = newConfigDigest
-						e.mu.Unlock()
+						configChanged = true
+					}
+					e.mu.Unlock()
+
+					if configChanged {
 						e.sendNodeVersionMsg()
 					}
 				case <-hourTicker.C:
@@ -132,7 +137,7 @@ func (e *AutomationCustomTelemetryService) sendNodeVersionMsg() {
 	vMsg := &telem.NodeVersion{
 		Timestamp:    uint64(time.Now().UTC().UnixMilli()),
 		NodeVersion:  static.Version,
-		ConfigDigest: e.configDigest[:],
+		ConfigDigest: configDigest[:],
 	}
 	wrappedVMsg := &telem.AutomationTelemWrapper{
 		Msg: &telem.AutomationTelemWrapper_NodeVersion{
@@ -150,13 +155,14 @@ func (e *AutomationCustomTelemetryService) sendNodeVersionMsg() {
 
 func (e *AutomationCustomTelemetryService) sendBlockNumberMsg(blockKey ocr2keepers.BlockKey) {
 	e.mu.RLock()
-	defer e.mu.RUnlock()
+	configDigest := e.configDigest
+	e.mu.RUnlock()
 
 	blockNumMsg := &telem.BlockNumber{
 		Timestamp:    uint64(time.Now().UTC().UnixMilli()),
 		BlockNumber:  uint64(blockKey.Number),
 		BlockHash:    hex.EncodeToString(blockKey.Hash[:]),
-		ConfigDigest: e.configDigest[:],
+		ConfigDigest: configDigest[:],
 	}
 	wrappedBlockNumMsg := &telem.AutomationTelemWrapper{
 		Msg: &telem.AutomationTelemWrapper_BlockNumber{
