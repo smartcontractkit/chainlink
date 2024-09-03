@@ -21,7 +21,7 @@ jobs:
       # slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
       slack_notification_after_tests_channel_id: "#lf-slack-notification-tests"
       slack_notification_after_tests_name: JUST TESTING PLEASE IGNORE - VRF E2E Release Tests
-      slack_notification_after_tests_notify_user_id_on_failure: 'D04ENK9VDFA'
+      slack_notification_after_tests_notify_user_id_on_failure: 'U04DYU1KLGJ'
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

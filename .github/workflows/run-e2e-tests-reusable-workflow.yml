@@ -807,6 +807,7 @@ jobs:
           channel-id: ${{ inputs.slack_notification_after_tests_channel_id }}
           payload: |
             {
+              "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || '#2E7D32' }}",
               "blocks": [
                 {
                   "type": "section",
@@ -837,7 +838,6 @@ jobs:
               "thread_ts": "${{ steps.slack.outputs.thread_ts }}",
               "attachments": [
                 {
-                  "color": "${{ '#C62828' }}",
                   "blocks": [
                     {
                       "type": "section",
