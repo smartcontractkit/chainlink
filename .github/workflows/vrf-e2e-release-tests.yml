@@ -8,7 +8,6 @@ on:
         default: develop
         required: true
         type: string
-  push:
 
 jobs:
   run-e2e-tests-workflow:
