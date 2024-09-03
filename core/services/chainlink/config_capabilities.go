@@ -6,7 +6,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
 var _ config.Capabilities = (*capabilitiesConfig)(nil)
@@ -125,8 +124,8 @@ func (c *gatewayConnectorConfig) Gateways() []config.ConnectorGatewayConfig {
 	return t
 }
 
-func (c *gatewayConnectorConfig) WsClientConfig() network.WebSocketClientConfig {
-	return *c.c.WsClientConfig
+func (c *gatewayConnectorConfig) WsHandshakeTimeoutMillis() uint32 {
+	return *c.c.WsHandshakeTimeoutMillis
 }
 
 func (c *gatewayConnectorConfig) AuthMinChallengeLen() int {

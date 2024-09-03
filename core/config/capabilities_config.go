@@ -1,13 +1,9 @@
 package config
 
-// import cycle not allowed in testgo list
-
 import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	// import cycle not allowedgo list
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
 type CapabilitiesExternalRegistry interface {
@@ -21,7 +17,7 @@ type GatewayConnectorConfig interface {
 	NodeAddress() string
 	DonId() string
 	Gateways() []ConnectorGatewayConfig
-	WsClientConfig() network.WebSocketClientConfig
+	WsHandshakeTimeoutMillis() uint32
 	AuthMinChallengeLen() int
 	AuthTimestampToleranceSec() uint32
 }

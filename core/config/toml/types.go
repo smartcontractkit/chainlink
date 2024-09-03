@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
@@ -1487,7 +1486,7 @@ type GatewayConnectorConfig struct {
 	NodeAddress               *string
 	DonId                     *string
 	Gateways                  []ConnectorGatewayConfig
-	WsClientConfig            *network.WebSocketClientConfig
+	WsHandshakeTimeoutMillis  *uint32
 	AuthMinChallengeLen       *int
 	AuthTimestampToleranceSec *uint32
 }
@@ -1506,8 +1505,8 @@ func (r *GatewayConnectorConfig) setFrom(f *GatewayConnectorConfig) {
 		r.Gateways = f.Gateways
 	}
 
-	if !reflect.ValueOf(f.WsClientConfig).IsZero() {
-		r.WsClientConfig = f.WsClientConfig
+	if !reflect.ValueOf(f.WsHandshakeTimeoutMillis).IsZero() {
+		r.WsHandshakeTimeoutMillis = f.WsHandshakeTimeoutMillis
 	}
 
 	if f.AuthMinChallengeLen != nil {
