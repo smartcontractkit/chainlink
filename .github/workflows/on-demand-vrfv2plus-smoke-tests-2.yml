@@ -1,0 +1,47 @@
+name: On Demand VRFV2 Plus Smoke Tests 2
+on:
+  workflow_dispatch:
+    inputs:
+      test_ids:
+        description: Commas separated list of test IDs to run (see .github/e2e-tests.yml)
+        required: false
+        default: TestVRFv2Plus_LinkBilling,TestVRFv2Plus_NativeBilling
+      test_config_override_path:
+        description: Path to a test config file used to override the default test config
+        required: false
+        type: string          
+      test_secrets_override_key:
+        description: 'Key to run tests with custom test secrets'
+        required: false
+        type: string
+      chainlink_version:
+        description: 'Enter Chainlink version to use for the tests. Example: develop or sha'
+        required: false
+        type: string
+        default: develop
+
+jobs:
+  run-e2e-tests-workflow:
+    name: Run E2E Tests
+    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
+    with:
+      chainlink_version: ${{ inputs.chainlink_version }}
+      test_ids: ${{ inputs.test_ids }}
+      test_config_override_path: ${{ inputs.test_config_override_path }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      TEST_SECRETS_OVERRIDE_BASE64: ${{ secrets[inputs.test_secrets_override_key] }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}

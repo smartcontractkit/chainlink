@@ -678,15 +678,17 @@ runner-test-matrix:
     workflows:
       - On Demand VRFV2 Performance Test
 
-  - id: smoke/vrfv2plus_test.go:^TestVRFv2Plus$/^Link_Billing$
+  - id: TestVRFv2Plus_LinkBilling
     path: integration-tests/smoke/vrfv2plus_test.go
-    runs_on: ubuntu22.04-8cores-32GB
+    runs_on: ubuntu-latest
     test_env_type: docker
     test_cmd: cd integration-tests && go test -v -test.run ^TestVRFv2Plus$/^Link_Billing$ smoke/vrfv2plus_test.go -test.parallel=1 -timeout 30m -count=1 -json
-    test_config_override_required: true
-    test_secrets_required: true
-    workflows:
-      - On Demand VRFV2Plus Smoke Test (Ethereum clients)
+
+  - id: TestVRFv2Plus_NativeBilling
+    path: integration-tests/smoke/vrfv2plus_test.go
+    runs_on: ubuntu-latest
+    test_env_type: docker
+    test_cmd: cd integration-tests && go test -v -test.run ^TestVRFv2Plus$/^Native_Billing$ smoke/vrfv2plus_test.go -test.parallel=1 -timeout 30m -count=1 -json
 
   - id: smoke/vrf_test.go:*
     path: integration-tests/smoke/vrf_test.go
