@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
-// RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
+// RPCClient includes all the necessary generalized RPC methods used by Node to perform health checks
 type RPCClient[
 	CHAIN_ID types.ID,
 	HEAD Head,
