@@ -3,10 +3,12 @@ package ccipdeployment
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/hooks"
 	seth_chain "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/seth"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -51,12 +53,27 @@ func TestDeployCapReg_NewDevnet_Concurrent(t *testing.T) {
 	firstNetworkConfig := ctf_config.MustGetDefaultChainConfig()
 	firstNetworkConfig.ChainID = 1337
 
+	ls, err := logstream.NewLogStream(t, &ctf_config.LoggingConfig{
+		TestLogCollect: ptr.Ptr(true),
+		LogStream: &ctf_config.LogStreamConfig{
+			LogTargets:            []string{fmt.Sprint(logstream.File)},
+			LogProducerTimeout:    ptr.Ptr(blockchain.StrDuration{Duration: 1 * time.Minute}),
+			LogProducerRetryLimit: ptr.Ptr(uint(5)),
+		},
+	})
+	require.NoError(t, err, "Error creating new log stream")
+
+	defaultNewEVMHooks := hooks.DefaultPrivateEVMHooks{
+		T:         t,
+		LogStream: ls,
+	}
+
 	firstChain, err := seth_chain.CreateNewEVMChainWithSeth(ctf_config.EthereumNetworkConfig{
 		ExecutionLayer:      &geth,
 		EthereumVersion:     &eth1,
 		EthereumChainConfig: &firstNetworkConfig,
 		DockerNetworkNames:  []string{dockerNetwork.Name},
-	}, *defaultSethConfig)
+	}, *defaultSethConfig, &defaultNewEVMHooks)
 	require.NoError(t, err, "Error creating new EVM chain with Seth")
 
 	secondNetworkConfig := ctf_config.MustGetDefaultChainConfig()
@@ -67,7 +84,7 @@ func TestDeployCapReg_NewDevnet_Concurrent(t *testing.T) {
 		EthereumVersion:     &eth1,
 		EthereumChainConfig: &secondNetworkConfig,
 		DockerNetworkNames:  []string{dockerNetwork.Name},
-	}, *defaultSethConfig)
+	}, *defaultSethConfig, &defaultNewEVMHooks)
 	require.NoError(t, err, "Error creating new EVM chain with Seth")
 
 	envConfig := persistent.EnvironmentConfig{
@@ -91,22 +108,6 @@ func TestDeployCCIPContractsInMemory(t *testing.T) {
 	testDeployCCIPContractsWithEnv(t, lggr, e)
 }
 
-type TestAwareDONHooks struct {
-	*testing.T
-}
-
-func (s *TestAwareDONHooks) PreStartupHook(nodes []*test_env.ClNode) error {
-	for _, node := range nodes {
-		node.SetTestLogger(s.T)
-	}
-
-	return nil
-}
-
-func (s *TestAwareDONHooks) PostStartupHook([]*test_env.ClNode) error {
-	return nil
-}
-
 func TestDeployCCIPContractsNewDevnet(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
@@ -120,12 +121,26 @@ func TestDeployCCIPContractsNewDevnet(t *testing.T) {
 	firstNetworkConfig := ctf_config.MustGetDefaultChainConfig()
 	firstNetworkConfig.ChainID = 1337
 
+	ls, err := logstream.NewLogStream(t, &ctf_config.LoggingConfig{
+		TestLogCollect: ptr.Ptr(true),
+		LogStream: &ctf_config.LogStreamConfig{
+			LogTargets:            []string{fmt.Sprint(logstream.File)},
+			LogProducerTimeout:    ptr.Ptr(blockchain.StrDuration{Duration: 1 * time.Minute}),
+			LogProducerRetryLimit: ptr.Ptr(uint(5)),
+		},
+	})
+	require.NoError(t, err, "Error creating new log stream")
+	defaultNewEVMHooks := hooks.DefaultPrivateEVMHooks{
+		T:         t,
+		LogStream: ls,
+	}
+
 	firstChain, err := seth_chain.CreateNewEVMChainWithSeth(ctf_config.EthereumNetworkConfig{
 		ExecutionLayer:      &geth,
 		EthereumVersion:     &eth1,
 		EthereumChainConfig: &firstNetworkConfig,
 		DockerNetworkNames:  []string{dockerNetwork.Name},
-	}, *defaultSethConfig)
+	}, *defaultSethConfig, &defaultNewEVMHooks)
 	require.NoError(t, err, "Error creating new EVM chain with Seth")
 
 	secondNetworkConfig := ctf_config.MustGetDefaultChainConfig()
@@ -136,7 +151,7 @@ func TestDeployCCIPContractsNewDevnet(t *testing.T) {
 		EthereumVersion:     &eth1,
 		EthereumChainConfig: &secondNetworkConfig,
 		DockerNetworkNames:  []string{dockerNetwork.Name},
-	}, *defaultSethConfig)
+	}, *defaultSethConfig, &defaultNewEVMHooks)
 	require.NoError(t, err, "Error creating new EVM chain with Seth")
 
 	envConfig := persistent.EnvironmentConfig{
@@ -145,7 +160,7 @@ func TestDeployCCIPContractsNewDevnet(t *testing.T) {
 		},
 		DONConfig: persistent.DONConfig{
 			NewDON: &persistent.NewDockerDONConfig{
-				NewDONHooks: &TestAwareDONHooks{t},
+				NewDONHooks: &hooks.DefaultDONHooks{t},
 				ChainlinkDeployment: testconfig.ChainlinkDeployment{
 					Common: &testconfig.Node{
 						ChainlinkImage: &ctfconfig.ChainlinkImageConfig{
@@ -221,7 +236,7 @@ func TestDeployCCIPContractsNewDevnet_FromTestConfig(t *testing.T) {
 	// here we are creating Seth config, but we should read it from the test config
 	defaultSethConfig := seth.NewClientBuilder().BuildConfig()
 
-	chainCfg, err := persistent.EVMChainConfigFromTestConfig(*testCfg, defaultSethConfig)
+	chainCfg, err := persistent.EVMChainConfigFromTestConfig(t, *testCfg, defaultSethConfig)
 	require.NoError(t, err, "Error creating chain config from test config")
 
 	envConfig := persistent.EnvironmentConfig{

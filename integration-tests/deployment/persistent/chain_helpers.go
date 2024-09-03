@@ -2,7 +2,11 @@ package persistent
 
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
+	"testing"
+
 	geth_chain "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/geth"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/hooks"
 	seth_chain "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/seth"
 	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"
 
@@ -15,7 +19,7 @@ import (
 )
 
 // TODO in the future Seth config should be part of the test config
-func EVMChainConfigFromTestConfig(testCfg ccipconfig.Config, sethConfig *seth.Config) (persistent_types.ChainConfig, error) {
+func EVMChainConfigFromTestConfig(t *testing.T, testCfg ccipconfig.Config, sethConfig *seth.Config) (persistent_types.ChainConfig, error) {
 	evmChainConfig := persistent_types.ChainConfig{
 		NewEVMChains:      make([]persistent_types.NewEVMChainProducer, 0),
 		ExistingEVMChains: make([]persistent_types.ExistingEVMChainProducer, 0),
@@ -36,6 +40,16 @@ func EVMChainConfigFromTestConfig(testCfg ccipconfig.Config, sethConfig *seth.Co
 		return evmChainConfig, err
 	}
 
+	ls, err := logstream.NewLogStream(t, testCfg.CCIP.Env.Logging)
+	if err != nil {
+		return evmChainConfig, err
+	}
+
+	evmHooks := hooks.DefaultPrivateEVMHooks{
+		T:         t,
+		LogStream: ls,
+	}
+
 	for _, network := range networks.MustGetSelectedNetworkConfig(testCfg.CCIP.Env.Network) {
 		if network.Simulated {
 			privateNetworkCfg, err := getSimulatedNetworkFromTestConfig(testCfg, uint64(network.ChainID))
@@ -45,9 +59,9 @@ func EVMChainConfigFromTestConfig(testCfg ccipconfig.Config, sethConfig *seth.Co
 			privateNetworkCfg.DockerNetworkNames = []string{dockerNetwork.Name}
 			var chainConfig persistent_types.NewEVMChainProducer
 			if sethConfig == nil {
-				chainConfig = geth_chain.CreateNewEVMChainWithGeth(&privateNetworkCfg)
+				chainConfig = geth_chain.CreateNewEVMChainWithGeth(privateNetworkCfg, &evmHooks)
 			} else {
-				chainConfig, err = seth_chain.CreateNewEVMChainWithSeth(privateNetworkCfg, *sethConfig)
+				chainConfig, err = seth_chain.CreateNewEVMChainWithSeth(privateNetworkCfg, *sethConfig, &evmHooks)
 				if err != nil {
 					return evmChainConfig, err
 				}

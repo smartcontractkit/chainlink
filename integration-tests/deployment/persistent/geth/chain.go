@@ -53,26 +53,16 @@ func (s *GethChainBuilder) Build(evmNetwork blockchain.EVMNetwork, rpcProvider c
 
 type NewEVMChainWithGeth struct {
 	GethChainBuilder
-	config ctf_config.PrivateEthereumNetworkConfig
+	config ctf_config.EthereumNetworkConfig
+	ctf_test_env.EthereumNetworkHooks
 }
 
 func (n *NewEVMChainWithGeth) Chain() (deployment.Chain, persistent_types.RpcProvider, error) {
 	chain := deployment.Chain{}
-	if n.config.GetEthereumVersion() == nil {
-		return chain, nil, fmt.Errorf("ethereum version is required")
-	}
-
-	if n.config.GetExecutionLayer() == nil {
-		return chain, nil, fmt.Errorf("execution layer is required")
-	}
 
 	ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
 	network, err := ethBuilder.
-		WithEthereumVersion(*n.config.GetEthereumVersion()).
-		WithExecutionLayer(*n.config.GetExecutionLayer()).
-		WithEthereumChainConfig(n.config.GetChainConfig()).
-		WithDockerNetworks(n.config.GetDockerNetworkNames()).
-		WithCustomDockerImages(n.config.GetCustomDockerImages()).
+		WithExistingConfig(n.config).
 		Build()
 
 	if err != nil {
@@ -84,15 +74,20 @@ func (n *NewEVMChainWithGeth) Chain() (deployment.Chain, persistent_types.RpcPro
 		return chain, nil, err
 	}
 
-	evmNetwork.Name = fmt.Sprintf("%s-%d", *n.config.GetExecutionLayer(), evmNetwork.ChainID)
+	evmNetwork.Name = fmt.Sprintf("%s-%d", *network.ExecutionLayer, evmNetwork.ChainID)
 
 	return n.Build(evmNetwork, rpcProvider)
 }
 
-func CreateNewEVMChainWithGeth(config ctf_config.PrivateEthereumNetworkConfig) persistent_types.NewEVMChainProducer {
+func CreateNewEVMChainWithGeth(config ctf_config.EthereumNetworkConfig, hooks ctf_test_env.EthereumNetworkHooks) persistent_types.NewEVMChainProducer {
 	return &NewEVMChainWithGeth{
-		config: config,
+		config:               config,
+		EthereumNetworkHooks: hooks,
 	}
+}
+
+func (n *NewEVMChainWithGeth) Hooks() ctf_test_env.EthereumNetworkHooks {
+	return n.EthereumNetworkHooks
 }
 
 func CreateExistingEVMChainConfigWithGeth(evmNetwork blockchain.EVMNetwork) persistent_types.ExistingEVMChainProducer {

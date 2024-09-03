@@ -22,16 +22,17 @@ import (
 	"strings"
 )
 
-func CreateNewEVMChainWithSeth(config ctf_config.EthereumNetworkConfig, sethConfig seth.Config) (persistent_types.NewEVMChainProducer, error) {
+func CreateNewEVMChainWithSeth(config ctf_config.EthereumNetworkConfig, sethConfig seth.Config, hooks ctf_test_env.EthereumNetworkHooks) (persistent_types.NewEVMChainProducer, error) {
 	contractsRootFolder, err := findGethWrappersFolderRoot(5)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to find contracts root folder")
 	}
 
 	return &NewEVMChainWithSeth{
-		config:              config,
-		sethConfig:          sethConfig,
-		contractsRootFolder: contractsRootFolder,
+		config:               config,
+		sethConfig:           sethConfig,
+		contractsRootFolder:  contractsRootFolder,
+		EthereumNetworkHooks: hooks,
 	}, nil
 }
 
@@ -40,25 +41,22 @@ type NewEVMChainWithSeth struct {
 	config              ctf_config.EthereumNetworkConfig
 	sethConfig          seth.Config
 	contractsRootFolder string
+	ctf_test_env.EthereumNetworkHooks
+	// todo attach cleanups somewhere to T
+	// logscanner, etc
+}
+
+func (n *NewEVMChainWithSeth) Hooks() ctf_test_env.EthereumNetworkHooks {
+	return n.EthereumNetworkHooks
 }
 
 func (n *NewEVMChainWithSeth) Chain() (deployment.Chain, persistent_types.RpcProvider, error) {
 	chain := deployment.Chain{}
-	if n.config.GetEthereumVersion() == nil {
-		return chain, nil, fmt.Errorf("ethereum version is required")
-	}
-
-	if n.config.GetExecutionLayer() == nil {
-		return chain, nil, fmt.Errorf("execution layer is required")
-	}
 
 	ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
 	network, err := ethBuilder.
-		WithEthereumVersion(*n.config.GetEthereumVersion()).
-		WithExecutionLayer(*n.config.GetExecutionLayer()).
-		WithEthereumChainConfig(n.config.GetChainConfig()).
-		WithDockerNetworks(n.config.GetDockerNetworkNames()).
-		WithCustomDockerImages(n.config.GetCustomDockerImages()).
+		WithExistingConfig(n.config).
+		WithHooks(n.EthereumNetworkHooks).
 		Build()
 
 	if err != nil {
@@ -70,7 +68,7 @@ func (n *NewEVMChainWithSeth) Chain() (deployment.Chain, persistent_types.RpcPro
 		return chain, nil, err
 	}
 
-	evmNetwork.Name = fmt.Sprintf("%s-%d", *n.config.GetExecutionLayer(), evmNetwork.ChainID)
+	evmNetwork.Name = fmt.Sprintf("%s-%d", *network.ExecutionLayer, evmNetwork.ChainID)
 	sethClient, err := seth.NewClientBuilderWithConfig(&n.sethConfig).
 		// we want to set it dynamically, because the path depends on the location of the file in the project
 		WithGethWrappersFolders([]string{fmt.Sprintf("%s/ccip", n.contractsRootFolder)}).
@@ -96,7 +94,7 @@ func (n *NewEVMChainConfigWithSeth) SethConfig() seth.Config {
 
 func (n *NewEVMChainConfigWithSeth) DockerNetworks() []string {
 	var dockerNetworks []string
-	for _, network := range n.GetDockerNetworkNames() {
+	for _, network := range n.DockerNetworkNames {
 		contains := false
 		for _, dockerNetwork := range dockerNetworks {
 			if strings.EqualFold(dockerNetwork, network) {

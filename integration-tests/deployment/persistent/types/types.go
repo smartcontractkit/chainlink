@@ -15,6 +15,7 @@ type ChainConfig struct {
 
 type NewEVMChainProducer interface {
 	Chain() (deployment.Chain, RpcProvider, error)
+	Hooks() ctfTestEnv.EthereumNetworkHooks
 }
 
 type ExistingEVMChainProducer interface {

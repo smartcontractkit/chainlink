@@ -128,7 +128,6 @@ func NewDockerDON(newDonConfig *NewDockerDONConfig) (DON, error) {
 			if err != nil {
 				return don, errors.Wrapf(err, "failed to build new chainlink node")
 			}
-			// node.SetTestLogger(t)
 			clCluster.Nodes = append(clCluster.Nodes, node)
 		}
 	} else {
@@ -151,7 +150,6 @@ func NewDockerDON(newDonConfig *NewDockerDONConfig) (DON, error) {
 			if err != nil {
 				return don, errors.Wrapf(err, "failed to build new chainlink node")
 			}
-			//node.SetTestLogger(t)
 			clCluster.Nodes = append(clCluster.Nodes, node)
 		}
 	}
