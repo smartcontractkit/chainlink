@@ -243,6 +243,7 @@ func TestChainScopedConfig_GasEstimator(t *testing.T) {
 	assert.Equal(t, assets.GWei(100), ge.FeeCapDefault())
 	assert.Equal(t, assets.NewWeiI(1), ge.TipCapDefault())
 	assert.Equal(t, assets.NewWeiI(1), ge.TipCapMin())
+	assert.Equal(t, false, ge.EstimateLimit())
 }
 
 func TestChainScopedConfig_BSCDefaults(t *testing.T) {

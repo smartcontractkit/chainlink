@@ -1676,7 +1676,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_GasEstimationError(t *testing.T) 
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	cfg.EVMConfigs()[0].GasEstimator.EstimateGasLimit = ptr(true) // Enabled gas limit estimation
+	cfg.EVMConfigs()[0].GasEstimator.EstimateLimit = ptr(true) // Enabled gas limit estimation
 	limitMultiplier := float32(1.25)
 	cfg.EVMConfigs()[0].GasEstimator.LimitMultiplier = ptr(decimal.NewFromFloat32(limitMultiplier)) // Set LimitMultiplier for the buffer
 	txStore := cltest.NewTestTxStore(t, db)

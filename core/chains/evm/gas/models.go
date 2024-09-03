@@ -26,7 +26,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-// EstimateGasBuffer is a multiplier applied to estimated gas when the EstimateGasLimit feature is enabled
+// EstimateGasBuffer is a multiplier applied to estimated gas when the EstimateLimit feature is enabled
 const EstimateGasBuffer = float32(1.15)
 
 // EvmFeeEstimator provides a unified interface that wraps EvmEstimator and can determine if legacy or dynamic fee estimation should be used
@@ -74,7 +74,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		"tipCapMin", geCfg.TipCapMin(),
 		"priceMax", geCfg.PriceMax(),
 		"priceMin", geCfg.PriceMin(),
-		"estimateGasLimit", geCfg.EstimateGasLimit(),
+		"estimateLimit", geCfg.EstimateLimit(),
 	)
 	df := geCfg.EIP1559DynamicFees()
 
@@ -352,8 +352,8 @@ func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64,
 	if err != nil {
 		return estimatedFeeLimit, err
 	}
-	// Use provided fee limit by default if EstimateGasLimit is disabled
-	if !e.geCfg.EstimateGasLimit() {
+	// Use provided fee limit by default if EstimateLimit is disabled
+	if !e.geCfg.EstimateLimit() {
 		return providedGasLimit, nil
 	}
 	// Create call msg for gas limit estimation
@@ -417,7 +417,7 @@ type GasEstimatorConfig interface {
 	PriceMin() *assets.Wei
 	PriceMax() *assets.Wei
 	Mode() string
-	EstimateGasLimit() bool
+	EstimateLimit() bool
 }
 
 type BlockHistoryConfig interface {
