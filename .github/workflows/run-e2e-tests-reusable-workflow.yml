@@ -840,17 +840,13 @@ jobs:
           payload: |
             {
               "thread_ts": "${{ steps.slack.outputs.thread_ts }}",
-              "attachments": [
+              "blocks": [
                 {
-                  "blocks": [
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "plain_text",
-                        "text": "Notifying <@${{ inputs.slack_notification_after_tests_notify_user_id_on_failure }}>, please check the test results."
-                      }
-                    }
-                  ]
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Notifying <@${{ inputs.slack_notification_after_tests_notify_user_id_on_failure }}>, please check the test results."
+                  }
                 }
               ]
             }
