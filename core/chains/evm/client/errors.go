@@ -255,7 +255,7 @@ var zkSync = ClientErrors{
 }
 
 var zkEvm = ClientErrors{
-	TerminallyStuck: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
+	TerminallyStuck: regexp.MustCompile(`(?:: |^)(?:not enough .* counters to continue the execution|out of counters at node level (?:.*))$`),
 }
 
 var aStar = ClientErrors{
