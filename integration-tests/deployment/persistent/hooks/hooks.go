@@ -1,6 +1,7 @@
 package hooks
 
 import (
+	"github.com/rs/zerolog"
 	"testing"
 
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
@@ -9,18 +10,30 @@ import (
 )
 
 type DefaultDONHooks struct {
-	T *testing.T
+	T                               *testing.T
+	L                               zerolog.Logger
+	LogStream                       *logstream.LogStream
+	RunId                           *string
+	CollectTestArtifacts            bool
+	ChainlinkNodeLogScannerSettings *test_env.ChainlinkNodeLogScannerSettings
+	ShowHTMLCoverageReport          bool
 }
 
 func (s *DefaultDONHooks) PreStartupHook(nodes []*test_env.ClNode) error {
 	for _, node := range nodes {
 		node.SetTestLogger(s.T)
+		node.LogStream = s.LogStream
 	}
 
 	return nil
 }
 
-func (s *DefaultDONHooks) PostStartupHook(_ []*test_env.ClNode) error {
+func (s *DefaultDONHooks) PostStartupHook(nodes []*test_env.ClNode) error {
+	test_env.AttachLogStreamCleanUp(s.L, s.T, s.LogStream, nodes, s.ChainlinkNodeLogScannerSettings, s.CollectTestArtifacts)
+	test_env.AttachDbDumpingCleanup(s.L, s.T, nodes, s.CollectTestArtifacts)
+	test_env.AttachDefaultCleanUp(s.L, s.T, nodes, s.ShowHTMLCoverageReport, s.RunId)
+	//test_env.AttachSethCleanup(s.T, s.SethConfig)
+
 	return nil
 }
 
