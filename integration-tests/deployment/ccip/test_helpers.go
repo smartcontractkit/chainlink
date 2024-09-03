@@ -42,7 +42,7 @@ type DeployedTestEnvironment struct {
 // with capreg and nodes set up.
 func NewDeployedTestEnvironment(t *testing.T, lggr logger.Logger) DeployedTestEnvironment {
 	ctx := Context(t)
-	chains := memory.NewMemoryChains(t, 3)
+	chains, evmChains := memory.NewMemoryChains(t, 3)
 	homeChainSel := uint64(0)
 	homeChainEVM := uint64(0)
 	// Say first chain is home chain.
@@ -54,7 +54,7 @@ func NewDeployedTestEnvironment(t *testing.T, lggr logger.Logger) DeployedTestEn
 	ab, capReg, err := DeployCapReg(lggr, chains, homeChainSel)
 	require.NoError(t, err)
 
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, memory.RegistryConfig{
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, evmChains, 4, 1, memory.RegistryConfig{
 		EVMChainID: homeChainEVM,
 		Contract:   capReg,
 	})
