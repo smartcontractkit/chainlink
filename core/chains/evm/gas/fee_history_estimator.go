@@ -91,19 +91,21 @@ type FeeHistoryEstimator struct {
 
 	l1Oracle rollups.L1Oracle
 
-	wg     *sync.WaitGroup
-	stopCh services.StopChan
+	wg        *sync.WaitGroup
+	stopCh    services.StopChan
+	refreshCh chan struct{}
 }
 
 func NewFeeHistoryEstimator(lggr logger.Logger, client feeHistoryEstimatorClient, cfg FeeHistoryEstimatorConfig, chainID *big.Int, l1Oracle rollups.L1Oracle) *FeeHistoryEstimator {
 	return &FeeHistoryEstimator{
-		client:   client,
-		logger:   logger.Named(lggr, "FeeHistoryEstimator"),
-		config:   cfg,
-		chainID:  chainID,
-		l1Oracle: l1Oracle,
-		wg:       new(sync.WaitGroup),
-		stopCh:   make(chan struct{}),
+		client:    client,
+		logger:    logger.Named(lggr, "FeeHistoryEstimator"),
+		config:    cfg,
+		chainID:   chainID,
+		l1Oracle:  l1Oracle,
+		wg:        new(sync.WaitGroup),
+		stopCh:    make(chan struct{}),
+		refreshCh: make(chan struct{}),
 	}
 }
 
@@ -143,13 +145,15 @@ func (f *FeeHistoryEstimator) run() {
 		select {
 		case <-f.stopCh:
 			return
+		case <-f.refreshCh:
+			t.Reset()
 		case <-t.C:
 			if f.config.EIP1559 {
 				if err := f.RefreshDynamicPrice(); err != nil {
 					f.logger.Error(err)
 				}
 			} else {
-				if err := f.RefreshGasPrice(); err != nil {
+				if _, err := f.RefreshGasPrice(); err != nil {
 					f.logger.Error(err)
 				}
 			}
@@ -172,13 +176,13 @@ func (f *FeeHistoryEstimator) GetLegacyGas(ctx context.Context, _ []byte, gasLim
 }
 
 // RefreshGasPrice will use eth_gasPrice to fetch and cache the latest gas price from the RPC.
-func (f *FeeHistoryEstimator) RefreshGasPrice() error {
+func (f *FeeHistoryEstimator) RefreshGasPrice() (*assets.Wei, error) {
 	ctx, cancel := f.stopCh.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
 	gasPrice, err := f.client.SuggestGasPrice(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to fetch gas price: %w", err)
+		return nil, err
 	}
 
 	promFeeHistoryEstimatorGasPrice.WithLabelValues(f.chainID.String()).Set(float64(gasPrice.Int64()))
@@ -190,7 +194,7 @@ func (f *FeeHistoryEstimator) RefreshGasPrice() error {
 	f.gasPriceMu.Lock()
 	defer f.gasPriceMu.Unlock()
 	f.gasPrice = gasPriceWei
-	return nil
+	return f.gasPrice, nil
 }
 
 func (f *FeeHistoryEstimator) getGasPrice() (*assets.Wei, error) {
@@ -233,7 +237,7 @@ func (f *FeeHistoryEstimator) RefreshDynamicPrice() error {
 	// RewardPercentile will be used for maxPriorityFeePerGas estimations and connectivityPercentile to set the highest threshold for bumping.
 	feeHistory, err := f.client.FeeHistory(ctx, max(f.config.BlockHistorySize, 1), []float64{f.config.RewardPercentile, ConnectivityPercentile})
 	if err != nil {
-		return fmt.Errorf("failed to fetch dynamic prices: %w", err)
+		return err
 	}
 
 	// eth_feeHistory doesn't return the latest baseFee of the range but rather the latest + 1, because it can be derived from the existing
@@ -313,10 +317,11 @@ func (f *FeeHistoryEstimator) BumpLegacyGas(ctx context.Context, originalGasPric
 			commonfee.ErrBump, originalGasPrice, maxPrice)
 	}
 
-	currentGasPrice, err := f.getGasPrice()
+	currentGasPrice, err := f.RefreshGasPrice()
 	if err != nil {
 		return nil, 0, err
 	}
+	f.IfStarted(func() { f.refreshCh <- struct{}{} })
 
 	bumpedGasPrice := originalGasPrice.AddPercentage(f.config.BumpPercent)
 	bumpedGasPrice, err = LimitBumpedFee(originalGasPrice, currentGasPrice, bumpedGasPrice, maxPrice)
@@ -336,13 +341,21 @@ func (f *FeeHistoryEstimator) BumpLegacyGas(ctx context.Context, originalGasPric
 // See: https://github.com/ethereum/go-ethereum/issues/24284
 // It aggregates the market, bumped, and max price to provide a correct value, for both maxFeePerGas as well as maxPriorityFerPergas.
 func (f *FeeHistoryEstimator) BumpDynamicFee(ctx context.Context, originalFee DynamicFee, maxPrice *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, err error) {
-	// For chains that don't have a mempool there is no concept of gas bumping so we force-call FetchDynamicPrice to update the underlying base fee value
+	// For chains that don't have a mempool there is no concept of gas bumping so we force-call RefreshDynamicPrice to update the underlying base fee value
 	if f.config.BlockHistorySize == 0 {
-		if err = f.RefreshDynamicPrice(); err != nil {
-			return
+		if !f.IfStarted(func() {
+			if refreshErr := f.RefreshDynamicPrice(); refreshErr != nil {
+				err = refreshErr
+				return
+			}
+			f.refreshCh <- struct{}{}
+			bumped, err = f.GetDynamicFee(ctx, maxPrice)
+		}) {
+			return bumped, fmt.Errorf("estimator not started")
 		}
-		return f.GetDynamicFee(ctx, maxPrice)
+		return bumped, err
 	}
+
 	// Sanitize original fee input
 	// According to geth's spec we need to bump both maxFeePerGas and maxPriorityFeePerGas for the new attempt to be accepted by the RPC
 	if originalFee.FeeCap == nil ||
