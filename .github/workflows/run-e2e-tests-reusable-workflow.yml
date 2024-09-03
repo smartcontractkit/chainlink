@@ -29,11 +29,10 @@ on:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
         required: false
         type: string
-      # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392
-      # test_config_override_base64:
-      #   required: false
-      #   description: The base64-encoded test config override
-      #   type: string
+      test_config_override_path:
+        description: 'Path to a test config file used to override the default test config'
+        required: false
+        type: string  
       enable_check_test_configurations:
         description: 'Set to "true" to enable check-test-configurations job'
         required: false
@@ -286,13 +285,6 @@ jobs:
       - name: Check if test config override is required for any test
         shell: bash
         run: |
-          # Check if the test config override is provided and skip the checks if it is non-empty
-          # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
-          # if [ -n "${{ inputs.test_config_override_base64 }}" ]; then
-          #   echo "Test config override provided. Skipping checks for tests requiring config override."
-          #   exit 0
-          # fi
-
           # Parse the JSON to check for test_config_override_required in Docker matrix
           DOCKER_TESTS_REQUIRING_CONFIG_OVERRIDE=$(echo '${{ steps.set-docker-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("test_config_override_required") and .test_config_override_required) | .id else empty end' -r)
           # Parse the JSON to check for test_config_override_required in Kubernetes matrix
@@ -307,7 +299,7 @@ jobs:
             if [ ! -z "$K8S_TESTS_REQUIRING_CONFIG_OVERRIDE" ]; then
               echo $K8S_TESTS_REQUIRING_CONFIG_OVERRIDE
             fi
-            echo "::error::Error: Some of the tests require a test config override. Please see workflow logs and set 'test_config_override_base64' to run these tests."
+            echo "::error::Error: Some of the tests require a test config override. Please see workflow logs and set 'test_config_override_path' to run these tests."
             exit 1
           else
             echo "No tests require a configuration override. Proceeding without overrides."
@@ -510,8 +502,6 @@ jobs:
           test_download_vendor_packages_command: cd $(dirname ${{ matrix.tests.path }}) && go mod download
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
           test_config_override_path: ${{ matrix.tests.test_config_override_path }}
-          # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392
-          # test_config_override_base64: ${{ inputs.test_config_override_base64 }}
           test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
           test_suite: ${{ matrix.tests.test_env_vars.TEST_SUITE }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
