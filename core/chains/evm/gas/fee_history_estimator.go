@@ -284,7 +284,7 @@ func (f *FeeHistoryEstimator) RefreshDynamicPrice() error {
 	promFeeHistoryEstimatorMaxPriorityFeePerGas.WithLabelValues(f.chainID.String()).Set(float64(maxPriorityFeePerGas.Int64()))
 	promFeeHistoryEstimatorMaxFeePerGas.WithLabelValues(f.chainID.String()).Set(float64(maxFeePerGas.Int64()))
 
-	f.logger.Debugf("Fetched new dynamic prices, nextBlock#: %v - oldestBlock#: %v - nexBaseFee: %v - maxFeePerGas: %v - maxPriorityFeePerGas: %v - maxPriorityFeeThreshold: %v",
+	f.logger.Debugf("Fetched new dynamic prices, nextBlock#: %v - oldestBlock#: %v - nextBaseFee: %v - maxFeePerGas: %v - maxPriorityFeePerGas: %v - maxPriorityFeeThreshold: %v",
 		nextBlock, feeHistory.OldestBlock, nextBaseFee, maxFeePerGas, maxPriorityFeePerGas, priorityFeeThresholdWei)
 
 	f.priorityFeeThresholdMu.Lock()
