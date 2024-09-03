@@ -1,0 +1,15 @@
+[Network]
+selected_networks = ["NEXON_STAGE"]
+
+[NEXON_STAGE.VRFv2Plus.General]
+use_existing_env = true
+
+[NEXON_STAGE.VRFv2Plus.ExistingEnv]
+coordinator_address = "0xF705dD3e7E717F32de0Cc5F833f8009f16122AD1"
+consumer_address = ""
+sub_id = ""
+key_hash = "0xbc9f525e3e1d9e2336f7c77d5f33f5b60aab3765944617fed7f66a6afecac616"
+create_fund_subs_and_add_consumers = true
+node_sending_key_funding_min = 30
+node_sending_keys = [
+]

@@ -1,0 +1,18 @@
+[Network]
+selected_networks = ["BSC_TESTNET"]
+
+[BSC_TESTNET.VRFv2Plus.General]
+use_existing_env = true
+
+[BSC_TESTNET.VRFv2Plus.ExistingEnv]
+coordinator_address = "0x84A477F6ebF33501eE3ACA86fEcB980b1fC99AC2"
+consumer_address = ""
+sub_id = ""
+key_hash = "0x4d43763d3eff849a89cf578a42787baa32132d7a80032125710e95b3972cd214"
+create_fund_subs_and_add_consumers = true
+node_sending_key_funding_min = 30
+node_sending_keys = [
+    "0x4EE2Cc6D50E8acb6BaEf673B03559525a6c92fB8",
+    #   BHS
+    "0xAFB44568f7DAc218EA6e1C71c366692ED4758A07"
+]
