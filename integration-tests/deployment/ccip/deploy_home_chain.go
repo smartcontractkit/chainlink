@@ -60,7 +60,7 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 	capReg, err := deployContract(lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
-				chain.DeployerKey,
+				chain.DefaultKey(),
 				chain.Client,
 			)
 			return ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
@@ -76,7 +76,7 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 		lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*ccip_config.CCIPConfig] {
 			ccAddr, tx, cc, err2 := ccip_config.DeployCCIPConfig(
-				chain.DeployerKey,
+				chain.DefaultKey(),
 				chain.Client,
 				capReg.Address,
 			)
@@ -90,7 +90,7 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 	}
 	lggr.Infow("deployed ccip config", "addr", ccipConfig.Address)
 
-	tx, err := capReg.Contract.AddCapabilities(chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryCapability{
+	tx, err := capReg.Contract.AddCapabilities(chain.DefaultKey(), []capabilities_registry.CapabilitiesRegistryCapability{
 		{
 			LabelledName:          CapabilityLabelledName,
 			Version:               CapabilityVersion,
@@ -104,9 +104,9 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 		return ab, common.Address{}, err
 	}
 	// TODO: Just one for testing.
-	tx, err = capReg.Contract.AddNodeOperators(chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryNodeOperator{
+	tx, err = capReg.Contract.AddNodeOperators(chain.DefaultKey(), []capabilities_registry.CapabilitiesRegistryNodeOperator{
 		{
-			Admin: chain.DeployerKey.From,
+			Admin: chain.DefaultKey().From,
 			Name:  "NodeOperator",
 		},
 	})
@@ -141,7 +141,7 @@ func AddNodes(
 		}
 		nodeParams = append(nodeParams, nodeParam)
 	}
-	tx, err := capReg.AddNodes(chain.DeployerKey, nodeParams)
+	tx, err := capReg.AddNodes(chain.DefaultKey(), nodeParams)
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func AddChainConfig(
 	inputConfig := []ccip_config.CCIPConfigTypesChainConfigInfo{
 		chainConfig,
 	}
-	tx, err := ccipConfig.ApplyChainConfigUpdates(h.DeployerKey, nil, inputConfig)
+	tx, err := ccipConfig.ApplyChainConfigUpdates(h.DefaultKey(), nil, inputConfig)
 	if _, err := deployment.ConfirmIfNoError(h, tx, err); err != nil {
 		return ccip_config.CCIPConfigTypesChainConfigInfo{}, err
 	}
@@ -310,7 +310,7 @@ func AddDON(
 	// Trim first four bytes to remove function selector.
 	encodedConfigs := encodedCall[4:]
 
-	tx, err := capReg.AddDON(home.DeployerKey, p2pIDs, []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+	tx, err := capReg.AddDON(home.DefaultKey(), p2pIDs, []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: ccipCapabilityID,
 			Config:       encodedConfigs,
@@ -374,7 +374,7 @@ func AddDON(
 		})
 	}
 
-	tx, err = offRamp.SetOCR3Configs(dest.DeployerKey, offrampOCR3Configs)
+	tx, err = offRamp.SetOCR3Configs(dest.DefaultKey(), offrampOCR3Configs)
 	if _, err := deployment.ConfirmIfNoError(dest, tx, err); err != nil {
 		return err
 	}
@@ -429,7 +429,7 @@ func DeployCapReg_Concurrent(lggr logger.Logger, chains map[uint64]deployment.Ch
 		capReg, err := deployContract(lggr, chain, ab,
 			func(chain deployment.Chain) ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 				crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
-					chain.DeployerKey,
+					chain.DefaultKey(),
 					chain.Client,
 				)
 				if err2 != nil {
@@ -451,7 +451,7 @@ func DeployCapReg_Concurrent(lggr logger.Logger, chains map[uint64]deployment.Ch
 			lggr, chain, ab,
 			func(chain deployment.Chain) ContractDeploy[*ccip_config.CCIPConfig] {
 				ccAddr, tx, cc, err2 := ccip_config.DeployCCIPConfig(
-					chain.DeployerKey,
+					chain.DefaultKey(),
 					chain.Client,
 					capReg.Address,
 				)
@@ -470,7 +470,7 @@ func DeployCapReg_Concurrent(lggr logger.Logger, chains map[uint64]deployment.Ch
 		}
 		lggr.Infow("deployed ccip config", "addr", ccipConfig.Address)
 
-		tx, err := capReg.Contract.AddCapabilities(chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryCapability{
+		tx, err := capReg.Contract.AddCapabilities(chain.DefaultKey(), []capabilities_registry.CapabilitiesRegistryCapability{
 			{
 				LabelledName:          CapabilityLabelledName,
 				Version:               CapabilityVersion,
@@ -486,9 +486,9 @@ func DeployCapReg_Concurrent(lggr logger.Logger, chains map[uint64]deployment.Ch
 			return
 		}
 		// TODO: Just one for testing.
-		tx, err = capReg.Contract.AddNodeOperators(chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryNodeOperator{
+		tx, err = capReg.Contract.AddNodeOperators(chain.DefaultKey(), []capabilities_registry.CapabilitiesRegistryNodeOperator{
 			{
-				Admin: chain.DeployerKey.From,
+				Admin: chain.DefaultKey().From,
 				Name:  "NodeOperator",
 			},
 		})
@@ -510,12 +510,12 @@ func DeployCapReg_Concurrent(lggr logger.Logger, chains map[uint64]deployment.Ch
 	for _, chain := range chains {
 		count++
 		if count == 1 {
-			minConcurrency = len(chain.DeployerKeys)
+			minConcurrency = len(chain.Keys)
 			continue
 		}
 
-		if len(chain.DeployerKeys) < minConcurrency {
-			minConcurrency = len(chain.DeployerKeys)
+		if len(chain.Keys) < minConcurrency {
+			minConcurrency = len(chain.Keys)
 		}
 
 	}

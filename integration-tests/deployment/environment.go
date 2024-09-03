@@ -48,13 +48,12 @@ type Chain struct {
 	Selector uint64
 	Client   OnchainClient
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
-	// TODO remove it and use only DeployerKeys
-	DeployerKey *bind.TransactOpts
 	// Rename to something more universal, as these keys are not only for deploying, but also for other actions
-	DeployerKeys []*bind.TransactOpts
+	Keys []*bind.TransactOpts
 	// Function to execute if transaction submission fails.
 	RetrySubmit func(tx *types.Transaction, err error) (*types.Transaction, error)
 	Confirm     func(tx common.Hash) (uint64, error)
+	DefaultKey  func() *bind.TransactOpts
 }
 
 // NoOpRetrySubmit is a retry submit function that does nothing.

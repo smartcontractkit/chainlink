@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -36,9 +37,9 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 		sel, err := chainsel.SelectorFromChainId(cid)
 		require.NoError(t, err)
 		chains[sel] = deployment.Chain{
-			Selector:    sel,
-			Client:      chain.Backend,
-			DeployerKey: chain.DeployerKey,
+			Selector: sel,
+			Client:   chain.Backend,
+			Keys:     []*bind.TransactOpts{chain.DeployerKey},
 			Confirm: func(tx common.Hash) (uint64, error) {
 				for {
 					chain.Backend.Commit()
@@ -53,6 +54,8 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 					return receipt.BlockNumber.Uint64(), nil
 				}
 			},
+			RetrySubmit: deployment.NoOpRetrySubmit,
+			DefaultKey:  func() *bind.TransactOpts { return chain.DeployerKey },
 		}
 	}
 	return chains
@@ -67,7 +70,7 @@ func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment
 		}
 		mchains[evmChainID] = EVMChain{
 			Backend:     chain.Client.(*backends.SimulatedBackend),
-			DeployerKey: chain.DeployerKey,
+			DeployerKey: chain.DefaultKey(),
 		}
 	}
 	nodesByPeerID := make(map[string]Node)

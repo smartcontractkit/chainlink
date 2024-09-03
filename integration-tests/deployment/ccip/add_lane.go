@@ -15,7 +15,7 @@ import (
 
 func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) error {
 	// TODO: Batch
-	tx, err := state.Chains[from].Router.ApplyRampUpdates(e.Chains[from].DeployerKey, []router.RouterOnRamp{
+	tx, err := state.Chains[from].Router.ApplyRampUpdates(e.Chains[from].DefaultKey(), []router.RouterOnRamp{
 		{
 			DestChainSelector: to,
 			OnRamp:            state.Chains[from].EvmOnRampV160.Address(),
@@ -24,7 +24,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 	if _, err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {
 		return err
 	}
-	tx, err = state.Chains[from].EvmOnRampV160.ApplyDestChainConfigUpdates(e.Chains[from].DeployerKey,
+	tx, err = state.Chains[from].EvmOnRampV160.ApplyDestChainConfigUpdates(e.Chains[from].DefaultKey(),
 		[]onramp.OnRampDestChainConfigArgs{
 			{
 				DestChainSelector: to,
@@ -36,7 +36,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 	}
 
 	_, err = state.Chains[from].PriceRegistry.UpdatePrices(
-		e.Chains[from].DeployerKey, fee_quoter.InternalPriceUpdates{
+		e.Chains[from].DefaultKey(), fee_quoter.InternalPriceUpdates{
 			TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{
 				{
 					SourceToken: state.Chains[from].LinkToken.Address(),
@@ -58,7 +58,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 	}
 
 	// Enable dest in price registry
-	tx, err = state.Chains[from].PriceRegistry.ApplyDestChainConfigUpdates(e.Chains[from].DeployerKey,
+	tx, err = state.Chains[from].PriceRegistry.ApplyDestChainConfigUpdates(e.Chains[from].DefaultKey(),
 		[]fee_quoter.FeeQuoterDestChainConfigArgs{
 			{
 				DestChainSelector: to,
@@ -69,7 +69,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 		return err
 	}
 
-	tx, err = state.Chains[to].EvmOffRampV160.ApplySourceChainConfigUpdates(e.Chains[to].DeployerKey,
+	tx, err = state.Chains[to].EvmOffRampV160.ApplySourceChainConfigUpdates(e.Chains[to].DefaultKey(),
 		[]offramp.OffRampSourceChainConfigArgs{
 			{
 				Router:              state.Chains[to].Router.Address(),
@@ -81,7 +81,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 	if _, err := deployment.ConfirmIfNoError(e.Chains[to], tx, err); err != nil {
 		return err
 	}
-	tx, err = state.Chains[to].Router.ApplyRampUpdates(e.Chains[to].DeployerKey, []router.RouterOnRamp{}, []router.RouterOffRamp{}, []router.RouterOffRamp{
+	tx, err = state.Chains[to].Router.ApplyRampUpdates(e.Chains[to].DefaultKey(), []router.RouterOnRamp{}, []router.RouterOffRamp{}, []router.RouterOffRamp{
 		{
 			SourceChainSelector: from,
 			OffRamp:             state.Chains[to].EvmOffRampV160.Address(),

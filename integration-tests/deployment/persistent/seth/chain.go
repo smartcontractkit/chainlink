@@ -175,14 +175,7 @@ func (s *SethChainBuilder) Build(sethClient *seth.Client, evmNetwork blockchain.
 	return deployment.Chain{
 		Selector: sel,
 		Client:   sethClient.Client,
-		DeployerKey: func() *bind.TransactOpts {
-			// this will use the first private key from the seth client
-			// if you want to use N private key you can use sethClient.NewTXKeyOpts(N)
-			// we set the nonce to nil, because we want go-ethereum to use pending nonce it gets from the node
-			opts := sethClient.NewTXOpts(seth.WithNonce(nil))
-			return opts
-		}(),
-		DeployerKeys: func() []*bind.TransactOpts {
+		Keys: func() []*bind.TransactOpts {
 			var keys []*bind.TransactOpts
 			// use all private keys set for network, in case we want to use them for concurrent transactions
 			for i := range sethClient.Cfg.Network.PrivateKeys {
@@ -233,6 +226,12 @@ func (s *SethChainBuilder) Build(sethClient *seth.Client, evmNetwork blockchain.
 			)
 
 			return tx, sethClient.DecodeSendErr(retryErr)
+		},
+		DefaultKey: func() *bind.TransactOpts {
+			// this will use the first private key from the seth client
+			// if you want to use N private key you can use sethClient.NewTXKeyOpts(N)
+			// we set the nonce to nil, because we want go-ethereum to use pending nonce it gets from the node
+			return sethClient.NewTXOpts(seth.WithNonce(nil))
 		},
 	}, persistent_types.NewEVMNetworkWithRPCs(evmNetwork, rpcProvider), nil
 }

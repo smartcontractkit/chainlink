@@ -31,10 +31,9 @@ func (s *GethChainBuilder) Build(evmNetwork blockchain.EVMNetwork, rpcProvider c
 	}
 
 	return deployment.Chain{
-		Selector:     sel,
-		Client:       client,
-		DeployerKey:  &bind.TransactOpts{},
-		DeployerKeys: []*bind.TransactOpts{{}},
+		Selector: sel,
+		Client:   client,
+		Keys:     []*bind.TransactOpts{{}},
 		Confirm: func(txHash common.Hash) (uint64, error) {
 			ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Minute)
 			receipt, err := client.TransactionReceipt(ctx, txHash)
@@ -48,6 +47,7 @@ func (s *GethChainBuilder) Build(evmNetwork blockchain.EVMNetwork, rpcProvider c
 			return receipt.BlockNumber.Uint64(), nil
 		},
 		RetrySubmit: deployment.NoOpRetrySubmit,
+		DefaultKey:  func() *bind.TransactOpts { return &bind.TransactOpts{} },
 	}, persistent_types.NewEVMNetworkWithRPCs(evmNetwork, rpcProvider), nil
 }
 
