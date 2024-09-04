@@ -87,16 +87,6 @@ func Test_Datasource(t *testing.T) {
 			Task:   &mercurymocks.MockTask{},
 		},
 		{
-			// bid
-			Result: pipeline.Result{Value: "121.993"},
-			Task:   &mercurymocks.MockTask{},
-		},
-		{
-			// ask
-			Result: pipeline.Result{Value: "123.111"},
-			Task:   &mercurymocks.MockTask{},
-		},
-		{
 			// marketStatus
 			Result: pipeline.Result{Value: "1"},
 			Task:   &mercurymocks.MockTask{},
@@ -193,10 +183,6 @@ func Test_Datasource(t *testing.T) {
 
 				assert.Equal(t, big.NewInt(122), obs.BenchmarkPrice.Val)
 				assert.NoError(t, obs.BenchmarkPrice.Err)
-				assert.Equal(t, big.NewInt(121), obs.Bid.Val)
-				assert.NoError(t, obs.Bid.Err)
-				assert.Equal(t, big.NewInt(123), obs.Ask.Val)
-				assert.NoError(t, obs.Ask.Err)
 				assert.Equal(t, int64(123123), obs.MaxFinalizedTimestamp.Val)
 				assert.NoError(t, obs.MaxFinalizedTimestamp.Err)
 				assert.Equal(t, big.NewInt(122), obs.LinkPrice.Val)
@@ -239,17 +225,7 @@ func Test_Datasource(t *testing.T) {
 			badTrrs := []pipeline.TaskRunResult{
 				{
 					// benchmark price
-					Result: pipeline.Result{Value: "122.345"},
-					Task:   &mercurymocks.MockTask{},
-				},
-				{
-					// bid
-					Result: pipeline.Result{Value: "121.993"},
-					Task:   &mercurymocks.MockTask{},
-				},
-				{
-					// ask
-					Result: pipeline.Result{Error: errors.New("some error with ask")},
+					Result: pipeline.Result{Error: errors.New("some error with bp")},
 					Task:   &mercurymocks.MockTask{},
 				},
 				{
@@ -265,7 +241,7 @@ func Test_Datasource(t *testing.T) {
 			}
 
 			_, err := ds.Observe(ctx, repts, false)
-			assert.EqualError(t, err, "Observe failed while parsing run results: some error with ask")
+			assert.EqualError(t, err, "Observe failed while parsing run results: some error with bp")
 		})
 
 		t.Run("when run execution succeeded", func(t *testing.T) {
@@ -282,10 +258,6 @@ func Test_Datasource(t *testing.T) {
 
 				assert.Equal(t, big.NewInt(122), obs.BenchmarkPrice.Val)
 				assert.NoError(t, obs.BenchmarkPrice.Err)
-				assert.Equal(t, big.NewInt(121), obs.Bid.Val)
-				assert.NoError(t, obs.Bid.Err)
-				assert.Equal(t, big.NewInt(123), obs.Ask.Val)
-				assert.NoError(t, obs.Ask.Err)
 				assert.Equal(t, int64(0), obs.MaxFinalizedTimestamp.Val)
 				assert.NoError(t, obs.MaxFinalizedTimestamp.Err)
 				assert.Equal(t, big.NewInt(122), obs.LinkPrice.Val)
@@ -333,15 +305,13 @@ func buildSamplev4Report() []byte {
 	feedID := sampleFeedID
 	timestamp := uint32(124)
 	bp := big.NewInt(242)
-	bid := big.NewInt(243)
-	ask := big.NewInt(244)
 	validFromTimestamp := uint32(123)
 	expiresAt := uint32(456)
 	linkFee := big.NewInt(3334455)
 	nativeFee := big.NewInt(556677)
 	marketStatus := uint32(1)
 
-	b, err := reportcodecv4.ReportTypes.Pack(feedID, validFromTimestamp, timestamp, nativeFee, linkFee, expiresAt, bp, bid, ask, marketStatus)
+	b, err := reportcodecv4.ReportTypes.Pack(feedID, validFromTimestamp, timestamp, nativeFee, linkFee, expiresAt, bp, marketStatus)
 	if err != nil {
 		panic(err)
 	}

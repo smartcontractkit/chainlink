@@ -16,8 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/smartcontractkit/seth"
-	"github.com/smartcontractkit/wasp"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"

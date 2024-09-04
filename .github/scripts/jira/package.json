@@ -15,6 +15,7 @@
   "scripts": {
     "issue:update": "tsx update-jira-issue.ts",
     "issue:enforce": "tsx enforce-jira-issue.ts",
+    "issue:traceability": "tsx create-jira-traceability.ts",
     "test": "vitest"
   },
   "dependencies": {

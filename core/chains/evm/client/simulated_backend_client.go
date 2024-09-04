@@ -156,6 +156,10 @@ func (c *SimulatedBackendClient) LINKBalance(ctx context.Context, address common
 	panic("not implemented")
 }
 
+func (c *SimulatedBackendClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
+	panic("not implemented")
+}
+
 // TransactionReceipt returns the transaction receipt for the given transaction hash.
 func (c *SimulatedBackendClient) TransactionReceipt(ctx context.Context, receipt common.Hash) (*types.Receipt, error) {
 	return c.b.TransactionReceipt(ctx, receipt)
@@ -415,7 +419,7 @@ func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.
 	res, err := c.b.CallContract(ctx, msg, blockNumber)
 	if err != nil {
 		dataErr := revertError{}
-		if errors.Is(err, &dataErr) {
+		if errors.As(err, &dataErr) {
 			return nil, &JsonError{Data: dataErr.ErrorData(), Message: dataErr.Error(), Code: 3}
 		}
 		// Generic revert, no data
@@ -434,7 +438,7 @@ func (c *SimulatedBackendClient) PendingCallContract(ctx context.Context, msg et
 	res, err := c.b.PendingCallContract(ctx, msg)
 	if err != nil {
 		dataErr := revertError{}
-		if errors.Is(err, &dataErr) {
+		if errors.As(err, &dataErr) {
 			return nil, &JsonError{Data: dataErr.ErrorData(), Message: dataErr.Error(), Code: 3}
 		}
 		// Generic revert, no data

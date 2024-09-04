@@ -27,9 +27,9 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
 var _ pb.MercuryServer = &mercuryServer{}
@@ -477,8 +478,6 @@ func addV4MercuryJob(
 	bootstrapPeerID string,
 	bootstrapNodePort int,
 	bmBridge,
-	bidBridge,
-	askBridge,
 	marketStatusBridge string,
 	servers map[string]string,
 	clientPubKey ed25519.PublicKey,
@@ -496,11 +495,11 @@ func addV4MercuryJob(
 	node.AddJob(t, fmt.Sprintf(`
 type = "offchainreporting2"
 schemaVersion = 1
-name = "mercury-%[1]d-%[11]s"
+name = "mercury-%[1]d-%[9]s"
 forwardingAllowed = false
 maxTaskDuration = "1s"
 contractID = "%[2]s"
-feedID = "0x%[10]x"
+feedID = "0x%[8]x"
 contractConfigTrackerPollInterval = "1s"
 ocrKeyBundleID = "%[3]s"
 p2pv2Bootstrappers = [
@@ -508,7 +507,7 @@ p2pv2Bootstrappers = [
 ]
 relay = "evm"
 pluginType = "mercury"
-transmitterID = "%[9]x"
+transmitterID = "%[7]x"
 observationSource = """
 	// Benchmark Price
 	price1          [type=bridge name="%[5]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
@@ -517,31 +516,17 @@ observationSource = """
 
 	price1 -> price1_parse -> price1_multiply;
 
-	// Bid
-	bid          [type=bridge name="%[6]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
-	bid_parse    [type=jsonparse path="result"];
-	bid_multiply [type=multiply times=100000000 index=1];
-
-	bid -> bid_parse -> bid_multiply;
-
-	// Ask
-	ask          [type=bridge name="%[7]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
-	ask_parse    [type=jsonparse path="result"];
-	ask_multiply [type=multiply times=100000000 index=2];
-
-	ask -> ask_parse -> ask_multiply;
-
 	// Market Status
-	marketstatus       [type=bridge name="%[14]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
-	marketstatus_parse [type=jsonparse path="result" index=3];
+	marketstatus       [type=bridge name="%[12]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
+	marketstatus_parse [type=jsonparse path="result" index=1];
 
 	marketstatus -> marketstatus_parse;
 """
 
 [pluginConfig]
-servers = %[8]s
-linkFeedID = "0x%[12]x"
-nativeFeedID = "0x%[13]x"
+servers = %[6]s
+linkFeedID = "0x%[10]x"
+nativeFeedID = "0x%[11]x"
 
 [relayConfig]
 chainID = 1337
@@ -551,8 +536,6 @@ chainID = 1337
 		node.KeyBundle.ID(),
 		fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort),
 		bmBridge,
-		bidBridge,
-		askBridge,
 		serversStr,
 		clientPubKey,
 		feedID,

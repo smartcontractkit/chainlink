@@ -31,6 +31,7 @@ import (
 
 	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -44,7 +45,7 @@ import (
 
 const commonGasLimitOnEvms = uint64(4712388)
 
-func TestChainComponentsEventsInitValidation(t *testing.T) {
+func TestContractReaderEventsInitValidation(t *testing.T) {
 	tests := []struct {
 		name                 string
 		chainContractReaders map[string]types.ChainContractReader
@@ -158,7 +159,7 @@ func TestChainComponents(t *testing.T) {
 
 	// add new subtests here so that it can be run on real chains too
 	RunChainComponentsEvmTests(t, it)
-	RunChainComponentsInterfaceTests[*testing.T](t, commontestutils.WrapChainComponentsTesterForLoop(it), false)
+	RunContractReaderInterfaceTests[*testing.T](t, commontestutils.WrapContractReaderTesterForLoop(it), false)
 }
 
 type helper struct {
@@ -251,13 +252,13 @@ func (h *helper) Context(t *testing.T) context.Context {
 
 func (h *helper) ChainReaderEVMClient(ctx context.Context, t *testing.T, ht logpoller.HeadTracker, conf types.ChainReaderConfig) client.Client {
 	// wrap the client so that we can mock historical contract state
-	cwh := &ClientWithContractHistory{Client: h.Client(t), HT: ht}
+	cwh := &evm.ClientWithContractHistory{Client: h.Client(t), HT: ht}
 	require.NoError(t, cwh.Init(ctx, conf))
 	return cwh
 }
 
 func (h *helper) WrappedChainWriter(cw clcommontypes.ChainWriter, client client.Client) clcommontypes.ChainWriter {
-	cwhw := NewChainWriterHistoricalWrapper(cw, client.(*ClientWithContractHistory))
+	cwhw := evm.NewChainWriterHistoricalWrapper(cw, client.(*evm.ClientWithContractHistory))
 	return cwhw
 }
 
@@ -285,6 +286,8 @@ func (h *helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 	})
+
+	clconfig.EVMConfigs()[0].GasEstimator.PriceMax = assets.GWei(100)
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, clconfig, h.sim, db, client)
 	err := app.Start(h.Context(t))

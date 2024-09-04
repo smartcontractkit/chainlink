@@ -13,6 +13,7 @@
 /core/services/directrequest @smartcontractkit/keepers
 /core/services/feeds @smartcontractkit/FMS
 /core/services/synchronization/telem @smartcontractkit/realtime
+/core/capabilities/ccip @smartcontractkit/ccip-offchain
 
 # To be deprecated in Chainlink V3
 /core/services/fluxmonitorv2 @smartcontractkit/foundations
@@ -51,7 +52,7 @@ core/scripts/functions @smartcontractkit/functions
 core/scripts/gateway @smartcontractkit/functions
 
 # Contracts
-/contracts/ @RensR
+/contracts/ @RensR @matYang @RayXpub @elatoskinas
 
 # First we match on project names to catch files like the compilation scripts,
 # gas snapshots and other files not places in the project directories.
@@ -74,7 +75,7 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/src/v0.8/llo-feeds @smartcontractkit/mercury-team
 # TODO: mocks folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/operatorforwarder @smartcontractkit/data-feeds-engineers
-/contracts/src/v0.8/shared @RensR
+/contracts/src/v0.8/shared @RensR @matYang @RayXpub @elatoskinas
 # TODO: tests folder, folder should be removed and files moved to the correct folders
 # TODO: transmission folder, owner should be found
 /contracts/src/v0.8/vrf @smartcontractkit/vrf-team

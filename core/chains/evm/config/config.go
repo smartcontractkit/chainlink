@@ -96,6 +96,7 @@ type ClientErrors interface {
 	TransactionAlreadyMined() string
 	Fatal() string
 	ServiceUnavailable() string
+	TooManyResults() string
 }
 
 type Transactions interface {
@@ -117,6 +118,7 @@ type AutoPurgeConfig interface {
 
 type GasEstimator interface {
 	BlockHistory() BlockHistory
+	FeeHistory() FeeHistory
 	LimitJobType() LimitJobType
 
 	EIP1559DynamicFees() bool
@@ -136,7 +138,7 @@ type GasEstimator interface {
 	PriceMin() *assets.Wei
 	Mode() string
 	PriceMaxKey(gethcommon.Address) *assets.Wei
-	EstimateGasLimit() bool
+	EstimateLimit() bool
 }
 
 type LimitJobType interface {
@@ -158,10 +160,14 @@ type BlockHistory interface {
 	TransactionPercentile() uint16
 }
 
+type FeeHistory interface {
+	CacheTimeout() time.Duration
+}
+
 type Workflow interface {
 	FromAddress() *types.EIP55Address
 	ForwarderAddress() *types.EIP55Address
-	DefaultGasLimit() uint64
+	GasLimitDefault() *uint64
 }
 
 type NodePool interface {

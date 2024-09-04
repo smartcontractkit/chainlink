@@ -25,7 +25,7 @@ import (
 )
 
 type stuckTxDetectorGasEstimator interface {
-	GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, toAddress *common.Address, opts ...feetypes.Opt) (fee gas.EvmFee, chainSpecificFeeLimit uint64, err error)
+	GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, fromAddress, toAddress *common.Address, opts ...feetypes.Opt) (fee gas.EvmFee, chainSpecificFeeLimit uint64, err error)
 }
 
 type stuckTxDetectorClient interface {
@@ -199,7 +199,7 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 	defer d.purgeBlockNumLock.RUnlock()
 	// Get gas price from internal gas estimator
 	// Send with max gas price time 2 to prevent the results from being capped. Need the market gas price here.
-	marketGasPrice, _, err := d.gasEstimator.GetFee(ctx, []byte{}, 0, d.maxPrice.Mul(big.NewInt(2)), nil)
+	marketGasPrice, _, err := d.gasEstimator.GetFee(ctx, []byte{}, 0, d.maxPrice.Mul(big.NewInt(2)), nil, nil)
 	if err != nil {
 		return txs, fmt.Errorf("failed to get market gas price for overflow detection: %w", err)
 	}
@@ -409,7 +409,6 @@ func (d *stuckTxDetector) SetPurgeBlockNum(fromAddress common.Address, blockNum 
 	d.purgeBlockNumMap[fromAddress] = blockNum
 }
 
-func (d *stuckTxDetector) StuckTxFatalError() *string {
-	errorMsg := client.TerminallyStuckMsg
-	return &errorMsg
+func (d *stuckTxDetector) StuckTxFatalError() string {
+	return client.TerminallyStuckMsg
 }
