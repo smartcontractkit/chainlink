@@ -4,8 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink-testing-framework/concurrency"
+	"golang.org/x/sync/errgroup"
 	"sort"
 	"time"
 
@@ -416,119 +415,101 @@ func (dr deploymentResult) GetResult() deploymentResult {
 func DeployCapReg_Concurrent(lggr logger.Logger, chains map[uint64]deployment.Chain, chainSel []uint64) (deployment.AddressBook, map[uint64]common.Address, error) {
 	addresses := make(map[uint64]common.Address)
 
-	executor := concurrency.NewConcurrentExecutor[deploymentResult, deploymentResult, deployment.Chain](zerolog.Logger{})
+	errorGr, errCtx := errgroup.WithContext(context.Background())
+	resultCh := make(chan deploymentResult, len(chainSel))
 
-	chainsSlice := []deployment.Chain{}
-	for _, v := range chainSel {
-		chainsSlice = append(chainsSlice, chains[v])
-	}
-
-	deployFn := func(channel chan deploymentResult, errorCh chan error, executorNum int, chain deployment.Chain) {
-		lggr.Info("Deploying cap reg with executorNum ", executorNum)
-		ab := deployment.NewMemoryAddressBook()
-		capReg, err := deployContract(lggr, chain, ab,
-			func(chain deployment.Chain) ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
-				crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
-					chain.DefaultKey(),
-					chain.Client,
-				)
-				if err2 != nil {
-					tx, err2 = chain.RetrySubmit(tx, err2)
-				}
-				return ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
-					Address: crAddr, Contract: cr, Tv: deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
-				}
-			})
-		if err != nil {
-			lggr.Errorw("Failed to deploy capreg", "err", err)
-			errorCh <- err
-
-			return
-		}
-
-		lggr.Infow("deployed capreg", "addr", capReg.Address)
-		ccipConfig, err := deployContract(
-			lggr, chain, ab,
-			func(chain deployment.Chain) ContractDeploy[*ccip_config.CCIPConfig] {
-				ccAddr, tx, cc, err2 := ccip_config.DeployCCIPConfig(
-					chain.DefaultKey(),
-					chain.Client,
-					capReg.Address,
-				)
-				if err2 != nil {
-					tx, err2 = chain.RetrySubmit(tx, err2)
-				}
-				return ContractDeploy[*ccip_config.CCIPConfig]{
-					Address: ccAddr, Tv: deployment.NewTypeAndVersion(CCIPConfig, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: cc,
-				}
-			})
-		if err != nil {
-			lggr.Errorw("Failed to deploy ccip config", "err", err)
-			errorCh <- err
-
-			return
-		}
-		lggr.Infow("deployed ccip config", "addr", ccipConfig.Address)
-
-		tx, err := capReg.Contract.AddCapabilities(chain.DefaultKey(), []capabilities_registry.CapabilitiesRegistryCapability{
-			{
-				LabelledName:          CapabilityLabelledName,
-				Version:               CapabilityVersion,
-				CapabilityType:        2, // consensus. not used (?)
-				ResponseType:          0, // report. not used (?)
-				ConfigurationContract: ccipConfig.Address,
-			},
-		})
-		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-			lggr.Errorw("Failed to add capabilities", "err", err)
-			errorCh <- err
-
-			return
-		}
-		// TODO: Just one for testing.
-		tx, err = capReg.Contract.AddNodeOperators(chain.DefaultKey(), []capabilities_registry.CapabilitiesRegistryNodeOperator{
-			{
-				Admin: chain.DefaultKey().From,
-				Name:  "NodeOperator",
-			},
-		})
-		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-			lggr.Errorw("Failed to add node operators", "err", err)
-
-			errorCh <- err
-			return
-		}
-
-		channel <- deploymentResult{contractDeploy: capReg, addressBook: ab, chainId: chain.Selector}
-		lggr.Info("Deployed cap reg with executorNum ", executorNum)
-	}
-
-	// unfortunately executor doesn't support dynamic concurrency (e.g. based on the settings of Seth Client used by each chain)
-	// so we set it to the lowest possible value
-	minConcurrency := 0
-	count := 0
 	for _, chain := range chains {
-		count++
-		if count == 1 {
-			minConcurrency = len(chain.Keys)
-			continue
-		}
+		errorGr.Go(func() error {
+			select {
+			case <-errCtx.Done():
+				return errCtx.Err()
+			default:
+				lggr.Info("Deploying cap reg for chain: ", chain.Selector)
+				ab := deployment.NewMemoryAddressBook()
+				capReg, err := deployContract(lggr, chain, ab,
+					func(chain deployment.Chain) ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
+						crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
+							chain.DefaultKey(),
+							chain.Client,
+						)
+						if err2 != nil {
+							tx, err2 = chain.RetrySubmit(tx, err2)
+						}
+						return ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
+							Address: crAddr, Contract: cr, Tv: deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
+						}
+					})
+				if err != nil {
+					lggr.Errorw("Failed to deploy capreg", "err", err)
+					return err
+				}
 
-		if len(chain.Keys) < minConcurrency {
-			minConcurrency = len(chain.Keys)
-		}
+				lggr.Infow("deployed capreg", "addr", capReg.Address)
+				ccipConfig, err := deployContract(
+					lggr, chain, ab,
+					func(chain deployment.Chain) ContractDeploy[*ccip_config.CCIPConfig] {
+						ccAddr, tx, cc, err2 := ccip_config.DeployCCIPConfig(
+							chain.DefaultKey(),
+							chain.Client,
+							capReg.Address,
+						)
+						if err2 != nil {
+							tx, err2 = chain.RetrySubmit(tx, err2)
+						}
+						return ContractDeploy[*ccip_config.CCIPConfig]{
+							Address: ccAddr, Tv: deployment.NewTypeAndVersion(CCIPConfig, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: cc,
+						}
+					})
+				if err != nil {
+					lggr.Errorw("Failed to deploy ccip config", "err", err)
+					return err
+				}
+				lggr.Infow("deployed ccip config", "addr", ccipConfig.Address)
 
+				tx, err := capReg.Contract.AddCapabilities(chain.DefaultKey(), []capabilities_registry.CapabilitiesRegistryCapability{
+					{
+						LabelledName:          CapabilityLabelledName,
+						Version:               CapabilityVersion,
+						CapabilityType:        2, // consensus. not used (?)
+						ResponseType:          0, // report. not used (?)
+						ConfigurationContract: ccipConfig.Address,
+					},
+				})
+				if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+					lggr.Errorw("Failed to add capabilities", "err", err)
+					return err
+				}
+				// TODO: Just one for testing.
+				tx, err = capReg.Contract.AddNodeOperators(chain.DefaultKey(), []capabilities_registry.CapabilitiesRegistryNodeOperator{
+					{
+						Admin: chain.DefaultKey().From,
+						Name:  "NodeOperator",
+					},
+				})
+				if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+					lggr.Errorw("Failed to add node operators", "err", err)
+					return err
+				}
+
+				resultCh <- deploymentResult{contractDeploy: capReg, addressBook: ab, chainId: chain.Selector}
+				lggr.Info("Deployed cap reg for chain: ", chain.Selector)
+
+				return nil
+			}
+		})
 	}
 
-	deployedContracts, err := executor.Execute(minConcurrency, chainsSlice, deployFn)
-	if err != nil {
+	if err := errorGr.Wait(); err != nil {
+		close(resultCh)
 		return nil, addresses, err
 	}
 
+	close(resultCh)
 	ab := deployment.NewMemoryAddressBook()
-	for _, v := range deployedContracts {
-		addresses[v.chainId] = v.contractDeploy.Address
-		mergeErr := ab.Merge(v.addressBook)
+	for result := range resultCh {
+		lggr.Info("Merging address book for chain: ", result.chainId)
+		addresses[result.chainId] = result.contractDeploy.Address
+		mergeErr := ab.Merge(result.addressBook)
 		if mergeErr != nil {
 			return nil, addresses, mergeErr
 		}

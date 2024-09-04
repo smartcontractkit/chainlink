@@ -92,10 +92,13 @@ func TestDeployCapReg_NewDevnet_Concurrent(t *testing.T) {
 		ChainConfig: persistent_types.ChainConfig{
 			NewEVMChains: []persistent_types.NewEVMChainProducer{firstChain, secondChain},
 		},
+		DONConfig: persistent.DONConfig{
+			NewDON: getDefaultNewDONConfig(t, ls, dockerNetwork.Name),
+		},
 	}
 
 	e, err := persistent.NewEnvironment(lggr, envConfig)
-	require.NoError(t, err, "Error creating new persistent environment")
+	require.NoError(t, err, "Error creating new environment")
 	testDeployCapRegWithEnv_Concurrent(t, lggr, *e)
 }
 
@@ -160,67 +163,7 @@ func TestDeployCCIPContractsNewDevnet(t *testing.T) {
 			NewEVMChains: []persistent_types.NewEVMChainProducer{firstChain, secondChain},
 		},
 		DONConfig: persistent.DONConfig{
-			NewDON: &persistent.NewDockerDONConfig{
-				NewDONHooks: &hooks.DefaultDONHooks{T: t, L: logging.GetTestLogger(t), LogStream: ls, RunId: ptr.Ptr(uuid.New().String()), CollectTestArtifacts: true, ShowHTMLCoverageReport: true},
-				ChainlinkDeployment: testconfig.ChainlinkDeployment{
-					Common: &testconfig.Node{
-						ChainlinkImage: &ctfconfig.ChainlinkImageConfig{
-							Image:   ptr.Ptr("public.ecr.aws/chainlink/chainlink"),
-							Version: ptr.Ptr("2.13.0"),
-						},
-						DBImage: "795953128386.dkr.ecr.us-west-2.amazonaws.com/postgres",
-						DBTag:   "15.6",
-						BaseConfigTOML: `
-[Feature]
-LogPoller = true
-
-[Log]
-Level = 'debug'
-JSONConsole = true
-
-[Log.File]
-MaxSize = '0b'
-
-[WebServer]
-AllowOrigins = '*'
-HTTPPort = 6688
-SecureCookies = false
-HTTPWriteTimeout = '1m'
-
-[WebServer.RateLimit]
-Authenticated = 2000
-Unauthenticated = 1000
-
-[WebServer.TLS]
-HTTPSPort = 0
-
-[Database]
-MaxIdleConns = 10
-MaxOpenConns = 20
-MigrateOnStartup = true
-
-[OCR2]
-Enabled = true
-DefaultTransactionQueueDepth = 0
-
-[OCR]
-Enabled = false
-DefaultTransactionQueueDepth = 0
-
-[P2P]
-[P2P.V2]
-Enabled = true
-ListenAddresses = ['0.0.0.0:6690']
-AnnounceAddresses = ['0.0.0.0:6690']
-DeltaDial = '500ms'
-DeltaReconcile = '5s'
-`},
-					NoOfNodes: ptr.Ptr(5),
-				},
-				Options: persistent.Options{
-					Networks: []string{dockerNetwork.Name},
-				},
-			},
+			NewDON: getDefaultNewDONConfig(t, ls, dockerNetwork.Name),
 		},
 	}
 
@@ -354,4 +297,68 @@ func TestJobSpecGeneration(t *testing.T) {
 		fmt.Println(node, jb)
 	}
 	// TODO: Add job assertions
+}
+
+func getDefaultNewDONConfig(t *testing.T, ls *logstream.LogStream, dockerNetwork string) *persistent.NewDockerDONConfig {
+	return &persistent.NewDockerDONConfig{
+		NewDONHooks: &hooks.DefaultDONHooks{T: t, L: logging.GetTestLogger(t), LogStream: ls, RunId: ptr.Ptr(uuid.New().String()), CollectTestArtifacts: true, ShowHTMLCoverageReport: true},
+		ChainlinkDeployment: testconfig.ChainlinkDeployment{
+			Common: &testconfig.Node{
+				ChainlinkImage: &ctfconfig.ChainlinkImageConfig{
+					Image:   ptr.Ptr("public.ecr.aws/chainlink/chainlink"),
+					Version: ptr.Ptr("2.13.0"),
+				},
+				DBImage: "795953128386.dkr.ecr.us-west-2.amazonaws.com/postgres",
+				DBTag:   "15.6",
+				BaseConfigTOML: `
+[Feature]
+LogPoller = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '1m'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[Database]
+MaxIdleConns = 10
+MaxOpenConns = 20
+MigrateOnStartup = true
+
+[OCR2]
+Enabled = true
+DefaultTransactionQueueDepth = 0
+
+[OCR]
+Enabled = false
+DefaultTransactionQueueDepth = 0
+
+[P2P]
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']
+AnnounceAddresses = ['0.0.0.0:6690']
+DeltaDial = '500ms'
+DeltaReconcile = '5s'
+`},
+			NoOfNodes: ptr.Ptr(5),
+		},
+		Options: persistent.Options{
+			Networks: []string{dockerNetwork},
+		},
+	}
 }
