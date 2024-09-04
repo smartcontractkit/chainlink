@@ -48,7 +48,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   event FeePaid(address indexed feeToken, uint256 feeValueJuels);
   event FeeTokenWithdrawn(address indexed feeAggregator, address indexed feeToken, uint256 amount);
   /// RMN depends on this event, if changing, please notify the RMN maintainers.
-  event CCIPSendRequested(uint64 indexed destChainSelector, Internal.EVM2AnyRampMessage message);
+  event CCIPMessageSent(uint64 indexed destChainSelector, Internal.EVM2AnyRampMessage message);
   event AllowListAdminSet(address indexed allowListAdmin);
   event AllowListSendersAdded(uint64 indexed destChainSelector, address[] senders);
   event AllowListSendersRemoved(uint64 indexed destChainSelector, address[] senders);
@@ -243,7 +243,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     // Emit message request
     // This must happen after any pool events as some tokens (e.g. USDC) emit events that we expect to precede this
     // event in the offchain code.
-    emit CCIPSendRequested(destChainSelector, newMessage);
+    emit CCIPMessageSent(destChainSelector, newMessage);
     return newMessage.header.messageId;
   }
 

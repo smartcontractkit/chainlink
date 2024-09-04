@@ -107,9 +107,9 @@ contract MultiOnRampTokenPoolReentrancy is OnRampSetup {
     Internal.EVM2AnyRampMessage memory msgEvent2 = _messageToEvent(message2, 2, 2, expectedFee, address(s_facadeClient));
 
     vm.expectEmit();
-    emit OnRamp.CCIPSendRequested(DEST_CHAIN_SELECTOR, msgEvent2);
+    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, msgEvent2);
     vm.expectEmit();
-    emit OnRamp.CCIPSendRequested(DEST_CHAIN_SELECTOR, msgEvent1);
+    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, msgEvent1);
 
     s_facadeClient.send(amount);
   }
