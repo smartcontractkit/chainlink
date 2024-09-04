@@ -35,13 +35,15 @@ type DeployRequest struct {
 }
 
 type DeployResponse struct {
-	AddressBook deployment.AddressBook
+	Changeset *deployment.ChangesetOutput
 }
 
 func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*DeployResponse, error) {
 	ad := deployment.NewMemoryAddressBook()
 	resp := &DeployResponse{
-		AddressBook: ad,
+		Changeset: &deployment.ChangesetOutput{
+			AddressBook: ad,
+		},
 	}
 	var registry *capabilities_registry.CapabilitiesRegistry
 	var registryChain deployment.Chain
@@ -491,7 +493,7 @@ func mapDonsToNodes(ctx context.Context, menv deployment.MultiDonEnvironment) (m
 		nodeCfgs := make(map[string][]*v1.ChainConfig)
 		for _, node := range donNodeSet.Nodes {
 			cfgResp, err := env.Offchain.ListNodeChainConfigs(ctx, &v1.ListNodeChainConfigsRequest{
-				Filter: &v1.ListNodeChainConfigsRequest_Filter{NodeId: node.Id},
+				Filter: &v1.ListNodeChainConfigsRequest_Filter{NodeIds: []string{node.Id}},
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to list node chain configs for node %s: %w", node.Id, err)

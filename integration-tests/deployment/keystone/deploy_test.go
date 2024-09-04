@@ -18,19 +18,19 @@ var (
 	adminAddr = "0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f22D6"
 	testNops  = []kcr.CapabilitiesRegistryNodeOperator{
 		{
-			Admin: common.HexToAddress(adminAddr),
+			Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f22D6"),
 			Name:  "NOP_00",
 		},
 		{
-			Admin: common.HexToAddress(adminAddr),
+			Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f2200"),
 			Name:  "NOP_01",
 		},
 		{
-			Admin: common.HexToAddress(adminAddr),
+			Admin: common.HexToAddress("0x11dfBF967A8ec4C29Fe26aF2a33Eb485d02f22D6"),
 			Name:  "NOP_02",
 		},
 		{
-			Admin: common.HexToAddress(adminAddr),
+			Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f2222"),
 			Name:  "NOP_03",
 		},
 	}
@@ -84,17 +84,18 @@ func TestDeploy(t *testing.T) {
 
 	r, err := keystone.Deploy(ctx, lggr, deployReq)
 	require.NoError(t, err)
-	addrs, err := r.AddressBook.Addresses()
+	ad := r.Changeset.AddressBook
+	addrs, err := ad.Addresses()
 	require.NoError(t, err)
 	lggr.Infow("Deployed Keystone contracts", "address book", addrs)
 
 	// all contracts on home chain
-	homeChainAddrs, err := r.AddressBook.AddressesForChain(homeChain)
+	homeChainAddrs, err := ad.AddressesForChain(homeChain)
 	require.NoError(t, err)
 	require.Len(t, homeChainAddrs, 3)
 	// only forwarder on non-home chain
 	for _, chain := range e.Get(keystone.TargetDonName).AllChainSelectors() {
-		chainAddrs, err := r.AddressBook.AddressesForChain(chain)
+		chainAddrs, err := ad.AddressesForChain(chain)
 		require.NoError(t, err)
 		if chain != homeChain {
 			require.Len(t, chainAddrs, 1)
