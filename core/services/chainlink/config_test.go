@@ -531,7 +531,7 @@ func TestConfig_Marshal(t *testing.T) {
 					LimitMax:           ptr[uint64](17),
 					LimitMultiplier:    mustDecimal("1.234"),
 					LimitTransfer:      ptr[uint64](100),
-					EstimateGasLimit:   ptr(false),
+					EstimateLimit:      ptr(false),
 					TipCapDefault:      assets.NewWeiI(2),
 					TipCapMin:          assets.NewWeiI(1),
 					PriceDefault:       assets.NewWeiI(math.MaxInt64),
@@ -554,6 +554,9 @@ func TestConfig_Marshal(t *testing.T) {
 						CheckInclusionPercentile:  ptr[uint16](19),
 						EIP1559FeeCapBufferBlocks: ptr[uint16](13),
 						TransactionPercentile:     ptr[uint16](15),
+					},
+					FeeHistory: evmcfg.FeeHistoryEstimator{
+						CacheTimeout: &second,
 					},
 				},
 
@@ -1041,7 +1044,7 @@ LimitDefault = 12
 LimitMax = 17
 LimitMultiplier = '1.234'
 LimitTransfer = 100
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '100 wei'
 BumpPercent = 10
 BumpThreshold = 6
@@ -1066,6 +1069,9 @@ CheckInclusionBlocks = 18
 CheckInclusionPercentile = 19
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
+
+[EVM.GasEstimator.FeeHistory]
+CacheTimeout = '1s'
 
 [EVM.HeadTracker]
 HistoryDepth = 15

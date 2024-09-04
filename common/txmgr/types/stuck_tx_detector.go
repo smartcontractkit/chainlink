@@ -22,5 +22,5 @@ type StuckTxDetector[
 	// Sets the last purged block num after a transaction has been successfully purged with receipt
 	SetPurgeBlockNum(fromAddress ADDR, blockNum int64)
 	// Returns the error message to set in the transaction error field to mark it as terminally stuck
-	StuckTxFatalError() *string
+	StuckTxFatalError() string
 }
