@@ -1,9 +1,13 @@
 package ocrcommon
 
 import (
+	"bytes"
+	"cmp"
 	"context"
-	"encoding/base64"
+	"encoding/binary"
 	"fmt"
+	"io"
+	"slices"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -12,6 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
@@ -83,37 +88,61 @@ func (c *OCR3ContractTransmitterAdapter) FromAccount() (ocrtypes.Account, error)
 var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
 
 func MarshalMultichainPublicKey(ost map[string]ocr2key.KeyBundle) (ocrtypes.OnchainPublicKey, error) {
-	pks := map[string]any{}
+	var pubKeys [][]byte
 	for k, b := range ost {
-		pks[k] = []byte(b.PublicKey())
+		typ, err := chaintype.ChainType(k).Type()
+		if err != nil {
+			// skipping unknown key type
+			continue
+		}
+		pubKey := []byte(b.PublicKey())
+		buf := new(bytes.Buffer)
+		binary.Write(buf, binary.LittleEndian, typ)
+		binary.Write(buf, binary.LittleEndian, uint16(len(pubKey)))
+		_, _ = buf.Write(pubKey)
+		pubKeys = append(pubKeys, buf.Bytes())
 	}
-	keys, err := structpb.NewStruct(pks)
-	if err != nil {
-		return nil, err
-	}
-	return proto.MarshalOptions{Deterministic: true}.Marshal(keys)
+	// sort keys based on encoded type to make encoding deterministic
+	slices.SortFunc(pubKeys, func(a, b []byte) int { return cmp.Compare(a[0], b[0]) })
+	return bytes.Join(pubKeys, nil), nil
 }
 
 func UnmarshalMultichainPublicKey(d []byte) (map[string]ocrtypes.OnchainPublicKey, error) {
-	u := &structpb.Struct{}
-	err := proto.Unmarshal(d, u)
-	if err != nil {
-		return nil, err
-	}
-
 	m := map[string]ocrtypes.OnchainPublicKey{}
-	for k, v := range u.AsMap() {
-		vs, ok := v.(string)
-		if !ok {
-			return nil, fmt.Errorf("could not convert element %+v to string", v)
-		}
+	buf := bytes.NewReader(d)
 
-		vb, err := base64.StdEncoding.DecodeString(vs)
+	for {
+		// type
+		typ, err := buf.ReadByte()
 		if err != nil {
-			return nil, fmt.Errorf("could not convert element %+v to []byte", v)
+			return nil, err
+		}
+		// length
+		var len uint16
+		err = binary.Read(buf, binary.LittleEndian, &len)
+		if err != nil {
+			return nil, err
+		}
+		// value
+		pubKey := make([]byte, len)
+		n, err := buf.Read(pubKey)
+		if err != nil {
+			return nil, err
+		}
+		if n != int(len) {
+			return nil, io.EOF
 		}
 
-		m[k] = vb
+		k, err := chaintype.NewChainType(typ)
+		if err != nil {
+			// skipping unknown key type
+			continue
+		}
+		m[string(k)] = pubKey
+
+		if buf.Len() == 0 {
+			break
+		}
 	}
 
 	return m, nil
