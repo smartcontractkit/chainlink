@@ -10,7 +10,10 @@ import (
 type GeneralConfig interface {
 	OCR() coreconfig.OCR
 	Insecure() coreconfig.Insecure
-	FeatureMultiFeedsManagers() bool
+}
+
+type FeatureConfig interface {
+	MultiFeedsManagers() bool
 }
 
 type JobConfig interface {
