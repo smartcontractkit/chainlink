@@ -69,7 +69,7 @@ type LogPoller interface {
 	LogsDataWordBetween(ctx context.Context, eventSig common.Hash, address common.Address, wordIndexMin, wordIndexMax int, wordValue common.Hash, confs evmtypes.Confirmations) ([]Log, error)
 
 	// chainlink-common query filtering
-	FilteredLogs(ctx context.Context, filter query.KeyFilter, limitAndSort query.LimitAndSort, queryName string) ([]Log, error)
+	FilteredLogs(ctx context.Context, filter []query.Expression, limitAndSort query.LimitAndSort, queryName string) ([]Log, error)
 }
 
 type LogPollerTest interface {
@@ -1518,6 +1518,25 @@ func EvmWord(i uint64) common.Hash {
 	return common.BytesToHash(b)
 }
 
-func (lp *logPoller) FilteredLogs(ctx context.Context, queryFilter query.KeyFilter, limitAndSort query.LimitAndSort, queryName string) ([]Log, error) {
+func (lp *logPoller) FilteredLogs(ctx context.Context, queryFilter []query.Expression, limitAndSort query.LimitAndSort, queryName string) ([]Log, error) {
 	return lp.orm.FilteredLogs(ctx, queryFilter, limitAndSort, queryName)
+}
+
+// Where is a query.Where wrapper that ignores the Key and returns a slice of query.Expression rather than query.KeyFilter.
+// If no expressions are provided, or an error occurs, an empty slice is returned.
+func Where(expressions ...query.Expression) ([]query.Expression, error) {
+	filter, err := query.Where(
+		"",
+		expressions...,
+	)
+
+	if err != nil {
+		return []query.Expression{}, err
+	}
+
+	if filter.Expressions == nil {
+		return []query.Expression{}, nil
+	}
+
+	return filter.Expressions, nil
 }
