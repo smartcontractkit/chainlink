@@ -8,9 +8,6 @@ inputs:
   name:
     description: Name of the lint action
     required: true
-  lint-base-ref:
-    description: Base ref to lint against
-    required: true
   go-directory:
     description: Go directory to run commands from
     # XXX: Don't use `.` here due to issues with the golangci-lint-action.
