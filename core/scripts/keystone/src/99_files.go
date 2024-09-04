@@ -16,6 +16,7 @@ const (
 	defaultNodeList       = ".cache/NodeList.txt"
 	deployedContractsJSON = "deployed_contracts.json"
 	bootstrapSpecTemplate = "bootstrap.toml"
+	streamsTriggerSpecTemplate = "streams_trigger.toml"
 	cribOverrideTemplate  = "crib-overrides.yaml"
 	oracleSpecTemplate    = "oracle.toml"
 )

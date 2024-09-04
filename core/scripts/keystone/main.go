@@ -22,6 +22,7 @@ func main() {
 		src.NewDeployAndInitializeCapabilitiesRegistryCommand(),
 		src.NewDeployWorkflowsCommand(),
 		src.NewDeleteWorkflowsCommand(),
+		src.NewDeployStreamsTriggerCommand(),
 	}
 
 	commandsList := func(commands []command) string {
