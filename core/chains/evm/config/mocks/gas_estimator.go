@@ -390,6 +390,53 @@ func (_c *GasEstimator_FeeCapDefault_Call) RunAndReturn(run func() *assets.Wei) 
 	return _c
 }
 
+// FeeHistory provides a mock function with given fields:
+func (_m *GasEstimator) FeeHistory() config.FeeHistory {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for FeeHistory")
+	}
+
+	var r0 config.FeeHistory
+	if rf, ok := ret.Get(0).(func() config.FeeHistory); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.FeeHistory)
+		}
+	}
+
+	return r0
+}
+
+// GasEstimator_FeeHistory_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FeeHistory'
+type GasEstimator_FeeHistory_Call struct {
+	*mock.Call
+}
+
+// FeeHistory is a helper method to define mock.On call
+func (_e *GasEstimator_Expecter) FeeHistory() *GasEstimator_FeeHistory_Call {
+	return &GasEstimator_FeeHistory_Call{Call: _e.mock.On("FeeHistory")}
+}
+
+func (_c *GasEstimator_FeeHistory_Call) Run(run func()) *GasEstimator_FeeHistory_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GasEstimator_FeeHistory_Call) Return(_a0 config.FeeHistory) *GasEstimator_FeeHistory_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GasEstimator_FeeHistory_Call) RunAndReturn(run func() config.FeeHistory) *GasEstimator_FeeHistory_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // LimitDefault provides a mock function with given fields:
 func (_m *GasEstimator) LimitDefault() uint64 {
 	ret := _m.Called()

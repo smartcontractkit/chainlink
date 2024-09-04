@@ -75,9 +75,9 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.21
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240828115624-442f1cff195b
-	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240904021311-208ef0231a64
+	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240903184200-6488292a85e3
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45
-	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240820130645-cf4b159fbba2
+	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240904093355-e40169857652
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240710170203-5b41615da827
 	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20240821170223-a2f5c39f457f
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240709043547-03612098f799
@@ -349,5 +349,10 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-// replicating the replace directive on cosmos SDK
-replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+replace (
+	// until merged upstream: https://github.com/omissis/go-jsonschema/pull/264
+	github.com/atombender/go-jsonschema => github.com/nolag/go-jsonschema v0.16.0-rtinianov
+
+	// replicating the replace directive on cosmos SDK
+	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+)
