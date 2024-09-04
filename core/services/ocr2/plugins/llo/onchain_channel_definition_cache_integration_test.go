@@ -144,6 +144,8 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	configStoreAddress, _, configStoreContract, err := channel_config_store.DeployChannelConfigStore(steve, backend.Client())
 	require.NoError(t, err)
 
+	backend.Commit()
+
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            1,

@@ -202,6 +202,7 @@ func TestReader_Integration(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+	sim.Commit()
 
 	nodeSet := [][32]byte{
 		randomWord(),
@@ -240,6 +241,7 @@ func TestReader_Integration(t *testing.T) {
 	}
 	_, err = reg.AddNodes(owner, nodes)
 	require.NoError(t, err)
+	sim.Commit()
 
 	config := &capabilitiespb.CapabilityConfig{
 		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
