@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -3096,10 +3097,10 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
-		done := make(chan struct{})
-		t.Cleanup(func() { <-done })
-		go func() {
-			defer close(done)
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
 			err2 := ec.ResumePendingTaskRuns(tests.Context(t), &head)
 			if !assert.NoError(t, err2) {
 				return
@@ -3109,7 +3110,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 			if assert.NoError(t, err3) {
 				assert.Equal(t, true, updateTx.CallbackCompleted)
 			}
-		}()
+		}(&wg)
 
 		select {
 		case data := <-ch:
@@ -3122,6 +3123,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		case <-time.After(time.Second):
 			t.Fatal("no value received")
 		}
+		wg.Wait()
 	})
 
 	pgtest.MustExec(t, db, `DELETE FROM pipeline_runs`)
@@ -3150,10 +3152,10 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
-		done := make(chan struct{})
-		t.Cleanup(func() { <-done })
-		go func() {
-			defer close(done)
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func(wg *sync.WaitGroup) {
+			defer wg.Done()
 			err2 := ec.ResumePendingTaskRuns(tests.Context(t), &head)
 			if !assert.NoError(t, err2) {
 				return
@@ -3163,7 +3165,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 			if assert.NoError(t, err3) {
 				assert.Equal(t, true, updateTx.CallbackCompleted)
 			}
-		}()
+		}(&wg)
 
 		select {
 		case data := <-ch:
@@ -3174,8 +3176,9 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 			assert.Nil(t, data.value)
 
 		case <-time.After(tests.WaitTimeout(t)):
-			t.Fatal("no value received")
+			t.Errorf("no value received")
 		}
+		wg.Wait()
 	})
 
 	t.Run("does not mark callback complete if callback fails", func(t *testing.T) {
