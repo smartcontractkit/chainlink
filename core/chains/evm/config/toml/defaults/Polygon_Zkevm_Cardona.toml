@@ -13,13 +13,11 @@ ContractConfirmations = 1
 ResendAfterThreshold = '3m'
 
 [GasEstimator]
-Mode = 'SuggestedPrice'
+Mode = 'FeeHistory'
+Feehistory.CacheTimeout = '5s'
 PriceMin = '1 mwei'
 BumpPercent = 40
 BumpMin = '20 mwei'
-
-[GasEstimator.BlockHistory]
-BlockHistorySize = 12
 
 [HeadTracker]
 HistoryDepth = 2000
