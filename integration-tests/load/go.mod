@@ -17,10 +17,9 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240830180817-6a0f3d1e0f9e
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.49.0
+	github.com/smartcontractkit/chainlink-testing-framework/lib v0.0.0-20240904094733-4af90dfb1861
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.49.0
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.49.0
-	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
 	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
@@ -63,7 +62,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240828115624-442f1cff195b // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.49.0 // indirect
-	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.49.0 // indirect
+	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v0.1.1-0.20240904094733-4af90dfb1861 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
