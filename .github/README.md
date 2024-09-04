@@ -1,0 +1,60 @@
+# E2E Tests on GitHub CI
+
+E2E tests are executed on GitHub CI using the [E2E Tests Reusable Workflow](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/run-e2e-tests-reusable-workflow.yml) or dedicated workflows.
+
+## About the Reusable Workflow
+
+The [E2E Tests Reusable Workflow](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/run-e2e-tests-reusable-workflow.yml) is designed to run any type of E2E test on GitHub CI, including docker/testcontainers, old K8s tests, or tests in CRIB in the future.
+
+Our goal is to migrate all workflows to use this reusable workflow for executing E2E tests. This approach will streamline our CI and allow for the automatic execution of tests at different stages of the software development process. Learn more about the advantages of using reusable workflows [here](https://smartcontract-it.atlassian.net/wiki/spaces/TT/pages/815497220/CI+Workflows+for+E2E+Tests).
+
+### Examples of Existing Uses of the Reusable Workflow:
+
+- [Integration Tests](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/integration-tests.yml)
+- [Nightly E2E Tests](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/run-nightly-e2e-tests.yml)
+- [Selected E2E Tests](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/run-selected-e2e-tests.yml)
+- [On-Demand Automation Tests](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/automation-ondemand-tests.yml)
+- [CCIP Chaos Tests](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/ccip-chaos-tests.yml)
+
+## Automatic workflows
+
+These workflows are designed to run automatically at crucial stages of the software development process, such as on every commit in a PR, nightly or before release.
+
+### PR E2E Tests
+
+Run on every commit in a PR to ensure changes do not introduce regressions.
+
+Link: https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/integration-tests.yml
+
+### Nightly E2E Tests
+
+Conducted nightly to catch issues that may develop over time or with accumulated changes.
+
+Link: https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/run-nightly-e2e-tests.yml
+
+### Release E2E Tests
+
+Currently, there are no automatic workflows triggering E2E tests at release. These tests are triggered on-demand by QA as needed.
+
+## On-Demand Workflows
+
+Triggered manually by QA for specific testing needs.
+
+## Guides
+
+### How to Run Selected Tests on GitHub CI
+
+The [Run Selected E2E Tests Workflow](https://github.com/smartcontractkit/chainlink/actions/workflows/run-selected-e2e-tests.yml) allows you to execute specific E2E tests as defined in the [e2e-tests.yml](https://github.com/smartcontractkit/chainlink/blob/develop/.github/e2e-tests.yml). This is useful for various purposes such as testing specific features on a particular branch or verifying that modifications to a test have not introduced any issues.
+
+For details on all available inputs that the workflow supports, refer to the [workflow definition](https://github.com/smartcontractkit/chainlink/actions/workflows/run-selected-e2e-tests.yml).
+
+**Example Usage**
+
+To run a set of VRFv2Plus tests from a custom branch, use the following command:
+
+```bash
+gh workflow run run-selected-e2e-tests.yml \
+-f test_ids="TestVRFv2Plus_LinkBilling,TestVRFv2Plus_NativeBilling,TestVRFv2Plus_DirectFunding,TestVRFV2PlusWithBHS" \
+-f chainlink_version=develop \
+--ref TT-1550-Provide-PoC-for-keeping-test-configs-in-git
+```
