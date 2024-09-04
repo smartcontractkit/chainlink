@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.sol";
 import {ICommitStore} from "../../interfaces/ICommitStore.sol";
 import {IRMN} from "../../interfaces/IRMN.sol";
+import {IRMNV2} from "../../interfaces/IRMNV2.sol";
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
@@ -55,6 +56,8 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
 
   uint64 internal s_latestSequenceNumber;
 
+  IRMNV2.Signature[] internal s_rmnSignatures;
+
   function setUp() public virtual override(FeeQuoterSetup, MultiOCR3BaseSetup) {
     FeeQuoterSetup.setUp();
     MultiOCR3BaseSetup.setUp();
@@ -67,16 +70,16 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_maybeRevertingPool = MaybeRevertingBurnMintTokenPool(s_destPoolByToken[s_destTokens[1]]);
     s_inboundNonceManager = new NonceManager(new address[](0));
 
-    _deployOffRamp(s_mockRMN, s_inboundNonceManager);
+    _deployOffRamp(s_mockRMNRemote, s_inboundNonceManager);
   }
 
-  function _deployOffRamp(IRMN rmnProxy, NonceManager nonceManager) internal {
+  function _deployOffRamp(IRMNV2 rmn, NonceManager nonceManager) internal {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](0);
 
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
-        rmnProxy: address(rmnProxy),
+        rmn: rmn,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(nonceManager)
       }),
@@ -425,7 +428,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
-        rmnProxy: address(s_mockRMN),
+        rmn: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
       }),

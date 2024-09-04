@@ -59,6 +59,7 @@ compileContract () {
 # Contracts should be ordered in reverse-import-complexity-order to minimize overwrite risks.
 compileContract ccip/offRamp/EVM2EVMOffRamp.sol
 compileContract ccip/offRamp/OffRamp.sol
+compileContract ccip/rmn/RMNRemote.sol
 compileContract ccip/applications/PingPongDemo.sol
 compileContract ccip/applications/SelfFundedPingPong.sol
 compileContract ccip/applications/EtherSenderReceiver.sol

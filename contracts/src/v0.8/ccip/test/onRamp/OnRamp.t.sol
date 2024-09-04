@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import {IMessageInterceptor} from "../../interfaces/IMessageInterceptor.sol";
+import {IRMNV2} from "../../interfaces/IRMNV2.sol";
 import {IRouter} from "../../interfaces/IRouter.sol";
 
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
@@ -21,7 +22,7 @@ contract OnRamp_constructor is OnRampSetup {
   function test_Constructor_Success() public {
     OnRamp.StaticConfig memory staticConfig = OnRamp.StaticConfig({
       chainSelector: SOURCE_CHAIN_SELECTOR,
-      rmnProxy: address(s_mockRMN),
+      rmn: s_mockRMNRemote,
       nonceManager: address(s_outboundNonceManager),
       tokenAdminRegistry: address(s_tokenAdminRegistry)
     });
@@ -52,7 +53,7 @@ contract OnRamp_constructor is OnRampSetup {
     new OnRampHelper(
       OnRamp.StaticConfig({
         chainSelector: 0,
-        rmnProxy: address(s_mockRMN),
+        rmn: s_mockRMNRemote,
         nonceManager: address(s_outboundNonceManager),
         tokenAdminRegistry: address(s_tokenAdminRegistry)
       }),
@@ -66,7 +67,7 @@ contract OnRamp_constructor is OnRampSetup {
     s_onRamp = new OnRampHelper(
       OnRamp.StaticConfig({
         chainSelector: SOURCE_CHAIN_SELECTOR,
-        rmnProxy: address(0),
+        rmn: IRMNV2(address(0)),
         nonceManager: address(s_outboundNonceManager),
         tokenAdminRegistry: address(s_tokenAdminRegistry)
       }),
@@ -80,7 +81,7 @@ contract OnRamp_constructor is OnRampSetup {
     new OnRampHelper(
       OnRamp.StaticConfig({
         chainSelector: SOURCE_CHAIN_SELECTOR,
-        rmnProxy: address(s_mockRMN),
+        rmn: s_mockRMNRemote,
         nonceManager: address(0),
         tokenAdminRegistry: address(s_tokenAdminRegistry)
       }),
@@ -94,7 +95,7 @@ contract OnRamp_constructor is OnRampSetup {
     new OnRampHelper(
       OnRamp.StaticConfig({
         chainSelector: SOURCE_CHAIN_SELECTOR,
-        rmnProxy: address(s_mockRMN),
+        rmn: s_mockRMNRemote,
         nonceManager: address(s_outboundNonceManager),
         tokenAdminRegistry: address(0)
       }),
@@ -497,7 +498,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     vm.startPrank(OWNER);
 
     MaybeRevertingBurnMintTokenPool newPool = new MaybeRevertingBurnMintTokenPool(
-      BurnMintERC677(sourceETH), new address[](0), address(s_mockRMN), address(s_sourceRouter)
+      BurnMintERC677(sourceETH), new address[](0), address(s_mockRMNRemote), address(s_sourceRouter)
     );
     BurnMintERC677(sourceETH).grantMintAndBurnRoles(address(newPool));
     deal(address(sourceETH), address(newPool), type(uint256).max);
@@ -632,7 +633,7 @@ contract OnRamp_getFee is OnRampSetup {
   // Reverts
 
   function test_Unhealthy_Revert() public {
-    s_mockRMN.setGlobalCursed(true);
+    _setMockRMNChainCurse(DEST_CHAIN_SELECTOR, true);
     vm.expectRevert(abi.encodeWithSelector(OnRamp.CursedByRMN.selector, DEST_CHAIN_SELECTOR));
     s_onRamp.getFee(DEST_CHAIN_SELECTOR, _generateEmptyMessage());
   }

@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
-
-import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
+import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+import {IRMNV2} from "../interfaces/IRMNV2.sol";
+import {Internal} from "../libraries/Internal.sol";
 
 bytes32 constant RMN_V1_6_ANY2EVM_REPORT = keccak256("RMN_V1_6_ANY2EVM_REPORT");
 
+/// @dev XXX DO NOT USE THIS CONTRACT, NOT PRODUCTION READY XXX
 /// @notice This contract supports verification of RMN reports for any Any2EVM OffRamp.
-contract RMNRemote is Ownable2Step, ITypeAndVersion {
+contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
   /// @dev temp placeholder to exclude this contract from coverage
   function test() public {}
 
@@ -85,27 +87,13 @@ contract RMNRemote is Ownable2Step, ITypeAndVersion {
     return VersionedConfig({version: s_configCount, config: s_config});
   }
 
-  /// @notice The part of the LaneUpdate for a fixed destination chain and OffRamp, to avoid verbosity in Report
-  struct DestLaneUpdate {
-    uint64 sourceChainSelector;
-    bytes onrampAddress; // generic, to support arbitrary sources; for EVM2EVM, use abi.encodePacked
-    uint64 minMsgNr;
-    uint64 maxMsgNr;
-    bytes32 root;
-  }
-
   struct Report {
     uint256 destChainId; // to guard against chain selector misconfiguration
     uint64 destChainSelector;
     address rmnRemoteContractAddress;
     address offrampAddress;
     bytes32 rmnHomeContractConfigDigest;
-    DestLaneUpdate[] destLaneUpdates;
-  }
-
-  struct Signature {
-    bytes32 r;
-    bytes32 s;
+    Internal.MerkleRoot[] destLaneUpdates;
   }
 
   /// @notice Verifies signatures of RMN nodes, on dest lane updates as provided in the CommitReport
@@ -113,7 +101,9 @@ contract RMNRemote is Ownable2Step, ITypeAndVersion {
   /// @param signatures must be sorted in ascending order by signer address
   /// @dev Will revert if verification fails. Needs to be called by the OffRamp for which the signatures are produced,
   /// otherwise verification will fail.
-  function verify(DestLaneUpdate[] memory destLaneUpdates, Signature[] memory signatures) external view {
+  function verify(Internal.MerkleRoot[] memory destLaneUpdates, Signature[] memory signatures) external view {
+    return; // XXX temporary workaround to fix integration tests while we wait to productionize this contract
+
     if (s_configCount == 0) {
       revert ConfigNotSet();
     }
@@ -144,6 +134,17 @@ contract RMNRemote is Ownable2Step, ITypeAndVersion {
       ++numSigners;
     }
     if (numSigners < s_config.minSigners) revert ThresholdNotMet();
+  }
+
+  /// @notice If there is an active global or legacy curse, this function returns true.
+  function isCursed() external view returns (bool) {
+    return false; // XXX temporary workaround
+  }
+
+  /// @notice If there is an active global curse, or an active curse for `subject`, this function returns true.
+  /// @param subject To check whether a particular chain is cursed, set to bytes16(uint128(chainSelector)).
+  function isCursed(bytes16 subject) external view returns (bool) {
+    return false; // XXX temporary workaround
   }
 
   ///

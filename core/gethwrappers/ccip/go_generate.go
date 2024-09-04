@@ -12,6 +12,7 @@ package ccip
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/OnRamp/OnRamp.abi ../../../contracts/solc/v0.8.24/OnRamp/OnRamp.bin OnRamp onramp
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/EVM2EVMOffRamp/EVM2EVMOffRamp.abi ../../../contracts/solc/v0.8.24/EVM2EVMOffRamp/EVM2EVMOffRamp.bin EVM2EVMOffRamp evm_2_evm_offramp
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.abi ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.bin OffRamp offramp
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/RMNRemote/RMNRemote.abi ../../../contracts/solc/v0.8.24/RMNRemote/RMNRemote.bin RMNRemote rmn_remote
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/MultiAggregateRateLimiter/MultiAggregateRateLimiter.abi ../../../contracts/solc/v0.8.24/MultiAggregateRateLimiter/MultiAggregateRateLimiter.bin MultiAggregateRateLimiter multi_aggregate_rate_limiter
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/Router/Router.abi ../../../contracts/solc/v0.8.24/Router/Router.bin Router router
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/FeeQuoter/FeeQuoter.abi ../../../contracts/solc/v0.8.24/FeeQuoter/FeeQuoter.bin FeeQuoter fee_quoter
