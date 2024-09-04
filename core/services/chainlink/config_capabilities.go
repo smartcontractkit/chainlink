@@ -1,8 +1,6 @@
 package chainlink
 
 import (
-	"math/big"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -94,13 +92,13 @@ type workflowConnectorConfig struct {
 	c toml.WorkflowConnectorConfig
 }
 
-func (c *workflowConnectorConfig) ChainIDForNodeKey() big.Int {
+func (c *workflowConnectorConfig) ChainIDForNodeKey() string {
 	return *c.c.ChainIDForNodeKey
 }
 
 func (c *workflowConnectorConfig) GatewayConnectorConfig() config.GatewayConnectorConfig {
 	return &gatewayConnectorConfig{
-		c: *c.c.GatewayConnectorConfig,
+		c: c.c.GatewayConnectorConfig,
 	}
 }
 
@@ -112,8 +110,8 @@ func (c *gatewayConnectorConfig) NodeAddress() string {
 	return *c.c.NodeAddress
 }
 
-func (c *gatewayConnectorConfig) DonId() string {
-	return *c.c.DonId
+func (c *gatewayConnectorConfig) DonID() string {
+	return *c.c.DonID
 }
 
 func (c *gatewayConnectorConfig) Gateways() []config.ConnectorGatewayConfig {
@@ -140,8 +138,8 @@ type connectorGatewayConfig struct {
 	c toml.ConnectorGatewayConfig
 }
 
-func (c *connectorGatewayConfig) Id() string {
-	return *c.c.Id
+func (c *connectorGatewayConfig) ID() string {
+	return *c.c.ID
 }
 
 func (c *connectorGatewayConfig) URL() string {

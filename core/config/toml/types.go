@@ -9,8 +9,6 @@ import (
 	"regexp"
 	"strings"
 
-	"math/big"
-
 	"github.com/google/uuid"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -1484,7 +1482,7 @@ func (drl *DispatcherRateLimit) setFrom(f *DispatcherRateLimit) {
 
 type GatewayConnectorConfig struct {
 	NodeAddress               *string
-	DonId                     *string
+	DonID                     *string
 	Gateways                  []ConnectorGatewayConfig
 	WsHandshakeTimeoutMillis  *uint32
 	AuthMinChallengeLen       *int
@@ -1496,8 +1494,8 @@ func (r *GatewayConnectorConfig) setFrom(f *GatewayConnectorConfig) {
 		r.NodeAddress = f.NodeAddress
 	}
 
-	if f.DonId != nil {
-		r.DonId = f.DonId
+	if f.DonID != nil {
+		r.DonID = f.DonID
 	}
 
 	// TODO: verify this copy by reference is ok, or does array need to be copied by value
@@ -1519,22 +1517,20 @@ func (r *GatewayConnectorConfig) setFrom(f *GatewayConnectorConfig) {
 }
 
 type ConnectorGatewayConfig struct {
-	Id  *string
+	ID  *string
 	URL *string
 }
 type WorkflowConnectorConfig struct {
-	ChainIDForNodeKey      *big.Int
-	GatewayConnectorConfig *GatewayConnectorConfig `json:"gatewayConnectorConfig"`
+	ChainIDForNodeKey      *string
+	GatewayConnectorConfig GatewayConnectorConfig `json:"gatewayConnectorConfig"`
 }
 
 func (r *WorkflowConnectorConfig) setFrom(f *WorkflowConnectorConfig) {
-	if len(f.ChainIDForNodeKey.Bits()) != 0 {
+	if f.ChainIDForNodeKey != nil {
 		r.ChainIDForNodeKey = f.ChainIDForNodeKey
 	}
 
-	if !reflect.ValueOf(f.GatewayConnectorConfig).IsZero() {
-		r.GatewayConnectorConfig.setFrom(f.GatewayConnectorConfig)
-	}
+	r.GatewayConnectorConfig.setFrom(&f.GatewayConnectorConfig)
 }
 
 type Capabilities struct {

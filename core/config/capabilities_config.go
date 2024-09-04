@@ -1,8 +1,6 @@
 package config
 
 import (
-	"math/big"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -15,7 +13,7 @@ type CapabilitiesExternalRegistry interface {
 
 type GatewayConnectorConfig interface {
 	NodeAddress() string
-	DonId() string
+	DonID() string
 	Gateways() []ConnectorGatewayConfig
 	WsHandshakeTimeoutMillis() uint32
 	AuthMinChallengeLen() int
@@ -23,12 +21,12 @@ type GatewayConnectorConfig interface {
 }
 
 type ConnectorGatewayConfig interface {
-	Id() string
+	ID() string
 	URL() string
 }
 
 type WorkflowConnectorConfig interface {
-	ChainIDForNodeKey() big.Int
+	ChainIDForNodeKey() string
 	GatewayConnectorConfig() GatewayConnectorConfig
 }
 type Capabilities interface {

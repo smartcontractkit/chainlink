@@ -1393,6 +1393,80 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
 but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 
+## Capabilities.WorkflowConnectorConfig
+```toml
+[Capabilities.WorkflowConnectorConfig]
+ChainIDForNodeKey = '1' # Example
+```
+
+
+### ChainIDForNodeKey
+```toml
+ChainIDForNodeKey = '1' # Example
+```
+ChainIDForNodeKey is the ChainID of the network
+
+## Capabilities.WorkflowConnectorConfig.GatewayConnectorConfig
+```toml
+[Capabilities.WorkflowConnectorConfig.GatewayConnectorConfig]
+NodeAddress = '0x68902d681c28119f9b2531473a417088bf008e59' # Example
+DonID = 'example_don' # Example
+WsHandshakeTimeoutMillis = 1000 # Example
+AuthMinChallengeLen = 10 # Example
+AuthTimestampToleranceSec = 10 # Example
+```
+
+
+### NodeAddress
+```toml
+NodeAddress = '0x68902d681c28119f9b2531473a417088bf008e59' # Example
+```
+NodeAddress is Workflow Node address
+
+### DonID
+```toml
+DonID = 'example_don' # Example
+```
+DonID is the Id of the Don
+
+### WsHandshakeTimeoutMillis
+```toml
+WsHandshakeTimeoutMillis = 1000 # Example
+```
+WsHandshakeTimeoutMillis is Websocket handshake timeout
+
+### AuthMinChallengeLen
+```toml
+AuthMinChallengeLen = 10 # Example
+```
+AuthMinChallengeLen is the minimum number of bytes in Authentication
+
+### AuthTimestampToleranceSec
+```toml
+AuthTimestampToleranceSec = 10 # Example
+```
+AuthTimestampToleranceSec is Authentication timestamp tolerance
+
+## Capabilities.WorkflowConnectorConfig.GatewayConnectorConfig.Gateways
+```toml
+[[Capabilities.WorkflowConnectorConfig.GatewayConnectorConfig.Gateways]]
+ID = 'example_gateway' # Example
+URL = 'ws://localhost:8081/node' # Example
+```
+
+
+### ID
+```toml
+ID = 'example_gateway' # Example
+```
+ID of the Gateway
+
+### URL
+```toml
+URL = 'ws://localhost:8081/node' # Example
+```
+URL of the Gateway
+
 ## Keeper
 ```toml
 [Keeper]
