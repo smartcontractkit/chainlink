@@ -1032,6 +1032,7 @@ func (v *CreateFeedsManagerChainConfigResponse) __premarshalJSON() (*__premarsha
 //
 // CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerPayload is implemented by the following types:
 // CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccess
+// CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError
 // CreateFeedsManagerCreateFeedsManagerInputErrors
 // CreateFeedsManagerCreateFeedsManagerNotFoundError
 // CreateFeedsManagerCreateFeedsManagerSingleFeedsManagerError
@@ -1042,6 +1043,8 @@ type CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerPayload interface {
 }
 
 func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccess) implementsGraphQLInterfaceCreateFeedsManagerCreateFeedsManagerCreateFeedsManagerPayload() {
+}
+func (v *CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError) implementsGraphQLInterfaceCreateFeedsManagerCreateFeedsManagerCreateFeedsManagerPayload() {
 }
 func (v *CreateFeedsManagerCreateFeedsManagerInputErrors) implementsGraphQLInterfaceCreateFeedsManagerCreateFeedsManagerCreateFeedsManagerPayload() {
 }
@@ -1066,6 +1069,9 @@ func __unmarshalCreateFeedsManagerCreateFeedsManagerCreateFeedsManagerPayload(b 
 	switch tn.TypeName {
 	case "CreateFeedsManagerSuccess":
 		*v = new(CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccess)
+		return json.Unmarshal(b, *v)
+	case "DuplicateFeedsManagerError":
+		*v = new(CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError)
 		return json.Unmarshal(b, *v)
 	case "InputErrors":
 		*v = new(CreateFeedsManagerCreateFeedsManagerInputErrors)
@@ -1095,6 +1101,14 @@ func __marshalCreateFeedsManagerCreateFeedsManagerCreateFeedsManagerPayload(v *C
 		result := struct {
 			TypeName string `json:"__typename"`
 			*CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccess
+		}{typename, v}
+		return json.Marshal(result)
+	case *CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError:
+		typename = "DuplicateFeedsManagerError"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError
 		}{typename, v}
 		return json.Marshal(result)
 	case *CreateFeedsManagerCreateFeedsManagerInputErrors:
@@ -1237,6 +1251,16 @@ func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManag
 	retval.IsConnectionActive = v.FeedsManagerParts.IsConnectionActive
 	retval.CreatedAt = v.FeedsManagerParts.CreatedAt
 	return &retval, nil
+}
+
+// CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError includes the requested fields of the GraphQL type DuplicateFeedsManagerError.
+type CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError.Typename, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError) GetTypename() string {
+	return v.Typename
 }
 
 // CreateFeedsManagerCreateFeedsManagerInputErrors includes the requested fields of the GraphQL type InputErrors.
@@ -1436,6 +1460,186 @@ func (v *FeedsManagerParts) GetIsConnectionActive() bool { return v.IsConnection
 
 // GetCreatedAt returns FeedsManagerParts.CreatedAt, and is useful for accessing the field via an interface.
 func (v *FeedsManagerParts) GetCreatedAt() string { return v.CreatedAt }
+
+// FetchAccountsEthKeysEthKeysPayload includes the requested fields of the GraphQL type EthKeysPayload.
+type FetchAccountsEthKeysEthKeysPayload struct {
+	Results []FetchAccountsEthKeysEthKeysPayloadResultsEthKey `json:"results"`
+}
+
+// GetResults returns FetchAccountsEthKeysEthKeysPayload.Results, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayload) GetResults() []FetchAccountsEthKeysEthKeysPayloadResultsEthKey {
+	return v.Results
+}
+
+// FetchAccountsEthKeysEthKeysPayloadResultsEthKey includes the requested fields of the GraphQL type EthKey.
+type FetchAccountsEthKeysEthKeysPayloadResultsEthKey struct {
+	Address     string                                               `json:"address"`
+	IsDisabled  bool                                                 `json:"isDisabled"`
+	Chain       FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain `json:"chain"`
+	EthBalance  string                                               `json:"ethBalance"`
+	LinkBalance string                                               `json:"linkBalance"`
+}
+
+// GetAddress returns FetchAccountsEthKeysEthKeysPayloadResultsEthKey.Address, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayloadResultsEthKey) GetAddress() string { return v.Address }
+
+// GetIsDisabled returns FetchAccountsEthKeysEthKeysPayloadResultsEthKey.IsDisabled, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayloadResultsEthKey) GetIsDisabled() bool { return v.IsDisabled }
+
+// GetChain returns FetchAccountsEthKeysEthKeysPayloadResultsEthKey.Chain, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayloadResultsEthKey) GetChain() FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain {
+	return v.Chain
+}
+
+// GetEthBalance returns FetchAccountsEthKeysEthKeysPayloadResultsEthKey.EthBalance, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayloadResultsEthKey) GetEthBalance() string { return v.EthBalance }
+
+// GetLinkBalance returns FetchAccountsEthKeysEthKeysPayloadResultsEthKey.LinkBalance, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayloadResultsEthKey) GetLinkBalance() string {
+	return v.LinkBalance
+}
+
+// FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain includes the requested fields of the GraphQL type Chain.
+type FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain struct {
+	Id      string `json:"id"`
+	Enabled bool   `json:"enabled"`
+}
+
+// GetId returns FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain.Id, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain) GetId() string { return v.Id }
+
+// GetEnabled returns FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain.Enabled, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain) GetEnabled() bool { return v.Enabled }
+
+// FetchAccountsResponse is returned by FetchAccounts on success.
+type FetchAccountsResponse struct {
+	EthKeys FetchAccountsEthKeysEthKeysPayload `json:"ethKeys"`
+}
+
+// GetEthKeys returns FetchAccountsResponse.EthKeys, and is useful for accessing the field via an interface.
+func (v *FetchAccountsResponse) GetEthKeys() FetchAccountsEthKeysEthKeysPayload { return v.EthKeys }
+
+// FetchCSAKeysCsaKeysCSAKeysPayload includes the requested fields of the GraphQL type CSAKeysPayload.
+type FetchCSAKeysCsaKeysCSAKeysPayload struct {
+	Results []FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey `json:"results"`
+}
+
+// GetResults returns FetchCSAKeysCsaKeysCSAKeysPayload.Results, and is useful for accessing the field via an interface.
+func (v *FetchCSAKeysCsaKeysCSAKeysPayload) GetResults() []FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey {
+	return v.Results
+}
+
+// FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey includes the requested fields of the GraphQL type CSAKey.
+type FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey struct {
+	Id        string `json:"id"`
+	PublicKey string `json:"publicKey"`
+	Version   int    `json:"version"`
+}
+
+// GetId returns FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey.Id, and is useful for accessing the field via an interface.
+func (v *FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey) GetId() string { return v.Id }
+
+// GetPublicKey returns FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey.PublicKey, and is useful for accessing the field via an interface.
+func (v *FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey) GetPublicKey() string { return v.PublicKey }
+
+// GetVersion returns FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey.Version, and is useful for accessing the field via an interface.
+func (v *FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey) GetVersion() int { return v.Version }
+
+// FetchCSAKeysResponse is returned by FetchCSAKeys on success.
+type FetchCSAKeysResponse struct {
+	CsaKeys FetchCSAKeysCsaKeysCSAKeysPayload `json:"csaKeys"`
+}
+
+// GetCsaKeys returns FetchCSAKeysResponse.CsaKeys, and is useful for accessing the field via an interface.
+func (v *FetchCSAKeysResponse) GetCsaKeys() FetchCSAKeysCsaKeysCSAKeysPayload { return v.CsaKeys }
+
+// FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload includes the requested fields of the GraphQL type OCR2KeyBundlesPayload.
+type FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload struct {
+	Results []FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle `json:"results"`
+}
+
+// GetResults returns FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload.Results, and is useful for accessing the field via an interface.
+func (v *FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload) GetResults() []FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle {
+	return v.Results
+}
+
+// FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle includes the requested fields of the GraphQL type OCR2KeyBundle.
+type FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle struct {
+	Id                string        `json:"id"`
+	ChainType         OCR2ChainType `json:"chainType"`
+	ConfigPublicKey   string        `json:"configPublicKey"`
+	OnChainPublicKey  string        `json:"onChainPublicKey"`
+	OffChainPublicKey string        `json:"offChainPublicKey"`
+}
+
+// GetId returns FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle.Id, and is useful for accessing the field via an interface.
+func (v *FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle) GetId() string {
+	return v.Id
+}
+
+// GetChainType returns FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle.ChainType, and is useful for accessing the field via an interface.
+func (v *FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle) GetChainType() OCR2ChainType {
+	return v.ChainType
+}
+
+// GetConfigPublicKey returns FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle.ConfigPublicKey, and is useful for accessing the field via an interface.
+func (v *FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle) GetConfigPublicKey() string {
+	return v.ConfigPublicKey
+}
+
+// GetOnChainPublicKey returns FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle.OnChainPublicKey, and is useful for accessing the field via an interface.
+func (v *FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle) GetOnChainPublicKey() string {
+	return v.OnChainPublicKey
+}
+
+// GetOffChainPublicKey returns FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle.OffChainPublicKey, and is useful for accessing the field via an interface.
+func (v *FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle) GetOffChainPublicKey() string {
+	return v.OffChainPublicKey
+}
+
+// FetchOCR2KeyBundlesResponse is returned by FetchOCR2KeyBundles on success.
+type FetchOCR2KeyBundlesResponse struct {
+	Ocr2KeyBundles FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload `json:"ocr2KeyBundles"`
+}
+
+// GetOcr2KeyBundles returns FetchOCR2KeyBundlesResponse.Ocr2KeyBundles, and is useful for accessing the field via an interface.
+func (v *FetchOCR2KeyBundlesResponse) GetOcr2KeyBundles() FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload {
+	return v.Ocr2KeyBundles
+}
+
+// FetchP2PKeysP2pKeysP2PKeysPayload includes the requested fields of the GraphQL type P2PKeysPayload.
+type FetchP2PKeysP2pKeysP2PKeysPayload struct {
+	Results []FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey `json:"results"`
+}
+
+// GetResults returns FetchP2PKeysP2pKeysP2PKeysPayload.Results, and is useful for accessing the field via an interface.
+func (v *FetchP2PKeysP2pKeysP2PKeysPayload) GetResults() []FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey {
+	return v.Results
+}
+
+// FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey includes the requested fields of the GraphQL type P2PKey.
+type FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey struct {
+	Id        string `json:"id"`
+	PeerID    string `json:"peerID"`
+	PublicKey string `json:"publicKey"`
+}
+
+// GetId returns FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey.Id, and is useful for accessing the field via an interface.
+func (v *FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey) GetId() string { return v.Id }
+
+// GetPeerID returns FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey.PeerID, and is useful for accessing the field via an interface.
+func (v *FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey) GetPeerID() string { return v.PeerID }
+
+// GetPublicKey returns FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey.PublicKey, and is useful for accessing the field via an interface.
+func (v *FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey) GetPublicKey() string { return v.PublicKey }
+
+// FetchP2PKeysResponse is returned by FetchP2PKeys on success.
+type FetchP2PKeysResponse struct {
+	P2pKeys FetchP2PKeysP2pKeysP2PKeysPayload `json:"p2pKeys"`
+}
+
+// GetP2pKeys returns FetchP2PKeysResponse.P2pKeys, and is useful for accessing the field via an interface.
+func (v *FetchP2PKeysResponse) GetP2pKeys() FetchP2PKeysP2pKeysP2PKeysPayload { return v.P2pKeys }
 
 // GetBridgeBridge includes the requested fields of the GraphQL type Bridge.
 type GetBridgeBridge struct {
@@ -1695,40 +1899,6 @@ func (v *GetBridgeResponse) __premarshalJSON() (*__premarshalGetBridgeResponse, 
 	}
 	return &retval, nil
 }
-
-// GetCSAKeysCsaKeysCSAKeysPayload includes the requested fields of the GraphQL type CSAKeysPayload.
-type GetCSAKeysCsaKeysCSAKeysPayload struct {
-	Results []GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey `json:"results"`
-}
-
-// GetResults returns GetCSAKeysCsaKeysCSAKeysPayload.Results, and is useful for accessing the field via an interface.
-func (v *GetCSAKeysCsaKeysCSAKeysPayload) GetResults() []GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey {
-	return v.Results
-}
-
-// GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey includes the requested fields of the GraphQL type CSAKey.
-type GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey struct {
-	Id        string `json:"id"`
-	PublicKey string `json:"publicKey"`
-	Version   int    `json:"version"`
-}
-
-// GetId returns GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey.Id, and is useful for accessing the field via an interface.
-func (v *GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey) GetId() string { return v.Id }
-
-// GetPublicKey returns GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey.PublicKey, and is useful for accessing the field via an interface.
-func (v *GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey) GetPublicKey() string { return v.PublicKey }
-
-// GetVersion returns GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey.Version, and is useful for accessing the field via an interface.
-func (v *GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey) GetVersion() int { return v.Version }
-
-// GetCSAKeysResponse is returned by GetCSAKeys on success.
-type GetCSAKeysResponse struct {
-	CsaKeys GetCSAKeysCsaKeysCSAKeysPayload `json:"csaKeys"`
-}
-
-// GetCsaKeys returns GetCSAKeysResponse.CsaKeys, and is useful for accessing the field via an interface.
-func (v *GetCSAKeysResponse) GetCsaKeys() GetCSAKeysCsaKeysCSAKeysPayload { return v.CsaKeys }
 
 // GetFeedsManagerFeedsManager includes the requested fields of the GraphQL type FeedsManager.
 type GetFeedsManagerFeedsManager struct {
@@ -3712,6 +3882,16 @@ type ListJobsResponse struct {
 // GetJobs returns ListJobsResponse.Jobs, and is useful for accessing the field via an interface.
 func (v *ListJobsResponse) GetJobs() ListJobsJobsJobsPayload { return v.Jobs }
 
+type OCR2ChainType string
+
+const (
+	OCR2ChainTypeEvm      OCR2ChainType = "EVM"
+	OCR2ChainTypeCosmos   OCR2ChainType = "COSMOS"
+	OCR2ChainTypeSolana   OCR2ChainType = "SOLANA"
+	OCR2ChainTypeStarknet OCR2ChainType = "STARKNET"
+	OCR2ChainTypeAptos    OCR2ChainType = "APTOS"
+)
+
 // ####################
 // Jobs and Job Proposals
 // ####################
@@ -4962,6 +5142,153 @@ func CreateFeedsManagerChainConfig(
 	return &data_, err_
 }
 
+// The query or mutation executed by FetchAccounts.
+const FetchAccounts_Operation = `
+query FetchAccounts {
+	ethKeys {
+		results {
+			address
+			isDisabled
+			chain {
+				id
+				enabled
+			}
+			ethBalance
+			linkBalance
+		}
+	}
+}
+`
+
+func FetchAccounts(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (*FetchAccountsResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "FetchAccounts",
+		Query:  FetchAccounts_Operation,
+	}
+	var err_ error
+
+	var data_ FetchAccountsResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by FetchCSAKeys.
+const FetchCSAKeys_Operation = `
+query FetchCSAKeys {
+	csaKeys {
+		results {
+			id
+			publicKey
+			version
+		}
+	}
+}
+`
+
+func FetchCSAKeys(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (*FetchCSAKeysResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "FetchCSAKeys",
+		Query:  FetchCSAKeys_Operation,
+	}
+	var err_ error
+
+	var data_ FetchCSAKeysResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by FetchOCR2KeyBundles.
+const FetchOCR2KeyBundles_Operation = `
+query FetchOCR2KeyBundles {
+	ocr2KeyBundles {
+		results {
+			id
+			chainType
+			configPublicKey
+			onChainPublicKey
+			offChainPublicKey
+		}
+	}
+}
+`
+
+func FetchOCR2KeyBundles(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (*FetchOCR2KeyBundlesResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "FetchOCR2KeyBundles",
+		Query:  FetchOCR2KeyBundles_Operation,
+	}
+	var err_ error
+
+	var data_ FetchOCR2KeyBundlesResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by FetchP2PKeys.
+const FetchP2PKeys_Operation = `
+query FetchP2PKeys {
+	p2pKeys {
+		results {
+			id
+			peerID
+			publicKey
+		}
+	}
+}
+`
+
+func FetchP2PKeys(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (*FetchP2PKeysResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "FetchP2PKeys",
+		Query:  FetchP2PKeys_Operation,
+	}
+	var err_ error
+
+	var data_ FetchP2PKeysResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
 // The query or mutation executed by GetBridge.
 const GetBridge_Operation = `
 query GetBridge ($id: ID!) {
@@ -5000,41 +5327,6 @@ func GetBridge(
 	var err_ error
 
 	var data_ GetBridgeResponse
-	resp_ := &graphql.Response{Data: &data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return &data_, err_
-}
-
-// The query or mutation executed by GetCSAKeys.
-const GetCSAKeys_Operation = `
-query GetCSAKeys {
-	csaKeys {
-		results {
-			id
-			publicKey
-			version
-		}
-	}
-}
-`
-
-func GetCSAKeys(
-	ctx_ context.Context,
-	client_ graphql.Client,
-) (*GetCSAKeysResponse, error) {
-	req_ := &graphql.Request{
-		OpName: "GetCSAKeys",
-		Query:  GetCSAKeys_Operation,
-	}
-	var err_ error
-
-	var data_ GetCSAKeysResponse
 	resp_ := &graphql.Response{Data: &data_}
 
 	err_ = client_.MakeRequest(

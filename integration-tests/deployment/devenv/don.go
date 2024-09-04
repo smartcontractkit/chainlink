@@ -3,9 +3,10 @@ package devenv
 import (
 	"context"
 	"fmt"
-	"net/http"
+	"strconv"
 
 	"github.com/AlekSi/pointer"
+	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog"
 
 	clclient "github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -15,15 +16,11 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/web/sdk/client"
 )
 
-type ChainInfo struct {
-	ChainId   string
-	ChainType string
-}
-
 type NodeInfo struct {
 	CLConfig    clclient.ChainlinkConfig
 	IsBootstrap bool
 	Name        string
+	AdminAddr   string
 }
 type DON struct {
 	Bootstrap []Node
@@ -36,32 +33,30 @@ func NewRegisteredDON(ctx context.Context, logger zerolog.Logger, nodeInfo []Nod
 		Nodes:     make([]Node, 0),
 	}
 	for i, info := range nodeInfo {
-		node, err := NewNode(logger, info.CLConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create node %d: %w", i, err)
-		}
 		if info.Name == "" {
 			info.Name = fmt.Sprintf("node-%d", i)
 		}
+		node, err := NewNode(info)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create node %d: %w", i, err)
+		}
 		// node Labels so that it's easier to query them
-		nodeLabels := make([]*ptypes.Label, 0)
 		if info.IsBootstrap {
-			nodeLabels = append(nodeLabels, &ptypes.Label{
+			node.labels = append(node.labels, &ptypes.Label{
 				Key:   "bootstrap",
 				Value: pointer.ToString("true"),
 			})
 		} else {
-			nodeLabels = append(nodeLabels, &ptypes.Label{
+			node.labels = append(node.labels, &ptypes.Label{
 				Key:   "bootstrap",
 				Value: pointer.ToString("false"),
 			})
 		}
-		// Register the node in Job distributor
-		registerResponse, err := node.RegisterNodeToJobDistributor(ctx, jd.NodeServiceClient, nodeLabels, info.Name)
+		// Set up Job distributor in node
+		jdId, err := node.SetUpJobDistributor(ctx, jd)
 		if err != nil {
-			return nil, fmt.Errorf("failed to register node %w", err)
+			return nil, fmt.Errorf("failed to set up job distributor in node %s: %w", info.Name, err)
 		}
-		node.NodeId = registerResponse.GetId()
 		if info.IsBootstrap {
 			don.Bootstrap = append(don.Bootstrap, *node)
 		} else {
@@ -70,113 +65,96 @@ func NewRegisteredDON(ctx context.Context, logger zerolog.Logger, nodeInfo []Nod
 	}
 }
 
-type Node struct {
-	gqlClient client.Client
-	clClient  *clclient.ChainlinkClient
-	NodeId    string
-}
-
-func NewNode(logger zerolog.Logger, nodeInfo clclient.ChainlinkConfig) (*Node, error) {
-	gqlClient, err := client.New(nodeInfo.URL, client.Credentials{
-		Email:    nodeInfo.Email,
-		Password: nodeInfo.Password,
+func NewNode(nodeInfo NodeInfo) (*Node, error) {
+	gqlClient, err := client.New(nodeInfo.CLConfig.URL, client.Credentials{
+		Email:    nodeInfo.CLConfig.Email,
+		Password: nodeInfo.CLConfig.Password,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create FMS client: %w", err)
 	}
-	chainlinkClient, err := clclient.NewChainlinkClient(&nodeInfo, logger)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, raw, err := chainlinkClient.Health(); err != nil || raw.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to connect to chainlink node: %w", err)
-	}
 	return &Node{
 		gqlClient: gqlClient,
-		clClient:  chainlinkClient,
+		name:      nodeInfo.Name,
+		adminAddr: nodeInfo.AdminAddr,
 	}, nil
 }
 
-func (n *Node) CreateChainConfig(ctx context.Context, isBootstrap bool, chainInfo ChainInfo) error {
-	nodeKeyBundles, _, err := clclient.CreateNodeKeysBundle(
-		[]*clclient.ChainlinkClient{n.clClient},
-		chainInfo.ChainType,
-		chainInfo.ChainId,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create node key bundle: %w for node id %d", err, n.NodeId)
-	}
-	if nodeKeyBundles == nil || len(nodeKeyBundles) == 0 {
-		return fmt.Errorf("failed to create node key bundle for node id %d", n.NodeId)
-	}
-	nodeKeyBundle := nodeKeyBundles[0]
-	return n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
-		// TODO : check if the config is correct
-		JobDistributorID:  "",
-		ChainID:           chainInfo.ChainId,
-		ChainType:         chainInfo.ChainType,
-		AccountAddr:       nodeKeyBundle.EthAddress,
-		AccountAddrPubKey: nodeKeyBundle.TXKey.Data.Attributes.PublicKey,
-		AdminAddr:         nodeKeyBundle.EthAddress,
-		Ocr2Enabled:       true,
-		Ocr2IsBootstrap:   isBootstrap,
-		Ocr2P2PPeerID:     nodeKeyBundle.PeerID,
-		Ocr2KeyBundleID:   nodeKeyBundle.OCR2Key.Data.ID,
-		Ocr2Plugins:       `{"commit":true,"execute":true,"median":false,"mercury":false,"rebalancer":false}`,
-		Ocr2Multiaddr:     n.clClient.URL(),
-	})
+type Node struct {
+	gqlClient client.Client
+	NodeId    string
+	labels    []*ptypes.Label
+	name      string
+	adminAddr string
 }
 
-func (n *Node) CreateFeedsManager(ctx context.Context, jd JobDistributor) error {
+func (n *Node) CreateCCIPOCR2SupportedChains(ctx context.Context, jdId string, chains []ChainConfig) error {
+	var multiErr multierror.Error
+	for _, chain := range chains {
+		chainId := strconv.FormatUint(chain.ChainId, 10)
+		accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
+		if err != nil {
+			multiErr.Errors = append(multiErr.Errors, err)
+			continue
+		}
+		if accountAddr == nil {
+			multiErr.Errors = append(multiErr.Errors, fmt.Errorf("no account found for chain %s", chain))
+			continue
+		}
+		n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
+			JobDistributorID:     jdId,
+			ChainID:              chainId,
+			ChainType:            chain.ChainType,
+			AccountAddr:          pointer.GetString(accountAddr),
+			AdminAddr:            "",
+			Ocr2Enabled:          true,
+			Ocr2IsBootstrap:      false,
+			Ocr2Multiaddr:        "",
+			Ocr2ForwarderAddress: "",
+			Ocr2P2PPeerID:        "",
+			Ocr2KeyBundleID:      "",
+			Ocr2Plugins:          `{"commit":true,"execute":true,"median":false,"mercury":false}`,
+		})
+	}
+}
+
+func (n *Node) SetUpJobDistributor(ctx context.Context, jd JobDistributor) (string, error) {
+	// Get the public key of the node
+	csaKey, err := n.gqlClient.FetchCSAPublicKey(ctx)
+	if err != nil {
+		return "", err
+	}
+	if csaKey == nil {
+		return "", fmt.Errorf("no csa key found for node %s", n.name)
+	}
+
+	// register the node in the job distributor
+	registerResponse, err := jd.RegisterNode(ctx, &nodev1.RegisterNodeRequest{
+		PublicKey: *csaKey,
+		Labels:    n.labels,
+		Name:      n.name,
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to register node %s: %w", n.name, err)
+	}
+	if registerResponse.GetNode().GetId() == "" {
+		return "", fmt.Errorf("no node id returned from job distributor for node %s", n.name)
+	}
+	n.NodeId = registerResponse.GetNode().GetId()
+
+	// Get the keypairs from the job distributor
 	keypairs, err := jd.ListKeypairs(ctx, &csav1.ListKeypairsRequest{})
 	if err != nil {
-		return err
+		return "", err
 	}
 	if len(keypairs.Keypairs) == 0 {
-		return fmt.Errorf("no keypairs found from job distributor running at %s", jd.URL)
+		return "", fmt.Errorf("no keypairs found from job distributor running at %s", jd.URL)
 	}
-	err = n.gqlClient.CreateJobDistributor(ctx, client.JobDistributorInput{
+	// now create the job distributor in the node
+	return n.gqlClient.CreateJobDistributor(ctx, client.JobDistributorInput{
 		Name:      "Job Distributor",
 		Uri:       jd.URL,
 		PublicKey: keypairs.Keypairs[0].PublicKey,
 	})
-	if err != nil {
-		return fmt.Errorf("failed to create feeds manager: %w", err)
-	}
-
-	return nil
-}
-
-func (n *Node) GetCSAKeys(ctx context.Context) (*string, error) {
-	nodeCSAResult, err := n.gqlClient.GetCSAKeys(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get csa keypair for node %w", err)
-	}
-	if nodeCSAResult.GetCsaKeys().Results == nil || len(nodeCSAResult.GetCsaKeys().Results) == 0 {
-		return nil, fmt.Errorf("failed to get csa keypair for node: %w", err)
-	}
-	nodeCSA := nodeCSAResult.GetCsaKeys().Results[0].GetPublicKey()
-	return &nodeCSA, nil
-}
-
-func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd nodev1.NodeServiceClient, labels []*ptypes.Label, name string) (*nodev1.Node, error) {
-	nodeCSAResult, err := n.GetCSAKeys(ctx)
-	if err != nil || nodeCSAResult == nil {
-		return nil, fmt.Errorf("failed to get csa keypair for node %s: %w", name, err)
-	}
-
-	nodeCSA := *nodeCSAResult
-	registerResponse, err := jd.RegisterNode(ctx, &nodev1.RegisterNodeRequest{
-		PublicKey: nodeCSA,
-		Labels:    labels,
-		Name:      name,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to register node %s:%w", name, err)
-	}
-	if registerResponse.GetNode() == nil {
-		return nil, fmt.Errorf("failed to register node %s returned null response", name)
-	}
-	return registerResponse.GetNode(), nil
 }

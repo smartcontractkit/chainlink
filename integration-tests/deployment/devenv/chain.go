@@ -16,7 +16,8 @@ import (
 )
 
 type ChainConfig struct {
-	ChainId uint64
+	ChainId   uint64
+	ChainType string
 	// TODO : use a slice of rpc urls for failing over to the available rpcs
 	WsRpc       string
 	HttpRpc     string

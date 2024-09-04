@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/AlekSi/pointer"
 	"github.com/Khan/genqlient/graphql"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/web/sdk/client/doer"
@@ -14,14 +15,14 @@ import (
 )
 
 type Client interface {
-	GetCSAKeys(ctx context.Context) (*generated.GetCSAKeysResponse, error)
+	FetchCSAPublicKey(ctx context.Context) (*string, error)
+	FetchP2PPeerID(ctx context.Context) (*string, error)
+	FetchAccountAddress(ctx context.Context, chainID string) (*string, error)
 	GetJob(ctx context.Context, id string) (*generated.GetJobResponse, error)
 	ListJobs(ctx context.Context, offset, limit int) (*generated.ListJobsResponse, error)
-	GetBridge(ctx context.Context, id string) (*generated.GetBridgeResponse, error)
-	ListBridges(ctx context.Context, offset, limit int) (*generated.ListBridgesResponse, error)
 	GetJobDistributor(ctx context.Context, id string) (*generated.GetFeedsManagerResponse, error)
 	ListJobDistributors(ctx context.Context) (*generated.ListFeedsManagersResponse, error)
-	CreateJobDistributor(ctx context.Context, cmd JobDistributorInput) error
+	CreateJobDistributor(ctx context.Context, cmd JobDistributorInput) (string, error)
 	UpdateJobDistributor(ctx context.Context, id string, cmd JobDistributorInput) error
 	CreateJobDistributorChainConfig(ctx context.Context, in JobDistributorChainConfigInput) error
 	GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalResponse, error)
@@ -70,8 +71,42 @@ func New(baseURI string, creds Credentials) (Client, error) {
 	return c, nil
 }
 
-func (c *client) GetCSAKeys(ctx context.Context) (*generated.GetCSAKeysResponse, error) {
-	return generated.GetCSAKeys(ctx, c.gqlClient)
+func (c *client) FetchCSAPublicKey(ctx context.Context) (*string, error) {
+	keys, err := generated.FetchCSAKeys(ctx, c.gqlClient)
+	if err != nil {
+		return nil, err
+	}
+	if keys == nil || len(keys.CsaKeys.GetResults()) == 0 {
+		return nil, fmt.Errorf("no CSA keys found")
+	}
+	return &keys.CsaKeys.GetResults()[0].PublicKey, nil
+}
+
+func (c *client) FetchP2PPeerID(ctx context.Context) (*string, error) {
+	keys, err := generated.FetchP2PKeys(ctx, c.gqlClient)
+	if err != nil {
+		return nil, err
+	}
+	if keys == nil || len(keys.P2pKeys.GetResults()) == 0 {
+		return nil, fmt.Errorf("no P2P keys found")
+	}
+	return &keys.P2pKeys.GetResults()[0].PeerID, nil
+}
+
+func (c *client) FetchAccountAddress(ctx context.Context, chainID string) (*string, error) {
+	keys, err := generated.FetchAccounts(ctx, c.gqlClient)
+	if err != nil {
+		return nil, err
+	}
+	if keys == nil || len(keys.EthKeys.GetResults()) == 0 {
+		return nil, fmt.Errorf("no accounts found")
+	}
+	for _, keyDetail := range keys.EthKeys.GetResults() {
+		if keyDetail.GetChain().Enabled && keyDetail.GetChain().Id == chainID {
+			return pointer.ToString(keyDetail.Address), nil
+		}
+	}
+	return nil, fmt.Errorf("no account found for chain %s", chainID)
 }
 
 func (c *client) GetJob(ctx context.Context, id string) (*generated.GetJobResponse, error) {
@@ -98,14 +133,22 @@ func (c *client) ListJobDistributors(ctx context.Context) (*generated.ListFeedsM
 	return generated.ListFeedsManagers(ctx, c.gqlClient)
 }
 
-func (c *client) CreateJobDistributor(ctx context.Context, in JobDistributorInput) error {
+func (c *client) CreateJobDistributor(ctx context.Context, in JobDistributorInput) (string, error) {
 	var cmd generated.CreateFeedsManagerInput
 	err := DecodeInput(in, &cmd)
 	if err != nil {
-		return err
+		return "", err
 	}
-	_, err = generated.CreateFeedsManager(ctx, c.gqlClient, cmd)
-	return err
+	response, err := generated.CreateFeedsManager(ctx, c.gqlClient, cmd)
+	if err != nil {
+		return "", err
+	}
+	// Access the FeedsManager ID
+	if success, ok := response.GetCreateFeedsManager().(*generated.CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccess); ok {
+		feedsManager := success.GetFeedsManager()
+		return feedsManager.GetId(), nil
+	}
+	return "", fmt.Errorf("failed to create feeds manager")
 }
 
 func (c *client) UpdateJobDistributor(ctx context.Context, id string, in JobDistributorInput) error {

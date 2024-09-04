@@ -3,3 +3,4 @@ k3d 5.4.6
 kubectl 1.25.5
 nodejs 20.13.1
 golangci-lint 1.59.1
+task 3.35.1
