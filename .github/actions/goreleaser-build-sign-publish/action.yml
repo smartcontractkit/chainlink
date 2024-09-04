@@ -101,6 +101,8 @@ runs:
       run: |
         echo "GOOS=linux" | tee -a $GITHUB_ENV
         echo "GOARCH=${{ inputs.goreleaser-split-arch }}" | tee -a $GITHUB_ENV
+    - name: Install syft
+      uses: anchore/sbom-action/download-syft@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.2
     - name: Run goreleaser release
       shell: bash
       env:
