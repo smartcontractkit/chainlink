@@ -64,10 +64,6 @@ type EVMChainReaderInterfaceTester[T TestingT[T]] struct {
 
 func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 	t.Cleanup(func() {
-		// DB may be closed by the test already, ignore errors
-		if it.cr != nil {
-			_ = it.cr.Close()
-		}
 		it.cr = nil
 
 		if it.dirtyContracts {
@@ -231,9 +227,12 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 
 	cr, err := evm.NewChainReaderService(ctx, lggr, lp, ht, it.client, conf)
 	require.NoError(t, err)
-	require.NoError(t, cr.Start(ctx))
 	it.cr = cr
 	return cr
+}
+
+func (it *EVMChainReaderInterfaceTester[T]) Start(t T) {
+	require.NoError(t, it.cr.Start(context.Background()))
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) Close(t T) {
