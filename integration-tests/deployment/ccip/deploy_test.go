@@ -48,6 +48,8 @@ func TestDeployCapReg_NewDevnet_Concurrent(t *testing.T) {
 	eth1 := ctf_config_types.EthereumVersion_Eth1
 
 	defaultSethConfig := seth.NewClientBuilder().WithGasPriceEstimations(false, 0, seth.Priority_Standard).BuildConfig()
+	two := int64(2)
+	defaultSethConfig.EphemeralAddrs = &two
 	dockerNetwork, err := docker.CreateNetwork(logging.GetLogger(nil, "CORE_DOCKER_ENV_LOG_LEVEL"))
 	require.NoError(t, err)
 
@@ -270,7 +272,7 @@ func testDeployCCIPContractsWithEnv(t *testing.T, lggr logger.Logger, e deployme
 func testDeployCapRegWithEnv_Concurrent(t *testing.T, lggr logger.Logger, e deployment.Environment) {
 	var ab deployment.AddressBook
 	// Deploy all the CCIP contracts.
-	ab, _, err := DeployCapReg_Concurrent(lggr, e.Chains, e.AllChainSelectors())
+	ab, _, err := DeployCapReg_Concurrent(lggr, e.Chains, 2)
 	require.NoError(t, err)
 
 	state, err := LoadOnchainState(e, ab)
