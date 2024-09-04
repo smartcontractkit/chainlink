@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"maps"
 	"math/big"
 	"net/http"
@@ -385,7 +384,7 @@ func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, ur
 		// logs with potentially huge messages
 		body := http.MaxBytesReader(nil, reader, 1024)
 		defer body.Close()
-		bodyBytes, err := ioutil.ReadAll(body)
+		bodyBytes, err := io.ReadAll(body)
 		if err != nil {
 			return nil, fmt.Errorf("got error from %s: (status code: %d, error reading response body: %w, response body: %s)", url, statusCode, err, bodyBytes)
 		}

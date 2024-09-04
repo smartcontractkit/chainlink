@@ -374,6 +374,7 @@ func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 	var pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
 	var pubKey crypto.PublicKey
 	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
+	require.NoError(t, err)
 
 	var (
 		mgr = feeds.FeedsManager{
