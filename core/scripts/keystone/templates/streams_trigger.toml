@@ -1,0 +1,76 @@
+name = "MATIC/USD-RefPrice-DFstaging-Premium-ArbitrumSepolia-001 | {{ feed_id }} | verifier_proxy {{ verifier_proxy_id }}"
+type = "offchainreporting2"
+schemaVersion = 1
+forwardingAllowed = false
+maxTaskDuration = "0s"
+contractID = "{{ contract_id }}"
+relay = "evm"
+pluginType = "mercury"
+feedID = "{{ feed_id }}"
+transmitterID = "{{ transmitter_id }}"
+observationSource = """
+// data source 1
+// https://docs.chain.link/data-streams/concepts/liquidity-weighted-prices
+// https://github.com/smartcontractkit/ea-framework-js/blob/272846061bd0871da41d844672509aa7b7784d62/src/adapter/lwba.ts#L62
+ds1_payload [type=bridge name="bridge-coinmetrics" timeout="50s" requestData="{\\"data\\":{\\"from\\":\\"MATIC\\",\\"to\\":\\"USD\\"}}"];
+ds1_benchmark [type=jsonparse path="data,mid"];
+ds1_bid [type=jsonparse path="data,bid"];
+ds1_ask [type=jsonparse path="data,ask"];
+
+ds1_benchmark_multiply [type=multiply times=1000000000000000000];
+ds1_bid_multiply [type=multiply times=1000000000000000000];
+ds1_ask_multiply [type=multiply times=1000000000000000000];
+// data source 2
+ds2_payload [type=bridge name="bridge-tiingo" timeout="50s" requestData="{\\"data\\":{\\"from\\":\\"MATIC\\",\\"to\\":\\"USD\\"}}"];
+ds2_benchmark [type=jsonparse path="data,mid"];
+ds2_bid [type=jsonparse path="data,bid"];
+ds2_ask [type=jsonparse path="data,ask"];
+
+ds2_benchmark_multiply [type=multiply times=1000000000000000000];
+ds2_bid_multiply [type=multiply times=1000000000000000000];
+ds2_ask_multiply [type=multiply times=1000000000000000000];
+// data source 3
+ds3_payload [type=bridge name="bridge-ncfx" timeout="50s" requestData="{\\"data\\":{\\"from\\":\\"MATIC\\",\\"to\\":\\"USD\\"}}"];
+ds3_benchmark [type=jsonparse path="data,mid"];
+ds3_bid [type=jsonparse path="data,bid"];
+ds3_ask [type=jsonparse path="data,ask"];
+
+ds3_benchmark_multiply [type=multiply times=1000000000000000000];
+ds3_bid_multiply [type=multiply times=1000000000000000000];
+ds3_ask_multiply [type=multiply times=1000000000000000000];
+// benchmark
+ds1_payload -> ds1_benchmark -> ds1_benchmark_multiply -> benchmark_price;
+ds2_payload -> ds2_benchmark -> ds2_benchmark_multiply -> benchmark_price;
+ds3_payload -> ds3_benchmark -> ds3_benchmark_multiply -> benchmark_price;
+// The index is what determines how fields get assigned in a mercury report
+// benchmark is always index 0
+// bid is always index 1
+// ask is always index 2
+// See https://github.com/smartcontractkit/chainlink/blob/4d5fc1943bd6a60b49cbc3d263c0aa47dc3cecb7/core/services/relay/evm/mercury/v3/data_source.go#L225 for more info
+benchmark_price [type=median allowedFaults=2 index=0];
+
+// bid
+ds1_payload -> ds1_bid -> ds1_bid_multiply -> bid_price;
+ds2_payload -> ds2_bid -> ds2_bid_multiply -> bid_price;
+ds3_payload -> ds3_bid -> ds3_bid_multiply -> bid_price;
+bid_price [type=median allowedFaults=2 index=1];
+
+// ask
+ds1_payload -> ds1_ask -> ds1_ask_multiply -> ask_price;
+ds2_payload -> ds2_ask -> ds2_ask_multiply -> ask_price;
+ds3_payload -> ds3_ask -> ds3_ask_multiply -> ask_price;
+ask_price [type=median allowedFaults=2 index=2];
+"""
+
+[relayConfig]
+chainID = "{{ chain_id }}" 
+enableTriggerCapability = true
+fromBlock = "{{ from_block }}" 
+
+[pluginConfig]
+linkFeedID = "{{ link_feed_id }}"
+nativeFeedID = "{{ native_feed_id }}"
+# Dummy pub key
+serverPubKey = "11a34b5187b1498c0ccb2e56d5ee8040a03a4955822ed208749b474058fc3f9c"
+# We don't need to specify a mercury server URL here since we're using this as a trigger instead
+serverURL = "wss://unknown"
