@@ -37,6 +37,8 @@ Triggered manually by QA for specific testing needs.
 
 E2E tests utilize TOML files to define their parameters. Each test is equipped with a default TOML config, which can be overridden by specifying an alternative TOML config. This allows for running tests with varied parameters, such as on a non-default blockchain network. For tests executed on GitHub CI, both the default configs and any override configs must reside within the git repository. The `test_config_override_path` workflow input is used to provide a path to an override config.
 
+Config overrides should be stored in `testconfig/*/overrides/*.toml`. Placing files here will not trigger a rebuild of the test runner image.
+
 **Important Note:** The use of `base64Config` input is deprecated in favor of `test_config_override_path`. For more details, refer to [the decision log](https://smartcontract-it.atlassian.net/wiki/spaces/TT/pages/927596563/Storing+All+Test+Configs+In+Git).
 
 ## Test Secrets
