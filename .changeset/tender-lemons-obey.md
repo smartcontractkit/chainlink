@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Enable SuggestedPriceEstimator for Polygon zkEVM #nops
+Enable FeeHistory estimator for Polygon zkEVM #nops

@@ -14,10 +14,12 @@ ResendAfterThreshold = '3m'
 
 [GasEstimator]
 Mode = 'FeeHistory'
-Feehistory.CacheTimeout = '5s'
 PriceMin = '1 mwei'
 BumpPercent = 40
 BumpMin = '20 mwei'
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '5s'
 
 [HeadTracker]
 HistoryDepth = 2000

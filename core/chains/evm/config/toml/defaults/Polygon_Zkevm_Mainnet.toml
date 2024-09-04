@@ -15,10 +15,12 @@ ResendAfterThreshold = '3m'
 
 [GasEstimator]
 Mode = 'FeeHistory'
-Feehistory.CacheTimeout = '5s'
 PriceMin = '100 mwei'
 BumpPercent = 40
 BumpMin = '100 mwei'
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '5s'
 
 [HeadTracker]
 # Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
