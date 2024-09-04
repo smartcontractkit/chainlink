@@ -15,8 +15,7 @@ import (
 )
 
 var (
-	adminAddr = "0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f22D6"
-	testNops  = []kcr.CapabilitiesRegistryNodeOperator{
+	testNops = []kcr.CapabilitiesRegistryNodeOperator{
 		{
 			Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f22D6"),
 			Name:  "NOP_00",
