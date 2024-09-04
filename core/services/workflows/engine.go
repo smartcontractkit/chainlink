@@ -11,6 +11,8 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -417,6 +419,11 @@ func (e *Engine) loop(ctx context.Context) {
 
 			te := resp.Event
 
+			if te.ID == "" {
+				e.logger.With(tIDKey, te.TriggerType).Error("trigger event ID is empty; not executing")
+				continue
+			}
+
 			executionID, err := generateExecutionID(e.workflow.id, te.ID)
 			if err != nil {
 				e.logger.With(tIDKey, te.ID).Errorf("could not generate execution ID: %v", err)
@@ -726,7 +733,7 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		inputs = step.Inputs.Mapping
 	}
 
-	i, err := findAndInterpolateAllKeys(inputs, msg.state)
+	i, err := exec.FindAndInterpolateAllKeys(inputs, msg.state)
 	if err != nil {
 		return nil, nil, err
 	}

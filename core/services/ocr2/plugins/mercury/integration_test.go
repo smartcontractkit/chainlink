@@ -1105,7 +1105,7 @@ func integration_MercuryV4(t *testing.T) {
 		k := csakey.MustNewV2XXXTestingOnly(big.NewInt(int64(-(i + 1))))
 		reqs := make(chan request, 100)
 		srv := NewMercuryServer(t, ed25519.PrivateKey(k.Raw()), reqs, func() []byte {
-			report, err := (&reportcodecv4.ReportCodec{}).BuildReport(v4.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1), MarketStatus: 1})
+			report, err := (&reportcodecv4.ReportCodec{}).BuildReport(v4.ReportFields{BenchmarkPrice: big.NewInt(234567), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1), MarketStatus: 1})
 			if err != nil {
 				panic(err)
 			}
@@ -1205,8 +1205,6 @@ func integration_MercuryV4(t *testing.T) {
 	for i, node := range nodes {
 		for j, feed := range feeds {
 			bmBridge := createBridge(fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, 0, node.App.BridgeORM())
-			bidBridge := createBridge(fmt.Sprintf("bid-%d", j), i, feed.baseBid, 0, node.App.BridgeORM())
-			askBridge := createBridge(fmt.Sprintf("ask-%d", j), i, feed.baseAsk, 0, node.App.BridgeORM())
 			marketStatusBridge := createBridge(fmt.Sprintf("marketstatus-%d", j), i, nil, feed.baseMarketStatus, node.App.BridgeORM())
 
 			addV4MercuryJob(
@@ -1217,8 +1215,6 @@ func integration_MercuryV4(t *testing.T) {
 				bootstrapPeerID,
 				bootstrapNodePort,
 				bmBridge,
-				bidBridge,
-				askBridge,
 				marketStatusBridge,
 				servers,
 				clientPubKeys[i],
@@ -1312,8 +1308,6 @@ func integration_MercuryV4(t *testing.T) {
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
 			assert.InDelta(t, feed.baseBenchmarkPrice.Int64(), reportElems["benchmarkPrice"].(*big.Int).Int64(), 5000000)
-			assert.InDelta(t, feed.baseBid.Int64(), reportElems["bid"].(*big.Int).Int64(), 5000000)
-			assert.InDelta(t, feed.baseAsk.Int64(), reportElems["ask"].(*big.Int).Int64(), 5000000)
 			assert.NotZero(t, reportElems["validFromTimestamp"].(uint32))
 			assert.GreaterOrEqual(t, reportElems["observationsTimestamp"].(uint32), reportElems["validFromTimestamp"].(uint32))
 			assert.Equal(t, expectedExpiresAt, reportElems["expiresAt"].(uint32))

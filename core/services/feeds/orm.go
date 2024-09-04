@@ -11,9 +11,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
 type ORM interface {
+	ManagerExists(ctx context.Context, publicKey crypto.PublicKey) (bool, error)
 	CountManagers(ctx context.Context) (int64, error)
 	CreateManager(ctx context.Context, ms *FeedsManager) (int64, error)
 	GetManager(ctx context.Context, id int64) (*FeedsManager, error)
@@ -34,7 +37,6 @@ type ORM interface {
 	DeleteProposal(ctx context.Context, id int64) error
 	GetJobProposal(ctx context.Context, id int64) (*JobProposal, error)
 	GetJobProposalByRemoteUUID(ctx context.Context, uuid uuid.UUID) (*JobProposal, error)
-	ListJobProposals(ctx context.Context) (jps []JobProposal, err error)
 	ListJobProposalsByManagersIDs(ctx context.Context, ids []int64) ([]JobProposal, error)
 	UpdateJobProposalStatus(ctx context.Context, id int64, status JobProposalStatus) error // NEEDED?
 	UpsertJobProposal(ctx context.Context, jp *JobProposal) (int64, error)
@@ -74,6 +76,7 @@ func (o *orm) Transact(ctx context.Context, fn func(ORM) error) error {
 func (o *orm) WithDataSource(ds sqlutil.DataSource) ORM { return &orm{ds} }
 
 // Count counts the number of feeds manager records.
+// TODO: delete once multiple feeds managers support is released
 func (o *orm) CountManagers(ctx context.Context) (count int64, err error) {
 	stmt := `
 SELECT COUNT(*)
@@ -82,6 +85,21 @@ FROM feeds_managers
 
 	err = o.ds.GetContext(ctx, &count, stmt)
 	return count, errors.Wrap(err, "CountManagers failed")
+}
+
+// ManagerExists checks if a feeds manager exists by public key.
+func (o *orm) ManagerExists(ctx context.Context, publicKey crypto.PublicKey) (bool, error) {
+	stmt := `
+SELECT EXISTS (
+	SELECT 1
+	FROM feeds_managers
+    	WHERE public_key = $1
+);
+	`
+
+	var exists bool
+	err := o.ds.GetContext(ctx, &exists, stmt, publicKey)
+	return exists, errors.Wrap(err, "ManagerExists failed")
 }
 
 // CreateManager creates a feeds manager.
@@ -264,7 +282,8 @@ WHERE id = $1
 func (o *orm) ListManagers(ctx context.Context) (mgrs []FeedsManager, err error) {
 	stmt := `
 SELECT id, name, uri, public_key, created_at, updated_at
-FROM feeds_managers;
+FROM feeds_managers
+ORDER BY created_at;
 `
 
 	err = o.ds.SelectContext(ctx, &mgrs, stmt)
@@ -371,17 +390,6 @@ AND status <> $2;
 	jp = new(JobProposal)
 	err = o.ds.GetContext(ctx, jp, stmt, id, JobProposalStatusDeleted)
 	return jp, errors.Wrap(err, "GetJobProposalByRemoteUUID failed")
-}
-
-// ListJobProposals lists all job proposals.
-func (o *orm) ListJobProposals(ctx context.Context) (jps []JobProposal, err error) {
-	stmt := `
-SELECT *
-FROM job_proposals;
-`
-
-	err = o.ds.SelectContext(ctx, &jps, stmt)
-	return jps, errors.Wrap(err, "ListJobProposals failed")
 }
 
 // ListJobProposalsByManagersIDs gets job proposals by feeds managers IDs.
@@ -819,6 +827,7 @@ SELECT exists (
 	FROM job_proposals
 	INNER JOIN jobs ON job_proposals.external_job_id = jobs.external_job_id
 	WHERE jobs.id = $1
+	AND job_proposals.status <> 'deleted'
 );
 `
 

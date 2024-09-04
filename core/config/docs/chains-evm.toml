@@ -193,8 +193,8 @@ LimitMax = 500_000 # Default
 LimitMultiplier = '1.0' # Default
 # LimitTransfer is the gas limit used for an ordinary ETH transfer.
 LimitTransfer = 21_000 # Default
-# EstimateGasLimit enables estimating gas limits for transactions. This feature respects the gas limit provided during transaction creation as an upper bound.
-EstimateGasLimit = false # Default
+# EstimateLimit enables estimating gas limits for transactions. This feature respects the gas limit provided during transaction creation as an upper bound.
+EstimateLimit = false # Default
 # BumpMin is the minimum fixed amount of wei by which gas is bumped on each transaction attempt.
 BumpMin = '5 gwei' # Default
 # BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `BumpPercent` and `BumpMin` is taken for gas bumps.
@@ -310,6 +310,15 @@ EIP1559FeeCapBufferBlocks = 13 # Example
 #
 # Setting it lower will tend to set lower gas prices.
 TransactionPercentile = 60 # Default
+
+[EVM.GasEstimator.FeeHistory]
+# CacheTimeout is the time to wait in order to refresh the cached values stored in the FeeHistory estimator. A small jitter is applied so the timeout won't be exactly the same each time.
+#
+# You want this value to be close to the block time. For slower chains, like Ethereum, you can set it to 12s, the same as the block time. For faster chains you can skip a block or two
+# and set it to two times the block time i.e. on Optimism you can set it to 4s. Ideally, you don't want to go lower than 1s since the RTT times of the RPC requests will be comparable to
+# the timeout. The estimator is already adding a buffer to account for a potential increase in prices within one or two blocks. On the other hand, slower frequency will fail to refresh
+# the prices and end up in stale values.
+CacheTimeout = '10s' # Default
 
 # The head tracker continually listens for new heads from the chain.
 #
@@ -471,5 +480,5 @@ GasLimit = 5400000 # Default
 FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 # ForwarderAddress is the keystone forwarder contract address on chain.
 ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
-# DefaultGasLimit is the default gas limit for workflow transactions.
-DefaultGasLimit = 400_000 # Default
+# GasLimitDefault is the default gas limit for workflow transactions.
+GasLimitDefault = 400_000 # Default

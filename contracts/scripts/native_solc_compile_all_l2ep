@@ -1,58 +1,37 @@
 #!/usr/bin/env bash
 
-###########
-# Logging #
-###########
-
 set -e
 
 echo " ┌──────────────────────────────────────────────┐"
 echo " │      Compiling L2EP contracts...             │"
 echo " └──────────────────────────────────────────────┘"
 
-######################
-# Helper Variable(s) #
-######################
+SOLC_VERSION="0.8.24"
+OPTIMIZE_RUNS=1000000
 
-export SOLC_VERSION="0.8.19"
-
-SCRIPTPATH="$(
-	cd "$(dirname "$0")" >/dev/null 2>&1
-	pwd -P
-)"
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
 
 ROOT="$(
 	cd "$(dirname "$0")" >/dev/null 2>&1
 	cd ../ && pwd -P
 )"
 
-######################
-# Helper Function(s) #
-######################
-
 compileContract() {
-	local optimize_runs=1000000
 	local version="$1"
 	local srcpath="$2"
 	solc \
 		@openzeppelin/=$ROOT/node_modules/@openzeppelin/ \
 		@eth-optimism/=$ROOT/node_modules/@eth-optimism/ \
 		@scroll-tech/=$ROOT/node_modules/@scroll-tech/ \
-		--overwrite --optimize --optimize-runs $optimize_runs --metadata-hash none \
+		--overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
 		-o $ROOT/solc/v$SOLC_VERSION/l2ep/"$version" \
-		--abi --bin \
-		--allow-paths $ROOT/src/v0.8,$ROOT/node_modules \
+		--abi --bin --allow-paths $ROOT/src/v0.8,$ROOT/node_modules \
+		--evm-version paris \
 		$ROOT/src/v0.8/l2ep/"$srcpath"
 }
-
-#################
-# Version 1.0.0 #
-#################
-
-python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
-
-solc-select install $SOLC_VERSION
-solc-select use $SOLC_VERSION
 
 compileContract v1_0_0 dev/arbitrum/ArbitrumValidator.sol
 compileContract v1_0_0 dev/arbitrum/ArbitrumSequencerUptimeFeed.sol
