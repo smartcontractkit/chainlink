@@ -26,28 +26,6 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
   }
   ConfigInfo internal s_configInfo;
 
-  /// @notice triggers a new run of the offchain reporting protocol
-  /// @param previousConfigBlockNumber block in which the previous config was set, to simplify historic analysis
-  /// @param configDigest configDigest of this configuration
-  /// @param configCount ordinal number of this config setting among all config settings over the life of this contract
-  /// @param signers ith element is address ith oracle uses to sign a report
-  /// @param transmitters ith element is address ith oracle uses to transmit a report via the transmit method
-  /// @param f maximum number of faulty/dishonest oracles the protocol can tolerate while still working correctly
-  /// @param onchainConfig serialized configuration used by the contract (and possibly oracles)
-  /// @param offchainConfigVersion version of the serialization format used for "offchainConfig" parameter
-  /// @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
-  event ConfigSet(
-    uint32 previousConfigBlockNumber,
-    bytes32 configDigest,
-    uint64 configCount,
-    bytes[] signers,
-    address[] transmitters,
-    uint8 f,
-    bytes onchainConfig,
-    uint64 offchainConfigVersion,
-    bytes offchainConfig
-  );
-
   // s_signers contains the signing address of each oracle
   bytes[] internal s_signers;
 
@@ -63,6 +41,7 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
   ) {
     if (numSigners > MAX_NUM_ORACLES) revert InvalidConfig("too many signers");
     if (f == 0) revert InvalidConfig("f must be positive");
+    if (numSigners != numTransmitters) revert InvalidConfig("oracle addresses out of registration");
     if (numSigners <= 3 * f) revert InvalidConfig("faulty-oracle f too high");
     _;
   }
@@ -90,15 +69,6 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
 
   // signer = [ 1 byte type | 2 byte len | n byte value ]...
 
-  function setConfig(
-    address[] memory _signers,
-    address[] memory _transmitters,
-    uint8 _f,
-    bytes memory _onchainConfig,
-    uint64 _offchainConfigVersion,
-    bytes memory _offchainConfig
-  ) external override checkConfigValid(_signers.length, _transmitters.length, _f) onlyOwner {}
-
   /**
    * @notice sets offchain reporting protocol configuration incl. participating oracles
    * @param _signers addresses with which oracles sign the reports
@@ -110,13 +80,13 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
    */
   function setConfig(
     bytes[] calldata _signers,
-    address[] calldata _transmitters, // TODO: remove, use fake static addrs to satisfy offchain
+    address[] calldata _transmitters,
     uint8 _f,
     bytes memory _onchainConfig,
     uint64 _offchainConfigVersion,
     bytes memory _offchainConfig
-  ) external checkConfigValid(_signers.length, _transmitters.length, _f) onlyOwner {
-    SetConfigArgs memory args = SetConfigArgs({ // TODO: is this saving gas? unused fields
+  ) external override checkConfigValid(_signers.length, _transmitters.length, _f) onlyOwner {
+    SetConfigArgs memory args = SetConfigArgs({
       signers: _signers,
       transmitters: _transmitters,
       f: _f,
@@ -135,23 +105,15 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
       if (args.transmitters[i] == address(0)) revert InvalidConfig("transmitter must not be empty");
       // add new signers
       bytes calldata publicKeys = _signers[i];
-      uint16 offset = 32; // skip the array length
+      uint16 offset = 0;
       uint16 len = uint16(publicKeys.length);
-
-      // chainlink/core/capabilities/ccip/ocrimpls/config_tracker.go TODO: libocr better signer validation for key subtypes checkIdentityListsHaveNoDuplicates
-      // after PublicConfigFromContractConfig call
-
-      // parse encoded public keys to validate uniqueness
-      // TODO: could we just trust libocr to ensure uniqueness?
+      // scan through public keys to validate encoded format
       while (offset < len) {
         uint8 keyType = uint8(publicKeys[offset]);
         uint16 keyLen = uint16(uint8(publicKeys[offset + 1])) + (uint16(uint8(publicKeys[offset + 2])) << 8);
         bytes calldata publicKey = publicKeys[offset + 3:offset + 3 + keyLen];
         offset += 3 + keyLen;
-        // TODO: uniq the signers() list
-        // if (s_oracles[args.signers[i]].role != Role.Unset) revert InvalidConfig("repeated signer address");
       }
-      // TODO: remove transmitters altogether?
       s_signers.push(args.signers[i]);
     }
     s_configInfo.f = args.f;
@@ -244,7 +206,7 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
     bytes32[] calldata /* rs */,
     bytes32[] calldata /* ss */,
     bytes32 /* rawVs */ // signatures
-  ) external override {
+  ) external pure override {
     revert ReportingUnsupported();
   }
 }
