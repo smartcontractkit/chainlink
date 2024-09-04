@@ -24,7 +24,7 @@ on:
       chainlink_version:
         description: Chainlink image version to use
         default: develop
-        required: true
+        required: false
         type: string
         
 jobs:
