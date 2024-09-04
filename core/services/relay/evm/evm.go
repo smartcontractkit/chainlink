@@ -285,7 +285,7 @@ func newOCR3CapabilityConfigProvider(ctx context.Context, lggr logger.Logger, ch
 		ChainID:         chain.Config().EVM().ChainID().Uint64(),
 		ContractAddress: aggregatorAddress,
 	}
-	return newContractConfigProvider(ctx, lggr, chain, opts, aggregatorAddress, OCR2AggregatorLogDecoder, offchainConfigDigester)
+	return newContractConfigProvider(ctx, lggr, chain, opts, aggregatorAddress, OCR3CapabilityLogDecoder, offchainConfigDigester)
 }
 
 // NewPluginProvider, but customized to use a different config provider
