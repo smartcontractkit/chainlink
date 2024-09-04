@@ -183,7 +183,8 @@ transaction_timeout = "60s"
 eip_1559_dynamic_fees = true
 # enable automated gas estimation, because Seth will auto-disable it if any of the required JSON RPC methods are missing
 gas_price_estimation_enabled = true
-gas_price_estimation_blocks = 100
+# disable congestion metrics for now
+gas_price_estimation_blocks = 0
 gas_price_estimation_tx_priority = "standard"
 
 # fallback values
