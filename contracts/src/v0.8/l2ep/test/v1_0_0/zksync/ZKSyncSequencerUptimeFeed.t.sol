@@ -18,6 +18,7 @@ contract ZKSyncSequencerUptimeFeedTest is L2EPTest {
   event UpdateIgnored(bool latestStatus, uint64 latestTimestamp, bool incomingStatus, uint64 incomingTimestamp);
   event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 updatedAt);
   event RoundUpdated(int256 status, uint64 updatedAt);
+  event L1SenderTransferred(address indexed from, address indexed to);
 
   /// Setup
   function setUp() public {
@@ -67,6 +68,7 @@ contract ZKSyncSequencerUptimeFeed_UpdateStatus is ZKSyncSequencerUptimeFeedTest
     emit AnswerUpdated(1, 2, timestamp);
     s_zksyncSequencerUptimeFeed.updateStatus(true, uint64(timestamp));
     assertEq(s_zksyncSequencerUptimeFeed.latestAnswer(), 1);
+    assertEq(s_zksyncSequencerUptimeFeed.latestRound(), 2);
     assertEq(s_zksyncSequencerUptimeFeed.latestTimestamp(), uint64(timestamp));
 
     // Stores the current round data before updating it
@@ -83,6 +85,7 @@ contract ZKSyncSequencerUptimeFeed_UpdateStatus is ZKSyncSequencerUptimeFeedTest
     emit RoundUpdated(1, uint64(block.timestamp));
     s_zksyncSequencerUptimeFeed.updateStatus(true, uint64(timestamp + 200));
     assertEq(s_zksyncSequencerUptimeFeed.latestAnswer(), 1);
+    assertEq(s_zksyncSequencerUptimeFeed.latestRound(), 2);
     assertEq(s_zksyncSequencerUptimeFeed.latestTimestamp(), uint64(timestamp));
 
     // Stores the current round data after updating it
@@ -113,6 +116,7 @@ contract ZKSyncSequencerUptimeFeed_UpdateStatus is ZKSyncSequencerUptimeFeedTest
     emit AnswerUpdated(1, 2, timestamp);
     s_zksyncSequencerUptimeFeed.updateStatus(true, uint64(timestamp));
     assertEq(s_zksyncSequencerUptimeFeed.latestAnswer(), 1);
+    assertEq(s_zksyncSequencerUptimeFeed.latestRound(), 2);
     assertEq(s_zksyncSequencerUptimeFeed.latestTimestamp(), uint64(timestamp));
 
     // Submit another status update, different status, newer timestamp should update
@@ -121,6 +125,7 @@ contract ZKSyncSequencerUptimeFeed_UpdateStatus is ZKSyncSequencerUptimeFeedTest
     emit AnswerUpdated(0, 3, timestamp);
     s_zksyncSequencerUptimeFeed.updateStatus(false, uint64(timestamp));
     assertEq(s_zksyncSequencerUptimeFeed.latestAnswer(), 0);
+    assertEq(s_zksyncSequencerUptimeFeed.latestRound(), 3);
     assertEq(s_zksyncSequencerUptimeFeed.latestTimestamp(), uint64(timestamp));
   }
 
@@ -137,6 +142,7 @@ contract ZKSyncSequencerUptimeFeed_UpdateStatus is ZKSyncSequencerUptimeFeedTest
     emit AnswerUpdated(1, 2, timestamp);
     s_zksyncSequencerUptimeFeed.updateStatus(true, uint64(timestamp));
     assertEq(s_zksyncSequencerUptimeFeed.latestAnswer(), 1);
+    assertEq(s_zksyncSequencerUptimeFeed.latestRound(), 2);
     assertEq(s_zksyncSequencerUptimeFeed.latestTimestamp(), uint64(timestamp));
 
     // Submit another status update, different status, same timestamp should update
@@ -144,6 +150,7 @@ contract ZKSyncSequencerUptimeFeed_UpdateStatus is ZKSyncSequencerUptimeFeedTest
     emit AnswerUpdated(0, 3, timestamp);
     s_zksyncSequencerUptimeFeed.updateStatus(false, uint64(timestamp));
     assertEq(s_zksyncSequencerUptimeFeed.latestAnswer(), 0);
+    assertEq(s_zksyncSequencerUptimeFeed.latestRound(), 3);
     assertEq(s_zksyncSequencerUptimeFeed.latestTimestamp(), uint64(timestamp));
   }
 
@@ -158,6 +165,7 @@ contract ZKSyncSequencerUptimeFeed_UpdateStatus is ZKSyncSequencerUptimeFeedTest
     emit AnswerUpdated(1, 2, timestamp);
     s_zksyncSequencerUptimeFeed.updateStatus(true, uint64(timestamp));
     assertEq(s_zksyncSequencerUptimeFeed.latestAnswer(), 1);
+    assertEq(s_zksyncSequencerUptimeFeed.latestRound(), 2);
     assertEq(s_zksyncSequencerUptimeFeed.latestTimestamp(), uint64(timestamp));
 
     // Update with different status, but stale timestamp, should be ignored
@@ -232,6 +240,19 @@ contract ZKSyncSequencerUptimeFeed_AggregatorV3Interface is ZKSyncSequencerUptim
     s_zksyncSequencerUptimeFeed.getRoundData(2);
   }
 
+  /// @notice it should return the #getAnswer for the latest round
+  function test_GetValidAnswer() public {
+    // Sets msg.sender and tx.origin to a valid address
+    vm.startPrank(s_aliasedL1OwnerAddress, s_aliasedL1OwnerAddress);
+
+    uint256 startedAt;
+    (, , startedAt, , ) = s_zksyncSequencerUptimeFeed.latestRoundData();
+
+    s_zksyncSequencerUptimeFeed.updateStatus(true, uint64(startedAt + 1000));
+
+    assertEq(0, s_zksyncSequencerUptimeFeed.getAnswer(1));
+  }
+
   /// @notice it should revert from #getAnswer when round does not yet exist (future roundId)
   function test_RevertGetAnswerWhenRoundDoesNotExistYet() public {
     // Sets msg.sender and tx.origin to a valid address
@@ -240,6 +261,19 @@ contract ZKSyncSequencerUptimeFeed_AggregatorV3Interface is ZKSyncSequencerUptim
     // Gets data from a round that has not happened yet
     vm.expectRevert(BaseSequencerUptimeFeed.NoDataPresent.selector);
     s_zksyncSequencerUptimeFeed.getAnswer(2);
+  }
+
+  /// @notice it should return the #getTimestamp for the latest round
+  function test_GetValidTimestamp() public {
+    // Sets msg.sender and tx.origin to a valid address
+    vm.startPrank(s_aliasedL1OwnerAddress, s_aliasedL1OwnerAddress);
+
+    uint256 startedAt;
+    (, , startedAt, , ) = s_zksyncSequencerUptimeFeed.latestRoundData();
+
+    s_zksyncSequencerUptimeFeed.updateStatus(true, uint64(startedAt + 1000));
+
+    assertEq(startedAt, s_zksyncSequencerUptimeFeed.getTimestamp(1));
   }
 
   /// @notice it should revert from #getTimestamp when round does not yet exist (future roundId)
@@ -287,5 +321,30 @@ contract ZKSyncSequencerUptimeFeed_ProtectReadsOnAggregatorV2V3InterfaceFunction
     assertEq(feedConsumer.latestAnswer(), 0);
     assertEq(roundId, 1);
     assertEq(answer, 0);
+  }
+}
+
+contract ZKSyncSequencerUptimeFeed_transferL1Sender is ZKSyncSequencerUptimeFeedTest {
+  /// @notice it should revert if called by an unauthorized account
+  function test_TransferL1Sender() public {
+    address initialSender = address(0);
+    address newSender = address(0x491B1dDA0A8fa069bbC1125133A975BF4e85a91b);
+
+    // Sets msg.sender and tx.origin to a valid address
+    vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
+
+    ZKSyncSequencerUptimeFeed sequencerUptimeFeed = new ZKSyncSequencerUptimeFeed(initialSender, false);
+
+    assertEq(sequencerUptimeFeed.l1Sender(), initialSender);
+
+    // Tries to transfer the L1 sender from an unauthorized account
+    vm.expectEmit();
+    emit L1SenderTransferred(initialSender, newSender);
+    sequencerUptimeFeed.transferL1Sender(newSender);
+    assertEq(sequencerUptimeFeed.l1Sender(), newSender);
+
+    // Tries to transfer to the same L1 sender should not emit an event
+    // TODO assert that the event has not been emitted
+    sequencerUptimeFeed.transferL1Sender(newSender);
   }
 }
