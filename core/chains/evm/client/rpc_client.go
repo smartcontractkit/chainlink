@@ -1039,6 +1039,29 @@ func (r *RpcClient) BalanceAt(ctx context.Context, account common.Address, block
 	return
 }
 
+func (r *RpcClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
+	defer cancel()
+	lggr := r.newRqLggr().With("blockCount", blockCount, "rewardPercentiles", rewardPercentiles)
+
+	lggr.Debug("RPC call: evmclient.Client#FeeHistory")
+	start := time.Now()
+	if http != nil {
+		feeHistory, err = http.geth.FeeHistory(ctx, blockCount, nil, rewardPercentiles)
+		err = r.wrapHTTP(err)
+	} else {
+		feeHistory, err = ws.geth.FeeHistory(ctx, blockCount, nil, rewardPercentiles)
+		err = r.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	r.logResult(lggr, err, duration, r.getRPCDomain(), "FeeHistory",
+		"feeHistory", feeHistory,
+	)
+
+	return
+}
+
 // CallArgs represents the data used to call the balance method of a contract.
 // "To" is the address of the ERC contract. "Data" is the message sent
 // to the contract. "From" is the sender address.

@@ -14,11 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,16 +26,11 @@ import (
 	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/smartcontractkit/wsrpc/peer"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/destination_verifier"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/destination_verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
@@ -50,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -69,14 +60,13 @@ func (r request) TransmitterID() ocr2types.Account {
 }
 
 type mercuryServer struct {
-	privKey     ed25519.PrivateKey
-	reqsCh      chan request
-	t           *testing.T
-	buildReport func() []byte
+	privKey ed25519.PrivateKey
+	reqsCh  chan request
+	t       *testing.T
 }
 
-func NewMercuryServer(t *testing.T, privKey ed25519.PrivateKey, reqsCh chan request, buildReport func() []byte) *mercuryServer {
-	return &mercuryServer{privKey, reqsCh, t, buildReport}
+func NewMercuryServer(t *testing.T, privKey ed25519.PrivateKey, reqsCh chan request) *mercuryServer {
+	return &mercuryServer{privKey, reqsCh, t}
 }
 
 func (s *mercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (*pb.TransmitResponse, error) {
@@ -94,23 +84,7 @@ func (s *mercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (
 }
 
 func (s *mercuryServer) LatestReport(ctx context.Context, lrr *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, errors.New("could not extract public key")
-	}
-	s.t.Logf("mercury server got latest report from %x for feed id 0x%x", p.PublicKey, lrr.FeedId)
-
-	out := new(pb.LatestReportResponse)
-	out.Report = new(pb.Report)
-	out.Report.FeedId = lrr.FeedId
-
-	report := s.buildReport()
-	payload, err := mercury.PayloadTypes.Pack(evmutil.RawReportContext(ocrtypes.ReportContext{}), report, [][32]byte{}, [][32]byte{}, [32]byte{})
-	if err != nil {
-		require.NoError(s.t, err)
-	}
-	out.Report.Payload = payload
-	return out, nil
+	panic("should not be called")
 }
 
 func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.PublicKey) (serverURL string) {
@@ -184,6 +158,7 @@ func setupNode(
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		// [JobPipeline]
 		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))
+		c.JobPipeline.VerboseLogging = ptr(true)
 
 		// [Feature]
 		c.Feature.UICSAKeys = ptr(true)
@@ -195,7 +170,7 @@ func setupNode(
 
 		// [OCR2]
 		c.OCR2.Enabled = ptr(true)
-		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(1 * time.Second)
+		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 
 		// [P2P]
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
@@ -207,6 +182,9 @@ func setupNode(
 		c.P2P.V2.ListenAddresses = &p2paddresses
 		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
+
+		// [Mercury]
+		c.Mercury.VerboseLogging = ptr(true)
 	})
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
@@ -294,7 +272,7 @@ observationSource = """
 		askBridgeName,
 	))
 }
-func addBootstrapJob(t *testing.T, bootstrapNode Node, verifierAddress common.Address, name string, relayType, relayConfig string) {
+func addBootstrapJob(t *testing.T, bootstrapNode Node, configuratorAddress common.Address, name string, relayType, relayConfig string) {
 	bootstrapNode.AddBootstrapJob(t, fmt.Sprintf(`
 type                              = "bootstrap"
 relay                             = "%s"
@@ -305,13 +283,13 @@ contractConfigTrackerPollInterval = "1s"
 
 [relayConfig]
 %s
-providerType = "llo"`, relayType, name, verifierAddress.Hex(), relayConfig))
+providerType = "llo"`, relayType, name, configuratorAddress.Hex(), relayConfig))
 }
 
 func addLLOJob(
 	t *testing.T,
 	node Node,
-	verifierAddress common.Address,
+	configuratorAddr common.Address,
 	bootstrapPeerID string,
 	bootstrapNodePort int,
 	clientPubKey ed25519.PublicKey,
@@ -342,7 +320,7 @@ transmitterID = "%x"
 [relayConfig]
 %s`,
 		jobName,
-		verifierAddress.Hex(),
+		configuratorAddr.Hex(),
 		node.KeyBundle.ID(),
 		fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort),
 		relayType,
@@ -357,7 +335,7 @@ func addOCRJobs(
 	streams []Stream,
 	serverPubKey ed25519.PublicKey,
 	serverURL string,
-	verifierAddress common.Address,
+	configuratorAddress common.Address,
 	bootstrapPeerID string,
 	bootstrapNodePort int,
 	nodes []Node,
@@ -382,7 +360,7 @@ func addOCRJobs(
 		addLLOJob(
 			t,
 			node,
-			verifierAddress,
+			configuratorAddress,
 			bootstrapPeerID,
 			bootstrapNodePort,
 			clientPubKeys[i],
@@ -440,7 +418,7 @@ func addOCRJobsEVMPremiumLegacy(
 	streams []Stream,
 	serverPubKey ed25519.PublicKey,
 	serverURL string,
-	verifierAddress common.Address,
+	configuratorAddress common.Address,
 	bootstrapPeerID string,
 	bootstrapNodePort int,
 	nodes []Node,
@@ -457,7 +435,7 @@ func addOCRJobsEVMPremiumLegacy(
 			jobIDs[i] = make(map[uint32]int32)
 		}
 		for j, strm := range streams {
-			// assume that streams are native, link and quote
+			// assume that streams are native, link and additionals are quote
 			if j < 2 {
 				var name string
 				if j == 0 {
@@ -474,7 +452,7 @@ func addOCRJobsEVMPremiumLegacy(
 					bmBridge,
 				)
 				jobIDs[i][strm.id] = jobID
-			} else if j == 2 {
+			} else {
 				bmBridge := createBridge(t, fmt.Sprintf("benchmarkprice-%d-%d", strm.id, j), i, strm.baseBenchmarkPrice, node.App.BridgeORM())
 				bidBridge := createBridge(t, fmt.Sprintf("bid-%d-%d", strm.id, j), i, strm.baseBid, node.App.BridgeORM())
 				askBridge := createBridge(t, fmt.Sprintf("ask-%d-%d", strm.id, j), i, strm.baseAsk, node.App.BridgeORM())
@@ -487,14 +465,12 @@ func addOCRJobsEVMPremiumLegacy(
 					askBridge,
 				)
 				jobIDs[i][strm.id] = jobID
-			} else {
-				panic("unexpected stream")
 			}
 		}
 		addLLOJob(
 			t,
 			node,
-			verifierAddress,
+			configuratorAddress,
 			bootstrapPeerID,
 			bootstrapNodePort,
 			clientPubKeys[i],
@@ -505,28 +481,4 @@ func addOCRJobsEVMPremiumLegacy(
 		)
 	}
 	return jobIDs
-}
-
-func setupV03Blockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, *destination_verifier.DestinationVerifier, *destination_verifier_proxy.DestinationVerifierProxy, common.Address) {
-	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
-	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
-	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	backend.Commit() // ensure starting block number at least 1
-
-	// Deploy verifier proxy
-	verifierProxyAddr, _, verifierProxy, err := destination_verifier_proxy.DeployDestinationVerifierProxy(steve, backend)
-	require.NoError(t, err)
-	backend.Commit()
-
-	// Deploy verifier
-	verifierAddress, _, verifier, err := destination_verifier.DeployDestinationVerifier(steve, backend, verifierProxyAddr)
-	require.NoError(t, err)
-	backend.Commit()
-
-	// Set verifier on proxy
-	_, err = verifierProxy.SetVerifier(steve, verifierAddress)
-	require.NoError(t, err)
-	backend.Commit()
-
-	return steve, backend, verifier, verifierProxy, verifierProxyAddr
 }

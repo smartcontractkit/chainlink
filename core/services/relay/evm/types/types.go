@@ -195,6 +195,9 @@ type RelayConfig struct {
 	// Mercury-specific
 	FeedID                  *common.Hash `json:"feedID"`
 	EnableTriggerCapability bool         `json:"enableTriggerCapability"`
+
+	// LLO-specific
+	LLODONID uint32 `json:"lloDonID" toml:"lloDonID"`
 }
 
 var ErrBadRelayConfig = errors.New("bad relay config")

@@ -194,7 +194,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
-	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, gcfg, gcfg.Insecure(), gcfg.JobPipeline(), gcfg.OCR(), gcfg.OCR2(), legacyChains, lggr, "1.0.0", nil)
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, gcfg, gcfg.Feature(), gcfg.Insecure(), gcfg.JobPipeline(), gcfg.OCR(), gcfg.OCR2(), legacyChains, lggr, "1.0.0", nil)
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
@@ -374,6 +374,7 @@ func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 	var pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
 	var pubKey crypto.PublicKey
 	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
+	require.NoError(t, err)
 
 	var (
 		mgr = feeds.FeedsManager{
