@@ -7,7 +7,7 @@ import {IFeeQuoter} from "../interfaces/IFeeQuoter.sol";
 import {IMessageInterceptor} from "../interfaces/IMessageInterceptor.sol";
 import {INonceManager} from "../interfaces/INonceManager.sol";
 import {IPoolV1} from "../interfaces/IPool.sol";
-import {IRMN} from "../interfaces/IRMN.sol";
+import {IRMNV2} from "../interfaces/IRMNV2.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
@@ -55,7 +55,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   error InvalidNewState(uint64 sourceChainSelector, uint64 sequenceNumber, Internal.MessageExecutionState newState);
   error InvalidStaticConfig(uint64 sourceChainSelector);
   error StaleCommitReport();
-  error InvalidInterval(uint64 sourceChainSelector, Interval interval);
+  error InvalidInterval(uint64 sourceChainSelector, uint64 min, uint64 max);
   error ZeroAddressNotAllowed();
   error InvalidMessageDestChainSelector(uint64 messageDestChainSelector);
 
@@ -83,9 +83,12 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
 
   /// @notice Struct that contains the static configuration
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
+  /// @dev not sure why solhint complains about this, seems like a buggy detector
+  /// https://github.com/protofire/solhint/issues/597
+  // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
     uint64 chainSelector; // ───╮  Destination chainSelector
-    address rmnProxy; // ───────╯  RMN proxy address
+    IRMNV2 rmn; // ─────────────╯  RMN Verification Contract
     address tokenAdminRegistry; // Token admin registry address
     address nonceManager; // Nonce manager address
   }
@@ -117,40 +120,20 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     address messageValidator; // Optional message validator to validate incoming messages (zero address = no validator)
   }
 
-  /// @notice a sequenceNumber interval
-  /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
-  struct Interval {
-    uint64 min; // ───╮ Minimum sequence number, inclusive
-    uint64 max; // ───╯ Maximum sequence number, inclusive
-  }
-
-  /// @dev Struct to hold a merkle root and an interval for a source chain so that an array of these can be passed in the CommitReport.
-  struct MerkleRoot {
-    uint64 sourceChainSelector; // Remote source chain selector that the Merkle Root is scoped to
-    Interval interval; // Report interval of the merkle root
-    bytes32 merkleRoot; // Merkle root covering the interval & source chain messages
-  }
-
   /// @notice Report that is committed by the observing DON at the committing phase
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct CommitReport {
     Internal.PriceUpdates priceUpdates; // Collection of gas and price updates to commit
-    MerkleRoot[] merkleRoots; // Collection of merkle roots per source chain to commit
-  }
-
-  /// @dev Struct to hold a merkle root for a source chain so that an array of these can be passed in the
-  /// resetUnblessedRoots function.
-  struct UnblessedRoot {
-    uint64 sourceChainSelector; // Remote source chain selector that the Merkle Root is scoped to
-    bytes32 merkleRoot; // Merkle root of a single remote source chain
+    Internal.MerkleRoot[] merkleRoots; // Collection of merkle roots per source chain to commit
+    IRMNV2.Signature[] rmnSignatures; // RMN signatures on the merkle roots
   }
 
   // STATIC CONFIG
   string public constant override typeAndVersion = "OffRamp 1.6.0-dev";
   /// @dev ChainSelector of this chain
   uint64 internal immutable i_chainSelector;
-  /// @dev The address of the RMN proxy
-  address internal immutable i_rmnProxy;
+  /// @dev The RMN verification contract
+  IRMNV2 internal immutable i_rmn;
   /// @dev The address of the token admin registry
   address internal immutable i_tokenAdminRegistry;
   /// @dev The address of the nonce manager
@@ -181,7 +164,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     SourceChainConfigArgs[] memory sourceChainConfigs
   ) MultiOCR3Base() {
     if (
-      staticConfig.rmnProxy == address(0) || staticConfig.tokenAdminRegistry == address(0)
+      address(staticConfig.rmn) == address(0) || staticConfig.tokenAdminRegistry == address(0)
         || staticConfig.nonceManager == address(0)
     ) {
       revert ZeroAddressNotAllowed();
@@ -192,7 +175,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     }
 
     i_chainSelector = staticConfig.chainSelector;
-    i_rmnProxy = staticConfig.rmnProxy;
+    i_rmn = staticConfig.rmn;
     i_tokenAdminRegistry = staticConfig.tokenAdminRegistry;
     i_nonceManager = staticConfig.nonceManager;
     emit StaticConfigSet(staticConfig);
@@ -344,7 +327,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   ) internal {
     uint64 sourceChainSelector = report.sourceChainSelector;
     bool manualExecution = manualExecGasLimits.length != 0;
-    if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(sourceChainSelector)))) {
+    if (i_rmn.isCursed(bytes16(uint128(sourceChainSelector)))) {
       if (manualExecution) {
         // For manual execution we don't want to silently fail so we revert
         revert CursedByRMN(sourceChainSelector);
@@ -593,6 +576,11 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   ) external {
     CommitReport memory commitReport = abi.decode(report, (CommitReport));
 
+    // Verify RMN signatures
+    if (commitReport.merkleRoots.length > 0) {
+      i_rmn.verify(commitReport.merkleRoots, commitReport.rmnSignatures);
+    }
+
     // Check if the report contains price updates
     if (commitReport.priceUpdates.tokenPriceUpdates.length > 0 || commitReport.priceUpdates.gasPriceUpdates.length > 0)
     {
@@ -613,20 +601,19 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     }
 
     for (uint256 i = 0; i < commitReport.merkleRoots.length; ++i) {
-      MerkleRoot memory root = commitReport.merkleRoots[i];
+      Internal.MerkleRoot memory root = commitReport.merkleRoots[i];
       uint64 sourceChainSelector = root.sourceChainSelector;
 
-      if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(sourceChainSelector)))) {
+      if (i_rmn.isCursed(bytes16(uint128(sourceChainSelector)))) {
         revert CursedByRMN(sourceChainSelector);
       }
 
       SourceChainConfig storage sourceChainConfig = _getEnabledSourceChainConfig(sourceChainSelector);
 
-      if (sourceChainConfig.minSeqNr != root.interval.min || root.interval.min > root.interval.max) {
-        revert InvalidInterval(root.sourceChainSelector, root.interval);
+      if (sourceChainConfig.minSeqNr != root.minSeqNr || root.minSeqNr > root.maxSeqNr) {
+        revert InvalidInterval(root.sourceChainSelector, root.minSeqNr, root.maxSeqNr);
       }
 
-      // TODO: confirm how RMN offchain blessing impacts commit report
       bytes32 merkleRoot = root.merkleRoot;
       if (merkleRoot == bytes32(0)) revert InvalidRoot();
       // If we reached this section, the report should contain a valid root
@@ -636,7 +623,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
         revert RootAlreadyCommitted(root.sourceChainSelector, merkleRoot);
       }
 
-      sourceChainConfig.minSeqNr = root.interval.max + 1;
+      sourceChainConfig.minSeqNr = root.maxSeqNr + 1;
       s_roots[root.sourceChainSelector][merkleRoot] = block.timestamp;
     }
 
@@ -661,28 +648,6 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     return s_roots[sourceChainSelector][root];
   }
 
-  /// @notice Returns if a root is blessed or not.
-  /// @param root The merkle root to check the blessing status for.
-  /// @return blessed Whether the root is blessed or not.
-  function isBlessed(bytes32 root) public view returns (bool) {
-    // TODO: update RMN to also consider the source chain selector for blessing
-    return IRMN(i_rmnProxy).isBlessed(IRMN.TaggedRoot({commitStore: address(this), root: root}));
-  }
-
-  /// @notice Used by the owner in case an invalid sequence of roots has been
-  /// posted and needs to be removed. The interval in the report is trusted.
-  /// @param rootToReset The roots that will be reset. This function will only
-  /// reset roots that are not blessed.
-  function resetUnblessedRoots(UnblessedRoot[] calldata rootToReset) external onlyOwner {
-    for (uint256 i = 0; i < rootToReset.length; ++i) {
-      UnblessedRoot memory root = rootToReset[i];
-      if (!isBlessed(root.merkleRoot)) {
-        delete s_roots[root.sourceChainSelector][root.merkleRoot];
-        emit RootRemoved(root.merkleRoot);
-      }
-    }
-  }
-
   /// @notice Returns timestamp of when root was accepted or 0 if verification fails.
   /// @dev This method uses a merkle tree within a merkle tree, with the hashedLeaves,
   /// proofs and proofFlagBits being used to get the root of the inner tree.
@@ -695,10 +660,6 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     uint256 proofFlagBits
   ) internal view virtual returns (uint256 timestamp) {
     bytes32 root = MerkleMultiProof.merkleRoot(hashedLeaves, proofs, proofFlagBits);
-    // Only return non-zero if present and blessed.
-    if (!isBlessed(root)) {
-      return 0;
-    }
     return s_roots[sourceChainSelector][root];
   }
 
@@ -724,7 +685,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   function getStaticConfig() external view returns (StaticConfig memory) {
     return StaticConfig({
       chainSelector: i_chainSelector,
-      rmnProxy: i_rmnProxy,
+      rmn: i_rmn,
       tokenAdminRegistry: i_tokenAdminRegistry,
       nonceManager: i_nonceManager
     });
