@@ -17,19 +17,19 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
-	ccipconfig "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
-	chainlinkconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	ccip_test_config "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
+	chainlink_test_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 // TODO in the future Seth config should be part of the test config
-func EnvironmentConfigFromCCIPTestConfig(t *testing.T, testCfg ccipconfig.Config, useSeth bool) (persistent_types.EnvironmentConfig, error) {
+func EnvironmentConfigFromCCIPTestConfig(t *testing.T, testCfg ccip_test_config.Config, useSeth bool) (persistent_types.EnvironmentConfig, error) {
 	envConfig := persistent_types.EnvironmentConfig{}
 	evmChainConfig := persistent_types.ChainConfig{
 		NewEVMChains:      make([]persistent_types.NewEVMChainProducer, 0),
 		ExistingEVMChains: make([]persistent_types.ExistingEVMChainProducer, 0),
 	}
 
-	var getSimulatedNetworkFromTestConfig = func(testConfig ccipconfig.Config, chainId uint64) (ctf_config.EthereumNetworkConfig, error) {
+	var getSimulatedNetworkFromTestConfig = func(testConfig ccip_test_config.Config, chainId uint64) (ctf_config.EthereumNetworkConfig, error) {
 		for _, chainCfg := range testConfig.CCIP.Env.PrivateEthereumNetworks {
 			if uint64(chainCfg.EthereumChainConfig.ChainID) == chainId {
 				return *chainCfg, nil
@@ -88,6 +88,8 @@ func EnvironmentConfigFromCCIPTestConfig(t *testing.T, testCfg ccipconfig.Config
 		}
 	}
 
+	envConfig.ChainConfig = evmChainConfig
+
 	donConfig := persistent_types.DONConfig{}
 	if testCfg.CCIP.Env.NewCLCluster != nil {
 		donConfig.NewDON = &persistent_types.NewDockerDONConfig{
@@ -111,7 +113,7 @@ func EnvironmentConfigFromCCIPTestConfig(t *testing.T, testCfg ccipconfig.Config
 }
 
 // TODO in the future newClCluster and existingCluster (& mockServerUrl) should be part of the test config
-func EnvironmentConfigFromChainlinkTestConfig(t *testing.T, testCfg chainlinkconfig.TestConfig, startNewCluster bool, existingCluster *ccipconfig.CLCluster, mockServerUrl *string) (persistent_types.EnvironmentConfig, error) {
+func EnvironmentConfigFromChainlinkTestConfig(t *testing.T, testCfg chainlink_test_config.TestConfig, startNewCluster bool, existingCluster *ccip_test_config.CLCluster, mockServerUrl *string) (persistent_types.EnvironmentConfig, error) {
 	envConfig := persistent_types.EnvironmentConfig{}
 	evmChainConfig := persistent_types.ChainConfig{
 		NewEVMChains:      make([]persistent_types.NewEVMChainProducer, 0),
@@ -156,6 +158,8 @@ func EnvironmentConfigFromChainlinkTestConfig(t *testing.T, testCfg chainlinkcon
 		}
 	}
 
+	envConfig.ChainConfig = evmChainConfig
+
 	donConfig := persistent_types.DONConfig{}
 	if startNewCluster {
 		donConfig.NewDON = &persistent_types.NewDockerDONConfig{
@@ -171,7 +175,7 @@ func EnvironmentConfigFromChainlinkTestConfig(t *testing.T, testCfg chainlinkcon
 			MockServerURL: mockServerUrl,
 		}
 	} else {
-		return envConfig, fmt.Errorf("either new or existing chainlink cluster config must be provided")
+		return envConfig, fmt.Errorf("either new or existing chainlink cluster (with mockserver) config must be provided")
 	}
 
 	envConfig.DONConfig = donConfig

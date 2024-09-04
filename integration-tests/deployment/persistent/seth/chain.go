@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -135,7 +136,17 @@ func CreateExistingEVMChainWithSeth(evmNetwork blockchain.EVMNetwork, sethConfig
 
 func (e *ExistingEVMChainConfigWithSeth) Chain() (deployment.Chain, persistent_types.RpcProvider, error) {
 	chain := deployment.Chain{}
-	c, err := seth_utils.MergeSethAndEvmNetworkConfigs(e.evmNetwork, e.sethConfig)
+	// copy it so we don't end up modifying the original config
+	marshalled, err := toml.Marshal(e.sethConfig)
+	if err != nil {
+		return chain, nil, fmt.Errorf("failed to marshal seth config: %w", err)
+	}
+	var sethConfigCopy seth.Config
+	err = toml.Unmarshal(marshalled, &sethConfigCopy)
+	if err != nil {
+		return chain, nil, fmt.Errorf("failed to unmarshal seth config: %w", err)
+	}
+	c, err := seth_utils.MergeSethAndEvmNetworkConfigs(e.evmNetwork, sethConfigCopy)
 	if err != nil {
 		return chain, nil, fmt.Errorf("failed to merge seth and evm network configs: %w", err)
 	}

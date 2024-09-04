@@ -71,10 +71,10 @@ func NewEnvironment(lggr logger.Logger, config persistent_types.EnvironmentConfi
 	don.KillGrave = mocks.KillGrave
 
 	return &deployment.Environment{
-		Name: "persistent",
-		//Offchain: NewMemoryJobClient(nodes),
-		NodeIDs: nodeIDs,
-		Chains:  chains,
-		Logger:  lggr,
+		Name:     "persistent",
+		Offchain: NewJobClient(don.ClClients),
+		NodeIDs:  nodeIDs,
+		Chains:   chains,
+		Logger:   lggr,
 	}, nil
 }

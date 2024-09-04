@@ -11,7 +11,7 @@ import (
 // NewChains creates Chains based on the provided configuration. It returns a map of chain id to chain.
 // You can mix existing and new Chains in the configuration, meaning that you can have Chains that are already running and Chains that will be started by the test environment.
 func NewChains(lggr logger.Logger, config persistent_types.ChainConfig) (map[uint64]deployment.Chain, map[uint64]persistent_types.RpcProvider, error) {
-	lggr.Info("Creating persistent Chains")
+	lggr.Info("Setting up persistent chains")
 	existingChains, existingRpcs, err := newExistingChains(config.ExistingEVMChains)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to create existing Chains")
