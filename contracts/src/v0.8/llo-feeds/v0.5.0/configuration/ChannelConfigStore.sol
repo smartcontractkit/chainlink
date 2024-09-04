@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 import {IChannelConfigStore} from "./interfaces/IChannelConfigStore.sol";
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 
 contract ChannelConfigStore is ConfirmedOwner, IChannelConfigStore, TypeAndVersionInterface {
   event NewChannelDefinition(uint256 indexed donId, uint32 version, string url, bytes32 sha);

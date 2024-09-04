@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {CrossDomainOwnable} from "./CrossDomainOwnable.sol";
-import {DelegateForwarderInterface} from "./interfaces/DelegateForwarderInterface.sol";
+import {IDelegateForwarder} from "./interfaces/IDelegateForwarder.sol";
 
 /**
  * @title CrossDomainDelegateForwarder - L1 xDomain account representation (with delegatecall support)
@@ -10,4 +10,4 @@ import {DelegateForwarderInterface} from "./interfaces/DelegateForwarderInterfac
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
  *   can consider that position to be held by the `l1Owner`
  */
-abstract contract CrossDomainDelegateForwarder is DelegateForwarderInterface, CrossDomainOwnable {}
+abstract contract CrossDomainDelegateForwarder is IDelegateForwarder, CrossDomainOwnable {}
