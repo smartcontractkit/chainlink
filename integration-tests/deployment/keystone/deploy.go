@@ -30,13 +30,15 @@ type DeployRequest struct {
 }
 
 type DeployResponse struct {
-	AddressBook deployment.AddressBook
+	Changeset *deployment.ChangesetOutput
 }
 
 func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*DeployResponse, error) {
 	ad := deployment.NewMemoryAddressBook()
 	resp := &DeployResponse{
-		AddressBook: ad,
+		Changeset: &deployment.ChangesetOutput{
+			AddressBook: ad,
+		},
 	}
 	var registry *capabilities_registry.CapabilitiesRegistry
 	var registryChain deployment.Chain
