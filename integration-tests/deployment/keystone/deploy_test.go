@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/test-go/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -81,9 +82,9 @@ func TestDeploy(t *testing.T) {
 		NodeIDToNop:       nodeToNop,
 	}
 
-	r, err := keystone.Deploy(ctx, lggr, deployReq)
+	deployResp, err := keystone.Deploy(ctx, lggr, deployReq)
 	require.NoError(t, err)
-	ad := r.Changeset.AddressBook
+	ad := deployResp.Changeset.AddressBook
 	addrs, err := ad.Addresses()
 	require.NoError(t, err)
 	lggr.Infow("Deployed Keystone contracts", "address book", addrs)
@@ -110,5 +111,31 @@ func TestDeploy(t *testing.T) {
 		}
 		require.True(t, containsForwarder, "no forwarder found in %v on chain %d for target don", chainAddrs, chain)
 	}
-	require.FailNow(t, "print logs")
+
+	req := &keystone.GetContractSetsRequest{
+		Chains:      e.Chains(),
+		AddressBook: ad,
+	}
+
+	contractSetsResp, err := keystone.GetContractSets(lggr, req)
+	require.NoError(t, err)
+	require.Len(t, contractSetsResp.ContractSets, 4)
+	// check the registry
+	regChainContracts, ok := contractSetsResp.ContractSets[homeChain]
+	require.True(t, ok)
+	gotRegistry := regChainContracts.CapabilitiesRegistry
+	require.NotNil(t, gotRegistry)
+	// contract reads
+	gotDons, err := gotRegistry.GetDONs(nil)
+	require.NoError(t, err)
+	assert.Len(t, gotDons, len(e.DonToEnv))
+	for don, id := range deployResp.DonToId {
+		// id starts at 1 in the contract
+		gdon := gotDons[id-1]
+		cfg, ok := multDonCfg.Configs[don]
+		require.True(t, ok, "no config for don %s", don)
+		assert.Equal(t, cfg.Nodes/3, int(gdon.F))
+		assert.Len(t, gdon.NodeP2PIds, cfg.Nodes)
+		assert.Equal(t, don == keystone.WFDonName, gdon.AcceptsWorkflows, "don %s, %d has wrong AcceptsWorkflows", don, id)
+	}
 }

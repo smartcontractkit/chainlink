@@ -12,8 +12,8 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	//"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	//"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 const (

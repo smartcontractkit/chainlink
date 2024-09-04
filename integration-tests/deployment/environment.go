@@ -14,14 +14,15 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"google.golang.org/grpc"
 
 	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
 
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	//"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 type OnchainClient interface {
@@ -65,15 +66,32 @@ func (mde MultiDonEnvironment) Get(name string) Environment {
 }
 
 func (mde MultiDonEnvironment) ListChains() []Chain {
-	seen := make(map[uint64]struct{})
-	var chains []Chain
-	for _, env := range mde.DonToEnv {
-		for _, chain := range env.Chains {
-			_, exists := seen[chain.Selector]
-			if !exists {
-				chains = append(chains, chain)
-				seen[chain.Selector] = struct{}{}
+	/*
+		seen := make(map[uint64]struct{})
+		var chains []Chain
+		for _, env := range mde.DonToEnv {
+			for _, chain := range env.Chains {
+				_, exists := seen[chain.Selector]
+				if !exists {
+					chains = append(chains, chain)
+					seen[chain.Selector] = struct{}{}
+				}
 			}
+		}
+		return chains
+	*/
+	var out []Chain
+	for _, c := range mde.Chains() {
+		out = append(out, c)
+	}
+	return out
+}
+
+func (mde MultiDonEnvironment) Chains() map[uint64]Chain {
+	chains := make(map[uint64]Chain)
+	for _, env := range mde.DonToEnv {
+		for sel, chain := range env.Chains {
+			chains[sel] = chain
 		}
 	}
 	return chains
@@ -172,7 +190,7 @@ func MustPeerIDFromString(s string) p2pkey.PeerID {
 }
 
 type NodeChainConfigsLister interface {
-	ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...interface{}) (*nodev1.ListNodeChainConfigsResponse, error)
+	ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error)
 }
 
 // Gathers all the node info through JD required to be able to set

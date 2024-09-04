@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 )
 
-type contractSet struct {
+type deployerSet struct {
 	ocr3Deployer                 *OCR3Deployer
 	keystoneForwarderDeployer    *KeystoneForwarderDeployer
 	capabilitiesRegistryDeployer *CapabilitiesRegistryDeployer
@@ -20,7 +20,7 @@ type deployContractsRequest struct {
 }
 
 type deployContractSetResponse struct {
-	*contractSet
+	*deployerSet
 	deployment.AddressBook
 }
 
@@ -30,7 +30,7 @@ func deployContracts(lggr logger.Logger, req deployContractsRequest) (*deployCon
 	}
 	resp := &deployContractSetResponse{
 		AddressBook: req.ad,
-		contractSet: &contractSet{},
+		deployerSet: &deployerSet{},
 	}
 	singleRequest := deployRequest{Chain: req.chain}
 

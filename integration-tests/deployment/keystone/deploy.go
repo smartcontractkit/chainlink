@@ -36,6 +36,7 @@ type DeployRequest struct {
 
 type DeployResponse struct {
 	Changeset *deployment.ChangesetOutput
+	DonToId   map[string]uint32
 }
 
 func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*DeployResponse, error) {
@@ -44,6 +45,7 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 		Changeset: &deployment.ChangesetOutput{
 			AddressBook: ad,
 		},
+		DonToId: make(map[string]uint32),
 	}
 	var registry *capabilities_registry.CapabilitiesRegistry
 	var registryChain deployment.Chain
@@ -68,7 +70,7 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 		}
 	}
 
-	donToOcr2Nodes, err := mapDonsToNodes(ctx, req.Menv)
+	donToOcr2Nodes, err := mapDonsToNodes(ctx, req.Menv, true)
 
 	donToNodeIDs := make(map[string][]string)
 	for donName, ocr2nodes := range donToOcr2Nodes {
@@ -141,6 +143,9 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 			return nil, fmt.Errorf("capabilities not found for node operator %s", don)
 		}
 		for _, n := range ocr2nodes {
+			if n.IsBoostrap { // bootstraps are part of the DON but don't host capabilities
+				continue
+			}
 			nop, ok := nodeToRegisterNop[n.ID]
 			if !ok {
 				return nil, fmt.Errorf("node operator not found for node %s", n.ID)
@@ -192,12 +197,16 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 
 	lggr.Infow("registered nodes", "nodes", nodeIDToParams)
 
+	donid := uint32(1)
 	for don, ocr2nodes := range donToOcr2Nodes {
 		var p2pIds [][32]byte
 		for _, n := range ocr2nodes {
+			if n.IsBoostrap {
+				continue
+			}
 			params, ok := nodeIDToParams[n.ID]
 			if !ok {
-				return nil, fmt.Errorf("node params not found for node %s", n.ID)
+				return nil, fmt.Errorf("node params not found for non-bootstrap node %s", n.ID)
 			}
 			p2pIds = append(p2pIds, params.P2pId)
 		}
@@ -233,7 +242,9 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 		if err != nil {
 			return nil, fmt.Errorf("failed to confirm AddDON transaction %s for don %s: %w", tx.Hash(), don, err)
 		}
-		lggr.Debugw("registered DON", "don", don, "p2pids", p2pIds, "cgs", cfgs, "wfSupported", wfSupported, "f", f)
+		resp.DonToId[don] = donid
+		lggr.Debugw("registered DON", "don", don, "p2pids", p2pIds, "cgs", cfgs, "wfSupported", wfSupported, "f", f, "id", donid)
+		donid += 1
 	}
 
 	lggr.Infow("registered DONS")
@@ -478,7 +489,8 @@ func nodeChainConfigsToOcr2Node(resp *v1.ListNodeChainConfigsResponse, id string
 	return newOcr2Node(id, cfg.Ocr2Config)
 }
 
-func mapDonsToNodes(ctx context.Context, menv deployment.MultiDonEnvironment) (map[string][]*ocr2Node, error) {
+// mapDonsToNodes returns a map of dons to their nodes
+func mapDonsToNodes(ctx context.Context, menv deployment.MultiDonEnvironment, excludeBootstraps bool) (map[string][]*ocr2Node, error) {
 	// todo cleanup types
 	donToOcr2Nodes := make(map[string][]*ocr2Node)
 	for donName, env := range menv.DonToEnv {
@@ -503,6 +515,9 @@ func mapDonsToNodes(ctx context.Context, menv deployment.MultiDonEnvironment) (m
 			ocr2n, err := nodeChainConfigsToOcr2Node(cfgResp, node.Id)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert node chain configs to ocr2 node for id %s: %w", node.Id, err)
+			}
+			if excludeBootstraps && ocr2n.IsBoostrap {
+				continue
 			}
 			if _, ok := donToOcr2Nodes[donName]; !ok {
 				donToOcr2Nodes[donName] = make([]*ocr2Node, 0)

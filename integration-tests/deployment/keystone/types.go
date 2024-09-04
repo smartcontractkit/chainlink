@@ -53,9 +53,10 @@ type Nop struct {
 // ocr2Node is a subset of the node configuration that is needed to register a node
 // with the capabilities registry. Signer and P2PKey are chain agnostic.
 type ocr2Node struct {
-	ID     string
-	Signer [32]byte
-	P2PKey p2pkey.PeerID
+	ID         string
+	Signer     [32]byte
+	P2PKey     p2pkey.PeerID
+	IsBoostrap bool
 }
 
 func newOcr2Node(id string, cfg *v1.OCR2Config) (*ocr2Node, error) {
@@ -80,8 +81,9 @@ func newOcr2Node(id string, cfg *v1.OCR2Config) (*ocr2Node, error) {
 	copy(sigb[:], signerB)
 
 	return &ocr2Node{
-		ID:     id,
-		Signer: sigb,
-		P2PKey: p,
+		ID:         id,
+		Signer:     sigb,
+		P2PKey:     p,
+		IsBoostrap: cfg.IsBootstrap,
 	}, nil
 }
