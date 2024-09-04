@@ -79,6 +79,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev RMN depends on this event, if changing, please notify the RMN maintainers.
   event CommitReportAccepted(CommitReport report);
   event RootRemoved(bytes32 root);
+  event SkippedReportExecution(uint64 sourceChainSelector);
 
   /// @notice Struct that contains the static configuration
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
@@ -342,7 +343,16 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     uint256[] memory manualExecGasLimits
   ) internal {
     uint64 sourceChainSelector = report.sourceChainSelector;
-    _whenNotCursed(sourceChainSelector);
+    bool manualExecution = manualExecGasLimits.length != 0;
+    if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(sourceChainSelector)))) {
+      if (manualExecution) {
+        // For manual execution we don't want to silently fail so we revert
+        revert CursedByRMN(sourceChainSelector);
+      }
+      // For DON execution we do not revert as a single lane curse can revert the entire batch
+      emit SkippedReportExecution(sourceChainSelector);
+      return;
+    }
 
     bytes memory onRamp = _getEnabledSourceChainConfig(sourceChainSelector).onRamp;
 
@@ -374,7 +384,6 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     if (timestampCommitted == 0) revert RootNotCommitted(sourceChainSelector);
 
     // Execute messages
-    bool manualExecution = manualExecGasLimits.length != 0;
     for (uint256 i = 0; i < numMsgs; ++i) {
       uint256 gasStart = gasleft();
       Internal.Any2EVMRampMessage memory message = report.messages[i];
@@ -607,7 +616,10 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       MerkleRoot memory root = commitReport.merkleRoots[i];
       uint64 sourceChainSelector = root.sourceChainSelector;
 
-      _whenNotCursed(sourceChainSelector);
+      if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(sourceChainSelector)))) {
+        revert CursedByRMN(sourceChainSelector);
+      }
+
       SourceChainConfig storage sourceChainConfig = _getEnabledSourceChainConfig(sourceChainSelector);
 
       if (sourceChainConfig.minSeqNr != root.interval.min || root.interval.min > root.interval.max) {
@@ -958,13 +970,5 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   function ccipReceive(Client.Any2EVMMessage calldata) external pure {
     // solhint-disable-next-line
     revert();
-  }
-
-  /// @notice Validates that the source chain -> this chain lane, and reverts if it is cursed
-  /// @param sourceChainSelector Source chain selector to check for cursing
-  function _whenNotCursed(uint64 sourceChainSelector) internal view {
-    if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(sourceChainSelector)))) {
-      revert CursedByRMN(sourceChainSelector);
-    }
   }
 }

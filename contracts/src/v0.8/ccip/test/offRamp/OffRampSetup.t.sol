@@ -29,8 +29,6 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   uint64 internal constant SOURCE_CHAIN_SELECTOR_1 = SOURCE_CHAIN_SELECTOR;
   uint64 internal constant SOURCE_CHAIN_SELECTOR_2 = 6433500567565415381;
   uint64 internal constant SOURCE_CHAIN_SELECTOR_3 = 4051577828743386545;
-  bytes32 internal constant EXECUTION_STATE_CHANGE_TOPIC_HASH =
-    keccak256("ExecutionStateChanged(uint64,uint64,bytes32,bytes32,uint8,bytes,uint256)");
 
   bytes internal constant ON_RAMP_ADDRESS_1 = abi.encode(ON_RAMP_ADDRESS);
   bytes internal constant ON_RAMP_ADDRESS_2 = abi.encode(0xaA3f843Cf8E33B1F02dd28303b6bD87B1aBF8AE4);
@@ -484,7 +482,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   ) public {
     Vm.Log[] memory logs = vm.getRecordedLogs();
     for (uint256 i = 0; i < logs.length; ++i) {
-      if (logs[i].topics[0] == EXECUTION_STATE_CHANGE_TOPIC_HASH) {
+      if (logs[i].topics[0] == OffRamp.ExecutionStateChanged.selector) {
         uint64 logSourceChainSelector = uint64(uint256(logs[i].topics[1]));
         uint64 logSequenceNumber = uint64(uint256(logs[i].topics[2]));
         bytes32 logMessageId = bytes32(logs[i].topics[3]);
@@ -499,6 +497,42 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
           assertEq(logReturnData, returnData);
         }
       }
+    }
+  }
+
+  function assertExecutionStateChangedEventLogs(
+    Vm.Log[] memory logs,
+    uint64 sourceChainSelector,
+    uint64 sequenceNumber,
+    bytes32 messageId,
+    bytes32 messageHash,
+    Internal.MessageExecutionState state,
+    bytes memory returnData
+  ) public pure {
+    for (uint256 i = 0; i < logs.length; ++i) {
+      if (logs[i].topics[0] == OffRamp.ExecutionStateChanged.selector) {
+        uint64 logSourceChainSelector = uint64(uint256(logs[i].topics[1]));
+        uint64 logSequenceNumber = uint64(uint256(logs[i].topics[2]));
+        bytes32 logMessageId = bytes32(logs[i].topics[3]);
+        (bytes32 logMessageHash, uint8 logState, bytes memory logReturnData,) =
+          abi.decode(logs[i].data, (bytes32, uint8, bytes, uint256));
+        if (logMessageId == messageId) {
+          assertEq(logSourceChainSelector, sourceChainSelector);
+          assertEq(logSequenceNumber, sequenceNumber);
+          assertEq(logMessageId, messageId);
+          assertEq(logMessageHash, messageHash);
+          assertEq(logState, uint8(state));
+          assertEq(logReturnData, returnData);
+        }
+      }
+    }
+  }
+
+  function _assertNoEmit(bytes32 eventSelector) internal {
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+
+    for (uint256 i = 0; i < logs.length; i++) {
+      assertTrue(logs[i].topics[0] != eventSelector);
     }
   }
 }

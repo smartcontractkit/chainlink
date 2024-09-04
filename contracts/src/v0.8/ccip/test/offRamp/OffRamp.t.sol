@@ -604,7 +604,11 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     vm.resumeGasMetering();
     vm.recordLogs();
     s_offRamp.executeSingleReport(report, new uint256[](0));
+
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+
     assertExecutionStateChangedEventLogs(
+      logs,
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -614,6 +618,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
 
     assertExecutionStateChangedEventLogs(
+      logs,
       SOURCE_CHAIN_SELECTOR_1,
       messages[1].header.sequenceNumber,
       messages[1].header.messageId,
@@ -636,7 +641,11 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), _getGasLimitsFromMessages(messages)
     );
+
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+
     assertExecutionStateChangedEventLogs(
+      logs,
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -645,6 +654,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       ""
     );
     assertExecutionStateChangedEventLogs(
+      logs,
       SOURCE_CHAIN_SELECTOR_1,
       messages[1].header.sequenceNumber,
       messages[1].header.messageId,
@@ -679,6 +689,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), _getGasLimitsFromMessages(messages)
     );
+
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+
     // all executions should succeed.
     for (uint256 i = 0; i < orderings.length; ++i) {
       assertEq(
@@ -687,6 +700,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       );
 
       assertExecutionStateChangedEventLogs(
+        logs,
         SOURCE_CHAIN_SELECTOR_1,
         messages[i].header.sequenceNumber,
         messages[i].header.messageId,
@@ -736,6 +750,29 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
+  function test_Unhealthy_Success() public {
+    s_mockRMN.setGlobalCursed(true);
+    vm.expectEmit();
+    emit OffRamp.SkippedReportExecution(SOURCE_CHAIN_SELECTOR_1);
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(
+        SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
+      ),
+      new uint256[](0)
+    );
+
+    s_mockRMN.setGlobalCursed(false);
+    vm.recordLogs();
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(
+        SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
+      ),
+      new uint256[](0)
+    );
+
+    _assertNoEmit(OffRamp.SkippedReportExecution.selector);
+  }
+
   // Reverts
 
   function test_MismatchingDestChainSelector_Revert() public {
@@ -770,34 +807,17 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     s_offRamp.executeSingleReport(executionReport, new uint256[](0));
   }
 
-  function test_Unhealthy_Revert() public {
-    s_mockRMN.setGlobalCursed(true);
-    vm.expectRevert(abi.encodeWithSelector(OffRamp.CursedByRMN.selector, SOURCE_CHAIN_SELECTOR_1));
-    s_offRamp.executeSingleReport(
-      _generateReportFromMessages(
-        SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
-      ),
-      new uint256[](0)
-    );
-    // Uncurse should succeed
-    s_mockRMN.setGlobalCursed(false);
-    s_offRamp.executeSingleReport(
-      _generateReportFromMessages(
-        SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
-      ),
-      new uint256[](0)
-    );
-  }
-
   function test_UnhealthySingleChainCurse_Revert() public {
     s_mockRMN.setChainCursed(SOURCE_CHAIN_SELECTOR_1, true);
-    vm.expectRevert(abi.encodeWithSelector(OffRamp.CursedByRMN.selector, SOURCE_CHAIN_SELECTOR_1));
+    vm.expectEmit();
+    emit OffRamp.SkippedReportExecution(SOURCE_CHAIN_SELECTOR_1);
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(
         SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
       ),
       new uint256[](0)
     );
+    vm.recordLogs();
     // Uncurse should succeed
     s_mockRMN.setChainCursed(SOURCE_CHAIN_SELECTOR_1, false);
     s_offRamp.executeSingleReport(
@@ -806,6 +826,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       ),
       new uint256[](0)
     );
+    _assertNoEmit(OffRamp.SkippedReportExecution.selector);
   }
 
   function test_UnexpectedTokenData_Revert() public {
@@ -1149,7 +1170,11 @@ contract OffRamp_batchExecute is OffRampSetup {
     uint64 nonceBefore = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages1[0].sender);
     vm.recordLogs();
     s_offRamp.batchExecute(reports, new uint256[][](2));
+
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+
     assertExecutionStateChangedEventLogs(
+      logs,
       messages1[0].header.sourceChainSelector,
       messages1[0].header.sequenceNumber,
       messages1[0].header.messageId,
@@ -1159,6 +1184,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     );
 
     assertExecutionStateChangedEventLogs(
+      logs,
       messages1[1].header.sourceChainSelector,
       messages1[1].header.sequenceNumber,
       messages1[1].header.messageId,
@@ -1168,6 +1194,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     );
 
     assertExecutionStateChangedEventLogs(
+      logs,
       messages2[0].header.sourceChainSelector,
       messages2[0].header.sequenceNumber,
       messages2[0].header.messageId,
@@ -1195,7 +1222,10 @@ contract OffRamp_batchExecute is OffRampSetup {
 
     s_offRamp.batchExecute(reports, new uint256[][](2));
 
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+
     assertExecutionStateChangedEventLogs(
+      logs,
       messages1[0].header.sourceChainSelector,
       messages1[0].header.sequenceNumber,
       messages1[0].header.messageId,
@@ -1205,6 +1235,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     );
 
     assertExecutionStateChangedEventLogs(
+      logs,
       messages1[1].header.sourceChainSelector,
       messages1[1].header.sequenceNumber,
       messages1[1].header.messageId,
@@ -1214,10 +1245,11 @@ contract OffRamp_batchExecute is OffRampSetup {
     );
 
     assertExecutionStateChangedEventLogs(
+      logs,
       messages2[0].header.sourceChainSelector,
       messages2[0].header.sequenceNumber,
       messages2[0].header.messageId,
-      Internal._hash(messages2[0], ON_RAMP_ADDRESS_1),
+      Internal._hash(messages2[0], ON_RAMP_ADDRESS_3),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -1228,6 +1260,45 @@ contract OffRamp_batchExecute is OffRampSetup {
     assertTrue(nonceChain1 != nonceChain3);
     assertGt(nonceChain1, 0);
     assertGt(nonceChain3, 0);
+  }
+
+  function test_MultipleReportsDifferentChainsSkipCursedChain_Success() public {
+    s_mockRMN.setChainCursed(SOURCE_CHAIN_SELECTOR_1, true);
+
+    Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](2);
+    Internal.Any2EVMRampMessage[] memory messages2 = new Internal.Any2EVMRampMessage[](1);
+
+    messages1[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
+    messages1[1] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 2);
+    messages2[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_3, ON_RAMP_ADDRESS_3, 1);
+
+    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
+    reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messages2);
+
+    vm.recordLogs();
+
+    vm.expectEmit();
+    emit OffRamp.SkippedReportExecution(SOURCE_CHAIN_SELECTOR_1);
+
+    s_offRamp.batchExecute(reports, new uint256[][](2));
+
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+
+    for (uint256 i = 0; i < logs.length; ++i) {
+      if (logs[i].topics[0] == OffRamp.ExecutionStateChanged.selector) {
+        uint64 logSourceChainSelector = uint64(uint256(logs[i].topics[1]));
+        uint64 logSequenceNumber = uint64(uint256(logs[i].topics[2]));
+        bytes32 logMessageId = bytes32(logs[i].topics[3]);
+        (bytes32 logMessageHash, uint8 logState,,) = abi.decode(logs[i].data, (bytes32, uint8, bytes, uint256));
+        assertEq(logMessageId, messages2[0].header.messageId);
+        assertEq(logSourceChainSelector, messages2[0].header.sourceChainSelector);
+        assertEq(logSequenceNumber, messages2[0].header.sequenceNumber);
+        assertEq(logMessageId, messages2[0].header.messageId);
+        assertEq(logMessageHash, Internal._hash(messages2[0], ON_RAMP_ADDRESS_3));
+        assertEq(logState, uint8(Internal.MessageExecutionState.SUCCESS));
+      }
+    }
   }
 
   function test_MultipleReportsSkipDuplicate_Success() public {
@@ -1253,29 +1324,34 @@ contract OffRamp_batchExecute is OffRampSetup {
     );
   }
 
+  function test_Unhealthy_Success() public {
+    s_mockRMN.setGlobalCursed(true);
+    vm.expectEmit();
+    emit OffRamp.SkippedReportExecution(SOURCE_CHAIN_SELECTOR_1);
+    s_offRamp.batchExecute(
+      _generateBatchReportFromMessages(
+        SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
+      ),
+      new uint256[][](1)
+    );
+
+    s_mockRMN.setGlobalCursed(false);
+
+    vm.recordLogs();
+    s_offRamp.batchExecute(
+      _generateBatchReportFromMessages(
+        SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
+      ),
+      new uint256[][](1)
+    );
+
+    _assertNoEmit(OffRamp.SkippedReportExecution.selector);
+  }
+
   // Reverts
   function test_ZeroReports_Revert() public {
     vm.expectRevert(OffRamp.EmptyReport.selector);
     s_offRamp.batchExecute(new Internal.ExecutionReportSingleChain[](0), new uint256[][](1));
-  }
-
-  function test_Unhealthy_Revert() public {
-    s_mockRMN.setGlobalCursed(true);
-    vm.expectRevert(abi.encodeWithSelector(OffRamp.CursedByRMN.selector, SOURCE_CHAIN_SELECTOR_1));
-    s_offRamp.batchExecute(
-      _generateBatchReportFromMessages(
-        SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
-      ),
-      new uint256[][](1)
-    );
-    // Uncurse should succeed
-    s_mockRMN.setGlobalCursed(false);
-    s_offRamp.batchExecute(
-      _generateBatchReportFromMessages(
-        SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
-      ),
-      new uint256[][](1)
-    );
   }
 
   function test_OutOfBoundsGasLimitsAccess_Revert() public {
@@ -1315,6 +1391,8 @@ contract OffRamp_manuallyExecute is OffRampSetup {
 
     uint256[][] memory gasLimitOverrides = new uint256[][](1);
     gasLimitOverrides[0] = new uint256[](messages.length);
+
+    vm.recordLogs();
     s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
     assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
@@ -1419,10 +1497,14 @@ contract OffRamp_manuallyExecute is OffRampSetup {
       gasLimitOverrides[1][i] += 1;
     }
 
+    vm.recordLogs();
     s_offRamp.manuallyExecute(reports, gasLimitOverrides);
+
+    Vm.Log[] memory logs = vm.getRecordedLogs();
 
     for (uint256 j = 0; j < 3; ++j) {
       assertExecutionStateChangedEventLogs(
+        logs,
         SOURCE_CHAIN_SELECTOR_1,
         messages1[j].header.sequenceNumber,
         messages1[j].header.messageId,
@@ -1434,10 +1516,11 @@ contract OffRamp_manuallyExecute is OffRampSetup {
 
     for (uint256 k = 0; k < 2; ++k) {
       assertExecutionStateChangedEventLogs(
-        SOURCE_CHAIN_SELECTOR_1,
+        logs,
+        SOURCE_CHAIN_SELECTOR_3,
         messages2[k].header.sequenceNumber,
         messages2[k].header.messageId,
-        Internal._hash(messages2[k], ON_RAMP_ADDRESS_1),
+        Internal._hash(messages2[k], ON_RAMP_ADDRESS_3),
         Internal.MessageExecutionState.SUCCESS,
         ""
       );
@@ -1457,7 +1540,10 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     vm.recordLogs();
     s_offRamp.batchExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[][](1));
 
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+
     assertExecutionStateChangedEventLogs(
+      logs,
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
@@ -1467,6 +1553,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     );
 
     assertExecutionStateChangedEventLogs(
+      logs,
       SOURCE_CHAIN_SELECTOR_1,
       messages[1].header.sequenceNumber,
       messages[1].header.messageId,
@@ -1479,6 +1566,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     );
 
     assertExecutionStateChangedEventLogs(
+      logs,
       SOURCE_CHAIN_SELECTOR_1,
       messages[2].header.sequenceNumber,
       messages[2].header.messageId,
@@ -1738,6 +1826,37 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     // Since the tx failed we don't release the tokens
     assertEq(tokenToAbuse.balanceOf(address(receiver)), balancePre + tokenAmount);
   }
+
+  function test_manuallyExecute_MultipleReportsWithSingleCursedLane_Revert() public {
+    Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](3);
+    Internal.Any2EVMRampMessage[] memory messages2 = new Internal.Any2EVMRampMessage[](2);
+
+    for (uint64 i = 0; i < 3; ++i) {
+      messages1[i] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, i + 1);
+      messages1[i].receiver = address(s_reverting_receiver);
+      messages1[i].header.messageId = Internal._hash(messages1[i], ON_RAMP_ADDRESS_1);
+    }
+
+    for (uint64 i = 0; i < 2; ++i) {
+      messages2[i] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_3, ON_RAMP_ADDRESS_3, i + 1);
+      messages2[i].receiver = address(s_reverting_receiver);
+      messages2[i].header.messageId = Internal._hash(messages2[i], ON_RAMP_ADDRESS_3);
+    }
+
+    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
+    reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messages2);
+
+    uint256[][] memory gasLimitOverrides = new uint256[][](2);
+    gasLimitOverrides[0] = _getGasLimitsFromMessages(messages1);
+    gasLimitOverrides[1] = _getGasLimitsFromMessages(messages2);
+
+    s_mockRMN.setChainCursed(SOURCE_CHAIN_SELECTOR_3, true);
+
+    vm.expectRevert(abi.encodeWithSelector(OffRamp.CursedByRMN.selector, SOURCE_CHAIN_SELECTOR_3));
+
+    s_offRamp.manuallyExecute(reports, gasLimitOverrides);
+  }
 }
 
 contract OffRamp_execute is OffRampSetup {
@@ -1792,7 +1911,11 @@ contract OffRamp_execute is OffRampSetup {
 
     vm.recordLogs();
     _execute(reports);
+
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+
     assertExecutionStateChangedEventLogs(
+      logs,
       messages1[0].header.sourceChainSelector,
       messages1[0].header.sequenceNumber,
       messages1[0].header.messageId,
@@ -1802,6 +1925,7 @@ contract OffRamp_execute is OffRampSetup {
     );
 
     assertExecutionStateChangedEventLogs(
+      logs,
       messages1[1].header.sourceChainSelector,
       messages1[1].header.sequenceNumber,
       messages1[1].header.messageId,
@@ -1811,6 +1935,7 @@ contract OffRamp_execute is OffRampSetup {
     );
 
     assertExecutionStateChangedEventLogs(
+      logs,
       messages2[0].header.sourceChainSelector,
       messages2[0].header.sequenceNumber,
       messages2[0].header.messageId,
@@ -1839,9 +1964,12 @@ contract OffRamp_execute is OffRampSetup {
     vm.recordLogs();
     _execute(reports);
 
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+
     for (uint64 i = 0; i < reports.length; ++i) {
       for (uint64 j = 0; j < reports[i].messages.length; ++j) {
         assertExecutionStateChangedEventLogs(
+          logs,
           reports[i].messages[j].header.sourceChainSelector,
           reports[i].messages[j].header.sequenceNumber,
           reports[i].messages[j].header.messageId,
@@ -1877,7 +2005,11 @@ contract OffRamp_execute is OffRampSetup {
 
     vm.recordLogs();
     _execute(reports);
+
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+
     assertExecutionStateChangedEventLogs(
+      logs,
       messages1[0].header.sourceChainSelector,
       messages1[0].header.sequenceNumber,
       messages1[0].header.messageId,
@@ -1890,6 +2022,7 @@ contract OffRamp_execute is OffRampSetup {
     );
 
     assertExecutionStateChangedEventLogs(
+      logs,
       messages1[1].header.sourceChainSelector,
       messages1[1].header.sequenceNumber,
       messages1[1].header.messageId,
@@ -1899,6 +2032,7 @@ contract OffRamp_execute is OffRampSetup {
     );
 
     assertExecutionStateChangedEventLogs(
+      logs,
       messages2[0].header.sourceChainSelector,
       messages2[0].header.sequenceNumber,
       messages2[0].header.messageId,
