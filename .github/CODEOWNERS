@@ -90,6 +90,7 @@ core/scripts/gateway @smartcontractkit/functions
 
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team
+/integration-tests/ccip-tests @smartcontractkit/ccip-offchain
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
 
