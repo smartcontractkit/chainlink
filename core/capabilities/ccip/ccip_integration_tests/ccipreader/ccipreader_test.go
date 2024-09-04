@@ -386,7 +386,7 @@ func TestCCIPReader_Nonces(t *testing.T) {
 
 	s := testSetup(ctx, t, chainD, chainD, nil, cfg)
 
-	// Add some nonces. The test contract isn't using source
+	// Add some nonces.
 	for chain, addrs := range nonces {
 		for addr, nonce := range addrs {
 			_, err := s.contract.SetInboundNonce(s.auth, uint64(chain), nonce, addr.Bytes())
