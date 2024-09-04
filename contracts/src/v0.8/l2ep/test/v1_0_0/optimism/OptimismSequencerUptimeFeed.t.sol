@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.24;
 
 import {MockOptimismL1CrossDomainMessenger} from "../../../../tests/MockOptimismL1CrossDomainMessenger.sol";
 import {MockOptimismL2CrossDomainMessenger} from "../../../../tests/MockOptimismL2CrossDomainMessenger.sol";
 import {OptimismSequencerUptimeFeed} from "../../../dev/optimism/OptimismSequencerUptimeFeed.sol";
+import {BaseSequencerUptimeFeed} from "../../../dev/shared/BaseSequencerUptimeFeed.sol";
 import {FeedConsumer} from "../../../../tests/FeedConsumer.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
@@ -61,7 +62,7 @@ contract OptimismSequencerUptimeFeed_UpdateStatus is OptimismSequencerUptimeFeed
     vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
-    vm.expectRevert(OptimismSequencerUptimeFeed.InvalidSender.selector);
+    vm.expectRevert(BaseSequencerUptimeFeed.InvalidSender.selector);
     s_optimismSequencerUptimeFeed.updateStatus(true, uint64(1));
   }
 
@@ -74,7 +75,7 @@ contract OptimismSequencerUptimeFeed_UpdateStatus is OptimismSequencerUptimeFeed
     s_mockOptimismL2CrossDomainMessenger.setSender(s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
-    vm.expectRevert(OptimismSequencerUptimeFeed.InvalidSender.selector);
+    vm.expectRevert(BaseSequencerUptimeFeed.InvalidSender.selector);
     s_optimismSequencerUptimeFeed.updateStatus(true, uint64(1));
   }
 
@@ -257,7 +258,7 @@ contract OptimismSequencerUptimeFeed_AggregatorV3Interface is OptimismSequencerU
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(OptimismSequencerUptimeFeed.NoDataPresent.selector);
+    vm.expectRevert(BaseSequencerUptimeFeed.NoDataPresent.selector);
     s_optimismSequencerUptimeFeed.getRoundData(2);
   }
 
@@ -267,7 +268,7 @@ contract OptimismSequencerUptimeFeed_AggregatorV3Interface is OptimismSequencerU
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(OptimismSequencerUptimeFeed.NoDataPresent.selector);
+    vm.expectRevert(BaseSequencerUptimeFeed.NoDataPresent.selector);
     s_optimismSequencerUptimeFeed.getAnswer(2);
   }
 
@@ -277,7 +278,7 @@ contract OptimismSequencerUptimeFeed_AggregatorV3Interface is OptimismSequencerU
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(OptimismSequencerUptimeFeed.NoDataPresent.selector);
+    vm.expectRevert(BaseSequencerUptimeFeed.NoDataPresent.selector);
     s_optimismSequencerUptimeFeed.getTimestamp(2);
   }
 }
