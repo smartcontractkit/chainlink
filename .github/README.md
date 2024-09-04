@@ -26,6 +26,13 @@ Currently, there are no automatic workflows triggering E2E tests at release. The
 
 Triggered manually by QA for specific testing needs.
 
+**Examples:**
+
+- [On-Demand Automation Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/automation-ondemand-tests.yml)
+- [CCIP Chaos Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/ccip-chaos-tests.yml)
+- [OCR Soak Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/on-demand-ocr-soak-test.yml)
+- [VRFv2Plus Smoke Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/on-demand-vrfv2plus-smoke-tests.yml)
+
 ## About the Reusable Workflow
 
 The [E2E Tests Reusable Workflow](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/run-e2e-tests-reusable-workflow.yml) is designed to run any type of E2E test on GitHub CI, including docker/testcontainers, old K8s tests, or tests in CRIB in the future.
@@ -39,6 +46,33 @@ Our goal is to migrate all workflows to use this reusable workflow for executing
 - [Selected E2E Tests](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/run-selected-e2e-tests.yml)
 - [On-Demand Automation Tests](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/automation-ondemand-tests.yml)
 - [CCIP Chaos Tests](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/ccip-chaos-tests.yml)
+
+### E2E Test Configuration on GitHub CI
+
+The [e2e-tests.yml](https://github.com/smartcontractkit/chainlink/blob/develop/.github/e2e-tests.yml) file lists all E2E tests configured for execution on CI. Each entry specifies the type of GitHub Runner needed and the workflows in which the test is included (for example, `smoke/ocr_test.go:*` is executed both in PRs and nightly).
+
+### Slack Notification After Tests
+
+To configure Slack notifications after tests executed via the reusable workflow, follow these steps:
+
+- Set `slack_notification_after_tests` to either `always` or `on_failure` depending on when you want notifications to be sent.
+- Assign `slack_notification_after_tests_channel_id` to the ID of the Slack channel where notifications should be sent.
+- Provide a title for the notification by setting `slack_notification_after_tests_name`.
+
+**Example:**
+
+```
+jobs:
+  call-run-e2e-tests-workflow:
+    name: Run E2E Tests
+    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
+    with:
+      chainlink_version: develop
+      test_workflow: Nightly E2E Tests
+      slack_notification_after_tests: true
+      slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
+      slack_notification_after_tests_name: Nightly E2E Tests
+```
 
 ## Guides
 
