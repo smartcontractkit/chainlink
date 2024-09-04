@@ -87,15 +87,23 @@ func (c *OCR3ContractTransmitterAdapter) FromAccount() (ocrtypes.Account, error)
 
 var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
 
-func MarshalMultichainPublicKey(ost map[string]ocr2key.KeyBundle) (ocrtypes.OnchainPublicKey, error) {
-	var pubKeys [][]byte
+func MarshalMultichainKeyBundle(ost map[string]ocr2key.KeyBundle) (ocrtypes.OnchainPublicKey, error) {
+	pubKeys := map[string]ocrtypes.OnchainPublicKey{}
 	for k, b := range ost {
+		pubKeys[k] = []byte(b.PublicKey())
+
+	}
+	return MarshalMultichainPublicKey(pubKeys)
+}
+
+func MarshalMultichainPublicKey(ost map[string]ocrtypes.OnchainPublicKey) (ocrtypes.OnchainPublicKey, error) {
+	var pubKeys [][]byte
+	for k, pubKey := range ost {
 		typ, err := chaintype.ChainType(k).Type()
 		if err != nil {
 			// skipping unknown key type
 			continue
 		}
-		pubKey := []byte(b.PublicKey())
 		buf := new(bytes.Buffer)
 		binary.Write(buf, binary.LittleEndian, typ)
 		binary.Write(buf, binary.LittleEndian, uint16(len(pubKey)))
@@ -158,7 +166,7 @@ func NewOCR3OnchainKeyringMultiChainAdapter(ost map[string]ocr2key.KeyBundle, lg
 	if len(ost) == 0 {
 		return nil, errors.New("no key bundles provided")
 	}
-	publicKey, err := MarshalMultichainPublicKey(ost)
+	publicKey, err := MarshalMultichainKeyBundle(ost)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +227,7 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicK
 	}
 	publicKey, ok := keys[kbName]
 	if !ok {
-		a.lggr.Warnf("verify: fetch publicKey: %v", err)
+		a.lggr.Warnf("verify: publicKey not found: %v", kbName)
 		return false
 	}
 	return kb.Verify(publicKey, ocrtypes.ReportContext{
