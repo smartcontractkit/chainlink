@@ -124,6 +124,7 @@ type service struct {
 	ocr2KeyStore        keystore.OCR2
 	jobSpawner          job.Spawner
 	gCfg                GeneralConfig
+	featCfg             FeatureConfig
 	insecureCfg         InsecureConfig
 	jobCfg              JobConfig
 	ocrCfg              OCRConfig
@@ -143,6 +144,7 @@ func NewService(
 	jobSpawner job.Spawner,
 	keyStore keystore.Master,
 	gCfg GeneralConfig,
+	fCfg FeatureConfig,
 	insecureCfg InsecureConfig,
 	jobCfg JobConfig,
 	ocrCfg OCRConfig,
@@ -163,6 +165,7 @@ func NewService(
 		ocr1KeyStore:        keyStore.OCR(),
 		ocr2KeyStore:        keyStore.OCR2(),
 		gCfg:                gCfg,
+		featCfg:             fCfg,
 		insecureCfg:         insecureCfg,
 		jobCfg:              jobCfg,
 		ocrCfg:              ocrCfg,
@@ -187,7 +190,7 @@ type RegisterManagerParams struct {
 // RegisterManager registers a new ManagerService and attempts to establish a
 // connection.
 func (s *service) RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error) {
-	if s.gCfg.FeatureMultiFeedsManagers() {
+	if s.featCfg.MultiFeedsManagers() {
 		exists, err := s.orm.ManagerExists(ctx, params.PublicKey)
 		if err != nil {
 			return 0, err
@@ -1034,7 +1037,7 @@ func (s *service) Start(ctx context.Context) error {
 			return nil
 		}
 
-		if s.gCfg.FeatureMultiFeedsManagers() {
+		if s.featCfg.MultiFeedsManagers() {
 			s.lggr.Infof("starting connection to %d feeds managers", len(mgrs))
 			for _, mgr := range mgrs {
 				s.connectFeedManager(ctx, mgr, privkey)

@@ -382,12 +382,14 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
 	})
 
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:               lggr,
 		LoopRegistry:         loopRegistry,
 		GRPCOpts:             loop.GRPCOpts{},
 		MercuryPool:          mercuryPool,
 		CapabilitiesRegistry: capabilitiesRegistry,
+		HTTPClient:           c,
 	}
 
 	evmOpts := chainlink.EVMFactoryConfig{
@@ -451,7 +453,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                     cfg,
 		MailMon:                    mailMon,

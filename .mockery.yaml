@@ -69,6 +69,9 @@ packages:
       feeEstimatorClient:
         config:
           mockname: FeeEstimatorClient
+      feeHistoryEstimatorClient:
+        config:
+          mockname: FeeHistoryEstimatorClient
       EvmEstimator:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups:
     interfaces:
