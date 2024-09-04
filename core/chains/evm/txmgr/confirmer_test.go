@@ -3176,7 +3176,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 			assert.Nil(t, data.value)
 
 		case <-time.After(tests.WaitTimeout(t)):
-			t.Errorf("no value received")
+			t.Fatal("no value received")
 		}
 		wg.Wait()
 	})
