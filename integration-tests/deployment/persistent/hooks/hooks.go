@@ -52,9 +52,9 @@ func (s *DefaultDONHooks) PreStartupHook(nodes []*test_env.ClNode) error {
 }
 
 func (s *DefaultDONHooks) PostStartupHook(nodes []*test_env.ClNode) error {
-	test_env.AttachLogStreamCleanUp(s.L, s.T, s.LogStream, nodes, s.ChainlinkNodeLogScannerSettings, s.CollectTestArtifacts)
-	test_env.AttachDbDumpingCleanup(s.L, s.T, nodes, s.CollectTestArtifacts)
-	test_env.AttachDefaultCleanUp(s.L, s.T, nodes, s.ShowHTMLCoverageReport, s.RunId)
+	test_env.AttachLogStreamCleanUp(s.L, s.T, s.LogStream, &test_env.ClCluster{Nodes: nodes}, s.ChainlinkNodeLogScannerSettings, s.CollectTestArtifacts)
+	test_env.AttachDbDumpingCleanup(s.L, s.T, &test_env.ClCluster{Nodes: nodes}, s.CollectTestArtifacts)
+	test_env.AttachDefaultCleanUp(s.L, s.T, &test_env.ClCluster{Nodes: nodes}, s.ShowHTMLCoverageReport, s.RunId)
 	//test_env.AttachSethCleanup(s.T, s.SethConfig)
 
 	return nil

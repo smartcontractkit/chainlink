@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
 )
 
-func AttachDefaultCleanUp(l zerolog.Logger, t *testing.T, clNodes []*ClNode, showHTMLCoverageReport bool, runId *string) {
+func AttachDefaultCleanUp(l zerolog.Logger, t *testing.T, clCluster *ClCluster, showHTMLCoverageReport bool, runId *string) {
 	t.Cleanup(func() {
 		l.Info().Msg("Cleaning up test environment")
 
@@ -27,14 +27,14 @@ func AttachDefaultCleanUp(l zerolog.Logger, t *testing.T, clNodes []*ClNode, sho
 			l.Warn().Msgf("Failed to remove .run.id file due to: %s (not a big deal, you can still remove it manually)", runIdErr.Error())
 		}
 
-		err := SaveCodeCoverageData(l, t, clNodes, showHTMLCoverageReport)
+		err := SaveCodeCoverageData(l, t, clCluster, showHTMLCoverageReport)
 		if err != nil {
 			l.Error().Err(err).Msg("Error handling node coverage reports")
 		}
 	})
 }
 
-func AttachLogStreamCleanUp(l zerolog.Logger, t *testing.T, ls *logstream.LogStream, clNodes []*ClNode, chainlinkNodeLogScannerSettings *ChainlinkNodeLogScannerSettings, collectLogs bool) {
+func AttachLogStreamCleanUp(l zerolog.Logger, t *testing.T, ls *logstream.LogStream, clCluster *ClCluster, chainlinkNodeLogScannerSettings *ChainlinkNodeLogScannerSettings, collectLogs bool) {
 	t.Cleanup(func() {
 		l.Info().Msg("Shutting down LogStream")
 		logPath, err := osutil.GetAbsoluteFolderPath("logs")
@@ -61,24 +61,26 @@ func AttachLogStreamCleanUp(l zerolog.Logger, t *testing.T, ls *logstream.LogStr
 
 			// we cannot do parallel processing here, because ProcessContainerLogs() locks a mutex that controls whether
 			// new logs can be added to the log stream, so parallel processing would get stuck on waiting for it to be unlocked
-		LogScanningLoop:
-			for i := 0; i < len(clNodes); i++ {
-				// if something went wrong during environment setup we might not have all nodes, and we don't want an NPE
-				if len(clNodes)-1 < i || clNodes[i] == nil {
-					continue
+			if clCluster != nil {
+			LogScanningLoop:
+				for i := 0; i < len(clCluster.Nodes); i++ {
+					// if something went wrong during environment setup we might not have all nodes, and we don't want an NPE
+					if len(clCluster.Nodes)-1 < i || clCluster.Nodes[i] == nil {
+						continue
+					}
+					// ignore count return, because we are only interested in the error
+					_, err := logProcessor.ProcessContainerLogs(clCluster.Nodes[i].ContainerName, processFn)
+					if err != nil && !strings.Contains(err.Error(), testreporters.MultipleLogsAtLogLevelErr) && !strings.Contains(err.Error(), testreporters.OneLogAtLogLevelErr) {
+						l.Error().Err(err).Msg("Error processing CL node logs")
+						continue
+					} else if err != nil && (strings.Contains(err.Error(), testreporters.MultipleLogsAtLogLevelErr) || strings.Contains(err.Error(), testreporters.OneLogAtLogLevelErr)) {
+						flushLogStream = true
+						t.Errorf("Found a concerning log in Chainklink Node logs: %v", err)
+						break LogScanningLoop
+					}
 				}
-				// ignore count return, because we are only interested in the error
-				_, err := logProcessor.ProcessContainerLogs(clNodes[i].ContainerName, processFn)
-				if err != nil && !strings.Contains(err.Error(), testreporters.MultipleLogsAtLogLevelErr) && !strings.Contains(err.Error(), testreporters.OneLogAtLogLevelErr) {
-					l.Error().Err(err).Msg("Error processing CL node logs")
-					continue
-				} else if err != nil && (strings.Contains(err.Error(), testreporters.MultipleLogsAtLogLevelErr) || strings.Contains(err.Error(), testreporters.OneLogAtLogLevelErr)) {
-					flushLogStream = true
-					t.Errorf("Found a concerning log in Chainklink Node logs: %v", err)
-					break LogScanningLoop
-				}
+				l.Info().Msg("Finished scanning Chainlink Node logs for concerning errors")
 			}
-			l.Info().Msg("Finished scanning Chainlink Node logs for concerning errors")
 		}
 
 		if flushLogStream {
@@ -94,7 +96,7 @@ func AttachLogStreamCleanUp(l zerolog.Logger, t *testing.T, ls *logstream.LogStr
 	})
 }
 
-func AttachDbDumpingCleanup(l zerolog.Logger, t *testing.T, clNodes []*ClNode, collectLogs bool) {
+func AttachDbDumpingCleanup(l zerolog.Logger, t *testing.T, clCluster *ClCluster, collectLogs bool) {
 	t.Cleanup(func() {
 		if t.Failed() || collectLogs {
 			l.Info().Msg("Dump state of all Postgres DBs used by Chainlink Nodes")
@@ -111,26 +113,28 @@ func AttachDbDumpingCleanup(l zerolog.Logger, t *testing.T, clNodes []*ClNode, c
 				l.Info().Str("Absolute path", absDbDumpPath).Msg("PostgresDB dump folder location")
 			}
 
-			for i := 0; i < len(clNodes); i++ {
-				// if something went wrong during environment setup we might not have all nodes, and we don't want an NPE
-				if len(clNodes)-1 < i || clNodes[i] == nil || clNodes[i].PostgresDb == nil {
-					continue
-				}
+			if clCluster != nil {
+				for i := 0; i < len(clCluster.Nodes); i++ {
+					// if something went wrong during environment setup we might not have all nodes, and we don't want an NPE
+					if len(clCluster.Nodes)-1 < i || clCluster.Nodes[i] == nil || clCluster.Nodes[i].PostgresDb == nil {
+						continue
+					}
 
-				filePath := filepath.Join(dbDumpPath, fmt.Sprintf("postgres_db_dump_%s.sql", clNodes[i].ContainerName))
-				localDbDumpFile, err := os.Create(filePath)
-				if err != nil {
-					l.Error().Err(err).Msg("Error creating localDbDumpFile for Postgres DB dump")
+					filePath := filepath.Join(dbDumpPath, fmt.Sprintf("postgres_db_dump_%s.sql", clCluster.Nodes[i].ContainerName))
+					localDbDumpFile, err := os.Create(filePath)
+					if err != nil {
+						l.Error().Err(err).Msg("Error creating localDbDumpFile for Postgres DB dump")
+						_ = localDbDumpFile.Close()
+						continue
+					}
+
+					if err := clCluster.Nodes[i].PostgresDb.ExecPgDumpFromContainer(localDbDumpFile); err != nil {
+						l.Error().Err(err).Msg("Error dumping Postgres DB")
+					}
 					_ = localDbDumpFile.Close()
-					continue
 				}
-
-				if err := clNodes[i].PostgresDb.ExecPgDumpFromContainer(localDbDumpFile); err != nil {
-					l.Error().Err(err).Msg("Error dumping Postgres DB")
-				}
-				_ = localDbDumpFile.Close()
+				l.Info().Msg("Finished dumping state of all Postgres DBs used by Chainlink Nodes")
 			}
-			l.Info().Msg("Finished dumping state of all Postgres DBs used by Chainlink Nodes")
 		}
 	})
 }

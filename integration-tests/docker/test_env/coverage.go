@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func SaveCodeCoverageData(l zerolog.Logger, t *testing.T, nodes []*ClNode, showHTMLCoverageReport bool) error {
+func SaveCodeCoverageData(l zerolog.Logger, t *testing.T, clCluster *ClCluster, showHTMLCoverageReport bool) error {
 	testName := strings.ReplaceAll(t.Name(), "/", "_")
 	isCI := os.Getenv("CI") != ""
 
@@ -27,8 +27,7 @@ func SaveCodeCoverageData(l zerolog.Logger, t *testing.T, nodes []*ClNode, showH
 		// Stop all nodes in the chainlink cluster.
 		// This is needed to get go coverage profile from the node containers https://go.dev/doc/build-cover#FAQ
 		// TODO: fix this as it results in: ERR LOG AFTER TEST ENDED ... INF 🐳 Stopping container
-		cluster := ClCluster{Nodes: nodes}
-		err := cluster.Stop()
+		err := clCluster.Stop()
 		if err != nil {
 			return err
 		}
@@ -46,7 +45,7 @@ func SaveCodeCoverageData(l zerolog.Logger, t *testing.T, nodes []*ClNode, showH
 		}
 
 		var containers []tc.Container
-		for _, node := range cluster.Nodes {
+		for _, node := range clCluster.Nodes {
 			containers = append(containers, node.Container)
 		}
 
