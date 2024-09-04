@@ -7,7 +7,6 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/hashicorp/go-multierror"
-	"github.com/rs/zerolog"
 
 	clclient "github.com/smartcontractkit/chainlink/integration-tests/client"
 	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
@@ -25,9 +24,10 @@ type NodeInfo struct {
 type DON struct {
 	Bootstrap []Node
 	Nodes     []Node
+	JDId      string
 }
 
-func NewRegisteredDON(ctx context.Context, logger zerolog.Logger, nodeInfo []NodeInfo, jd JobDistributor) (*DON, error) {
+func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributor) (*DON, error) {
 	don := &DON{
 		Bootstrap: make([]Node, 0),
 		Nodes:     make([]Node, 0),
@@ -62,7 +62,9 @@ func NewRegisteredDON(ctx context.Context, logger zerolog.Logger, nodeInfo []Nod
 		} else {
 			don.Nodes = append(don.Nodes, *node)
 		}
+		don.JDId = jdId
 	}
+	return don, nil
 }
 
 func NewNode(nodeInfo NodeInfo) (*Node, error) {
@@ -81,8 +83,8 @@ func NewNode(nodeInfo NodeInfo) (*Node, error) {
 }
 
 type Node struct {
-	gqlClient client.Client
 	NodeId    string
+	gqlClient client.Client
 	labels    []*ptypes.Label
 	name      string
 	adminAddr string

@@ -17,14 +17,14 @@ import (
 
 type JDConfig struct {
 	URL   string
-	Creds credentials.TransportCredentials
+	creds credentials.TransportCredentials
 }
 
 func NewClientConnection(cfg JDConfig) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 	// TODO: add auth details
-	if cfg.Creds != nil {
-		opts = append(opts, grpc.WithTransportCredentials(cfg.Creds))
+	if cfg.creds != nil {
+		opts = append(opts, grpc.WithTransportCredentials(cfg.creds))
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 

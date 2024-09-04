@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smartcontractkit/ccip/integration-tests/deployment"
-	csav1 "github.com/smartcontractkit/ccip/integration-tests/deployment/jd/csa/v1"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -15,7 +14,7 @@ const (
 
 type EnvironmentConfig struct {
 	Chains   []ChainConfig
-	DON      DON
+	nodeInfo []NodeInfo
 	JDConfig JDConfig
 }
 
@@ -29,15 +28,20 @@ func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentC
 		return nil, fmt.Errorf("failed to create JD client: %w", err)
 	}
 
-	keypairs, err := offChain.ListKeypairs(ctx, &csav1.ListKeypairsRequest{})
-	if err != nil {
-		return nil, err
+	jd, ok := offChain.(JobDistributor)
+	if !ok {
+		return nil, fmt.Errorf("offchain client does not implement JobDistributor")
 	}
-
-	nodes := NewNodes(t, chains, config.Nodes, config.Bootstraps, config.RegistryConfig)
+	don, err := NewRegisteredDON(ctx, config.nodeInfo, jd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create registered DON: %w", err)
+	}
 	var nodeIDs []string
-	for id := range nodes {
-		nodeIDs = append(nodeIDs, id)
+	for _, node := range don.Bootstrap {
+		nodeIDs = append(nodeIDs, node.NodeId)
+	}
+	for _, node := range don.Nodes {
+		nodeIDs = append(nodeIDs, node.NodeId)
 	}
 
 	return &deployment.Environment{
