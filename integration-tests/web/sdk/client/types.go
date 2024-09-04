@@ -7,14 +7,14 @@ import (
 	"reflect"
 )
 
-type FeedsManagerInput struct {
+type JobDistributorInput struct {
 	Name      string `json:"name"`
 	Uri       string `json:"uri"`
 	PublicKey string `json:"publicKey"`
 }
 
-type CreateFeedsManagerChainConfigInput struct {
-	FeedsManagerID       string `json:"feedsManagerID"`
+type JobDistributorChainConfigInput struct {
+	JobDistributorID     string `json:"feedsManagerID"`
 	ChainID              string `json:"chainID"`
 	ChainType            string `json:"chainType"`
 	AccountAddr          string `json:"accountAddr"`

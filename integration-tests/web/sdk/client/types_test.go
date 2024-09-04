@@ -19,7 +19,7 @@ func TestDecodeInput(t *testing.T) {
 	}{
 		{
 			name: "success",
-			args: args{&FeedsManagerInput{
+			args: args{&JobDistributorInput{
 				Name:      "name",
 				Uri:       "uri",
 				PublicKey: "publicKey",
@@ -29,7 +29,7 @@ func TestDecodeInput(t *testing.T) {
 		},
 		{
 			name: "non-pointer",
-			args: args{&FeedsManagerInput{
+			args: args{&JobDistributorInput{
 				Name:      "name",
 				Uri:       "uri",
 				PublicKey: "publicKey",
@@ -39,7 +39,7 @@ func TestDecodeInput(t *testing.T) {
 		},
 		{
 			name: "incorrect type",
-			args: args{&FeedsManagerInput{
+			args: args{&JobDistributorInput{
 				Name:      "name",
 				Uri:       "uri",
 				PublicKey: "publicKey",
@@ -49,7 +49,7 @@ func TestDecodeInput(t *testing.T) {
 		},
 		{
 			name: "success",
-			args: args{&FeedsManagerInput{
+			args: args{&JobDistributorInput{
 				Name:      "name",
 				Uri:       "uri",
 				PublicKey: "publicKey",

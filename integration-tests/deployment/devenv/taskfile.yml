@@ -1,0 +1,37 @@
+# https://taskfile.dev
+
+version: "3"
+
+dotenv: ['.env']
+
+tasks:
+
+  start:
+    desc: Start the full Job Distributor stack and all the nodes
+    cmds:
+      - COMPOSE_PROFILES=default,chainlink-nodes,otel,geth docker compose up ${CLI_ARGS}
+
+  start-jd:
+    desc: Start the Job Distributor stack with open telemetry and without any nodes
+    cmds:
+      - COMPOSE_PROFILES=default docker compose up ${CLI_ARGS}
+
+  start-jd-otel:
+    desc: Start the Job Distributor stack without any nodes
+    cmds:
+      - COMPOSE_PROFILES=default,otel docker compose up ${CLI_ARGS}
+
+  start-nodes:
+    desc: Starts all Chainlink nodes
+    cmds:
+      - docker compose --profile chainlink-nodes up ${CLI_ARGS}
+
+  stop:
+    desc: Stop all containers
+    cmds:
+      - docker compose stop
+
+  destroy:
+    desc: Destroy removes all containers
+    cmds:
+      - docker compose down

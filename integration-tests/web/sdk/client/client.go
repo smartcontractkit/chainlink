@@ -21,9 +21,9 @@ type Client interface {
 	ListBridges(ctx context.Context, offset, limit int) (*generated.ListBridgesResponse, error)
 	GetJobDistributor(ctx context.Context, id string) (*generated.GetFeedsManagerResponse, error)
 	ListJobDistributors(ctx context.Context) (*generated.ListFeedsManagersResponse, error)
-	CreateJobDistributor(ctx context.Context, cmd FeedsManagerInput) error
-	UpdateJobDistributor(ctx context.Context, id string, cmd FeedsManagerInput) error
-	CreateJobDistributorChainConfig(ctx context.Context, in CreateFeedsManagerChainConfigInput) error
+	CreateJobDistributor(ctx context.Context, cmd JobDistributorInput) error
+	UpdateJobDistributor(ctx context.Context, id string, cmd JobDistributorInput) error
+	CreateJobDistributorChainConfig(ctx context.Context, in JobDistributorChainConfigInput) error
 	GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalResponse, error)
 	ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*generated.ApproveJobProposalSpecResponse, error)
 	CancelJobProposalSpec(ctx context.Context, id string) (*generated.CancelJobProposalSpecResponse, error)
@@ -98,7 +98,7 @@ func (c *client) ListJobDistributors(ctx context.Context) (*generated.ListFeedsM
 	return generated.ListFeedsManagers(ctx, c.gqlClient)
 }
 
-func (c *client) CreateJobDistributor(ctx context.Context, in FeedsManagerInput) error {
+func (c *client) CreateJobDistributor(ctx context.Context, in JobDistributorInput) error {
 	var cmd generated.CreateFeedsManagerInput
 	err := DecodeInput(in, &cmd)
 	if err != nil {
@@ -108,7 +108,7 @@ func (c *client) CreateJobDistributor(ctx context.Context, in FeedsManagerInput)
 	return err
 }
 
-func (c *client) UpdateJobDistributor(ctx context.Context, id string, in FeedsManagerInput) error {
+func (c *client) UpdateJobDistributor(ctx context.Context, id string, in JobDistributorInput) error {
 	var cmd generated.UpdateFeedsManagerInput
 	err := DecodeInput(in, &cmd)
 	if err != nil {
@@ -118,7 +118,7 @@ func (c *client) UpdateJobDistributor(ctx context.Context, id string, in FeedsMa
 	return err
 }
 
-func (c *client) CreateJobDistributorChainConfig(ctx context.Context, in CreateFeedsManagerChainConfigInput) error {
+func (c *client) CreateJobDistributorChainConfig(ctx context.Context, in JobDistributorChainConfigInput) error {
 	var cmd generated.CreateFeedsManagerChainConfigInput
 	err := DecodeInput(in, &cmd)
 	if err != nil {
