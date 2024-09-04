@@ -409,7 +409,6 @@ func (d *stuckTxDetector) SetPurgeBlockNum(fromAddress common.Address, blockNum 
 	d.purgeBlockNumMap[fromAddress] = blockNum
 }
 
-func (d *stuckTxDetector) StuckTxFatalError() *string {
-	errorMsg := client.TerminallyStuckMsg
-	return &errorMsg
+func (d *stuckTxDetector) StuckTxFatalError() string {
+	return client.TerminallyStuckMsg
 }
