@@ -8,6 +8,9 @@ inputs:
   name:
     description: Name of the lint action
     required: true
+  lint-base-ref:
+    description: Base ref to lint against
+    required: true
   go-directory:
     description: Go directory to run commands from
     default: "."
@@ -36,6 +39,8 @@ runs:
   using: composite
   steps:
     - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      with:
+        fetch-depth: 0
     - name: Setup Go
       uses: ./.github/actions/setup-go
       with:
@@ -50,14 +55,23 @@ runs:
       working-directory: ${{ inputs.go-directory }}
       shell: bash
       run: go build ./...
+    - name: Get lint base ref
+      shell: bash
+      id: get-lint-base-ref
+      run: |
+        if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          echo "base_ref=${{ github.base_ref }}" | tee -a "GITHUB_ENV"
+        else
+          echo "base_ref=${{ github.event.repository.default_branch }}" | tee -a "GITHUB_ENV"
+        fi
     - name: golangci-lint
       uses: golangci/golangci-lint-action@38e1018663fa5173f3968ea0777460d3de38f256 # v5.3.0
       with:
         version: v1.60.3
         skip-cache: true
-        only-new-issues: true
-        args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
-        working-directory: ${{ inputs.go-directory }}
+        args: --new-from-rev=${{ steps.get-lint-base-ref.outputs.base_ref }} --out-format colored-line-number,checkstyle:golangci-lint-report.xml
+        # TODO: testing to see if this is altering our patch: https://github.com/golangci/golangci-lint-action/blob/68de804037d6beb4bec814041c98865cb188f3db/src/utils/diffUtils.ts#L8
+        # working-directory: ${{ inputs.go-directory }}
     - name: Print lint report artifact
       if: failure()
       shell: bash
