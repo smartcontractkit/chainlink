@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"github.com/rs/zerolog"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"testing"
 
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
@@ -13,10 +14,32 @@ type DefaultDONHooks struct {
 	T                               *testing.T
 	L                               zerolog.Logger
 	LogStream                       *logstream.LogStream
-	RunId                           *string
-	CollectTestArtifacts            bool
 	ChainlinkNodeLogScannerSettings *test_env.ChainlinkNodeLogScannerSettings
-	ShowHTMLCoverageReport          bool
+	// logically these 3 are not related to DON as such, but rather test specific
+	RunId                  *string
+	CollectTestArtifacts   bool
+	ShowHTMLCoverageReport bool
+}
+
+func NewDefaultDONHooks(t *testing.T, logger zerolog.Logger, logStream *logstream.LogStream, chainlinkNodeLogScannerSettings *test_env.ChainlinkNodeLogScannerSettings, runId *string, collectTestArtifacts, showHTMLCoverageReport bool) *DefaultDONHooks {
+	if chainlinkNodeLogScannerSettings == nil {
+		chainlinkNodeLogScannerSettings = &test_env.DefaultChainlinkNodeLogScannerSettings
+	} else {
+		chainlinkNodeLogScannerSettings.AllowedMessages = append(chainlinkNodeLogScannerSettings.AllowedMessages, test_env.DefaultChainlinkNodeLogScannerSettings.AllowedMessages...)
+	}
+	return &DefaultDONHooks{
+		T:                               t,
+		L:                               logger,
+		LogStream:                       logStream,
+		ChainlinkNodeLogScannerSettings: chainlinkNodeLogScannerSettings,
+		RunId:                           runId,
+		CollectTestArtifacts:            collectTestArtifacts,
+		ShowHTMLCoverageReport:          showHTMLCoverageReport,
+	}
+}
+
+func NewDefaultDONHooksFromTestConfig(t *testing.T, logger zerolog.Logger, logStream *logstream.LogStream, chainlinkNodeLogScannerSettings *test_env.ChainlinkNodeLogScannerSettings, loggingConfig *ctf_config.LoggingConfig) *DefaultDONHooks {
+	return NewDefaultDONHooks(t, logger, logStream, chainlinkNodeLogScannerSettings, nil, loggingConfig.TestLogCollect != nil && *loggingConfig.TestLogCollect, loggingConfig.ShowHTMLCoverageReport != nil && *loggingConfig.ShowHTMLCoverageReport)
 }
 
 func (s *DefaultDONHooks) PreStartupHook(nodes []*test_env.ClNode) error {

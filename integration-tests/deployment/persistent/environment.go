@@ -10,21 +10,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type EnvironmentConfig struct {
-	persistent_types.ChainConfig
-	DONConfig
-}
-
-func NewEnvironment(lggr logger.Logger, config EnvironmentConfig) (*deployment.Environment, error) {
+func NewEnvironment(lggr logger.Logger, config persistent_types.EnvironmentConfig) (*deployment.Environment, error) {
 	chains, rpcProviders, err := NewChains(lggr, config.ChainConfig)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create Chains")
 	}
 
-	// TODO add logstream
-	// TODO add clean ups? although that should be related to test, not to environment
 	if config.DONConfig.NewDON != nil {
-		clNodesConfigs, err := NewEVMOnlyChainlinkConfigs(config.DONConfig.NewDON.ChainlinkDeployment, chains, rpcProviders)
+		clNodesConfigs, err := NewEVMOnlyChainlinkConfigs(config.DONConfig.NewDON.ChainlinkDeployment, rpcProviders)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create chainlink configs")
 		}

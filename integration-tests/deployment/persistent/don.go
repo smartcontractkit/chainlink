@@ -8,57 +8,21 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-type ExistingDONConfig struct {
-	testconfig.CLCluster
-	MockServerURL *string `toml:",omitempty"`
-}
-
-type NewDONHooks interface {
-	// PreStartupHook is called before the DON is started. No containers are running yet. For example, you can use this hook to modify configuration of each node.
-	PreStartupHook([]*test_env.ClNode) error
-	// PostStartupHook is called after the DON is started. All containers are running. For example, you can use this hook to interact with them using the API.
-	PostStartupHook([]*test_env.ClNode) error
-}
-
-type NewDockerDONConfig struct {
-	testconfig.ChainlinkDeployment
-	Options          Options
-	ChainlinkConfigs []*chainlink.Config
-	NewDONHooks
-}
-
-type Options struct {
-	Networks  []string
-	LogStream *logstream.LogStream
-}
-
-type DONConfig struct {
-	ExistingDON *ExistingDONConfig
-	NewDON      *NewDockerDONConfig
-}
-
-type DON struct {
-	ClClients []*client.ChainlinkK8sClient
-	deployment.Mocks
-}
-
-func NewNodes(donConfig DONConfig) (DON, error) {
+func NewNodes(donConfig persistent_types.DONConfig) (persistent_types.DON, error) {
 	if donConfig.NewDON == nil && donConfig.ExistingDON == nil {
-		return DON{}, fmt.Errorf("no DON config provided, you need to provide either an existing or new DON config")
+		return persistent_types.DON{}, fmt.Errorf("no DON config provided, you need to provide either an existing or new DON config")
 	}
 
 	if donConfig.NewDON != nil && donConfig.ExistingDON != nil {
-		return DON{}, fmt.Errorf("both new and existing DON config provided, you need to provide either an existing or new DON config")
+		return persistent_types.DON{}, fmt.Errorf("both new and existing DON config provided, you need to provide either an existing or new DON config")
 	}
 
 	if donConfig.NewDON != nil {
@@ -68,15 +32,15 @@ func NewNodes(donConfig DONConfig) (DON, error) {
 	return ConnectToExistingNodes(*donConfig.ExistingDON)
 }
 
-func ConnectToExistingNodes(config ExistingDONConfig) (DON, error) {
+func ConnectToExistingNodes(config persistent_types.ExistingDONConfig) (persistent_types.DON, error) {
 	noOfNodes := pointer.GetInt(config.NoOfNodes)
 	namespace := pointer.GetString(config.Name)
 
 	if noOfNodes != len(config.NodeConfigs) {
-		return DON{}, fmt.Errorf("number of nodes %d does not match number of node configs %d", noOfNodes, len(config.NodeConfigs))
+		return persistent_types.DON{}, fmt.Errorf("number of nodes %d does not match number of node configs %d", noOfNodes, len(config.NodeConfigs))
 	}
 
-	don := DON{}
+	don := persistent_types.DON{}
 
 	for i := 0; i < noOfNodes; i++ {
 		cfg := config.NodeConfigs[i]
@@ -85,7 +49,7 @@ func ConnectToExistingNodes(config ExistingDONConfig) (DON, error) {
 		}
 		clClient, err := client.NewChainlinkK8sClient(cfg, cfg.InternalIP, namespace)
 		if err != nil {
-			return don, errors.Wrapf(err, "failed to create chainlink client: %w for node %d config %v", i+1, cfg)
+			return don, errors.Wrapf(err, "failed to create chainlink clientfor node %d config %v", i+1, cfg)
 		}
 		don.ClClients = append(don.ClClients, clClient)
 	}
@@ -93,8 +57,8 @@ func ConnectToExistingNodes(config ExistingDONConfig) (DON, error) {
 	return don, nil
 }
 
-func NewDockerDON(newDonConfig *NewDockerDONConfig) (DON, error) {
-	don := DON{}
+func NewDockerDON(newDonConfig *persistent_types.NewDockerDONConfig) (persistent_types.DON, error) {
+	don := persistent_types.DON{}
 
 	// maybe we should validate this and return err if not set instead of generating here
 	if len(newDonConfig.Options.Networks) == 0 {
@@ -182,7 +146,7 @@ func NewDockerDON(newDonConfig *NewDockerDONConfig) (DON, error) {
 	return don, nil
 }
 
-func NewEVMOnlyChainlinkConfigs(donConfig testconfig.ChainlinkDeployment, chains map[uint64]deployment.Chain, rpcProviders map[uint64]persistent_types.RpcProvider) ([]*chainlink.Config, error) {
+func NewEVMOnlyChainlinkConfigs(donConfig *testconfig.ChainlinkDeployment, rpcProviders map[uint64]persistent_types.RpcProvider) ([]*chainlink.Config, error) {
 	var evmNetworks []blockchain.EVMNetwork
 	for _, rpcProvider := range rpcProviders {
 		evmNetwork := rpcProvider.EVMNetwork()

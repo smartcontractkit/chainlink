@@ -3,9 +3,9 @@ package ccipdeployment
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/internal/testutil"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/hooks"
 	seth_chain "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/seth"
 	"testing"
@@ -16,13 +16,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 	ctf_config_types "github.com/smartcontractkit/chainlink-testing-framework/config/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
-	ccipconfig "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent"
@@ -31,6 +28,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+// TODO this will not work now, because we only have 1 key for that environment, is there a way to use multiple?
+// TODO if not, it will be hard to have tests that require concurrent deployments and can run on persistent and in-memory environments
 func TestDeployCapReg_InMemory_Concurrent(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
@@ -95,7 +94,12 @@ func TestDeployCapReg_NewDevnet_Concurrent(t *testing.T) {
 			NewEVMChains: []persistent_types.NewEVMChainProducer{firstChain, secondChain},
 		},
 		DONConfig: persistent.DONConfig{
-			NewDON: getDefaultNewDONConfig(t, ls, dockerNetwork.Name),
+			NewDON: &persistent.NewDockerDONConfig{
+				ChainlinkDeployment: testutil.GetDefaultNewClusterConfig(),
+				Options: persistent.Options{
+					Networks: []string{dockerNetwork.Name},
+				},
+			},
 		},
 	}
 
@@ -165,28 +169,13 @@ func TestDeployCCIPContractsNewDevnet(t *testing.T) {
 			NewEVMChains: []persistent_types.NewEVMChainProducer{firstChain, secondChain},
 		},
 		DONConfig: persistent.DONConfig{
-			NewDON: getDefaultNewDONConfig(t, ls, dockerNetwork.Name),
+			NewDON: &persistent.NewDockerDONConfig{
+				ChainlinkDeployment: testutil.GetDefaultNewClusterConfig(),
+				Options: persistent.Options{
+					Networks: []string{dockerNetwork.Name},
+				},
+			},
 		},
-	}
-
-	e, err := persistent.NewEnvironment(lggr, envConfig)
-	require.NoError(t, err, "Error creating new persistent environment")
-	testDeployCCIPContractsWithEnv(t, lggr, *e)
-}
-
-func TestDeployCCIPContractsNewDevnet_FromTestConfig(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	testCfg := ccipconfig.GlobalTestConfig()
-	require.NoError(t, testCfg.Validate(), "Error validating test config")
-
-	// here we are creating Seth config, but we should read it from the test config
-	defaultSethConfig := seth.NewClientBuilder().BuildConfig()
-
-	chainCfg, err := persistent.EVMChainConfigFromTestConfig(t, *testCfg, defaultSethConfig)
-	require.NoError(t, err, "Error creating chain config from test config")
-
-	envConfig := persistent.EnvironmentConfig{
-		ChainConfig: chainCfg,
 	}
 
 	e, err := persistent.NewEnvironment(lggr, envConfig)
@@ -299,68 +288,4 @@ func TestJobSpecGeneration(t *testing.T) {
 		fmt.Println(node, jb)
 	}
 	// TODO: Add job assertions
-}
-
-func getDefaultNewDONConfig(t *testing.T, ls *logstream.LogStream, dockerNetwork string) *persistent.NewDockerDONConfig {
-	return &persistent.NewDockerDONConfig{
-		NewDONHooks: &hooks.DefaultDONHooks{T: t, L: logging.GetTestLogger(t), LogStream: ls, RunId: ptr.Ptr(uuid.New().String()), CollectTestArtifacts: true, ShowHTMLCoverageReport: true},
-		ChainlinkDeployment: testconfig.ChainlinkDeployment{
-			Common: &testconfig.Node{
-				ChainlinkImage: &ctfconfig.ChainlinkImageConfig{
-					Image:   ptr.Ptr("public.ecr.aws/chainlink/chainlink"),
-					Version: ptr.Ptr("2.13.0"),
-				},
-				DBImage: "795953128386.dkr.ecr.us-west-2.amazonaws.com/postgres",
-				DBTag:   "15.6",
-				BaseConfigTOML: `
-[Feature]
-LogPoller = true
-
-[Log]
-Level = 'debug'
-JSONConsole = true
-
-[Log.File]
-MaxSize = '0b'
-
-[WebServer]
-AllowOrigins = '*'
-HTTPPort = 6688
-SecureCookies = false
-HTTPWriteTimeout = '1m'
-
-[WebServer.RateLimit]
-Authenticated = 2000
-Unauthenticated = 1000
-
-[WebServer.TLS]
-HTTPSPort = 0
-
-[Database]
-MaxIdleConns = 10
-MaxOpenConns = 20
-MigrateOnStartup = true
-
-[OCR2]
-Enabled = true
-DefaultTransactionQueueDepth = 0
-
-[OCR]
-Enabled = false
-DefaultTransactionQueueDepth = 0
-
-[P2P]
-[P2P.V2]
-Enabled = true
-ListenAddresses = ['0.0.0.0:6690']
-AnnounceAddresses = ['0.0.0.0:6690']
-DeltaDial = '500ms'
-DeltaReconcile = '5s'
-`},
-			NoOfNodes: ptr.Ptr(5),
-		},
-		Options: persistent.Options{
-			Networks: []string{dockerNetwork},
-		},
-	}
 }
