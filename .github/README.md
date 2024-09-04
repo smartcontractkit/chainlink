@@ -33,6 +33,18 @@ Triggered manually by QA for specific testing needs.
 - [OCR Soak Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/on-demand-ocr-soak-test.yml)
 - [VRFv2Plus Smoke Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/on-demand-vrfv2plus-smoke-tests.yml)
 
+## Test Configs
+
+E2E tests utilize TOML files to define their parameters. Each test is equipped with a default TOML config, which can be overridden by specifying an alternative TOML config. This allows for running tests with varied parameters, such as on a non-default blockchain network. For tests executed on GitHub CI, both the default configs and any override configs must reside within the git repository. The `test_config_override_path` workflow input is used to provide a path to an override config.
+
+**Important Note:** The use of `base64Config` input is deprecated in favor of `test_config_override_path`. For more details, refer to [the decision log](https://smartcontract-it.atlassian.net/wiki/spaces/TT/pages/927596563/Storing+All+Test+Configs+In+Git).
+
+## Test Secrets
+
+For security reasons, test secrets and sensitive information are not stored directly within the test config TOML files. Instead, these secrets are securely injected into tests using environment variables. For a detailed explanation on managing test secrets, refer to our [Test Secrets documentation](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md#test-secrets).
+
+If you need to run a GitHub workflow using custom secrets, please refer to the [guide on running GitHub workflows with your test secrets](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md#run-github-workflow-with-your-test-secrets).
+
 ## About the Reusable Workflow
 
 The [E2E Tests Reusable Workflow](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/run-e2e-tests-reusable-workflow.yml) is designed to run any type of E2E test on GitHub CI, including docker/testcontainers, old K8s tests, or tests in CRIB in the future.
