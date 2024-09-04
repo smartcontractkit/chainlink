@@ -59,7 +59,7 @@ abstract contract BaseSequencerUptimeFeed is
   /// @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
   /// @param initialStatus The initial status of the feed
   constructor(address l1SenderAddress, bool initialStatus) {
-    // We neet to allow l1SenderAddress to be zero because this contract is deployed first
+    // We need to allow l1SenderAddress to be zero because this contract is deployed first
     // After deploying the validator contract, this contract will be updated with the correct L1 sender address
     _setL1Sender(l1SenderAddress);
 
@@ -81,9 +81,9 @@ abstract contract BaseSequencerUptimeFeed is
 
   /// @notice Set the allowed L1 sender for this contract to a new L1 sender
   /// @dev Can be disabled by setting the L1 sender as `address(0)`. Accessible only by owner.
-  /// @param to new L1 sender that will be allowed to call `updateStatus` on this contract
-  function transferL1Sender(address to) external virtual onlyOwner {
-    _setL1Sender(to);
+  /// @param newSender new L1 sender that will be allowed to call `updateStatus` on this contract
+  function transferL1Sender(address newSender) external virtual onlyOwner {
+    _setL1Sender(newSender);
   }
 
   /// @notice internal method that stores the L1 sender
