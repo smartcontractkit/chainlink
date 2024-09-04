@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.24;
 
 import {IL1MessageQueue} from "@scroll-tech/contracts/L1/rollup/IL1MessageQueue.sol";
 

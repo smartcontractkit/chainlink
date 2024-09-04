@@ -1,0 +1,2849 @@
+// Code generated - DO NOT EDIT.
+// This file is a generated binding and any manual changes will be lost.
+
+package rmn_contract
+
+import (
+	"errors"
+	"fmt"
+	"math/big"
+	"strings"
+
+	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+)
+
+var (
+	_ = errors.New
+	_ = big.NewInt
+	_ = strings.NewReader
+	_ = ethereum.NotFound
+	_ = bind.Bind
+	_ = common.Big1
+	_ = types.BloomLookup
+	_ = event.NewSubscription
+	_ = abi.ConvertType
+)
+
+type IRMNTaggedRoot struct {
+	CommitStore common.Address
+	Root        [32]byte
+}
+
+type RMNConfig struct {
+	Voters               []RMNVoter
+	BlessWeightThreshold uint16
+	CurseWeightThreshold uint16
+}
+
+type RMNOwnerUnvoteToCurseRequest struct {
+	CurseVoteAddr common.Address
+	Unit          RMNUnvoteToCurseRequest
+	ForceUnvote   bool
+}
+
+type RMNRecordedCurseRelatedOp struct {
+	Tag            uint8
+	BlockTimestamp uint64
+	Cursed         bool
+	CurseVoteAddr  common.Address
+	Subject        [16]byte
+	CurseId        [16]byte
+}
+
+type RMNUnvoteToCurseRequest struct {
+	Subject    [16]byte
+	CursesHash [28]byte
+}
+
+type RMNVoter struct {
+	BlessVoteAddr common.Address
+	CurseVoteAddr common.Address
+	BlessWeight   uint8
+	CurseWeight   uint8
+}
+
+var RMNContractMetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[{\"components\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"blessVoteAddr\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"curseVoteAddr\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"blessWeight\",\"type\":\"uint8\"},{\"internalType\":\"uint8\",\"name\":\"curseWeight\",\"type\":\"uint8\"}],\"internalType\":\"structRMN.Voter[]\",\"name\":\"voters\",\"type\":\"tuple[]\"},{\"internalType\":\"uint16\",\"name\":\"blessWeightThreshold\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"curseWeightThreshold\",\"type\":\"uint16\"}],\"internalType\":\"structRMN.Config\",\"name\":\"config\",\"type\":\"tuple\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"InvalidConfig\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"internalType\":\"bytes16\",\"name\":\"curseId\",\"type\":\"bytes16\"}],\"name\":\"ReusedCurseId\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SubjectsMustBeStrictlyIncreasing\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"}],\"name\":\"UnauthorizedVoter\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UnvoteToCurseNoop\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VoteToBlessForbiddenDuringActiveGlobalCurse\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VoteToBlessNoop\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VoteToCurseNoop\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"configVersion\",\"type\":\"uint32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"commitStore\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"root\",\"type\":\"bytes32\"}],\"indexed\":false,\"internalType\":\"structIRMN.TaggedRoot\",\"name\":\"taggedRoot\",\"type\":\"tuple\"}],\"name\":\"AlreadyBlessed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"configVersion\",\"type\":\"uint32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"commitStore\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"root\",\"type\":\"bytes32\"}],\"indexed\":false,\"internalType\":\"structIRMN.TaggedRoot\",\"name\":\"taggedRoot\",\"type\":\"tuple\"}],\"name\":\"AlreadyVotedToBless\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"configVersion\",\"type\":\"uint32\"},{\"components\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"blessVoteAddr\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"curseVoteAddr\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"blessWeight\",\"type\":\"uint8\"},{\"internalType\":\"uint8\",\"name\":\"curseWeight\",\"type\":\"uint8\"}],\"internalType\":\"structRMN.Voter[]\",\"name\":\"voters\",\"type\":\"tuple[]\"},{\"internalType\":\"uint16\",\"name\":\"blessWeightThreshold\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"curseWeightThreshold\",\"type\":\"uint16\"}],\"indexed\":false,\"internalType\":\"structRMN.Config\",\"name\":\"config\",\"type\":\"tuple\"}],\"name\":\"ConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes16\",\"name\":\"subject\",\"type\":\"bytes16\"}],\"name\":\"CurseLifted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"configVersion\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"bytes16\",\"name\":\"subject\",\"type\":\"bytes16\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"blockTimestamp\",\"type\":\"uint64\"}],\"name\":\"Cursed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"commitStore\",\"type\":\"address\"}],\"name\":\"PermaBlessedCommitStoreAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"commitStore\",\"type\":\"address\"}],\"name\":\"PermaBlessedCommitStoreRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes16\",\"name\":\"subject\",\"type\":\"bytes16\"},{\"indexed\":false,\"internalType\":\"bytes28\",\"name\":\"onchainCursesHash\",\"type\":\"bytes28\"},{\"indexed\":false,\"internalType\":\"bytes28\",\"name\":\"cursesHash\",\"type\":\"bytes28\"}],\"name\":\"SkippedUnvoteToCurse\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"configVersion\",\"type\":\"uint32\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"commitStore\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"root\",\"type\":\"bytes32\"}],\"indexed\":false,\"internalType\":\"structIRMN.TaggedRoot\",\"name\":\"taggedRoot\",\"type\":\"tuple\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"wasBlessed\",\"type\":\"bool\"}],\"name\":\"TaggedRootBlessVotesReset\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"configVersion\",\"type\":\"uint32\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"commitStore\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"root\",\"type\":\"bytes32\"}],\"indexed\":false,\"internalType\":\"structIRMN.TaggedRoot\",\"name\":\"taggedRoot\",\"type\":\"tuple\"},{\"indexed\":false,\"internalType\":\"uint16\",\"name\":\"accumulatedWeight\",\"type\":\"uint16\"}],\"name\":\"TaggedRootBlessed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"configVersion\",\"type\":\"uint32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes16\",\"name\":\"subject\",\"type\":\"bytes16\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"weight\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"bytes28\",\"name\":\"cursesHash\",\"type\":\"bytes28\"},{\"indexed\":false,\"internalType\":\"uint16\",\"name\":\"remainingAccumulatedWeight\",\"type\":\"uint16\"}],\"name\":\"UnvotedToCurse\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"configVersion\",\"type\":\"uint32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"commitStore\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"root\",\"type\":\"bytes32\"}],\"indexed\":false,\"internalType\":\"structIRMN.TaggedRoot\",\"name\":\"taggedRoot\",\"type\":\"tuple\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"weight\",\"type\":\"uint8\"}],\"name\":\"VotedToBless\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint32\",\"name\":\"configVersion\",\"type\":\"uint32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes16\",\"name\":\"subject\",\"type\":\"bytes16\"},{\"indexed\":false,\"internalType\":\"bytes16\",\"name\":\"curseId\",\"type\":\"bytes16\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"weight\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"blockTimestamp\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes28\",\"name\":\"cursesHash\",\"type\":\"bytes28\"},{\"indexed\":false,\"internalType\":\"uint16\",\"name\":\"accumulatedWeight\",\"type\":\"uint16\"}],\"name\":\"VotedToCurse\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"commitStore\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"root\",\"type\":\"bytes32\"}],\"internalType\":\"structIRMN.TaggedRoot\",\"name\":\"taggedRoot\",\"type\":\"tuple\"}],\"name\":\"getBlessProgress\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"blessVoteAddrs\",\"type\":\"address[]\"},{\"internalType\":\"uint16\",\"name\":\"accumulatedWeight\",\"type\":\"uint16\"},{\"internalType\":\"bool\",\"name\":\"blessed\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getConfigDetails\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"version\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"blockNumber\",\"type\":\"uint32\"},{\"components\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"blessVoteAddr\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"curseVoteAddr\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"blessWeight\",\"type\":\"uint8\"},{\"internalType\":\"uint8\",\"name\":\"curseWeight\",\"type\":\"uint8\"}],\"internalType\":\"structRMN.Voter[]\",\"name\":\"voters\",\"type\":\"tuple[]\"},{\"internalType\":\"uint16\",\"name\":\"blessWeightThreshold\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"curseWeightThreshold\",\"type\":\"uint16\"}],\"internalType\":\"structRMN.Config\",\"name\":\"config\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes16\",\"name\":\"subject\",\"type\":\"bytes16\"}],\"name\":\"getCurseProgress\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"curseVoteAddrs\",\"type\":\"address[]\"},{\"internalType\":\"bytes28[]\",\"name\":\"cursesHashes\",\"type\":\"bytes28[]\"},{\"internalType\":\"uint16\",\"name\":\"accumulatedWeight\",\"type\":\"uint16\"},{\"internalType\":\"bool\",\"name\":\"cursed\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCursedSubjectsCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPermaBlessedCommitStores\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"offset\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"limit\",\"type\":\"uint256\"}],\"name\":\"getRecordedCurseRelatedOps\",\"outputs\":[{\"components\":[{\"internalType\":\"enumRMN.RecordedCurseRelatedOpTag\",\"name\":\"tag\",\"type\":\"uint8\"},{\"internalType\":\"uint64\",\"name\":\"blockTimestamp\",\"type\":\"uint64\"},{\"internalType\":\"bool\",\"name\":\"cursed\",\"type\":\"bool\"},{\"internalType\":\"address\",\"name\":\"curseVoteAddr\",\"type\":\"address\"},{\"internalType\":\"bytes16\",\"name\":\"subject\",\"type\":\"bytes16\"},{\"internalType\":\"bytes16\",\"name\":\"curseId\",\"type\":\"bytes16\"}],\"internalType\":\"structRMN.RecordedCurseRelatedOp[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getRecordedCurseRelatedOpsCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"commitStore\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"root\",\"type\":\"bytes32\"}],\"internalType\":\"structIRMN.TaggedRoot\",\"name\":\"taggedRoot\",\"type\":\"tuple\"}],\"name\":\"isBlessed\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes16\",\"name\":\"subject\",\"type\":\"bytes16\"}],\"name\":\"isCursed\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"isCursed\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes16\",\"name\":\"curseId\",\"type\":\"bytes16\"},{\"internalType\":\"bytes16[]\",\"name\":\"subjects\",\"type\":\"bytes16[]\"}],\"name\":\"ownerCurse\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"removes\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"adds\",\"type\":\"address[]\"}],\"name\":\"ownerRemoveThenAddPermaBlessedCommitStores\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"commitStore\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"root\",\"type\":\"bytes32\"}],\"internalType\":\"structIRMN.TaggedRoot[]\",\"name\":\"taggedRoots\",\"type\":\"tuple[]\"}],\"name\":\"ownerResetBlessVotes\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"curseVoteAddr\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"bytes16\",\"name\":\"subject\",\"type\":\"bytes16\"},{\"internalType\":\"bytes28\",\"name\":\"cursesHash\",\"type\":\"bytes28\"}],\"internalType\":\"structRMN.UnvoteToCurseRequest\",\"name\":\"unit\",\"type\":\"tuple\"},{\"internalType\":\"bool\",\"name\":\"forceUnvote\",\"type\":\"bool\"}],\"internalType\":\"structRMN.OwnerUnvoteToCurseRequest[]\",\"name\":\"ownerUnvoteToCurseRequests\",\"type\":\"tuple[]\"}],\"name\":\"ownerUnvoteToCurse\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"blessVoteAddr\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"curseVoteAddr\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"blessWeight\",\"type\":\"uint8\"},{\"internalType\":\"uint8\",\"name\":\"curseWeight\",\"type\":\"uint8\"}],\"internalType\":\"structRMN.Voter[]\",\"name\":\"voters\",\"type\":\"tuple[]\"},{\"internalType\":\"uint16\",\"name\":\"blessWeightThreshold\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"curseWeightThreshold\",\"type\":\"uint16\"}],\"internalType\":\"structRMN.Config\",\"name\":\"config\",\"type\":\"tuple\"}],\"name\":\"setConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes16\",\"name\":\"subject\",\"type\":\"bytes16\"},{\"internalType\":\"bytes28\",\"name\":\"cursesHash\",\"type\":\"bytes28\"}],\"internalType\":\"structRMN.UnvoteToCurseRequest[]\",\"name\":\"unvoteToCurseRequests\",\"type\":\"tuple[]\"}],\"name\":\"unvoteToCurse\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"commitStore\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"root\",\"type\":\"bytes32\"}],\"internalType\":\"structIRMN.TaggedRoot[]\",\"name\":\"taggedRoots\",\"type\":\"tuple[]\"}],\"name\":\"voteToBless\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes16\",\"name\":\"curseId\",\"type\":\"bytes16\"},{\"internalType\":\"bytes16[]\",\"name\":\"subjects\",\"type\":\"bytes16[]\"}],\"name\":\"voteToCurse\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Bin: "0x60806040523480156200001157600080fd5b506040516200596238038062005962833981016040819052620000349162000aff565b33806000816200008b5760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b0384811691909117909155811615620000be57620000be8162000138565b505060408051608081018252600080825260208201819052918101919091526001600160c81b03606082015290506001620000fb81601062000c7d565b82606001516001600160c81b0316901c6001600160c81b0316101562000125576200012562000c99565b506200013181620001e3565b5062000e14565b336001600160a01b03821603620001925760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640162000082565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b620001ee816200071d565b6200020c576040516306b7c75960e31b815260040160405180910390fd5b602081015160038054604084015161ffff908116620100000263ffffffff199092169316929092179190911790555b60025415620003465760028054600091906200025a9060019062000c7d565b815481106200026d576200026d62000caf565b6000918252602080832060408051608081018252600294850290920180546001600160a01b0390811680855260019092015480821685870190815260ff600160a01b8304811687870152600160a81b909204909116606086015291875260058552828720805465ffffffffffff19169055905116855260099092529220805461ffff191690558054919250908062000309576200030962000cc5565b60008281526020902060026000199092019182020180546001600160a01b031916815560010180546001600160b01b03191690559055506200023b565b60005b81515181101562000403578151805160029190839081106200036f576200036f62000caf565b602090810291909101810151825460018181018555600094855293839020825160029092020180546001600160a01b039283166001600160a01b0319909116178155928201519284018054604084015160609094015160ff908116600160a81b0260ff60a81b1991909516600160a01b026001600160a81b0319909216959093169490941793909317161790550162000349565b50600480546000906200041c9063ffffffff1662000cdb565b82546101009290920a63ffffffff8181021990931691831602179091556004541660005b82515160ff821610156200054157600083600001518260ff16815181106200046c576200046c62000caf565b602090810291909101810151604080516060808201835263ffffffff80891683528385015160ff90811684880190815289821685870190815287516001600160a01b03908116600090815260058b5288812097518854945193518616650100000000000260ff60281b199487166401000000000264ffffffffff1990961691909716179390931791909116939093179094558587015190911683526009909552919020805491909201519092166101000261ffff1990921691909117600117905550620005398162000d01565b905062000440565b506001600160a01b0360005260096020527f3bddde647ecb7992f4c710d4e1d59d07614508581f7c22c879a79d28544538a7805461ffff191660011790556004805463ffffffff4381166401000000000263ffffffff60201b1990921691909117909155604051908216907f8c49fda8177c5c8c768eb39634bc6773695c7181711537b822451c12b2efd2a990620005db90859062000d23565b60405180910390a26040805160c08101825260048082526001600160401b03421660208301526000928201839052606082018390526080820183905260a08201839052600c80546001808201835591909452825160029094027fdf6966c971051c3d54ec59162606531493a51404a002842f56009d7e5cf4a8c7018054939490939092849260ff19909216919084908111156200067c576200067c62000dce565b021790555060208201518154604084015160608501516001600160a01b03166a010000000000000000000002600160501b600160f01b031991151569010000000000000000000260ff60481b196001600160401b039095166101000294909416610100600160501b031990931692909217929092179190911617815560808083015160a090930151811c600160801b0292901c919091176001909101555050565b80515160009015806200073257508151516010105b80620007445750602082015161ffff16155b80620007565750604082015161ffff16155b156200076457506000919050565b600080600084600001515160026200077d919062000de4565b6001600160401b0381111562000797576200079762000a24565b604051908082528060200260200182016040528015620007c1578160200160208202803683370190505b50905060005b8551518110156200095457600086600001518281518110620007ed57620007ed62000caf565b6020026020010151905060006001600160a01b031681600001516001600160a01b0316148062000828575060208101516001600160a01b0316155b806200083f575060208101516001600160a01b0316155b8062000858575060208101516001600160a01b03908116145b806200087a5750604081015160ff161580156200087a5750606081015160ff16155b156200088d575060009695505050505050565b8051836200089d84600262000de4565b620008aa90600062000dfe565b81518110620008bd57620008bd62000caf565b6001600160a01b0390921660209283029190910182015281015183620008e584600262000de4565b620008f290600162000dfe565b8151811062000905576200090562000caf565b6001600160a01b03909216602092830291909101909101526040810151620009319060ff168662000dfe565b9450806060015160ff168462000948919062000dfe565b935050600101620007c7565b5060005b8151811015620009f957600082828151811062000979576200097962000caf565b60200260200101519050600082600162000994919062000dfe565b90505b8351811015620009ee57838181518110620009b657620009b662000caf565b60200260200101516001600160a01b0316826001600160a01b031603620009e557506000979650505050505050565b60010162000997565b505060010162000958565b50846020015161ffff16831015801562000a1b5750846040015161ffff168210155b95945050505050565b634e487b7160e01b600052604160045260246000fd5b604051606081016001600160401b038111828210171562000a5f5762000a5f62000a24565b60405290565b604051608081016001600160401b038111828210171562000a5f5762000a5f62000a24565b604051601f8201601f191681016001600160401b038111828210171562000ab55762000ab562000a24565b604052919050565b80516001600160a01b038116811462000ad557600080fd5b919050565b805160ff8116811462000ad557600080fd5b805161ffff8116811462000ad557600080fd5b6000602080838503121562000b1357600080fd5b82516001600160401b038082111562000b2b57600080fd5b8185019150606080838803121562000b4257600080fd5b62000b4c62000a3a565b83518381111562000b5c57600080fd5b8401601f8101891362000b6e57600080fd5b80518481111562000b835762000b8362000a24565b62000b93878260051b0162000a8a565b818152878101955060079190911b82018701908a82111562000bb457600080fd5b918701915b8183101562000c33576080838c03121562000bd45760008081fd5b62000bde62000a65565b62000be98462000abd565b815262000bf889850162000abd565b89820152604062000c0b81860162000ada565b9082015262000c1c84870162000ada565b818701528652948701946080929092019162000bb9565b83525062000c45905084860162000aec565b8582015262000c576040850162000aec565b6040820152979650505050505050565b634e487b7160e01b600052601160045260246000fd5b8181038181111562000c935762000c9362000c67565b92915050565b634e487b7160e01b600052600160045260246000fd5b634e487b7160e01b600052603260045260246000fd5b634e487b7160e01b600052603160045260246000fd5b600063ffffffff80831681810362000cf75762000cf762000c67565b6001019392505050565b600060ff821660ff810362000d1a5762000d1a62000c67565b60010192915050565b60006020808352608080840185516060808588015282825180855260a0890191508684019450600093505b8084101562000da157845180516001600160a01b03908116845288820151168884015260408082015160ff9081169185019190915290840151168383015293860193600193909301929085019062000d4e565b509488015161ffff8116604089015294604089015161ffff811660608a0152955098975050505050505050565b634e487b7160e01b600052602160045260246000fd5b808202811582820484141762000c935762000c9362000c67565b8082018082111562000c935762000c9362000c67565b614b3e8062000e246000396000f3fe608060405234801561001057600080fd5b50600436106101825760003560e01c8063631ec73e116100d8578063979986111161008c578063d927f26711610066578063d927f26714610354578063f2fde38b14610374578063f33f28951461038757600080fd5b8063979986111461030b578063ba86a1f01461031e578063bd147ef41461033157600080fd5b806379ba5097116100bd57806379ba5097146102d35780638da5cb5b146102db578063970b8fc21461030357600080fd5b8063631ec73e146102ad5780636ba0526d146102c057600080fd5b8063397796f71161013a5780634102e4f4116101145780634102e4f4146102745780634d61677114610287578063586abe3c1461029a57600080fd5b8063397796f7146102425780633d0cf6101461024a5780633f42ab731461025d57600080fd5b8063181f5a771161016b578063181f5a77146101ba5780632cbc26bb14610203578063328d716c1461022657600080fd5b80630b009be21461018757806315c65588146101a5575b600080fd5b61018f6103a9565b60405161019c9190613e3f565b60405180910390f35b6101b86101b3366004613fdd565b6103ba565b005b6101f66040518060400160405280600981526020017f524d4e20312e352e30000000000000000000000000000000000000000000000081525081565b60405161019c9190614083565b6102166102113660046140f0565b6104e6565b604051901515815260200161019c565b600b5467ffffffffffffffff165b60405190815260200161019c565b6102166105b1565b6101b86102583660046141a0565b61068b565b6102656107ff565b60405161019c939291906142b3565b6101b86102823660046142ff565b610929565b610216610295366004614439565b61093d565b6101b86102a8366004614451565b6109cd565b6101b86102bb3660046144fc565b610a87565b6101b86102ce366004614451565b610ca0565b6101b8610d13565b60005460405173ffffffffffffffffffffffffffffffffffffffff909116815260200161019c565b600c54610234565b6101b86103193660046145d0565b610e10565b6101b861032c3660046145d0565b611368565b61034461033f3660046140f0565b61150d565b60405161019c9493929190614645565b6103676103623660046146b6565b611946565b60405161019c9190614707565b6101b8610382366004614800565b611b68565b61039a610395366004614439565b611b79565b60405161019c9392919061481b565b60606103b56007611de1565b905090565b336000818152600960205260409020805460ff16610421576040517f85412e7f00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff831660048201526024015b60405180910390fd5b60045463ffffffff166000805b85518110156104a757600086828151811061044b5761044b614849565b602002602001015190506000610465858360000151611df5565b905060008061047b6001888b8760008d89611fd6565b91509150801561048d5761048d614878565b85806104965750815b95505050505080600101905061042e565b50806104df576040517ffb106b6a00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b5050505050565b600b5460009067ffffffffffffffff16810361050457506000919050565b7f0100000000000000000000000000000100000000000000000000000000000000600052600a6020527fcf943f0e419056430919a3fdfd72276bc0b123ebdd670f4152b82bffbfb8bb385468010000000000000000900460ff16806105a657507fffffffffffffffffffffffffffffffff0000000000000000000000000000000082166000908152600a602052604090205468010000000000000000900460ff165b92915050565b919050565b600b5460009067ffffffffffffffff1681036105cd5750600090565b7f0100000000000000000000000000000100000000000000000000000000000000600052600a6020527fcf943f0e419056430919a3fdfd72276bc0b123ebdd670f4152b82bffbfb8bb385468010000000000000000900460ff16806103b55750507f0100000000000000000000000000000000000000000000000000000000000000600052600a6020527f1d4cd6d2639449a552dbfb463b59316946d78c518b3170daa4a4c217bef019ba5468010000000000000000900460ff1690565b6106936126a4565b60005b8251811015610746576106cc8382815181106106b4576106b4614849565b6020026020010151600761272790919063ffffffff16565b1561073e577fdca892154bbc36d0c05ccd01b3d0411875cb1b841fcdeebb384e5d0d6eb06b4483828151811061070457610704614849565b6020026020010151604051610735919073ffffffffffffffffffffffffffffffffffffffff91909116815260200190565b60405180910390a15b600101610696565b5060005b81518110156107fa5761078082828151811061076857610768614849565b6020026020010151600761274990919063ffffffff16565b156107f2577f66b4b4752c65ae8cd2f3a0a48c7dc8b2118c60d5ea15514992eb2ddf56c9cb158282815181106107b8576107b8614849565b60200260200101516040516107e9919073ffffffffffffffffffffffffffffffffffffffff91909116815260200190565b60405180910390a15b60010161074a565b505050565b6040805160608082018352808252600060208084018290528385018290526004548551600280549384028201608090810190985294810183815263ffffffff808416986401000000009094041696959194919385939192859285015b828210156108f95760008481526020908190206040805160808101825260028602909201805473ffffffffffffffffffffffffffffffffffffffff90811684526001918201549081168486015260ff740100000000000000000000000000000000000000008204811693850193909352750100000000000000000000000000000000000000000090049091166060830152908352909201910161085b565b505050908252506001919091015461ffff8082166020840152620100009091041660409091015292939192919050565b6109316126a4565b61093a8161276b565b50565b600060068161099b610954368690038601866148a7565b80516020918201516040805173ffffffffffffffffffffffffffffffffffffffff909316838501528281019190915280518083038201815260609092019052805191012090565b815260208101919091526040016000205460ff16806105a657506105a66109c56020840184614800565b600790612eef565b337fffffffffffffffffffffffff000000000000000000000000000000000000000181016109fd576109fd614878565b73ffffffffffffffffffffffffffffffffffffffff81166000908152600960205260409020805460ff16610a75576040517f85412e7f00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff83166004820152602401610418565b610a8182858584612f1e565b50505050565b610a8f6126a4565b600454600090819063ffffffff16815b8451811015610b66576000858281518110610abc57610abc614849565b602002602001015190506000610ada84836020015160000151611df5565b9050600080610b3d600087866000015187602001518860400151600960008b6000015173ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002089611fd6565b915091508680610b4a5750815b96508780610b555750805b975050505050806001019050610a9f565b508215610c615760408051600280546080602082028401810190945260608301818152610c61948492849160009085015b82821015610c355760008481526020908190206040805160808101825260028602909201805473ffffffffffffffffffffffffffffffffffffffff90811684526001918201549081168486015260ff7401000000000000000000000000000000000000000082048116938501939093527501000000000000000000000000000000000000000000900490911660608301529083529092019101610b97565b505050908252506001919091015461ffff8082166020840152620100009091041660409091015261276b565b8180610c6a5750825b610a81576040517ffb106b6a00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b610ca86126a4565b73ffffffffffffffffffffffffffffffffffffffff60005260096020527fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f3bddde647ecb7992f4c710d4e1d59d07614508581f7c22c879a79d28544538a7610a8182858584612f1e565b60015473ffffffffffffffffffffffffffffffffffffffff163314610d94576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e6572000000000000000000006044820152606401610418565b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b610e397f01000000000000000000000000000001000000000000000000000000000000006104e6565b15610e70576040517fcde2d97c00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600454336000908152600560209081526040918290208251606081018452905463ffffffff81811680845260ff64010000000084048116958501959095526501000000000090920490931693820193909352921691908214610f00576040517f85412e7f000000000000000000000000000000000000000000000000000000008152336004820152602401610418565b600160005b8481101561132f576000868683818110610f2157610f21614849565b905060400201803603810190610f3791906148a7565b90506000610f868280516020918201516040805173ffffffffffffffffffffffffffffffffffffffff909316838501528281019190915280518083038201815260609092019052805191012090565b6000818152600660209081526040918290208251608081018452905460ff81161580158352610100820463ffffffff169383019390935265010000000000810461ffff169382019390935267010000000000000090920478ffffffffffffffffffffffffffffffffffffffffffffffffff16606083015291925090611062573373ffffffffffffffffffffffffffffffffffffffff168763ffffffff167f274d6d5b916b0a53974b7ab86c844b97a2e03a60f658cd9a4b1c028b604d7bf18560405161105291906148e0565b60405180910390a3505050611327565b8663ffffffff16816020015163ffffffff16146110a8575060408051608081018252600080825263ffffffff89166020830152918101829052606081019190915261110c565b6110ba816060015187604001516136d6565b1561110c573373ffffffffffffffffffffffffffffffffffffffff168763ffffffff167f6dfbb745226fa630aeb1b9557d17d508ddb789a04f0cb873ec16e58beb8beead8560405161105291906148e0565b6000945061112281606001518760400151613718565b78ffffffffffffffffffffffffffffffffffffffffffffffffff166060820152602086015160408201805160ff9092169161115e90839061493c565b61ffff1690525060208681015160408051865173ffffffffffffffffffffffffffffffffffffffff168152868401519381019390935260ff9091168282015251339163ffffffff8a16917f2a08a2bd2798f0aae9a843f0f4ad4de488c1b3d5f04049940cfed736ad69fb979181900360600190a3600354604082015161ffff91821691161061125757600181526040808201518151855173ffffffffffffffffffffffffffffffffffffffff1681526020808701519082015261ffff90911681830152905163ffffffff8916917f8257378aa73bf8e4ada848713526584a3dcee0fd3db3beed7397f7a7f5067cc9919081900360600190a25b60009182526006602090815260409283902082518154928401519484015160609094015178ffffffffffffffffffffffffffffffffffffffffffffffffff166701000000000000000266ffffffffffffff61ffff90951665010000000000029490941664ffffffffff63ffffffff909616610100027fffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000ff921515929092167fffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000090941693909317179390931617179055505b600101610f05565b5080156104df576040517f604c767700000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6113706126a4565b60045463ffffffff1660005b82811015610a8157600084848381811061139857611398614849565b9050604002018036038101906113ae91906148a7565b905060006113fd8280516020918201516040805173ffffffffffffffffffffffffffffffffffffffff909316838501528281019190915280518083038201815260609092019052805191012090565b60008181526006602081815260408084208151608081018352815460ff811615158252610100810463ffffffff90811683870190815265010000000000830461ffff169584019590955267010000000000000090910478ffffffffffffffffffffffffffffffffffffffffffffffffff16606083015287875294909352939093558051925193945092878216911614806114945750805b156114fe5760408051855173ffffffffffffffffffffffffffffffffffffffff1681526020808701519082015282151581830152905163ffffffff8816917f7d15a6eebaa019ea7d5b7d38937c51ebd3befbfdf51bb630a694fd28635bbcba919081900360600190a25b5050505080600101905061137c565b600454604080516002805460806020820284018101909452606083810182815290958695600095869563ffffffff9093169486949193928492918491879085015b828210156115ec5760008481526020908190206040805160808101825260028602909201805473ffffffffffffffffffffffffffffffffffffffff90811684526001918201549081168486015260ff740100000000000000000000000000000000000000008204811693850193909352750100000000000000000000000000000000000000000090049091166060830152908352909201910161154e565b505050908252506001919091015461ffff80821660208085019190915262010000909204166040928301527fffffffffffffffffffffffffffffffff000000000000000000000000000000008a166000908152600a909152908120805460ff6801000000000000000082041696509293509163ffffffff80861691161080156116725750845b6000965090508560015b60028111611939578451515b6000808760000151518310156116e35787518051849081106116ac576116ac614849565b6020026020010151602001519150876000015183815181106116d0576116d0614849565b602002602001015160600151905061170a565b507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff905060005b73ffffffffffffffffffffffffffffffffffffffff82166000908152600188016020908152604080832081518083019092525463ffffffff811682526401000000009004821b63ffffffff19169181019190915290878061177a57508a63ffffffff16826000015163ffffffff16145b8061179a575073ffffffffffffffffffffffffffffffffffffffff848116145b80156117b05750602082015163ffffffff191615155b9050801561186d57856001036117d0576117c987614957565b965061186d565b85600203610182576117e560ff84168e61493c565b9c506117f08761498f565b9650838f888151811061180557611805614849565b602002602001019073ffffffffffffffffffffffffffffffffffffffff16908173ffffffffffffffffffffffffffffffffffffffff168152505081602001518e888151811061185657611856614849565b63ffffffff19909216602092830291909101909101525b84156118835761187c8561498f565b945061188c565b50505050611895565b50505050611688565b81600103611928578267ffffffffffffffff8111156118b6576118b6613e52565b6040519080825280602002602001820160405280156118df578160200160208202803683370190505b509a508267ffffffffffffffff8111156118fb576118fb613e52565b604051908082528060200260200182016040528015611924578160200160208202803683370190505b5099505b5061193281614957565b905061167c565b5050505050509193509193565b600c5460609060009061195984866149c4565b11611965575081611988565b600c5484101561198457600c5461197d9085906149d7565b9050611988565b5060005b60008167ffffffffffffffff8111156119a3576119a3613e52565b604051908082528060200260200182016040528015611a2157816020015b6040805160c08101825260008082526020808301829052928201819052606082018190526080820181905260a082015282527fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff9092019101816119c15790505b50905060005b82811015611b5f57600c611a3b82886149c4565b81548110611a4b57611a4b614849565b600091825260209091206040805160c081019091526002909202018054829060ff166004811115611a7e57611a7e6146d8565b6004811115611a8f57611a8f6146d8565b81528154610100810467ffffffffffffffff1660208301526901000000000000000000810460ff16151560408301526a0100000000000000000000900473ffffffffffffffffffffffffffffffffffffffff166060820152600190910154608081811b7fffffffffffffffffffffffffffffffff0000000000000000000000000000000090811682850152700100000000000000000000000000000000909204901b1660a0909101528251839083908110611b4c57611b4c614849565b6020908102919091010152600101611a27565b50949350505050565b611b706126a4565b61093a8161373b565b606060008080611b91610954368790038701876148a7565b6000818152600660209081526040918290208251608081018452905460ff81161515808352610100820463ffffffff90811694840185905265010000000000830461ffff169584019590955267010000000000000090910478ffffffffffffffffffffffffffffffffffffffffffffffffff166060830152600454909650939450929091169003611dd85760408101516060820151909450611c3281613830565b60ff1667ffffffffffffffff811115611c4d57611c4d613e52565b604051908082528060200260200182016040528015611c76578160200160208202803683370190505b506002805460408051602080840282018101909252828152939950600093929190849084015b82821015611d3a5760008481526020908190206040805160808101825260028602909201805473ffffffffffffffffffffffffffffffffffffffff90811684526001918201549081168486015260ff7401000000000000000000000000000000000000000082048116938501939093527501000000000000000000000000000000000000000000900490911660608301529083529092019101611c9c565b5050505090506000805b82518160ff161015611dd357611d5a84826136d6565b15611dc357828160ff1681518110611d7457611d74614849565b602002602001015160000151898381518110611d9257611d92614849565b73ffffffffffffffffffffffffffffffffffffffff90921660209283029190910190910152611dc082614957565b91505b611dcc816149ea565b9050611d44565b505050505b50509193909250565b60606000611dee8361389f565b9392505050565b7fffffffffffffffffffffffffffffffff0000000000000000000000000000000081166000908152600a60205260408120805463ffffffff858116911614611dee57805463ffffffff19811663ffffffff861690811783556003547fffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000909216176201000090910461ffff1664010000000002177fffffffffffffffffffffffffffffffffffffffffffffffff0000ffffffffffff1680825568010000000000000000900460ff1615611dee57600260005b8154811015611fcd576000826000018281548110611ee657611ee6614849565b6000918252602080832060016002909302018281015473ffffffffffffffffffffffffffffffffffffffff1684529187019052604090912080549192509063ffffffff808a169116108015611f4d57508054640100000000900460201b63ffffffff191615155b15611fc357805463ffffffff191663ffffffff891617815560018201548554750100000000000000000000000000000000000000000090910460ff16908690600690611fa89084906601000000000000900461ffff1661493c565b92506101000a81548161ffff021916908361ffff1602179055505b5050600101611ec6565b50509392505050565b6000806001896001811115611fed57611fed6146d8565b148061200a57506000896001811115612008576120086146d8565b145b61201657612016614878565b8480612037575073ffffffffffffffffffffffffffffffffffffffff878116145b80612056575073ffffffffffffffffffffffffffffffffffffffff8716155b1561207c57600089600181111561206f5761206f6146d8565b1461207c5761207c614878565b73ffffffffffffffffffffffffffffffffffffffff8716600090815260018401602090815260409182902082518084019093525463ffffffff811683526401000000009004811b63ffffffff191690820152845460ff16801561210d575073ffffffffffffffffffffffffffffffffffffffff888116148061210d57508863ffffffff16816000015163ffffffff16145b80156121235750602081015163ffffffff191615155b801561214b5750866020015163ffffffff1916816020015163ffffffff1916148061214b5750855b156122765773ffffffffffffffffffffffffffffffffffffffff881660009081526001858101602052604082209190915585548554919450610100900460ff169085906006906121aa9084906601000000000000900461ffff16614a09565b825461010092830a61ffff818102199092169282160291909117909255895188546020808d01518a54604080517fffffffffffffffffffffffffffffffff0000000000000000000000000000000090961686529590930460ff169184019190915263ffffffff1916828401526601000000000000900490921660608301525173ffffffffffffffffffffffffffffffffffffffff8b16925063ffffffff8c16917fa96a155bd67c927a6c056befbd979b78465e2b2f1276bf7d4e90a31d4f430aa8919081900360800190a35b6000808b600181111561228b5761228b6146d8565b1480156122b3575083806122b3575073ffffffffffffffffffffffffffffffffffffffff8916155b90508080156122cf5750845468010000000000000000900460ff165b80156122e157506122df856138fb565b155b156123b45784547fffffffffffffffffffffffffffffffffffffffffffffff00ffffffffffffffff168555600b80546001945060009061232a9067ffffffffffffffff16614a24565b91906101000a81548167ffffffffffffffff021916908367ffffffffffffffff1602179055507f65d0e78c3625f0956f58610cf0fb157eaf627683258875ef29af2f71d25ac8fd88600001516040516123ab91907fffffffffffffffffffffffffffffffff0000000000000000000000000000000091909116815260200190565b60405180910390a15b83806123bd5750825b15612605576000808c60018111156123d7576123d76146d8565b036123f25787156123ea5750600361240f565b50600261240f565b60018c6001811115612406576124066146d8565b03610182575060015b600c6040518060c0016040528083600481111561242e5761242e6146d8565b81526020014267ffffffffffffffff168152885468010000000000000000900460ff16151560208083019190915273ffffffffffffffffffffffffffffffffffffffff8e1660408301528c517fffffffffffffffffffffffffffffffff00000000000000000000000000000000166060830152600060809092018290528354600180820186559483529120825160029092020180549293909283917fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0090911690836004811115612500576125006146d8565b0217905550602082015181546040840151606085015173ffffffffffffffffffffffffffffffffffffffff166a0100000000000000000000027fffff0000000000000000000000000000000000000000ffffffffffffffffffff9115156901000000000000000000027fffffffffffffffffffffffffffffffffffffffffffff00ffffffffffffffffff67ffffffffffffffff90951661010002949094167fffffffffffffffffffffffffffffffffffffffffffff000000000000000000ff90931692909217929092179190911617815560808083015160a090930151811c7001000000000000000000000000000000000292901c9190911760019091015550612696565b8751602080840151818b0151604080517fffffffffffffffffffffffffffffffff00000000000000000000000000000000909516855263ffffffff1992831693850193909352169082015273ffffffffffffffffffffffffffffffffffffffff8a16907fbabb0d7099e6ca14a29fad2a2cfb4fda2bd30f97cb3c27e546174bfb4277c1cc9060600160405180910390a25b505097509795505050505050565b60005473ffffffffffffffffffffffffffffffffffffffff163314612725576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e6572000000000000000000006044820152606401610418565b565b6000611dee8373ffffffffffffffffffffffffffffffffffffffff841661395c565b6000611dee8373ffffffffffffffffffffffffffffffffffffffff8416613a56565b61277481613aa5565b6127aa576040517f35be3ac800000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b602081015160038054604084015161ffff908116620100000263ffffffff199092169316929092179190911790555b6002541561298e5760028054600091906127f5906001906149d7565b8154811061280557612805614849565b60009182526020808320604080516080810182526002948502909201805473ffffffffffffffffffffffffffffffffffffffff90811680855260019092015480821685870190815260ff740100000000000000000000000000000000000000008304811687870152750100000000000000000000000000000000000000000090920490911660608601529187526005855282872080547fffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000016905590511685526009909252922080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00001690558054919250908061290457612904614a66565b60008281526020902060027fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff9092019182020180547fffffffffffffffffffffffff000000000000000000000000000000000000000016815560010180547fffffffffffffffffffff000000000000000000000000000000000000000000001690559055506127d9565b60005b815151811015612ac1578151805160029190839081106129b3576129b3614849565b6020908102919091018101518254600181810185556000948552938390208251600290920201805473ffffffffffffffffffffffffffffffffffffffff9283167fffffffffffffffffffffffff0000000000000000000000000000000000000000909116178155928201519284018054604084015160609094015160ff9081167501000000000000000000000000000000000000000000027fffffffffffffffffffff00ffffffffffffffffffffffffffffffffffffffffff9190951674010000000000000000000000000000000000000000027fffffffffffffffffffffff0000000000000000000000000000000000000000009092169590931694909417939093171617905501612991565b5060048054600090612ad89063ffffffff16614a95565b82546101009290920a63ffffffff8181021990931691831602179091556004541660005b82515160ff82161015612c5557600083600001518260ff1681518110612b2457612b24614849565b602090810291909101810151604080516060808201835263ffffffff80891683528385015160ff908116848801908152898216858701908152875173ffffffffffffffffffffffffffffffffffffffff908116600090815260058b528881209751885494519351861665010000000000027fffffffffffffffffffffffffffffffffffffffffffffffffffff00ffffffffff948716640100000000027fffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000009096169190971617939093179190911693909317909455858701519091168352600990955291902080549190920151909216610100027fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000090921691909117600117905550612c4e816149ea565b9050612afc565b5073ffffffffffffffffffffffffffffffffffffffff60005260096020527f3bddde647ecb7992f4c710d4e1d59d07614508581f7c22c879a79d28544538a780547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00001660011790556004805463ffffffff438116640100000000027fffffffffffffffffffffffffffffffffffffffffffffffff00000000ffffffff90921691909117909155604051908216907f8c49fda8177c5c8c768eb39634bc6773695c7181711537b822451c12b2efd2a990612d2f908590614ab8565b60405180910390a26040805160c081018252600480825267ffffffffffffffff421660208301526000928201839052606082018390526080820183905260a08201839052600c80546001808201835591909452825160029094027fdf6966c971051c3d54ec59162606531493a51404a002842f56009d7e5cf4a8c701805493949093909284927fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0090921691908490811115612dec57612dec6146d8565b0217905550602082015181546040840151606085015173ffffffffffffffffffffffffffffffffffffffff166a0100000000000000000000027fffff0000000000000000000000000000000000000000ffffffffffffffffffff9115156901000000000000000000027fffffffffffffffffffffffffffffffffffffffffffff00ffffffffffffffffff67ffffffffffffffff90951661010002949094167fffffffffffffffffffffffffffffffffffffffffffff000000000000000000ff90931692909217929092179190911617815560808083015160a090930151811c7001000000000000000000000000000000000292901c919091176001909101555050565b73ffffffffffffffffffffffffffffffffffffffff811660009081526001830160205260408120541515611dee565b8151600003612f59576040517f55e9b08b00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b7fffffffffffffffffffffffffffffffff000000000000000000000000000000008316600090815260018201602052604090205460ff1615613007576040517f078f340000000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff851660048201527fffffffffffffffffffffffffffffffff0000000000000000000000000000000084166024820152604401610418565b7fffffffffffffffffffffffffffffffff000000000000000000000000000000008316600090815260018281016020526040822080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0016909117905560045463ffffffff16905b83518110156136ce57600181101580156130ed575083818151811061309657613096614849565b60200260200101516fffffffffffffffffffffffffffffffff1916846001836130bf91906149d7565b815181106130cf576130cf614849565b60200260200101516fffffffffffffffffffffffffffffffff191610155b15613124576040517f2432d8ea00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600084828151811061313857613138614849565b60200260200101519050600061314e8483611df5565b73ffffffffffffffffffffffffffffffffffffffff8981166000818152600184016020908152604080832081518083019092525463ffffffff811682526401000000009004821b63ffffffff19169181019190915293945091148015906131be5750815163ffffffff8088169116105b806131d25750602082015163ffffffff1916155b15613225575085548254600091610100900460ff169084906006906132069084906601000000000000900461ffff1661493c565b92506101000a81548161ffff021916908361ffff16021790555061322c565b5060208101515b60408051808201825263ffffffff88168152815163ffffffff1984166020828101919091527fffffffffffffffffffffffffffffffff000000000000000000000000000000008d16828501528351808303850181526060909201909352805190830120909182019063ffffffff1916905273ffffffffffffffffffffffffffffffffffffffff8b166000818152600186016020908152604090912083518285015190921c6401000000000263ffffffff92831617905589549294509091908816907f8137bc8a8d712aaa27bfc6506d5566ac405618bd53f9831b8ca6b6fe5442ee7a9087908d9060ff610100909104166133234290565b6020898101518b54604080517fffffffffffffffffffffffffffffffff000000000000000000000000000000009889168152979096169287019290925260ff9093169385019390935267ffffffffffffffff16606084015263ffffffff191660808301526601000000000000900461ffff1660a082015260c00160405180910390a363ffffffff1981161580156133c85750825468010000000000000000900460ff16155b80156133d857506133d8836138fb565b156134c35782547fffffffffffffffffffffffffffffffffffffffffffffff00ffffffffffffffff1668010000000000000000178355600b80546000906134289067ffffffffffffffff16614acb565b91906101000a81548167ffffffffffffffff021916908367ffffffffffffffff1602179055508563ffffffff167fcfdbfd8ce9a56b5f7c202c0e102184d24f47ca87121dc165063fc4c290957bde8561347e4290565b604080517fffffffffffffffffffffffffffffffff00000000000000000000000000000000909316835267ffffffffffffffff90911660208301520160405180910390a25b6040805160c081018252600080825267ffffffffffffffff42166020830152855460ff680100000000000000009091041615159282019290925273ffffffffffffffffffffffffffffffffffffffff8c1660608201527fffffffffffffffffffffffffffffffff0000000000000000000000000000000086811660808301528b1660a0820152600c80546001808201835591909352815160029093027fdf6966c971051c3d54ec59162606531493a51404a002842f56009d7e5cf4a8c701805492939092909183917fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0016908360048111156135c0576135c06146d8565b0217905550602082015181546040840151606085015173ffffffffffffffffffffffffffffffffffffffff166a0100000000000000000000027fffff0000000000000000000000000000000000000000ffffffffffffffffffff9115156901000000000000000000027fffffffffffffffffffffffffffffffffffffffffffff00ffffffffffffffffff67ffffffffffffffff90951661010002949094167fffffffffffffffffffffffffffffffffffffffffffff000000000000000000ff90931692909217929092179190911617815560808083015160a090930151811c7001000000000000000000000000000000000292901c9190911760019182015594909401935061306f92505050565b505050505050565b600060108260ff16106136eb576136eb614878565b50600160ff82161b821678ffffffffffffffffffffffffffffffffffffffffffffffffff16151592915050565b600060108260ff161061372d5761372d614878565b50600160ff919091161b1790565b3373ffffffffffffffffffffffffffffffffffffffff8216036137ba576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c660000000000000000006044820152606401610418565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b60006201000078ffffffffffffffffffffffffffffffffffffffffffffffffff83161061385f5761385f614878565b78ffffffffffffffffffffffffffffffffffffffffffffffffff8216156105ac5761388b600183614ae8565b90911690613898816149ea565b905061385f565b6060816000018054806020026020016040519081016040528092919081815260200182805480156138ef57602002820191906000526020600020905b8154815260200190600101908083116138db575b50505050509050919050565b73ffffffffffffffffffffffffffffffffffffffff600090815260018201602090815260408220546401000000009004901b63ffffffff19161515806105a65750505461ffff64010000000082048116660100000000000090920416101590565b60008181526001830160205260408120548015613a455760006139806001836149d7565b8554909150600090613994906001906149d7565b90508082146139f95760008660000182815481106139b4576139b4614849565b90600052602060002001549050808760000184815481106139d7576139d7614849565b6000918252602080832090910192909255918252600188019052604090208390555b8554869080613a0a57613a0a614a66565b6001900381819060005260206000200160009055905585600101600086815260200190815260200160002060009055600193505050506105a6565b60009150506105a6565b5092915050565b6000818152600183016020526040812054613a9d575081546001818101845560008481526020808220909301849055845484825282860190935260409020919091556105a6565b5060006105a6565b8051516000901580613ab957508151516010105b80613aca5750602082015161ffff16155b80613adb5750604082015161ffff16155b15613ae857506000919050565b60008060008460000151516002613aff9190614b1a565b67ffffffffffffffff811115613b1757613b17613e52565b604051908082528060200260200182016040528015613b40578160200160208202803683370190505b50905060005b855151811015613d1157600086600001518281518110613b6857613b68614849565b60200260200101519050600073ffffffffffffffffffffffffffffffffffffffff16816000015173ffffffffffffffffffffffffffffffffffffffff161480613bc95750602081015173ffffffffffffffffffffffffffffffffffffffff16155b80613bec5750602081015173ffffffffffffffffffffffffffffffffffffffff16155b80613c115750602081015173ffffffffffffffffffffffffffffffffffffffff908116145b80613c315750604081015160ff16158015613c315750606081015160ff16155b15613c43575060009695505050505050565b805183613c51846002614b1a565b613c5c9060006149c4565b81518110613c6c57613c6c614849565b73ffffffffffffffffffffffffffffffffffffffff90921660209283029190910182015281015183613c9f846002614b1a565b613caa9060016149c4565b81518110613cba57613cba614849565b73ffffffffffffffffffffffffffffffffffffffff909216602092830291909101909101526040810151613cf19060ff16866149c4565b9450806060015160ff1684613d0691906149c4565b935050600101613b46565b5060005b8151811015613dc3576000828281518110613d3257613d32614849565b602002602001015190506000826001613d4b91906149c4565b90505b8351811015613db957838181518110613d6957613d69614849565b602002602001015173ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff1603613db157506000979650505050505050565b600101613d4e565b5050600101613d15565b50846020015161ffff168310158015613de45750846040015161ffff168210155b95945050505050565b60008151808452602080850194506020840160005b83811015613e3457815173ffffffffffffffffffffffffffffffffffffffff1687529582019590820190600101613e02565b509495945050505050565b602081526000611dee6020830184613ded565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6040805190810167ffffffffffffffff81118282101715613ea457613ea4613e52565b60405290565b6040516060810167ffffffffffffffff81118282101715613ea457613ea4613e52565b6040516080810167ffffffffffffffff81118282101715613ea457613ea4613e52565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016810167ffffffffffffffff81118282101715613f3757613f37613e52565b604052919050565b600067ffffffffffffffff821115613f5957613f59613e52565b5060051b60200190565b80357fffffffffffffffffffffffffffffffff00000000000000000000000000000000811681146105ac57600080fd5b600060408284031215613fa557600080fd5b613fad613e81565b9050613fb882613f63565b8152602082013563ffffffff1981168114613fd257600080fd5b602082015292915050565b60006020808385031215613ff057600080fd5b823567ffffffffffffffff81111561400757600080fd5b8301601f8101851361401857600080fd5b803561402b61402682613f3f565b613ef0565b8082825260208201915060208360061b85010192508783111561404d57600080fd5b6020840193505b82841015614078576140668885613f93565b82528482019150604084019350614054565b979650505050505050565b60006020808352835180602085015260005b818110156140b157858101830151858201604001528201614095565b5060006040828601015260407fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8301168501019250505092915050565b60006020828403121561410257600080fd5b611dee82613f63565b803573ffffffffffffffffffffffffffffffffffffffff811681146105ac57600080fd5b600082601f83011261414057600080fd5b8135602061415061402683613f3f565b8083825260208201915060208460051b87010193508684111561417257600080fd5b602086015b84811015614195576141888161410b565b8352918301918301614177565b509695505050505050565b600080604083850312156141b357600080fd5b823567ffffffffffffffff808211156141cb57600080fd5b6141d78683870161412f565b935060208501359150808211156141ed57600080fd5b506141fa8582860161412f565b9150509250929050565b8051606080845281518482018190526000926080916020918201918388019190865b82811015614280578451805173ffffffffffffffffffffffffffffffffffffffff908116865283820151168386015260408082015160ff908116918701919091529088015116878501529381019392850192600101614226565b508781015161ffff81168a83015295505050604086015193506142a9604088018561ffff169052565b9695505050505050565b600063ffffffff808616835280851660208401525060606040830152613de46060830184614204565b803560ff811681146105ac57600080fd5b803561ffff811681146105ac57600080fd5b6000602080838503121561431257600080fd5b823567ffffffffffffffff8082111561432a57600080fd5b8185019150606080838803121561434057600080fd5b614348613eaa565b83358381111561435757600080fd5b84019250601f8301881361436a57600080fd5b823561437861402682613f3f565b81815260079190911b8401860190868101908a83111561439757600080fd5b948701945b82861015614409576080868c0312156143b55760008081fd5b6143bd613ecd565b6143c68761410b565b81526143d389880161410b565b8982015260406143e48189016142dc565b908201526143f38787016142dc565b818701528252608095909501949087019061439c565b83525061441990508486016142ed565b85820152614429604085016142ed565b6040820152979650505050505050565b60006040828403121561444b57600080fd5b50919050565b6000806040838503121561446457600080fd5b61446d83613f63565b915060208084013567ffffffffffffffff81111561448a57600080fd5b8401601f8101861361449b57600080fd5b80356144a961402682613f3f565b81815260059190911b820183019083810190888311156144c857600080fd5b928401925b828410156144ed576144de84613f63565b825292840192908401906144cd565b80955050505050509250929050565b6000602080838503121561450f57600080fd5b823567ffffffffffffffff81111561452657600080fd5b8301601f8101851361453757600080fd5b803561454561402682613f3f565b81815260079190911b8201830190838101908783111561456457600080fd5b928401925b8284101561407857608084890312156145825760008081fd5b61458a613eaa565b6145938561410b565b81526145a189878701613f93565b86820152606085013580151581146145b95760008081fd5b604082015282526080939093019290840190614569565b600080602083850312156145e357600080fd5b823567ffffffffffffffff808211156145fb57600080fd5b818501915085601f83011261460f57600080fd5b81358181111561461e57600080fd5b8660208260061b850101111561463357600080fd5b60209290920196919550909350505050565b6080815260006146586080830187613ded565b82810360208481019190915286518083528782019282019060005b8181101561469657845163ffffffff191683529383019391830191600101614673565b505061ffff96909616604085015250505090151560609091015292915050565b600080604083850312156146c957600080fd5b50508035926020909101359150565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602160045260246000fd5b60208082528251828201819052600091906040908185019086840185805b838110156147f2578251805160058110614766577f4e487b710000000000000000000000000000000000000000000000000000000084526021600452602484fd5b86528088015167ffffffffffffffff16888701528681015115158787015260608082015173ffffffffffffffffffffffffffffffffffffffff16908701526080808201517fffffffffffffffffffffffffffffffff000000000000000000000000000000009081169188019190915260a091820151169086015260c09094019391860191600101614725565b509298975050505050505050565b60006020828403121561481257600080fd5b611dee8261410b565b60608152600061482e6060830186613ded565b61ffff94909416602083015250901515604090910152919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052600160045260246000fd5b6000604082840312156148b957600080fd5b6148c1613e81565b6148ca8361410b565b8152602083013560208201528091505092915050565b815173ffffffffffffffffffffffffffffffffffffffff16815260208083015190820152604081016105a6565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b61ffff818116838216019080821115613a4f57613a4f61490d565b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff82036149885761498861490d565b5060010190565b60008161499e5761499e61490d565b507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0190565b808201808211156105a6576105a661490d565b818103818111156105a6576105a661490d565b600060ff821660ff8103614a0057614a0061490d565b60010192915050565b61ffff828116828216039080821115613a4f57613a4f61490d565b600067ffffffffffffffff821680614a3e57614a3e61490d565b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0192915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603160045260246000fd5b600063ffffffff808316818103614aae57614aae61490d565b6001019392505050565b602081526000611dee6020830184614204565b600067ffffffffffffffff808316818103614aae57614aae61490d565b78ffffffffffffffffffffffffffffffffffffffffffffffffff828116828216039080821115613a4f57613a4f61490d565b80820281158282048414176105a6576105a661490d56fea164736f6c6343000818000a",
+}
+
+var RMNContractABI = RMNContractMetaData.ABI
+
+var RMNContractBin = RMNContractMetaData.Bin
+
+func DeployRMNContract(auth *bind.TransactOpts, backend bind.ContractBackend, config RMNConfig) (common.Address, *types.Transaction, *RMNContract, error) {
+	parsed, err := RMNContractMetaData.GetAbi()
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	if parsed == nil {
+		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
+	}
+
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(RMNContractBin), backend, config)
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	return address, tx, &RMNContract{address: address, abi: *parsed, RMNContractCaller: RMNContractCaller{contract: contract}, RMNContractTransactor: RMNContractTransactor{contract: contract}, RMNContractFilterer: RMNContractFilterer{contract: contract}}, nil
+}
+
+type RMNContract struct {
+	address common.Address
+	abi     abi.ABI
+	RMNContractCaller
+	RMNContractTransactor
+	RMNContractFilterer
+}
+
+type RMNContractCaller struct {
+	contract *bind.BoundContract
+}
+
+type RMNContractTransactor struct {
+	contract *bind.BoundContract
+}
+
+type RMNContractFilterer struct {
+	contract *bind.BoundContract
+}
+
+type RMNContractSession struct {
+	Contract     *RMNContract
+	CallOpts     bind.CallOpts
+	TransactOpts bind.TransactOpts
+}
+
+type RMNContractCallerSession struct {
+	Contract *RMNContractCaller
+	CallOpts bind.CallOpts
+}
+
+type RMNContractTransactorSession struct {
+	Contract     *RMNContractTransactor
+	TransactOpts bind.TransactOpts
+}
+
+type RMNContractRaw struct {
+	Contract *RMNContract
+}
+
+type RMNContractCallerRaw struct {
+	Contract *RMNContractCaller
+}
+
+type RMNContractTransactorRaw struct {
+	Contract *RMNContractTransactor
+}
+
+func NewRMNContract(address common.Address, backend bind.ContractBackend) (*RMNContract, error) {
+	abi, err := abi.JSON(strings.NewReader(RMNContractABI))
+	if err != nil {
+		return nil, err
+	}
+	contract, err := bindRMNContract(address, backend, backend, backend)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContract{address: address, abi: abi, RMNContractCaller: RMNContractCaller{contract: contract}, RMNContractTransactor: RMNContractTransactor{contract: contract}, RMNContractFilterer: RMNContractFilterer{contract: contract}}, nil
+}
+
+func NewRMNContractCaller(address common.Address, caller bind.ContractCaller) (*RMNContractCaller, error) {
+	contract, err := bindRMNContract(address, caller, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractCaller{contract: contract}, nil
+}
+
+func NewRMNContractTransactor(address common.Address, transactor bind.ContractTransactor) (*RMNContractTransactor, error) {
+	contract, err := bindRMNContract(address, nil, transactor, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractTransactor{contract: contract}, nil
+}
+
+func NewRMNContractFilterer(address common.Address, filterer bind.ContractFilterer) (*RMNContractFilterer, error) {
+	contract, err := bindRMNContract(address, nil, nil, filterer)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractFilterer{contract: contract}, nil
+}
+
+func bindRMNContract(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := RMNContractMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
+}
+
+func (_RMNContract *RMNContractRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _RMNContract.Contract.RMNContractCaller.contract.Call(opts, result, method, params...)
+}
+
+func (_RMNContract *RMNContractRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _RMNContract.Contract.RMNContractTransactor.contract.Transfer(opts)
+}
+
+func (_RMNContract *RMNContractRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _RMNContract.Contract.RMNContractTransactor.contract.Transact(opts, method, params...)
+}
+
+func (_RMNContract *RMNContractCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _RMNContract.Contract.contract.Call(opts, result, method, params...)
+}
+
+func (_RMNContract *RMNContractTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _RMNContract.Contract.contract.Transfer(opts)
+}
+
+func (_RMNContract *RMNContractTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _RMNContract.Contract.contract.Transact(opts, method, params...)
+}
+
+func (_RMNContract *RMNContractCaller) GetBlessProgress(opts *bind.CallOpts, taggedRoot IRMNTaggedRoot) (GetBlessProgress,
+
+	error) {
+	var out []interface{}
+	err := _RMNContract.contract.Call(opts, &out, "getBlessProgress", taggedRoot)
+
+	outstruct := new(GetBlessProgress)
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.BlessVoteAddrs = *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+	outstruct.AccumulatedWeight = *abi.ConvertType(out[1], new(uint16)).(*uint16)
+	outstruct.Blessed = *abi.ConvertType(out[2], new(bool)).(*bool)
+
+	return *outstruct, err
+
+}
+
+func (_RMNContract *RMNContractSession) GetBlessProgress(taggedRoot IRMNTaggedRoot) (GetBlessProgress,
+
+	error) {
+	return _RMNContract.Contract.GetBlessProgress(&_RMNContract.CallOpts, taggedRoot)
+}
+
+func (_RMNContract *RMNContractCallerSession) GetBlessProgress(taggedRoot IRMNTaggedRoot) (GetBlessProgress,
+
+	error) {
+	return _RMNContract.Contract.GetBlessProgress(&_RMNContract.CallOpts, taggedRoot)
+}
+
+func (_RMNContract *RMNContractCaller) GetConfigDetails(opts *bind.CallOpts) (GetConfigDetails,
+
+	error) {
+	var out []interface{}
+	err := _RMNContract.contract.Call(opts, &out, "getConfigDetails")
+
+	outstruct := new(GetConfigDetails)
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.Version = *abi.ConvertType(out[0], new(uint32)).(*uint32)
+	outstruct.BlockNumber = *abi.ConvertType(out[1], new(uint32)).(*uint32)
+	outstruct.Config = *abi.ConvertType(out[2], new(RMNConfig)).(*RMNConfig)
+
+	return *outstruct, err
+
+}
+
+func (_RMNContract *RMNContractSession) GetConfigDetails() (GetConfigDetails,
+
+	error) {
+	return _RMNContract.Contract.GetConfigDetails(&_RMNContract.CallOpts)
+}
+
+func (_RMNContract *RMNContractCallerSession) GetConfigDetails() (GetConfigDetails,
+
+	error) {
+	return _RMNContract.Contract.GetConfigDetails(&_RMNContract.CallOpts)
+}
+
+func (_RMNContract *RMNContractCaller) GetCurseProgress(opts *bind.CallOpts, subject [16]byte) (GetCurseProgress,
+
+	error) {
+	var out []interface{}
+	err := _RMNContract.contract.Call(opts, &out, "getCurseProgress", subject)
+
+	outstruct := new(GetCurseProgress)
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.CurseVoteAddrs = *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+	outstruct.CursesHashes = *abi.ConvertType(out[1], new([][28]byte)).(*[][28]byte)
+	outstruct.AccumulatedWeight = *abi.ConvertType(out[2], new(uint16)).(*uint16)
+	outstruct.Cursed = *abi.ConvertType(out[3], new(bool)).(*bool)
+
+	return *outstruct, err
+
+}
+
+func (_RMNContract *RMNContractSession) GetCurseProgress(subject [16]byte) (GetCurseProgress,
+
+	error) {
+	return _RMNContract.Contract.GetCurseProgress(&_RMNContract.CallOpts, subject)
+}
+
+func (_RMNContract *RMNContractCallerSession) GetCurseProgress(subject [16]byte) (GetCurseProgress,
+
+	error) {
+	return _RMNContract.Contract.GetCurseProgress(&_RMNContract.CallOpts, subject)
+}
+
+func (_RMNContract *RMNContractCaller) GetCursedSubjectsCount(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _RMNContract.contract.Call(opts, &out, "getCursedSubjectsCount")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+func (_RMNContract *RMNContractSession) GetCursedSubjectsCount() (*big.Int, error) {
+	return _RMNContract.Contract.GetCursedSubjectsCount(&_RMNContract.CallOpts)
+}
+
+func (_RMNContract *RMNContractCallerSession) GetCursedSubjectsCount() (*big.Int, error) {
+	return _RMNContract.Contract.GetCursedSubjectsCount(&_RMNContract.CallOpts)
+}
+
+func (_RMNContract *RMNContractCaller) GetPermaBlessedCommitStores(opts *bind.CallOpts) ([]common.Address, error) {
+	var out []interface{}
+	err := _RMNContract.contract.Call(opts, &out, "getPermaBlessedCommitStores")
+
+	if err != nil {
+		return *new([]common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+
+	return out0, err
+
+}
+
+func (_RMNContract *RMNContractSession) GetPermaBlessedCommitStores() ([]common.Address, error) {
+	return _RMNContract.Contract.GetPermaBlessedCommitStores(&_RMNContract.CallOpts)
+}
+
+func (_RMNContract *RMNContractCallerSession) GetPermaBlessedCommitStores() ([]common.Address, error) {
+	return _RMNContract.Contract.GetPermaBlessedCommitStores(&_RMNContract.CallOpts)
+}
+
+func (_RMNContract *RMNContractCaller) GetRecordedCurseRelatedOps(opts *bind.CallOpts, offset *big.Int, limit *big.Int) ([]RMNRecordedCurseRelatedOp, error) {
+	var out []interface{}
+	err := _RMNContract.contract.Call(opts, &out, "getRecordedCurseRelatedOps", offset, limit)
+
+	if err != nil {
+		return *new([]RMNRecordedCurseRelatedOp), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]RMNRecordedCurseRelatedOp)).(*[]RMNRecordedCurseRelatedOp)
+
+	return out0, err
+
+}
+
+func (_RMNContract *RMNContractSession) GetRecordedCurseRelatedOps(offset *big.Int, limit *big.Int) ([]RMNRecordedCurseRelatedOp, error) {
+	return _RMNContract.Contract.GetRecordedCurseRelatedOps(&_RMNContract.CallOpts, offset, limit)
+}
+
+func (_RMNContract *RMNContractCallerSession) GetRecordedCurseRelatedOps(offset *big.Int, limit *big.Int) ([]RMNRecordedCurseRelatedOp, error) {
+	return _RMNContract.Contract.GetRecordedCurseRelatedOps(&_RMNContract.CallOpts, offset, limit)
+}
+
+func (_RMNContract *RMNContractCaller) GetRecordedCurseRelatedOpsCount(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _RMNContract.contract.Call(opts, &out, "getRecordedCurseRelatedOpsCount")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+func (_RMNContract *RMNContractSession) GetRecordedCurseRelatedOpsCount() (*big.Int, error) {
+	return _RMNContract.Contract.GetRecordedCurseRelatedOpsCount(&_RMNContract.CallOpts)
+}
+
+func (_RMNContract *RMNContractCallerSession) GetRecordedCurseRelatedOpsCount() (*big.Int, error) {
+	return _RMNContract.Contract.GetRecordedCurseRelatedOpsCount(&_RMNContract.CallOpts)
+}
+
+func (_RMNContract *RMNContractCaller) IsBlessed(opts *bind.CallOpts, taggedRoot IRMNTaggedRoot) (bool, error) {
+	var out []interface{}
+	err := _RMNContract.contract.Call(opts, &out, "isBlessed", taggedRoot)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+func (_RMNContract *RMNContractSession) IsBlessed(taggedRoot IRMNTaggedRoot) (bool, error) {
+	return _RMNContract.Contract.IsBlessed(&_RMNContract.CallOpts, taggedRoot)
+}
+
+func (_RMNContract *RMNContractCallerSession) IsBlessed(taggedRoot IRMNTaggedRoot) (bool, error) {
+	return _RMNContract.Contract.IsBlessed(&_RMNContract.CallOpts, taggedRoot)
+}
+
+func (_RMNContract *RMNContractCaller) IsCursed(opts *bind.CallOpts, subject [16]byte) (bool, error) {
+	var out []interface{}
+	err := _RMNContract.contract.Call(opts, &out, "isCursed", subject)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+func (_RMNContract *RMNContractSession) IsCursed(subject [16]byte) (bool, error) {
+	return _RMNContract.Contract.IsCursed(&_RMNContract.CallOpts, subject)
+}
+
+func (_RMNContract *RMNContractCallerSession) IsCursed(subject [16]byte) (bool, error) {
+	return _RMNContract.Contract.IsCursed(&_RMNContract.CallOpts, subject)
+}
+
+func (_RMNContract *RMNContractCaller) IsCursed0(opts *bind.CallOpts) (bool, error) {
+	var out []interface{}
+	err := _RMNContract.contract.Call(opts, &out, "isCursed0")
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+func (_RMNContract *RMNContractSession) IsCursed0() (bool, error) {
+	return _RMNContract.Contract.IsCursed0(&_RMNContract.CallOpts)
+}
+
+func (_RMNContract *RMNContractCallerSession) IsCursed0() (bool, error) {
+	return _RMNContract.Contract.IsCursed0(&_RMNContract.CallOpts)
+}
+
+func (_RMNContract *RMNContractCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _RMNContract.contract.Call(opts, &out, "owner")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+func (_RMNContract *RMNContractSession) Owner() (common.Address, error) {
+	return _RMNContract.Contract.Owner(&_RMNContract.CallOpts)
+}
+
+func (_RMNContract *RMNContractCallerSession) Owner() (common.Address, error) {
+	return _RMNContract.Contract.Owner(&_RMNContract.CallOpts)
+}
+
+func (_RMNContract *RMNContractCaller) TypeAndVersion(opts *bind.CallOpts) (string, error) {
+	var out []interface{}
+	err := _RMNContract.contract.Call(opts, &out, "typeAndVersion")
+
+	if err != nil {
+		return *new(string), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(string)).(*string)
+
+	return out0, err
+
+}
+
+func (_RMNContract *RMNContractSession) TypeAndVersion() (string, error) {
+	return _RMNContract.Contract.TypeAndVersion(&_RMNContract.CallOpts)
+}
+
+func (_RMNContract *RMNContractCallerSession) TypeAndVersion() (string, error) {
+	return _RMNContract.Contract.TypeAndVersion(&_RMNContract.CallOpts)
+}
+
+func (_RMNContract *RMNContractTransactor) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _RMNContract.contract.Transact(opts, "acceptOwnership")
+}
+
+func (_RMNContract *RMNContractSession) AcceptOwnership() (*types.Transaction, error) {
+	return _RMNContract.Contract.AcceptOwnership(&_RMNContract.TransactOpts)
+}
+
+func (_RMNContract *RMNContractTransactorSession) AcceptOwnership() (*types.Transaction, error) {
+	return _RMNContract.Contract.AcceptOwnership(&_RMNContract.TransactOpts)
+}
+
+func (_RMNContract *RMNContractTransactor) OwnerCurse(opts *bind.TransactOpts, curseId [16]byte, subjects [][16]byte) (*types.Transaction, error) {
+	return _RMNContract.contract.Transact(opts, "ownerCurse", curseId, subjects)
+}
+
+func (_RMNContract *RMNContractSession) OwnerCurse(curseId [16]byte, subjects [][16]byte) (*types.Transaction, error) {
+	return _RMNContract.Contract.OwnerCurse(&_RMNContract.TransactOpts, curseId, subjects)
+}
+
+func (_RMNContract *RMNContractTransactorSession) OwnerCurse(curseId [16]byte, subjects [][16]byte) (*types.Transaction, error) {
+	return _RMNContract.Contract.OwnerCurse(&_RMNContract.TransactOpts, curseId, subjects)
+}
+
+func (_RMNContract *RMNContractTransactor) OwnerRemoveThenAddPermaBlessedCommitStores(opts *bind.TransactOpts, removes []common.Address, adds []common.Address) (*types.Transaction, error) {
+	return _RMNContract.contract.Transact(opts, "ownerRemoveThenAddPermaBlessedCommitStores", removes, adds)
+}
+
+func (_RMNContract *RMNContractSession) OwnerRemoveThenAddPermaBlessedCommitStores(removes []common.Address, adds []common.Address) (*types.Transaction, error) {
+	return _RMNContract.Contract.OwnerRemoveThenAddPermaBlessedCommitStores(&_RMNContract.TransactOpts, removes, adds)
+}
+
+func (_RMNContract *RMNContractTransactorSession) OwnerRemoveThenAddPermaBlessedCommitStores(removes []common.Address, adds []common.Address) (*types.Transaction, error) {
+	return _RMNContract.Contract.OwnerRemoveThenAddPermaBlessedCommitStores(&_RMNContract.TransactOpts, removes, adds)
+}
+
+func (_RMNContract *RMNContractTransactor) OwnerResetBlessVotes(opts *bind.TransactOpts, taggedRoots []IRMNTaggedRoot) (*types.Transaction, error) {
+	return _RMNContract.contract.Transact(opts, "ownerResetBlessVotes", taggedRoots)
+}
+
+func (_RMNContract *RMNContractSession) OwnerResetBlessVotes(taggedRoots []IRMNTaggedRoot) (*types.Transaction, error) {
+	return _RMNContract.Contract.OwnerResetBlessVotes(&_RMNContract.TransactOpts, taggedRoots)
+}
+
+func (_RMNContract *RMNContractTransactorSession) OwnerResetBlessVotes(taggedRoots []IRMNTaggedRoot) (*types.Transaction, error) {
+	return _RMNContract.Contract.OwnerResetBlessVotes(&_RMNContract.TransactOpts, taggedRoots)
+}
+
+func (_RMNContract *RMNContractTransactor) OwnerUnvoteToCurse(opts *bind.TransactOpts, ownerUnvoteToCurseRequests []RMNOwnerUnvoteToCurseRequest) (*types.Transaction, error) {
+	return _RMNContract.contract.Transact(opts, "ownerUnvoteToCurse", ownerUnvoteToCurseRequests)
+}
+
+func (_RMNContract *RMNContractSession) OwnerUnvoteToCurse(ownerUnvoteToCurseRequests []RMNOwnerUnvoteToCurseRequest) (*types.Transaction, error) {
+	return _RMNContract.Contract.OwnerUnvoteToCurse(&_RMNContract.TransactOpts, ownerUnvoteToCurseRequests)
+}
+
+func (_RMNContract *RMNContractTransactorSession) OwnerUnvoteToCurse(ownerUnvoteToCurseRequests []RMNOwnerUnvoteToCurseRequest) (*types.Transaction, error) {
+	return _RMNContract.Contract.OwnerUnvoteToCurse(&_RMNContract.TransactOpts, ownerUnvoteToCurseRequests)
+}
+
+func (_RMNContract *RMNContractTransactor) SetConfig(opts *bind.TransactOpts, config RMNConfig) (*types.Transaction, error) {
+	return _RMNContract.contract.Transact(opts, "setConfig", config)
+}
+
+func (_RMNContract *RMNContractSession) SetConfig(config RMNConfig) (*types.Transaction, error) {
+	return _RMNContract.Contract.SetConfig(&_RMNContract.TransactOpts, config)
+}
+
+func (_RMNContract *RMNContractTransactorSession) SetConfig(config RMNConfig) (*types.Transaction, error) {
+	return _RMNContract.Contract.SetConfig(&_RMNContract.TransactOpts, config)
+}
+
+func (_RMNContract *RMNContractTransactor) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
+	return _RMNContract.contract.Transact(opts, "transferOwnership", to)
+}
+
+func (_RMNContract *RMNContractSession) TransferOwnership(to common.Address) (*types.Transaction, error) {
+	return _RMNContract.Contract.TransferOwnership(&_RMNContract.TransactOpts, to)
+}
+
+func (_RMNContract *RMNContractTransactorSession) TransferOwnership(to common.Address) (*types.Transaction, error) {
+	return _RMNContract.Contract.TransferOwnership(&_RMNContract.TransactOpts, to)
+}
+
+func (_RMNContract *RMNContractTransactor) UnvoteToCurse(opts *bind.TransactOpts, unvoteToCurseRequests []RMNUnvoteToCurseRequest) (*types.Transaction, error) {
+	return _RMNContract.contract.Transact(opts, "unvoteToCurse", unvoteToCurseRequests)
+}
+
+func (_RMNContract *RMNContractSession) UnvoteToCurse(unvoteToCurseRequests []RMNUnvoteToCurseRequest) (*types.Transaction, error) {
+	return _RMNContract.Contract.UnvoteToCurse(&_RMNContract.TransactOpts, unvoteToCurseRequests)
+}
+
+func (_RMNContract *RMNContractTransactorSession) UnvoteToCurse(unvoteToCurseRequests []RMNUnvoteToCurseRequest) (*types.Transaction, error) {
+	return _RMNContract.Contract.UnvoteToCurse(&_RMNContract.TransactOpts, unvoteToCurseRequests)
+}
+
+func (_RMNContract *RMNContractTransactor) VoteToBless(opts *bind.TransactOpts, taggedRoots []IRMNTaggedRoot) (*types.Transaction, error) {
+	return _RMNContract.contract.Transact(opts, "voteToBless", taggedRoots)
+}
+
+func (_RMNContract *RMNContractSession) VoteToBless(taggedRoots []IRMNTaggedRoot) (*types.Transaction, error) {
+	return _RMNContract.Contract.VoteToBless(&_RMNContract.TransactOpts, taggedRoots)
+}
+
+func (_RMNContract *RMNContractTransactorSession) VoteToBless(taggedRoots []IRMNTaggedRoot) (*types.Transaction, error) {
+	return _RMNContract.Contract.VoteToBless(&_RMNContract.TransactOpts, taggedRoots)
+}
+
+func (_RMNContract *RMNContractTransactor) VoteToCurse(opts *bind.TransactOpts, curseId [16]byte, subjects [][16]byte) (*types.Transaction, error) {
+	return _RMNContract.contract.Transact(opts, "voteToCurse", curseId, subjects)
+}
+
+func (_RMNContract *RMNContractSession) VoteToCurse(curseId [16]byte, subjects [][16]byte) (*types.Transaction, error) {
+	return _RMNContract.Contract.VoteToCurse(&_RMNContract.TransactOpts, curseId, subjects)
+}
+
+func (_RMNContract *RMNContractTransactorSession) VoteToCurse(curseId [16]byte, subjects [][16]byte) (*types.Transaction, error) {
+	return _RMNContract.Contract.VoteToCurse(&_RMNContract.TransactOpts, curseId, subjects)
+}
+
+type RMNContractAlreadyBlessedIterator struct {
+	Event *RMNContractAlreadyBlessed
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *RMNContractAlreadyBlessedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RMNContractAlreadyBlessed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(RMNContractAlreadyBlessed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *RMNContractAlreadyBlessedIterator) Error() error {
+	return it.fail
+}
+
+func (it *RMNContractAlreadyBlessedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type RMNContractAlreadyBlessed struct {
+	ConfigVersion uint32
+	Voter         common.Address
+	TaggedRoot    IRMNTaggedRoot
+	Raw           types.Log
+}
+
+func (_RMNContract *RMNContractFilterer) FilterAlreadyBlessed(opts *bind.FilterOpts, configVersion []uint32, voter []common.Address) (*RMNContractAlreadyBlessedIterator, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.FilterLogs(opts, "AlreadyBlessed", configVersionRule, voterRule)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractAlreadyBlessedIterator{contract: _RMNContract.contract, event: "AlreadyBlessed", logs: logs, sub: sub}, nil
+}
+
+func (_RMNContract *RMNContractFilterer) WatchAlreadyBlessed(opts *bind.WatchOpts, sink chan<- *RMNContractAlreadyBlessed, configVersion []uint32, voter []common.Address) (event.Subscription, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.WatchLogs(opts, "AlreadyBlessed", configVersionRule, voterRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(RMNContractAlreadyBlessed)
+				if err := _RMNContract.contract.UnpackLog(event, "AlreadyBlessed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_RMNContract *RMNContractFilterer) ParseAlreadyBlessed(log types.Log) (*RMNContractAlreadyBlessed, error) {
+	event := new(RMNContractAlreadyBlessed)
+	if err := _RMNContract.contract.UnpackLog(event, "AlreadyBlessed", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type RMNContractAlreadyVotedToBlessIterator struct {
+	Event *RMNContractAlreadyVotedToBless
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *RMNContractAlreadyVotedToBlessIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RMNContractAlreadyVotedToBless)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(RMNContractAlreadyVotedToBless)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *RMNContractAlreadyVotedToBlessIterator) Error() error {
+	return it.fail
+}
+
+func (it *RMNContractAlreadyVotedToBlessIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type RMNContractAlreadyVotedToBless struct {
+	ConfigVersion uint32
+	Voter         common.Address
+	TaggedRoot    IRMNTaggedRoot
+	Raw           types.Log
+}
+
+func (_RMNContract *RMNContractFilterer) FilterAlreadyVotedToBless(opts *bind.FilterOpts, configVersion []uint32, voter []common.Address) (*RMNContractAlreadyVotedToBlessIterator, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.FilterLogs(opts, "AlreadyVotedToBless", configVersionRule, voterRule)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractAlreadyVotedToBlessIterator{contract: _RMNContract.contract, event: "AlreadyVotedToBless", logs: logs, sub: sub}, nil
+}
+
+func (_RMNContract *RMNContractFilterer) WatchAlreadyVotedToBless(opts *bind.WatchOpts, sink chan<- *RMNContractAlreadyVotedToBless, configVersion []uint32, voter []common.Address) (event.Subscription, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.WatchLogs(opts, "AlreadyVotedToBless", configVersionRule, voterRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(RMNContractAlreadyVotedToBless)
+				if err := _RMNContract.contract.UnpackLog(event, "AlreadyVotedToBless", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_RMNContract *RMNContractFilterer) ParseAlreadyVotedToBless(log types.Log) (*RMNContractAlreadyVotedToBless, error) {
+	event := new(RMNContractAlreadyVotedToBless)
+	if err := _RMNContract.contract.UnpackLog(event, "AlreadyVotedToBless", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type RMNContractConfigSetIterator struct {
+	Event *RMNContractConfigSet
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *RMNContractConfigSetIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RMNContractConfigSet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(RMNContractConfigSet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *RMNContractConfigSetIterator) Error() error {
+	return it.fail
+}
+
+func (it *RMNContractConfigSetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type RMNContractConfigSet struct {
+	ConfigVersion uint32
+	Config        RMNConfig
+	Raw           types.Log
+}
+
+func (_RMNContract *RMNContractFilterer) FilterConfigSet(opts *bind.FilterOpts, configVersion []uint32) (*RMNContractConfigSetIterator, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.FilterLogs(opts, "ConfigSet", configVersionRule)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractConfigSetIterator{contract: _RMNContract.contract, event: "ConfigSet", logs: logs, sub: sub}, nil
+}
+
+func (_RMNContract *RMNContractFilterer) WatchConfigSet(opts *bind.WatchOpts, sink chan<- *RMNContractConfigSet, configVersion []uint32) (event.Subscription, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.WatchLogs(opts, "ConfigSet", configVersionRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(RMNContractConfigSet)
+				if err := _RMNContract.contract.UnpackLog(event, "ConfigSet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_RMNContract *RMNContractFilterer) ParseConfigSet(log types.Log) (*RMNContractConfigSet, error) {
+	event := new(RMNContractConfigSet)
+	if err := _RMNContract.contract.UnpackLog(event, "ConfigSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type RMNContractCurseLiftedIterator struct {
+	Event *RMNContractCurseLifted
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *RMNContractCurseLiftedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RMNContractCurseLifted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(RMNContractCurseLifted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *RMNContractCurseLiftedIterator) Error() error {
+	return it.fail
+}
+
+func (it *RMNContractCurseLiftedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type RMNContractCurseLifted struct {
+	Subject [16]byte
+	Raw     types.Log
+}
+
+func (_RMNContract *RMNContractFilterer) FilterCurseLifted(opts *bind.FilterOpts) (*RMNContractCurseLiftedIterator, error) {
+
+	logs, sub, err := _RMNContract.contract.FilterLogs(opts, "CurseLifted")
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractCurseLiftedIterator{contract: _RMNContract.contract, event: "CurseLifted", logs: logs, sub: sub}, nil
+}
+
+func (_RMNContract *RMNContractFilterer) WatchCurseLifted(opts *bind.WatchOpts, sink chan<- *RMNContractCurseLifted) (event.Subscription, error) {
+
+	logs, sub, err := _RMNContract.contract.WatchLogs(opts, "CurseLifted")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(RMNContractCurseLifted)
+				if err := _RMNContract.contract.UnpackLog(event, "CurseLifted", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_RMNContract *RMNContractFilterer) ParseCurseLifted(log types.Log) (*RMNContractCurseLifted, error) {
+	event := new(RMNContractCurseLifted)
+	if err := _RMNContract.contract.UnpackLog(event, "CurseLifted", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type RMNContractCursedIterator struct {
+	Event *RMNContractCursed
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *RMNContractCursedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RMNContractCursed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(RMNContractCursed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *RMNContractCursedIterator) Error() error {
+	return it.fail
+}
+
+func (it *RMNContractCursedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type RMNContractCursed struct {
+	ConfigVersion  uint32
+	Subject        [16]byte
+	BlockTimestamp uint64
+	Raw            types.Log
+}
+
+func (_RMNContract *RMNContractFilterer) FilterCursed(opts *bind.FilterOpts, configVersion []uint32) (*RMNContractCursedIterator, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.FilterLogs(opts, "Cursed", configVersionRule)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractCursedIterator{contract: _RMNContract.contract, event: "Cursed", logs: logs, sub: sub}, nil
+}
+
+func (_RMNContract *RMNContractFilterer) WatchCursed(opts *bind.WatchOpts, sink chan<- *RMNContractCursed, configVersion []uint32) (event.Subscription, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.WatchLogs(opts, "Cursed", configVersionRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(RMNContractCursed)
+				if err := _RMNContract.contract.UnpackLog(event, "Cursed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_RMNContract *RMNContractFilterer) ParseCursed(log types.Log) (*RMNContractCursed, error) {
+	event := new(RMNContractCursed)
+	if err := _RMNContract.contract.UnpackLog(event, "Cursed", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type RMNContractOwnershipTransferRequestedIterator struct {
+	Event *RMNContractOwnershipTransferRequested
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *RMNContractOwnershipTransferRequestedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RMNContractOwnershipTransferRequested)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(RMNContractOwnershipTransferRequested)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *RMNContractOwnershipTransferRequestedIterator) Error() error {
+	return it.fail
+}
+
+func (it *RMNContractOwnershipTransferRequestedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type RMNContractOwnershipTransferRequested struct {
+	From common.Address
+	To   common.Address
+	Raw  types.Log
+}
+
+func (_RMNContract *RMNContractFilterer) FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*RMNContractOwnershipTransferRequestedIterator, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.FilterLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractOwnershipTransferRequestedIterator{contract: _RMNContract.contract, event: "OwnershipTransferRequested", logs: logs, sub: sub}, nil
+}
+
+func (_RMNContract *RMNContractFilterer) WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *RMNContractOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.WatchLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(RMNContractOwnershipTransferRequested)
+				if err := _RMNContract.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_RMNContract *RMNContractFilterer) ParseOwnershipTransferRequested(log types.Log) (*RMNContractOwnershipTransferRequested, error) {
+	event := new(RMNContractOwnershipTransferRequested)
+	if err := _RMNContract.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type RMNContractOwnershipTransferredIterator struct {
+	Event *RMNContractOwnershipTransferred
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *RMNContractOwnershipTransferredIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RMNContractOwnershipTransferred)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(RMNContractOwnershipTransferred)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *RMNContractOwnershipTransferredIterator) Error() error {
+	return it.fail
+}
+
+func (it *RMNContractOwnershipTransferredIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type RMNContractOwnershipTransferred struct {
+	From common.Address
+	To   common.Address
+	Raw  types.Log
+}
+
+func (_RMNContract *RMNContractFilterer) FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*RMNContractOwnershipTransferredIterator, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.FilterLogs(opts, "OwnershipTransferred", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractOwnershipTransferredIterator{contract: _RMNContract.contract, event: "OwnershipTransferred", logs: logs, sub: sub}, nil
+}
+
+func (_RMNContract *RMNContractFilterer) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *RMNContractOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.WatchLogs(opts, "OwnershipTransferred", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(RMNContractOwnershipTransferred)
+				if err := _RMNContract.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_RMNContract *RMNContractFilterer) ParseOwnershipTransferred(log types.Log) (*RMNContractOwnershipTransferred, error) {
+	event := new(RMNContractOwnershipTransferred)
+	if err := _RMNContract.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type RMNContractPermaBlessedCommitStoreAddedIterator struct {
+	Event *RMNContractPermaBlessedCommitStoreAdded
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *RMNContractPermaBlessedCommitStoreAddedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RMNContractPermaBlessedCommitStoreAdded)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(RMNContractPermaBlessedCommitStoreAdded)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *RMNContractPermaBlessedCommitStoreAddedIterator) Error() error {
+	return it.fail
+}
+
+func (it *RMNContractPermaBlessedCommitStoreAddedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type RMNContractPermaBlessedCommitStoreAdded struct {
+	CommitStore common.Address
+	Raw         types.Log
+}
+
+func (_RMNContract *RMNContractFilterer) FilterPermaBlessedCommitStoreAdded(opts *bind.FilterOpts) (*RMNContractPermaBlessedCommitStoreAddedIterator, error) {
+
+	logs, sub, err := _RMNContract.contract.FilterLogs(opts, "PermaBlessedCommitStoreAdded")
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractPermaBlessedCommitStoreAddedIterator{contract: _RMNContract.contract, event: "PermaBlessedCommitStoreAdded", logs: logs, sub: sub}, nil
+}
+
+func (_RMNContract *RMNContractFilterer) WatchPermaBlessedCommitStoreAdded(opts *bind.WatchOpts, sink chan<- *RMNContractPermaBlessedCommitStoreAdded) (event.Subscription, error) {
+
+	logs, sub, err := _RMNContract.contract.WatchLogs(opts, "PermaBlessedCommitStoreAdded")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(RMNContractPermaBlessedCommitStoreAdded)
+				if err := _RMNContract.contract.UnpackLog(event, "PermaBlessedCommitStoreAdded", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_RMNContract *RMNContractFilterer) ParsePermaBlessedCommitStoreAdded(log types.Log) (*RMNContractPermaBlessedCommitStoreAdded, error) {
+	event := new(RMNContractPermaBlessedCommitStoreAdded)
+	if err := _RMNContract.contract.UnpackLog(event, "PermaBlessedCommitStoreAdded", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type RMNContractPermaBlessedCommitStoreRemovedIterator struct {
+	Event *RMNContractPermaBlessedCommitStoreRemoved
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *RMNContractPermaBlessedCommitStoreRemovedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RMNContractPermaBlessedCommitStoreRemoved)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(RMNContractPermaBlessedCommitStoreRemoved)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *RMNContractPermaBlessedCommitStoreRemovedIterator) Error() error {
+	return it.fail
+}
+
+func (it *RMNContractPermaBlessedCommitStoreRemovedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type RMNContractPermaBlessedCommitStoreRemoved struct {
+	CommitStore common.Address
+	Raw         types.Log
+}
+
+func (_RMNContract *RMNContractFilterer) FilterPermaBlessedCommitStoreRemoved(opts *bind.FilterOpts) (*RMNContractPermaBlessedCommitStoreRemovedIterator, error) {
+
+	logs, sub, err := _RMNContract.contract.FilterLogs(opts, "PermaBlessedCommitStoreRemoved")
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractPermaBlessedCommitStoreRemovedIterator{contract: _RMNContract.contract, event: "PermaBlessedCommitStoreRemoved", logs: logs, sub: sub}, nil
+}
+
+func (_RMNContract *RMNContractFilterer) WatchPermaBlessedCommitStoreRemoved(opts *bind.WatchOpts, sink chan<- *RMNContractPermaBlessedCommitStoreRemoved) (event.Subscription, error) {
+
+	logs, sub, err := _RMNContract.contract.WatchLogs(opts, "PermaBlessedCommitStoreRemoved")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(RMNContractPermaBlessedCommitStoreRemoved)
+				if err := _RMNContract.contract.UnpackLog(event, "PermaBlessedCommitStoreRemoved", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_RMNContract *RMNContractFilterer) ParsePermaBlessedCommitStoreRemoved(log types.Log) (*RMNContractPermaBlessedCommitStoreRemoved, error) {
+	event := new(RMNContractPermaBlessedCommitStoreRemoved)
+	if err := _RMNContract.contract.UnpackLog(event, "PermaBlessedCommitStoreRemoved", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type RMNContractSkippedUnvoteToCurseIterator struct {
+	Event *RMNContractSkippedUnvoteToCurse
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *RMNContractSkippedUnvoteToCurseIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RMNContractSkippedUnvoteToCurse)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(RMNContractSkippedUnvoteToCurse)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *RMNContractSkippedUnvoteToCurseIterator) Error() error {
+	return it.fail
+}
+
+func (it *RMNContractSkippedUnvoteToCurseIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type RMNContractSkippedUnvoteToCurse struct {
+	Voter             common.Address
+	Subject           [16]byte
+	OnchainCursesHash [28]byte
+	CursesHash        [28]byte
+	Raw               types.Log
+}
+
+func (_RMNContract *RMNContractFilterer) FilterSkippedUnvoteToCurse(opts *bind.FilterOpts, voter []common.Address) (*RMNContractSkippedUnvoteToCurseIterator, error) {
+
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.FilterLogs(opts, "SkippedUnvoteToCurse", voterRule)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractSkippedUnvoteToCurseIterator{contract: _RMNContract.contract, event: "SkippedUnvoteToCurse", logs: logs, sub: sub}, nil
+}
+
+func (_RMNContract *RMNContractFilterer) WatchSkippedUnvoteToCurse(opts *bind.WatchOpts, sink chan<- *RMNContractSkippedUnvoteToCurse, voter []common.Address) (event.Subscription, error) {
+
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.WatchLogs(opts, "SkippedUnvoteToCurse", voterRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(RMNContractSkippedUnvoteToCurse)
+				if err := _RMNContract.contract.UnpackLog(event, "SkippedUnvoteToCurse", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_RMNContract *RMNContractFilterer) ParseSkippedUnvoteToCurse(log types.Log) (*RMNContractSkippedUnvoteToCurse, error) {
+	event := new(RMNContractSkippedUnvoteToCurse)
+	if err := _RMNContract.contract.UnpackLog(event, "SkippedUnvoteToCurse", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type RMNContractTaggedRootBlessVotesResetIterator struct {
+	Event *RMNContractTaggedRootBlessVotesReset
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *RMNContractTaggedRootBlessVotesResetIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RMNContractTaggedRootBlessVotesReset)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(RMNContractTaggedRootBlessVotesReset)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *RMNContractTaggedRootBlessVotesResetIterator) Error() error {
+	return it.fail
+}
+
+func (it *RMNContractTaggedRootBlessVotesResetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type RMNContractTaggedRootBlessVotesReset struct {
+	ConfigVersion uint32
+	TaggedRoot    IRMNTaggedRoot
+	WasBlessed    bool
+	Raw           types.Log
+}
+
+func (_RMNContract *RMNContractFilterer) FilterTaggedRootBlessVotesReset(opts *bind.FilterOpts, configVersion []uint32) (*RMNContractTaggedRootBlessVotesResetIterator, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.FilterLogs(opts, "TaggedRootBlessVotesReset", configVersionRule)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractTaggedRootBlessVotesResetIterator{contract: _RMNContract.contract, event: "TaggedRootBlessVotesReset", logs: logs, sub: sub}, nil
+}
+
+func (_RMNContract *RMNContractFilterer) WatchTaggedRootBlessVotesReset(opts *bind.WatchOpts, sink chan<- *RMNContractTaggedRootBlessVotesReset, configVersion []uint32) (event.Subscription, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.WatchLogs(opts, "TaggedRootBlessVotesReset", configVersionRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(RMNContractTaggedRootBlessVotesReset)
+				if err := _RMNContract.contract.UnpackLog(event, "TaggedRootBlessVotesReset", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_RMNContract *RMNContractFilterer) ParseTaggedRootBlessVotesReset(log types.Log) (*RMNContractTaggedRootBlessVotesReset, error) {
+	event := new(RMNContractTaggedRootBlessVotesReset)
+	if err := _RMNContract.contract.UnpackLog(event, "TaggedRootBlessVotesReset", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type RMNContractTaggedRootBlessedIterator struct {
+	Event *RMNContractTaggedRootBlessed
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *RMNContractTaggedRootBlessedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RMNContractTaggedRootBlessed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(RMNContractTaggedRootBlessed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *RMNContractTaggedRootBlessedIterator) Error() error {
+	return it.fail
+}
+
+func (it *RMNContractTaggedRootBlessedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type RMNContractTaggedRootBlessed struct {
+	ConfigVersion     uint32
+	TaggedRoot        IRMNTaggedRoot
+	AccumulatedWeight uint16
+	Raw               types.Log
+}
+
+func (_RMNContract *RMNContractFilterer) FilterTaggedRootBlessed(opts *bind.FilterOpts, configVersion []uint32) (*RMNContractTaggedRootBlessedIterator, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.FilterLogs(opts, "TaggedRootBlessed", configVersionRule)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractTaggedRootBlessedIterator{contract: _RMNContract.contract, event: "TaggedRootBlessed", logs: logs, sub: sub}, nil
+}
+
+func (_RMNContract *RMNContractFilterer) WatchTaggedRootBlessed(opts *bind.WatchOpts, sink chan<- *RMNContractTaggedRootBlessed, configVersion []uint32) (event.Subscription, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.WatchLogs(opts, "TaggedRootBlessed", configVersionRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(RMNContractTaggedRootBlessed)
+				if err := _RMNContract.contract.UnpackLog(event, "TaggedRootBlessed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_RMNContract *RMNContractFilterer) ParseTaggedRootBlessed(log types.Log) (*RMNContractTaggedRootBlessed, error) {
+	event := new(RMNContractTaggedRootBlessed)
+	if err := _RMNContract.contract.UnpackLog(event, "TaggedRootBlessed", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type RMNContractUnvotedToCurseIterator struct {
+	Event *RMNContractUnvotedToCurse
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *RMNContractUnvotedToCurseIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RMNContractUnvotedToCurse)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(RMNContractUnvotedToCurse)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *RMNContractUnvotedToCurseIterator) Error() error {
+	return it.fail
+}
+
+func (it *RMNContractUnvotedToCurseIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type RMNContractUnvotedToCurse struct {
+	ConfigVersion              uint32
+	Voter                      common.Address
+	Subject                    [16]byte
+	Weight                     uint8
+	CursesHash                 [28]byte
+	RemainingAccumulatedWeight uint16
+	Raw                        types.Log
+}
+
+func (_RMNContract *RMNContractFilterer) FilterUnvotedToCurse(opts *bind.FilterOpts, configVersion []uint32, voter []common.Address) (*RMNContractUnvotedToCurseIterator, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.FilterLogs(opts, "UnvotedToCurse", configVersionRule, voterRule)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractUnvotedToCurseIterator{contract: _RMNContract.contract, event: "UnvotedToCurse", logs: logs, sub: sub}, nil
+}
+
+func (_RMNContract *RMNContractFilterer) WatchUnvotedToCurse(opts *bind.WatchOpts, sink chan<- *RMNContractUnvotedToCurse, configVersion []uint32, voter []common.Address) (event.Subscription, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.WatchLogs(opts, "UnvotedToCurse", configVersionRule, voterRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(RMNContractUnvotedToCurse)
+				if err := _RMNContract.contract.UnpackLog(event, "UnvotedToCurse", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_RMNContract *RMNContractFilterer) ParseUnvotedToCurse(log types.Log) (*RMNContractUnvotedToCurse, error) {
+	event := new(RMNContractUnvotedToCurse)
+	if err := _RMNContract.contract.UnpackLog(event, "UnvotedToCurse", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type RMNContractVotedToBlessIterator struct {
+	Event *RMNContractVotedToBless
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *RMNContractVotedToBlessIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RMNContractVotedToBless)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(RMNContractVotedToBless)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *RMNContractVotedToBlessIterator) Error() error {
+	return it.fail
+}
+
+func (it *RMNContractVotedToBlessIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type RMNContractVotedToBless struct {
+	ConfigVersion uint32
+	Voter         common.Address
+	TaggedRoot    IRMNTaggedRoot
+	Weight        uint8
+	Raw           types.Log
+}
+
+func (_RMNContract *RMNContractFilterer) FilterVotedToBless(opts *bind.FilterOpts, configVersion []uint32, voter []common.Address) (*RMNContractVotedToBlessIterator, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.FilterLogs(opts, "VotedToBless", configVersionRule, voterRule)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractVotedToBlessIterator{contract: _RMNContract.contract, event: "VotedToBless", logs: logs, sub: sub}, nil
+}
+
+func (_RMNContract *RMNContractFilterer) WatchVotedToBless(opts *bind.WatchOpts, sink chan<- *RMNContractVotedToBless, configVersion []uint32, voter []common.Address) (event.Subscription, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.WatchLogs(opts, "VotedToBless", configVersionRule, voterRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(RMNContractVotedToBless)
+				if err := _RMNContract.contract.UnpackLog(event, "VotedToBless", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_RMNContract *RMNContractFilterer) ParseVotedToBless(log types.Log) (*RMNContractVotedToBless, error) {
+	event := new(RMNContractVotedToBless)
+	if err := _RMNContract.contract.UnpackLog(event, "VotedToBless", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type RMNContractVotedToCurseIterator struct {
+	Event *RMNContractVotedToCurse
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *RMNContractVotedToCurseIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RMNContractVotedToCurse)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(RMNContractVotedToCurse)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *RMNContractVotedToCurseIterator) Error() error {
+	return it.fail
+}
+
+func (it *RMNContractVotedToCurseIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type RMNContractVotedToCurse struct {
+	ConfigVersion     uint32
+	Voter             common.Address
+	Subject           [16]byte
+	CurseId           [16]byte
+	Weight            uint8
+	BlockTimestamp    uint64
+	CursesHash        [28]byte
+	AccumulatedWeight uint16
+	Raw               types.Log
+}
+
+func (_RMNContract *RMNContractFilterer) FilterVotedToCurse(opts *bind.FilterOpts, configVersion []uint32, voter []common.Address) (*RMNContractVotedToCurseIterator, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.FilterLogs(opts, "VotedToCurse", configVersionRule, voterRule)
+	if err != nil {
+		return nil, err
+	}
+	return &RMNContractVotedToCurseIterator{contract: _RMNContract.contract, event: "VotedToCurse", logs: logs, sub: sub}, nil
+}
+
+func (_RMNContract *RMNContractFilterer) WatchVotedToCurse(opts *bind.WatchOpts, sink chan<- *RMNContractVotedToCurse, configVersion []uint32, voter []common.Address) (event.Subscription, error) {
+
+	var configVersionRule []interface{}
+	for _, configVersionItem := range configVersion {
+		configVersionRule = append(configVersionRule, configVersionItem)
+	}
+	var voterRule []interface{}
+	for _, voterItem := range voter {
+		voterRule = append(voterRule, voterItem)
+	}
+
+	logs, sub, err := _RMNContract.contract.WatchLogs(opts, "VotedToCurse", configVersionRule, voterRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(RMNContractVotedToCurse)
+				if err := _RMNContract.contract.UnpackLog(event, "VotedToCurse", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_RMNContract *RMNContractFilterer) ParseVotedToCurse(log types.Log) (*RMNContractVotedToCurse, error) {
+	event := new(RMNContractVotedToCurse)
+	if err := _RMNContract.contract.UnpackLog(event, "VotedToCurse", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type GetBlessProgress struct {
+	BlessVoteAddrs    []common.Address
+	AccumulatedWeight uint16
+	Blessed           bool
+}
+type GetConfigDetails struct {
+	Version     uint32
+	BlockNumber uint32
+	Config      RMNConfig
+}
+type GetCurseProgress struct {
+	CurseVoteAddrs    []common.Address
+	CursesHashes      [][28]byte
+	AccumulatedWeight uint16
+	Cursed            bool
+}
+
+func (_RMNContract *RMNContract) ParseLog(log types.Log) (generated.AbigenLog, error) {
+	switch log.Topics[0] {
+	case _RMNContract.abi.Events["AlreadyBlessed"].ID:
+		return _RMNContract.ParseAlreadyBlessed(log)
+	case _RMNContract.abi.Events["AlreadyVotedToBless"].ID:
+		return _RMNContract.ParseAlreadyVotedToBless(log)
+	case _RMNContract.abi.Events["ConfigSet"].ID:
+		return _RMNContract.ParseConfigSet(log)
+	case _RMNContract.abi.Events["CurseLifted"].ID:
+		return _RMNContract.ParseCurseLifted(log)
+	case _RMNContract.abi.Events["Cursed"].ID:
+		return _RMNContract.ParseCursed(log)
+	case _RMNContract.abi.Events["OwnershipTransferRequested"].ID:
+		return _RMNContract.ParseOwnershipTransferRequested(log)
+	case _RMNContract.abi.Events["OwnershipTransferred"].ID:
+		return _RMNContract.ParseOwnershipTransferred(log)
+	case _RMNContract.abi.Events["PermaBlessedCommitStoreAdded"].ID:
+		return _RMNContract.ParsePermaBlessedCommitStoreAdded(log)
+	case _RMNContract.abi.Events["PermaBlessedCommitStoreRemoved"].ID:
+		return _RMNContract.ParsePermaBlessedCommitStoreRemoved(log)
+	case _RMNContract.abi.Events["SkippedUnvoteToCurse"].ID:
+		return _RMNContract.ParseSkippedUnvoteToCurse(log)
+	case _RMNContract.abi.Events["TaggedRootBlessVotesReset"].ID:
+		return _RMNContract.ParseTaggedRootBlessVotesReset(log)
+	case _RMNContract.abi.Events["TaggedRootBlessed"].ID:
+		return _RMNContract.ParseTaggedRootBlessed(log)
+	case _RMNContract.abi.Events["UnvotedToCurse"].ID:
+		return _RMNContract.ParseUnvotedToCurse(log)
+	case _RMNContract.abi.Events["VotedToBless"].ID:
+		return _RMNContract.ParseVotedToBless(log)
+	case _RMNContract.abi.Events["VotedToCurse"].ID:
+		return _RMNContract.ParseVotedToCurse(log)
+
+	default:
+		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
+	}
+}
+
+func (RMNContractAlreadyBlessed) Topic() common.Hash {
+	return common.HexToHash("0x274d6d5b916b0a53974b7ab86c844b97a2e03a60f658cd9a4b1c028b604d7bf1")
+}
+
+func (RMNContractAlreadyVotedToBless) Topic() common.Hash {
+	return common.HexToHash("0x6dfbb745226fa630aeb1b9557d17d508ddb789a04f0cb873ec16e58beb8beead")
+}
+
+func (RMNContractConfigSet) Topic() common.Hash {
+	return common.HexToHash("0x8c49fda8177c5c8c768eb39634bc6773695c7181711537b822451c12b2efd2a9")
+}
+
+func (RMNContractCurseLifted) Topic() common.Hash {
+	return common.HexToHash("0x65d0e78c3625f0956f58610cf0fb157eaf627683258875ef29af2f71d25ac8fd")
+}
+
+func (RMNContractCursed) Topic() common.Hash {
+	return common.HexToHash("0xcfdbfd8ce9a56b5f7c202c0e102184d24f47ca87121dc165063fc4c290957bde")
+}
+
+func (RMNContractOwnershipTransferRequested) Topic() common.Hash {
+	return common.HexToHash("0xed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae1278")
+}
+
+func (RMNContractOwnershipTransferred) Topic() common.Hash {
+	return common.HexToHash("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0")
+}
+
+func (RMNContractPermaBlessedCommitStoreAdded) Topic() common.Hash {
+	return common.HexToHash("0x66b4b4752c65ae8cd2f3a0a48c7dc8b2118c60d5ea15514992eb2ddf56c9cb15")
+}
+
+func (RMNContractPermaBlessedCommitStoreRemoved) Topic() common.Hash {
+	return common.HexToHash("0xdca892154bbc36d0c05ccd01b3d0411875cb1b841fcdeebb384e5d0d6eb06b44")
+}
+
+func (RMNContractSkippedUnvoteToCurse) Topic() common.Hash {
+	return common.HexToHash("0xbabb0d7099e6ca14a29fad2a2cfb4fda2bd30f97cb3c27e546174bfb4277c1cc")
+}
+
+func (RMNContractTaggedRootBlessVotesReset) Topic() common.Hash {
+	return common.HexToHash("0x7d15a6eebaa019ea7d5b7d38937c51ebd3befbfdf51bb630a694fd28635bbcba")
+}
+
+func (RMNContractTaggedRootBlessed) Topic() common.Hash {
+	return common.HexToHash("0x8257378aa73bf8e4ada848713526584a3dcee0fd3db3beed7397f7a7f5067cc9")
+}
+
+func (RMNContractUnvotedToCurse) Topic() common.Hash {
+	return common.HexToHash("0xa96a155bd67c927a6c056befbd979b78465e2b2f1276bf7d4e90a31d4f430aa8")
+}
+
+func (RMNContractVotedToBless) Topic() common.Hash {
+	return common.HexToHash("0x2a08a2bd2798f0aae9a843f0f4ad4de488c1b3d5f04049940cfed736ad69fb97")
+}
+
+func (RMNContractVotedToCurse) Topic() common.Hash {
+	return common.HexToHash("0x8137bc8a8d712aaa27bfc6506d5566ac405618bd53f9831b8ca6b6fe5442ee7a")
+}
+
+func (_RMNContract *RMNContract) Address() common.Address {
+	return _RMNContract.address
+}
+
+type RMNContractInterface interface {
+	GetBlessProgress(opts *bind.CallOpts, taggedRoot IRMNTaggedRoot) (GetBlessProgress,
+
+		error)
+
+	GetConfigDetails(opts *bind.CallOpts) (GetConfigDetails,
+
+		error)
+
+	GetCurseProgress(opts *bind.CallOpts, subject [16]byte) (GetCurseProgress,
+
+		error)
+
+	GetCursedSubjectsCount(opts *bind.CallOpts) (*big.Int, error)
+
+	GetPermaBlessedCommitStores(opts *bind.CallOpts) ([]common.Address, error)
+
+	GetRecordedCurseRelatedOps(opts *bind.CallOpts, offset *big.Int, limit *big.Int) ([]RMNRecordedCurseRelatedOp, error)
+
+	GetRecordedCurseRelatedOpsCount(opts *bind.CallOpts) (*big.Int, error)
+
+	IsBlessed(opts *bind.CallOpts, taggedRoot IRMNTaggedRoot) (bool, error)
+
+	IsCursed(opts *bind.CallOpts, subject [16]byte) (bool, error)
+
+	IsCursed0(opts *bind.CallOpts) (bool, error)
+
+	Owner(opts *bind.CallOpts) (common.Address, error)
+
+	TypeAndVersion(opts *bind.CallOpts) (string, error)
+
+	AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error)
+
+	OwnerCurse(opts *bind.TransactOpts, curseId [16]byte, subjects [][16]byte) (*types.Transaction, error)
+
+	OwnerRemoveThenAddPermaBlessedCommitStores(opts *bind.TransactOpts, removes []common.Address, adds []common.Address) (*types.Transaction, error)
+
+	OwnerResetBlessVotes(opts *bind.TransactOpts, taggedRoots []IRMNTaggedRoot) (*types.Transaction, error)
+
+	OwnerUnvoteToCurse(opts *bind.TransactOpts, ownerUnvoteToCurseRequests []RMNOwnerUnvoteToCurseRequest) (*types.Transaction, error)
+
+	SetConfig(opts *bind.TransactOpts, config RMNConfig) (*types.Transaction, error)
+
+	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
+
+	UnvoteToCurse(opts *bind.TransactOpts, unvoteToCurseRequests []RMNUnvoteToCurseRequest) (*types.Transaction, error)
+
+	VoteToBless(opts *bind.TransactOpts, taggedRoots []IRMNTaggedRoot) (*types.Transaction, error)
+
+	VoteToCurse(opts *bind.TransactOpts, curseId [16]byte, subjects [][16]byte) (*types.Transaction, error)
+
+	FilterAlreadyBlessed(opts *bind.FilterOpts, configVersion []uint32, voter []common.Address) (*RMNContractAlreadyBlessedIterator, error)
+
+	WatchAlreadyBlessed(opts *bind.WatchOpts, sink chan<- *RMNContractAlreadyBlessed, configVersion []uint32, voter []common.Address) (event.Subscription, error)
+
+	ParseAlreadyBlessed(log types.Log) (*RMNContractAlreadyBlessed, error)
+
+	FilterAlreadyVotedToBless(opts *bind.FilterOpts, configVersion []uint32, voter []common.Address) (*RMNContractAlreadyVotedToBlessIterator, error)
+
+	WatchAlreadyVotedToBless(opts *bind.WatchOpts, sink chan<- *RMNContractAlreadyVotedToBless, configVersion []uint32, voter []common.Address) (event.Subscription, error)
+
+	ParseAlreadyVotedToBless(log types.Log) (*RMNContractAlreadyVotedToBless, error)
+
+	FilterConfigSet(opts *bind.FilterOpts, configVersion []uint32) (*RMNContractConfigSetIterator, error)
+
+	WatchConfigSet(opts *bind.WatchOpts, sink chan<- *RMNContractConfigSet, configVersion []uint32) (event.Subscription, error)
+
+	ParseConfigSet(log types.Log) (*RMNContractConfigSet, error)
+
+	FilterCurseLifted(opts *bind.FilterOpts) (*RMNContractCurseLiftedIterator, error)
+
+	WatchCurseLifted(opts *bind.WatchOpts, sink chan<- *RMNContractCurseLifted) (event.Subscription, error)
+
+	ParseCurseLifted(log types.Log) (*RMNContractCurseLifted, error)
+
+	FilterCursed(opts *bind.FilterOpts, configVersion []uint32) (*RMNContractCursedIterator, error)
+
+	WatchCursed(opts *bind.WatchOpts, sink chan<- *RMNContractCursed, configVersion []uint32) (event.Subscription, error)
+
+	ParseCursed(log types.Log) (*RMNContractCursed, error)
+
+	FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*RMNContractOwnershipTransferRequestedIterator, error)
+
+	WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *RMNContractOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error)
+
+	ParseOwnershipTransferRequested(log types.Log) (*RMNContractOwnershipTransferRequested, error)
+
+	FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*RMNContractOwnershipTransferredIterator, error)
+
+	WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *RMNContractOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error)
+
+	ParseOwnershipTransferred(log types.Log) (*RMNContractOwnershipTransferred, error)
+
+	FilterPermaBlessedCommitStoreAdded(opts *bind.FilterOpts) (*RMNContractPermaBlessedCommitStoreAddedIterator, error)
+
+	WatchPermaBlessedCommitStoreAdded(opts *bind.WatchOpts, sink chan<- *RMNContractPermaBlessedCommitStoreAdded) (event.Subscription, error)
+
+	ParsePermaBlessedCommitStoreAdded(log types.Log) (*RMNContractPermaBlessedCommitStoreAdded, error)
+
+	FilterPermaBlessedCommitStoreRemoved(opts *bind.FilterOpts) (*RMNContractPermaBlessedCommitStoreRemovedIterator, error)
+
+	WatchPermaBlessedCommitStoreRemoved(opts *bind.WatchOpts, sink chan<- *RMNContractPermaBlessedCommitStoreRemoved) (event.Subscription, error)
+
+	ParsePermaBlessedCommitStoreRemoved(log types.Log) (*RMNContractPermaBlessedCommitStoreRemoved, error)
+
+	FilterSkippedUnvoteToCurse(opts *bind.FilterOpts, voter []common.Address) (*RMNContractSkippedUnvoteToCurseIterator, error)
+
+	WatchSkippedUnvoteToCurse(opts *bind.WatchOpts, sink chan<- *RMNContractSkippedUnvoteToCurse, voter []common.Address) (event.Subscription, error)
+
+	ParseSkippedUnvoteToCurse(log types.Log) (*RMNContractSkippedUnvoteToCurse, error)
+
+	FilterTaggedRootBlessVotesReset(opts *bind.FilterOpts, configVersion []uint32) (*RMNContractTaggedRootBlessVotesResetIterator, error)
+
+	WatchTaggedRootBlessVotesReset(opts *bind.WatchOpts, sink chan<- *RMNContractTaggedRootBlessVotesReset, configVersion []uint32) (event.Subscription, error)
+
+	ParseTaggedRootBlessVotesReset(log types.Log) (*RMNContractTaggedRootBlessVotesReset, error)
+
+	FilterTaggedRootBlessed(opts *bind.FilterOpts, configVersion []uint32) (*RMNContractTaggedRootBlessedIterator, error)
+
+	WatchTaggedRootBlessed(opts *bind.WatchOpts, sink chan<- *RMNContractTaggedRootBlessed, configVersion []uint32) (event.Subscription, error)
+
+	ParseTaggedRootBlessed(log types.Log) (*RMNContractTaggedRootBlessed, error)
+
+	FilterUnvotedToCurse(opts *bind.FilterOpts, configVersion []uint32, voter []common.Address) (*RMNContractUnvotedToCurseIterator, error)
+
+	WatchUnvotedToCurse(opts *bind.WatchOpts, sink chan<- *RMNContractUnvotedToCurse, configVersion []uint32, voter []common.Address) (event.Subscription, error)
+
+	ParseUnvotedToCurse(log types.Log) (*RMNContractUnvotedToCurse, error)
+
+	FilterVotedToBless(opts *bind.FilterOpts, configVersion []uint32, voter []common.Address) (*RMNContractVotedToBlessIterator, error)
+
+	WatchVotedToBless(opts *bind.WatchOpts, sink chan<- *RMNContractVotedToBless, configVersion []uint32, voter []common.Address) (event.Subscription, error)
+
+	ParseVotedToBless(log types.Log) (*RMNContractVotedToBless, error)
+
+	FilterVotedToCurse(opts *bind.FilterOpts, configVersion []uint32, voter []common.Address) (*RMNContractVotedToCurseIterator, error)
+
+	WatchVotedToCurse(opts *bind.WatchOpts, sink chan<- *RMNContractVotedToCurse, configVersion []uint32, voter []common.Address) (event.Subscription, error)
+
+	ParseVotedToCurse(log types.Log) (*RMNContractVotedToCurse, error)
+
+	ParseLog(log types.Log) (generated.AbigenLog, error)
+
+	Address() common.Address
+}

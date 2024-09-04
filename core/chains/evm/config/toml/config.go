@@ -521,6 +521,7 @@ func (a *Automation) setFrom(f *Automation) {
 type Workflow struct {
 	FromAddress      *types.EIP55Address `toml:",omitempty"`
 	ForwarderAddress *types.EIP55Address `toml:",omitempty"`
+	GasLimitDefault  *uint64
 }
 
 func (m *Workflow) setFrom(f *Workflow) {
@@ -529,6 +530,10 @@ func (m *Workflow) setFrom(f *Workflow) {
 	}
 	if v := f.ForwarderAddress; v != nil {
 		m.ForwarderAddress = v
+	}
+
+	if v := f.GasLimitDefault; v != nil {
+		m.GasLimitDefault = v
 	}
 }
 
@@ -554,6 +559,7 @@ type GasEstimator struct {
 	LimitMultiplier *decimal.Decimal
 	LimitTransfer   *uint64
 	LimitJobType    GasLimitJobType `toml:",omitempty"`
+	EstimateLimit   *bool
 
 	BumpMin       *assets.Wei
 	BumpPercent   *uint16
@@ -567,6 +573,7 @@ type GasEstimator struct {
 	TipCapMin     *assets.Wei
 
 	BlockHistory BlockHistoryEstimator `toml:",omitempty"`
+	FeeHistory   FeeHistoryEstimator   `toml:",omitempty"`
 }
 
 func (e *GasEstimator) ValidateConfig() (err error) {
@@ -641,6 +648,9 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	if v := f.LimitTransfer; v != nil {
 		e.LimitTransfer = v
 	}
+	if v := f.EstimateLimit; v != nil {
+		e.EstimateLimit = v
+	}
 	if v := f.PriceDefault; v != nil {
 		e.PriceDefault = v
 	}
@@ -658,6 +668,7 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	}
 	e.LimitJobType.setFrom(&f.LimitJobType)
 	e.BlockHistory.setFrom(&f.BlockHistory)
+	e.FeeHistory.setFrom(&f.FeeHistory)
 }
 
 type GasLimitJobType struct {
@@ -717,6 +728,16 @@ func (e *BlockHistoryEstimator) setFrom(f *BlockHistoryEstimator) {
 	}
 	if v := f.TransactionPercentile; v != nil {
 		e.TransactionPercentile = v
+	}
+}
+
+type FeeHistoryEstimator struct {
+	CacheTimeout *commonconfig.Duration
+}
+
+func (u *FeeHistoryEstimator) setFrom(f *FeeHistoryEstimator) {
+	if v := f.CacheTimeout; v != nil {
+		u.CacheTimeout = v
 	}
 }
 
@@ -800,6 +821,7 @@ type ClientErrors struct {
 	TransactionAlreadyMined           *string `toml:",omitempty"`
 	Fatal                             *string `toml:",omitempty"`
 	ServiceUnavailable                *string `toml:",omitempty"`
+	TooManyResults                    *string `toml:",omitempty"`
 }
 
 func (r *ClientErrors) setFrom(f *ClientErrors) bool {
@@ -844,6 +866,9 @@ func (r *ClientErrors) setFrom(f *ClientErrors) bool {
 	}
 	if v := f.ServiceUnavailable; v != nil {
 		r.ServiceUnavailable = v
+	}
+	if v := f.TooManyResults; v != nil {
+		r.TooManyResults = v
 	}
 	return true
 }

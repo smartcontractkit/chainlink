@@ -66,13 +66,6 @@ func TestIntegration_CCIP(t *testing.T) {
 				require.NoError(t, err)
 				ccipTH.Source.Chain.Commit()
 
-				aggSrcLnkAddr, _, aggSrcLnk, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Source.User, ccipTH.Source.Chain, 18, big.NewInt(3e18))
-				require.NoError(t, err)
-				ccipTH.Dest.Chain.Commit()
-				_, err = aggSrcLnk.UpdateRoundData(ccipTH.Source.User, big.NewInt(50), big.NewInt(8000000), big.NewInt(1000), big.NewInt(1000))
-				require.NoError(t, err)
-				ccipTH.Source.Chain.Commit()
-
 				aggDstLnkAddr, _, aggDstLnk, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Dest.User, ccipTH.Dest.Chain, 18, big.NewInt(3e18))
 				require.NoError(t, err)
 				ccipTH.Dest.Chain.Commit()
@@ -82,10 +75,6 @@ func TestIntegration_CCIP(t *testing.T) {
 
 				priceGetterConfig := config.DynamicPriceGetterConfig{
 					AggregatorPrices: map[common.Address]config.AggregatorPriceConfig{
-						ccipTH.Source.LinkToken.Address(): {
-							ChainID:                   ccipTH.Source.ChainID,
-							AggregatorContractAddress: aggSrcLnkAddr,
-						},
 						ccipTH.Source.WrappedNative.Address(): {
 							ChainID:                   ccipTH.Source.ChainID,
 							AggregatorContractAddress: aggSrcNatAddr,
@@ -629,8 +618,6 @@ func TestIntegration_CCIP(t *testing.T) {
 						PriceRegistry:                           ccipTH.Dest.PriceRegistry.Address(),
 						MaxDataBytes:                            1e5,
 						MaxNumberOfTokensPerMsg:                 5,
-						MaxPoolReleaseOrMintGas:                 200_000,
-						MaxTokenTransferGas:                     100_000,
 					})
 					node.EventuallyNodeUsesUpdatedPriceRegistry(t, ccipTH)
 				}

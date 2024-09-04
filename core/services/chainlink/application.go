@@ -213,7 +213,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), opts.DS, globalLogger)
 			signer := externalPeer
 			externalPeerWrapper = externalPeer
-			remoteDispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
+			remoteDispatcher, err := remote.NewDispatcher(cfg.Capabilities().Dispatcher(), externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
+			if err != nil {
+				return nil, fmt.Errorf("could not create dispatcher: %w", err)
+			}
 			dispatcher = remoteDispatcher
 		} else {
 			dispatcher = opts.CapabilitiesDispatcher
@@ -257,6 +260,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 			srvcs = append(srvcs, wfLauncher, registrySyncer)
 		}
+	} else {
+		globalLogger.Debug("External registry not configured, skipping registry syncer and starting with an empty registry")
+		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
@@ -368,7 +374,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	for i, chain := range legacyEVMChains.Slice() {
 		chainIDs[i] = chain.ID()
 	}
-	telemReporter := headreporter.NewTelemetryReporter(telemetryManager, chainIDs...)
+	telemReporter := headreporter.NewTelemetryReporter(telemetryManager, globalLogger, chainIDs...)
 	headReporter := headreporter.NewHeadReporterService(opts.DS, globalLogger, promReporter, telemReporter)
 	srvcs = append(srvcs, headReporter)
 	for _, chain := range legacyEVMChains.Slice() {
@@ -571,6 +577,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			jobSpawner,
 			keyStore,
 			cfg,
+			cfg.Feature(),
 			cfg.Insecure(),
 			cfg.JobPipeline(),
 			cfg.OCR(),

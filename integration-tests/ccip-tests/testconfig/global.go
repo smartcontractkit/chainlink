@@ -12,7 +12,8 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -174,6 +175,36 @@ type Common struct {
 func (p *Common) ReadFromEnvVar() error {
 	logger := logging.GetTestLogger(nil)
 
+	testLogCollect := ctfconfig.MustReadEnvVar_Boolean(ctfconfig.E2E_TEST_LOG_COLLECT_ENV)
+	if testLogCollect != nil {
+		if p.Logging == nil {
+			p.Logging = &ctfconfig.LoggingConfig{}
+		}
+		logger.Debug().Msgf("Using %s env var to override Logging.TestLogCollect", ctfconfig.E2E_TEST_LOG_COLLECT_ENV)
+		p.Logging.TestLogCollect = testLogCollect
+	}
+
+	loggingRunID := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_LOGGING_RUN_ID_ENV)
+	if loggingRunID != "" {
+		if p.Logging == nil {
+			p.Logging = &ctfconfig.LoggingConfig{}
+		}
+		logger.Debug().Msgf("Using %s env var to override Logging.RunID", ctfconfig.E2E_TEST_LOGGING_RUN_ID_ENV)
+		p.Logging.RunId = &loggingRunID
+	}
+
+	logstreamLogTargets := ctfconfig.MustReadEnvVar_Strings(ctfconfig.E2E_TEST_LOG_STREAM_LOG_TARGETS_ENV, ",")
+	if len(logstreamLogTargets) > 0 {
+		if p.Logging == nil {
+			p.Logging = &ctfconfig.LoggingConfig{}
+		}
+		if p.Logging.LogStream == nil {
+			p.Logging.LogStream = &ctfconfig.LogStreamConfig{}
+		}
+		logger.Debug().Msgf("Using %s env var to override Logging.LogStream.LogTargets", ctfconfig.E2E_TEST_LOG_STREAM_LOG_TARGETS_ENV)
+		p.Logging.LogStream.LogTargets = logstreamLogTargets
+	}
+
 	lokiTenantID := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_LOKI_TENANT_ID_ENV)
 	if lokiTenantID != "" {
 		if p.Logging == nil {
@@ -258,6 +289,15 @@ func (p *Common) ReadFromEnvVar() error {
 		p.Logging.Grafana.BearerToken = &grafanaBearerToken
 	}
 
+	selectedNetworks := ctfconfig.MustReadEnvVar_Strings(ctfconfig.E2E_TEST_SELECTED_NETWORK_ENV, ",")
+	if len(selectedNetworks) > 0 {
+		if p.Network == nil {
+			p.Network = &ctfconfig.NetworkConfig{}
+		}
+		logger.Debug().Msgf("Using %s env var to override Network.SelectedNetworks", ctfconfig.E2E_TEST_SELECTED_NETWORK_ENV)
+		p.Network.SelectedNetworks = selectedNetworks
+	}
+
 	walletKeys := ctfconfig.ReadEnvVarGroupedMap(ctfconfig.E2E_TEST_WALLET_KEY_ENV, ctfconfig.E2E_TEST_WALLET_KEYS_ENV)
 	if len(walletKeys) > 0 {
 		if p.Network == nil {
@@ -301,6 +341,38 @@ func (p *Common) ReadFromEnvVar() error {
 		p.NewCLCluster.Common.ChainlinkImage.Image = &chainlinkImage
 	}
 
+	chainlinkVersion := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV)
+	if chainlinkVersion != "" {
+		if p.NewCLCluster == nil {
+			p.NewCLCluster = &ChainlinkDeployment{}
+		}
+		if p.NewCLCluster.Common == nil {
+			p.NewCLCluster.Common = &Node{}
+		}
+		if p.NewCLCluster.Common.ChainlinkImage == nil {
+			p.NewCLCluster.Common.ChainlinkImage = &ctfconfig.ChainlinkImageConfig{}
+		}
+
+		logger.Debug().Msgf("Using %s env var to override NewCLCluster.Common.ChainlinkImage.Version", ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV)
+		p.NewCLCluster.Common.ChainlinkImage.Version = &chainlinkVersion
+	}
+
+	chainlinkPostgresVersion := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_CHAINLINK_POSTGRES_VERSION_ENV)
+	if chainlinkPostgresVersion != "" {
+		if p.NewCLCluster == nil {
+			p.NewCLCluster = &ChainlinkDeployment{}
+		}
+		if p.NewCLCluster.Common == nil {
+			p.NewCLCluster.Common = &Node{}
+		}
+		if p.NewCLCluster.Common.ChainlinkImage == nil {
+			p.NewCLCluster.Common.ChainlinkImage = &ctfconfig.ChainlinkImageConfig{}
+		}
+
+		logger.Debug().Msgf("Using %s env var to override NewCLCluster.Common.ChainlinkImage.PostgresVersion", ctfconfig.E2E_TEST_CHAINLINK_POSTGRES_VERSION_ENV)
+		p.NewCLCluster.Common.ChainlinkImage.PostgresVersion = &chainlinkPostgresVersion
+	}
+
 	chainlinkUpgradeImage := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_CHAINLINK_UPGRADE_IMAGE_ENV)
 	if chainlinkUpgradeImage != "" {
 		if p.NewCLCluster == nil {
@@ -315,6 +387,22 @@ func (p *Common) ReadFromEnvVar() error {
 
 		logger.Debug().Msgf("Using %s env var to override NewCLCluster.Common.ChainlinkUpgradeImage.Image", ctfconfig.E2E_TEST_CHAINLINK_UPGRADE_IMAGE_ENV)
 		p.NewCLCluster.Common.ChainlinkUpgradeImage.Image = &chainlinkUpgradeImage
+	}
+
+	chainlinkUpgradeVersion := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_CHAINLINK_UPGRADE_VERSION_ENV)
+	if chainlinkUpgradeVersion != "" {
+		if p.NewCLCluster == nil {
+			p.NewCLCluster = &ChainlinkDeployment{}
+		}
+		if p.NewCLCluster.Common == nil {
+			p.NewCLCluster.Common = &Node{}
+		}
+		if p.NewCLCluster.Common.ChainlinkImage == nil {
+			p.NewCLCluster.Common.ChainlinkImage = &ctfconfig.ChainlinkImageConfig{}
+		}
+
+		logger.Debug().Msgf("Using %s env var to override NewCLCluster.Common.ChainlinkUpgradeImage.Version", ctfconfig.E2E_TEST_CHAINLINK_UPGRADE_VERSION_ENV)
+		p.NewCLCluster.Common.ChainlinkUpgradeImage.Version = &chainlinkUpgradeVersion
 	}
 
 	return nil
@@ -342,10 +430,6 @@ func (p *Common) Validate() error {
 	// read the default network config, if specified
 	p.Network.UpperCaseNetworkNames()
 	p.Network.OverrideURLsAndKeysFromEVMNetwork()
-	err := p.Network.Default()
-	if err != nil {
-		return fmt.Errorf("error reading default network config %w", err)
-	}
 	if err := p.Network.Validate(); err != nil {
 		return fmt.Errorf("error validating networks config %w", err)
 	}

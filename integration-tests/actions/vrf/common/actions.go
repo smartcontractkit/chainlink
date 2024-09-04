@@ -17,7 +17,8 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"

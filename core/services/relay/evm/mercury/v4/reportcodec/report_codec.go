@@ -8,8 +8,9 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4/types"
 )
@@ -34,12 +35,6 @@ func (r *ReportCodec) BuildReport(rf v4.ReportFields) (ocrtypes.Report, error) {
 	if rf.BenchmarkPrice == nil {
 		merr = errors.Join(merr, errors.New("benchmarkPrice may not be nil"))
 	}
-	if rf.Bid == nil {
-		merr = errors.Join(merr, errors.New("bid may not be nil"))
-	}
-	if rf.Ask == nil {
-		merr = errors.Join(merr, errors.New("ask may not be nil"))
-	}
 	if rf.LinkFee == nil {
 		merr = errors.Join(merr, errors.New("linkFee may not be nil"))
 	} else if rf.LinkFee.Cmp(zero) < 0 {
@@ -53,7 +48,7 @@ func (r *ReportCodec) BuildReport(rf v4.ReportFields) (ocrtypes.Report, error) {
 	if merr != nil {
 		return nil, merr
 	}
-	reportBytes, err := ReportTypes.Pack(r.feedID, rf.ValidFromTimestamp, rf.Timestamp, rf.NativeFee, rf.LinkFee, rf.ExpiresAt, rf.BenchmarkPrice, rf.Bid, rf.Ask, rf.MarketStatus)
+	reportBytes, err := ReportTypes.Pack(r.feedID, rf.ValidFromTimestamp, rf.Timestamp, rf.NativeFee, rf.LinkFee, rf.ExpiresAt, rf.BenchmarkPrice, rf.MarketStatus)
 	return ocrtypes.Report(reportBytes), pkgerrors.Wrap(err, "failed to pack report blob")
 }
 

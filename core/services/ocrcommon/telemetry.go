@@ -294,7 +294,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 	var bn int64
 	var bh string
 	var bt uint64
-	// v1+v2+v3 fields
+	// v1+v2+v3+v4 fields
 	bp := big.NewInt(0)
 	// v1+v3 fields
 	bid := big.NewInt(0)
@@ -372,12 +372,6 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 		}
 		if obs.BenchmarkPrice.Err == nil && obs.BenchmarkPrice.Val != nil {
 			bp = obs.BenchmarkPrice.Val
-		}
-		if obs.Bid.Err == nil && obs.Bid.Val != nil {
-			bid = obs.Bid.Val
-		}
-		if obs.Ask.Err == nil && obs.Ask.Val != nil {
-			ask = obs.Ask.Val
 		}
 		if obs.MarketStatus.Err == nil {
 			marketStatus = telem.MarketStatus(obs.MarketStatus.Val)

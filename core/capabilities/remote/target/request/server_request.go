@@ -74,7 +74,11 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 		return fmt.Errorf("sender missing from message")
 	}
 
-	requester := remote.ToPeerID(msg.Sender)
+	requester, err := remote.ToPeerID(msg.Sender)
+	if err != nil {
+		return fmt.Errorf("failed to convert message sender to PeerID: %w", err)
+	}
+
 	if err := e.addRequester(requester); err != nil {
 		return fmt.Errorf("failed to add requester to request: %w", err)
 	}

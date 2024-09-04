@@ -12,6 +12,10 @@ type GeneralConfig interface {
 	Insecure() coreconfig.Insecure
 }
 
+type FeatureConfig interface {
+	MultiFeedsManagers() bool
+}
+
 type JobConfig interface {
 	DefaultHTTPTimeout() commonconfig.Duration
 }

@@ -18,7 +18,7 @@ func ApplyMultiplier(feeLimit uint64, multiplier float32) (uint64, error) {
 }
 
 // Returns the input value increased by the given percentage.
-func addPercentage(value *big.Int, percentage uint16) *big.Int {
+func AddPercentage(value *big.Int, percentage uint16) *big.Int {
 	bumped := new(big.Int)
 	bumped.Mul(value, big.NewInt(int64(100+percentage)))
 	bumped.Div(bumped, big.NewInt(100))

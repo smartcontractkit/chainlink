@@ -48,10 +48,14 @@ func ValidateMessage(msg p2ptypes.Message, expectedReceiver p2ptypes.PeerID) (*r
 	return &body, nil
 }
 
-func ToPeerID(peerID []byte) p2ptypes.PeerID {
+func ToPeerID(peerID []byte) (p2ptypes.PeerID, error) {
+	if len(peerID) != p2ptypes.PeerIDLength {
+		return p2ptypes.PeerID{}, fmt.Errorf("invalid peer ID length: %d", len(peerID))
+	}
+
 	var id p2ptypes.PeerID
 	copy(id[:], peerID)
-	return id
+	return id, nil
 }
 
 // Default MODE Aggregator needs a configurable number of identical responses for aggregation to succeed
@@ -67,15 +71,15 @@ func NewDefaultModeAggregator(minIdenticalResponses uint32) *defaultModeAggregat
 	}
 }
 
-func (a *defaultModeAggregator) Aggregate(_ string, responses [][]byte) (commoncap.CapabilityResponse, error) {
+func (a *defaultModeAggregator) Aggregate(_ string, responses [][]byte) (commoncap.TriggerResponse, error) {
 	found, err := AggregateModeRaw(responses, a.minIdenticalResponses)
 	if err != nil {
-		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to aggregate responses, err: %w", err)
+		return commoncap.TriggerResponse{}, fmt.Errorf("failed to aggregate responses, err: %w", err)
 	}
 
-	unmarshaled, err := pb.UnmarshalCapabilityResponse(found)
+	unmarshaled, err := pb.UnmarshalTriggerResponse(found)
 	if err != nil {
-		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to unmarshal aggregated responses, err: %w", err)
+		return commoncap.TriggerResponse{}, fmt.Errorf("failed to unmarshal aggregated responses, err: %w", err)
 	}
 	return unmarshaled, nil
 }
