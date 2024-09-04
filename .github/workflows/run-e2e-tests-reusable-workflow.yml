@@ -1,5 +1,9 @@
 # This is a reusable workflow that runs E2E tests for Chainlink.
 # It is not meant to be run on its own.
+# 
+# IMPORTANT NOTE: All workflow_call inputs appear as plain text in GitHub Logs (see https://github.com/actions/runner/issues/2988).
+# Do not include any sensitive information in these inputs. Instead, for handling test secrets, refer to https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md#test-secrets
+#
 name: Run E2E Tests
 on:
   workflow_call:
