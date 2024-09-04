@@ -39,7 +39,7 @@ runs:
     - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       with:
         # We only need a full clone on merge_group events for golangci-lint.
-        fetch-depth: ${{ github.event_name == 'merge_group' && "0" || "1" }}"
+        fetch-depth: ${{ github.event_name == 'merge_group' && '0' || '1' }}"
     - name: Setup Go
       uses: ./.github/actions/setup-go
       with:
