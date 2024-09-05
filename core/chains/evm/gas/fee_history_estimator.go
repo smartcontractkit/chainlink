@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/core/txpool/legacypool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -53,7 +54,6 @@ var (
 )
 
 const (
-	MinimumBumpPercentage   = 10 // based on geth's spec
 	ConnectivityPercentile  = 85
 	BaseFeeBufferPercentage = 40
 )
@@ -111,9 +111,9 @@ func NewFeeHistoryEstimator(lggr logger.Logger, client feeHistoryEstimatorClient
 
 func (f *FeeHistoryEstimator) Start(context.Context) error {
 	return f.StartOnce("FeeHistoryEstimator", func() error {
-		if f.config.BumpPercent < MinimumBumpPercentage {
+		if uint64(f.config.BumpPercent) < legacypool.DefaultConfig.PriceBump {
 			return fmt.Errorf("BumpPercent: %s is less than minimum allowed percentage: %s",
-				strconv.FormatUint(uint64(f.config.BumpPercent), 10), strconv.Itoa(MinimumBumpPercentage))
+				strconv.FormatUint(uint64(f.config.BumpPercent), 10), strconv.FormatUint(legacypool.DefaultConfig.PriceBump, 10))
 		}
 		if f.config.EIP1559 && f.config.RewardPercentile > ConnectivityPercentile {
 			return fmt.Errorf("RewardPercentile: %s is greater than maximum allowed percentile: %s",
@@ -402,7 +402,8 @@ func (f *FeeHistoryEstimator) BumpDynamicFee(ctx context.Context, originalFee Dy
 
 // LimitBumpedFee selects the maximum value between the bumped attempt and the current fee, if there is one. If the result is higher than the max price it gets capped.
 // Geth's implementation has a hard 10% minimum limit for the bumped values, otherwise it rejects the transaction with an error.
-// See: https://github.com/ethereum/go-ethereum/blob/bff330335b94af3643ac2fb809793f77de3069d4/core/tx_list.go#L298
+// See: https://github.com/ethereum/go-ethereum/blob/bff330335b94af3643ac2fb809793f77de3069d4/core/tx_list.go#L298 and
+// https://github.com/ethereum/go-ethereum/blob/c3f13b2a1c9a22926e5f5535178ecbd2796c4e32/core/txpool/legacypool/legacypool.go#L147
 //
 // Note: for chains that support EIP-1559 but we still choose to send Legacy transactions to them, the limit is still enforcable due to the fact that Legacy transactions
 // are treated the same way as Dynamic transactions under the hood. For chains that don't support EIP-1559 at all, the limit isn't enforcable but a 10% minimum bump percentage
@@ -418,9 +419,9 @@ func LimitBumpedFee(originalFee *assets.Wei, currentFee *assets.Wei, bumpedFee *
 	// Similarly for bumpedFee, it can have the exact same value as the originalFee, even if we bumped, given an originalFee of less than 10 wei
 	// and a small enough BumpPercent.
 	if bumpedFee.Cmp(originalFee) == 0 ||
-		bumpedFee.Cmp(originalFee.AddPercentage(MinimumBumpPercentage)) < 0 {
+		bumpedFee.Cmp(originalFee.AddPercentage(uint16(legacypool.DefaultConfig.PriceBump))) < 0 {
 		return nil, fmt.Errorf("%w: %s is bumped less than minimum allowed percentage(%s) from originalFee: %s - maxPrice: %s",
-			commonfee.ErrBump, bumpedFee, strconv.Itoa(MinimumBumpPercentage), originalFee, maxPrice)
+			commonfee.ErrBump, bumpedFee, strconv.FormatUint(legacypool.DefaultConfig.PriceBump, 10), originalFee, maxPrice)
 	}
 	return bumpedFee, nil
 }
