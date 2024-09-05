@@ -2,8 +2,6 @@ package test_env
 
 import (
 	"fmt"
-	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"os"
 	"path/filepath"
 	"slices"
@@ -11,11 +9,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/testsummary"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
+	"github.com/rs/zerolog"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logstream"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/testsummary"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/runid"
 )
 
 func AttachDefaultCleanUp(l zerolog.Logger, t *testing.T, clCluster *ClCluster, showHTMLCoverageReport bool, runId *string) {

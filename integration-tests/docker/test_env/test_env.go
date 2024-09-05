@@ -13,13 +13,13 @@ import (
 	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logstream"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/runid"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	d "github.com/smartcontractkit/chainlink/integration-tests/docker"
@@ -64,7 +64,7 @@ func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTest
 	te.Cfg = cfg
 	if cfg.MockAdapter.ContainerName != "" {
 		n := []string{te.DockerNetwork.Name}
-		te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName), test_env.WithLogStream(te.LogStream))
+		te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName), test_env.WithLogStream(te.LogStream), test_env.WithTestInstance(te.t))
 	}
 	return te
 }
@@ -72,9 +72,6 @@ func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTest
 func (te *CLClusterTestEnv) WithTestInstance(t *testing.T) *CLClusterTestEnv {
 	te.t = t
 	te.l = logging.GetTestLogger(t)
-	if te.MockAdapter != nil {
-		te.MockAdapter.WithTestInstance(t)
-	}
 	return te
 }
 

@@ -2,8 +2,9 @@ package memory
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"strconv"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc"

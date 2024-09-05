@@ -2,19 +2,20 @@ package persistent
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
+	"testing"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/internal/testutil"
-	"testing"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/hooks"
 	seth_chain "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/seth"
 	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"
 
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 
 	ccip_test_config "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	chainlink_test_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig"

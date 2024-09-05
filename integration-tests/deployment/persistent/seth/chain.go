@@ -3,6 +3,7 @@ package seth
 import (
 	"context"
 	"fmt"
+
 	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -10,17 +11,19 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"
 	"path/filepath"
 	"strings"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"
 )
 
 func CreateNewEVMChainWithSeth(config ctf_config.EthereumNetworkConfig, sethConfig seth.Config, hooks ctf_test_env.EthereumNetworkHooks) (persistent_types.NewEVMChainProducer, error) {

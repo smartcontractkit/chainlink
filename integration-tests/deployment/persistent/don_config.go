@@ -3,7 +3,8 @@ package persistent
 import (
 	"github.com/AlekSi/pointer"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"

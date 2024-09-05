@@ -1,8 +1,8 @@
 package testutil
 
 import (
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	chainlink_test_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )

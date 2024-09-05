@@ -1,15 +1,17 @@
 package hooks
 
 import (
+	"testing"
+
 	"github.com/rs/zerolog"
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
+
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"
-	"testing"
 
-	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
+	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logstream"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 

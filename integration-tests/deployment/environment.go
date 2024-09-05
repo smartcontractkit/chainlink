@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"math/big"
 	"strconv"
+
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
+	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"

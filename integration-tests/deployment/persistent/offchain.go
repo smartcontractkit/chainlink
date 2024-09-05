@@ -2,11 +2,13 @@ package persistent
 
 import (
 	"context"
+
+	"google.golang.org/grpc"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
-	"google.golang.org/grpc"
 )
 
 type JobClient struct {

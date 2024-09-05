@@ -96,8 +96,8 @@ func Test0002_InitialDeploy(t *testing.T) {
 				&bind.CallOpts{Context: context.Background()}, dest, msg)
 			require.NoError(t, err, deployment.MaybeDataErr(err))
 			tx, err := state.Chains[src].Weth9.Deposit(&bind.TransactOpts{
-				From:   e.Chains[src].DeployerKey.From,
-				Signer: e.Chains[src].DeployerKey.Signer,
+				From:   e.Chains[src].DefaultKey().From,
+				Signer: e.Chains[src].DefaultKey().Signer,
 				Value:  fee,
 			})
 			require.NoError(t, err)
@@ -105,7 +105,7 @@ func Test0002_InitialDeploy(t *testing.T) {
 			require.NoError(t, err)
 
 			// TODO: should be able to avoid this by using native?
-			tx, err = state.Chains[src].Weth9.Approve(e.Chains[src].DeployerKey,
+			tx, err = state.Chains[src].Weth9.Approve(e.Chains[src].DefaultKey(),
 				state.Chains[src].Router.Address(), fee)
 			require.NoError(t, err)
 			_, err = srcChain.Confirm(tx.Hash())
@@ -113,7 +113,7 @@ func Test0002_InitialDeploy(t *testing.T) {
 
 			t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
 				src, dest)
-			tx, err = state.Chains[src].Router.CcipSend(e.Chains[src].DeployerKey, dest, msg)
+			tx, err = state.Chains[src].Router.CcipSend(e.Chains[src].DefaultKey(), dest, msg)
 			require.NoError(t, err)
 			_, err = srcChain.Confirm(tx.Hash())
 			require.NoError(t, err)
@@ -200,8 +200,8 @@ func waitForCommitWithInterval(
 				// the expected range.
 				for _, mr := range report.Report.MerkleRoots {
 					if mr.SourceChainSelector == src.Selector &&
-						uint64(expectedSeqNumRange.Start()) == mr.Interval.Min &&
-						uint64(expectedSeqNumRange.End()) == mr.Interval.Max {
+						uint64(expectedSeqNumRange.Start()) == mr.MinSeqNr &&
+						uint64(expectedSeqNumRange.End()) == mr.MaxSeqNr {
 						t.Logf("Received commit report on selector %d from source selector %d expected seq nr range %s",
 							dest.Selector, src.Selector, expectedSeqNumRange.String())
 						return

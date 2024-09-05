@@ -5,8 +5,8 @@ import (
 
 	"github.com/AlekSi/pointer"
 
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
+	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"
 )

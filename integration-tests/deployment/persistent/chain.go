@@ -2,8 +2,10 @@ package persistent
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

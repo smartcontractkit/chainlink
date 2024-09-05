@@ -2,13 +2,15 @@ package test_env
 
 import (
 	"context"
-	"github.com/rs/zerolog"
-	d "github.com/smartcontractkit/chainlink/integration-tests/docker"
-	tc "github.com/testcontainers/testcontainers-go"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/rs/zerolog"
+	tc "github.com/testcontainers/testcontainers-go"
+
+	d "github.com/smartcontractkit/chainlink/integration-tests/docker"
 )
 
 func SaveCodeCoverageData(l zerolog.Logger, t *testing.T, clCluster *ClCluster, showHTMLCoverageReport bool) error {
@@ -72,9 +74,8 @@ func SaveCodeCoverageData(l zerolog.Logger, t *testing.T, clCluster *ClCluster, 
 		if err != nil {
 			l.Error().Err(err).Str("testName", testName).Msg("Failed to save coverage percentage for test")
 			return err
-		} else {
-			l.Info().Str("testName", testName).Str("filePath", path).Msg("Chainlink node coverage percentage report saved")
 		}
+		l.Info().Str("testName", testName).Str("filePath", path).Msg("Chainlink node coverage percentage report saved")
 	}
 
 	return nil

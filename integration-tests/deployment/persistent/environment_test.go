@@ -1,9 +1,10 @@
 package persistent_test
 
 import (
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 
 	"github.com/stretchr/testify/require"
 

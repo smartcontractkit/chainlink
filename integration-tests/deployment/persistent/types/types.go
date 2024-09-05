@@ -1,9 +1,9 @@
 package types
 
 import (
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logstream"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
@@ -60,7 +60,7 @@ func (s *EVMNetworkWithRPCs) PrivateWsUrls() []string {
 }
 
 func (s *EVMNetworkWithRPCs) PublicHttpUrls() []string {
-	return s.PublicHttpUrls()
+	return s.RpcProvider.PublicHttpUrls()
 }
 
 func (s *EVMNetworkWithRPCs) PublicWsUrls() []string {

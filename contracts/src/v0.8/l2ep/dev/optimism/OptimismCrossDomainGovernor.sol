@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
-import {DelegateForwarderInterface} from "../interfaces/DelegateForwarderInterface.sol";
+import {IDelegateForwarder} from "../interfaces/IDelegateForwarder.sol";
 // solhint-disable-next-line no-unused-import
-import {ForwarderInterface} from "../interfaces/ForwarderInterface.sol";
+import {IForwarder} from "../interfaces/IForwarder.sol";
 
 import {OptimismCrossDomainForwarder} from "./OptimismCrossDomainForwarder.sol";
 
@@ -16,7 +16,7 @@ import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/ut
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
  *   can be considered to be simultaneously owned by the `l1Owner` and L2 `owner`
  */
-contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCrossDomainForwarder {
+contract OptimismCrossDomainGovernor is IDelegateForwarder, OptimismCrossDomainForwarder {
   /**
    * @notice creates a new Optimism xDomain Forwarder contract
    * @param crossDomainMessengerAddr the xDomain bridge messenger (Optimism bridge L2) contract address
@@ -39,7 +39,7 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
 
   /**
    * @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address, or called by the L2 owner
-   * @inheritdoc ForwarderInterface
+   * @inheritdoc IForwarder
    */
   function forward(address target, bytes memory data) external override onlyLocalOrCrossDomainOwner {
     Address.functionCall(target, data, "Governor call reverted");
@@ -47,7 +47,7 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
 
   /**
    * @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address, or called by the L2 owner
-   * @inheritdoc DelegateForwarderInterface
+   * @inheritdoc IDelegateForwarder
    */
   function forwardDelegate(address target, bytes memory data) external override onlyLocalOrCrossDomainOwner {
     Address.functionDelegateCall(target, data, "Governor delegatecall reverted");

@@ -6,9 +6,9 @@ import (
 	"github.com/AlekSi/pointer"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/docker"
-	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
+	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"

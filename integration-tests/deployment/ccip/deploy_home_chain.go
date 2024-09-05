@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"golang.org/x/sync/errgroup"
 	"sort"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -293,7 +294,6 @@ func AddDON(
 			F:                     configF,
 			OffchainConfigVersion: offchainConfigVersion,
 			OfframpAddress:        offRamp.Address().Bytes(),
-			BootstrapP2PIds:       [][32]byte{bootstrapP2PID},
 			P2pIds:                p2pIDs,
 			Signers:               signersBytes,
 			Transmitters:          transmittersBytes,

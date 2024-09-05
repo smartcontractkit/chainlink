@@ -2,6 +2,7 @@ package persistent
 
 import (
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

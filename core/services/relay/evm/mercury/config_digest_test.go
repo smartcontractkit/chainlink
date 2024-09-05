@@ -15,6 +15,7 @@ import (
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/stretchr/testify/require"
 
@@ -63,6 +64,7 @@ func TestConfigCalculationMatches(t *testing.T) {
 				onchainConfig,
 				offchainConfigVersion,
 				offchainConfig,
+				ocrtypes.ConfigDigestPrefixMercuryV02,
 			)
 
 			bigChainID := new(big.Int)

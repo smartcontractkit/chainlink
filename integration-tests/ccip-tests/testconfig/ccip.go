@@ -10,8 +10,8 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
-	ctfK8config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	ctfK8config "github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/config"
 
 	ccipcontracts "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	testutils "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/utils"
