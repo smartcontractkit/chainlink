@@ -47,24 +47,6 @@ func TestOCRKeys_Raw_Key(t *testing.T) {
 	require.Equal(t, key.ID(), key.Raw().Key().ID())
 }
 
-func TestOCRKeys_BundleSetID(t *testing.T) {
-	t.Parallel()
-
-	k, err := ocrkey.New()
-	require.NoError(t, err)
-	ek, err := k.Encrypt("test", utils.FastScryptParams)
-	require.NoError(t, err)
-
-	oldId := ek.GetID()
-	err = ek.SetID("48656c6c6f20476f7068657221")
-	require.NoError(t, err)
-
-	assert.NotEqual(t, oldId, ek.GetID())
-
-	err = ek.SetID("invalid id")
-	assert.Error(t, err)
-}
-
 func TestOCRKeys_BundleDecrypt(t *testing.T) {
 	t.Parallel()
 

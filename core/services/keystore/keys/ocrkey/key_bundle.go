@@ -47,19 +47,6 @@ func (ekb EncryptedKeyBundle) GetID() string {
 	return ekb.ID.String()
 }
 
-func (ekb *EncryptedKeyBundle) SetID(value string) error {
-	var result models.Sha256Hash
-	decodedString, err := hex.DecodeString(value)
-
-	if err != nil {
-		return err
-	}
-
-	copy(result[:], decodedString[:32])
-	ekb.ID = result
-	return nil
-}
-
 // New makes a new set of OCR key bundles from cryptographically secure entropy
 func New() (*KeyBundle, error) {
 	return NewFrom(cryptorand.Reader, cryptorand.Reader, cryptorand.Reader)

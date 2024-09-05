@@ -374,6 +374,7 @@ func (s *Shell) Profile(c *cli.Context) error {
 					}
 					respContent := string(b)
 					// taken from pprof.Profile https://github.com/golang/go/blob/release-branch.go1.20/src/net/http/pprof/pprof.go#L133
+					// note: no longer triggers as of 1.23
 					if strings.Contains(respContent, "profile duration exceeds server's WriteTimeout") {
 						errs <- fmt.Errorf("%w: %s", ErrProfileTooLong, respContent)
 					} else {
