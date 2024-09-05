@@ -36,7 +36,7 @@ func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentC
 	if err != nil {
 		return nil, fmt.Errorf("failed to create registered DON: %w", err)
 	}
-	nodeIDs := don.AllNodeIds()
+	nodeIDs := don.NodeIds()
 
 	err = don.CreateSupportedChains(ctx, config.Chains)
 	if err != nil {

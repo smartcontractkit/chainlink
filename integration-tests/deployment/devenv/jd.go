@@ -7,7 +7,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"k8s.io/utils/ptr"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
@@ -58,14 +57,14 @@ func NewJDClient(cfg JDConfig) (deployment.OffchainClient, error) {
 	}, err
 }
 
-func (jd JobDistributor) GetCSAPublicKey(ctx context.Context) (*string, error) {
+func (jd JobDistributor) GetCSAPublicKey(ctx context.Context) (string, error) {
 	keypairs, err := jd.ListKeypairs(ctx, &csav1.ListKeypairsRequest{})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	if len(keypairs.Keypairs) == 0 {
-		return nil, fmt.Errorf("no keypairs found")
+	if keypairs == nil || len(keypairs.Keypairs) == 0 {
+		return "", fmt.Errorf("no keypairs found")
 	}
 	csakey := keypairs.Keypairs[0].PublicKey
-	return ptr.To(csakey), nil
+	return csakey, nil
 }

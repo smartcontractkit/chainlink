@@ -10,7 +10,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	clclient "github.com/smartcontractkit/chainlink/integration-tests/client"
-	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
 	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/integration-tests/web/sdk/client"
@@ -48,10 +47,9 @@ func (info NodeInfo) Validate() error {
 
 type DON struct {
 	Nodes []Node
-	JDId  string
 }
 
-func (don *DON) AllNodeIds() []string {
+func (don *DON) NodeIds() []string {
 	var nodeIds []string
 	for _, node := range don.Nodes {
 		nodeIds = append(nodeIds, node.NodeId)
@@ -62,7 +60,7 @@ func (don *DON) AllNodeIds() []string {
 func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig) error {
 	var err error
 	for _, node := range don.Nodes {
-		err = multierror.Append(err, node.CreateCCIPOCR2SupportedChains(ctx, don.JDId, chains))
+		err = multierror.Append(err, node.CreateCCIPOCR2SupportedChains(ctx, chains))
 	}
 	return err
 }
@@ -99,13 +97,12 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 			})
 		}
 		// Set up Job distributor in node and register node with the job distributor
-		jdId, err := node.SetUpAndLinkJobDistributor(ctx, jd)
+		err = node.SetUpAndLinkJobDistributor(ctx, jd)
 		if err != nil {
 			return nil, fmt.Errorf("failed to set up job distributor in node %s: %w", info.Name, err)
 		}
 
 		don.Nodes = append(don.Nodes, *node)
-		don.JDId = jdId
 	}
 	return don, nil
 }
@@ -127,6 +124,7 @@ func NewNode(nodeInfo NodeInfo) (*Node, error) {
 
 type Node struct {
 	NodeId    string
+	JDId      string
 	gqlClient client.Client
 	labels    []*ptypes.Label
 	name      string
@@ -138,7 +136,7 @@ type Node struct {
 // it works under assumption that the node is already registered with the job distributor
 // expects bootstrap nodes to have type label set as bootstrap
 // It fetches the account address, peer id, OCR2 key bundle id and creates the JobDistributorChainConfig
-func (n *Node) CreateCCIPOCR2SupportedChains(ctx context.Context, jdId string, chains []ChainConfig) error {
+func (n *Node) CreateCCIPOCR2SupportedChains(ctx context.Context, chains []ChainConfig) error {
 	for _, chain := range chains {
 		chainId := strconv.FormatUint(chain.ChainId, 10)
 		accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
@@ -172,7 +170,7 @@ func (n *Node) CreateCCIPOCR2SupportedChains(ctx context.Context, jdId string, c
 			}
 		}
 		err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
-			JobDistributorID: jdId,
+			JobDistributorID: n.JDId,
 			ChainID:          chainId,
 			ChainType:        chain.ChainType,
 			AccountAddr:      pointer.GetString(accountAddr),
@@ -191,15 +189,16 @@ func (n *Node) CreateCCIPOCR2SupportedChains(ctx context.Context, jdId string, c
 	return nil
 }
 
-// SetUpAndLinkJobDistributor sets up the job distributor in the node and registers the node with the job distributor
-func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor) (string, error) {
+// RegisterNodeToJobDistributor fetches the CSA public key of the node and registers the node with the job distributor
+// it sets the node id returned by JobDistributor as a result of registration in the node struct
+func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd JobDistributor) error {
 	// Get the public key of the node
 	csaKey, err := n.gqlClient.FetchCSAPublicKey(ctx)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if csaKey == nil {
-		return "", fmt.Errorf("no csa key found for node %s", n.name)
+		return fmt.Errorf("no csa key found for node %s", n.name)
 	}
 
 	// register the node in the job distributor
@@ -210,25 +209,44 @@ func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor
 	})
 
 	if err != nil {
-		return "", fmt.Errorf("failed to register node %s: %w", n.name, err)
+		return fmt.Errorf("failed to register node %s: %w", n.name, err)
 	}
 	if registerResponse.GetNode().GetId() == "" {
-		return "", fmt.Errorf("no node id returned from job distributor for node %s", n.name)
+		return fmt.Errorf("no node id returned from job distributor for node %s", n.name)
 	}
 	n.NodeId = registerResponse.GetNode().GetId()
+	return nil
+}
 
+// CreateJobDistributor fetches the keypairs from the job distributor and creates the job distributor in the node
+// and returns the job distributor id
+func (n *Node) CreateJobDistributor(ctx context.Context, jd JobDistributor) (string, error) {
 	// Get the keypairs from the job distributor
-	keypairs, err := jd.ListKeypairs(ctx, &csav1.ListKeypairsRequest{})
+	csaKey, err := jd.GetCSAPublicKey(ctx)
 	if err != nil {
 		return "", err
 	}
-	if len(keypairs.Keypairs) == 0 {
-		return "", fmt.Errorf("no keypairs found from job distributor running at %s", jd.URL)
-	}
-	// now create the job distributor in the node
+	// create the job distributor in the node with the csa key
 	return n.gqlClient.CreateJobDistributor(ctx, client.JobDistributorInput{
 		Name:      "Job Distributor",
 		Uri:       jd.URL,
-		PublicKey: keypairs.Keypairs[0].PublicKey,
+		PublicKey: csaKey,
 	})
+}
+
+// SetUpAndLinkJobDistributor sets up the job distributor in the node and registers the node with the job distributor
+// it sets the job distributor id for node
+func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor) error {
+	// register the node in the job distributor
+	err := n.RegisterNodeToJobDistributor(ctx, jd)
+	if err != nil {
+		return err
+	}
+	// now create the job distributor in the node
+	id, err := n.CreateJobDistributor(ctx, jd)
+	if err != nil {
+		return err
+	}
+	n.JDId = id
+	return nil
 }
