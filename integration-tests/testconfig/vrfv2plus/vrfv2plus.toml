@@ -730,6 +730,7 @@ rps = 1
 [OPTIMISM_SEPOLIA.Common]
 chainlink_node_funding = 5
 [OPTIMISM_SEPOLIA.VRFv2Plus.General]
+sub_billing_tolerance_wei = 1e16
 use_test_coordinator = false
 #todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
 minimum_confirmations = 0
