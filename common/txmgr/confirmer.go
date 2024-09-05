@@ -1046,8 +1046,10 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head types.Head[BLOCK_HASH], latestFinalizedHeadNumber int64) error {
+	earliestInChain := head.EarliestHeadInChain()
+	chainLength := uint32(head.BlockNumber() - earliestInChain.BlockNumber())
 	logArgs := []interface{}{
-		"chainLength", head.ChainLength(), "latestFinalizedHead number", latestFinalizedHeadNumber,
+		"chainLength", chainLength, "latestFinalizedHead number", latestFinalizedHeadNumber,
 	}
 
 	if head.BlockNumber() < latestFinalizedHeadNumber {
@@ -1057,7 +1059,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	}
 
 	calculatedFinalityDepth := uint32(head.BlockNumber() - latestFinalizedHeadNumber)
-	if head.ChainLength() < calculatedFinalityDepth {
+	if chainLength < calculatedFinalityDepth {
 		if ec.nConsecutiveBlocksChainTooShort > logAfterNConsecutiveBlocksChainTooShort {
 			warnMsg := "Chain length supplied for re-org detection was shorter than the depth from the latest head to the finalized head. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
 			ec.lggr.Warnw(warnMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
@@ -1069,16 +1071,37 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	} else {
 		ec.nConsecutiveBlocksChainTooShort = 0
 	}
-	etxs, err := ec.txStore.FindTransactionsConfirmedInBlockRange(ctx, head.BlockNumber(), head.EarliestHeadInChain().BlockNumber(), ec.chainID)
+	etxs, err := ec.txStore.FindTransactionsConfirmedInBlockRange(ctx, head.BlockNumber(), earliestInChain.BlockNumber(), ec.chainID)
 	if err != nil {
 		return fmt.Errorf("findTransactionsConfirmedInBlockRange failed: %w", err)
 	}
 
-	for _, etx := range etxs {
-		if !hasReceiptInLongestChain(*etx, head) {
-			if err := ec.markForRebroadcast(ctx, *etx, head); err != nil {
-				return fmt.Errorf("markForRebroadcast failed for etx %v: %w", etx.ID, err)
+	reorgedTxs := make(map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], len(etxs))
+	txsByBlock := make(map[BLOCK_HASH][]int64, len(etxs))
+	for i := range etxs {
+		reorgedTxs[etxs[i].ID] = etxs[i]
+		for _, attempts := range etxs[i].TxAttempts {
+			for _, receipt := range attempts.Receipts {
+				blockHash := receipt.GetBlockHash()
+				txsByBlock[blockHash] = append(txsByBlock[blockHash], etxs[i].ID)
 			}
+		}
+	}
+
+	for cur := head; cur != nil; cur = cur.GetParent() {
+		txIDs, ok := txsByBlock[cur.BlockHash()]
+		if !ok {
+			continue
+		}
+
+		for _, txID := range txIDs {
+			delete(reorgedTxs, txID)
+		}
+	}
+
+	for _, etx := range reorgedTxs {
+		if err := ec.markForRebroadcast(ctx, *etx, head); err != nil {
+			return fmt.Errorf("markForRebroadcast failed for etx %v: %w", etx.ID, err)
 		}
 	}
 
@@ -1104,29 +1127,6 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	wg.Wait()
 
 	return multierr.Combine(errors...)
-}
-
-func hasReceiptInLongestChain[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
-	FEE feetypes.Fee,
-](etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) bool {
-	for {
-		for _, attempt := range etx.TxAttempts {
-			for _, receipt := range attempt.Receipts {
-				if receipt.GetBlockHash().String() == head.BlockHash().String() && receipt.GetBlockNumber().Int64() == head.BlockNumber() {
-					return true
-				}
-			}
-		}
-
-		head = head.GetParent()
-		if head == nil {
-			return false
-		}
-	}
 }
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markForRebroadcast(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) error {
