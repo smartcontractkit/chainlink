@@ -50,6 +50,8 @@ type feeEstimatorClient interface {
 	ConfiguredChainID() *big.Int
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
+	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
 }
 
 // NewEstimator returns the estimator for a given config
@@ -109,6 +111,18 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		newEstimator = func(l logger.Logger) EvmEstimator {
 			return NewSuggestedPriceEstimator(lggr, ethClient, geCfg, l1Oracle)
 		}
+	case "FeeHistory":
+		newEstimator = func(l logger.Logger) EvmEstimator {
+			ccfg := FeeHistoryEstimatorConfig{
+				BumpPercent:      geCfg.BumpPercent(),
+				CacheTimeout:     geCfg.FeeHistory().CacheTimeout(),
+				EIP1559:          geCfg.EIP1559DynamicFees(),
+				BlockHistorySize: uint64(geCfg.BlockHistory().BlockHistorySize()),
+				RewardPercentile: float64(geCfg.BlockHistory().TransactionPercentile()),
+			}
+			return NewFeeHistoryEstimator(lggr, ethClient, ccfg, ethClient.ConfiguredChainID(), l1Oracle)
+		}
+
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
 		newEstimator = func(l logger.Logger) EvmEstimator {
