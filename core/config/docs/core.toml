@@ -516,8 +516,8 @@ ChainIDForNodeKey = '11155111' # Example
 NodeAddress = '0x68902d681c28119f9b2531473a417088bf008e59' # Example
 # DonID is the Id of the Don
 DonID = 'example_don' # Example
-# WsHandshakeTimeoutMillis is Websocket handshake timeout
-WsHandshakeTimeoutMillis = 1000 # Example
+# WSHandshakeTimeoutMillis is Websocket handshake timeout
+WSHandshakeTimeoutMillis = 1000 # Example
 # AuthMinChallengeLen is the minimum number of bytes in authentication challenge payload
 AuthMinChallengeLen = 10 # Example
 # AuthTimestampToleranceSec is Authentication timestamp tolerance

@@ -1399,7 +1399,7 @@ but the host and port must be fully specified and cannot be empty. You can speci
 ChainIDForNodeKey = '11155111' # Example
 NodeAddress = '0x68902d681c28119f9b2531473a417088bf008e59' # Example
 DonID = 'example_don' # Example
-WsHandshakeTimeoutMillis = 1000 # Example
+WSHandshakeTimeoutMillis = 1000 # Example
 AuthMinChallengeLen = 10 # Example
 AuthTimestampToleranceSec = 10 # Example
 ```
@@ -1423,11 +1423,11 @@ DonID = 'example_don' # Example
 ```
 DonID is the Id of the Don
 
-### WsHandshakeTimeoutMillis
+### WSHandshakeTimeoutMillis
 ```toml
-WsHandshakeTimeoutMillis = 1000 # Example
+WSHandshakeTimeoutMillis = 1000 # Example
 ```
-WsHandshakeTimeoutMillis is Websocket handshake timeout
+WSHandshakeTimeoutMillis is Websocket handshake timeout
 
 ### AuthMinChallengeLen
 ```toml

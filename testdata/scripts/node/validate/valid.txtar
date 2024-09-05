@@ -325,7 +325,7 @@ ChainID = '1'
 ChainIDForNodeKey = ''
 NodeAddress = ''
 DonID = ''
-WsHandshakeTimeoutMillis = 0
+WSHandshakeTimeoutMillis = 0
 AuthMinChallengeLen = 0
 AuthTimestampToleranceSec = 0
 

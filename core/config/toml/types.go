@@ -1485,7 +1485,7 @@ type GatewayConnector struct {
 	NodeAddress               *string
 	DonID                     *string
 	Gateways                  []ConnectorGateway
-	WsHandshakeTimeoutMillis  *uint32
+	WSHandshakeTimeoutMillis  *uint32
 	AuthMinChallengeLen       *int
 	AuthTimestampToleranceSec *uint32
 }
@@ -1507,8 +1507,8 @@ func (r *GatewayConnector) setFrom(f *GatewayConnector) {
 		r.Gateways = f.Gateways
 	}
 
-	if !reflect.ValueOf(f.WsHandshakeTimeoutMillis).IsZero() {
-		r.WsHandshakeTimeoutMillis = f.WsHandshakeTimeoutMillis
+	if !reflect.ValueOf(f.WSHandshakeTimeoutMillis).IsZero() {
+		r.WSHandshakeTimeoutMillis = f.WSHandshakeTimeoutMillis
 	}
 
 	if f.AuthMinChallengeLen != nil {

@@ -111,8 +111,8 @@ func (c *gatewayConnector) Gateways() []config.ConnectorGateway {
 	return t
 }
 
-func (c *gatewayConnector) WsHandshakeTimeoutMillis() uint32 {
-	return *c.c.WsHandshakeTimeoutMillis
+func (c *gatewayConnector) WSHandshakeTimeoutMillis() uint32 {
+	return *c.c.WSHandshakeTimeoutMillis
 }
 
 func (c *gatewayConnector) AuthMinChallengeLen() int {

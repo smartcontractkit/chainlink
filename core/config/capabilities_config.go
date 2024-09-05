@@ -16,7 +16,7 @@ type GatewayConnector interface {
 	NodeAddress() string
 	DonID() string
 	Gateways() []ConnectorGateway
-	WsHandshakeTimeoutMillis() uint32
+	WSHandshakeTimeoutMillis() uint32
 	AuthMinChallengeLen() int
 	AuthTimestampToleranceSec() uint32
 }

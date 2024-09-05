@@ -282,7 +282,7 @@ ChainID = '1'
 ChainIDForNodeKey = '11155111'
 NodeAddress = '0x68902d681c28119f9b2531473a417088bf008e59'
 DonID = 'example_don'
-WsHandshakeTimeoutMillis = 100
+WSHandshakeTimeoutMillis = 100
 AuthMinChallengeLen = 10
 AuthTimestampToleranceSec = 10
 

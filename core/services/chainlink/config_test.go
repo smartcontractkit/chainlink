@@ -466,7 +466,7 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainIDForNodeKey:         ptr("11155111"),
 			NodeAddress:               ptr("0x68902d681c28119f9b2531473a417088bf008e59"),
 			DonID:                     ptr("example_don"),
-			WsHandshakeTimeoutMillis:  ptr[uint32](100),
+			WSHandshakeTimeoutMillis:  ptr[uint32](100),
 			AuthMinChallengeLen:       ptr[int](10),
 			AuthTimestampToleranceSec: ptr[uint32](10),
 			Gateways: []toml.ConnectorGateway{
