@@ -216,16 +216,6 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		reg = r
 	}
 
-	streamsTrigger := kcr.CapabilitiesRegistryCapability{
-		LabelledName:   "streams-trigger",
-		Version:        "1.0.0",
-		CapabilityType: uint8(0), // trigger
-	}
-	sid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, streamsTrigger.LabelledName, streamsTrigger.Version)
-	if err != nil {
-		panic(err)
-	}
-
 	writeChain := kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "write_aptos",
 		Version:        "1.0.0",
@@ -236,20 +226,8 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		log.Printf("failed to call GetHashedCapabilityId: %s", err)
 	}
 
-	ocr := kcr.CapabilitiesRegistryCapability{
-		LabelledName:   "offchain_reporting",
-		Version:        "1.0.0",
-		CapabilityType: uint8(2), // consensus
-	}
-	ocrid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, ocr.LabelledName, ocr.Version)
-	if err != nil {
-		log.Printf("failed to call GetHashedCapabilityId: %s", err)
-	}
-
 	tx, err := reg.AddCapabilities(env.Owner, []kcr.CapabilitiesRegistryCapability{
-		streamsTrigger,
 		writeChain,
-		ocr,
 	})
 	if err != nil {
 		log.Printf("failed to call AddCapabilities: %s", err)
