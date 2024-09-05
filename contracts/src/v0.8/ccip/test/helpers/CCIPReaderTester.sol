@@ -9,6 +9,7 @@ contract CCIPReaderTester {
 
   mapping(uint64 sourceChainSelector => OffRamp.SourceChainConfig sourceChainConfig) internal s_sourceChainConfigs;
   mapping(uint64 destChainSelector => uint64 sequenceNumber) internal s_destChainSeqNrs;
+  mapping(uint64 sourceChainSelector => mapping(bytes sender => uint64 nonce)) internal s_senderNonce;
 
   /// @notice Gets the next sequence number to be used in the onRamp
   /// @param destChainSelector The destination chain selector
@@ -22,6 +23,18 @@ contract CCIPReaderTester {
   /// @param sequenceNumber The sequence number
   function setDestChainSeqNr(uint64 destChainSelector, uint64 sequenceNumber) external {
     s_destChainSeqNrs[destChainSelector] = sequenceNumber;
+  }
+
+  /// @notice Returns the inbound nonce for a given sender on a given source chain.
+  /// @param sourceChainSelector The source chain selector.
+  /// @param sender The encoded sender address.
+  /// @return inboundNonce The inbound nonce.
+  function getInboundNonce(uint64 sourceChainSelector, bytes calldata sender) external view returns (uint64) {
+    return s_senderNonce[sourceChainSelector][sender];
+  }
+
+  function setInboundNonce(uint64 sourceChainSelector, uint64 testNonce, bytes calldata sender) external {
+    s_senderNonce[sourceChainSelector][sender] = testNonce;
   }
 
   function getSourceChainConfig(uint64 sourceChainSelector) external view returns (OffRamp.SourceChainConfig memory) {
