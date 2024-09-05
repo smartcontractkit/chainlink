@@ -174,7 +174,6 @@ func TestORM_CheckVersion_CCIP(t *testing.T) {
 				require.NoError(t, err)
 			}
 		})
-
 	}
 }
 

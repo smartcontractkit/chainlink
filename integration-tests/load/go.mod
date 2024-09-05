@@ -18,7 +18,7 @@ require (
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240904021311-208ef0231a64
 	github.com/smartcontractkit/chainlink-testing-framework v1.35.0
-	github.com/smartcontractkit/chainlink-testing-framework/seth v1.2.1
+	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.1
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v0.4.10
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
@@ -59,7 +59,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240828115624-442f1cff195b // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240902144105-70b5719fd098 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v0.1.0 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
@@ -396,7 +396,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.21 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240904093355-e40169857652 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240710170203-5b41615da827 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20240821170223-a2f5c39f457f // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20240904154226-abc1ed5c962a // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240709043547-03612098f799 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.2-0.20240805111647-acf86c1e347a // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 // indirect
