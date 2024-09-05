@@ -102,6 +102,8 @@ FinalizedBlockOffset = 0 # Default
 #
 # Set to zero to disable.
 NoNewFinalizedHeadsThreshold = '0' # Default
+# StateOverridesDisabled, if set to true, indicates that nodes in this chain cannot accept a state override argument when executing calls.
+StateOverridesDisabled = false # Default
 
 [EVM.Transactions]
 # ForwardersEnabled enables or disables sending transactions through forwarder contracts.

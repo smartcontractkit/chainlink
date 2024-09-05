@@ -1855,6 +1855,7 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '9m0s'
+StateOverridesDisabled = false
 
 [Transactions]
 ForwardersEnabled = false

@@ -47,6 +47,7 @@ type EVM interface {
 	NodeNoNewHeadsThreshold() time.Duration
 	FinalizedBlockOffset() uint32
 	NoNewFinalizedHeadsThreshold() time.Duration
+	StateOverridesDisabled() bool
 
 	IsEnabled() bool
 	TOMLString() (string, error)

@@ -583,6 +583,7 @@ func TestConfig_Marshal(t *testing.T) {
 				RPCDefaultBatchSize:          ptr[uint32](17),
 				RPCBlockQueryDelay:           ptr[uint16](10),
 				NoNewFinalizedHeadsThreshold: &hour,
+				StateOverridesDisabled:       ptr(false),
 
 				Transactions: evmcfg.Transactions{
 					MaxInFlight:          ptr[uint32](19),
@@ -1020,6 +1021,7 @@ RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 16
 NoNewFinalizedHeadsThreshold = '1h0m0s'
+StateOverridesDisabled = false
 
 [EVM.Transactions]
 ForwardersEnabled = true
