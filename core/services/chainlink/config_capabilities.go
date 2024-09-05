@@ -104,7 +104,7 @@ func (c *gatewayConnector) DonID() string {
 }
 
 func (c *gatewayConnector) Gateways() []config.ConnectorGateway {
-	t := []config.ConnectorGateway{}
+	t := make([]config.ConnectorGateway, len(c.c.Gateways))
 	for index, element := range c.c.Gateways {
 		t[index] = &connectorGateway{element}
 	}
