@@ -84,7 +84,7 @@ runs:
         BASE_IMAGE_NAME: ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image:${{ steps.long_sha.outputs.long_sha }}
       with:
         tags: ${{ env.BASE_IMAGE_NAME }}
-        file: ctf/k8s/Dockerfile.base
+        file: ctf/lib/k8s/Dockerfile.base
         AWS_REGION: ${{ inputs.QA_AWS_REGION }}
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
     # End Base Image Logic
