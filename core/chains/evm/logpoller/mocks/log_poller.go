@@ -124,7 +124,7 @@ func (_c *LogPoller_DeleteLogsAndBlocksAfter_Call) RunAndReturn(run func(context
 }
 
 // FilteredLogs provides a mock function with given fields: ctx, filter, limitAndSort, queryName
-func (_m *LogPoller) FilteredLogs(ctx context.Context, filter query.KeyFilter, limitAndSort query.LimitAndSort, queryName string) ([]logpoller.Log, error) {
+func (_m *LogPoller) FilteredLogs(ctx context.Context, filter []query.Expression, limitAndSort query.LimitAndSort, queryName string) ([]logpoller.Log, error) {
 	ret := _m.Called(ctx, filter, limitAndSort, queryName)
 
 	if len(ret) == 0 {
@@ -133,10 +133,10 @@ func (_m *LogPoller) FilteredLogs(ctx context.Context, filter query.KeyFilter, l
 
 	var r0 []logpoller.Log
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, query.KeyFilter, query.LimitAndSort, string) ([]logpoller.Log, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []query.Expression, query.LimitAndSort, string) ([]logpoller.Log, error)); ok {
 		return rf(ctx, filter, limitAndSort, queryName)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, query.KeyFilter, query.LimitAndSort, string) []logpoller.Log); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []query.Expression, query.LimitAndSort, string) []logpoller.Log); ok {
 		r0 = rf(ctx, filter, limitAndSort, queryName)
 	} else {
 		if ret.Get(0) != nil {
@@ -144,7 +144,7 @@ func (_m *LogPoller) FilteredLogs(ctx context.Context, filter query.KeyFilter, l
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, query.KeyFilter, query.LimitAndSort, string) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []query.Expression, query.LimitAndSort, string) error); ok {
 		r1 = rf(ctx, filter, limitAndSort, queryName)
 	} else {
 		r1 = ret.Error(1)
@@ -160,16 +160,16 @@ type LogPoller_FilteredLogs_Call struct {
 
 // FilteredLogs is a helper method to define mock.On call
 //   - ctx context.Context
-//   - filter query.KeyFilter
+//   - filter []query.Expression
 //   - limitAndSort query.LimitAndSort
 //   - queryName string
 func (_e *LogPoller_Expecter) FilteredLogs(ctx interface{}, filter interface{}, limitAndSort interface{}, queryName interface{}) *LogPoller_FilteredLogs_Call {
 	return &LogPoller_FilteredLogs_Call{Call: _e.mock.On("FilteredLogs", ctx, filter, limitAndSort, queryName)}
 }
 
-func (_c *LogPoller_FilteredLogs_Call) Run(run func(ctx context.Context, filter query.KeyFilter, limitAndSort query.LimitAndSort, queryName string)) *LogPoller_FilteredLogs_Call {
+func (_c *LogPoller_FilteredLogs_Call) Run(run func(ctx context.Context, filter []query.Expression, limitAndSort query.LimitAndSort, queryName string)) *LogPoller_FilteredLogs_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(query.KeyFilter), args[2].(query.LimitAndSort), args[3].(string))
+		run(args[0].(context.Context), args[1].([]query.Expression), args[2].(query.LimitAndSort), args[3].(string))
 	})
 	return _c
 }
@@ -179,7 +179,7 @@ func (_c *LogPoller_FilteredLogs_Call) Return(_a0 []logpoller.Log, _a1 error) *L
 	return _c
 }
 
-func (_c *LogPoller_FilteredLogs_Call) RunAndReturn(run func(context.Context, query.KeyFilter, query.LimitAndSort, string) ([]logpoller.Log, error)) *LogPoller_FilteredLogs_Call {
+func (_c *LogPoller_FilteredLogs_Call) RunAndReturn(run func(context.Context, []query.Expression, query.LimitAndSort, string) ([]logpoller.Log, error)) *LogPoller_FilteredLogs_Call {
 	_c.Call.Return(run)
 	return _c
 }

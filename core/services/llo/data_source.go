@@ -149,7 +149,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 
 	if opts.VerboseLogging() {
 		successes := make([]streams.StreamID, 0, len(streamValues))
-		for strmID, _ := range streamValues {
+		for strmID := range streamValues {
 			successes = append(successes, strmID)
 		}
 		sort.Slice(successes, func(i, j int) bool { return successes[i] < successes[j] })

@@ -56,8 +56,6 @@ type AppConfig interface {
 	Threshold() Threshold
 	WebServer() WebServer
 	Tracing() Tracing
-
-	FeatureMultiFeedsManagers() bool
 }
 
 type DatabaseBackupMode string
