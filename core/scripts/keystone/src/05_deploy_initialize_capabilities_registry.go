@@ -227,7 +227,7 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 	}
 
 	writeChain := kcr.CapabilitiesRegistryCapability{
-		LabelledName:   "write_ethereum-testnet-sepolia",
+		LabelledName:   "write_aptos",
 		Version:        "1.0.0",
 		CapabilityType: uint8(3), // target
 	}
