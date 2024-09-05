@@ -16,9 +16,9 @@ import (
 	"time"
 )
 
-type GethChainBuilder struct{}
+type ChainBuilder struct{}
 
-func (s *GethChainBuilder) Build(evmNetwork blockchain.EVMNetwork, rpcProvider ctf_test_env.RpcProvider) (deployment.Chain, persistent_types.RpcProvider, error) {
+func (s *ChainBuilder) Build(evmNetwork blockchain.EVMNetwork, rpcProvider ctf_test_env.RpcProvider) (deployment.Chain, persistent_types.RpcProvider, error) {
 	chain := deployment.Chain{}
 	client, err := ethclient.Dial(evmNetwork.URLs[0])
 	if err != nil {
@@ -52,7 +52,7 @@ func (s *GethChainBuilder) Build(evmNetwork blockchain.EVMNetwork, rpcProvider c
 }
 
 type NewEVMChainWithGeth struct {
-	GethChainBuilder
+	ChainBuilder
 	config ctf_config.EthereumNetworkConfig
 	ctf_test_env.EthereumNetworkHooks
 }
@@ -97,7 +97,7 @@ func CreateExistingEVMChainConfigWithGeth(evmNetwork blockchain.EVMNetwork) pers
 }
 
 type ExistingEVMChainConfigWithGeth struct {
-	GethChainBuilder
+	ChainBuilder
 	evmNetwork blockchain.EVMNetwork
 }
 

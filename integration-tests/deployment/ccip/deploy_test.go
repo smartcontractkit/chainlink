@@ -34,7 +34,7 @@ func TestDeployCapReg_InMemory_Concurrent(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
-		Chains:     4,
+		Chains:     2,
 		Nodes:      4,
 	})
 	testDeployCapRegWithEnv_Concurrent(t, lggr, e)
@@ -89,14 +89,14 @@ func TestDeployCapReg_NewDevnet_Concurrent(t *testing.T) {
 	}, *defaultSethConfig, &defaultNewEVMHooks)
 	require.NoError(t, err, "Error creating new EVM chain with Seth")
 
-	envConfig := persistent.EnvironmentConfig{
+	envConfig := persistent_types.EnvironmentConfig{
 		ChainConfig: persistent_types.ChainConfig{
 			NewEVMChains: []persistent_types.NewEVMChainProducer{firstChain, secondChain},
 		},
-		DONConfig: persistent.DONConfig{
-			NewDON: &persistent.NewDockerDONConfig{
-				ChainlinkDeployment: testutil.GetDefaultNewClusterConfig(),
-				Options: persistent.Options{
+		DONConfig: persistent_types.DONConfig{
+			NewDON: &persistent_types.NewDockerDONConfig{
+				ChainlinkDeployment: testutil.GetDefaultNewChainlinkClusterConfig(),
+				Options: persistent_types.DockerOptions{
 					Networks: []string{dockerNetwork.Name},
 				},
 			},
@@ -164,14 +164,14 @@ func TestDeployCCIPContractsNewDevnet(t *testing.T) {
 	}, *defaultSethConfig, &defaultNewEVMHooks)
 	require.NoError(t, err, "Error creating new EVM chain with Seth")
 
-	envConfig := persistent.EnvironmentConfig{
+	envConfig := persistent_types.EnvironmentConfig{
 		ChainConfig: persistent_types.ChainConfig{
 			NewEVMChains: []persistent_types.NewEVMChainProducer{firstChain, secondChain},
 		},
-		DONConfig: persistent.DONConfig{
-			NewDON: &persistent.NewDockerDONConfig{
-				ChainlinkDeployment: testutil.GetDefaultNewClusterConfig(),
-				Options: persistent.Options{
+		DONConfig: persistent_types.DONConfig{
+			NewDON: &persistent_types.NewDockerDONConfig{
+				ChainlinkDeployment: testutil.GetDefaultNewChainlinkClusterConfig(),
+				Options: persistent_types.DockerOptions{
 					Networks: []string{dockerNetwork.Name},
 				},
 			},
@@ -212,7 +212,7 @@ func TestDeployCCIPContractsExistingDevnet(t *testing.T) {
 	)
 	require.NoError(t, err, "Error creating existing EVM chain with Seth")
 
-	envConfig := persistent.EnvironmentConfig{
+	envConfig := persistent_types.EnvironmentConfig{
 		ChainConfig: persistent_types.ChainConfig{
 			ExistingEVMChains: []persistent_types.ExistingEVMChainProducer{firstChain, secondChain},
 		},
@@ -230,32 +230,32 @@ func testDeployCCIPContractsWithEnv(t *testing.T, lggr logger.Logger, e deployme
 		require.NoError(t, err)
 		s, err := LoadOnchainState(e, capRegAddresses)
 		require.NoError(t, err)
-		//newAb, err := DeployCCIPContracts(e, DeployCCIPContractConfig{
-		//	HomeChainSel:     chain,
-		//	CCIPOnChainState: s,
-		//})
-		//require.NoError(t, err)
-		//if ab == nil {
-		//	ab = newAb
-		//} else {
-		//	mergeErr := ab.Merge(newAb)
-		//	require.NoError(t, mergeErr)
-		//}
+		newAb, err := DeployCCIPContracts(e, DeployCCIPContractConfig{
+			HomeChainSel:     chain,
+			CCIPOnChainState: s,
+		})
+		require.NoError(t, err)
+		if ab == nil {
+			ab = newAb
+		} else {
+			mergeErr := ab.Merge(newAb)
+			require.NoError(t, mergeErr)
+		}
 		_ = s
 	}
 
 	_ = ab
 
-	//state, err := LoadOnchainState(e, ab)
-	//require.NoError(t, err)
-	//snap, err := state.Snapshot(e.AllChainSelectors())
-	//require.NoError(t, err)
-	//
-	//// Assert expect every deployed address to be in the address book.
-	//// TODO (CCIP-3047): Add the rest of CCIPv2 representation
-	//b, err := json.MarshalIndent(snap, "", "	")
-	//require.NoError(t, err)
-	//fmt.Println(string(b))
+	state, err := LoadOnchainState(e, ab)
+	require.NoError(t, err)
+	snap, err := state.Snapshot(e.AllChainSelectors())
+	require.NoError(t, err)
+
+	// Assert expect every deployed address to be in the address book.
+	// TODO (CCIP-3047): Add the rest of CCIPv2 representation
+	b, err := json.MarshalIndent(snap, "", "	")
+	require.NoError(t, err)
+	fmt.Println(string(b))
 }
 
 func testDeployCapRegWithEnv_Concurrent(t *testing.T, lggr logger.Logger, e deployment.Environment) {

@@ -1,10 +1,7 @@
 package persistent
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -16,8 +13,14 @@ func NewEnvironment(lggr logger.Logger, config persistent_types.EnvironmentConfi
 		return nil, errors.Wrapf(err, "failed to create Chains")
 	}
 
+	if config.EnvironmentHooks != nil {
+		if hookErr := config.EnvironmentHooks.PostChainStartupHooks(chains, rpcProviders, &config); hookErr != nil {
+			return nil, errors.Wrapf(hookErr, "failed to run post chain startup hooks")
+		}
+	}
+
 	if config.DONConfig.NewDON != nil {
-		clNodesConfigs, err := NewEVMOnlyChainlinkConfigs(config.DONConfig.NewDON.ChainlinkDeployment, rpcProviders)
+		clNodesConfigs, err := BuildEVMOnlyChainlinkConfigs(config.DONConfig.NewDON.ChainlinkDeployment, rpcProviders)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create chainlink configs")
 		}
@@ -29,37 +32,15 @@ func NewEnvironment(lggr logger.Logger, config persistent_types.EnvironmentConfi
 		return nil, errors.Wrapf(err, "failed to create nodes")
 	}
 
-	keys := make(map[uint64][]client.NodeKeysBundle)
-
-	if config.DONConfig.NewDON != nil {
-		var clients []*client.ChainlinkClient
-		for _, k8sClient := range don.ClClients {
-			clients = append(clients, k8sClient.ChainlinkClient)
-		}
-		for chainId := range chains {
-			_, clNodes, err := client.CreateNodeKeysBundle(clients, "evm", fmt.Sprint(chainId))
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to create node keys for chain %d", chainId)
-			}
-			keys[chainId] = func() []client.NodeKeysBundle {
-				var keys []client.NodeKeysBundle
-				for _, clNode := range clNodes {
-					keys = append(keys, clNode.KeysBundle)
-				}
-				return keys
-			}()
+	if config.EnvironmentHooks != nil {
+		if hookErr := config.EnvironmentHooks.PostNodeStartupHooks(don, &config); hookErr != nil {
+			return nil, errors.Wrapf(hookErr, "failed to run post node startup hooks")
 		}
 	}
 
-	_ = don
-
-	var nodeIDs []string
-	for _, node := range keys {
-		for _, keys := range node {
-			nodeIDs = append(nodeIDs, keys.PeerID)
-		}
-		// peer ids are the same for all nodes, so we can iterate only once
-		break
+	nodeIDs, keysErr := FetchNodeIds(don)
+	if keysErr != nil {
+		return nil, errors.Wrapf(keysErr, "failed to fetch nodeIds")
 	}
 
 	mocks, err := NewMocks(config.DONConfig)
@@ -67,12 +48,20 @@ func NewEnvironment(lggr logger.Logger, config persistent_types.EnvironmentConfi
 		return nil, errors.Wrapf(err, "failed to create mocks")
 	}
 
-	don.MockServer = mocks.MockServer
-	don.KillGrave = mocks.KillGrave
+	if config.EnvironmentHooks != nil {
+		if hookErr := config.EnvironmentHooks.PostMocksStartupHooks(mocks, &config); hookErr != nil {
+			return nil, errors.Wrapf(hookErr, "failed to run post mocks hooks")
+		}
+	}
+
+	err = AppendMocksToDONConfig(don, mocks)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to append mocks to don config")
+	}
 
 	return &deployment.Environment{
 		Name:     "persistent",
-		Offchain: NewJobClient(don.ClClients),
+		Offchain: NewJobClient(don.ChainlinkClients),
 		NodeIDs:  nodeIDs,
 		Chains:   chains,
 		Logger:   lggr,

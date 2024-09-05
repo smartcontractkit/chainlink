@@ -67,9 +67,19 @@ func (s *EVMNetworkWithRPCs) PublicWsUrls() []string {
 	return s.RpcProvider.PublicWsUrls()
 }
 
+type EnvironmentHooks interface {
+	// PostChainStartupHooks is called after chains have been created, which means that each chain is already up and there's an on-chain client connected to it.
+	PostChainStartupHooks(map[uint64]deployment.Chain, map[uint64]RpcProvider, *EnvironmentConfig) error
+	// PostNodeStartupHooks is called after nodes have been created, which means that each node is already up and running, and we have an off-chain client connected to them.
+	PostNodeStartupHooks(*DON, *EnvironmentConfig) error
+	// PostMocksStartupHooks is called after mocks have been created, which means they are up and running, and we can interact with them.
+	PostMocksStartupHooks(*deployment.Mocks, *EnvironmentConfig) error
+}
+
 type EnvironmentConfig struct {
 	ChainConfig
 	DONConfig
+	EnvironmentHooks
 }
 
 type ExistingDONConfig struct {
@@ -86,12 +96,12 @@ type NewDONHooks interface {
 
 type NewDockerDONConfig struct {
 	*testconfig.ChainlinkDeployment
-	Options          Options
+	Options          DockerOptions
 	ChainlinkConfigs []*chainlink.Config
 	NewDONHooks
 }
 
-type Options struct {
+type DockerOptions struct {
 	Networks  []string
 	LogStream *logstream.LogStream
 }
@@ -102,6 +112,7 @@ type DONConfig struct {
 }
 
 type DON struct {
-	ClClients []*client.ChainlinkK8sClient
+	ChainlinkClients    []*client.ChainlinkK8sClient
+	ChainlinkContainers []*test_env.ClNode
 	deployment.Mocks
 }

@@ -29,3 +29,18 @@ func NewMocks(config persistent_types.DONConfig) (*deployment.Mocks, error) {
 		}),
 	}, nil
 }
+
+func AppendMocksToDONConfig(don *persistent_types.DON, mocks *deployment.Mocks) error {
+	if don == nil {
+		return fmt.Errorf("DON is required")
+	}
+
+	if mocks == nil {
+		return fmt.Errorf("Mocks are required")
+	}
+
+	don.MockServer = mocks.MockServer
+	don.KillGrave = mocks.KillGrave
+
+	return nil
+}

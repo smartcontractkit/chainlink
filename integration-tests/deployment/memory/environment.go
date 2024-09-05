@@ -39,7 +39,7 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 		chains[sel] = deployment.Chain{
 			Selector: sel,
 			Client:   chain.Backend,
-			Keys:     []*bind.TransactOpts{chain.DeployerKey},
+			Keys:     []*bind.TransactOpts{chain.DeployerKey, {}, {}, {}},
 			Confirm: func(tx common.Hash) (uint64, error) {
 				for {
 					chain.Backend.Commit()

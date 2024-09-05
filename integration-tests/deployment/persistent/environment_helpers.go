@@ -95,7 +95,7 @@ func EnvironmentConfigFromCCIPTestConfig(t *testing.T, testCfg ccip_test_config.
 		donConfig.NewDON = &persistent_types.NewDockerDONConfig{
 			NewDONHooks:         hooks.NewDefaultDONHooksFromTestConfig(t, logging.GetTestLogger(t), ls, nil, testCfg.CCIP.Env.Logging),
 			ChainlinkDeployment: testCfg.CCIP.Env.NewCLCluster,
-			Options: persistent_types.Options{
+			Options: persistent_types.DockerOptions{
 				Networks: []string{dockerNetwork.Name},
 			},
 		}
@@ -108,6 +108,7 @@ func EnvironmentConfigFromCCIPTestConfig(t *testing.T, testCfg ccip_test_config.
 		return envConfig, fmt.Errorf("either new or existing chainlink cluster config must be provided")
 	}
 	envConfig.DONConfig = donConfig
+	envConfig.EnvironmentHooks = hooks.NewDefaultEnvironmentHooksFromTestConfig(t, logging.GetTestLogger(t), defaultSethConfig, testCfg.CCIP.Env.Logging)
 
 	return envConfig, nil
 }
@@ -165,7 +166,7 @@ func EnvironmentConfigFromChainlinkTestConfig(t *testing.T, testCfg chainlink_te
 		donConfig.NewDON = &persistent_types.NewDockerDONConfig{
 			NewDONHooks:         hooks.NewDefaultDONHooksFromTestConfig(t, logging.GetTestLogger(t), ls, nil, testCfg.Logging),
 			ChainlinkDeployment: testutil.GetDefaultNewClusterConfigFromChainlinkTestConfig(testCfg),
-			Options: persistent_types.Options{
+			Options: persistent_types.DockerOptions{
 				Networks: []string{dockerNetwork.Name},
 			},
 		}
@@ -179,6 +180,7 @@ func EnvironmentConfigFromChainlinkTestConfig(t *testing.T, testCfg chainlink_te
 	}
 
 	envConfig.DONConfig = donConfig
+	envConfig.EnvironmentHooks = hooks.NewDefaultEnvironmentHooksFromTestConfig(t, logging.GetTestLogger(t), testCfg.GetSethConfig(), testCfg.Logging)
 
 	return envConfig, nil
 }

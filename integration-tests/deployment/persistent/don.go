@@ -2,138 +2,63 @@ package persistent
 
 import (
 	"fmt"
+
 	"github.com/AlekSi/pointer"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
-	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func NewNodes(donConfig persistent_types.DONConfig) (persistent_types.DON, error) {
-	if donConfig.NewDON == nil && donConfig.ExistingDON == nil {
-		return persistent_types.DON{}, fmt.Errorf("no DON config provided, you need to provide either an existing or new DON config")
-	}
-
-	if donConfig.NewDON != nil && donConfig.ExistingDON != nil {
-		return persistent_types.DON{}, fmt.Errorf("both new and existing DON config provided, you need to provide either an existing or new DON config")
+// NewNodes either starts a new Docker-based DON or connects to an existing DON based on the provided config.
+func NewNodes(donConfig persistent_types.DONConfig) (*persistent_types.DON, error) {
+	if err := validateDONConfig(donConfig); err != nil {
+		return nil, err
 	}
 
 	if donConfig.NewDON != nil {
-		return NewDockerDON(donConfig.NewDON)
+		return StartNewDockerDON(donConfig.NewDON)
 	}
 
-	return ConnectToExistingNodes(*donConfig.ExistingDON)
+	return ConnectToExistingDON(donConfig.ExistingDON)
 }
 
-func ConnectToExistingNodes(config persistent_types.ExistingDONConfig) (persistent_types.DON, error) {
-	noOfNodes := pointer.GetInt(config.NoOfNodes)
-	namespace := pointer.GetString(config.Name)
+func StartNewDockerDON(newDonConfig *persistent_types.NewDockerDONConfig) (*persistent_types.DON, error) {
+	don := &persistent_types.DON{}
 
-	if noOfNodes != len(config.NodeConfigs) {
-		return persistent_types.DON{}, fmt.Errorf("number of nodes %d does not match number of node configs %d", noOfNodes, len(config.NodeConfigs))
+	if err := appendNewDockerNetworkIfNotSet(&newDonConfig.Options); err != nil {
+		return nil, errors.Wrap(err, "failed to append new Docker network")
 	}
 
-	don := persistent_types.DON{}
-
-	for i := 0; i < noOfNodes; i++ {
-		cfg := config.NodeConfigs[i]
-		if cfg == nil {
-			return don, fmt.Errorf("node %d config is nil", i+1)
-		}
-		clClient, err := client.NewChainlinkK8sClient(cfg, cfg.InternalIP, namespace)
-		if err != nil {
-			return don, errors.Wrapf(err, "failed to create chainlink clientfor node %d config %v", i+1, cfg)
-		}
-		don.ClClients = append(don.ClClients, clClient)
-	}
-
-	return don, nil
-}
-
-func NewDockerDON(newDonConfig *persistent_types.NewDockerDONConfig) (persistent_types.DON, error) {
-	don := persistent_types.DON{}
-
-	// maybe we should validate this and return err if not set instead of generating here
-	if len(newDonConfig.Options.Networks) == 0 {
-		dockerNetwork, err := docker.CreateNetwork(logging.GetLogger(nil, "CORE_DOCKER_ENV_LOG_LEVEL"))
-		if err != nil {
-			return don, errors.Wrap(err, "failed to create docker network")
-		}
-		newDonConfig.Options.Networks = []string{dockerNetwork.Name}
-	}
-
-	clCluster := test_env.ClCluster{}
-	noOfNodes := pointer.GetInt(newDonConfig.NoOfNodes)
-	// if individual nodes are specified, then deploy them with specified configs
-	// TODO probably best to put it in a reusable method, use it here and also in integration-tests/ccip-tests/testsetups/test_env.go
+	var err error
+	var clCluster *test_env.ClCluster
 	if len(newDonConfig.Nodes) > 0 {
-		if len(newDonConfig.Nodes) != len(newDonConfig.ChainlinkConfigs) {
-			return don, fmt.Errorf("number of nodes %d does not match number of chainlink configs %d", noOfNodes, len(newDonConfig.ChainlinkConfigs))
-		}
-		for i, clNode := range newDonConfig.Nodes {
-			node, err := test_env.NewClNode(
-				newDonConfig.Options.Networks,
-				pointer.GetString(clNode.ChainlinkImage.Image),
-				pointer.GetString(clNode.ChainlinkImage.Version),
-				newDonConfig.ChainlinkConfigs[i],
-				newDonConfig.Options.LogStream,
-				test_env.WithPgDBOptions(
-					ctftestenv.WithPostgresImageName(clNode.DBImage),
-					ctftestenv.WithPostgresImageVersion(clNode.DBTag),
-				),
-			)
-			if err != nil {
-				return don, errors.Wrapf(err, "failed to build new chainlink node")
-			}
-			clCluster.Nodes = append(clCluster.Nodes, node)
+		clCluster, err = buildIdenticalChainlinkCluster(newDonConfig)
+		if err != nil {
+			return don, errors.Wrap(err, "failed to build identical Chainlink nodes")
 		}
 	} else {
-		if noOfNodes != len(newDonConfig.ChainlinkConfigs) {
-			return don, fmt.Errorf("number of nodes %d does not match number of chainlink configs %d", noOfNodes, len(newDonConfig.ChainlinkConfigs))
-		}
-		// if no individual nodes are specified, then deploy the number of nodes specified in the env input with common config
-		for i := 0; i < noOfNodes; i++ {
-			node, err := test_env.NewClNode(
-				newDonConfig.Options.Networks,
-				pointer.GetString(newDonConfig.Common.ChainlinkImage.Image),
-				pointer.GetString(newDonConfig.Common.ChainlinkImage.Version),
-				newDonConfig.ChainlinkConfigs[i],
-				newDonConfig.Options.LogStream,
-				test_env.WithPgDBOptions(
-					ctftestenv.WithPostgresImageName(newDonConfig.Common.DBImage),
-					ctftestenv.WithPostgresImageVersion(newDonConfig.Common.DBTag),
-				),
-			)
-			if err != nil {
-				return don, errors.Wrapf(err, "failed to build new chainlink node")
-			}
-			clCluster.Nodes = append(clCluster.Nodes, node)
+		clCluster, err = buildCustomChainlinkCluster(newDonConfig)
+		if err != nil {
+			return don, errors.Wrap(err, "failed to build unique Chainlink nodes")
 		}
 	}
 
 	if newDonConfig.NewDONHooks != nil {
 		err := newDonConfig.NewDONHooks.PreStartupHook(clCluster.Nodes)
 		if err != nil {
-			return don, errors.Wrap(err, "failed to execute post setup hook")
+			return don, errors.Wrap(err, "failed to execute pre startup hook")
 		}
 	}
 
-	startErr := clCluster.Start()
-	if startErr != nil {
-		return don, errors.Wrap(startErr, "failed to start chainlink cluster")
-	}
-
-	for _, node := range clCluster.Nodes {
-		don.ClClients = append(don.ClClients, &client.ChainlinkK8sClient{
-			ChainlinkClient: node.API,
-		})
+	err = startChainlinkClusterAndClients(clCluster, don)
+	if err != nil {
+		return don, errors.Wrap(err, "failed to start chainlink cluster and clients")
 	}
 
 	if newDonConfig.NewDONHooks != nil {
@@ -146,48 +71,125 @@ func NewDockerDON(newDonConfig *persistent_types.NewDockerDONConfig) (persistent
 	return don, nil
 }
 
-func NewEVMOnlyChainlinkConfigs(donConfig *testconfig.ChainlinkDeployment, rpcProviders map[uint64]persistent_types.RpcProvider) ([]*chainlink.Config, error) {
-	var evmNetworks []blockchain.EVMNetwork
-	for _, rpcProvider := range rpcProviders {
-		evmNetwork := rpcProvider.EVMNetwork()
-		evmNetwork.HTTPURLs = rpcProvider.PrivateHttpUrls()
-		evmNetwork.URLs = rpcProvider.PrivateWsUrls()
-		evmNetworks = append(evmNetworks, evmNetwork)
+func ConnectToExistingDON(config *persistent_types.ExistingDONConfig) (*persistent_types.DON, error) {
+	noOfNodes := pointer.GetInt(config.NoOfNodes)
+	namespace := pointer.GetString(config.Name)
+
+	if noOfNodes != len(config.NodeConfigs) {
+		return nil, fmt.Errorf("number of nodes %d does not match number of node configs %d", noOfNodes, len(config.NodeConfigs))
 	}
 
-	var clNodeConfigs []*chainlink.Config
+	don := &persistent_types.DON{}
 
-	noOfNodes := pointer.GetInt(donConfig.NoOfNodes)
-	// if individual nodes are specified, then deploy them with specified configs
-	// TODO probably best to put it in a reusable method, use it here and also in integration-tests/ccip-tests/testsetups/test_env.go
-	if len(donConfig.Nodes) > 0 {
-		for range donConfig.Nodes {
-			toml, _, err := testsetups.SetNodeConfig(
-				evmNetworks,
-				donConfig.Common.BaseConfigTOML,
-				donConfig.Common.CommonChainConfigTOML,
-				donConfig.Common.ChainConfigTOMLByChain,
-			)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to create node config")
-			}
-			clNodeConfigs = append(clNodeConfigs, toml)
+	for i := 0; i < noOfNodes; i++ {
+		cfg := config.NodeConfigs[i]
+		if cfg == nil {
+			return nil, fmt.Errorf("node %d config is nil", i+1)
 		}
-	} else {
-		// if no individual nodes are specified, then deploy the number of nodes specified in the env input with common config
-		for i := 0; i < noOfNodes; i++ {
-			toml, _, err := testsetups.SetNodeConfig(
-				evmNetworks,
-				donConfig.Common.BaseConfigTOML,
-				donConfig.Common.CommonChainConfigTOML,
-				donConfig.Common.ChainConfigTOMLByChain,
-			)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to create node config")
-			}
-			clNodeConfigs = append(clNodeConfigs, toml)
+		clClient, err := client.NewChainlinkK8sClient(cfg, cfg.InternalIP, namespace)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create chainlink clientfor node %d config %v", i+1, cfg)
 		}
+		don.ChainlinkClients = append(don.ChainlinkClients, clClient)
 	}
 
-	return clNodeConfigs, nil
+	return don, nil
+}
+
+func appendNewDockerNetworkIfNotSet(options *persistent_types.DockerOptions) error {
+	if len(options.Networks) == 0 {
+		dockerNetwork, err := docker.CreateNetwork(logging.GetLogger(nil, "CORE_DOCKER_ENV_LOG_LEVEL"))
+		if err != nil {
+			return errors.Wrap(err, "failed to create docker network")
+		}
+		options.Networks = []string{dockerNetwork.Name}
+	}
+
+	return nil
+}
+
+func buildIdenticalChainlinkCluster(newDonConfig *persistent_types.NewDockerDONConfig) (*test_env.ClCluster, error) {
+	clCluster := &test_env.ClCluster{}
+	noOfNodes := pointer.GetInt(newDonConfig.NoOfNodes)
+
+	if len(newDonConfig.Nodes) != len(newDonConfig.ChainlinkConfigs) {
+		return clCluster, fmt.Errorf("number of nodes %d does not match number of chainlink configs %d", noOfNodes, len(newDonConfig.ChainlinkConfigs))
+	}
+	for i, clNode := range newDonConfig.Nodes {
+		node, err := test_env.NewClNode(
+			newDonConfig.Options.Networks,
+			pointer.GetString(clNode.ChainlinkImage.Image),
+			pointer.GetString(clNode.ChainlinkImage.Version),
+			newDonConfig.ChainlinkConfigs[i],
+			newDonConfig.Options.LogStream,
+			test_env.WithPgDBOptions(
+				ctftestenv.WithPostgresImageName(clNode.DBImage),
+				ctftestenv.WithPostgresImageVersion(clNode.DBTag),
+			),
+		)
+		if err != nil {
+			return clCluster, errors.Wrapf(err, "failed to build new chainlink node")
+		}
+		clCluster.Nodes = append(clCluster.Nodes, node)
+
+	}
+
+	return clCluster, nil
+}
+
+func buildCustomChainlinkCluster(newDonConfig *persistent_types.NewDockerDONConfig) (*test_env.ClCluster, error) {
+	clCluster := &test_env.ClCluster{}
+	noOfNodes := pointer.GetInt(newDonConfig.NoOfNodes)
+
+	if noOfNodes != len(newDonConfig.ChainlinkConfigs) {
+		return clCluster, fmt.Errorf("number of nodes %d does not match number of chainlink configs %d", noOfNodes, len(newDonConfig.ChainlinkConfigs))
+	}
+	for i := 0; i < noOfNodes; i++ {
+		node, err := test_env.NewClNode(
+			newDonConfig.Options.Networks,
+			pointer.GetString(newDonConfig.Common.ChainlinkImage.Image),
+			pointer.GetString(newDonConfig.Common.ChainlinkImage.Version),
+			newDonConfig.ChainlinkConfigs[i],
+			newDonConfig.Options.LogStream,
+			test_env.WithPgDBOptions(
+				ctftestenv.WithPostgresImageName(newDonConfig.Common.DBImage),
+				ctftestenv.WithPostgresImageVersion(newDonConfig.Common.DBTag),
+			),
+		)
+		if err != nil {
+			return clCluster, errors.Wrapf(err, "failed to build new chainlink node")
+		}
+		clCluster.Nodes = append(clCluster.Nodes, node)
+	}
+
+	return clCluster, nil
+}
+
+func startChainlinkClusterAndClients(clCluster *test_env.ClCluster, don *persistent_types.DON) error {
+	startErr := clCluster.Start()
+	if startErr != nil {
+		return errors.Wrap(startErr, "failed to start chainlink cluster")
+	}
+
+	for _, node := range clCluster.Nodes {
+		don.ChainlinkClients = append(don.ChainlinkClients, &client.ChainlinkK8sClient{
+			ChainlinkClient: node.API,
+		})
+	}
+
+	don.ChainlinkContainers = clCluster.Nodes
+
+	return nil
+}
+
+func validateDONConfig(donConfig persistent_types.DONConfig) error {
+	if donConfig.NewDON == nil && donConfig.ExistingDON == nil {
+		return fmt.Errorf("no DON config provided, you need to provide either an existing or new DON config")
+	}
+
+	if donConfig.NewDON != nil && donConfig.ExistingDON != nil {
+		return fmt.Errorf("both new and existing DON config provided, you need to provide either an existing or new DON config")
+	}
+
+	return nil
 }

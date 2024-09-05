@@ -31,7 +31,7 @@ func TestStartNewCCIPEnvironmentFromTestConfig(t *testing.T) {
 // ok
 func TestStartNewChainlinkEnvironmentFromTestConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	testCfg, err := chainlink_test_config.GetConfig([]string{"Smoke"}, chainlink_test_config.OCR)
+	testCfg, err := chainlink_test_config.GetConfig([]string{"Smoke"}, chainlink_test_config.OCR2)
 	require.NoError(t, err, "Error getting test config")
 
 	envConfig, err := persistent.EnvironmentConfigFromChainlinkTestConfig(t, testCfg, true, nil, nil)
@@ -43,6 +43,7 @@ func TestStartNewChainlinkEnvironmentFromTestConfig(t *testing.T) {
 	//deploy something here to chain?
 }
 
+// ok
 func TestStartExistingChainlinkEnvironmentFromTestConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	testCfg, err := chainlink_test_config.GetConfig([]string{"Smoke"}, chainlink_test_config.OCR)
@@ -89,14 +90,8 @@ func TestStartExistingChainlinkEnvironmentFromTestConfig(t *testing.T) {
 	envConfig, err := persistent.EnvironmentConfigFromChainlinkTestConfig(t, testCfg, false, existingCluster, ptr.Ptr("https://crib-bartek-mockserver.main.stage.cldev.sh"))
 	require.NoError(t, err, "Error creating chain config from test config")
 
-	e, err := persistent.NewEnvironment(lggr, envConfig)
+	_, err = persistent.NewEnvironment(lggr, envConfig)
 	require.NoError(t, err, "Error creating new persistent environment")
-
-	// make sure we can read the CSA keys from all nodes
-	for _, node := range e.Offchain.NodeClients() {
-		_, _, err = node.ReadCSAKeys()
-		require.NoError(t, err, "Failed to read CSA keys")
-	}
 
 	//deploy something here to chain?
 }

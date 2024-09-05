@@ -38,13 +38,11 @@ func CreateNewEVMChainWithSeth(config ctf_config.EthereumNetworkConfig, sethConf
 }
 
 type NewEVMChainWithSeth struct {
-	SethChainBuilder
+	ChainBuilder
 	config              ctf_config.EthereumNetworkConfig
 	sethConfig          seth.Config
 	contractsRootFolder string
 	ctf_test_env.EthereumNetworkHooks
-	// todo attach cleanups somewhere to T
-	// logscanner, etc
 }
 
 func (n *NewEVMChainWithSeth) Hooks() ctf_test_env.EthereumNetworkHooks {
@@ -70,7 +68,18 @@ func (n *NewEVMChainWithSeth) Chain() (deployment.Chain, persistent_types.RpcPro
 	}
 
 	evmNetwork.Name = fmt.Sprintf("%s-%d", *network.ExecutionLayer, evmNetwork.ChainID)
-	sethClient, err := seth.NewClientBuilderWithConfig(&n.sethConfig).
+	// TODO move to common function
+	// copy it so we don't end up modifying the original config during configuration merge
+	sethConfigCopy, err := copySethConfig(n.sethConfig)
+	if err != nil {
+		return chain, nil, errors.Wrapf(err, "failed to copy seth config")
+	}
+	sethConfig, err := seth_utils.MergeSethAndEvmNetworkConfigs(evmNetwork, sethConfigCopy)
+	if err != nil {
+		return chain, nil, errors.Wrapf(err, "failed to merge seth and evm network configs")
+	}
+
+	sethClient, err := seth.NewClientBuilderWithConfig(&sethConfig).
 		// we want to set it dynamically, because the path depends on the location of the file in the project
 		WithGethWrappersFolders([]string{fmt.Sprintf("%s/ccip", n.contractsRootFolder)}).
 		WithRpcUrl(evmNetwork.URLs[0]).
@@ -111,7 +120,7 @@ func (n *NewEVMChainConfigWithSeth) DockerNetworks() []string {
 }
 
 type ExistingEVMChainConfigWithSeth struct {
-	SethChainBuilder
+	ChainBuilder
 	evmNetwork          blockchain.EVMNetwork
 	sethConfig          seth.Config
 	contractsRootFolder string
@@ -136,19 +145,14 @@ func CreateExistingEVMChainWithSeth(evmNetwork blockchain.EVMNetwork, sethConfig
 
 func (e *ExistingEVMChainConfigWithSeth) Chain() (deployment.Chain, persistent_types.RpcProvider, error) {
 	chain := deployment.Chain{}
-	// copy it so we don't end up modifying the original config
-	marshalled, err := toml.Marshal(e.sethConfig)
+	// copy it so we don't end up modifying the original config during configuration merge
+	sethConfigCopy, err := copySethConfig(e.sethConfig)
 	if err != nil {
-		return chain, nil, fmt.Errorf("failed to marshal seth config: %w", err)
-	}
-	var sethConfigCopy seth.Config
-	err = toml.Unmarshal(marshalled, &sethConfigCopy)
-	if err != nil {
-		return chain, nil, fmt.Errorf("failed to unmarshal seth config: %w", err)
+		return chain, nil, errors.Wrapf(err, "failed to copy seth config")
 	}
 	c, err := seth_utils.MergeSethAndEvmNetworkConfigs(e.evmNetwork, sethConfigCopy)
 	if err != nil {
-		return chain, nil, fmt.Errorf("failed to merge seth and evm network configs: %w", err)
+		return chain, nil, errors.Wrapf(err, "failed to merge seth and evm network configs")
 	}
 
 	sethClient, err := seth.NewClientBuilderWithConfig(&c).
@@ -156,15 +160,15 @@ func (e *ExistingEVMChainConfigWithSeth) Chain() (deployment.Chain, persistent_t
 		WithGethWrappersFolders([]string{fmt.Sprintf("%s/ccip", e.contractsRootFolder)}).
 		Build()
 	if err != nil {
-		return chain, nil, fmt.Errorf("failed to create seth client: %w", err)
+		return chain, nil, errors.Wrapf(err, "failed to create seth client")
 	}
 
 	return e.Build(sethClient, e.evmNetwork, ctf_test_env.NewRPCProvider(e.evmNetwork.HTTPURLs, e.evmNetwork.URLs, e.evmNetwork.HTTPURLs, e.evmNetwork.URLs))
 }
 
-type SethChainBuilder struct{}
+type ChainBuilder struct{}
 
-func (s *SethChainBuilder) Build(sethClient *seth.Client, evmNetwork blockchain.EVMNetwork, rpcProvider ctf_test_env.RpcProvider) (deployment.Chain, persistent_types.RpcProvider, error) {
+func (s *ChainBuilder) Build(sethClient *seth.Client, evmNetwork blockchain.EVMNetwork, rpcProvider ctf_test_env.RpcProvider) (deployment.Chain, persistent_types.RpcProvider, error) {
 	shouldRetryOnErrFn := func(err error) bool {
 		// some retry logic here
 		return true
@@ -252,4 +256,18 @@ func findGethWrappersFolderRoot(folderLimit int) (string, error) {
 		return "", fmt.Errorf("failed to find contracts root folder: %w", err)
 	}
 	return filepath.Dir(contractsRootFile), nil
+}
+
+func copySethConfig(sethConfig seth.Config) (seth.Config, error) {
+	marshalled, err := toml.Marshal(sethConfig)
+	if err != nil {
+		return seth.Config{}, fmt.Errorf("failed to marshal seth config: %w", err)
+	}
+	var sethConfigCopy seth.Config
+	err = toml.Unmarshal(marshalled, &sethConfigCopy)
+	if err != nil {
+		return seth.Config{}, fmt.Errorf("failed to unmarshal seth config: %w", err)
+	}
+
+	return sethConfigCopy, nil
 }
