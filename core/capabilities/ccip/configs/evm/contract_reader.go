@@ -70,10 +70,6 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getMerkleRoot", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.MethodNameIsBlessed: {
-					ChainSpecificName: mustGetMethodName("isBlessed", offrampABI),
-					ReadType:          evmrelaytypes.Method,
-				},
 				consts.MethodNameGetLatestPriceSequenceNumber: {
 					ChainSpecificName: mustGetMethodName("getLatestPriceSequenceNumber", offrampABI),
 					ReadType:          evmrelaytypes.Method,
