@@ -203,13 +203,11 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 		Contracts: map[string]evmtypes.ChainContractReader{
 			consts.ContractNameOnRamp: {
 				ContractPollingFilter: evmtypes.ContractPollingFilter{
-					// TODO: change this to EventNameCCIPMessageSent in chainlink-ccip
-					GenericEventNames: []string{consts.EventNameCCIPSendRequested},
+					GenericEventNames: []string{consts.EventNameCCIPMessageSent},
 				},
 				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
 				Configs: map[string]*evmtypes.ChainReaderDefinition{
-					// TODO: change this to EventNameCCIPMessageSent in chainlink-ccip
-					consts.EventNameCCIPSendRequested: {
+					consts.EventNameCCIPMessageSent: {
 						ChainSpecificName: "CCIPMessageSent",
 						ReadType:          evmtypes.Event,
 					},
