@@ -70,10 +70,6 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getMerkleRoot", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.MethodNameIsBlessed: {
-					ChainSpecificName: mustGetMethodName("isBlessed", offrampABI),
-					ReadType:          evmrelaytypes.Method,
-				},
 				consts.MethodNameGetLatestPriceSequenceNumber: {
 					ChainSpecificName: mustGetMethodName("getLatestPriceSequenceNumber", offrampABI),
 					ReadType:          evmrelaytypes.Method,
@@ -123,7 +119,7 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: onramp.OnRampABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				GenericEventNames: []string{
-					mustGetEventName(consts.EventNameCCIPSendRequested, onrampABI),
+					consts.EventNameCCIPMessageSent,
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -141,8 +137,8 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.EventNameCCIPSendRequested: {
-					ChainSpecificName: mustGetEventName(consts.EventNameCCIPSendRequested, onrampABI),
+				consts.EventNameCCIPMessageSent: {
+					ChainSpecificName: mustGetEventName("CCIPMessageSent", onrampABI),
 					ReadType:          evmrelaytypes.Event,
 					EventDefinitions: &evmrelaytypes.EventDefinitions{
 						GenericDataWordNames: map[string]uint8{
