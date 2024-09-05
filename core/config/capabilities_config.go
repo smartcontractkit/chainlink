@@ -11,17 +11,17 @@ type CapabilitiesExternalRegistry interface {
 	RelayID() types.RelayID
 }
 
-type GatewayConnectorConfig interface {
+type GatewayConnector interface {
 	ChainIDForNodeKey() string
 	NodeAddress() string
 	DonID() string
-	Gateways() []ConnectorGatewayConfig
+	Gateways() []ConnectorGateway
 	WsHandshakeTimeoutMillis() uint32
 	AuthMinChallengeLen() int
 	AuthTimestampToleranceSec() uint32
 }
 
-type ConnectorGatewayConfig interface {
+type ConnectorGateway interface {
 	ID() string
 	URL() string
 }
@@ -30,5 +30,5 @@ type Capabilities interface {
 	Peering() P2P
 	Dispatcher() Dispatcher
 	ExternalRegistry() CapabilitiesExternalRegistry
-	GatewayConnectorConfig() GatewayConnectorConfig
+	GatewayConnector() GatewayConnector
 }

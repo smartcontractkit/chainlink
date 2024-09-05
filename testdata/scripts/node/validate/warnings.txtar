@@ -303,15 +303,15 @@ Address = ''
 NetworkID = 'evm'
 ChainID = '1'
 
-[Capabilities.GatewayConnectorConfig]
-ChainIDForNodeKey = '0xfd29Dd9C980D715a64dace97F7A2AB98bcaE0fed'
+[Capabilities.GatewayConnector]
+ChainIDForNodeKey = ''
 NodeAddress = ''
 DonID = ''
 WsHandshakeTimeoutMillis = 0
 AuthMinChallengeLen = 0
 AuthTimestampToleranceSec = 0
 
-[[Capabilities.GatewayConnectorConfig.Gateways]]
+[[Capabilities.GatewayConnector.Gateways]]
 ID = ''
 URL = ''
 

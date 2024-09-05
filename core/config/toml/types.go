@@ -1480,17 +1480,17 @@ func (drl *DispatcherRateLimit) setFrom(f *DispatcherRateLimit) {
 	}
 }
 
-type GatewayConnectorConfig struct {
+type GatewayConnector struct {
 	ChainIDForNodeKey         *string
 	NodeAddress               *string
 	DonID                     *string
-	Gateways                  []ConnectorGatewayConfig
+	Gateways                  []ConnectorGateway
 	WsHandshakeTimeoutMillis  *uint32
 	AuthMinChallengeLen       *int
 	AuthTimestampToleranceSec *uint32
 }
 
-func (r *GatewayConnectorConfig) setFrom(f *GatewayConnectorConfig) {
+func (r *GatewayConnector) setFrom(f *GatewayConnector) {
 	if f.ChainIDForNodeKey != nil {
 		r.ChainIDForNodeKey = f.ChainIDForNodeKey
 	}
@@ -1503,7 +1503,6 @@ func (r *GatewayConnectorConfig) setFrom(f *GatewayConnectorConfig) {
 		r.DonID = f.DonID
 	}
 
-	// TODO: verify this copy by reference is ok, or does array need to be copied by value
 	if f.Gateways != nil {
 		r.Gateways = f.Gateways
 	}
@@ -1521,23 +1520,23 @@ func (r *GatewayConnectorConfig) setFrom(f *GatewayConnectorConfig) {
 	}
 }
 
-type ConnectorGatewayConfig struct {
+type ConnectorGateway struct {
 	ID  *string
 	URL *string
 }
 
 type Capabilities struct {
-	Peering                P2P                    `toml:",omitempty"`
-	Dispatcher             Dispatcher             `toml:",omitempty"`
-	ExternalRegistry       ExternalRegistry       `toml:",omitempty"`
-	GatewayConnectorConfig GatewayConnectorConfig `toml:", omitempty"`
+	Peering          P2P              `toml:",omitempty"`
+	Dispatcher       Dispatcher       `toml:",omitempty"`
+	ExternalRegistry ExternalRegistry `toml:",omitempty"`
+	GatewayConnector GatewayConnector `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.Peering.setFrom(&f.Peering)
 	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
 	c.Dispatcher.setFrom(&f.Dispatcher)
-	c.GatewayConnectorConfig.setFrom(&f.GatewayConnectorConfig)
+	c.GatewayConnector.setFrom(&f.GatewayConnector)
 }
 
 type ThresholdKeyShareSecrets struct {

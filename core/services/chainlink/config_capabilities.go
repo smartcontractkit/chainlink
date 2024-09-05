@@ -62,9 +62,9 @@ func (r *dispatcherRateLimit) PerSenderBurst() int {
 	return *r.r.PerSenderBurst
 }
 
-func (c *capabilitiesConfig) GatewayConnectorConfig() config.GatewayConnectorConfig {
-	return &gatewayConnectorConfig{
-		c: c.c.GatewayConnectorConfig,
+func (c *capabilitiesConfig) GatewayConnector() config.GatewayConnector {
+	return &gatewayConnector{
+		c: c.c.GatewayConnector,
 	}
 }
 
@@ -88,49 +88,49 @@ func (c *capabilitiesExternalRegistry) Address() string {
 	return *c.c.Address
 }
 
-type gatewayConnectorConfig struct {
-	c toml.GatewayConnectorConfig
+type gatewayConnector struct {
+	c toml.GatewayConnector
 }
 
-func (c *gatewayConnectorConfig) ChainIDForNodeKey() string {
+func (c *gatewayConnector) ChainIDForNodeKey() string {
 	return *c.c.ChainIDForNodeKey
 }
-func (c *gatewayConnectorConfig) NodeAddress() string {
+func (c *gatewayConnector) NodeAddress() string {
 	return *c.c.NodeAddress
 }
 
-func (c *gatewayConnectorConfig) DonID() string {
+func (c *gatewayConnector) DonID() string {
 	return *c.c.DonID
 }
 
-func (c *gatewayConnectorConfig) Gateways() []config.ConnectorGatewayConfig {
-	t := []config.ConnectorGatewayConfig{}
+func (c *gatewayConnector) Gateways() []config.ConnectorGateway {
+	t := []config.ConnectorGateway{}
 	for index, element := range c.c.Gateways {
-		t[index] = &connectorGatewayConfig{element}
+		t[index] = &connectorGateway{element}
 	}
 	return t
 }
 
-func (c *gatewayConnectorConfig) WsHandshakeTimeoutMillis() uint32 {
+func (c *gatewayConnector) WsHandshakeTimeoutMillis() uint32 {
 	return *c.c.WsHandshakeTimeoutMillis
 }
 
-func (c *gatewayConnectorConfig) AuthMinChallengeLen() int {
+func (c *gatewayConnector) AuthMinChallengeLen() int {
 	return *c.c.AuthMinChallengeLen
 }
 
-func (c *gatewayConnectorConfig) AuthTimestampToleranceSec() uint32 {
+func (c *gatewayConnector) AuthTimestampToleranceSec() uint32 {
 	return *c.c.AuthTimestampToleranceSec
 }
 
-type connectorGatewayConfig struct {
-	c toml.ConnectorGatewayConfig
+type connectorGateway struct {
+	c toml.ConnectorGateway
 }
 
-func (c *connectorGatewayConfig) ID() string {
+func (c *connectorGateway) ID() string {
 	return *c.c.ID
 }
 
-func (c *connectorGatewayConfig) URL() string {
+func (c *connectorGateway) URL() string {
 	return *c.c.URL
 }
