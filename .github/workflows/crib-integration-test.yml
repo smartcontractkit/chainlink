@@ -104,7 +104,7 @@ jobs:
           # RESTY_DEBUG: true
           TEST_PERSISTENCE: true
         run: |-
-          go test -v -run TestCRIB
+          go test -v -run TestCRIBChaos
       - name: Destroy CRIB Environment
         id: destroy
         if: always() && steps.deploy-crib.outputs.devspace-namespace != ''

@@ -6,13 +6,11 @@ import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {ICapabilitiesRegistry} from "./interfaces/ICapabilitiesRegistry.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
-
-import {SortedSetValidationUtil} from "../../shared/util/SortedSetValidationUtil.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {CCIPConfigTypes} from "./libraries/CCIPConfigTypes.sol";
 
-import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
-import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
+import {IERC165} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/interfaces/IERC165.sol";
+import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice CCIPConfig stores the configuration for the CCIP capability.
 /// We have two classes of configuration: chain configuration and DON (in the CapabilitiesRegistry sense) configuration.
@@ -26,20 +24,16 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
   /// @param chainSelector The chain selector.
   /// @param chainConfig The chain configuration.
   event ChainConfigSet(uint64 chainSelector, CCIPConfigTypes.ChainConfig chainConfig);
-
   /// @notice Emitted when a chain's configuration is removed.
   /// @param chainSelector The chain selector.
   event ChainConfigRemoved(uint64 chainSelector);
 
-  error ChainConfigNotSetForChain(uint64 chainSelector);
   error NodeNotInRegistry(bytes32 p2pId);
   error OnlyCapabilitiesRegistryCanCall();
   error ChainSelectorNotFound(uint64 chainSelector);
   error ChainSelectorNotSet();
   error TooManyOCR3Configs();
   error TooManySigners();
-  error TooManyTransmitters();
-  error TooManyBootstrapP2PIds();
   error P2PIdsLengthNotMatching(uint256 p2pIdsLength, uint256 signersLength, uint256 transmittersLength);
   error NotEnoughTransmitters(uint256 got, uint256 minimum);
   error FMustBePositive();
@@ -55,12 +49,22 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
   error WrongConfigCount(uint64 got, uint64 expected);
   error WrongConfigDigest(bytes32 got, bytes32 expected);
   error WrongConfigDigestBlueGreen(bytes32 got, bytes32 expected);
+  error ZeroAddressNotAllowed();
 
   /// @notice Type and version override.
   string public constant override typeAndVersion = "CCIPConfig 1.6.0-dev";
 
   /// @notice The canonical capabilities registry address.
   address internal immutable i_capabilitiesRegistry;
+
+  uint8 internal constant MAX_OCR3_CONFIGS_PER_PLUGIN = 2;
+  uint8 internal constant MAX_OCR3_CONFIGS_PER_DON = 4;
+  uint256 internal constant CONFIG_DIGEST_PREFIX_MASK = type(uint256).max << (256 - 16); // 0xFFFF00..0
+  /// @dev must be equal to libocr multi role: https://github.com/smartcontractkit/libocr/blob/ae747ca5b81236ffdbf1714318c652e923a5ff4d/offchainreporting2plus/types/config_digest.go#L28
+  uint256 internal constant CONFIG_DIGEST_PREFIX = 0x000a << (256 - 16); // 0x000a00..00
+  bytes32 internal constant EMPTY_ENCODED_ADDRESS_HASH = keccak256(abi.encode(address(0)));
+  /// @dev 256 is the hard limit due to the bit encoding of their indexes into a uint256.
+  uint256 internal constant MAX_NUM_ORACLES = 256;
 
   /// @notice chain configuration for each chain that CCIP is deployed on.
   mapping(uint64 chainSelector => CCIPConfigTypes.ChainConfig chainConfig) internal s_chainConfigurations;
@@ -75,15 +79,11 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
     uint32 donId => mapping(Internal.OCRPluginType pluginType => CCIPConfigTypes.OCR3ConfigWithMeta[] ocr3Configs)
   ) internal s_ocr3Configs;
 
-  /// @notice The DONs that have been configured.
-  EnumerableSet.UintSet internal s_donIds;
-
-  uint8 internal constant MAX_OCR3_CONFIGS_PER_PLUGIN = 2;
-  uint8 internal constant MAX_OCR3_CONFIGS_PER_DON = 4;
-  uint8 internal constant MAX_NUM_ORACLES = 31;
-
   /// @param capabilitiesRegistry the canonical capabilities registry address.
   constructor(address capabilitiesRegistry) {
+    if (capabilitiesRegistry == address(0)) {
+      revert ZeroAddressNotAllowed();
+    }
     i_capabilitiesRegistry = capabilitiesRegistry;
   }
 
@@ -95,22 +95,45 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
   // ================================================================
   // │                    Config Getters                            │
   // ================================================================
+  /// @notice Returns the capabilities registry address.
+  /// @return The capabilities registry address.
+  function getCapabilityRegistry() external view returns (address) {
+    return i_capabilitiesRegistry;
+  }
 
   /// @notice Returns all the chain configurations.
-  /// @return The chain configurations.
-  // TODO: will this eventually hit the RPC max response size limit?
-  function getAllChainConfigs() external view returns (CCIPConfigTypes.ChainConfigInfo[] memory) {
+  /// @param pageIndex The page index.
+  /// @param pageSize The page size.
+  /// @return paginatedChainConfigs chain configurations.
+  function getAllChainConfigs(
+    uint256 pageIndex,
+    uint256 pageSize
+  ) external view returns (CCIPConfigTypes.ChainConfigInfo[] memory) {
+    uint256 totalItems = s_remoteChainSelectors.length(); // Total number of chain selectors
+    uint256 startIndex = pageIndex * pageSize;
+
+    if (pageSize == 0 || startIndex >= totalItems) {
+      return new CCIPConfigTypes.ChainConfigInfo[](0); // Return an empty array if pageSize is 0 or pageIndex is out of bounds
+    }
+
+    uint256 endIndex = startIndex + pageSize;
+    if (endIndex > totalItems) {
+      endIndex = totalItems;
+    }
+
+    CCIPConfigTypes.ChainConfigInfo[] memory paginatedChainConfigs =
+      new CCIPConfigTypes.ChainConfigInfo[](endIndex - startIndex);
+
     uint256[] memory chainSelectors = s_remoteChainSelectors.values();
-    CCIPConfigTypes.ChainConfigInfo[] memory chainConfigs =
-      new CCIPConfigTypes.ChainConfigInfo[](s_remoteChainSelectors.length());
-    for (uint256 i = 0; i < chainSelectors.length; ++i) {
+    for (uint256 i = startIndex; i < endIndex; ++i) {
       uint64 chainSelector = uint64(chainSelectors[i]);
-      chainConfigs[i] = CCIPConfigTypes.ChainConfigInfo({
+      paginatedChainConfigs[i - startIndex] = CCIPConfigTypes.ChainConfigInfo({
         chainSelector: chainSelector,
         chainConfig: s_chainConfigurations[chainSelector]
       });
     }
-    return chainConfigs;
+
+    return paginatedChainConfigs;
   }
 
   /// @notice Returns the OCR configuration for the given don ID and plugin type.
@@ -146,9 +169,8 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
       revert OnlyCapabilitiesRegistryCanCall();
     }
 
-    CCIPConfigTypes.OCR3Config[] memory ocr3Configs = abi.decode(config, (CCIPConfigTypes.OCR3Config[]));
     (CCIPConfigTypes.OCR3Config[] memory commitConfigs, CCIPConfigTypes.OCR3Config[] memory execConfigs) =
-      _groupByPluginType(ocr3Configs);
+      _groupByPluginType(abi.decode(config, (CCIPConfigTypes.OCR3Config[])));
     if (commitConfigs.length > 0) {
       _updatePluginConfig(donId, Internal.OCRPluginType.Commit, commitConfigs);
     }
@@ -157,6 +179,10 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
     }
   }
 
+  /// @notice Sets a new OCR3 config for a specific plugin type for a DON.
+  /// @param donId The DON ID.
+  /// @param pluginType The plugin type.
+  /// @param newConfig The new configuration.
   function _updatePluginConfig(
     uint32 donId,
     Internal.OCRPluginType pluginType,
@@ -197,11 +223,14 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
     return CCIPConfigTypes.ConfigState(configLen);
   }
 
-  // the only valid state transitions are the following:
-  // init    -> running (first ever config)
-  // running -> staging (blue/green proposal)
-  // staging -> running (promotion)
-  // everything else is invalid and should revert.
+  /// @notice Validates the state transition between two config states.
+  /// The only valid state transitions are the following:
+  /// Init    -> Running (first ever config)
+  /// Running -> Staging (blue/green proposal)
+  /// Staging -> Running (promotion)
+  /// Everything else is invalid and should revert.
+  /// @param currentState The current state.
+  /// @param newState The new state.
   function _validateConfigStateTransition(
     CCIPConfigTypes.ConfigState currentState,
     CCIPConfigTypes.ConfigState newState
@@ -220,6 +249,9 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
     revert InvalidConfigStateTransition(currentState, newState);
   }
 
+  /// @notice Validates the transition between two OCR3 configurations.
+  /// @param currentConfig The current configuration with metadata.
+  /// @param newConfigWithMeta The new configuration with metadata.
   function _validateConfigTransition(
     CCIPConfigTypes.OCR3ConfigWithMeta[] memory currentConfig,
     CCIPConfigTypes.OCR3ConfigWithMeta[] memory newConfigWithMeta
@@ -308,7 +340,11 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
 
   /// @notice Group the OCR3 configurations by plugin type for further processing.
   /// @param ocr3Configs The OCR3 configurations to group.
-  function _groupByPluginType(CCIPConfigTypes.OCR3Config[] memory ocr3Configs)
+  /// @return commitConfigs The commit configurations.
+  /// @return execConfigs The execution configurations.
+  function _groupByPluginType(
+    CCIPConfigTypes.OCR3Config[] memory ocr3Configs
+  )
     internal
     pure
     returns (CCIPConfigTypes.OCR3Config[] memory commitConfigs, CCIPConfigTypes.OCR3Config[] memory execConfigs)
@@ -323,8 +359,8 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
     // access in the for loop below.
     commitConfigs = new CCIPConfigTypes.OCR3Config[](MAX_OCR3_CONFIGS_PER_PLUGIN);
     execConfigs = new CCIPConfigTypes.OCR3Config[](MAX_OCR3_CONFIGS_PER_PLUGIN);
-    uint256 commitCount;
-    uint256 execCount;
+    uint256 commitCount = 0;
+    uint256 execCount = 0;
     for (uint256 i = 0; i < ocr3Configs.length; ++i) {
       if (ocr3Configs[i].pluginType == Internal.OCRPluginType.Commit) {
         commitConfigs[commitCount] = ocr3Configs[i];
@@ -344,41 +380,33 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
     return (commitConfigs, execConfigs);
   }
 
+  /// @notice Validates an OCR3 configuration.
+  /// @param cfg The OCR3 configuration.
   function _validateConfig(CCIPConfigTypes.OCR3Config memory cfg) internal view {
     if (cfg.chainSelector == 0) revert ChainSelectorNotSet();
     if (cfg.pluginType != Internal.OCRPluginType.Commit && cfg.pluginType != Internal.OCRPluginType.Execution) {
       revert InvalidPluginType();
     }
-    // TODO: can we do more sophisticated validation than this?
-    if (cfg.offrampAddress.length == 0) revert OfframpAddressCannotBeZero();
+    if (cfg.offrampAddress.length == 0 || keccak256(cfg.offrampAddress) == EMPTY_ENCODED_ADDRESS_HASH) {
+      revert OfframpAddressCannotBeZero();
+    }
     if (!s_remoteChainSelectors.contains(cfg.chainSelector)) revert ChainSelectorNotFound(cfg.chainSelector);
-
-    // Some of these checks below are done in OCR2/3Base config validation, so we do them again here.
-    // Role DON OCR configs will have all the Role DON signers but only a subset of transmitters.
-    if (cfg.signers.length > MAX_NUM_ORACLES) revert TooManySigners();
-    if (cfg.transmitters.length > MAX_NUM_ORACLES) revert TooManyTransmitters();
 
     // We check for chain config presence above, so fChain here must be non-zero.
     uint256 minTransmittersLength = 3 * s_chainConfigurations[cfg.chainSelector].fChain + 1;
     if (cfg.transmitters.length < minTransmittersLength) {
       revert NotEnoughTransmitters(cfg.transmitters.length, minTransmittersLength);
     }
-    if (cfg.F == 0) revert FMustBePositive();
-    if (cfg.signers.length <= 3 * cfg.F) revert FTooHigh();
-
-    if (cfg.p2pIds.length != cfg.signers.length || cfg.p2pIds.length != cfg.transmitters.length) {
+    uint256 numberOfSigners = cfg.signers.length;
+    if (numberOfSigners > MAX_NUM_ORACLES) revert TooManySigners();
+    if (numberOfSigners != cfg.p2pIds.length || numberOfSigners != cfg.transmitters.length) {
       revert P2PIdsLengthNotMatching(cfg.p2pIds.length, cfg.signers.length, cfg.transmitters.length);
     }
-    if (cfg.bootstrapP2PIds.length > cfg.p2pIds.length) revert TooManyBootstrapP2PIds();
-
-    // check for duplicate p2p ids and bootstrapP2PIds.
-    // check that p2p ids in cfg.bootstrapP2PIds are included in cfg.p2pIds.
-    SortedSetValidationUtil._checkIsValidUniqueSubset(cfg.bootstrapP2PIds, cfg.p2pIds);
+    if (cfg.F == 0) revert FMustBePositive();
+    if (numberOfSigners <= 3 * cfg.F) revert FTooHigh();
 
     // Check that the readers are in the capabilities registry.
-    for (uint256 i = 0; i < cfg.signers.length; ++i) {
-      _ensureInRegistry(cfg.p2pIds[i]);
-    }
+    _ensureInRegistry(cfg.p2pIds);
   }
 
   /// @notice Computes the digest of the provided configuration.
@@ -403,7 +431,6 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
           ocr3Config.pluginType,
           ocr3Config.offrampAddress,
           configCount,
-          ocr3Config.bootstrapP2PIds,
           ocr3Config.p2pIds,
           ocr3Config.signers,
           ocr3Config.transmitters,
@@ -413,9 +440,8 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
         )
       )
     );
-    uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
-    uint256 prefix = 0x000a << (256 - 16); // 0x000a00..00
-    return bytes32((prefix & prefixMask) | (h & ~prefixMask));
+
+    return bytes32((CONFIG_DIGEST_PREFIX & CONFIG_DIGEST_PREFIX_MASK) | (h & ~CONFIG_DIGEST_PREFIX_MASK));
   }
 
   // ================================================================
@@ -445,13 +471,10 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
     // Process additions next.
     for (uint256 i = 0; i < chainConfigAdds.length; ++i) {
       CCIPConfigTypes.ChainConfig memory chainConfig = chainConfigAdds[i].chainConfig;
-      bytes32[] memory readers = chainConfig.readers;
       uint64 chainSelector = chainConfigAdds[i].chainSelector;
 
       // Verify that the provided readers are present in the capabilities registry.
-      for (uint256 j = 0; j < readers.length; j++) {
-        _ensureInRegistry(readers[j]);
-      }
+      _ensureInRegistry(chainConfig.readers);
 
       // Verify that fChain is positive.
       if (chainConfig.fChain == 0) {
@@ -466,11 +489,13 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
   }
 
   /// @notice Helper function to ensure that a node is in the capabilities registry.
-  /// @param p2pId The P2P ID of the node to check.
-  function _ensureInRegistry(bytes32 p2pId) internal view {
-    ICapabilitiesRegistry.NodeInfo memory node = ICapabilitiesRegistry(i_capabilitiesRegistry).getNode(p2pId);
-    if (node.p2pId == bytes32("")) {
-      revert NodeNotInRegistry(p2pId);
+  /// @param p2pIds The P2P IDs of the node to check.
+  function _ensureInRegistry(bytes32[] memory p2pIds) internal view {
+    for (uint256 i = 0; i < p2pIds.length; ++i) {
+      // TODO add a method that does the validation in the ICapabilitiesRegistry contract
+      if (ICapabilitiesRegistry(i_capabilitiesRegistry).getNode(p2pIds[i]).p2pId == bytes32("")) {
+        revert NodeNotInRegistry(p2pIds[i]);
+      }
     }
   }
 }

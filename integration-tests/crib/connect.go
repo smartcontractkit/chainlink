@@ -4,18 +4,18 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/crib"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/crib"
 
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	msClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	msClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
@@ -37,16 +37,17 @@ func ConnectRemote() (
 	*msClient.MockserverClient,
 	*client.ChainlinkK8sClient,
 	[]*client.ChainlinkK8sClient,
+	*crib.CoreDONConnectionConfig,
 	error,
 ) {
 	vars, err := crib.CoreDONSimulatedConnection()
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	// TODO: move all the parts of ConnectRemote() to CTF when Seth config refactor is finalized
 	config, err := tc.GetConfig([]string{"CRIB"}, tc.OCR)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	var sethClient *seth.Client
 	switch vars.Network {
@@ -69,10 +70,10 @@ func ConnectRemote() (
 		}
 		sethClient, err = seth_utils.GetChainClient(config, net)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 	default:
-		return nil, nil, nil, nil, errors.New("CRIB network is not supported")
+		return nil, nil, nil, nil, nil, errors.New("CRIB network is not supported")
 	}
 	// bootstrap node
 	clClients := make([]*client.ChainlinkK8sClient, 0)
@@ -84,7 +85,7 @@ func ConnectRemote() (
 		Headers:    vars.NodeHeaders[0],
 	}, vars.NodeInternalDNS[0], vars.Namespace)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	clClients = append(clClients, c)
 	// all the other nodes, indices of nodes in CRIB starts with 1
@@ -97,7 +98,7 @@ func ConnectRemote() (
 			Headers:    vars.NodeHeaders[i],
 		}, vars.NodeInternalDNS[i], vars.Namespace)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 		clClients = append(clClients, cl)
 	}
@@ -108,5 +109,5 @@ func ConnectRemote() (
 	})
 
 	//nolint:gosec // G602 - false positive https://github.com/securego/gosec/issues/1005
-	return sethClient, mockServerClient, clClients[0], clClients[1:], nil
+	return sethClient, mockServerClient, clClients[0], clClients[1:], vars, nil
 }

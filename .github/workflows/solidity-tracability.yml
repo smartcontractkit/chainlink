@@ -107,7 +107,7 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
 
-          JIRA_HOST: https://smartcontract-it.atlassian.net/ 
+          JIRA_HOST: ${{ vars.JIRA_HOST }} 
           JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 

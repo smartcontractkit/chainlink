@@ -92,7 +92,7 @@ jobs:
           pnpm install && pnpm issue:update 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JIRA_HOST: ${{ secrets.JIRA_HOST }}
+          JIRA_HOST: ${{ vars.JIRA_HOST }}
           JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           CHAINLINK_VERSION: ${{ steps.chainlink-version.outputs.chainlink_version }}

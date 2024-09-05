@@ -55,10 +55,19 @@ contract MockE2EUSDCTransmitter is IMessageTransmitterWithRelay {
   ///     * destinationCaller     32         bytes32    84
   ///     * messageBody           dynamic    bytes      116
   function receiveMessage(bytes calldata message, bytes calldata) external returns (bool success) {
-    address recipient = address(bytes20(message[64:84]));
-
-    // We always mint 1000e18 tokens to not complicate the test.
-    i_token.mint(recipient, 1000e18);
+    // The receiver of the funds is the _mintRecipient in the following encoded format
+    //   function _formatMessage(
+    //    uint32 _version,             4
+    //    bytes32 _burnToken,         32
+    //    bytes32 _mintRecipient,     32, first 12 empty for EVM addresses
+    //    uint256 _amount,
+    //    bytes32 _messageSender
+    //  ) internal pure returns (bytes memory) {
+    //    return abi.encodePacked(_version, _burnToken, _mintRecipient, _amount, _messageSender);
+    //  }
+    address recipient = address(bytes20(message[116 + 36 + 12:116 + 36 + 12 + 20]));
+    // We always mint 1 token to not complicate the test.
+    i_token.mint(recipient, 1);
 
     return s_shouldSucceed;
   }

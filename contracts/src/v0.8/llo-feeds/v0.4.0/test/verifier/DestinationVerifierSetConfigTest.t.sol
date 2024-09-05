@@ -64,6 +64,7 @@ contract DestinationVerifierSetConfigTest is BaseTest {
     bytes24 expectedDonConfigId = _donConfigIdFromConfigData(signerAddrs, FAULT_TOLERANCE);
 
     s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
+    vm.warp(block.timestamp + 1);
 
     address temp = signerAddrs[0];
     signerAddrs[0] = signerAddrs[1];
@@ -80,8 +81,12 @@ contract DestinationVerifierSetConfigTest is BaseTest {
 
     s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
 
+    vm.warp(block.timestamp + 1);
+
     // testing adding same set of Signers but different FAULT_TOLERENCE does not result in DonConfigAlreadyExists revert
     s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE - 1, new Common.AddressAndWeight[](0));
+
+    vm.warp(block.timestamp + 1);
 
     // testing adding a different set of Signers with same FAULT_TOLERENCE does not result in DonConfigAlreadyExists revert
     address[] memory signerAddrsMinusOne = new address[](signerAddrs.length - 1);
@@ -96,6 +101,7 @@ contract DestinationVerifierSetConfigTest is BaseTest {
     address[] memory signerAddrs = _getSignerAddresses(signers);
 
     s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
+    vm.warp(block.timestamp + 1);
 
     bytes24 expectedDonConfigId = _donConfigIdFromConfigData(signerAddrs, FAULT_TOLERANCE);
 
@@ -155,5 +161,16 @@ contract DestinationVerifierSetConfigTest is BaseTest {
       new Common.AddressAndWeight[](0),
       oldActivationTime
     );
+  }
+
+  function test_setConfigWithActivationTimeTheSameAsLatestConfigShouldFail() public {
+    // setting a config older than the latest current config should fail
+    Signer[] memory signers = _getSigners(MAX_ORACLES);
+    address[] memory signerAddrs = _getSignerAddresses(signers);
+    // sets a config with timestamp = block.timestamp
+    s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
+    // setting a config with ealier timestamp retuls in failure
+    vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.BadActivationTime.selector));
+    s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, new Common.AddressAndWeight[](0));
   }
 }

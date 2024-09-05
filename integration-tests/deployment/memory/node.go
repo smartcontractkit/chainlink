@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -164,9 +166,10 @@ func NewNode(
 
 	// Build relayer factory with EVM.
 	relayerFactory := chainlink.RelayerFactory{
-		Logger:       lggr,
-		LoopRegistry: plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing()),
-		GRPCOpts:     loop.GRPCOpts{},
+		Logger:               lggr,
+		LoopRegistry:         plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing()),
+		GRPCOpts:             loop.GRPCOpts{},
+		CapabilitiesRegistry: coretypes.NewCapabilitiesRegistry(t),
 	}
 	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(context.Background(), relayerFactory, evmOpts)}
 	rci, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
@@ -253,7 +256,7 @@ func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
 	chainIDBig := evmutils.NewI(int64(chainID))
 	chain := v2toml.Defaults(chainIDBig)
 	chain.GasEstimator.LimitDefault = ptr(uint64(5e6))
-	chain.LogPollInterval = config.MustNewDuration(1000 * time.Millisecond)
+	chain.LogPollInterval = config.MustNewDuration(500 * time.Millisecond)
 	chain.Transactions.ForwardersEnabled = ptr(false)
 	chain.FinalityDepth = ptr(uint32(2))
 	return &v2toml.EVMConfig{

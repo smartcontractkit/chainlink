@@ -23,6 +23,46 @@ func (c *capabilitiesConfig) ExternalRegistry() config.CapabilitiesExternalRegis
 	}
 }
 
+func (c *capabilitiesConfig) Dispatcher() config.Dispatcher {
+	return &dispatcher{d: c.c.Dispatcher}
+}
+
+type dispatcher struct {
+	d toml.Dispatcher
+}
+
+func (d *dispatcher) SupportedVersion() int {
+	return *d.d.SupportedVersion
+}
+
+func (d *dispatcher) ReceiverBufferSize() int {
+	return *d.d.ReceiverBufferSize
+}
+
+func (d *dispatcher) RateLimit() config.DispatcherRateLimit {
+	return &dispatcherRateLimit{r: d.d.RateLimit}
+}
+
+type dispatcherRateLimit struct {
+	r toml.DispatcherRateLimit
+}
+
+func (r *dispatcherRateLimit) GlobalRPS() float64 {
+	return *r.r.GlobalRPS
+}
+
+func (r *dispatcherRateLimit) GlobalBurst() int {
+	return *r.r.GlobalBurst
+}
+
+func (r *dispatcherRateLimit) PerSenderRPS() float64 {
+	return *r.r.PerSenderRPS
+}
+
+func (r *dispatcherRateLimit) PerSenderBurst() int {
+	return *r.r.PerSenderBurst
+}
+
 type capabilitiesExternalRegistry struct {
 	c toml.ExternalRegistry
 }

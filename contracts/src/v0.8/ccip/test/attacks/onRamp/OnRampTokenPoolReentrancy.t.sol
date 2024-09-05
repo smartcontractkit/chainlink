@@ -39,8 +39,8 @@ contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
       remotePoolAddress: abi.encode(s_destPoolBySourceToken[s_sourceTokens[0]]),
       remoteTokenAddress: abi.encode(s_destTokens[0]),
       allowed: true,
-      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
-      inboundRateLimiterConfig: getInboundRateLimiterConfig()
+      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
     s_maliciousTokenPool.applyChainUpdates(chainUpdates);
     s_sourcePoolByToken[address(s_sourceToken)] = address(s_maliciousTokenPool);

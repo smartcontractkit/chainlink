@@ -84,6 +84,7 @@ type Client interface {
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	LatestBlockHeight(ctx context.Context) (*big.Int, error)
+	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
 
 	HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error)
 	HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error)
@@ -351,6 +352,14 @@ func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 
 func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
 	return c.multiNode.LatestFinalizedBlock(ctx)
+}
+
+func (c *chainClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
+	rpc, err := c.multiNode.SelectNodeRPC()
+	if err != nil {
+		return feeHistory, err
+	}
+	return rpc.FeeHistory(ctx, blockCount, rewardPercentiles)
 }
 
 func (c *chainClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
