@@ -77,16 +77,11 @@ type EVMChainComponentsInterfaceTester[T TestingT[T]] struct {
 
 func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 	t.Cleanup(func() {
-		// DB may be closed by the test already, ignore errors
-		if it.cr != nil {
-			_ = it.cr.Close()
-		}
-		it.cr = nil
-
 		if it.dirtyContracts {
 			it.contractTesters = nil
 		}
 
+		// DB may be closed by the test already, ignore errors
 		if it.cw != nil {
 			_ = it.cw.Close()
 		}
@@ -289,9 +284,6 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetAccountBytes(i int) []byte {
 
 func (it *EVMChainComponentsInterfaceTester[T]) GetChainReader(t T) clcommontypes.ContractReader {
 	ctx := it.Helper.Context(t)
-	if it.cr != nil {
-		return it.cr
-	}
 
 	lggr := logger.NullLogger
 	db := it.Helper.NewSqlxDB(t)
@@ -318,9 +310,16 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetChainReader(t T) clcommontype
 
 	cr, err := evm.NewChainReaderService(ctx, lggr, lp, ht, it.client, conf)
 	require.NoError(t, err)
-	require.NoError(t, cr.Start(ctx))
 	it.cr = cr
 	return cr
+}
+
+func (it *EVMChainComponentsInterfaceTester[T]) StartChainReader(t T) {
+	require.NoError(t, it.cr.Start(context.Background()))
+}
+
+func (it *EVMChainComponentsInterfaceTester[T]) CloseChainReader(t T) {
+	require.NoError(t, it.cr.Close())
 }
 
 // This function is no longer necessary for Simulated Backend or Testnet tests.

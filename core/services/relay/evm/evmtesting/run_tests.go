@@ -33,9 +33,9 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		ctx := it.Helper.Context(t)
 
 		cr := it.GetChainReader(t)
-		it.Start(t)
-		defer it.Close(t)
 		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+		it.StartChainReader(t)
+		defer it.CloseChainReader(t)
 		contracts := it.GetBindings(t)
 		type DynamicEvent struct {
 			Field string
@@ -63,6 +63,8 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		ctx := it.Helper.Context(t)
 		cr := it.GetChainReader(t)
 		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+		it.StartChainReader(t)
+		defer it.CloseChainReader(t)
 
 		triggerFourTopics(t, it, int32(1), int32(2), int32(3))
 		triggerFourTopics(t, it, int32(2), int32(2), int32(3))
@@ -86,6 +88,8 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		cr := it.GetChainReader(t)
 		ctx := it.Helper.Context(t)
 		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+		it.StartChainReader(t)
+		defer it.CloseChainReader(t)
 
 		triggerFourTopicsWithHashed(t, it, "1", [32]uint8{2}, [32]byte{5})
 		triggerFourTopicsWithHashed(t, it, "2", [32]uint8{2}, [32]byte{3})
