@@ -86,14 +86,12 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 					},
 				},
 			},
-			MerkleRoots: []ccip_reader_tester.OffRampMerkleRoot{
+			MerkleRoots: []ccip_reader_tester.InternalMerkleRoot{
 				{
 					SourceChainSelector: uint64(chainS1),
-					Interval: ccip_reader_tester.OffRampInterval{
-						Min: 10,
-						Max: 20,
-					},
-					MerkleRoot: [32]byte{i + 1},
+					MinSeqNr:            10,
+					MaxSeqNr:            20,
+					MerkleRoot:          [32]byte{i + 1},
 				},
 			},
 		})

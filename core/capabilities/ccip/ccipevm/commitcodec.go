@@ -32,15 +32,13 @@ func NewCommitPluginCodecV1() *CommitPluginCodecV1 {
 }
 
 func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.CommitPluginReport) ([]byte, error) {
-	merkleRoots := make([]offramp.OffRampMerkleRoot, 0, len(report.MerkleRoots))
+	merkleRoots := make([]offramp.InternalMerkleRoot, 0, len(report.MerkleRoots))
 	for _, root := range report.MerkleRoots {
-		merkleRoots = append(merkleRoots, offramp.OffRampMerkleRoot{
+		merkleRoots = append(merkleRoots, offramp.InternalMerkleRoot{
 			SourceChainSelector: uint64(root.ChainSel),
-			Interval: offramp.OffRampInterval{
-				Min: uint64(root.SeqNumsRange.Start()),
-				Max: uint64(root.SeqNumsRange.End()),
-			},
-			MerkleRoot: root.MerkleRoot,
+			MinSeqNr:            uint64(root.SeqNumsRange.Start()),
+			MaxSeqNr:            uint64(root.SeqNumsRange.End()),
+			MerkleRoot:          root.MerkleRoot,
 		})
 	}
 
@@ -102,8 +100,8 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 		merkleRoots = append(merkleRoots, cciptypes.MerkleRootChain{
 			ChainSel: cciptypes.ChainSelector(root.SourceChainSelector),
 			SeqNumsRange: cciptypes.NewSeqNumRange(
-				cciptypes.SeqNum(root.Interval.Min),
-				cciptypes.SeqNum(root.Interval.Max),
+				cciptypes.SeqNum(root.MinSeqNr),
+				cciptypes.SeqNum(root.MaxSeqNr),
 			),
 			MerkleRoot: root.MerkleRoot,
 		})

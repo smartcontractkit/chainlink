@@ -419,7 +419,7 @@ func DeployChainContracts(e deployment.Environment, chain deployment.Chain, ab d
 				chain.Client,
 				onramp.OnRampStaticConfig{
 					ChainSelector:      chain.Selector,
-					RmnProxy:           rmnProxy.Address,
+					Rmn:                rmnProxy.Address,
 					NonceManager:       nonceManager.Address,
 					TokenAdminRegistry: tokenAdminRegistry.Address,
 				},
@@ -446,7 +446,7 @@ func DeployChainContracts(e deployment.Environment, chain deployment.Chain, ab d
 				chain.Client,
 				offramp.OffRampStaticConfig{
 					ChainSelector:      chain.Selector,
-					RmnProxy:           rmnProxy.Address,
+					Rmn:                rmnProxy.Address,
 					NonceManager:       nonceManager.Address,
 					TokenAdminRegistry: tokenAdminRegistry.Address,
 				},

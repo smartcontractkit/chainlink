@@ -195,7 +195,7 @@ func createUniverses(
 			backend,
 			onramp.OnRampStaticConfig{
 				ChainSelector:      getSelector(chainID),
-				RmnProxy:           rmnProxy.Address(),
+				Rmn:                rmnProxy.Address(),
 				NonceManager:       nonceManager.Address(),
 				TokenAdminRegistry: tokenAdminRegistry.Address(),
 			},
@@ -221,7 +221,7 @@ func createUniverses(
 			backend,
 			offramp.OffRampStaticConfig{
 				ChainSelector:      getSelector(chainID),
-				RmnProxy:           rmnProxy.Address(),
+				Rmn:                rmnProxy.Address(),
 				TokenAdminRegistry: tokenAdminRegistry.Address(),
 				NonceManager:       nonceManager.Address(),
 			},
