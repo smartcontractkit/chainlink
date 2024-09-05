@@ -98,7 +98,7 @@ RPCBlockQueryDelay = 1 # Default
 # CL Node has to wait for a whole new batch to be finalized to treat block 64 as finalized.
 FinalizedBlockOffset = 0 # Default
 # LogBroadcasterEnabled is a feature flag for LogBroadcaster, by default it's true.
-LogBroadcasterEnabled = true #
+LogBroadcasterEnabled = true # Default
 # NoNewFinalizedHeadsThreshold controls how long to wait for new finalized block before `NodePool` marks rpc endpoints as
 # out-of-sync. Only applicable if `FinalityTagEnabled=true`
 #
