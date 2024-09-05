@@ -265,30 +265,39 @@ jobs:
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@a49f2dff000fcf020ab9978b33e3726d7df5bf96 # v1.34.4
       - name: Install jq
         run: sudo apt-get install jq
+
       - name: Generate Docker Tests Matrix
         id: set-docker-matrix
-        if: ${{ !inputs.custom_test_list_json }}
         run: |
-          MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          # Check if custom_test_list_json is provided and non-empty
+          if [[ -n '${{ inputs.custom_test_list_json }}' ]]; then
+            echo "Using custom test list JSON"
+            MATRIX_JSON=$(echo '${{ inputs.custom_test_list_json }}' | jq -c '{tests: [.tests[] | select(.test_env_type == "docker")]}')
+          else
+            echo "Using default test list"
+            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          fi
+
           echo "Docker tests:"
           echo "$MATRIX_JSON" | jq
           echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+
       - name: Generate K8s Tests Matrix
         id: set-k8s-runner-matrix
-        if: ${{ !inputs.custom_test_list_json }}
         run: |
-          MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          # Check if custom_test_list_json is provided and non-empty
+          if [[ -n '${{ inputs.custom_test_list_json }}' ]]; then
+            echo "Using custom test list JSON"
+            MATRIX_JSON=$(echo '${{ inputs.custom_test_list_json }}' | jq -c '{tests: [.tests[] | select(.test_env_type == "k8s-remote-runner")]}')
+          else
+            echo "Using default test list"
+            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          fi
+
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
           echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
-      - name: Set Custom Tests Matrix
-        id: set-custom-tests-matrix
-        if: ${{ inputs.custom_test_list_json }}
-        run: |
-          MATRIX_JSON=$(echo "${{ inputs.custom_test_list_json }}" | jq)
-          echo "Custom tests:"
-          echo "$MATRIX_JSON" | jq
-          echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT          
+
       - name: Check Test Matrices
         id: check-matrices
         run: |
@@ -314,7 +323,7 @@ jobs:
 
           # Check if both matrices are empty
           if [[ "$DOCKER_MATRIX_EMPTY" == "true" ]] && [[ "$K8S_MATRIX_EMPTY" == "true" ]]; then
-            echo "No tests found for inputs: '${{ toJson(inputs) }}'. Both Docker and Kubernetes tests matrices are empty"
+            echo "No tests found for inputs. Both Docker and Kubernetes tests matrices are empty"
             exit 1
           fi
         shell: bash
