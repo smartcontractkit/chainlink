@@ -18,6 +18,7 @@ type Client interface {
 	FetchCSAPublicKey(ctx context.Context) (*string, error)
 	FetchP2PPeerID(ctx context.Context) (*string, error)
 	FetchAccountAddress(ctx context.Context, chainID string) (*string, error)
+	FetchOCR2KeyBundleID(ctx context.Context, chainType string) (string, error)
 	GetJob(ctx context.Context, id string) (*generated.GetJobResponse, error)
 	ListJobs(ctx context.Context, offset, limit int) (*generated.ListJobsResponse, error)
 	GetJobDistributor(ctx context.Context, id string) (*generated.GetFeedsManagerResponse, error)
@@ -91,6 +92,22 @@ func (c *client) FetchP2PPeerID(ctx context.Context) (*string, error) {
 		return nil, fmt.Errorf("no P2P keys found")
 	}
 	return &keys.P2pKeys.GetResults()[0].PeerID, nil
+}
+
+func (c *client) FetchOCR2KeyBundleID(ctx context.Context, chainType string) (string, error) {
+	keyBundles, err := generated.FetchOCR2KeyBundles(ctx, c.gqlClient)
+	if err != nil {
+		return "", err
+	}
+	if keyBundles == nil || len(keyBundles.GetOcr2KeyBundles().Results) == 0 {
+		return "", fmt.Errorf("no ocr2 keybundle found, check if ocr2 is enabled")
+	}
+	for _, keyBundle := range keyBundles.GetOcr2KeyBundles().Results {
+		if keyBundle.ChainType == generated.OCR2ChainType(chainType) {
+			return keyBundle.GetId(), nil
+		}
+	}
+	return "", fmt.Errorf("no ocr2 keybundle found for chain type %s", chainType)
 }
 
 func (c *client) FetchAccountAddress(ctx context.Context, chainID string) (*string, error) {

@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/AlekSi/pointer"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/hashicorp/go-multierror"
 
 	clclient "github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -15,22 +16,60 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/web/sdk/client"
 )
 
+const (
+	NodeLabelType      = "type"
+	NodeLabelBootstrap = "bootstrap"
+	NodeLabelPlugin    = "plugin"
+)
+
 type NodeInfo struct {
 	CLConfig    clclient.ChainlinkConfig
 	IsBootstrap bool
 	Name        string
 	AdminAddr   string
 }
+
+func (info NodeInfo) Validate() error {
+	var err error
+	if info.CLConfig.URL == "" {
+		err = multierror.Append(err, fmt.Errorf("chainlink url is required"))
+	}
+	if info.CLConfig.Email == "" {
+		err = multierror.Append(err, fmt.Errorf("chainlink email is required"))
+	}
+	if info.CLConfig.Password == "" {
+		err = multierror.Append(err, fmt.Errorf("chainlink password is required"))
+	}
+	if !info.IsBootstrap && !common.IsHexAddress(info.AdminAddr) {
+		err = multierror.Append(err, fmt.Errorf("admin address is required for payment if node is not bootstrap"))
+	}
+	return err
+}
+
 type DON struct {
-	Bootstrap []Node
-	Nodes     []Node
-	JDId      string
+	Nodes []Node
+	JDId  string
+}
+
+func (don *DON) AllNodeIds() []string {
+	var nodeIds []string
+	for _, node := range don.Nodes {
+		nodeIds = append(nodeIds, node.NodeId)
+	}
+	return nodeIds
+}
+
+func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig) error {
+	var err error
+	for _, node := range don.Nodes {
+		err = multierror.Append(err, node.CreateCCIPOCR2SupportedChains(ctx, don.JDId, chains))
+	}
+	return err
 }
 
 func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributor) (*DON, error) {
 	don := &DON{
-		Bootstrap: make([]Node, 0),
-		Nodes:     make([]Node, 0),
+		Nodes: make([]Node, 0),
 	}
 	for i, info := range nodeInfo {
 		if info.Name == "" {
@@ -42,26 +81,30 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 		}
 		// node Labels so that it's easier to query them
 		if info.IsBootstrap {
+			// create multi address for OCR2, applicable only for bootstrap nodes
+			node.multiAddr = info.CLConfig.URL
+			// no need to set admin address for bootstrap nodes, as there will be no payment
+			node.adminAddr = ""
 			node.labels = append(node.labels, &ptypes.Label{
-				Key:   "bootstrap",
-				Value: pointer.ToString("true"),
+				Key:   NodeLabelType,
+				Value: pointer.ToString(NodeLabelBootstrap),
 			})
 		} else {
+			// multi address is not applicable for non-bootstrap nodes
+			// explicitly set it to empty string to denote that
+			node.multiAddr = ""
 			node.labels = append(node.labels, &ptypes.Label{
-				Key:   "bootstrap",
-				Value: pointer.ToString("false"),
+				Key:   NodeLabelType,
+				Value: pointer.ToString(NodeLabelPlugin),
 			})
 		}
-		// Set up Job distributor in node
-		jdId, err := node.SetUpJobDistributor(ctx, jd)
+		// Set up Job distributor in node and register node with the job distributor
+		jdId, err := node.SetUpAndLinkJobDistributor(ctx, jd)
 		if err != nil {
 			return nil, fmt.Errorf("failed to set up job distributor in node %s: %w", info.Name, err)
 		}
-		if info.IsBootstrap {
-			don.Bootstrap = append(don.Bootstrap, *node)
-		} else {
-			don.Nodes = append(don.Nodes, *node)
-		}
+
+		don.Nodes = append(don.Nodes, *node)
 		don.JDId = jdId
 	}
 	return don, nil
@@ -88,39 +131,68 @@ type Node struct {
 	labels    []*ptypes.Label
 	name      string
 	adminAddr string
+	multiAddr string
 }
 
+// CreateCCIPOCR2SupportedChains creates JobDistributorChainConfig for the node
+// it works under assumption that the node is already registered with the job distributor
+// expects bootstrap nodes to have type label set as bootstrap
+// It fetches the account address, peer id, OCR2 key bundle id and creates the JobDistributorChainConfig
 func (n *Node) CreateCCIPOCR2SupportedChains(ctx context.Context, jdId string, chains []ChainConfig) error {
-	var multiErr multierror.Error
 	for _, chain := range chains {
 		chainId := strconv.FormatUint(chain.ChainId, 10)
 		accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
 		if err != nil {
-			multiErr.Errors = append(multiErr.Errors, err)
-			continue
+			return fmt.Errorf("failed to fetch account address for node %s: %w", n.name, err)
 		}
 		if accountAddr == nil {
-			multiErr.Errors = append(multiErr.Errors, fmt.Errorf("no account found for chain %s", chain))
-			continue
+			return fmt.Errorf("no account address found for node %s", n.name)
 		}
-		n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
-			JobDistributorID:     jdId,
-			ChainID:              chainId,
-			ChainType:            chain.ChainType,
-			AccountAddr:          pointer.GetString(accountAddr),
-			AdminAddr:            "",
-			Ocr2Enabled:          true,
-			Ocr2IsBootstrap:      false,
-			Ocr2Multiaddr:        "",
-			Ocr2ForwarderAddress: "",
-			Ocr2P2PPeerID:        "",
-			Ocr2KeyBundleID:      "",
-			Ocr2Plugins:          `{"commit":true,"execute":true,"median":false,"mercury":false}`,
+		peerID, err := n.gqlClient.FetchP2PPeerID(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to fetch peer id for node %s: %w", n.name, err)
+		}
+		if peerID == nil {
+			return fmt.Errorf("no peer id found for node %s", n.name)
+		}
+
+		ocr2BundleId, err := n.gqlClient.FetchOCR2KeyBundleID(ctx, chain.ChainType)
+		if err != nil {
+			return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s: %w", n.name, err)
+		}
+		if ocr2BundleId == "" {
+			return fmt.Errorf("no OCR2 key bundle id found for node %s", n.name)
+		}
+		// fetch node labels to know if the node is bootstrap or plugin
+		isBootstrap := false
+		for _, label := range n.labels {
+			if label.Key == NodeLabelType && pointer.GetString(label.Value) == NodeLabelBootstrap {
+				isBootstrap = true
+				break
+			}
+		}
+		err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
+			JobDistributorID: jdId,
+			ChainID:          chainId,
+			ChainType:        chain.ChainType,
+			AccountAddr:      pointer.GetString(accountAddr),
+			AdminAddr:        n.adminAddr,
+			Ocr2Enabled:      true,
+			Ocr2IsBootstrap:  isBootstrap,
+			Ocr2Multiaddr:    n.multiAddr,
+			Ocr2P2PPeerID:    pointer.GetString(peerID),
+			Ocr2KeyBundleID:  ocr2BundleId,
+			Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
 		})
+		if err != nil {
+			return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.name, err)
+		}
 	}
+	return nil
 }
 
-func (n *Node) SetUpJobDistributor(ctx context.Context, jd JobDistributor) (string, error) {
+// SetUpAndLinkJobDistributor sets up the job distributor in the node and registers the node with the job distributor
+func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor) (string, error) {
 	// Get the public key of the node
 	csaKey, err := n.gqlClient.FetchCSAPublicKey(ctx)
 	if err != nil {
