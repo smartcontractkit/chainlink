@@ -58,6 +58,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   error InvalidInterval(uint64 sourceChainSelector, uint64 min, uint64 max);
   error ZeroAddressNotAllowed();
   error InvalidMessageDestChainSelector(uint64 messageDestChainSelector);
+  error SourceChainSelectorMismatch(uint64 reportSourceChainSelector, uint64 messageSourceChainSelector);
 
   /// @dev Atlas depends on this event, if changing, please notify Atlas.
   event StaticConfigSet(StaticConfig staticConfig);
@@ -352,6 +353,12 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       // so we have to check it explicitly
       if (message.header.destChainSelector != i_chainSelector) {
         revert InvalidMessageDestChainSelector(message.header.destChainSelector);
+      }
+      // If the message source chain selector does not match the report's source chain selector and
+      // the root has not been committed for the report source chain selector, this will be caught by the root verification.
+      // This acts as an extra check.
+      if (message.header.sourceChainSelector != sourceChainSelector) {
+        revert SourceChainSelectorMismatch(sourceChainSelector, message.header.sourceChainSelector);
       }
 
       // We do this hash here instead of in _verify to avoid two separate loops

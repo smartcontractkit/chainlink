@@ -23,7 +23,7 @@ multi_aggregate_rate_limiter: ../../../contracts/solc/v0.8.24/MultiAggregateRate
 multi_ocr3_helper: ../../../contracts/solc/v0.8.24/MultiOCR3Helper/MultiOCR3Helper.abi ../../../contracts/solc/v0.8.24/MultiOCR3Helper/MultiOCR3Helper.bin 6b56e0114a4d50797d30a34aecc2641ef340451d0c3fcb9d729bba4df2435122
 nonce_manager: ../../../contracts/solc/v0.8.24/NonceManager/NonceManager.abi ../../../contracts/solc/v0.8.24/NonceManager/NonceManager.bin 6f64e1083b356c06ee66b9138e398b9c97a4cd3e8c9ec38cf3010cebc79af536
 ocr3_config_encoder: ../../../contracts/solc/v0.8.24/IOCR3ConfigEncoder/IOCR3ConfigEncoder.abi ../../../contracts/solc/v0.8.24/IOCR3ConfigEncoder/IOCR3ConfigEncoder.bin 9254b35a86f00fde7b7193a033ca58f6521a66e87b9cf9da6ce5660082e79f5d
-offramp: ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.abi ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.bin a97246b6e73f0ac7bea5677b8bb536a085280effc3c110cd4859a93ceed474af
+offramp: ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.abi ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.bin 2d1cdfd810e2fde409610f4d188889e62a41c8baceb8948849c9a78623a252b6
 onramp: ../../../contracts/solc/v0.8.24/OnRamp/OnRamp.abi ../../../contracts/solc/v0.8.24/OnRamp/OnRamp.bin c37096aaa0369ad988e94c300ba62917e17fcc71a3c1aa3e9b8420f21c0591d2
 ping_pong_demo: ../../../contracts/solc/v0.8.24/PingPongDemo/PingPongDemo.abi ../../../contracts/solc/v0.8.24/PingPongDemo/PingPongDemo.bin c1c2f8a65c7ffd971899cae7fe62f2da57d09e936151e2b92163c4bebe699d6b
 price_registry: ../../../contracts/solc/v0.8.24/PriceRegistry/PriceRegistry.abi ../../../contracts/solc/v0.8.24/PriceRegistry/PriceRegistry.bin e7781d600c1bb7aa4620106af7f6e146a109b97f4cb6a7d06c9e15773340ecb2

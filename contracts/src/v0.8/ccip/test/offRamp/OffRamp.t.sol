@@ -1864,6 +1864,28 @@ contract OffRamp_manuallyExecute is OffRampSetup {
 
     s_offRamp.manuallyExecute(reports, gasLimitOverrides);
   }
+
+  function test_manuallyExecute_SourceChainSelectorMismatch_Revert() public {
+    Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](1);
+    Internal.Any2EVMRampMessage[] memory messages2 = new Internal.Any2EVMRampMessage[](1);
+    messages1[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
+    messages2[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
+
+    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
+    reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messages2);
+
+    uint256[][] memory gasLimitOverrides = new uint256[][](2);
+    gasLimitOverrides[0] = _getGasLimitsFromMessages(messages1);
+    gasLimitOverrides[1] = _getGasLimitsFromMessages(messages2);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        OffRamp.SourceChainSelectorMismatch.selector, SOURCE_CHAIN_SELECTOR_3, SOURCE_CHAIN_SELECTOR_1
+      )
+    );
+    s_offRamp.manuallyExecute(reports, gasLimitOverrides);
+  }
 }
 
 contract OffRamp_execute is OffRampSetup {
