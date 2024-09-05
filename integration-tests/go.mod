@@ -6,7 +6,7 @@ go 1.22.5
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
 require (
-	dario.cat/mergo v1.0.0
+	dario.cat/mergo v1.0.1
 	github.com/AlekSi/pointer v1.1.0
 	github.com/Khan/genqlient v0.7.0
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -38,11 +38,11 @@ require (
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240905130411-ebd9328c9870
 	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240903184200-6488292a85e3
-	github.com/smartcontractkit/chainlink-testing-framework v1.35.0
-	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.1
-	github.com/smartcontractkit/chainlink-testing-framework/havoc v0.1.0
+	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.0
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.0
+	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.1
-	github.com/smartcontractkit/chainlink-testing-framework/wasp v0.4.10
+	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.0
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7
 	github.com/spf13/cobra v1.8.1
