@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 func TestParse_Graph(t *testing.T) {
@@ -290,7 +292,7 @@ targets:
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(st *testing.T) {
-			wf, err := Parse(tc.yaml)
+			wf, _, err := Parse(tc.yaml, nil, job.YamlSpec)
 			if tc.errMsg != "" {
 				assert.ErrorContains(st, err, tc.errMsg)
 			} else {
@@ -316,7 +318,7 @@ targets:
 }
 
 func TestParsesIntsCorrectly(t *testing.T) {
-	wf, err := Parse(hardcodedWorkflow)
+	wf, _, err := Parse(hardcodedWorkflow, nil, job.YamlSpec)
 	require.NoError(t, err)
 
 	n, err := wf.Vertex("evm_median")

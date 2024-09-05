@@ -17,6 +17,7 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -857,16 +858,25 @@ type LiquidityBalancerSpec struct {
 	LiquidityBalancerConfig string `toml:"liquidityBalancerConfig" db:"liquidity_balancer_config"`
 }
 
+type WorkflowSpecType string
+
+const (
+	YamlSpec        WorkflowSpecType = "yaml"
+	DefaultSpecType                  = YamlSpec
+)
+
 type WorkflowSpec struct {
 	ID       int32  `toml:"-"`
-	Workflow string `toml:"workflow"` // the yaml representation of the workflow
+	Workflow string `toml:"workflow"` // the raw representation of the workflow
+	Config   string `toml:"config"`   // the raw representation of the config
 	// fields derived from the yaml spec, used for indexing the database
 	// note: i tried to make these private, but translating them to the database seems to require them to be public
-	WorkflowID    string    `toml:"-" db:"workflow_id"`    // Derived. Do not modify. the CID of the workflow.
-	WorkflowOwner string    `toml:"-" db:"workflow_owner"` // Derived. Do not modify. the owner of the workflow.
-	WorkflowName  string    `toml:"-" db:"workflow_name"`  // Derived. Do not modify. the name of the workflow.
-	CreatedAt     time.Time `toml:"-"`
-	UpdatedAt     time.Time `toml:"-"`
+	WorkflowID    string           `toml:"-" db:"workflow_id"`    // Derived. Do not modify. the CID of the workflow.
+	WorkflowOwner string           `toml:"-" db:"workflow_owner"` // Derived. Do not modify. the owner of the workflow.
+	WorkflowName  string           `toml:"-" db:"workflow_name"`  // Derived. Do not modify. the name of the workflow.
+	CreatedAt     time.Time        `toml:"-"`
+	UpdatedAt     time.Time        `toml:"-"`
+	SpecType      WorkflowSpecType `json:"spec_type"`
 }
 
 var (
@@ -886,7 +896,6 @@ func (w *WorkflowSpec) Validate() error {
 	}
 	w.WorkflowOwner = strings.TrimPrefix(s.Owner, "0x") // the json schema validation ensures it is a hex string with 0x prefix, but the database does not store the prefix
 	w.WorkflowName = s.Name
-	w.WorkflowID = s.CID()
 
 	if len(w.WorkflowID) != workflowIDLen {
 		return fmt.Errorf("%w: incorrect length for id %s: expected %d, got %d", ErrInvalidWorkflowID, w.WorkflowID, workflowIDLen, len(w.WorkflowID))

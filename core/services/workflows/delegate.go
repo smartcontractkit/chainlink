@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -37,12 +37,14 @@ func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 func (d *Delegate) ServicesForSpec(_ context.Context, spec job.Job) ([]job.ServiceCtx, error) {
 	cfg := Config{
 		Lggr:          d.logger,
-		Spec:          spec.WorkflowSpec.Workflow,
+		Workflow:      spec.WorkflowSpec.Workflow,
 		WorkflowID:    spec.WorkflowSpec.WorkflowID,
 		WorkflowOwner: spec.WorkflowSpec.WorkflowOwner,
 		WorkflowName:  spec.WorkflowSpec.WorkflowName,
 		Registry:      d.registry,
 		Store:         d.store,
+		Config:        []byte(spec.WorkflowSpec.Config),
+		SpecType:      spec.WorkflowSpec.SpecType,
 	}
 	engine, err := NewEngine(cfg)
 	if err != nil {
@@ -81,16 +83,18 @@ func ValidatedWorkflowJobSpec(tomlString string) (job.Job, error) {
 		return jb, fmt.Errorf("toml unmarshal error on workflow spec: %w", err)
 	}
 
+	// ensure the embedded workflow graph is valid
+	_, cid, err := Parse(spec.Workflow, []byte(spec.Config), spec.SpecType)
+	if err != nil {
+		return jb, fmt.Errorf("failed to parse workflow graph: %w", err)
+	}
+
+	spec.WorkflowID = cid
 	err = spec.Validate()
 	if err != nil {
 		return jb, fmt.Errorf("invalid WorkflowSpec: %w", err)
 	}
 
-	// ensure the embedded workflow graph is valid
-	_, err = Parse(spec.Workflow)
-	if err != nil {
-		return jb, fmt.Errorf("failed to parse workflow graph: %w", err)
-	}
 	jb.WorkflowSpec = &spec
 	jb.WorkflowSpecID = &spec.ID
 

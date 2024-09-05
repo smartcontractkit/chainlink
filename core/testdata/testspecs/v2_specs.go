@@ -1,6 +1,7 @@
 package testspecs
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"strconv"
 	"strings"
@@ -10,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/test-go/testify/require"
 
-	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -899,9 +899,8 @@ func (w WorkflowJobSpec) Job() job.Job {
 // GenerateWorkflowJobSpec creates a WorkflowJobSpec from the given workflow yaml spec string
 func GenerateWorkflowJobSpec(t *testing.T, spec string) WorkflowJobSpec {
 	t.Helper()
-	s, err := pkgworkflows.ParseWorkflowSpecYaml(spec)
-	require.NoError(t, err, "failed to parse YAML workflow spec %s", spec)
-	id := s.CID
+	sum := sha256.Sum256([]byte(spec))
+	id := fmt.Sprintf("%x", sum)
 	template := `
 type = "workflow"
 schemaVersion = 1

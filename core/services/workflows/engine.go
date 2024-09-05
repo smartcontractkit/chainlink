@@ -21,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
@@ -853,7 +854,7 @@ func (e *Engine) Close() error {
 }
 
 type Config struct {
-	Spec                 string
+	Workflow             string
 	WorkflowID           string
 	WorkflowOwner        string
 	WorkflowName         string
@@ -864,6 +865,8 @@ type Config struct {
 	NewWorkerTimeout     time.Duration
 	MaxExecutionDuration time.Duration
 	Store                store.Store
+	Config               []byte
+	SpecType             job.WorkflowSpecType
 
 	// For testing purposes only
 	maxRetries          int
@@ -929,7 +932,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	// - that the resulting graph is strongly connected (i.e. no disjointed subgraphs exist)
 	// - etc.
 
-	workflow, err := Parse(cfg.Spec)
+	workflow, _, err := Parse(cfg.Workflow, cfg.Config, cfg.SpecType)
 	if err != nil {
 		return nil, err
 	}
