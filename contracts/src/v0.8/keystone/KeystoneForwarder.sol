@@ -66,6 +66,22 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     mapping(address signer => uint256 position) _positions; // 1-indexed to detect unset values
   }
 
+  struct Transmission {
+    address transmitter;
+    // This is true if the receiver is not a contract or does not implement the
+    // `IReceiver` interface.
+    bool invalidReceiver;
+    // Whether the transmission attempt was successful. If `false`, the
+    // transmission can be retried with an increased gas limit.
+    bool success;
+    // The amount of gas allocated for the `IReceiver.onReport` call. uint80
+    // allows storing gas for known EVM block gas limits.
+    // Ensures that the minimum gas requested by the user is available during
+    // the transmission attempt. If the transmission fails (indicated by a
+    // `false` success state), it can be retried with an increased gas limit.
+    uint80 gasLimit;
+  }
+
   /// @notice Contains the configuration for each DON ID
   // @param configId (uint64(donId) << 32) | configVersion
   mapping(uint64 configId => OracleSet oracleSet) internal s_configs;
@@ -94,7 +110,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
 
   /// @dev The gas we require to revert in case of a revert in the call to the
   /// receiver. This is more than enough and does not attempt to be exact.
-  uint256 internal constant REQUIRED_GAS_FOR_ROUTING = 40_000;
+  uint256 internal constant REQUIRED_GAS_FOR_ROUTING = 60_000;
 
   // ================================================================
   // │                          Router                              │
