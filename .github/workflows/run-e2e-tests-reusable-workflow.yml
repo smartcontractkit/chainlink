@@ -32,7 +32,20 @@ on:
       custom_test_list_json:
         description: 'Custom JSON list of tests to run'
         required: false
-        type: string  
+        type: string
+      # Example:  
+      # custom_test_list_json: >
+      # {
+      #   "tests": [
+      #     {
+      #       "id": "TestVRFv2Plus",
+      #       "path": "integration-tests/smoke/vrfv2plus_test.go",
+      #       "runs_on": "ubuntu-latest",
+      #       "test_env_type": "docker",
+      #       "test_cmd": "cd integration-tests/smoke && go test vrfv2plus_test.go -test.parallel=1 -timeout 3h -count=1 -json -v"
+      #     }
+      #   ]
+      # }          
       test_workflow:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
         required: false
