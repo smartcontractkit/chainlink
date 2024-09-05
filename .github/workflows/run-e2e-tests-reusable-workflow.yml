@@ -385,9 +385,9 @@ jobs:
         run: echo "workflow_id=$(uuidgen)" >> $GITHUB_OUTPUT          
   
 
-  # Build Chainlink images required for the tests
+  # Check if Chainlink images required for the tests exist. If not, build and push the images to QA ECR
   require-chainlink-image-versions-in-qa-ecr:
-    name: Build Chainlink image
+    name: Get Chainlink image
     needs: [validate-inputs, load-test-configurations]
     if: ${{ fromJson(needs.validate-inputs.outputs.require_chainlink_image_versions_in_qa_ecr_matrix) != '' }}
     runs-on: ubuntu-latest
@@ -404,7 +404,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
-      - name: Build Chainlink image
+      - name: Get Chainlink image
         uses: ./.github/actions/build-chainlink-image
         with:
           dockerfile: core/chainlink.Dockerfile
@@ -414,9 +414,9 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
-  # Build Chainlink plugins required for the tests
+  # Check if Chainlink plugins required for the tests exist. If not, build and push the images to QA ECR
   require-chainlink-plugin-versions-in-qa-ecr:
-    name: Build Chainlink plugins
+    name: Get Chainlink plugins image
     needs: [validate-inputs, load-test-configurations]
     if: ${{ fromJson(needs.validate-inputs.outputs.require_chainlink_plugin_versions_in_qa_ecr_matrix) != '' }}  
     runs-on: ubuntu-latest
@@ -433,7 +433,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
-      - name: Build Chainlink plugins image
+      - name: Get Chainlink plugins image
         uses: ./.github/actions/build-chainlink-image
         with:
           dockerfile: plugins/chainlink.Dockerfile

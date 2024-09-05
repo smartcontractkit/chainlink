@@ -1,4 +1,4 @@
-name: On Demand VRFV2 Plus Smoke Tests REUSABLE WORKFLOW
+name: On Demand VRFV2 Plus Smoke Tests USES REUSABLE WORKFLOW
 on:
   workflow_dispatch:
     inputs:
