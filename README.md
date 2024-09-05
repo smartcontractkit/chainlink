@@ -138,9 +138,7 @@ We use `cosign` with OIDC keyless signing during the [Build, Sign and Publish Ch
 
 It is encourage for any node operator building from the official Chainlink docker image to verify the tagged release version was did indeed built from this workflow.
 
-You will need `cosign` in order to do this verification.
-
-`brew install cosign`
+You will need `cosign` in order to do this verification. [Follow the instruction here to install cosign](https://docs.sigstore.dev/system_config/installation/).
 
 ```bash
 # tag is the tagged release version - ie. v2.16.0
