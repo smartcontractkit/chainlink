@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
+import {ERC165Checker} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
 
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
@@ -131,29 +131,24 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     s_transmissions[transmissionId].transmitter = transmitter;
     s_transmissions[transmissionId].gasLimit = uint80(gasLimit);
 
-    if (receiver.code.length == 0) {
+    if (!ERC165Checker.supportsInterface(receiver, type(IReceiver).interfaceId)) {
       s_transmissions[transmissionId].invalidReceiver = true;
       return false;
     }
 
-    try IERC165(receiver).supportsInterface(type(IReceiver).interfaceId) {
-      bool success;
-      bytes memory payload = abi.encodeCall(IReceiver.onReport, (metadata, validatedReport));
+    bool success;
+    bytes memory payload = abi.encodeCall(IReceiver.onReport, (metadata, validatedReport));
 
-      assembly {
-        // call and return whether we succeeded. ignore return data
-        // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
-        success := call(gasLimit, receiver, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
-      }
-
-      if (success) {
-        s_transmissions[transmissionId].success = true;
-      }
-      return success;
-    } catch {
-      s_transmissions[transmissionId].invalidReceiver = true;
-      return false;
+    assembly {
+      // call and return whether we succeeded. ignore return data
+      // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
+      success := call(gasLimit, receiver, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
     }
+
+    if (success) {
+      s_transmissions[transmissionId].success = true;
+    }
+    return success;
   }
 
   function getTransmissionId(
