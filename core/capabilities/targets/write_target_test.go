@@ -155,6 +155,7 @@ func TestWriteTarget(t *testing.T) {
 		configGasLimit, err = values.NewMap(map[string]any{
 			"Address": forwarderAddr,
 		})
+		require.NoError(t, err)
 		req = capabilities.CapabilityRequest{
 			Metadata: validMetadata,
 			Config:   configGasLimit,

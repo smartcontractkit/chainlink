@@ -8,7 +8,7 @@ import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 ///         with multiple OCR plugin support.
 abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   // Maximum number of oracles the offchain reporting protocol is designed for
-  uint256 internal constant MAX_NUM_ORACLES = 31;
+  uint256 internal constant MAX_NUM_ORACLES = 256;
 
   /// @notice Triggers a new run of the offchain reporting protocol
   /// @param ocrPluginType OCR plugin type for which the config was set
@@ -146,10 +146,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     }
 
     address[] memory transmitters = ocrConfigArgs.transmitters;
-    // Transmitters are expected to never exceed 255 (since this is bounded by MAX_NUM_ORACLES)
-    uint8 newTransmittersLength = uint8(transmitters.length);
-
-    if (newTransmittersLength > MAX_NUM_ORACLES) revert InvalidConfig(InvalidConfigErrorType.TOO_MANY_TRANSMITTERS);
+    if (transmitters.length > MAX_NUM_ORACLES) revert InvalidConfig(InvalidConfigErrorType.TOO_MANY_TRANSMITTERS);
 
     _clearOracleRoles(ocrPluginType, ocrConfig.transmitters);
 
@@ -157,13 +154,12 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
       _clearOracleRoles(ocrPluginType, ocrConfig.signers);
 
       address[] memory signers = ocrConfigArgs.signers;
+
+      if (signers.length > MAX_NUM_ORACLES) revert InvalidConfig(InvalidConfigErrorType.TOO_MANY_SIGNERS);
+      if (signers.length <= 3 * ocrConfigArgs.F) revert InvalidConfig(InvalidConfigErrorType.F_TOO_HIGH);
+
+      configInfo.n = uint8(signers.length);
       ocrConfig.signers = signers;
-
-      uint8 signersLength = uint8(signers.length);
-      configInfo.n = signersLength;
-
-      if (signersLength > MAX_NUM_ORACLES) revert InvalidConfig(InvalidConfigErrorType.TOO_MANY_SIGNERS);
-      if (signersLength <= 3 * ocrConfigArgs.F) revert InvalidConfig(InvalidConfigErrorType.F_TOO_HIGH);
 
       _assignOracleRoles(ocrPluginType, signers, Role.Signer);
     }
@@ -198,13 +194,13 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   /// @param oracleAddresses Oracle addresses to assign roles to.
   /// @param role Role to assign.
   function _assignOracleRoles(uint8 ocrPluginType, address[] memory oracleAddresses, Role role) internal {
-    for (uint8 i = 0; i < oracleAddresses.length; ++i) {
+    for (uint256 i = 0; i < oracleAddresses.length; ++i) {
       address oracle = oracleAddresses[i];
       if (s_oracles[ocrPluginType][oracle].role != Role.Unset) {
         revert InvalidConfig(InvalidConfigErrorType.REPEATED_ORACLE_ADDRESS);
       }
       if (oracle == address(0)) revert OracleCannotBeZeroAddress();
-      s_oracles[ocrPluginType][oracle] = Oracle(i, role);
+      s_oracles[ocrPluginType][oracle] = Oracle(uint8(i), role);
     }
   }
 
@@ -291,21 +287,20 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     bytes32 hashedReport,
     bytes32[] memory rs,
     bytes32[] memory ss,
-    bytes32 rawVs // signatures
+    bytes32 rawVs
   ) internal view {
-    // Verify signatures attached to report
-    bool[MAX_NUM_ORACLES] memory signed;
+    // Verify signatures attached to report. Using a uint256 means we can only verify up to 256 oracles.
+    uint256 signed = 0;
 
     uint256 numberOfSignatures = rs.length;
     for (uint256 i; i < numberOfSignatures; ++i) {
       // Safe from ECDSA malleability here since we check for duplicate signers.
       address signer = ecrecover(hashedReport, uint8(rawVs[i]) + 27, rs[i], ss[i]);
-      // Since we disallow address(0) as a valid signer address, it can
-      // never have a signer role.
+      // Since we disallow address(0) as a valid signer address, it can never have a signer role.
       Oracle memory oracle = s_oracles[ocrPluginType][signer];
       if (oracle.role != Role.Signer) revert UnauthorizedSigner();
-      if (signed[oracle.index]) revert NonUniqueSignatures();
-      signed[oracle.index] = true;
+      if (signed & (0x1 << oracle.index) != 0) revert NonUniqueSignatures();
+      signed |= 0x1 << oracle.index;
     }
   }
 

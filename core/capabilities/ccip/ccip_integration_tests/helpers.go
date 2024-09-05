@@ -47,7 +47,7 @@ import (
 
 var (
 	homeChainID                = chainsel.GETH_TESTNET.EvmChainID
-	ccipSendRequestedTopic     = onramp.OnRampCCIPSendRequested{}.Topic()
+	ccipMessageSentTopic       = onramp.OnRampCCIPMessageSent{}.Topic()
 	commitReportAcceptedTopic  = offramp.OffRampCommitReportAccepted{}.Topic()
 	executionStateChangedTopic = offramp.OffRampExecutionStateChanged{}.Topic()
 )
@@ -195,7 +195,7 @@ func createUniverses(
 			backend,
 			onramp.OnRampStaticConfig{
 				ChainSelector:      getSelector(chainID),
-				RmnProxy:           rmnProxy.Address(),
+				Rmn:                rmnProxy.Address(),
 				NonceManager:       nonceManager.Address(),
 				TokenAdminRegistry: tokenAdminRegistry.Address(),
 			},
@@ -221,7 +221,7 @@ func createUniverses(
 			backend,
 			offramp.OffRampStaticConfig{
 				ChainSelector:      getSelector(chainID),
-				RmnProxy:           rmnProxy.Address(),
+				Rmn:                rmnProxy.Address(),
 				TokenAdminRegistry: tokenAdminRegistry.Address(),
 				NonceManager:       nonceManager.Address(),
 			},
@@ -292,7 +292,7 @@ func createUniverses(
 	// print out topic hashes of relevant events for debugging purposes
 	t.Logf("Topic hash of CommitReportAccepted: %s", commitReportAcceptedTopic.Hex())
 	t.Logf("Topic hash of ExecutionStateChanged: %s", executionStateChangedTopic.Hex())
-	t.Logf("Topic hash of CCIPSendRequested: %s", ccipSendRequestedTopic.Hex())
+	t.Logf("Topic hash of CCIPMessageSent: %s", ccipMessageSentTopic.Hex())
 
 	return homeChainUniverse, universes
 }
@@ -532,7 +532,6 @@ func (h *homeChain) AddDON(
 			F:                     configF,
 			OffchainConfigVersion: offchainConfigVersion,
 			OfframpAddress:        uni.offramp.Address().Bytes(),
-			BootstrapP2PIds:       [][32]byte{bootstrapP2PID},
 			P2pIds:                p2pIDs,
 			Signers:               signersBytes,
 			Transmitters:          transmittersBytes,

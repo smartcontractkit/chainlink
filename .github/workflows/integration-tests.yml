@@ -659,7 +659,6 @@ jobs:
         run: | # https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md
           cat << EOF > config.toml
           [ChainlinkImage]
-          image="${{ env.CHAINLINK_IMAGE }}"
           version="${{ inputs.evm-ref || github.sha }}"
           [Common]
           user="${{ github.actor }}"
@@ -696,6 +695,9 @@ jobs:
           run_setup: false
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
+        env:
+          E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          E2E_TEST_SOLANA_SECRET: thisisatestingonlysecret
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
