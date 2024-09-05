@@ -5,7 +5,7 @@ import {Internal} from "../../libraries/Internal.sol";
 import {OffRamp} from "../../offRamp/OffRamp.sol";
 
 contract CCIPReaderTester {
-  event CCIPSendRequested(uint64 indexed destChainSelector, Internal.EVM2AnyRampMessage message);
+  event CCIPMessageSent(uint64 indexed destChainSelector, Internal.EVM2AnyRampMessage message);
 
   mapping(uint64 sourceChainSelector => OffRamp.SourceChainConfig sourceChainConfig) internal s_sourceChainConfigs;
   mapping(uint64 destChainSelector => uint64 sequenceNumber) internal s_destChainSeqNrs;
@@ -48,8 +48,8 @@ contract CCIPReaderTester {
     s_sourceChainConfigs[sourceChainSelector] = sourceChainConfig;
   }
 
-  function emitCCIPSendRequested(uint64 destChainSelector, Internal.EVM2AnyRampMessage memory message) external {
-    emit CCIPSendRequested(destChainSelector, message);
+  function emitCCIPMessageSent(uint64 destChainSelector, Internal.EVM2AnyRampMessage memory message) external {
+    emit CCIPMessageSent(destChainSelector, message);
   }
 
   event ExecutionStateChanged(

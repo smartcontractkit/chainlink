@@ -205,12 +205,14 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 		Contracts: map[string]evmtypes.ChainContractReader{
 			consts.ContractNameOnRamp: {
 				ContractPollingFilter: evmtypes.ContractPollingFilter{
+					// TODO: change this to EventNameCCIPMessageSent in chainlink-ccip
 					GenericEventNames: []string{consts.EventNameCCIPSendRequested},
 				},
 				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
 				Configs: map[string]*evmtypes.ChainReaderDefinition{
+					// TODO: change this to EventNameCCIPMessageSent in chainlink-ccip
 					consts.EventNameCCIPSendRequested: {
-						ChainSpecificName: consts.EventNameCCIPSendRequested,
+						ChainSpecificName: "CCIPMessageSent",
 						ReadType:          evmtypes.Event,
 					},
 				},
@@ -220,7 +222,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 
 	s := testSetup(ctx, t, chainS1, chainD, nil, cfg)
 
-	_, err := s.contract.EmitCCIPSendRequested(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
+	_, err := s.contract.EmitCCIPMessageSent(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
 		Header: ccip_reader_tester.InternalRampMessageHeader{
 			MessageId:           [32]byte{1, 0, 0, 0, 0},
 			SourceChainSelector: uint64(chainS1),
@@ -237,7 +239,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	_, err = s.contract.EmitCCIPSendRequested(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
+	_, err = s.contract.EmitCCIPMessageSent(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
 		Header: ccip_reader_tester.InternalRampMessageHeader{
 			MessageId:           [32]byte{1, 0, 0, 0, 1},
 			SourceChainSelector: uint64(chainS1),

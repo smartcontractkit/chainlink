@@ -123,7 +123,8 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: onramp.OnRampABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				GenericEventNames: []string{
-					mustGetEventName(consts.EventNameCCIPSendRequested, onrampABI),
+					// TODO: change this to EventNameCCIPMessageSent in chainlink-ccip
+					consts.EventNameCCIPSendRequested,
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -141,8 +142,9 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
+				// TODO: change this to EventNameCCIPMessageSent in chainlink-ccip
 				consts.EventNameCCIPSendRequested: {
-					ChainSpecificName: mustGetEventName(consts.EventNameCCIPSendRequested, onrampABI),
+					ChainSpecificName: mustGetEventName("CCIPMessageSent", onrampABI),
 					ReadType:          evmrelaytypes.Event,
 					EventDefinitions: &evmrelaytypes.EventDefinitions{
 						GenericDataWordNames: map[string]uint8{
