@@ -1393,22 +1393,10 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
 but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 
-## Capabilities.WorkflowConnectorConfig
+## Capabilities.GatewayConnectorConfig
 ```toml
-[Capabilities.WorkflowConnectorConfig]
-ChainIDForNodeKey = '1' # Example
-```
-
-
-### ChainIDForNodeKey
-```toml
-ChainIDForNodeKey = '1' # Example
-```
-ChainIDForNodeKey is the ChainID of the network
-
-## Capabilities.WorkflowConnectorConfig.GatewayConnectorConfig
-```toml
-[Capabilities.WorkflowConnectorConfig.GatewayConnectorConfig]
+[Capabilities.GatewayConnectorConfig]
+ChainIDForNodeKey = '0xfd29Dd9C980D715a64dace97F7A2AB98bcaE0fed' # Default
 NodeAddress = '0x68902d681c28119f9b2531473a417088bf008e59' # Example
 DonID = 'example_don' # Example
 WsHandshakeTimeoutMillis = 1000 # Example
@@ -1416,6 +1404,12 @@ AuthMinChallengeLen = 10 # Example
 AuthTimestampToleranceSec = 10 # Example
 ```
 
+
+### ChainIDForNodeKey
+```toml
+ChainIDForNodeKey = '0xfd29Dd9C980D715a64dace97F7A2AB98bcaE0fed' # Default
+```
+ChainIDForNodeKey is the ChainID of the network
 
 ### NodeAddress
 ```toml
@@ -1447,9 +1441,9 @@ AuthTimestampToleranceSec = 10 # Example
 ```
 AuthTimestampToleranceSec is Authentication timestamp tolerance
 
-## Capabilities.WorkflowConnectorConfig.GatewayConnectorConfig.Gateways
+## Capabilities.GatewayConnectorConfig.Gateways
 ```toml
-[[Capabilities.WorkflowConnectorConfig.GatewayConnectorConfig.Gateways]]
+[[Capabilities.GatewayConnectorConfig.Gateways]]
 ID = 'example_gateway' # Example
 URL = 'ws://localhost:8081/node' # Example
 ```

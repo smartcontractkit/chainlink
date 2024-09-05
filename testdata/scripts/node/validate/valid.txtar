@@ -321,17 +321,15 @@ Address = ''
 NetworkID = 'evm'
 ChainID = '1'
 
-[Capabilities.WorkflowConnectorConfig]
-ChainIDForNodeKey = ''
-
-[Capabilities.WorkflowConnectorConfig.GatewayConnectorConfig]
+[Capabilities.GatewayConnectorConfig]
+ChainIDForNodeKey = '0xfd29Dd9C980D715a64dace97F7A2AB98bcaE0fed'
 NodeAddress = ''
 DonID = ''
 WsHandshakeTimeoutMillis = 0
 AuthMinChallengeLen = 0
 AuthTimestampToleranceSec = 0
 
-[[Capabilities.WorkflowConnectorConfig.GatewayConnectorConfig.Gateways]]
+[[Capabilities.GatewayConnectorConfig.Gateways]]
 ID = ''
 URL = ''
 

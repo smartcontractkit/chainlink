@@ -1481,6 +1481,7 @@ func (drl *DispatcherRateLimit) setFrom(f *DispatcherRateLimit) {
 }
 
 type GatewayConnectorConfig struct {
+	ChainIDForNodeKey         *string
 	NodeAddress               *string
 	DonID                     *string
 	Gateways                  []ConnectorGatewayConfig
@@ -1490,6 +1491,10 @@ type GatewayConnectorConfig struct {
 }
 
 func (r *GatewayConnectorConfig) setFrom(f *GatewayConnectorConfig) {
+	if f.ChainIDForNodeKey != nil {
+		r.ChainIDForNodeKey = f.ChainIDForNodeKey
+	}
+
 	if f.NodeAddress != nil {
 		r.NodeAddress = f.NodeAddress
 	}
@@ -1520,31 +1525,19 @@ type ConnectorGatewayConfig struct {
 	ID  *string
 	URL *string
 }
-type WorkflowConnectorConfig struct {
-	ChainIDForNodeKey      *string
-	GatewayConnectorConfig GatewayConnectorConfig `json:"gatewayConnectorConfig"`
-}
-
-func (r *WorkflowConnectorConfig) setFrom(f *WorkflowConnectorConfig) {
-	if f.ChainIDForNodeKey != nil {
-		r.ChainIDForNodeKey = f.ChainIDForNodeKey
-	}
-
-	r.GatewayConnectorConfig.setFrom(&f.GatewayConnectorConfig)
-}
 
 type Capabilities struct {
-	Peering                 P2P                     `toml:",omitempty"`
-	Dispatcher              Dispatcher              `toml:",omitempty"`
-	ExternalRegistry        ExternalRegistry        `toml:",omitempty"`
-	WorkflowConnectorConfig WorkflowConnectorConfig `toml:", omitempty"`
+	Peering                P2P                    `toml:",omitempty"`
+	Dispatcher             Dispatcher             `toml:",omitempty"`
+	ExternalRegistry       ExternalRegistry       `toml:",omitempty"`
+	GatewayConnectorConfig GatewayConnectorConfig `toml:", omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.Peering.setFrom(&f.Peering)
 	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
 	c.Dispatcher.setFrom(&f.Dispatcher)
-	c.WorkflowConnectorConfig.setFrom(&f.WorkflowConnectorConfig)
+	c.GatewayConnectorConfig.setFrom(&f.GatewayConnectorConfig)
 }
 
 type ThresholdKeyShareSecrets struct {

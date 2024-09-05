@@ -462,6 +462,17 @@ func TestConfig_Marshal(t *testing.T) {
 				PerSenderBurst: ptr(50),
 			},
 		},
+		GatewayConnectorConfig: toml.GatewayConnectorConfig{
+			ChainIDForNodeKey:         ptr("0xfd29Dd9C980D715a64dace97F7A2AB98bcaE0fed"),
+			NodeAddress:               ptr(""),
+			DonID:                     ptr(""),
+			WsHandshakeTimeoutMillis:  ptr[uint32](0),
+			AuthMinChallengeLen:       ptr[int](0),
+			AuthTimestampToleranceSec: ptr[uint32](0),
+			Gateways: []toml.ConnectorGatewayConfig{
+				{ID: ptr(""), URL: ptr("")},
+			},
+		},
 	}
 	full.Keeper = toml.Keeper{
 		DefaultTransactionQueueDepth: ptr[uint32](17),

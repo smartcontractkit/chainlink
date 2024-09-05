@@ -62,9 +62,9 @@ func (r *dispatcherRateLimit) PerSenderBurst() int {
 	return *r.r.PerSenderBurst
 }
 
-func (c *capabilitiesConfig) WorkflowConnectorConfig() config.WorkflowConnectorConfig {
-	return &workflowConnectorConfig{
-		c: c.c.WorkflowConnectorConfig,
+func (c *capabilitiesConfig) GatewayConnectorConfig() config.GatewayConnectorConfig {
+	return &gatewayConnectorConfig{
+		c: c.c.GatewayConnectorConfig,
 	}
 }
 
@@ -88,24 +88,13 @@ func (c *capabilitiesExternalRegistry) Address() string {
 	return *c.c.Address
 }
 
-type workflowConnectorConfig struct {
-	c toml.WorkflowConnectorConfig
-}
-
-func (c *workflowConnectorConfig) ChainIDForNodeKey() string {
-	return *c.c.ChainIDForNodeKey
-}
-
-func (c *workflowConnectorConfig) GatewayConnectorConfig() config.GatewayConnectorConfig {
-	return &gatewayConnectorConfig{
-		c: c.c.GatewayConnectorConfig,
-	}
-}
-
 type gatewayConnectorConfig struct {
 	c toml.GatewayConnectorConfig
 }
 
+func (c *gatewayConnectorConfig) ChainIDForNodeKey() string {
+	return *c.c.ChainIDForNodeKey
+}
 func (c *gatewayConnectorConfig) NodeAddress() string {
 	return *c.c.NodeAddress
 }

@@ -12,6 +12,7 @@ type CapabilitiesExternalRegistry interface {
 }
 
 type GatewayConnectorConfig interface {
+	ChainIDForNodeKey() string
 	NodeAddress() string
 	DonID() string
 	Gateways() []ConnectorGatewayConfig
@@ -25,13 +26,9 @@ type ConnectorGatewayConfig interface {
 	URL() string
 }
 
-type WorkflowConnectorConfig interface {
-	ChainIDForNodeKey() string
-	GatewayConnectorConfig() GatewayConnectorConfig
-}
 type Capabilities interface {
 	Peering() P2P
 	Dispatcher() Dispatcher
 	ExternalRegistry() CapabilitiesExternalRegistry
-	WorkflowConnectorConfig() WorkflowConnectorConfig
+	GatewayConnectorConfig() GatewayConnectorConfig
 }
