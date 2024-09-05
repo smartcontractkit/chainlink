@@ -16,11 +16,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	MockARM              deployment.ContractType = "MockRMN"
+	RMNRemote            deployment.ContractType = "RMNRemote"
 	LinkToken            deployment.ContractType = "LinkToken"
 	ARMProxy             deployment.ContractType = "ARMProxy"
 	WETH9                deployment.ContractType = "WETH9"
@@ -55,7 +55,7 @@ type Contracts interface {
 		*router.Router |
 		*token_admin_registry.TokenAdminRegistry |
 		*weth9.WETH9 |
-		*mock_rmn_contract.MockRMNContract |
+		*rmn_remote.RMNRemote |
 		*owner_helpers.ManyChainMultiSig |
 		*owner_helpers.RBACTimelock |
 		*offramp.OffRamp |
@@ -120,7 +120,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 		return ab, err
 	}
 	if c.Chains[c.HomeChainSel].CapabilityRegistry == nil {
-		return ab, fmt.Errorf("Capability registry not found for home chain %d, needs to be deployed first", c.HomeChainSel)
+		return ab, fmt.Errorf("capability registry not found for home chain %d, needs to be deployed first", c.HomeChainSel)
 	}
 	cr, err := c.Chains[c.HomeChainSel].CapabilityRegistry.GetHashedCapabilityId(
 		&bind.CallOpts{}, CapabilityLabelledName, CapabilityVersion)
@@ -222,21 +222,22 @@ func DeployChainContracts(e deployment.Environment, chain deployment.Chain, ab d
 	e.Logger.Infow("deployed receiver", "addr", ccipReceiver.Address)
 
 	// TODO: Still waiting for RMNRemote/RMNHome contracts etc.
-	mockARM, err := deployContract(e.Logger, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*mock_rmn_contract.MockRMNContract] {
-			mockARMAddr, tx, mockARM, err2 := mock_rmn_contract.DeployMockRMNContract(
+	rmnRemote, err := deployContract(e.Logger, chain, ab,
+		func(chain deployment.Chain) ContractDeploy[*rmn_remote.RMNRemote] {
+			rmnRemoteAddr, tx, rmnRemote, err2 := rmn_remote.DeployRMNRemote(
 				chain.DeployerKey,
 				chain.Client,
+				chain.Selector,
 			)
-			return ContractDeploy[*mock_rmn_contract.MockRMNContract]{
-				mockARMAddr, mockARM, tx, deployment.NewTypeAndVersion(MockARM, deployment.Version1_0_0), err2,
+			return ContractDeploy[*rmn_remote.RMNRemote]{
+				rmnRemoteAddr, rmnRemote, tx, deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
-		e.Logger.Errorw("Failed to deploy mockARM", "err", err)
+		e.Logger.Errorw("Failed to deploy RMNRemote", "err", err)
 		return ab, err
 	}
-	e.Logger.Infow("deployed mockARM", "addr", mockARM)
+	e.Logger.Infow("deployed RMNRemote", "addr", rmnRemote.Address)
 
 	mcm, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*owner_helpers.ManyChainMultiSig] {
@@ -282,7 +283,7 @@ func DeployChainContracts(e deployment.Environment, chain deployment.Chain, ab d
 			rmnProxyAddr, tx, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxyContract(
 				chain.DeployerKey,
 				chain.Client,
-				mockARM.Address,
+				rmnRemote.Address,
 			)
 			return ContractDeploy[*rmn_proxy_contract.RMNProxyContract]{
 				rmnProxyAddr, rmnProxy, tx, deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), err2,
