@@ -314,7 +314,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -329,6 +329,9 @@ BlockHistorySize = 4
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
+
+[EVM.GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [EVM.HeadTracker]
 HistoryDepth = 100
@@ -418,7 +421,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -433,6 +436,9 @@ BlockHistorySize = 4
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
+
+[EVM.GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [EVM.HeadTracker]
 HistoryDepth = 100
@@ -516,7 +522,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -531,6 +537,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[EVM.GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [EVM.HeadTracker]
 HistoryDepth = 2000

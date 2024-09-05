@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.24;
 
 import {ArbitrumCrossDomainGovernor} from "../../../dev/arbitrum/ArbitrumCrossDomainGovernor.sol";
 import {Greeter} from "../../../../tests/Greeter.sol";
