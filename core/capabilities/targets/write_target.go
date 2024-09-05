@@ -163,7 +163,8 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 	if hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]) != rawRequest.Metadata.WorkflowExecutionID ||
 		hex.EncodeToString(reportMetadata.WorkflowOwner[:]) != rawRequest.Metadata.WorkflowOwner ||
 		hex.EncodeToString(reportMetadata.WorkflowName[:]) != rawRequest.Metadata.WorkflowName ||
-		hex.EncodeToString(reportMetadata.WorkflowCID[:]) != rawRequest.Metadata.WorkflowID {
+		hex.EncodeToString(reportMetadata.WorkflowCID[:]) != rawRequest.Metadata.WorkflowID ||
+		hex.EncodeToString(reportMetadata.ReportID[:]) != string(r.Inputs.SignedReport.ID) {
 		return r, fmt.Errorf("report metadata does not match request metadata. reportMetadata: %+v, requestMetadata: %+v", reportMetadata, rawRequest.Metadata)
 	}
 
