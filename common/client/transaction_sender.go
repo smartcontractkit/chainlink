@@ -100,8 +100,7 @@ func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 	txResultsToReport := make(chan sendTxResult)
 	primaryNodeWg := sync.WaitGroup{}
 
-	ctx, cancel := txSender.chStop.Ctx(ctx)
-	defer cancel()
+	ctx, _ = txSender.chStop.Ctx(ctx)
 
 	healthyNodesNum := 0
 	err := txSender.multiNode.DoAll(ctx, func(ctx context.Context, rpc RPC, isSendOnly bool) {
