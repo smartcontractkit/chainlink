@@ -37,7 +37,7 @@ runs:
       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
       with:
         go-project-path: ./integration-tests
-        module-name: github.com/smartcontractkit/chainlink-testing-framework
+        module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
         enforce-semantic-tag: false
     - name: Get CTF sha
       if: steps.version.outputs.is_semantic == 'false'
