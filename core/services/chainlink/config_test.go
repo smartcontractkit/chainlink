@@ -580,6 +580,7 @@ func TestConfig_Marshal(t *testing.T) {
 				NonceAutoSync:                ptr(true),
 				NoNewHeadsThreshold:          &minute,
 				OperatorFactoryAddress:       mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
+				LogBroadcasterEnabled:        ptr(true),
 				RPCDefaultBatchSize:          ptr[uint32](17),
 				RPCBlockQueryDelay:           ptr[uint16](10),
 				NoNewFinalizedHeadsThreshold: &hour,
