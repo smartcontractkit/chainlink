@@ -177,10 +177,7 @@ func (e *EVMConfig) OperatorFactoryAddress() string {
 }
 
 func (e *EVMConfig) LogBroadcasterEnabled() bool {
-	if e.C.LogBroadcasterEnabled == nil {
-		return true
-	}
-	return *e.C.LogBroadcasterEnabled
+	return e.C.LogBroadcasterEnabled == nil || *e.C.LogBroadcasterEnabled
 }
 
 func (e *EVMConfig) LogPrunePageSize() uint32 {
