@@ -968,19 +968,15 @@ func (n *Node) ValidateConfig() (err error) {
 	if n.SendOnly != nil {
 		sendOnly = *n.SendOnly
 	}
-	if n.WSURL == nil {
-		if !sendOnly {
-			err = multierr.Append(err, commonconfig.ErrMissing{Name: "WSURL", Msg: "required for primary nodes"})
-		}
-	} else if n.WSURL.IsZero() {
-		if !sendOnly {
+	if n.WSURL != nil && !sendOnly {
+		if n.WSURL.IsZero() {
 			err = multierr.Append(err, commonconfig.ErrEmpty{Name: "WSURL", Msg: "required for primary nodes"})
-		}
-	} else {
-		switch n.WSURL.Scheme {
-		case "ws", "wss":
-		default:
-			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "WSURL", Value: n.WSURL.Scheme, Msg: "must be ws or wss"})
+		} else {
+			switch n.WSURL.Scheme {
+			case "ws", "wss":
+			default:
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "WSURL", Value: n.WSURL.Scheme, Msg: "must be ws or wss"})
+			}
 		}
 	}
 
