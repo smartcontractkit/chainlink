@@ -1,15 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {IPoolV1} from "../../interfaces/IPool.sol";
-
-import {Internal} from "../../libraries/Internal.sol";
 import {Pool} from "../../libraries/Pool.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
-import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
 import {BurnMintTokenPool} from "../../pools/BurnMintTokenPool.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
-import {BaseTest} from "../BaseTest.t.sol";
 import {BurnMintSetup} from "./BurnMintSetup.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -32,7 +27,7 @@ contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
     assertEq(address(s_burnMintERC677), address(s_pool.getToken()));
     assertEq(address(s_mockRMN), s_pool.getRmnProxy());
     assertEq(false, s_pool.getAllowListEnabled());
-    assertEq("BurnMintTokenPool 1.5.0-dev", s_pool.typeAndVersion());
+    assertEq("BurnMintTokenPool 1.5.0", s_pool.typeAndVersion());
   }
 
   function test_PoolBurn_Success() public {
@@ -107,15 +102,17 @@ contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
 contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
   function test_PoolMint_Success() public {
     uint256 amount = 1e19;
+    address receiver = makeAddr("receiver_address");
 
     vm.startPrank(s_burnMintOffRamp);
 
     vm.expectEmit();
-    emit IERC20.Transfer(address(0), address(s_burnMintOffRamp), amount);
+    emit IERC20.Transfer(address(0), receiver, amount);
+
     s_pool.releaseOrMint(
       Pool.ReleaseOrMintInV1({
         originalSender: bytes(""),
-        receiver: OWNER,
+        receiver: receiver,
         amount: amount,
         localToken: address(s_burnMintERC677),
         remoteChainSelector: DEST_CHAIN_SELECTOR,
@@ -125,7 +122,7 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
       })
     );
 
-    assertEq(s_burnMintERC677.balanceOf(s_burnMintOffRamp), amount);
+    assertEq(s_burnMintERC677.balanceOf(receiver), amount);
   }
 
   function test_PoolMintNotHealthy_Revert() public {
@@ -142,8 +139,8 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
         amount: 1e5,
         localToken: address(s_burnMintERC677),
         remoteChainSelector: DEST_CHAIN_SELECTOR,
-        sourcePoolAddress: generateSourceTokenData().sourcePoolAddress,
-        sourcePoolData: generateSourceTokenData().extraData,
+        sourcePoolAddress: _generateSourceTokenData().sourcePoolAddress,
+        sourcePoolData: _generateSourceTokenData().extraData,
         offchainTokenData: ""
       })
     );
@@ -162,8 +159,8 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
         amount: 1,
         localToken: address(s_burnMintERC677),
         remoteChainSelector: wrongChainSelector,
-        sourcePoolAddress: generateSourceTokenData().sourcePoolAddress,
-        sourcePoolData: generateSourceTokenData().extraData,
+        sourcePoolAddress: _generateSourceTokenData().sourcePoolAddress,
+        sourcePoolData: _generateSourceTokenData().extraData,
         offchainTokenData: ""
       })
     );

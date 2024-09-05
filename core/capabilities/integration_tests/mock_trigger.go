@@ -2,8 +2,6 @@ package integration_tests
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 	"sync"
 	"testing"
 
@@ -45,7 +43,7 @@ func (r *reportsSink) Close() error {
 
 func (r *reportsSink) sendReports(reportList []*datastreams.FeedReport) {
 	for _, trigger := range r.triggers {
-		resp, err := wrapReports(reportList, "1", 12, datastreams.SignersMetadata{})
+		resp, err := wrapReports(reportList, "1", 12, datastreams.Metadata{})
 		if err != nil {
 			panic(err)
 		}
@@ -54,7 +52,7 @@ func (r *reportsSink) sendReports(reportList []*datastreams.FeedReport) {
 }
 
 func (r *reportsSink) getNewTrigger(t *testing.T) *streamsTrigger {
-	trigger := streamsTrigger{t: t, toSend: make(chan capabilities.CapabilityResponse, 1000),
+	trigger := streamsTrigger{t: t, toSend: make(chan capabilities.TriggerResponse, 1000),
 		wg: &r.wg, stopCh: r.stopCh}
 	r.triggers = append(r.triggers, trigger)
 	return &trigger
@@ -63,13 +61,13 @@ func (r *reportsSink) getNewTrigger(t *testing.T) *streamsTrigger {
 type streamsTrigger struct {
 	t      *testing.T
 	cancel context.CancelFunc
-	toSend chan capabilities.CapabilityResponse
+	toSend chan capabilities.TriggerResponse
 
 	wg     *sync.WaitGroup
 	stopCh services.StopChan
 }
 
-func (s *streamsTrigger) sendResponse(resp capabilities.CapabilityResponse) {
+func (s *streamsTrigger) sendResponse(resp capabilities.TriggerResponse) {
 	s.toSend <- resp
 }
 
@@ -81,12 +79,12 @@ func (s *streamsTrigger) Info(ctx context.Context) (capabilities.CapabilityInfo,
 	), nil
 }
 
-func (s *streamsTrigger) RegisterTrigger(ctx context.Context, request capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+func (s *streamsTrigger) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	if s.cancel != nil {
 		s.t.Fatal("trigger already registered")
 	}
 
-	responseCh := make(chan capabilities.CapabilityResponse)
+	responseCh := make(chan capabilities.TriggerResponse)
 
 	ctxWithCancel, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
@@ -108,7 +106,7 @@ func (s *streamsTrigger) RegisterTrigger(ctx context.Context, request capabiliti
 	return responseCh, nil
 }
 
-func (s *streamsTrigger) UnregisterTrigger(ctx context.Context, request capabilities.CapabilityRequest) error {
+func (s *streamsTrigger) UnregisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) error {
 	if s.cancel == nil {
 		s.t.Fatal("trigger not registered")
 	}
@@ -118,32 +116,28 @@ func (s *streamsTrigger) UnregisterTrigger(ctx context.Context, request capabili
 	return nil
 }
 
-func wrapReports(reportList []*datastreams.FeedReport, eventID string, timestamp int64, meta datastreams.SignersMetadata) (capabilities.CapabilityResponse, error) {
-	val, err := values.Wrap(reportList)
-	if err != nil {
-		return capabilities.CapabilityResponse{}, err
+func wrapReports(reportList []*datastreams.FeedReport, eventID string, timestamp int64, meta datastreams.Metadata) (capabilities.TriggerResponse, error) {
+	rl := []datastreams.FeedReport{}
+	for _, r := range reportList {
+		rl = append(rl, *r)
 	}
-
-	metaVal, err := values.Wrap(meta)
+	outputs, err := values.WrapMap(datastreams.StreamsTriggerEvent{
+		Payload:   rl,
+		Metadata:  meta,
+		Timestamp: timestamp,
+	})
 	if err != nil {
-		return capabilities.CapabilityResponse{}, err
+		return capabilities.TriggerResponse{}, err
 	}
 
 	triggerEvent := capabilities.TriggerEvent{
 		TriggerType: triggerID,
 		ID:          eventID,
-		Timestamp:   strconv.FormatInt(timestamp, 10),
-		Metadata:    metaVal,
-		Payload:     val,
+		Outputs:     outputs,
 	}
 
-	triggerEventMapValue, err := values.WrapMap(triggerEvent)
-	if err != nil {
-		return capabilities.CapabilityResponse{}, fmt.Errorf("failed to wrap trigger event: %w", err)
-	}
-
-	// Create a new CapabilityResponse with the MercuryTriggerEvent
-	return capabilities.CapabilityResponse{
-		Value: triggerEventMapValue,
+	// Create a new TriggerResponse with the MercuryTriggerEvent
+	return capabilities.TriggerResponse{
+		Event: triggerEvent,
 	}, nil
 }

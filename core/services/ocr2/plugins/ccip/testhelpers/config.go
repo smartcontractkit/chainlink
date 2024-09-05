@@ -15,6 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
 )
 
+const (
+	DefaultTokenDestGasOverhead = 125_000
+)
+
 var PermissionLessExecutionThresholdSeconds = uint32(FirstBlockAge.Seconds())
 
 func (c *CCIPContracts) CreateDefaultCommitOnchainConfig(t *testing.T) []byte {
@@ -37,6 +41,7 @@ func (c *CCIPContracts) createCommitOffchainConfig(t *testing.T, feeUpdateHearBe
 		*config.MustNewDuration(feeUpdateHearBeat),
 		1,
 		*config.MustNewDuration(inflightCacheExpiry),
+		false,
 	).Encode()
 	require.NoError(t, err)
 	return config
@@ -49,8 +54,6 @@ func (c *CCIPContracts) CreateDefaultExecOnchainConfig(t *testing.T) []byte {
 		PriceRegistry:                           c.Dest.PriceRegistry.Address(),
 		MaxDataBytes:                            1e5,
 		MaxNumberOfTokensPerMsg:                 5,
-		MaxPoolReleaseOrMintGas:                 200_000,
-		MaxTokenTransferGas:                     100_000,
 	})
 	require.NoError(t, err)
 	return config

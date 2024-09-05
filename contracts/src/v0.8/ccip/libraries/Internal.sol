@@ -16,6 +16,8 @@ library Internal {
   // malicious contracts from returning large amounts of data and causing
   // repeated out-of-gas scenarios.
   uint16 internal constant MAX_RET_BYTES = 4 + 4 * 32;
+  /// @dev The expected number of bytes returned by the balanceOf function.
+  uint256 internal constant MAX_BALANCE_OF_RET_BYTES = 32;
 
   /// @notice A collection of token price and gas price updates.
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
@@ -65,6 +67,7 @@ library Internal {
     // CCIP_LOCK_OR_BURN_V1_RET_BYTES bytes. If more data is required, the TokenTransferFeeConfig.destBytesOverhead
     // has to be set for the specific token.
     bytes extraData;
+    uint32 destGasAmount; // The amount of gas available for the releaseOrMint and balanceOf calls on the offRamp
   }
 
   /// @notice Report that is submitted by the execution DON at the execution phase. (including chain selector data)
@@ -91,19 +94,19 @@ library Internal {
   /// @notice The cross chain message that gets committed to EVM chains.
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct EVM2EVMMessage {
-    uint64 sourceChainSelector; // ───────────╮ the chain selector of the source chain, note: not chainId
-    address sender; // ───────────────────────╯ sender address on the source chain
-    address receiver; // ─────────────────────╮ receiver address on the destination chain
-    uint64 sequenceNumber; // ────────────────╯ sequence number, not unique across lanes
-    uint256 gasLimit; //                        user supplied maximum gas amount available for dest chain execution
-    bool strict; // ──────────────────────────╮ DEPRECATED
-    uint64 nonce; //                          │ nonce for this lane for this sender, not unique across senders/lanes
-    address feeToken; // ─────────────────────╯ fee token
-    uint256 feeTokenAmount; //                  fee token amount
-    bytes data; //                              arbitrary data payload supplied by the message sender
-    Client.EVMTokenAmount[] tokenAmounts; //    array of tokens and amounts to transfer
-    bytes[] sourceTokenData; //                 array of token data, one per token
-    bytes32 messageId; //                       a hash of the message data
+    uint64 sourceChainSelector; // ────────╮ the chain selector of the source chain, note: not chainId
+    address sender; // ────────────────────╯ sender address on the source chain
+    address receiver; // ──────────────────╮ receiver address on the destination chain
+    uint64 sequenceNumber; // ─────────────╯ sequence number, not unique across lanes
+    uint256 gasLimit; //                     user supplied maximum gas amount available for dest chain execution
+    bool strict; // ───────────────────────╮ DEPRECATED
+    uint64 nonce; //                       │ nonce for this lane for this sender, not unique across senders/lanes
+    address feeToken; // ──────────────────╯ fee token
+    uint256 feeTokenAmount; //               fee token amount
+    bytes data; //                           arbitrary data payload supplied by the message sender
+    Client.EVMTokenAmount[] tokenAmounts; // array of tokens and amounts to transfer
+    bytes[] sourceTokenData; //              array of token data, one per token
+    bytes32 messageId; //                    a hash of the message data
   }
 
   /// @dev EVM2EVMMessage struct has 13 fields, including 3 variable arrays.
@@ -113,9 +116,20 @@ library Internal {
   /// For structs that contain arrays, 1 more slot is added to the front, reaching a total of 17.
   uint256 public constant MESSAGE_FIXED_BYTES = 32 * 17;
 
-  /// @dev Each token transfer adds 1 EVMTokenAmount and 1 bytes.
-  /// When abiEncoded, each EVMTokenAmount takes 2 slots, each bytes takes 2 slots, excl bytes contents
-  uint256 public constant MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * 4;
+  /// @dev Each token transfer adds 1 EVMTokenAmount and 3 bytes at 3 slots each and one slot for the destGasAmount.
+  /// When abi encoded, each EVMTokenAmount takes 2 slots, each bytes takes 1 slot for length, one slot of data and one
+  /// slot for the offset. This results in effectively 3*3 slots per SourceTokenData.
+  /// 0x20
+  /// destGasAmount
+  /// sourcePoolAddress_offset
+  /// destTokenAddress_offset
+  /// extraData_offset
+  /// sourcePoolAddress_length
+  /// sourcePoolAddress_content // assume 1 slot
+  /// destTokenAddress_length
+  /// destTokenAddress_content // assume 1 slot
+  /// extraData_length // contents billed separately
+  uint256 public constant MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * ((1 + 3 * 3) + 2);
 
   /// @dev Any2EVMRampMessage struct has 10 fields, including 3 variable unnested arrays (data, receiver and tokenAmounts).
   /// Each variable array takes 1 more slot to store its length.
@@ -126,10 +140,11 @@ library Internal {
   uint256 public constant ANY_2_EVM_MESSAGE_FIXED_BYTES = 32 * 14;
 
   /// @dev Each token transfer adds 1 RampTokenAmount
-  /// RampTokenAmount has 4 fields, including 3 bytes.
-  /// Each bytes takes 1 more slot to store its length.
-  /// When abi encoded, each token transfer takes up 7 slots, excl bytes contents.
-  uint256 public constant ANY_2_EVM_MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * 7;
+  /// RampTokenAmount has 5 fields, 3 of which are bytes type, 1 uint256 and 1 uint32.
+  /// Each bytes type takes 1 slot for length, 1 slot for data and 1 slot for the offset.
+  /// uint256 amount takes 1 slot.
+  /// uint32 destGasAmount takes 1 slot.
+  uint256 public constant ANY_2_EVM_MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * ((3 * 3) + 2);
 
   bytes32 internal constant EVM_2_EVM_MESSAGE_HASH = keccak256("EVM2EVMMessageHashV2");
 
@@ -226,8 +241,12 @@ library Internal {
     );
   }
 
-  /// @dev We disallow the first 1024 addresses to never allow calling precompiles. It is extremely unlikely that
-  /// anyone would ever be able to generate an address in this range.
+  /// @dev We disallow the first 1024 addresses to avoid calling into a range known for hosting precompiles. Calling
+  /// into precompiles probably won't cause any issues, but to be safe we can disallow this range. It is extremely
+  /// unlikely that anyone would ever be able to generate an address in this range. There is no official range of
+  /// precompiles, but EIP-7587 proposes to reserve the range 0x100 to 0x1ff. Our range is more conservative, even
+  /// though it might not be exhaustive for all chains, which is OK. We also disallow the zero address, which is a
+  /// common practice.
   uint256 public constant PRECOMPILE_SPACE = 1024;
 
   /// @notice This methods provides validation for parsing abi encoded addresses by ensuring the
@@ -276,16 +295,19 @@ library Internal {
     // has to be set for the specific token.
     bytes extraData;
     uint256 amount; // Amount of tokens.
+    // Destination chain specific execution data encoded in bytes
+    //(for EVM destination it consists of the amount of gas available for the releaseOrMint and transfer calls on the offRamp
+    bytes destExecData;
   }
 
   /// @notice Family-agnostic header for OnRamp & OffRamp messages.
   /// The messageId is not expected to match hash(message), since it may originate from another ramp family
   struct RampMessageHeader {
     bytes32 messageId; // Unique identifier for the message, generated with the source chain's encoding scheme (i.e. not necessarily abi.encoded)
-    uint64 sourceChainSelector; // ───────╮ the chain selector of the source chain, note: not chainId
-    uint64 destChainSelector; //          | the chain selector of the destination chain, note: not chainId
-    uint64 sequenceNumber; //             │ sequence number, not unique across lanes
-    uint64 nonce; // ─────────────────────╯ nonce for this lane for this sender, not unique across senders/lanes
+    uint64 sourceChainSelector; // ──╮ the chain selector of the source chain, note: not chainId
+    uint64 destChainSelector; //     | the chain selector of the destination chain, note: not chainId
+    uint64 sequenceNumber; //        │ sequence number, not unique across lanes
+    uint64 nonce; // ────────────────╯ nonce for this lane for this sender, not unique across senders/lanes
   }
 
   /// @notice Family-agnostic message routed to an OffRamp

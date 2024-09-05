@@ -4,9 +4,8 @@ pragma solidity 0.8.24;
 import {IRMN} from "../../interfaces/IRMN.sol";
 
 import {ARMProxy} from "../../ARMProxy.sol";
-import {RMN} from "../../RMN.sol";
 import {MockRMN} from "../mocks/MockRMN.sol";
-import {RMNSetup, makeSubjects} from "./RMNSetup.t.sol";
+import {RMNSetup} from "./RMNSetup.t.sol";
 
 contract ARMProxyTest is RMNSetup {
   MockRMN internal s_mockRMN;

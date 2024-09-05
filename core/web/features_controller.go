@@ -13,8 +13,9 @@ type FeaturesController struct {
 }
 
 const (
-	FeatureKeyCSA          string = "csa"
-	FeatureKeyFeedsManager string = "feeds_manager"
+	FeatureKeyCSA                string = "csa"
+	FeatureKeyFeedsManager       string = "feeds_manager"
+	FeatureKeyMultiFeedsManagers string = "multi_feeds_managers"
 )
 
 // Index retrieves the features
@@ -24,6 +25,7 @@ func (fc *FeaturesController) Index(c *gin.Context) {
 	resources := []presenters.FeatureResource{
 		*presenters.NewFeatureResource(FeatureKeyCSA, fc.App.GetConfig().Feature().UICSAKeys()),
 		*presenters.NewFeatureResource(FeatureKeyFeedsManager, fc.App.GetConfig().Feature().FeedsManager()),
+		*presenters.NewFeatureResource(FeatureKeyMultiFeedsManagers, fc.App.GetConfig().Feature().MultiFeedsManagers()),
 	}
 
 	jsonAPIResponse(c, resources, "features")

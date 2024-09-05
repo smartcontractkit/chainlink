@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 // solhint-disable-next-line no-unused-import
-import {ForwarderInterface} from "../interfaces/ForwarderInterface.sol";
+import {IForwarder} from "../interfaces/IForwarder.sol";
 
 /* ./dev dependencies - to be moved from ./dev after audit */
 import {CrossDomainForwarder} from "../CrossDomainForwarder.sol";
@@ -18,7 +18,7 @@ import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/ut
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
  *   can be considered to be owned by the `l1Owner`
  */
-contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainForwarder {
+contract OptimismCrossDomainForwarder is ITypeAndVersion, CrossDomainForwarder {
   // OVM_L2CrossDomainMessenger is a precompile usually deployed to 0x4200000000000000000000000000000000000007
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   iOVM_CrossDomainMessenger private immutable OVM_CROSS_DOMAIN_MESSENGER;
@@ -40,7 +40,7 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * - OptimismCrossDomainForwarder 0.1.0: initial release
    * - OptimismCrossDomainForwarder 1.0.0: Use OZ Address, CrossDomainOwnable
    *
-   * @inheritdoc TypeAndVersionInterface
+   * @inheritdoc ITypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "OptimismCrossDomainForwarder 1.0.0";
@@ -48,7 +48,7 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
 
   /**
    * @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` being the L1 owner address
-   * @inheritdoc ForwarderInterface
+   * @inheritdoc IForwarder
    */
   function forward(address target, bytes memory data) external virtual override onlyL1Owner {
     Address.functionCall(target, data, "Forwarder call reverted");

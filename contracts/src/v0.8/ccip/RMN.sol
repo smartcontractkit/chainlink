@@ -6,14 +6,14 @@ import {IRMN} from "./interfaces/IRMN.sol";
 
 import {OwnerIsCreator} from "./../shared/access/OwnerIsCreator.sol";
 
-import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSet} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
 // An active curse on this subject will cause isCursed() to return true. Use this subject if there is an issue with a
 // remote chain, for which there exists a legacy lane contract deployed on the same chain as this RMN contract is
 // deployed, relying on isCursed().
 bytes16 constant LEGACY_CURSE_SUBJECT = 0x01000000000000000000000000000000;
 
-// An active curse on this subject will cause isCursed() and isCursed(bytes32) to return true. Use this subject for
+// An active curse on this subject will cause isCursed() and isCursed(bytes16) to return true. Use this subject for
 // issues affecting all of CCIP chains, or pertaining to the chain that this contract is deployed on, instead of using
 // the local chain selector as a subject.
 bytes16 constant GLOBAL_CURSE_SUBJECT = 0x01000000000000000000000000000001;
@@ -32,7 +32,7 @@ contract RMN is IRMN, OwnerIsCreator, ITypeAndVersion {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   // STATIC CONFIG
-  string public constant override typeAndVersion = "RMN 1.5.0-dev";
+  string public constant override typeAndVersion = "RMN 1.5.0";
 
   uint256 private constant MAX_NUM_VOTERS = 16;
 
@@ -732,11 +732,9 @@ contract RMN is IRMN, OwnerIsCreator, ITypeAndVersion {
   /// @return accumulatedWeight sum of weights of voters, will be zero if voting took place with an older config version
   /// @return blessed will be accurate regardless of when voting took place
   /// @dev This is a helper method for offchain code so efficiency is not really a concern.
-  function getBlessProgress(IRMN.TaggedRoot calldata taggedRoot)
-    external
-    view
-    returns (address[] memory blessVoteAddrs, uint16 accumulatedWeight, bool blessed)
-  {
+  function getBlessProgress(
+    IRMN.TaggedRoot calldata taggedRoot
+  ) external view returns (address[] memory blessVoteAddrs, uint16 accumulatedWeight, bool blessed) {
     bytes32 taggedRootHash = _taggedRootHash(taggedRoot);
     BlessVoteProgress memory progress = s_blessVoteProgressByTaggedRootHash[taggedRootHash];
     blessed = progress.weightThresholdMet;
@@ -762,7 +760,9 @@ contract RMN is IRMN, OwnerIsCreator, ITypeAndVersion {
   /// @return cursed might be true even if the owner has no active vote and accumulatedWeight < curseWeightThreshold,
   /// due to a retained curse from a prior config
   /// @dev This is a helper method for offchain code so efficiency is not really a concern.
-  function getCurseProgress(bytes16 subject)
+  function getCurseProgress(
+    bytes16 subject
+  )
     external
     view
     returns (address[] memory curseVoteAddrs, bytes28[] memory cursesHashes, uint16 accumulatedWeight, bool cursed)

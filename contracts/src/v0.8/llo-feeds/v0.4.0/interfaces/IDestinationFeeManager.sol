@@ -34,6 +34,14 @@ interface IDestinationFeeManager is IERC165 {
   function updateSubscriberDiscount(address subscriber, bytes32 feedId, address token, uint64 discount) external;
 
   /**
+   * @notice Adds a subscriber to the fee manager
+   * @param subscriber address of the subscriber
+   * @param token token to apply the discount to
+   * @param discount discount to be applied to the fee
+   */
+  function updateSubscriberGlobalDiscount(address subscriber, address token, uint64 discount) external;
+
+  /**
    * @notice Withdraws any native or LINK rewards to the owner address
    * @param assetAddress address of the asset to withdraw
    * @param recipientAddress address to withdraw to
@@ -70,44 +78,6 @@ interface IDestinationFeeManager is IERC165 {
    * @param rewardManager address of the reward manager
    */
   function setRewardManager(address rewardManager) external;
-
-  /**
-   * @notice Handles fees for a report from the subscriber and manages rewards
-   * @param poolId pool id of the pool to pay into
-   * @param payload report to process the fee for
-   * @param parameterPayload fee payload
-   * @param subscriber address of the fee will be applied
-   */
-  function processFee(
-    bytes32 poolId,
-    bytes calldata payload,
-    bytes calldata parameterPayload,
-    address subscriber
-  ) external payable;
-
-  /**
-   * @notice Processes the fees for each report in the payload, billing the subscriber and paying the reward manager
-   * @param poolIds pool ids of the pool to pay into
-   * @param payloads reports to process
-   * @param parameterPayload fee payload
-   * @param subscriber address of the user to process fee for
-   */
-  function processFeeBulk(
-    bytes32[] memory poolIds,
-    bytes[] calldata payloads,
-    bytes calldata parameterPayload,
-    address subscriber
-  ) external payable;
-
-  /**
-   * @notice Sets the fee recipients according to the fee manager
-   * @param configDigest digest of the configuration
-   * @param rewardRecipientAndWeights the address and weights of all the recipients to receive rewards
-   */
-  function setFeeRecipients(
-    bytes32 configDigest,
-    Common.AddressAndWeight[] calldata rewardRecipientAndWeights
-  ) external;
 
   /**
    * @notice The structure to hold a fee and reward to verify a report

@@ -41,7 +41,7 @@ func DeployVRFV2_5Contracts(
 		if err != nil {
 			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployCoordinatorV2Plus, err)
 		}
-		err = opStackCoordinator.SetL1FeeCalculation(configGeneral.L1FeeCalculationMode, configGeneral.L1FeeCoefficient)
+		err = opStackCoordinator.SetL1FeeCalculation(*configGeneral.L1FeeCalculationMode, *configGeneral.L1FeeCoefficient)
 		if err != nil {
 			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrSetL1FeeCalculation, err)
 		}
@@ -437,7 +437,7 @@ func DeployVRFV2PlusDirectFundingContracts(
 		if err != nil {
 			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployWrapper, err)
 		}
-		err = opStackWrapper.SetL1FeeCalculation(configGeneral.L1FeeCalculationMode, configGeneral.L1FeeCoefficient)
+		err = opStackWrapper.SetL1FeeCalculation(*configGeneral.L1FeeCalculationMode, *configGeneral.L1FeeCoefficient)
 		if err != nil {
 			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrSetL1FeeCalculation, err)
 		}

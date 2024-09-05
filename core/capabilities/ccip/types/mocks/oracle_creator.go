@@ -20,12 +20,12 @@ func (_m *OracleCreator) EXPECT() *OracleCreator_Expecter {
 	return &OracleCreator_Expecter{mock: &_m.Mock}
 }
 
-// CreateBootstrapOracle provides a mock function with given fields: config
-func (_m *OracleCreator) CreateBootstrapOracle(config types.OCR3ConfigWithMeta) (types.CCIPOracle, error) {
+// Create provides a mock function with given fields: config
+func (_m *OracleCreator) Create(config types.OCR3ConfigWithMeta) (types.CCIPOracle, error) {
 	ret := _m.Called(config)
 
 	if len(ret) == 0 {
-		panic("no return value specified for CreateBootstrapOracle")
+		panic("no return value specified for Create")
 	}
 
 	var r0 types.CCIPOracle
@@ -50,89 +50,75 @@ func (_m *OracleCreator) CreateBootstrapOracle(config types.OCR3ConfigWithMeta) 
 	return r0, r1
 }
 
-// OracleCreator_CreateBootstrapOracle_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateBootstrapOracle'
-type OracleCreator_CreateBootstrapOracle_Call struct {
+// OracleCreator_Create_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Create'
+type OracleCreator_Create_Call struct {
 	*mock.Call
 }
 
-// CreateBootstrapOracle is a helper method to define mock.On call
+// Create is a helper method to define mock.On call
 //   - config types.OCR3ConfigWithMeta
-func (_e *OracleCreator_Expecter) CreateBootstrapOracle(config interface{}) *OracleCreator_CreateBootstrapOracle_Call {
-	return &OracleCreator_CreateBootstrapOracle_Call{Call: _e.mock.On("CreateBootstrapOracle", config)}
+func (_e *OracleCreator_Expecter) Create(config interface{}) *OracleCreator_Create_Call {
+	return &OracleCreator_Create_Call{Call: _e.mock.On("Create", config)}
 }
 
-func (_c *OracleCreator_CreateBootstrapOracle_Call) Run(run func(config types.OCR3ConfigWithMeta)) *OracleCreator_CreateBootstrapOracle_Call {
+func (_c *OracleCreator_Create_Call) Run(run func(config types.OCR3ConfigWithMeta)) *OracleCreator_Create_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(types.OCR3ConfigWithMeta))
 	})
 	return _c
 }
 
-func (_c *OracleCreator_CreateBootstrapOracle_Call) Return(_a0 types.CCIPOracle, _a1 error) *OracleCreator_CreateBootstrapOracle_Call {
+func (_c *OracleCreator_Create_Call) Return(_a0 types.CCIPOracle, _a1 error) *OracleCreator_Create_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *OracleCreator_CreateBootstrapOracle_Call) RunAndReturn(run func(types.OCR3ConfigWithMeta) (types.CCIPOracle, error)) *OracleCreator_CreateBootstrapOracle_Call {
+func (_c *OracleCreator_Create_Call) RunAndReturn(run func(types.OCR3ConfigWithMeta) (types.CCIPOracle, error)) *OracleCreator_Create_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// CreatePluginOracle provides a mock function with given fields: pluginType, config
-func (_m *OracleCreator) CreatePluginOracle(pluginType types.PluginType, config types.OCR3ConfigWithMeta) (types.CCIPOracle, error) {
-	ret := _m.Called(pluginType, config)
+// Type provides a mock function with given fields:
+func (_m *OracleCreator) Type() types.OracleType {
+	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for CreatePluginOracle")
+		panic("no return value specified for Type")
 	}
 
-	var r0 types.CCIPOracle
-	var r1 error
-	if rf, ok := ret.Get(0).(func(types.PluginType, types.OCR3ConfigWithMeta) (types.CCIPOracle, error)); ok {
-		return rf(pluginType, config)
-	}
-	if rf, ok := ret.Get(0).(func(types.PluginType, types.OCR3ConfigWithMeta) types.CCIPOracle); ok {
-		r0 = rf(pluginType, config)
+	var r0 types.OracleType
+	if rf, ok := ret.Get(0).(func() types.OracleType); ok {
+		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.CCIPOracle)
-		}
+		r0 = ret.Get(0).(types.OracleType)
 	}
 
-	if rf, ok := ret.Get(1).(func(types.PluginType, types.OCR3ConfigWithMeta) error); ok {
-		r1 = rf(pluginType, config)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
-// OracleCreator_CreatePluginOracle_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreatePluginOracle'
-type OracleCreator_CreatePluginOracle_Call struct {
+// OracleCreator_Type_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Type'
+type OracleCreator_Type_Call struct {
 	*mock.Call
 }
 
-// CreatePluginOracle is a helper method to define mock.On call
-//   - pluginType types.PluginType
-//   - config types.OCR3ConfigWithMeta
-func (_e *OracleCreator_Expecter) CreatePluginOracle(pluginType interface{}, config interface{}) *OracleCreator_CreatePluginOracle_Call {
-	return &OracleCreator_CreatePluginOracle_Call{Call: _e.mock.On("CreatePluginOracle", pluginType, config)}
+// Type is a helper method to define mock.On call
+func (_e *OracleCreator_Expecter) Type() *OracleCreator_Type_Call {
+	return &OracleCreator_Type_Call{Call: _e.mock.On("Type")}
 }
 
-func (_c *OracleCreator_CreatePluginOracle_Call) Run(run func(pluginType types.PluginType, config types.OCR3ConfigWithMeta)) *OracleCreator_CreatePluginOracle_Call {
+func (_c *OracleCreator_Type_Call) Run(run func()) *OracleCreator_Type_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(types.PluginType), args[1].(types.OCR3ConfigWithMeta))
+		run()
 	})
 	return _c
 }
 
-func (_c *OracleCreator_CreatePluginOracle_Call) Return(_a0 types.CCIPOracle, _a1 error) *OracleCreator_CreatePluginOracle_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *OracleCreator_Type_Call) Return(_a0 types.OracleType) *OracleCreator_Type_Call {
+	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *OracleCreator_CreatePluginOracle_Call) RunAndReturn(run func(types.PluginType, types.OCR3ConfigWithMeta) (types.CCIPOracle, error)) *OracleCreator_CreatePluginOracle_Call {
+func (_c *OracleCreator_Type_Call) RunAndReturn(run func() types.OracleType) *OracleCreator_Type_Call {
 	_c.Call.Return(run)
 	return _c
 }

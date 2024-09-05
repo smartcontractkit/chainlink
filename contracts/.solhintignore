@@ -41,3 +41,7 @@
 # Always ignore vendor
 ./src/v0.8/vendor
 ./node_modules/
+
+# Ignore RMN contracts temporarily
+./src/v0.8/ccip/RMNRemote.sol
+./src/v0.8/ccip/RMNHome.sol

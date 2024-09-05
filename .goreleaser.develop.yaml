@@ -192,7 +192,10 @@ docker_manifests:
 # See https://goreleaser.com/customization/docker_sign/
 docker_signs:
   - artifacts: all
-    stdin: "{{ .Env.COSIGN_PASSWORD }}"
+    args:
+      - "sign"
+      - "${artifact}"
+      - "--yes"
 
 checksum:
   name_template: "checksums.txt"
@@ -202,6 +205,10 @@ snapshot:
 
 partial:
   by: target
+
+# See https://goreleaser.com/customization/release/
+release:
+  disable: true
 
 changelog:
   sort: asc

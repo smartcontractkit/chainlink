@@ -129,9 +129,9 @@ func (c *Load) Validate() error {
 
 type DataStreams struct {
 	Enabled       *bool   `toml:"enabled"`
-	URL           *string `toml:"url"`
-	Username      *string `toml:"username"`
-	Password      *string `toml:"password"`
+	URL           *string `toml:"-"`
+	Username      *string `toml:"-"`
+	Password      *string `toml:"-"`
 	DefaultFeedID *string `toml:"default_feed_id"`
 }
 

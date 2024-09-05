@@ -33,6 +33,7 @@ interface IEVM2AnyOnRampClient {
   /// @param message Message struct to send
   /// @param feeTokenAmount Amount of fee tokens for payment
   /// @param originalSender The original initiator of the CCIP request
+  /// @return messageId The message id
   function forwardFromRouter(
     uint64 destChainSelector,
     Client.EVM2AnyMessage memory message,
