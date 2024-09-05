@@ -29,6 +29,10 @@ on:
         description: 'Base64 encoded list of tests (YML objects) to run. Example in run-automation-ondemand-e2e-tests.yml'
         required: false
         type: string
+      custom_test_list_json:
+        description: 'Custom JSON list of tests to run'
+        required: false
+        type: string  
       test_workflow:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
         required: false
@@ -263,6 +267,7 @@ jobs:
         run: sudo apt-get install jq
       - name: Generate Docker Tests Matrix
         id: set-docker-matrix
+        if: ${{ !inputs.custom_test_list_json }}
         run: |
           MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "Docker tests:"
@@ -270,11 +275,20 @@ jobs:
           echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
       - name: Generate K8s Tests Matrix
         id: set-k8s-runner-matrix
+        if: ${{ !inputs.custom_test_list_json }}
         run: |
           MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
           echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+      - name: Set Custom Tests Matrix
+        id: set-custom-tests-matrix
+        if: ${{ inputs.custom_test_list_json }}
+        run: |
+          MATRIX_JSON=$(echo "${{ inputs.custom_test_list_json }}" | jq)
+          echo "Custom tests:"
+          echo "$MATRIX_JSON" | jq
+          echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT          
       - name: Check Test Matrices
         id: check-matrices
         run: |
