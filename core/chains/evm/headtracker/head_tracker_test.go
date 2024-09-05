@@ -624,7 +624,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 func assertChainWithParents(t testing.TB, blocks *blocks, startBN, endBN uint64, h *evmtypes.Head) {
 	for blockNumber := startBN; blockNumber >= endBN; blockNumber-- {
 		assert.NotNil(t, h)
-		assert.Equal(t, int64(blockNumber), h.Number)
+		assert.Equal(t, blockNumber, uint64(h.Number))
 		assert.Equal(t, blocks.Head(blockNumber).Hash, h.Hash)
 		// move to parent
 		h = h.Parent.Load()
