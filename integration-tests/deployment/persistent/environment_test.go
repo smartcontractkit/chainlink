@@ -19,7 +19,7 @@ func TestStartNewCCIPEnvironmentFromTestConfig(t *testing.T) {
 	testCfg := ccip_test_config.GlobalTestConfig()
 	require.NoError(t, testCfg.Validate(), "Error validating test config")
 
-	envConfig, err := persistent.EnvironmentConfigFromCCIPTestConfig(t, *testCfg, true)
+	envConfig, err := persistent.EnvironmentConfigFromCCIPTestConfig(t, *testCfg)
 	require.NoError(t, err, "Error creating chain config from test config")
 
 	_, err = persistent.NewEnvironment(lggr, envConfig)

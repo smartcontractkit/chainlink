@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/internal/testutil"
 	"testing"
 
-	geth_chain "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/geth"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/hooks"
 	seth_chain "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/seth"
 	persistent_types "github.com/smartcontractkit/chainlink/integration-tests/deployment/persistent/types"
@@ -22,7 +21,7 @@ import (
 )
 
 // TODO in the future Seth config should be part of the test config
-func EnvironmentConfigFromCCIPTestConfig(t *testing.T, testCfg ccip_test_config.Config, useSeth bool) (persistent_types.EnvironmentConfig, error) {
+func EnvironmentConfigFromCCIPTestConfig(t *testing.T, testCfg ccip_test_config.Config) (persistent_types.EnvironmentConfig, error) {
 	envConfig := persistent_types.EnvironmentConfig{}
 	evmChainConfig := persistent_types.ChainConfig{
 		NewEVMChains:      make([]persistent_types.NewEVMChainProducer, 0),
@@ -64,25 +63,15 @@ func EnvironmentConfigFromCCIPTestConfig(t *testing.T, testCfg ccip_test_config.
 				return envConfig, err
 			}
 			privateNetworkCfg.DockerNetworkNames = []string{dockerNetwork.Name}
-			var chainConfig persistent_types.NewEVMChainProducer
-			if !useSeth {
-				chainConfig = geth_chain.CreateNewEVMChainWithGeth(privateNetworkCfg, &evmHooks)
-			} else {
-				chainConfig, err = seth_chain.CreateNewEVMChainWithSeth(privateNetworkCfg, *defaultSethConfig, &evmHooks)
-				if err != nil {
-					return envConfig, err
-				}
+			chainConfig, err := seth_chain.CreateNewEVMChainWithSeth(privateNetworkCfg, *defaultSethConfig, &evmHooks)
+			if err != nil {
+				return envConfig, err
 			}
 			evmChainConfig.NewEVMChains = append(evmChainConfig.NewEVMChains, chainConfig)
 		} else {
-			var chainConfig persistent_types.ExistingEVMChainProducer
-			if !useSeth {
-				chainConfig = geth_chain.CreateExistingEVMChainConfigWithGeth(network)
-			} else {
-				chainConfig, err = seth_chain.CreateExistingEVMChainWithSeth(network, *defaultSethConfig)
-				if err != nil {
-					return envConfig, err
-				}
+			chainConfig, err := seth_chain.CreateExistingEVMChainWithSeth(network, *defaultSethConfig)
+			if err != nil {
+				return envConfig, err
 			}
 			evmChainConfig.ExistingEVMChains = append(evmChainConfig.ExistingEVMChains, chainConfig)
 		}
