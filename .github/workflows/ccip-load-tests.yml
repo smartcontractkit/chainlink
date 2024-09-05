@@ -1,5 +1,6 @@
 name: CCIP Load Test
 on: 
+  pull_request: # DEBUG: Only used for testing fixes
   push:
     paths:
       - '**/*ccip*'
@@ -115,7 +116,7 @@ jobs:
       contents: read
     env:
       CHAINLINK_ENV_USER: ${{ github.actor }}
-      SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
+      # SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }} # DEBUG: Removing to stop spamming while testing
       SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
       TEST_LOG_LEVEL: info
       REF_NAME: ${{ github.head_ref || github.ref_name }}
