@@ -42,6 +42,7 @@ FeedsManager = true
 LogPoller = false
 UICSAKeys = false
 CCIP = true
+MultiFeedsManagers = false
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1h0m0s'
@@ -286,6 +287,16 @@ DefaultBootstrappers = []
 DeltaDial = '15s'
 DeltaReconcile = '1m0s'
 ListenAddresses = []
+
+[Capabilities.Dispatcher]
+SupportedVersion = 1
+ReceiverBufferSize = 10000
+
+[Capabilities.Dispatcher.RateLimit]
+GlobalRPS = 800.0
+GlobalBurst = 1000
+PerSenderRPS = 10.0
+PerSenderBurst = 50
 
 [Capabilities.ExternalRegistry]
 Address = ''

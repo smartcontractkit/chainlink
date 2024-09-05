@@ -3236,6 +3236,11 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), evmcfg.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database(), ethKeyStore, txBuilder, lggr, stuckTxDetector, ht)
+	fn := func(ctx context.Context, id uuid.UUID, result interface{}, err error) error {
+		require.ErrorContains(t, err, client.TerminallyStuckMsg)
+		return nil
+	}
+	ec.SetResumeCallback(fn)
 	servicetest.Run(t, ec)
 
 	ctx := tests.Context(t)
@@ -3247,7 +3252,8 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		// Create autoPurgeMinAttempts number of attempts to ensure the broadcast attempt count check is not being triggered
 		// Create attempts broadcasted autoPurgeThreshold block ago to ensure broadcast block num check is not being triggered
 		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, nonce, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold), marketGasPrice.Add(oneGwei))
-
+		// Update tx to signal callback once it is identified as terminally stuck
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, uuid.New(), tx.ID)
 		head := evmtypes.Head{
 			Hash:   testutils.NewHash(),
 			Number: blockNum,
@@ -3308,6 +3314,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		require.NotNil(t, dbTx)
 		require.Equal(t, txmgrcommon.TxFatalError, dbTx.State)
 		require.Equal(t, client.TerminallyStuckMsg, dbTx.Error.String)
+		require.Equal(t, true, dbTx.CallbackCompleted)
 	})
 }
 

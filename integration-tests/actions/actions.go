@@ -490,7 +490,8 @@ func DeployForwarderContracts(
 	operatorFactoryInstance = &instance
 
 	for i := 0; i < numberOfOperatorForwarderPairs; i++ {
-		decodedTx, err := seth.Decode(operatorFactoryInstance.DeployNewOperatorAndForwarder())
+		tx, deployErr := operatorFactoryInstance.DeployNewOperatorAndForwarder()
+		decodedTx, err := seth.Decode(tx, deployErr)
 		require.NoError(t, err, "Deploying new operator with proposed ownership with forwarder shouldn't fail")
 
 		for i, event := range decodedTx.Events {
@@ -1284,4 +1285,13 @@ func ContinuouslyGenerateTXsOnChain(sethClient *seth.Client, stopChannel chan bo
 			l.Info().Str("Count", count.String()).Msg("Number of generated transactions on chain")
 		}
 	}
+}
+
+func WithinTolerance(a, b, tolerance float64) (bool, float64) {
+	if a == b {
+		return true, 0
+	}
+	diff := math.Abs(a - b)
+	isWithinTolerance := diff < tolerance
+	return isWithinTolerance, diff
 }

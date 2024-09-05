@@ -40,9 +40,6 @@ func ValidatedCCIPSpec(tomlString string) (jb job.Job, err error) {
 	if jb.CCIPSpec.P2PKeyID == "" {
 		return job.Job{}, fmt.Errorf("p2pKeyID must be set")
 	}
-	if len(jb.CCIPSpec.P2PV2Bootstrappers) == 0 {
-		return job.Job{}, fmt.Errorf("p2pV2Bootstrappers must be set")
-	}
 
 	// ensure that the P2PV2Bootstrappers is in the right format.
 	for _, bootstrapperLocator := range jb.CCIPSpec.P2PV2Bootstrappers {

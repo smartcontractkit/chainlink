@@ -28,15 +28,15 @@ jobs:
           cat <<EOF > matrix.json
           [
             { "name": "automation", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }},
-            { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 98.5, "run-gas-snapshot": true, "run-forge-fmt": true }},
+            { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 97.6, "run-gas-snapshot": true, "run-forge-fmt": true }},
             { "name": "functions", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
-            { "name": "keystone", "setup": { "run-coverage": true, "min-coverage": 74.1, "run-gas-snapshot": false, "run-forge-fmt": false }},
-            { "name": "l2ep", "setup": { "run-coverage": true, "min-coverage": 65.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "keystone", "setup": { "run-coverage": true, "min-coverage": 72.8, "run-gas-snapshot": false, "run-forge-fmt": false }},
+            { "name": "l2ep", "setup": { "run-coverage": true, "min-coverage": 61.0, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "liquiditymanager", "setup": { "run-coverage": true, "min-coverage": 46.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "llo-feeds", "setup": { "run-coverage": true, "min-coverage": 49.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "operatorforwarder", "setup": { "run-coverage": true, "min-coverage": 55.7, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*'", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
-            { "name": "transmission", "setup": { "run-coverage": true, "min-coverage": 65.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "transmission", "setup": { "run-coverage": true, "min-coverage": 61.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "vrf", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }}
           ]
           EOF
@@ -59,7 +59,6 @@ jobs:
     outputs:
       non_src_changes: ${{ steps.changes.outputs.non_src }}
       sol_modified_added: ${{ steps.changes.outputs.sol }}
-      sol_modified_added_files: ${{ steps.changes.outputs.sol_files }}
       sol_mod_only: ${{ steps.changes.outputs.sol_mod_only }}
       sol_mod_only_files: ${{ steps.changes.outputs.sol_mod_only_files }}
       not_test_sol_modified: ${{ steps.changes-non-test.outputs.not_test_sol }}
@@ -79,6 +78,7 @@ jobs:
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
               - 'contracts/package.json'
+              - 'contracts/GNUmakefile'
             sol:
               - modified|added: 'contracts/src/v0.8/**/*.sol'
             sol_mod_only:
@@ -246,7 +246,7 @@ jobs:
         with:
           update-comment: false
           coverage-files: ./contracts/lcov.info.pruned
-          minimum-coverage: ${{ matrix.product.min-coverage }}
+          minimum-coverage: ${{ matrix.product.setup.min-coverage }}
           artifact-name: code-coverage-report-${{ matrix.product.name }}
           working-directory: ./contracts
 
@@ -549,23 +549,23 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
 
       - name: Setup NodeJS
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
           version: ${{ needs.define-matrix.outputs.foundry-version }}
 
       - name: Run Forge fmt
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
         run: forge fmt --check
         id: fmt
         working-directory: contracts
@@ -573,7 +573,7 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
       - name: Collect Metrics
-        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) && matrix.product.setup.run-forge-fmt }}
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:

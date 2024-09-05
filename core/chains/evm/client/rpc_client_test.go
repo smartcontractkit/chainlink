@@ -156,7 +156,6 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 			}()
 			wg.Wait()
 		}
-
 	})
 	t.Run("Block's chain ID matched configured", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)

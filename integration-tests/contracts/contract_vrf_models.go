@@ -125,6 +125,7 @@ type VRFCoordinatorV2_5 interface {
 	GetBlockHashStoreAddress(ctx context.Context) (common.Address, error)
 	GetLinkAddress(ctx context.Context) (common.Address, error)
 	GetLinkNativeFeed(ctx context.Context) (common.Address, error)
+	GetConfig(ctx context.Context) (vrf_coordinator_v2_5.SConfig, error)
 }
 
 type VRFCoordinatorV2PlusUpgradedVersion interface {
