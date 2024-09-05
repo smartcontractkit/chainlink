@@ -71,18 +71,13 @@ func (n *NewEVMChainWithSeth) Chain() (deployment.Chain, persistent_types.RpcPro
 	}
 
 	evmNetwork.Name = fmt.Sprintf("%s-%d", *network.ExecutionLayer, evmNetwork.ChainID)
-	// TODO move to common function
-	// copy it so we don't end up modifying the original config during configuration merge
-	sethConfigCopy, err := copySethConfig(n.sethConfig)
+
+	finalSethConfig, err := prepareFinalSethConfig(n.sethConfig, evmNetwork)
 	if err != nil {
-		return chain, nil, errors.Wrapf(err, "failed to copy seth config")
-	}
-	sethConfig, err := seth_utils.MergeSethAndEvmNetworkConfigs(evmNetwork, sethConfigCopy)
-	if err != nil {
-		return chain, nil, errors.Wrapf(err, "failed to merge seth and evm network configs")
+		return chain, nil, errors.Wrapf(err, "failed to prepare final seth config")
 	}
 
-	sethClient, err := seth.NewClientBuilderWithConfig(&sethConfig).
+	sethClient, err := seth.NewClientBuilderWithConfig(finalSethConfig).
 		// we want to set it dynamically, because the path depends on the location of the file in the project
 		WithGethWrappersFolders([]string{fmt.Sprintf("%s/ccip", n.contractsRootFolder)}).
 		WithRpcUrl(evmNetwork.URLs[0]).
@@ -148,17 +143,13 @@ func CreateExistingEVMChainWithSeth(evmNetwork blockchain.EVMNetwork, sethConfig
 
 func (e *ExistingEVMChainConfigWithSeth) Chain() (deployment.Chain, persistent_types.RpcProvider, error) {
 	chain := deployment.Chain{}
-	// copy it so we don't end up modifying the original config during configuration merge
-	sethConfigCopy, err := copySethConfig(e.sethConfig)
+
+	finalSethConfig, err := prepareFinalSethConfig(e.sethConfig, e.evmNetwork)
 	if err != nil {
-		return chain, nil, errors.Wrapf(err, "failed to copy seth config")
-	}
-	c, err := seth_utils.MergeSethAndEvmNetworkConfigs(e.evmNetwork, sethConfigCopy)
-	if err != nil {
-		return chain, nil, errors.Wrapf(err, "failed to merge seth and evm network configs")
+		return chain, nil, errors.Wrapf(err, "failed to prepare final seth config")
 	}
 
-	sethClient, err := seth.NewClientBuilderWithConfig(&c).
+	sethClient, err := seth.NewClientBuilderWithConfig(finalSethConfig).
 		// we want to set it dynamically, because the path depends on the location of the file in the project
 		WithGethWrappersFolders([]string{fmt.Sprintf("%s/ccip", e.contractsRootFolder)}).
 		Build()
@@ -261,16 +252,22 @@ func findGethWrappersFolderRoot(folderLimit int) (string, error) {
 	return filepath.Dir(contractsRootFile), nil
 }
 
-func copySethConfig(sethConfig seth.Config) (seth.Config, error) {
+func prepareFinalSethConfig(sethConfig seth.Config, evmNetwork blockchain.EVMNetwork) (*seth.Config, error) {
+	// copy it so we don't end up modifying the original config during configuration merge
 	marshalled, err := toml.Marshal(sethConfig)
 	if err != nil {
-		return seth.Config{}, fmt.Errorf("failed to marshal seth config: %w", err)
+		return nil, fmt.Errorf("failed to marshal seth config: %w", err)
 	}
 	var sethConfigCopy seth.Config
 	err = toml.Unmarshal(marshalled, &sethConfigCopy)
 	if err != nil {
-		return seth.Config{}, fmt.Errorf("failed to unmarshal seth config: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal seth config: %w", err)
 	}
 
-	return sethConfigCopy, nil
+	sethConfig, err = seth_utils.MergeSethAndEvmNetworkConfigs(evmNetwork, sethConfigCopy)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to merge seth and evm network configs")
+	}
+
+	return &sethConfig, nil
 }
