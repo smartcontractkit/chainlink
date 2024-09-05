@@ -268,6 +268,18 @@ Address = ''
 NetworkID = 'evm'
 ChainID = '1'
 
+[Capabilities.GatewayConnector]
+ChainIDForNodeKey = ''
+NodeAddress = ''
+DonID = ''
+WSHandshakeTimeoutMillis = 0
+AuthMinChallengeLen = 0
+AuthTimestampToleranceSec = 0
+
+[[Capabilities.GatewayConnector.Gateways]]
+ID = ''
+URL = ''
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true
@@ -329,6 +341,9 @@ BlockHistorySize = 4
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
+
+[EVM.GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [EVM.HeadTracker]
 HistoryDepth = 100
@@ -434,6 +449,9 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
 
+[EVM.GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
 [EVM.HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -531,6 +549,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[EVM.GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [EVM.HeadTracker]
 HistoryDepth = 2000

@@ -43,7 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	lloevm "github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	mercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	mercuryverifier "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/verifier"
 )
@@ -428,7 +428,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, donID, serverPubKey, confi
 				t.Run(fmt.Sprintf("test on-chain verification - node %x", req.pk), func(t *testing.T) {
 					_, err = verifierProxy.Verify(steve, req.req.Payload, []byte{})
 					require.NoError(t, err)
-
 				})
 
 				t.Logf("oracle %x reported for 0x%x", req.pk, feedID)

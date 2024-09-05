@@ -462,6 +462,17 @@ func TestConfig_Marshal(t *testing.T) {
 				PerSenderBurst: ptr(50),
 			},
 		},
+		GatewayConnector: toml.GatewayConnector{
+			ChainIDForNodeKey:         ptr("11155111"),
+			NodeAddress:               ptr("0x68902d681c28119f9b2531473a417088bf008e59"),
+			DonID:                     ptr("example_don"),
+			WSHandshakeTimeoutMillis:  ptr[uint32](100),
+			AuthMinChallengeLen:       ptr[int](10),
+			AuthTimestampToleranceSec: ptr[uint32](10),
+			Gateways: []toml.ConnectorGateway{
+				{ID: ptr("example_gateway"), URL: ptr("wss://localhost:8081/node")},
+			},
+		},
 	}
 	full.Keeper = toml.Keeper{
 		DefaultTransactionQueueDepth: ptr[uint32](17),
@@ -554,6 +565,9 @@ func TestConfig_Marshal(t *testing.T) {
 						CheckInclusionPercentile:  ptr[uint16](19),
 						EIP1559FeeCapBufferBlocks: ptr[uint16](13),
 						TransactionPercentile:     ptr[uint16](15),
+					},
+					FeeHistory: evmcfg.FeeHistoryEstimator{
+						CacheTimeout: &second,
 					},
 				},
 
@@ -1066,6 +1080,9 @@ CheckInclusionBlocks = 18
 CheckInclusionPercentile = 19
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
+
+[EVM.GasEstimator.FeeHistory]
+CacheTimeout = '1s'
 
 [EVM.HeadTracker]
 HistoryDepth = 15
