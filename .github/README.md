@@ -74,6 +74,7 @@ To configure Slack notifications after tests executed via the reusable workflow,
 - Set `slack_notification_after_tests` to either `always` or `on_failure` depending on when you want notifications to be sent.
 - Assign `slack_notification_after_tests_channel_id` to the ID of the Slack channel where notifications should be sent.
 - Provide a title for the notification by setting `slack_notification_after_tests_name`.
+- Optionally use `slack_notification_after_tests_notify_user_id_on_failure` to reply in the thread and notify a user about the failed workflow
 
 **Example:**
 
@@ -88,6 +89,7 @@ jobs:
       slack_notification_after_tests: true
       slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
       slack_notification_after_tests_name: Nightly E2E Tests
+      slack_notification_after_tests_notify_user_id_on_failure: U0XXXXXXX
 ```
 
 ## Guides
