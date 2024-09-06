@@ -93,7 +93,7 @@ type RpcClient struct {
 	id                     int32
 	chainID                *big.Int
 	tier                   commonclient.NodeTier
-	largePayloadRpcTimeout time.Duration
+	largePayloadRPCTimeout time.Duration
 	rpcTimeout             time.Duration
 	chainType              chaintype.ChainType
 
@@ -135,7 +135,7 @@ func NewRPCClient(
 	chainType chaintype.ChainType,
 ) *RpcClient {
 	r := &RpcClient{
-		largePayloadRpcTimeout: largePayloadRpcTimeout,
+		largePayloadRPCTimeout: largePayloadRpcTimeout,
 		rpcTimeout:             rpcTimeout,
 		chainType:              chainType,
 	}
@@ -334,7 +334,7 @@ func (r *RpcClient) registerSub(sub ethereum.Subscription, stopInFLightCh chan s
 
 // CallContext implementation
 func (r *RpcClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRpcTimeout)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRPCTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With(
 		"method", method,
@@ -377,7 +377,7 @@ func (r *RpcClient) BatchCallContext(rootCtx context.Context, b []rpc.BatchElem)
 		}
 	}
 
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(rootCtx, r.largePayloadRpcTimeout)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(rootCtx, r.largePayloadRPCTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("nBatchElems", len(b), "batchElems", b)
 
@@ -746,7 +746,7 @@ func (r *RpcClient) BlockByNumberGeth(ctx context.Context, number *big.Int) (blo
 }
 
 func (r *RpcClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRpcTimeout)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRPCTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("tx", tx)
 
@@ -885,7 +885,7 @@ func (r *RpcClient) CodeAt(ctx context.Context, account common.Address, blockNum
 }
 
 func (r *RpcClient) EstimateGas(ctx context.Context, c interface{}) (gas uint64, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRpcTimeout)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRPCTimeout)
 	defer cancel()
 	call := c.(ethereum.CallMsg)
 	lggr := r.newRqLggr().With("call", call)
@@ -932,7 +932,7 @@ func (r *RpcClient) SuggestGasPrice(ctx context.Context) (price *big.Int, err er
 }
 
 func (r *RpcClient) CallContract(ctx context.Context, msg interface{}, blockNumber *big.Int) (val []byte, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRpcTimeout)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRPCTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("callMsg", msg, "blockNumber", blockNumber)
 	message := msg.(ethereum.CallMsg)
@@ -960,7 +960,7 @@ func (r *RpcClient) CallContract(ctx context.Context, msg interface{}, blockNumb
 }
 
 func (r *RpcClient) PendingCallContract(ctx context.Context, msg interface{}) (val []byte, err error) {
-	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRpcTimeout)
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRPCTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("callMsg", msg)
 	message := msg.(ethereum.CallMsg)

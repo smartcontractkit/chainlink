@@ -453,7 +453,7 @@ type sendTxService struct {
 	sentCount atomic.Int32
 }
 
-func (x *sendTxService) ChainId(ctx context.Context) (*hexutil.Big, error) {
+func (x *sendTxService) ChainID(ctx context.Context) (*hexutil.Big, error) {
 	return (*hexutil.Big)(x.chainID), nil
 }
 

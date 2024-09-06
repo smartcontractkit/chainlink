@@ -1,6 +1,8 @@
 package client
 
 import (
+	"fmt"
+	"math"
 	"math/big"
 	"net/url"
 	"time"
@@ -13,13 +15,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
-func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, clientErrors evmconfig.ClientErrors, lggr logger.Logger, chainID *big.Int, nodes []*toml.Node, chainType chaintype.ChainType) Client {
+func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, clientErrors evmconfig.ClientErrors, lggr logger.Logger, chainID *big.Int, nodes []*toml.Node, chainType chaintype.ChainType) (Client, error) {
 	var empty url.URL
 	var primaries []commonclient.Node[*big.Int, *RpcClient]
 	var sendonlys []commonclient.SendOnlyNode[*big.Int, *RpcClient]
 	largePayloadRPCTimeout, defaultRPCTimeout := getRPCTimeouts(chainType)
 
 	for i, node := range nodes {
+		if i < math.MinInt32 || i > math.MaxInt32 {
+			return nil, fmt.Errorf("integer overflow: cannot convert %d to int32", i)
+		}
 		if node.SendOnly != nil && *node.SendOnly {
 			rpc := NewRPCClient(cfg, lggr, empty, (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID,
 				commonclient.Secondary, largePayloadRPCTimeout, defaultRPCTimeout, chainType)
@@ -37,7 +42,7 @@ func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, cli
 	}
 
 	return NewChainClient(lggr, cfg.SelectionMode(), cfg.LeaseDuration(),
-		primaries, sendonlys, chainID, clientErrors, cfg.DeathDeclarationDelay(), chainType)
+		primaries, sendonlys, chainID, clientErrors, cfg.DeathDeclarationDelay(), chainType), nil
 }
 
 func getRPCTimeouts(chainType chaintype.ChainType) (largePayload, defaultTimeout time.Duration) {
