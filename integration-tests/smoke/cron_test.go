@@ -39,9 +39,6 @@ func TestCronBasic(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 
-	// todo: remove me
-	require.True(t, false, "on purpose")
-
 	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodGet, http.MethodPost}, 5)
 	require.NoError(t, err, "Setting value path in mock adapter shouldn't fail")
 
