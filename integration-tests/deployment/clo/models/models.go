@@ -1,3 +1,4 @@
+// TODO: KS-455: Refactor this package to use chainlink-common
 // Fork from: https://github.com/smartcontractkit/feeds-manager/tree/develop/api/models
 // until it can be refactored in cahinlink-common.
 
