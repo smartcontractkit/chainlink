@@ -968,9 +968,11 @@ func (n *Node) ValidateConfig() (err error) {
 	if n.SendOnly != nil {
 		sendOnly = *n.SendOnly
 	}
-	if n.WSURL != nil && !sendOnly {
+	if n.WSURL != nil {
 		if n.WSURL.IsZero() {
-			err = multierr.Append(err, commonconfig.ErrEmpty{Name: "WSURL", Msg: "required for primary nodes"})
+			if !sendOnly {
+				err = multierr.Append(err, commonconfig.ErrEmpty{Name: "WSURL", Msg: "required for primary nodes"})
+			}
 		} else {
 			switch n.WSURL.Scheme {
 			case "ws", "wss":
