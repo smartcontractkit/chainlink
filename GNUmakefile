@@ -80,8 +80,6 @@ docker-ccip:
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f ccip/ccip.Dockerfile .
 
-	docker tag sha256:$(COMMIT_SHA) ccip:latest
-
 .PHONY: docker-plugins ## Build the chainlink-plugins docker image
 docker-plugins:
 	docker buildx build \
