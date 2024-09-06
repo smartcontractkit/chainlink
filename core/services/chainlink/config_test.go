@@ -1328,9 +1328,7 @@ func TestConfig_Validate(t *testing.T) {
 				- PriceMax: invalid value (10 gwei): must be greater than or equal to PriceDefault
 				- BlockHistory.BlockHistorySize: invalid value (0): must be greater than or equal to 1 with BlockHistory Mode
 			- Nodes: 2 errors:
-				- 0: 2 errors:
-					- WSURL: missing: required for primary nodes
-					- HTTPURL: missing: required for all nodes
+				- 0.HTTPURL: missing: required for all nodes
 				- 1.HTTPURL: missing: required for all nodes
 		- 1: 10 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
@@ -1352,17 +1350,15 @@ func TestConfig_Validate(t *testing.T) {
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3.Nodes: 5 errors:
-				- 0: 3 errors:
+				- 0: 2 errors:
 					- Name: missing: required for all nodes
-					- WSURL: missing: required for primary nodes
 					- HTTPURL: empty: required for all nodes
 				- 1: 3 errors:
 					- Name: missing: required for all nodes
 					- WSURL: invalid value (http): must be ws or wss
 					- HTTPURL: missing: required for all nodes
-				- 2: 3 errors:
+				- 2: 2 errors:
 					- Name: empty: required for all nodes
-					- WSURL: missing: required for primary nodes
 					- HTTPURL: invalid value (ws): must be http or https
 				- 3.HTTPURL: missing: required for all nodes
 				- 4.HTTPURL: missing: required for all nodes

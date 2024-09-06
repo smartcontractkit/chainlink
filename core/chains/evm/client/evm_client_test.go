@@ -40,9 +40,20 @@ func TestNewEvmClient(t *testing.T) {
 	finalityTagEnabled := ptr(true)
 	chainCfg, nodePool, nodes, err := client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs,
 		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth,
-		finalityTagEnabled, finalizedBlockOffset, enforceRepeatableRead, deathDeclarationDelay, noNewFinalizedBlocksThreshold, finalizedBlockPollInterval)
+		finalityTagEnabled, finalizedBlockOffset, enforceRepeatableRead, deathDeclarationDelay, noNewFinalizedBlocksThreshold, finalizedBlockPollInterval, true)
 	require.NoError(t, err)
 
-	client := client.NewEvmClient(nodePool, chainCfg, nil, logger.Test(t), testutils.FixtureChainID, nodes, chaintype.ChainType(chainTypeStr))
-	require.NotNil(t, client)
+	evmClient := client.NewEvmClient(nodePool, chainCfg, nil, logger.Test(t), testutils.FixtureChainID, nodes, chaintype.ChainType(chainTypeStr))
+	require.NotNil(t, evmClient)
+
+	nodeConfigs[0].WSURL = nil
+	_, _, _, err = client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs,
+		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth,
+		finalityTagEnabled, finalizedBlockOffset, enforceRepeatableRead, deathDeclarationDelay, noNewFinalizedBlocksThreshold, finalizedBlockPollInterval, true)
+	require.Equal(t, client.ErrLogBroadcasterEnabledWithoutWSURL, err)
+
+	_, _, _, err = client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs,
+		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth,
+		finalityTagEnabled, finalizedBlockOffset, enforceRepeatableRead, deathDeclarationDelay, noNewFinalizedBlocksThreshold, finalizedBlockPollInterval, false)
+	require.Nil(t, err)
 }

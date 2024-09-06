@@ -964,21 +964,12 @@ func (n *Node) ValidateConfig() (err error) {
 		err = multierr.Append(err, commonconfig.ErrEmpty{Name: "Name", Msg: "required for all nodes"})
 	}
 
-	var sendOnly bool
-	if n.SendOnly != nil {
-		sendOnly = *n.SendOnly
-	}
-	if n.WSURL != nil {
-		if n.WSURL.IsZero() {
-			if !sendOnly {
-				err = multierr.Append(err, commonconfig.ErrEmpty{Name: "WSURL", Msg: "required for primary nodes"})
-			}
-		} else {
-			switch n.WSURL.Scheme {
-			case "ws", "wss":
-			default:
-				err = multierr.Append(err, commonconfig.ErrInvalid{Name: "WSURL", Value: n.WSURL.Scheme, Msg: "must be ws or wss"})
-			}
+	// WSURL can be optional when LogBroadcaster is disabled, if WSURL not provided, rpc will return error for SubscribeFilterLogs
+	if n.WSURL != nil && !n.WSURL.IsZero() {
+		switch n.WSURL.Scheme {
+		case "ws", "wss":
+		default:
+			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "WSURL", Value: n.WSURL.Scheme, Msg: "must be ws or wss"})
 		}
 	}
 
