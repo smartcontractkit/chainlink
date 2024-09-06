@@ -148,10 +148,10 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 			},
 		},
-		consts.ContractNamePriceRegistry: {
+		consts.ContractNameFeeQuoter: {
 			ContractABI: fee_quoter.FeeQuoterABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
-				consts.MethodNamePriceRegistryGetStaticConfig: {
+				consts.MethodNameFeeQuoterGetStaticConfig: {
 					ChainSpecificName: mustGetMethodName("getStaticConfig", priceRegistryABI),
 					ReadType:          evmrelaytypes.Method,
 				},
