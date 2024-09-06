@@ -18,8 +18,6 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/ugorji/go/codec"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
@@ -95,48 +93,10 @@ func (h *Head) BlockDifficulty() *big.Int {
 // EarliestInChain recurses through parents until it finds the earliest one
 func (h *Head) EarliestInChain() *Head {
 	var earliestInChain *Head
-	h.forEach(func(h *Head) bool {
-		earliestInChain = h
-		return true
-	})
-	return earliestInChain
-}
-
-// forEach - go through the chain linked list. Stops when do returns false or h is nil
-func (h *Head) forEach(do func(h *Head) bool) {
-	cur := h
-	fast := h // use Floyd's Cycle-Finding Algo
-	start := time.Now()
-	for cur != nil {
-		if !do(cur) {
-			return
-		}
-
-		if fast != nil {
-			skip := fast.Parent.Load()
-			if skip != nil {
-				fast = skip.Parent.Load()
-			} else {
-				fast = nil
-			}
-		}
-
-		cur = cur.Parent.Load()
-
-		// if there is a circular reference eventually `fast` will catch up with `cur`.
-		// As .Parent can be modified by another goroutine, it's possible that
-		// cycle will be created after `fast` reached end of the list. To prevent infinite loop, we use duration based validation
-		if (cur != nil && cur == fast) || time.Since(start) > 10*time.Second {
-			// we should log the issue instead of panicking to avoid killing whole node.
-			// we can switch to panic, after full transition to loops.
-			lggr, _ := logger.New()
-			logger.Sugared(lggr).Criticalw("Detected cycle in chain structure. Aborting iteration.",
-				"cur", cur,
-				"fast", fast,
-				"timeSinceStart", time.Since(start))
-			return
-		}
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
+		earliestInChain = cur
 	}
+	return earliestInChain
 }
 
 // EarliestHeadInChain recurses through parents until it finds the earliest one
@@ -146,12 +106,12 @@ func (h *Head) EarliestHeadInChain() commontypes.Head[common.Hash] {
 
 // IsInChain returns true if the given hash matches the hash of a head in the chain
 func (h *Head) IsInChain(blockHash common.Hash) bool {
-	isInChain := false
-	h.forEach(func(h *Head) bool {
-		isInChain = h.Hash == blockHash
-		return !isInChain // if found stop, otherwise keep looking
-	})
-	return isInChain
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
+		if cur.Hash == blockHash {
+			return true
+		}
+	}
+	return false
 }
 
 // HashAtHeight returns the hash of the block at the given height, if it is in the chain.
@@ -166,17 +126,10 @@ func (h *Head) HashAtHeight(blockNum int64) common.Hash {
 }
 
 func (h *Head) HeadAtHeight(blockNum int64) (commontypes.Head[common.Hash], error) {
-	var headAtHeight *Head
-	h.forEach(func(h *Head) bool {
-		if h.Number != blockNum {
-			return true
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
+		if cur.Number == blockNum {
+			return cur, nil
 		}
-
-		headAtHeight = h
-		return false
-	})
-	if headAtHeight != nil {
-		return headAtHeight, nil
 	}
 	return nil, fmt.Errorf("failed to find head at height %d", blockNum)
 }
@@ -187,38 +140,29 @@ func (h *Head) ChainLength() uint32 {
 		return 0
 	}
 	l := uint32(0)
-	h.forEach(func(h *Head) bool {
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
 		l++
-		return true
-	})
+	}
 	return l
 }
 
 // ChainHashes returns an array of block hashes by recursively looking up parents
 func (h *Head) ChainHashes() []common.Hash {
 	var hashes []common.Hash
-	h.forEach(func(h *Head) bool {
-		hashes = append(hashes, h.Hash)
-		return true
-	})
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
+		hashes = append(hashes, cur.Hash)
+	}
 
 	return hashes
 }
 
 func (h *Head) LatestFinalizedHead() commontypes.Head[common.Hash] {
-	var latestFinalized *Head
-	h.forEach(func(h *Head) bool {
-		if !h.IsFinalized.Load() {
-			return true
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
+		if cur.IsFinalized.Load() {
+			return cur
 		}
-		latestFinalized = h
-		return false
-	})
-	// explicitly return nil, so that returned value is nil instead of *Head(nil)
-	if latestFinalized == nil {
-		return nil
 	}
-	return latestFinalized
+	return nil
 }
 
 func (h *Head) ChainID() *big.Int {
@@ -235,13 +179,12 @@ func (h *Head) IsValid() bool {
 
 func (h *Head) ChainString() string {
 	var sb strings.Builder
-	h.forEach(func(h *Head) bool {
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
 		if sb.Len() > 0 {
 			sb.WriteString("->")
 		}
-		sb.WriteString(h.String())
-		return true
-	})
+		sb.WriteString(cur.String())
+	}
 
 	sb.WriteString("->nil")
 	return sb.String()
@@ -287,10 +230,11 @@ func (h *Head) AsSlice(k int) (heads []*Head) {
 		return
 	}
 	heads = make([]*Head, 0, k)
-	h.forEach(func(h *Head) bool {
-		heads = append(heads, h)
-		return len(heads) < k
-	})
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
+		if len(heads) < k {
+			heads = append(heads, cur)
+		}
+	}
 	return
 }
 
