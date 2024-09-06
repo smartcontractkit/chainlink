@@ -20,7 +20,11 @@ Conducted nightly to catch issues that may develop over time or with accumulated
 
 ### Release E2E Tests
 
-Currently, there are no automatic workflows triggering E2E tests at release. These tests are triggered on-demand by QA as needed.
+This section contains automatic workflows triggering E2E tests at release.
+
+#### Client Compatibility Tests
+
+[Link](https://github.com/smartcontractkit/chainlink/actions/workflows/client-compatibility-tests.yml)
 
 ## On-Demand Workflows
 
