@@ -8,9 +8,11 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -90,6 +92,25 @@ var (
 		},
 	}
 	targetDonPeers = []peer{
+		{
+			PeerID: "12D3KooWJrthXtnPHw7xyHFAxo6NxifYTvc8igKYaA6wRRRqtsMb",
+			Signer: "0x3F82750353Ea7a051ec9bA011BC628284f9a5327",
+		},
+		{
+			PeerID: "12D3KooWFQekP9sGex4XhqEJav5EScjTpDVtDqJFg1JvrePBCEGJ",
+			Signer: "0xc23545876A208AA0443B1b8d552c7be4FF4b53F0",
+		},
+		{
+			PeerID: "12D3KooWFLEq4hYtdyKWwe47dXGEbSiHMZhmr5xLSJNhpfiEz8NF",
+			Signer: "0x82601Fa43d8B1dC1d4eB640451aC86a7CDA37011",
+		},
+		{
+			PeerID: "12D3KooWN2hztiXNNS1jMQTTvvPRYcarK1C7T3Mdqk4x4gwyo5WS",
+			Signer: "0x1a684B3d8f917fe496b7B1A8b29EDDAED64F649f",
+		},
+	}
+
+	aptosTargetDonPeers = []peer{
 		{
 			PeerID: "12D3KooWNBr1AD3vD3dzSLgg1tK56qyJoenDx7EYNnZpbr1g4jD6",
 			Signer: "a41f9a561ff2266d94240996a76f9c2b3b7d8184",
@@ -218,8 +239,18 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		reg = r
 	}
 
+	streamsTrigger := kcr.CapabilitiesRegistryCapability{
+		LabelledName:   "streams-trigger",
+		Version:        "1.0.0",
+		CapabilityType: uint8(0), // trigger
+	}
+	sid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, streamsTrigger.LabelledName, streamsTrigger.Version)
+	if err != nil {
+		panic(err)
+	}
+
 	writeChain := kcr.CapabilitiesRegistryCapability{
-		LabelledName:   "write_aptos",
+		LabelledName:   "write_ethereum-testnet-sepolia",
 		Version:        "1.0.0",
 		CapabilityType: uint8(3), // target
 	}
@@ -228,8 +259,31 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		log.Printf("failed to call GetHashedCapabilityId: %s", err)
 	}
 
+	aptosWriteChain := kcr.CapabilitiesRegistryCapability{
+		LabelledName:   "write_aptos",
+		Version:        "1.0.0",
+		CapabilityType: uint8(3), // target
+	}
+	awid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, aptosWriteChain.LabelledName, aptosWriteChain.Version)
+	if err != nil {
+		log.Printf("failed to call GetHashedCapabilityId: %s", err)
+	}
+
+	ocr := kcr.CapabilitiesRegistryCapability{
+		LabelledName:   "offchain_reporting",
+		Version:        "1.0.0",
+		CapabilityType: uint8(2), // consensus
+	}
+	ocrid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, ocr.LabelledName, ocr.Version)
+	if err != nil {
+		log.Printf("failed to call GetHashedCapabilityId: %s", err)
+	}
+
 	tx, err := reg.AddCapabilities(env.Owner, []kcr.CapabilitiesRegistryCapability{
+		streamsTrigger,
 		writeChain,
+		aptosWriteChain,
+		ocr,
 	})
 	if err != nil {
 		log.Printf("failed to call AddCapabilities: %s", err)
@@ -256,6 +310,25 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 
 	nopID := recLog.NodeOperatorId
 	nodes := []kcr.CapabilitiesRegistryNodeParams{}
+	for _, wfPeer := range workflowDonPeers {
+		n, innerErr := peerToNode(nopID, wfPeer)
+		if innerErr != nil {
+			panic(innerErr)
+		}
+
+		n.HashedCapabilityIds = [][32]byte{ocrid}
+		nodes = append(nodes, n)
+	}
+
+	for _, triggerPeer := range triggerDonPeers {
+		n, innerErr := peerToNode(nopID, triggerPeer)
+		if innerErr != nil {
+			panic(innerErr)
+		}
+
+		n.HashedCapabilityIds = [][32]byte{sid}
+		nodes = append(nodes, n)
+	}
 
 	for _, targetPeer := range targetDonPeers {
 		n, innerErr := peerToNode(nopID, targetPeer)
@@ -267,6 +340,16 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		nodes = append(nodes, n)
 	}
 
+	for _, targetPeer := range aptosTargetDonPeers {
+		n, innerErr := peerToNode(nopID, targetPeer)
+		if innerErr != nil {
+			panic(innerErr)
+		}
+
+		n.HashedCapabilityIds = [][32]byte{awid}
+		nodes = append(nodes, n)
+	}
+
 	tx, err = reg.AddNodes(env.Owner, nodes)
 	if err != nil {
 		log.Printf("failed to AddNodes: %s", err)
@@ -274,8 +357,63 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 
 	helpers.ConfirmTXMined(ctx, env.Ec, tx, env.ChainID)
 
+	// workflow DON
+	ps, err := peers(workflowDonPeers)
+	if err != nil {
+		panic(err)
+	}
+
+	cc := newCapabilityConfig()
+	ccb, err := proto.Marshal(cc)
+	if err != nil {
+		panic(err)
+	}
+
+	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
+		{
+			CapabilityId: ocrid,
+			Config:       ccb,
+		},
+	}
+	_, err = reg.AddDON(env.Owner, ps, cfgs, true, true, 2)
+	if err != nil {
+		log.Printf("workflowDON: failed to AddDON: %s", err)
+	}
+
+	// trigger DON
+	ps, err = peers(triggerDonPeers)
+	if err != nil {
+		panic(err)
+	}
+
+	config := &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+				RegistrationRefresh: durationpb.New(20 * time.Second),
+				RegistrationExpiry:  durationpb.New(60 * time.Second),
+				// F + 1
+				MinResponsesToAggregate: uint32(1) + 1,
+			},
+		},
+	}
+	configb, err := proto.Marshal(config)
+	if err != nil {
+		panic(err)
+	}
+	cfgs = []kcr.CapabilitiesRegistryCapabilityConfiguration{
+		{
+			CapabilityId: sid,
+			Config:       configb,
+		},
+	}
+	_, err = reg.AddDON(env.Owner, ps, cfgs, true, false, 1)
+	if err != nil {
+		log.Printf("triggerDON: failed to AddDON: %s", err)
+	}
+
 	// target DON
-	ps, err := peers(targetDonPeers)
+	ps, err = peers(targetDonPeers)
 	if err != nil {
 		panic(err)
 	}
@@ -292,9 +430,38 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		panic(err)
 	}
 
-	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
+	cfgs = []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: wid,
+			Config:       remoteTargetConfigBytes,
+		},
+	}
+	_, err = reg.AddDON(env.Owner, ps, cfgs, true, false, 1)
+	if err != nil {
+		log.Printf("targetDON: failed to AddDON: %s", err)
+	}
+
+	// Aptos target DON
+	ps, err = peers(aptosTargetDonPeers)
+	if err != nil {
+		panic(err)
+	}
+
+	targetCapabilityConfig = newCapabilityConfig()
+	targetCapabilityConfig.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
+		RemoteTargetConfig: &capabilitiespb.RemoteTargetConfig{
+			RequestHashExcludedAttributes: []string{"signed_report.Signatures"},
+		},
+	}
+
+	remoteTargetConfigBytes, err = proto.Marshal(targetCapabilityConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	cfgs = []kcr.CapabilitiesRegistryCapabilityConfiguration{
+		{
+			CapabilityId: awid,
 			Config:       remoteTargetConfigBytes,
 		},
 	}
