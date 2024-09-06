@@ -887,7 +887,7 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         with:
-          channel-id: ${{ inputs.slack_notification_after_tests_channel_id }}
+          channel-id: ${{ inputs.slack_notification_after_tests_channel_id || secrets.SLACK_NOTIFICATION_AFTER_TESTS_CHANNEL_ID }}
           payload: |
             {
               "thread_ts": "${{ steps.slack.outputs.thread_ts }}",
