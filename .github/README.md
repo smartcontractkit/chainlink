@@ -82,7 +82,7 @@ To configure Slack notifications after tests executed via the reusable workflow,
 
 **Example:**
 
-```
+```yml
 jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
@@ -119,22 +119,22 @@ gh workflow run run-selected-e2e-tests.yml \
 
 To run a specific list of tests, utilize the `custom_test_list_json` input. This allows you to provide a customized list of tests. If your test list is dynamic, you can generate it during a preceding job and then reference it using:  `custom_test_list_json: ${{ needs.gen_test_list.outputs.test_list }}`.  
 
-```
-  run-e2e-tests-workflow:
-    name: Run E2E Tests
-    needs: set-tests-to-run
-    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
-    with:
-    	custom_test_list_json: >
-				{
-					"tests": [
-							{
-								"id": "TestVRFv2Plus",
-								"path": "integration-tests/smoke/vrfv2plus_test.go",
-								"runs_on": "ubuntu-latest",
-								"test_env_type": "docker",
-								"test_cmd": "cd integration-tests/smoke && go test vrfv2plus_test.go"
-							}
-					]
-				}                 
+```yml
+run-e2e-tests-workflow:
+	name: Run E2E Tests
+	needs: set-tests-to-run
+	uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
+	with:
+		custom_test_list_json: >
+			{
+				"tests": [
+					{
+						"id": "TestVRFv2Plus",
+						"path": "integration-tests/smoke/vrfv2plus_test.go",
+						"runs_on": "ubuntu-latest",
+						"test_env_type": "docker",
+						"test_cmd": "cd integration-tests/smoke && go test vrfv2plus_test.go"
+					}
+				]
+			}                 
 ```
