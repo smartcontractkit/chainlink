@@ -859,12 +859,13 @@ func TestEthClient_ErroringClient(t *testing.T) {
 	_, err = erroringClient.PendingNonceAt(ctx, common.Address{})
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
+	txSenderNotStarted := errors.New("TransactionSender not started")
 	err = erroringClient.SendTransaction(ctx, nil)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, err, txSenderNotStarted)
 
 	code, err := erroringClient.SendTransactionReturnCode(ctx, nil, common.Address{})
 	require.Equal(t, code, commonclient.Unknown)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, err, txSenderNotStarted)
 
 	_, err = erroringClient.SequenceAt(ctx, common.Address{}, nil)
 	require.Equal(t, err, commonclient.ErroringNodeError)

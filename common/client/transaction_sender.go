@@ -100,8 +100,9 @@ func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 	txResultsToReport := make(chan sendTxResult)
 	primaryNodeWg := sync.WaitGroup{}
 
-	ctx, cancel := txSender.chStop.Ctx(ctx)
-	defer cancel()
+	if txSender.State() != "Started" {
+		return 0, errors.New("TransactionSender not started")
+	}
 
 	healthyNodesNum := 0
 	err := txSender.multiNode.DoAll(ctx, func(ctx context.Context, rpc RPC, isSendOnly bool) {
@@ -215,6 +216,8 @@ func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) collectTxResults(ctx conte
 	if healthyNodesNum == 0 {
 		return Retryable, ErroringNodeError
 	}
+	ctx, cancel := txSender.chStop.Ctx(ctx)
+	defer cancel()
 	requiredResults := int(math.Ceil(float64(healthyNodesNum) * sendTxQuorum))
 	errorsByCode := sendTxResults{}
 	var softTimeoutChan <-chan time.Time

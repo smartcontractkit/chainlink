@@ -239,7 +239,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 
 		require.NoError(t, txSender.Close())
 		_, err := txSender.SendTransaction(tests.Context(t), nil)
-		require.EqualError(t, err, "context canceled")
+		require.EqualError(t, err, "TransactionSender not started")
 	})
 	t.Run("Returns error if there is no healthy primary nodes", func(t *testing.T) {
 		chainID := types.RandomID()
