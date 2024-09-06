@@ -198,7 +198,7 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 	lggr.Debug("unique node params", "params", uniqueNodeParams)
 	tx, err := registry.AddNodes(registryChain.DeployerKey, uniqueNodeParams)
 	if err != nil {
-		err = decodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNode: %w", err)
 	}
 	_, err = registryChain.Confirm(tx.Hash())
@@ -246,7 +246,7 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 		f := len(p2pIds) / 3 // assuming n=3f+1
 		tx, err = registry.AddDON(registryChain.DeployerKey, p2pIds, cfgs, true, wfSupported, uint8(f))
 		if err != nil {
-			err = decodeErr(kcr.CapabilitiesRegistryABI, err)
+			err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 			return nil, fmt.Errorf("failed to call AddDON for don %s p2p2Ids %v capability %v: %w", don, p2pIds, cfgs, err)
 		}
 		_, err = registryChain.Confirm(tx.Hash())
@@ -377,7 +377,7 @@ func registerNOPS(ctx context.Context, req registerNOPSRequest) (*registerNOPSRe
 	nops := req.nops
 	tx, err := req.registry.AddNodeOperators(req.chain.DeployerKey, nops)
 	if err != nil {
-		err = decodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
 	}
 	// for some reason that i don't understand, the confirm must be called before the WaitMined or the latter will hang
@@ -473,7 +473,7 @@ func parseContractErr(encodedABI string, hexErr string) error {
 	return fmt.Errorf("error not found in abi: %s", hexErr)
 }
 
-func decodeErr(encodedABI string, err error) error {
+func DecodeErr(encodedABI string, err error) error {
 	if err == nil {
 		return nil
 	}

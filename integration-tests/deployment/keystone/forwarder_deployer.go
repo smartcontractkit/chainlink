@@ -20,6 +20,11 @@ func (c *KeystoneForwarderDeployer) deploy(req deployRequest) (*deployResponse, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy KeystoneForwarder: %w", err)
 	}
+
+	_, err = req.Chain.Confirm(tx.Hash())
+	if err != nil {
+		return nil, fmt.Errorf("failed to confirm and save KeystoneForwarder: %w", err)
+	}
 	resp := &deployResponse{
 		Address: forwarderAddr,
 		Tx:      tx.Hash(),
@@ -27,10 +32,6 @@ func (c *KeystoneForwarderDeployer) deploy(req deployRequest) (*deployResponse, 
 			Type:    KeystoneForwarder,
 			Version: deployment.Version1_0_0,
 		},
-	}
-	_, err = req.Chain.Confirm(tx.Hash())
-	if err != nil {
-		return nil, fmt.Errorf("failed to confirm and save KeystoneForwarder: %w", err)
 	}
 	c.contract = forwarder
 	return resp, nil

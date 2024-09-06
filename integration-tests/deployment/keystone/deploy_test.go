@@ -134,6 +134,10 @@ func TestDeploy(t *testing.T) {
 		require.NotNil(t, gotRegistry)
 		// contract reads
 		gotDons, err := gotRegistry.GetDONs(nil)
+		if err != nil {
+			err = keystone.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+			require.Fail(t, "failed to get Dons", err)
+		}
 		require.NoError(t, err)
 		assert.Len(t, gotDons, len(e.DonToEnv))
 		for don, id := range deployResp.DonToId {

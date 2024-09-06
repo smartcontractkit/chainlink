@@ -20,6 +20,11 @@ func (c *OCR3Deployer) deploy(req deployRequest) (*deployResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy OCR3Capability: %w", err)
 	}
+
+	_, err = req.Chain.Confirm(tx.Hash())
+	if err != nil {
+		return nil, fmt.Errorf("failed to confirm transaction %s: %w", tx.Hash(), err)
+	}
 	resp := &deployResponse{
 		Address: ocr3Addr,
 		Tx:      tx.Hash(),
@@ -28,11 +33,6 @@ func (c *OCR3Deployer) deploy(req deployRequest) (*deployResponse, error) {
 			Version: deployment.Version1_0_0,
 		},
 	}
-	_, err = req.Chain.Confirm(tx.Hash())
-	if err != nil {
-		return resp, fmt.Errorf("failed to confirm transaction %s: %w", tx.Hash(), err)
-	}
-
 	c.contract = ocr3
 	return resp, nil
 }
