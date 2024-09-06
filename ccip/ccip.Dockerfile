@@ -1,7 +1,6 @@
-FROM chainlink:latest
+FROM chainlink-ccip:latest
 
-# Add the config directory
-COPY ./config /ccip/config
+COPY ccip/config /chainlink/ccip-config
 
 # Expose the config directory as an environment variable
-ENV CL_CHAIN_DEFAULTS=/ccip/config
+ENV CL_CHAIN_DEFAULTS=/chainlink/ccip-config
