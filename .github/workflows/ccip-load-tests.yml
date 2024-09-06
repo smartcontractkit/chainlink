@@ -193,6 +193,7 @@ jobs:
           BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}
           TEST_BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}          
           E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          E2E_TEST_CHAINLINK_VERSION: ${{ env.CHAINLINK_VERSION }}
           E2E_TEST_LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
           E2E_TEST_LOKI_ENDPOINT: ${{ secrets.LOKI_URL }}
           E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
