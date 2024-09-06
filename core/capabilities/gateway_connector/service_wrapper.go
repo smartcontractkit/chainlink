@@ -2,6 +2,7 @@ package gateway_connector
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"math/big"
 	"reflect"
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	gwConfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	gwCommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -27,6 +29,31 @@ type serviceWrapper struct {
 	keystore  keystore.Eth
 	connector connector.GatewayConnector
 	lggr      logger.Logger
+}
+
+type workflowConnectorSigner struct {
+	services.StateMachine
+
+	connector   connector.GatewayConnector
+	signerKey   *ecdsa.PrivateKey
+	nodeAddress string
+	lggr        logger.Logger
+}
+
+var (
+	_ connector.Signer = &workflowConnectorSigner{}
+)
+
+func NewWorkflowConnectorSigner(config *config.GatewayConnector, signerKey *ecdsa.PrivateKey, lggr logger.Logger) (*workflowConnectorSigner, error) {
+	return &workflowConnectorSigner{
+		nodeAddress: (*config).NodeAddress(),
+		signerKey:   signerKey,
+		lggr:        lggr.Named("WorkflowConnectorSigner"),
+	}, nil
+}
+
+func (h *workflowConnectorSigner) Sign(data ...[]byte) ([]byte, error) {
+	return gwCommon.SignData(h.signerKey, data...)
 }
 
 func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
@@ -90,27 +117,23 @@ func (e *serviceWrapper) Start(ctx context.Context) error {
 		if enabledKeys[idx].ID() != conf.NodeAddress() {
 			return errors.New("node address mismatch")
 		}
-		// cannot assign to conf.NodeAddress (neither addressable nor a map index expression
-		// I think I'm still confused about mixing interfaces and structures, and how to use a setter on an interface.
-		conf.NodeAddress = enabledKeys[idx].ID()
 
-		handler, err := NewWorkflowConnectorHandler(e.config, signerKey, e.lggr)
+		signer, err := NewWorkflowConnectorSigner(e.config, signerKey, e.lggr)
 		if err != nil {
 			return err
 		}
 		translated := translateConfigs(conf)
-		e.connector, err = connector.NewGatewayConnector(&translated, handler, handler, clockwork.NewRealClock(), e.lggr)
+		// cannot use signer (variable of type *workflowConnectorSigner) as connector.GatewayConnectorHandler value in argument to connector.NewGatewayConnector: *workflowConnectorSigner does not implement connector.GatewayConnectorHandler (missing method Close)compilerInvalidIfaceAssign
+		e.connector, err = connector.NewGatewayConnector(&translated, signer, signer, clockwork.NewRealClock(), e.lggr)
 		if err != nil {
 			return err
 		}
-		handler.SetConnector(e.connector)
-
 		return e.connector.Start(ctx)
 	})
 }
 
 func (e *serviceWrapper) Close() error {
-	return e.StopOnce("WorkflowConnectorHandler", func() (err error) {
+	return e.StopOnce("GatewayConnectorServiceWrapper", func() (err error) {
 		return e.connector.Close()
 	})
 }
