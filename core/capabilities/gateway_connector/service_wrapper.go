@@ -1,4 +1,4 @@
-package gatewayConnector
+package gatewayconnector
 
 import (
 	"context"
