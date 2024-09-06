@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/AlekSi/pointer"
@@ -12,6 +13,7 @@ import (
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/stretchr/testify/require"
 	"github.com/subosito/gotenv"
 
@@ -19,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 const (
@@ -31,29 +34,29 @@ type EnvironmentConfig struct {
 	JDConfig JDConfig
 }
 
-func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentConfig) (*deployment.Environment, error) {
+func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentConfig) (*deployment.Environment, *DON, error) {
 	chains, err := NewChains(lggr, config.Chains)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create chains: %w", err)
+		return nil, nil, fmt.Errorf("failed to create chains: %w", err)
 	}
 	offChain, err := NewJDClient(config.JDConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create JD client: %w", err)
+		return nil, nil, fmt.Errorf("failed to create JD client: %w", err)
 	}
 
 	jd, ok := offChain.(JobDistributor)
 	if !ok {
-		return nil, fmt.Errorf("offchain client does not implement JobDistributor")
+		return nil, nil, fmt.Errorf("offchain client does not implement JobDistributor")
 	}
 	don, err := NewRegisteredDON(ctx, config.nodeInfo, jd)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create registered DON: %w", err)
+		return nil, nil, fmt.Errorf("failed to create registered DON: %w", err)
 	}
 	nodeIDs := don.NodeIds()
 
 	err = don.CreateSupportedChains(ctx, config.Chains)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	return &deployment.Environment{
@@ -62,12 +65,11 @@ func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentC
 		NodeIDs:  nodeIDs,
 		Chains:   chains,
 		Logger:   lggr,
-	}, nil
+	}, don, nil
 }
 
-// DeployPrivateChains deploys private chains and returns the chain configs and a deploy function which
-// can be used to deploy the Chainlink nodes.
-func DeployPrivateChains(t *testing.T) ([]ChainConfig, func() error) {
+// DeployPrivateChains deploys private chains and returns the chain configs and a function to deploy the Chainlink nodes
+func DeployPrivateChains(t *testing.T) ([]ChainConfig, string, func([]ChainConfig, string, deployment.RegistryConfig) (*EnvironmentConfig, error)) {
 	if info, err := os.Stat("./env"); os.IsNotExist(err) || !info.IsDir() {
 		require.NoError(t, gotenv.Load(".env"), "Error loading .env file")
 	}
@@ -102,18 +104,39 @@ func DeployPrivateChains(t *testing.T) ([]ChainConfig, func() error) {
 			PrivateWsRpcs:   rpcProvider.PrivateWsUrsl(),
 		})
 	}
-	deployCL := func() error {
+	var jdUrl string
+	if cfg.CCIP.JobDistributorConfig != nil {
+
+	}
+	deployCL := func(chains []ChainConfig, jdUrl string, registryConfig deployment.RegistryConfig) (*EnvironmentConfig, error) {
 		evmNetworks := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())
 		noOfNodes := pointer.GetInt(cfg.CCIP.CLNode.NoOfPluginNodes) + pointer.GetInt(cfg.CCIP.CLNode.NoOfBootstraps)
+		var nodeInfo []NodeInfo
 		for i := 1; i <= noOfNodes; i++ {
+			if i <= pointer.GetInt(cfg.CCIP.CLNode.NoOfBootstraps) {
+				nodeInfo = append(nodeInfo, NodeInfo{
+					IsBootstrap: true,
+					Name:        fmt.Sprintf("bootstrap-%d", i),
+				})
+			} else {
+				nodeInfo = append(nodeInfo, NodeInfo{
+					IsBootstrap: false,
+					Name:        fmt.Sprintf("node-%d", i),
+				})
+			}
 			toml, _, err := testsetups.SetNodeConfig(
 				evmNetworks,
 				cfg.NodeConfig.BaseConfigTOML,
 				cfg.NodeConfig.CommonChainConfigTOML,
 				cfg.NodeConfig.ChainConfigTOMLByChainID,
 			)
+
+			toml.Capabilities.ExternalRegistry.NetworkID = ptr.Ptr(relay.NetworkEVM)
+			toml.Capabilities.ExternalRegistry.ChainID = ptr.Ptr(strconv.FormatUint(registryConfig.EVMChainID, 10))
+			toml.Capabilities.ExternalRegistry.Address = ptr.Ptr(registryConfig.Contract.String())
+
 			if err != nil {
-				return err
+				return nil, err
 			}
 			ccipNode, err := test_env.NewClNode(
 				[]string{env.DockerNetwork.Name},
@@ -126,12 +149,20 @@ func DeployPrivateChains(t *testing.T) ([]ChainConfig, func() error) {
 				),
 			)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			ccipNode.SetTestLogger(t)
 			env.ClCluster.Nodes = append(env.ClCluster.Nodes, ccipNode)
 		}
-		return env.ClCluster.Start()
+		err := env.ClCluster.Start()
+		if err != nil {
+			return nil, err
+		}
+		return &EnvironmentConfig{
+			Chains:   chains,
+			JDConfig: JDConfig{URL: jdUrl},
+			nodeInfo: nodeInfo,
+		}, nil
 	}
-	return chains, deployCL
+	return chains, jdUrl, deployCL
 }

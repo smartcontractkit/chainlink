@@ -24,7 +24,7 @@ type MemoryEnvironmentConfig struct {
 	Chains         int
 	Nodes          int
 	Bootstraps     int
-	RegistryConfig RegistryConfig
+	RegistryConfig deployment.RegistryConfig
 }
 
 // Needed for environment variables on the node which point to prexisitng addresses.
@@ -58,7 +58,7 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 	return chains
 }
 
-func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, numNodes, numBootstraps int, registryConfig RegistryConfig) map[string]Node {
+func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, numNodes, numBootstraps int, registryConfig deployment.RegistryConfig) map[string]Node {
 	mchains := make(map[uint64]EVMChain)
 	for _, chain := range chains {
 		evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)

@@ -197,3 +197,8 @@ func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 
 	return nodes, nil
 }
+
+type RegistryConfig struct {
+	EVMChainID uint64
+	Contract   common.Address
+}
