@@ -19,12 +19,6 @@ var (
 	OCR3Capability       deployment.ContractType = "OCR3Capability"
 )
 
-type deployable interface {
-	// deploy deploys the contract and returns the address and transaction
-	// implementors must confirm the transaction and return any error
-	deploy(deployRequest) (deployResponse, error)
-}
-
 type deployResponse struct {
 	Address common.Address
 	Tx      common.Hash // todo: chain agnostic
@@ -41,7 +35,7 @@ type DonNode struct {
 }
 
 type CapabilityHost struct {
-	NodeID       string // gloablly unique
+	NodeID       string // globally unique
 	Capabilities []capabilities_registry.CapabilitiesRegistryCapability
 }
 

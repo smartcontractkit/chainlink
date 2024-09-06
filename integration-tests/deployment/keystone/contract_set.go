@@ -63,7 +63,7 @@ func deployContracts(lggr logger.Logger, req deployContractsRequest) (*deployCon
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy KeystoneForwarder: %w", err)
 	}
-	resp.AddressBook.Save(req.chain.Selector, forwarderResp.Address.String(), forwarderResp.Tv)
+	err = resp.AddressBook.Save(req.chain.Selector, forwarderResp.Address.String(), forwarderResp.Tv)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save KeystoneForwarder: %w", err)
 	}

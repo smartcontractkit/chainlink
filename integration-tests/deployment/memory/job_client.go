@@ -101,7 +101,7 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 	}
 	n, ok := j.Nodes[in.Filter.NodeIds[0]]
 	if !ok {
-		return nil, fmt.Errorf("node id not found: %d", in.Filter.NodeIds[0])
+		return nil, fmt.Errorf("node id not found: %s", in.Filter.NodeIds[0])
 	}
 	offpk := n.Keys.OCRKeyBundle.OffchainPublicKey()
 	cpk := n.Keys.OCRKeyBundle.ConfigEncryptionPublicKey()

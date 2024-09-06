@@ -72,7 +72,7 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 
 	if registry == nil {
 		var got = []uint64{}
-		for k, _ := range req.Menv.Chains() {
+		for k := range req.Menv.Chains() {
 			got = append(got, k)
 		}
 		return nil, fmt.Errorf("registry not found. expected %d in %v", req.RegistryChain, got)
@@ -255,7 +255,7 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 		}
 		resp.DonToId[don] = donid
 		lggr.Debugw("registered DON", "don", don, "p2pids", p2pIds, "cgs", cfgs, "wfSupported", wfSupported, "f", f, "id", donid)
-		donid += 1
+		donid++
 	}
 
 	lggr.Infow("registered DONS")
@@ -295,10 +295,6 @@ func registerCapabilities(lggr logger.Logger, req registerCapabilitiesRequest) (
 		for _, nodeID := range nodeIDs {
 			uniqueOffchainNodeIDs[nodeID] = struct{}{}
 		}
-	}
-	nodeIDs := make([]string, 0)
-	for nodeID := range uniqueOffchainNodeIDs {
-		nodeIDs = append(nodeIDs, nodeID)
 	}
 
 	// capability could be hosted on multiple dons. need to deduplicate
@@ -509,7 +505,7 @@ func mapDonsToNodes(ctx context.Context, menv deployment.MultiDonEnvironment, ex
 		if len(donNodeSet.Nodes) == 0 {
 			return nil, fmt.Errorf("no nodes found")
 		}
-		// each node in the nodeset may support mulitple chains
+		// each node in the nodeset may support multiple chains
 		nodeCfgs := make(map[string][]*v1.ChainConfig)
 		for _, node := range donNodeSet.Nodes {
 			cfgResp, err := env.Offchain.ListNodeChainConfigs(ctx, &v1.ListNodeChainConfigsRequest{

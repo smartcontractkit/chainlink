@@ -57,50 +57,9 @@ func ProductFilterGenerator(p models.ProductType) FilterFuncT[*models.Node] {
 	}
 }
 
-func categoryNameFilterGenerator(name string) FilterFuncT[*models.Node] {
-	return func(n *models.Node) bool {
-		for _, cat := range n.Categories {
-			if cat.Name == name {
-				return true
-			}
-		}
-		return false
-	}
-}
-
-func publicKeyFilterGenerator(pubKey ...string) FilterFuncT[*models.Node] {
-	return func(n *models.Node) bool {
-		if n.PublicKey == nil {
-			return false
-		}
-		found := false
-		for _, key := range pubKey {
-			if *n.PublicKey == key {
-				found = true
-				break
-			}
-		}
-		return found
-	}
-}
-
 // this could be generalized to a regex filter
 func NodeNameFilterGenerator(contains string) FilterFuncT[*models.Node] {
 	return func(n *models.Node) bool {
 		return strings.Contains(n.Name, contains)
 	}
-}
-
-// this is hacky
-var chainWriterFilter = NodeNameFilterGenerator("Keystone Cap One")
-
-func keystoneNopFilter(nop *models.NodeOperator) bool {
-	nodeFilter := categoryNameFilterGenerator("Keystone")
-	//isKeystoneNop := false
-	for _, node := range nop.Nodes {
-		if nodeFilter(node) {
-			return true
-		}
-	}
-	return false
 }

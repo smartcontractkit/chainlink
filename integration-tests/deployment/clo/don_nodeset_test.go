@@ -38,11 +38,11 @@ func TestDonNodeset(t *testing.T) {
 	if updateTestData {
 		b, err := json.MarshalIndent(m["workflow"], "", "  ")
 		require.NoError(t, err)
-		require.NoError(t, os.WriteFile("testdata/workflow_nodes.json", b, 0644))
+		require.NoError(t, os.WriteFile("testdata/workflow_nodes.json", b, 0644)) // nolint: gosec
 
 		b, err = json.MarshalIndent(m["chainWriter"], "", "  ")
 		require.NoError(t, err)
-		require.NoError(t, os.WriteFile("testdata/chain_writer_nodes.json", b, 0644))
+		require.NoError(t, os.WriteFile("testdata/chain_writer_nodes.json", b, 0644)) // nolint: gosec
 	}
 	gotWFNops := m["workflow"]
 	sort.Slice(gotWFNops, func(i, j int) bool {
