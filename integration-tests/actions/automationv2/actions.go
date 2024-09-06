@@ -44,9 +44,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
-	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
-	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/lib/concurrency"
+	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 )
 
 type NodeDetails struct {

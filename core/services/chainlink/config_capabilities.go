@@ -1,10 +1,9 @@
 package chainlink
 
 import (
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 var _ config.Capabilities = (*capabilitiesConfig)(nil)
@@ -63,6 +62,12 @@ func (r *dispatcherRateLimit) PerSenderBurst() int {
 	return *r.r.PerSenderBurst
 }
 
+func (c *capabilitiesConfig) GatewayConnector() config.GatewayConnector {
+	return &gatewayConnector{
+		c: c.c.GatewayConnector,
+	}
+}
+
 type capabilitiesExternalRegistry struct {
 	c toml.ExternalRegistry
 }
@@ -81,4 +86,51 @@ func (c *capabilitiesExternalRegistry) ChainID() string {
 
 func (c *capabilitiesExternalRegistry) Address() string {
 	return *c.c.Address
+}
+
+type gatewayConnector struct {
+	c toml.GatewayConnector
+}
+
+func (c *gatewayConnector) ChainIDForNodeKey() string {
+	return *c.c.ChainIDForNodeKey
+}
+func (c *gatewayConnector) NodeAddress() string {
+	return *c.c.NodeAddress
+}
+
+func (c *gatewayConnector) DonID() string {
+	return *c.c.DonID
+}
+
+func (c *gatewayConnector) Gateways() []config.ConnectorGateway {
+	t := make([]config.ConnectorGateway, len(c.c.Gateways))
+	for index, element := range c.c.Gateways {
+		t[index] = &connectorGateway{element}
+	}
+	return t
+}
+
+func (c *gatewayConnector) WSHandshakeTimeoutMillis() uint32 {
+	return *c.c.WSHandshakeTimeoutMillis
+}
+
+func (c *gatewayConnector) AuthMinChallengeLen() int {
+	return *c.c.AuthMinChallengeLen
+}
+
+func (c *gatewayConnector) AuthTimestampToleranceSec() uint32 {
+	return *c.c.AuthTimestampToleranceSec
+}
+
+type connectorGateway struct {
+	c toml.ConnectorGateway
+}
+
+func (c *connectorGateway) ID() string {
+	return *c.c.ID
+}
+
+func (c *connectorGateway) URL() string {
+	return *c.c.URL
 }

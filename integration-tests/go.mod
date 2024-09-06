@@ -6,7 +6,7 @@ go 1.22.5
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
 require (
-	dario.cat/mergo v1.0.0
+	dario.cat/mergo v1.0.1
 	github.com/AlekSi/pointer v1.1.0
 	github.com/Khan/genqlient v0.7.0
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -36,13 +36,13 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240808195812-ae0378684685
 	github.com/smartcontractkit/chain-selectors v1.0.21
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240828115624-442f1cff195b
-	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240830180817-6a0f3d1e0f9e
-	github.com/smartcontractkit/chainlink-testing-framework v1.35.0
-	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.1
-	github.com/smartcontractkit/chainlink-testing-framework/havoc v0.1.0
-	github.com/smartcontractkit/chainlink-testing-framework/seth v1.2.1
-	github.com/smartcontractkit/chainlink-testing-framework/wasp v0.4.10
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240905153234-86019f205c9b
+	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240905145927-2ff0f9628f4d
+	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.0
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.0
+	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
+	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.1
+	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.0
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7
 	github.com/spf13/cobra v1.8.1
@@ -404,9 +404,9 @@ require (
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45 // indirect
-	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240820130645-cf4b159fbba2 // indirect
+	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240904093355-e40169857652 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240710170203-5b41615da827 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20240821170223-a2f5c39f457f // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20240904154226-abc1ed5c962a // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240709043547-03612098f799 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 // indirect
@@ -513,6 +513,9 @@ require (
 exclude github.com/chaos-mesh/chaos-mesh/api/v1alpha1 v0.0.0-20220226050744-799408773657
 
 replace (
+	// until merged upstream: https://github.com/omissis/go-jsonschema/pull/264
+	github.com/atombender/go-jsonschema => github.com/nolag/go-jsonschema v0.16.0-rtinianov
+
 	github.com/go-kit/log => github.com/go-kit/log v0.2.1
 
 	// replicating the replace directive on cosmos SDK
