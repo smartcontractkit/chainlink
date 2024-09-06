@@ -25,7 +25,7 @@ func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, cli
 		if i < math.MinInt32 || i > math.MaxInt32 {
 			return nil, fmt.Errorf("integer overflow: cannot convert %d to int32", i)
 		}
-		int32i := int32(i)
+		int32i := int32(i) // #nosec G115
 		if node.SendOnly != nil && *node.SendOnly {
 			rpc := NewRPCClient(cfg, lggr, empty, (*url.URL)(node.HTTPURL), *node.Name, int32i, chainID,
 				commonclient.Secondary, largePayloadRPCTimeout, defaultRPCTimeout, chainType)
