@@ -157,7 +157,7 @@ func (j JobClient) DeleteJob(ctx context.Context, in *jobv1.DeleteJobRequest, op
 }
 
 type GetNodeOperatorsResponse struct {
-	NodeOperators []models.NodeOperator `json:"nodeOperators"`
+	NodeOperators []*models.NodeOperator `json:"nodeOperators"`
 }
 
 func NewJobClient(lggr logger.Logger, nops []*models.NodeOperator) *JobClient {
