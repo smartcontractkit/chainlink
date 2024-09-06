@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	gwConfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gwCommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -56,13 +57,30 @@ func (h *workflowConnectorSigner) Sign(data ...[]byte) ([]byte, error) {
 	return gwCommon.SignData(h.signerKey, data...)
 }
 
+func (h *workflowConnectorSigner) HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message) {
+}
+func (h *workflowConnectorSigner) Start(ctx context.Context) error {
+	return h.StartOnce("WorkflowConnectorHandler", func() error {
+		return nil
+	})
+}
+func (h *workflowConnectorSigner) Close() error {
+	return h.StopOnce("WorkflowConnectorHandler", func() (err error) {
+		return nil
+	})
+}
+
+func (h *workflowConnectorSigner) SetConnector(connector connector.GatewayConnector) {
+	h.connector = connector
+}
+
 func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 	r := connector.ConnectorConfig{}
-	if f.NodeAddress != nil {
+	if f.NodeAddress() != "" {
 		r.NodeAddress = f.NodeAddress()
 	}
 
-	if f.DonID != nil {
+	if f.DonID() != "" {
 		r.DonId = f.DonID()
 	}
 
@@ -77,13 +95,9 @@ func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 		r.WsClientConfig = network.WebSocketClientConfig{HandshakeTimeoutMillis: f.WSHandshakeTimeoutMillis()}
 	}
 
-	if f.AuthMinChallengeLen != nil {
-		r.AuthMinChallengeLen = f.AuthMinChallengeLen()
-	}
-
-	if f.AuthTimestampToleranceSec != nil {
-		r.AuthTimestampToleranceSec = f.AuthTimestampToleranceSec()
-	}
+	// 0 are valid values
+	r.AuthMinChallengeLen = f.AuthMinChallengeLen()
+	r.AuthTimestampToleranceSec = f.AuthTimestampToleranceSec()
 	return r
 }
 
@@ -123,7 +137,6 @@ func (e *serviceWrapper) Start(ctx context.Context) error {
 			return err
 		}
 		translated := translateConfigs(conf)
-		// cannot use signer (variable of type *workflowConnectorSigner) as connector.GatewayConnectorHandler value in argument to connector.NewGatewayConnector: *workflowConnectorSigner does not implement connector.GatewayConnectorHandler (missing method Close)compilerInvalidIfaceAssign
 		e.connector, err = connector.NewGatewayConnector(&translated, signer, signer, clockwork.NewRealClock(), e.lggr)
 		if err != nil {
 			return err
