@@ -296,16 +296,14 @@ func (e *eventBinding) extractFilterTopics(topicTypeID string, value any) (filte
 		return nil, fmt.Errorf("%w: cannot encode kind %v", commontypes.ErrInvalidType, item.Kind())
 	}
 
-	noValues := true
-	for _, topic := range filterTopics {
-		if topic != nil {
-			noValues = false
+	// check if at least one topic filter is present
+	for _, filterVal := range derefValues(filterTopics) {
+		if filterVal != nil {
+			return filterTopics, nil
 		}
 	}
-	if noValues {
-		return []any{}, nil
-	}
-	return filterTopics, nil
+
+	return []any{}, nil
 }
 
 // hashTopics hashes topic filters values to match on chain indexed topics.

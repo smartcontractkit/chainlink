@@ -12,7 +12,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
 
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
@@ -20,6 +22,11 @@ import (
 
 func RunChainComponentsEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T]) {
 	RunContractReaderEvmTests[T](t, it)
+	// Add ChainWriter tests here
+}
+
+func RunChainComponentsInLoopEvmTests[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T]) {
+	RunContractReaderInLoopTests[T](t, it)
 	// Add ChainWriter tests here
 }
 
@@ -139,6 +146,38 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		err := reader.Bind(ctx, []clcommontypes.BoundContract{{Name: AnyContractName, Address: addr.Hex()}})
 
 		require.ErrorIs(t, err, read.NoContractExistsError{Address: addr})
+	})
+}
+
+func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T]) {
+	RunContractReaderInterfaceTests[T](t, it, false)
+
+	t.Run("Filtering can be done on data words using value comparator", func(t T) {
+		it.Setup(t)
+
+		ctx := tests.Context(t)
+		cr := it.GetChainReader(t)
+		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+		contracts := it.GetBindings(t)
+		ts1 := CreateTestStruct[T](0, it)
+		_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts1, contracts[0], types.Unconfirmed)
+		ts2 := CreateTestStruct[T](15, it)
+		_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts2, contracts[0], types.Unconfirmed)
+		ts3 := CreateTestStruct[T](35, it)
+		_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts3, contracts[0], types.Unconfirmed)
+
+		ts := &TestStruct{}
+		assert.Eventually(t, func() bool {
+			sequences, err := cr.QueryKey(ctx, AnyContractName, query.KeyFilter{Key: EventName, Expressions: []query.Expression{
+				query.Comparator("OracleID",
+					primitives.ValueComparator{
+						Value:    uint8(ts2.OracleID),
+						Operator: primitives.Eq,
+					}),
+			},
+			}, query.LimitAndSort{}, ts)
+			return err == nil && len(sequences) == 1 && reflect.DeepEqual(&ts2, sequences[0].Data)
+		}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
 	})
 }
 

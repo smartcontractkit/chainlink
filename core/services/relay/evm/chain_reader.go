@@ -340,7 +340,7 @@ func (cr *chainReader) initDWQuerying(contractName, eventName string, eventDWs m
 			}
 
 			dwCodecTypeID := read.WrapItemType(contractName, dwTypeID, true)
-			dwsCodecTypeInfo[dwCodecTypeID] = cr.parsed.EncoderDefs[dwTypeID]
+			dwsCodecTypeInfo[dwCodecTypeID] = cr.parsed.EncoderDefs[dwCodecTypeID]
 
 			dWsDetail[genericName] = dWDetail
 			break
