@@ -97,9 +97,8 @@ func TestWriteTarget(t *testing.T) {
 			Inputs:   validInputs,
 		}
 
-		ch, err2 := writeTarget.Execute(ctx, req)
+		response, err2 := writeTarget.Execute(ctx, req)
 		require.NoError(t, err2)
-		response := <-ch
 		require.NotNil(t, response)
 	})
 
