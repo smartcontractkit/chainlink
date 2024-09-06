@@ -54,7 +54,7 @@ func NewClientConfigs(
 		return nil, nil, nil, err
 	}
 
-	if err = verifyLogBroadcasterFlagForNodes(nodes, LogBroadcasterEnabled); err != nil {
+	if err = verifyLogBroadcasterFlag(nodes, LogBroadcasterEnabled); err != nil {
 		return nil, nil, nil, err
 	}
 
@@ -85,12 +85,13 @@ func NewClientConfigs(
 	return chainConfig, nodePoolCfg, nodes, nil
 }
 
-func verifyLogBroadcasterFlagForNodes(nodes []*toml.Node, LogBroadcasterEnabled bool) error {
+// verifyLogBroadcasterFlag checks node config and return error if LogBroadcaster enabled but some node missing WSURL
+func verifyLogBroadcasterFlag(nodes []*toml.Node, LogBroadcasterEnabled bool) error {
 	if !LogBroadcasterEnabled {
 		return nil
 	}
 	for _, node := range nodes {
-		if node.WSURL == nil {
+		if node.WSURL == nil || node.WSURL.IsZero() {
 			return ErrLogBroadcasterEnabledWithoutWSURL
 		}
 	}
