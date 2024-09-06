@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"math/big"
-	"reflect"
 	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -32,7 +31,7 @@ type serviceWrapper struct {
 	lggr      logger.Logger
 }
 
-type workflowConnectorSigner struct {
+type connectorSigner struct {
 	services.StateMachine
 
 	connector   connector.GatewayConnector
@@ -41,48 +40,41 @@ type workflowConnectorSigner struct {
 	lggr        logger.Logger
 }
 
-var (
-	_ connector.Signer = &workflowConnectorSigner{}
-)
+var _ connector.Signer = &connectorSigner{}
 
-func NewWorkflowConnectorSigner(config *config.GatewayConnector, signerKey *ecdsa.PrivateKey, lggr logger.Logger) (*workflowConnectorSigner, error) {
-	return &workflowConnectorSigner{
+func NewConnectorSigner(config *config.GatewayConnector, signerKey *ecdsa.PrivateKey, lggr logger.Logger) (*connectorSigner, error) {
+	return &connectorSigner{
 		nodeAddress: (*config).NodeAddress(),
 		signerKey:   signerKey,
-		lggr:        lggr.Named("WorkflowConnectorSigner"),
+		lggr:        lggr.Named("ConnectorSigner"),
 	}, nil
 }
 
-func (h *workflowConnectorSigner) Sign(data ...[]byte) ([]byte, error) {
+func (h *connectorSigner) Sign(data ...[]byte) ([]byte, error) {
 	return gwCommon.SignData(h.signerKey, data...)
 }
 
-func (h *workflowConnectorSigner) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
+func (h *connectorSigner) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
 }
-func (h *workflowConnectorSigner) Start(ctx context.Context) error {
-	return h.StartOnce("WorkflowConnectorHandler", func() error {
+func (h *connectorSigner) Start(ctx context.Context) error {
+	return h.StartOnce("ConnectorSigner", func() error {
 		return nil
 	})
 }
-func (h *workflowConnectorSigner) Close() error {
-	return h.StopOnce("WorkflowConnectorHandler", func() (err error) {
+func (h *connectorSigner) Close() error {
+	return h.StopOnce("ConnectorSigner", func() (err error) {
 		return nil
 	})
 }
 
-func (h *workflowConnectorSigner) SetConnector(connector connector.GatewayConnector) {
+func (h *connectorSigner) SetConnector(connector connector.GatewayConnector) {
 	h.connector = connector
 }
 
 func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 	r := connector.ConnectorConfig{}
-	if f.NodeAddress() != "" {
-		r.NodeAddress = f.NodeAddress()
-	}
-
-	if f.DonID() != "" {
-		r.DonId = f.DonID()
-	}
+	r.NodeAddress = f.NodeAddress()
+	r.DonId = f.DonID()
 
 	if len(f.Gateways()) != 0 {
 		r.Gateways = make([]connector.ConnectorGatewayConfig, len(f.Gateways()))
@@ -91,11 +83,7 @@ func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 		}
 	}
 
-	if !reflect.ValueOf(f.WSHandshakeTimeoutMillis).IsZero() {
-		r.WsClientConfig = network.WebSocketClientConfig{HandshakeTimeoutMillis: f.WSHandshakeTimeoutMillis()}
-	}
-
-	// 0 are valid values
+	r.WsClientConfig = network.WebSocketClientConfig{HandshakeTimeoutMillis: f.WSHandshakeTimeoutMillis()}
 	r.AuthMinChallengeLen = f.AuthMinChallengeLen()
 	r.AuthTimestampToleranceSec = f.AuthTimestampToleranceSec()
 	return r
@@ -132,7 +120,7 @@ func (e *serviceWrapper) Start(ctx context.Context) error {
 			return errors.New("node address mismatch")
 		}
 
-		signer, err := NewWorkflowConnectorSigner(e.config, signerKey, e.lggr)
+		signer, err := NewConnectorSigner(e.config, signerKey, e.lggr)
 		if err != nil {
 			return err
 		}
