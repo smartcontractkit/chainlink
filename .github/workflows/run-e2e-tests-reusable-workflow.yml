@@ -547,7 +547,7 @@ jobs:
 
       - name: Run tests
         id: run_tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@94cb11f4bd545607a2f221c6685052b3abee723d # v2.3.32
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@4f377a6b1cc07f0eca82745782736b4908a1da30 # v2.3.32
         env:
           DETACH_RUNNER: true
           E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}
@@ -557,8 +557,6 @@ jobs:
           E2E_TEST_LOGGING_RUN_ID: ${{ github.run_id }}
           E2E_TEST_LOG_STREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           E2E_TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
-          E2E_TEST_CHAINLINK_IMAGE: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_IMAGE || env.CHAINLINK_IMAGE }}
-          E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
           E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -576,6 +574,8 @@ jobs:
           test_config_override_path: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}
           test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
           test_suite: ${{ matrix.tests.test_env_vars.TEST_SUITE }}
+          default_e2e_test_chainlink_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_IMAGE || env.CHAINLINK_IMAGE }}
+          default_e2e_test_chainlink_upgrade_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.tests.id_sanitized }}-test-logs
           artifacts_location: |
@@ -746,7 +746,7 @@ jobs:
 
       - name: Run tests
         id: run_tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@94cb11f4bd545607a2f221c6685052b3abee723d # v2.3.32
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@4f377a6b1cc07f0eca82745782736b4908a1da30 # v2.3.32
         env:
           DETACH_RUNNER: true
           RR_MEM: ${{ matrix.tests.remote_runner_memory }}
@@ -764,8 +764,6 @@ jobs:
           E2E_TEST_LOGGING_RUN_ID: ${{ github.run_id }}
           E2E_TEST_LOG_STREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           E2E_TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
-          E2E_TEST_CHAINLINK_IMAGE: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_IMAGE || env.CHAINLINK_IMAGE }}
-          E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
           E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -784,6 +782,8 @@ jobs:
           test_config_override_path: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}
           test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
           test_suite: ${{ matrix.tests.test_env_vars.TEST_SUITE }}
+          default_e2e_test_chainlink_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_IMAGE || env.CHAINLINK_IMAGE }}
+          default_e2e_test_chainlink_upgrade_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
           token: ${{ secrets.GH_TOKEN }}
           should_cleanup: false
           cache_key_id: e2e-tests
