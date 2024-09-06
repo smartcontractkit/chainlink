@@ -41,6 +41,8 @@ Config overrides should be stored in `testconfig/*/overrides/*.toml`. Placing fi
 
 **Important Note:** The use of `base64Config` input is deprecated in favor of `test_config_override_path`. For more details, refer to [the decision log](https://smartcontract-it.atlassian.net/wiki/spaces/TT/pages/927596563/Storing+All+Test+Configs+In+Git).
 
+To learn more about test configs see [CTF Test Config](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/lib/config/README.md).
+
 ## Test Secrets
 
 For security reasons, test secrets and sensitive information are not stored directly within the test config TOML files. Instead, these secrets are securely injected into tests using environment variables. For a detailed explanation on managing test secrets, refer to our [Test Secrets documentation](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md#test-secrets).
