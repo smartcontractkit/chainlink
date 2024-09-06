@@ -1,4 +1,4 @@
-package gateway_connector
+package gatewayConnector
 
 import (
 	"context"
@@ -57,7 +57,7 @@ func (h *workflowConnectorSigner) Sign(data ...[]byte) ([]byte, error) {
 	return gwCommon.SignData(h.signerKey, data...)
 }
 
-func (h *workflowConnectorSigner) HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message) {
+func (h *workflowConnectorSigner) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
 }
 func (h *workflowConnectorSigner) Start(ctx context.Context) error {
 	return h.StartOnce("WorkflowConnectorHandler", func() error {
@@ -84,8 +84,8 @@ func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 		r.DonId = f.DonID()
 	}
 
-	if f.Gateways != nil {
-		r.Gateways = make([]connector.ConnectorGatewayConfig, len(r.Gateways))
+	if len(f.Gateways()) != 0 {
+		r.Gateways = make([]connector.ConnectorGatewayConfig, len(f.Gateways()))
 		for index, element := range f.Gateways() {
 			r.Gateways[index] = connector.ConnectorGatewayConfig{Id: element.ID(), URL: element.URL()}
 		}
@@ -114,8 +114,8 @@ func (e *serviceWrapper) Start(ctx context.Context) error {
 	return e.StartOnce("GatewayConnectorServiceWrapper", func() error {
 		conf := *e.config
 		e.lggr.Infow("Starting GatewayConnectorServiceWrapper", "chainID", conf.ChainIDForNodeKey())
-		chainId, _ := new(big.Int).SetString(conf.ChainIDForNodeKey(), 0)
-		enabledKeys, err := e.keystore.EnabledKeysForChain(ctx, chainId)
+		chainID, _ := new(big.Int).SetString(conf.ChainIDForNodeKey(), 0)
+		enabledKeys, err := e.keystore.EnabledKeysForChain(ctx, chainID)
 		if err != nil {
 			return err
 		}
