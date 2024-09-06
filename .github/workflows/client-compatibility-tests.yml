@@ -704,7 +704,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [run-client-compatibility-matrix, should-run, select-versions, build-chainlink]
+    needs: [run-client-compatibility-matrix, should-run, select-versions, build-chainlink, prepare-compatibility-matrix]
     steps:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}
@@ -731,7 +731,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && format('Some tests failed, notifying <!subteam^{0}|bix-ship-emergent-task>', secrets.COMPAT_SLACK_NOTIFICATION_HANDLE) || needs.build-chainlink.result == 'failure' && 'Failed to build Chainlink image, notifying <!subteam^S06US88D6AK|guardian-test-tooling>' || 'All Good!' }}"
+                        "text": "${{ needs.prepare-compatibility-matrix.result == 'failure' && 'Failed to prepare test matrix, notifying <!subteam^S06US88D6AK|guardian-test-tooling>' || needs.build-chainlink.result == 'failure' && 'Failed to build Chainlink image, notifying <!subteam^S06US88D6AK|guardian-test-tooling>' || contains(join(needs.*.result, ','), 'failure') && format('Some tests failed, notifying <!subteam^{0}|bix-ship-emergent-task>', secrets.COMPAT_SLACK_NOTIFICATION_HANDLE) || 'All Good!' }}"
                       }
                     },
                     {
