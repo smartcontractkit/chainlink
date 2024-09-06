@@ -1023,8 +1023,16 @@ func (lp *logPoller) latestBlocks(ctx context.Context) (*evmtypes.Head, int64, e
 		return nil, 0, fmt.Errorf("failed to get latest and latest finalized block from HeadTracker: %w", err)
 	}
 
-	lp.lggr.Debugw("Latest blocks read from chain", "latest", latest.Number, "finalized", finalized.BlockNumber())
-	return latest, finalized.BlockNumber(), nil
+	finalizedBN := finalized.BlockNumber()
+	// This is a dirty trick that allows LogPoller to function properly in tests where chain needs significant time to
+	// reach finality depth. An alternative to this one-liner is a database migration that drops restriction
+	// LogPollerBlock.FinalizedBlockNumber > 0 (which we actually want to keep to spot cases when FinalizedBlockNumber was simply not populated)
+	// and refactoring of queries that assume that restriction still holds.
+	if finalizedBN == 0 {
+		finalizedBN = 1
+	}
+	lp.lggr.Debugw("Latest blocks read from chain", "latest", latest.Number, "finalized", finalizedBN)
+	return latest, finalizedBN, nil
 }
 
 // Find the first place where our chain and their chain have the same block,
