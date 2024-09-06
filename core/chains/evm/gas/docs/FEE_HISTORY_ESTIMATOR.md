@@ -1,25 +1,25 @@
 # Fee History Estimator
 
 ## Overview
-`Fee History` estimator is an EVM-based gas estimator that utilizes RPC calls to make gas price estimations. The estimator heavily relies on two RPC calls: `eth_gasPrice` and `eth_feeHistory`. It is built as service and caches the calculated results in order to minimize overhead. It's able to bump past estimations by aggregating the result with the latest market prices. `Fee History` estimator supports both Legacy and Dynamic(EIP-1559) transactions. It is also able to handle chains that don't have a mempool and process transactions in a FCSF manner.
+`Fee History` estimator is an EVM-based gas estimator that utilizes RPC calls to make gas price estimations. The estimator heavily relies on two RPC calls: `eth_gasPrice` and `eth_feeHistory`. It is built as a service and caches the calculated results in order to minimize overhead. It can bump past estimations by aggregating the result with the latest market prices. `Fee History` estimator supports both Legacy and Dynamic(EIP-1559) transactions. It can also handle chains that don't have a mempool and process transactions in an FCSF manner.
 
 ## Configs
-- `BumpPercent`: is the percentage by which to bump gas on a transaction. This is used when estimator's bumping API gets called.
-- `CacheTimeout`: the time to wait in order to refresh the cached values stored. A small jitter is applied so the timeout won't be exactly the same each time.
+- `BumpPercent`: is the percentage by which to bump gas on a transaction. This is used when the estimator's bumping API gets called.
+- `CacheTimeout`: the time to wait to refresh the cached values stored. A small jitter is applied so the timeout won't be exactly the same each time.
 - `EIP1559`: enables EIP-1559 mode and deactivates Legacy estimations. This means the estimator will refresh prices and make estimations only for Dynamic transactions.
 
 The rest of the configs are only applicable when `EIP1559` is enabled
 
 - `BlockHistorySize`: controls the number of past blocks to include during gas calculations. If set to 0, the estimator will skip any priority fee calculation and calculate the underlying base fee. This config should be set to 0 for chains that don't have a mempool. 
-- `RewardPercentile`: for each processed past block, it specifies which fee percentile to pick from. 
+- `RewardPercentile`: it specifies which fee percentile to pick from for each processed past block. 
 
 ### Validations
 During startup, the estimator will perform two config checks:
-- `BumpPercent` is equal or higher than *MinimumBumpPercentage*. *MinimumBumpPercentage* is fixed to 10% and it's the minimum percentage allowed by Geth when bumping a transaction, to prevent spam attacks. Replacing a transaction with a price less than 10% from the previous one will result in an error on the RPC side. Even for chains that don't enforce that rule, 10% bump seams reasonable.
-- `RewardPercentile` is equal or lower than *ConnectivityPercentile*, when `EIP1559` is enabled. *ConnectivityPercentile* is fixed to 85% and it's the maximum percentile we're willing to bump a transaction's price. This is used as a sanity check method in order to avoid excessive gas bumping when an RPC is not responding.
+- `BumpPercent` is equal to or higher than *MinimumBumpPercentage*. *MinimumBumpPercentage* is fixed at 10% and it's the minimum percentage allowed by Geth when bumping a transaction, to prevent spam attacks. Replacing a transaction with a price less than 10% from the previous one will result in an error on the RPC side. Even for chains that don't enforce that rule, a 10% bump seems reasonable.
+- `RewardPercentile` is equal or lower than *ConnectivityPercentile*, when `EIP1559` is enabled. *ConnectivityPercentile* is fixed at 85% and it's the maximum percentile we're willing to bump a transaction's price. This is used as a sanity check method in order to avoid excessive gas bumping when an RPC is not responding.
 
-## Service
-`Fee History` estimator is built as a service. This means it will periodically poll the RPC for new prices, perform off-chain calculations, and cache the result for future use. For simplicity, only one type of gas estimations can be enabled at a time, Legacy or Dynamic. The poll interval is controled by `CacheTimeout`. This value should be close to the block time. For slower chains, like Ethereum, you can set it to 12s, the same as the block time. For faster chains you can skip a block or two, as prices will be refreshed more frequently. Ideally, 1s should be the absolute minimum. 
+## As a Service
+`Fee History` estimator is built as a service. This means it will periodically poll the RPC for new prices, perform off-chain calculations, and cache the result for future use. For simplicity, only one type of gas estimation can be enabled at a time, Legacy or Dynamic. The poll interval is controlled by `CacheTimeout`. This value should be close to the block time. For slower chains, like Ethereum, you can set it to 12s, the same as the block time. For faster chains, you can skip a block or two, as prices will be refreshed more frequently. Ideally, 1s should be the absolute minimum. 
 
 
 ## Gas Price Estimations
@@ -31,7 +31,7 @@ During bumping, `Fee History` will refresh the cached value by making a call to 
 
 ## Dynamic Price Estimations
 ### Fetching
-`Fee History` estimator periodically calls `eth_feeHistory` method to get the most up to date information from the RPC (more information about the call can be found [here](https://ethereum.github.io/execution-apis/api-documentation/)). It fetches three things:
+`Fee History` estimator periodically calls `eth_feeHistory` method to get the most up-to-date information from the RPC (more information about the call can be found [here](https://ethereum.github.io/execution-apis/api-documentation/)). It fetches three things:
 - Base Fee of the next block
 - The Yth priority fee percentiles of the past X blocks, where Y is controlled by `RewardPercentile` and X by `BlockHistorySize`.
 - The 85th priority fee percentiles of the past X blocks.
@@ -41,12 +41,12 @@ The above values are used to construct and cache the following:
 - **MaxFeePerGas**: `baseFee * BaseFeeBufferPercentage + MaxPriorityFeePerGas`
 - **PriorityFeeThreshold**: the max out of every 85th priority fee percentile. This value is used to stop the estimator from bumping a price above that threshold and represents the maximum allowed value.
 
-*Note*: for chains that don't have a mempool (activated with `BlockHistorySize=0`) **MaxPriorityFeePerGas** and **PriorityFeeThreshold** are set to 0, since there is no concept of gas bumping.
+*Note*: for chains that don't have a mempool (activated with `BlockHistorySize=0`) **MaxPriorityFeePerGas** and **PriorityFeeThreshold** are set to 0 since there is no concept of gas bumping.
 
 ### Bumping
-For bumping, `Fee History` estimator bumps both maxPriorityFeePerGas and maxFeePerGas of the original transaction attempt. This is required by Geth, along with the 10% minimum bumping threshold. The bumped attempt is aggregated with the cached market prices that are stored in the estimator and the one with the highest value is picked. Finally, the resulted maxPriorityFeePerGas gets compared with the cached PriorityFeeThreshold value. If the bumped value is higher than that, this indicates a potential connection issue with the RPC and bumping is skipped, returing an error.
+For bumping, `Fee History` estimator bumps both maxPriorityFeePerGas and maxFeePerGas of the original transaction attempt. This is required by Geth, along with the 10% minimum bumping threshold. The bumped attempt is aggregated with the cached market prices that are stored in the estimator and the one with the highest value is picked. Finally, the resulting maxPriorityFeePerGas gets compared with the cached PriorityFeeThreshold value. If the bumped value is higher than that, this indicates a potential connection issue with the RPC, and bumping is skipped, returning an error.
 
-*Note*: for chains that don't have a mempool (activated with `BlockHistorySize=0`) bumping works differently. Instead, we force-fetch the most up to date Base Fee value and embed it to MaxFeePerGas. MaxPriorityFeePerGas remains 0.
+*Note*: for chains that don't have a mempool (activated with `BlockHistorySize=0`) bumping works differently. Instead, we force-fetch the most up-to-date Base Fee value and embed it to MaxFeePerGas. MaxPriorityFeePerGas remains 0.
 
 ### Metrics
 The following prometheus metrics are exposed:
