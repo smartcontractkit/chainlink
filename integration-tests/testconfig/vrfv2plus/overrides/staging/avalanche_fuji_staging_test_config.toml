@@ -1,0 +1,18 @@
+[Network]
+selected_networks = ["AVALANCHE_FUJI"]
+
+[AVALANCHE_FUJI.VRFv2Plus.General]
+use_existing_env = true
+
+[AVALANCHE_FUJI.VRFv2Plus.ExistingEnv]
+coordinator_address = "0xE122bf3Badd6545bDec5D4627a6DAd16352A1b36"
+consumer_address = ""
+sub_id = ""
+key_hash = "0x5b03254a80ea3eb72139ff0423cb88be42612780c3dd25f1d95a5ba7708a4be1"
+create_fund_subs_and_add_consumers = true
+node_sending_key_funding_min = 30
+node_sending_keys = [
+    "0x3D7Da5D6A23CA2240CE576C8638C1798a023920a",
+    #   BHS
+    "0x72c8565279430F5179b0090d51ab8BB53Da323B5"
+]
