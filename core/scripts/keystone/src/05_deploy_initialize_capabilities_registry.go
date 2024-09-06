@@ -8,11 +8,9 @@ import (
 	"log"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -258,25 +256,6 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 
 	nopID := recLog.NodeOperatorId
 	nodes := []kcr.CapabilitiesRegistryNodeParams{}
-	for _, wfPeer := range workflowDonPeers {
-		n, innerErr := peerToNode(nopID, wfPeer)
-		if innerErr != nil {
-			panic(innerErr)
-		}
-
-		n.HashedCapabilityIds = [][32]byte{ocrid}
-		nodes = append(nodes, n)
-	}
-
-	for _, triggerPeer := range triggerDonPeers {
-		n, innerErr := peerToNode(nopID, triggerPeer)
-		if innerErr != nil {
-			panic(innerErr)
-		}
-
-		n.HashedCapabilityIds = [][32]byte{sid}
-		nodes = append(nodes, n)
-	}
 
 	for _, targetPeer := range targetDonPeers {
 		n, innerErr := peerToNode(nopID, targetPeer)
@@ -295,63 +274,8 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 
 	helpers.ConfirmTXMined(ctx, env.Ec, tx, env.ChainID)
 
-	// workflow DON
-	ps, err := peers(workflowDonPeers)
-	if err != nil {
-		panic(err)
-	}
-
-	cc := newCapabilityConfig()
-	ccb, err := proto.Marshal(cc)
-	if err != nil {
-		panic(err)
-	}
-
-	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
-		{
-			CapabilityId: ocrid,
-			Config:       ccb,
-		},
-	}
-	_, err = reg.AddDON(env.Owner, ps, cfgs, true, true, 2)
-	if err != nil {
-		log.Printf("workflowDON: failed to AddDON: %s", err)
-	}
-
-	// trigger DON
-	ps, err = peers(triggerDonPeers)
-	if err != nil {
-		panic(err)
-	}
-
-	config := &capabilitiespb.CapabilityConfig{
-		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefresh: durationpb.New(20 * time.Second),
-				RegistrationExpiry:  durationpb.New(60 * time.Second),
-				// F + 1
-				MinResponsesToAggregate: uint32(1) + 1,
-			},
-		},
-	}
-	configb, err := proto.Marshal(config)
-	if err != nil {
-		panic(err)
-	}
-	cfgs = []kcr.CapabilitiesRegistryCapabilityConfiguration{
-		{
-			CapabilityId: sid,
-			Config:       configb,
-		},
-	}
-	_, err = reg.AddDON(env.Owner, ps, cfgs, true, false, 1)
-	if err != nil {
-		log.Printf("triggerDON: failed to AddDON: %s", err)
-	}
-
 	// target DON
-	ps, err = peers(targetDonPeers)
+	ps, err := peers(targetDonPeers)
 	if err != nil {
 		panic(err)
 	}
@@ -368,7 +292,7 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		panic(err)
 	}
 
-	cfgs = []kcr.CapabilitiesRegistryCapabilityConfiguration{
+	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: wid,
 			Config:       remoteTargetConfigBytes,
