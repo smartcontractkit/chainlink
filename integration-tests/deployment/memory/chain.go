@@ -72,3 +72,21 @@ func GenerateChains(t *testing.T, numChains int) map[uint64]EVMChain {
 	}
 	return chains
 }
+
+func GenerateChainsWithIds(t *testing.T, chainIDs []uint64) map[uint64]EVMChain {
+	chains := make(map[uint64]EVMChain)
+	for _, chainID := range chainIDs {
+		key, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		owner, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+		require.NoError(t, err)
+		backend := backends.NewSimulatedBackend(core.GenesisAlloc{
+			owner.From: {Balance: big.NewInt(0).Mul(big.NewInt(100), big.NewInt(params.Ether))}}, 10000000)
+		tweakChainTimestamp(t, backend, time.Hour*8)
+		chains[chainID] = EVMChain{
+			Backend:     backend,
+			DeployerKey: owner,
+		}
+	}
+	return chains
+}

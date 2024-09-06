@@ -70,6 +70,14 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 		}
 	}
 
+	if registry == nil {
+		var got = []uint64{}
+		for k, _ := range req.Menv.Chains() {
+			got = append(got, k)
+		}
+		return nil, fmt.Errorf("registry not found. expected %d in %v", req.RegistryChain, got)
+	}
+
 	donToOcr2Nodes, err := mapDonsToNodes(ctx, req.Menv, true)
 
 	donToNodeIDs := make(map[string][]string)

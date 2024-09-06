@@ -23,35 +23,53 @@ func loadTestData(t *testing.T) *clo.GetNodeOperatorsResponse {
 	return &nops
 }
 
-func TestDonNodeset(t *testing.T) {
-	nops := loadTestData(t)
-
-	keystoneNops := filterNopNodes(nops.NodeOperators, categoryNameFilterGenerator("Keystone")) //filterNops(nops.NodeOperators, keystoneFilter)
-	//ocr3Nops := filterNopNodes(nops.NodeOperators, ocr3Filter)
-	assert.Len(t, keystoneNops, 10)
-	//assert.Len(t, ocr3Nops, 14)
-	b, err := json.MarshalIndent(&keystoneNops, "", "  ")
+func loadKeystoneNops(t *testing.T) []*models.NodeOperator {
+	f, err := os.ReadFile("testdata/keystone_nops.json")
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile("testdata/keystone_nops.json", b, 0644))
+	var nops []*models.NodeOperator
+	require.NoError(t, json.Unmarshal(f, &nops))
+	return nops
+}
 
+func TestDonNodeset(t *testing.T) {
+	/*
+		nops := loadTestData(t)
+
+		keystoneNops := filterNopNodes(nops.NodeOperators, categoryNameFilterGenerator("Keystone")) //filterNops(nops.NodeOperators, keystoneFilter)
+		//ocr3Nops := filterNopNodes(nops.NodeOperators, ocr3Filter)
+		assert.Len(t, keystoneNops, 10)
+		//assert.Len(t, ocr3Nops, 14)
+		b, err := json.MarshalIndent(&keystoneNops, "", "  ")
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile("testdata/keystone_nops.json", b, 0644))
+	*/
+	keystoneNops := loadKeystoneNops(t)
 	workflowNodes := filterNopNodes(keystoneNops, productFilterGenerator(models.ProductTypeWorkflow))
-
+	// drop bootstraps
+	workflowNodes = filterNopNodes(workflowNodes, func(n *models.Node) bool {
+		for _, chain := range n.ChainConfigs {
+			if chain.Ocr2Config.IsBootstrap {
+				return false
+			}
+		}
+		return true
+	})
 	// this is hacky, but there is no first class concept of a chain writer node in CLO
 	// in prod, probably better to make an explicit list of pubkeys if we can't add a category or product type
 	assert.Len(t, workflowNodes, 10)
 
-	b, err = json.MarshalIndent(&workflowNodes, "", "  ")
+	b, err := json.MarshalIndent(&workflowNodes, "", "  ")
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile("testdata/workflow_nodes.json", b, 0644))
 
-	chainWriterNodes := filterNopNodes(keystoneNops, nodeNameFilterGenerator("Keystone Cap One"))
+	chainWriterNodes := filterNopNodes(keystoneNops, nodeNameFilterGenerator("ks-writer"))
 	assert.Len(t, chainWriterNodes, 10)
 
 	b, err = json.MarshalIndent(&chainWriterNodes, "", "  ")
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile("testdata/chain_writer_nodes.json", b, 0644))
 
-	clo.NewDonEnv(clo.DonEnvConfig{
+	clo.NewDonEnv(t, clo.DonEnvConfig{
 		DonName: keystone.WFDonName,
 		Chains:  nil,
 		Logger:  logger.TestLogger(t),
