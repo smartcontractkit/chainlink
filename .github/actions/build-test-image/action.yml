@@ -47,7 +47,7 @@ runs:
       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
       with:
         go-project-path: ./integration-tests
-        module-name: github.com/smartcontractkit/chainlink-testing-framework
+        module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
         enforce-semantic-tag: false
     - name: Get CTF sha
       if: steps.version.outputs.is_semantic == 'false'
@@ -94,7 +94,7 @@ runs:
         BASE_IMAGE_NAME: ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image:${{ steps.long_sha.outputs.long_sha }}
       with:
         tags: ${{ env.BASE_IMAGE_NAME }}
-        file: ctf/k8s/Dockerfile.base
+        file: ctf/lib/k8s/Dockerfile.base
         AWS_REGION: ${{ inputs.QA_AWS_REGION }}
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
     # End Base Image Logic

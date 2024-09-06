@@ -730,6 +730,7 @@ rps = 1
 [OPTIMISM_SEPOLIA.Common]
 chainlink_node_funding = 5
 [OPTIMISM_SEPOLIA.VRFv2Plus.General]
+sub_billing_tolerance_wei = 1e16
 use_test_coordinator = false
 #todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
 minimum_confirmations = 0
@@ -783,9 +784,9 @@ bhs_job_run_timeout = "30s"
 randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
-subscription_funding_amount_link = 3
+subscription_funding_amount_link = 10
 subscription_funding_amount_native = 1
-subscription_refunding_amount_link = 3
+subscription_refunding_amount_link = 10
 subscription_refunding_amount_native = 1
 number_of_words = 1
 random_words_fulfilled_event_timeout = "1m30s"

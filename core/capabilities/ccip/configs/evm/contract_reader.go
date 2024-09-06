@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -22,6 +23,7 @@ var (
 	capabilitiesRegsitryABI = evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
 	ccipConfigABI           = evmtypes.MustGetABI(ccip_config.CCIPConfigABI)
 	priceRegistryABI        = evmtypes.MustGetABI(fee_quoter.FeeQuoterABI)
+	nonceManagerABI         = evmtypes.MustGetABI(nonce_manager.NonceManagerABI)
 )
 
 // MustSourceReaderConfig returns a ChainReaderConfig that can be used to read from the onramp.
@@ -68,10 +70,6 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getMerkleRoot", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.MethodNameIsBlessed: {
-					ChainSpecificName: mustGetMethodName("isBlessed", offrampABI),
-					ReadType:          evmrelaytypes.Method,
-				},
 				consts.MethodNameGetLatestPriceSequenceNumber: {
 					ChainSpecificName: mustGetMethodName("getLatestPriceSequenceNumber", offrampABI),
 					ReadType:          evmrelaytypes.Method,
@@ -98,6 +96,19 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 			},
 		},
+		consts.ContractNameNonceManager: {
+			ContractABI: nonce_manager.NonceManagerABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameGetInboundNonce: {
+					ChainSpecificName: mustGetMethodName("getInboundNonce", nonceManagerABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetOutboundNonce: {
+					ChainSpecificName: mustGetMethodName("getOutboundNonce", nonceManagerABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+			},
+		},
 	},
 }
 
@@ -108,7 +119,7 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: onramp.OnRampABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				GenericEventNames: []string{
-					mustGetEventName(consts.EventNameCCIPSendRequested, onrampABI),
+					consts.EventNameCCIPMessageSent,
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -126,8 +137,8 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.EventNameCCIPSendRequested: {
-					ChainSpecificName: mustGetEventName(consts.EventNameCCIPSendRequested, onrampABI),
+				consts.EventNameCCIPMessageSent: {
+					ChainSpecificName: mustGetEventName("CCIPMessageSent", onrampABI),
 					ReadType:          evmrelaytypes.Event,
 					EventDefinitions: &evmrelaytypes.EventDefinitions{
 						GenericDataWordNames: map[string]uint8{
@@ -140,37 +151,35 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 		consts.ContractNamePriceRegistry: {
 			ContractABI: fee_quoter.FeeQuoterABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
-				// TODO: update with the consts from https://github.com/smartcontractkit/chainlink-ccip/pull/39
-				// in a followup.
-				"GetStaticConfig": {
+				consts.MethodNamePriceRegistryGetStaticConfig: {
 					ChainSpecificName: mustGetMethodName("getStaticConfig", priceRegistryABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				"GetDestChainConfig": {
+				consts.MethodNameGetDestChainConfig: {
 					ChainSpecificName: mustGetMethodName("getDestChainConfig", priceRegistryABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				"GetPremiumMultiplierWeiPerEth": {
+				consts.MethodNameGetPremiumMultiplierWeiPerEth: {
 					ChainSpecificName: mustGetMethodName("getPremiumMultiplierWeiPerEth", priceRegistryABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				"GetTokenTransferFeeConfig": {
+				consts.MethodNameGetTokenTransferFeeConfig: {
 					ChainSpecificName: mustGetMethodName("getTokenTransferFeeConfig", priceRegistryABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				"ProcessMessageArgs": {
+				consts.MethodNameProcessMessageArgs: {
 					ChainSpecificName: mustGetMethodName("processMessageArgs", priceRegistryABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				"ProcessPoolReturnData": {
+				consts.MethodNameProcessPoolReturnData: {
 					ChainSpecificName: mustGetMethodName("processPoolReturnData", priceRegistryABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				"GetValidatedTokenPrice": {
+				consts.MethodNameGetValidatedTokenPrice: {
 					ChainSpecificName: mustGetMethodName("getValidatedTokenPrice", priceRegistryABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				"GetFeeTokens": {
+				consts.MethodNameGetFeeTokens: {
 					ChainSpecificName: mustGetMethodName("getFeeTokens", priceRegistryABI),
 					ReadType:          evmrelaytypes.Method,
 				},

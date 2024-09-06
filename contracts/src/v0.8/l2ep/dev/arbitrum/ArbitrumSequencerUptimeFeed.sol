@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.24;
 
 import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterface.sol";
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-import {FlagsInterface} from "../interfaces/FlagsInterface.sol";
-import {ArbitrumSequencerUptimeFeedInterface} from "../interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
+import {IFlags} from "../interfaces/IFlags.sol";
+import {ISequencerUptimeFeed} from "../interfaces/ISequencerUptimeFeed.sol";
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
 
 /**
@@ -18,8 +18,8 @@ import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAcces
  */
 contract ArbitrumSequencerUptimeFeed is
   AggregatorV2V3Interface,
-  ArbitrumSequencerUptimeFeedInterface,
-  TypeAndVersionInterface,
+  ISequencerUptimeFeed,
+  ITypeAndVersion,
   SimpleReadAccessController
 {
   /// @dev Round info (for uptime history)
@@ -62,7 +62,7 @@ contract ArbitrumSequencerUptimeFeed is
 
   /// @dev Flags contract to raise/lower flags on, during status transitions
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
-  FlagsInterface public immutable FLAGS;
+  IFlags public immutable FLAGS;
   /// @dev L1 address
   address private s_l1Sender;
   /// @dev s_latestRoundId == 0 means this contract is uninitialized.
@@ -76,7 +76,7 @@ contract ArbitrumSequencerUptimeFeed is
   constructor(address flagsAddress, address l1SenderAddress) {
     _setL1Sender(l1SenderAddress);
 
-    FLAGS = FlagsInterface(flagsAddress);
+    FLAGS = IFlags(flagsAddress);
   }
 
   /**
@@ -120,7 +120,7 @@ contract ArbitrumSequencerUptimeFeed is
    *
    * - ArbitrumSequencerUptimeFeed 1.0.0: initial release
    *
-   * @inheritdoc TypeAndVersionInterface
+   * @inheritdoc ITypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "ArbitrumSequencerUptimeFeed 1.0.0";
