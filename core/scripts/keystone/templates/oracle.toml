@@ -1,6 +1,6 @@
 type = "offchainreporting2"
 schemaVersion = 1
-name = "Aptos Keystone"
+name = "Keystone"
 contractID = "{{ ocr_config_contract_address }}"
 ocrKeyBundleID = "{{ ocr_key_bundle_id }}"
 p2pv2Bootstrappers = [
@@ -24,3 +24,4 @@ telemetryType = "plugin"
 strategyName = 'multi-chain'
 [onchainSigningStrategy.config]
 aptos = "{{ aptos_key_bundle_id }}"
+evm = "{{ ocr_key_bundle_id }}"

@@ -93,20 +93,24 @@ var (
 	}
 	targetDonPeers = []peer{
 		{
-			PeerID: "12D3KooWJrthXtnPHw7xyHFAxo6NxifYTvc8igKYaA6wRRRqtsMb",
-			Signer: "0x3F82750353Ea7a051ec9bA011BC628284f9a5327",
+			PeerID: "12D3KooWNBr1AD3vD3dzSLgg1tK56qyJoenDx7EYNnZpbr1g4jD6",
+			Signer: "a41f9a561ff2266d94240996a76f9c2b3b7d8184",
 		},
 		{
-			PeerID: "12D3KooWFQekP9sGex4XhqEJav5EScjTpDVtDqJFg1JvrePBCEGJ",
-			Signer: "0xc23545876A208AA0443B1b8d552c7be4FF4b53F0",
+			PeerID: "12D3KooWRRgWiZGw5GYsPa62CkwFNKJb5u4hWo4DinnvjG6GE6Nj",
+			Signer: "e4f3c7204776530fb7833db6f9dbfdb8bd0ec96892965324a71c20d6776f67f0",
 		},
 		{
-			PeerID: "12D3KooWFLEq4hYtdyKWwe47dXGEbSiHMZhmr5xLSJNhpfiEz8NF",
-			Signer: "0x82601Fa43d8B1dC1d4eB640451aC86a7CDA37011",
+			PeerID: "12D3KooWKwzgUHw5YbqUsYUVt3yiLSJcqc8ANofUtqHX6qTm7ox2",
+			Signer: "4071ea00e2e2c76b3406018ba9f66bf6b9aee3a6762e62ac823b1ee91ba7d7b0",
 		},
 		{
-			PeerID: "12D3KooWN2hztiXNNS1jMQTTvvPRYcarK1C7T3Mdqk4x4gwyo5WS",
-			Signer: "0x1a684B3d8f917fe496b7B1A8b29EDDAED64F649f",
+			PeerID: "12D3KooWBRux5o2bw1j3SQwEHzCspjkt7Xe3Y3agRUuab2SUnExj",
+			Signer: "6f5180c7d276876dbe413bf9b0efff7301d1367f39f4bac64180090cab70989b",
+		},
+		{
+			PeerID: "12D3KooWFqvDaMSDGa6eMSTF9en6G2c3ZbGLmaA5Xs3AgxVBPb8B",
+			Signer: "dbce9a6df8a04d54e52a109d01ee9b5d32873b1d2436cf7b7fae61fd6eca46f8",
 		},
 	}
 )
