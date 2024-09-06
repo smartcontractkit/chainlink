@@ -563,6 +563,15 @@ func (r *rpcClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmt
 	return channel, &poller, nil
 }
 
+func (r *rpcClient) SubscribeToNewHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
+	// TODO to replace the interval and timeout values
+	poller, channel := commonclient.NewPoller[*evmtypes.Head](time.Second, r.LatestFinalizedBlock, time.Second, r.rpcLog)
+	if err := poller.Start(ctx); err != nil {
+		return nil, nil, err
+	}
+	return channel, &poller, nil
+}
+
 // GethClient wrappers
 
 func (r *rpcClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *evmtypes.Receipt, err error) {
@@ -692,6 +701,28 @@ func (r *rpcClient) LatestFinalizedBlock(ctx context.Context) (head *evmtypes.He
 	head.EVMChainID = ubig.New(r.chainID)
 
 	r.onNewFinalizedHead(ctx, chStopInFlight, head)
+	return
+}
+
+func (r *rpcClient) LatestBlock(ctx context.Context) (head *evmtypes.Head, err error) {
+	// capture chStopInFlight to ensure we are not updating chainInfo with observations related to previous life cycle
+	ctx, cancel, chStopInFlight, _, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
+	defer cancel()
+
+	// TODO any special treatment for some chains ?
+	err = r.ethGetBlockByNumber(ctx, rpc.LatestBlockNumber.String(), &head)
+	if err != nil {
+		return
+	}
+
+	if head == nil {
+		err = r.wrapRPCClientError(ethereum.NotFound)
+		return
+	}
+
+	head.EVMChainID = ubig.New(r.chainID)
+
+	r.onNewHead(ctx, chStopInFlight, head)
 	return
 }
 

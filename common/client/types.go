@@ -80,6 +80,7 @@ type NodeClient[
 	// Ensure implementation does not have a race condition when values are reset before request completion and as
 	// a result latest ChainInfo contains information from the previous cycle.
 	GetInterceptedChainInfo() (latest, highestUserObservations ChainInfo)
+	SubscribeToNewHeads(_ context.Context) (<-chan HEAD, types.Subscription, error)
 }
 
 // clientAPI includes all the direct RPC methods required by the generalized common client to implement its own.
@@ -126,6 +127,7 @@ type clientAPI[
 	BlockByHash(ctx context.Context, hash BLOCK_HASH) (HEAD, error)
 	LatestBlockHeight(context.Context) (*big.Int, error)
 	LatestFinalizedBlock(ctx context.Context) (HEAD, error)
+	LatestBlock(context.Context) (HEAD, error)
 
 	// Events
 	FilterEvents(ctx context.Context, query EVENT_OPS) ([]EVENT, error)

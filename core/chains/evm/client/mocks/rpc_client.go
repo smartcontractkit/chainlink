@@ -1297,6 +1297,64 @@ func (_c *RPCClient_LINKBalance_Call) RunAndReturn(run func(context.Context, com
 	return _c
 }
 
+// LatestBlock provides a mock function with given fields: _a0
+func (_m *RPCClient) LatestBlock(_a0 context.Context) (*types.Head, error) {
+	ret := _m.Called(_a0)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LatestBlock")
+	}
+
+	var r0 *types.Head
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (*types.Head, error)); ok {
+		return rf(_a0)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) *types.Head); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Head)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// RPCClient_LatestBlock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LatestBlock'
+type RPCClient_LatestBlock_Call struct {
+	*mock.Call
+}
+
+// LatestBlock is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *RPCClient_Expecter) LatestBlock(_a0 interface{}) *RPCClient_LatestBlock_Call {
+	return &RPCClient_LatestBlock_Call{Call: _e.mock.On("LatestBlock", _a0)}
+}
+
+func (_c *RPCClient_LatestBlock_Call) Run(run func(_a0 context.Context)) *RPCClient_LatestBlock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *RPCClient_LatestBlock_Call) Return(_a0 *types.Head, _a1 error) *RPCClient_LatestBlock_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RPCClient_LatestBlock_Call) RunAndReturn(run func(context.Context) (*types.Head, error)) *RPCClient_LatestBlock_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // LatestBlockHeight provides a mock function with given fields: _a0
 func (_m *RPCClient) LatestBlockHeight(_a0 context.Context) (*big.Int, error) {
 	ret := _m.Called(_a0)
@@ -2083,6 +2141,73 @@ func (_c *RPCClient_SubscribeToHeads_Call) Return(ch <-chan *types.Head, sub com
 }
 
 func (_c *RPCClient_SubscribeToHeads_Call) RunAndReturn(run func(context.Context) (<-chan *types.Head, commontypes.Subscription, error)) *RPCClient_SubscribeToHeads_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SubscribeToNewHeads provides a mock function with given fields: _a0
+func (_m *RPCClient) SubscribeToNewHeads(_a0 context.Context) (<-chan *types.Head, commontypes.Subscription, error) {
+	ret := _m.Called(_a0)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SubscribeToNewHeads")
+	}
+
+	var r0 <-chan *types.Head
+	var r1 commontypes.Subscription
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context) (<-chan *types.Head, commontypes.Subscription, error)); ok {
+		return rf(_a0)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) <-chan *types.Head); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(<-chan *types.Head)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) commontypes.Subscription); ok {
+		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(commontypes.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(_a0)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// RPCClient_SubscribeToNewHeads_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeToNewHeads'
+type RPCClient_SubscribeToNewHeads_Call struct {
+	*mock.Call
+}
+
+// SubscribeToNewHeads is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *RPCClient_Expecter) SubscribeToNewHeads(_a0 interface{}) *RPCClient_SubscribeToNewHeads_Call {
+	return &RPCClient_SubscribeToNewHeads_Call{Call: _e.mock.On("SubscribeToNewHeads", _a0)}
+}
+
+func (_c *RPCClient_SubscribeToNewHeads_Call) Run(run func(_a0 context.Context)) *RPCClient_SubscribeToNewHeads_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *RPCClient_SubscribeToNewHeads_Call) Return(_a0 <-chan *types.Head, _a1 commontypes.Subscription, _a2 error) *RPCClient_SubscribeToNewHeads_Call {
+	_c.Call.Return(_a0, _a1, _a2)
+	return _c
+}
+
+func (_c *RPCClient_SubscribeToNewHeads_Call) RunAndReturn(run func(context.Context) (<-chan *types.Head, commontypes.Subscription, error)) *RPCClient_SubscribeToNewHeads_Call {
 	_c.Call.Return(run)
 	return _c
 }
