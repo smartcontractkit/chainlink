@@ -122,10 +122,7 @@ on:
         value: ${{ jobs.after_tests.outputs.test_results }}        
     secrets:
       TEST_SECRETS_OVERRIDE_BASE64:
-        required: false
-      # Use instead of slack_notification_after_tests_channel_id if channel id is secret
-      SLACK_NOTIFICATION_AFTER_TESTS_CHANNEL_ID:
-        required: false              
+        required: false        
       QA_AWS_REGION:
         required: true
       QA_AWS_ROLE_TO_ASSUME:
@@ -156,6 +153,9 @@ on:
         required: true
       SLACK_BOT_TOKEN:
         required: false
+      # Use instead of slack_notification_after_tests_channel_id if channel id is secret
+      SLACK_NOTIFICATION_AFTER_TESTS_CHANNEL_ID:
+        required: false        
       # Used in some tests to send slack notifications  
       SLACK_API_KEY:
         required: false
@@ -822,9 +822,14 @@ jobs:
     if: always()
     name: After tests
     runs-on: ubuntu-latest
+    # Set to access secrets like secrets.QA_SLACK_API_KEY that are set in the "integration" environment
+    environment: integration
     outputs:
       test_results: ${{ steps.set_test_results.outputs.results }}    
     steps:
+      - name: Echo SLACK_NOTIFICATION_AFTER_TESTS_CHANNEL_ID
+        run: echo ${{ secrets.SLACK_NOTIFICATION_AFTER_TESTS_CHANNEL_ID }}
+
       - name: Download all test result artifacts
         uses: actions/download-artifact@9c19ed7fe5d278cd354c7dfd5d3b88589c7e2395 # v4.1.6
         with:
