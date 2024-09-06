@@ -1,4 +1,4 @@
-package binding
+package read
 
 import (
 	"context"

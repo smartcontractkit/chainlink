@@ -44,13 +44,13 @@ type RegistrySyncer interface {
 
 type registrySyncer struct {
 	services.StateMachine
-	stopCh          services.StopChan
-	launchers       []Launcher
-	reader          types.ContractReader
-	initReader      func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, registryAddress string) (types.ContractReader, error)
-	relayer         ContractReaderFactory
-	registryAddress string
-	getPeerID       func() (p2ptypes.PeerID, error)
+	stopCh               services.StopChan
+	launchers            []Launcher
+	reader               types.ContractReader
+	initReader           func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error)
+	relayer              ContractReaderFactory
+	capabilitiesContract types.BoundContract
+	getPeerID            func() (p2ptypes.PeerID, error)
 
 	orm ORM
 
@@ -76,21 +76,24 @@ func New(
 	orm ORM,
 ) (RegistrySyncer, error) {
 	return &registrySyncer{
-		stopCh:          make(services.StopChan),
-		updateChan:      make(chan *LocalRegistry),
-		lggr:            lggr.Named("RegistrySyncer"),
-		relayer:         relayer,
-		registryAddress: registryAddress,
-		initReader:      newReader,
-		orm:             orm,
-		getPeerID:       getPeerID,
+		stopCh:     make(services.StopChan),
+		updateChan: make(chan *LocalRegistry),
+		lggr:       lggr.Named("RegistrySyncer"),
+		relayer:    relayer,
+		capabilitiesContract: types.BoundContract{
+			Address: registryAddress,
+			Name:    "CapabilitiesRegistry",
+		},
+		initReader: newReader,
+		orm:        orm,
+		getPeerID:  getPeerID,
 	}, nil
 }
 
 // NOTE: this can't be called while initializing the syncer and needs to be called in the sync loop.
 // This is because Bind() makes an onchain call to verify that the contract address exists, and if
 // called during initialization, this results in a "no live nodes" error.
-func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, remoteRegistryAddress string) (types.ContractReader, error) {
+func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error) {
 	contractReaderConfig := evmrelaytypes.ChainReaderConfig{
 		Contracts: map[string]evmrelaytypes.ChainContractReader{
 			"CapabilitiesRegistry": {
@@ -120,12 +123,7 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFa
 		return nil, err
 	}
 
-	err = cr.Bind(ctx, []types.BoundContract{
-		{
-			Address: remoteRegistryAddress,
-			Name:    "CapabilitiesRegistry",
-		},
-	})
+	err = cr.Bind(ctx, []types.BoundContract{capabilitiesContract})
 
 	return cr, err
 }
@@ -198,12 +196,8 @@ func (s *registrySyncer) updateStateLoop() {
 
 func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, error) {
 	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
-	binding := types.BoundContract{
-		Address: s.registryAddress,
-		Name:    "CapabilitiesRegistry",
-	}
 
-	err := s.reader.GetLatestValue(ctx, binding.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, nil, &caps)
+	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, nil, &caps)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +216,7 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 
 	dons := []kcr.CapabilitiesRegistryDONInfo{}
 
-	err = s.reader.GetLatestValue(ctx, binding.ReadIdentifier("getDONs"), primitives.Unconfirmed, nil, &dons)
+	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getDONs"), primitives.Unconfirmed, nil, &dons)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +243,7 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 
 	nodes := []kcr.CapabilitiesRegistryNodeInfo{}
 
-	err = s.reader.GetLatestValue(ctx, binding.ReadIdentifier("getNodes"), primitives.Unconfirmed, nil, &nodes)
+	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getNodes"), primitives.Unconfirmed, nil, &nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +272,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	if s.reader == nil {
-		reader, err := s.initReader(ctx, s.lggr, s.relayer, s.registryAddress)
+		reader, err := s.initReader(ctx, s.lggr, s.relayer, s.capabilitiesContract)
 		if err != nil {
 			return err
 		}

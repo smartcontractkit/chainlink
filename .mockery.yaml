@@ -326,7 +326,7 @@ packages:
     interfaces:
       ExternalInitiatorManager:
       HTTPClient:
-  github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/binding:
+  github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read:
     config:
       dir: "{{ .InterfaceDir }}/mocks"
     interfaces:

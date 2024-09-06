@@ -3,16 +3,17 @@
 package mocks
 
 import (
-	common "github.com/ethereum/go-ethereum/common"
-	binding "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/binding"
-
 	context "context"
+
+	common "github.com/ethereum/go-ethereum/common"
 
 	mock "github.com/stretchr/testify/mock"
 
 	primitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	query "github.com/smartcontractkit/chainlink-common/pkg/types/query"
+
+	read "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
 
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
 )
@@ -31,22 +32,22 @@ func (_m *Reader) EXPECT() *Reader_Expecter {
 }
 
 // BatchCall provides a mock function with given fields: address, params, retVal
-func (_m *Reader) BatchCall(address common.Address, params interface{}, retVal interface{}) (binding.Call, error) {
+func (_m *Reader) BatchCall(address common.Address, params interface{}, retVal interface{}) (read.Call, error) {
 	ret := _m.Called(address, params, retVal)
 
 	if len(ret) == 0 {
 		panic("no return value specified for BatchCall")
 	}
 
-	var r0 binding.Call
+	var r0 read.Call
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Address, interface{}, interface{}) (binding.Call, error)); ok {
+	if rf, ok := ret.Get(0).(func(common.Address, interface{}, interface{}) (read.Call, error)); ok {
 		return rf(address, params, retVal)
 	}
-	if rf, ok := ret.Get(0).(func(common.Address, interface{}, interface{}) binding.Call); ok {
+	if rf, ok := ret.Get(0).(func(common.Address, interface{}, interface{}) read.Call); ok {
 		r0 = rf(address, params, retVal)
 	} else {
-		r0 = ret.Get(0).(binding.Call)
+		r0 = ret.Get(0).(read.Call)
 	}
 
 	if rf, ok := ret.Get(1).(func(common.Address, interface{}, interface{}) error); ok {
@@ -78,12 +79,12 @@ func (_c *Reader_BatchCall_Call) Run(run func(address common.Address, params int
 	return _c
 }
 
-func (_c *Reader_BatchCall_Call) Return(_a0 binding.Call, _a1 error) *Reader_BatchCall_Call {
+func (_c *Reader_BatchCall_Call) Return(_a0 read.Call, _a1 error) *Reader_BatchCall_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Reader_BatchCall_Call) RunAndReturn(run func(common.Address, interface{}, interface{}) (binding.Call, error)) *Reader_BatchCall_Call {
+func (_c *Reader_BatchCall_Call) RunAndReturn(run func(common.Address, interface{}, interface{}) (read.Call, error)) *Reader_BatchCall_Call {
 	_c.Call.Return(run)
 	return _c
 }

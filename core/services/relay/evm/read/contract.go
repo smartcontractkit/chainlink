@@ -1,4 +1,4 @@
-package binding
+package read
 
 import (
 	"context"
@@ -66,13 +66,12 @@ func (cb *contractBinding) Bind(ctx context.Context, registrar Registrar, bindin
 		}
 	}
 
-	cb.registrar.SetName(logpoller.FilterName(cb.name + "." + uuid.NewString()))
-
 	for _, binding := range bindings {
 		if cb.bindingExists(binding) {
 			continue
 		}
 
+		cb.registrar.SetName(logpoller.FilterName(cb.name + "." + uuid.NewString()))
 		cb.registrar.AddAddress(binding)
 		cb.addBinding(binding)
 	}
@@ -193,7 +192,7 @@ func (cb *contractBinding) UnregisterReaders(ctx context.Context) error {
 	return nil
 }
 
-func (cb *contractBinding) WithFilter(filter logpoller.Filter) {
+func (cb *contractBinding) SetFilter(filter logpoller.Filter) {
 	cb.registrar.SetFilter(filter)
 }
 

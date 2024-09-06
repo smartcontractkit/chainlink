@@ -1,4 +1,4 @@
-package binding
+package read
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 
 	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
@@ -229,7 +230,7 @@ func (b *EventBinding) QueryKey(
 
 	remapped.Expressions = append(defaultExpressions, remapped.Expressions...)
 
-	logs, err := b.lp.FilteredLogs(ctx, remapped.Expressions, limitAndSort, b.contractName+"-"+e.address.String()+""+b.eventName)
+	logs, err := b.lp.FilteredLogs(ctx, remapped.Expressions, limitAndSort, b.contractName+"-"+address.String()+""+b.eventName)
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +243,7 @@ func (b *EventBinding) QueryKey(
 	return b.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
 }
 
-func (b *EventBinding) WithFilter(filter logpoller.Filter) {
+func (b *EventBinding) SetFilter(filter logpoller.Filter) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -347,7 +348,7 @@ func (b *EventBinding) getLatestValueWithFilters(
 	}
 
 	// Gets the latest log that matches the filter and limiter.
-	logs, err := b.lp.FilteredLogs(ctx, filter, limiter, b.contractName+"-"+address.String()+"-"+b.eventName)
+	logs, err := b.lp.FilteredLogs(ctx, filter.Expressions, limiter, b.contractName+"-"+address.String()+"-"+b.eventName)
 	if err != nil {
 		return wrapInternalErr(err)
 	}
@@ -434,7 +435,7 @@ func (b *EventBinding) derefTopics(topics []any) error {
 func (b *EventBinding) makeTopics(params []any) ([]common.Hash, error) {
 	// make topic value for non-fixed bytes array manually because geth MakeTopics doesn't support it
 	for i, topic := range params {
-		if abiArg := e.inputInfo.Args()[i]; abiArg.Type.T == abi.ArrayTy && (abiArg.Type.Elem != nil && abiArg.Type.Elem.T == abi.UintTy) {
+		if abiArg := b.inputInfo.Args()[i]; abiArg.Type.T == abi.ArrayTy && (abiArg.Type.Elem != nil && abiArg.Type.Elem.T == abi.UintTy) {
 			packed, err := abi.Arguments{abiArg}.Pack(topic)
 			if err != nil {
 				return nil, err

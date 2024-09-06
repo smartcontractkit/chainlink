@@ -1,4 +1,4 @@
-package binding_test
+package read_test
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/binding"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/binding/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read/mocks"
 )
 
 var (
@@ -27,7 +27,7 @@ var (
 	}
 )
 
-func TestNamedBinding(t *testing.T) {
+func TestBindingsRegistry(t *testing.T) {
 	t.Parallel()
 
 	t.Run("readers are addable, bindable, and retrievable", func(t *testing.T) {
@@ -39,7 +39,7 @@ func TestNamedBinding(t *testing.T) {
 
 		mRdr.EXPECT().Bind(mock.Anything, mock.Anything).Return(nil)
 
-		named := binding.NewNamedBindings()
+		named := read.NewBindingsRegistry()
 		named.SetBatchCaller(mBatch)
 
 		named.AddReader(contractName1, methodName1, mRdr)
@@ -61,7 +61,7 @@ func TestNamedBinding(t *testing.T) {
 		mRdr1 := new(mocks.Reader)
 		mReg := new(mocks.Registrar)
 
-		named := binding.NewNamedBindings()
+		named := read.NewBindingsRegistry()
 		named.SetBatchCaller(mBatch)
 
 		// register is called once through RegisterAll and again in Bind
@@ -80,7 +80,7 @@ func TestNamedBinding(t *testing.T) {
 		// part of the init phase of chain reader
 		named.AddReader(contractName1, methodName1, mRdr0)
 		named.AddReader(contractName1, methodName2, mRdr1)
-		named.WithFilter(contractName1, filterWithSigs)
+		_ = named.SetFilter(contractName1, filterWithSigs)
 
 		// run within the start phase of chain reader
 		require.NoError(t, named.RegisterAll(context.Background(), mReg))
