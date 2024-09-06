@@ -20,7 +20,7 @@ func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, cli
 	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient]
 	largePayloadRPCTimeout, defaultRPCTimeout := getRPCTimeouts(chainType)
 	for i, node := range nodes {
-		if node.SendOnly != nil && *node.SendOnly {
+		if node.WSURL == nil || (node.SendOnly != nil && *node.SendOnly) {
 			rpc := NewRPCClient(lggr, empty, (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID,
 				commonclient.Secondary, cfg.FinalizedBlockPollInterval(), largePayloadRPCTimeout, defaultRPCTimeout, chainType)
 			sendonly := commonclient.NewSendOnlyNode(lggr, (url.URL)(*node.HTTPURL),

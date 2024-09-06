@@ -75,6 +75,7 @@ var (
 			float64(8 * time.Second),
 		},
 	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly", "success", "rpcCallName"})
+	errSubscribeFilterLogsNotAllowedWithoutWS = errors.New("SubscribeFilterLogs is not allowed without ws url")
 )
 
 // RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
@@ -194,6 +195,10 @@ func NewRPCClient(
 func (r *rpcClient) Dial(callerCtx context.Context) error {
 	ctx, cancel := r.makeQueryCtx(callerCtx, r.rpcTimeout)
 	defer cancel()
+
+	if r.ws.uri.String() == "" {
+		return errors.New("websocket URI is empty")
+	}
 
 	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
 	lggr := r.rpcLog.With("wsuri", r.ws.uri.Redacted())
@@ -1215,6 +1220,9 @@ func (r *rpcClient) ClientVersion(ctx context.Context) (version string, err erro
 }
 
 func (r *rpcClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (_ ethereum.Subscription, err error) {
+	if r.ws.uri.String() == "" {
+		return nil, errSubscribeFilterLogsNotAllowedWithoutWS
+	}
 	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("q", q)

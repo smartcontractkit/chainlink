@@ -90,7 +90,7 @@ func TestNodeConfigs(t *testing.T) {
 		require.Len(t, tomlNodes, len(nodeConfigs))
 	})
 
-	t.Run("parsing missing ws url fails", func(t *testing.T) {
+	t.Run("ws is optional", func(t *testing.T) {
 		nodeConfigs := []client.NodeConfig{
 			{
 				Name:    ptr("foo1"),
@@ -98,7 +98,7 @@ func TestNodeConfigs(t *testing.T) {
 			},
 		}
 		_, err := client.ParseTestNodeConfigs(nodeConfigs)
-		require.Error(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("parsing missing http url fails", func(t *testing.T) {

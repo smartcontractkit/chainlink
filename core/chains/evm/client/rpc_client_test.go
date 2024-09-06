@@ -209,6 +209,14 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 	lggr := logger.Test(t)
 	ctx, cancel := context.WithTimeout(tests.Context(t), tests.WaitTimeout(t))
 	defer cancel()
+	t.Run("Failed SubscribeFilterLogs when WSURL is empty", func(t *testing.T) {
+		observedLggr, _ := logger.TestObserved(t, zap.DebugLevel)
+		rpcClient := client.NewRPCClient(observedLggr, url.URL{}, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		require.Error(t, rpcClient.Dial(ctx))
+
+		_, err := rpcClient.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, make(chan types.Log))
+		require.Error(t, err)
+	})
 	t.Run("Failed SubscribeFilterLogs logs and returns proper error", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, func(reqMethod string, reqParams gjson.Result) (resp testutils.JSONRPCResponse) {
 			return resp
