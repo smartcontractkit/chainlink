@@ -280,6 +280,18 @@ Address = ''
 NetworkID = 'evm'
 ChainID = '1'
 
+[Capabilities.GatewayConnector]
+ChainIDForNodeKey = ''
+NodeAddress = ''
+DonID = ''
+WSHandshakeTimeoutMillis = 0
+AuthMinChallengeLen = 0
+AuthTimestampToleranceSec = 0
+
+[[Capabilities.GatewayConnector.Gateways]]
+ID = ''
+URL = ''
+
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
 	- Password.Keystore: empty: must be provided and non-empty
