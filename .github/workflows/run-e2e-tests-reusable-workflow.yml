@@ -862,7 +862,7 @@ jobs:
             {
               "attachments": [
                 {
-                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || '#2E7D32' }}",
+                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || '#3fae55' }}",
                   "blocks": [
                     {
                       "type": "section",
