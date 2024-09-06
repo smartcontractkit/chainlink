@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,30 +23,28 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-var (
-	testNops = []kcr.CapabilitiesRegistryNodeOperator{
-		{
-			Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f22D6"),
-			Name:  "NOP_00",
-		},
-		{
-			Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f2200"),
-			Name:  "NOP_01",
-		},
-		{
-			Admin: common.HexToAddress("0x11dfBF967A8ec4C29Fe26aF2a33Eb485d02f22D6"),
-			Name:  "NOP_02",
-		},
-		{
-			Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f2222"),
-			Name:  "NOP_03",
-		},
-	}
-)
-
 func TestDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	t.Run("memory environment", func(t *testing.T) {
+		var testNops = []kcr.CapabilitiesRegistryNodeOperator{
+			{
+				Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f22D6"),
+				Name:  "NOP_00",
+			},
+			{
+				Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f2200"),
+				Name:  "NOP_01",
+			},
+			{
+				Admin: common.HexToAddress("0x11dfBF967A8ec4C29Fe26aF2a33Eb485d02f22D6"),
+				Name:  "NOP_02",
+			},
+			{
+				Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f2222"),
+				Name:  "NOP_03",
+			},
+		}
+
 		multDonCfg := memory.MemoryEnvironmentMultiDonConfig{
 			Configs: make(map[string]memory.MemoryEnvironmentConfig),
 		}
@@ -151,6 +150,29 @@ func TestDeploy(t *testing.T) {
 	t.Run("memory chains clo offchain", func(t *testing.T) {
 		wfNops := loadTestNops(t, "testdata/workflow_nodes.json")
 		cwNops := loadTestNops(t, "testdata/chain_writer_nodes.json")
+		var allNops []*models.NodeOperator
+		allNops = append(allNops, wfNops...)
+		allNops = append(allNops, cwNops...)
+
+		registryChainIdStr := "11155111"
+		var nodeToNop = make(map[string]kcr.CapabilitiesRegistryNodeOperator) //node -> nop
+		for _, nop := range allNops {
+			for _, node := range nop.Nodes {
+				// admin address is on the registry chain
+				found := false
+				for _, chain := range node.ChainConfigs {
+					if chain.Network.ChainID != registryChainIdStr {
+						continue
+					}
+
+					nodeToNop[node.ID] = kcr.CapabilitiesRegistryNodeOperator{
+						Admin: adminAddr(chain.AdminAddress),
+						Name:  nop.Name}
+					found = true
+				}
+				require.True(t, found, "no registry chain found for node %s", node.ID)
+			}
+		}
 
 		wfDon := clo.NewDonEnvWithMemoryChains(t, clo.DonEnvConfig{
 			DonName: keystone.WFDonName,
@@ -170,16 +192,6 @@ func TestDeploy(t *testing.T) {
 		}
 
 		menv := clo.NewMultiDonEnvironment(lggr, donToEnv)
-
-		var nodeToNop = make(map[string]kcr.CapabilitiesRegistryNodeOperator) //node -> nop
-		// assign nops to nodes
-		for _, env := range menv.DonToEnv {
-			for i, nodeID := range env.NodeIDs {
-				idx := i % len(testNops)
-				nop := testNops[idx]
-				nodeToNop[nodeID] = nop
-			}
-		}
 
 		var donsToDeploy = map[string][]kcr.CapabilitiesRegistryCapability{
 			keystone.WFDonName:     []kcr.CapabilitiesRegistryCapability{keystone.OCR3Cap},
@@ -214,4 +226,17 @@ func loadTestNops(t *testing.T, pth string) []*models.NodeOperator {
 	var nops []*models.NodeOperator
 	require.NoError(t, json.Unmarshal(f, &nops))
 	return nops
+}
+
+var emptyAddr = "0x0000000000000000000000000000000000000000"
+
+// compute the admin address from the string. If the address is empty, replaces the 0s with fs
+// contract registry disallows 0x0 as an admin address, but our test net nops use it
+func adminAddr(addr string) common.Address {
+	needsFixing := addr == emptyAddr
+	addr = strings.TrimPrefix(addr, "0x")
+	if needsFixing {
+		addr = strings.ReplaceAll(addr, "0", "f")
+	}
+	return common.HexToAddress(strings.TrimPrefix(addr, "0x"))
 }

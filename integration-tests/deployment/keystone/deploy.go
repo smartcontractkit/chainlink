@@ -196,6 +196,7 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 	lggr.Debug("unique node params", "params", uniqueNodeParams)
 	tx, err := registry.AddNodes(registryChain.DeployerKey, uniqueNodeParams)
 	if err != nil {
+		err = decodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNode: %w", err)
 	}
 	_, err = registryChain.Confirm(tx.Hash())
@@ -380,6 +381,7 @@ func registerNOPS(ctx context.Context, req registerNOPSRequest) (*registerNOPSRe
 	nops := req.nops
 	tx, err := req.registry.AddNodeOperators(req.chain.DeployerKey, nops)
 	if err != nil {
+		err = decodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
 	}
 	// for some reason that i don't understand, the confirm must be called before the WaitMined or the latter will hang
@@ -445,10 +447,10 @@ func defaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfi
 	}
 }
 
+// encodedABI is the abi of the contract that emitted the error
+// hexErrBytes is the hex encoded error data
+// returns an error that is the decoded error
 func parseContractErr(encodedABI string, hexErr string) error {
-	// abi is the abi of the contract that emitted the error
-	// hexErrBytes is the hex encoded error data
-	// returns an error that is the decoded error
 	hexErr = strings.TrimPrefix(hexErr, "0x")
 	errb, err := hex.DecodeString(hexErr)
 	if err != nil {
@@ -463,7 +465,6 @@ func parseContractErr(encodedABI string, hexErr string) error {
 		return fmt.Errorf("string error: %s", stringErr)
 	}
 	for errName, abierr := range parsedAbi.Errors {
-		fmt.Println("checking error", errName)
 		if bytes.Equal(errb[:4], abierr.ID.Bytes()[:4]) {
 			// matching error
 			v, err2 := abierr.Unpack(errb)
@@ -499,7 +500,6 @@ func nodeChainConfigsToOcr2Node(resp *v1.ListNodeChainConfigsResponse, id string
 
 // mapDonsToNodes returns a map of dons to their nodes
 func mapDonsToNodes(ctx context.Context, menv deployment.MultiDonEnvironment, excludeBootstraps bool) (map[string][]*ocr2Node, error) {
-	// todo cleanup types
 	donToOcr2Nodes := make(map[string][]*ocr2Node)
 	for donName, env := range menv.DonToEnv {
 		donNodeSet, err := env.Offchain.ListNodes(ctx, &v1.ListNodesRequest{}) // each env is a don
