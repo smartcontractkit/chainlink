@@ -268,6 +268,18 @@ Address = ''
 NetworkID = 'evm'
 ChainID = '1'
 
+[Capabilities.GatewayConnector]
+ChainIDForNodeKey = ''
+NodeAddress = ''
+DonID = ''
+WSHandshakeTimeoutMillis = 0
+AuthMinChallengeLen = 0
+AuthTimestampToleranceSec = 0
+
+[[Capabilities.GatewayConnector.Gateways]]
+ID = ''
+URL = ''
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true
