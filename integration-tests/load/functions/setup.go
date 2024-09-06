@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-resty/resty/v2"
@@ -19,8 +19,8 @@ import (
 
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
