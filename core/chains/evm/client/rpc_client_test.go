@@ -333,38 +333,38 @@ func TestRpcClientLargePayloadTimeout(t *testing.T) {
 
 	testCases := []struct {
 		Name string
-		Fn   func(ctx context.Context, rpc *client.RpcClient) error
+		Fn   func(ctx context.Context, rpc *client.RPCClient) error
 	}{
 		{
 			Name: "SendTransaction",
-			Fn: func(ctx context.Context, rpc *client.RpcClient) error {
+			Fn: func(ctx context.Context, rpc *client.RPCClient) error {
 				return rpc.SendTransaction(ctx, types.NewTx(&types.LegacyTx{}))
 			},
 		},
 		{
 			Name: "EstimateGas",
-			Fn: func(ctx context.Context, rpc *client.RpcClient) error {
+			Fn: func(ctx context.Context, rpc *client.RPCClient) error {
 				_, err := rpc.EstimateGas(ctx, ethereum.CallMsg{})
 				return err
 			},
 		},
 		{
 			Name: "CallContract",
-			Fn: func(ctx context.Context, rpc *client.RpcClient) error {
+			Fn: func(ctx context.Context, rpc *client.RPCClient) error {
 				_, err := rpc.CallContract(ctx, ethereum.CallMsg{}, nil)
 				return err
 			},
 		},
 		{
 			Name: "CallContext",
-			Fn: func(ctx context.Context, rpc *client.RpcClient) error {
+			Fn: func(ctx context.Context, rpc *client.RPCClient) error {
 				err := rpc.CallContext(ctx, nil, "rpc_call", nil)
 				return err
 			},
 		},
 		{
 			Name: "BatchCallContext",
-			Fn: func(ctx context.Context, rpc *client.RpcClient) error {
+			Fn: func(ctx context.Context, rpc *client.RPCClient) error {
 				err := rpc.BatchCallContext(ctx, nil)
 				return err
 			},

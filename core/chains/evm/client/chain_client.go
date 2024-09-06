@@ -102,9 +102,9 @@ func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc
 type chainClient struct {
 	multiNode *commonclient.MultiNode[
 		*big.Int,
-		*RpcClient,
+		*RPCClient,
 	]
-	txSender     *commonclient.TransactionSender[*types.Transaction, *big.Int, *RpcClient]
+	txSender     *commonclient.TransactionSender[*types.Transaction, *big.Int, *RPCClient]
 	logger       logger.SugaredLogger
 	chainType    chaintype.ChainType
 	clientErrors evmconfig.ClientErrors
@@ -114,15 +114,15 @@ func NewChainClient(
 	lggr logger.Logger,
 	selectionMode string,
 	leaseDuration time.Duration,
-	nodes []commonclient.Node[*big.Int, *RpcClient],
-	sendonlys []commonclient.SendOnlyNode[*big.Int, *RpcClient],
+	nodes []commonclient.Node[*big.Int, *RPCClient],
+	sendonlys []commonclient.SendOnlyNode[*big.Int, *RPCClient],
 	chainID *big.Int,
 	clientErrors evmconfig.ClientErrors,
 	deathDeclarationDelay time.Duration,
 	chainType chaintype.ChainType,
 ) Client {
 	chainFamily := "EVM"
-	multiNode := commonclient.NewMultiNode[*big.Int, *RpcClient](
+	multiNode := commonclient.NewMultiNode[*big.Int, *RPCClient](
 		lggr,
 		selectionMode,
 		leaseDuration,
@@ -137,7 +137,7 @@ func NewChainClient(
 		return ClassifySendError(err, clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
 	}
 
-	txSender := commonclient.NewTransactionSender[*types.Transaction, *big.Int, *RpcClient](
+	txSender := commonclient.NewTransactionSender[*types.Transaction, *big.Int, *RPCClient](
 		lggr,
 		chainID,
 		chainFamily,
@@ -185,13 +185,13 @@ func (c *chainClient) BatchCallContextAll(ctx context.Context, b []ethrpc.BatchE
 	// Select main RPC to use for return value
 	main, selectionErr := c.multiNode.SelectRPC()
 
-	doFunc := func(ctx context.Context, rpc *RpcClient, isSendOnly bool) {
+	doFunc := func(ctx context.Context, rpc *RPCClient, isSendOnly bool) {
 		if rpc == main {
 			return
 		}
 		// Parallel call made to all other nodes with ignored return value
 		wg.Add(1)
-		go func(rpc *RpcClient) {
+		go func(rpc *RPCClient) {
 			defer wg.Done()
 			err := rpc.BatchCallContext(ctx, b)
 			if err != nil {
