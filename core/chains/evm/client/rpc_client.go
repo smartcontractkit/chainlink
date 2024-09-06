@@ -196,34 +196,29 @@ func (r *rpcClient) Dial(callerCtx context.Context) error {
 	ctx, cancel := r.makeQueryCtx(callerCtx, r.rpcTimeout)
 	defer cancel()
 
-	if r.ws.uri.String() == "" {
-		return errors.New("websocket URI is empty")
+	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
+	lggr := r.rpcLog
+	if r.ws.uri.String() != "" {
+		lggr = lggr.With("wsuri", r.ws.uri.Redacted())
+		wsrpc, err := rpc.DialWebsocket(ctx, r.ws.uri.String(), "")
+		if err != nil {
+			promEVMPoolRPCNodeDialsFailed.WithLabelValues(r.chainID.String(), r.name).Inc()
+			return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing websocket: %v", r.ws.uri.Redacted()))
+		}
+
+		r.ws.rpc = wsrpc
+		r.ws.geth = ethclient.NewClient(wsrpc)
 	}
 
-	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
-	lggr := r.rpcLog.With("wsuri", r.ws.uri.Redacted())
+	lggr.Debugw("RPC dial: evmclient.Client#dial")
 	if r.http != nil {
 		lggr = lggr.With("httpuri", r.http.uri.Redacted())
-	}
-	lggr.Debugw("RPC dial: evmclient.Client#dial")
-
-	wsrpc, err := rpc.DialWebsocket(ctx, r.ws.uri.String(), "")
-	if err != nil {
-		promEVMPoolRPCNodeDialsFailed.WithLabelValues(r.chainID.String(), r.name).Inc()
-		return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing websocket: %v", r.ws.uri.Redacted()))
-	}
-
-	r.ws.rpc = wsrpc
-	r.ws.geth = ethclient.NewClient(wsrpc)
-
-	if r.http != nil {
 		if err := r.DialHTTP(); err != nil {
 			return err
 		}
 	}
 
 	promEVMPoolRPCNodeDialsSuccess.WithLabelValues(r.chainID.String(), r.name).Inc()
-
 	return nil
 }
 
