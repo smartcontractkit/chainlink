@@ -10,13 +10,13 @@ These workflows are designed to run automatically at crucial stages of the softw
 
 Run on every commit in a PR to ensure changes do not introduce regressions.
 
-Link: https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/integration-tests.yml
+[Link](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/integration-tests.yml)
 
 ### Nightly E2E Tests
 
 Conducted nightly to catch issues that may develop over time or with accumulated changes.
 
-Link: https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/run-nightly-e2e-tests.yml
+[Link](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/run-nightly-e2e-tests.yml)
 
 ### Release E2E Tests
 
