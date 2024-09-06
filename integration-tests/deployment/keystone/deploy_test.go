@@ -148,8 +148,8 @@ func TestDeploy(t *testing.T) {
 	})
 
 	t.Run("memory chains clo offchain", func(t *testing.T) {
-		wfNops := loadTestNops(t, "testdata/workflow_nodes.json")
-		cwNops := loadTestNops(t, "testdata/chain_writer_nodes.json")
+		wfNops := loadTestNops(t, "../clo/testdata/workflow_nodes.json")
+		cwNops := loadTestNops(t, "../clo/testdata/chain_writer_nodes.json")
 		var allNops []*models.NodeOperator
 		allNops = append(allNops, wfNops...)
 		allNops = append(allNops, cwNops...)

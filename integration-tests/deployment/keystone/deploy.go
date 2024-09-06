@@ -79,6 +79,9 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 	}
 
 	donToOcr2Nodes, err := mapDonsToNodes(ctx, req.Menv, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to map dons to nodes: %w", err)
+	}
 
 	donToNodeIDs := make(map[string][]string)
 	for donName, ocr2nodes := range donToOcr2Nodes {
@@ -184,7 +187,6 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 				}
 				params.HashedCapabilityIds = append(params.HashedCapabilityIds, newCapIds...)
 			}
-			//nopOnchainIDtoParams[nop.NodeOperatorId] = params
 			nodeIDToParams[n.ID] = params
 		}
 	}
@@ -368,8 +370,7 @@ func registerCapabilities(lggr logger.Logger, req registerCapabilitiesRequest) (
 type registerNOPSRequest struct {
 	chain    deployment.Chain
 	registry *capabilities_registry.CapabilitiesRegistry
-	//nodesets map[string][]liveNode // capabilities_registry.CapabilitiesRegistryNodeOperator // don id to node operators
-	nops []capabilities_registry.CapabilitiesRegistryNodeOperator
+	nops     []capabilities_registry.CapabilitiesRegistryNodeOperator
 }
 
 type registerNOPSResponse struct {
@@ -377,7 +378,6 @@ type registerNOPSResponse struct {
 }
 
 func registerNOPS(ctx context.Context, req registerNOPSRequest) (*registerNOPSResponse, error) {
-	//nops := uniqueNodeOperators(req.nodesets)
 	nops := req.nops
 	tx, err := req.registry.AddNodeOperators(req.chain.DeployerKey, nops)
 	if err != nil {
