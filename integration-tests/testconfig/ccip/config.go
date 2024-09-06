@@ -1,6 +1,17 @@
-package vrf
+package ccip
+
+import (
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+)
 
 type Config struct {
+	PrivateEthereumNetworks map[string]*ctfconfig.EthereumNetworkConfig `toml:",omitempty"`
+	CLNode                  *NodeConfig                                 `toml:",omitempty"`
+}
+
+type NodeConfig struct {
+	NoOfPluginNodes *int `toml:",omitempty"`
+	NoOfBootstraps  *int `toml:",omitempty"`
 }
 
 func (o *Config) Validate() error {

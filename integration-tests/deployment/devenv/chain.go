@@ -10,32 +10,25 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/sethvargo/go-retry"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type ChainConfig struct {
-	ChainId   uint64
-	ChainType string
-	// TODO : use a slice of rpc urls for failing over to the available rpcs
-	WsRpc       string
-	HttpRpc     string
-	DeployerKey *bind.TransactOpts
+	ChainId         uint64
+	ChainName       string
+	ChainType       string
+	WsRpcs          []string
+	HttpRpcs        []string
+	PrivateWsRpcs   []string // applicable for private chains only so that nodes within same cluster can connect internally
+	PrivateHttpRpcs []string // applicable for private chains only so that nodes within same cluster can connect internally
+	DeployerKey     *bind.TransactOpts
 }
 
 type RegistryConfig struct {
 	EVMChainID uint64
 	Contract   common.Address
-}
-
-func NewChainConfig(chainId uint64, wsRpc, httpRpc string, deployerKey *bind.TransactOpts) ChainConfig {
-	return ChainConfig{
-		ChainId:     chainId,
-		WsRpc:       wsRpc,
-		HttpRpc:     httpRpc,
-		DeployerKey: deployerKey,
-	}
 }
 
 func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployment.Chain, error) {
@@ -46,9 +39,18 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 			return nil, fmt.Errorf("failed to get selector from chain id %d: %w", chainCfg.ChainId, err)
 		}
 		// TODO : better client handling
-		ec, err := ethclient.Dial(chainCfg.WsRpc)
-		if err != nil {
-			return nil, fmt.Errorf("failed to dial ws rpc %s: %w", chainCfg.WsRpc, err)
+		var ec *ethclient.Client
+		for _, rpc := range chainCfg.WsRpcs {
+			ec, err = ethclient.Dial(rpc)
+			if err != nil {
+				logger.Warnf("failed to dial ws rpc %s", rpc)
+				continue
+			}
+			logger.Infof("connected to ws rpc %s", rpc)
+			break
+		}
+		if ec == nil {
+			return nil, fmt.Errorf("failed to connect to chain %s", chainCfg.ChainName)
 		}
 		chains[selector] = deployment.Chain{
 			Selector:    selector,
