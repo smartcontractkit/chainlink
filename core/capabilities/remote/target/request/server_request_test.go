@@ -241,7 +241,6 @@ type TestCapability struct {
 }
 
 func (t TestCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
-
 	value := request.Inputs.Underlying["executeValue1"]
 
 	response, err := values.NewMap(map[string]any{"response": value})

@@ -151,7 +151,6 @@ func Test_RemoteTargetCapability_RandomCapabilityError(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-
 		assert.Equal(t, "request expired", responseError.Error())
 	}
 
