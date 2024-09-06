@@ -82,7 +82,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Test Image
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu20.04-8cores-32GB
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -183,7 +183,7 @@ jobs:
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@94cb11f4bd545607a2f221c6685052b3abee723d # v2.3.32
         env:
-          TEST_SUITE: ccip-load
+          TEST_SUITE: load
           TEST_ARGS: -test.timeout 900h
           DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
           RR_MEM: 8Gi
