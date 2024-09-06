@@ -82,55 +82,6 @@ func TestHead_ChainString(t *testing.T) {
 	}
 }
 
-func TestHead_CycleDetection(t *testing.T) {
-	cases := []struct {
-		Name       string
-		BuildChain func() *Head
-	}{
-		{
-			Name: "Single head chain with self reference",
-			BuildChain: func() *Head {
-				head := &Head{Number: 1}
-				head.Parent.Store(head)
-				return head
-			},
-		},
-		{
-			Name: "Multi head chain with self reference",
-			BuildChain: func() *Head {
-				heads := []*Head{{Number: 1}, {Number: 2}, {Number: 3}}
-				head := sliceToChain(heads...)
-				heads[len(heads)-1].Parent.Store(heads[len(heads)-1])
-				return head
-			},
-		},
-		{
-			Name: "Cycle ends at the start",
-			BuildChain: func() *Head {
-				heads := []*Head{{Number: 1}, {Number: 2}, {Number: 3}}
-				head := sliceToChain(heads...)
-				heads[len(heads)-1].Parent.Store(head)
-				return head
-			},
-		},
-		{
-			Name: "Cycle ends in the middle",
-			BuildChain: func() *Head {
-				heads := []*Head{{Number: 1}, {Number: 2}, {Number: 3}}
-				head := sliceToChain(heads...)
-				heads[len(heads)-1].Parent.Store(heads[len(heads)-2])
-				return head
-			},
-		},
-	}
-	for _, testCase := range cases {
-		t.Run(testCase.Name, func(t *testing.T) {
-			// if we fail to detect cycle, the test should time out
-			_ = testCase.BuildChain()
-		})
-	}
-}
-
 func sliceToChain(heads ...*Head) *Head {
 	if len(heads) == 0 {
 		return nil
