@@ -18,8 +18,9 @@ import (
 )
 
 type deployedContracts struct {
-	OCRContract       common.Address `json:"ocrContract"`
-	ForwarderContract common.Address `json:"forwarderContract"`
+	OCRContract        common.Address `json:"ocrContract"`
+	ForwarderContract  common.Address `json:"forwarderContract"`
+	CapabilityRegsitry common.Address `json:"capabilityRegistry"`
 	// The block number of the transaction that set the config on the OCR3 contract. We use this to replay blocks from this point on
 	// when we load the OCR3 job specs on the nodes.
 	SetConfigTxBlock uint64 `json:"setConfigTxBlock"`
@@ -134,11 +135,7 @@ func deploy(
 		OCRContract:       ocrContract.Address(),
 		ForwarderContract: forwarderContract.Address(),
 	}
-	jsonBytes, err := json.Marshal(contracts)
-	PanicErr(err)
-
-	err = os.WriteFile(DeployedContractsFilePath(artefacts), jsonBytes, 0600)
-	PanicErr(err)
+	WriteDeployedContracts(contracts, artefacts)
 
 	setOCR3Config(env, ocrConfig, artefacts)
 
@@ -179,9 +176,13 @@ func setOCR3Config(
 
 	// Write blocknumber of the transaction to the deployed contracts file
 	loadedContracts.SetConfigTxBlock = receipt.BlockNumber.Uint64()
-	jsonBytes, err := json.Marshal(loadedContracts)
+	WriteDeployedContracts(loadedContracts, artefacts)
+}
+
+func WriteDeployedContracts(contracts deployedContracts, artefactsDir string) {
+	jsonBytes, err := json.Marshal(contracts)
 	PanicErr(err)
-	err = os.WriteFile(DeployedContractsFilePath(artefacts), jsonBytes, 0600)
+	err = os.WriteFile(DeployedContractsFilePath(artefactsDir), jsonBytes, 0600)
 	PanicErr(err)
 }
 
