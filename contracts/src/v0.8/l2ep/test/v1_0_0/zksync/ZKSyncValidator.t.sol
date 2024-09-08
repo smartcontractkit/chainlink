@@ -89,7 +89,7 @@ contract ZKSyncValidator_GetSetL2GasPerPubdataByteLimit is ZKSyncValidatorTest {
 
 contract ZKSyncValidator_GetChainId is ZKSyncValidatorTest {
   /// @notice it correctly gets the chain id
-  function test_CorrectlyGetsTheChainId() public {
+  function test_CorrectlyGetsTheChainId() public view {
     assertEq(s_zksyncValidator.getChainId(), MAIN_NET_CHAIN_ID);
   }
 }

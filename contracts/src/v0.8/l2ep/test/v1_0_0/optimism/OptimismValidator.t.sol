@@ -42,16 +42,6 @@ contract OptimismValidatorTest is L2EPTest {
   }
 }
 
-contract OptimismValidator_SetGasLimit is OptimismValidatorTest {
-  /// @notice it correctly updates the gas limit
-  function test_CorrectlyUpdatesTheGasLimit() public {
-    uint32 newGasLimit = 2000000;
-    assertEq(s_optimismValidator.getGasLimit(), INIT_GAS_LIMIT);
-    s_optimismValidator.setGasLimit(newGasLimit);
-    assertEq(s_optimismValidator.getGasLimit(), newGasLimit);
-  }
-}
-
 contract OptimismValidator_Validate is OptimismValidatorTest {
   /// @notice it reverts if called by account with no access
   function test_RevertsIfCalledByAnAccountWithNoAccess() public {

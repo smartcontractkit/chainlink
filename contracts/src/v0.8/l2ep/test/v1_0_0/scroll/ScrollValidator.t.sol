@@ -53,13 +53,19 @@ contract ScrollValidatorTest is L2EPTest {
   }
 }
 
-contract ScrollValidator_SetGasLimit is ScrollValidatorTest {
-  /// @notice it correctly updates the gas limit
-  function test_CorrectlyUpdatesTheGasLimit() public {
-    uint32 newGasLimit = 2000000;
-    assertEq(s_scrollValidator.getGasLimit(), INIT_GAS_LIMIT);
-    s_scrollValidator.setGasLimit(newGasLimit);
-    assertEq(s_scrollValidator.getGasLimit(), newGasLimit);
+contract ScrollSequencerUptimeFeed_Constructor is ScrollValidatorTest {
+  /// @notice it should have been deployed with the correct initial state
+  function test_InitialState() public {
+    // Sets msg.sender and tx.origin to a valid address
+    vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
+
+    vm.expectRevert("Invalid L1 message queue address");
+    new ScrollValidator(
+      address(s_mockScrollL1CrossDomainMessenger),
+      address(s_scrollSequencerUptimeFeed),
+      address(0),
+      INIT_GAS_LIMIT
+    );
   }
 }
 
