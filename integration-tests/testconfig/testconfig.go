@@ -365,13 +365,19 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		}
 	}
 
-	// it needs some custom logic, so we do it separately
-	err := testConfig.readNetworkConfiguration()
+	logger.Info().Msg("Setting env vars from testsecrets dot-env files")
+	err := ctf_config.LoadSecretEnvsFromFiles()
 	if err != nil {
-		return TestConfig{}, errors.Wrapf(err, "error reading network config")
+		return TestConfig{}, errors.Wrapf(err, "error reading test config values from ~/.testsecrets file")
 	}
 
-	logger.Info().Msg("Reading configs from Base64 override env var")
+	logger.Info().Msg("Reading config values from existing env vars")
+	err = testConfig.ReadFromEnvVar()
+	if err != nil {
+		return TestConfig{}, errors.Wrapf(err, "error reading test config values from env vars")
+	}
+
+	logger.Info().Msgf("Overriding config from %s env var", Base64OverrideEnvVarName)
 	configEncoded, isSet := os.LookupEnv(Base64OverrideEnvVarName)
 	if isSet && configEncoded != "" {
 		logger.Debug().Msgf("Found base64 config override environment variable '%s' found", Base64OverrideEnvVarName)
@@ -392,16 +398,9 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		logger.Debug().Msg("Base64 config override from environment variable not found")
 	}
 
-	logger.Info().Msg("Loading config values from default ~/.testsecrets env file")
-	err = ctf_config.LoadSecretEnvsFromFiles()
+	err = testConfig.readNetworkConfiguration()
 	if err != nil {
-		return TestConfig{}, errors.Wrapf(err, "error reading test config values from ~/.testsecrets file")
-	}
-
-	logger.Info().Msg("Reading values from environment variables")
-	err = testConfig.ReadFromEnvVar()
-	if err != nil {
-		return TestConfig{}, errors.Wrapf(err, "error reading test config values from env vars")
+		return TestConfig{}, errors.Wrapf(err, "error reading network config")
 	}
 
 	logger.Debug().Msg("Validating test config")
