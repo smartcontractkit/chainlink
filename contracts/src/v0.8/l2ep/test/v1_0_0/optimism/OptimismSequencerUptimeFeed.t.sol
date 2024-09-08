@@ -8,7 +8,11 @@ import {OptimismSequencerUptimeFeed} from "../../../dev/optimism/OptimismSequenc
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract OptimismSequencerUptimeFeedTestWrapper is OptimismSequencerUptimeFeed {
-  constructor(address l1SenderAddress, address l2CrossDomainMessengerAddr, bool initialStatus) OptimismSequencerUptimeFeed(l1SenderAddress, l2CrossDomainMessengerAddr, initialStatus) {}
+  constructor(
+    address l1SenderAddress,
+    address l2CrossDomainMessengerAddr,
+    bool initialStatus
+  ) OptimismSequencerUptimeFeed(l1SenderAddress, l2CrossDomainMessengerAddr, initialStatus) {}
 
   // Deploy this contract then call this method to test `myInternalMethod`.
   function validateSenderTestWrapper(address l1Sender) external view {
@@ -45,12 +49,8 @@ contract OptimismSequencerUptimeFeed_Constructor is OptimismSequencerUptimeFeedT
   function test_InitialState() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
-    
-    new OptimismSequencerUptimeFeedTestWrapper(
-      s_l1OwnerAddr,
-      address(s_mockOptimismL2CrossDomainMessenger),
-      false
-    );
+
+    new OptimismSequencerUptimeFeedTestWrapper(s_l1OwnerAddr, address(s_mockOptimismL2CrossDomainMessenger), false);
 
     // Checks L1 sender
     address actualL1Addr = s_optimismSequencerUptimeFeed.l1Sender();

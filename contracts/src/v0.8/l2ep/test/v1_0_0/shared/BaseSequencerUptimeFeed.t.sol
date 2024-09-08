@@ -7,7 +7,6 @@ import {MockBaseSequencerUptimeFeed} from "../../../test/mocks/MockBaseSequencer
 import {FeedConsumer} from "../../../../tests/FeedConsumer.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
-
 contract BaseSequencerUptimeFeedTest is L2EPTest {
   /// Helper Variables
   address internal s_aliasedL1OwnerAddress = AddressAliasHelper.applyL1ToL2Alias(s_l1OwnerAddr);
@@ -76,7 +75,11 @@ contract BaseSequencerUptimeFeed_UpdateStatus is BaseSequencerUptimeFeedTest {
     // Sets msg.sender and tx.origin to an unauthorized address
     vm.startPrank(s_strangerAddr, s_strangerAddr);
 
-    BaseSequencerUptimeFeed s_sequencerUptimeFeedFailSenderCheck = new MockBaseSequencerUptimeFeed(s_l1OwnerAddr, false, false);
+    BaseSequencerUptimeFeed s_sequencerUptimeFeedFailSenderCheck = new MockBaseSequencerUptimeFeed(
+      s_l1OwnerAddr,
+      false,
+      false
+    );
 
     // Tries to update the status from an unauthorized account
     vm.expectRevert(BaseSequencerUptimeFeed.InvalidSender.selector);

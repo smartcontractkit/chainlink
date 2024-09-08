@@ -31,21 +31,13 @@ contract BaseValidator_Constructor is BaseValidatorTest {
   /// @notice it correctly validates that the L1 bridge address is not zero
   function test_ConstructingRevertedWithZeroL1BridgeAddress() public {
     vm.expectRevert(BaseValidator.L1CrossDomainMessengerAddressZero.selector);
-    new MockBaseValidator(
-      address(0),
-      DUMMY_L2_UPTIME_FEED_ADDR,
-      INIT_GAS_LIMIT
-    );
+    new MockBaseValidator(address(0), DUMMY_L2_UPTIME_FEED_ADDR, INIT_GAS_LIMIT);
   }
 
   /// @notice it correctly validates that the L2 Uptime feed address is not zero
   function test_ConstructingRevertedWithZeroL2UpdateFeedAddress() public {
     vm.expectRevert(BaseValidator.L2UptimeFeedAddrZero.selector);
-    new MockBaseValidator(
-      DUMMY_L1_XDOMAIN_MSNGR_ADDR,
-      address(0),
-      INIT_GAS_LIMIT
-    );
+    new MockBaseValidator(DUMMY_L1_XDOMAIN_MSNGR_ADDR, address(0), INIT_GAS_LIMIT);
   }
 }
 
