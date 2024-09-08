@@ -33,7 +33,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 	callingDon := commoncap.DON{
 		Members: workflowPeers,
-		ID:      "workflow-don",
+		ID:      1,
 		F:       1,
 	}
 
@@ -58,7 +58,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Send duplicate message", func(t *testing.T) {
-		req := request.NewServerRequest(capability, "capabilityID", "capabilityDonID",
+		req := request.NewServerRequest(capability, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -68,7 +68,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Send message with non calling don peer", func(t *testing.T) {
-		req := request.NewServerRequest(capability, "capabilityID", "capabilityDonID",
+		req := request.NewServerRequest(capability, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -81,8 +81,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			Receiver:        capabilityPeerID[:],
 			MessageId:       []byte("workflowID" + "workflowExecutionID"),
 			CapabilityId:    "capabilityID",
-			CapabilityDonId: "capabilityDonID",
-			CallerDonId:     "workflow-don",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
 			Method:          types.MethodExecute,
 			Payload:         rawRequest,
 		})
@@ -91,7 +91,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Send message invalid payload", func(t *testing.T) {
-		req := request.NewServerRequest(capability, "capabilityID", "capabilityDonID",
+		req := request.NewServerRequest(capability, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -103,8 +103,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			Receiver:        capabilityPeerID[:],
 			MessageId:       []byte("workflowID" + "workflowExecutionID"),
 			CapabilityId:    "capabilityID",
-			CapabilityDonId: "capabilityDonID",
-			CallerDonId:     "workflow-don",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
 			Method:          types.MethodExecute,
 			Payload:         append(rawRequest, []byte("asdf")...),
 		})
@@ -116,7 +116,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 	t.Run("Send second valid request when capability errors", func(t *testing.T) {
 		dispatcher := &testDispatcher{}
-		req := request.NewServerRequest(TestErrorCapability{}, "capabilityID", "capabilityDonID",
+		req := request.NewServerRequest(TestErrorCapability{}, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -128,8 +128,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			Receiver:        capabilityPeerID[:],
 			MessageId:       []byte("workflowID" + "workflowExecutionID"),
 			CapabilityId:    "capabilityID",
-			CapabilityDonId: "capabilityDonID",
-			CallerDonId:     "workflow-don",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
 			Method:          types.MethodExecute,
 			Payload:         rawRequest,
 		})
@@ -143,7 +143,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 	t.Run("Send second valid request", func(t *testing.T) {
 		dispatcher := &testDispatcher{}
-		request := request.NewServerRequest(capability, "capabilityID", "capabilityDonID",
+		request := request.NewServerRequest(capability, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(request, workflowPeers, capabilityPeerID, rawRequest)
@@ -155,8 +155,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			Receiver:        capabilityPeerID[:],
 			MessageId:       []byte("workflowID" + "workflowExecutionID"),
 			CapabilityId:    "capabilityID",
-			CapabilityDonId: "capabilityDonID",
-			CallerDonId:     "workflow-don",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
 			Method:          types.MethodExecute,
 			Payload:         rawRequest,
 		})
@@ -179,8 +179,8 @@ func sendValidRequest(request serverRequest, workflowPeers []p2ptypes.PeerID, ca
 		Receiver:        capabilityPeerID[:],
 		MessageId:       []byte("workflowID" + "workflowExecutionID"),
 		CapabilityId:    "capabilityID",
-		CapabilityDonId: "capabilityDonID",
-		CallerDonId:     "workflow-don",
+		CapabilityDonId: 2,
+		CallerDonId:     1,
 		Method:          types.MethodExecute,
 		Payload:         rawRequest,
 	})
@@ -190,11 +190,31 @@ type testDispatcher struct {
 	msgs []*types.MessageBody
 }
 
-func (t *testDispatcher) SetReceiver(capabilityId string, donId string, receiver types.Receiver) error {
+func (t *testDispatcher) Name() string {
+	return "testDispatcher"
+}
+
+func (t *testDispatcher) Start(ctx context.Context) error {
 	return nil
 }
 
-func (t *testDispatcher) RemoveReceiver(capabilityId string, donId string) {}
+func (t *testDispatcher) Close() error {
+	return nil
+}
+
+func (t *testDispatcher) Ready() error {
+	return nil
+}
+
+func (t *testDispatcher) HealthReport() map[string]error {
+	return nil
+}
+
+func (t *testDispatcher) SetReceiver(capabilityId string, donId uint32, receiver types.Receiver) error {
+	return nil
+}
+
+func (t *testDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
 
 func (t *testDispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
 	t.msgs = append(t.msgs, msgBody)
@@ -220,24 +240,25 @@ type TestCapability struct {
 	abstractTestCapability
 }
 
-func (t TestCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
-	ch := make(chan commoncap.CapabilityResponse, 1)
-
+func (t TestCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
 	value := request.Inputs.Underlying["executeValue1"]
 
-	ch <- commoncap.CapabilityResponse{
-		Value: value,
+	response, err := values.NewMap(map[string]any{"response": value})
+	if err != nil {
+		return commoncap.CapabilityResponse{}, err
 	}
 
-	return ch, nil
+	return commoncap.CapabilityResponse{
+		Value: response,
+	}, nil
 }
 
 type TestErrorCapability struct {
 	abstractTestCapability
 }
 
-func (t TestErrorCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
-	return nil, errors.New("an error")
+func (t TestErrorCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
+	return commoncap.CapabilityResponse{}, errors.New("an error")
 }
 
 func NewP2PPeerID(t *testing.T) p2ptypes.PeerID {

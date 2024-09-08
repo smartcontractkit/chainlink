@@ -2,7 +2,7 @@ package remote
 
 import (
 	"context"
-	sync "sync"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -21,11 +22,12 @@ import (
 //
 // TriggerPublisher communicates with corresponding TriggerSubscribers on remote nodes.
 type triggerPublisher struct {
-	config        types.RemoteTriggerConfig
+	config        *capabilities.RemoteTriggerConfig
 	underlying    commoncap.TriggerCapability
 	capInfo       commoncap.CapabilityInfo
 	capDonInfo    commoncap.DON
-	workflowDONs  map[string]commoncap.DON
+	workflowDONs  map[uint32]commoncap.DON
+	membersCache  map[uint32]map[p2ptypes.PeerID]bool
 	dispatcher    types.Dispatcher
 	messageCache  *messageCache[registrationKey, p2ptypes.PeerID]
 	registrations map[registrationKey]*pubRegState
@@ -36,31 +38,44 @@ type triggerPublisher struct {
 }
 
 type registrationKey struct {
-	callerDonId string
+	callerDonId uint32
 	workflowId  string
 }
 
 type pubRegState struct {
-	callback <-chan commoncap.CapabilityResponse
-	request  commoncap.CapabilityRequest
+	callback <-chan commoncap.TriggerResponse
+	request  commoncap.TriggerRegistrationRequest
 }
 
 var _ types.Receiver = &triggerPublisher{}
 var _ services.Service = &triggerPublisher{}
 
-func NewTriggerPublisher(config types.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
+func NewTriggerPublisher(config *capabilities.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
+	if config == nil {
+		lggr.Info("no config provided, using default values")
+		config = &capabilities.RemoteTriggerConfig{}
+	}
 	config.ApplyDefaults()
+	membersCache := make(map[uint32]map[p2ptypes.PeerID]bool)
+	for id, don := range workflowDONs {
+		cache := make(map[p2ptypes.PeerID]bool)
+		for _, member := range don.Members {
+			cache[member] = true
+		}
+		membersCache[id] = cache
+	}
 	return &triggerPublisher{
 		config:        config,
 		underlying:    underlying,
 		capInfo:       capInfo,
 		capDonInfo:    capDonInfo,
 		workflowDONs:  workflowDONs,
+		membersCache:  membersCache,
 		dispatcher:    dispatcher,
 		messageCache:  NewMessageCache[registrationKey, p2ptypes.PeerID](),
 		registrations: make(map[registrationKey]*pubRegState),
 		stopCh:        make(services.StopChan),
-		lggr:          lggr,
+		lggr:          lggr.Named("TriggerPublisher"),
 	}
 }
 
@@ -71,17 +86,30 @@ func (p *triggerPublisher) Start(ctx context.Context) error {
 	return nil
 }
 
-func (p *triggerPublisher) Receive(msg *types.MessageBody) {
-	sender := ToPeerID(msg.Sender)
+func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
+	sender, err := ToPeerID(msg.Sender)
+	if err != nil {
+		p.lggr.Errorw("failed to convert message sender to PeerID", "err", err)
+		return
+	}
+
 	if msg.Method == types.MethodRegisterTrigger {
-		req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
+		req, err := pb.UnmarshalTriggerRegistrationRequest(msg.Payload)
 		if err != nil {
-			p.lggr.Errorw("failed to unmarshal capability request", "capabilityId", p.capInfo.ID, "err", err)
+			p.lggr.Errorw("failed to unmarshal trigger registration request", "capabilityId", p.capInfo.ID, "err", err)
 			return
 		}
 		callerDon, ok := p.workflowDONs[msg.CallerDonId]
 		if !ok {
 			p.lggr.Errorw("received a message from unsupported workflow DON", "capabilityId", p.capInfo.ID, "callerDonId", msg.CallerDonId)
+			return
+		}
+		if !p.membersCache[msg.CallerDonId][sender] {
+			p.lggr.Errorw("sender not a member of its workflow DON", "capabilityId", p.capInfo.ID, "callerDonId", msg.CallerDonId, "sender", sender)
+			return
+		}
+		if err = validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
+			p.lggr.Errorw("received trigger request with invalid workflow ID", "capabilityId", p.capInfo.ID, "workflowId", SanitizeLogString(req.Metadata.WorkflowID), "err", err)
 			return
 		}
 		p.lggr.Debugw("received trigger registration", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "sender", sender)
@@ -97,7 +125,7 @@ func (p *triggerPublisher) Receive(msg *types.MessageBody) {
 		}
 		// NOTE: require 2F+1 by default, introduce different strategies later (KS-76)
 		minRequired := uint32(2*callerDon.F + 1)
-		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-int64(p.config.RegistrationExpiryMs), false)
+		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-p.config.RegistrationExpiry.Milliseconds(), false)
 		if !ready {
 			p.lggr.Debugw("not ready to aggregate yet", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "minRequired", minRequired)
 			return
@@ -107,7 +135,7 @@ func (p *triggerPublisher) Receive(msg *types.MessageBody) {
 			p.lggr.Errorw("failed to aggregate trigger registrations", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "err", err)
 			return
 		}
-		unmarshaled, err := pb.UnmarshalCapabilityRequest(aggregated)
+		unmarshaled, err := pb.UnmarshalTriggerRegistrationRequest(aggregated)
 		if err != nil {
 			p.lggr.Errorw("failed to unmarshal request", "capabilityId", p.capInfo.ID, "err", err)
 			return
@@ -127,13 +155,13 @@ func (p *triggerPublisher) Receive(msg *types.MessageBody) {
 			p.lggr.Errorw("failed to register trigger", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "err", err)
 		}
 	} else {
-		p.lggr.Errorw("received trigger request with unknown method", "method", msg.Method, "sender", sender)
+		p.lggr.Errorw("received trigger request with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender)
 	}
 }
 
 func (p *triggerPublisher) registrationCleanupLoop() {
 	defer p.wg.Done()
-	ticker := time.NewTicker(time.Duration(p.config.RegistrationExpiryMs) * time.Millisecond)
+	ticker := time.NewTicker(p.config.RegistrationExpiry)
 	defer ticker.Stop()
 	for {
 		select {
@@ -141,10 +169,10 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 			return
 		case <-ticker.C:
 			now := time.Now().UnixMilli()
-			p.mu.RLock()
+			p.mu.Lock()
 			for key, req := range p.registrations {
 				callerDon := p.workflowDONs[key.callerDonId]
-				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-int64(p.config.RegistrationExpiryMs), false)
+				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-p.config.RegistrationExpiry.Milliseconds(), false)
 				if !ready {
 					p.lggr.Infow("trigger registration expired", "capabilityId", p.capInfo.ID, "callerDonID", key.callerDonId, "workflowId", key.workflowId)
 					ctx, cancel := p.stopCh.NewCtx()
@@ -156,12 +184,12 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 					p.messageCache.Delete(key)
 				}
 			}
-			p.mu.RUnlock()
+			p.mu.Unlock()
 		}
 	}
 }
 
-func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.CapabilityResponse, key registrationKey) {
+func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerResponse, key registrationKey) {
 	defer p.wg.Done()
 	for {
 		select {
@@ -172,14 +200,9 @@ func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.Capabili
 				p.lggr.Infow("triggerEventLoop channel closed", "capabilityId", p.capInfo.ID, "workflowId", key.workflowId)
 				return
 			}
-			triggerEvent := capabilities.TriggerEvent{}
-			err := response.Value.UnwrapTo(&triggerEvent)
-			if err != nil {
-				p.lggr.Errorw("can't unwrap trigger event", "capabilityId", p.capInfo.ID, "workflowId", key.workflowId, "err", err)
-				break
-			}
+			triggerEvent := response.Event
 			p.lggr.Debugw("received trigger event", "capabilityId", p.capInfo.ID, "workflowId", key.workflowId, "triggerEventID", triggerEvent.ID)
-			marshaled, err := pb.MarshalCapabilityResponse(response)
+			marshaled, err := pb.MarshalTriggerResponse(response)
 			if err != nil {
 				p.lggr.Debugw("can't marshal trigger event", "err", err)
 				break

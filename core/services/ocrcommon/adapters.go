@@ -87,12 +87,11 @@ type OCR3OnchainKeyringMultiChainAdapter struct {
 	lggr       logger.Logger
 }
 
-func NewOCR3OnchainKeyringMultiChainAdapter(ost map[string]ocr2key.KeyBundle, lggr logger.Logger) (*OCR3OnchainKeyringMultiChainAdapter, error) {
+func NewOCR3OnchainKeyringMultiChainAdapter(ost map[string]ocr2key.KeyBundle, publicKey ocrtypes.OnchainPublicKey, lggr logger.Logger) (*OCR3OnchainKeyringMultiChainAdapter, error) {
 	if len(ost) == 0 {
 		return nil, errors.New("no key bundles provided")
 	}
-	// We don't need to check for the existence of `publicKey` in the keyBundles map because it is required on validation on `validate/validate.go`
-	return &OCR3OnchainKeyringMultiChainAdapter{ost, ost["publicKey"].PublicKey(), lggr}, nil
+	return &OCR3OnchainKeyringMultiChainAdapter{ost, publicKey, lggr}, nil
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) PublicKey() ocrtypes.OnchainPublicKey {

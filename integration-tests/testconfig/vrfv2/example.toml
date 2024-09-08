@@ -31,6 +31,8 @@ bearer_token_secret="bearer_token"
 base_url="http://grafana.url"
 # url of your grafana dashboard (prefix and suffix "/" are stirpped), example: /d/ad61652-2712-1722/my-dashboard
 dashboard_url="/d/your-dashboard"
+# Grafana dashboard uid to annotate. Find it in Dashboard Settings -> JSON Model 
+dashboard_uid="dashboard-uid-to-annotate"
 bearer_token_secret="my-awesome-token"
 
 # if you want to use polygon_mumbial

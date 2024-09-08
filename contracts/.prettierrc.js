@@ -5,6 +5,7 @@ module.exports = {
   endOfLine: 'auto',
   tabWidth: 2,
   trailingComma: 'all',
+  plugins: ['prettier-plugin-solidity'],
   overrides: [
     {
       files: '*.sol',

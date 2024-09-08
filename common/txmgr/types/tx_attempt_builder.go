@@ -13,8 +13,6 @@ import (
 // TxAttemptBuilder takes the base unsigned transaction + optional parameters (tx type, gas parameters)
 // and returns a signed TxAttempt
 // it is able to estimate fees and sign transactions
-//
-//go:generate mockery --quiet --name TxAttemptBuilder --output ./mocks/ --case=underscore
 type TxAttemptBuilder[
 	CHAIN_ID types.ID, // CHAIN_ID - chain id type
 	HEAD types.Head[BLOCK_HASH], // HEAD - chain head type

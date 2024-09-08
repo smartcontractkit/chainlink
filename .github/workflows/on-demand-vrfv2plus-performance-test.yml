@@ -2,23 +2,28 @@ name: On Demand VRFV2 Plus Performance Test
 on:
   workflow_dispatch:
     inputs:
-      base64Config:
-        description: base64-ed config
-        required: true
-        type: string          
       performanceTestType:
         description: Performance Test Type of test to run
-        type: choice
-        options:
-          - "Smoke"
-          - "Soak"
-          - "Load"
-          - "Stress"
-          - "Spike"
+        type: string
+        required: true
       test_list_regex:
         description: "Regex for tests to run"
         required: false
         default: "(TestVRFV2PlusPerformance)"
+      test_config_override_path:
+        description: Path to a test config file used to override the default test config
+        required: false
+        type: string               
+      test_secrets_override_key:
+        description: 'Key to run tests with custom test secrets'
+        required: false
+        type: string 
+      chainlink_version:
+        description: Chainlink image version to use
+        default: develop
+        required: false
+        type: string        
+
 jobs:
   vrfv2plus_performance_test:
     name: VRFV2 Plus Performance Test
@@ -57,31 +62,36 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           fetch-depth: 0
-      - name: Mask base64 config
+      - name: Show test config override path in summary
+        if: ${{ inputs.test_config_override_path }}
         run: |
-          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV          
-      - name: Merge and export base64 config
-        uses: ./.github/actions/setup-merge-base64-config
-        with:
-          base64Config: ${{ env.BASE64_CONFIG_OVERRIDE }}
-      - name: Send details to Step Summary
-        shell: bash
+          echo "### Test config override path" >> $GITHUB_STEP_SUMMARY
+          echo "[${{ inputs.test_config_override_path }}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/${{ github.sha }}/${{ inputs.test_config_override_path }})" >> $GITHUB_STEP_SUMMARY
+      - name: Show test secrets override key in summary
+        if: ${{ inputs.test_secrets_override_key }}
         run: |
-          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.CHAINLINK_IMAGE }}\`" >>$GITHUB_STEP_SUMMARY
-          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
-          echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY                
+          echo "### Test secrets override key" >> $GITHUB_STEP_SUMMARY
+          echo "${{ inputs.test_secrets_override_key }}" >> $GITHUB_STEP_SUMMARY           
+      - name: Show chainlink version in summary
+        run: |
+          echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
+          echo "${{ inputs.chainlink_version }}" >> $GITHUB_STEP_SUMMARY                  
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@94cb11f4bd545607a2f221c6685052b3abee723d # v2.3.32
+        env:
+          E2E_TEST_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+          E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_version }} # Default chainlink version if not overrided in the test config 
+          E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          E2E_TEST_GRAFANA_BASE_URL: "http://localhost:8080/primary"
+          E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          E2E_TEST_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
         with:
           test_command_to_run: cd ./integration-tests/load && go test -v -count=1 -timeout 24h -run "${{ inputs.test_list_regex }}" ./vrfv2plus
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ env.CHAINLINK_VERSION }}
+          test_secrets_override_base64: ${{ secrets[inputs.test_secrets_override_key] }}
+          test_config_override_path: ${{ inputs.test_config_override_path }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: vrf-test-logs
           artifacts_location: ./integration-tests/load/vrfv2plus/logs/

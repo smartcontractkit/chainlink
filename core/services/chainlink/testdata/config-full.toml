@@ -6,6 +6,8 @@ ShutdownGracePeriod = '10s'
 FeedsManager = true
 LogPoller = true
 UICSAKeys = true
+CCIP = true
+MultiFeedsManagers = true
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
@@ -232,6 +234,8 @@ env = 'dev'
 test = 'load'
 
 [Mercury]
+VerboseLogging = true
+
 [Mercury.Cache]
 LatestReportTTL = '1m40s'
 MaxStaleAge = '1m41s'
@@ -259,6 +263,33 @@ DeltaDial = '1m0s'
 DeltaReconcile = '2s'
 ListenAddresses = ['foo', 'bar']
 
+[Capabilities.Dispatcher]
+SupportedVersion = 1
+ReceiverBufferSize = 10000
+
+[Capabilities.Dispatcher.RateLimit]
+GlobalRPS = 800.0
+GlobalBurst = 1000
+PerSenderRPS = 10.0
+PerSenderBurst = 50
+
+[Capabilities.ExternalRegistry]
+Address = ''
+NetworkID = 'evm'
+ChainID = '1'
+
+[Capabilities.GatewayConnector]
+ChainIDForNodeKey = '11155111'
+NodeAddress = '0x68902d681c28119f9b2531473a417088bf008e59'
+DonID = 'example_don'
+WSHandshakeTimeoutMillis = 100
+AuthMinChallengeLen = 10
+AuthTimestampToleranceSec = 10
+
+[[Capabilities.GatewayConnector.Gateways]]
+ID = 'example_gateway'
+URL = 'wss://localhost:8081/node'
+
 [[EVM]]
 ChainID = '1'
 Enabled = false
@@ -282,6 +313,8 @@ NoNewHeadsThreshold = '1m0s'
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
+FinalizedBlockOffset = 16
+NoNewFinalizedHeadsThreshold = '1h0m0s'
 
 [EVM.Transactions]
 ForwardersEnabled = true
@@ -306,6 +339,7 @@ LimitDefault = 12
 LimitMax = 17
 LimitMultiplier = '1.234'
 LimitTransfer = 100
+EstimateLimit = false
 BumpMin = '100 wei'
 BumpPercent = 10
 BumpThreshold = 6
@@ -331,6 +365,9 @@ CheckInclusionPercentile = 19
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
+[EVM.GasEstimator.FeeHistory]
+CacheTimeout = '1s'
+
 [EVM.HeadTracker]
 HistoryDepth = 15
 MaxBufferSize = 17
@@ -352,6 +389,8 @@ SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'
@@ -368,6 +407,7 @@ L2Full = '(: |^)l2 full'
 TransactionAlreadyMined = '(: |^)transaction already mined'
 Fatal = '(: |^)fatal'
 ServiceUnavailable = '(: |^)service unavailable'
+TooManyResults = '(: |^)too many results'
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -380,6 +420,9 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2]
 [EVM.OCR2.Automation]
 GasLimit = 540
+
+[EVM.Workflow]
+GasLimitDefault = 400000
 
 [[EVM.Nodes]]
 Name = 'foo'

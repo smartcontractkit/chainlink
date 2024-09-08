@@ -15,8 +15,6 @@ import (
 	pb "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
 )
 
-//go:generate mockery --quiet --name ConnectionsManager --output ./mocks/ --case=underscore
-
 type ConnectionsManager interface {
 	Connect(opts ConnectOpts)
 	Disconnect(id int64) error

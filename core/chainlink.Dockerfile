@@ -1,5 +1,5 @@
 # Build image: Chainlink binary
-FROM golang:1.21-bullseye as buildgo
+FROM golang:1.22-bullseye as buildgo
 RUN go version
 WORKDIR /chainlink
 
@@ -31,7 +31,7 @@ RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds | xargs
 RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana | xargs -I % ln -s % /chainlink-solana
 
 # Build image: Plugins
-FROM golang:1.21-bullseye as buildplugins
+FROM golang:1.22-bullseye as buildplugins
 RUN go version
 
 WORKDIR /chainlink-feeds

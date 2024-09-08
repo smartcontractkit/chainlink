@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
@@ -21,8 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_load_test_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 )
 
 type VRF interface {
@@ -78,6 +76,8 @@ type VRFCoordinatorV2 interface {
 	WaitForConfigSetEvent(timeout time.Duration) (*CoordinatorConfigSet, error)
 	OracleWithdraw(recipient common.Address, amount *big.Int) error
 	GetBlockHashStoreAddress(ctx context.Context) (common.Address, error)
+	GetLinkAddress(ctx context.Context) (common.Address, error)
+	GetLinkNativeFeed(ctx context.Context) (common.Address, error)
 }
 
 type VRFCoordinatorV2_5 interface {
@@ -123,6 +123,9 @@ type VRFCoordinatorV2_5 interface {
 	ParseRandomWordsFulfilled(log types.Log) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForConfigSetEvent(timeout time.Duration) (*CoordinatorConfigSet, error)
 	GetBlockHashStoreAddress(ctx context.Context) (common.Address, error)
+	GetLinkAddress(ctx context.Context) (common.Address, error)
+	GetLinkNativeFeed(ctx context.Context) (common.Address, error)
+	GetConfig(ctx context.Context) (vrf_coordinator_v2_5.SConfig, error)
 }
 
 type VRFCoordinatorV2PlusUpgradedVersion interface {
@@ -320,47 +323,6 @@ type VRFv2PlusWrapperLoadTestConsumer interface {
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
 	GetWrapper(ctx context.Context) (common.Address, error)
 	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)
-}
-
-type DKG interface {
-	Address() string
-	AddClient(keyID string, clientAddress string) error
-	SetConfig(
-		signerAddresses []common.Address,
-		transmitterAddresses []common.Address,
-		f uint8,
-		onchainConfig []byte,
-		offchainConfigVersion uint64,
-		offchainConfig []byte,
-	) error
-	WaitForConfigSetEvent(timeout time.Duration) (*dkg.DKGConfigSet, error)
-	WaitForTransmittedEvent(timeout time.Duration) (*dkg.DKGTransmitted, error)
-}
-
-type VRFCoordinatorV3 interface {
-	Address() string
-	SetProducer(producerAddress string) error
-	CreateSubscription() error
-	FindSubscriptionID() (*big.Int, error)
-	AddConsumer(subId *big.Int, consumerAddress string) error
-	SetConfig(maxCallbackGasLimit, maxCallbackArgumentsLength uint32) error
-}
-
-type VRFBeacon interface {
-	Address() string
-	SetPayees(transmitterAddresses []common.Address, payeesAddresses []common.Address) error
-	SetConfig(
-		signerAddresses []common.Address,
-		transmitterAddresses []common.Address,
-		f uint8,
-		onchainConfig []byte,
-		offchainConfigVersion uint64,
-		offchainConfig []byte,
-	) error
-	WaitForConfigSetEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconConfigSet, error)
-	WaitForNewTransmissionEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconNewTransmission, error)
-	LatestConfigDigestAndEpoch(ctx context.Context) (vrf_beacon.LatestConfigDigestAndEpoch,
-		error)
 }
 
 type VRFBeaconConsumer interface {

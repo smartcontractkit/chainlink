@@ -258,7 +258,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 	require.NoError(t, app.BridgeORM().CreateBridgeType(ctx, bt))
 
 	body := fmt.Sprintf(`{"name": "%s","url":"http://yourbridge"}`, bridgeName)
-	ud := bytes.NewBuffer([]byte(body))
+	ud := bytes.NewBufferString(body)
 	resp, cleanup := client.Patch("/v2/bridge_types/"+bridgeName, ud)
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)

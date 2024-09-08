@@ -28,8 +28,6 @@ type SnapshotRow struct {
 	PayloadSize uint64
 }
 
-//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
-
 // ORM represents S4 persistence layer.
 // All functions are thread-safe.
 type ORM interface {

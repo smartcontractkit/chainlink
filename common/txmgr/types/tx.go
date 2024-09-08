@@ -22,8 +22,6 @@ import (
 )
 
 // TxStrategy controls how txes are queued and sent
-//
-//go:generate mockery --quiet --name TxStrategy --output ./mocks/ --case=underscore --structname TxStrategy --filename tx_strategy.go
 type TxStrategy interface {
 	// Subject will be saved txes.subject if not null
 	Subject() uuid.NullUUID
@@ -338,4 +336,11 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetChecker() (Transm
 	}
 
 	return t, nil
+}
+
+// Provides error classification to external components in a chain agnostic way
+// Only exposes the error types that could be set in the transaction error field
+type ErrorClassifier interface {
+	error
+	IsFatal() bool
 }

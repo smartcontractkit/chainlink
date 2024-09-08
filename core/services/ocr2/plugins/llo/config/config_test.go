@@ -62,6 +62,7 @@ func Test_Config(t *testing.T) {
 			rawToml := fmt.Sprintf(`
 				ServerURL = "example.com:80"
 				ServerPubKey = "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93"
+				DonID = 12345
 				ChannelDefinitions = """
 %s
 """`, cdjson)
@@ -73,6 +74,7 @@ func Test_Config(t *testing.T) {
 			assert.Equal(t, "example.com:80", mc.RawServerURL)
 			assert.Equal(t, "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93", mc.ServerPubKey.String())
 			assert.JSONEq(t, cdjson, mc.ChannelDefinitions)
+			assert.Equal(t, uint32(12345), mc.DonID)
 			assert.False(t, mc.BenchmarkMode)
 
 			err = mc.Validate()
@@ -80,6 +82,7 @@ func Test_Config(t *testing.T) {
 		})
 		t.Run("with only channelDefinitions contract details", func(t *testing.T) {
 			rawToml := `
+			DonID = 12345
 			ServerURL = "example.com:80"
 			ServerPubKey = "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93"
 			ChannelDefinitionsContractAddress = "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"`
@@ -91,6 +94,7 @@ func Test_Config(t *testing.T) {
 			assert.Equal(t, "example.com:80", mc.RawServerURL)
 			assert.Equal(t, "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93", mc.ServerPubKey.String())
 			assert.Equal(t, "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF", mc.ChannelDefinitionsContractAddress.Hex())
+			assert.Equal(t, uint32(12345), mc.DonID)
 			assert.False(t, mc.BenchmarkMode)
 
 			err = mc.Validate()
@@ -99,7 +103,9 @@ func Test_Config(t *testing.T) {
 		t.Run("with missing ChannelDefinitionsContractAddress", func(t *testing.T) {
 			rawToml := `
 			ServerURL = "example.com:80"
-			ServerPubKey = "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93"`
+			ServerPubKey = "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93"
+			DonID = 12345
+			`
 
 			var mc PluginConfig
 			err := toml.Unmarshal([]byte(rawToml), &mc)
@@ -107,6 +113,7 @@ func Test_Config(t *testing.T) {
 
 			assert.Equal(t, "example.com:80", mc.RawServerURL)
 			assert.Equal(t, "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93", mc.ServerPubKey.String())
+			assert.Equal(t, uint32(12345), mc.DonID)
 			assert.False(t, mc.BenchmarkMode)
 
 			err = mc.Validate()

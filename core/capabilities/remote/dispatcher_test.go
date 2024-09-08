@@ -1,19 +1,22 @@
 package remote_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	commonMocks "github.com/smartcontractkit/chainlink-common/pkg/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
+
+	commonMocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 )
 
 type testReceiver struct {
@@ -26,8 +29,49 @@ func newReceiver() *testReceiver {
 	}
 }
 
-func (r *testReceiver) Receive(msg *remotetypes.MessageBody) {
+func (r *testReceiver) Receive(_ context.Context, msg *remotetypes.MessageBody) {
 	r.ch <- msg
+}
+
+type testRateLimitConfig struct {
+	globalRPS   float64
+	globalBurst int
+	rps         float64
+	burst       int
+}
+
+func (c testRateLimitConfig) GlobalRPS() float64 {
+	return c.globalRPS
+}
+
+func (c testRateLimitConfig) GlobalBurst() int {
+	return c.globalBurst
+}
+
+func (c testRateLimitConfig) PerSenderRPS() float64 {
+	return c.rps
+}
+
+func (c testRateLimitConfig) PerSenderBurst() int {
+	return c.burst
+}
+
+type testConfig struct {
+	supportedVersion   int
+	receiverBufferSize int
+	rateLimit          testRateLimitConfig
+}
+
+func (c testConfig) SupportedVersion() int {
+	return c.supportedVersion
+}
+
+func (c testConfig) ReceiverBufferSize() int {
+	return c.receiverBufferSize
+}
+
+func (c testConfig) RateLimit() config.DispatcherRateLimit {
+	return c.rateLimit
 }
 
 func TestDispatcher_CleanStartClose(t *testing.T) {
@@ -42,7 +86,17 @@ func TestDispatcher_CleanStartClose(t *testing.T) {
 	signer := mocks.NewSigner(t)
 	registry := commonMocks.NewCapabilitiesRegistry(t)
 
-	dispatcher := remote.NewDispatcher(wrapper, signer, registry, lggr)
+	dispatcher, err := remote.NewDispatcher(testConfig{
+		supportedVersion:   1,
+		receiverBufferSize: 10000,
+		rateLimit: testRateLimitConfig{
+			globalRPS:   800.0,
+			globalBurst: 100,
+			rps:         10.0,
+			burst:       50,
+		},
+	}, wrapper, signer, registry, lggr)
+	require.NoError(t, err)
 	require.NoError(t, dispatcher.Start(ctx))
 	require.NoError(t, dispatcher.Close())
 }
@@ -63,11 +117,21 @@ func TestDispatcher_Receive(t *testing.T) {
 	signer.On("Sign", mock.Anything).Return(nil, errors.New("not implemented"))
 	registry := commonMocks.NewCapabilitiesRegistry(t)
 
-	dispatcher := remote.NewDispatcher(wrapper, signer, registry, lggr)
+	dispatcher, err := remote.NewDispatcher(testConfig{
+		supportedVersion:   1,
+		receiverBufferSize: 10000,
+		rateLimit: testRateLimitConfig{
+			globalRPS:   800.0,
+			globalBurst: 100,
+			rps:         10.0,
+			burst:       50,
+		},
+	}, wrapper, signer, registry, lggr)
+	require.NoError(t, err)
 	require.NoError(t, dispatcher.Start(ctx))
 
 	rcv := newReceiver()
-	err := dispatcher.SetReceiver(capId1, donId1, rcv)
+	err = dispatcher.SetReceiver(capId1, donId1, rcv)
 	require.NoError(t, err)
 
 	// supported capability
@@ -111,7 +175,17 @@ func TestDispatcher_RespondWithError(t *testing.T) {
 	signer.On("Sign", mock.Anything).Return([]byte{}, nil)
 	registry := commonMocks.NewCapabilitiesRegistry(t)
 
-	dispatcher := remote.NewDispatcher(wrapper, signer, registry, lggr)
+	dispatcher, err := remote.NewDispatcher(testConfig{
+		supportedVersion:   1,
+		receiverBufferSize: 10000,
+		rateLimit: testRateLimitConfig{
+			globalRPS:   800.0,
+			globalBurst: 100,
+			rps:         10.0,
+			burst:       50,
+		},
+	}, wrapper, signer, registry, lggr)
+	require.NoError(t, err)
 	require.NoError(t, dispatcher.Start(ctx))
 
 	// unknown capability

@@ -19,7 +19,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
 
@@ -51,6 +50,7 @@ type DelegateConfig struct {
 
 	// LLO
 	ChannelDefinitionCache llotypes.ChannelDefinitionCache
+	ReportingPluginConfig  llo.Config
 
 	// OCR3
 	BinaryNetworkEndpointFactory ocr2types.BinaryNetworkEndpointFactory
@@ -76,11 +76,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	if cfg.Registry == nil {
 		return nil, errors.New("Registry must not be nil")
 	}
-	codecs := make(map[llotypes.ReportFormat]llo.ReportCodec)
-
-	// NOTE: All codecs must be specified here
-	codecs[llotypes.ReportFormatJSON] = llo.JSONReportCodec{}
-	codecs[llotypes.ReportFormatEVM] = evm.ReportCodec{}
+	codecs := NewCodecs()
 
 	// TODO: Do these services need starting?
 	// https://smartcontract-it.atlassian.net/browse/MERC-3386
@@ -107,7 +103,7 @@ func (d *delegate) Start(ctx context.Context) error {
 			OffchainKeyring:              d.cfg.OffchainKeyring,
 			OnchainKeyring:               d.cfg.OnchainKeyring,
 			ReportingPluginFactory: llo.NewPluginFactory(
-				d.prrc, d.src, d.cfg.ChannelDefinitionCache, d.ds, d.cfg.Logger.Named("LLOReportingPlugin"), d.codecs,
+				d.cfg.ReportingPluginConfig, d.prrc, d.src, d.cfg.ChannelDefinitionCache, d.ds, d.cfg.Logger.Named("LLOReportingPlugin"), d.codecs,
 			),
 			MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"job_name": d.cfg.JobName.ValueOrZero()}, prometheus.DefaultRegisterer),
 		})

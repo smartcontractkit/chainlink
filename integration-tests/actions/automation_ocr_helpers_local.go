@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog"
@@ -25,6 +27,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
+
+func AutomationDefaultRegistryConfig(c tc.AutomationTestConfig) contracts.KeeperRegistrySettings {
+	registrySettings := c.GetAutomationConfig().AutomationConfig.RegistrySettings
+	return contracts.KeeperRegistrySettings{
+		PaymentPremiumPPB:    *registrySettings.PaymentPremiumPPB,
+		FlatFeeMicroLINK:     *registrySettings.FlatFeeMicroLINK,
+		CheckGasLimit:        *registrySettings.CheckGasLimit,
+		StalenessSeconds:     registrySettings.StalenessSeconds,
+		GasCeilingMultiplier: *registrySettings.GasCeilingMultiplier,
+		MinUpkeepSpend:       registrySettings.MinUpkeepSpend,
+		MaxPerformGas:        *registrySettings.MaxPerformGas,
+		FallbackGasPrice:     registrySettings.FallbackGasPrice,
+		FallbackLinkPrice:    registrySettings.FallbackLinkPrice,
+		MaxCheckDataSize:     *registrySettings.MaxCheckDataSize,
+		MaxPerformDataSize:   *registrySettings.MaxPerformDataSize,
+		MaxRevertDataSize:    *registrySettings.MaxRevertDataSize,
+	}
+}
 
 func BuildAutoOCR2ConfigVarsLocal(
 	l zerolog.Logger,

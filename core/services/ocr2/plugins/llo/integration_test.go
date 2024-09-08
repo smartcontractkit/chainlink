@@ -3,107 +3,216 @@ package llo_test
 import (
 	"crypto/ed25519"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
-	"math/rand"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/hashicorp/consul/sdk/freeport"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/sha3"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/wsrpc/credentials"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_verifier"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/destination_verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/destination_verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	lloevm "github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
+	mercuryverifier "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/verifier"
 )
 
 var (
-	fNodes           = uint8(1)
-	nNodes           = 4 // number of nodes (not including bootstrap)
-	multiplier int64 = 100000000
+	fNodes = uint8(1)
+	nNodes = 4 // number of nodes (not including bootstrap)
 )
 
-func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, *channel_verifier.ChannelVerifier, common.Address, *channel_config_store.ChannelConfigStore, common.Address) {
+func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, *configurator.Configurator, common.Address, *destination_verifier.DestinationVerifier, common.Address, *destination_verifier_proxy.DestinationVerifierProxy, common.Address, *channel_config_store.ChannelConfigStore, common.Address) {
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
 	backend.Commit()
 	backend.Commit() // ensure starting block number at least 1
 
-	// Deploy contracts
-	verifierProxyAddr, _, _, err := verifier_proxy.DeployVerifierProxy(steve, backend, common.Address{}) // zero address for access controller disables access control
+	// Configurator
+	configuratorAddress, _, configurator, err := configurator.DeployConfigurator(steve, backend)
 	require.NoError(t, err)
 
-	verifierAddress, _, verifierContract, err := channel_verifier.DeployChannelVerifier(steve, backend, verifierProxyAddr)
+	// DestinationVerifierProxy
+	verifierProxyAddr, _, verifierProxy, err := destination_verifier_proxy.DeployDestinationVerifierProxy(steve, backend)
 	require.NoError(t, err)
-	configStoreAddress, _, configStoreContract, err := channel_config_store.DeployChannelConfigStore(steve, backend)
+	// DestinationVerifier
+	verifierAddr, _, verifier, err := destination_verifier.DeployDestinationVerifier(steve, backend, verifierProxyAddr)
+	require.NoError(t, err)
+	// AddVerifier
+	_, err = verifierProxy.SetVerifier(steve, verifierAddr)
+	require.NoError(t, err)
+
+	// ChannelConfigStore
+	configStoreAddress, _, configStore, err := channel_config_store.DeployChannelConfigStore(steve, backend)
 	require.NoError(t, err)
 
 	backend.Commit()
 
-	return steve, backend, verifierContract, verifierAddress, configStoreContract, configStoreAddress
+	return steve, backend, configurator, configuratorAddress, verifier, verifierAddr, verifierProxy, verifierProxyAddr, configStore, configStoreAddress
 }
 
 type Stream struct {
 	id                 uint32
-	baseBenchmarkPrice *big.Int
+	baseBenchmarkPrice decimal.Decimal
+	baseBid            decimal.Decimal
+	baseAsk            decimal.Decimal
+	strmType           string
+}
+
+const (
+	btcStreamID    = 51
+	ethStreamID    = 52
+	linkStreamID   = 53
+	dogeStreamID   = 54
+	quoteStreamID1 = 55
+	quoteStreamID2 = 56
+)
+
+var (
+	quoteStreamFeedID1 = common.HexToHash(`0x0003111111111111111111111111111111111111111111111111111111111111`)
+	quoteStreamFeedID2 = common.HexToHash(`0x0003222222222222222222222222222222222222222222222222222222222222`)
+
+	btcStream = Stream{
+		id:                 51,
+		baseBenchmarkPrice: decimal.NewFromFloat32(56_114.41),
+	}
+	ethStream = Stream{
+		id:                 52,
+		baseBenchmarkPrice: decimal.NewFromFloat32(2_976.39),
+	}
+	linkStream = Stream{
+		id:                 53,
+		baseBenchmarkPrice: decimal.NewFromFloat32(13.25),
+	}
+	dogeStream = Stream{
+		id:                 54,
+		baseBenchmarkPrice: decimal.NewFromFloat32(0.10960935),
+	}
+	quoteStream1 = Stream{
+		id:                 55,
+		baseBenchmarkPrice: decimal.NewFromFloat32(1000.1212),
+		baseBid:            decimal.NewFromFloat32(998.5431),
+		baseAsk:            decimal.NewFromFloat32(1001.6999),
+	}
+	quoteStream2 = Stream{
+		id:                 56,
+		baseBenchmarkPrice: decimal.NewFromFloat32(500.1212),
+		baseBid:            decimal.NewFromFloat32(499.5431),
+		baseAsk:            decimal.NewFromFloat32(502.6999),
+	}
+)
+
+func generateConfig(t *testing.T, oracles []confighelper.OracleIdentityExtra) (
+	signers []types.OnchainPublicKey,
+	transmitters []types.Account,
+	f uint8,
+	onchainConfig []byte,
+	offchainConfigVersion uint64,
+	offchainConfig []byte,
+) {
+	rawReportingPluginConfig := datastreamsllo.OffchainConfig{}
+	reportingPluginConfig, err := rawReportingPluginConfig.Encode()
+	require.NoError(t, err)
+
+	offchainConfig = []byte{}
+
+	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err = ocr3confighelper.ContractSetConfigArgsForTests(
+		2*time.Second,         // DeltaProgress
+		20*time.Second,        // DeltaResend
+		400*time.Millisecond,  // DeltaInitial
+		1000*time.Millisecond, // DeltaRound
+		500*time.Millisecond,  // DeltaGrace
+		300*time.Millisecond,  // DeltaCertifiedCommitRequest
+		1*time.Minute,         // DeltaStage
+		100,                   // rMax
+		[]int{len(oracles)},   // S
+		oracles,
+		reportingPluginConfig, // reportingPluginConfig []byte,
+		0,                     // maxDurationQuery
+		250*time.Millisecond,  // maxDurationObservation
+		0,                     // maxDurationShouldAcceptAttestedReport
+		0,                     // maxDurationShouldTransmitAcceptedReport
+		int(fNodes),           // f
+		onchainConfig,         // encoded onchain config
+	)
+
+	require.NoError(t, err)
+
+	return
+}
+
+func setConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend *backends.SimulatedBackend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra) ocr2types.ConfigDigest {
+	signers, _, _, _, offchainConfigVersion, offchainConfig := generateConfig(t, oracles)
+
+	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
+	require.NoError(t, err)
+	offchainTransmitters := make([][32]byte, nNodes)
+	for i := 0; i < nNodes; i++ {
+		offchainTransmitters[i] = nodes[i].ClientPubKey
+	}
+	donIDPadded := evm.DonIDToBytes32(donID)
+	_, err = configurator.SetConfig(steve, donIDPadded, signerAddresses, offchainTransmitters, fNodes, offchainConfig, offchainConfigVersion, offchainConfig)
+	require.NoError(t, err)
+
+	// libocr requires a few confirmations to accept the config
+	backend.Commit()
+	backend.Commit()
+	backend.Commit()
+	backend.Commit()
+
+	logs, err := backend.FilterLogs(testutils.Context(t), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{mercury.FeedScopedConfigSet, donIDPadded}}})
+	require.NoError(t, err)
+	require.Len(t, logs, 1)
+
+	cfg, err := mercury.ConfigFromLog(logs[0].Data)
+	require.NoError(t, err)
+
+	return cfg.ConfigDigest
 }
 
 func TestIntegration_LLO(t *testing.T) {
-	testStartTimeStamp := uint32(time.Now().Unix())
-
-	const fromBlock = 1 // cannot use zero, start from block 1
-
-	// streams
-	btcStream := Stream{
-		id:                 51,
-		baseBenchmarkPrice: big.NewInt(20_000 * multiplier),
-	}
-	ethStream := Stream{
-		id:                 52,
-		baseBenchmarkPrice: big.NewInt(1_568 * multiplier),
-	}
-	linkStream := Stream{
-		id:                 53,
-		baseBenchmarkPrice: big.NewInt(7150 * multiplier / 1000),
-	}
-	dogeStream := Stream{
-		id:                 54,
-		baseBenchmarkPrice: big.NewInt(2_020 * multiplier),
-	}
-	streams := []Stream{btcStream, ethStream, linkStream, dogeStream}
-	streamMap := make(map[uint32]Stream)
-	for _, strm := range streams {
-		streamMap[strm.id] = strm
-	}
+	testStartTimeStamp := time.Now()
+	donID := uint32(995544)
+	multiplier, err := decimal.NewFromString("1e18")
+	require.NoError(t, err)
+	expirationWindow := time.Hour / time.Second
 
 	reqs := make(chan request)
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
-	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs, nil)
+	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
 
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)
 	clientPubKeys := make([]ed25519.PublicKey, nNodes)
@@ -114,256 +223,228 @@ func TestIntegration_LLO(t *testing.T) {
 		clientPubKeys[i] = key.PublicKey
 	}
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
-	chainID := testutils.SimulatedChainID
 
-	steve, backend, verifierContract, verifierAddress, configStoreContract, configStoreAddress := setupBlockchain(t)
+	// TODO: all args?
+	steve, backend, configurator, configuratorAddress, verifier, _, verifierProxy, _, configStore, configStoreAddress := setupBlockchain(t)
+	fromBlock := 1
 
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, bootstrapCSAKey)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
-	// Setup oracle nodes
-	var (
-		oracles []confighelper.OracleIdentityExtra
-		nodes   []Node
-	)
-	ports := freeport.GetN(t, nNodes)
-	for i := 0; i < nNodes; i++ {
-		app, peerID, transmitter, kb, _ := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i])
+	t.Run("produces reports in v0.3 format", func(t *testing.T) {
+		streams := []Stream{ethStream, linkStream, quoteStream1, quoteStream2}
+		streamMap := make(map[uint32]Stream)
+		for _, strm := range streams {
+			streamMap[strm.id] = strm
+		}
 
-		nodes = append(nodes, Node{
-			app, transmitter, kb,
-		})
-		offchainPublicKey, _ := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
-		oracles = append(oracles, confighelper.OracleIdentityExtra{
-			OracleIdentity: confighelper.OracleIdentity{
-				OnchainPublicKey:  offchainPublicKey,
-				TransmitAccount:   ocr2types.Account(fmt.Sprintf("%x", transmitter[:])),
-				OffchainPublicKey: kb.OffchainPublicKey(),
-				PeerID:            peerID,
+		// Setup oracle nodes
+		var (
+			oracles []confighelper.OracleIdentityExtra
+			nodes   []Node
+		)
+		ports := freeport.GetN(t, nNodes)
+		for i := 0; i < nNodes; i++ {
+			app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i])
+
+			nodes = append(nodes, Node{
+				app, transmitter, kb, observedLogs,
+			})
+			offchainPublicKey, _ := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
+			oracles = append(oracles, confighelper.OracleIdentityExtra{
+				OracleIdentity: confighelper.OracleIdentity{
+					OnchainPublicKey:  offchainPublicKey,
+					TransmitAccount:   ocr2types.Account(fmt.Sprintf("%x", transmitter[:])),
+					OffchainPublicKey: kb.OffchainPublicKey(),
+					PeerID:            peerID,
+				},
+				ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
+			})
+		}
+
+		chainID := testutils.SimulatedChainID
+		relayType := "evm"
+		relayConfig := fmt.Sprintf(`
+chainID = "%s"
+fromBlock = %d
+lloDonID = %d
+`, chainID, fromBlock, donID)
+		addBootstrapJob(t, bootstrapNode, configuratorAddress, "job-2", relayType, relayConfig)
+
+		// Channel definitions
+		channelDefinitions := llotypes.ChannelDefinitions{
+			1: {
+				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
+				Streams: []llotypes.Stream{
+					{
+						StreamID:   ethStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   linkStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   quoteStreamID1,
+						Aggregator: llotypes.AggregatorQuote,
+					},
+				},
+				Opts: llotypes.ChannelOpts([]byte(fmt.Sprintf(`{"baseUSDFee":"0.1","expirationWindow":%d,"feedId":"0x%x","multiplier":"%s"}`, expirationWindow, quoteStreamFeedID1, multiplier.String()))),
 			},
-			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
-		})
-	}
-
-	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
-	ch, err := nodes[0].App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-	require.NoError(t, err)
-	finalityDepth := ch.Config().EVM().FinalityDepth()
-	for i := 0; i < int(finalityDepth); i++ {
-		backend.Commit()
-	}
-
-	configDigest := setConfig(t, steve, backend, verifierContract, verifierAddress, nodes, oracles)
-	channelDefinitions := setChannelDefinitions(t, steve, backend, configStoreContract, streams)
-
-	addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, "job-1")
-	addOCRJobs(t, streams, serverPubKey, serverURL, verifierAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, chainID, fromBlock)
-	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {
-		// Expect at least one report per channel from each oracle (keyed by transmitter ID)
-		seen := make(map[ocr2types.Account]map[llotypes.ChannelID]struct{})
-
-		for channelID, defn := range channelDefinitions {
-			t.Logf("Expect report for channel ID %x (definition: %#v)", channelID, defn)
+			2: {
+				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
+				Streams: []llotypes.Stream{
+					{
+						StreamID:   ethStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   linkStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   quoteStreamID2,
+						Aggregator: llotypes.AggregatorQuote,
+					},
+				},
+				Opts: llotypes.ChannelOpts([]byte(fmt.Sprintf(`{"baseUSDFee":"0.1","expirationWindow":%d,"feedId":"0x%x","multiplier":"%s"}`, expirationWindow, quoteStreamFeedID2, multiplier.String()))),
+			},
 		}
-		for _, o := range oracles {
-			t.Logf("Expect report from oracle %s", o.OracleIdentity.TransmitAccount)
-			seen[o.OracleIdentity.TransmitAccount] = make(map[llotypes.ChannelID]struct{})
-		}
-		for req := range reqs {
-			if _, exists := seen[req.TransmitterID()]; !exists {
-				// oracle already reported on all channels; discard
-				// if this test timeouts, check for expected transmitter ID
-				continue
-			}
 
-			v := make(map[string]interface{})
-			err := llo.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
+		channelDefinitionsJSON, err := json.MarshalIndent(channelDefinitions, "", "  ")
+		require.NoError(t, err)
+		channelDefinitionsSHA := sha3.Sum256(channelDefinitionsJSON)
+
+		// Set up channel definitions server
+		channelDefinitionsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "/channel-definitions", r.URL.Path)
+			assert.Equal(t, "GET", r.Method)
+			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write(channelDefinitionsJSON)
 			require.NoError(t, err)
-			report, exists := v["report"]
-			if !exists {
-				t.Fatalf("FAIL: expected payload %#v to contain 'report'", v)
+		}))
+		t.Cleanup(channelDefinitionsServer.Close)
+
+		// Set channel definitions
+		_, err = configStore.SetChannelDefinitions(steve, donID, channelDefinitionsServer.URL+"/channel-definitions", channelDefinitionsSHA)
+		require.NoError(t, err)
+		backend.Commit()
+
+		pluginConfig := fmt.Sprintf(`serverURL = "%s"
+donID = %d
+serverPubKey = "%x"
+channelDefinitionsContractAddress = "0x%x"
+channelDefinitionsContractFromBlock = %d`, serverURL, donID, serverPubKey, configStoreAddress, fromBlock)
+		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, configuratorAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
+
+		// Set config on configurator
+		setConfig(
+			t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles,
+		)
+
+		// Set config on the destination verifier
+		signerAddresses := make([]common.Address, len(oracles))
+		for i, oracle := range oracles {
+			signerAddresses[i] = common.BytesToAddress(oracle.OracleIdentity.OnchainPublicKey)
+		}
+		{
+			recipientAddressesAndWeights := []destination_verifier.CommonAddressAndWeight{}
+
+			_, err := verifier.SetConfig(steve, signerAddresses, fNodes, recipientAddressesAndWeights)
+			require.NoError(t, err)
+			backend.Commit()
+		}
+
+		t.Run("receives at least one report per channel from each oracle when EAs are at 100% reliability", func(t *testing.T) {
+			// Expect at least one report per feed from each oracle
+			seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
+			for _, cd := range channelDefinitions {
+				var opts lloevm.ReportFormatEVMPremiumLegacyOpts
+				err := json.Unmarshal(cd.Opts, &opts)
+				require.NoError(t, err)
+				// feedID will be deleted when all n oracles have reported
+				seen[opts.FeedID] = make(map[credentials.StaticSizedPublicKey]struct{}, nNodes)
 			}
+			for req := range reqs {
+				v := make(map[string]interface{})
+				err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
+				require.NoError(t, err)
+				report, exists := v["report"]
+				if !exists {
+					t.Fatalf("expected payload %#v to contain 'report'", v)
+				}
+				reportElems := make(map[string]interface{})
+				err = reportcodecv3.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
+				require.NoError(t, err)
 
-			t.Logf("Got report from oracle %s with format: %d", req.pk, req.req.ReportFormat)
+				feedID := reportElems["feedId"].([32]uint8)
 
-			var r datastreamsllo.Report
+				if _, exists := seen[feedID]; !exists {
+					continue // already saw all oracles for this feed
+				}
 
-			switch req.req.ReportFormat {
-			case uint32(llotypes.ReportFormatJSON):
-				t.Logf("Got report (JSON) from oracle %x: %s", req.pk, string(report.([]byte)))
-				var err error
-				r, err = (datastreamsllo.JSONReportCodec{}).Decode(report.([]byte))
-				require.NoError(t, err, "expected valid JSON")
-			case uint32(llotypes.ReportFormatEVM):
-				t.Logf("Got report (EVM) from oracle %s: 0x%x", req.pk, report.([]byte))
-				var err error
-				r, err = (lloevm.ReportCodec{}).Decode(report.([]byte))
-				require.NoError(t, err, "expected valid EVM encoding")
-			default:
-				t.Fatalf("FAIL: unexpected report format: %q", req.req.ReportFormat)
-			}
+				var expectedBm, expectedBid, expectedAsk *big.Int
+				if feedID == quoteStreamFeedID1 {
+					expectedBm = quoteStream1.baseBenchmarkPrice.Mul(multiplier).BigInt()
+					expectedBid = quoteStream1.baseBid.Mul(multiplier).BigInt()
+					expectedAsk = quoteStream1.baseAsk.Mul(multiplier).BigInt()
+				} else if feedID == quoteStreamFeedID2 {
+					expectedBm = quoteStream2.baseBenchmarkPrice.Mul(multiplier).BigInt()
+					expectedBid = quoteStream2.baseBid.Mul(multiplier).BigInt()
+					expectedAsk = quoteStream2.baseAsk.Mul(multiplier).BigInt()
+				} else {
+					t.Fatalf("unrecognized feedID: 0x%x", feedID)
+				}
 
-			assert.Equal(t, configDigest, r.ConfigDigest)
-			assert.Equal(t, uint64(0x2ee634951ef71b46), r.ChainSelector)
-			assert.GreaterOrEqual(t, r.SeqNr, uint64(1))
-			assert.GreaterOrEqual(t, r.ValidAfterSeconds, testStartTimeStamp)
-			assert.Equal(t, r.ValidAfterSeconds+1, r.ValidUntilSeconds)
+				assert.GreaterOrEqual(t, reportElems["validFromTimestamp"].(uint32), uint32(testStartTimeStamp.Unix()))
+				assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp.Unix()))
+				assert.Equal(t, "33597747607000", reportElems["nativeFee"].(*big.Int).String())
+				assert.Equal(t, "7547169811320755", reportElems["linkFee"].(*big.Int).String())
+				assert.Equal(t, reportElems["observationsTimestamp"].(uint32)+uint32(expirationWindow), reportElems["expiresAt"].(uint32))
+				assert.Equal(t, expectedBm.String(), reportElems["benchmarkPrice"].(*big.Int).String())
+				assert.Equal(t, expectedBid.String(), reportElems["bid"].(*big.Int).String())
+				assert.Equal(t, expectedAsk.String(), reportElems["ask"].(*big.Int).String())
 
-			// values
-			defn, exists := channelDefinitions[r.ChannelID]
-			require.True(t, exists, "expected channel ID to be in channelDefinitions")
+				t.Run(fmt.Sprintf("emulate mercury server verifying report (local verification) - node %x", req.pk), func(t *testing.T) {
+					rv := mercuryverifier.NewVerifier()
 
-			require.Equal(t, len(defn.StreamIDs), len(r.Values))
+					reportSigners, err := rv.Verify(mercuryverifier.SignedReport{
+						RawRs:         v["rawRs"].([][32]byte),
+						RawSs:         v["rawSs"].([][32]byte),
+						RawVs:         v["rawVs"].([32]byte),
+						ReportContext: v["reportContext"].([3][32]byte),
+						Report:        v["report"].([]byte),
+					}, fNodes, signerAddresses)
+					require.NoError(t, err)
+					assert.GreaterOrEqual(t, len(reportSigners), int(fNodes+1))
+					assert.Subset(t, signerAddresses, reportSigners)
+				})
 
-			for i, strmID := range defn.StreamIDs {
-				strm, exists := streamMap[strmID]
-				require.True(t, exists, "invariant violation: expected stream ID to be present")
-				assert.InDelta(t, strm.baseBenchmarkPrice.Int64(), r.Values[i].Int64(), 5000000)
-			}
+				t.Run(fmt.Sprintf("test on-chain verification - node %x", req.pk), func(t *testing.T) {
+					_, err = verifierProxy.Verify(steve, req.req.Payload, []byte{})
+					require.NoError(t, err)
+				})
 
-			assert.False(t, r.Specimen)
+				t.Logf("oracle %x reported for 0x%x", req.pk, feedID)
 
-			seen[req.TransmitterID()][r.ChannelID] = struct{}{}
-			t.Logf("Got report from oracle %s with channel: %x)", req.TransmitterID(), r.ChannelID)
-
-			if _, exists := seen[req.TransmitterID()]; exists && len(seen[req.TransmitterID()]) == len(channelDefinitions) {
-				t.Logf("All channels reported for oracle with transmitterID %s", req.TransmitterID())
-				delete(seen, req.TransmitterID())
-			}
-			if len(seen) == 0 {
-				break // saw all oracles; success!
-			}
-
-			// bit of a hack here but shouldn't hurt anything, we wanna dump
-			// `seen` before the test ends to aid in debugging test failures
-			if d, ok := t.Deadline(); ok {
-				select {
-				case <-time.After(time.Until(d.Add(-100 * time.Millisecond))):
-					if len(seen) > 0 {
-						t.Fatalf("FAILED: ERROR: missing expected reports: %#v\n", seen)
+				seen[feedID][req.pk] = struct{}{}
+				if len(seen[feedID]) == nNodes {
+					t.Logf("all oracles reported for 0x%x", feedID)
+					delete(seen, feedID)
+					if len(seen) == 0 {
+						break // saw all oracles; success!
 					}
-				default:
 				}
 			}
-		}
+		})
+
+		t.Run("deleting LLO jobs cleans up resources", func(t *testing.T) {
+			t.Skip("TODO - https://smartcontract-it.atlassian.net/browse/MERC-3653")
+		})
 	})
-
-	// TODO: test verification
-}
-
-func setConfig(t *testing.T, steve *bind.TransactOpts, backend *backends.SimulatedBackend, verifierContract *channel_verifier.ChannelVerifier, verifierAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra) ocr2types.ConfigDigest {
-	// Setup config on contract
-	rawOnchainConfig := datastreamsllo.OnchainConfig{}
-	onchainConfig, err := (&datastreamsllo.JSONOnchainConfigCodec{}).Encode(rawOnchainConfig)
-	require.NoError(t, err)
-
-	rawReportingPluginConfig := datastreamsllo.OffchainConfig{}
-	reportingPluginConfig, err := rawReportingPluginConfig.Encode()
-	require.NoError(t, err)
-
-	signers, _, _, _, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
-		2*time.Second,         // DeltaProgress
-		20*time.Second,        // DeltaResend
-		400*time.Millisecond,  // DeltaInitial
-		1000*time.Millisecond, // DeltaRound
-		500*time.Millisecond,  // DeltaGrace
-		300*time.Millisecond,  // DeltaCertifiedCommitRequest
-		1*time.Minute,         // DeltaStage
-		100,                   // rMax
-		[]int{len(nodes)},     // S
-		oracles,
-		reportingPluginConfig, // reportingPluginConfig []byte,
-		0,                     // maxDurationQuery
-		250*time.Millisecond,  // maxDurationObservation
-		0,                     // maxDurationShouldAcceptAttestedReport
-		0,                     // maxDurationShouldTransmitAcceptedReport
-		int(fNodes),           // f
-		onchainConfig,
-	)
-
-	require.NoError(t, err)
-	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
-	require.NoError(t, err)
-
-	offchainTransmitters := make([][32]byte, nNodes)
-	for i := 0; i < nNodes; i++ {
-		offchainTransmitters[i] = nodes[i].ClientPubKey
-	}
-
-	_, err = verifierContract.SetConfig(steve, signerAddresses, offchainTransmitters, fNodes, offchainConfig, offchainConfigVersion, offchainConfig, nil)
-	require.NoError(t, err)
-
-	backend.Commit()
-
-	accounts := make([]ocr2types.Account, len(offchainTransmitters))
-	for i := range offchainTransmitters {
-		accounts[i] = ocr2types.Account(fmt.Sprintf("%x", offchainTransmitters[i]))
-	}
-
-	l, err := verifierContract.LatestConfigDigestAndEpoch(&bind.CallOpts{})
-	require.NoError(t, err)
-
-	return l.ConfigDigest
-}
-
-func setChannelDefinitions(t *testing.T, steve *bind.TransactOpts, backend *backends.SimulatedBackend, configStoreContract *channel_config_store.ChannelConfigStore, streams []Stream) map[llotypes.ChannelID]channel_config_store.IChannelConfigStoreChannelDefinition {
-	channels := []llotypes.ChannelID{
-		rand.Uint32(),
-		rand.Uint32(),
-		rand.Uint32(),
-		rand.Uint32(),
-	}
-
-	chainSelector, err := chainselectors.SelectorFromChainId(testutils.SimulatedChainID.Uint64())
-	require.NoError(t, err)
-
-	streamIDs := make([]uint32, len(streams))
-	for i := 0; i < len(streams); i++ {
-		streamIDs[i] = streams[i].id
-	}
-
-	// First set contains [1,len(streams)]
-	channel0Def := channel_config_store.IChannelConfigStoreChannelDefinition{
-		ReportFormat:  uint32(llotypes.ReportFormatJSON),
-		ChainSelector: chainSelector,
-		StreamIDs:     streamIDs[1:len(streams)],
-	}
-	channel1Def := channel_config_store.IChannelConfigStoreChannelDefinition{
-		ReportFormat:  uint32(llotypes.ReportFormatEVM),
-		ChainSelector: chainSelector,
-		StreamIDs:     streamIDs[1:len(streams)],
-	}
-
-	// Second set contains [0,len(streams)-1]
-	channel2Def := channel_config_store.IChannelConfigStoreChannelDefinition{
-		ReportFormat:  uint32(llotypes.ReportFormatJSON),
-		ChainSelector: chainSelector,
-		StreamIDs:     streamIDs[0 : len(streams)-1],
-	}
-	channel3Def := channel_config_store.IChannelConfigStoreChannelDefinition{
-		ReportFormat:  uint32(llotypes.ReportFormatEVM),
-		ChainSelector: chainSelector,
-		StreamIDs:     streamIDs[0 : len(streams)-1],
-	}
-
-	require.NoError(t, utils.JustError(configStoreContract.AddChannel(steve, channels[0], channel0Def)))
-	require.NoError(t, utils.JustError(configStoreContract.AddChannel(steve, channels[1], channel1Def)))
-	require.NoError(t, utils.JustError(configStoreContract.AddChannel(steve, channels[2], channel2Def)))
-	require.NoError(t, utils.JustError(configStoreContract.AddChannel(steve, channels[3], channel3Def)))
-
-	backend.Commit()
-
-	channelDefinitions := make(map[llotypes.ChannelID]channel_config_store.IChannelConfigStoreChannelDefinition)
-
-	channelDefinitions[channels[0]] = channel0Def
-	channelDefinitions[channels[1]] = channel1Def
-	channelDefinitions[channels[2]] = channel2Def
-	channelDefinitions[channels[3]] = channel3Def
-
-	backend.Commit()
-
-	return channelDefinitions
 }

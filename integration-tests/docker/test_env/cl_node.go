@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"maps"
-	"math/big"
 	"net/url"
 	"os"
 	"regexp"
@@ -13,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
@@ -23,12 +21,11 @@ import (
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logstream"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -75,6 +72,14 @@ func WithNodeEnvVars(ev map[string]string) ClNodeOption {
 			n.ContainerEnvs = map[string]string{}
 		}
 		maps.Copy(n.ContainerEnvs, ev)
+	}
+}
+
+func WithStartupTimeout(timeout time.Duration) ClNodeOption {
+	return func(n *ClNode) {
+		if timeout != 0 {
+			n.StartupTimeout = timeout
+		}
 	}
 }
 
@@ -133,6 +138,7 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 			ContainerVersion: imageVersion,
 			Networks:         networks,
 			LogStream:        logStream,
+			StartupTimeout:   3 * time.Minute,
 		},
 		UserEmail:    "local@local.com",
 		UserPassword: "localdevpassword",
@@ -271,25 +277,6 @@ func (n *ClNode) ChainlinkNodeAddress() (common.Address, error) {
 	return common.HexToAddress(addr), nil
 }
 
-func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
-	toAddress, err := n.API.PrimaryEthAddress()
-	if err != nil {
-		return err
-	}
-	n.l.Debug().
-		Str("ChainId", evmClient.GetChainID().String()).
-		Str("Address", toAddress).
-		Msg("Funding Chainlink Node")
-	toAddr := common.HexToAddress(toAddress)
-	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{
-		To: &toAddr,
-	})
-	if err != nil {
-		return err
-	}
-	return evmClient.Fund(toAddress, amount, gasEstimates)
-}
-
 func (n *ClNode) containerStartOrRestart(restartDb bool) error {
 	var err error
 	if restartDb {
@@ -399,17 +386,25 @@ func (n *ClNode) ExecGetVersion() (string, error) {
 	return "", errors.Errorf("could not find chainlink version in command output '%'", output)
 }
 
+func (n ClNode) GetNodeConfigStr() (string, error) {
+	data, err := toml.Marshal(n.NodeConfig)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 func (n *ClNode) getContainerRequest(secrets string) (
 	*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
 		return nil, err
 	}
-	data, err := toml.Marshal(n.NodeConfig)
+	configStr, err := n.GetNodeConfigStr()
 	if err != nil {
 		return nil, err
 	}
-	_, err = configFile.WriteString(string(data))
+	_, err = configFile.WriteString(configStr)
 	if err != nil {
 		return nil, err
 	}
@@ -461,9 +456,9 @@ func (n *ClNode) getContainerRequest(secrets string) (
 			"-a", apiCredsPath,
 		},
 		Networks: append(n.Networks, "tracing"),
-		WaitingFor: tcwait.ForHTTP("/health").
+		WaitingFor: tcwait.ForHTTP("/readyz").
 			WithPort("6688/tcp").
-			WithStartupTimeout(90 * time.Second).
+			WithStartupTimeout(n.StartupTimeout).
 			WithPollInterval(1 * time.Second),
 		Files: []tc.ContainerFile{
 			{

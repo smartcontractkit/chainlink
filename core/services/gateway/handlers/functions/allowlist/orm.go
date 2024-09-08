@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 type ORM interface {
 	GetAllowedSenders(ctx context.Context, offset, limit uint) ([]common.Address, error)
 	CreateAllowedSenders(ctx context.Context, allowedSenders []common.Address) error

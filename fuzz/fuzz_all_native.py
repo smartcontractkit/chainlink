@@ -7,8 +7,6 @@ import re
 import subprocess
 import sys
 
-LIBROOT = "../"
-
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -19,6 +17,7 @@ def main():
     )
     parser.add_argument("--ci", required=False, help="In CI mode we run each parser only briefly once", action="store_true")
     parser.add_argument("--seconds", required=False, help="Run for this many seconds of total fuzz time before exiting")
+    parser.add_argument("--go_module_root", required=True, help="Path to the root of the go module to fuzz")
     args = parser.parse_args()
 
     # use float for remaining_seconds so we can represent infinity
@@ -27,7 +26,7 @@ def main():
     else:
         remaining_seconds = float("inf")
 
-    fuzzers = discover_fuzzers()
+    fuzzers = discover_fuzzers(args.go_module_root)
     print(f"🐝 Discovered fuzzers:", file=sys.stderr)
     for fuzzfn, path in fuzzers.items():
         print(f"{fuzzfn} in {path}", file=sys.stderr)
@@ -50,12 +49,12 @@ def main():
             remaining_seconds -= next_duration_seconds
 
             print(f"🐝 Running {fuzzfn} in {path} for {next_duration_seconds}s before switching to next fuzzer", file=sys.stderr)
-            run_fuzzer(fuzzfn, path, next_duration_seconds)
+            run_fuzzer(fuzzfn, path, next_duration_seconds, args.go_module_root)
             print(f"🐝 Completed running {fuzzfn} in {path} for {next_duration_seconds}s. Total remaining time is {remaining_seconds}s", file=sys.stderr)
 
-def discover_fuzzers():
+def discover_fuzzers(go_module_root):
     fuzzers = {}
-    for root, dirs, files in os.walk(LIBROOT):
+    for root, dirs, files in os.walk(go_module_root):
         for file in files:
             if not file.endswith("test.go"): continue
             with open(os.path.join(root, file), "r") as f:
@@ -68,11 +67,11 @@ def discover_fuzzers():
             for fuzzfn in re.findall(r"func\s+(Fuzz\w+)", text):
                 if fuzzfn in fuzzers:
                     raise Exception(f"Duplicate fuzz function: {fuzzfn}")
-                fuzzers[fuzzfn] = os.path.relpath(root, LIBROOT)
+                fuzzers[fuzzfn] = os.path.relpath(root, go_module_root)
     return fuzzers
 
-def run_fuzzer(fuzzfn, dir, duration_seconds):
-    subprocess.check_call(["go", "test", "-run=^$", f"-fuzz=^{fuzzfn}$", f"-fuzztime={duration_seconds}s", f"./{dir}"], cwd=LIBROOT)
+def run_fuzzer(fuzzfn, dir, duration_seconds, go_module_root):
+    subprocess.check_call(["go", "test", "-run=^$", f"-fuzz=^{fuzzfn}$", f"-fuzztime={duration_seconds}s", f"./{dir}"], cwd=go_module_root)
 
 if __name__ == "__main__":
     main()

@@ -11,7 +11,7 @@ import (
 
 	"github.com/slack-go/slack"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
 )
 
 type VRFV2PlusTestReporter struct {

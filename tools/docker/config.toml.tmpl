@@ -1,0 +1,22 @@
+[Log]
+Level = 'info'
+
+[WebServer]
+SecureCookies = false
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[JobPipeline]
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '5s'
+
+[[EVM]]
+ChainID = 'SET_CHAIN_ID'
+MinIncomingConfirmations = 1
+MinContractPayment = '0.000001 link'
+
+[[EVM.Nodes]]
+Name = 'primary-0-SET_CHAIN_ID'
+WSURL = 'SET_WSURL'
+HTTPURL = 'SET_HTTPURL'

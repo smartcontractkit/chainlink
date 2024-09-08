@@ -14,12 +14,10 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/router"
 )
 
 type deployedContracts struct {
 	OCRContract       common.Address `json:"ocrContract"`
-	RouterContract    common.Address `json:"routerContract"`
 	ForwarderContract common.Address `json:"forwarderContract"`
 	// The block number of the transaction that set the config on the OCR3 contract. We use this to replay blocks from this point on
 	// when we load the OCR3 job specs on the nodes.
@@ -54,8 +52,12 @@ func (g *deployContracts) Run(args []string) {
 	skipFunding := fs.Bool("skipfunding", false, "skip funding the transmitters")
 	onlySetConfig := fs.Bool("onlysetconfig", false, "set the config on the OCR3 contract without deploying the contracts or funding transmitters")
 	dryRun := fs.Bool("dryrun", false, "dry run, don't actually deploy the contracts and do not fund transmitters")
+	publicKeys := fs.String("publickeys", "", "Custom public keys json location")
+	nodeList := fs.String("nodes", "", "Custom node list location")
+	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
 
 	err := fs.Parse(args)
+
 	if err != nil ||
 		*ocrConfigFile == "" || ocrConfigFile == nil ||
 		*ethUrl == "" || ethUrl == nil ||
@@ -65,11 +67,21 @@ func (g *deployContracts) Run(args []string) {
 		os.Exit(1)
 	}
 
+	if *artefactsDir == "" {
+		*artefactsDir = defaultArtefactsDir
+	}
+	if *publicKeys == "" {
+		*publicKeys = defaultPublicKeys
+	}
+	if *nodeList == "" {
+		*nodeList = defaultNodeList
+	}
+
 	os.Setenv("ETH_URL", *ethUrl)
 	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
 	os.Setenv("ACCOUNT_KEY", *accountKey)
 
-	deploy(*ocrConfigFile, *skipFunding, *dryRun, *onlySetConfig)
+	deploy(*nodeList, *publicKeys, *ocrConfigFile, *skipFunding, *dryRun, *onlySetConfig, *artefactsDir)
 }
 
 // deploy does the following:
@@ -79,16 +91,20 @@ func (g *deployContracts) Run(args []string) {
 //  4. Writes the deployed contract addresses to a file
 //  5. Funds the transmitters
 func deploy(
+	nodeList string,
+	publicKeys string,
 	configFile string,
 	skipFunding bool,
 	dryRun bool,
 	onlySetConfig bool,
+	artefacts string,
 ) {
 	env := helpers.SetupEnv(false)
 	ocrConfig := generateOCR3Config(
+		nodeList,
 		configFile,
 		env.ChainID,
-		".cache/PublicKeys.json",
+		publicKeys,
 	)
 
 	if dryRun {
@@ -98,40 +114,32 @@ func deploy(
 
 	if onlySetConfig {
 		fmt.Println("Skipping deployment of contracts and skipping funding transmitters, only setting config")
-		setOCR3Config(env, ocrConfig)
+		setOCR3Config(env, ocrConfig, artefacts)
 		return
 	}
 
-	if ContractsAlreadyDeployed() {
+	if ContractsAlreadyDeployed(artefacts) {
 		fmt.Println("Contracts already deployed")
 		return
 	}
 
 	fmt.Println("Deploying keystone ocr3 contract...")
 	ocrContract := DeployKeystoneOCR3Capability(env)
-	fmt.Println("Deploying keystone router contract...")
-	routerContract := DeployRouter(env)
 	fmt.Println("Deploying keystone forwarder contract...")
-	forwarderContract := DeployForwarder(env, routerContract.Address())
+	forwarderContract := DeployForwarder(env)
 
 	fmt.Println("Writing deployed contract addresses to file...")
 	contracts := deployedContracts{
 		OCRContract:       ocrContract.Address(),
-		RouterContract:    routerContract.Address(),
 		ForwarderContract: forwarderContract.Address(),
 	}
 	jsonBytes, err := json.Marshal(contracts)
 	PanicErr(err)
 
-	err = os.WriteFile(DeployedContractsFilePath(), jsonBytes, 0600)
+	err = os.WriteFile(DeployedContractsFilePath(artefacts), jsonBytes, 0600)
 	PanicErr(err)
 
-	// Add forwarder to router allow list
-	tx, err := routerContract.AddForwarder(env.Owner, forwarderContract.Address())
-	PanicErr(err)
-	_ = helpers.ConfirmTXMined(context.Background(), env.Ec, tx, env.ChainID)
-
-	setOCR3Config(env, ocrConfig)
+	setOCR3Config(env, ocrConfig, artefacts)
 
 	if skipFunding {
 		fmt.Println("Skipping funding transmitters")
@@ -149,8 +157,9 @@ func deploy(
 func setOCR3Config(
 	env helpers.Environment,
 	ocrConfig orc2drOracleConfig,
+	artefacts string,
 ) {
-	loadedContracts, err := LoadDeployedContracts()
+	loadedContracts, err := LoadDeployedContracts(artefacts)
 	PanicErr(err)
 
 	ocrContract, err := ocr3_capability.NewOCR3Capability(loadedContracts.OCRContract, env.Ec)
@@ -171,16 +180,16 @@ func setOCR3Config(
 	loadedContracts.SetConfigTxBlock = receipt.BlockNumber.Uint64()
 	jsonBytes, err := json.Marshal(loadedContracts)
 	PanicErr(err)
-	err = os.WriteFile(DeployedContractsFilePath(), jsonBytes, 0600)
+	err = os.WriteFile(DeployedContractsFilePath(artefacts), jsonBytes, 0600)
 	PanicErr(err)
 }
 
-func LoadDeployedContracts() (deployedContracts, error) {
-	if !ContractsAlreadyDeployed() {
+func LoadDeployedContracts(artefacts string) (deployedContracts, error) {
+	if !ContractsAlreadyDeployed(artefacts) {
 		return deployedContracts{}, fmt.Errorf("no deployed contracts found, run deploy first")
 	}
 
-	jsonBytes, err := os.ReadFile(DeployedContractsFilePath())
+	jsonBytes, err := os.ReadFile(DeployedContractsFilePath(artefacts))
 	if err != nil {
 		return deployedContracts{}, err
 	}
@@ -190,25 +199,17 @@ func LoadDeployedContracts() (deployedContracts, error) {
 	return contracts, err
 }
 
-func ContractsAlreadyDeployed() bool {
-	_, err := os.Stat(DeployedContractsFilePath())
+func ContractsAlreadyDeployed(artefacts string) bool {
+	_, err := os.Stat(DeployedContractsFilePath(artefacts))
 	return err == nil
 }
 
-func DeployedContractsFilePath() string {
-	return filepath.Join(artefactsDir, deployedContractsJSON)
+func DeployedContractsFilePath(artefacts string) string {
+	return filepath.Join(artefacts, deployedContractsJSON)
 }
 
-func DeployRouter(e helpers.Environment) *router.KeystoneRouter {
-	_, tx, contract, err := router.DeployKeystoneRouter(e.Owner, e.Ec)
-	PanicErr(err)
-	helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
-
-	return contract
-}
-
-func DeployForwarder(e helpers.Environment, routerAddress common.Address) *forwarder.KeystoneForwarder {
-	_, tx, contract, err := forwarder.DeployKeystoneForwarder(e.Owner, e.Ec, routerAddress)
+func DeployForwarder(e helpers.Environment) *forwarder.KeystoneForwarder {
+	_, tx, contract, err := forwarder.DeployKeystoneForwarder(e.Owner, e.Ec)
 	PanicErr(err)
 	helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 

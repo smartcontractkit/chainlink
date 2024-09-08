@@ -220,8 +220,7 @@ ds1 -> div_by_ds2 -> multiply;
 	spec := pipeline.Spec{DotDagSource: dag}
 	vars := pipeline.NewVarsFrom(nil)
 
-	lggr := logger.TestLogger(t)
-	_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
+	_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars)
 
 	require.NoError(t, err)
 	require.Len(t, trrs, 4)

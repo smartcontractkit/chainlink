@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 
@@ -17,7 +17,7 @@ func TestVersionUpgrade(t *testing.T) {
 
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig("Migration", tc.Node)
+	config, err := tc.GetConfig([]string{"Migration"}, tc.Node)
 	require.NoError(t, err, "Error getting config")
 
 	err = config.ChainlinkUpgradeImage.Validate()
@@ -33,7 +33,6 @@ func TestVersionUpgrade(t *testing.T) {
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithCLNodes(1).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err)
 

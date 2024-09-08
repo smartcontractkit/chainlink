@@ -26,33 +26,36 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
+// EstimateGasBuffer is a multiplier applied to estimated gas when the EstimateLimit feature is enabled
+const EstimateGasBuffer = float32(1.15)
+
 // EvmFeeEstimator provides a unified interface that wraps EvmEstimator and can determine if legacy or dynamic fee estimation should be used
-//
-//go:generate mockery --quiet --name EvmFeeEstimator --output ./mocks/ --case=underscore
 type EvmFeeEstimator interface {
 	services.Service
 	headtracker.HeadTrackable[*evmtypes.Head, common.Hash]
 
 	// L1Oracle returns the L1 gas price oracle only if the chain has one, e.g. OP stack L2s and Arbitrum.
 	L1Oracle() rollups.L1Oracle
-	GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint64, err error)
+	GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, fromAddress, toAddress *common.Address, opts ...feetypes.Opt) (fee EvmFee, estimatedFeeLimit uint64, err error)
 	BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint64, maxFeePrice *assets.Wei, attempts []EvmPriorAttempt) (bumpedFee EvmFee, chainSpecificFeeLimit uint64, err error)
 
 	// GetMaxCost returns the total value = max price x fee units + transferred value
-	GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (*big.Int, error)
+	GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, fromAddress, toAddress *common.Address, opts ...feetypes.Opt) (*big.Int, error)
 }
 
-//go:generate mockery --quiet --name feeEstimatorClient --output ./mocks/ --case=underscore --structname FeeEstimatorClient
 type feeEstimatorClient interface {
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	ConfiguredChainID() *big.Int
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
+	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
+	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
 }
 
 // NewEstimator returns the estimator for a given config
-func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, geCfg evmconfig.GasEstimator) EvmFeeEstimator {
+func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, geCfg evmconfig.GasEstimator) (EvmFeeEstimator, error) {
 	bh := geCfg.BlockHistory()
 	s := geCfg.Mode()
 	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),
@@ -73,19 +76,28 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		"tipCapMin", geCfg.TipCapMin(),
 		"priceMax", geCfg.PriceMax(),
 		"priceMin", geCfg.PriceMin(),
+		"estimateLimit", geCfg.EstimateLimit(),
 	)
 	df := geCfg.EIP1559DynamicFees()
 
 	// create l1Oracle only if it is supported for the chain
 	var l1Oracle rollups.L1Oracle
 	if rollups.IsRollupWithL1Support(cfg.ChainType()) {
-		l1Oracle = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())
+		var err error
+		l1Oracle, err = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize L1 oracle: %w", err)
+		}
 	}
 	var newEstimator func(logger.Logger) EvmEstimator
 	switch s {
 	case "Arbitrum":
+		arbOracle, err := rollups.NewArbitrumL1GasOracle(lggr, ethClient)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize Arbitrum L1 oracle: %w", err)
+		}
 		newEstimator = func(l logger.Logger) EvmEstimator {
-			return NewArbitrumEstimator(lggr, geCfg, ethClient, rollups.NewArbitrumL1GasOracle(lggr, ethClient))
+			return NewArbitrumEstimator(lggr, geCfg, ethClient, arbOracle)
 		}
 	case "BlockHistory":
 		newEstimator = func(l logger.Logger) EvmEstimator {
@@ -99,13 +111,25 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		newEstimator = func(l logger.Logger) EvmEstimator {
 			return NewSuggestedPriceEstimator(lggr, ethClient, geCfg, l1Oracle)
 		}
+	case "FeeHistory":
+		newEstimator = func(l logger.Logger) EvmEstimator {
+			ccfg := FeeHistoryEstimatorConfig{
+				BumpPercent:      geCfg.BumpPercent(),
+				CacheTimeout:     geCfg.FeeHistory().CacheTimeout(),
+				EIP1559:          geCfg.EIP1559DynamicFees(),
+				BlockHistorySize: uint64(geCfg.BlockHistory().BlockHistorySize()),
+				RewardPercentile: float64(geCfg.BlockHistory().TransactionPercentile()),
+			}
+			return NewFeeHistoryEstimator(lggr, ethClient, ccfg, ethClient.ConfiguredChainID(), l1Oracle)
+		}
+
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
 		newEstimator = func(l logger.Logger) EvmEstimator {
 			return NewFixedPriceEstimator(geCfg, ethClient, bh, lggr, l1Oracle)
 		}
 	}
-	return NewEvmFeeEstimator(lggr, newEstimator, df, geCfg)
+	return NewEvmFeeEstimator(lggr, newEstimator, df, geCfg, ethClient), nil
 }
 
 // DynamicFee encompasses both FeeCap and TipCap for EIP1559 transactions
@@ -124,8 +148,6 @@ type EvmPriorAttempt struct {
 }
 
 // Estimator provides an interface for estimating gas price and limit
-//
-//go:generate mockery --quiet --name EvmEstimator --output ./mocks/ --case=underscore
 type EvmEstimator interface {
 	headtracker.HeadTrackable[*evmtypes.Head, common.Hash]
 	services.Service
@@ -178,17 +200,19 @@ type evmFeeEstimator struct {
 	EvmEstimator
 	EIP1559Enabled bool
 	geCfg          GasEstimatorConfig
+	ethClient      feeEstimatorClient
 }
 
 var _ EvmFeeEstimator = (*evmFeeEstimator)(nil)
 
-func NewEvmFeeEstimator(lggr logger.Logger, newEstimator func(logger.Logger) EvmEstimator, eip1559Enabled bool, geCfg GasEstimatorConfig) EvmFeeEstimator {
+func NewEvmFeeEstimator(lggr logger.Logger, newEstimator func(logger.Logger) EvmEstimator, eip1559Enabled bool, geCfg GasEstimatorConfig, ethClient feeEstimatorClient) EvmFeeEstimator {
 	lggr = logger.Named(lggr, "WrappedEvmEstimator")
 	return &evmFeeEstimator{
 		lggr:           lggr,
 		EvmEstimator:   newEstimator(lggr),
 		EIP1559Enabled: eip1559Enabled,
 		geCfg:          geCfg,
+		ethClient:      ethClient,
 	}
 }
 
@@ -258,7 +282,10 @@ func (e *evmFeeEstimator) L1Oracle() rollups.L1Oracle {
 	return e.EvmEstimator.L1Oracle()
 }
 
-func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint64, err error) {
+// GetFee returns an initial estimated gas price and gas limit for a transaction
+// The gas limit provided by the caller can be adjusted by gas estimation or for 2D fees
+func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, fromAddress, toAddress *common.Address, opts ...feetypes.Opt) (fee EvmFee, estimatedFeeLimit uint64, err error) {
+	var chainSpecificFeeLimit uint64
 	// get dynamic fee
 	if e.EIP1559Enabled {
 		var dynamicFee DynamicFee
@@ -266,24 +293,23 @@ func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit 
 		if err != nil {
 			return
 		}
-		chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
 		fee.DynamicFeeCap = dynamicFee.FeeCap
 		fee.DynamicTipCap = dynamicFee.TipCap
-		return
+		chainSpecificFeeLimit = feeLimit
+	} else {
+		// get legacy fee
+		fee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.GetLegacyGas(ctx, calldata, feeLimit, maxFeePrice, opts...)
+		if err != nil {
+			return
+		}
 	}
 
-	// get legacy fee
-	fee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.GetLegacyGas(ctx, calldata, feeLimit, maxFeePrice, opts...)
-	if err != nil {
-		return
-	}
-	chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(chainSpecificFeeLimit, e.geCfg.LimitMultiplier())
-
+	estimatedFeeLimit, err = e.estimateFeeLimit(ctx, chainSpecificFeeLimit, calldata, fromAddress, toAddress)
 	return
 }
 
-func (e *evmFeeEstimator) GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (*big.Int, error) {
-	fees, gasLimit, err := e.GetFee(ctx, calldata, feeLimit, maxFeePrice, opts...)
+func (e *evmFeeEstimator) GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, fromAddress, toAddress *common.Address, opts ...feetypes.Opt) (*big.Int, error) {
+	fees, gasLimit, err := e.GetFee(ctx, calldata, feeLimit, maxFeePrice, fromAddress, toAddress, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -334,9 +360,57 @@ func (e *evmFeeEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLi
 	return
 }
 
+func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64, calldata []byte, fromAddress, toAddress *common.Address) (estimatedFeeLimit uint64, err error) {
+	// Use the feeLimit * LimitMultiplier as the provided gas limit since this multiplier is applied on top of the caller specified gas limit
+	providedGasLimit, err := commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
+	if err != nil {
+		return estimatedFeeLimit, err
+	}
+	// Use provided fee limit by default if EstimateLimit is disabled
+	if !e.geCfg.EstimateLimit() {
+		return providedGasLimit, nil
+	}
+	// Create call msg for gas limit estimation
+	// Skip setting Gas to avoid capping the results of the estimation
+	callMsg := ethereum.CallMsg{
+		To:   toAddress,
+		Data: calldata,
+	}
+	if fromAddress != nil {
+		callMsg.From = *fromAddress
+	}
+	estimatedGas, estimateErr := e.ethClient.EstimateGas(ctx, callMsg)
+	if estimateErr != nil {
+		if providedGasLimit > 0 {
+			// Do not return error if estimate gas failed, we can still use the provided limit instead since it is an upper limit
+			e.lggr.Errorw("failed to estimate gas limit. falling back to the provided gas limit with multiplier", "callMsg", callMsg, "providedGasLimitWithMultiplier", providedGasLimit, "error", estimateErr)
+			return providedGasLimit, nil
+		}
+		return estimatedFeeLimit, fmt.Errorf("gas estimation failed and provided gas limit is 0: %w", estimateErr)
+	}
+	e.lggr.Debugw("estimated gas", "estimatedGas", estimatedGas, "providedGasLimitWithMultiplier", providedGasLimit)
+	// Return error if estimated gas without the buffer exceeds the provided gas limit, if provided
+	// Transaction would be destined to run out of gas and fail
+	if providedGasLimit > 0 && estimatedGas > providedGasLimit {
+		e.lggr.Errorw("estimated gas exceeds provided gas limit with multiplier", "estimatedGas", estimatedGas, "providedGasLimitWithMultiplier", providedGasLimit)
+		return estimatedFeeLimit, commonfee.ErrFeeLimitTooLow
+	}
+	// Apply EstimateGasBuffer to the estimated gas limit
+	estimatedFeeLimit, err = commonfee.ApplyMultiplier(estimatedGas, EstimateGasBuffer)
+	if err != nil {
+		return
+	}
+	// If provided gas limit is not 0, fallback to it if the buffer causes the estimated gas limit to exceed it
+	// The provided gas limit should be used as an upper bound to avoid unexpected behavior for products
+	if providedGasLimit > 0 && estimatedFeeLimit > providedGasLimit {
+		e.lggr.Debugw("estimated gas limit with buffer exceeds the provided gas limit with multiplier. falling back to the provided gas limit with multiplier", "estimatedGasLimit", estimatedFeeLimit, "providedGasLimitWithMultiplier", providedGasLimit)
+		estimatedFeeLimit = providedGasLimit
+	}
+
+	return
+}
+
 // Config defines an interface for configuration in the gas package
-//
-//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	ChainType() chaintype.ChainType
 	FinalityDepth() uint32
@@ -357,6 +431,7 @@ type GasEstimatorConfig interface {
 	PriceMin() *assets.Wei
 	PriceMax() *assets.Wei
 	Mode() string
+	EstimateLimit() bool
 }
 
 type BlockHistoryConfig interface {

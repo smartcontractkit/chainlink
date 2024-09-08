@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+
 	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -300,9 +302,11 @@ func (p *PrometheusSecrets) validateMerge(f *PrometheusSecrets) (err error) {
 }
 
 type Feature struct {
-	FeedsManager *bool
-	LogPoller    *bool
-	UICSAKeys    *bool
+	FeedsManager       *bool
+	LogPoller          *bool
+	UICSAKeys          *bool
+	CCIP               *bool
+	MultiFeedsManagers *bool
 }
 
 func (f *Feature) setFrom(f2 *Feature) {
@@ -314,6 +318,12 @@ func (f *Feature) setFrom(f2 *Feature) {
 	}
 	if v := f2.UICSAKeys; v != nil {
 		f.UICSAKeys = v
+	}
+	if v := f2.CCIP; v != nil {
+		f.CCIP = v
+	}
+	if v := f2.MultiFeedsManagers; v != nil {
+		f.MultiFeedsManagers = v
 	}
 }
 
@@ -1324,15 +1334,19 @@ func (m *MercuryTransmitter) setFrom(f *MercuryTransmitter) {
 }
 
 type Mercury struct {
-	Cache       MercuryCache       `toml:",omitempty"`
-	TLS         MercuryTLS         `toml:",omitempty"`
-	Transmitter MercuryTransmitter `toml:",omitempty"`
+	Cache          MercuryCache       `toml:",omitempty"`
+	TLS            MercuryTLS         `toml:",omitempty"`
+	Transmitter    MercuryTransmitter `toml:",omitempty"`
+	VerboseLogging *bool              `toml:",omitempty"`
 }
 
 func (m *Mercury) setFrom(f *Mercury) {
 	m.Cache.setFrom(&f.Cache)
 	m.TLS.setFrom(&f.TLS)
 	m.Transmitter.setFrom(&f.Transmitter)
+	if v := f.VerboseLogging; v != nil {
+		m.VerboseLogging = v
+	}
 }
 
 func (m *Mercury) ValidateConfig() (err error) {
@@ -1406,12 +1420,123 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 	return err
 }
 
+type ExternalRegistry struct {
+	Address   *string
+	NetworkID *string
+	ChainID   *string
+}
+
+func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
+	if f.Address != nil {
+		r.Address = f.Address
+	}
+
+	if f.NetworkID != nil {
+		r.NetworkID = f.NetworkID
+	}
+
+	if f.ChainID != nil {
+		r.ChainID = f.ChainID
+	}
+}
+
+type Dispatcher struct {
+	SupportedVersion   *int
+	ReceiverBufferSize *int
+	RateLimit          DispatcherRateLimit
+}
+
+func (d *Dispatcher) setFrom(f *Dispatcher) {
+	d.RateLimit.setFrom(&f.RateLimit)
+
+	if f.ReceiverBufferSize != nil {
+		d.ReceiverBufferSize = f.ReceiverBufferSize
+	}
+
+	if f.SupportedVersion != nil {
+		d.SupportedVersion = f.SupportedVersion
+	}
+}
+
+type DispatcherRateLimit struct {
+	GlobalRPS      *float64
+	GlobalBurst    *int
+	PerSenderRPS   *float64
+	PerSenderBurst *int
+}
+
+func (drl *DispatcherRateLimit) setFrom(f *DispatcherRateLimit) {
+	if f.GlobalRPS != nil {
+		drl.GlobalRPS = f.GlobalRPS
+	}
+	if f.GlobalBurst != nil {
+		drl.GlobalBurst = f.GlobalBurst
+	}
+	if f.PerSenderRPS != nil {
+		drl.PerSenderRPS = f.PerSenderRPS
+	}
+	if f.PerSenderBurst != nil {
+		drl.PerSenderBurst = f.PerSenderBurst
+	}
+}
+
+type GatewayConnector struct {
+	ChainIDForNodeKey         *string
+	NodeAddress               *string
+	DonID                     *string
+	Gateways                  []ConnectorGateway
+	WSHandshakeTimeoutMillis  *uint32
+	AuthMinChallengeLen       *int
+	AuthTimestampToleranceSec *uint32
+}
+
+func (r *GatewayConnector) setFrom(f *GatewayConnector) {
+	if f.ChainIDForNodeKey != nil {
+		r.ChainIDForNodeKey = f.ChainIDForNodeKey
+	}
+
+	if f.NodeAddress != nil {
+		r.NodeAddress = f.NodeAddress
+	}
+
+	if f.DonID != nil {
+		r.DonID = f.DonID
+	}
+
+	if f.Gateways != nil {
+		r.Gateways = f.Gateways
+	}
+
+	if !reflect.ValueOf(f.WSHandshakeTimeoutMillis).IsZero() {
+		r.WSHandshakeTimeoutMillis = f.WSHandshakeTimeoutMillis
+	}
+
+	if f.AuthMinChallengeLen != nil {
+		r.AuthMinChallengeLen = f.AuthMinChallengeLen
+	}
+
+	if f.AuthTimestampToleranceSec != nil {
+		r.AuthTimestampToleranceSec = f.AuthTimestampToleranceSec
+	}
+}
+
+type ConnectorGateway struct {
+	ID  *string
+	URL *string
+}
+
 type Capabilities struct {
-	Peering P2P `toml:",omitempty"`
+	Peering          P2P              `toml:",omitempty"`
+	Dispatcher       Dispatcher       `toml:",omitempty"`
+	ExternalRegistry ExternalRegistry `toml:",omitempty"`
+	GatewayConnector GatewayConnector `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.Peering.setFrom(&f.Peering)
+	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
+	c.Dispatcher.setFrom(&f.Dispatcher)
+	c.GatewayConnector.setFrom(&f.GatewayConnector)
 }
 
 type ThresholdKeyShareSecrets struct {

@@ -83,7 +83,7 @@ library ChainSpecificUtil {
    * @notice Returns the L1 fees that will be paid for the current transaction, given any calldata
    * @notice for the current transaction.
    * @notice When on a known Arbitrum chain, it uses ArbGas.getCurrentTxL1GasFees to get the fees.
-   * @notice On Arbitrum, the provided calldata is not used to calculate the fees.
+   * @notice On Arbitrum, there's no need to pass the provided calldata
    * @notice On Optimism, the provided calldata is passed to the OVM_GasPriceOracle predeploy
    * @notice and getL1Fee is called to get the fees.
    */

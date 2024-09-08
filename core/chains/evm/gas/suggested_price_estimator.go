@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 
 	"github.com/smartcontractkit/chainlink/v2/common/fee"
@@ -101,26 +100,29 @@ func (o *SuggestedPriceEstimator) HealthReport() map[string]error {
 func (o *SuggestedPriceEstimator) run() {
 	defer close(o.chDone)
 
-	t := o.refreshPrice()
+	o.refreshPrice()
 	close(o.chInitialised)
+
+	t := services.TickerConfig{
+		Initial:   o.pollPeriod,
+		JitterPct: services.DefaultJitter,
+	}.NewTicker(o.pollPeriod)
 
 	for {
 		select {
 		case <-o.chStop:
 			return
 		case ch := <-o.chForceRefetch:
-			t.Stop()
-			t = o.refreshPrice()
+			o.refreshPrice()
+			t.Reset()
 			close(ch)
 		case <-t.C:
-			t = o.refreshPrice()
+			o.refreshPrice()
 		}
 	}
 }
 
-func (o *SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
-	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
-
+func (o *SuggestedPriceEstimator) refreshPrice() {
 	var res hexutil.Big
 	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
@@ -136,7 +138,6 @@ func (o *SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
 	o.gasPriceMu.Lock()
 	defer o.gasPriceMu.Unlock()
 	o.GasPrice = bi
-	return
 }
 
 // Uses the force refetch chan to trigger a price update and blocks until complete
@@ -213,7 +214,7 @@ func (o *SuggestedPriceEstimator) BumpLegacyGas(ctx context.Context, originalFee
 			err = pkgerrors.New("failed to refresh and return gas; gas price not set")
 			return
 		}
-		o.logger.Debugw("GasPrice", newGasPrice, "GasLimit", feeLimit)
+		o.logger.Debugw("BumpLegacyGas", "GasPrice", newGasPrice, "GasLimit", feeLimit)
 	})
 	if !ok {
 		return nil, 0, pkgerrors.New("estimator is not started")

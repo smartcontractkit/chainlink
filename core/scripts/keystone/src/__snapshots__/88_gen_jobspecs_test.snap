@@ -33,13 +33,12 @@ chainID = "11155111"
 command = "chainlink-ocr3-capability"
 ocrVersion = 3
 pluginName = "ocr-capability"
-providerType = "plugin"
+providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
 strategyName = 'single-chain'
 [onchainSigningStrategy.config]
-publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
 
 --------------------------------
 Oracle 1:
@@ -63,13 +62,12 @@ chainID = "11155111"
 command = "chainlink-ocr3-capability"
 ocrVersion = 3
 pluginName = "ocr-capability"
-providerType = "plugin"
+providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
 strategyName = 'single-chain'
 [onchainSigningStrategy.config]
-publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
 
 --------------------------------
 Oracle 2:
@@ -93,13 +91,12 @@ chainID = "11155111"
 command = "chainlink-ocr3-capability"
 ocrVersion = 3
 pluginName = "ocr-capability"
-providerType = "plugin"
+providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
 strategyName = 'single-chain'
 [onchainSigningStrategy.config]
-publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
 
 --------------------------------
 Oracle 3:
@@ -123,13 +120,12 @@ chainID = "11155111"
 command = "chainlink-ocr3-capability"
 ocrVersion = 3
 pluginName = "ocr-capability"
-providerType = "plugin"
+providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
 strategyName = 'single-chain'
 [onchainSigningStrategy.config]
-publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
 
 
 ---

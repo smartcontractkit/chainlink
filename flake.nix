@@ -8,15 +8,22 @@
     foundry.inputs.flake-utils.follows = "flake-utils";
   };
 
-  outputs = inputs@{ self, nixpkgs, flake-utils, foundry, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = import nixpkgs { inherit system; overlays = [ foundry.overlay ]; };
-      in
-      rec {
-        devShell = pkgs.callPackage ./shell.nix {
-          inherit pkgs;
-        };
-        formatter = pkgs.nixpkgs-fmt;
-      });
+  outputs = inputs @ {
+    self,
+    nixpkgs,
+    flake-utils,
+    foundry,
+    ...
+  }:
+    flake-utils.lib.eachDefaultSystem (system: let
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [foundry.overlay];
+      };
+    in rec {
+      devShell = pkgs.callPackage ./shell.nix {
+        inherit pkgs;
+      };
+      formatter = pkgs.nixpkgs-fmt;
+    });
 }

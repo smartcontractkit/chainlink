@@ -20,8 +20,9 @@ COPY ./chainlink /usr/local/bin/
 # Copy native libs if cgo is enabled
 COPY ./tmp/linux_${TARGETARCH}/libs /usr/local/bin/libs
 
-# Copy plugins and enable them
-COPY ./tmp/linux_${TARGETARCH}/plugins/* /usr/local/bin/
+# Copy plugins if exist and enable them
+# https://stackoverflow.com/questions/70096208/dockerfile-copy-folder-if-it-exists-conditional-copy/70096420#70096420
+COPY ./tmp/linux_${TARGETARCH}/plugin[s] /usr/local/bin/
 # Allow individual plugins to be enabled by supplying their path 
 ARG CL_MEDIAN_CMD
 ARG CL_MERCURY_CMD

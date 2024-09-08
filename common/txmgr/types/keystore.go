@@ -7,8 +7,6 @@ import (
 )
 
 // KeyStore encompasses the subset of keystore used by txmgr
-//
-//go:generate mockery --quiet --name KeyStore --output ./mocks/ --case=underscore
 type KeyStore[
 	// Account Address type.
 	ADDR types.Hashable,

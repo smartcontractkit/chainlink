@@ -193,7 +193,7 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context) (*pipeline.Run, pi
 		},
 	})
 
-	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
+	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars)
 	if err != nil {
 		return nil, pipeline.TaskRunResults{}, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
@@ -227,7 +227,7 @@ func (ds *inMemoryDataSource) Observe(ctx context.Context, timestamp ocr2types.R
 		return nil, err
 	}
 
-	finalResult := trrs.FinalResult(ds.lggr)
+	finalResult := trrs.FinalResult()
 	setEATelemetry(ds, finalResult, trrs, ObservationTimestamp{
 		Round:        timestamp.Round,
 		Epoch:        timestamp.Epoch,
@@ -310,7 +310,7 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 		return errors.Wrapf(ds.latestUpdateErr, "error updating in memory data source cache for spec ID %v", ds.spec.ID)
 	}
 
-	value, err := ds.inMemoryDataSource.parse(latestTrrs.FinalResult(ds.lggr))
+	value, err := ds.inMemoryDataSource.parse(latestTrrs.FinalResult())
 	if err != nil {
 		ds.latestUpdateErr = errors.Wrapf(err, "invalid result")
 		return ds.latestUpdateErr
@@ -318,7 +318,7 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 
 	// update cache values
 	ds.latestTrrs = latestTrrs
-	ds.latestResult = ds.latestTrrs.FinalResult(ds.lggr)
+	ds.latestResult = ds.latestTrrs.FinalResult()
 	ds.latestUpdateErr = nil
 
 	// backup in case data source fails continuously and node gets rebooted
@@ -402,7 +402,7 @@ func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTime
 	// a db write block that.
 	ds.saver.Save(run)
 
-	finalResult := trrs.FinalResult(ds.lggr)
+	finalResult := trrs.FinalResult()
 	setEATelemetry(&ds.inMemoryDataSource, finalResult, trrs, timestamp)
 
 	return ds.inMemoryDataSource.parse(finalResult)

@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -116,6 +117,16 @@ func TestCountersAreProperlyPopulatedForWrites(t *testing.T) {
 	require.NoError(t, orm.InsertLogsWithBlock(ctx, logs[15:], NewLogPollerBlock(utils.RandomBytes32(), 15, time.Now(), 5)))
 	assert.Equal(t, float64(20), testutil.ToFloat64(orm.logsInserted.WithLabelValues("420")))
 	assert.Equal(t, float64(2), testutil.ToFloat64(orm.blocksInserted.WithLabelValues("420")))
+
+	rowsAffected, err := orm.DeleteExpiredLogs(ctx, 3)
+	require.NoError(t, err)
+	require.Equal(t, int64(3), rowsAffected)
+	assert.Equal(t, 3, counterFromGaugeByLabels(orm.datasetSize, "420", "DeleteExpiredLogs", "delete"))
+
+	rowsAffected, err = orm.DeleteBlocksBefore(ctx, 30, 0)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), rowsAffected)
+	assert.Equal(t, 2, counterFromGaugeByLabels(orm.datasetSize, "420", "DeleteBlocksBefore", "delete"))
 
 	// Don't update counters in case of an error
 	require.Error(t, orm.InsertLogsWithBlock(ctx, logs, NewLogPollerBlock(utils.RandomBytes32(), 0, time.Now(), 0)))

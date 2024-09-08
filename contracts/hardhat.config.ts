@@ -21,7 +21,8 @@ subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS).setAction(
   async (_, __, runSuper) => {
     const paths = await runSuper()
     const noTests = paths.filter((p: string) => !p.endsWith('.t.sol'))
-    return noTests.filter(
+    const noCCIP = noTests.filter((p: string) => !p.includes('/v0.8/ccip'))
+    return noCCIP.filter(
       (p: string) => !p.includes('src/v0.8/vendor/forge-std'),
     )
   },
@@ -70,6 +71,13 @@ let config = {
         version: '0.8.19',
         settings: COMPILER_SETTINGS,
       },
+      {
+        version: '0.8.24',
+        settings: {
+          ...COMPILER_SETTINGS,
+          evmVersion: 'paris',
+        },
+      },
     ],
     overrides: {
       'src/v0.8/vrf/VRFCoordinatorV2.sol': {
@@ -95,6 +103,34 @@ let config = {
             bytecodeHash: 'none',
           },
         },
+      },
+      'src/v0.8/vrf/dev/VRFCoordinatorV2_5_Arbitrum.sol': {
+        version: '0.8.19',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 500, // see native_solc_compile_all_vrf
+          },
+          metadata: {
+            bytecodeHash: 'none',
+          },
+        },
+      },
+      'src/v0.8/vrf/dev/VRFCoordinatorV2_5_Optimism.sol': {
+        version: '0.8.19',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 500, // see native_solc_compile_all_vrf
+          },
+          metadata: {
+            bytecodeHash: 'none',
+          },
+        },
+      },
+      'src/v0.8/automation/AutomationForwarderLogic.sol': {
+        version: '0.8.19',
+        settings: COMPILER_SETTINGS,
       },
     },
   },

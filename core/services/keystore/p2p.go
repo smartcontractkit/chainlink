@@ -11,8 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-//go:generate mockery --quiet --name P2P --output ./mocks/ --case=underscore --filename p2p.go
-
 type P2P interface {
 	Get(id p2pkey.PeerID) (p2pkey.KeyV2, error)
 	GetAll() ([]p2pkey.KeyV2, error)

@@ -2,6 +2,7 @@ package capabilities_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -20,8 +21,8 @@ type mockCapability struct {
 	capabilities.CapabilityInfo
 }
 
-func (m *mockCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
-	return nil, nil
+func (m *mockCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+	return capabilities.CapabilityResponse{}, nil
 }
 
 func (m *mockCapability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -85,7 +86,7 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 	c2 := &mockCapability{CapabilityInfo: ci}
 
 	err = r.Add(ctx, c2)
-	assert.ErrorContains(t, err, "capability with id: capability-1@1.0.0 already exists")
+	assert.True(t, errors.Is(err, coreCapabilities.ErrCapabilityAlreadyExists))
 }
 
 func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {

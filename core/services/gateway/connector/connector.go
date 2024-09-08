@@ -21,10 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-//go:generate mockery --quiet --name GatewayConnector --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name Signer --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --name GatewayConnectorHandler --output ./mocks/ --case=underscore
-
 // GatewayConnector is a component run by Nodes to connect to a set of Gateways.
 type GatewayConnector interface {
 	job.ServiceCtx

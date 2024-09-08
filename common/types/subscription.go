@@ -1,7 +1,5 @@
 package types
 
-//go:generate mockery --quiet --name Subscription --output ./mocks/ --case=underscore
-
 // Subscription represents an event subscription where events are
 // delivered on a data channel.
 // This is a generic interface for Subscription to represent used by clients.

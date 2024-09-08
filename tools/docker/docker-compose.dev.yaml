@@ -1,13 +1,15 @@
-version: '3.5'
 services:
   node:
-    entrypoint: '/bin/sh -c "while sleep 1000; do :; done"'
-    build:
-      context: ../../
-      dockerfile: tools/docker/cldev.Dockerfile
-      args:
-        - SRCROOT
-    command: ''
-    image: smartcontract/chainlink-dev
-    volumes:
-      - ../..:$SRCROOT
+    develop:
+      watch:
+        - action: rebuild
+          path: ../../
+          ignore:
+            - '.changeset/'
+            - '.github/'
+            - 'charts/'
+            - 'core/sgx/target/'
+            - 'docs/'
+            - 'fuzz/'
+            - 'integration-tests/'
+            - 'tools/'

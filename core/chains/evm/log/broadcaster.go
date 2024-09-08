@@ -26,8 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 )
 
-//go:generate mockery --quiet --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
-
 type (
 	// The Broadcaster manages log subscription requests for the Chainlink node.  Instead
 	// of creating a new subscription for each request, it multiplexes all subscriptions

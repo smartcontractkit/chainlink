@@ -72,7 +72,6 @@ type Feeder struct {
 	errsLock      sync.Mutex
 }
 
-//go:generate mockery --quiet --name Timer --output ./mocks/ --case=underscore
 type Timer interface {
 	After(d time.Duration) <-chan time.Time
 }

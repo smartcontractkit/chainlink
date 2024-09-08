@@ -6,7 +6,6 @@ import (
 	sync "sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -23,11 +22,11 @@ import (
 //
 // TriggerSubscriber communicates with corresponding TriggerReceivers on remote nodes.
 type triggerSubscriber struct {
-	config              types.RemoteTriggerConfig
+	config              *commoncap.RemoteTriggerConfig
 	capInfo             commoncap.CapabilityInfo
-	capDonInfo          capabilities.DON
+	capDonInfo          commoncap.DON
 	capDonMembers       map[p2ptypes.PeerID]struct{}
-	localDonInfo        capabilities.DON
+	localDonInfo        commoncap.DON
 	dispatcher          types.Dispatcher
 	aggregator          types.Aggregator
 	messageCache        *messageCache[triggerEventKey, p2ptypes.PeerID]
@@ -44,7 +43,7 @@ type triggerEventKey struct {
 }
 
 type subRegState struct {
-	callback   chan commoncap.CapabilityResponse
+	callback   chan commoncap.TriggerResponse
 	rawRequest []byte
 }
 
@@ -53,12 +52,19 @@ var _ types.Receiver = &triggerSubscriber{}
 var _ services.Service = &triggerSubscriber{}
 
 // TODO makes this configurable with a default
-const defaultSendChannelBufferSize = 1000
+const (
+	defaultSendChannelBufferSize = 1000
+	maxBatchedWorkflowIDs        = 1000
+)
 
-func NewTriggerSubscriber(config types.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo capabilities.DON, localDonInfo capabilities.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
+func NewTriggerSubscriber(config *commoncap.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, localDonInfo commoncap.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
 	if aggregator == nil {
 		lggr.Warnw("no aggregator provided, using default MODE aggregator", "capabilityId", capInfo.ID)
 		aggregator = NewDefaultModeAggregator(uint32(capDonInfo.F + 1))
+	}
+	if config == nil {
+		lggr.Info("no config provided, using default values")
+		config = &commoncap.RemoteTriggerConfig{}
 	}
 	config.ApplyDefaults()
 	capDonMembers := make(map[p2ptypes.PeerID]struct{})
@@ -76,7 +82,7 @@ func NewTriggerSubscriber(config types.RemoteTriggerConfig, capInfo commoncap.Ca
 		messageCache:        NewMessageCache[triggerEventKey, p2ptypes.PeerID](),
 		registeredWorkflows: make(map[string]*subRegState),
 		stopCh:              make(services.StopChan),
-		lggr:                lggr,
+		lggr:                lggr.Named("TriggerSubscriber"),
 	}
 }
 
@@ -92,8 +98,8 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 	return s.capInfo, nil
 }
 
-func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
-	rawRequest, err := pb.MarshalCapabilityRequest(request)
+func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
+	rawRequest, err := pb.MarshalTriggerRegistrationRequest(request)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +113,7 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 	regState, ok := s.registeredWorkflows[request.Metadata.WorkflowID]
 	if !ok {
 		regState = &subRegState{
-			callback:   make(chan commoncap.CapabilityResponse, defaultSendChannelBufferSize),
+			callback:   make(chan commoncap.TriggerResponse, defaultSendChannelBufferSize),
 			rawRequest: rawRequest,
 		}
 		s.registeredWorkflows[request.Metadata.WorkflowID] = regState
@@ -121,7 +127,7 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 
 func (s *triggerSubscriber) registrationLoop() {
 	defer s.wg.Done()
-	ticker := time.NewTicker(time.Duration(s.config.RegistrationRefreshMs) * time.Millisecond)
+	ticker := time.NewTicker(s.config.RegistrationRefresh)
 	defer ticker.Stop()
 	for {
 		select {
@@ -154,7 +160,7 @@ func (s *triggerSubscriber) registrationLoop() {
 	}
 }
 
-func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commoncap.CapabilityRequest) error {
+func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -168,8 +174,13 @@ func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commo
 	return nil
 }
 
-func (s *triggerSubscriber) Receive(msg *types.MessageBody) {
-	sender := ToPeerID(msg.Sender)
+func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
+	sender, err := ToPeerID(msg.Sender)
+	if err != nil {
+		s.lggr.Errorw("failed to convert message sender to PeerID", "err", err)
+		return
+	}
+
 	if _, found := s.capDonMembers[sender]; !found {
 		s.lggr.Errorw("received message from unexpected node", "capabilityId", s.capInfo.ID, "sender", sender)
 		return
@@ -180,12 +191,16 @@ func (s *triggerSubscriber) Receive(msg *types.MessageBody) {
 			s.lggr.Errorw("received message with invalid trigger metadata", "capabilityId", s.capInfo.ID, "sender", sender)
 			return
 		}
+		if len(meta.WorkflowIds) > maxBatchedWorkflowIDs {
+			s.lggr.Errorw("received message with too many workflow IDs - truncating", "capabilityId", s.capInfo.ID, "nWorkflows", len(meta.WorkflowIds), "sender", sender)
+			meta.WorkflowIds = meta.WorkflowIds[:maxBatchedWorkflowIDs]
+		}
 		for _, workflowId := range meta.WorkflowIds {
 			s.mu.RLock()
 			registration, found := s.registeredWorkflows[workflowId]
 			s.mu.RUnlock()
 			if !found {
-				s.lggr.Errorw("received message for unregistered workflow", "capabilityId", s.capInfo.ID, "workflowID", workflowId, "sender", sender)
+				s.lggr.Errorw("received message for unregistered workflow", "capabilityId", s.capInfo.ID, "workflowID", SanitizeLogString(workflowId), "sender", sender)
 				continue
 			}
 			key := triggerEventKey{
@@ -193,11 +208,11 @@ func (s *triggerSubscriber) Receive(msg *types.MessageBody) {
 				workflowId:     workflowId,
 			}
 			nowMs := time.Now().UnixMilli()
-			s.mu.RLock()
+			s.mu.Lock()
 			creationTs := s.messageCache.Insert(key, sender, nowMs, msg.Payload)
-			ready, payloads := s.messageCache.Ready(key, s.config.MinResponsesToAggregate, nowMs-int64(s.config.MessageExpiryMs), true)
-			s.mu.RUnlock()
-			if nowMs-creationTs > int64(s.config.RegistrationExpiryMs) {
+			ready, payloads := s.messageCache.Ready(key, s.config.MinResponsesToAggregate, nowMs-s.config.MessageExpiry.Milliseconds(), true)
+			s.mu.Unlock()
+			if nowMs-creationTs > s.config.RegistrationExpiry.Milliseconds() {
 				s.lggr.Warnw("received trigger event for an expired ID", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId, "sender", sender)
 				continue
 			}
@@ -213,13 +228,13 @@ func (s *triggerSubscriber) Receive(msg *types.MessageBody) {
 			}
 		}
 	} else {
-		s.lggr.Errorw("received trigger event with unknown method", "method", msg.Method, "sender", sender)
+		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender)
 	}
 }
 
 func (s *triggerSubscriber) eventCleanupLoop() {
 	defer s.wg.Done()
-	ticker := time.NewTicker(time.Duration(s.config.MessageExpiryMs) * time.Millisecond)
+	ticker := time.NewTicker(s.config.MessageExpiry)
 	defer ticker.Stop()
 	for {
 		select {
@@ -227,7 +242,7 @@ func (s *triggerSubscriber) eventCleanupLoop() {
 			return
 		case <-ticker.C:
 			s.mu.Lock()
-			s.messageCache.DeleteOlderThan(time.Now().UnixMilli() - int64(s.config.MessageExpiryMs))
+			s.messageCache.DeleteOlderThan(time.Now().UnixMilli() - s.config.MessageExpiry.Milliseconds())
 			s.mu.Unlock()
 		}
 	}

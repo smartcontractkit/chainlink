@@ -3,7 +3,7 @@ description: A composite action that allows building and publishing signed chain
 inputs:
   goreleaser-version:
     description: The goreleaser version
-    default: 1.23.0
+    default: "~> v2"
     required: false
   goreleaser-key:
     description: The goreleaser key
@@ -14,7 +14,7 @@ inputs:
     required: false
   cosign-version:
     description: The cosign version
-    default: v2.2.2
+    default: v2.4.0
     required: false
   macos-sdk-dir:
     description: The macos sdk directory
@@ -29,10 +29,13 @@ inputs:
     description: The docker registry
     default: localhost:5001
     required: false
-  # snapshot inputs
-  enable-goreleaser-snapshot:
-    description: Enable goreleaser build / release snapshot
-    default: "false"
+  docker-image-name:
+    description: The docker image name
+    default: chainlink
+    required: false
+  docker-image-tag:
+    description: The docker image tag
+    default: develop
     required: false
   # goreleaser inputs
   goreleaser-exec:
@@ -43,27 +46,22 @@ inputs:
     description: "The goreleaser configuration yaml"
     default: ".goreleaser.yaml"
     required: false
+  enable-goreleaser-snapshot:
+    description: Enable goreleaser build / release snapshot
+    default: "false"
+    required: false
+  enable-goreleaser-split:
+    description: Enable goreleaser split and merge builds
+    default: "false"
+    required: false
+  goreleaser-split-arch:
+    description: The architecture to split the goreleaser build
+    required: false
   # signing inputs
   enable-cosign:
     description: Enable signing of docker images
     default: "false"
     required: false
-  cosign-private-key:
-    description: The private key to be used with cosign to sign the image
-    required: false
-  cosign-public-key:
-    description: The public key to be used with cosign for verification
-    required: false
-  cosign-password:
-    description: The password to decrypt the cosign private key needed to sign the image
-    required: false
-outputs:
-  goreleaser-metadata:
-    description: "Build result metadata"
-    value: ${{ steps.goreleaser.outputs.metadata }}
-  goreleaser-artifacts:
-    description: "Build result artifacts"
-    value: ${{ steps.goreleaser.outputs.artifacts }}
 runs:
   using: composite
   steps:
@@ -76,7 +74,7 @@ runs:
       with:
         go-version-file: "go.mod"
     - name: Setup goreleaser
-      uses: goreleaser/goreleaser-action@7ec5c2b0c6cdda6e8bbb49444bc797dd33d74dd8 # v5.0.0
+      uses: goreleaser/goreleaser-action@286f3b13b1b49da4ac219696163fb8c1c93e1200 # v6.0.0
       with:
         distribution: goreleaser-pro
         install-only: true
@@ -89,7 +87,7 @@ runs:
         version: ${{ inputs.zig-version }}
     - name: Setup cosign
       if: inputs.enable-cosign == 'true'
-      uses: sigstore/cosign-installer@e1523de7571e31dbe865fd2e80c5c7c23ae71eb4 # v3.4.0
+      uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
       with:
         cosign-release: ${{ inputs.cosign-version }}
     - name: Login to docker registry
@@ -97,19 +95,27 @@ runs:
       uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
       with:
         registry: ${{ inputs.docker-registry }}
-    - name: Goreleaser release
-      id: goreleaser
+    - name: Set goreleaser split env
+      if: inputs.enable-goreleaser-split == 'true'
+      shell: bash
+      run: |
+        echo "GOOS=linux" | tee -a $GITHUB_ENV
+        echo "GOARCH=${{ inputs.goreleaser-split-arch }}" | tee -a $GITHUB_ENV
+    - name: Install syft
+      uses: anchore/sbom-action/download-syft@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.2
+    - name: Run goreleaser release
       shell: bash
       env:
-        ENABLE_COSIGN: ${{ inputs.enable-cosign }}
         ENABLE_GORELEASER_SNAPSHOT: ${{ inputs.enable-goreleaser-snapshot }}
+        ENABLE_GORELEASER_SPLIT: ${{ inputs.enable-goreleaser-split }}
         ENABLE_DOCKER_PUBLISH: ${{ inputs.enable-docker-publish }}
         IMAGE_PREFIX: ${{ inputs.docker-registry }}
+        IMAGE_NAME: ${{ inputs.docker-image-name }}
+        IMAGE_TAG: ${{ inputs.docker-image-tag }}
         GORELEASER_EXEC: ${{ inputs.goreleaser-exec }}
         GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
-        COSIGN_PASSWORD: ${{ inputs.cosign-password }}
-        COSIGN_PUBLIC_KEY: ${{ inputs.cosign-public-key }}
-        COSIGN_PRIVATE_KEY: ${{ inputs.cosign-private-key }}
+        GORELEASER_KEY: ${{ inputs.goreleaser-key }}
+        GITHUB_TOKEN: ${{ github.token }}
         MACOS_SDK_DIR: ${{ inputs.macos-sdk-dir }}
       run: |
         # https://github.com/orgs/community/discussions/24950

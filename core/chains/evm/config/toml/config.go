@@ -338,26 +338,28 @@ func (c *EVMConfig) TOMLString() (string, error) {
 }
 
 type Chain struct {
-	AutoCreateKey             *bool
-	BlockBackfillDepth        *uint32
-	BlockBackfillSkip         *bool
-	ChainType                 *chaintype.ChainTypeConfig
-	FinalityDepth             *uint32
-	FinalityTagEnabled        *bool
-	FlagsContractAddress      *types.EIP55Address
-	LinkContractAddress       *types.EIP55Address
-	LogBackfillBatchSize      *uint32
-	LogPollInterval           *commonconfig.Duration
-	LogKeepBlocksDepth        *uint32
-	LogPrunePageSize          *uint32
-	BackupLogPollerBlockDelay *uint64
-	MinIncomingConfirmations  *uint32
-	MinContractPayment        *commonassets.Link
-	NonceAutoSync             *bool
-	NoNewHeadsThreshold       *commonconfig.Duration
-	OperatorFactoryAddress    *types.EIP55Address
-	RPCDefaultBatchSize       *uint32
-	RPCBlockQueryDelay        *uint16
+	AutoCreateKey                *bool
+	BlockBackfillDepth           *uint32
+	BlockBackfillSkip            *bool
+	ChainType                    *chaintype.ChainTypeConfig
+	FinalityDepth                *uint32
+	FinalityTagEnabled           *bool
+	FlagsContractAddress         *types.EIP55Address
+	LinkContractAddress          *types.EIP55Address
+	LogBackfillBatchSize         *uint32
+	LogPollInterval              *commonconfig.Duration
+	LogKeepBlocksDepth           *uint32
+	LogPrunePageSize             *uint32
+	BackupLogPollerBlockDelay    *uint64
+	MinIncomingConfirmations     *uint32
+	MinContractPayment           *commonassets.Link
+	NonceAutoSync                *bool
+	NoNewHeadsThreshold          *commonconfig.Duration
+	OperatorFactoryAddress       *types.EIP55Address
+	RPCDefaultBatchSize          *uint32
+	RPCBlockQueryDelay           *uint16
+	FinalizedBlockOffset         *uint32
+	NoNewFinalizedHeadsThreshold *commonconfig.Duration
 
 	Transactions   Transactions      `toml:",omitempty"`
 	BalanceMonitor BalanceMonitor    `toml:",omitempty"`
@@ -380,10 +382,6 @@ func (c *Chain) ValidateConfig() (err error) {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "GasEstimator.BumpTxDepth", Value: *c.GasEstimator.BumpTxDepth,
 			Msg: "must be less than or equal to Transactions.MaxInFlight"})
 	}
-	if *c.HeadTracker.HistoryDepth < *c.FinalityDepth {
-		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "HeadTracker.HistoryDepth", Value: *c.HeadTracker.HistoryDepth,
-			Msg: "must be equal to or greater than FinalityDepth"})
-	}
 	if *c.FinalityDepth < 1 {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "FinalityDepth", Value: *c.FinalityDepth,
 			Msg: "must be greater than or equal to 1"})
@@ -391,6 +389,11 @@ func (c *Chain) ValidateConfig() (err error) {
 	if *c.MinIncomingConfirmations < 1 {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "MinIncomingConfirmations", Value: *c.MinIncomingConfirmations,
 			Msg: "must be greater than or equal to 1"})
+	}
+
+	if *c.FinalizedBlockOffset > *c.HeadTracker.HistoryDepth {
+		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "HeadTracker.HistoryDepth", Value: *c.HeadTracker.HistoryDepth,
+			Msg: "must be greater than or equal to FinalizedBlockOffset"})
 	}
 
 	// AutoPurge configs depend on ChainType so handling validation on per chain basis
@@ -409,8 +412,16 @@ func (c *Chain) ValidateConfig() (err error) {
 					err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.DetectionApiUrl", Value: c.Transactions.AutoPurge.DetectionApiUrl.Scheme, Msg: "must be http or https"})
 				}
 			}
-		case chaintype.ChainZkEvm:
-			// No other configs are needed
+		case chaintype.ChainZkEvm, chaintype.ChainXLayer:
+			// MinAttempts is an optional config that can be used to delay the stuck tx detection for zkEVM or XLayer
+			// If MinAttempts is set, BumpThreshold cannot be 0
+			if c.Transactions.AutoPurge.MinAttempts != nil && *c.Transactions.AutoPurge.MinAttempts != 0 {
+				if c.GasEstimator.BumpThreshold == nil {
+					err = multierr.Append(err, commonconfig.ErrMissing{Name: "GasEstimator.BumpThreshold", Msg: fmt.Sprintf("must be set if Transactions.AutoPurge.MinAttempts is set for %s", chainType)})
+				} else if *c.GasEstimator.BumpThreshold == 0 {
+					err = multierr.Append(err, commonconfig.ErrInvalid{Name: "GasEstimator.BumpThreshold", Value: 0, Msg: fmt.Sprintf("cannot be 0 if Transactions.AutoPurge.MinAttempts is set for %s", chainType)})
+				}
+			}
 		default:
 			// Bump Threshold is required because the stuck tx heuristic relies on a minimum number of bump attempts to exist
 			if c.GasEstimator.BumpThreshold == nil {
@@ -510,6 +521,7 @@ func (a *Automation) setFrom(f *Automation) {
 type Workflow struct {
 	FromAddress      *types.EIP55Address `toml:",omitempty"`
 	ForwarderAddress *types.EIP55Address `toml:",omitempty"`
+	GasLimitDefault  *uint64
 }
 
 func (m *Workflow) setFrom(f *Workflow) {
@@ -518,6 +530,10 @@ func (m *Workflow) setFrom(f *Workflow) {
 	}
 	if v := f.ForwarderAddress; v != nil {
 		m.ForwarderAddress = v
+	}
+
+	if v := f.GasLimitDefault; v != nil {
+		m.GasLimitDefault = v
 	}
 }
 
@@ -543,6 +559,7 @@ type GasEstimator struct {
 	LimitMultiplier *decimal.Decimal
 	LimitTransfer   *uint64
 	LimitJobType    GasLimitJobType `toml:",omitempty"`
+	EstimateLimit   *bool
 
 	BumpMin       *assets.Wei
 	BumpPercent   *uint16
@@ -556,6 +573,7 @@ type GasEstimator struct {
 	TipCapMin     *assets.Wei
 
 	BlockHistory BlockHistoryEstimator `toml:",omitempty"`
+	FeeHistory   FeeHistoryEstimator   `toml:",omitempty"`
 }
 
 func (e *GasEstimator) ValidateConfig() (err error) {
@@ -630,6 +648,9 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	if v := f.LimitTransfer; v != nil {
 		e.LimitTransfer = v
 	}
+	if v := f.EstimateLimit; v != nil {
+		e.EstimateLimit = v
+	}
 	if v := f.PriceDefault; v != nil {
 		e.PriceDefault = v
 	}
@@ -647,6 +668,7 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	}
 	e.LimitJobType.setFrom(&f.LimitJobType)
 	e.BlockHistory.setFrom(&f.BlockHistory)
+	e.FeeHistory.setFrom(&f.FeeHistory)
 }
 
 type GasLimitJobType struct {
@@ -706,6 +728,16 @@ func (e *BlockHistoryEstimator) setFrom(f *BlockHistoryEstimator) {
 	}
 	if v := f.TransactionPercentile; v != nil {
 		e.TransactionPercentile = v
+	}
+}
+
+type FeeHistoryEstimator struct {
+	CacheTimeout *commonconfig.Duration
+}
+
+func (u *FeeHistoryEstimator) setFrom(f *FeeHistoryEstimator) {
+	if v := f.CacheTimeout; v != nil {
+		u.CacheTimeout = v
 	}
 }
 
@@ -789,6 +821,7 @@ type ClientErrors struct {
 	TransactionAlreadyMined           *string `toml:",omitempty"`
 	Fatal                             *string `toml:",omitempty"`
 	ServiceUnavailable                *string `toml:",omitempty"`
+	TooManyResults                    *string `toml:",omitempty"`
 }
 
 func (r *ClientErrors) setFrom(f *ClientErrors) bool {
@@ -834,6 +867,9 @@ func (r *ClientErrors) setFrom(f *ClientErrors) bool {
 	if v := f.ServiceUnavailable; v != nil {
 		r.ServiceUnavailable = v
 	}
+	if v := f.TooManyResults; v != nil {
+		r.TooManyResults = v
+	}
 	return true
 }
 
@@ -846,6 +882,8 @@ type NodePool struct {
 	NodeIsSyncingEnabled       *bool
 	FinalizedBlockPollInterval *commonconfig.Duration
 	Errors                     ClientErrors `toml:",omitempty"`
+	EnforceRepeatableRead      *bool
+	DeathDeclarationDelay      *commonconfig.Duration
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -869,6 +907,14 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 	if v := f.FinalizedBlockPollInterval; v != nil {
 		p.FinalizedBlockPollInterval = v
+	}
+
+	if v := f.EnforceRepeatableRead; v != nil {
+		p.EnforceRepeatableRead = v
+	}
+
+	if v := f.DeathDeclarationDelay; v != nil {
+		p.DeathDeclarationDelay = v
 	}
 	p.Errors.setFrom(&f.Errors)
 }

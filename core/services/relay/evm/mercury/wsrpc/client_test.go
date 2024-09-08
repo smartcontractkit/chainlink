@@ -395,7 +395,4 @@ func Test_GRPC_Signature(t *testing.T) {
 	t.Fatalf("message: %v, \n signature: %v", latestReportRequest.String(), signature)
 }
 
-// TODO:
-// * figure out if I want a mode where the client can dial the grpc server without a cert bundle
-
 func ptr[T any](t T) *T { return &t }

@@ -247,6 +247,26 @@ func TestHead_EarliestInChain(t *testing.T) {
 	assert.Equal(t, int64(1), head.EarliestInChain().BlockNumber())
 }
 
+func TestHead_HeadAtHeight(t *testing.T) {
+	expectedResult := &evmtypes.Head{
+		Hash:   common.BigToHash(big.NewInt(10)),
+		Number: 2,
+		Parent: &evmtypes.Head{
+			Number: 1,
+		},
+	}
+	head := evmtypes.Head{
+		Number: 3,
+		Parent: expectedResult,
+	}
+
+	headAtHeight, err := head.HeadAtHeight(2)
+	require.NoError(t, err)
+	assert.Equal(t, expectedResult, headAtHeight)
+	_, err = head.HeadAtHeight(0)
+	assert.Error(t, err, "expected to get an error if head is not in the chain")
+}
+
 func TestHead_IsInChain(t *testing.T) {
 	hash1 := utils.NewHash()
 	hash2 := utils.NewHash()

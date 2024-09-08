@@ -36,7 +36,7 @@ describe('IAutomationRegistryMaster2_3', () => {
     const checksum = ethers.utils.id(compositeABIs.join(''))
     const knownChecksum = fs
       .readFileSync(
-        'src/v0.8/automation/dev/interfaces/v2_3/IAutomationRegistryMaster2_3.sol',
+        'src/v0.8/automation/interfaces/v2_3/IAutomationRegistryMaster2_3.sol',
       )
       .toString()
       .slice(17, 83) // checksum located at top of file

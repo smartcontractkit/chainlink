@@ -9,6 +9,18 @@ defaults:
     shell: bash
 
 jobs:
+  readonly_changes:
+    name: Detect readonly solidity file changes
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.ch.outputs.changes }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Detect readonly solidity file changes
+        id: ch
+        uses: ./.github/actions/detect-solidity-readonly-file-changes
+
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
@@ -31,15 +43,15 @@ jobs:
       release-version: ${{ steps.release-tag-check.outputs.release-version }}
       pre-release-version: ${{ steps.release-tag-check.outputs.pre-release-version }}
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Check release tag
         id: release-tag-check
-        uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@2031e56eb4edb8115ce8ba07cbbfb457149d865d # v2.3.8
+        uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         env:
           # Match semver git tags with a "contracts-" prefix.
           RELEASE_REGEX: '^contracts-v[0-9]+\.[0-9]+\.[0-9]+$'
           PRE_RELEASE_REGEX: '^contracts-v[0-9]+\.[0-9]+\.[0-9]+-(.+)$'
-          # Get the version by stripping the "contracts-v" prefix. 
+          # Get the version by stripping the "contracts-v" prefix.
           VERSION_PREFIX: 'contracts-v'
 
   prepublish-test:
@@ -171,7 +183,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -192,8 +204,9 @@ jobs:
 
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
+          id: solidity-publish-beta
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -210,7 +223,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -234,8 +247,9 @@ jobs:
 
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
+          id: solitidy-publish-prod
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}

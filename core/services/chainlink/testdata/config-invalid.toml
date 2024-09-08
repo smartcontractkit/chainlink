@@ -53,6 +53,7 @@ SendOnly = true
 ChainID = '1'
 ChainType = 'Foo'
 FinalityDepth = 32
+FinalizedBlockOffset = 64
 
 [EVM.Transactions.AutoPurge]
 Enabled = true
@@ -157,6 +158,9 @@ URL = 'http://second.stark.node'
 APIKey = 'key'
 
 [[Starknet]]
+
+[[Aptos]]
+Enabled = 1
 
 [OCR2]
 Enabled = true

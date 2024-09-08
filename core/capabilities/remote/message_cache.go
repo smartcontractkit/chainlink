@@ -60,11 +60,11 @@ func (c *messageCache[EventID, PeerID]) Ready(eventID EventID, minCount uint32, 
 		if msg.timestamp >= minTimestamp {
 			countAboveMinTimestamp++
 			accPayloads = append(accPayloads, msg.payload)
-			if countAboveMinTimestamp >= minCount {
-				ev.wasReady = true
-				return true, accPayloads
-			}
 		}
+	}
+	if countAboveMinTimestamp >= minCount {
+		ev.wasReady = true
+		return true, accPayloads
 	}
 	return false, nil
 }

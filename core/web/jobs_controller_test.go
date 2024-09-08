@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -271,6 +272,25 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			},
 		},
 		{
+			name: "cron-evm-chain-id",
+			tomlTemplate: func(nameAndExternalJobID string) string {
+				return fmt.Sprintf(testspecs.CronSpecEVMChainIDTemplate, nameAndExternalJobID)
+			},
+			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
+				require.Equal(t, http.StatusOK, r.StatusCode)
+				resource := presenters.JobResource{}
+				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
+				assert.NoError(t, err)
+
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
+				require.NoError(t, err)
+				require.NotNil(t, jb.CronSpec)
+
+				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
+				require.Equal(t, ubig.NewI(42), jb.CronSpec.EVMChainID)
+			},
+		},
+		{
 			name: "directrequest",
 			tomlTemplate: func(nameAndExternalJobID string) string {
 				return testspecs.GetDirectRequestSpecWithUUID(uuid.MustParse(nameAndExternalJobID))
@@ -392,9 +412,6 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		{
 			name: "workflow",
 			tomlTemplate: func(_ string) string {
-				id := "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
-				owner := "00000000000000000000000000000000000000aa"
-				name := "myworkflow" // 10 bytes
 				workflow := `
 triggers:
   - id: "mercury-trigger@1.0.0"
@@ -442,7 +459,7 @@ targets:
       params: ["$(report)"]
       abi: "receive(report bytes)"
 `
-				return testspecs.GenerateWorkflowSpec(id, owner, name, workflow).Toml()
+				return testspecs.GenerateWorkflowJobSpec(t, workflow).Toml()
 			},
 			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
@@ -467,6 +484,7 @@ targets:
 		t.Run(c.name, func(t *testing.T) {
 			nameAndExternalJobID := uuid.New().String()
 			toml := c.tomlTemplate(nameAndExternalJobID)
+			t.Log("Job toml:", toml)
 			body, err := json.Marshal(web.CreateJobRequest{
 				TOML: toml,
 			})

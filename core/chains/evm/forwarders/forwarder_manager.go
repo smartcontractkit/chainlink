@@ -16,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmlogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -35,7 +33,9 @@ type Config interface {
 }
 
 type FwdMgr struct {
-	services.StateMachine
+	services.Service
+	eng *services.Engine
+
 	ORM       ORM
 	evmClient evmclient.Client
 	cfg       Config
@@ -50,61 +50,51 @@ type FwdMgr struct {
 	authRcvr    authorized_receiver.AuthorizedReceiverInterface
 	offchainAgg offchain_aggregator_wrapper.OffchainAggregatorInterface
 
-	stopCh services.StopChan
-
 	cacheMu sync.RWMutex
-	wg      sync.WaitGroup
 }
 
-func NewFwdMgr(ds sqlutil.DataSource, client evmclient.Client, logpoller evmlogpoller.LogPoller, l logger.Logger, cfg Config) *FwdMgr {
-	lggr := logger.Sugared(logger.Named(l, "EVMForwarderManager"))
-	fwdMgr := FwdMgr{
-		logger:       lggr,
+func NewFwdMgr(ds sqlutil.DataSource, client evmclient.Client, logpoller evmlogpoller.LogPoller, lggr logger.Logger, cfg Config) *FwdMgr {
+	fm := FwdMgr{
 		cfg:          cfg,
 		evmClient:    client,
 		ORM:          NewORM(ds),
 		logpoller:    logpoller,
 		sendersCache: make(map[common.Address][]common.Address),
 	}
-	fwdMgr.stopCh = make(chan struct{})
-	return &fwdMgr
+	fm.Service, fm.eng = services.Config{
+		Name:  "ForwarderManager",
+		Start: fm.start,
+	}.NewServiceEngine(lggr)
+	fm.logger = logger.Sugared(fm.eng)
+	return &fm
 }
 
-func (f *FwdMgr) Name() string {
-	return f.logger.Name()
-}
+func (f *FwdMgr) start(ctx context.Context) error {
+	chainId := f.evmClient.ConfiguredChainID()
 
-// Start starts Forwarder Manager.
-func (f *FwdMgr) Start(ctx context.Context) error {
-	return f.StartOnce("EVMForwarderManager", func() error {
-		f.logger.Debug("Initializing EVM forwarder manager")
-		chainId := f.evmClient.ConfiguredChainID()
-
-		fwdrs, err := f.ORM.FindForwardersByChain(ctx, big.Big(*chainId))
-		if err != nil {
-			return pkgerrors.Wrapf(err, "Failed to retrieve forwarders for chain %d", chainId)
+	fwdrs, err := f.ORM.FindForwardersByChain(ctx, big.Big(*chainId))
+	if err != nil {
+		return pkgerrors.Wrapf(err, "Failed to retrieve forwarders for chain %d", chainId)
+	}
+	if len(fwdrs) != 0 {
+		f.initForwardersCache(ctx, fwdrs)
+		if err = f.subscribeForwardersLogs(ctx, fwdrs); err != nil {
+			return err
 		}
-		if len(fwdrs) != 0 {
-			f.initForwardersCache(ctx, fwdrs)
-			if err = f.subscribeForwardersLogs(ctx, fwdrs); err != nil {
-				return err
-			}
-		}
+	}
 
-		f.authRcvr, err = authorized_receiver.NewAuthorizedReceiver(common.Address{}, f.evmClient)
-		if err != nil {
-			return pkgerrors.Wrap(err, "Failed to init AuthorizedReceiver")
-		}
+	f.authRcvr, err = authorized_receiver.NewAuthorizedReceiver(common.Address{}, f.evmClient)
+	if err != nil {
+		return pkgerrors.Wrap(err, "Failed to init AuthorizedReceiver")
+	}
 
-		f.offchainAgg, err = offchain_aggregator_wrapper.NewOffchainAggregator(common.Address{}, f.evmClient)
-		if err != nil {
-			return pkgerrors.Wrap(err, "Failed to init OffchainAggregator")
-		}
+	f.offchainAgg, err = offchain_aggregator_wrapper.NewOffchainAggregator(common.Address{}, f.evmClient)
+	if err != nil {
+		return pkgerrors.Wrap(err, "Failed to init OffchainAggregator")
+	}
 
-		f.wg.Add(1)
-		go f.runLoop()
-		return nil
-	})
+	f.eng.Go(f.runLoop)
+	return nil
 }
 
 func FilterName(addr common.Address) string {
@@ -178,7 +168,7 @@ func (f *FwdMgr) ConvertPayload(dest common.Address, origPayload []byte) ([]byte
 		if err != nil {
 			f.logger.AssumptionViolationw("Forwarder encoding failed, this should never happen",
 				"err", err, "to", dest, "payload", origPayload)
-			f.SvcErrBuffer.Append(err)
+			f.eng.EmitHealthErr(err)
 		}
 	}
 	return databytes, nil
@@ -226,7 +216,7 @@ func (f *FwdMgr) initForwardersCache(ctx context.Context, fwdrs []Forwarder) {
 	for _, fwdr := range fwdrs {
 		senders, err := f.getAuthorizedSenders(ctx, fwdr.Address)
 		if err != nil {
-			f.logger.Warnw("Failed to call getAuthorizedSenders on forwarder", fwdr, "err", err)
+			f.logger.Warnw("Failed to call getAuthorizedSenders on forwarder", "forwarder", fwdr.Address, "err", err)
 			continue
 		}
 		f.setCachedSenders(fwdr.Address, senders)
@@ -271,15 +261,13 @@ func (f *FwdMgr) getCachedSenders(addr common.Address) ([]common.Address, bool) 
 	return addrs, ok
 }
 
-func (f *FwdMgr) runLoop() {
-	defer f.wg.Done()
-	ctx, cancel := f.stopCh.NewCtx()
-	defer cancel()
+func (f *FwdMgr) runLoop(ctx context.Context) {
+	ticker := services.NewTicker(time.Minute)
+	defer ticker.Stop()
 
-	tick := time.After(0)
-	for ; ; tick = time.After(utils.WithJitter(time.Minute)) {
+	for {
 		select {
-		case <-tick:
+		case <-ticker.C:
 			if err := f.logpoller.Ready(); err != nil {
 				f.logger.Warnw("Skipping log syncing", "err", err)
 				continue
@@ -352,17 +340,4 @@ func (f *FwdMgr) collectAddresses() (addrs []common.Address) {
 		addrs = append(addrs, addr)
 	}
 	return
-}
-
-// Stop cancels all outgoings calls and stops internal ticker loop.
-func (f *FwdMgr) Close() error {
-	return f.StopOnce("EVMForwarderManager", func() (err error) {
-		close(f.stopCh)
-		f.wg.Wait()
-		return nil
-	})
-}
-
-func (f *FwdMgr) HealthReport() map[string]error {
-	return map[string]error{f.Name(): f.Healthy()}
 }

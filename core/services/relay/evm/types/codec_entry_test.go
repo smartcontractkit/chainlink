@@ -219,11 +219,15 @@ func TestCodecEntry(t *testing.T) {
 		assert.NoError(t, entry.Init())
 		ct := entry.CheckedType()
 		require.Equal(t, 2, ct.NumField())
+		args := entry.Args()
+		require.Equal(t, 2, len(args))
 		f0 := ct.Field(0)
 		assert.Equal(t, "F0", f0.Name)
+		assert.Equal(t, "F0", args[0].Name)
 		assert.Equal(t, reflect.TypeOf((*int64)(nil)), f0.Type)
 		f1 := ct.Field(1)
 		assert.Equal(t, "F1", f1.Name)
+		assert.Equal(t, "F1", args[1].Name)
 		assert.Equal(t, reflect.TypeOf((*int32)(nil)), f1.Type)
 	})
 
@@ -237,11 +241,14 @@ func TestCodecEntry(t *testing.T) {
 		assert.NoError(t, entry.Init())
 		ct := entry.CheckedType()
 		require.Equal(t, 2, ct.NumField())
+		args := entry.Args()
+		require.Equal(t, 2, len(args))
 		f0 := ct.Field(0)
 		assert.Equal(t, "F1", f0.Name)
 		assert.Equal(t, reflect.TypeOf((*int64)(nil)), f0.Type)
 		f1 := ct.Field(1)
 		assert.Equal(t, "F1_X", f1.Name)
+		assert.Equal(t, "F1_X", args[1].Name)
 		assert.Equal(t, reflect.TypeOf((*int32)(nil)), f1.Type)
 	})
 
@@ -266,17 +273,27 @@ func TestCodecEntry(t *testing.T) {
 		assertHaveSameStructureAndNames(t, iNative.Type(), entry.CheckedType())
 	})
 
-	t.Run("Indexed non basic types change to hash", func(t *testing.T) {
-		anyType, err := abi.NewType("string", "", []abi.ArgumentMarshaling{})
+	t.Run("Indexed string and bytes array change to hash", func(t *testing.T) {
+		stringType, err := abi.NewType("string", "", []abi.ArgumentMarshaling{})
 		require.NoError(t, err)
-		entry := NewCodecEntry(abi.Arguments{{Name: "Name", Type: anyType, Indexed: true}}, nil, nil)
-		require.NoError(t, entry.Init())
-		nativeField, ok := entry.CheckedType().FieldByName("Name")
-		require.True(t, ok)
-		assert.Equal(t, reflect.TypeOf(&common.Hash{}), nativeField.Type)
-		native, err := entry.ToNative(reflect.New(entry.CheckedType()))
+		arrayType, err := abi.NewType("uint8[32]", "", []abi.ArgumentMarshaling{})
 		require.NoError(t, err)
-		assertHaveSameStructureAndNames(t, native.Type().Elem(), entry.CheckedType())
+
+		abiArgs := abi.Arguments{
+			{Name: "String", Type: stringType, Indexed: true},
+			{Name: "Array", Type: arrayType, Indexed: true},
+		}
+
+		for i := 0; i < len(abiArgs); i++ {
+			entry := NewCodecEntry(abi.Arguments{abiArgs[i]}, nil, nil)
+			require.NoError(t, entry.Init())
+			nativeField, ok := entry.CheckedType().FieldByName(abiArgs[i].Name)
+			require.True(t, ok)
+			assert.Equal(t, reflect.TypeOf(&common.Hash{}), nativeField.Type)
+			native, err := entry.ToNative(reflect.New(entry.CheckedType()))
+			require.NoError(t, err)
+			assertHaveSameStructureAndNames(t, native.Type().Elem(), entry.CheckedType())
+		}
 	})
 
 	t.Run("Too many indexed items returns an error", func(t *testing.T) {

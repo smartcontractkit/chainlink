@@ -53,7 +53,7 @@ func setupORM(t *testing.T) *TestORM {
 
 // Managers
 
-func Test_ORM_CreateManager(t *testing.T) {
+func Test_ORM_CreateManager_CountManagers(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -76,6 +76,33 @@ func Test_ORM_CreateManager(t *testing.T) {
 	count, err = orm.CountManagers(ctx)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), count)
+
+	assert.NotZero(t, id)
+}
+
+func Test_ORM_CreateManager(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	var (
+		orm = setupORM(t)
+		mgr = &feeds.FeedsManager{
+			URI:       uri,
+			Name:      name,
+			PublicKey: publicKey,
+		}
+	)
+
+	exists, err := orm.ManagerExists(ctx, publicKey)
+	require.NoError(t, err)
+	require.Equal(t, false, exists)
+
+	id, err := orm.CreateManager(ctx, mgr)
+	require.NoError(t, err)
+
+	exists, err = orm.ManagerExists(ctx, publicKey)
+	require.NoError(t, err)
+	require.Equal(t, true, exists)
 
 	assert.NotZero(t, id)
 }
@@ -553,39 +580,6 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 		_, err = orm.GetJobProposalByRemoteUUID(ctx, uuid.New())
 		require.Error(t, err)
 	})
-}
-
-func Test_ORM_ListJobProposals(t *testing.T) {
-	t.Parallel()
-	ctx := testutils.Context(t)
-
-	orm := setupORM(t)
-	fmID := createFeedsManager(t, orm)
-	uuid := uuid.New()
-	name := null.StringFrom("jp1")
-
-	jp := &feeds.JobProposal{
-		Name:           name,
-		RemoteUUID:     uuid,
-		Status:         feeds.JobProposalStatusPending,
-		FeedsManagerID: fmID,
-	}
-
-	id, err := orm.CreateJobProposal(ctx, jp)
-	require.NoError(t, err)
-
-	jps, err := orm.ListJobProposals(ctx)
-	require.NoError(t, err)
-	require.Len(t, jps, 1)
-
-	actual := jps[0]
-	assert.Equal(t, id, actual.ID)
-	assert.Equal(t, name, actual.Name)
-	assert.Equal(t, uuid, actual.RemoteUUID)
-	assert.Equal(t, jp.Status, actual.Status)
-	assert.False(t, actual.ExternalJobID.Valid)
-	assert.False(t, actual.PendingUpdate)
-	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
 }
 
 func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
@@ -1659,6 +1653,14 @@ func Test_ORM_IsJobManaged(t *testing.T) {
 	isManaged, err = orm.IsJobManaged(ctx, int64(j.ID))
 	require.NoError(t, err)
 	assert.True(t, isManaged)
+
+	// delete the proposal
+	err = orm.DeleteProposal(ctx, jpID)
+	require.NoError(t, err)
+
+	isManaged, err = orm.IsJobManaged(ctx, int64(j.ID))
+	require.NoError(t, err)
+	assert.False(t, isManaged)
 }
 
 // Helpers

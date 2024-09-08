@@ -1,0 +1,47 @@
+<style>
+    details {
+        margin: 0.0em 0.0em 0.0em 0.4em;
+        padding: 0.3em 0.0em 0.0em 0.4em;
+    }
+    pre {
+        margin-left:1em;
+        margin-top: 0;
+    }
+    summary {
+        padding-bottom: 0.4em;
+    }
+    details {
+        border: thin solid black;
+        border-bottom-color: rgba(0,0,0,0);
+        border-right-color: rgba(0,0,0,0);
+    }
+    .passing:after {
+        color: blue;
+        content: " - (Passing)";
+        font-size:small;
+        text-transform: uppercase;
+    }
+    .failing:after {
+        color: red;
+        content: " - (Failing)";
+        font-weight: bold;
+        font-size:small;
+        text-transform: uppercase;
+    }
+    summary.noexpand::marker {
+        color: rgba(100,101,10,0);
+    }
+</style>
+<details open>
+    <summary title=""><span class="">EVM</span></summary>
+    <details open>
+        <summary title=""><span class="">0</span></summary>
+        <details open>
+            <summary title=""><span class="">HeadTracker</span></summary>
+            <details open>
+                <summary title="EVM.0.HeadTracker.HeadListener"><span class="failing">HeadListener</span></summary>
+                <pre>Listener is not connected</pre>
+            </details>
+        </details>
+    </details>
+</details>

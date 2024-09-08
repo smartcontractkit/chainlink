@@ -146,11 +146,13 @@ func (entry *codecEntry) Init() (err error) {
 			}
 			for {
 				name = name + "_X"
+				arg.Name = name
 				if !seenNames[name] {
 					break
 				}
 			}
 		}
+		args[i] = arg
 		seenNames[name] = true
 		native[i] = reflect.StructField{Name: name, Type: nativeArg}
 		checked[i] = reflect.StructField{Name: name, Type: checkedArg}
@@ -198,7 +200,7 @@ func getNativeAndCheckedTypesForArg(arg *abi.Argument) (reflect.Type, reflect.Ty
 				return reflect.TypeOf(common.Hash{}), reflect.TypeOf(common.Hash{}), nil
 			}
 			fallthrough
-		case abi.SliceTy, abi.TupleTy, abi.FixedBytesTy, abi.FixedPointTy, abi.FunctionTy:
+		case abi.SliceTy, abi.TupleTy, abi.FixedPointTy, abi.FunctionTy:
 			// https://github.com/ethereum/go-ethereum/blob/release/1.12/accounts/abi/topics.go#L78
 			return nil, nil, fmt.Errorf("%w: unsupported indexed type: %v", commontypes.ErrInvalidConfig, arg.Type)
 		default:

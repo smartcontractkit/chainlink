@@ -21,19 +21,19 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
-	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	reportModel "github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -63,9 +63,11 @@ type KeeperBenchmarkTest struct {
 	chainClient    *seth.Client
 	testConfig     tt.KeeperBenchmarkTestConfig
 
-	linkToken contracts.LinkToken
-	ethFeed   contracts.MockETHLINKFeed
-	gasFeed   contracts.MockGasFeed
+	linkToken     contracts.LinkToken
+	linkethFeed   contracts.MockLINKETHFeed
+	gasFeed       contracts.MockGasFeed
+	ethusdFeed    contracts.MockETHUSDFeed
+	wrappedNative contracts.WETHToken
 }
 
 // UpkeepConfig dictates details of how the test's upkeep contracts should be called and configured
@@ -164,10 +166,10 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Keep
 	}
 
 	if common.IsHexAddress(c.EthFeedAddress) {
-		_, err = contracts.LoadMockETHLINKFeed(k.chainClient, common.HexToAddress(c.EthFeedAddress))
+		_, err = contracts.LoadMockLINKETHFeed(k.chainClient, common.HexToAddress(c.EthFeedAddress))
 		require.NoError(k.t, err, "Loading ETH-Link feed Contract shouldn't fail")
 	} else {
-		k.ethFeed, err = contracts.DeployMockETHLINKFeed(k.chainClient, big.NewInt(2e18))
+		k.linkethFeed, err = contracts.DeployMockLINKETHFeed(k.chainClient, big.NewInt(2e18))
 		require.NoError(k.t, err, "Deploying mock ETH-Link feed shouldn't fail")
 	}
 
@@ -178,6 +180,11 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Keep
 		k.gasFeed, err = contracts.DeployMockGASFeed(k.chainClient, big.NewInt(2e11))
 		require.NoError(k.t, err, "Deploying mock gas feed shouldn't fail")
 	}
+
+	k.ethusdFeed, err = contracts.DeployMockETHUSDFeed(k.chainClient, big.NewInt(200000000000))
+	require.NoError(k.t, err, "Deploying mock ETH-USD feed shouldn't fail")
+	k.wrappedNative, err = contracts.DeployWETHTokenContract(k.log, k.chainClient)
+	require.NoError(k.t, err, "Deploying WETH Token Contract shouldn't fail")
 
 	for index := range inputs.RegistryVersions {
 		k.log.Info().Int("Index", index).Msg("Starting Test Setup")
@@ -192,10 +199,10 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Keep
 	for index := range keysToFund {
 		// Fund chainlink nodes
 		nodesToFund := k.chainlinkNodes
-		if inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_0 || inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_1 || inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_2 {
+		if inputs.RegistryVersions[index] >= ethereum.RegistryVersion_2_0 {
 			nodesToFund = k.chainlinkNodes[1:]
 		}
-		err = actions_seth.FundChainlinkNodesAtKeyIndexFromRootAddress(k.log, k.chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(nodesToFund), k.Inputs.ChainlinkNodeFunding, index)
+		err = actions.FundChainlinkNodesAtKeyIndexFromRootAddress(k.log, k.chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(nodesToFund), k.Inputs.ChainlinkNodeFunding, index)
 		require.NoError(k.t, err, "Funding Chainlink nodes shouldn't fail")
 	}
 
@@ -242,13 +249,13 @@ func (k *KeeperBenchmarkTest) Run() {
 		}
 		kr := k.keeperRegistries[rIndex]
 		ocrConfig, err := actions.BuildAutoOCR2ConfigVarsWithKeyIndex(
-			k.t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, kr.Address(), k.Inputs.DeltaStage, txKeyId, common.Address{}, kr.ChainModuleAddress(), kr.ReorgProtectionEnabled(),
+			k.t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, kr.Address(), k.Inputs.DeltaStage, txKeyId, common.Address{}, kr.ChainModuleAddress(), kr.ReorgProtectionEnabled(), k.linkToken, k.wrappedNative, k.ethusdFeed,
 		)
 		require.NoError(k.t, err, "Building OCR config shouldn't fail")
 
 		rv := inputs.RegistryVersions[rIndex]
 		// Send keeper jobs to registry and chainlink nodes
-		if rv == ethereum.RegistryVersion_2_0 || rv == ethereum.RegistryVersion_2_1 || rv == ethereum.RegistryVersion_2_2 {
+		if rv >= ethereum.RegistryVersion_2_0 {
 			actions.CreateOCRKeeperJobs(k.t, k.chainlinkNodes, kr.Address(), k.chainClient.ChainID, txKeyId, rv)
 			if rv == ethereum.RegistryVersion_2_0 {
 				err = kr.SetConfig(*inputs.KeeperRegistrySettings, ocrConfig)
@@ -708,7 +715,7 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 		registry, err = contracts.DeployKeeperRegistry(k.chainClient, &contracts.KeeperRegistryOpts{
 			RegistryVersion: registryVersion,
 			LinkAddr:        k.linkToken.Address(),
-			ETHFeedAddr:     k.ethFeed.Address(),
+			ETHFeedAddr:     k.linkethFeed.Address(),
 			GasFeedAddr:     k.gasFeed.Address(),
 			TranscoderAddr:  actions.ZeroAddress.Hex(),
 			RegistrarAddr:   actions.ZeroAddress.Hex(),
@@ -730,14 +737,14 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 		registrar, err = contracts.DeployKeeperRegistrar(k.chainClient, registryVersion, k.linkToken.Address(), registrarSettings)
 		require.NoError(k.t, err, "Funding keeper registrar contract shouldn't fail")
 	} else { // OCR automation - v2.X
-		registry, registrar = actions_seth.DeployAutoOCRRegistryAndRegistrar(
-			k.t, k.chainClient, registryVersion, *k.Inputs.KeeperRegistrySettings, k.linkToken,
+		registry, registrar = actions.DeployAutoOCRRegistryAndRegistrar(
+			k.t, k.chainClient, registryVersion, *k.Inputs.KeeperRegistrySettings, k.linkToken, k.wrappedNative, k.ethusdFeed,
 		)
 
 		// Fund the registry with LINK
 		err := k.linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(k.Inputs.Upkeeps.NumberOfUpkeeps))))
 		require.NoError(k.t, err, "Funding keeper registry contract shouldn't fail")
-		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(k.t, k.chainlinkNodes[1:], *k.Inputs.KeeperRegistrySettings, registrar.Address(), k.Inputs.DeltaStage, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
+		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(k.t, k.chainlinkNodes[1:], *k.Inputs.KeeperRegistrySettings, registrar.Address(), k.Inputs.DeltaStage, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled(), k.linkToken, k.wrappedNative, k.ethusdFeed)
 		require.NoError(k.t, err, "Building OCR config shouldn't fail")
 		k.log.Debug().Interface("KeeperRegistrySettings", *k.Inputs.KeeperRegistrySettings).Interface("OCRConfig", ocrConfig).Msg("Config")
 		require.NoError(k.t, err, "Error building OCR config vars")
@@ -799,10 +806,10 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 
 	linkFunds = big.NewInt(0).Add(linkFunds, minLinkBalance)
 
-	err = actions_seth.DeployMultiCallAndFundDeploymentAddresses(k.chainClient, k.linkToken, upkeep.NumberOfUpkeeps, linkFunds)
+	err = actions.DeployMultiCallAndFundDeploymentAddresses(k.chainClient, k.linkToken, upkeep.NumberOfUpkeeps, linkFunds)
 	require.NoError(k.t, err, "Sending link funds to deployment addresses shouldn't fail")
 
-	upkeepIds := actions_seth.RegisterUpkeepContractsWithCheckData(k.t, k.chainClient, k.linkToken, linkFunds, uint32(upkeep.UpkeepGasLimit), registry, registrar, upkeep.NumberOfUpkeeps, upkeepAddresses, checkData, false, false)
+	upkeepIds := actions.RegisterUpkeepContractsWithCheckData(k.t, k.chainClient, k.linkToken, linkFunds, uint32(upkeep.UpkeepGasLimit), registry, registrar, upkeep.NumberOfUpkeeps, upkeepAddresses, checkData, false, false, false, nil)
 
 	k.keeperRegistries[index] = registry
 	k.keeperRegistrars[index] = registrar

@@ -6,7 +6,15 @@ on:
 
 jobs:
   lint-scripts:
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
+    permissions:
+      # For golangci-lint-actions to annotate code in the PR.
+      checks: write
+      contents: read
+      # For golangci-lint-action's `only-new-issues` option.
+      pull-requests: read
     steps:
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Golang Lint

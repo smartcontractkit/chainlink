@@ -26,7 +26,7 @@ import (
 )
 
 type Runner interface {
-	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error)
+	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error)
 }
 
 type LatestReportFetcher interface {
@@ -228,7 +228,7 @@ func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.T
 		},
 	})
 
-	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
+	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars)
 	if err != nil {
 		return nil, nil, pkgerrors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
