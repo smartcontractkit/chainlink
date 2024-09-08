@@ -17,7 +17,7 @@ contract MockBaseValidator is BaseValidator {
     int256 /* previousAnswer */,
     uint256 /* currentRoundId */,
     int256 /* currentAnswer */
-  ) external override checkAccess view returns (bool) {
+  ) external view override checkAccess returns (bool) {
     return true;
   }
 }
