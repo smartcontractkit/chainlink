@@ -161,7 +161,7 @@ func (_m *TelemetryIngressEndpoint) URL() *url.URL {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for URL")
+		panic("no return value specified for WSRPC")
 	}
 
 	var r0 *url.URL
@@ -176,14 +176,14 @@ func (_m *TelemetryIngressEndpoint) URL() *url.URL {
 	return r0
 }
 
-// TelemetryIngressEndpoint_URL_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'URL'
+// TelemetryIngressEndpoint_URL_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WSRPC'
 type TelemetryIngressEndpoint_URL_Call struct {
 	*mock.Call
 }
 
 // URL is a helper method to define mock.On call
 func (_e *TelemetryIngressEndpoint_Expecter) URL() *TelemetryIngressEndpoint_URL_Call {
-	return &TelemetryIngressEndpoint_URL_Call{Call: _e.mock.On("URL")}
+	return &TelemetryIngressEndpoint_URL_Call{Call: _e.mock.On("WSRPC")}
 }
 
 func (_c *TelemetryIngressEndpoint_URL_Call) Run(run func()) *TelemetryIngressEndpoint_URL_Call {
