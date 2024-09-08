@@ -4,11 +4,8 @@ pragma solidity ^0.8.24;
 import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import {AggregatorInterface} from "../../../shared/interfaces/AggregatorInterface.sol";
 import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
-import {AggregatorV2V3Interface} from "../../../shared/interfaces/AggregatorV2V3Interface.sol";
-import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IFlags} from "../interfaces/IFlags.sol";
-import {ISequencerUptimeFeed} from "../interfaces/ISequencerUptimeFeed.sol";
-import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
+import {BaseSequencerUptimeFeed} from "../shared/BaseSequencerUptimeFeed.sol";
 
 /**
  * @title ArbitrumSequencerUptimeFeed - L2 sequencer uptime status aggregator
@@ -16,12 +13,15 @@ import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAcces
  *  records a new answer if the status changed, and raises or lowers the flag on the
  *   stored Flags contract.
  */
-contract ArbitrumSequencerUptimeFeed is
-  AggregatorV2V3Interface,
-  ISequencerUptimeFeed,
-  ITypeAndVersion,
-  SimpleReadAccessController
-{
+contract ArbitrumSequencerUptimeFeed is BaseSequencerUptimeFeed {
+  /**
+   * @notice versions:
+   *
+   * - ArbitrumSequencerUptimeFeed 1.0.0: initial release
+   *
+   */
+  string public constant override typeAndVersion = "ArbitrumSequencerUptimeFeed 1.0.0";
+
   /// @dev Round info (for uptime history)
   struct Round {
     bool status;
@@ -45,9 +45,6 @@ contract ArbitrumSequencerUptimeFeed is
   error NoDataPresent();
 
   event Initialized();
-  event L1SenderTransferred(address indexed from, address indexed to);
-  /// @dev Emitted when an `updateStatus` call is ignored due to unchanged status or stale timestamp
-  event UpdateIgnored(bool latestStatus, uint64 latestTimestamp, bool incomingStatus, uint64 incomingTimestamp);
 
   /// @dev Follows: https://eips.ethereum.org/EIPS/eip-1967
   address public constant FLAG_L2_SEQ_OFFLINE =
@@ -63,8 +60,7 @@ contract ArbitrumSequencerUptimeFeed is
   /// @dev Flags contract to raise/lower flags on, during status transitions
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   IFlags public immutable FLAGS;
-  /// @dev L1 address
-  address private s_l1Sender;
+
   /// @dev s_latestRoundId == 0 means this contract is uninitialized.
   FeedState private s_feedState = FeedState({latestRoundId: 0, latestStatus: false, latestTimestamp: 0});
   mapping(uint80 => Round) private s_rounds;
@@ -73,19 +69,14 @@ contract ArbitrumSequencerUptimeFeed is
    * @param flagsAddress Address of the Flags contract on L2
    * @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
    */
-  constructor(address flagsAddress, address l1SenderAddress) {
+  constructor(
+    address flagsAddress,
+    address l1SenderAddress,
+    bool initialStatus
+  ) BaseSequencerUptimeFeed(l1SenderAddress, initialStatus) {
     _setL1Sender(l1SenderAddress);
 
     FLAGS = IFlags(flagsAddress);
-  }
-
-  /**
-   * @notice Check if a roundId is valid in this current contract state
-   * @dev Mainly used for AggregatorV2V3Interface functions
-   * @param roundId Round ID to check
-   */
-  function _isValidRound(uint256 roundId) private view returns (bool) {
-    return roundId > 0 && roundId <= type(uint80).max && s_feedState.latestRoundId >= roundId;
   }
 
   /// @notice Check that this contract is initialised, otherwise throw
@@ -113,49 +104,6 @@ contract ArbitrumSequencerUptimeFeed is
     _recordRound(1, currentStatus, timestamp);
 
     emit Initialized();
-  }
-
-  /**
-   * @notice versions:
-   *
-   * - ArbitrumSequencerUptimeFeed 1.0.0: initial release
-   *
-   * @inheritdoc ITypeAndVersion
-   */
-  function typeAndVersion() external pure virtual override returns (string memory) {
-    return "ArbitrumSequencerUptimeFeed 1.0.0";
-  }
-
-  /// @return L1 sender address
-  function l1Sender() public view virtual returns (address) {
-    return s_l1Sender;
-  }
-
-  /**
-   * @notice Set the allowed L1 sender for this contract to a new L1 sender
-   * @dev Can be disabled by setting the L1 sender as `address(0)`. Accessible only by owner.
-   * @param to new L1 sender that will be allowed to call `updateStatus` on this contract
-   */
-  function transferL1Sender(address to) external virtual onlyOwner {
-    _setL1Sender(to);
-  }
-
-  /// @notice internal method that stores the L1 sender
-  function _setL1Sender(address to) private {
-    address from = s_l1Sender;
-    if (from != to) {
-      s_l1Sender = to;
-      emit L1SenderTransferred(from, to);
-    }
-  }
-
-  /**
-   * @notice Messages sent by the stored L1 sender will arrive on L2 with this
-   *  address as the `msg.sender`
-   * @return L2-aliased form of the L1 sender address
-   */
-  function aliasedL1MessageSender() public view returns (address) {
-    return AddressAliasHelper.applyL1ToL2Alias(l1Sender());
   }
 
   /**
@@ -196,6 +144,14 @@ contract ArbitrumSequencerUptimeFeed is
     emit AnswerUpdated(_getStatusAnswer(status), roundId, timestamp);
   }
 
+  function _validateSender(address l1Sender) internal view override {
+    _requireInitialized(s_feedState.latestRoundId);
+
+    if (msg.sender != AddressAliasHelper.applyL1ToL2Alias(s_l1Sender)) {
+      revert InvalidSender();
+    }
+  }
+
   /**
    * @notice Record a new status and timestamp if it has changed since the last round.
    * @dev This function will revert if not called from `l1Sender` via the L1->L2 messenger.
@@ -205,10 +161,10 @@ contract ArbitrumSequencerUptimeFeed is
    */
   function updateStatus(bool status, uint64 timestamp) external override {
     FeedState memory feedState = s_feedState;
-    _requireInitialized(feedState.latestRoundId);
-    if (msg.sender != aliasedL1MessageSender()) {
-      revert InvalidSender();
-    }
+    // _requireInitialized(feedState.latestRoundId);
+    // if (msg.sender != AddressAliasHelper.applyL1ToL2Alias(s_l1Sender)) {
+    //   revert InvalidSender();
+    // }
 
     // Ignore if status did not change or latest recorded timestamp is newer
     if (feedState.latestStatus == status || feedState.latestTimestamp > timestamp) {

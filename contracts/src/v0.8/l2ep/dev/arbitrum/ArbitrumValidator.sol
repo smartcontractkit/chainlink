@@ -1,11 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AggregatorValidatorInterface} from "../../../shared/interfaces/AggregatorValidatorInterface.sol";
-import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
-import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
-
 /* ./dev dependencies - to be moved from ./dev after audit */
 import {ISequencerUptimeFeed} from "../interfaces/ISequencerUptimeFeed.sol";
 import {IArbitrumDelayedInbox} from "../interfaces/IArbitrumDelayedInbox.sol";
@@ -20,7 +15,24 @@ import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/ut
  *  - Gas configuration is controlled by a configurable external SimpleWriteAccessController
  *  - Funds on the contract are managed by the owner
  */
-contract ArbitrumValidator is ITypeAndVersion, AggregatorValidatorInterface, SimpleWriteAccessController {
+contract ArbitrumValidator is BaseValidator {
+  /**
+   * @notice versions:
+   *
+   * - ArbitrumValidator 0.1.0: initial release
+   * - ArbitrumValidator 0.2.0: critical Arbitrum network update
+   *   - xDomain `msg.sender` backwards incompatible change (now an alias address)
+   *   - new `withdrawFundsFromL2` fn that withdraws from L2 xDomain alias address
+   *   - approximation of `maxSubmissionCost` using a L1 gas price feed
+   * - ArbitrumValidator 1.0.0: change target of L2 sequencer status update
+   *   - now calls `updateStatus` on an L2 ArbitrumSequencerUptimeFeed contract instead of
+   *     directly calling the Flags contract
+   * - ArbitrumValidator 2.0.0: change how maxSubmissionCost is calculated when sending cross chain messages
+   *   - now calls `calculateRetryableSubmissionFee` instead of inlining equation to estimate
+   *     the maxSubmissionCost required to send the message to L2
+   */
+  string public constant override typeAndVersion = "ArbitrumValidator 2.0.0";
+
   enum PaymentStrategy {
     L1,
     L2
@@ -110,26 +122,6 @@ contract ArbitrumValidator is ITypeAndVersion, AggregatorValidatorInterface, Sim
     _setPaymentStrategy(_paymentStrategy);
   }
 
-  /**
-   * @notice versions:
-   *
-   * - ArbitrumValidator 0.1.0: initial release
-   * - ArbitrumValidator 0.2.0: critical Arbitrum network update
-   *   - xDomain `msg.sender` backwards incompatible change (now an alias address)
-   *   - new `withdrawFundsFromL2` fn that withdraws from L2 xDomain alias address
-   *   - approximation of `maxSubmissionCost` using a L1 gas price feed
-   * - ArbitrumValidator 1.0.0: change target of L2 sequencer status update
-   *   - now calls `updateStatus` on an L2 ArbitrumSequencerUptimeFeed contract instead of
-   *     directly calling the Flags contract
-   * - ArbitrumValidator 2.0.0: change how maxSubmissionCost is calculated when sending cross chain messages
-   *   - now calls `calculateRetryableSubmissionFee` instead of inlining equation to estimate
-   *     the maxSubmissionCost required to send the message to L2
-   * @inheritdoc ITypeAndVersion
-   */
-  function typeAndVersion() external pure virtual override returns (string memory) {
-    return "ArbitrumValidator 2.0.0";
-  }
-
   /// @return stored PaymentStrategy
   function paymentStrategy() external view virtual returns (PaymentStrategy) {
     return s_paymentStrategy;
@@ -144,14 +136,6 @@ contract ArbitrumValidator is ITypeAndVersion, AggregatorValidatorInterface, Sim
   function configAC() external view virtual returns (address) {
     return address(s_configAC);
   }
-
-  /**
-   * @notice makes this contract payable
-   * @dev receives funds:
-   *  - to use them (if configured) to pay for L2 execution on L1
-   *  - when withdrawing funds from L2 xDomain alias address (pay for L2 execution on L2)
-   */
-  receive() external payable {}
 
   /**
    * @notice withdraws all funds available in this contract to the msg.sender
