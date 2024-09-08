@@ -12,12 +12,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env/job_distributor"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/stretchr/testify/require"
 	"github.com/subosito/gotenv"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
+	clclient "github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -69,8 +71,17 @@ func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentC
 }
 
 // DeployPrivateChains deploys private chains and returns the chain configs and a function to deploy the Chainlink nodes
-func DeployPrivateChains(t *testing.T) ([]ChainConfig, string, func([]ChainConfig, string, deployment.RegistryConfig) (*EnvironmentConfig, error)) {
-	if info, err := os.Stat("./env"); os.IsNotExist(err) || !info.IsDir() {
+func DeployPrivateChains(t *testing.T) (
+	*EnvironmentConfig,
+	*test_env.CLClusterTestEnv,
+	tc.TestConfig,
+	func(
+		*EnvironmentConfig,
+		deployment.RegistryConfig,
+		*test_env.CLClusterTestEnv,
+		tc.TestConfig,
+	) error) {
+	if _, err := os.Stat("./env"); err == nil || !os.IsNotExist(err) {
 		require.NoError(t, gotenv.Load(".env"), "Error loading .env file")
 	}
 
@@ -104,11 +115,36 @@ func DeployPrivateChains(t *testing.T) ([]ChainConfig, string, func([]ChainConfi
 			PrivateWsRpcs:   rpcProvider.PrivateWsUrsl(),
 		})
 	}
-	var jdUrl string
+	var jdConfig JDConfig
+	// TODO : move this as a part of test_env setup with an input in testconfig
 	if cfg.CCIP.JobDistributorConfig != nil {
+		jdDB, err := ctftestenv.NewPostgresDb(
+			[]string{env.DockerNetwork.Name},
+			ctftestenv.WithPostgresDbName("jd-db"),
+			ctftestenv.WithPostgresImageVersion("14.1"))
+		require.NoError(t, err)
+		err = jdDB.StartContainer()
+		require.NoError(t, err)
 
+		jd := job_distributor.New([]string{env.DockerNetwork.Name},
+			job_distributor.WithImage(cfg.CCIP.GetJDImage()),
+			job_distributor.WithDBURL(jdDB.InternalURL.String()),
+		)
+		err = jd.StartContainer()
+		require.NoError(t, err)
+		jdConfig = JDConfig{
+			GRPC: jd.Grpc,
+			// we will use internal wsrpc for nodes on same docker network to connect to JD
+			WSRPC: jd.InternalWSRPC.String(),
+		}
 	}
-	deployCL := func(chains []ChainConfig, jdUrl string, registryConfig deployment.RegistryConfig) (*EnvironmentConfig, error) {
+	require.NotEmpty(t, jdConfig, "JD config is empty")
+	deployCL := func(
+		envConfig *EnvironmentConfig,
+		registryConfig deployment.RegistryConfig,
+		env *test_env.CLClusterTestEnv,
+		cfg tc.TestConfig,
+	) error {
 		evmNetworks := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())
 		noOfNodes := pointer.GetInt(cfg.CCIP.CLNode.NoOfPluginNodes) + pointer.GetInt(cfg.CCIP.CLNode.NoOfBootstraps)
 		var nodeInfo []NodeInfo
@@ -136,7 +172,7 @@ func DeployPrivateChains(t *testing.T) ([]ChainConfig, string, func([]ChainConfi
 			toml.Capabilities.ExternalRegistry.Address = ptr.Ptr(registryConfig.Contract.String())
 
 			if err != nil {
-				return nil, err
+				return err
 			}
 			ccipNode, err := test_env.NewClNode(
 				[]string{env.DockerNetwork.Name},
@@ -149,20 +185,30 @@ func DeployPrivateChains(t *testing.T) ([]ChainConfig, string, func([]ChainConfi
 				),
 			)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			ccipNode.SetTestLogger(t)
 			env.ClCluster.Nodes = append(env.ClCluster.Nodes, ccipNode)
 		}
 		err := env.ClCluster.Start()
 		if err != nil {
-			return nil, err
+			return err
 		}
-		return &EnvironmentConfig{
-			Chains:   chains,
-			JDConfig: JDConfig{URL: jdUrl},
-			nodeInfo: nodeInfo,
-		}, nil
+		for i, n := range env.ClCluster.Nodes {
+			nodeInfo[i].CLConfig = clclient.ChainlinkConfig{
+				URL:        n.API.URL(),
+				Email:      n.UserEmail,
+				Password:   n.UserPassword,
+				InternalIP: n.API.InternalIP(),
+			}
+		}
+
+		envConfig.nodeInfo = nodeInfo
+		return nil
 	}
-	return chains, jdUrl, deployCL
+
+	return &EnvironmentConfig{
+		Chains:   chains,
+		JDConfig: jdConfig,
+	}, env, cfg, deployCL
 }

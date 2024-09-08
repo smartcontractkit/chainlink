@@ -229,7 +229,7 @@ func (n *Node) CreateJobDistributor(ctx context.Context, jd JobDistributor) (str
 	// create the job distributor in the node with the csa key
 	return n.gqlClient.CreateJobDistributor(ctx, client.JobDistributorInput{
 		Name:      "Job Distributor",
-		Uri:       jd.URL,
+		Uri:       jd.WSRPC,
 		PublicKey: csaKey,
 	})
 }

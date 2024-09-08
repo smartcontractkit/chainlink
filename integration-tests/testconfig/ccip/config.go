@@ -1,6 +1,7 @@
 package ccip
 
 import (
+	"github.com/AlekSi/pointer"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 )
 
@@ -21,4 +22,8 @@ type JDConfig struct {
 
 func (o *Config) Validate() error {
 	return nil
+}
+
+func (o *Config) GetJDImage() string {
+	return pointer.GetString(o.JobDistributorConfig.JDImage)
 }

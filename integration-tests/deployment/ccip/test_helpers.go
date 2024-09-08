@@ -8,11 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/devenv"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 // Context returns a context with the test's deadline, if available.
@@ -84,10 +84,11 @@ type DeployedLocalDevEnvironment struct {
 
 func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLocalDevEnvironment {
 	ctx := Context(t)
-	chainConfigs, jdUrl, deployNodeFunc := devenv.DeployPrivateChains(t)
-	require.NotEmpty(t, chainConfigs, "chainConfigs should not be empty")
-	require.NotEmpty(t, jdUrl, "jdUrl should not be empty")
-	chains, err := devenv.NewChains(lggr, chainConfigs)
+	envConfig, testEnv, cfg, deployNodeFunc := devenv.DeployPrivateChains(t)
+	require.NotNil(t, envConfig)
+	require.NotEmpty(t, envConfig.Chains, "chainConfigs should not be empty")
+	require.NotEmpty(t, envConfig.JDConfig, "jdUrl should not be empty")
+	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
 	homeChainSel := uint64(0)
 	homeChainEVM := uint64(0)
@@ -101,14 +102,14 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 	ab, capReg, err := DeployCapReg(lggr, chains, homeChainSel)
 	require.NoError(t, err)
 
-	envCfg, err := deployNodeFunc(chainConfigs, jdUrl, deployment.RegistryConfig{
+	err = deployNodeFunc(envConfig, deployment.RegistryConfig{
 		EVMChainID: homeChainEVM,
 		Contract:   capReg,
-	})
+	},
+		testEnv, cfg)
 	require.NoError(t, err)
-	require.NotNil(t, envCfg)
 
-	e, don, err := devenv.NewEnvironment(ctx, lggr, *envCfg)
+	e, don, err := devenv.NewEnvironment(ctx, lggr, *envConfig)
 	require.NoError(t, err)
 	require.NotNil(t, e)
 	require.NotNil(t, don)

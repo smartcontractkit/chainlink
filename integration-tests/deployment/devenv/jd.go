@@ -15,7 +15,8 @@ import (
 )
 
 type JDConfig struct {
-	URL   string
+	GRPC  string
+	WSRPC string
 	creds credentials.TransportCredentials
 }
 
@@ -29,7 +30,7 @@ func NewClientConnection(cfg JDConfig) (*grpc.ClientConn, error) {
 
 	}
 
-	conn, err := grpc.NewClient(cfg.URL, opts...)
+	conn, err := grpc.NewClient(cfg.GRPC, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Job Distributor service. Err: %w", err)
 	}
@@ -38,7 +39,7 @@ func NewClientConnection(cfg JDConfig) (*grpc.ClientConn, error) {
 }
 
 type JobDistributor struct {
-	URL string
+	WSRPC string
 	nodev1.NodeServiceClient
 	jobv1.JobServiceClient
 	csav1.CSAServiceClient
@@ -50,7 +51,7 @@ func NewJDClient(cfg JDConfig) (deployment.OffchainClient, error) {
 		return nil, fmt.Errorf("failed to connect Job Distributor service. Err: %w", err)
 	}
 	return JobDistributor{
-		URL:               cfg.URL,
+		WSRPC:             cfg.WSRPC,
 		NodeServiceClient: nodev1.NewNodeServiceClient(conn),
 		JobServiceClient:  jobv1.NewJobServiceClient(conn),
 		CSAServiceClient:  csav1.NewCSAServiceClient(conn),
