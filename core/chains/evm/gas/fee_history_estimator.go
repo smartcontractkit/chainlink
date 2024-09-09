@@ -277,7 +277,7 @@ func (f *FeeHistoryEstimator) RefreshDynamicPrice() error {
 		priorityFeeThresholdWei = assets.NewWei(priorityFeeThreshold)
 		maxPriorityFeePerGas = assets.NewWei(priorityFee.Div(priorityFee, big.NewInt(nonZeroRewardsLen)))
 	}
-	// baseFeeBufferPercentage is added on top as a safety to catch fluctuations in the next blocks.
+	// BaseFeeBufferPercentage is used as a safety to catch any fluctuations in the Base Fee during the next blocks.
 	maxFeePerGas := nextBaseFee.AddPercentage(BaseFeeBufferPercentage).Add(maxPriorityFeePerGas)
 
 	promFeeHistoryEstimatorBaseFee.WithLabelValues(f.chainID.String()).Set(float64(nextBaseFee.Int64()))
