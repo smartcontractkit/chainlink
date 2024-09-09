@@ -169,7 +169,7 @@ func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, lim
 	}
 	remapped.Expressions = append(defaultExpressions, remapped.Expressions...)
 
-	logs, err := e.lp.FilteredLogs(ctx, remapped, limitAndSort, e.contractName+"-"+e.address.String()+"-"+e.eventName)
+	logs, err := e.lp.FilteredLogs(ctx, remapped.Expressions, limitAndSort, e.contractName+"-"+e.address.String()+"-"+e.eventName)
 	if err != nil {
 		return nil, err
 	}
@@ -229,8 +229,7 @@ func (e *eventBinding) getLatestValueWithFilters(
 
 	// Create limiter and filter for the query.
 	limiter := query.NewLimitAndSort(query.CountLimit(1), query.NewSortBySequence(query.Desc))
-	filter, err := query.Where(
-		"",
+	filter, err := logpoller.Where(
 		logpoller.NewAddressFilter(e.address),
 		logpoller.NewEventSigFilter(e.hash),
 		logpoller.NewConfirmationsFilter(confs),

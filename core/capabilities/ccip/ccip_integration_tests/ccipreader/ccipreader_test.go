@@ -86,14 +86,12 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 					},
 				},
 			},
-			MerkleRoots: []ccip_reader_tester.OffRampMerkleRoot{
+			MerkleRoots: []ccip_reader_tester.InternalMerkleRoot{
 				{
 					SourceChainSelector: uint64(chainS1),
-					Interval: ccip_reader_tester.OffRampInterval{
-						Min: 10,
-						Max: 20,
-					},
-					MerkleRoot: [32]byte{i + 1},
+					MinSeqNr:            10,
+					MaxSeqNr:            20,
+					MerkleRoot:          [32]byte{i + 1},
 				},
 			},
 		})
@@ -205,12 +203,12 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 		Contracts: map[string]evmtypes.ChainContractReader{
 			consts.ContractNameOnRamp: {
 				ContractPollingFilter: evmtypes.ContractPollingFilter{
-					GenericEventNames: []string{consts.EventNameCCIPSendRequested},
+					GenericEventNames: []string{consts.EventNameCCIPMessageSent},
 				},
 				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
 				Configs: map[string]*evmtypes.ChainReaderDefinition{
-					consts.EventNameCCIPSendRequested: {
-						ChainSpecificName: consts.EventNameCCIPSendRequested,
+					consts.EventNameCCIPMessageSent: {
+						ChainSpecificName: "CCIPMessageSent",
 						ReadType:          evmtypes.Event,
 					},
 				},
@@ -220,7 +218,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 
 	s := testSetup(ctx, t, chainS1, chainD, nil, cfg)
 
-	_, err := s.contract.EmitCCIPSendRequested(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
+	_, err := s.contract.EmitCCIPMessageSent(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
 		Header: ccip_reader_tester.InternalRampMessageHeader{
 			MessageId:           [32]byte{1, 0, 0, 0, 0},
 			SourceChainSelector: uint64(chainS1),
@@ -237,7 +235,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	_, err = s.contract.EmitCCIPSendRequested(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
+	_, err = s.contract.EmitCCIPMessageSent(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
 		Header: ccip_reader_tester.InternalRampMessageHeader{
 			MessageId:           [32]byte{1, 0, 0, 0, 1},
 			SourceChainSelector: uint64(chainS1),

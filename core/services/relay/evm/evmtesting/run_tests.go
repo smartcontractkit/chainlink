@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -17,23 +18,27 @@ import (
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 )
 
-func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTester[T]) {
-	RunChainReaderInterfaceTests[T](t, it)
+func RunChainComponentsEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T]) {
+	RunContractReaderEvmTests[T](t, it)
+	// Add ChainWriter tests here
+}
+
+func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T]) {
+	RunContractReaderInterfaceTests[T](t, it, false)
 
 	t.Run("Dynamically typed topics can be used to filter and have type correct in return", func(t T) {
 		it.Setup(t)
 
 		anyString := "foo"
-		it.dirtyContracts = true
-		tx, err := it.contractTesters[it.address].ChainReaderTesterTransactor.TriggerEventWithDynamicTopic(it.GetAuthWithGasSet(t), anyString)
-		require.NoError(t, err)
-		it.Helper.Commit()
-		it.IncNonce()
-		it.AwaitTx(t, tx)
 		ctx := it.Helper.Context(t)
 
 		cr := it.GetChainReader(t)
 		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+		contracts := it.GetBindings(t)
+		type DynamicEvent struct {
+			Field string
+		}
+		SubmitTransactionToCW(t, it, "triggerEventWithDynamicTopic", DynamicEvent{Field: anyString}, contracts[0], types.Unconfirmed)
 
 		input := struct{ Field string }{Field: anyString}
 		tp := cr.(clcommontypes.ContractTypeProvider)
@@ -53,15 +58,15 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 
 	t.Run("Multiple topics can filter together", func(t T) {
 		it.Setup(t)
-		it.dirtyContracts = true
+		ctx := it.Helper.Context(t)
+		cr := it.GetChainReader(t)
+		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+
 		triggerFourTopics(t, it, int32(1), int32(2), int32(3))
 		triggerFourTopics(t, it, int32(2), int32(2), int32(3))
 		triggerFourTopics(t, it, int32(1), int32(3), int32(3))
 		triggerFourTopics(t, it, int32(1), int32(2), int32(4))
 
-		ctx := it.Helper.Context(t)
-		cr := it.GetChainReader(t)
-		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
 		var latest struct{ Field1, Field2, Field3 int32 }
 		params := struct{ Field1, Field2, Field3 int32 }{Field1: 1, Field2: 2, Field3: 3}
 
@@ -75,14 +80,15 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 
 	t.Run("Filtering can be done on indexed topics that get hashed", func(t T) {
 		it.Setup(t)
-		it.dirtyContracts = true
+
+		cr := it.GetChainReader(t)
+		ctx := it.Helper.Context(t)
+		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+
 		triggerFourTopicsWithHashed(t, it, "1", [32]uint8{2}, [32]byte{5})
 		triggerFourTopicsWithHashed(t, it, "2", [32]uint8{2}, [32]byte{3})
 		triggerFourTopicsWithHashed(t, it, "1", [32]uint8{3}, [32]byte{3})
 
-		ctx := it.Helper.Context(t)
-		cr := it.GetChainReader(t)
-		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
 		var latest struct {
 			Field3 [32]byte
 		}
@@ -111,20 +117,22 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 	})
 }
 
-func triggerFourTopics[T TestingT[T]](t T, it *EVMChainReaderInterfaceTester[T], i1, i2, i3 int32) {
-	tx, err := it.contractTesters[it.address].ChainReaderTesterTransactor.TriggerWithFourTopics(it.GetAuthWithGasSet(t), i1, i2, i3)
-	require.NoError(t, err)
-	require.NoError(t, err)
-	it.Helper.Commit()
-	it.IncNonce()
-	it.AwaitTx(t, tx)
+func triggerFourTopics[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], i1, i2, i3 int32) {
+	type DynamicEvent struct {
+		Field1 int32
+		Field2 int32
+		Field3 int32
+	}
+	contracts := it.GetBindings(t)
+	SubmitTransactionToCW(t, it, "triggerWithFourTopics", DynamicEvent{Field1: i1, Field2: i2, Field3: i3}, contracts[0], types.Unconfirmed)
 }
 
-func triggerFourTopicsWithHashed[T TestingT[T]](t T, it *EVMChainReaderInterfaceTester[T], i1 string, i2 [32]uint8, i3 [32]byte) {
-	tx, err := it.contractTesters[it.address].ChainReaderTesterTransactor.TriggerWithFourTopicsWithHashed(it.GetAuthWithGasSet(t), i1, i2, i3)
-	require.NoError(t, err)
-	require.NoError(t, err)
-	it.Helper.Commit()
-	it.IncNonce()
-	it.AwaitTx(t, tx)
+func triggerFourTopicsWithHashed[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], i1 string, i2 [32]uint8, i3 [32]byte) {
+	type DynamicEvent struct {
+		Field1 string
+		Field2 [32]uint8
+		Field3 [32]byte
+	}
+	contracts := it.GetBindings(t)
+	SubmitTransactionToCW(t, it, "triggerWithFourTopicsWithHashed", DynamicEvent{Field1: i1, Field2: i2, Field3: i3}, contracts[0], types.Unconfirmed)
 }

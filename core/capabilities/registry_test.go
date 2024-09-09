@@ -21,8 +21,8 @@ type mockCapability struct {
 	capabilities.CapabilityInfo
 }
 
-func (m *mockCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
-	return nil, nil
+func (m *mockCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+	return capabilities.CapabilityResponse{}, nil
 }
 
 func (m *mockCapability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
