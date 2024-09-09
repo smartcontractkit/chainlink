@@ -638,10 +638,10 @@ jobs:
 
   # Run K8s tests using old remote runner
 
-  prepare-remote-runner-test-image:
+  get-remote-runner-test-image:
     needs: [load-test-configurations, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr]
     if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }}
-    name: Prepare remote runner test image
+    name: Get emote runner test image
     runs-on: ubuntu-latest
     environment: integration
     permissions:
@@ -677,7 +677,7 @@ jobs:
           fi
 
   run-k8s-runner-tests:
-    needs: [load-test-configurations, prepare-remote-runner-test-image, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr, get_latest_chainlink_release_version]
+    needs: [load-test-configurations, get-remote-runner-test-image, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr, get_latest_chainlink_release_version]
     if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }}
     name: ${{ matrix.tests.id }}
     runs-on: ${{ matrix.tests.runs_on }}
@@ -725,9 +725,9 @@ jobs:
 
       - name: Show remote runner version in summary
         run: |
-          echo "Remote Runner Version: ${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}"
+          echo "Remote Runner Version: ${{ needs.get-remote-runner-test-image.outputs.remote-runner-version }}"
           echo "### Remote Runner Version" >> $GITHUB_STEP_SUMMARY
-          echo "${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "${{ needs.get-remote-runner-test-image.outputs.remote-runner-version }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Show test configuration in logs
         run: echo '${{ toJson(matrix.tests) }}' | jq .
@@ -739,7 +739,7 @@ jobs:
           DETACH_RUNNER: true
           RR_MEM: ${{ matrix.tests.remote_runner_memory }}
           TEST_ARGS: -test.timeout 900h -test.memprofile memprofile.out -test.cpuprofile profile.out
-          ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}
+          ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ needs.get-remote-runner-test-image.outputs.remote-runner-version }}
           INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
           # We can comment these out when we have a stable soak test and aren't worried about resource consumption
           TEST_UPLOAD_CPU_PROFILE: true
