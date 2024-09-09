@@ -1,19 +1,26 @@
 package mercury_test
 
 import (
+	"context"
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
+	reportcodecv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4/reportcodec"
+	"github.com/smartcontractkit/wsrpc/credentials"
 	"io"
-	"math"
-	"math/big"
-	"math/rand"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"sync/atomic"
+
+	"math"
+	"math/big"
+	"math/rand"
+	"strings"
+
 	"testing"
 	"time"
 
@@ -24,20 +31,10 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/wsrpc/credentials"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
-
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
-	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -55,8 +52,18 @@ import (
 	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
 	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
-	reportcodecv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4/reportcodec"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
+	"google.golang.org/grpc"
+	grpc_creds "google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 )
 
 var (
@@ -164,7 +171,7 @@ func integration_MercuryV1(t *testing.T) {
 			panic(err)
 		}
 		return report
-	})
+	}, nil, nil)
 	clientCSAKeys := make([]csakey.KeyV2, n+1)
 	clientPubKeys := make([]ed25519.PublicKey, n+1)
 	for i := 0; i < n+1; i++ {
@@ -173,15 +180,15 @@ func integration_MercuryV1(t *testing.T) {
 		clientCSAKeys[i] = key
 		clientPubKeys[i] = key.PublicKey
 	}
-	serverURL := startMercuryServer(t, srv, clientPubKeys)
+	serverURL := startMercuryWsrpcServer(t, srv, clientPubKeys)
 	chainID := testutils.SimulatedChainID
 
 	steve, backend, verifier, verifierAddress := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n])
-	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n], "")
+	bootstrapNode := Node{App: &appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
 	// cannot use zero, start from finality depth
@@ -203,10 +210,10 @@ func integration_MercuryV1(t *testing.T) {
 	)
 	ports := freeport.GetN(t, n)
 	for i := 0; i < n; i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i], "")
 
 		nodes = append(nodes, Node{
-			app, transmitter, kb,
+			&app, transmitter, kb,
 		})
 		offchainPublicKey, _ := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
@@ -225,7 +232,7 @@ func integration_MercuryV1(t *testing.T) {
 		addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, feed.name, feed.id)
 	}
 
-	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
+	createBridge := func(ctx context.Context, name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			b, herr := io.ReadAll(req.Body)
 			require.NoError(t, herr)
@@ -259,9 +266,9 @@ func integration_MercuryV1(t *testing.T) {
 	// Add OCR jobs - one per feed on each node
 	for i, node := range nodes {
 		for j, feed := range feeds {
-			bmBridge := createBridge(fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, node.App.BridgeORM())
-			askBridge := createBridge(fmt.Sprintf("ask-%d", j), i, feed.baseAsk, node.App.BridgeORM())
-			bidBridge := createBridge(fmt.Sprintf("bid-%d", j), i, feed.baseBid, node.App.BridgeORM())
+			bmBridge := createBridge(ctx, fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, node.App.BridgeORM())
+			askBridge := createBridge(ctx, fmt.Sprintf("ask-%d", j), i, feed.baseAsk, node.App.BridgeORM())
+			bidBridge := createBridge(ctx, fmt.Sprintf("bid-%d", j), i, feed.baseBid, node.App.BridgeORM())
 
 			addV1MercuryJob(
 				t,
@@ -283,6 +290,7 @@ func integration_MercuryV1(t *testing.T) {
 			)
 		}
 	}
+
 	// Setup config on contract
 	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
@@ -344,12 +352,20 @@ func integration_MercuryV1(t *testing.T) {
 		backend.Commit()
 	}
 
+	// Bury it with finality depth
+	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+	require.NoError(t, err)
+	finalityDepth := ch.Config().EVM().FinalityDepth()
+	for i := 0; i < int(finalityDepth); i++ {
+		backend.Commit()
+	}
+
 	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {
 		// Expect at least one report per feed from each oracle
-		seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
+		seen := make(map[[32]byte]map[ocr2types.Account]struct{})
 		for i := range feeds {
 			// feedID will be deleted when all n oracles have reported
-			seen[feeds[i].id] = make(map[credentials.StaticSizedPublicKey]struct{}, n)
+			seen[feeds[i].id] = make(map[ocr2types.Account]struct{}, n)
 		}
 
 		for req := range reqs {
@@ -395,7 +411,7 @@ func integration_MercuryV1(t *testing.T) {
 
 			t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
 
-			seen[feedID][req.pk] = struct{}{}
+			seen[feedID][ocr2types.Account(req.pk)] = struct{}{}
 			if len(seen[feedID]) == n {
 				t.Logf("all oracles reported for feed %s (0x%x)", feed.name, feed.id)
 				delete(seen, feedID)
@@ -410,10 +426,10 @@ func integration_MercuryV1(t *testing.T) {
 		pError.Store(20) // 20% chance of EA error
 
 		// Expect at least one report per feed from each oracle
-		seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
+		seen := make(map[[32]byte]map[ocr2types.Account]struct{})
 		for i := range feeds {
 			// feedID will be deleted when all n oracles have reported
-			seen[feeds[i].id] = make(map[credentials.StaticSizedPublicKey]struct{}, n)
+			seen[feeds[i].id] = make(map[ocr2types.Account]struct{}, n)
 		}
 
 		for req := range reqs {
@@ -458,7 +474,7 @@ func integration_MercuryV1(t *testing.T) {
 
 			t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
 
-			seen[feedID][req.pk] = struct{}{}
+			seen[feedID][ocr2types.Account(req.pk)] = struct{}{}
 			if len(seen[feedID]) == n {
 				t.Logf("all oracles reported for feed %s (0x%x)", feed.name, feed.id)
 				delete(seen, feedID)
@@ -478,6 +494,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 
 func integration_MercuryV2(t *testing.T) {
 	ctx := testutils.Context(t)
+
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
@@ -521,7 +538,7 @@ func integration_MercuryV2(t *testing.T) {
 			panic(err)
 		}
 		return report
-	})
+	}, nil, nil)
 	clientCSAKeys := make([]csakey.KeyV2, n+1)
 	clientPubKeys := make([]ed25519.PublicKey, n+1)
 	for i := 0; i < n+1; i++ {
@@ -530,24 +547,16 @@ func integration_MercuryV2(t *testing.T) {
 		clientCSAKeys[i] = key
 		clientPubKeys[i] = key.PublicKey
 	}
-	serverURL := startMercuryServer(t, srv, clientPubKeys)
+	serverURL := startMercuryWsrpcServer(t, srv, clientPubKeys)
 	chainID := testutils.SimulatedChainID
 
 	steve, backend, verifier, verifierAddress := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n])
-	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n], "")
+	bootstrapNode := Node{App: &appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
-
-	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
-	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-	require.NoError(t, err)
-	finalityDepth := ch.Config().EVM().FinalityDepth()
-	for i := 0; i < int(finalityDepth); i++ {
-		backend.Commit()
-	}
 
 	// Set up n oracles
 	var (
@@ -556,10 +565,10 @@ func integration_MercuryV2(t *testing.T) {
 	)
 	ports := freeport.GetN(t, n)
 	for i := 0; i < n; i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i], "")
 
 		nodes = append(nodes, Node{
-			app, transmitter, kb,
+			&app, transmitter, kb,
 		})
 
 		offchainPublicKey, _ := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
@@ -579,7 +588,7 @@ func integration_MercuryV2(t *testing.T) {
 		addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, feed.name, feed.id)
 	}
 
-	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
+	createBridge := func(ctx context.Context, name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			b, herr := io.ReadAll(req.Body)
 			require.NoError(t, herr)
@@ -613,7 +622,7 @@ func integration_MercuryV2(t *testing.T) {
 	// Add OCR jobs - one per feed on each node
 	for i, node := range nodes {
 		for j, feed := range feeds {
-			bmBridge := createBridge(fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, node.App.BridgeORM())
+			bmBridge := createBridge(ctx, fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, node.App.BridgeORM())
 
 			addV2MercuryJob(
 				t,
@@ -683,12 +692,20 @@ func integration_MercuryV2(t *testing.T) {
 		backend.Commit()
 	}
 
+	// Bury it with finality depth
+	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+	require.NoError(t, err)
+	finalityDepth := ch.Config().EVM().FinalityDepth()
+	for i := 0; i < int(finalityDepth); i++ {
+		backend.Commit()
+	}
+
 	runTestSetup := func() {
 		// Expect at least one report per feed from each oracle
-		seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
+		seen := make(map[[32]byte]map[ocr2types.Account]struct{})
 		for i := range feeds {
 			// feedID will be deleted when all n oracles have reported
-			seen[feeds[i].id] = make(map[credentials.StaticSizedPublicKey]struct{}, n)
+			seen[feeds[i].id] = make(map[ocr2types.Account]struct{}, n)
 		}
 
 		for req := range reqs {
@@ -724,7 +741,7 @@ func integration_MercuryV2(t *testing.T) {
 
 			t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
 
-			seen[feedID][req.pk] = struct{}{}
+			seen[feedID][ocr2types.Account(req.pk)] = struct{}{}
 			if len(seen[feedID]) == n {
 				t.Logf("all oracles reported for feed %s (0x%x)", feed.name, feed.id)
 				delete(seen, feedID)
@@ -748,11 +765,31 @@ func integration_MercuryV2(t *testing.T) {
 func TestIntegration_MercuryV3(t *testing.T) {
 	t.Parallel()
 
-	integration_MercuryV3(t)
+	tests := []struct {
+		name        string
+		tlsCertFile *string
+		tlsKeyFile  *string
+	}{
+		{
+			"WSRPC",
+			nil,
+			nil,
+		},
+		{
+			"GRPC",
+			ptr("./fixtures/domain.pem"),
+			ptr("./fixtures/domain.key"),
+		},
+	}
+
+	for _, tc := range tests {
+		integration_MercuryV3(t, tc.tlsCertFile, tc.tlsKeyFile)
+	}
 }
 
-func integration_MercuryV3(t *testing.T) {
+func integration_MercuryV3(t *testing.T, tlsCertFile *string, tlsKeyFile *string) {
 	ctx := testutils.Context(t)
+
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
@@ -806,6 +843,7 @@ func integration_MercuryV3(t *testing.T) {
 	const nSrvs = 3
 	reqChs := make([]chan request, nSrvs)
 	servers := make(map[string]string)
+
 	for i := 0; i < nSrvs; i++ {
 		k := csakey.MustNewV2XXXTestingOnly(big.NewInt(int64(-(i + 1))))
 		reqs := make(chan request, 100)
@@ -815,8 +853,10 @@ func integration_MercuryV3(t *testing.T) {
 				panic(err)
 			}
 			return report
-		})
+		}, tlsCertFile, tlsKeyFile)
+
 		serverURL := startMercuryServer(t, srv, clientPubKeys)
+
 		reqChs[i] = reqs
 		servers[serverURL] = fmt.Sprintf("%x", k.PublicKey)
 	}
@@ -825,9 +865,13 @@ func integration_MercuryV3(t *testing.T) {
 	steve, backend, verifier, verifierAddress := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
+	tlsCertFileSetup := ""
+	if tlsCertFile != nil {
+		tlsCertFileSetup = *tlsCertFile
+	}
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n])
-	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n], *tlsCertFile)
+	bootstrapNode := Node{App: &appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
 	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
@@ -845,10 +889,10 @@ func integration_MercuryV3(t *testing.T) {
 	)
 	ports := freeport.GetN(t, n)
 	for i := 0; i < n; i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i], tlsCertFileSetup)
 
 		nodes = append(nodes, Node{
-			app, transmitter, kb,
+			&app, transmitter, kb,
 		})
 
 		offchainPublicKey, _ := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
@@ -868,7 +912,7 @@ func integration_MercuryV3(t *testing.T) {
 		addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, feed.name, feed.id)
 	}
 
-	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
+	createBridge := func(ctx context.Context, name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			b, herr := io.ReadAll(req.Body)
 			require.NoError(t, herr)
@@ -902,9 +946,9 @@ func integration_MercuryV3(t *testing.T) {
 	// Add OCR jobs - one per feed on each node
 	for i, node := range nodes {
 		for j, feed := range feeds {
-			bmBridge := createBridge(fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, node.App.BridgeORM())
-			bidBridge := createBridge(fmt.Sprintf("bid-%d", j), i, feed.baseBid, node.App.BridgeORM())
-			askBridge := createBridge(fmt.Sprintf("ask-%d", j), i, feed.baseAsk, node.App.BridgeORM())
+			bmBridge := createBridge(ctx, fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, node.App.BridgeORM())
+			bidBridge := createBridge(ctx, fmt.Sprintf("bid-%d", j), i, feed.baseBid, node.App.BridgeORM())
+			askBridge := createBridge(ctx, fmt.Sprintf("ask-%d", j), i, feed.baseAsk, node.App.BridgeORM())
 
 			addV3MercuryJob(
 				t,
@@ -977,13 +1021,20 @@ func integration_MercuryV3(t *testing.T) {
 
 	runTestSetup := func(reqs chan request) {
 		// Expect at least one report per feed from each oracle, per server
-		seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
+		seen := make(map[[32]byte]map[ocr2types.Account]struct{})
 		for i := range feeds {
 			// feedID will be deleted when all n oracles have reported
-			seen[feeds[i].id] = make(map[credentials.StaticSizedPublicKey]struct{}, n)
+			seen[feeds[i].id] = make(map[ocr2types.Account]struct{}, n)
+		}
+
+		oracle_transmitters := make(map[ocr2types.Account]struct{})
+		for _, o := range oracles {
+			t.Logf("Expect report from oracle %s", o.OracleIdentity.TransmitAccount)
+			oracle_transmitters[o.OracleIdentity.TransmitAccount] = struct{}{}
 		}
 
 		for req := range reqs {
+
 			v := make(map[string]interface{})
 			err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
 			require.NoError(t, err)
@@ -998,6 +1049,8 @@ func integration_MercuryV3(t *testing.T) {
 			feedID := reportElems["feedId"].([32]uint8)
 			feed, exists := feedM[feedID]
 			require.True(t, exists)
+
+			t.Logf("Oracle %s AKA %s reported for feed %s (0x%x)", req.pk, req.TransmitterID(), feed.name, feed.id)
 
 			if _, exists := seen[feedID]; !exists {
 				continue // already saw all oracles for this feed
@@ -1017,13 +1070,16 @@ func integration_MercuryV3(t *testing.T) {
 			assert.Equal(t, expectedFee, reportElems["nativeFee"].(*big.Int))
 
 			t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
+			if _, ok := oracle_transmitters[req.TransmitterID()]; !ok {
+				t.Fatalf("FAIL: unexpected report from oracle %s", req.TransmitterID())
+			}
 
-			seen[feedID][req.pk] = struct{}{}
+			seen[feedID][req.TransmitterID()] = struct{}{}
 			if len(seen[feedID]) == n {
 				t.Logf("all oracles reported for feed %s (0x%x)", feed.name, feed.id)
 				delete(seen, feedID)
 				if len(seen) == 0 {
-					break // saw all oracles; success!
+					return // saw all oracles; success!
 				}
 			}
 		}
@@ -1110,7 +1166,7 @@ func integration_MercuryV4(t *testing.T) {
 				panic(err)
 			}
 			return report
-		})
+		}, nil, nil)
 		serverURL := startMercuryServer(t, srv, clientPubKeys)
 		reqChs[i] = reqs
 		servers[serverURL] = fmt.Sprintf("%x", k.PublicKey)
@@ -1121,8 +1177,8 @@ func integration_MercuryV4(t *testing.T) {
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n])
-	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n], "")
+	bootstrapNode := Node{App: &appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
 	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
@@ -1140,10 +1196,10 @@ func integration_MercuryV4(t *testing.T) {
 	)
 	ports := freeport.GetN(t, n)
 	for i := 0; i < n; i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i], "")
 
 		nodes = append(nodes, Node{
-			app, transmitter, kb,
+			&app, transmitter, kb,
 		})
 
 		offchainPublicKey, _ := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
@@ -1316,8 +1372,8 @@ func integration_MercuryV4(t *testing.T) {
 			assert.Equal(t, feed.baseMarketStatus, reportElems["marketStatus"].(uint32))
 
 			t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
+			seen[feedID][req.PublicKeyBytes()] = struct{}{}
 
-			seen[feedID][req.pk] = struct{}{}
 			if len(seen[feedID]) == n {
 				t.Logf("all oracles reported for feed %s (0x%x)", feed.name, feed.id)
 				delete(seen, feedID)
@@ -1334,4 +1390,89 @@ func integration_MercuryV4(t *testing.T) {
 			runTestSetup(reqs)
 		}
 	})
+}
+
+func TestIntegration_MercuryGRPC(t *testing.T) {
+	pubKeyBytes := []byte{}
+
+	// create node
+	tlsCertFile := "./fixtures/domain.pem"
+	tlsKeyFile := "./fixtures/domain.key"
+	nodePort := freeport.GetOne(t)
+	key := csakey.MustNewV2XXXTestingOnly(big.NewInt(int64(0)))
+	_, backend, _, _ := setupBlockchain(t)
+	app, _, _, _, _ := setupNode(t, nodePort, "mercury_test", backend, key, tlsCertFile)
+
+	// create mercury server
+	createServer := func(tlsCertFile string, tlsKeyFile string) (chan request, string) {
+		k := csakey.MustNewV2XXXTestingOnly(big.NewInt(int64(-1)))
+		reqs := make(chan request, 100)
+		srv := NewMercuryServer(t, ed25519.PrivateKey(k.Raw()), reqs, func() []byte {
+			report, err := (&reportcodecv3.ReportCodec{}).BuildReport(v3.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
+			if err != nil {
+				panic(err)
+			}
+			return report
+		}, &tlsCertFile, &tlsKeyFile)
+		t.Log("Created all servers successfully")
+		serverURL := startMercuryServer(t, srv, make([]ed25519.PublicKey, 0))
+		t.Log("Started all servers successfully")
+
+		return reqs, serverURL
+	}
+
+	_, serverUrl := createServer(tlsCertFile, tlsKeyFile)
+
+	// check server is online
+	conn, err := net.Dial("tcp", serverUrl)
+	if err != nil {
+		fmt.Printf("Failed to ping server %s: %v\n", serverUrl, err)
+		return
+	}
+	defer conn.Close()
+
+	// check server can be queried from a client outside the pool
+	creds, err := grpc_creds.NewClientTLSFromFile(tlsCertFile, "")
+	require.NoError(t, err)
+	clientOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(creds),
+	}
+	conn2, err := grpc.Dial(serverUrl, clientOpts...)
+	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("Failed to dial server: %v", err)
+	}
+	defer conn2.Close()
+
+	rawClient := pb.NewMercuryGrpcClient(conn2)
+
+	latestReportRequest := pb.LatestReportRequest{
+		FeedId: []byte("feedId"),
+	}
+	latestReportCtx := testutils.Context(t)
+	kv := make(map[string]string)
+	kv["csa-key"] = key.PublicKeyString()
+	kv["signature"] = sign(t, key, &latestReportRequest)
+	md := metadata.New(kv)
+	latestReportCtx = metadata.NewOutgoingContext(latestReportCtx, md)
+	resp2, err := rawClient.LatestReport(latestReportCtx, &latestReportRequest)
+	require.NoError(t, err)
+	t.Logf("LatestReport Response: %v", resp2)
+
+	// checkout mercury client from node
+	checkoutCtx, cancel := context.WithTimeout(testutils.Context(t), 10*time.Second)
+	defer cancel()
+	pool := *app.MercuryPool
+	require.Equal(t, "mercury_test.Mercury.GRPCPool", pool.Name())
+
+	client, err := pool.Checkout(checkoutCtx, key, pubKeyBytes, serverUrl)
+	require.NoError(t, err)
+
+	t.Logf("Client name: %v", client.Name())
+	t.Logf("Client health: %v", client.HealthReport())
+
+	resp3, err3 := client.LatestReport(latestReportCtx, &latestReportRequest)
+	require.NoError(t, err3)
+
+	t.Logf("LatestReport Response: %v", resp3)
 }

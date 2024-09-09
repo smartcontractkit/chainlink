@@ -232,6 +232,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 			// queue was closed
 			return
 		}
+
 		ctx, cancel := context.WithTimeout(runloopCtx, utils.WithJitter(s.transmitTimeout))
 		res, err := s.c.Transmit(ctx, t.Req)
 		cancel()

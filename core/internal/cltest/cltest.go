@@ -200,11 +200,12 @@ func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipeline
 type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
-	Logger  logger.Logger
-	Server  *httptest.Server
-	Started bool
-	Backend *backends.SimulatedBackend
-	Keys    []ethkey.KeyV2
+	Logger      logger.Logger
+	Server      *httptest.Server
+	Started     bool
+	Backend     *backends.SimulatedBackend
+	Keys        []ethkey.KeyV2
+	MercuryPool *wsrpc.Pool
 }
 
 // NewApplicationEVMDisabled creates a new application with default config but EVM disabled
@@ -381,11 +382,19 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), lggr.Named("Mailbox"))
 	loopRegistry := plugins.NewLoopRegistry(lggr, nil)
 
+	// TOML config + env var protected usage of grpc mercury pool
+	var mercuryTlsCertFile *string
+	if cfg.Mercury().TLS() != nil {
+		tlsCertFile := cfg.Mercury().TLS().CertFile()
+		if tlsCertFile != "" {
+			mercuryTlsCertFile = &tlsCertFile
+		}
+	}
 	mercuryPool := wsrpc.NewPool(lggr, cache.Config{
 		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
 		MaxStaleAge:          cfg.Mercury().Cache().MaxStaleAge(),
 		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
-	})
+	}, mercuryTlsCertFile)
 
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	relayerFactory := chainlink.RelayerFactory{
@@ -484,6 +493,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		t:                    t,
 		ChainlinkApplication: app,
 		Logger:               lggr,
+		MercuryPool:          &mercuryPool,
 	}
 
 	srvr := httptest.NewUnstartedServer(web.Router(t, app, nil))
@@ -688,7 +698,7 @@ func (ta *TestApplication) NewShellAndRenderer() (*cmd.Shell, *RendererMock) {
 	return client, r
 }
 
-func (ta *TestApplication) NewAuthenticatingShell(prompter cmd.Prompter) *cmd.Shell {
+func (ta TestApplication) NewAuthenticatingShell(prompter cmd.Prompter) *cmd.Shell {
 	lggr := logger.TestLogger(ta.t)
 	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.NewClientOpts(), &cmd.MemoryCookieStore{}, lggr)
 	client := &cmd.Shell{

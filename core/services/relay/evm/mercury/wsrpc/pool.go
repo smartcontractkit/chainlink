@@ -38,6 +38,7 @@ type connection struct {
 	clientPrivKey csakey.KeyV2
 	serverPubKey  []byte
 	serverURL     string
+	tlsCertFile   *string
 
 	pool *pool
 
@@ -60,7 +61,7 @@ func (conn *connection) checkout(ctx context.Context) (cco *clientCheckout, err 
 // not thread-safe, access must be serialized
 func (conn *connection) ensureStartedClient(ctx context.Context) error {
 	if len(conn.checkouts) == 0 {
-		conn.Client = conn.pool.newClient(conn.lggr, conn.clientPrivKey, conn.serverPubKey, conn.serverURL, conn.pool.cacheSet)
+		conn.Client = conn.pool.newClient(conn.lggr, conn.clientPrivKey, conn.serverPubKey, conn.serverURL, conn.pool.cacheSet, conn.tlsCertFile)
 		return conn.Client.Start(ctx)
 	}
 	return nil
@@ -121,27 +122,28 @@ type pool struct {
 	connections map[string]map[credentials.StaticSizedPublicKey]*connection
 
 	// embedding newClient makes testing/mocking easier
-	newClient func(lggr logger.Logger, privKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.CacheSet) Client
+	newClient func(lggr logger.Logger, privKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.CacheSet, tlsCertFile *string) Client
 
 	mu sync.RWMutex
+
+	tlsCertFile *string
 
 	cacheSet cache.CacheSet
 
 	closed bool
 }
 
-func NewPool(lggr logger.Logger, cacheCfg cache.Config) Pool {
-	lggr = lggr.Named("Mercury.WSRPCPool")
-	p := newPool(lggr)
-	p.newClient = NewClient
-	p.cacheSet = cache.NewCacheSet(lggr, cacheCfg)
-	return p
-}
-
-func newPool(lggr logger.Logger) *pool {
+func NewPool(lggr logger.Logger, cacheCfg cache.Config, tlsCertFile *string) Pool {
+	lggrName := "Mercury.WSRPCPool"
+	if tlsCertFile != nil {
+		lggrName = "Mercury.GRPCPool"
+	}
 	return &pool{
-		lggr:        lggr,
+		lggr:        lggr.Named(lggrName),
 		connections: make(map[string]map[credentials.StaticSizedPublicKey]*connection),
+		cacheSet:    cache.NewCacheSet(lggr, cacheCfg),
+		newClient:   NewClient,
+		tlsCertFile: tlsCertFile,
 	}
 }
 
@@ -190,6 +192,7 @@ func (p *pool) newConnection(lggr logger.Logger, clientPrivKey csakey.KeyV2, ser
 		serverPubKey:  serverPubKey,
 		serverURL:     serverURL,
 		pool:          p,
+		tlsCertFile:   p.tlsCertFile,
 	}
 }
 

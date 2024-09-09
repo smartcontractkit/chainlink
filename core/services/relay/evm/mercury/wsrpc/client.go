@@ -2,7 +2,11 @@ package wsrpc
 
 import (
 	"context"
+	"crypto"
+	"crypto/ed25519"
+	"crypto/x509"
 	"fmt"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,6 +15,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"google.golang.org/grpc"
+	grpc_connectivity "google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/connectivity"
@@ -70,8 +79,32 @@ type Client interface {
 
 type Conn interface {
 	WaitForReady(ctx context.Context) bool
-	GetState() connectivity.State
-	Close()
+	GetState() grpc_connectivity.State
+	Close() error
+}
+
+// Adapting Grpc Client Conn to Conn interface
+type AdapatedGrpcClientConn struct {
+	*grpc.ClientConn
+}
+
+func NewAdaptedGrpcClientConn(conn *grpc.ClientConn) *AdapatedGrpcClientConn {
+	return &AdapatedGrpcClientConn{conn}
+}
+
+func (a *AdapatedGrpcClientConn) WaitForReady(ctx context.Context) bool {
+	if a.GetState() == grpc_connectivity.Ready {
+		// Outside block incase the state is Ready on the first call
+		return true
+	}
+
+	if a.WaitForStateChange(ctx, a.GetState()) {
+		if a.GetState() == grpc_connectivity.Shutdown {
+			return false
+		}
+		return a.WaitForReady(ctx)
+	}
+	return false
 }
 
 type client struct {
@@ -80,9 +113,11 @@ type client struct {
 	csaKey       csakey.KeyV2
 	serverPubKey []byte
 	serverURL    string
+	tlsCertFile  *string
 
 	logger    logger.Logger
 	conn      Conn
+	connLock  sync.RWMutex
 	rawClient pb.MercuryClient
 
 	consecutiveTimeoutCnt atomic.Int32
@@ -101,16 +136,17 @@ type client struct {
 }
 
 // Consumers of wsrpc package should not usually call NewClient directly, but instead use the Pool
-func NewClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.CacheSet) Client {
-	return newClient(lggr, clientPrivKey, serverPubKey, serverURL, cacheSet)
+// TODO: consider renaming tlsCertFile to trustedAuthoritiesFile
+func NewClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.CacheSet, tlsCertFile *string) Client {
+	return newClient(lggr, clientPrivKey, serverPubKey, serverURL, cacheSet, tlsCertFile)
 }
 
-func newClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.CacheSet) *client {
+func newClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.CacheSet, tlsCertFile *string) *client {
 	return &client{
 		csaKey:                     clientPrivKey,
 		serverPubKey:               serverPubKey,
 		serverURL:                  serverURL,
-		logger:                     lggr.Named("WSRPC").Named(serverURL).With("serverURL", serverURL),
+		logger:                     lggr.Named("Client").Named(serverURL),
 		chResetTransport:           make(chan struct{}, 1),
 		cacheSet:                   cacheSet,
 		chStop:                     make(services.StopChan),
@@ -119,14 +155,21 @@ func newClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []by
 		dialSuccessCountMetric:     dialSuccessCount.WithLabelValues(serverURL),
 		dialErrorCountMetric:       dialErrorCount.WithLabelValues(serverURL),
 		connectionResetCountMetric: connectionResetCount.WithLabelValues(serverURL),
+		tlsCertFile:                tlsCertFile,
 	}
 }
 
 func (w *client) Start(ctx context.Context) error {
-	return w.StartOnce("WSRPC Client", func() (err error) {
+	name := "WSRPC Client"
+	if w.tlsCertFile != nil {
+		name = "GRPC Client"
+	}
+
+	return w.StartOnce(name, func() (err error) {
+		// TODO: this is unecessarily restrictive, the consumer can decide.
 		// NOTE: This is not a mistake, dial is non-blocking so it should use a
 		// background context, not the Start context
-		if err = w.dial(context.Background()); err != nil {
+		if err = w.chooseDial(ctx); err != nil {
 			return err
 		}
 		w.cache, err = w.cacheSet.Get(ctx, w)
@@ -139,13 +182,29 @@ func (w *client) Start(ctx context.Context) error {
 	})
 }
 
+// chooseDial chooses between dialing via wsrpc or grpc connection
+func (w *client) chooseDial(ctx context.Context) error {
+	if w.tlsCertFile != nil {
+		return w.dialGrpc(ctx)
+	}
+	return w.dialWsrpc(ctx)
+}
+
+// chooseDial chooses between dialing via wsrpc or grpc connection
+func (w *client) chooseBlockingDial(ctx context.Context) error {
+	if w.tlsCertFile != nil {
+		return w.dialGrpc(ctx, grpc.WithBlock())
+	}
+	return w.dialWsrpc(ctx, wsrpc.WithBlock())
+}
+
 // NOTE: Dial is non-blocking, and will retry on an exponential backoff
 // in the background until close is called, or context is cancelled.
 // This is why we use the background context, not the start context here.
 //
 // Any transmits made while client is still trying to dial will fail
 // with error.
-func (w *client) dial(ctx context.Context, opts ...wsrpc.DialOption) error {
+func (w *client) dialWsrpc(ctx context.Context, opts ...wsrpc.DialOption) error {
 	w.dialCountMetric.Inc()
 	conn, err := wsrpc.DialWithContext(ctx, w.serverURL,
 		append(opts,
@@ -160,8 +219,70 @@ func (w *client) dial(ctx context.Context, opts ...wsrpc.DialOption) error {
 	}
 	w.dialSuccessCountMetric.Inc()
 	setLivenessMetric(true)
+	w.connLock.Lock()
 	w.conn = conn
+	w.connLock.Unlock()
 	w.rawClient = pb.NewMercuryClient(conn)
+	return nil
+}
+
+// NOTE: Dial is non-blocking, and will retry on an exponential backoff
+// in the background until close is called, or context is cancelled.
+// This is why we use the background context, not the start context here.
+//
+// Any transmits made while client is still trying to dial will fail
+// with error.
+func (c *client) dialGrpc(ctx context.Context, opts ...grpc.DialOption) error {
+	if c.tlsCertFile == nil {
+		conn, err := grpc.Dial(c.serverURL,
+			append(opts,
+				grpc.WithTransportCredentials(
+					insecure.NewCredentials(),
+				),
+			)...,
+		)
+
+		if err != nil {
+			c.dialErrorCountMetric.Inc()
+			setLivenessMetric(false)
+			return errors.Wrap(err, "failed to dial grpc client")
+		}
+		c.dialSuccessCountMetric.Inc()
+		setLivenessMetric(true)
+		c.conn = NewAdaptedGrpcClientConn(conn)
+		c.rawClient = pb.NewMercuryGrpcClient(conn)
+		return nil
+	}
+	// TODO: move this block to TOML config validation
+	b, err := os.ReadFile(*c.tlsCertFile)
+	if err != nil {
+		return err
+	}
+	cp := x509.NewCertPool()
+	if !cp.AppendCertsFromPEM(b) {
+		return fmt.Errorf("credentials: failed to append certificates")
+	}
+
+	c.dialCountMetric.Inc()
+
+	conn, err := grpc.DialContext(ctx, c.serverURL,
+		append(opts,
+			grpc.WithTransportCredentials(
+				credentials.NewClientTLSFromCert(cp, ""),
+			),
+			grpc.WithBlock(),
+		)...,
+	)
+
+	if err != nil {
+		c.dialErrorCountMetric.Inc()
+		setLivenessMetric(false)
+		return errors.Wrap(err, "failed to dial grpc client")
+	}
+	c.dialSuccessCountMetric.Inc()
+	setLivenessMetric(true)
+	c.conn = NewAdaptedGrpcClientConn(conn)
+	c.rawClient = pb.NewMercuryGrpcClient(conn)
 	return nil
 }
 
@@ -193,7 +314,7 @@ func (w *client) resetTransport() {
 	b := utils.NewRedialBackoff()
 	for {
 		// Will block until successful dial, or context is canceled (i.e. on close)
-		err := w.dial(ctx, wsrpc.WithBlock())
+		err := w.chooseBlockingDial(ctx)
 		if err == nil {
 			break
 		}
@@ -210,13 +331,17 @@ func (w *client) resetTransport() {
 func (w *client) Close() error {
 	return w.StopOnce("WSRPC Client", func() error {
 		close(w.chStop)
-		w.conn.Close()
+		err := w.conn.Close()
+		if err != nil {
+			w.logger.Errorw("Failed to close connection", "err", err)
+		}
 		w.wg.Wait()
 		return nil
 	})
 }
 
 func (w *client) Name() string {
+	// useful to set defaults and allow consumers to override?
 	return w.logger.Name()
 }
 
@@ -230,7 +355,7 @@ func (w *client) Healthy() (err error) {
 		return err
 	}
 	state := w.conn.GetState()
-	if state != connectivity.Ready {
+	if state != grpc_connectivity.Ready {
 		return errors.Errorf("client state should be %s; got %s", connectivity.Ready, state)
 	}
 	return nil
@@ -238,6 +363,9 @@ func (w *client) Healthy() (err error) {
 
 func (w *client) waitForReady(ctx context.Context) (err error) {
 	ok := w.IfStarted(func() {
+		// WaitForReady blocks on WSRPC client conns but not on gRPC
+		w.connLock.RLock()
+		defer w.connLock.RUnlock()
 		if ready := w.conn.WaitForReady(ctx); !ready {
 			err = errors.Errorf("websocket client not ready; got state: %v", w.conn.GetState())
 			return
@@ -254,6 +382,14 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 	start := time.Now()
 	if err = w.waitForReady(ctx); err != nil {
 		return nil, errors.Wrap(err, "Transmit call failed")
+	}
+
+	if w.tlsCertFile != nil {
+		signature, err := w.Sign(req)
+		if err != nil {
+			return nil, errors.Wrap(err, "Transmit call failed")
+		}
+		ctx = metadata.AppendToOutgoingContext(ctx, "csa-key", w.csaKey.PublicKeyString(), "signature", signature)
 	}
 	resp, err = w.rawClient.Transmit(ctx, req)
 	w.handleTimeout(err)
@@ -307,6 +443,14 @@ func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) 
 	if err = w.waitForReady(ctx); err != nil {
 		return nil, errors.Wrap(err, "LatestReport failed")
 	}
+
+	if w.tlsCertFile != nil {
+		signature, err := w.Sign(req)
+		if err != nil {
+			return nil, errors.Wrap(err, "Transmit call failed")
+		}
+		ctx = metadata.AppendToOutgoingContext(ctx, "csa-key", w.csaKey.PublicKeyString(), "signature", signature)
+	}
 	var cached bool
 	if w.cache == nil {
 		resp, err = w.rawClient.LatestReport(ctx, req)
@@ -333,4 +477,39 @@ func (w *client) ServerURL() string {
 
 func (w *client) RawClient() pb.MercuryClient {
 	return w.rawClient
+}
+
+type PbRequest interface {
+	String() string
+}
+
+// CanonicalStringFromRequest returns a string representation of the request
+// The result must be deterministic - both the client and server must agree on the format
+func (w *client) CanonicalStringFromRequest(request PbRequest) string {
+	return request.String()
+}
+
+// Sign returns a hex encoded signature of the request
+func (w *client) Sign(request PbRequest) (string, error) {
+	canonicalRequestString := w.CanonicalStringFromRequest(request)
+	signableKey := ed25519.PrivateKey(w.csaKey.Raw())
+	signedBytes, err := signableKey.Sign(nil, []byte(canonicalRequestString), crypto.Hash(0))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", signedBytes), nil
+}
+
+// VerifySignature verifies the signature of the request
+// TODO: Should live in a separate module
+func VerifySignature(publicKey ed25519.PublicKey, request PbRequest, signature string) error {
+	canonicalRequestString := request.String()
+	signedBytes, err := hexutil.Decode("0x" + signature)
+	if err != nil {
+		return err
+	}
+	if !ed25519.Verify(publicKey, []byte(canonicalRequestString), signedBytes) {
+		return errors.New("signature verification failed")
+	}
+	return nil
 }

@@ -2,11 +2,19 @@ package wsrpc
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"testing"
 	"time"
 
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/smartcontractkit/wsrpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -74,7 +82,7 @@ func Test_Client_Transmit(t *testing.T) {
 		conn := &mocks.MockConn{
 			Ready: true,
 		}
-		c := newClient(lggr, csakey.KeyV2{}, nil, "", noopCacheSet)
+		c := newClient(lggr, csakey.KeyV2{}, nil, "", noopCacheSet, nil)
 		c.conn = conn
 		c.rawClient = wsrpcClient
 		require.NoError(t, c.StartOnce("Mock WSRPC Client", func() error { return nil }))
@@ -159,7 +167,7 @@ func Test_Client_LatestReport(t *testing.T) {
 			conn := &mocks.MockConn{
 				Ready: true,
 			}
-			c := newClient(lggr, csakey.KeyV2{}, nil, "", cacheSet)
+			c := newClient(lggr, csakey.KeyV2{}, nil, "", cacheSet, nil)
 			c.conn = conn
 			c.rawClient = wsrpcClient
 
@@ -176,3 +184,215 @@ func Test_Client_LatestReport(t *testing.T) {
 		})
 	}
 }
+
+type TestServer interface {
+	Serve(lis net.Listener) error
+	Stop()
+}
+
+type WrappedWsrpcServer struct {
+	*wsrpc.Server
+}
+
+func (s *WrappedWsrpcServer) Serve(lis net.Listener) error {
+	s.Server.Serve(lis)
+	return nil
+}
+
+func NewWrappedWsrpcServer() TestServer {
+	return &WrappedWsrpcServer{wsrpc.NewServer()}
+}
+
+// Tests that when start is called, the appropriate type of connection is made
+func Test_Start_Dial(t *testing.T) {
+	wsrpcName := "WSRPC"
+	grpcName := "GRPC"
+
+	wsrpcClientKey := csakey.MustNewV2XXXTestingOnly(testutils.MustParseBigInt(t, "32"))
+
+	tests := []struct {
+		name         string
+		tlsCertFile  *string
+		server       TestServer
+		clientKey    csakey.KeyV2
+		serverPubKey []byte
+	}{
+		{
+			name:         wsrpcName,
+			tlsCertFile:  nil,
+			server:       NewWrappedWsrpcServer(),
+			clientKey:    wsrpcClientKey,
+			serverPubKey: wsrpcClientKey.PublicKey,
+		},
+		{
+			name:         grpcName,
+			tlsCertFile:  ptr("./fixtures/domain.pem"),
+			server:       grpc.NewServer(),
+			clientKey:    csakey.KeyV2{},
+			serverPubKey: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		port := freeport.GetOne(t)
+		addr := fmt.Sprintf("127.0.0.1:%v", port)
+
+		// Set up client
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+
+		c := newClient(lggr, tt.clientKey, tt.serverPubKey, addr, newNoopCacheSet(), tt.tlsCertFile)
+
+		// Set up server
+		lis, err := net.Listen("tcp", addr)
+		require.NoError(t, err)
+		s := tt.server
+		go s.Serve(lis)
+		t.Cleanup(s.Stop)
+
+		// Start client
+		err = c.Start(ctx)
+		require.NoError(t, err)
+
+		defer c.Close()
+
+		// Validate connection type
+		switch tt.name {
+		case wsrpcName:
+			_, ok := c.conn.(*wsrpc.ClientConn)
+			if !ok {
+				t.Fatalf("expected wsrpc.ClientConn, got %T", c.conn)
+			}
+		case grpcName:
+			_, ok := c.conn.(*AdapatedGrpcClientConn)
+			if !ok {
+				t.Fatalf("expected AdaptedGrpcClientConn, got %T", c.conn)
+			}
+		}
+	}
+}
+
+type TestMercuryServer struct {
+	pb.UnimplementedMercuryServer
+	testLatestReportResponse pb.LatestReportResponse
+}
+
+func (s *TestMercuryServer) LatestReport(ctx context.Context, req *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
+	return &s.testLatestReportResponse, nil
+}
+
+func (s *TestMercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+	return &pb.TransmitResponse{}, nil
+}
+
+func TestIntegration_GRPC(t *testing.T) {
+	port := freeport.GetOne(t)
+	serverUrl := fmt.Sprintf("127.0.0.1:%v", port)
+	lis, err := net.Listen("tcp", serverUrl)
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	var serverOpts []grpc.ServerOption
+	grpcServer := grpc.NewServer(serverOpts...)
+	mercuryServer := TestMercuryServer{
+		testLatestReportResponse: pb.LatestReportResponse{
+			Report: &pb.Report{
+				CurrentBlockNumber: 1,
+			},
+		},
+	}
+
+	pb.RegisterGrpcMercuryServer(grpcServer, &mercuryServer)
+	go grpcServer.Serve(lis)
+	t.Cleanup(grpcServer.Stop)
+
+	clientOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	}
+	conn, err := grpc.Dial(serverUrl, clientOpts...)
+	if err != nil {
+		t.Fatalf("Failed to dial server: %v", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewMercuryGrpcClient(conn)
+
+	latestReportCtx, cancel := context.WithTimeout(testutils.Context(t), 500*time.Second)
+	defer cancel()
+	resp, err2 := client.LatestReport(latestReportCtx, &pb.LatestReportRequest{})
+	require.NoError(t, err2)
+
+	t.Logf("LatestReport Response: %v", resp)
+	require.EqualValues(t, mercuryServer.testLatestReportResponse.String(), resp.String())
+}
+
+func TestIntegration_GRPCWithCreds(t *testing.T) {
+	// Read in self signed certificate
+	serverCreds, err := credentials.NewServerTLSFromFile("./fixtures/domain.pem", "./fixtures/domain.key")
+	require.NoError(t, err)
+
+	// Start the gRPC server with TLS credentials
+	port := freeport.GetOne(t)
+	serverUrl := fmt.Sprintf("127.0.0.1:%v", port)
+	lis, err := net.Listen("tcp", serverUrl)
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	t.Cleanup(func() { lis.Close() })
+
+	grpcServer := grpc.NewServer(grpc.Creds(serverCreds))
+	mercuryServer := TestMercuryServer{
+		testLatestReportResponse: pb.LatestReportResponse{
+			Report: &pb.Report{
+				CurrentBlockNumber: 1,
+			},
+		},
+	}
+	pb.RegisterGrpcMercuryServer(grpcServer, &mercuryServer)
+
+	t.Cleanup(func() { grpcServer.Stop() })
+
+	// Use the server certificate for client TLS credentials
+	clientCreds, err := credentials.NewClientTLSFromFile("./fixtures/domain.pem", "")
+	require.NoError(t, err)
+
+	// Dial the gRPC server with TLS credentials
+	conn, err := grpc.Dial(serverUrl, grpc.WithTransportCredentials(clientCreds))
+	if err != nil {
+		t.Fatalf("Failed to dial server: %v", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewMercuryGrpcClient(conn)
+
+	// Make a gRPC call to the server
+	latestReportCtx := testutils.Context(t)
+	resp, err := client.LatestReport(latestReportCtx, &pb.LatestReportRequest{})
+	require.NoError(t, err)
+
+	t.Logf("LatestReport Response: %v", resp.String())
+	require.EqualValues(t, mercuryServer.testLatestReportResponse.String(), resp.String())
+}
+
+func Test_GRPC_Signature(t *testing.T) {
+	client := client{
+		csaKey: csakey.MustNewV2XXXTestingOnly(testutils.MustParseBigInt(t, "32")),
+	}
+
+	FeedIDStr := "testFeedID"
+	latestReportRequest := &pb.LatestReportRequest{
+		FeedId: []byte(FeedIDStr),
+	}
+
+	// Generate the signature
+	signature, err := client.Sign(latestReportRequest)
+	require.NoError(t, err)
+
+	// Verify the signature
+	err = VerifySignature(client.csaKey.PublicKey, latestReportRequest, signature)
+	require.NoError(t, err)
+
+	t.Fatalf("message: %v, \n signature: %v", latestReportRequest.String(), signature)
+}
+
+func ptr[T any](t T) *T { return &t }

@@ -63,10 +63,12 @@ type mercuryServer struct {
 	privKey ed25519.PrivateKey
 	reqsCh  chan request
 	t       *testing.T
+
+	pb.UnimplementedMercuryServer
 }
 
 func NewMercuryServer(t *testing.T, privKey ed25519.PrivateKey, reqsCh chan request) *mercuryServer {
-	return &mercuryServer{privKey, reqsCh, t}
+	return &mercuryServer{privKey, reqsCh, t, pb.UnimplementedMercuryServer{}}
 }
 
 func (s *mercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (*pb.TransmitResponse, error) {
