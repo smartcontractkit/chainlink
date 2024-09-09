@@ -352,29 +352,6 @@ jobs:
           fi
         shell: bash
 
-      - name: Check if test config override is required for any test
-        shell: bash
-        run: |
-          # Parse the JSON to check for test_config_override_required in Docker matrix
-          DOCKER_TESTS_REQUIRING_CONFIG_OVERRIDE=$(echo '${{ steps.set-docker-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("test_config_override_required") and .test_config_override_required) | .id else empty end' -r)
-          # Parse the JSON to check for test_config_override_required in Kubernetes matrix
-          K8S_TESTS_REQUIRING_CONFIG_OVERRIDE=$(echo '${{ steps.set-k8s-runner-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("test_config_override_required") and .test_config_override_required) | .id else empty end' -r)
-
-          # Determine if any tests require a configuration override
-          if [ ! -z "$DOCKER_TESTS_REQUIRING_CONFIG_OVERRIDE" ] || [ ! -z "$K8S_TESTS_REQUIRING_CONFIG_OVERRIDE" ]; then
-            echo "Tests in .github/e2e-tests.yml requiring test config override:"
-            if [ ! -z "$DOCKER_TESTS_REQUIRING_CONFIG_OVERRIDE" ]; then
-              echo $DOCKER_TESTS_REQUIRING_CONFIG_OVERRIDE
-            fi
-            if [ ! -z "$K8S_TESTS_REQUIRING_CONFIG_OVERRIDE" ]; then
-              echo $K8S_TESTS_REQUIRING_CONFIG_OVERRIDE
-            fi
-            echo "::error::Error: Some of the tests require a test config override. Please see workflow logs and set 'test_config_override_path' to run these tests."
-            exit 1
-          else
-            echo "No tests require a configuration override. Proceeding without overrides."
-          fi
-
       - name: Check if test secrets are required for any test
         shell: bash
         run: |
