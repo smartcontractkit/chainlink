@@ -7,6 +7,10 @@ import (
 	"math/big"
 	"strconv"
 
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
+	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -35,15 +39,35 @@ type OffchainClient interface {
 	jobv1.JobServiceClient
 	nodev1.NodeServiceClient
 	csav1.CSAServiceClient
+	// sometimes we need to connect to the nodes directly to execute actions that are not supported by JD/FMS
+	NodeClients() []*client.ChainlinkK8sClient
 }
 
+// TODO: we should rename it EVM chain, as it's not generic at all
 type Chain struct {
 	// Selectors used as canonical chain identifier.
 	Selector uint64
 	Client   OnchainClient
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
-	DeployerKey *bind.TransactOpts
+	// Rename to something more universal, as these keys are not only for deploying, but also for other actions
+	Keys []*bind.TransactOpts
+	// Function to execute if transaction submission fails.
+	RetrySubmit func(tx *types.Transaction, err error) (*types.Transaction, error)
 	Confirm     func(tx common.Hash) (uint64, error)
+	DefaultKey  func() *bind.TransactOpts
+}
+
+// NoOpRetrySubmit is a retry submit function that does nothing.
+func NoOpRetrySubmit(_ *types.Transaction, err error) (*types.Transaction, error) {
+	return nil, err
+}
+
+// we do need mocks for higher-level environments
+type Mocks struct {
+	// we use Mockserver in k8s
+	MockServer *ctfClient.MockserverClient
+	// we use Killgrave in Docker
+	KillGrave *ctfTestEnv.Killgrave
 }
 
 type Environment struct {
@@ -51,6 +75,7 @@ type Environment struct {
 	Chains   map[uint64]Chain
 	Offchain OffchainClient
 	NodeIDs  []string
+	Mocks    Mocks
 	Logger   logger.Logger
 }
 

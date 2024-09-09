@@ -64,7 +64,7 @@ func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTest
 	te.Cfg = cfg
 	if cfg.MockAdapter.ContainerName != "" {
 		n := []string{te.DockerNetwork.Name}
-		te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName), test_env.WithLogStream(te.LogStream))
+		te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName), test_env.WithLogStream(te.LogStream), test_env.WithTestInstance(te.t))
 	}
 	return te
 }
@@ -72,9 +72,6 @@ func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTest
 func (te *CLClusterTestEnv) WithTestInstance(t *testing.T) *CLClusterTestEnv {
 	te.t = t
 	te.l = logging.GetTestLogger(t)
-	if te.MockAdapter != nil {
-		te.MockAdapter.WithTestInstance(t)
-	}
 	return te
 }
 

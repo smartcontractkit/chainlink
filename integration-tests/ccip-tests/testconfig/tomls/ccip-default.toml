@@ -285,35 +285,35 @@ CCIPOwnerTokens = false # if true, the test will use deploy the tokens by the CC
 #MaxNoOfLanes = <no_of_lanes> # maximum number of lanes to be added in the test; mainly used for scalability tests
 
 
-[CCIP.Groups.load]
+#[CCIP.Groups.load]
 # uncomment the following with specific values of lane combinations to be tested, if you want to run your tests to run only on these specific network pairs
 # if specific network pairs are not mentioned, then all the network pairs will be tested based on values in CCIP.Env.NetworkPairs and CCIP.Groups.<test_type>.NoOfNetworks
 # if specified, CCIP.Groups.<test_type>.NetworkPairs takes precedence over CCIP.Env.NetworkPairs and CCIP.Groups.<test_type>.NoOfNetworks
 #NetworkPairs =  ['SEPOLIA,OPTIMISM_GOERLI','SEPOLIA,POLYGON_MUMBAI','AVALANCHE_FUJI,SEPOLIA','SEPOLIA,BASE_GOERLI','SEPOLIA,BSC_TESTNET','SEPOLIA,WEMIX_TESTNET','AVALANCHE_FUJI,OPTIMISM_GOERLI','AVALANCHE_FUJI,POLYGON_MUMBAI','AVALANCHE_FUJI,BSC_TESTNET','AVALANCHE_FUJI,BASE_GOERLI','OPTIMISM_GOERLI,BASE_GOERLI','OPTIMISM_GOERLI,POLYGON_MUMBAI','BSC_TESTNET,POLYGON_MUMBAI','BSC_TESTNET,BASE_GOERLI','WEMIX_TESTNET,KROMA_SEPOLIA']
 
-KeepEnvAlive = false             # same as above
-CommitAndExecuteOnSameDON = true # same as above
-BiDirectionalLane = true         # same as above
-NoOfCommitNodes = 5              # same as above
-PhaseTimeout = '10m'             # same as above
-LocalCluster = false             # same as above
-ExistingDeployment = false       # same as above
-ReuseContracts = true            # same as above
-NodeFunding = 20.0               # same as above
-NoOfRoutersPerPair = 1           # same as above
-MulticallInOneTx = false         # same as above
-NoOfSendsInMulticall = 5         # same as above
-NoOfNetworks = 2                 # same as above
-
-[CCIP.Groups.load.OffRampConfig]
-BatchGasLimit = 11000000
-
-[CCIP.Groups.load.LoadProfile]
-RequestPerUnitTime = [1]          # number of ccip requests to be sent per unit time
-TimeUnit = '10s'                  # unit of time for RequestPerUnitTime
-TestDuration = '10m'              # load test duration, not used for smoke tests
-WaitBetweenChaosDuringLoad = '2m' # Duration to wait between each chaos injection during load test; only valid for chaos tests
-NetworkChaosDelay = '100ms'       # Duration for network chaos delay; only valid for chaos tests using network chaos
+#KeepEnvAlive = false             # same as above
+#CommitAndExecuteOnSameDON = true # same as above
+#BiDirectionalLane = true         # same as above
+#NoOfCommitNodes = 5              # same as above
+#PhaseTimeout = '10m'             # same as above
+#LocalCluster = false             # same as above
+#ExistingDeployment = false       # same as above
+#ReuseContracts = true            # same as above
+#NodeFunding = 20.0               # same as above
+#NoOfRoutersPerPair = 1           # same as above
+#MulticallInOneTx = false         # same as above
+#NoOfSendsInMulticall = 5         # same as above
+#NoOfNetworks = 2                 # same as above
+#
+#[CCIP.Groups.load.OffRampConfig]
+#BatchGasLimit = 11000000
+#
+#[CCIP.Groups.load.LoadProfile]
+#RequestPerUnitTime = [1]          # number of ccip requests to be sent per unit time
+#TimeUnit = '10s'                  # unit of time for RequestPerUnitTime
+#TestDuration = '10m'              # load test duration, not used for smoke tests
+#WaitBetweenChaosDuringLoad = '2m' # Duration to wait between each chaos injection during load test; only valid for chaos tests
+#NetworkChaosDelay = '100ms'       # Duration for network chaos delay; only valid for chaos tests using network chaos
 
 # uncomment the following if you want your test results to be reflected under CCIP test grafana dashboard with namespace label same as the value of the following variable
 # TestRunName = <env>_<testnet/mainnet>_<cciprelease> i.e prod-testnet-2.7.1-ccip1.2.1-beta
@@ -335,24 +335,24 @@ NetworkChaosDelay = '100ms'       # Duration for network chaos delay; only valid
 #   - Message Type 4: (1 / 20) * 100% = 5%
 # These percentages reflect how often each message type should appear in the total set of messages.
 # Please note - if the total set of messages is not equal to the multiple of sum of frequencies, the percentages will not be accurate.
-[CCIP.Groups.load.LoadProfile.MsgProfile]
-Frequencies = [1] # frequency of each message type in the MsgDetails
+#[CCIP.Groups.load.LoadProfile.MsgProfile]
+#Frequencies = [1] # frequency of each message type in the MsgDetails
 
-[[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
-MsgType = 'DataWithToken' # type of message to be sent, either 'Token' or 'DataWithToken' Or 'Data'
-DestGasLimit = 100000     # change this to 0 gas limit if you are doing ccip-send to an EOA
-DataLength = 1000         # length of the data to be sent in ccip message if MsgType = 'Data'/'DataWithToken'
-NoOfTokens = 2            # number of bridge tokens to be sent in ccip message if MsgType = 'Token'/'DataWithToken'
-AmountPerToken = 1        # amount to be sent for each bridge token in ccip message if MsgType = 'Token'/'DataWithToken'
+#[[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
+#MsgType = 'DataWithToken' # type of message to be sent, either 'Token' or 'DataWithToken' Or 'Data'
+#DestGasLimit = 100000     # change this to 0 gas limit if you are doing ccip-send to an EOA
+#DataLength = 1000         # length of the data to be sent in ccip message if MsgType = 'Data'/'DataWithToken'
+#NoOfTokens = 2            # number of bridge tokens to be sent in ccip message if MsgType = 'Token'/'DataWithToken'
+#AmountPerToken = 1        # amount to be sent for each bridge token in ccip message if MsgType = 'Token'/'DataWithToken'
 
 
-[CCIP.Groups.load.TokenConfig]
-TimeoutForPriceUpdate = '15m' # Duration to wait for the price update to time-out.
-# Now testing only with dynamic price getter (no pipeline).
-# Could be removed once the pipeline is completely removed.
-WithPipeline = false
-NoOfTokensPerChain = 2 # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
-CCIPOwnerTokens = false # if true, the test will use deploy the tokens by the CCIPOwner, otherwise the tokens and pools will be deployed by a non-owner account,
+#[CCIP.Groups.load.TokenConfig]
+#TimeoutForPriceUpdate = '15m' # Duration to wait for the price update to time-out.
+## Now testing only with dynamic price getter (no pipeline).
+## Could be removed once the pipeline is completely removed.
+#WithPipeline = false
+#NoOfTokensPerChain = 2 # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
+#CCIPOwnerTokens = false # if true, the test will use deploy the tokens by the CCIPOwner, otherwise the tokens and pools will be deployed by a non-owner account,
 # only applicable for 1.5 pools and onwards, if you are running with pre-1.5 pools, then set this to true to deploy token pools by CCIPOwner, otherwise
 # the test will fail
 
