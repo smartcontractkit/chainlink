@@ -176,7 +176,12 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 		return r, fmt.Errorf("WorkflowID in the report does not match WorkflowID in the request metadata. Report WorkflowID: %+v, request WorkflowID: %+v", reportMetadata.WorkflowCID, rawRequest.Metadata.WorkflowID)
 	}
 
-	if !bytes.Equal(reportMetadata.ReportID[:], r.Inputs.SignedReport.ID) {
+	decodedBytes, err := hex.DecodeString(string(r.Inputs.SignedReport.ID))
+	if err != nil {
+		return r, err
+	}
+
+	if !bytes.Equal(reportMetadata.ReportID[:], decodedBytes) {
 		return r, fmt.Errorf("ReportID in the report does not match ReportID in the inputs. reportMetadata.ReportID: %x, Inputs.SignedReport.ID: %x", reportMetadata.ReportID, r.Inputs.SignedReport.ID)
 	}
 

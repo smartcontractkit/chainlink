@@ -147,7 +147,6 @@ func TestEvmWrite(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	reportID := [2]byte{0x30, 0x31}
 	reportMetadata := targets.ReportV1Metadata{
 		Version:             1,
 		WorkflowExecutionID: [32]byte{},
@@ -157,7 +156,7 @@ func TestEvmWrite(t *testing.T) {
 		WorkflowCID:         [32]byte{},
 		WorkflowName:        [10]byte{},
 		WorkflowOwner:       [20]byte{},
-		ReportID:            reportID,
+		ReportID:            [2]byte{0x00, 0x01},
 	}
 
 	reportMetadataBytes, err := reportMetadata.Encode()
@@ -170,7 +169,7 @@ func TestEvmWrite(t *testing.T) {
 			"report":     reportMetadataBytes,
 			"signatures": signatures,
 			"context":    []byte{4, 5},
-			"id":         reportID[:],
+			"id":         []byte("0001"),
 		},
 	})
 	require.NoError(t, err)
