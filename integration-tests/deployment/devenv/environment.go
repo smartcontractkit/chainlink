@@ -3,11 +3,14 @@ package devenv
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"os"
 	"strconv"
 	"testing"
 
 	"github.com/AlekSi/pointer"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/crypto"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
@@ -81,7 +84,7 @@ func DeployPrivateChains(t *testing.T) (
 		*test_env.CLClusterTestEnv,
 		tc.TestConfig,
 	) error) {
-	if _, err := os.Stat("./env"); err == nil || !os.IsNotExist(err) {
+	if _, err := os.Stat(".env"); err == nil || !os.IsNotExist(err) {
 		require.NoError(t, gotenv.Load(".env"), "Error loading .env file")
 	}
 
@@ -100,34 +103,51 @@ func DeployPrivateChains(t *testing.T) (
 		Build()
 	require.NoError(t, err, "Error building test environment")
 	var chains []ChainConfig
+	evmNetworks := networks.MustGetSelectedNetworkConfig(cfg.Network)
+	networkPvtKeys := make(map[int64]string)
+	for _, net := range evmNetworks {
+		require.Greater(t, len(net.PrivateKeys), 0, "No private keys found for network")
+		networkPvtKeys[net.ChainID] = net.PrivateKeys[0]
+	}
 	for _, networkCfg := range cfg.CCIP.PrivateEthereumNetworks {
 		chainId := networkCfg.EthereumChainConfig.ChainID
 		chainName, err := chain_selectors.NameFromChainId(uint64(chainId))
 		require.NoError(t, err, "Error getting chain name")
 		rpcProvider, err := env.GetRpcProvider(int64(chainId))
 		require.NoError(t, err, "Error getting rpc provider")
+		pvtKeyStr, exists := networkPvtKeys[int64(chainId)]
+		require.Truef(t, exists, "Private key not found for chain id %d", chainId)
+		pvtKey, err := crypto.HexToECDSA(pvtKeyStr)
+		require.NoError(t, err)
+		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, big.NewInt(int64(chainId)))
+		require.NoError(t, err)
 		chains = append(chains, ChainConfig{
 			ChainId:         uint64(chainId),
 			ChainName:       chainName,
+			ChainType:       "EVM",
 			WsRpcs:          rpcProvider.PublicWsUrls(),
 			HttpRpcs:        rpcProvider.PublicHttpUrls(),
 			PrivateHttpRpcs: rpcProvider.PrivateHttpUrls(),
 			PrivateWsRpcs:   rpcProvider.PrivateWsUrsl(),
+			DeployerKey:     deployer,
 		})
 	}
 	var jdConfig JDConfig
 	// TODO : move this as a part of test_env setup with an input in testconfig
-	if cfg.CCIP.JobDistributorConfig != nil {
+	// if JD is not provided, we will spin up a new JD
+	if cfg.CCIP.GetJDGRPC() == "" && cfg.CCIP.GetJDWSRPC() == "" {
 		jdDB, err := ctftestenv.NewPostgresDb(
 			[]string{env.DockerNetwork.Name},
-			ctftestenv.WithPostgresDbName("jd-db"),
-			ctftestenv.WithPostgresImageVersion("14.1"))
+			ctftestenv.WithPostgresDbName(cfg.CCIP.GetJDDBName()),
+			ctftestenv.WithPostgresImageVersion(cfg.CCIP.GetJDDBVersion()),
+		)
 		require.NoError(t, err)
 		err = jdDB.StartContainer()
 		require.NoError(t, err)
 
 		jd := job_distributor.New([]string{env.DockerNetwork.Name},
 			job_distributor.WithImage(cfg.CCIP.GetJDImage()),
+			job_distributor.WithVersion(cfg.CCIP.GetJDVersion()),
 			job_distributor.WithDBURL(jdDB.InternalURL.String()),
 		)
 		err = jd.StartContainer()
@@ -135,7 +155,12 @@ func DeployPrivateChains(t *testing.T) (
 		jdConfig = JDConfig{
 			GRPC: jd.Grpc,
 			// we will use internal wsrpc for nodes on same docker network to connect to JD
-			WSRPC: jd.InternalWSRPC.String(),
+			WSRPC: jd.InternalWSRPC,
+		}
+	} else {
+		jdConfig = JDConfig{
+			GRPC:  cfg.CCIP.GetJDGRPC(),
+			WSRPC: cfg.CCIP.GetJDWSRPC(),
 		}
 	}
 	require.NotEmpty(t, jdConfig, "JD config is empty")
@@ -146,6 +171,12 @@ func DeployPrivateChains(t *testing.T) (
 		cfg tc.TestConfig,
 	) error {
 		evmNetworks := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())
+		for i, net := range evmNetworks {
+			rpcProvider, err := env.GetRpcProvider(net.ChainID)
+			require.NoError(t, err, "Error getting rpc provider")
+			evmNetworks[i].HTTPURLs = rpcProvider.PrivateHttpUrls()
+			evmNetworks[i].URLs = rpcProvider.PrivateWsUrsl()
+		}
 		noOfNodes := pointer.GetInt(cfg.CCIP.CLNode.NoOfPluginNodes) + pointer.GetInt(cfg.CCIP.CLNode.NoOfBootstraps)
 		var nodeInfo []NodeInfo
 		for i := 1; i <= noOfNodes; i++ {
@@ -157,7 +188,7 @@ func DeployPrivateChains(t *testing.T) (
 			} else {
 				nodeInfo = append(nodeInfo, NodeInfo{
 					IsBootstrap: false,
-					Name:        fmt.Sprintf("node-%d", i),
+					Name:        fmt.Sprintf("node-%d", i-1),
 				})
 			}
 			toml, _, err := testsetups.SetNodeConfig(

@@ -2,7 +2,6 @@ package changeset
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -25,12 +24,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
-
-func Test0002_InitialDeployOnLocal(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	ccipdeployment.NewDeployedLocalDevEnvironment(t, lggr)
-	fmt.Println("Test0002_InitialDeployOnLocal")
-}
 
 func Test0002_InitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)

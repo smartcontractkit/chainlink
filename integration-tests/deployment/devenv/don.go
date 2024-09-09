@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/common"
@@ -60,7 +61,9 @@ func (don *DON) NodeIds() []string {
 func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig) error {
 	var err error
 	for _, node := range don.Nodes {
-		err = multierror.Append(err, node.CreateCCIPOCR2SupportedChains(ctx, chains))
+		if err1 := node.CreateCCIPOCR2SupportedChains(ctx, chains); err1 != nil {
+			err = multierror.Append(err, err1)
+		}
 	}
 	return err
 }
@@ -189,21 +192,32 @@ func (n *Node) CreateCCIPOCR2SupportedChains(ctx context.Context, chains []Chain
 	return nil
 }
 
+func (n *Node) AcceptJob(ctx context.Context, id string) error {
+	spec, err := n.gqlClient.ApproveJobProposalSpec(ctx, id, false)
+	if err != nil {
+		return err
+	}
+	if spec == nil {
+		return fmt.Errorf("no job proposal spec found for job id %s", id)
+	}
+	return nil
+}
+
 // RegisterNodeToJobDistributor fetches the CSA public key of the node and registers the node with the job distributor
 // it sets the node id returned by JobDistributor as a result of registration in the node struct
 func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd JobDistributor) error {
 	// Get the public key of the node
-	csaKey, err := n.gqlClient.FetchCSAPublicKey(ctx)
+	csaKeyRes, err := n.gqlClient.FetchCSAPublicKey(ctx)
 	if err != nil {
 		return err
 	}
-	if csaKey == nil {
+	if csaKeyRes == nil {
 		return fmt.Errorf("no csa key found for node %s", n.name)
 	}
-
+	csaKey := strings.TrimPrefix(*csaKeyRes, "csa_")
 	// register the node in the job distributor
 	registerResponse, err := jd.RegisterNode(ctx, &nodev1.RegisterNodeRequest{
-		PublicKey: *csaKey,
+		PublicKey: csaKey,
 		Labels:    n.labels,
 		Name:      n.name,
 	})
