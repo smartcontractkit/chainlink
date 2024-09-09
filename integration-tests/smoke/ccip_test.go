@@ -38,7 +38,7 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// Get new state after migration.
-	state, err = ccipdeployment.LoadOnchainState(e, output.AddressBook)
+	_, err = ccipdeployment.LoadOnchainState(e, output.AddressBook)
 	require.NoError(t, err)
 
 	// Apply the jobs.

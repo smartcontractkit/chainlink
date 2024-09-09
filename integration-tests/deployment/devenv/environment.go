@@ -12,14 +12,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/crypto"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/require"
+	"github.com/subosito/gotenv"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env/job_distributor"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-	"github.com/stretchr/testify/require"
-	"github.com/subosito/gotenv"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	clclient "github.com/smartcontractkit/chainlink/integration-tests/client"

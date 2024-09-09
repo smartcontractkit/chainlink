@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"github.com/AlekSi/pointer"
+
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
