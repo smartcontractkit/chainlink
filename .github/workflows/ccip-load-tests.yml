@@ -18,6 +18,10 @@ on:
         description: 'Key to run tests with custom test secrets'
         required: false
         type: string
+      chainlink_version:
+        description: Chainlink image version to use. Commit sha if not provided
+        required: false
+        type: string        
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
@@ -31,7 +35,7 @@ jobs:
     with:
       test_workflow: E2E CCIP Load Tests
       test_config_override_path: ${{ inputs.test_config_override_path }}
-      chainlink_version: ${{ github.sha }}
+      chainlink_version: ${{ inputs.chainlink_version || github.sha }} 
       slack_notification_after_tests: always
       slack_notification_after_tests_channel_id: '#lf-slack-notification-tests'
       # slack_notification_after_tests_channel_id: '#ccip-testing'
