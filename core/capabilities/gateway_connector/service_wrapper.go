@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	gwConfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gwCommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
@@ -90,7 +89,7 @@ func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 }
 
 // NOTE: this wrapper is needed to make sure that our services are started after Keystore.
-func NewGatewayConnectorServiceWrapper(config *gwConfig.GatewayConnector, keystore keystore.Eth, lggr logger.Logger) *serviceWrapper {
+func NewGatewayConnectorServiceWrapper(config *config.GatewayConnector, keystore keystore.Eth, lggr logger.Logger) *serviceWrapper {
 	return &serviceWrapper{
 		config:   config,
 		keystore: keystore,
