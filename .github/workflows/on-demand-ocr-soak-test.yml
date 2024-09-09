@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       testToRun:
-        description: Select a test to run
+        description: Select a test to run from .github/e2e-tests.yml
         required: true
         default: TestOCRSoak
         type: choice
