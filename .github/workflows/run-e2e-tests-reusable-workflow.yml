@@ -641,7 +641,7 @@ jobs:
   get-remote-runner-test-image:
     needs: [load-test-configurations, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr]
     if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }}
-    name: Get emote runner test image
+    name: Get remote runner test image
     runs-on: ubuntu-latest
     environment: integration
     permissions:
