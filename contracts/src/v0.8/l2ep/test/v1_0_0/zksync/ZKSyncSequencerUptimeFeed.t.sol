@@ -33,7 +33,7 @@ contract ZKSyncSequencerUptimeFeedTest is L2EPTest {
 contract ZKSyncSequencerUptimeFeed_ValidateSender is ZKSyncSequencerUptimeFeedTest {
   /// @notice it should revert if called by an unauthorized account
   function test_RevertIfPassIsNotValid() public {
-    // Sets msg.sender and tx.origin to an unauthorized address
+    // Sets msg.sender and tx.origin to an authorized address
     vm.startPrank(s_aliasedL1SenderAddress, s_aliasedL1SenderAddress);
 
     // Tries to update the status from an unauthorized account
@@ -42,10 +42,10 @@ contract ZKSyncSequencerUptimeFeed_ValidateSender is ZKSyncSequencerUptimeFeedTe
   }
 
   function test_PassIfSenderIsValid() public {
-    // Sets msg.sender and tx.origin to an unauthorized address
+    // Sets msg.sender and tx.origin to an authorized address
     vm.startPrank(s_aliasedL1SenderAddress, s_aliasedL1SenderAddress);
 
-    // Tries to update the status from an unauthorized account
+    // Tries to update the status from an authorized account
     s_zksyncSequencerUptimeFeed.validateSenderTestWrapper(l1SenderAddress);
   }
 }
