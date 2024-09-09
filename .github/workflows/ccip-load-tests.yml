@@ -190,7 +190,7 @@ jobs:
           RR_CPU: 4
           TEST_TRIGGERED_BY: ccip-load-test-ci-${{ matrix.type.name }}
           BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}
-          TEST_BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}
+          TEST_BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.setup_create_base64_config_ccip.outputs.base64_config }},${{ steps.set_override_config.outputs.base_64_override }}
           E2E_TEST_LOGGING_RUN_ID: ${{ github.run_id }}       
           E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
           E2E_TEST_CHAINLINK_VERSION: ${{ env.CHAINLINK_VERSION }}

@@ -9,8 +9,6 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 
 cd "$SCRIPT_DIR"/../ || exit 1
 
-ls
-
 # Arguments needed
 # ARGS=${ARGS:=} any extra args for go test
 # SUITE=${SUITE:=} the suite of tests you want to run
