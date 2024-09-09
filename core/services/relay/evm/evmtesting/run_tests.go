@@ -1,7 +1,6 @@
 package evmtesting
 
 import (
-	"log"
 	"math/big"
 	"reflect"
 	"time"
@@ -42,7 +41,6 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		}
 		SubmitTransactionToCW(t, it, "triggerEventWithDynamicTopic", DynamicEvent{Field: anyString}, bindings[0], types.Unconfirmed)
 
-		log.Println("TRACE: setup complete")
 		input := struct{ Field string }{Field: anyString}
 		tp := cr.(clcommontypes.ContractTypeProvider)
 

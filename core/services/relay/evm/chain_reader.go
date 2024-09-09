@@ -309,6 +309,7 @@ func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractNa
 	types.CodecEntry, commoncodec.Modifier, error) {
 	inputInfo := cr.parsed.EncoderDefs[WrapItemType(contractName, eventName, true)]
 
+	// TODO can this be simplified? Isn't this same as inputInfo.Modifier()? BCI-3909
 	inMod, err := def.InputModifications.ToModifier(codec.DecoderHooks...)
 	if err != nil {
 		return nil, nil, err
@@ -324,7 +325,6 @@ func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractNa
 
 func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arguments, prefix []byte, inputModifications commoncodec.ModifiersConfig) error {
 	// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
-	// TODO can this be simplified? Isn't this same as inputInfo.Modifier()? BCI-3909
 	inputMod, err := inputModifications.ToModifier(codec.DecoderHooks...)
 	if err != nil {
 		return err
