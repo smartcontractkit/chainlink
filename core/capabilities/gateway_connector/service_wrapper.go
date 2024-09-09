@@ -124,7 +124,7 @@ func (e *serviceWrapper) Start(ctx context.Context) error {
 			return err
 		}
 		translated := translateConfigs(conf)
-		e.connector, err = connector.NewGatewayConnector(&translated, signer, signer, clockwork.NewRealClock(), e.lggr)
+		e.connector, err = connector.NewGatewayConnector(&translated, signer, clockwork.NewRealClock(), e.lggr)
 		if err != nil {
 			return err
 		}
