@@ -177,7 +177,7 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 	}
 
 	if hex.EncodeToString(reportMetadata.ReportID[:]) != string(r.Inputs.SignedReport.ID) {
-		return r, fmt.Errorf("ReportID in the report does not match ReportID in the request metadata. Report ReportID: %+v, request ReportID: %+v", reportMetadata.ReportID, r.Inputs.SignedReport.ID)
+		return r, fmt.Errorf("ReportID in the report does not match ReportID in the inputs. reportMetadata.ReportID: %+v, Inputs.SignedReport.ID: %+v", reportMetadata.ReportID, r.Inputs.SignedReport.ID)
 	}
 
 	return r, nil
