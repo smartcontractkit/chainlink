@@ -3,7 +3,6 @@ pragma solidity 0.8.24;
 
 import {IFeeQuoter} from "../../interfaces/IFeeQuoter.sol";
 import {IMessageInterceptor} from "../../interfaces/IMessageInterceptor.sol";
-import {IPriceRegistry} from "../../interfaces/IPriceRegistry.sol";
 import {IRMNV2} from "../../interfaces/IRMNV2.sol";
 import {IRouter} from "../../interfaces/IRouter.sol";
 import {ITokenAdminRegistry} from "../../interfaces/ITokenAdminRegistry.sol";
@@ -13,7 +12,6 @@ import {FeeQuoter} from "../../FeeQuoter.sol";
 import {NonceManager} from "../../NonceManager.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
-import {MerkleMultiProof} from "../../libraries/MerkleMultiProof.sol";
 import {Pool} from "../../libraries/Pool.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {MultiOCR3Base} from "../../ocr/MultiOCR3Base.sol";
@@ -2113,8 +2111,8 @@ contract OffRamp_execute is OffRampSetup {
       ocrPluginType: uint8(Internal.OCRPluginType.Commit),
       configDigest: s_configDigestCommit,
       F: s_F,
-      isSignatureVerificationEnabled: false,
-      signers: s_emptySigners,
+      isSignatureVerificationEnabled: true,
+      signers: s_validSigners,
       transmitters: s_validTransmitters
     });
     s_offRamp.setOCR3Configs(ocrConfigs);
@@ -2457,7 +2455,7 @@ contract OffRamp_trialExecute is OffRampSetup {
   }
 }
 
-contract OffRamp__releaseOrMintSingleToken is OffRampSetup {
+contract OffRamp_releaseOrMintSingleToken is OffRampSetup {
   function setUp() public virtual override {
     super.setUp();
     _setupMultipleOffRamps();
@@ -3395,26 +3393,6 @@ contract OffRamp_commit is OffRampSetup {
     s_offRamp.commit(reportContext, abi.encode(commitReport), rs, ss, rawVs);
   }
 
-  function test_WrongConfigWithoutSigners_Revert() public {
-    _redeployOffRampWithNoOCRConfigs();
-
-    OffRamp.CommitReport memory commitReport = _constructCommitReport();
-
-    MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
-    ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
-      ocrPluginType: uint8(Internal.OCRPluginType.Commit),
-      configDigest: s_configDigestCommit,
-      F: s_F,
-      isSignatureVerificationEnabled: false,
-      signers: s_emptySigners,
-      transmitters: s_validTransmitters
-    });
-    s_offRamp.setOCR3Configs(ocrConfigs);
-
-    vm.expectRevert();
-    _commit(commitReport, s_latestSequenceNumber);
-  }
-
   function test_FailedRMNVerification_Reverts() public {
     // force RMN verification to fail
     vm.mockCallRevert(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNV2.verify.selector), bytes(""));
@@ -3581,5 +3559,33 @@ contract OffRamp_commit is OffRampSetup {
       merkleRoots: roots,
       rmnSignatures: s_rmnSignatures
     });
+  }
+}
+
+contract OffRamp_afterOC3ConfigSet is OffRampSetup {
+  function test_afterOCR3ConfigSet_SignatureVerificationDisabled_Revert() public {
+    s_offRamp = new OffRampHelper(
+      OffRamp.StaticConfig({
+        chainSelector: DEST_CHAIN_SELECTOR,
+        rmn: s_mockRMNRemote,
+        tokenAdminRegistry: address(s_tokenAdminRegistry),
+        nonceManager: address(s_inboundNonceManager)
+      }),
+      _generateDynamicOffRampConfig(address(s_feeQuoter)),
+      new OffRamp.SourceChainConfigArgs[](0)
+    );
+
+    MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
+    ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
+      ocrPluginType: uint8(Internal.OCRPluginType.Commit),
+      configDigest: s_configDigestCommit,
+      F: s_F,
+      isSignatureVerificationEnabled: false,
+      signers: s_validSigners,
+      transmitters: s_validTransmitters
+    });
+
+    vm.expectRevert(OffRamp.SignatureVerificationDisabled.selector);
+    s_offRamp.setOCR3Configs(ocrConfigs);
   }
 }

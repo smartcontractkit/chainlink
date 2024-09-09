@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
+import {IRMN} from "../../interfaces/IRMN.sol";
+
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
 import {IRMNV2} from "../../interfaces/IRMNV2.sol";
