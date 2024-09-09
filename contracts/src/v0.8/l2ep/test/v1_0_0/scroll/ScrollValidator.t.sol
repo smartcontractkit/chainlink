@@ -53,7 +53,7 @@ contract ScrollValidatorTest is L2EPTest {
   }
 }
 
-contract ScrollSequencerUptimeFeed_Constructor is ScrollValidatorTest {
+contract ScrollValidator_Constructor is ScrollValidatorTest {
   /// @notice it should have been deployed with the correct initial state
   function test_InitialState() public {
     // Sets msg.sender and tx.origin to a valid address
