@@ -109,7 +109,12 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 
 			return
 		}
-		defer clientConn.Close()
+		defer func() {
+			cerr := clientConn.Close()
+			if cerr != nil {
+				mgr.lggr.Warnf("Error closing wsrpc client connection: %v", cerr)
+			}
+		}()
 
 		mgr.lggr.Infow("Connected to Feeds Manager", "feedsManagerID", opts.FeedsManagerID)
 
