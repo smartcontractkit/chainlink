@@ -9137,7 +9137,7 @@ Name is a unique (per-chain) identifier for this node.
 ```toml
 WSURL = 'wss://web.socket/test' # Example
 ```
-WSURL is the WS(S) endpoint for this node. Optional when `LogBroadcasterEnabled` is `false`
+WSURL is the WS(S) endpoint for this node. Can be empty string when `LogBroadcasterEnabled` is `false`
 
 ### HTTPURL
 ```toml

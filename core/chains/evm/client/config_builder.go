@@ -93,9 +93,11 @@ func parseNodeConfigs(nodeCfgs []NodeConfig) ([]*toml.Node, error) {
 		}
 		nodes[i] = node
 	}
+
 	if err := validateNodeConfigs(nodes); err != nil {
 		return nil, err
 	}
+
 	return nodes, nil
 }
 
