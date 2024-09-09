@@ -598,16 +598,9 @@ func (lp *logPoller) run() {
 				}
 				// Otherwise this is the first poll _ever_ on a new chain.
 				// Only safe thing to do is to start at the first finalized block.
-				latestBlock, latestFinalizedBlockNumber, err := lp.latestBlocks(ctx)
+				_, latestFinalizedBlockNumber, err := lp.latestBlocks(ctx)
 				if err != nil {
 					lp.lggr.Warnw("Unable to get latest for first poll", "err", err)
-					continue
-				}
-				// Do not support polling chains which don't even have finality depth worth of blocks.
-				// Could conceivably support this but not worth the effort.
-				// Need last finalized block number to be higher than 0
-				if latestFinalizedBlockNumber <= 0 {
-					lp.lggr.Warnw("Insufficient number of blocks on chain, waiting for finality depth", "err", err, "latest", latestBlock.Number)
 					continue
 				}
 				// Starting at the first finalized block. We do not backfill the first finalized block.
