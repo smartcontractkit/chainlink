@@ -128,8 +128,6 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 		e.Logger.Errorw("Failed to get hashed capability id", "err", err)
 		return ab, err
 	}
-	peerIDs := nodes.PeerIDs(c.HomeChainSel)
-	fmt.Println("peerIDs", peerIDs)
 	// Signal to CR that our nodes support CCIP capability.
 	if err := AddNodes(
 		c.Chains[c.HomeChainSel].CapabilityRegistry,
