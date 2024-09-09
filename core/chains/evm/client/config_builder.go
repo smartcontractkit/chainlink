@@ -1,7 +1,6 @@
 package client
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 	"time"
@@ -15,8 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
-
-var ErrLogBroadcasterEnabledWithoutWSURL = errors.New("logbroadcaster cannot be enabled unless all nodes have WSURL provided")
 
 type NodeConfig struct {
 	Name     *string
@@ -46,18 +43,12 @@ func NewClientConfigs(
 	deathDeclarationDelay time.Duration,
 	noNewFinalizedHeadsThreshold time.Duration,
 	finalizedBlockPollInterval time.Duration,
-	LogBroadcasterEnabled bool,
 
 ) (commonclient.ChainConfig, evmconfig.NodePool, []*toml.Node, error) {
 	nodes, err := parseNodeConfigs(nodeCfgs)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-
-	if err = verifyLogBroadcasterFlag(nodes, LogBroadcasterEnabled); err != nil {
-		return nil, nil, nil, err
-	}
-
 	nodePool := toml.NodePool{
 		SelectionMode:              selectionMode,
 		LeaseDuration:              commonconfig.MustNewDuration(leaseDuration),
@@ -85,47 +76,26 @@ func NewClientConfigs(
 	return chainConfig, nodePoolCfg, nodes, nil
 }
 
-// verifyLogBroadcasterFlag checks node config and return error if LogBroadcaster enabled but some node missing WSURL
-func verifyLogBroadcasterFlag(nodes []*toml.Node, LogBroadcasterEnabled bool) error {
-	if !LogBroadcasterEnabled {
-		return nil
-	}
-	for _, node := range nodes {
-		if node.WSURL == nil || node.WSURL.IsZero() {
-			return ErrLogBroadcasterEnabledWithoutWSURL
-		}
-	}
-	return nil
-}
-
 func parseNodeConfigs(nodeCfgs []NodeConfig) ([]*toml.Node, error) {
 	nodes := make([]*toml.Node, len(nodeCfgs))
 	for i, nodeCfg := range nodeCfgs {
-		var wsURL, httpURL *commonconfig.URL
-		// wsUrl is optional
-		if nodeCfg.WSURL != nil {
-			wsURL = commonconfig.MustParseURL(*nodeCfg.WSURL)
+		if nodeCfg.WSURL == nil || nodeCfg.HTTPURL == nil {
+			return nil, fmt.Errorf("node config [%d]: missing WS or HTTP URL", i)
 		}
-
-		if nodeCfg.HTTPURL == nil {
-			return nil, fmt.Errorf("node config [%d]: HTTP URL", i)
-		}
-
-		httpURL = commonconfig.MustParseURL(*nodeCfg.HTTPURL)
+		wsUrl := commonconfig.MustParseURL(*nodeCfg.WSURL)
+		httpUrl := commonconfig.MustParseURL(*nodeCfg.HTTPURL)
 		node := &toml.Node{
 			Name:     nodeCfg.Name,
-			WSURL:    wsURL,
-			HTTPURL:  httpURL,
+			WSURL:    wsUrl,
+			HTTPURL:  httpUrl,
 			SendOnly: nodeCfg.SendOnly,
 			Order:    nodeCfg.Order,
 		}
 		nodes[i] = node
 	}
-
 	if err := validateNodeConfigs(nodes); err != nil {
 		return nil, err
 	}
-
 	return nodes, nil
 }
 

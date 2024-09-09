@@ -318,9 +318,10 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 			hasPrimary = true
 			break
 		}
-		if !hasPrimary {
+		// http url is always required, ws url can be empty string when LogBroadcaster is disabled
+		if !hasPrimary && *c.LogBroadcasterEnabled {
 			err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes",
-				Msg: "must have at least one primary node with WSURL"})
+				Msg: "must have at least one primary node with WSURL when LogBroadcaster is enabled"})
 		}
 	}
 
@@ -965,8 +966,19 @@ func (n *Node) ValidateConfig() (err error) {
 		err = multierr.Append(err, commonconfig.ErrEmpty{Name: "Name", Msg: "required for all nodes"})
 	}
 
-	// WSURL can be optional when LogBroadcaster is disabled, if WSURL not provided, rpc will return error for SubscribeFilterLogs
-	if n.WSURL != nil && !n.WSURL.IsZero() {
+	var sendOnly bool
+	if n.SendOnly != nil {
+		sendOnly = *n.SendOnly
+	}
+	if n.WSURL == nil {
+		if !sendOnly {
+			err = multierr.Append(err, commonconfig.ErrMissing{Name: "WSURL", Msg: "required for primary nodes"})
+		}
+	} else if n.WSURL.IsZero() {
+		if !sendOnly {
+			err = multierr.Append(err, commonconfig.ErrEmpty{Name: "WSURL", Msg: "required for primary nodes"})
+		}
+	} else {
 		switch n.WSURL.Scheme {
 		case "ws", "wss":
 		default:

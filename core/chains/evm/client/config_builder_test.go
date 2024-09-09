@@ -39,7 +39,7 @@ func TestClientConfigBuilder(t *testing.T) {
 	noNewHeadsThreshold := time.Second
 	chainCfg, nodePool, nodes, err := client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs,
 		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth,
-		finalityTagEnabled, finalizedBlockOffset, enforceRepeatableRead, deathDeclarationDelay, noNewFinalizedBlocksThreshold, pollInterval, true)
+		finalityTagEnabled, finalizedBlockOffset, enforceRepeatableRead, deathDeclarationDelay, noNewFinalizedBlocksThreshold, pollInterval)
 	require.NoError(t, err)
 
 	// Validate node pool configs
@@ -90,7 +90,7 @@ func TestNodeConfigs(t *testing.T) {
 		require.Len(t, tomlNodes, len(nodeConfigs))
 	})
 
-	t.Run("ws is optional", func(t *testing.T) {
+	t.Run("parsing missing ws url fails", func(t *testing.T) {
 		nodeConfigs := []client.NodeConfig{
 			{
 				Name:    ptr("foo1"),
@@ -98,7 +98,7 @@ func TestNodeConfigs(t *testing.T) {
 			},
 		}
 		_, err := client.ParseTestNodeConfigs(nodeConfigs)
-		require.Nil(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("parsing missing http url fails", func(t *testing.T) {
