@@ -486,12 +486,9 @@ runner-test-matrix:
     test_env_type: k8s-remote-runner
     test_cmd: cd integration-tests/load/automationv2_1 && go test -test.run TestLogTrigger -test.parallel=1 -timeout 60m -count=1 -json
     remote_runner_memory: 4Gi
-    test_config_override_required: true
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: automationv2_1
-    workflows:
-      - Automation Load Test
     pyroscope_env: automation-load-test
 
   - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
