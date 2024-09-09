@@ -24,10 +24,10 @@ func GenerateAcceptOwnershipProposal(
 	e deployment.Environment,
 	chains []uint64,
 	ab deployment.AddressBook,
-) (timelock.MCMSWithTimelockProposal, error) {
+) (*timelock.MCMSWithTimelockProposal, error) {
 	state, err := LoadOnchainState(e, ab)
 	if err != nil {
-		return timelock.MCMSWithTimelockProposal{}, err
+		return nil, err
 	}
 	// TODO: Just onramp as an example
 	var batches []timelock.BatchChainOperation
@@ -36,7 +36,7 @@ func GenerateAcceptOwnershipProposal(
 		chain, _ := chainsel.ChainBySelector(sel)
 		acceptOnRamp, err := state.Chains[sel].OnRamp.AcceptOwnership(SimTransactOpts())
 		if err != nil {
-			return timelock.MCMSWithTimelockProposal{}, err
+			return nil, err
 		}
 		chainSel := mcms.ChainIdentifier(chain.Selector)
 		metaDataPerChain[chainSel] = timelock.MCMSWithTimelockChainMetadata{
@@ -59,10 +59,13 @@ func GenerateAcceptOwnershipProposal(
 		})
 	}
 	// TODO: Real valid until.
-	return timelock.MCMSWithTimelockProposal{
-		Operation:     timelock.Schedule,
-		MinDelay:      "1h",
-		ChainMetadata: metaDataPerChain,
-		Transactions:  batches,
-	}, nil
+	return timelock.NewMCMSWithTimelockProposal(
+		"1",
+		1,
+		[]mcms.Signature{},
+		false,
+		metaDataPerChain,
+		"blah",
+		batches,
+		timelock.Schedule, "1h")
 }

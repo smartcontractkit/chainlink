@@ -2,6 +2,7 @@ package ccipdeployment
 
 import (
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/mcms"
@@ -58,7 +59,7 @@ func NewChainInbound(
 			[]fee_quoter.FeeQuoterDestChainConfigArgs{
 				{
 					DestChainSelector: newChainSel,
-					DestChainConfig:   defaultPriceRegistryDestChainConfig(),
+					DestChainConfig:   defaultFeeQuoterDestChainConfig(),
 				},
 			})
 		if err != nil {
@@ -149,11 +150,17 @@ func NewChainInbound(
 			},
 		},
 	})
-	newDestProposal := timelock.MCMSWithTimelockProposal{
-		Operation:     timelock.Schedule,
-		MinDelay:      "1h",
-		ChainMetadata: metaDataPerChain,
-		Transactions:  batches,
+	newDestProposal, err := timelock.NewMCMSWithTimelockProposal(
+		"1",
+		uint32(time.Now().Add(1*time.Hour).Unix()),
+		[]mcms.Signature{},
+		false,
+		metaDataPerChain,
+		"blah",
+		batches,
+		timelock.Schedule, "1h")
+	if err != nil {
+		return nil, ab, err
 	}
 
 	// New chain we can configure directly with deployer key first.
@@ -173,7 +180,7 @@ func NewChainInbound(
 
 	// We won't actually be able to setOCR3Config on the remote until the first proposal goes through.
 	// TODO: Outbound
-	return []timelock.MCMSWithTimelockProposal{newDestProposal}, ab, nil
+	return []timelock.MCMSWithTimelockProposal{*newDestProposal}, ab, nil
 }
 
 //func ApplyInboundChainProposal(
