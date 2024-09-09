@@ -171,16 +171,7 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 	return r, nil
 }
 
-func success() <-chan capabilities.CapabilityResponse {
-	callback := make(chan capabilities.CapabilityResponse)
-	go func() {
-		callback <- capabilities.CapabilityResponse{}
-		close(callback)
-	}()
-	return callback
-}
-
-func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	// Bind to the contract address on the write path.
 	// Bind() requires a connection to the node's RPCs and
 	// cannot be run during initialization.
@@ -191,7 +182,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 			Name:    "forwarder",
 		}})
 		if err != nil {
-			return nil, err
+			return capabilities.CapabilityResponse{}, err
 		}
 		cap.bound = true
 	}
@@ -200,12 +191,12 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 
 	request, err := evaluate(rawRequest)
 	if err != nil {
-		return nil, err
+		return capabilities.CapabilityResponse{}, err
 	}
 
 	rawExecutionID, err := hex.DecodeString(request.Metadata.WorkflowExecutionID)
 	if err != nil {
-		return nil, err
+		return capabilities.CapabilityResponse{}, err
 	}
 
 	// Check whether value was already transmitted on chain
@@ -220,7 +211,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 	}
 	var transmissionInfo TransmissionInfo
 	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmissionInfo", primitives.Unconfirmed, queryInputs, &transmissionInfo); err != nil {
-		return nil, fmt.Errorf("failed to getTransmissionInfo latest value: %w", err)
+		return capabilities.CapabilityResponse{}, fmt.Errorf("failed to getTransmissionInfo latest value: %w", err)
 	}
 
 	switch {
@@ -228,10 +219,10 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 		cap.lggr.Infow("non-empty report - transmission not attempted - attempting to push to txmgr", "request", request, "reportLen", len(request.Inputs.SignedReport.Report), "reportContextLen", len(request.Inputs.SignedReport.Context), "nSignatures", len(request.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
 	case transmissionInfo.State == 1: // SUCCEEDED
 		cap.lggr.Infow("returning without a transmission attempt - report already onchain ", "executionID", request.Metadata.WorkflowExecutionID)
-		return success(), nil
+		return capabilities.CapabilityResponse{}, nil
 	case transmissionInfo.State == 2: // INVALID_RECEIVER
 		cap.lggr.Infow("returning without a transmission attempt - transmission already attempted, receiver was marked as invalid", "executionID", request.Metadata.WorkflowExecutionID)
-		return success(), nil
+		return capabilities.CapabilityResponse{}, nil
 	case transmissionInfo.State == 3: // FAILED
 		receiverGasMinimum := cap.receiverGasMinimum
 		if request.Config.GasLimit != nil {
@@ -239,17 +230,17 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 		}
 		if transmissionInfo.GasLimit.Uint64() > receiverGasMinimum {
 			cap.lggr.Infow("returning without a transmission attempt - transmission already attempted and failed, sufficient gas was provided", "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
-			return success(), nil
+			return capabilities.CapabilityResponse{}, nil
 		} else {
 			cap.lggr.Infow("non-empty report - retrying a failed transmission - attempting to push to txmgr", "request", request, "reportLen", len(request.Inputs.SignedReport.Report), "reportContextLen", len(request.Inputs.SignedReport.Context), "nSignatures", len(request.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
 		}
 	default:
-		return nil, fmt.Errorf("unexpected transmission state: %v", transmissionInfo.State)
+		return capabilities.CapabilityResponse{}, fmt.Errorf("unexpected transmission state: %v", transmissionInfo.State)
 	}
 
 	txID, err := uuid.NewUUID() // NOTE: CW expects us to generate an ID, rather than return one
 	if err != nil {
-		return nil, err
+		return capabilities.CapabilityResponse{}, err
 	}
 
 	// Note: The codec that ChainWriter uses to encode the parameters for the contract ABI cannot handle
@@ -285,15 +276,15 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 		if commontypes.ErrSettingTransactionGasLimitNotSupported.Is(err) {
 			meta.GasLimit = nil
 			if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value); err != nil {
-				return nil, fmt.Errorf("failed to submit transaction: %w", err)
+				return capabilities.CapabilityResponse{}, fmt.Errorf("failed to submit transaction: %w", err)
 			}
 		} else {
-			return nil, fmt.Errorf("failed to submit transaction: %w", err)
+			return capabilities.CapabilityResponse{}, fmt.Errorf("failed to submit transaction: %w", err)
 		}
 	}
 
 	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", txID)
-	return success(), nil
+	return capabilities.CapabilityResponse{}, nil
 }
 
 func (cap *WriteTarget) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {

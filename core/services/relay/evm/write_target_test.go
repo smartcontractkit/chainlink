@@ -209,11 +209,8 @@ func TestEvmWrite(t *testing.T) {
 			Inputs:   validInputs,
 		}
 
-		ch, err := capability.Execute(ctx, req)
+		_, err = capability.Execute(ctx, req)
 		require.NoError(t, err)
-
-		response := <-ch
-		require.Nil(t, response.Err)
 	})
 
 	t.Run("fails with invalid config", func(t *testing.T) {
