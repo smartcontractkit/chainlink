@@ -164,13 +164,10 @@ abstract contract BaseSequencerUptimeFeed is
     return s_rounds[uint80(roundId)].startedAt;
   }
 
-  /**
-   * @notice Record a new status and timestamp if it has changed since the last round.
-   * @dev This function will revert if not called from `l1Sender` via the L1->L2 messenger.
-   *
-   * @param status Sequencer status
-   * @param timestamp Block timestamp of status update
-   */
+  /// @notice Record a new status and timestamp if it has changed since the last round.
+  /// @dev This function will revert if not called from `l1Sender` via the L1->L2 messenger.
+  /// @param status Sequencer status
+  /// @param timestamp Block timestamp of status update
   function updateStatus(bool status, uint64 timestamp) external override {
     _validateSender(s_l1Sender);
 
