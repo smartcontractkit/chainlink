@@ -15,7 +15,7 @@ jobs:
       test_workflow: Automation Nightly Tests
       chainlink_version: ${{ github.sha }}
       slack_notification_after_tests: true
-      slack_notification_after_tests_channel_id: "#lf-slack-notification-tests"
+      slack_notification_after_tests_channel_id: "#automation-test-notifications"
       slack_notification_after_tests_name: Automation Nightly E2E Tests
       # slack_notification_after_tests_notify_user_id_on_failure: U0XXXXXXX
     secrets:
