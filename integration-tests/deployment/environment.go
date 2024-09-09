@@ -1,10 +1,12 @@
 package deployment
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -28,6 +30,7 @@ type OnchainClient interface {
 	// For EVM specifically we can use existing geth interface
 	// to abstract chain clients.
 	bind.ContractBackend
+	bind.DeployBackend
 }
 
 type OffchainClient interface {
@@ -43,7 +46,8 @@ type Chain struct {
 	Client   OnchainClient
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
 	DeployerKey *bind.TransactOpts
-	Confirm     func(tx common.Hash) (uint64, error)
+	// Includes block number
+	Confirm func(tx common.Hash) (uint64, error)
 }
 
 type Environment struct {
@@ -72,7 +76,8 @@ func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, er
 		}
 		return 0, err
 	}
-	return chain.Confirm(tx.Hash())
+	b, err := chain.Confirm(tx.Hash())
+	return b, err
 }
 
 func MaybeDataErr(err error) error {
@@ -106,6 +111,7 @@ type OCRConfig struct {
 
 type Nodes []Node
 
+// PeerIDs returns peerIDs in a sorted list
 func (n Nodes) PeerIDs(chainSel uint64) [][32]byte {
 	var peerIDs [][32]byte
 	for _, node := range n {
@@ -114,7 +120,14 @@ func (n Nodes) PeerIDs(chainSel uint64) [][32]byte {
 		// Might make sense to change proto as peerID is 1-1 with node?
 		peerIDs = append(peerIDs, cfg.PeerID)
 	}
+	sort.Slice(peerIDs, func(i, j int) bool {
+		return bytes.Compare(peerIDs[i][:], peerIDs[j][:]) < 0
+	})
 	return peerIDs
+}
+
+func (n Nodes) DefaultF() uint8 {
+	return uint8(len(n) / 3)
 }
 
 func (n Nodes) BootstrapPeerIDs(chainSel uint64) [][32]byte {

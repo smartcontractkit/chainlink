@@ -1,6 +1,8 @@
 package changeset
 
 import (
+	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
@@ -14,7 +16,7 @@ func Apply0002(env deployment.Environment, c ccipdeployment.DeployCCIPContractCo
 	ab, err := ccipdeployment.DeployCCIPContracts(env, c)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "addresses", ab)
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, deployment.MaybeDataErr(err)
 	}
 	js, err := ccipdeployment.NewCCIPJobSpecs(env.NodeIDs, env.Offchain)
 	if err != nil {
@@ -25,7 +27,7 @@ func Apply0002(env deployment.Environment, c ccipdeployment.DeployCCIPContractCo
 		return deployment.ChangesetOutput{}, err
 	}
 	return deployment.ChangesetOutput{
-		Proposals:   []deployment.Proposal{proposal},
+		Proposals:   []timelock.MCMSWithTimelockProposal{proposal},
 		AddressBook: ab,
 		// Mapping of which nodes get which jobs.
 		JobSpecs: js,

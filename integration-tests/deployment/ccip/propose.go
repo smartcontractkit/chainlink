@@ -2,12 +2,12 @@ package ccipdeployment
 
 import (
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/mcms"
+	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
@@ -17,48 +17,52 @@ import (
 func SimTransactOpts() *bind.TransactOpts {
 	return &bind.TransactOpts{Signer: func(address common.Address, transaction *types.Transaction) (*types.Transaction, error) {
 		return transaction, nil
-	}, From: common.HexToAddress("0x0"), NoSend: true, GasLimit: 200_000}
+	}, From: common.HexToAddress("0x0"), NoSend: true, GasLimit: 1_000_000}
 }
 
 func GenerateAcceptOwnershipProposal(
 	e deployment.Environment,
 	chains []uint64,
 	ab deployment.AddressBook,
-) (deployment.Proposal, error) {
+) (timelock.MCMSWithTimelockProposal, error) {
 	state, err := LoadOnchainState(e, ab)
 	if err != nil {
-		return deployment.Proposal{}, err
+		return timelock.MCMSWithTimelockProposal{}, err
 	}
 	// TODO: Just onramp as an example
-	var ops []owner_helpers.ManyChainMultiSigOp
+	var batches []timelock.BatchChainOperation
+	metaDataPerChain := make(map[mcms.ChainIdentifier]timelock.MCMSWithTimelockChainMetadata)
 	for _, sel := range chains {
-		opCount, err := state.Chains[sel].Mcm.GetOpCount(nil)
+		chain, _ := chainsel.ChainBySelector(sel)
+		acceptOnRamp, err := state.Chains[sel].OnRamp.AcceptOwnership(SimTransactOpts())
 		if err != nil {
-			return deployment.Proposal{}, err
+			return timelock.MCMSWithTimelockProposal{}, err
 		}
-
-		txData, err := state.Chains[sel].EvmOnRampV160.AcceptOwnership(SimTransactOpts())
-		if err != nil {
-			return deployment.Proposal{}, err
+		chainSel := mcms.ChainIdentifier(chain.Selector)
+		metaDataPerChain[chainSel] = timelock.MCMSWithTimelockChainMetadata{
+			ChainMetadata: mcms.ChainMetadata{
+				NonceOffset: 0,
+				MCMAddress:  state.Chains[sel].McmAddr,
+			},
+			TimelockAddress: state.Chains[sel].TimelockAddr,
 		}
-		evmID, err := chainsel.ChainIdFromSelector(sel)
-		if err != nil {
-			return deployment.Proposal{}, err
-		}
-		ops = append(ops, owner_helpers.ManyChainMultiSigOp{
-			ChainId:  big.NewInt(int64(evmID)),
-			MultiSig: state.Chains[sel].McmsAddr,
-			Nonce:    opCount,
-			To:       state.Chains[sel].EvmOnRampV160.Address(),
-			Value:    big.NewInt(0),
-			Data:     txData.Data(),
+		batches = append(batches, timelock.BatchChainOperation{
+			ChainIdentifier: chainSel,
+			Batch: []mcms.Operation{
+				{
+					// Enable the source in on ramp
+					To:    state.Chains[sel].OnRamp.Address(),
+					Data:  acceptOnRamp.Data(),
+					Value: big.NewInt(0),
+				},
+			},
 		})
 	}
 	// TODO: Real valid until.
-	return deployment.Proposal{ValidUntil: uint32(time.Now().Unix()), Ops: ops}, nil
-}
-
-func ApplyProposal(env deployment.Environment, p deployment.Proposal, state CCIPOnChainState) error {
-	// TODO
-	return nil
+	return timelock.MCMSWithTimelockProposal{
+		Operation:     timelock.Schedule,
+		MinDelay:      "1h",
+		ChainMetadata: metaDataPerChain,
+		Transactions:  batches,
+	}, nil
 }

@@ -1417,10 +1417,10 @@ github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ
 github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
 github.com/slack-go/slack v0.12.2 h1:x3OppyMyGIbbiyFhsBmpf9pwkUzMhthJMRNmNlA4LaQ=
 github.com/slack-go/slack v0.12.2/go.mod h1:hlGi5oXA+Gt+yWTPP0plCdRKmjsDxecdHxYQdlMQKOw=
-github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240808195812-ae0378684685 h1:jakAsdhDxV4cMgRAcSvHraXjyePi8umG5SEUTGFvuy8=
-github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240808195812-ae0378684685/go.mod h1:p7L/xNEQpHDdZtgFA6/FavuZHqvV3kYhQysxBywmq1k=
-github.com/smartcontractkit/chain-selectors v1.0.21 h1:KCR9SA7PhOexaBzFieHoLv1WonwhVOPtOStpqTmLC4E=
-github.com/smartcontractkit/chain-selectors v1.0.21/go.mod h1:d4Hi+E1zqjy9HqMkjBE5q1vcG9VGgxf5VxiRHfzi2kE=
+github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240905142116-8eb0d5b8f98d h1:NWk2gQpK5EGrjqUFGxJPQ3/Opl8S/tkbLoxdwx8LKm8=
+github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240905142116-8eb0d5b8f98d/go.mod h1:N60/wwocvZ5A3RGmYaMWo0fPFa5tTMlhI9lJ22DRktM=
+github.com/smartcontractkit/chain-selectors v1.0.23 h1:D2Eaex4Cw/O7Lg3tX6WklOqnjjIQAEBnutCtksPzVDY=
+github.com/smartcontractkit/chain-selectors v1.0.23/go.mod h1:d4Hi+E1zqjy9HqMkjBE5q1vcG9VGgxf5VxiRHfzi2kE=
 github.com/smartcontractkit/chainlink-automation v1.0.4 h1:iyW181JjKHLNMnDleI8umfIfVVlwC7+n5izbLSFgjw8=
 github.com/smartcontractkit/chainlink-automation v1.0.4/go.mod h1:u4NbPZKJ5XiayfKHD/v3z3iflQWqvtdhj13jVZXj/cM=
 github.com/smartcontractkit/chainlink-ccip v0.0.0-20240909152240-a6969c1002e6 h1:3VbeaqoBblboQ3ytpM7UZzL7MXoHctaaXGGkJ8XkDhY=
