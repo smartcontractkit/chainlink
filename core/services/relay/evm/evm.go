@@ -570,6 +570,8 @@ func (r *Relayer) NewConfigProvider(args commontypes.RelayArgs) (configProvider 
 		configProvider, err = newMercuryConfigProvider(ctx, lggr, r.chain, relayOpts)
 	case "llo":
 		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, relayOpts)
+	case "ocr3-capability":
+		configProvider, err = newOCR3CapabilityConfigProvider(ctx, r.lggr, r.chain, relayOpts)
 	default:
 		return nil, fmt.Errorf("unrecognized provider type: %q", args.ProviderType)
 	}
