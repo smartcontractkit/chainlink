@@ -105,13 +105,8 @@ func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKe
 	onchainPubKeys := [][]byte{}
 	for _, n := range nca {
 		ethPubKey := common.HexToAddress(n.OCR2OnchainPublicKey)
-		aptosPubKey, err := hex.DecodeString(n.AptosOnchainPublicKey)
-		if err != nil {
-			panic(err)
-		}
 		pubKey, err := ocrcommon.MarshalMultichainPublicKey(map[string]types.OnchainPublicKey{
-			"evm":   ethPubKey[:],
-			"aptos": aptosPubKey,
+			"evm": ethPubKey[:],
 		})
 		if err != nil {
 			panic(err)
