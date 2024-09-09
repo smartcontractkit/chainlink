@@ -24,4 +24,3 @@ telemetryType = "plugin"
 strategyName = 'multi-chain'
 [onchainSigningStrategy.config]
 evm = "{{ ocr_key_bundle_id }}"
-aptos = "{{ aptos_key_bundle_id }}"
