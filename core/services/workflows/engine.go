@@ -29,6 +29,11 @@ type stepRequest struct {
 	state   store.WorkflowExecution
 }
 
+type stepUpdateChannel struct {
+	executionID string
+	ch          chan store.WorkflowExecutionStep
+}
+
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
@@ -39,7 +44,7 @@ type Engine struct {
 	executionStates      store.Store
 	pendingStepRequests  chan stepRequest
 	triggerEvents        chan capabilities.TriggerResponse
-	stepUpdateCh         chan store.WorkflowExecutionStep
+	stepUpdatesChMap     map[string]stepUpdateChannel
 	wg                   sync.WaitGroup
 	stopCh               services.StopChan
 	newWorkerTimeout     time.Duration
@@ -61,7 +66,7 @@ type Engine struct {
 	clock clockwork.Clock
 }
 
-func (e *Engine) Start(ctx context.Context) error {
+func (e *Engine) Start(_ context.Context) error {
 	return e.StartOnce("Engine", func() error {
 		// create a new context, since the one passed in via Start is short-lived.
 		ctx, _ := e.stopCh.NewCtx()
@@ -73,7 +78,6 @@ func (e *Engine) Start(ctx context.Context) error {
 
 		e.wg.Add(2)
 		go e.init(ctx)
-		go e.loop(ctx)
 
 		return nil
 	})
@@ -384,57 +388,36 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 	return nil
 }
 
-// loop is the synchronization goroutine for the engine, and is responsible for:
-//   - dispatching new workers up to the limit specified (default = 100)
-//   - starting a new execution when a trigger emits a message on `triggerEvents`
-//   - updating the `executionState` with the outcome of a `step`.
+// stepUpdateLoop is a singleton goroutine for the engine, and it updates the `executionState` with the outcome of a `step`.
 //
 // Note: `executionState` is only mutated by this loop directly.
 //
 // This is important to avoid data races, and any accesses of `executionState` by any other
 // goroutine should happen via a `stepRequest` message containing a copy of the latest
 // `executionState`.
-//
-// This works because a worker thread for a given step will only
-// be spun up once all dependent steps have completed (guaranteeing that the state associated
-// with those dependent steps will no longer change). Therefore as long this worker thread only
-// accesses data from dependent states, the data will never be stale.
-func (e *Engine) loop(ctx context.Context) {
+func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string) {
+	// TODO: add mutex to protect the map
+	if _, ok := e.stepUpdatesChMap[executionID]; !ok {
+		e.stepUpdatesChMap[executionID] = stepUpdateChannel{
+			executionID: executionID,
+			ch:          make(chan store.WorkflowExecutionStep),
+		}
+	} else {
+		e.logger.With(eIDKey, executionID).Debugf("stepUpdateLoop already running for execution %s", executionID)
+		return
+	}
+
 	defer e.wg.Done()
 	for {
 		select {
 		case <-ctx.Done():
-			e.logger.Debug("shutting down loop")
+			e.logger.Debug("shutting down stepUpdateLoop")
 			return
-		case resp, isOpen := <-e.triggerEvents:
-			if !isOpen {
-				e.logger.Error("trigger events channel is no longer open, skipping")
-				continue
+		case stepUpdate, open := <-e.stepUpdatesChMap[executionID].ch:
+			if !open {
+				e.logger.With(eIDKey, executionID).Debug("stepUpdate channel closed, shutting down stepUpdateLoop")
+				return
 			}
-
-			if resp.Err != nil {
-				e.logger.Errorf("trigger event was an error %v; not executing", resp.Err)
-				continue
-			}
-
-			te := resp.Event
-
-			if te.ID == "" {
-				e.logger.With(tIDKey, te.TriggerType).Error("trigger event ID is empty; not executing")
-				continue
-			}
-
-			executionID, err := generateExecutionID(e.workflow.id, te.ID)
-			if err != nil {
-				e.logger.With(tIDKey, te.ID).Errorf("could not generate execution ID: %v", err)
-				continue
-			}
-
-			err = e.startExecution(ctx, executionID, resp.Event.Outputs)
-			if err != nil {
-				e.logger.With(eIDKey, executionID).Errorf("failed to start execution: %v", err)
-			}
-		case stepUpdate := <-e.stepUpdateCh:
 			// Executed synchronously to ensure we correctly schedule subsequent tasks.
 			err := e.handleStepUpdate(ctx, stepUpdate)
 			if err != nil {
@@ -491,6 +474,9 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 	if err != nil {
 		return err
 	}
+
+	e.wg.Add(1)
+	go e.stepUpdateLoop(ctx, executionID)
 
 	for _, td := range triggerDependents {
 		e.queueIfReady(*ec, td)
@@ -615,10 +601,19 @@ func (e *Engine) finishExecution(ctx context.Context, executionID string, status
 		return err
 	}
 
+	// TODO: add mutex to protect the map
+	if x, ok := e.stepUpdatesChMap[executionID]; ok {
+		close(x.ch)
+		delete(e.stepUpdatesChMap, executionID)
+	}
+
 	e.onExecutionFinished(executionID)
 	return nil
 }
 
+// worker is responsible for:
+//   - handling a `pendingStepRequests`
+//   - starting a new execution when a trigger emits a message on `triggerEvents`
 func (e *Engine) worker(ctx context.Context) {
 	defer e.wg.Done()
 
@@ -626,6 +621,34 @@ func (e *Engine) worker(ctx context.Context) {
 		select {
 		case pendingStepRequest := <-e.pendingStepRequests:
 			e.workerForStepRequest(ctx, pendingStepRequest)
+		case resp, isOpen := <-e.triggerEvents:
+			if !isOpen {
+				e.logger.Error("trigger events channel is no longer open, skipping")
+				continue
+			}
+
+			if resp.Err != nil {
+				e.logger.Errorf("trigger event was an error %v; not executing", resp.Err)
+				continue
+			}
+
+			te := resp.Event
+
+			if te.ID == "" {
+				e.logger.With(tIDKey, te.TriggerType).Error("trigger event ID is empty; not executing")
+				continue
+			}
+
+			executionID, err := generateExecutionID(e.workflow.id, te.ID)
+			if err != nil {
+				e.logger.With(tIDKey, te.ID).Errorf("could not generate execution ID: %v", err)
+				continue
+			}
+
+			err = e.startExecution(ctx, executionID, resp.Event.Outputs)
+			if err != nil {
+				e.logger.With(eIDKey, executionID).Errorf("failed to start execution: %v", err)
+			}
 		case <-ctx.Done():
 			return
 		}
@@ -669,10 +692,15 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// receiving loop may not pick up any messages we emit.
 	// Note: When full persistence support is added, any hanging steps
 	// like this one will get picked up again and will be reprocessed.
+	stepUpdateCh, ok := e.stepUpdatesChMap[stepState.ExecutionID]
+	if !ok {
+		l.Errorf("step update channel not found for execution %s, dropping step update", stepState.ExecutionID)
+		return
+	}
 	select {
 	case <-ctx.Done():
 		l.Errorf("context canceled before step update could be issued; error %v", err)
-	case e.stepUpdateCh <- *stepState:
+	case stepUpdateCh.ch <- *stepState:
 	}
 }
 
@@ -944,7 +972,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		workflow:             workflow,
 		executionStates:      cfg.Store,
 		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
-		stepUpdateCh:         make(chan store.WorkflowExecutionStep),
+		stepUpdatesChMap:     map[string]stepUpdateChannel{},
 		triggerEvents:        make(chan capabilities.TriggerResponse),
 		stopCh:               make(chan struct{}),
 		newWorkerTimeout:     cfg.NewWorkerTimeout,
