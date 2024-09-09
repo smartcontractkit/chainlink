@@ -80,15 +80,15 @@ func (d *ocr3CapabilityLogDecoder) EventSig() common.Hash {
 	return d.eventSig
 }
 
-var _ ocrtypes.OffchainConfigDigester = EVMOCR3CapabilityOffchainConfigDigester{}
+var _ ocrtypes.OffchainConfigDigester = OCR3CapabilityOffchainConfigDigester{}
 
 // EVMOffchainConfigDigester forked to not assume signers are 20 byte addresses
-type EVMOCR3CapabilityOffchainConfigDigester struct {
+type OCR3CapabilityOffchainConfigDigester struct {
 	ChainID         uint64
 	ContractAddress common.Address
 }
 
-func (d EVMOCR3CapabilityOffchainConfigDigester) ConfigDigest(cc ocrtypes.ContractConfig) (ocrtypes.ConfigDigest, error) {
+func (d OCR3CapabilityOffchainConfigDigester) ConfigDigest(cc ocrtypes.ContractConfig) (ocrtypes.ConfigDigest, error) {
 	signers := [][]byte{}
 	for _, signer := range cc.Signers {
 		signers = append(signers, signer)
@@ -115,7 +115,7 @@ func (d EVMOCR3CapabilityOffchainConfigDigester) ConfigDigest(cc ocrtypes.Contra
 	), nil
 }
 
-func (d EVMOCR3CapabilityOffchainConfigDigester) ConfigDigestPrefix() (ocrtypes.ConfigDigestPrefix, error) {
+func (d OCR3CapabilityOffchainConfigDigester) ConfigDigestPrefix() (ocrtypes.ConfigDigestPrefix, error) {
 	return ocrtypes.ConfigDigestPrefixEVMSimple, nil
 }
 

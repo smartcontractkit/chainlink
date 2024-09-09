@@ -91,7 +91,6 @@ func MarshalMultichainKeyBundle(ost map[string]ocr2key.KeyBundle) (ocrtypes.Onch
 	pubKeys := map[string]ocrtypes.OnchainPublicKey{}
 	for k, b := range ost {
 		pubKeys[k] = []byte(b.PublicKey())
-
 	}
 	return MarshalMultichainPublicKey(pubKeys)
 }
@@ -105,8 +104,12 @@ func MarshalMultichainPublicKey(ost map[string]ocrtypes.OnchainPublicKey) (ocrty
 			continue
 		}
 		buf := new(bytes.Buffer)
-		binary.Write(buf, binary.LittleEndian, typ)
-		binary.Write(buf, binary.LittleEndian, uint16(len(pubKey)))
+		if err = binary.Write(buf, binary.LittleEndian, typ); err != nil {
+			return nil, err
+		}
+		if err = binary.Write(buf, binary.LittleEndian, uint16(len(pubKey))); err != nil {
+			return nil, err
+		}
 		_, _ = buf.Write(pubKey)
 		pubKeys = append(pubKeys, buf.Bytes())
 	}
@@ -126,18 +129,18 @@ func UnmarshalMultichainPublicKey(d []byte) (map[string]ocrtypes.OnchainPublicKe
 			return nil, err
 		}
 		// length
-		var len uint16
-		err = binary.Read(buf, binary.LittleEndian, &len)
+		var length uint16
+		err = binary.Read(buf, binary.LittleEndian, &length)
 		if err != nil {
 			return nil, err
 		}
 		// value
-		pubKey := make([]byte, len)
+		pubKey := make([]byte, length)
 		n, err := buf.Read(pubKey)
 		if err != nil {
 			return nil, err
 		}
-		if n != int(len) {
+		if n != int(length) {
 			return nil, io.EOF
 		}
 

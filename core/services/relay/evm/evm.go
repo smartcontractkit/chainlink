@@ -267,7 +267,7 @@ func newOCR3CapabilityConfigProvider(ctx context.Context, lggr logger.Logger, ch
 	}
 
 	aggregatorAddress := common.HexToAddress(opts.ContractID)
-	offchainConfigDigester := EVMOCR3CapabilityOffchainConfigDigester{
+	offchainConfigDigester := OCR3CapabilityOffchainConfigDigester{
 		ChainID:         chain.Config().EVM().ChainID().Uint64(),
 		ContractAddress: aggregatorAddress,
 	}
