@@ -640,7 +640,7 @@ jobs:
   # Run K8s tests using old remote runner
 
   get-remote-runner-test-image:
-    needs: [load-test-configurations, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr]
+    needs: [load-test-configurations]
     if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }}
     name: Get remote runner test image
     runs-on: ubuntu-latest
