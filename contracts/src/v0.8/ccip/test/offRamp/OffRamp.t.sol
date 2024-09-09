@@ -971,10 +971,10 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](1);
     roots[0] = Internal.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
+      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1),
       minSeqNr: 1,
       maxSeqNr: 2,
-      merkleRoot: merkleRoot,
-      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1)
+      merkleRoot: merkleRoot
     });
 
     return OffRamp.CommitReport({
@@ -3138,10 +3138,10 @@ contract OffRamp_commit is OffRampSetup {
     Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](1);
     roots[0] = Internal.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
+      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1),
       minSeqNr: 1,
       maxSeqNr: max1,
-      merkleRoot: root,
-      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1)
+      merkleRoot: root
     });
 
     OffRamp.CommitReport memory commitReport =
@@ -3167,10 +3167,10 @@ contract OffRamp_commit is OffRampSetup {
     Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](1);
     roots[0] = Internal.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
+      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1),
       minSeqNr: 1,
       maxSeqNr: maxSeq,
-      merkleRoot: "stale report 1",
-      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1)
+      merkleRoot: "stale report 1"
     });
     OffRamp.CommitReport memory commitReport =
       OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
@@ -3318,10 +3318,10 @@ contract OffRamp_commit is OffRampSetup {
     roots = new Internal.MerkleRoot[](1);
     roots[0] = Internal.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
+      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1),
       minSeqNr: 1,
       maxSeqNr: maxSeq,
-      merkleRoot: "stale report",
-      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1)
+      merkleRoot: "stale report"
     });
     commitReport.priceUpdates = _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, tokenPrice2);
     commitReport.merkleRoots = roots;
@@ -3424,10 +3424,10 @@ contract OffRamp_commit is OffRampSetup {
     Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](1);
     roots[0] = Internal.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
+      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1),
       minSeqNr: 1,
       maxSeqNr: 4,
-      merkleRoot: bytes32(0),
-      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1)
+      merkleRoot: bytes32(0)
     });
     OffRamp.CommitReport memory commitReport =
       OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
@@ -3440,10 +3440,10 @@ contract OffRamp_commit is OffRampSetup {
     Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](1);
     roots[0] = Internal.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
+      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1),
       minSeqNr: 2,
       maxSeqNr: 2,
-      merkleRoot: bytes32(0),
-      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1)
+      merkleRoot: bytes32(0)
     });
     OffRamp.CommitReport memory commitReport =
       OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
@@ -3461,10 +3461,10 @@ contract OffRamp_commit is OffRampSetup {
     Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](1);
     roots[0] = Internal.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
+      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1),
       minSeqNr: 1,
       maxSeqNr: 0,
-      merkleRoot: bytes32(0),
-      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1)
+      merkleRoot: bytes32(0)
     });
     OffRamp.CommitReport memory commitReport =
       OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
@@ -3509,10 +3509,10 @@ contract OffRamp_commit is OffRampSetup {
     Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](1);
     roots[0] = Internal.MerkleRoot({
       sourceChainSelector: 0,
+      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1),
       minSeqNr: 1,
       maxSeqNr: 2,
-      merkleRoot: "Only a single root",
-      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1)
+      merkleRoot: "Only a single root"
     });
 
     OffRamp.CommitReport memory commitReport =
@@ -3526,10 +3526,10 @@ contract OffRamp_commit is OffRampSetup {
     Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](1);
     roots[0] = Internal.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
+      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1),
       minSeqNr: 1,
       maxSeqNr: 2,
-      merkleRoot: "Only a single root",
-      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1)
+      merkleRoot: "Only a single root"
     });
     OffRamp.CommitReport memory commitReport =
       OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
@@ -3548,10 +3548,10 @@ contract OffRamp_commit is OffRampSetup {
     Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](1);
     roots[0] = Internal.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
+      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1),
       minSeqNr: 1,
       maxSeqNr: s_maxInterval,
-      merkleRoot: "test #2",
-      onRampAddress: abi.encode(ON_RAMP_ADDRESS_1)
+      merkleRoot: "test #2"
     });
 
     return OffRamp.CommitReport({
