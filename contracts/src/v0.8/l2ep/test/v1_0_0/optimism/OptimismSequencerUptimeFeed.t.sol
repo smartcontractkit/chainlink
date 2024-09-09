@@ -14,7 +14,7 @@ contract OptimismSequencerUptimeFeedTestWrapper is OptimismSequencerUptimeFeed {
     bool initialStatus
   ) OptimismSequencerUptimeFeed(l1SenderAddress, l2CrossDomainMessengerAddr, initialStatus) {}
 
-  // Deploy this contract then call this method to test `myInternalMethod`.
+  /// @notice it exposes the internal _validateSender function for testing
   function validateSenderTestWrapper(address l1Sender) external view {
     super._validateSender(l1Sender);
   }
@@ -64,24 +64,22 @@ contract OptimismSequencerUptimeFeed_Constructor is OptimismSequencerUptimeFeedT
 }
 
 contract OptimismSequencerUptimeFeed_ValidateSender is OptimismSequencerUptimeFeedTest {
-  /// @notice it should revert if called by an address that is not the L2 Cross Domain Messenger and is not the L1 sender
+  /// @notice it should revert if called by an address that is not the L2 Cross Domain Messenger
   function test_RevertIfSenderIsNotL2CrossDomainMessengerAddr() public {
-    // Sets msg.sender and tx.origin to an unauthorized address
     address l2MessengerAddr = address(s_mockOptimismL2CrossDomainMessenger);
+    // Sets msg.sender to a different address
     vm.startPrank(s_strangerAddr, l2MessengerAddr);
 
-    // Tries to update the status from an unauthorized account
     vm.expectRevert(BaseSequencerUptimeFeed.InvalidSender.selector);
     s_optimismSequencerUptimeFeed.validateSenderTestWrapper(s_l1OwnerAddr);
   }
 
-  /// @notice it should revert if called by an address that is not the L2 Cross Domain Messenger
+  /// @notice it should revert if the L1 sender address is not the L1 Cross Domain Messenger Sender
   function test_RevertIfL1CrossDomainMessengerAddrIsNotL1SenderAddr() public {
     // Sets msg.sender and tx.origin to an unauthorized address
     address l2MessengerAddr = address(s_mockOptimismL2CrossDomainMessenger);
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
-    // Tries to update the status from an unauthorized account
     vm.expectRevert(BaseSequencerUptimeFeed.InvalidSender.selector);
     s_optimismSequencerUptimeFeed.validateSenderTestWrapper(s_strangerAddr);
   }

@@ -6,6 +6,7 @@ import {BaseSequencerUptimeFeed} from "../../dev/shared/BaseSequencerUptimeFeed.
 contract MockBaseSequencerUptimeFeed is BaseSequencerUptimeFeed {
   string public constant override typeAndVersion = "MockSequencerUptimeFeed 1.1.0-dev";
 
+  /// @dev this will be used for internal testing
   bool private s_validateSenderShouldPass;
 
   constructor(

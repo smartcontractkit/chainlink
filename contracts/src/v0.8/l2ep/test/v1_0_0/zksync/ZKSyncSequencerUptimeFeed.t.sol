@@ -9,7 +9,7 @@ import {L2EPTest} from "../L2EPTest.t.sol";
 contract ZKSyncSequencerUptimeFeedTestWrapper is ZKSyncSequencerUptimeFeed {
   constructor(address l1SenderAddress, bool initialStatus) ZKSyncSequencerUptimeFeed(l1SenderAddress, initialStatus) {}
 
-  // Deploy this contract then call this method to test `myInternalMethod`.
+  /// @notice it exposes the internal _validateSender function for testing
   function validateSenderTestWrapper(address l1Sender) external view {
     super._validateSender(l1Sender);
   }
@@ -17,7 +17,7 @@ contract ZKSyncSequencerUptimeFeedTestWrapper is ZKSyncSequencerUptimeFeed {
 
 contract ZKSyncSequencerUptimeFeedTest is L2EPTest {
   /// Helper Variables
-  address l1SenderAddress = address(5);
+  address internal l1SenderAddress = address(5);
   address internal s_aliasedL1SenderAddress = AddressAliasHelper.applyL1ToL2Alias(l1SenderAddress);
 
   /// L2EP contracts
@@ -31,14 +31,6 @@ contract ZKSyncSequencerUptimeFeedTest is L2EPTest {
 }
 
 contract ZKSyncSequencerUptimeFeed_ValidateSender is ZKSyncSequencerUptimeFeedTest {
-  function test_PassIfSenderIsValid() public {
-    // Sets msg.sender and tx.origin to an unauthorized address
-    vm.startPrank(s_aliasedL1SenderAddress, s_aliasedL1SenderAddress);
-
-    // Tries to update the status from an unauthorized account
-    s_zksyncSequencerUptimeFeed.validateSenderTestWrapper(l1SenderAddress);
-  }
-
   /// @notice it should revert if called by an unauthorized account
   function test_RevertIfPassIsNotValid() public {
     // Sets msg.sender and tx.origin to an unauthorized address
@@ -47,5 +39,13 @@ contract ZKSyncSequencerUptimeFeed_ValidateSender is ZKSyncSequencerUptimeFeedTe
     // Tries to update the status from an unauthorized account
     vm.expectRevert(BaseSequencerUptimeFeed.InvalidSender.selector);
     s_zksyncSequencerUptimeFeed.validateSenderTestWrapper(address(6));
+  }
+
+  function test_PassIfSenderIsValid() public {
+    // Sets msg.sender and tx.origin to an unauthorized address
+    vm.startPrank(s_aliasedL1SenderAddress, s_aliasedL1SenderAddress);
+
+    // Tries to update the status from an unauthorized account
+    s_zksyncSequencerUptimeFeed.validateSenderTestWrapper(l1SenderAddress);
   }
 }
