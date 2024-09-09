@@ -318,10 +318,10 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 			hasPrimary = true
 			break
 		}
-		// http url is always required, ws url can be empty string when LogBroadcaster is disabled
-		if !hasPrimary && *c.LogBroadcasterEnabled {
+
+		if !hasPrimary {
 			err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes",
-				Msg: "must have at least one primary node with WSURL when LogBroadcaster is enabled"})
+				Msg: "must have at least one primary node with WSURL"})
 		}
 	}
 
