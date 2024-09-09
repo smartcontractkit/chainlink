@@ -7,7 +7,7 @@ chainlink_node_funding = 2 # Funding per node
 
 [Soak.OCR2]
 [Soak.OCR2.Common]
-test_duration = "15m" # Full duration the test will run 1440 - 1 day, 7200 - 5 days
+test_duration = "24h" # Full duration the test will run 1440 - 1 day, 7200 - 5 days
 
 [Soak.OCR2.Soak]
 number_of_contracts = 2    # Number of deployed contracts, 2 being default
