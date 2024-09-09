@@ -73,7 +73,11 @@ contract ScrollSequencerUptimeFeed_Constructor is ScrollSequencerUptimeFeedTest 
   function test_InitialStateWithValidL2XDomainManager() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
-    ScrollSequencerUptimeFeed scrollSequencerUptimeFeed = new ScrollSequencerUptimeFeed(s_l1OwnerAddr, address(s_mockScrollL2CrossDomainMessenger), false);
+    ScrollSequencerUptimeFeed scrollSequencerUptimeFeed = new ScrollSequencerUptimeFeed(
+      s_l1OwnerAddr,
+      address(s_mockScrollL2CrossDomainMessenger),
+      false
+    );
 
     // Checks L1 sender
     address actualL1Addr = scrollSequencerUptimeFeed.l1Sender();
