@@ -168,6 +168,7 @@ env:
   QA_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   DEFAULT_CHAINLINK_VERSION: ${{ inputs.chainlink_version || github.sha }}
   DEFAULT_CHAINLINK_PLUGINS_VERSION: ${{ inputs.chainlink_version != '' && format('{0}-plugins', inputs.chainlink_version) || format('{0}-plugins', github.sha) }}
+  DEFAULT_CHAINLINK_UPGRADE_VERSION: ${{ inputs.chainlink_version || github.sha }}
   CHAINLINK_ENV_USER: ${{ github.actor }}
   CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
   SELECTED_NETWORKS: SIMULATED

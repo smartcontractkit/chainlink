@@ -505,7 +505,7 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       E2E_TEST_CHAINLINK_VERSION: latest
       E2E_TEST_CHAINLINK_UPGRADE_IMAGE: '{{ env.QA_CHAINLINK_IMAGE }}'
-      E2E_TEST_CHAINLINK_UPGRADE_VERSION: develop
+      E2E_TEST_CHAINLINK_UPGRADE_VERSION: '{{ env.DEFAULT_CHAINLINK_UPGRADE_VERSION }}'
     pyroscope_env: ci-smoke-automation-upgrade-tests
 
   - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
@@ -519,7 +519,7 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       E2E_TEST_CHAINLINK_VERSION: latest
       E2E_TEST_CHAINLINK_UPGRADE_IMAGE: '{{ env.QA_CHAINLINK_IMAGE }}'
-      E2E_TEST_CHAINLINK_UPGRADE_VERSION: develop
+      E2E_TEST_CHAINLINK_UPGRADE_VERSION: '{{ env.DEFAULT_CHAINLINK_UPGRADE_VERSION }}'
     pyroscope_env: ci-smoke-automation-upgrade-tests
 
   - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
@@ -533,7 +533,7 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       E2E_TEST_CHAINLINK_VERSION: latest
       E2E_TEST_CHAINLINK_UPGRADE_IMAGE: '{{ env.QA_CHAINLINK_IMAGE }}'
-      E2E_TEST_CHAINLINK_UPGRADE_VERSION: develop
+      E2E_TEST_CHAINLINK_UPGRADE_VERSION: '{{ env.DEFAULT_CHAINLINK_UPGRADE_VERSION }}'
     pyroscope_env: ci-smoke-automation-upgrade-tests
 
   - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_0
