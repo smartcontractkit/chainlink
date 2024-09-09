@@ -240,7 +240,7 @@ jobs:
           path: core
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@7deba4b43ab4f70d8b6446286bd4ea25377b44d2 # v1.34.4
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@809763a82dd14028cbc403df9daffeacd352ffda # v1.34.4
       - name: Run Check Tests Command
         run: |
           if ! citool check-tests ${{ github.workspace }}/integration-tests ${{ github.workspace }}/.github/e2e-tests.yml; then
@@ -287,7 +287,7 @@ jobs:
           check-latest: true
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@7deba4b43ab4f70d8b6446286bd4ea25377b44d2 # v1.34.4
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@809763a82dd14028cbc403df9daffeacd352ffda # v1.34.4
       - name: Install jq
         run: sudo apt-get install jq
 
@@ -592,14 +592,14 @@ jobs:
         run: |
           ls -l ./integration-tests/smoke/traces
 
-      - name: Upload trace data as Github artifact
+      - name: Upload trace data as artifact
         if: inputs.enable_otel_traces_for_ocr2_plugins && matrix.tests.test_env_vars.ENABLE_OTEL_TRACES == 'true'
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: trace-data
           path: ./integration-tests/smoke/traces/trace-data.json          
           
-      - name: Upload test log as Github artifact
+      - name: Upload test log as artifact
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         if: inputs.test_log_upload_on_failure && failure()
         with:
@@ -608,7 +608,7 @@ jobs:
           retention-days: ${{ inputs.test_log_upload_retention_days }}
         continue-on-error: true
         
-      - name: Upload cl node coverage data as Github artifact
+      - name: Upload cl node coverage data as artifact
         if: inputs.upload_cl_node_coverage_artifact
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         timeout-minutes: 2
@@ -632,10 +632,16 @@ jobs:
           path: test_result.json        
           retention-days: 1
 
+      - name: Upload custom test artifacts
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: custom_test_artifacts_${{ needs.load-test-configurations.outputs.workflow_id }}_${{ matrix.tests.id_sanitized }}
+          path: ${{ matrix.tests.test_artifacts }}        
+          retention-days: 1      
+
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@70ccaef155381025e411cf7cd1fa5ef8f668ed75 # v2.3.25
-
 
   # Run K8s tests using old remote runner
 
@@ -781,7 +787,7 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
-      - name: Upload test log as Github artifact
+      - name: Upload test log as artifact
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         if: inputs.test_log_upload_on_failure && failure()
         with:
@@ -789,6 +795,13 @@ jobs:
           path: /tmp/gotest.log
           retention-days: ${{ inputs.test_log_upload_retention_days }}
         continue-on-error: true
+
+      - name: Upload custom test artifacts
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: custom_test_artifacts_${{ needs.load-test-configurations.outputs.workflow_id }}_${{ matrix.tests.id_sanitized }}
+          path: ${{ matrix.tests.test_artifacts }}        
+          retention-days: 1              
 
       # TODO: move to run-tests GHA
       - name: Print failed test summary

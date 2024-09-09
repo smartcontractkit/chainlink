@@ -992,7 +992,7 @@ runner-test-matrix:
       E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/6vjVx-1V8/ccip-long-running-tests"
     workflows:
       - E2E CCIP Load Tests  
-    artifact_paths: 
+    test_artifacts: 
       - ./integration-tests/load/logs/payload_ccip.json
 
   - id: integration-tests/ccip-tests/load/ccip_test.go:TestLoadCCIPStableRPSAfterARMCurseAndUncurse
@@ -1005,7 +1005,7 @@ runner-test-matrix:
       E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/6vjVx-1V8/ccip-long-running-tests"
     workflows:
       - E2E CCIP Load Tests  
-    artifact_paths: 
+    test_artifacts: 
       - ./integration-tests/load/logs/payload_ccip.json
 
   - id: ccip-tests/chaos/ccip_test.go
