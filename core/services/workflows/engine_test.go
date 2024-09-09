@@ -186,7 +186,7 @@ func getExecutionId(t *testing.T, eng *Engine, hooks *testHooks) string {
 
 type mockCapability struct {
 	capabilities.CapabilityInfo
-	capabilities.CallbackExecutable
+	capabilities.Executable
 	response  chan capabilities.CapabilityResponse
 	transform func(capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error)
 }
@@ -199,18 +199,14 @@ func newMockCapability(info capabilities.CapabilityInfo, transform func(capabili
 	}
 }
 
-func (m *mockCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+func (m *mockCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	cr, err := m.transform(req)
 	if err != nil {
-		return nil, err
+		return capabilities.CapabilityResponse{}, err
 	}
 
-	ch := make(chan capabilities.CapabilityResponse, 10)
-
 	m.response <- cr
-	ch <- cr
-	close(ch)
-	return ch, nil
+	return cr, nil
 }
 
 func (m *mockCapability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -276,11 +272,9 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 
 	eid := getExecutionId(t, eng, testHooks)
 	resp1 := <-target1.response
-	assert.NoError(t, resp1.Err)
 	assert.Equal(t, cr.Event.Outputs, resp1.Value)
 
 	resp2 := <-target2.response
-	assert.NoError(t, resp2.Err)
 	assert.Equal(t, cr.Event.Outputs, resp2.Value)
 
 	state, err := eng.executionStates.Get(ctx, eid)
@@ -391,10 +385,9 @@ func mockConsensusWithEarlyTermination() *mockCapability {
 			"an ocr3 consensus capability",
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-			return capabilities.CapabilityResponse{
+			return capabilities.CapabilityResponse{},
 				// copy error object to make sure message comparison works as expected
-				Err: errors.New(capabilities.ErrStopExecution.Error()),
-			}, nil
+				errors.New(capabilities.ErrStopExecution.Error())
 		},
 	)
 }
