@@ -534,20 +534,6 @@ jobs:
             --user "$(id -u):$(id -g)" \
             -p 4317:4317 otel/opentelemetry-collector:0.88.0 --config=/etc/otel-collector.yaml
 
-      - name: Get test artifact paths
-        id: get_artifact_paths
-        run: |
-          DEFAULT_PATHS=(
-            "./integration-tests/smoke/logs/"
-            "./integration-tests/smoke/db_dumps/"
-            "/tmp/gotest.log"
-            "${{ matrix.tests.artifact_paths }}"
-          )
-          # Convert array to newline-separated string for output
-          printf -v PATHS_STR '%s\n' "${DEFAULT_PATHS[@]}"
-          echo "Test artifact paths: $PATHS_STR"  # Echoing the PATHS_STR to the logs
-          echo "ARTIFACT_PATHS=$PATHS_STR" >> $GITHUB_ENV  # Store the multiline paths in an environment variable
-
       - name: Run tests
         id: run_tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@4f377a6b1cc07f0eca82745782736b4908a1da30 # v2.3.32
@@ -581,7 +567,10 @@ jobs:
           default_e2e_test_chainlink_upgrade_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.tests.id_sanitized }}-test-logs
-          artifacts_location: ${{ env.ARTIFACT_PATHS }}
+          artifacts_location: |
+            ./integration-tests/smoke/logs/
+            ./integration-tests/smoke/db_dumps/
+            /tmp/gotest.log
           publish_check_name: ${{ matrix.tests.id_sanitized }}
           token: ${{ secrets.GH_TOKEN }}
           cache_key_id: e2e-tests
