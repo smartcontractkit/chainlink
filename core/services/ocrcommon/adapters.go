@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"slices"
 
 	"github.com/pkg/errors"
@@ -107,7 +108,11 @@ func MarshalMultichainPublicKey(ost map[string]ocrtypes.OnchainPublicKey) (ocrty
 		if err = binary.Write(buf, binary.LittleEndian, typ); err != nil {
 			return nil, err
 		}
-		if err = binary.Write(buf, binary.LittleEndian, uint16(len(pubKey))); err != nil {
+		length := len(pubKey)
+		if length < 0 || length > math.MaxUint16 {
+			return nil, fmt.Errorf("pubKey doesn't fit into uint16")
+		}
+		if err = binary.Write(buf, binary.LittleEndian, uint16(length)); err != nil { //nolint:gosec
 			return nil, err
 		}
 		_, _ = buf.Write(pubKey)
