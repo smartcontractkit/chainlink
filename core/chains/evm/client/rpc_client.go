@@ -76,7 +76,8 @@ var (
 		},
 	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly", "success", "rpcCallName"})
 	errSubscribeFilterLogsNotAllowedWithoutWS = errors.New("SubscribeFilterLogs is not allowed without ws url")
-	errDialErrorWSAndHTTPBothMissing          = errors.New("cannot dial rpc client when both ws and http info are missing")
+	errWSAndHTTPBothMissing                   = errors.New("cannot dial rpc client when both ws and http info are missing")
+	errWSMissingWhenLogBroadcasterEnabled     = errors.New("ws cannot be missing if LogBroadcaster is enabled")
 )
 
 // RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
@@ -125,6 +126,7 @@ type rpcClient struct {
 	largePayloadRpcTimeout     time.Duration
 	rpcTimeout                 time.Duration
 	finalizedBlockPollInterval time.Duration
+	logBroadcasterEnabled      bool
 	chainType                  chaintype.ChainType
 
 	ws   rawclient
@@ -164,6 +166,7 @@ func NewRPCClient(
 	largePayloadRpcTimeout time.Duration,
 	rpcTimeout time.Duration,
 	chainType chaintype.ChainType,
+	logBroadcasterEnabled bool,
 ) RPCClient {
 	r := &rpcClient{
 		largePayloadRpcTimeout: largePayloadRpcTimeout,
@@ -176,6 +179,7 @@ func NewRPCClient(
 	r.tier = tier
 	r.ws.uri = wsuri
 	r.finalizedBlockPollInterval = finalizedBlockPollInterval
+	r.logBroadcasterEnabled = logBroadcasterEnabled
 	if httpuri != nil {
 		r.http = &rawclient{uri: *httpuri}
 	}
@@ -197,8 +201,14 @@ func (r *rpcClient) Dial(callerCtx context.Context) error {
 	ctx, cancel := r.makeQueryCtx(callerCtx, r.rpcTimeout)
 	defer cancel()
 
-	if r.ws.uri.String() == "" && r.http == nil {
-		return errDialErrorWSAndHTTPBothMissing
+	if r.ws.uri.String() == "" {
+		if r.http == nil {
+			return errWSAndHTTPBothMissing
+		}
+
+		if r.logBroadcasterEnabled {
+			return errWSMissingWhenLogBroadcasterEnabled
+		}
 	}
 
 	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
