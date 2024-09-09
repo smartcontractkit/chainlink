@@ -2,7 +2,7 @@ ARG BASE_IMAGE
 ARG IMAGE_VERSION=latest
 FROM ${BASE_IMAGE}:${IMAGE_VERSION} AS build-env
 
-ARG SUITES=chaos migration performance reorg smoke soak benchmark load ccip-load
+ARG SUITES=chaos migration performance reorg smoke soak benchmark load
 
 COPY . testdir/
 WORKDIR /go/testdir

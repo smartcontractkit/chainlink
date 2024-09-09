@@ -22,35 +22,6 @@ var (
 	}
 )
 
-type debugGun struct {
-}
-
-func (m *debugGun) Call(_ *wasp.Generator) *wasp.Response {
-	return &wasp.Response{}
-}
-
-func TestDEBUG(t *testing.T) {
-	config, err := tc.GetConfig([]string{"Load"}, tc.OCR)
-	require.NoError(t, err)
-	cfg := config.OCR
-	cfgl := config.Logging.Loki
-
-	p := wasp.NewProfile()
-	p.Add(wasp.NewGenerator(&wasp.Config{
-		T:                     t,
-		GenName:               "ocr",
-		LoadType:              wasp.RPS,
-		CallTimeout:           cfg.Load.VerificationTimeout.Duration,
-		RateLimitUnitDuration: cfg.Load.RateLimitUnitDuration.Duration,
-		Schedule:              wasp.Plain(*cfg.Load.Rate, cfg.Load.TestDuration.Duration),
-		Gun:                   &debugGun{},
-		Labels:                CommonTestLabels,
-		LokiConfig:            wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
-	}))
-	_, err = p.Run(true)
-	require.NoError(t, err)
-}
-
 func TestOCRLoad(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
