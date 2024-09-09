@@ -48,7 +48,6 @@ abstract contract BaseValidator is SimpleWriteAccessController, AggregatorValida
   /// @param gasLimit the updated gas cost
   function setGasLimit(uint32 gasLimit) external onlyOwner {
     s_gasLimit = gasLimit;
-    // TODO should we emit only when the value changes?
     emit GasLimitUpdated(gasLimit);
   }
 
