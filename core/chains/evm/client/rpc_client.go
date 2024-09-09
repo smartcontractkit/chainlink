@@ -210,7 +210,6 @@ func (r *rpcClient) Dial(callerCtx context.Context) error {
 		r.ws.geth = ethclient.NewClient(wsrpc)
 	}
 
-	lggr.Debugw("RPC dial: evmclient.Client#dial")
 	if r.http != nil {
 		lggr = lggr.With("httpuri", r.http.uri.Redacted())
 		if err := r.DialHTTP(); err != nil {
@@ -218,6 +217,7 @@ func (r *rpcClient) Dial(callerCtx context.Context) error {
 		}
 	}
 
+	lggr.Debugw("RPC dial: evmclient.Client#dial")
 	promEVMPoolRPCNodeDialsSuccess.WithLabelValues(r.chainID.String(), r.name).Inc()
 	return nil
 }
