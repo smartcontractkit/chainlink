@@ -176,7 +176,7 @@ env:
   TEST_LOG_LEVEL: ${{ inputs.test_log_level }}
   METRICS_COLLECTION_ID: chainlink-e2e-tests
   SLACK_API_KEY: ${{ secrets.SLACK_API_KEY }}
-  SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+  SLACK_CHANNEL: ${{ inputs.slack_notification_after_tests_channel_id || secrets.SLACK_CHANNEL }}
 
 jobs:
   validate-inputs:
