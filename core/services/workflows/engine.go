@@ -45,6 +45,7 @@ type Engine struct {
 	pendingStepRequests  chan stepRequest
 	triggerEvents        chan capabilities.TriggerResponse
 	stepUpdatesChMap     map[string]stepUpdateChannel
+	stepUpdatesChMapMu   sync.RWMutex
 	wg                   sync.WaitGroup
 	stopCh               services.StopChan
 	newWorkerTimeout     time.Duration
@@ -396,7 +397,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 // goroutine should happen via a `stepRequest` message containing a copy of the latest
 // `executionState`.
 func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string) {
-	// TODO: add mutex to protect the map
+	e.stepUpdatesChMapMu.Lock()
 	if _, ok := e.stepUpdatesChMap[executionID]; ok {
 		e.logger.With(eIDKey, executionID).Debugf("stepUpdateLoop already running for execution %s", executionID)
 		return
@@ -405,13 +406,15 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string) {
 		executionID: executionID,
 		ch:          make(chan store.WorkflowExecutionStep),
 	}
+	ch := e.stepUpdatesChMap[executionID].ch
+	e.stepUpdatesChMapMu.Unlock()
 	defer e.wg.Done()
 	for {
 		select {
 		case <-ctx.Done():
 			e.logger.Debug("shutting down stepUpdateLoop")
 			return
-		case stepUpdate, open := <-e.stepUpdatesChMap[executionID].ch:
+		case stepUpdate, open := <-ch:
 			if !open {
 				e.logger.With(eIDKey, executionID).Debug("stepUpdate channel closed, shutting down stepUpdateLoop")
 				return
@@ -599,11 +602,12 @@ func (e *Engine) finishExecution(ctx context.Context, executionID string, status
 		return err
 	}
 
-	// TODO: add mutex to protect the map
+	e.stepUpdatesChMapMu.Lock()
 	if x, ok := e.stepUpdatesChMap[executionID]; ok {
 		close(x.ch)
 		delete(e.stepUpdatesChMap, executionID)
 	}
+	e.stepUpdatesChMapMu.Unlock()
 
 	e.onExecutionFinished(executionID)
 	return nil
@@ -690,11 +694,13 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// receiving loop may not pick up any messages we emit.
 	// Note: When full persistence support is added, any hanging steps
 	// like this one will get picked up again and will be reprocessed.
+	e.stepUpdatesChMapMu.RLock()
 	stepUpdateCh, ok := e.stepUpdatesChMap[stepState.ExecutionID]
 	if !ok {
 		l.Errorf("step update channel not found for execution %s, dropping step update", stepState.ExecutionID)
 		return
 	}
+	e.stepUpdatesChMapMu.RUnlock()
 	select {
 	case <-ctx.Done():
 		l.Errorf("context canceled before step update could be issued; error %v", err)
