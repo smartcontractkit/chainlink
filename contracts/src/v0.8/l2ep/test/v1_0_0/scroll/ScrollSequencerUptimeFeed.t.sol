@@ -52,7 +52,7 @@ contract ScrollSequencerUptimeFeedTest is L2EPTest {
 
 contract ScrollSequencerUptimeFeed_Constructor is ScrollSequencerUptimeFeedTest {
   /// @notice it should have been deployed with the correct initial state
-  function test_InitialState() public {
+  function test_InitialStateWithInvalidL2XDomainManager() public {
     // L2 cross domain messenger address must not be the zero address
     vm.expectRevert(ScrollSequencerUptimeFeed.ZeroAddress.selector);
     new ScrollSequencerUptimeFeed(s_l1OwnerAddr, address(0), false);
@@ -66,6 +66,21 @@ contract ScrollSequencerUptimeFeed_Constructor is ScrollSequencerUptimeFeedTest 
 
     // Checks latest round data
     (uint80 roundId, int256 answer, , , ) = s_scrollSequencerUptimeFeed.latestRoundData();
+    assertEq(roundId, 1);
+    assertEq(answer, 0);
+  }
+
+  function test_InitialStateWithValidL2XDomainManager() public {
+    // Sets msg.sender and tx.origin to a valid address
+    vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
+    ScrollSequencerUptimeFeed scrollSequencerUptimeFeed = new ScrollSequencerUptimeFeed(s_l1OwnerAddr, address(s_mockScrollL2CrossDomainMessenger), false);
+
+    // Checks L1 sender
+    address actualL1Addr = scrollSequencerUptimeFeed.l1Sender();
+    assertEq(actualL1Addr, s_l1OwnerAddr);
+
+    // Checks latest round data
+    (uint80 roundId, int256 answer, , , ) = scrollSequencerUptimeFeed.latestRoundData();
     assertEq(roundId, 1);
     assertEq(answer, 0);
   }
