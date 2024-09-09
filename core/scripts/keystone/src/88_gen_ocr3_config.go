@@ -110,8 +110,13 @@ func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKe
 	allPubKeys := map[string]any{}
 	for _, n := range nca {
 		ethPubKey := common.HexToAddress(n.OCR2OnchainPublicKey)
+		aptosPubKey, err := hex.DecodeString(n.AptosOnchainPublicKey)
+		if err != nil {
+			panic(err)
+		}
 		pubKeys := map[string]types.OnchainPublicKey{
-			"evm": ethPubKey[:],
+			"evm":   ethPubKey[:],
+			"aptos": aptosPubKey,
 		}
 		// validate uniqueness of each individual key
 		for _, key := range pubKeys {
