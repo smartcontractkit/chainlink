@@ -5,14 +5,13 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/wsrpc"
-	"github.com/smartcontractkit/wsrpc/connectivity"
+	"google.golang.org/grpc/connectivity"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	pb "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
+	"github.com/smartcontractkit/wsrpc"
 )
 
 type ConnectionsManager interface {
