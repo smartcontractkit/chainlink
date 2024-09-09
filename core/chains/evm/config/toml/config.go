@@ -356,6 +356,7 @@ type Chain struct {
 	NonceAutoSync                *bool
 	NoNewHeadsThreshold          *commonconfig.Duration
 	OperatorFactoryAddress       *types.EIP55Address
+	LogBroadcasterEnabled        *bool
 	RPCDefaultBatchSize          *uint32
 	RPCBlockQueryDelay           *uint16
 	FinalizedBlockOffset         *uint32

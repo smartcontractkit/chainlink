@@ -224,6 +224,9 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.OperatorFactoryAddress; v != nil {
 		c.OperatorFactoryAddress = v
 	}
+	if v := f.LogBroadcasterEnabled; v != nil {
+		c.LogBroadcasterEnabled = v
+	}
 	if v := f.RPCDefaultBatchSize; v != nil {
 		c.RPCDefaultBatchSize = v
 	}

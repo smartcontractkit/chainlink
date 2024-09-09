@@ -152,8 +152,10 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 
 	// Launch Connector
 	client := &client{privateKey: nodeKeys.PrivateKey}
-	connector, err := connector.NewGatewayConnector(parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeUrl), client, client, clockwork.NewRealClock(), lggr)
+	// client acts as a signer here
+	connector, err := connector.NewGatewayConnector(parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeUrl), client, clockwork.NewRealClock(), lggr)
 	require.NoError(t, err)
+	require.NoError(t, connector.AddHandler([]string{"test"}, client))
 	client.connector = connector
 	servicetest.Run(t, connector)
 
