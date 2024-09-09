@@ -240,7 +240,7 @@ jobs:
           path: core
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@809763a82dd14028cbc403df9daffeacd352ffda # v1.34.4
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@f03af143be18178b618e6e5ea43ef828f52d2ea6 # v1.34.4
       - name: Run Check Tests Command
         run: |
           if ! citool check-tests ${{ github.workspace }}/integration-tests ${{ github.workspace }}/.github/e2e-tests.yml; then
@@ -287,7 +287,7 @@ jobs:
           check-latest: true
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@809763a82dd14028cbc403df9daffeacd352ffda # v1.34.4
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@f03af143be18178b618e6e5ea43ef828f52d2ea6 # v1.34.4
       - name: Install jq
         run: sudo apt-get install jq
 
@@ -633,10 +633,11 @@ jobs:
           retention-days: 1
 
       - name: Upload custom test artifacts
+        if: inputs.test_log_upload_on_failure && failure()
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: custom_test_artifacts_${{ needs.load-test-configurations.outputs.workflow_id }}_${{ matrix.tests.id_sanitized }}
-          path: ${{ matrix.tests.test_artifacts }}        
+          path: ${{ matrix.tests.test_artifacts_on_failure }}        
           retention-days: 1      
 
       - name: Print failed test summary
@@ -797,10 +798,11 @@ jobs:
         continue-on-error: true
 
       - name: Upload custom test artifacts
+        if: inputs.test_log_upload_on_failure && failure() 
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: custom_test_artifacts_${{ needs.load-test-configurations.outputs.workflow_id }}_${{ matrix.tests.id_sanitized }}
-          path: ${{ matrix.tests.test_artifacts }}        
+          path: ${{ matrix.tests.test_artifacts_on_failure }}        
           retention-days: 1              
 
       # TODO: move to run-tests GHA
