@@ -10,17 +10,8 @@ import (
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/changeset"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
-
-func Test0002_TEMP(t *testing.T) {
-	errReason, err := deployment.ParseErrorFromABI("0x64e2ee920000000000000000000000000000000000000000000000000000000000000000",
-		capabilities_registry.CapabilitiesRegistryABI,
-	)
-	require.NoError(t, err)
-	fmt.Println(errReason)
-}
 
 func Test0002_InitialDeployOnLocal(t *testing.T) {
 	lggr := logger.TestLogger(t)
