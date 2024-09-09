@@ -21,6 +21,7 @@ import (
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
+	pollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -101,6 +102,7 @@ func TestEvmWrite(t *testing.T) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	evmClient := evmclimocks.NewClient(t)
+	poller := pollermocks.NewLogPoller(t)
 
 	// This is a very error-prone way to mock an on-chain response to a GetLatestValue("getTransmissionInfo") call
 	// It's a bit of a hack, but it's the best way to do it without a lot of refactoring
@@ -111,13 +113,15 @@ func TestEvmWrite(t *testing.T) {
 
 	chain.On("ID").Return(big.NewInt(11155111))
 	chain.On("TxManager").Return(txManager)
-	chain.On("LogPoller").Return(nil)
+	chain.On("LogPoller").Return(poller)
 
 	ht := mocks.NewHeadTracker[*types.Head, common.Hash](t)
 	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&types.Head{}, &types.Head{}, nil)
 	chain.On("HeadTracker").Return(ht)
 
 	chain.On("Client").Return(evmClient)
+
+	poller.EXPECT().HasFilter(mock.Anything).Return(false)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		a := testutils.NewAddress()
