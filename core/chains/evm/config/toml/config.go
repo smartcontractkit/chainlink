@@ -318,7 +318,6 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 			hasPrimary = true
 			break
 		}
-
 		if !hasPrimary {
 			err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes",
 				Msg: "must have at least one primary node with WSURL"})
