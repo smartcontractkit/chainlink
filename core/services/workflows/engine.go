@@ -397,16 +397,14 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 // `executionState`.
 func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string) {
 	// TODO: add mutex to protect the map
-	if _, ok := e.stepUpdatesChMap[executionID]; !ok {
-		e.stepUpdatesChMap[executionID] = stepUpdateChannel{
-			executionID: executionID,
-			ch:          make(chan store.WorkflowExecutionStep),
-		}
-	} else {
+	if _, ok := e.stepUpdatesChMap[executionID]; ok {
 		e.logger.With(eIDKey, executionID).Debugf("stepUpdateLoop already running for execution %s", executionID)
 		return
 	}
-
+	e.stepUpdatesChMap[executionID] = stepUpdateChannel{
+		executionID: executionID,
+		ch:          make(chan store.WorkflowExecutionStep),
+	}
 	defer e.wg.Done()
 	for {
 		select {
