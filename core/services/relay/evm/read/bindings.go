@@ -62,18 +62,16 @@ func (b *BindingsRegistry) HasContractBinding(contractName string) bool {
 	return ok
 }
 
-// TODO: GetReader needs to accept a readName and do a mapping to bound contracts
+// GetReader should only be called after Chain Reader is started.
 func (b *BindingsRegistry) GetReader(readName string) (Reader, string, error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
-	// TODO: get contract name from readName using reverseLookup
 	values, ok := b.contractLookup.getContractForReadName(readName)
 	if !ok {
 		return nil, "", fmt.Errorf("%w: no reader for read name %s", commontypes.ErrInvalidType, readName)
 	}
 
-	// GetReadBindings should only be called after Chain Reader init.
 	cb, cbExists := b.contractBindings[values.contract]
 	if !cbExists {
 		return nil, "", fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidType, values.contract)
@@ -146,7 +144,7 @@ func (b *BindingsRegistry) BatchGetLatestValues(ctx context.Context, request com
 
 			rdr, exists := cb.GetReaderNamed(values.readName)
 			if !exists {
-				continue
+				return nil, fmt.Errorf("%w: no contract read binding for %s", commontypes.ErrInvalidType, values.readName)
 			}
 
 			call, err := rdr.BatchCall(common.HexToAddress(values.address), req.Params, req.ReturnVal)

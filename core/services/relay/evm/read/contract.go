@@ -76,7 +76,7 @@ func (cb *contractBinding) Bind(ctx context.Context, registrar Registrar, bindin
 		cb.addBinding(binding)
 	}
 
-	// registerCalled could be true without the filters being set yet.
+	// registerCalled during ChainReader start
 	if cb.registered() {
 		return cb.Register(ctx, registrar)
 	}
@@ -97,7 +97,7 @@ func (cb *contractBinding) BindReaders(ctx context.Context, addresses ...common.
 	return err
 }
 
-// Unbind binds contract addresses to contract binding and unregisters the common contract polling filter.
+// Unbind unbinds contract addresses from contract binding and unregisters the common contract polling filter.
 func (cb *contractBinding) Unbind(ctx context.Context, registrar Registrar, bindings ...common.Address) error {
 	for _, binding := range bindings {
 		if !cb.bindingExists(binding) {
@@ -124,11 +124,13 @@ func (cb *contractBinding) UnbindReaders(ctx context.Context, addresses ...commo
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
 
+	var err error
+
 	for _, reader := range cb.readers {
-		_ = reader.Unbind(ctx, addresses...)
+		err = errors.Join(reader.Unbind(ctx, addresses...))
 	}
 
-	return nil
+	return err
 }
 
 func (cb *contractBinding) SetCodecAll(codec commontypes.RemoteCodec) {

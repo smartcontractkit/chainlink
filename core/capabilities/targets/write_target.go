@@ -25,6 +25,7 @@ var (
 type WriteTarget struct {
 	cr               commontypes.ContractReader
 	cw               commontypes.ChainWriter
+	binding          commontypes.BoundContract
 	forwarderAddress string
 	// The minimum amount of gas that the receiver contract must get to process the forwarder report
 	receiverGasMinimum uint64
@@ -59,6 +60,10 @@ func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader
 	return &WriteTarget{
 		cr,
 		cw,
+		commontypes.BoundContract{
+			Address: forwarderAddress,
+			Name:    "forwarder",
+		},
 		forwarderAddress,
 		txGasLimit - FORWARDER_CONTRACT_LOGIC_GAS_COST,
 		info,
@@ -174,14 +179,9 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 	// Bind to the contract address on the write path.
 	// Bind() requires a connection to the node's RPCs and
 	// cannot be run during initialization.
-	binding := commontypes.BoundContract{
-		Address: cap.forwarderAddress,
-		Name:    "forwarder",
-	}
-
 	if !cap.bound {
 		cap.lggr.Debugw("Binding to forwarder address")
-		err := cap.cr.Bind(ctx, []commontypes.BoundContract{binding})
+		err := cap.cr.Bind(ctx, []commontypes.BoundContract{cap.binding})
 		if err != nil {
 			return capabilities.CapabilityResponse{}, err
 		}
@@ -211,7 +211,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 		ReportId:            request.Inputs.SignedReport.ID,
 	}
 	var transmissionInfo TransmissionInfo
-	if err = cap.cr.GetLatestValue(ctx, binding.ReadIdentifier("getTransmissionInfo"), primitives.Unconfirmed, queryInputs, &transmissionInfo); err != nil {
+	if err = cap.cr.GetLatestValue(ctx, cap.binding.ReadIdentifier("getTransmissionInfo"), primitives.Unconfirmed, queryInputs, &transmissionInfo); err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("failed to getTransmissionInfo latest value: %w", err)
 	}
 
