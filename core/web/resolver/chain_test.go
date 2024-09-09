@@ -55,6 +55,7 @@ NoNewHeadsThreshold = '1m0s'
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
+StateOverridesDisabled = false
 Nodes = []
 
 [Transactions]
@@ -171,6 +172,7 @@ NoNewHeadsThreshold = '1m0s'
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
+StateOverridesDisabled = false
 Nodes = []
 
 [Transactions]

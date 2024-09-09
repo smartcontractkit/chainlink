@@ -237,6 +237,9 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.NoNewFinalizedHeadsThreshold; v != nil {
 		c.NoNewFinalizedHeadsThreshold = v
 	}
+	if v := f.StateOverridesDisabled; v != nil {
+		c.StateOverridesDisabled = v
+	}
 
 	c.Transactions.setFrom(&f.Transactions)
 	c.BalanceMonitor.setFrom(&f.BalanceMonitor)

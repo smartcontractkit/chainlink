@@ -187,3 +187,7 @@ func (e *EVMConfig) FinalizedBlockOffset() uint32 {
 func (e *EVMConfig) NoNewFinalizedHeadsThreshold() time.Duration {
 	return e.C.NoNewFinalizedHeadsThreshold.Duration()
 }
+
+func (e *EVMConfig) StateOverridesDisabled() bool {
+	return *e.C.StateOverridesDisabled
+}
