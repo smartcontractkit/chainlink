@@ -39,6 +39,7 @@ func TestWriteTarget(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	reportID := [2]byte{0x30, 0x31}
 	reportMetadata := targets.ReportV1Metadata{
 		Version:             1,
 		WorkflowExecutionID: [32]byte{},
@@ -48,7 +49,7 @@ func TestWriteTarget(t *testing.T) {
 		WorkflowCID:         [32]byte{},
 		WorkflowName:        [10]byte{},
 		WorkflowOwner:       [20]byte{},
-		ReportID:            [2]byte{0x00, 0x01},
+		ReportID:            reportID,
 	}
 
 	reportMetadataBytes, err := reportMetadata.Encode()
@@ -58,7 +59,8 @@ func TestWriteTarget(t *testing.T) {
 		"signed_report": map[string]any{
 			"report":     reportMetadataBytes,
 			"signatures": [][]byte{},
-			"id":         []byte("0001"),
+			"context":    []byte{4, 5},
+			"id":         reportID[:],
 		},
 	})
 	require.NoError(t, err)
