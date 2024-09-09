@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	hf "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	gwAllowlist "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist"
 	gwSubscriptions "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -174,11 +175,12 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 			return nil, errors.Wrap(err, "failed to create a OnchainSubscriptions")
 		}
 		connectorLogger := conf.Logger.Named("GatewayConnector").With("jobName", conf.Job.PipelineSpec.JobName)
-		connector, err2 := NewConnector(ctx, &pluginConfig, conf.EthKeystore, conf.Chain.ID(), s4Storage, allowlist, rateLimiter, subscriptions, functionsListener, offchainTransmitter, connectorLogger)
+		connector, handler, err2 := NewConnector(ctx, &pluginConfig, conf.EthKeystore, conf.Chain.ID(), s4Storage, allowlist, rateLimiter, subscriptions, functionsListener, offchainTransmitter, connectorLogger)
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to create a GatewayConnector")
 		}
 		allServices = append(allServices, connector)
+		allServices = append(allServices, handler)
 	} else {
 		listenerLogger.Warn("Insufficient config, GatewayConnector will not be enabled")
 	}
@@ -201,29 +203,34 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 	return allServices, nil
 }
 
-func NewConnector(ctx context.Context, pluginConfig *config.PluginConfig, ethKeystore keystore.Eth, chainID *big.Int, s4Storage s4.Storage, allowlist gwAllowlist.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions gwSubscriptions.OnchainSubscriptions, listener functions.FunctionsListener, offchainTransmitter functions.OffchainTransmitter, lggr logger.Logger) (connector.GatewayConnector, error) {
+func NewConnector(ctx context.Context, pluginConfig *config.PluginConfig, ethKeystore keystore.Eth, chainID *big.Int, s4Storage s4.Storage, allowlist gwAllowlist.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions gwSubscriptions.OnchainSubscriptions, listener functions.FunctionsListener, offchainTransmitter functions.OffchainTransmitter, lggr logger.Logger) (connector.GatewayConnector, connector.GatewayConnectorHandler, error) {
 	enabledKeys, err := ethKeystore.EnabledKeysForChain(ctx, chainID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	configuredNodeAddress := common.HexToAddress(pluginConfig.GatewayConnectorConfig.NodeAddress)
 	idx := slices.IndexFunc(enabledKeys, func(key ethkey.KeyV2) bool { return key.Address == configuredNodeAddress })
 	if idx == -1 {
-		return nil, errors.New("key for configured node address not found")
+		return nil, nil, errors.New("key for configured node address not found")
 	}
 	signerKey := enabledKeys[idx].ToEcdsaPrivKey()
 	if enabledKeys[idx].ID() != pluginConfig.GatewayConnectorConfig.NodeAddress {
-		return nil, errors.New("node address mismatch")
+		return nil, nil, errors.New("node address mismatch")
 	}
 
 	handler, err := functions.NewFunctionsConnectorHandler(pluginConfig, signerKey, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, lggr)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	connector, err := connector.NewGatewayConnector(pluginConfig.GatewayConnectorConfig, handler, handler, clockwork.NewRealClock(), lggr)
+	// handler acts as a signer here
+	connector, err := connector.NewGatewayConnector(pluginConfig.GatewayConnectorConfig, handler, clockwork.NewRealClock(), lggr)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	err = connector.AddHandler([]string{hf.MethodSecretsSet, hf.MethodSecretsList, hf.MethodHeartbeat}, handler)
+	if err != nil {
+		return nil, nil, err
 	}
 	handler.SetConnector(connector)
-	return connector, nil
+	return connector, handler, nil
 }
