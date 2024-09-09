@@ -57,6 +57,21 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		}
 		return
 	}
+	t.Run("RPC client can't miss both WS and HTTP connection", func(t *testing.T) {
+		emptyURL := url.URL{}
+		clientRPC := client.NewRPCClient(lggr, emptyURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer clientRPC.Close()
+		require.Error(t, clientRPC.Dial(ctx))
+
+		server := testutils.NewWSServer(t, chainId, serverCallBack)
+		notEmptyURL := server.WSURL()
+		clientRPC = client.NewRPCClient(lggr, *notEmptyURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		require.Nil(t, clientRPC.Dial(ctx))
+
+		httpURL := url.URL{}
+		clientRPC = client.NewRPCClient(lggr, emptyURL, &httpURL, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		require.Nil(t, clientRPC.Dial(ctx))
+	})
 	t.Run("Updates chain info on new blocks", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
