@@ -7,8 +7,7 @@ inputs:
     default: chainlink-tests
     required: false
   tag:
-    description: The tag to use by default and to use for checking image existance
-    default: ${{ github.sha }}
+    description: The tag to use by default and to use for checking image existance. If not provided, the hash of the integration-tests/ directory will be used
     required: false
   other_tags:
     description: Other tags to push if needed
@@ -26,6 +25,17 @@ inputs:
   QA_AWS_ACCOUNT_NUMBER:
     description: The AWS region the ECR repository is located in, should only be needed for public ECR repositories, used in configuring docker/login-action
     required: true
+
+outputs:
+  test_image:
+    description: The full name of the test image that was built
+    value: ${{ steps.image_outputs.outputs.test_image }}  
+  test_image_tag:
+    description: The tag of the test image that was built
+    value: ${{ steps.image_outputs.outputs.test_image_tag }}
+  test_image_repository:
+    description: The repository of the test image that was built
+    value: ${{ steps.image_outputs.outputs.test_image_repo }}  
 
 runs:
   using: composite
@@ -90,12 +100,22 @@ runs:
     # End Base Image Logic
 
     # Test Runner Logic
+    - name: Get hash of integration-tests/ for test runner image
+      id: test_runner_hash
+      if: ${{ inputs.tag == '' }}
+      # Do not include testconfig/ in the hash to avoid rebuilding the image when only testconfig/ changes
+      shell: sh
+      run: |
+        HASH_VALUE=$(find integration-tests -type f ! -path 'integration-tests/testconfig/overrides/*.toml' ! -path 'integration-tests/testconfig/overrides/*/*.toml' ! -path 'integration-tests/testconfig/*/overrides/*.toml' ! -path 'integration-tests/testconfig/*/overrides/*/*.toml' ! -path 'integration-tests/ccip-tests/testconfig/*/overrides/*.toml' ! -path 'integration-tests/ccip-tests/testconfig/*/overrides/*/*.toml' ! -path '.github/*/*' ! -path '*/*.md' ! -path '*/*.MD' ! -path 'integration-tests/*/__debug_bin*' ! -path '*/*.MD' ! -path 'integration-tests/*/tmp-manifest*.yaml' ! -path '*/*.MD' ! -path 'integration-tests/*/*.log' ! -path 'integration-tests/*/*_dump.sql' ! -path 'integration-tests/*/.test_summary/*' -exec sha256sum {} + | sort -k 2 | sha256sum | awk '{print $1}')
+        echo "Computed hash: $HASH_VALUE"
+        echo "hash_value=$HASH_VALUE" >> $GITHUB_OUTPUT
+
     - name: Check if image exists
       id: check-image
       uses: smartcontractkit/chainlink-github-actions/docker/image-exists@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
       with:
         repository: ${{ inputs.repository }}
-        tag: ${{ inputs.tag }}
+        tag: ${{ inputs.tag || steps.test_runner_hash.outputs.hash_value }}
         AWS_REGION: ${{ inputs.QA_AWS_REGION }}
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
     - name: Build and Publish Test Runner
@@ -103,7 +123,7 @@ runs:
       uses: smartcontractkit/chainlink-github-actions/docker/build-push@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
       with:
         tags: |
-          ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/${{ inputs.repository }}:${{ inputs.tag }}
+          ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/${{ inputs.repository }}:${{ inputs.tag || steps.test_runner_hash.outputs.hash_value }}
           ${{ inputs.other_tags }}
         file: ./integration-tests/test.Dockerfile
         build-args: |
@@ -116,8 +136,15 @@ runs:
       shell: sh
       env:
         INPUTS_REPOSITORY: ${{ inputs.repository }}
-        INPUTS_TAG: ${{ inputs.tag }}
+        INPUTS_TAG: ${{ inputs.tag || steps.test_runner_hash.outputs.hash_value }}
       run: |
         echo "### ${INPUTS_REPOSITORY} image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
         echo "\`${INPUTS_TAG}\`" >>$GITHUB_STEP_SUMMARY
+    - name: Set outputs
+      id: image_outputs
+      shell: sh
+      run: |
+        echo "test_image_repo=${{ inputs.repository }}" >> $GITHUB_OUTPUT
+        echo "test_image_tag=${{ inputs.tag || steps.test_runner_hash.outputs.hash_value }}" >> $GITHUB_OUTPUT
+        echo "test_image=${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/${{ inputs.repository }}:${{ inputs.tag || steps.test_runner_hash.outputs.hash_value }}" >> $GITHUB_OUTPUT
     # End Test Runner Logic
