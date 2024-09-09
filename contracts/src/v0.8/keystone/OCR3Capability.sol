@@ -109,8 +109,10 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
       uint16 len = uint16(publicKeys.length);
       // scan through public keys to validate encoded format
       while (offset < len) {
+        // solhint-disable-next-line no-unused-vars
         uint8 keyType = uint8(publicKeys[offset]);
         uint16 keyLen = uint16(uint8(publicKeys[offset + 1])) + (uint16(uint8(publicKeys[offset + 2])) << 8);
+        // solhint-disable-next-line no-unused-vars
         bytes calldata publicKey = publicKeys[offset + 3:offset + 3 + keyLen];
         offset += 3 + keyLen;
       }
