@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {BaseSequencerUptimeFeed} from "../../dev/shared/BaseSequencerUptimeFeed.sol";
+import {BaseSequencerUptimeFeed} from "../../dev/base/BaseSequencerUptimeFeed.sol";
 
 contract MockBaseSequencerUptimeFeed is BaseSequencerUptimeFeed {
   string public constant override typeAndVersion = "MockSequencerUptimeFeed 1.1.0-dev";
