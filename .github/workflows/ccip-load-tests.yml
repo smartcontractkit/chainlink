@@ -1,6 +1,5 @@
 name: CCIP Load Test
 on: 
-  pull_request: # DEBUG: To check fixes
   push:
     paths:
       - '**/*ccip*'
@@ -117,7 +116,7 @@ jobs:
       contents: read
     env:
       CHAINLINK_ENV_USER: ${{ github.actor }}
-      SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }} # DEBUG: Removing to stop spamming while testing
+      SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
       TEST_LOG_LEVEL: info
       REF_NAME: ${{ github.head_ref || github.ref_name }}
@@ -222,9 +221,7 @@ jobs:
   # Reporting Jobs
   start-slack-thread:
     name: Start Slack Thread
-    # if: ${{ failure() && needs.ccip-load-test.result != 'skipped' && needs.ccip-load-test.result != 'cancelled' }}
-    # DEBUG: Removing to stop spamming while testing
-    if: false 
+    if: ${{ failure() && needs.ccip-load-test.result != 'skipped' && needs.ccip-load-test.result != 'cancelled' }}
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -276,9 +273,7 @@ jobs:
 
   post-test-results-to-slack:
     name: Post Test Results
-    # if: ${{ failure() && needs.start-slack-thread.result != 'skipped' && needs.start-slack-thread.result != 'cancelled' }}
-    # DEBUG: Removing to stop spamming while testing
-    if: false
+    if: ${{ failure() && needs.start-slack-thread.result != 'skipped' && needs.start-slack-thread.result != 'cancelled' }}
     environment: integration
     permissions:
       checks: write
