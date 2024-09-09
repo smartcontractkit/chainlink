@@ -10,14 +10,14 @@ on:
         options:
           - soak/ocr_test.go:TestOCRv1Soak
           - soak/ocr_test.go:TestOCRv2Soak
-          # - TestForwarderOCRv1Soak
-          # - TestForwarderOCRv2Soak
-          # - TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled
-          # - TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled
-          # - TestOCRSoak_GasSpike
-          # - TestOCRSoak_ChangeBlockGasLimit
-          # - TestOCRSoak_RPCDownForAllCLNodes
-          # - TestOCRSoak_RPCDownForHalfCLNodes
+          - soak/ocr_test.go:TestForwarderOCRv1Soak
+          - soak/ocr_test.go:TestForwarderOCRv2Soak
+          - soak/ocr_test.go:TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled
+          - soak/ocr_test.go:TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled
+          - soak/ocr_test.go:TestOCRSoak_GasSpike
+          - soak/ocr_test.go:TestOCRSoak_ChangeBlockGasLimit
+          - soak/ocr_test.go:TestOCRSoak_RPCDownForAllCLNodes
+          - soak/ocr_test.go:TestOCRSoak_RPCDownForHalfCLNodes
       test_config_override_path:
         description: Path to a test config file used to override the default test config
         required: false

@@ -20,7 +20,6 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test smoke/ocr_test.go -timeout 30m -count=1 -test.parallel=2 -json
     pyroscope_env: ci-smoke-ocr-evm-simulated
 
-  # Example of a configuration for running a single soak test in Kubernetes Remote Runner
   - id: soak/ocr_test.go:TestOCRv1Soak
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
@@ -34,7 +33,7 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run TestOCRv2Soak -test.parallel=1 -timeout 900h -count=1 -json
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run $TestOCRv2Soak$ -test.parallel=1 -timeout 900h -count=1 -json
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -43,88 +42,80 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 900h -count=1 -json
     test_config_override_path: integration-tests/testconfig/ocr2/overrides/wemix_testnet.toml
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
 
-  - id: soak/ocr_test.go:^TestForwarderOCRv1Soak$
+  - id: soak/ocr_test.go:TestForwarderOCRv1Soak
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestForwarderOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1 -json
-    test_config_override_required: true
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestForwarderOCRv1Soak$ -test.parallel=1 -timeout 900h -count=1 -json
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
 
-  - id: soak/ocr_test.go:^TestForwarderOCRv2Soak$
+  - id: soak/ocr_test.go:TestForwarderOCRv2Soak
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestForwarderOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1 -json
-    test_config_override_required: true
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestForwarderOCRv2Soak$ -test.parallel=1 -timeout 900h -count=1 -json
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
       
-  - id: soak/ocr_test.go:^TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled$
+  - id: soak/ocr_test.go:TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled$ -test.parallel=1 -timeout 30m -count=1 -json
-    test_config_override_required: true
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled -test.parallel=1 -timeout 900h -count=1 -json
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak      
 
-  - id: soak/ocr_test.go:^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$
+  - id: soak/ocr_test.go:TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$ -test.parallel=1 -timeout 30m -count=1 -json
-    test_config_override_required: true
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$ -test.parallel=1 -timeout 900h -count=1 -json
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak      
 
-  - id: soak/ocr_test.go:^TestOCRSoak_GasSpike$
+  - id: soak/ocr_test.go:TestOCRSoak_GasSpike
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GasSpike$ -test.parallel=1 -timeout 30m -count=1 -json
-    test_config_override_required: true
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GasSpike$ -test.parallel=1 -timeout 900h -count=1 -json
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak      
 
-  - id: soak/ocr_test.go:^TestOCRSoak_ChangeBlockGasLimit$
+  - id: soak/ocr_test.go:TestOCRSoak_ChangeBlockGasLimit
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_ChangeBlockGasLimit$ -test.parallel=1 -timeout 30m -count=1 -json
-    test_config_override_required: true
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_ChangeBlockGasLimit$ -test.parallel=1 -timeout 900h -count=1 -json
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak   
 
-  - id: soak/ocr_test.go:^TestOCRSoak_RPCDownForAllCLNodes$
+  - id: soak/ocr_test.go:TestOCRSoak_RPCDownForAllCLNodes
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_RPCDownForAllCLNodes$ -test.parallel=1 -timeout 30m -count=1 -json
-    test_config_override_required: true
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_RPCDownForAllCLNodes$ -test.parallel=1 -timeout 900h -count=1 -json
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak  
 
-  - id: soak/ocr_test.go:^TestOCRSoak_RPCDownForHalfCLNodes$
+  - id: soak/ocr_test.go:TestOCRSoak_RPCDownForHalfCLNodes
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_RPCDownForHalfCLNodes$ -test.parallel=1 -timeout 30m -count=1 -json
-    test_config_override_required: true
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRSoak_RPCDownForHalfCLNodes$ -test.parallel=1 -timeout 900h -count=1 -json
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak                             
