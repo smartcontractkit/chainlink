@@ -69,7 +69,15 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 							blockNumber = receipt.BlockNumber.Uint64()
 						}
 						if receipt.Status == 0 {
-							return fmt.Errorf("tx %s reverted", tx.Hex())
+							t, _, err := ec.TransactionByHash(context.Background(), tx)
+							if err != nil {
+								return fmt.Errorf("tx %s reverted, failed to get transaction: %w", tx, err)
+							}
+							errReason, err := deployment.GetErrorReasonFromTx(ec, chainCfg.DeployerKey.From, *t, receipt)
+							if err == nil && errReason != "" {
+								return fmt.Errorf("tx %s reverted,error reason: %s", tx.Hex(), errReason)
+							}
+							return fmt.Errorf("tx %s reverted, could not decode error reason", tx.Hex())
 						}
 						return nil
 					})

@@ -6,11 +6,21 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/changeset"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+func Test0002_TEMP(t *testing.T) {
+	errReason, err := deployment.ParseErrorFromABI("0x64e2ee920000000000000000000000000000000000000000000000000000000000000000",
+		capabilities_registry.CapabilitiesRegistryABI,
+	)
+	require.NoError(t, err)
+	fmt.Println(errReason)
+}
 
 func Test0002_InitialDeployOnLocal(t *testing.T) {
 	lggr := logger.TestLogger(t)
@@ -18,11 +28,17 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 	tenv := ccipdeployment.NewDeployedLocalDevEnvironment(t, lggr)
 	e := tenv.Env
 	nodes := tenv.Nodes
-	//chains := e.Chains
+	chains := e.Chains
 
 	state, err := ccipdeployment.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
-
+	for _, chain := range chains {
+		err = chain.SetGas(deployment.GasSettings{
+			EIP1559:         true,
+			DefaultGasLimit: 6000000,
+		})
+		require.NoError(t, err)
+	}
 	// Apply migration
 	output, err := changeset.Apply0002(tenv.Env, ccipdeployment.DeployCCIPContractConfig{
 		HomeChainSel: tenv.HomeChainSel,
