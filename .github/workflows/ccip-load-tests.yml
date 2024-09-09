@@ -33,7 +33,8 @@ jobs:
       test_config_override_path: ${{ inputs.test_config_override_path }}
       chainlink_version: ${{ github.sha }}
       slack_notification_after_tests: always
-      slack_notification_after_tests_channel_id: '#ccip-testing'
+      slack_notification_after_tests_channel_id: '#lf-slack-notification-tests'
+      # slack_notification_after_tests_channel_id: '#ccip-testing'
       slack_notification_after_tests_name: CCIP E2E Load Tests
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
