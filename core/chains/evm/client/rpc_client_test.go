@@ -75,6 +75,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		clientRPC = client.NewRPCClient(lggr, emptyURL, &httpURL, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "", true)
 		require.Error(t, clientRPC.Dial(ctx))
 
+		// ws not provided when LogBroadcaster is disabled, ok
 		clientRPC = client.NewRPCClient(lggr, emptyURL, &httpURL, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "", false)
 		require.Nil(t, clientRPC.Dial(ctx))
 	})
