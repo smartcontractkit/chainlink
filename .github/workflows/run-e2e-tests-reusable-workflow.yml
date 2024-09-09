@@ -240,7 +240,7 @@ jobs:
           path: core
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@a5fa738dad7dfca70322d44877bdb1bc8eb8659d # v1.34.4
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@7deba4b43ab4f70d8b6446286bd4ea25377b44d2 # v1.34.4
       - name: Run Check Tests Command
         run: |
           if ! citool check-tests ${{ github.workspace }}/integration-tests ${{ github.workspace }}/.github/e2e-tests.yml; then
@@ -287,7 +287,7 @@ jobs:
           check-latest: true
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@a5fa738dad7dfca70322d44877bdb1bc8eb8659d # v1.34.4
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@7deba4b43ab4f70d8b6446286bd4ea25377b44d2 # v1.34.4
       - name: Install jq
         run: sudo apt-get install jq
 
@@ -534,6 +534,20 @@ jobs:
             --user "$(id -u):$(id -g)" \
             -p 4317:4317 otel/opentelemetry-collector:0.88.0 --config=/etc/otel-collector.yaml
 
+      - name: Get test artifact paths
+        id: get_artifact_paths
+        run: |
+          DEFAULT_PATHS=(
+            "./integration-tests/smoke/logs/"
+            "./integration-tests/smoke/db_dumps/"
+            "/tmp/gotest.log"
+            "${{ matrix.tests.artifact_paths }}"
+          )
+          # Convert array to newline-separated string for output
+          printf -v PATHS_STR '%s\n' "${DEFAULT_PATHS[@]}"
+          echo "Test artifact paths: $PATHS_STR"  # Echoing the PATHS_STR to the logs
+          echo "paths=$PATHS_STR" >> $GITHUB_OUTPUT
+
       - name: Run tests
         id: run_tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@4f377a6b1cc07f0eca82745782736b4908a1da30 # v2.3.32
@@ -567,10 +581,7 @@ jobs:
           default_e2e_test_chainlink_upgrade_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.tests.id_sanitized }}-test-logs
-          artifacts_location: |
-            ./integration-tests/smoke/logs/
-            ./integration-tests/smoke/db_dumps/
-            /tmp/gotest.log
+          artifacts_location: ${{ steps.get_artifact_paths.outputs.paths }}
           publish_check_name: ${{ matrix.tests.id_sanitized }}
           token: ${{ secrets.GH_TOKEN }}
           cache_key_id: e2e-tests
