@@ -122,7 +122,7 @@ on:
         value: ${{ jobs.after_tests.outputs.test_results }}        
     secrets:
       TEST_SECRETS_OVERRIDE_BASE64:
-        required: false
+        required: false        
       QA_AWS_REGION:
         required: true
       QA_AWS_ROLE_TO_ASSUME:
@@ -153,6 +153,15 @@ on:
         required: true
       SLACK_BOT_TOKEN:
         required: false
+      # Use instead of slack_notification_after_tests_channel_id if channel id is secret
+      SLACK_NOTIFICATION_AFTER_TESTS_CHANNEL_ID:
+        required: false        
+      # Used in some tests to send slack notifications  
+      SLACK_API_KEY:
+        required: false
+      # Used in some tests to send slack notifications  
+      SLACK_CHANNEL:
+        required: false    
 
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -165,6 +174,8 @@ env:
   MOD_CACHE_VERSION: 1
   TEST_LOG_LEVEL: ${{ inputs.test_log_level }}
   METRICS_COLLECTION_ID: chainlink-e2e-tests
+  SLACK_API_KEY: ${{ secrets.SLACK_API_KEY }}
+  SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
 
 jobs:
   validate-inputs:
@@ -811,6 +822,8 @@ jobs:
     if: always()
     name: After tests
     runs-on: ubuntu-latest
+    # Set to access secrets like secrets.QA_SLACK_API_KEY that are set in the "integration" environment
+    environment: integration
     outputs:
       test_results: ${{ steps.set_test_results.outputs.results }}    
     steps:
@@ -844,12 +857,12 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         with:
-          channel-id: ${{ inputs.slack_notification_after_tests_channel_id }}
+          channel-id: ${{ inputs.slack_notification_after_tests_channel_id || secrets.SLACK_NOTIFICATION_AFTER_TESTS_CHANNEL_ID }}
           payload: |
             {
               "attachments": [
                 {
-                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || '#2E7D32' }}",
+                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || '#3fae55' }}",
                   "blocks": [
                     {
                       "type": "section",
@@ -876,7 +889,7 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         with:
-          channel-id: ${{ inputs.slack_notification_after_tests_channel_id }}
+          channel-id: ${{ inputs.slack_notification_after_tests_channel_id || secrets.SLACK_NOTIFICATION_AFTER_TESTS_CHANNEL_ID }}
           payload: |
             {
               "thread_ts": "${{ steps.slack.outputs.thread_ts }}",
