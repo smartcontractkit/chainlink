@@ -303,7 +303,7 @@ func bindReader(ctx context.Context,
 	capabilityLabelledName,
 	capabilityVersion string,
 ) (boundReader types.ContractReader, ccipConfigBinding types.BoundContract, err error) {
-	binding := types.BoundContract{
+	boundContract := types.BoundContract{
 		Address: capRegAddress,
 		Name:    consts.ContractNameCapabilitiesRegistry,
 	}
