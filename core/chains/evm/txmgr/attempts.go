@@ -34,7 +34,6 @@ type evmTxAttemptBuilder struct {
 
 type evmTxAttemptBuilderFeeConfig interface {
 	EIP1559DynamicFees() bool
-	TipCapMin() *assets.Wei
 	PriceMaxKey(common.Address) *assets.Wei
 	LimitDefault() uint64
 }
