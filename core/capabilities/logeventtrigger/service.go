@@ -1,16 +1,20 @@
-package log_event_trigger
+package logeventtrigger
 
 import (
 	"context"
 	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-const ID = "cron-trigger@1.0.0"
+const ID = "log-event-trigger-%s-%d@1.0.0"
 
 const defaultSendChannelBufferSize = 1000
 
@@ -20,8 +24,15 @@ var logEventTriggerInfo = capabilities.MustNewCapabilityInfo(
 	"A trigger that listens for specific contract log events and starts a workflow run.",
 )
 
-// Log Event Trigger Capability Config
-type Config struct {
+// Log Event Trigger Capability RequestConfig
+type RequestConfig struct {
+	ContractName         string                     `json:"contractName"`
+	ContractAddress      common.Address             `json:"contractAddress"`
+	ContractReaderConfig evmtypes.ChainReaderConfig `json:"contractReaderConfig"`
+}
+
+// Log Event Trigger Capability Input
+type Input struct {
 }
 
 // Log Event Trigger Capability Payload
@@ -37,21 +48,29 @@ type Response struct {
 	Payload  Payload
 }
 
-type logEventTrigger struct {
-	ch chan<- capabilities.TriggerResponse
-}
-
 // Log Event Trigger Capabilities Manager
 // Manages different log event triggers using an underlying triggerStore
 type LogEventTriggerService struct {
 	capabilities.CapabilityInfo
-	capabilities.Validator[Config, struct{}, capabilities.TriggerResponse]
-	lggr     logger.Logger
-	triggers CapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]
+	capabilities.Validator[RequestConfig, Input, capabilities.TriggerResponse]
+	lggr           logger.Logger
+	triggers       CapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]
+	relayer        core.Relayer
+	logEventConfig LogEventConfig
+}
+
+// Common capability level config across all workflows
+type LogEventConfig struct {
+	ChainId        uint64 `json:"chainId"`
+	Network        string `json:"network"`
+	LookbackBlocks uint64 `json:"lookbakBlocks"`
+	PollPeriod     uint64 `json:"pollPeriod"`
 }
 
 type Params struct {
-	Logger logger.Logger
+	Logger         logger.Logger
+	Relayer        core.Relayer
+	LogEventConfig LogEventConfig
 }
 
 var _ capabilities.TriggerCapability = (*LogEventTriggerService)(nil)
@@ -68,7 +87,17 @@ func NewLogEventTriggerService(p Params) *LogEventTriggerService {
 		CapabilityInfo: logEventTriggerInfo,
 		lggr:           l,
 		triggers:       logEventStore,
+		relayer:        p.Relayer,
+		logEventConfig: p.LogEventConfig,
 	}
+}
+
+func (s *LogEventTriggerService) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
+	return capabilities.NewCapabilityInfo(
+		fmt.Sprintf(ID, s.logEventConfig.Network, s.logEventConfig.ChainId),
+		capabilities.CapabilityTypeTrigger,
+		"A trigger that listens for specific contract log events and starts a workflow run.",
+	)
 }
 
 // Register a new trigger
@@ -77,15 +106,13 @@ func (s *LogEventTriggerService) RegisterTrigger(ctx context.Context, req capabi
 	if req.Config == nil {
 		return nil, errors.New("config is required to register a log event trigger")
 	}
-	_, err := s.ValidateConfig(req.Config)
+	reqConfig, err := s.ValidateConfig(req.Config)
 	if err != nil {
 		return nil, err
 	}
-	respCh, err := s.triggers.InsertIfNotExists(req.TriggerID, func() (logEventTrigger, chan capabilities.TriggerResponse) {
-		callbackCh := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
-		return logEventTrigger{
-			ch: callbackCh,
-		}, callbackCh
+	// Add log event trigger with Contract details to CapabilitiesStore
+	respCh, err := s.triggers.InsertIfNotExists(req.TriggerID, func() (*logEventTrigger, chan capabilities.TriggerResponse, error) {
+		return newLogEventTrigger(ctx, reqConfig, s.logEventConfig, s.relayer)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("log_event_trigger %v", err)
@@ -109,6 +136,10 @@ func (s *LogEventTriggerService) UnregisterTrigger(ctx context.Context, req capa
 
 // Start the service.
 func (s *LogEventTriggerService) Start(ctx context.Context) error {
+	if s.relayer == nil {
+		return errors.New("service has shutdown, it must be built again to restart")
+	}
+
 	return nil
 }
 

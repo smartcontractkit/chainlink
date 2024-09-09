@@ -2,14 +2,16 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/hashicorp/go-plugin"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/log_event_trigger"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/logeventtrigger"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
@@ -20,6 +22,7 @@ const (
 type LogEventTriggerGRPCService struct {
 	trigger capabilities.TriggerCapability
 	s       *loop.Server
+	config  logeventtrigger.LogEventConfig
 }
 
 func main() {
@@ -87,8 +90,25 @@ func (cs *LogEventTriggerGRPCService) Initialise(
 	relayerSet core.RelayerSet,
 ) error {
 	cs.s.Logger.Debugf("Initialising %s", serviceName)
-	cs.trigger = log_event_trigger.NewLogEventTriggerService(log_event_trigger.Params{
-		Logger: cs.s.Logger,
+
+	var logEventConfig logeventtrigger.LogEventConfig
+	err := json.Unmarshal([]byte(config), &logEventConfig)
+	if err != nil {
+		return fmt.Errorf("error decoding log_event_trigger config: %v", err)
+	}
+
+	relayID := types.NewRelayID(logEventConfig.Network, fmt.Sprintf("%d", logEventConfig.ChainId))
+	relayer, err := relayerSet.Get(ctx, relayID)
+	if err != nil {
+		return fmt.Errorf("error fetching relayer for chainID %d from relayerSet: %v", logEventConfig.ChainId, err)
+	}
+
+	// Set relayer and trigger in LogEventTriggerGRPCService
+	cs.config = logEventConfig
+	cs.trigger = logeventtrigger.NewLogEventTriggerService(logeventtrigger.Params{
+		Logger:         cs.s.Logger,
+		Relayer:        relayer,
+		LogEventConfig: logEventConfig,
 	})
 
 	if err := capabilityRegistry.Add(ctx, cs.trigger); err != nil {
