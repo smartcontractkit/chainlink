@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {MockOptimismL1CrossDomainMessenger} from "../../../../tests/MockOptimismL1CrossDomainMessenger.sol";
 import {MockOptimismL2CrossDomainMessenger} from "../../../../tests/MockOptimismL2CrossDomainMessenger.sol";
-import {BaseSequencerUptimeFeed} from "../../../dev/shared/BaseSequencerUptimeFeed.sol";
+import {BaseSequencerUptimeFeed} from "../../../dev/base/BaseSequencerUptimeFeed.sol";
 import {OptimismSequencerUptimeFeed} from "../../../dev/optimism/OptimismSequencerUptimeFeed.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 

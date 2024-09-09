@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {BaseValidator} from "../../../dev/shared/BaseValidator.sol";
+import {BaseValidator} from "../../../dev/base/BaseValidator.sol";
 import {MockBaseValidator} from "../../mocks/MockBaseValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 

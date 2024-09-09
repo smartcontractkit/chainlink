@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {MockBridgehub} from "../../mocks/zksync/MockZKSyncL1Bridge.sol";
 import {ISequencerUptimeFeed} from "../../../dev/interfaces/ISequencerUptimeFeed.sol";
 import {ZKSyncValidator} from "../../../dev/zksync/ZKSyncValidator.sol";
-import {BaseValidator} from "../../../dev/shared/BaseValidator.sol";
+import {BaseValidator} from "../../../dev/base/BaseValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract ZKSyncValidatorTest is L2EPTest {
