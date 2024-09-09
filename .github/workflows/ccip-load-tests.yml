@@ -1,5 +1,6 @@
 name: CCIP Load Test
 on: 
+  pull_request: # DEBUG: To check fixes
   push:
     paths:
       - '**/*ccip*'
