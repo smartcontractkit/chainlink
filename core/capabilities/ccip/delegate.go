@@ -308,7 +308,7 @@ func bindReader(ctx context.Context,
 		Name:    consts.ContractNameCapabilitiesRegistry,
 	}
 
-	err = reader.Bind(ctx, []types.BoundContract{binding})
+	err = reader.Bind(ctx, []types.BoundContract{boundContract})
 	if err != nil {
 		return nil, types.BoundContract{}, fmt.Errorf("failed to bind home chain contract reader: %w", err)
 	}
@@ -321,7 +321,7 @@ func bindReader(ctx context.Context,
 	var ccipCapabilityInfo kcr.CapabilitiesRegistryCapabilityInfo
 	err = reader.GetLatestValue(
 		ctx,
-		binding.ReadIdentifier(consts.MethodNameGetCapability),
+		boundContract.ReadIdentifier(consts.MethodNameGetCapability),
 		primitives.Unconfirmed,
 		map[string]any{
 			"hashedId": hid,
