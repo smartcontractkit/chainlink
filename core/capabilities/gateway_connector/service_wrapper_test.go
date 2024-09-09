@@ -5,9 +5,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/config"
+	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/test-go/testify/mock"
@@ -24,17 +25,17 @@ func TestGatewayConnectorServiceWrapper(t *testing.T) {
 	logger := logger.TestLogger(t)
 	_, addr := testutils.NewPrivateKeyAndAddress(t)
 
-	config, err := chainlink.GeneralConfigOpts{}.New()
-	// I don't think this is the right way to get the GatewayConnector in.
-	config.Capabilities().GatewayConnector() = chainlink.GatewayConnector{
-		ChainIDForNodeKey:         "1",
-		NodeAddress:               addr.Hex(),
-		DonId:                     "5",
-		WSHandshakeTimeoutMillis:  500,
-		AuthMinChallengeLen:       0,
-		AuthTimestampToleranceSec: 10,
-		Gateways:                  []chainlink.ConnectorGateway{{ID: ptr("example_gateway"), URL: ptr("wss://localhost:8081/node")}},
-	}
+	config, err := chainlink.GeneralConfigOpts{
+		Config: chainlink.Config{
+			Core: toml.Core{
+				Capabilities: toml.Capabilities{
+					GatewayConnector: toml.GatewayConnector{
+						// all the fields here
+					},
+				},
+			},
+		},
+	}.New()
 	ethKeystore := ksmocks.NewEth(t)
 	ethKeystore.On("EnabledKeysForChain", mock.Anything).Return([]ethkey.KeyV2{{Address: addr}})
 
