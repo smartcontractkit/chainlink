@@ -25,6 +25,7 @@ runner-test-matrix:
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
     test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv1Soak$ -test.parallel=1 -timeout 900h -count=1 -json
+    test_cmd_opts: 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false
     test_secrets_required: true    
     test_env_vars:
       TEST_SUITE: soak
@@ -34,6 +35,7 @@ runner-test-matrix:
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
     test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 900h -count=1 -json
+    test_cmd_opts: 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
