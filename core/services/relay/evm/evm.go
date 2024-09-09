@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -39,7 +38,6 @@ import (
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
@@ -261,27 +259,13 @@ func (r *Relayer) HealthReport() (report map[string]error) {
 	return
 }
 
-// Modified newOCR2AggregatorLogDecoder to use OCR3Capability ABI
-func newOCR3CapabilityLogDecoder() (*ocr2AggregatorLogDecoder, error) {
-	const eventName = "ConfigSet"
-	abi, err := ocr3_capability.OCR3CapabilityMetaData.GetAbi()
-	if err != nil {
-		return nil, err
-	}
-	return &ocr2AggregatorLogDecoder{
-		eventName: eventName,
-		eventSig:  abi.Events[eventName].ID,
-		abi:       abi,
-	}, nil
-}
-
 func newOCR3CapabilityConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts) (*configWatcher, error) {
 	if !common.IsHexAddress(opts.ContractID) {
 		return nil, errors.New("invalid contractID, expected hex address")
 	}
 
 	aggregatorAddress := common.HexToAddress(opts.ContractID)
-	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
+	offchainConfigDigester := EVMOCR3CapabilityOffchainConfigDigester{
 		ChainID:         chain.Config().EVM().ChainID().Uint64(),
 		ContractAddress: aggregatorAddress,
 	}
