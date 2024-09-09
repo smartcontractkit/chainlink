@@ -117,7 +117,7 @@ jobs:
       contents: read
     env:
       CHAINLINK_ENV_USER: ${{ github.actor }}
-      # SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }} # DEBUG: Removing to stop spamming while testing
+      SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }} # DEBUG: Removing to stop spamming while testing
       SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
       TEST_LOG_LEVEL: info
       REF_NAME: ${{ github.head_ref || github.ref_name }}
@@ -191,7 +191,8 @@ jobs:
           RR_CPU: 4
           TEST_TRIGGERED_BY: ccip-load-test-ci-${{ matrix.type.name }}
           BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}
-          TEST_BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}          
+          TEST_BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}
+          E2E_TEST_LOGGING_RUN_ID: ${{ github.run_id }}       
           E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
           E2E_TEST_CHAINLINK_VERSION: ${{ env.CHAINLINK_VERSION }}
           E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -221,7 +222,9 @@ jobs:
   # Reporting Jobs
   start-slack-thread:
     name: Start Slack Thread
-    if: ${{ failure() && needs.ccip-load-test.result != 'skipped' && needs.ccip-load-test.result != 'cancelled' }}
+    # if: ${{ failure() && needs.ccip-load-test.result != 'skipped' && needs.ccip-load-test.result != 'cancelled' }}
+    # DEBUG: Removing to stop spamming while testing
+    if: false 
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -273,7 +276,9 @@ jobs:
 
   post-test-results-to-slack:
     name: Post Test Results
-    if: ${{ failure() && needs.start-slack-thread.result != 'skipped' && needs.start-slack-thread.result != 'cancelled' }}
+    # if: ${{ failure() && needs.start-slack-thread.result != 'skipped' && needs.start-slack-thread.result != 'cancelled' }}
+    # DEBUG: Removing to stop spamming while testing
+    if: false
     environment: integration
     permissions:
       checks: write
