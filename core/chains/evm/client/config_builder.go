@@ -101,7 +101,7 @@ func verifyLogBroadcasterFlag(nodes []*toml.Node, LogBroadcasterEnabled bool) er
 func parseNodeConfigs(nodeCfgs []NodeConfig) ([]*toml.Node, error) {
 	nodes := make([]*toml.Node, len(nodeCfgs))
 	for i, nodeCfg := range nodeCfgs {
-		var wsURL, httpUrl *commonconfig.URL
+		var wsURL, httpURL *commonconfig.URL
 		// wsUrl is optional
 		if nodeCfg.WSURL != nil {
 			wsURL = commonconfig.MustParseURL(*nodeCfg.WSURL)
@@ -111,11 +111,11 @@ func parseNodeConfigs(nodeCfgs []NodeConfig) ([]*toml.Node, error) {
 			return nil, fmt.Errorf("node config [%d]: HTTP URL", i)
 		}
 
-		httpUrl = commonconfig.MustParseURL(*nodeCfg.HTTPURL)
+		httpURL = commonconfig.MustParseURL(*nodeCfg.HTTPURL)
 		node := &toml.Node{
 			Name:     nodeCfg.Name,
 			WSURL:    wsURL,
-			HTTPURL:  httpUrl,
+			HTTPURL:  httpURL,
 			SendOnly: nodeCfg.SendOnly,
 			Order:    nodeCfg.Order,
 		}
