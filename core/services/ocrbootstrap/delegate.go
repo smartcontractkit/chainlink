@@ -139,6 +139,21 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 				PluginConfig: spec.RelayConfig.Bytes(), // contains all necessary fields for config provider
 			},
 		)
+	} else if relayCfg.ProviderType == string(types.OCR3Capability) {
+		configProvider, err = relayer.NewPluginProvider(
+			ctx,
+			types.RelayArgs{
+				ExternalJobID: jb.ExternalJobID,
+				JobID:         jb.ID,
+				ContractID:    spec.ContractID,
+				RelayConfig:   spec.RelayConfig.Bytes(),
+				New:           d.isNewlyCreatedJob,
+				ProviderType:  string(types.OCR3Capability),
+			},
+			types.PluginArgs{
+				PluginConfig: spec.RelayConfig.Bytes(), // contains all necessary fields for config provider
+			},
+		)
 	} else {
 		configProvider, err = relayer.NewConfigProvider(ctx, types.RelayArgs{
 			ExternalJobID: jb.ExternalJobID,
