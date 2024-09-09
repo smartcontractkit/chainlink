@@ -49,6 +49,7 @@ import (
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
@@ -798,7 +799,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	medianProvider.chainReader = chainReaderService
 
 	if relayConfig.Codec != nil {
-		medianProvider.codec, err = NewCodec(*relayConfig.Codec)
+		medianProvider.codec, err = codec.NewCodec(*relayConfig.Codec)
 		if err != nil {
 			return nil, err
 		}
