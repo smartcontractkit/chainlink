@@ -633,10 +633,10 @@ jobs:
           retention-days: 1
 
       - name: Upload custom test artifacts
-        if: inputs.test_log_upload_on_failure && failure()
+        if: failure() && matrix.tests.test_artifacts_on_failure != 'null'
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: custom_test_artifacts_${{ needs.load-test-configurations.outputs.workflow_id }}_${{ matrix.tests.id_sanitized }}
+          name: custom_test_artifacts_${{ matrix.tests.id_sanitized }}_${{ needs.load-test-configurations.outputs.workflow_id }}
           path: ${{ matrix.tests.test_artifacts_on_failure }}        
           retention-days: 1      
 
@@ -798,10 +798,10 @@ jobs:
         continue-on-error: true
 
       - name: Upload custom test artifacts
-        if: inputs.test_log_upload_on_failure && failure() 
+        if: failure() && matrix.tests.test_artifacts_on_failure != 'null'
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: custom_test_artifacts_${{ needs.load-test-configurations.outputs.workflow_id }}_${{ matrix.tests.id_sanitized }}
+          name: custom_test_artifacts_${{ matrix.tests.id_sanitized }}_${{ needs.load-test-configurations.outputs.workflow_id }}
           path: ${{ matrix.tests.test_artifacts_on_failure }}        
           retention-days: 1              
 
