@@ -546,7 +546,7 @@ jobs:
           # Convert array to newline-separated string for output
           printf -v PATHS_STR '%s\n' "${DEFAULT_PATHS[@]}"
           echo "Test artifact paths: $PATHS_STR"  # Echoing the PATHS_STR to the logs
-          echo "paths=$PATHS_STR" >> $GITHUB_OUTPUT
+          echo "ARTIFACT_PATHS=$PATHS_STR" >> $GITHUB_ENV  # Store the multiline paths in an environment variable
 
       - name: Run tests
         id: run_tests
@@ -581,7 +581,7 @@ jobs:
           default_e2e_test_chainlink_upgrade_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.tests.id_sanitized }}-test-logs
-          artifacts_location: ${{ steps.get_artifact_paths.outputs.paths }}
+          artifacts_location: ${{ env.ARTIFACT_PATHS }}
           publish_check_name: ${{ matrix.tests.id_sanitized }}
           token: ${{ secrets.GH_TOKEN }}
           cache_key_id: e2e-tests
