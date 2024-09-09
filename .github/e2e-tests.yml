@@ -990,6 +990,21 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/load && go test -test.run TestLoadCCIPStableRPS -timeout 70m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/6vjVx-1V8/ccip-long-running-tests"
+    workflows:
+      - E2E CCIP Load Tests  
+    artifact_paths: 
+      - ./integration-tests/load/logs/payload_ccip.json
+
+  - id: integration-tests/ccip-tests/load/ccip_test.go:TestLoadCCIPStableRPSAfterARMCurseAndUncurse
+    path: integration-tests/ccip-tests/load/ccip_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    test_cmd: cd integration-tests/ccip-tests/load && go test -test.run $TestLoadCCIPStableRPSAfterARMCurseAndUncurse$ -timeout 70m -count=1 -test.parallel=1 -json
+    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/load-with-arm-curse-uncurse.toml
+    test_env_vars:
+      E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/6vjVx-1V8/ccip-long-running-tests"
+    workflows:
+      - E2E CCIP Load Tests  
     artifact_paths: 
       - ./integration-tests/load/logs/payload_ccip.json
 
