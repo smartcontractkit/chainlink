@@ -67,8 +67,8 @@ func RouterSnapshot(r RouterReader) (Router, error) {
 }
 
 type RouterOffRamp struct {
-	SourceChainSelector uint64
-	OffRamp             string
+	SourceChainSelector uint64 `json:"source_chain_selector"`
+	OffRamp             string `json:"off_ramp"`
 }
 
 type RouterReader interface {

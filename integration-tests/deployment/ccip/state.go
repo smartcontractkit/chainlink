@@ -10,6 +10,7 @@ import (
 	owner_wrappers "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/contractwrappers/rmn1_6"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/contractwrappers/router1_2"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
 
@@ -37,7 +38,7 @@ type CCIPChainState struct {
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	Router             *router1_2.Router
 	Weth9              *weth9.WETH9
-	RMNRemote          *rmn_remote.RMNRemote
+	RMNRemote          *rmn1_6.RMN
 	// TODO: May need to support older link too
 	LinkToken *burn_mint_erc677.BurnMintERC677
 	// Note we only expect one of these (on the home chain)
@@ -102,6 +103,14 @@ func (s CCIPOnChainState) Snapshot(chains []uint64) (view.CCIPSnapShot, error) {
 				return snapshot, err
 			}
 			c.NonceManager[nm.Address().Hex()] = nmSnapshot
+		}
+		rmn := s.Chains[chainSelector].RMNRemote
+		if rmn != nil {
+			rmnSnapshot, err := view.RMNSnapshot(rmn)
+			if err != nil {
+				return snapshot, err
+			}
+			c.RMN[rmn.Address().Hex()] = rmnSnapshot
 		}
 		snapshot.Chains[chainName] = c
 	}
@@ -174,7 +183,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if err != nil {
 				return state, err
 			}
-			state.RMNRemote = rmnRemote
+			state.RMNRemote = rmn1_6.New(rmnRemote)
 		case deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0).String():
 			weth9, err := weth9.NewWETH9(common.HexToAddress(address), chain.Client)
 			if err != nil {
