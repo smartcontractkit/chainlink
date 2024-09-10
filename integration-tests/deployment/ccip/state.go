@@ -14,11 +14,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
@@ -35,7 +35,7 @@ type CCIPChainState struct {
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	Router             *router.Router
 	Weth9              *weth9.WETH9
-	MockRmn            *mock_rmn_contract.MockRMNContract
+	RMNRemote          *rmn_remote.RMNRemote
 	// TODO: May need to support older link too
 	LinkToken *burn_mint_erc677.BurnMintERC677
 	// Note we only expect one of these (on the home chain)
@@ -214,12 +214,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.ArmProxy = armProxy
-		case deployment.NewTypeAndVersion(MockARM, deployment.Version1_0_0).String():
-			mockARM, err := mock_rmn_contract.NewMockRMNContract(common.HexToAddress(address), chain.Client)
+		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_0_0).String():
+			rmnRemote, err := rmn_remote.NewRMNRemote(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			state.MockRmn = mockARM
+			state.RMNRemote = rmnRemote
 		case deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0).String():
 			weth9, err := weth9.NewWETH9(common.HexToAddress(address), chain.Client)
 			if err != nil {

@@ -172,7 +172,6 @@ func AddChainConfig(
 	encodedExtraChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
 		GasPriceDeviationPPB:    ccipocr3.NewBigIntFromInt64(1000),
 		DAGasPriceDeviationPPB:  ccipocr3.NewBigIntFromInt64(0),
-		FinalityDepth:           10,
 		OptimisticConfirmations: 1,
 	})
 	if err != nil {
@@ -292,7 +291,6 @@ func AddDON(
 			F:                     configF,
 			OffchainConfigVersion: offchainConfigVersion,
 			OfframpAddress:        offRamp.Address().Bytes(),
-			BootstrapP2PIds:       [][32]byte{bootstrapP2PID},
 			P2pIds:                p2pIDs,
 			Signers:               signersBytes,
 			Transmitters:          transmittersBytes,

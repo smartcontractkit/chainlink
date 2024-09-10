@@ -330,49 +330,6 @@ transmitterID = "%x"
 	))
 }
 
-func addOCRJobs(
-	t *testing.T,
-	streams []Stream,
-	serverPubKey ed25519.PublicKey,
-	serverURL string,
-	configuratorAddress common.Address,
-	bootstrapPeerID string,
-	bootstrapNodePort int,
-	nodes []Node,
-	configStoreAddress common.Address,
-	clientPubKeys []ed25519.PublicKey,
-	pluginConfig,
-	relayType,
-	relayConfig string) (streamJobIDs []int32) {
-
-	// Add OCR jobs - one per feed on each node
-	for i, node := range nodes {
-		for j, strm := range streams {
-			bmBridge := createBridge(t, fmt.Sprintf("benchmarkprice-%d-%d", strm.id, j), i, strm.baseBenchmarkPrice, node.App.BridgeORM())
-			jobID := addSingleDecimalStreamJob(
-				t,
-				node,
-				strm.id,
-				bmBridge,
-			)
-			streamJobIDs = append(streamJobIDs, jobID)
-		}
-		addLLOJob(
-			t,
-			node,
-			configuratorAddress,
-			bootstrapPeerID,
-			bootstrapNodePort,
-			clientPubKeys[i],
-			"feed-1",
-			pluginConfig,
-			relayType,
-			relayConfig,
-		)
-	}
-	return streamJobIDs
-}
-
 func createBridge(t *testing.T, name string, i int, p decimal.Decimal, borm bridges.ORM) (bridgeName string) {
 	ctx := testutils.Context(t)
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -385,22 +342,6 @@ func createBridge(t *testing.T, name string, i int, p decimal.Decimal, borm brid
 		resp := fmt.Sprintf(`{"result": %s}`, val)
 		_, err = res.Write([]byte(resp))
 		require.NoError(t, err)
-	}))
-	t.Cleanup(bridge.Close)
-	u, _ := url.Parse(bridge.URL)
-	bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
-	require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
-		Name: bridges.BridgeName(bridgeName),
-		URL:  models.WebURL(*u),
-	}))
-
-	return bridgeName
-}
-
-func createErroringBridge(t *testing.T, name string, i int, borm bridges.ORM) (bridgeName string) {
-	ctx := testutils.Context(t)
-	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		res.WriteHeader(http.StatusInternalServerError)
 	}))
 	t.Cleanup(bridge.Close)
 	u, _ := url.Parse(bridge.URL)

@@ -282,10 +282,6 @@ func (g *generalConfig) FeatureFeedsManager() bool {
 	return *g.c.Feature.FeedsManager
 }
 
-func (g *generalConfig) FeatureMultiFeedsManagers() bool {
-	return *g.c.Feature.MultiFeedsManagers
-}
-
 func (g *generalConfig) OCR() config.OCR {
 	return &ocrConfig{c: g.c.OCR}
 }

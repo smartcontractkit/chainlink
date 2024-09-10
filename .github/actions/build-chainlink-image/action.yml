@@ -51,4 +51,4 @@ runs:
       shell: sh
       run: |
         echo "### Chainlink node image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
-        echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
+        echo "\`${{inputs.git_commit_sha}}\`" >>$GITHUB_STEP_SUMMARY

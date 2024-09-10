@@ -63,8 +63,10 @@ flowchart LR
   chainlink-cosmos --> libocr
   chainlink-data-streams --> chainlink-common
   chainlink-data-streams --> libocr
+  chainlink-data-streams --> grpc-proxy
   chainlink-feeds --> chainlink-common
   chainlink-feeds --> libocr
+  chainlink-feeds --> grpc-proxy
   chainlink-solana --> chainlink-common
   chainlink-solana --> libocr
   chainlink-starknet/relayer --> chainlink-common
