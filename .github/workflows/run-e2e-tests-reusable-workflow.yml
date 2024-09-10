@@ -1,5 +1,9 @@
 # This is a reusable workflow that runs E2E tests for Chainlink.
 # It is not meant to be run on its own.
+# 
+# IMPORTANT NOTE: All workflow_call inputs appear as plain text in GitHub Logs (see https://github.com/actions/runner/issues/2988).
+# Do not include any sensitive information in these inputs. Instead, for handling test secrets, refer to https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md#test-secrets
+#
 name: Run E2E Tests
 on:
   workflow_call:
@@ -25,15 +29,31 @@ on:
         description: 'Base64 encoded list of tests (YML objects) to run. Example in run-automation-ondemand-e2e-tests.yml'
         required: false
         type: string
+      custom_test_list_json:
+        description: 'Custom JSON list of tests to run'
+        required: false
+        type: string
+      # Example:  
+      # custom_test_list_json: >
+      # {
+      #   "tests": [
+      #     {
+      #       "id": "TestVRFv2Plus",
+      #       "path": "integration-tests/smoke/vrfv2plus_test.go",
+      #       "runs_on": "ubuntu-latest",
+      #       "test_env_type": "docker",
+      #       "test_cmd": "cd integration-tests/smoke && go test vrfv2plus_test.go -test.parallel=1 -timeout 3h -count=1 -json -v"
+      #     }
+      #   ]
+      # }          
       test_workflow:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
         required: false
         type: string
-      # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392
-      # test_config_override_base64:
-      #   required: false
-      #   description: The base64-encoded test config override
-      #   type: string
+      test_config_override_path:
+        description: 'Path to a test config file used to override the default test config'
+        required: false
+        type: string  
       enable_check_test_configurations:
         description: 'Set to "true" to enable check-test-configurations job'
         required: false
@@ -61,6 +81,10 @@ on:
         type: string
       slack_notification_after_tests_name:
         description: 'Name of the slack notification'
+        required: false
+        type: string
+      slack_notification_after_tests_notify_user_id_on_failure:
+        description: 'Set Slack user id to notify on test failure'
         required: false
         type: string
       test_log_upload_on_failure:
@@ -161,20 +185,35 @@ jobs:
           fi
       - name: Install jq
         run: sudo apt-get install jq
+
       - name: Create matrix for required Chainlink image versions
         id: set-required-chainlink-image-versions-matrix
         run: |
-          if [[ "${{ inputs.require_chainlink_image_versions_in_qa_ecr }}" != '' ]]; then
-            image_versions=$(echo "${{ inputs.require_chainlink_image_versions_in_qa_ecr }}" | jq -Rc 'split(",") | if . == [""] then [] else . end')
-            echo "versions=$image_versions" >> $GITHUB_OUTPUT
+          image_versions="${{ inputs.require_chainlink_image_versions_in_qa_ecr }}"
+          default_version="${{ env.DEFAULT_CHAINLINK_VERSION }}"
+          current_sha="${{ github.sha }}"
+
+          if [[ "$default_version" == "$current_sha" ]]; then
+            # Append the current SHA to required image versions
+            if [[ -z "$image_versions" ]]; then
+              image_versions="${{ github.sha }}"
+            else
+              image_versions+=",${{ github.sha }}"
+            fi            
           fi
+
+          # Convert the comma-separated string to a JSON array
+          image_versions=$(echo "$image_versions" | jq -Rc 'if . == "" then "" else split(",") | if . == [""] then "" else . end end')
+
+          echo "Required Chainlink image versions: $image_versions"   
+          echo "versions=$image_versions" >> $GITHUB_OUTPUT
+
       - name: Create matrix for required Chainlink plugin versions
         id: set-required-chainlink-plugin-versions-matrix
         run: |
-          if [[ "${{ inputs.require_chainlink_plugin_versions_in_qa_ecr }}" != '' ]]; then
-            image_versions=$(echo "${{ inputs.require_chainlink_plugin_versions_in_qa_ecr }}" | jq -Rc 'split(",") | if . == [""] then [] else . end')
-            echo "versions=$image_versions" >> $GITHUB_OUTPUT
-          fi          
+          image_versions=$(echo "${{ inputs.require_chainlink_plugin_versions_in_qa_ecr }}" | jq -Rc 'if . == "" then "" else split(",") | if . == [""] then "" else . end end')
+          echo "Required Chainlink plugin image versions: $image_versions"   
+          echo "versions=$image_versions" >> $GITHUB_OUTPUT
 
   check-test-configurations:
     name: Check test configurations
@@ -239,20 +278,39 @@ jobs:
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@a49f2dff000fcf020ab9978b33e3726d7df5bf96 # v1.34.4
       - name: Install jq
         run: sudo apt-get install jq
+
       - name: Generate Docker Tests Matrix
         id: set-docker-matrix
         run: |
-          MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          # Check if custom_test_list_json is provided and non-empty
+          if [[ -n '${{ inputs.custom_test_list_json }}' ]]; then
+            echo "Using custom test list JSON"
+            MATRIX_JSON=$(echo '${{ inputs.custom_test_list_json }}' | jq -c '{tests: [.tests[] | select(.test_env_type == "docker")]}')
+          else
+            echo "Using default test list"
+            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          fi
+
           echo "Docker tests:"
           echo "$MATRIX_JSON" | jq
           echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+
       - name: Generate K8s Tests Matrix
         id: set-k8s-runner-matrix
         run: |
-          MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          # Check if custom_test_list_json is provided and non-empty
+          if [[ -n '${{ inputs.custom_test_list_json }}' ]]; then
+            echo "Using custom test list JSON"
+            MATRIX_JSON=$(echo '${{ inputs.custom_test_list_json }}' | jq -c '{tests: [.tests[] | select(.test_env_type == "k8s-remote-runner")]}')
+          else
+            echo "Using default test list"
+            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          fi
+
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
           echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+
       - name: Check Test Matrices
         id: check-matrices
         run: |
@@ -278,7 +336,7 @@ jobs:
 
           # Check if both matrices are empty
           if [[ "$DOCKER_MATRIX_EMPTY" == "true" ]] && [[ "$K8S_MATRIX_EMPTY" == "true" ]]; then
-            echo "No tests found for inputs: '${{ toJson(inputs) }}'. Both Docker and Kubernetes tests matrices are empty"
+            echo "No tests found for inputs. Both Docker and Kubernetes tests matrices are empty"
             exit 1
           fi
         shell: bash
@@ -286,13 +344,6 @@ jobs:
       - name: Check if test config override is required for any test
         shell: bash
         run: |
-          # Check if the test config override is provided and skip the checks if it is non-empty
-          # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392 
-          # if [ -n "${{ inputs.test_config_override_base64 }}" ]; then
-          #   echo "Test config override provided. Skipping checks for tests requiring config override."
-          #   exit 0
-          # fi
-
           # Parse the JSON to check for test_config_override_required in Docker matrix
           DOCKER_TESTS_REQUIRING_CONFIG_OVERRIDE=$(echo '${{ steps.set-docker-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("test_config_override_required") and .test_config_override_required) | .id else empty end' -r)
           # Parse the JSON to check for test_config_override_required in Kubernetes matrix
@@ -307,7 +358,7 @@ jobs:
             if [ ! -z "$K8S_TESTS_REQUIRING_CONFIG_OVERRIDE" ]; then
               echo $K8S_TESTS_REQUIRING_CONFIG_OVERRIDE
             fi
-            echo "::error::Error: Some of the tests require a test config override. Please see workflow logs and set 'test_config_override_base64' to run these tests."
+            echo "::error::Error: Some of the tests require a test config override. Please see workflow logs and set 'test_config_override_path' to run these tests."
             exit 1
           else
             echo "No tests require a configuration override. Proceeding without overrides."
@@ -347,11 +398,11 @@ jobs:
         run: echo "workflow_id=$(uuidgen)" >> $GITHUB_OUTPUT          
   
 
-  # Build Chainlink images required for the tests
+  # Check if Chainlink images required for the tests exist. If not, build and push the images to QA ECR
   require-chainlink-image-versions-in-qa-ecr:
-    name: Build Chainlink image
+    name: Get Chainlink image
     needs: [validate-inputs, load-test-configurations]
-    if: ${{ needs.validate-inputs.outputs.require_chainlink_image_versions_in_qa_ecr_matrix != '' }}
+    if: ${{ fromJson(needs.validate-inputs.outputs.require_chainlink_image_versions_in_qa_ecr_matrix) != '' }}
     runs-on: ubuntu-latest
     environment: integration
     permissions:
@@ -366,7 +417,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
-      - name: Build Chainlink image for ${{ matrix.version }} and push it to QA ECR
+      - name: Get Chainlink image
         uses: ./.github/actions/build-chainlink-image
         with:
           dockerfile: core/chainlink.Dockerfile
@@ -376,11 +427,11 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
-  # Build Chainlink plugins required for the tests
+  # Check if Chainlink plugins required for the tests exist. If not, build and push the images to QA ECR
   require-chainlink-plugin-versions-in-qa-ecr:
-    name: Build Chainlink plugins
+    name: Get Chainlink plugins image
     needs: [validate-inputs, load-test-configurations]
-    if: ${{ needs.validate-inputs.outputs.require_chainlink_plugin_versions_in_qa_ecr_matrix != '' }}
+    if: ${{ fromJson(needs.validate-inputs.outputs.require_chainlink_plugin_versions_in_qa_ecr_matrix) != '' }}  
     runs-on: ubuntu-latest
     environment: integration
     permissions:
@@ -395,7 +446,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
-      - name: Build Chainlink plugins image for ${{ matrix.version }}
+      - name: Get Chainlink plugins image
         uses: ./.github/actions/build-chainlink-image
         with:
           dockerfile: plugins/chainlink.Dockerfile
@@ -424,6 +475,7 @@ jobs:
       contents: read
     env:
       LATEST_CHAINLINK_RELEASE_VERSION: ${{ needs.get_latest_chainlink_release_version.outputs.latest_chainlink_release_version }}
+      TEST_CONFIG_OVERRIDE_PATH: ${{ matrix.tests.test_config_override_path || inputs.test_config_override_path }}
     steps:
       - name: Collect Metrics
         if: always()
@@ -442,7 +494,19 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Install jq
         run: sudo apt-get install -y jq
-      - name: Show test configuration
+
+      - name: Show test config override path in summary
+        if: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}
+        run: |
+          echo "### Test config override path" >> $GITHUB_STEP_SUMMARY
+          echo "[${{ env.TEST_CONFIG_OVERRIDE_PATH }}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/${{ github.sha }}/${{ env.TEST_CONFIG_OVERRIDE_PATH }})" >> $GITHUB_STEP_SUMMARY
+
+      - name: Show chainlink version in summary
+        run: |
+          echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
+          echo "${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Show test configuration in logs
         run: echo '${{ toJson(matrix.tests) }}' | jq .
 
       - name: Setup GAP for Grafana
@@ -483,18 +547,16 @@ jobs:
 
       - name: Run tests
         id: run_tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@94cb11f4bd545607a2f221c6685052b3abee723d # v2.3.32
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@4f377a6b1cc07f0eca82745782736b4908a1da30 # v2.3.32
         env:
           DETACH_RUNNER: true
-          E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || inputs.chainlink_version || github.sha }}
+          E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}
           E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_VERSION }}
           E2E_TEST_CHAINLINK_POSTGRES_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_POSTGRES_VERSION }}
           E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_env_vars.E2E_TEST_SELECTED_NETWORK || env.SELECTED_NETWORKS }}
           E2E_TEST_LOGGING_RUN_ID: ${{ github.run_id }}
           E2E_TEST_LOG_STREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           E2E_TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
-          E2E_TEST_CHAINLINK_IMAGE: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_IMAGE || env.CHAINLINK_IMAGE }}
-          E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
           E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -509,11 +571,11 @@ jobs:
           test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd $(dirname ${{ matrix.tests.path }}) && go mod download
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
-          test_config_override_path: ${{ matrix.tests.test_config_override_path }}
-          # TODO: Uncomment once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1392
-          # test_config_override_base64: ${{ inputs.test_config_override_base64 }}
+          test_config_override_path: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}
           test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
           test_suite: ${{ matrix.tests.test_env_vars.TEST_SUITE }}
+          default_e2e_test_chainlink_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_IMAGE || env.CHAINLINK_IMAGE }}
+          default_e2e_test_chainlink_upgrade_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.tests.id_sanitized }}-test-logs
           artifacts_location: |
@@ -608,6 +670,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Build Test Runner Image
+        id: build-test-runner-image
         uses: ./.github/actions/build-test-image
         if: ${{ inputs.with_existing_remote_runner_version == '' }}
         with:
@@ -618,7 +681,9 @@ jobs:
         id: set-remote-runner-version
         run: |
           if [[ -z "${{ inputs.with_existing_remote_runner_version }}" ]]; then
-            echo "remote-runner-version=${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "remote-runner-image=${{ steps.build-test-runner-image.outputs.test_image }}" >> $GITHUB_OUTPUT
+            echo "remote-runner-repository=${{ steps.build-test-runner-image.outputs.test_image_repository }}" >> $GITHUB_OUTPUT
+            echo "remote-runner-version=${{ steps.build-test-runner-image.outputs.test_image_tag }}" >> $GITHUB_OUTPUT
           else
             echo "remote-runner-version=${{ inputs.with_existing_remote_runner_version }}" >> $GITHUB_OUTPUT
           fi
@@ -640,6 +705,7 @@ jobs:
       contents: read
     env:
       LATEST_CHAINLINK_RELEASE_VERSION: ${{ needs.get_latest_chainlink_release_version.outputs.latest_chainlink_release_version }}
+      TEST_CONFIG_OVERRIDE_PATH: ${{ matrix.tests.test_config_override_path || inputs.test_config_override_path }}
     steps:
       - name: Collect Metrics
         if: always()
@@ -657,15 +723,30 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Install jq
         run: sudo apt-get install -y jq
-      - name: Show Test Configuration
-        run: echo '${{ toJson(matrix.tests) }}' | jq .
-      - name: Show Remote Runner Version
+
+      - name: Show test config override path in summary
+        if: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}
+        run: |
+          echo "### Test config override path" >> $GITHUB_STEP_SUMMARY
+          echo "[${{ env.TEST_CONFIG_OVERRIDE_PATH }}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/${{ github.sha }}/${{ env.TEST_CONFIG_OVERRIDE_PATH }})" >> $GITHUB_STEP_SUMMARY
+
+      - name: Show chainlink version in summary
+        run: |
+          echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
+          echo "${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}" >> $GITHUB_STEP_SUMMARY                    
+
+      - name: Show remote runner version in summary
         run: |
           echo "Remote Runner Version: ${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}"
+          echo "### Remote Runner Version" >> $GITHUB_STEP_SUMMARY
+          echo "${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Show test configuration in logs
+        run: echo '${{ toJson(matrix.tests) }}' | jq .
 
       - name: Run tests
         id: run_tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@94cb11f4bd545607a2f221c6685052b3abee723d # v2.3.32
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@4f377a6b1cc07f0eca82745782736b4908a1da30 # v2.3.32
         env:
           DETACH_RUNNER: true
           RR_MEM: ${{ matrix.tests.remote_runner_memory }}
@@ -676,15 +757,13 @@ jobs:
           TEST_UPLOAD_CPU_PROFILE: true
           TEST_UPLOAD_MEM_PROFILE: true
           REF_NAME: ${{ github.head_ref || github.ref_name }}
-          E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || inputs.chainlink_version || github.sha }}
+          E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}
           E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_VERSION }}
           E2E_TEST_CHAINLINK_POSTGRES_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_POSTGRES_VERSION }}
           E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_env_vars.E2E_TEST_SELECTED_NETWORK || env.SELECTED_NETWORKS }}
           E2E_TEST_LOGGING_RUN_ID: ${{ github.run_id }}
           E2E_TEST_LOG_STREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           E2E_TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
-          E2E_TEST_CHAINLINK_IMAGE: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_IMAGE || env.CHAINLINK_IMAGE }}
-          E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
           E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -700,8 +779,11 @@ jobs:
           test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: make gomod
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
+          test_config_override_path: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}
           test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
           test_suite: ${{ matrix.tests.test_env_vars.TEST_SUITE }}
+          default_e2e_test_chainlink_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_IMAGE || env.CHAINLINK_IMAGE }}
+          default_e2e_test_chainlink_upgrade_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
           token: ${{ secrets.GH_TOKEN }}
           should_cleanup: false
           cache_key_id: e2e-tests
@@ -765,19 +847,45 @@ jobs:
           channel-id: ${{ inputs.slack_notification_after_tests_channel_id }}
           payload: |
             {
+              "attachments": [
+                {
+                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || '#2E7D32' }}",
+                  "blocks": [
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "${{ inputs.slack_notification_after_tests_name }} - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Cancelled :warning:' || 'Passed :white_check_mark:' }}"
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Build Details>"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+        
+      - name: Notify user in Slack message if tests failed
+        if: ${{ inputs.slack_notification_after_tests != '' && contains(join(needs.*.result, ','), 'failure') && inputs.slack_notification_after_tests_notify_user_id_on_failure != '' }}
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        with:
+          channel-id: ${{ inputs.slack_notification_after_tests_channel_id }}
+          payload: |
+            {
+              "thread_ts": "${{ steps.slack.outputs.thread_ts }}",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "${{ inputs.slack_notification_after_tests_name }} - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Cancelled :warning:' || 'Passed :white_check_mark:' }}"
-                  }
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Build Details>"
+                    "text": "Notifying <@${{ inputs.slack_notification_after_tests_notify_user_id_on_failure }}>, please check the test results."
                   }
                 }
               ]
