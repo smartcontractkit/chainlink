@@ -136,9 +136,6 @@ func (h *Head) HeadAtHeight(blockNum int64) (commontypes.Head[common.Hash], erro
 
 // ChainLength returns the length of the chain followed by recursively looking up parents
 func (h *Head) ChainLength() uint32 {
-	if h == nil {
-		return 0
-	}
 	l := uint32(0)
 	for cur := h; cur != nil; cur = cur.Parent.Load() {
 		l++

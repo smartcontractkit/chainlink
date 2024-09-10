@@ -19,8 +19,10 @@ func (h *headsHeap) Less(i, j int) bool {
 }
 
 func (h *headsHeap) Pop() any {
-	old := h.values[len(h.values)-1]
-	h.values = h.values[:len(h.values)-1]
+	n := len(h.values) - 1
+	old := h.values[n]
+	h.values[n] = nil
+	h.values = h.values[:n]
 	return old
 }
 
