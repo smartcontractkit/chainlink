@@ -27,6 +27,7 @@ type ServiceWrapper struct {
 	keystore  keystore.Eth
 	connector connector.GatewayConnector
 	lggr      logger.Logger
+	clock     clockwork.Clock
 }
 
 type connectorSigner struct {
@@ -71,10 +72,11 @@ func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 }
 
 // NOTE: this wrapper is needed to make sure that our services are started after Keystore.
-func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore keystore.Eth, lggr logger.Logger) *ServiceWrapper {
+func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore keystore.Eth, clock clockwork.Clock, lggr logger.Logger) *ServiceWrapper {
 	return &ServiceWrapper{
 		config:   config,
 		keystore: keystore,
+		clock:    clock,
 		lggr:     lggr,
 	}
 }
@@ -107,7 +109,7 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 			return err
 		}
 		translated := translateConfigs(conf)
-		e.connector, err = connector.NewGatewayConnector(&translated, signer, clockwork.NewFakeClock(), e.lggr)
+		e.connector, err = connector.NewGatewayConnector(&translated, signer, e.clock, e.lggr)
 		if err != nil {
 			return err
 		}

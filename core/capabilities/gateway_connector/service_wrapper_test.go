@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"testing"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -42,7 +43,7 @@ func generateWrapper(t *testing.T, privateKey *ecdsa.PrivateKey, keystoreKey *ec
 	ethKeystore := ksmocks.NewEth(t)
 	ethKeystore.On("EnabledKeysForChain", mock.Anything, mock.Anything).Return([]ethkey.KeyV2{keystoreKeyV2}, nil)
 	gc := config.Capabilities().GatewayConnector()
-	wrapper := NewGatewayConnectorServiceWrapper(gc, ethKeystore, logger)
+	wrapper := NewGatewayConnectorServiceWrapper(gc, ethKeystore, clockwork.NewFakeClock(), logger)
 	require.NoError(t, err)
 	return wrapper, err
 }
