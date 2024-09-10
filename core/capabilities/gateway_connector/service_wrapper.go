@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	gwCommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
+	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -49,7 +49,7 @@ func NewConnectorSigner(config config.GatewayConnector, signerKey *ecdsa.Private
 }
 
 func (h *connectorSigner) Sign(data ...[]byte) ([]byte, error) {
-	return gwCommon.SignData(h.signerKey, data...)
+	return gwcommon.SignData(h.signerKey, data...)
 }
 
 func (h *connectorSigner) Start(ctx context.Context) error {
