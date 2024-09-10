@@ -1,9 +1,5 @@
 package view
 
-import (
-	"github.com/ethereum/go-ethereum/common"
-)
-
 type ContractStatus string
 
 const (
@@ -21,6 +17,6 @@ var ContractStatusLookup = map[string]ContractStatus{
 }
 
 type Contract struct {
-	TypeAndVersion string         `json:"typeAndVersion"`
-	Address        common.Address `json:"address"`
+	TypeAndVersion string `json:"typeAndVersion"`
+	Address        string `json:"address"`
 }

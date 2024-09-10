@@ -62,9 +62,7 @@ type CCIPOnChainState struct {
 }
 
 func (s CCIPOnChainState) Snapshot(chains []uint64) (view.CCIPSnapShot, error) {
-	snapshot := view.CCIPSnapShot{
-		Chains: make(map[string]view.Chain),
-	}
+	snapshot := view.NewCCIPSnapShot()
 	for _, chainSelector := range chains {
 		// TODO: Need a utility for this
 		chainid, err := chainsel.ChainIdFromSelector(chainSelector)
@@ -78,43 +76,22 @@ func (s CCIPOnChainState) Snapshot(chains []uint64) (view.CCIPSnapShot, error) {
 		if _, ok := s.Chains[chainSelector]; !ok {
 			return snapshot, fmt.Errorf("chain not supported %d", chainSelector)
 		}
-		var c view.Chain
+		c := view.NewChain()
 		ta := s.Chains[chainSelector].TokenAdminRegistry
 		if ta != nil {
-			tokens, err := ta.GetAllConfiguredTokens(nil, 0, 10)
+			taSnapshot, err := view.TokenAdminRegistrySnapshot(ta)
 			if err != nil {
 				return snapshot, err
 			}
-			tv, err := ta.TypeAndVersion(nil)
-			if err != nil {
-				return snapshot, err
-			}
-			c.TokenAdminRegistry = view.TokenAdminRegistry{
-				Contract: view.Contract{
-					TypeAndVersion: tv,
-					Address:        ta.Address(),
-				},
-				Tokens: tokens,
-			}
+			c.TokenAdminRegistry[ta.Address().Hex()] = taSnapshot
 		}
 		nm := s.Chains[chainSelector].NonceManager
 		if nm != nil {
-			authorizedCallers, err := nm.GetAllAuthorizedCallers(nil)
+			nmSnapshot, err := view.NonceManagerSnapshot(nm)
 			if err != nil {
 				return snapshot, err
 			}
-			tv, err := nm.TypeAndVersion(nil)
-			if err != nil {
-				return snapshot, err
-			}
-			c.NonceManager = view.NonceManager{
-				Contract: view.Contract{
-					TypeAndVersion: tv,
-					Address:        nm.Address(),
-				},
-				// TODO: these can be resolved using an address book
-				AuthorizedCallers: authorizedCallers,
-			}
+			c.NonceManager[nm.Address().Hex()] = nmSnapshot
 		}
 		snapshot.Chains[chainName] = c
 	}
