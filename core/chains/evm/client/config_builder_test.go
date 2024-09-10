@@ -37,7 +37,7 @@ func TestClientConfigBuilder(t *testing.T) {
 	finalityDepth := ptr(uint32(10))
 	finalityTagEnabled := ptr(true)
 	noNewHeadsThreshold := time.Second
-	newHeadsPollInterval := 12 * time.Second
+	newHeadsPollInterval := 0 * time.Second
 	chainCfg, nodePool, nodes, err := client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs,
 		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth,
 		finalityTagEnabled, finalizedBlockOffset, enforceRepeatableRead, deathDeclarationDelay, noNewFinalizedBlocksThreshold,
