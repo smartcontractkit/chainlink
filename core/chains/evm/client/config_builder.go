@@ -43,7 +43,7 @@ func NewClientConfigs(
 	deathDeclarationDelay time.Duration,
 	noNewFinalizedHeadsThreshold time.Duration,
 	finalizedBlockPollInterval time.Duration,
-
+	newHeadsPollInterval time.Duration,
 ) (commonclient.ChainConfig, evmconfig.NodePool, []*toml.Node, error) {
 	nodes, err := parseNodeConfigs(nodeCfgs)
 	if err != nil {
@@ -59,6 +59,7 @@ func NewClientConfigs(
 		EnforceRepeatableRead:      enforceRepeatableRead,
 		DeathDeclarationDelay:      commonconfig.MustNewDuration(deathDeclarationDelay),
 		FinalizedBlockPollInterval: commonconfig.MustNewDuration(finalizedBlockPollInterval),
+		NewHeadsPollInterval:       commonconfig.MustNewDuration(newHeadsPollInterval),
 	}
 	nodePoolCfg := &evmconfig.NodePoolConfig{C: nodePool}
 	chainConfig := &evmconfig.EVMConfig{

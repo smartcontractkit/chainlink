@@ -123,6 +123,7 @@ type rpcClient struct {
 	largePayloadRpcTimeout     time.Duration
 	rpcTimeout                 time.Duration
 	finalizedBlockPollInterval time.Duration
+	newHeadsPollInterval       time.Duration
 	chainType                  chaintype.ChainType
 
 	ws   rawclient
@@ -159,6 +160,7 @@ func NewRPCClient(
 	chainID *big.Int,
 	tier commonclient.NodeTier,
 	finalizedBlockPollInterval time.Duration,
+	newHeadsPollInterval time.Duration,
 	largePayloadRpcTimeout time.Duration,
 	rpcTimeout time.Duration,
 	chainType chaintype.ChainType,
@@ -174,6 +176,7 @@ func NewRPCClient(
 	r.tier = tier
 	r.ws.uri = wsuri
 	r.finalizedBlockPollInterval = finalizedBlockPollInterval
+	r.newHeadsPollInterval = newHeadsPollInterval
 	if httpuri != nil {
 		r.http = &rawclient{uri: *httpuri}
 	}
