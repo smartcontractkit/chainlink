@@ -240,7 +240,7 @@ jobs:
           path: core
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@f03af143be18178b618e6e5ea43ef828f52d2ea6 # v1.34.4
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@1d8d5b55bf6379b969dbcde99abc87faa5963ea1 # v1.34.4
       - name: Run Check Tests Command
         run: |
           if ! citool check-tests ${{ github.workspace }}/integration-tests ${{ github.workspace }}/.github/e2e-tests.yml; then
@@ -287,7 +287,7 @@ jobs:
           check-latest: true
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@f03af143be18178b618e6e5ea43ef828f52d2ea6 # v1.34.4
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@1d8d5b55bf6379b969dbcde99abc87faa5963ea1 # v1.34.4
       - name: Install jq
         run: sudo apt-get install jq
 
