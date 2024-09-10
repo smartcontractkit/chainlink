@@ -1006,7 +1006,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPReorgBelowFinality$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-    test_config_override_path: ./integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
+    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgAboveFinalityAtDestination$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1018,7 +1018,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPReorgAboveFinalityAtDestination$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-    test_config_override_path: ./integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
+    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgAboveFinalityAtSource$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1030,7 +1030,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPReorgAboveFinalityAtSource$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-    test_config_override_path: ./integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
+    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
 
   - id: ccip-tests/chaos/ccip_test.go
     path: integration-tests/ccip-tests/chaos/ccip_test.go
