@@ -69,8 +69,10 @@ flowchart LR
   chainlink-feeds --> grpc-proxy
   chainlink-solana --> chainlink-common
   chainlink-solana --> libocr
+  chainlink-solana --> grpc-proxy
   chainlink-starknet/relayer --> chainlink-common
   chainlink-starknet/relayer --> libocr
+  chainlink-starknet/relayer --> grpc-proxy
   tdh2/go/ocr2/decryptionplugin --> libocr
   tdh2/go/ocr2/decryptionplugin --> tdh2/go/tdh2
 ```
