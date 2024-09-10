@@ -8,20 +8,32 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
+// Log Event Trigger Capability Request Config Details
+type RequestConfig struct {
+	ContractName         string                     `json:"contractName"`
+	ContractAddress      common.Address             `json:"contractAddress"`
+	ContractEventName    string                     `json:"contractEventName"`
+	ContractReaderConfig evmtypes.ChainReaderConfig `json:"contractReaderConfig"`
+}
+
+// LogEventTrigger struct to listen for Contract events using ContractReader gRPC client
+// in a loop with a periodic delay of pollPeriod milliseconds, which is specified in
+// the job spec
 type logEventTrigger struct {
-	ch chan<- capabilities.TriggerResponse
+	ch   chan<- capabilities.TriggerResponse
+	lggr logger.Logger
+	ctx  context.Context
 
 	// Contract address and Event Signature to monitor for
-	contractName         string
-	contractAddress      common.Address
-	contractReaderConfig evmtypes.ChainReaderConfig
-	contractReader       types.ContractReader
+	reqConfig      *RequestConfig
+	contractReader types.ContractReader
 
 	// Log Event Trigger config with pollPeriod and lookbackBlocks
 	logEventConfig LogEventConfig
@@ -54,20 +66,29 @@ func newLogEventTrigger(ctx context.Context,
 		return nil, nil, err
 	}
 
+	// Get current block HEAD/tip of the blockchain to start polling from
+
+	// Setup callback channel, logger and ticker to poll ContractReader
 	callbackCh := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
 	ticker := time.NewTicker(time.Duration(logEventConfig.PollPeriod) * time.Millisecond)
 	done := make(chan bool)
+	lggr, err := logger.New()
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not initialise logger for LogEventTrigger")
+	}
 
 	// Initialise a Log Event Trigger
 	l := &logEventTrigger{
-		ch:                   callbackCh,
-		contractName:         reqConfig.ContractName,
-		contractAddress:      reqConfig.ContractAddress,
-		contractReaderConfig: reqConfig.ContractReaderConfig,
-		contractReader:       contractReader,
-		logEventConfig:       logEventConfig,
-		ticker:               ticker,
-		done:                 done,
+		ch:   callbackCh,
+		lggr: logger.Named(lggr, "LogEventTrigger: "),
+		ctx:  ctx,
+
+		reqConfig:      reqConfig,
+		contractReader: contractReader,
+
+		logEventConfig: logEventConfig,
+		ticker:         ticker,
+		done:           done,
 	}
 	go l.Listen()
 
@@ -82,7 +103,22 @@ func (l *logEventTrigger) Listen() {
 		case <-l.done:
 			return
 		case t := <-l.ticker.C:
-			fmt.Println("Tick at", t)
+			l.lggr.Infof("Polling event logs at", t)
+			// iter, err := l.contractReader.QueryKey(
+			// 	l.ctx,
+			// 	l.reqConfig.ContractName,
+			// 	query.KeyFilter{
+			// 		Key: l.reqConfig.ContractEventName,
+			// 		Expressions: []query.Expression{
+			// 			query.Confidence(primitives.Finalized),
+			// 			query.Block(fmt.Sprintf("%d", l.logEventConfig.LookbackBlocks), primitives.Gte),
+			// 		},
+			// 	},
+			// 	query.LimitAndSort{
+			// 		SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
+			// 	},
+			// 	&ev,
+			// )
 		}
 	}
 }

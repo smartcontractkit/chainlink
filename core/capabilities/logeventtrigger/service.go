@@ -5,13 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 const ID = "log-event-trigger-%s-%d@1.0.0"
@@ -23,13 +20,6 @@ var logEventTriggerInfo = capabilities.MustNewCapabilityInfo(
 	capabilities.CapabilityTypeTrigger,
 	"A trigger that listens for specific contract log events and starts a workflow run.",
 )
-
-// Log Event Trigger Capability RequestConfig
-type RequestConfig struct {
-	ContractName         string                     `json:"contractName"`
-	ContractAddress      common.Address             `json:"contractAddress"`
-	ContractReaderConfig evmtypes.ChainReaderConfig `json:"contractReaderConfig"`
-}
 
 // Log Event Trigger Capability Input
 type Input struct {
@@ -79,7 +69,7 @@ var _ services.Service = &LogEventTriggerService{}
 // Creates a new Cron Trigger Service.
 // Scheduling will commence on calling .Start()
 func NewLogEventTriggerService(p Params) *LogEventTriggerService {
-	l := logger.Named(p.Logger, "Log Event Trigger Capability Service")
+	l := logger.Named(p.Logger, "LogEventTriggerCapabilityService: ")
 
 	logEventStore := NewCapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]()
 
@@ -115,9 +105,9 @@ func (s *LogEventTriggerService) RegisterTrigger(ctx context.Context, req capabi
 		return newLogEventTrigger(ctx, reqConfig, s.logEventConfig, s.relayer)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("log_event_trigger %v", err)
+		return nil, fmt.Errorf("LogEventTrigger %v", err)
 	}
-	s.lggr.Debugw("log_event_trigger::RegisterTrigger", "triggerId", req.TriggerID)
+	s.lggr.Debugw("RegisterTrigger", "triggerId", req.TriggerID)
 	return respCh, nil
 }
 
@@ -130,7 +120,7 @@ func (s *LogEventTriggerService) UnregisterTrigger(ctx context.Context, req capa
 	close(trigger.ch)
 	// Remove from triggers context
 	s.triggers.Delete(req.TriggerID)
-	s.lggr.Debugw("log_event_trigger::UnregisterTrigger", "triggerId", req.TriggerID)
+	s.lggr.Debugw("UnregisterTrigger", "triggerId", req.TriggerID)
 	return nil
 }
 
