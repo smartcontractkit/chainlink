@@ -21,10 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
-type serviceWrapper struct {
+type ServiceWrapper struct {
 	services.StateMachine
 
-	config    *config.GatewayConnector
+	config    config.GatewayConnector
 	keystore  keystore.Eth
 	connector connector.GatewayConnector
 	lggr      logger.Logger
@@ -41,9 +41,9 @@ type connectorSigner struct {
 
 var _ connector.Signer = &connectorSigner{}
 
-func NewConnectorSigner(config *config.GatewayConnector, signerKey *ecdsa.PrivateKey, lggr logger.Logger) (*connectorSigner, error) {
+func NewConnectorSigner(config config.GatewayConnector, signerKey *ecdsa.PrivateKey, lggr logger.Logger) (*connectorSigner, error) {
 	return &connectorSigner{
-		nodeAddress: (*config).NodeAddress(),
+		nodeAddress: config.NodeAddress(),
 		signerKey:   signerKey,
 		lggr:        lggr.Named("ConnectorSigner"),
 	}, nil
@@ -89,18 +89,24 @@ func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 }
 
 // NOTE: this wrapper is needed to make sure that our services are started after Keystore.
-func NewGatewayConnectorServiceWrapper(config *config.GatewayConnector, keystore keystore.Eth, lggr logger.Logger) *serviceWrapper {
-	return &serviceWrapper{
+func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore keystore.Eth, lggr logger.Logger) *ServiceWrapper {
+	return &ServiceWrapper{
 		config:   config,
 		keystore: keystore,
 		lggr:     lggr,
 	}
 }
 
-func (e *serviceWrapper) Start(ctx context.Context) error {
+func (e *ServiceWrapper) Start(ctx context.Context) error {
 	return e.StartOnce("GatewayConnectorServiceWrapper", func() error {
-		conf := *e.config
-		e.lggr.Infow("Starting GatewayConnectorServiceWrapper", "chainID", conf.ChainIDForNodeKey())
+		conf := e.config
+		e.lggr.Infow("Starting GatewayConnectorServiceWrapper", "chainID")
+
+		//     logger.go:146: 2024-09-10T07:52:35.248-0700	ERROR	zap@v1.27.0/sugar.go:257	Ignored key without a value.	{"version": "unset@unset", "ignored": "chainID"}
+		// go.uber.org/zap.(*SugaredLogger).Infow
+		///Users/davidorchard/go/pkg/mod/go.uber.org/zap@v1.27.0/sugar.go:257
+
+		e.lggr.Infow("Starting GatewayConnectorServiceWrapper2", "chainID", conf.ChainIDForNodeKey())
 		chainID, _ := new(big.Int).SetString(conf.ChainIDForNodeKey(), 0)
 		enabledKeys, err := e.keystore.EnabledKeysForChain(ctx, chainID)
 		if err != nil {
@@ -132,20 +138,20 @@ func (e *serviceWrapper) Start(ctx context.Context) error {
 	})
 }
 
-func (e *serviceWrapper) Close() error {
+func (e *ServiceWrapper) Close() error {
 	return e.StopOnce("GatewayConnectorServiceWrapper", func() (err error) {
 		return e.connector.Close()
 	})
 }
 
-func (e *serviceWrapper) Ready() error {
+func (e *ServiceWrapper) Ready() error {
 	return nil
 }
 
-func (e *serviceWrapper) HealthReport() map[string]error {
+func (e *ServiceWrapper) HealthReport() map[string]error {
 	return nil
 }
 
-func (e *serviceWrapper) Name() string {
+func (e *ServiceWrapper) Name() string {
 	return "GatewayConnectorServiceWrapper"
 }

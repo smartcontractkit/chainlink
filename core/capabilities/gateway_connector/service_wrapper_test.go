@@ -15,8 +15,10 @@ import (
 	"github.com/test-go/testify/mock"
 )
 
-func generateConfig(addr common.Address) (chainlink.GeneralConfig, error) {
-	return chainlink.GeneralConfigOpts{
+func generateWrapper(t *testing.T, addr common.Address, keystoreAddr common.Address) (*ServiceWrapper, error) {
+	logger := logger.TestLogger(t)
+
+	config, err := chainlink.GeneralConfigOpts{
 		Config: chainlink.Config{
 			Core: toml.Core{
 				Capabilities: toml.Capabilities{
@@ -33,66 +35,48 @@ func generateConfig(addr common.Address) (chainlink.GeneralConfig, error) {
 			},
 		},
 	}.New()
-}
-
-// Unit test that creates the ServiceWrapper object and then calls Start() can Close() on it.
-// Take inspiration from functions/plugin_test.go and functions/connector_handler_test.go on how to mock the dependencies.
-//
-// Test valid NodeAddress and an invalid one (i.e. key doesn't exit).
-
-func TestGatewayConnectorServiceWrapper(t *testing.T) {
-	t.Parallel()
-
-	logger := logger.TestLogger(t)
-	_, addr := testutils.NewPrivateKeyAndAddress(t)
-
-	config, err := generateConfig(addr)
 	ethKeystore := ksmocks.NewEth(t)
-	ethKeystore.On("EnabledKeysForChain", mock.Anything).Return([]ethkey.KeyV2{{Address: addr}})
+	// github.com/stretchr/testify/mock.Arguments.Get(...)
+	// /Users/davidorchard/go/pkg/mod/github.com/stretchr/testify@v1.9.0/mock/mock.go:900
+	// github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks.(*Eth).EnabledKeysForChain(0xc0017a0f00, {0x1071e02d0, 0xc000776770}, 0xc0009148c0)
+	ethKeystore.On("EnabledKeysForChain", mock.Anything, mock.Anything).Return([]ethkey.KeyV2{{Address: keystoreAddr}})
 
 	gc := config.Capabilities().GatewayConnector()
-	handler := NewGatewayConnectorServiceWrapper(&gc, ethKeystore, logger)
+	wrapper := NewGatewayConnectorServiceWrapper(gc, ethKeystore, logger)
+	require.NoError(t, err)
+	return wrapper, err
+
+}
+
+func TestGatewayConnectorServiceWrapper_CleanStartClose(t *testing.T) {
+	t.Parallel()
+
+	_, addr := testutils.NewPrivateKeyAndAddress(t)
+	wrapper, err := generateWrapper(t, addr, addr)
+
+	require.NoError(t, err)
+
+	ctx := testutils.Context(t)
+
+	err = wrapper.Start(ctx)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		assert.NoError(t, handler.Close())
-	})
-
-	t.Run("Start & Stop Success", func(t *testing.T) {
-		ctx := testutils.Context(t)
-
-		err := handler.Start(ctx)
-		require.NoError(t, err)
-		err = handler.Close()
-		require.NoError(t, err)
+		assert.NoError(t, wrapper.Close())
 	})
 }
 
-func TestGatewayConnectorServiceWrapperConfigError(t *testing.T) {
+func TestGatewayConnectorServiceWrapper_NonexistantKey(t *testing.T) {
 	t.Parallel()
 
-	logger := logger.TestLogger(t)
 	_, addr := testutils.NewPrivateKeyAndAddress(t)
+	_, keystoreAddr := testutils.NewPrivateKeyAndAddress(t)
+	wrapper, err := generateWrapper(t, addr, keystoreAddr)
 
-	config, err := generateConfig(addr)
-	ethKeystore := ksmocks.NewEth(t)
-	_, addr2 := testutils.NewPrivateKeyAndAddress(t)
-
-	ethKeystore.On("EnabledKeysForChain", mock.Anything).Return([]ethkey.KeyV2{{Address: addr2}})
-
-	gc := config.Capabilities().GatewayConnector()
-	handler := NewGatewayConnectorServiceWrapper(&gc, ethKeystore, logger)
 	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		assert.NoError(t, handler.Close())
-	})
-
-	t.Run("Start Error", func(t *testing.T) {
-		ctx := testutils.Context(t)
-		err := handler.Start(ctx)
-		require.Error(t, err)
-	})
+	ctx := testutils.Context(t)
+	err = wrapper.Start(ctx)
+	require.Error(t, err)
 }
 
 func ptr[T any](t T) *T { return &t }
