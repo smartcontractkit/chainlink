@@ -487,13 +487,14 @@ jobs:
     env:
       LATEST_CHAINLINK_RELEASE_VERSION: ${{ needs.get_latest_chainlink_release_version.outputs.latest_chainlink_release_version }}
       TEST_CONFIG_OVERRIDE_PATH: ${{ matrix.tests.test_config_override_path || inputs.test_config_override_path }}
+      TEST_ID: ${{ matrix.tests.id_sanitized || matrix.tests.id }}
     steps:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
-          id: e2e_tests_${{ matrix.tests.id_sanitized }}
+          id: e2e_tests_${{ env.TEST_ID }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -588,12 +589,12 @@ jobs:
           default_e2e_test_chainlink_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_IMAGE || env.CHAINLINK_IMAGE }}
           default_e2e_test_chainlink_upgrade_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: ${{ matrix.tests.id_sanitized }}-test-logs
+          artifacts_name: ${{ env.TEST_ID }}-test-logs
           artifacts_location: |
             ./integration-tests/smoke/logs/
             ./integration-tests/smoke/db_dumps/
             /tmp/gotest.log
-          publish_check_name: ${{ matrix.tests.id_sanitized }}
+          publish_check_name: ${{ env.TEST_ID }}
           token: ${{ secrets.GH_TOKEN }}
           cache_key_id: e2e-tests
           go_mod_path: ./integration-tests/go.mod
@@ -625,7 +626,7 @@ jobs:
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         if: inputs.test_log_upload_on_failure && failure()
         with:
-          name: test_log_${{ matrix.tests.id_sanitized }}
+          name: test_log_${{ env.TEST_ID }}
           path: /tmp/gotest.log
           retention-days: ${{ inputs.test_log_upload_retention_days }}
         continue-on-error: true
@@ -636,7 +637,7 @@ jobs:
         timeout-minutes: 2
         continue-on-error: true
         with:
-          name: ${{ inputs.upload_cl_node_coverage_artifact_prefix }}${{ matrix.tests.id_sanitized }}
+          name: ${{ inputs.upload_cl_node_coverage_artifact_prefix }}${{ env.TEST_ID }}
           path: .covdata
           retention-days: 1
 
@@ -650,9 +651,17 @@ jobs:
       - name: Upload test result as artifact
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: test_result_${{ needs.load-test-configurations.outputs.workflow_id }}_${{ matrix.tests.id_sanitized }}
+          name: test_result_${{ needs.load-test-configurations.outputs.workflow_id }}_${{ env.TEST_ID }}
           path: test_result.json        
           retention-days: 1
+
+      - name: Upload custom test artifacts
+        if: failure() && matrix.tests.test_artifacts_on_failure != ''
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: custom_test_artifacts_${{ env.TEST_ID }}_${{ needs.load-test-configurations.outputs.workflow_id }}
+          path: ${{ matrix.tests.test_artifacts_on_failure }}        
+          retention-days: 1      
 
       - name: Print failed test summary
         if: always()
@@ -717,13 +726,14 @@ jobs:
     env:
       LATEST_CHAINLINK_RELEASE_VERSION: ${{ needs.get_latest_chainlink_release_version.outputs.latest_chainlink_release_version }}
       TEST_CONFIG_OVERRIDE_PATH: ${{ matrix.tests.test_config_override_path || inputs.test_config_override_path }}
+      TEST_ID: ${{ matrix.tests.id_sanitized || matrix.tests.id }}
     steps:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
-          id: e2e_tests_${{ matrix.tests.id_sanitized }}
+          id: e2e_tests_${{ env.TEST_ID }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -807,10 +817,18 @@ jobs:
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         if: inputs.test_log_upload_on_failure && failure()
         with:
-          name: test_log_${{ matrix.tests.id_sanitized }}
+          name: test_log_${{ env.TEST_ID }}
           path: /tmp/gotest.log
           retention-days: ${{ inputs.test_log_upload_retention_days }}
         continue-on-error: true
+
+      - name: Upload custom test artifacts
+        if: failure() && matrix.tests.test_artifacts_on_failure != ''
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: custom_test_artifacts_${{ env.TEST_ID }}_${{ needs.load-test-configurations.outputs.workflow_id }}
+          path: ${{ matrix.tests.test_artifacts_on_failure }}        
+          retention-days: 1              
 
       # TODO: move to run-tests GHA
       - name: Print failed test summary
