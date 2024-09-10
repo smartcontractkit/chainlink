@@ -53,6 +53,44 @@ type CCIPChainState struct {
 	Receiver *maybe_revert_message_receiver.MaybeRevertMessageReceiver
 }
 
+func (c CCIPChainState) Snapshot() (view.Chain, error) {
+	chainView := view.NewChain()
+	r := c.Router
+	if r != nil {
+		routerSnapshot, err := view.RouterSnapshot(r)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.Router[r.Address().Hex()] = routerSnapshot
+		chainView.DestinationChainSelectors = routerSnapshot.DestinationChainSelectors()
+	}
+	ta := c.TokenAdminRegistry
+	if ta != nil {
+		taSnapshot, err := view.TokenAdminRegistrySnapshot(ta)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.TokenAdminRegistry[ta.Address().Hex()] = taSnapshot
+	}
+	nm := c.NonceManager
+	if nm != nil {
+		nmSnapshot, err := view.NonceManagerSnapshot(nm)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.NonceManager[nm.Address().Hex()] = nmSnapshot
+	}
+	rmn := c.RMNRemote
+	if rmn != nil {
+		rmnSnapshot, err := view.RMNSnapshot(rmn)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.RMN[rmn.Address().Hex()] = rmnSnapshot
+	}
+	return chainView, nil
+}
+
 // Onchain state always derivable from an address book.
 // Offchain state always derivable from a list of nodeIds.
 // Note can translate this into Go struct needed for MCMS/Docs/UI.
@@ -78,41 +116,12 @@ func (s CCIPOnChainState) Snapshot(chains []uint64) (view.CCIPSnapShot, error) {
 		if _, ok := s.Chains[chainSelector]; !ok {
 			return snapshot, fmt.Errorf("chain not supported %d", chainSelector)
 		}
-		c := view.NewChain()
-		r := s.Chains[chainSelector].Router
-		if r != nil {
-			routerSnapshot, err := view.RouterSnapshot(r)
-			if err != nil {
-				return snapshot, err
-			}
-			c.Router[r.Address().Hex()] = routerSnapshot
-			c.DestinationChainSelectors = routerSnapshot.DestinationChainSelectors()
+		chainState := s.Chains[chainSelector]
+		chainSnapshot, err := chainState.Snapshot()
+		if err != nil {
+			return snapshot, err
 		}
-		ta := s.Chains[chainSelector].TokenAdminRegistry
-		if ta != nil {
-			taSnapshot, err := view.TokenAdminRegistrySnapshot(ta)
-			if err != nil {
-				return snapshot, err
-			}
-			c.TokenAdminRegistry[ta.Address().Hex()] = taSnapshot
-		}
-		nm := s.Chains[chainSelector].NonceManager
-		if nm != nil {
-			nmSnapshot, err := view.NonceManagerSnapshot(nm)
-			if err != nil {
-				return snapshot, err
-			}
-			c.NonceManager[nm.Address().Hex()] = nmSnapshot
-		}
-		rmn := s.Chains[chainSelector].RMNRemote
-		if rmn != nil {
-			rmnSnapshot, err := view.RMNSnapshot(rmn)
-			if err != nil {
-				return snapshot, err
-			}
-			c.RMN[rmn.Address().Hex()] = rmnSnapshot
-		}
-		snapshot.Chains[chainName] = c
+		snapshot.Chains[chainName] = chainSnapshot
 	}
 	return snapshot, nil
 }
