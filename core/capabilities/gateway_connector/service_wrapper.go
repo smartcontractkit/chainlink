@@ -100,12 +100,6 @@ func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore 
 func (e *ServiceWrapper) Start(ctx context.Context) error {
 	return e.StartOnce("GatewayConnectorServiceWrapper", func() error {
 		conf := e.config
-		e.lggr.Infow("Starting GatewayConnectorServiceWrapper", "chainID")
-
-		//     logger.go:146: 2024-09-10T07:52:35.248-0700	ERROR	zap@v1.27.0/sugar.go:257	Ignored key without a value.	{"version": "unset@unset", "ignored": "chainID"}
-		// go.uber.org/zap.(*SugaredLogger).Infow
-		///Users/davidorchard/go/pkg/mod/go.uber.org/zap@v1.27.0/sugar.go:257
-
 		e.lggr.Infow("Starting GatewayConnectorServiceWrapper2", "chainID", conf.ChainIDForNodeKey())
 		chainID, _ := new(big.Int).SetString(conf.ChainIDForNodeKey(), 0)
 		enabledKeys, err := e.keystore.EnabledKeysForChain(ctx, chainID)
