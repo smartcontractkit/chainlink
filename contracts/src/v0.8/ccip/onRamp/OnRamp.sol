@@ -408,17 +408,19 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
       DestChainConfig storage destChainConfig = s_destChainConfigs[allowListConfigArgs.destChainSelector];
       destChainConfig.allowListEnabled = allowListConfigArgs.allowListEnabled;
 
-      if (allowListConfigArgs.allowListEnabled) {
-        for (uint256 j = 0; j < allowListConfigArgs.addedAllowlistedSenders.length; ++j) {
-          address toAdd = allowListConfigArgs.addedAllowlistedSenders[j];
-          if (toAdd == address(0)) {
-            revert InvalidAllowListRequest(allowListConfigArgs.destChainSelector);
+      if (allowListConfigArgs.addedAllowlistedSenders.length > 0) {
+        if (allowListConfigArgs.allowListEnabled) {
+          for (uint256 j = 0; j < allowListConfigArgs.addedAllowlistedSenders.length; ++j) {
+            address toAdd = allowListConfigArgs.addedAllowlistedSenders[j];
+            if (toAdd == address(0)) {
+              revert InvalidAllowListRequest(allowListConfigArgs.destChainSelector);
+            }
+            destChainConfig.allowedSendersList.add(toAdd);
           }
-          destChainConfig.allowedSendersList.add(toAdd);
-        }
 
-        if (allowListConfigArgs.addedAllowlistedSenders.length > 0) {
           emit AllowListSendersAdded(allowListConfigArgs.destChainSelector, allowListConfigArgs.addedAllowlistedSenders);
+        } else {
+          revert InvalidAllowListRequest(allowListConfigArgs.destChainSelector);
         }
       }
 
