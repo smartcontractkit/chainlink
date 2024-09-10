@@ -527,12 +527,12 @@ func setupNodeCCIP(
 	return app, peerID.Raw(), transmitter, kb
 }
 
-func createConfigV2Chain(chainId *big.Int, finalityDepth uint32) *v2.EVMConfig {
+func createConfigV2Chain(chainID *big.Int, finalityDepth uint32) *v2.EVMConfig {
 	// NOTE: For the executor jobs, the default of 500k is insufficient for a 3 message batch
 	defaultGasLimit := uint64(5000000)
 	tr := true
 
-	sourceC := v2.Defaults((*evmUtils.Big)(chainId))
+	sourceC := v2.Defaults((*evmUtils.Big)(chainID))
 	sourceC.GasEstimator.LimitDefault = &defaultGasLimit
 	fixedPrice := "FixedPrice"
 	sourceC.GasEstimator.Mode = &fixedPrice
@@ -540,7 +540,7 @@ func createConfigV2Chain(chainId *big.Int, finalityDepth uint32) *v2.EVMConfig {
 	sourceC.LogPollInterval = &d
 	sourceC.FinalityDepth = &finalityDepth
 	return &v2.EVMConfig{
-		ChainID: (*evmUtils.Big)(chainId),
+		ChainID: (*evmUtils.Big)(chainID),
 		Enabled: &tr,
 		Chain:   sourceC,
 		Nodes:   v2.EVMNodes{&v2.Node{}},
@@ -553,10 +553,10 @@ type CCIPIntegrationTestHarness struct {
 	Bootstrap Node
 }
 
-func SetupCCIPIntegrationTH(t *testing.T, sourceChainID, sourceChainSelector, destChainId, destChainSelector uint64,
+func SetupCCIPIntegrationTH(t *testing.T, sourceChainID, sourceChainSelector, destChainID, destChainSelector uint64,
 	sourceFinalityDepth, destFinalityDepth uint32) CCIPIntegrationTestHarness {
 	return CCIPIntegrationTestHarness{
-		CCIPContracts: testhelpers.SetupCCIPContracts(t, sourceChainID, sourceChainSelector, destChainId,
+		CCIPContracts: testhelpers.SetupCCIPContracts(t, sourceChainID, sourceChainSelector, destChainID,
 			destChainSelector, sourceFinalityDepth, destFinalityDepth),
 	}
 }
