@@ -1,7 +1,7 @@
 # Fee History Estimator
 
 ## Overview
-`Fee History` estimator is an EVM-based gas estimator that utilizes RPC calls to make gas price estimations. The estimator heavily relies on two RPC calls: `eth_gasPrice` and `eth_feeHistory`. It is built as a service and caches the calculated results in order to minimize overhead. It can bump past estimations by aggregating the result with the latest market prices. `Fee History` estimator supports both Legacy and Dynamic(EIP-1559) transactions. It can also handle chains that don't have a mempool and process transactions on an FCFS basis.
+`Fee History` estimator is an EVM-based gas estimator that utilizes RPC calls to make gas price estimations. The estimator heavily relies on two RPC calls: `eth_gasPrice` and `eth_feeHistory`. It is built as a service and caches the calculated results in order to minimize overhead. While bumping, it prioritizes using the latest result from most recent blocks if it exceeds the bumped gas price. `Fee History` estimator supports both Legacy and Dynamic(EIP-1559) transactions. It can also handle chains that don't have a mempool and process transactions on an FCFS basis.
 
 ## Configs
 - `BumpPercent`: is the percentage by which to bump gas on a transaction. This is used when the estimator's bumping API gets called.
