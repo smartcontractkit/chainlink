@@ -122,7 +122,7 @@ on:
         value: ${{ jobs.after_tests.outputs.test_results }}        
     secrets:
       TEST_SECRETS_OVERRIDE_BASE64:
-        required: false        
+        required: false
       QA_AWS_REGION:
         required: true
       QA_AWS_ROLE_TO_ASSUME:
@@ -862,7 +862,7 @@ jobs:
             {
               "attachments": [
                 {
-                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || '#3fae55' }}",
+                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || '2E7D32' }}",
                   "blocks": [
                     {
                       "type": "section",
