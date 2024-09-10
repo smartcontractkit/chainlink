@@ -855,6 +855,16 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_UPGRADE_IMAGE: '{{ env.QA_CHAINLINK_IMAGE }}'
       E2E_TEST_CHAINLINK_UPGRADE_VERSION: '{{ env.DEFAULT_CHAINLINK_VERSION }}'
 
+  - id: smoke/job_distributor_test.go:*
+    path: integration-tests/smoke/job_distributor_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - PR E2E Core Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/ && go test smoke/job_distributor_test.go -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-jd-evm-simulated
+
   # END: Other tests
 
   # START: CCIP tests

@@ -26,7 +26,11 @@ on:
         description: Chainlink image version to use
         default: develop
         required: false
-        type: string            
+        type: string
+      notify_user_id_on_failure:
+        description: 'Enter Slack user ID to notify on test failure'
+        required: false
+        type: string
         
 jobs:
   set-tests-to-run:
@@ -72,7 +76,7 @@ jobs:
       chainlink_version: ${{ inputs.chainlink_version }}
       slack_notification_after_tests: always
       slack_notification_after_tests_name: "VRF V2 Plus Smoke Tests with test config: ${{ inputs.test_config_override_path || 'default' }}"
-      slack_notification_after_tests_notify_user_id_on_failure: U03PJF3VDB8
+      slack_notification_after_tests_notify_user_id_on_failure: ${{ inputs.notify_user_id_on_failure }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

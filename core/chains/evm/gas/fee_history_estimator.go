@@ -252,7 +252,7 @@ func (f *FeeHistoryEstimator) RefreshDynamicPrice() error {
 	maxPriorityFeePerGas := assets.NewWeiI(0)
 	priorityFeeThresholdWei := assets.NewWeiI(0)
 	if f.config.BlockHistorySize > 0 {
-		var nonZeroRewardsLen int64 = 0
+		var nonZeroRewardsLen int64
 		priorityFee := big.NewInt(0)
 		priorityFeeThreshold := big.NewInt(0)
 		for _, reward := range feeHistory.Reward {
@@ -263,7 +263,7 @@ func (f *FeeHistoryEstimator) RefreshDynamicPrice() error {
 			// We'll calculate the average of non-zero priority fees
 			if reward[0].Cmp(big.NewInt(0)) > 0 {
 				priorityFee = priorityFee.Add(priorityFee, reward[0])
-				nonZeroRewardsLen += 1
+				nonZeroRewardsLen++
 			}
 			// We take the max value for the bumping threshold
 			if reward[1].Cmp(big.NewInt(0)) > 0 {
