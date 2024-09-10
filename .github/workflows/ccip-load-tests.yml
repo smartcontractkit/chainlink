@@ -128,10 +128,11 @@ jobs:
           - name: stable-load
             run: ^TestLoadCCIPStableRPS$
             os: ubuntu-latest
-          - name: load-with-arm-curse-uncurse
-            run: ^TestLoadCCIPStableRPSAfterARMCurseAndUncurse$
-            config_path: ./integration-tests/ccip-tests/testconfig/tomls/load-with-arm-curse-uncurse.toml
-            os: ubuntu-latest
+          # Enable when CCIP-2277 is resolved
+          # - name: load-with-arm-curse-uncurse
+          #   run: ^TestLoadCCIPStableRPSAfterARMCurseAndUncurse$
+          #   config_path: ./integration-tests/ccip-tests/testconfig/tomls/load-with-arm-curse-uncurse.toml
+          #   os: ubuntu-latest
     runs-on: ${{ matrix.type.os }}
     name: CCIP ${{ matrix.type.name }}
     steps:
