@@ -994,6 +994,7 @@ runner-test-matrix:
       - E2E CCIP Load Tests  
     test_artifacts_on_failure: 
       - ./integration-tests/load/logs/payload_ccip.json
+      - ./integration-tests/load/logs/payload_ccip2.json
 
   - id: integration-tests/ccip-tests/load/ccip_test.go:TestLoadCCIPStableRPSAfterARMCurseAndUncurse
     path: integration-tests/ccip-tests/load/ccip_test.go
