@@ -14,7 +14,8 @@
   },
   "scripts": {
     "issue:update": "tsx update-jira-issue.ts",
-    "issue:enforce": "tsx enforce-jira-issue.ts",
+    "issue:enforce-pr": "tsx enforce-jira-issue.ts",
+    "issue:enforce-solidity-review": "tsx enforce-jira-solidity-review.ts",
     "issue:traceability": "tsx create-jira-traceability.ts",
     "test": "vitest"
   },
@@ -22,6 +23,9 @@
     "@actions/core": "^1.10.1",
     "jira.js": "^4.0.1",
     "tsx": "^4.16.2"
+  },
+  "peerDependencies": {
+    "axios": "^1.7.7"
   },
   "devDependencies": {
     "@types/node": "^20.14.10",

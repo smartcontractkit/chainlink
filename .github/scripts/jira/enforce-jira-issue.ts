@@ -1,8 +1,7 @@
 import * as core from "@actions/core";
 import jira from "jira.js";
-import { createJiraClient, getGitTopLevel, parseIssueNumberFrom } from "./lib";
-import { promises as fs } from "fs";
-import { join } from "path";
+import { createJiraClient, EMPTY_PREFIX, parseIssueNumberFrom, PR_PREFIX } from "./lib";
+import { appendIssueNumberToChangesetFile, extractChangesetFile } from "./changeset-lib";
 
 async function doesIssueExist(
   client: jira.Version3Client,
@@ -51,7 +50,7 @@ async function main() {
   const client = createJiraClient();
 
   // Checks for the Jira issue number and exit if it can't find it
-  const issueNumber = parseIssueNumberFrom(prTitle, commitMessage, branchName);
+  const issueNumber = parseIssueNumberFrom(EMPTY_PREFIX, prTitle, commitMessage, branchName);
   if (!issueNumber) {
     const msg =
       "No JIRA issue number found in PR title, commit message, or branch name. This pull request must be associated with a JIRA issue.";
@@ -69,40 +68,7 @@ async function main() {
   }
 
   core.info(`Appending JIRA issue ${issueNumber} to changeset file`);
-  await appendIssueNumberToChangesetFile(changesetFile, issueNumber);
-}
-
-async function appendIssueNumberToChangesetFile(
-  changesetFile: string,
-  issueNumber: string
-) {
-  const gitTopLevel = await getGitTopLevel();
-  const fullChangesetPath = join(gitTopLevel, changesetFile);
-  const changesetContents = await fs.readFile(fullChangesetPath, "utf-8");
-  // Check if the issue number is already in the changeset file
-  if (changesetContents.includes(issueNumber)) {
-    core.info("Issue number already exists in changeset file, skipping...");
-    return;
-  }
-
-  const updatedChangesetContents = `${changesetContents}\n\n${issueNumber}`;
-  await fs.writeFile(fullChangesetPath, updatedChangesetContents);
-}
-
-function extractChangesetFile() {
-  const changesetFiles = process.env.CHANGESET_FILES;
-  if (!changesetFiles) {
-    throw Error("Missing required environment variable CHANGESET_FILES");
-  }
-  const parsedChangesetFiles = JSON.parse(changesetFiles);
-  if (parsedChangesetFiles.length !== 1) {
-    throw Error(
-      "This action only supports one changeset file per pull request."
-    );
-  }
-  const [changesetFile] = parsedChangesetFiles;
-
-  return { changesetFile };
+  await appendIssueNumberToChangesetFile(PR_PREFIX ,changesetFile, issueNumber);
 }
 
 async function run() {

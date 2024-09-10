@@ -5,6 +5,10 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { join } from "path";
 
+export const EMPTY_PREFIX = ""
+export const PR_PREFIX = "PR issue: "
+export const SOLIDITY_REVIEW_PREFIX = "Solidity Review issue: "
+
 export function generateJiraIssuesLink(baseUrl: string, label: string) {
   // https://smartcontract-it.atlassian.net/issues/?jql=labels%20%3D%20%22review-artifacts-automation-base%3A8d818ea265ff08887e61ace4f83364a3ee149ef0-head%3A3c45b71f3610de28f429cef0163936eaa448e63c%22
   const jqlQuery = `labels = "${label}"`;
@@ -50,16 +54,20 @@ export async function getGitTopLevel(): Promise<string> {
 /**
  * Given a list of strings, this function will return the first JIRA issue number it finds.
  *
- * @example parseIssueNumberFrom("CORE-123", "CORE-456", "CORE-789") => "CORE-123"
- * @example parseIssueNumberFrom("2f3df5gf", "chore/test-RE-78-branch", "RE-78 Create new test branches") => "RE-78"
+ * @example parseIssueNumberFrom("", "CORE-123", "CORE-456", "CORE-789") => "CORE-123"
+ * @example parseIssueNumberFrom("", "2f3df5gf", "chore/test-RE-78-branch", "RE-78 Create new test branches") => "RE-78"
+ * @example parseIssueNumberFrom("PR: ", "2f3df5gf", "chore/test-RE-78-branch", "PR: RE-78 Create new test branches") => "RE-78"
  */
 export function parseIssueNumberFrom(
+  prefix: string,
   ...inputs: (string | undefined)[]
 ): string | undefined {
   function parse(str?: string) {
-    const jiraIssueRegex = /[A-Z]{2,}-\d+/;
+    prefix = prefix.toUpperCase()
+    const jiraIssueRegex = new RegExp(`${prefix}([A-Z]{2,}-\\d+)`);
 
-    return str?.toUpperCase().match(jiraIssueRegex)?.[0];
+    const match = str?.toUpperCase().match(jiraIssueRegex);
+    return match ? match[1] : undefined;
   }
 
   core.debug(`Parsing issue number from: ${inputs.join(", ")}`);
@@ -69,7 +77,7 @@ export function parseIssueNumberFrom(
   return parsed[0];
 }
 
-export async function extractJiraIssueNumbersFrom(filePaths: string[]) {
+export async function extractJiraIssueNumbersFrom(prefix: string, filePaths: string[]) {
   const issueNumbers: string[] = [];
   const gitTopLevel = await getGitTopLevel();
 
@@ -77,7 +85,7 @@ export async function extractJiraIssueNumbersFrom(filePaths: string[]) {
     const fullPath = join(gitTopLevel, path);
     core.info(`Reading file: ${fullPath}`);
     const content = await readFile(fullPath, "utf-8");
-    const issueNumber = parseIssueNumberFrom(content);
+    const issueNumber = parseIssueNumberFrom(prefix, content);
     core.info(`Extracted issue number: ${issueNumber}`);
     if (issueNumber) {
       issueNumbers.push(issueNumber);

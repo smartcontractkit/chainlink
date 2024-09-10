@@ -5,6 +5,7 @@ import {
   generateIssueLabel,
   generateJiraIssuesLink,
   getJiraEnvVars,
+  PR_PREFIX,
 } from "./lib";
 import * as core from "@actions/core";
 
@@ -187,7 +188,7 @@ async function main() {
       ", "
     )}`
   );
-  const jiraIssueNumbers = await extractJiraIssueNumbersFrom(changesetFiles);
+  const jiraIssueNumbers = await extractJiraIssueNumbersFrom(PR_PREFIX, changesetFiles);
 
   const client = createJiraClient();
   const label = generateIssueLabel(product, baseRef, headRef);
