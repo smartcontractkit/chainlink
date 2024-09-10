@@ -132,6 +132,21 @@ External adapters are what make Chainlink easily extensible, providing simple in
 
 For more information on creating and using external adapters, please see our [external adapters page](https://docs.chain.link/docs/external-adapters).
 
+## Verify Official Chainlink Releases
+
+We use `cosign` with OIDC keyless signing during the [Build, Sign and Publish Chainlink](https://github.com/smartcontractkit/chainlink/actions/workflows/build-publish.yml) workflow.
+
+It is encourage for any node operator building from the official Chainlink docker image to verify the tagged release version was did indeed built from this workflow.
+
+You will need `cosign` in order to do this verification. [Follow the instruction here to install cosign](https://docs.sigstore.dev/system_config/installation/).
+
+```bash
+# tag is the tagged release version - ie. v2.16.0
+cosign verify public.ecr.aws/chainlink/chainlink:${tag} \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+      --certificate-identity "https://github.com/smartcontractkit/chainlink/.github/workflows/build-publish.yml@refs/tags/${tag}"
+```
+
 ## Development
 
 ### Running tests

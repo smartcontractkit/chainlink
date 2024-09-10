@@ -35,9 +35,8 @@ func Test_Client_DonTopologies(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
+	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
-		response := <-responseCh
 		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
 		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
@@ -66,9 +65,8 @@ func Test_Client_DonTopologies(t *testing.T) {
 func Test_Client_TransmissionSchedules(t *testing.T) {
 	ctx := testutils.Context(t)
 
-	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
+	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
-		response := <-responseCh
 		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
 		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
@@ -104,10 +102,8 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 	ctx := testutils.Context(t)
 
-	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
-		require.NoError(t, responseError)
-		response := <-responseCh
-		assert.NotNil(t, response.Err)
+	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
+		assert.NotNil(t, responseError)
 	}
 
 	capability := &TestCapability{}
@@ -126,7 +122,7 @@ func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 
 func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout time.Duration,
 	numCapabilityPeers int, capabilityDonF uint8, underlying commoncap.TargetCapability, transmissionSchedule *values.Map,
-	responseTest func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error)) {
+	responseTest func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error)) {
 	lggr := logger.TestLogger(t)
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
@@ -261,8 +257,7 @@ func (t *clientTestServer) Receive(_ context.Context, msg *remotetypes.MessageBo
 			panic(err)
 		}
 
-		respCh, responseErr := t.targetCapability.Execute(context.Background(), capabilityRequest)
-		resp := <-respCh
+		resp, responseErr := t.targetCapability.Execute(context.Background(), capabilityRequest)
 
 		for receiver := range t.messageIDToSenders[messageID] {
 			var responseMsg = &remotetypes.MessageBody{
