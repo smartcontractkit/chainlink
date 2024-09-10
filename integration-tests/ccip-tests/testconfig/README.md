@@ -480,6 +480,10 @@ Specifies whether to set up bi-directional lanes between networks.
 
 Specifies whether commit and execution jobs are to be run on the same Chainlink node.
 
+### CCIP.Groups.[testgroup].AllowOutOfOrder
+
+Specifies whether out of order execution is allowed globally for all the chains.
+
 ### CCIP.Groups.[testgroup].NoOfCommitNodes
 
 Specifies the number of nodes on which commit jobs are to be run. This needs to be lesser than the total number of nodes mentioned in [CCIP.Env.NewCLCluster.NoOfNodes](#ccipenvnewclclusternoofnodes) or [CCIP.Env.ExistingCLCluster.NoOfNodes](#ccipenvexistingclclusternoofnodes).
