@@ -79,15 +79,21 @@ func NewClientConfigs(
 func parseNodeConfigs(nodeCfgs []NodeConfig) ([]*toml.Node, error) {
 	nodes := make([]*toml.Node, len(nodeCfgs))
 	for i, nodeCfg := range nodeCfgs {
-		if nodeCfg.WSURL == nil || nodeCfg.HTTPURL == nil {
-			return nil, fmt.Errorf("node config [%d]: missing WS or HTTP URL", i)
+		var wsURL, httpURL *commonconfig.URL
+		// wsUrl is optional, if LogBroadcaster is enabled, at least one wsURL is required and this will be checked in EVMConfig validation
+		if nodeCfg.WSURL != nil {
+			wsURL = commonconfig.MustParseURL(*nodeCfg.WSURL)
 		}
-		wsUrl := commonconfig.MustParseURL(*nodeCfg.WSURL)
-		httpUrl := commonconfig.MustParseURL(*nodeCfg.HTTPURL)
+
+		if nodeCfg.HTTPURL == nil {
+			return nil, fmt.Errorf("node config [%d]: HTTP URL", i)
+		}
+
+		httpURL = commonconfig.MustParseURL(*nodeCfg.HTTPURL)
 		node := &toml.Node{
 			Name:     nodeCfg.Name,
-			WSURL:    wsUrl,
-			HTTPURL:  httpUrl,
+			WSURL:    wsURL,
+			HTTPURL:  httpURL,
 			SendOnly: nodeCfg.SendOnly,
 			Order:    nodeCfg.Order,
 		}

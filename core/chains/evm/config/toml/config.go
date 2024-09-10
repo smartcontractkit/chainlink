@@ -313,6 +313,12 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 	if len(c.Nodes) == 0 {
 		err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "must have at least one node"})
 	} else {
+		if c.LogBroadcasterEnabled != nil {
+			if err = verifyLogBroadcasterFlag(c.Nodes, *c.LogBroadcasterEnabled); err != nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "must have at least one ws uri when LogBroadcaster is enabled"})
+			}
+		}
+
 		var hasPrimary bool
 		for _, n := range c.Nodes {
 			if n.SendOnly != nil && *n.SendOnly {
@@ -968,19 +974,8 @@ func (n *Node) ValidateConfig() (err error) {
 		err = multierr.Append(err, commonconfig.ErrEmpty{Name: "Name", Msg: "required for all nodes"})
 	}
 
-	var sendOnly bool
-	if n.SendOnly != nil {
-		sendOnly = *n.SendOnly
-	}
-	if n.WSURL == nil {
-		if !sendOnly {
-			err = multierr.Append(err, commonconfig.ErrMissing{Name: "WSURL", Msg: "required for primary nodes"})
-		}
-	} else if n.WSURL.IsZero() {
-		if !sendOnly {
-			err = multierr.Append(err, commonconfig.ErrEmpty{Name: "WSURL", Msg: "required for primary nodes"})
-		}
-	} else {
+	// relax the check here as WSURL can potentially be empty if LogBroadcaster is disabled (checked in EVMConfig Validation)
+	if n.WSURL != nil && !n.WSURL.IsZero() {
 		switch n.WSURL.Scheme {
 		case "ws", "wss":
 		default:
