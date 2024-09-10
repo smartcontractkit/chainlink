@@ -354,6 +354,7 @@ MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0

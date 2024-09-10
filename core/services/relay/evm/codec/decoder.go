@@ -1,4 +1,4 @@
-package evm
+package codec
 
 import (
 	"context"
@@ -45,7 +45,7 @@ func (m *decoder) Decode(_ context.Context, raw []byte, into any, itemType strin
 		iInto.Set(reflect.MakeSlice(iInto.Type(), length, length))
 		return setElements(length, rDecode, iInto)
 	default:
-		return mapstructureDecode(decode, into)
+		return MapstructureDecode(decode, into)
 	}
 }
 
@@ -83,7 +83,7 @@ func extractDecoding(info types.CodecEntry, raw []byte) (any, error) {
 
 func setElements(length int, rDecode reflect.Value, iInto reflect.Value) error {
 	for i := 0; i < length; i++ {
-		if err := mapstructureDecode(rDecode.Index(i).Interface(), iInto.Index(i).Addr().Interface()); err != nil {
+		if err := MapstructureDecode(rDecode.Index(i).Interface(), iInto.Index(i).Addr().Interface()); err != nil {
 			return err
 		}
 	}
@@ -91,7 +91,7 @@ func setElements(length int, rDecode reflect.Value, iInto reflect.Value) error {
 	return nil
 }
 
-func mapstructureDecode(src, dest any) error {
+func MapstructureDecode(src, dest any) error {
 	mDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(DecoderHooks...),
 		Result:     dest,
