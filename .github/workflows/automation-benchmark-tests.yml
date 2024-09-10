@@ -64,6 +64,7 @@ jobs:
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY
       - name: Build Test Image
+        id: build-test-image
         uses: ./.github/actions/build-test-image
         with:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -76,7 +77,7 @@ jobs:
           DETACH_RUNNER: true
           TEST_SUITE: benchmark
           TEST_ARGS: -test.timeout 720h
-          ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
+          ENV_JOB_IMAGE: ${{ steps.build-test-image.outputs.test_image }}
           INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
           TEST_TYPE: ${{ github.event.inputs.testType }}
           TEST_TEST_TYPE: ${{ github.event.inputs.testType }}

@@ -170,7 +170,7 @@ jobs:
               implementations_arr+=("nethermind")
             fi
             new_reth=$(ghlatestreleasechecker "paradigmxyz/reth" $RELEASED_DAYS_AGO)
-            if [ "new_reth" != "none" ]; then
+            if [ "$new_reth" != "none" ]; then
               echo "New reth release found: $new_reth"
               implementations_arr+=("reth")
             fi
