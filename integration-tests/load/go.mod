@@ -51,6 +51,7 @@ require (
 	github.com/CosmWasm/wasmvm v1.2.4 // indirect
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/K-Phoen/sdk v0.12.4 // indirect
+	github.com/Khan/genqlient v0.7.0 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
@@ -375,7 +376,6 @@ require (
 	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 // indirect
 	github.com/segmentio/ksuid v1.0.4 // indirect
 	github.com/sercand/kuberesolver/v5 v5.1.1 // indirect
-	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
@@ -426,6 +426,7 @@ require (
 	github.com/umbracle/ethgo v0.1.3 // indirect
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
 	github.com/valyala/fastjson v1.4.1 // indirect
+	github.com/vektah/gqlparser/v2 v2.5.11 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
