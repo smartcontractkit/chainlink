@@ -1,4 +1,4 @@
-package src
+package keystone
 
 import (
 	"crypto/ed25519"
@@ -15,10 +15,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
-
-type TopLevelConfigSource struct {
-	OracleConfig OracleConfigSource
-}
 
 type OracleConfigSource struct {
 	MaxQueryLengthBytes       uint32
@@ -90,17 +86,6 @@ func (c Orc2drOracleConfig) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(alias)
-}
-
-func mustReadConfig(fileName string) (output TopLevelConfigSource) {
-	return mustParseJSON[TopLevelConfigSource](fileName)
-}
-
-func loadAndGeneraterOCR3Config(nodeList string, configFile string, chainID int64, pubKeysPath string) (Orc2drOracleConfig, error) {
-	topLevelCfg := mustReadConfig(configFile)
-	cfg := topLevelCfg.OracleConfig
-	nca := downloadNodePubKeys(nodeList, chainID, pubKeysPath)
-	return generateOCR3Config(cfg, nca)
 }
 
 func generateOCR3Config(cfg OracleConfigSource, nodeKeys []NodeKeys) (Orc2drOracleConfig, error) {

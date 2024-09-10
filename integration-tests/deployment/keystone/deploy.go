@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kf "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
+	kocr3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -36,6 +37,7 @@ type DeployRequest struct {
 
 	DonToCapabilities map[string][]kcr.CapabilitiesRegistryCapability                   // from external source
 	NodeIDToNop       map[string]capabilities_registry.CapabilitiesRegistryNodeOperator // maybe should be derivable from JD interface but doesn't seem to be notion of NOP in JD
+	OCR3Config        *OracleConfigSource
 }
 
 type DeployResponse struct {
@@ -49,6 +51,9 @@ type deployedContracts struct {
 }
 
 func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*DeployResponse, error) {
+	if req.OCR3Config == nil {
+		return nil, errors.New("OCR3Config is nil")
+	}
 	ad := deployment.NewMemoryAddressBook()
 	resp := &DeployResponse{
 		Changeset: &deployment.ChangesetOutput{
@@ -186,7 +191,44 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 			}
 		}
 	}
-	// ocr3 contract on the registry chain
+	// ocr3 contract on the registry chain for the wf don
+	for don, info := range resp.DonInfos {
+		if !info.AcceptsWorkflows {
+			continue
+		}
+		ocr3Config := req.OCR3Config
+		ocr3contract := registryChainContracts.ocr3Deployer.contract
+		if ocr3contract == nil {
+			return nil, fmt.Errorf("no OCR3 contract found")
+		}
+		nodes, ok := donToOcr2Nodes[don]
+		if !ok {
+			return nil, fmt.Errorf("no nodes found for don %s", don)
+		}
+		nks := makeNodeKeysSlice(nodes)
+		ocrConfig, err := generateOCR3Config(*ocr3Config, nks)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)
+		}
+		tx, err := ocr3contract.SetConfig(registryChainContracts.chain.DeployerKey,
+			ocrConfig.Signers,
+			ocrConfig.Transmitters,
+			ocrConfig.F,
+			ocrConfig.OnchainConfig,
+			ocrConfig.OffchainConfigVersion,
+			ocrConfig.OffchainConfig,
+		)
+		if err != nil {
+			err = DecodeErr(kocr3.OCR3CapabilityABI, err)
+			return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s: %w", ocr3contract.Address().String(), err)
+		}
+		_, err = registryChainContracts.chain.Confirm(tx.Hash())
+		if err != nil {
+			err = DecodeErr(kocr3.OCR3CapabilityABI, err)
+			return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", ocr3contract.Address().String(), err)
+		}
+		lggr.Infow("set OCR3 config", "don", don, "config", ocrConfig)
+	}
 	return resp, err
 }
 
@@ -383,7 +425,7 @@ func nodeChainConfigsToOcr2Node(resp *v1.ListNodeChainConfigsResponse, id string
 		return nil, errors.New("no chain configs")
 	}
 	cfg := resp.ChainConfigs[0]
-	return newOcr2Node(id, cfg.Ocr2Config)
+	return newOcr2Node(id, cfg)
 }
 
 // mapDonsToNodes returns a map of don name to simplified representation of their nodes
@@ -685,7 +727,7 @@ func (d don) signers() []common.Address {
 		if n.IsBoostrap {
 			continue
 		}
-		out = append(out, n.address())
+		out = append(out, n.signerAddress())
 	}
 	return out
 }

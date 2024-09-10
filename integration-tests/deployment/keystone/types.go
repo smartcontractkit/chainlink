@@ -51,24 +51,48 @@ type ocr2Node struct {
 	Signer     [32]byte // note that in capabilities registry we need a [32]byte, but in the forwarder we need a common.Address [20]byte
 	P2PKey     p2pkey.PeerID
 	IsBoostrap bool
+	// useful when have to register the ocr3 contract config
+	p2pKeyBundle   *v1.OCR2Config_P2PKeyBundle
+	ocrKeyBundle   *v1.OCR2Config_OCRKeyBundle
+	accountAddress string
 }
 
-func (o *ocr2Node) address() common.Address {
+func (o *ocr2Node) signerAddress() common.Address {
 	return common.BytesToAddress(o.Signer[:])
 }
 
-func newOcr2Node(id string, cfg *v1.OCR2Config) (*ocr2Node, error) {
-	if cfg == nil {
+func (o *ocr2Node) p2pKeyBundleConfig() *v1.OCR2Config_P2PKeyBundle {
+	return o.p2pKeyBundle
+}
+
+func (o *ocr2Node) ocrKeyBundleConfig() *v1.OCR2Config_OCRKeyBundle {
+	return o.ocrKeyBundle
+}
+
+func (o *ocr2Node) toNodeKeys() NodeKeys {
+	return NodeKeys{
+		EthAddress:            o.accountAddress,
+		P2PPeerID:             o.p2pKeyBundle.PeerId,
+		OCR2BundleID:          o.ocrKeyBundle.BundleId,
+		OCR2OnchainPublicKey:  o.ocrKeyBundle.OnchainSigningAddress,
+		OCR2OffchainPublicKey: o.ocrKeyBundle.OffchainPublicKey,
+		OCR2ConfigPublicKey:   o.ocrKeyBundle.ConfigPublicKey,
+	}
+}
+
+func newOcr2Node(id string, ccfg *v1.ChainConfig) (*ocr2Node, error) {
+	if ccfg == nil {
 		return nil, errors.New("nil ocr2config")
 	}
+	ocfg := ccfg.Ocr2Config
 	p := p2pkey.PeerID{}
-	if err := p.UnmarshalString(cfg.P2PKeyBundle.PeerId); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal peer id %s: %w", cfg.P2PKeyBundle.PeerId, err)
+	if err := p.UnmarshalString(ocfg.P2PKeyBundle.PeerId); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal peer id %s: %w", ocfg.P2PKeyBundle.PeerId, err)
 	}
 
-	signer := cfg.OcrKeyBundle.OnchainSigningAddress
+	signer := ocfg.OcrKeyBundle.OnchainSigningAddress
 	if len(signer) != 40 {
-		return nil, fmt.Errorf("invalid onchain signing address %s", cfg.OcrKeyBundle.OnchainSigningAddress)
+		return nil, fmt.Errorf("invalid onchain signing address %s", ocfg.OcrKeyBundle.OnchainSigningAddress)
 	}
 	signerB, err := hex.DecodeString(signer)
 	if err != nil {
@@ -79,9 +103,20 @@ func newOcr2Node(id string, cfg *v1.OCR2Config) (*ocr2Node, error) {
 	copy(sigb[:], signerB)
 
 	return &ocr2Node{
-		ID:         id,
-		Signer:     sigb,
-		P2PKey:     p,
-		IsBoostrap: cfg.IsBootstrap,
+		ID:             id,
+		Signer:         sigb,
+		P2PKey:         p,
+		IsBoostrap:     ocfg.IsBootstrap,
+		p2pKeyBundle:   ocfg.P2PKeyBundle,
+		ocrKeyBundle:   ocfg.OcrKeyBundle,
+		accountAddress: ccfg.AccountAddress,
 	}, nil
+}
+
+func makeNodeKeysSlice(nodes []*ocr2Node) []NodeKeys {
+	var out []NodeKeys
+	for _, n := range nodes {
+		out = append(out, n.toNodeKeys())
+	}
+	return out
 }

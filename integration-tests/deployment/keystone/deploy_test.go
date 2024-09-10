@@ -3,10 +3,12 @@ package keystone_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/test-go/testify/require"
@@ -26,24 +28,38 @@ import (
 func TestDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	t.Run("memory environment", func(t *testing.T) {
-		var testNops = []kcr.CapabilitiesRegistryNodeOperator{
-			{
-				Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f22D6"),
-				Name:  "NOP_00",
-			},
-			{
-				Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f2200"),
-				Name:  "NOP_01",
-			},
-			{
-				Admin: common.HexToAddress("0x11dfBF967A8ec4C29Fe26aF2a33Eb485d02f22D6"),
-				Name:  "NOP_02",
-			},
-			{
-				Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f2222"),
-				Name:  "NOP_03",
-			},
-		}
+		var (
+			testNops = []kcr.CapabilitiesRegistryNodeOperator{
+				{
+					Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f22D6"),
+					Name:  "NOP_00",
+				},
+				{
+					Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f2200"),
+					Name:  "NOP_01",
+				},
+				{
+					Admin: common.HexToAddress("0x11dfBF967A8ec4C29Fe26aF2a33Eb485d02f22D6"),
+					Name:  "NOP_02",
+				},
+				{
+					Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f2222"),
+					Name:  "NOP_03",
+				},
+			}
+			ocr3Config = keystone.OracleConfigSource{
+				MaxQueryLengthBytes:       1000,
+				MaxObservationLengthBytes: 1000,
+				MaxReportLengthBytes:      1000,
+				MaxRequestBatchSize:       1000,
+				UniqueReports:             true,
+				DeltaProgressMillis:       1000,
+				DeltaResendMillis:         1000,
+				DeltaInitialMillis:        1000,
+				DeltaGraceMillis:          1000,
+				MaxFaultyOracles:          1,
+			}
+		)
 
 		multDonCfg := memory.MemoryEnvironmentMultiDonConfig{
 			Configs: make(map[string]memory.MemoryEnvironmentConfig),
@@ -87,6 +103,7 @@ func TestDeploy(t *testing.T) {
 			Menv:              e,
 			DonToCapabilities: donsToDeploy,
 			NodeIDToNop:       nodeToNop,
+			OCR3Config:        &ocr3Config,
 		}
 
 		deployResp, err := keystone.Deploy(ctx, lggr, deployReq)
@@ -133,24 +150,40 @@ func TestDeploy(t *testing.T) {
 		gotRegistry := regChainContracts.CapabilitiesRegistry
 		require.NotNil(t, gotRegistry)
 		// contract reads
-		gotDons, err := gotRegistry.GetDONs(nil)
+		gotDons, err := gotRegistry.GetDONs(&bind.CallOpts{})
 		if err != nil {
 			err = keystone.DecodeErr(kcr.CapabilitiesRegistryABI, err)
-			require.Fail(t, "failed to get Dons from registry at %s", gotRegistry.Address(), err)
+			require.Fail(t, fmt.Sprintf("failed to get Dons from registry at %s: %s", gotRegistry.Address().String(), err))
 		}
 		require.NoError(t, err)
 		assert.Len(t, gotDons, len(e.DonToEnv))
-		/*
-			for don, id := range deployResp.DonInfos {
-				// id starts at 1 in the contract
-				//gdon := gotDons[id-1]
-				cfg, ok := multDonCfg.Configs[don]
-				require.True(t, ok, "no config for don %s", don)
-				assert.Equal(t, cfg.Nodes/3, int(gdon.F))
-				assert.Len(t, gdon.NodeP2PIds, cfg.Nodes)
-				assert.Equal(t, don == keystone.WFDonName, gdon.AcceptsWorkflows, "don %s, %d has wrong AcceptsWorkflows", don, id)
+		var donIds []uint32
+		for n, info := range deployResp.DonInfos {
+			donIds = append(donIds, info.Id)
+			found := false
+			for _, gdon := range gotDons {
+				if gdon.Id == info.Id {
+					found = true
+					assert.EqualValues(t, info, gdon)
+					break
+				}
 			}
-		*/
+			require.True(t, found, "don %s not found in registry", n)
+		}
+		// check the forwarder
+		for _, cs := range contractSetsResp.ContractSets {
+			forwarder := cs.Forwarder
+			require.NotNil(t, forwarder)
+			// TODO expand this test; there is no get method on the forwarder so unclear how to test it
+		}
+		// check the ocr3 contract
+		for chainSel, cs := range contractSetsResp.ContractSets {
+			if chainSel != homeChain {
+				require.Nil(t, cs.OCR3)
+				continue
+			}
+			require.NotNil(t, cs.OCR3)
+		}
 	})
 
 	t.Run("memory chains clo offchain", func(t *testing.T) {
