@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -45,7 +46,7 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 
 		sendStrategy:    txmgr.NewSendEveryStrategy(),
 		contracts:       config.Contracts,
-		parsedContracts: &ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
+		parsedContracts: &codec.ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
 	}
 
 	if config.SendStrategy != nil {
@@ -75,7 +76,7 @@ type chainWriter struct {
 
 	sendStrategy    txmgrtypes.TxStrategy
 	contracts       map[string]*types.ContractConfig
-	parsedContracts *ParsedTypes
+	parsedContracts *codec.ParsedTypes
 
 	encoder commontypes.Encoder
 }
@@ -161,7 +162,7 @@ func (w *chainWriter) parseContracts() error {
 			}
 
 			// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
-			inputMod, err := methodConfig.InputModifications.ToModifier(DecoderHooks...)
+			inputMod, err := methodConfig.InputModifications.ToModifier(codec.DecoderHooks...)
 			if err != nil {
 				return fmt.Errorf("%w: failed to create input mods", err)
 			}

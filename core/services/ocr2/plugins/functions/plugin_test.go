@@ -47,7 +47,7 @@ func TestNewConnector_Success(t *testing.T) {
 	config := &config.PluginConfig{
 		GatewayConnectorConfig: gwcCfg,
 	}
-	_, err = functions.NewConnector(ctx, config, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, logger.TestLogger(t))
+	_, _, err = functions.NewConnector(ctx, config, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, logger.TestLogger(t))
 	require.NoError(t, err)
 }
 
@@ -78,6 +78,6 @@ func TestNewConnector_NoKeyForConfiguredAddress(t *testing.T) {
 	config := &config.PluginConfig{
 		GatewayConnectorConfig: gwcCfg,
 	}
-	_, err = functions.NewConnector(ctx, config, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, logger.TestLogger(t))
+	_, _, err = functions.NewConnector(ctx, config, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, logger.TestLogger(t))
 	require.Error(t, err)
 }
