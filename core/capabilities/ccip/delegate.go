@@ -303,12 +303,12 @@ func bindReader(ctx context.Context,
 	capabilityLabelledName,
 	capabilityVersion string,
 ) (boundReader types.ContractReader, ccipConfigBinding types.BoundContract, err error) {
-	err = reader.Bind(ctx, []types.BoundContract{
-		{
-			Address: capRegAddress,
-			Name:    consts.ContractNameCapabilitiesRegistry,
-		},
-	})
+	boundContract := types.BoundContract{
+		Address: capRegAddress,
+		Name:    consts.ContractNameCapabilitiesRegistry,
+	}
+
+	err = reader.Bind(ctx, []types.BoundContract{boundContract})
 	if err != nil {
 		return nil, types.BoundContract{}, fmt.Errorf("failed to bind home chain contract reader: %w", err)
 	}
@@ -319,9 +319,15 @@ func bindReader(ctx context.Context,
 	}
 
 	var ccipCapabilityInfo kcr.CapabilitiesRegistryCapabilityInfo
-	err = reader.GetLatestValue(ctx, consts.ContractNameCapabilitiesRegistry, consts.MethodNameGetCapability, primitives.Unconfirmed, map[string]any{
-		"hashedId": hid,
-	}, &ccipCapabilityInfo)
+	err = reader.GetLatestValue(
+		ctx,
+		boundContract.ReadIdentifier(consts.MethodNameGetCapability),
+		primitives.Unconfirmed,
+		map[string]any{
+			"hashedId": hid,
+		},
+		&ccipCapabilityInfo,
+	)
 	if err != nil {
 		return nil, types.BoundContract{}, fmt.Errorf("failed to get CCIP capability info from chain reader: %w", err)
 	}
