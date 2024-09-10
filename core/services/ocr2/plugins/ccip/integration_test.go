@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
-	"math"
 	"math/big"
 	"sync"
 	"testing"
@@ -687,11 +686,8 @@ func TestReorg(t *testing.T) {
 	require.NoError(t, ccipTH.Dest.Chain.Fork(testutils.Context(t), forkBlock.Hash()),
 		"Error while forking the chain")
 	// Make sure that fork is longer than the canonical chain to enforce switch
-	noOfBlocks, err := safeIntConversion(currentBlock.NumberU64() - forkBlock.NumberU64())
-	if err != nil {
-		t.Fatalf("Error while finding number of blocks: %v", err)
-	}
-	for i := 0; i < noOfBlocks+1; i++ {
+	noOfBlocks := uint(currentBlock.NumberU64() - forkBlock.NumberU64())
+	for i := uint(0); i < noOfBlocks+1; i++ {
 		ccipTH.Dest.Chain.Commit()
 	}
 
@@ -710,11 +706,4 @@ func TestReorg(t *testing.T) {
 	ccipTH.EventuallyReportCommitted(t, 2)
 	executionLog = ccipTH.AllNodesHaveExecutedSeqNums(t, 1, 2)
 	ccipTH.AssertExecState(t, executionLog[0], testhelpers.ExecutionStateSuccess)
-}
-
-func safeIntConversion(n uint64) (int, error) {
-	if n > math.MaxInt {
-		return 0, fmt.Errorf("%d overflows int64", n)
-	}
-	return int(n), nil
 }

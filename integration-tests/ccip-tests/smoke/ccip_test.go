@@ -2,11 +2,12 @@ package smoke
 
 import (
 	"fmt"
-	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/AlekSi/pointer"
 	"github.com/stretchr/testify/require"
