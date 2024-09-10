@@ -52,21 +52,6 @@ func (h *connectorSigner) Sign(data ...[]byte) ([]byte, error) {
 	return gwcommon.SignData(h.signerKey, data...)
 }
 
-func (h *connectorSigner) Start(ctx context.Context) error {
-	return h.StartOnce("ConnectorSigner", func() error {
-		return nil
-	})
-}
-func (h *connectorSigner) Close() error {
-	return h.StopOnce("ConnectorSigner", func() (err error) {
-		return nil
-	})
-}
-
-func (h *connectorSigner) SetConnector(connector connector.GatewayConnector) {
-	h.connector = connector
-}
-
 func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 	r := connector.ConnectorConfig{}
 	r.NodeAddress = f.NodeAddress()
@@ -97,7 +82,8 @@ func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore 
 func (e *ServiceWrapper) Start(ctx context.Context) error {
 	return e.StartOnce("GatewayConnectorServiceWrapper", func() error {
 		conf := e.config
-		chainID, _ := new(big.Int).SetString(conf.ChainIDForNodeKey(), 0)
+		nodeAddress := conf.ChainIDForNodeKey()
+		chainID, _ := new(big.Int).SetString(nodeAddress, 0)
 		enabledKeys, err := e.keystore.EnabledKeysForChain(ctx, chainID)
 		if err != nil {
 			return err
@@ -105,23 +91,23 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 		if len(enabledKeys) == 0 {
 			return errors.New("no available keys found")
 		}
-		configuredNodeAddress := common.HexToAddress(conf.NodeAddress())
+		configuredNodeAddress := common.HexToAddress(nodeAddress)
 		idx := slices.IndexFunc(enabledKeys, func(key ethkey.KeyV2) bool { return key.Address == configuredNodeAddress })
 
 		if idx == -1 {
 			return errors.New("key for configured node address not found")
 		}
 		signerKey := enabledKeys[idx].ToEcdsaPrivKey()
-		if enabledKeys[idx].ID() != conf.NodeAddress() {
+		if enabledKeys[idx].ID() != nodeAddress {
 			return errors.New("node address mismatch")
 		}
 
-		signer, err := NewConnectorSigner(e.config, signerKey, e.lggr)
+		signer, err := NewConnectorSigner(conf, signerKey, e.lggr)
 		if err != nil {
 			return err
 		}
 		translated := translateConfigs(conf)
-		e.connector, err = connector.NewGatewayConnector(&translated, signer, clockwork.NewRealClock(), e.lggr)
+		e.connector, err = connector.NewGatewayConnector(&translated, signer, clockwork.NewFakeClock(), e.lggr)
 		if err != nil {
 			return err
 		}
