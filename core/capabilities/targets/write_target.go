@@ -274,12 +274,11 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 
 	value := big.NewInt(0)
 	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value); err != nil {
-		if commontypes.ErrSettingTransactionGasLimitNotSupported.Is(err) {
-			meta.GasLimit = nil
-			if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value); err != nil {
-				return capabilities.CapabilityResponse{}, fmt.Errorf("failed to submit transaction: %w", err)
-			}
-		} else {
+		if !commontypes.ErrSettingTransactionGasLimitNotSupported.Is(err) {
+			return capabilities.CapabilityResponse{}, fmt.Errorf("failed to submit transaction: %w", err)
+		}
+		meta.GasLimit = nil
+		if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value); err != nil {
 			return capabilities.CapabilityResponse{}, fmt.Errorf("failed to submit transaction: %w", err)
 		}
 	}
