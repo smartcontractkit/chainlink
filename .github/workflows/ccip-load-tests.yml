@@ -187,7 +187,6 @@ jobs:
           DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
           RR_MEM: 8Gi
           RR_CPU: 4
-          ENV_JOB_IMAGE: ${{ steps.build-test-image.outputs.test_image }}
           TEST_TRIGGERED_BY: ccip-load-test-ci-${{ matrix.type.name }}
           BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}
           TEST_BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}          
