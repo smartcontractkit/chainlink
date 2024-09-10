@@ -14,7 +14,7 @@ func (nm NonceManager) Address() common.Address {
 	return common.HexToAddress(nm.Contract.Address)
 }
 
-func NonceManagerSnapshot(nm NonceManagerGetter) (NonceManager, error) {
+func NonceManagerSnapshot(nm NonceManagerReader) (NonceManager, error) {
 	authorizedCallers, err := nm.GetAllAuthorizedCallers(nil)
 	if err != nil {
 		return NonceManager{}, err
@@ -33,7 +33,7 @@ func NonceManagerSnapshot(nm NonceManagerGetter) (NonceManager, error) {
 	}, nil
 }
 
-type NonceManagerGetter interface {
+type NonceManagerReader interface {
 	GetAllAuthorizedCallers(opts *bind.CallOpts) ([]common.Address, error)
 	TypeAndVersion(opts *bind.CallOpts) (string, error)
 	Address() common.Address

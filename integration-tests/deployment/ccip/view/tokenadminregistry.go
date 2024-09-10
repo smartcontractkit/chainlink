@@ -14,7 +14,7 @@ func (ta TokenAdminRegistry) Address() common.Address {
 	return common.HexToAddress(ta.Contract.Address)
 }
 
-func TokenAdminRegistrySnapshot(taContract TokenAdminRegistryGetter) (TokenAdminRegistry, error) {
+func TokenAdminRegistrySnapshot(taContract TokenAdminRegistryReader) (TokenAdminRegistry, error) {
 	tokens, err := taContract.GetAllConfiguredTokens(nil, 0, 10)
 	if err != nil {
 		return TokenAdminRegistry{}, err
@@ -32,7 +32,7 @@ func TokenAdminRegistrySnapshot(taContract TokenAdminRegistryGetter) (TokenAdmin
 	}, nil
 }
 
-type TokenAdminRegistryGetter interface {
+type TokenAdminRegistryReader interface {
 	GetAllConfiguredTokens(opts *bind.CallOpts, startIndex uint64, maxCount uint64) ([]common.Address, error)
 	TypeAndVersion(opts *bind.CallOpts) (string, error)
 	Address() common.Address
