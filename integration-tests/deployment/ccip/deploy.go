@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smartcontractkit/ccip-owner-contracts/tools/configwrappers"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/tools/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -262,17 +263,20 @@ func DeployChainContracts(
 	}
 	// TODO: Address soon
 	e.Logger.Infow("deployed mcm", "addr", mcm.Address)
-	// TODO: Real MCM configuration.
-	var quorums, parents [32]uint8
-	quorums[0] = 1
 	publicKey := TestXXXMCMSSigner.Public().(*ecdsa.PublicKey)
 	// Convert the public key to an Ethereum address
 	address := crypto.PubkeyToAddress(*publicKey)
+	c, err := configwrappers.NewConfig(1, []common.Address{address}, []configwrappers.Config{})
+	if err != nil {
+		e.Logger.Errorw("Failed to create config", "err", err)
+		return ab, err
+	}
+	groupQuorums, groupParents, signerAddresses, signerGroups := c.ExtractSetConfigInputs()
 	tx, err := mcm.Contract.SetConfig(chain.DeployerKey,
-		[]common.Address{address},
-		[]uint8{0}, // Signer 1 is int group 0 (root group) with quorum 1.
-		quorums,
-		parents,
+		signerAddresses,
+		signerGroups, // Signer 1 is int group 0 (root group) with quorum 1.
+		groupQuorums,
+		groupParents,
 		false,
 	)
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {

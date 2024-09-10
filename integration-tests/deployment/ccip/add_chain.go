@@ -2,45 +2,27 @@ package ccipdeployment
 
 import (
 	"math/big"
-	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 )
 
-// AddChain deploys chain contracts for a new chain
-// and generates 3 proposals to connect that new chain to all existing chains.
-// We testing in between each proposal.
-func NewChainInbound(
+// NewChainInboundProposal generates a proposal
+// to connect the new chain to the existing chains.
+func NewChainInboundProposal(
 	e deployment.Environment,
-	ab deployment.AddressBook,
+	state CCIPOnChainState,
 	homeChainSel uint64,
 	newChainSel uint64,
 	sources []uint64,
-) ([]timelock.MCMSWithTimelockProposal, deployment.AddressBook, error) {
-	// 1. Deploy contracts to new chain and wire them.
-	newAddresses, err := DeployChainContracts(e, e.Chains[newChainSel], deployment.NewMemoryAddressBook())
-	if err != nil {
-		return nil, ab, err
-	}
-	if err := ab.Merge(newAddresses); err != nil {
-		return nil, ab, err
-	}
-	state, err := LoadOnchainState(e, ab)
-	if err != nil {
-		return nil, ab, err
-	}
-
-	// 2. Generate proposal which enables new destination (from test router) on all source chains.
+) ([]timelock.MCMSWithTimelockProposal, error) {
+	// Generate proposal which enables new destination (from test router) on all source chains.
 	var batches []timelock.BatchChainOperation
 	metaDataPerChain := make(map[mcms.ChainIdentifier]timelock.MCMSWithTimelockChainMetadata)
 	for _, source := range sources {
@@ -52,33 +34,35 @@ func NewChainInbound(
 			},
 		})
 		if err != nil {
-			return nil, ab, err
+			return nil, err
 		}
-		enablePriceRegDest, err := state.Chains[source].FeeQuoter.ApplyDestChainConfigUpdates(
-			SimTransactOpts(),
-			[]fee_quoter.FeeQuoterDestChainConfigArgs{
-				{
-					DestChainSelector: newChainSel,
-					DestChainConfig:   defaultFeeQuoterDestChainConfig(),
-				},
-			})
-		if err != nil {
-			return nil, ab, err
-		}
-		initialPrices, err := state.Chains[source].FeeQuoter.UpdatePrices(
-			SimTransactOpts(),
-			fee_quoter.InternalPriceUpdates{
-				TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{},
-				GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
+		/*
+			enablePriceRegDest, err := state.Chains[source].FeeQuoter.ApplyDestChainConfigUpdates(
+				SimTransactOpts(),
+				[]fee_quoter.FeeQuoterDestChainConfigArgs{
 					{
 						DestChainSelector: newChainSel,
-						// TODO: parameterize
-						UsdPerUnitGas: big.NewInt(2e12),
+						DestChainConfig:   defaultFeeQuoterDestChainConfig(),
 					},
-				}})
-		if err != nil {
-			return nil, ab, err
-		}
+				})
+			if err != nil {
+				return nil, err
+			}
+			initialPrices, err := state.Chains[source].FeeQuoter.UpdatePrices(
+				SimTransactOpts(),
+				fee_quoter.InternalPriceUpdates{
+					TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{},
+					GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
+						{
+							DestChainSelector: newChainSel,
+							// TODO: parameterize
+							UsdPerUnitGas: big.NewInt(2e12),
+						},
+					}})
+			if err != nil {
+				return nil, err
+			}
+		*/
 		batches = append(batches, timelock.BatchChainOperation{
 			ChainIdentifier: mcms.ChainIdentifier(chain.Selector),
 			Batch: []mcms.Operation{
@@ -88,18 +72,18 @@ func NewChainInbound(
 					Data:  enableOnRampDest.Data(),
 					Value: big.NewInt(0),
 				},
-				{
-					// Set initial dest prices to unblock testing.
-					To:    state.Chains[source].FeeQuoter.Address(),
-					Data:  initialPrices.Data(),
-					Value: big.NewInt(0),
-				},
-				{
-					// Set initial dest prices to unblock testing.
-					To:    state.Chains[source].FeeQuoter.Address(),
-					Data:  enablePriceRegDest.Data(),
-					Value: big.NewInt(0),
-				},
+				//{
+				//	// Set initial dest prices to unblock testing.
+				//	To:    state.Chains[source].FeeQuoter.Address(),
+				//	Data:  initialPrices.Data(),
+				//	Value: big.NewInt(0),
+				//},
+				//{
+				//	// Set initial dest prices to unblock testing.
+				//	To:    state.Chains[source].FeeQuoter.Address(),
+				//	Data:  enablePriceRegDest.Data(),
+				//	Value: big.NewInt(0),
+				//},
 			},
 		})
 		metaDataPerChain[mcms.ChainIdentifier(chain.Selector)] = timelock.MCMSWithTimelockChainMetadata{
@@ -115,11 +99,11 @@ func NewChainInbound(
 	// - Add new DONs for destination to home chain
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
-		return nil, ab, err
+		return nil, err
 	}
 	newDONArgs, err := BuildAddDONArgs(e.Logger, state.Chains[newChainSel].OffRamp, e.Chains[newChainSel], nodes)
 	if err != nil {
-		return nil, ab, err
+		return nil, err
 	}
 	addDON, err := state.Chains[homeChainSel].CapabilityRegistry.AddDON(SimTransactOpts(),
 		nodes.PeerIDs(newChainSel), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
@@ -129,7 +113,7 @@ func NewChainInbound(
 			},
 		}, false, false, nodes.DefaultF())
 	if err != nil {
-		return nil, ab, err
+		return nil, err
 	}
 	homeChain, _ := chainsel.ChainBySelector(homeChainSel)
 	metaDataPerChain[mcms.ChainIdentifier(homeChain.Selector)] = timelock.MCMSWithTimelockChainMetadata{
@@ -152,35 +136,20 @@ func NewChainInbound(
 	})
 	newDestProposal, err := timelock.NewMCMSWithTimelockProposal(
 		"1",
-		uint32(time.Now().Add(1*time.Hour).Unix()),
+		2004259681,
 		[]mcms.Signature{},
 		false,
 		metaDataPerChain,
 		"blah",
 		batches,
-		timelock.Schedule, "1h")
+		timelock.Schedule, "0s")
 	if err != nil {
-		return nil, ab, err
-	}
-
-	// New chain we can configure directly with deployer key first.
-	var offRampEnables []offramp.OffRampSourceChainConfigArgs
-	for _, source := range sources {
-		offRampEnables = append(offRampEnables, offramp.OffRampSourceChainConfigArgs{
-			Router:              state.Chains[newChainSel].Router.Address(),
-			SourceChainSelector: source,
-			IsEnabled:           true,
-			OnRamp:              common.LeftPadBytes(state.Chains[source].OnRamp.Address().Bytes(), 32),
-		})
-	}
-	tx, err := state.Chains[newChainSel].OffRamp.ApplySourceChainConfigUpdates(e.Chains[newChainSel].DeployerKey, offRampEnables)
-	if _, err := deployment.ConfirmIfNoError(e.Chains[newChainSel], tx, err); err != nil {
-		return nil, ab, err
+		return nil, err
 	}
 
 	// We won't actually be able to setOCR3Config on the remote until the first proposal goes through.
 	// TODO: Outbound
-	return []timelock.MCMSWithTimelockProposal{*newDestProposal}, ab, nil
+	return []timelock.MCMSWithTimelockProposal{*newDestProposal}, nil
 }
 
 //func ApplyInboundChainProposal(
