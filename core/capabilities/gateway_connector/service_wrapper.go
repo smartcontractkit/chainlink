@@ -50,6 +50,7 @@ func NewConnectorSigner(config config.GatewayConnector, signerKey *ecdsa.Private
 }
 
 func (h *connectorSigner) Sign(data ...[]byte) ([]byte, error) {
+	h.lggr.Debugw("Sign signerKey", h.signerKey)
 	return gwCommon.SignData(h.signerKey, data...)
 }
 
@@ -100,7 +101,7 @@ func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore 
 func (e *ServiceWrapper) Start(ctx context.Context) error {
 	return e.StartOnce("GatewayConnectorServiceWrapper", func() error {
 		conf := e.config
-		e.lggr.Infow("Starting GatewayConnectorServiceWrapper2", "chainID", conf.ChainIDForNodeKey())
+		e.lggr.Infow("Starting GatewayConnectorServiceWrapper", "chainID", conf.ChainIDForNodeKey())
 		chainID, _ := new(big.Int).SetString(conf.ChainIDForNodeKey(), 0)
 		enabledKeys, err := e.keystore.EnabledKeysForChain(ctx, chainID)
 		if err != nil {
@@ -118,6 +119,8 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 		if enabledKeys[idx].ID() != conf.NodeAddress() {
 			return errors.New("node address mismatch")
 		}
+
+		e.lggr.Infow("GatewayConnectorServiceWrapper signerKey", signerKey)
 
 		signer, err := NewConnectorSigner(e.config, signerKey, e.lggr)
 		if err != nil {
@@ -148,4 +151,8 @@ func (e *ServiceWrapper) HealthReport() map[string]error {
 
 func (e *ServiceWrapper) Name() string {
 	return "GatewayConnectorServiceWrapper"
+}
+
+func (e *ServiceWrapper) GetGatewayConnecgtor() connector.GatewayConnector {
+	return e.connector
 }

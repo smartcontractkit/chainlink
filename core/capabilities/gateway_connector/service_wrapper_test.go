@@ -11,8 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/test-go/testify/mock"
 )
 
 func generateWrapper(t *testing.T, addr common.Address, keystoreAddr common.Address) (*ServiceWrapper, error) {
@@ -37,16 +37,16 @@ func generateWrapper(t *testing.T, addr common.Address, keystoreAddr common.Addr
 	}.New()
 	ethKeystore := ksmocks.NewEth(t)
 	ethKeystore.On("EnabledKeysForChain", mock.Anything, mock.Anything).Return([]ethkey.KeyV2{{Address: keystoreAddr}}, nil)
-
 	gc := config.Capabilities().GatewayConnector()
 	wrapper := NewGatewayConnectorServiceWrapper(gc, ethKeystore, logger)
 	require.NoError(t, err)
 	return wrapper, err
-
 }
 
 func TestGatewayConnectorServiceWrapper_CleanStartClose(t *testing.T) {
 	t.Parallel()
+	logger := logger.TestLogger(t)
+	logger.Infow("TestGatewayConnectorServiceWrapper_CleanStartClose")
 
 	_, addr := testutils.NewPrivateKeyAndAddress(t)
 	wrapper, err := generateWrapper(t, addr, addr)
