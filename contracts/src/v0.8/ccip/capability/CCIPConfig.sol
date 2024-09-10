@@ -101,6 +101,12 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
     return i_capabilitiesRegistry;
   }
 
+  /// @notice Returns the total number of chains configured.
+  /// @return The total number of chains configured.
+  function getNumChainConfigurations() external view returns (uint256) {
+    return s_remoteChainSelectors.length();
+  }
+
   /// @notice Returns all the chain configurations.
   /// @param pageIndex The page index.
   /// @param pageSize The page size.
