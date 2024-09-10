@@ -64,8 +64,8 @@ type EVMChainComponentsInterfaceTester[T TestingT[T]] struct {
 	address           string
 	address2          string
 	contractTesters   map[string]*chain_reader_tester.ChainReaderTester
-	chainReaderConfig types.ChainReaderConfig
-	chainWriterConfig types.ChainWriterConfig
+	ChainReaderConfig *types.ChainReaderConfig
+	ChainWriterConfig *types.ChainWriterConfig
 	deployerAuth      *bind.TransactOpts
 	senderAuth        *bind.TransactOpts
 	cr                evm.ChainReaderService
@@ -114,165 +114,171 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 		},
 	}
 
-	it.chainReaderConfig = types.ChainReaderConfig{
-		Contracts: map[string]types.ChainContractReader{
-			AnyContractName: {
-				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
-				ContractPollingFilter: types.ContractPollingFilter{
-					GenericEventNames: []string{EventName, EventWithFilterName, triggerWithAllTopicsWithHashed},
-				},
-				Configs: map[string]*types.ChainReaderDefinition{
-					MethodTakingLatestParamsReturningTestStruct: &methodTakingLatestParamsReturningTestStructConfig,
-					MethodReturningAlterableUint64: {
-						ChainSpecificName: "getAlterablePrimitiveValue",
+	if it.ChainReaderConfig == nil {
+		it.ChainReaderConfig = &types.ChainReaderConfig{
+			Contracts: map[string]types.ChainContractReader{
+				AnyContractName: {
+					ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
+					ContractPollingFilter: types.ContractPollingFilter{
+						GenericEventNames: []string{EventName, EventWithFilterName, triggerWithAllTopicsWithHashed},
 					},
-					MethodReturningUint64: {
-						ChainSpecificName: "getPrimitiveValue",
-					},
-					MethodReturningUint64Slice: {
-						ChainSpecificName: "getSliceValue",
-					},
-					EventName: {
-						ChainSpecificName: "Triggered",
-						ReadType:          types.Event,
-						OutputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+					Configs: map[string]*types.ChainReaderDefinition{
+						MethodTakingLatestParamsReturningTestStruct: &methodTakingLatestParamsReturningTestStructConfig,
+						MethodReturningAlterableUint64: {
+							ChainSpecificName: "getAlterablePrimitiveValue",
 						},
-					},
-					EventWithFilterName: {
-						ChainSpecificName: "Triggered",
-						ReadType:          types.Event,
-						EventDefinitions:  &types.EventDefinitions{InputFields: []string{"Field"}},
-					},
-					triggerWithDynamicTopic: {
-						ChainSpecificName: triggerWithDynamicTopic,
-						ReadType:          types.Event,
-						EventDefinitions: &types.EventDefinitions{
-							InputFields: []string{"fieldHash"},
-							// No specific reason for filter being defined here instead of on contract level, this is just for test case variety.
-							PollingFilter: &types.PollingFilter{},
+						MethodReturningUint64: {
+							ChainSpecificName: "getPrimitiveValue",
 						},
-						InputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{Fields: map[string]string{"FieldHash": "Field"}},
+						MethodReturningUint64Slice: {
+							ChainSpecificName: "getSliceValue",
 						},
-					},
-					triggerWithAllTopics: {
-						ChainSpecificName: triggerWithAllTopics,
-						ReadType:          types.Event,
-						EventDefinitions: &types.EventDefinitions{
-							InputFields:   []string{"Field1", "Field2", "Field3"},
-							PollingFilter: &types.PollingFilter{},
-						},
-						// This doesn't have to be here, since the defalt mapping would work, but is left as an example.
-						// Keys which are string float values(confidence levels) are chain agnostic and should be reused across chains.
-						// These float values can map to different finality concepts across chains.
-						ConfidenceConfirmations: map[string]int{"0.0": int(evmtypes.Unconfirmed), "1.0": int(evmtypes.Finalized)},
-					},
-					triggerWithAllTopicsWithHashed: {
-						ChainSpecificName: triggerWithAllTopicsWithHashed,
-						ReadType:          types.Event,
-						EventDefinitions: &types.EventDefinitions{
-							InputFields: []string{"Field1", "Field2", "Field3"},
-						},
-					},
-					MethodReturningSeenStruct: {
-						ChainSpecificName: "returnSeen",
-						InputModifications: codec.ModifiersConfig{
-							&codec.HardCodeModifierConfig{
-								OnChainValues: map[string]any{
-									"BigField": testStruct.BigField.String(),
-									"Account":  hexutil.Encode(testStruct.Account),
-								},
+						EventName: {
+							ChainSpecificName: "Triggered",
+							ReadType:          types.Event,
+							OutputModifications: codec.ModifiersConfig{
+								&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 							},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 						},
-						OutputModifications: codec.ModifiersConfig{
-							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"ExtraField": AnyExtraValue}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+						EventWithFilterName: {
+							ChainSpecificName: "Triggered",
+							ReadType:          types.Event,
+							EventDefinitions:  &types.EventDefinitions{InputFields: []string{"Field"}},
+						},
+						triggerWithDynamicTopic: {
+							ChainSpecificName: triggerWithDynamicTopic,
+							ReadType:          types.Event,
+							EventDefinitions: &types.EventDefinitions{
+								InputFields: []string{"fieldHash"},
+								// No specific reason for filter being defined here instead of on contract level, this is just for test case variety.
+								PollingFilter: &types.PollingFilter{},
+							},
+							InputModifications: codec.ModifiersConfig{
+								&codec.RenameModifierConfig{Fields: map[string]string{"FieldHash": "Field"}},
+							},
+						},
+						triggerWithAllTopics: {
+							ChainSpecificName: triggerWithAllTopics,
+							ReadType:          types.Event,
+							EventDefinitions: &types.EventDefinitions{
+								InputFields:   []string{"Field1", "Field2", "Field3"},
+								PollingFilter: &types.PollingFilter{},
+							},
+							// This doesn't have to be here, since the defalt mapping would work, but is left as an example.
+							// Keys which are string float values(confidence levels) are chain agnostic and should be reused across chains.
+							// These float values can map to different finality concepts across chains.
+							ConfidenceConfirmations: map[string]int{"0.0": int(evmtypes.Unconfirmed), "1.0": int(evmtypes.Finalized)},
+						},
+						triggerWithAllTopicsWithHashed: {
+							ChainSpecificName: triggerWithAllTopicsWithHashed,
+							ReadType:          types.Event,
+							EventDefinitions: &types.EventDefinitions{
+								InputFields: []string{"Field1", "Field2", "Field3"},
+							},
+						},
+						MethodReturningSeenStruct: {
+							ChainSpecificName: "returnSeen",
+							InputModifications: codec.ModifiersConfig{
+								&codec.HardCodeModifierConfig{
+									OnChainValues: map[string]any{
+										"BigField": testStruct.BigField.String(),
+										"Account":  hexutil.Encode(testStruct.Account),
+									},
+								},
+								&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+							},
+							OutputModifications: codec.ModifiersConfig{
+								&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"ExtraField": AnyExtraValue}},
+								&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+							},
+						},
+					},
+				},
+				AnySecondContractName: {
+					ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
+					Configs: map[string]*types.ChainReaderDefinition{
+						MethodTakingLatestParamsReturningTestStruct: &methodTakingLatestParamsReturningTestStructConfig,
+						MethodReturningUint64: {
+							ChainSpecificName: "getDifferentPrimitiveValue",
 						},
 					},
 				},
 			},
-			AnySecondContractName: {
-				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
-				Configs: map[string]*types.ChainReaderDefinition{
-					MethodTakingLatestParamsReturningTestStruct: &methodTakingLatestParamsReturningTestStructConfig,
-					MethodReturningUint64: {
-						ChainSpecificName: "getDifferentPrimitiveValue",
-					},
-				},
-			},
-		},
+		}
 	}
+
 	it.GetChainReader(t)
 	it.txm = it.Helper.TXM(t, it.client)
 
-	it.chainWriterConfig = types.ChainWriterConfig{
-		Contracts: map[string]*types.ContractConfig{
-			AnyContractName: {
-				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
-				Configs: map[string]*types.ChainWriterDefinition{
-					"addTestStruct": {
-						ChainSpecificName: "addTestStruct",
-						FromAddress:       it.Helper.Accounts(t)[1].From,
-						GasLimit:          2_000_000,
-						Checker:           "simulate",
-						InputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+	if it.ChainWriterConfig == nil {
+		it.ChainWriterConfig = &types.ChainWriterConfig{
+			Contracts: map[string]*types.ContractConfig{
+				AnyContractName: {
+					ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
+					Configs: map[string]*types.ChainWriterDefinition{
+						"addTestStruct": {
+							ChainSpecificName: "addTestStruct",
+							FromAddress:       it.Helper.Accounts(t)[1].From,
+							GasLimit:          2_000_000,
+							Checker:           "simulate",
+							InputModifications: codec.ModifiersConfig{
+								&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+							},
 						},
-					},
-					"setAlterablePrimitiveValue": {
-						ChainSpecificName: "setAlterablePrimitiveValue",
-						FromAddress:       it.Helper.Accounts(t)[1].From,
-						GasLimit:          2_000_000,
-						Checker:           "simulate",
-					},
-					"triggerEvent": {
-						ChainSpecificName: "triggerEvent",
-						FromAddress:       it.Helper.Accounts(t)[1].From,
-						GasLimit:          2_000_000,
-						Checker:           "simulate",
-						InputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+						"setAlterablePrimitiveValue": {
+							ChainSpecificName: "setAlterablePrimitiveValue",
+							FromAddress:       it.Helper.Accounts(t)[1].From,
+							GasLimit:          2_000_000,
+							Checker:           "simulate",
 						},
-					},
-					"triggerEventWithDynamicTopic": {
-						ChainSpecificName: "triggerEventWithDynamicTopic",
-						FromAddress:       it.Helper.Accounts(t)[1].From,
-						GasLimit:          2_000_000,
-						Checker:           "simulate",
-					},
-					"triggerWithFourTopics": {
-						ChainSpecificName: "triggerWithFourTopics",
-						FromAddress:       it.Helper.Accounts(t)[1].From,
-						GasLimit:          2_000_000,
-						Checker:           "simulate",
-					},
-					"triggerWithFourTopicsWithHashed": {
-						ChainSpecificName: "triggerWithFourTopicsWithHashed",
-						FromAddress:       it.Helper.Accounts(t)[1].From,
-						GasLimit:          2_000_000,
-						Checker:           "simulate",
-					},
-				},
-			},
-			AnySecondContractName: {
-				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
-				Configs: map[string]*types.ChainWriterDefinition{
-					"addTestStruct": {
-						ChainSpecificName: "addTestStruct",
-						FromAddress:       it.Helper.Accounts(t)[1].From,
-						GasLimit:          2_000_000,
-						Checker:           "simulate",
-						InputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+						"triggerEvent": {
+							ChainSpecificName: "triggerEvent",
+							FromAddress:       it.Helper.Accounts(t)[1].From,
+							GasLimit:          2_000_000,
+							Checker:           "simulate",
+							InputModifications: codec.ModifiersConfig{
+								&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+							},
+						},
+						"triggerEventWithDynamicTopic": {
+							ChainSpecificName: "triggerEventWithDynamicTopic",
+							FromAddress:       it.Helper.Accounts(t)[1].From,
+							GasLimit:          2_000_000,
+							Checker:           "simulate",
+						},
+						"triggerWithFourTopics": {
+							ChainSpecificName: "triggerWithFourTopics",
+							FromAddress:       it.Helper.Accounts(t)[1].From,
+							GasLimit:          2_000_000,
+							Checker:           "simulate",
+						},
+						"triggerWithFourTopicsWithHashed": {
+							ChainSpecificName: "triggerWithFourTopicsWithHashed",
+							FromAddress:       it.Helper.Accounts(t)[1].From,
+							GasLimit:          2_000_000,
+							Checker:           "simulate",
 						},
 					},
 				},
+				AnySecondContractName: {
+					ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
+					Configs: map[string]*types.ChainWriterDefinition{
+						"addTestStruct": {
+							ChainSpecificName: "addTestStruct",
+							FromAddress:       it.Helper.Accounts(t)[1].From,
+							GasLimit:          2_000_000,
+							Checker:           "simulate",
+							InputModifications: codec.ModifiersConfig{
+								&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+							},
+						},
+					},
+				},
 			},
-		},
-		MaxGasPrice: assets.NewWei(big.NewInt(1000000000000000000)),
+			MaxGasPrice: assets.NewWei(big.NewInt(1000000000000000000)),
+		}
 	}
+
 	it.deployNewContracts(t)
 }
 
@@ -307,7 +313,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetChainReader(t T) clcommontype
 	require.NoError(t, lp.Start(ctx))
 
 	// encode and decode the config to ensure the test covers type issues
-	confBytes, err := json.Marshal(it.chainReaderConfig)
+	confBytes, err := json.Marshal(it.ChainReaderConfig)
 	require.NoError(t, err)
 
 	conf, err := types.ChainReaderConfigFromBytes(confBytes)
@@ -333,7 +339,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetChainWriter(t T) clcommontype
 		return it.cw
 	}
 
-	cw, err := evm.NewChainWriterService(logger.NullLogger, it.client, it.txm, it.gasEstimator, it.chainWriterConfig)
+	cw, err := evm.NewChainWriterService(logger.NullLogger, it.client, it.txm, it.gasEstimator, *it.ChainWriterConfig)
 	require.NoError(t, err)
 	it.cw = it.Helper.WrappedChainWriter(cw, it.client)
 

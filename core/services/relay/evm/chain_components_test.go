@@ -153,7 +153,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 
 func TestChainComponents(t *testing.T) {
 	t.Parallel()
-	it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: &helper{}}
+	it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: &Helper{}}
 
 	it.Helper.Init(t)
 
@@ -162,7 +162,8 @@ func TestChainComponents(t *testing.T) {
 	RunContractReaderInterfaceTests[*testing.T](t, commontestutils.WrapContractReaderTesterForLoop(it), false)
 }
 
-type helper struct {
+// TODO move to make it reusable
+type Helper struct {
 	sim         *backends.SimulatedBackend
 	accounts    []*bind.TransactOpts
 	deployerKey *ecdsa.PrivateKey
@@ -172,7 +173,7 @@ type helper struct {
 	db          *sqlx.DB
 }
 
-func (h *helper) Init(t *testing.T) {
+func (h *Helper) Init(t *testing.T) {
 	h.SetupKeys(t)
 
 	h.accounts = h.Accounts(t)
@@ -186,7 +187,7 @@ func (h *helper) Init(t *testing.T) {
 	h.Commit()
 }
 
-func (h *helper) SetupKeys(t *testing.T) {
+func (h *Helper) SetupKeys(t *testing.T) {
 	deployerPkey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	h.deployerKey = deployerPkey
@@ -196,7 +197,7 @@ func (h *helper) SetupKeys(t *testing.T) {
 	h.senderKey = senderPkey
 }
 
-func (h *helper) Accounts(t *testing.T) []*bind.TransactOpts {
+func (h *Helper) Accounts(t *testing.T) []*bind.TransactOpts {
 	if h.accounts != nil {
 		return h.accounts
 	}
@@ -209,15 +210,15 @@ func (h *helper) Accounts(t *testing.T) []*bind.TransactOpts {
 	return []*bind.TransactOpts{deployer, sender}
 }
 
-func (h *helper) MustGenerateRandomKey(t *testing.T) ethkey.KeyV2 {
+func (h *Helper) MustGenerateRandomKey(t *testing.T) ethkey.KeyV2 {
 	return cltest.MustGenerateRandomKey(t)
 }
 
-func (h *helper) GasPriceBufferPercent() int64 {
+func (h *Helper) GasPriceBufferPercent() int64 {
 	return 0
 }
 
-func (h *helper) Backend() bind.ContractBackend {
+func (h *Helper) Backend() bind.ContractBackend {
 	if h.sim == nil {
 		h.sim = backends.NewSimulatedBackend(
 			core.GenesisAlloc{h.accounts[0].From: {Balance: big.NewInt(math.MaxInt64)}, h.accounts[1].From: {Balance: big.NewInt(math.MaxInt64)}}, commonGasLimitOnEvms*5000)
@@ -227,42 +228,42 @@ func (h *helper) Backend() bind.ContractBackend {
 	return h.sim
 }
 
-func (h *helper) Commit() {
+func (h *Helper) Commit() {
 	h.sim.Commit()
 }
 
-func (h *helper) Client(t *testing.T) client.Client {
+func (h *Helper) Client(t *testing.T) client.Client {
 	if h.client != nil {
 		return h.client
 	}
 	return client.NewSimulatedBackendClient(t, h.sim, big.NewInt(1337))
 }
 
-func (h *helper) ChainID() *big.Int {
+func (h *Helper) ChainID() *big.Int {
 	return testutils.SimulatedChainID
 }
 
-func (h *helper) NewSqlxDB(t *testing.T) *sqlx.DB {
+func (h *Helper) NewSqlxDB(t *testing.T) *sqlx.DB {
 	return pgtest.NewSqlxDB(t)
 }
 
-func (h *helper) Context(t *testing.T) context.Context {
+func (h *Helper) Context(t *testing.T) context.Context {
 	return testutils.Context(t)
 }
 
-func (h *helper) ChainReaderEVMClient(ctx context.Context, t *testing.T, ht logpoller.HeadTracker, conf types.ChainReaderConfig) client.Client {
+func (h *Helper) ChainReaderEVMClient(ctx context.Context, t *testing.T, ht logpoller.HeadTracker, conf types.ChainReaderConfig) client.Client {
 	// wrap the client so that we can mock historical contract state
 	cwh := &evm.ClientWithContractHistory{Client: h.Client(t), HT: ht}
 	require.NoError(t, cwh.Init(ctx, conf))
 	return cwh
 }
 
-func (h *helper) WrappedChainWriter(cw clcommontypes.ChainWriter, client client.Client) clcommontypes.ChainWriter {
+func (h *Helper) WrappedChainWriter(cw clcommontypes.ChainWriter, client client.Client) clcommontypes.ChainWriter {
 	cwhw := evm.NewChainWriterHistoricalWrapper(cw, client.(*evm.ClientWithContractHistory))
 	return cwhw
 }
 
-func (h *helper) MaxWaitTimeForEvents() time.Duration {
+func (h *Helper) MaxWaitTimeForEvents() time.Duration {
 	// From trial and error, when running on CI, sometimes the boxes get slow
 	maxWaitTime := time.Second * 30
 	maxWaitTimeStr, ok := os.LookupEnv("MAX_WAIT_TIME_FOR_EVENTS_S")
@@ -276,7 +277,7 @@ func (h *helper) MaxWaitTimeForEvents() time.Duration {
 	return maxWaitTime
 }
 
-func (h *helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
+func (h *Helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
 	if h.txm != nil {
 		return h.txm
 	}
