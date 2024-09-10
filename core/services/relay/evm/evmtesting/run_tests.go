@@ -32,7 +32,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		anyString := "foo"
 		ctx := it.Helper.Context(t)
 
-		cr := it.GetChainReader(t)
+		cr := it.GetContractReader(t)
 		bindings := it.GetBindings(t)
 		require.NoError(t, cr.Bind(ctx, bindings))
 
@@ -66,7 +66,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 	t.Run("Multiple topics can filter together", func(t T) {
 		it.Setup(t)
 		ctx := it.Helper.Context(t)
-		cr := it.GetChainReader(t)
+		cr := it.GetContractReader(t)
 		bindings := it.GetBindings(t)
 
 		require.NoError(t, cr.Bind(ctx, bindings))
@@ -97,7 +97,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 	t.Run("Filtering can be done on indexed topics that get hashed", func(t T) {
 		it.Setup(t)
 
-		cr := it.GetChainReader(t)
+		cr := it.GetContractReader(t)
 		ctx := it.Helper.Context(t)
 		bindings := it.GetBindings(t)
 
@@ -133,7 +133,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		it.Setup(t)
 
 		addr := common.BigToAddress(big.NewInt(42))
-		reader := it.GetChainReader(t)
+		reader := it.GetContractReader(t)
 
 		ctx := it.Helper.Context(t)
 		err := reader.Bind(ctx, []clcommontypes.BoundContract{{Name: AnyContractName, Address: addr.Hex()}})

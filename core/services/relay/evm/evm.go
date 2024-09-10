@@ -1031,7 +1031,7 @@ func (p *medianProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker 
 	return p.configWatcher.ContractConfigTracker()
 }
 
-func (p *medianProvider) ChainReader() commontypes.ContractReader {
+func (p *medianProvider) ContractReader() commontypes.ContractReader {
 	return p.chainReader
 }
 
