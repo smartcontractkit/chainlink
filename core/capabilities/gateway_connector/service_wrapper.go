@@ -123,12 +123,8 @@ func (e *ServiceWrapper) Close() error {
 	})
 }
 
-func (e *ServiceWrapper) Ready() error {
-	return nil
-}
-
 func (e *ServiceWrapper) HealthReport() map[string]error {
-	return nil
+	return map[string]error{e.Name(): e.Healthy()}
 }
 
 func (e *ServiceWrapper) Name() string {
