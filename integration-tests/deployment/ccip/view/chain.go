@@ -2,11 +2,11 @@ package view
 
 type Chain struct {
 	// TODO: this will have to be versioned for getting state during upgrades.
-	DestinationChainSelectors []uint64                      `json:"destinationChainSelectors"`
-	TokenAdminRegistry        map[string]TokenAdminRegistry `json:"tokenAdminRegistry"`
-	NonceManager              map[string]NonceManager       `json:"nonceManager"`
-	Router                    map[string]Router             `json:"router"`
-	RMN                       map[string]RMN                `json:"rmn"`
+	DestinationChainSelectors []uint64                      `json:"destinationChainSelectors,omitempty"`
+	TokenAdminRegistry        map[string]TokenAdminRegistry `json:"tokenAdminRegistry,omitempty"`
+	NonceManager              map[string]NonceManager       `json:"nonceManager,omitempty"`
+	Router                    map[string]Router             `json:"router,omitempty"`
+	RMN                       map[string]RMN                `json:"rmn,omitempty"`
 }
 
 func NewChain() Chain {

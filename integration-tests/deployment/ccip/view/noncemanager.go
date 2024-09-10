@@ -7,7 +7,7 @@ import (
 
 type NonceManager struct {
 	Contract
-	AuthorizedCallers []common.Address `json:"authorizedCallers"`
+	AuthorizedCallers []common.Address `json:"authorizedCallers,omitempty"`
 }
 
 func (nm NonceManager) Address() common.Address {

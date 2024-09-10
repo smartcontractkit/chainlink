@@ -7,10 +7,10 @@ import (
 
 type Router struct {
 	Contract
-	WrappedNative string            `json:"wrappedNative"`
-	ARMProxy      string            `json:"armProxy"`
-	OnRamps       map[uint64]string `json:"onRamps"`  // Map of DestinationChainSelectors to OnRamp Addresses
-	OffRamps      map[uint64]string `json:"offRamps"` // Map of SourceChainSelectors to a list of OffRamp Addresses
+	WrappedNative string            `json:"wrappedNative,omitempty"`
+	ARMProxy      string            `json:"armProxy,omitempty"`
+	OnRamps       map[uint64]string `json:"onRamps,omitempty"`  // Map of DestinationChainSelectors to OnRamp Addresses
+	OffRamps      map[uint64]string `json:"offRamps,omitempty"` // Map of SourceChainSelectors to a list of OffRamp Addresses
 }
 
 func (r Router) Address() common.Address {
@@ -67,8 +67,8 @@ func RouterSnapshot(r RouterReader) (Router, error) {
 }
 
 type RouterOffRamp struct {
-	SourceChainSelector uint64 `json:"source_chain_selector"`
-	OffRamp             string `json:"off_ramp"`
+	SourceChainSelector uint64 `json:"sourceChainSelector"`
+	OffRamp             string `json:"offRamp"`
 }
 
 type RouterReader interface {

@@ -23,8 +23,8 @@ var ContractStatusLookup = map[string]ContractStatus{
 }
 
 type Contract struct {
-	TypeAndVersion string `json:"typeAndVersion"`
-	Address        string `json:"address"`
+	TypeAndVersion string `json:"typeAndVersion,omitempty"`
+	Address        string `json:"address,omitempty"`
 }
 
 type ContractState interface {

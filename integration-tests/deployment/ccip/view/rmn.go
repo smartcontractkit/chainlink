@@ -7,7 +7,7 @@ import (
 type RMN struct {
 	Contract
 	IsCursed bool                     `json:"isCursed"`
-	Config   RMNRemoteVersionedConfig `json:"config"`
+	Config   RMNRemoteVersionedConfig `json:"config,omitempty"`
 }
 
 type RMNRemoteVersionedConfig struct {
