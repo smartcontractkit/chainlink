@@ -295,7 +295,7 @@ CCIPOwnerTokens = false # if true, the test will use deploy the tokens by the CC
 
 KeepEnvAlive = false             # same as above
 CommitAndExecuteOnSameDON = true # same as above
-AllowOutOfOrder = true           # same as above
+AllowOutOfOrder = false          # same as above
 BiDirectionalLane = true         # same as above
 NoOfCommitNodes = 5              # same as above
 PhaseTimeout = '10m'             # same as above
@@ -406,7 +406,7 @@ CCIPOwnerTokens = false # if true, the test will use deploy the tokens by the CC
 #NetworkPairs =  ['SEPOLIA,OPTIMISM_GOERLI','SEPOLIA,POLYGON_MUMBAI','AVALANCHE_FUJI,SEPOLIA','SEPOLIA,BASE_GOERLI','SEPOLIA,BSC_TESTNET','SEPOLIA,WEMIX_TESTNET','AVALANCHE_FUJI,OPTIMISM_GOERLI','AVALANCHE_FUJI,POLYGON_MUMBAI','AVALANCHE_FUJI,BSC_TESTNET','AVALANCHE_FUJI,BASE_GOERLI','OPTIMISM_GOERLI,BASE_GOERLI','OPTIMISM_GOERLI,POLYGON_MUMBAI','BSC_TESTNET,POLYGON_MUMBAI','BSC_TESTNET,BASE_GOERLI','WEMIX_TESTNET,KROMA_SEPOLIA']
 KeepEnvAlive = false
 CommitAndExecuteOnSameDON = false
-AllowOutOfOrder = true
+AllowOutOfOrder = false
 BiDirectionalLane = true
 NoOfCommitNodes = 5
 PhaseTimeout = '50m'
