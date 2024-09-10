@@ -9,6 +9,7 @@ const (
 	Dead            ContractStatus = "dead"
 )
 
+// TODO : Should this denote blue-green state?
 var ContractStatusLookup = map[string]ContractStatus{
 	"active":          Active,
 	"inactive":        Inactive,

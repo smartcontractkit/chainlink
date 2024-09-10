@@ -10,6 +10,7 @@ import (
 	owner_wrappers "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/contractwrappers/router1_2"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
@@ -34,7 +35,7 @@ type CCIPChainState struct {
 	ArmProxy           *rmn_proxy_contract.RMNProxyContract
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
-	Router             *router.Router
+	Router             *router1_2.Router
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
 	// TODO: May need to support older link too
@@ -77,6 +78,10 @@ func (s CCIPOnChainState) Snapshot(chains []uint64) (view.CCIPSnapShot, error) {
 			return snapshot, fmt.Errorf("chain not supported %d", chainSelector)
 		}
 		c := view.NewChain()
+		r := s.Chains[chainSelector].Router
+		if r != nil {
+
+		}
 		ta := s.Chains[chainSelector].TokenAdminRegistry
 		if ta != nil {
 			taSnapshot, err := view.TokenAdminRegistrySnapshot(ta)
@@ -188,7 +193,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if err != nil {
 				return state, err
 			}
-			state.Router = r
+			state.Router = router1_2.New(r)
 		case deployment.NewTypeAndVersion(PriceRegistry, deployment.Version1_6_0_dev).String():
 			pr, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -218,4 +223,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 		}
 	}
 	return state, nil
+}
+
+func SnapshotState(e deployment.Environment, ab deployment.AddressBook) (view.CCIPSnapShot, error) {
+	state, err := LoadOnchainState(e, ab)
+	if err != nil {
+		return view.CCIPSnapShot{}, err
+	}
+	return state.Snapshot(e.AllChainSelectors())
 }
