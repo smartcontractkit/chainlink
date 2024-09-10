@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"math"
 	"math/big"
 	"os"
@@ -185,6 +186,10 @@ func (h *Helper) Init(t *testing.T) {
 
 	h.txm = h.TXM(t, h.client)
 	h.Commit()
+}
+
+func (h Helper) GasEstimator() *gas.EvmFeeEstimator {
+	return nil
 }
 
 func (h *Helper) SetupKeys(t *testing.T) {

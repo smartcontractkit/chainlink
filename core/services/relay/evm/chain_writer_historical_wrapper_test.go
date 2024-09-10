@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -30,6 +31,7 @@ func (cwhw *ChainWriterHistoricalWrapper) SubmitTransaction(ctx context.Context,
 			Params:          nil,
 			ReturnVal:       nil,
 		}
+		fmt.Printf("calling ChainWriterHistoricalWrapper SetUIntLatestVale with %d", primArgs.Value)
 		err := cwhw.cwh.SetUintLatestValue(ctx, primArgs.Value, callArgs)
 		if err != nil {
 			return err
