@@ -100,12 +100,15 @@ func deploy(
 	artefacts string,
 ) {
 	env := helpers.SetupEnv(false)
-	ocrConfig := generateOCR3Config(
+	ocrConfig, err := loadAndGeneraterOCR3Config(
 		nodeList,
 		configFile,
 		env.ChainID,
 		publicKeys,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to load and generate OCR3 config: %v", err))
+	}
 
 	if dryRun {
 		fmt.Println("Dry run, skipping deployment and funding")
@@ -156,7 +159,7 @@ func deploy(
 
 func setOCR3Config(
 	env helpers.Environment,
-	ocrConfig orc2drOracleConfig,
+	ocrConfig Orc2drOracleConfig,
 	artefacts string,
 ) {
 	loadedContracts, err := LoadDeployedContracts(artefacts)

@@ -48,9 +48,13 @@ type Nop struct {
 // with the capabilities registry. Signer and P2PKey are chain agnostic.
 type ocr2Node struct {
 	ID         string
-	Signer     [32]byte
+	Signer     [32]byte // note that in capabilities registry we need a [32]byte, but in the forwarder we need a common.Address [20]byte
 	P2PKey     p2pkey.PeerID
 	IsBoostrap bool
+}
+
+func (o *ocr2Node) address() common.Address {
+	return common.BytesToAddress(o.Signer[:])
 }
 
 func newOcr2Node(id string, cfg *v1.OCR2Config) (*ocr2Node, error) {

@@ -18,7 +18,7 @@ type GetContractSetsRequest struct {
 }
 
 type GetContractSetsResponse struct {
-	ContractSets map[uint64]*ContractSet
+	ContractSets map[uint64]ContractSet
 }
 
 type ContractSet struct {
@@ -29,7 +29,7 @@ type ContractSet struct {
 
 func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContractSetsResponse, error) {
 	resp := &GetContractSetsResponse{
-		ContractSets: make(map[uint64]*ContractSet),
+		ContractSets: make(map[uint64]ContractSet),
 	}
 	for id, chain := range req.Chains {
 		addrs, err := req.AddressBook.AddressesForChain(id)
@@ -40,7 +40,7 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 		if err != nil {
 			return nil, fmt.Errorf("failed to load contract set for chain %d: %w", id, err)
 		}
-		resp.ContractSets[id] = cs
+		resp.ContractSets[id] = *cs
 	}
 	return resp, nil
 }
