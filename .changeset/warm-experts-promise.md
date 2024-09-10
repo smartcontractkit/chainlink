@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-Remove PriceMin check from attempt builder #internal
+Remove PriceMin and TipCapMin check from attempt builder #internal
