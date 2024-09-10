@@ -1,16 +1,9 @@
 package ccipdeployment
 
 import (
-	"bytes"
-	"context"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/tools/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/mcms"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
@@ -47,13 +40,6 @@ func TestAddChain(t *testing.T) {
 		}
 	}
 
-	executorClients := make(map[mcms.ChainIdentifier]mcms.ContractDeployBackend)
-	for _, chain := range e.Env.Chains {
-		chainselc, exists := chainsel.ChainBySelector(chain.Selector)
-		require.True(t, exists)
-		chainSel := mcms.ChainIdentifier(chainselc.Selector)
-		executorClients[chainSel] = chain.Client
-	}
 	//  Deploy contracts to new chain
 	newAddresses, err := DeployChainContracts(e.Env, e.Env.Chains[newChain], deployment.NewMemoryAddressBook())
 	require.NoError(t, err)
@@ -76,74 +62,41 @@ func TestAddChain(t *testing.T) {
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[newChain], tx, err)
 	require.NoError(t, err)
 
-	// Generate and sign inbound proposal to new 4th chain.
-	proposals, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
+	// Transfer onramp ownership to timelock.
+	for _, source := range initialDeploy {
+		tx, err := state.Chains[source].OnRamp.TransferOwnership(e.Env.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
+		require.NoError(t, err)
+		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
+		require.NoError(t, err)
+	}
+	acceptOwnershipProposal, err := GenerateAcceptOwnershipProposal(e.Env, initialDeploy, e.Ab)
 	require.NoError(t, err)
-	realProposal, err := proposals[0].ToMCMSOnlyProposal()
-	require.NoError(t, err)
-	executor, err := realProposal.ToExecutor(executorClients)
-	require.NoError(t, err)
-	payload, err := executor.SigningHash()
-	require.NoError(t, err)
-	// Sign the payload
-	sig, err := crypto.Sign(payload.Bytes(), TestXXXMCMSSigner)
-	require.NoError(t, err)
-	mcmSig, err := mcms.NewSignatureFromBytes(sig)
-	executor.Proposal.Signatures = append(executor.Proposal.Signatures, mcmSig)
-	require.NoError(t, executor.Proposal.Validate())
-
+	acceptOwnershipExec := SignProposal(t, e.Env, acceptOwnershipProposal)
 	// Apply the proposal to all the chains.
 	for _, sel := range sels {
 		if sel == newChain {
 			continue
 		}
-		// Set the root.
-		tx, err2 := executor.SetRootOnChain(e.Env.Chains[sel].DeployerKey, mcms.ChainIdentifier(sel))
-		require.NoError(t, err2)
-		_, err2 = e.Env.Chains[sel].Confirm(tx.Hash())
-		require.NoError(t, err2)
-
-		// Execute all the transactions in the proposal which are for this chain.
-		for _, chainOp := range executor.Operations[mcms.ChainIdentifier(sel)] {
-			for idx, op := range executor.ChainAgnosticOps {
-				if bytes.Equal(op.Data, chainOp.Data) && op.To == chainOp.To {
-					opTx, err3 := executor.ExecuteOnChain(e.Env.Chains[sel].DeployerKey, idx)
-					require.NoError(t, err3)
-					block, err3 := e.Env.Chains[sel].Confirm(opTx.Hash())
-					require.NoError(t, err3)
-					t.Log("executed", chainOp)
-					it, err3 := state.Chains[sel].Timelock.FilterCallScheduled(&bind.FilterOpts{
-						Start:   block,
-						End:     &block,
-						Context: context.Background(),
-					}, nil, nil)
-					require.NoError(t, err3)
-					var calls []owner_helpers.RBACTimelockCall
-					var pred, salt [32]byte
-					for it.Next() {
-						// Note these are the same for the whole batch, can overwrite
-						pred = it.Event.Predecessor
-						salt = it.Event.Salt
-						t.Log("scheduled", it.Event)
-						calls = append(calls, owner_helpers.RBACTimelockCall{
-							Target: it.Event.Target,
-							Data:   it.Event.Data,
-							Value:  it.Event.Value,
-						})
-					}
-					tx, err := state.Chains[sel].Timelock.ExecuteBatch(
-						e.Env.Chains[sel].DeployerKey, calls, pred, salt)
-					require.NoError(t, err)
-					_, err = e.Env.Chains[sel].Confirm(tx.Hash())
-					require.NoError(t, err)
-				}
-			}
+		ExecuteProposal(t, e.Env, acceptOwnershipExec, state, sel)
+	}
+	// Generate and sign inbound proposal to new 4th chain.
+	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
+	require.NoError(t, err)
+	chainInboundExec := SignProposal(t, e.Env, chainInboundProposal)
+	for _, sel := range sels {
+		if sel == newChain {
+			continue
 		}
+		ExecuteProposal(t, e.Env, chainInboundExec, state, sel)
 	}
 
 	state, err = LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 	for _, chain := range initialDeploy {
+		owner, err2 := state.Chains[chain].OnRamp.Owner(nil)
+		require.NoError(t, err2)
+		t.Log("owner", owner, state.Chains[chain].TimelockAddr)
+
 		cfg, err2 := state.Chains[chain].OnRamp.GetDestChainConfig(nil, newChain)
 		require.NoError(t, err2)
 		t.Log("config", cfg)

@@ -21,7 +21,7 @@ func NewChainInboundProposal(
 	homeChainSel uint64,
 	newChainSel uint64,
 	sources []uint64,
-) ([]timelock.MCMSWithTimelockProposal, error) {
+) (*timelock.MCMSWithTimelockProposal, error) {
 	// Generate proposal which enables new destination (from test router) on all source chains.
 	var batches []timelock.BatchChainOperation
 	metaDataPerChain := make(map[mcms.ChainIdentifier]timelock.MCMSWithTimelockChainMetadata)
@@ -134,7 +134,7 @@ func NewChainInboundProposal(
 			},
 		},
 	})
-	newDestProposal, err := timelock.NewMCMSWithTimelockProposal(
+	return timelock.NewMCMSWithTimelockProposal(
 		"1",
 		2004259681,
 		[]mcms.Signature{},
@@ -143,13 +143,8 @@ func NewChainInboundProposal(
 		"blah",
 		batches,
 		timelock.Schedule, "0s")
-	if err != nil {
-		return nil, err
-	}
-
 	// We won't actually be able to setOCR3Config on the remote until the first proposal goes through.
 	// TODO: Outbound
-	return []timelock.MCMSWithTimelockProposal{*newDestProposal}, nil
 }
 
 //func ApplyInboundChainProposal(
