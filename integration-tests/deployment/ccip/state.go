@@ -88,6 +88,18 @@ func (c CCIPChainState) Snapshot() (view.Chain, error) {
 		}
 		chainView.RMN[rmn.Address().Hex()] = rmnSnapshot
 	}
+	onRamp := c.EvmOnRampV160
+	if onRamp != nil {
+		onRampSnapshot, err := view.OnRampSnapshot(
+			onRamp,
+			chainView.DestinationChainSelectors,
+			chainView.TokenAdminRegistry[ta.Address().Hex()].Tokens,
+		)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.OnRamp[onRamp.Address().Hex()] = onRampSnapshot
+	}
 	return chainView, nil
 }
 

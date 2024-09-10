@@ -7,6 +7,7 @@ type Chain struct {
 	NonceManager              map[string]NonceManager       `json:"nonceManager,omitempty"`
 	Router                    map[string]Router             `json:"router,omitempty"`
 	RMN                       map[string]RMN                `json:"rmn,omitempty"`
+	OnRamp                    map[string]OnRamp             `json:"onRamp,omitempty"`
 }
 
 func NewChain() Chain {
@@ -16,5 +17,6 @@ func NewChain() Chain {
 		NonceManager:              make(map[string]NonceManager),
 		Router:                    make(map[string]Router),
 		RMN:                       make(map[string]RMN),
+		OnRamp:                    make(map[string]OnRamp),
 	}
 }
