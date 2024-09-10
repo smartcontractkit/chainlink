@@ -26,9 +26,6 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
   }
   ConfigInfo internal s_configInfo;
 
-  // s_signers contains the signing address of each oracle
-  bytes[] internal s_signers;
-
   /*
    * Config logic
    */
@@ -95,11 +92,6 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
       offchainConfig: _offchainConfig
     });
 
-    while (s_signers.length != 0) {
-      // remove any old signer addresses
-      s_signers.pop();
-    }
-
     // Bounded by MAX_NUM_ORACLES in OCR2Abstract.sol
     for (uint256 i = 0; i < args.signers.length; i++) {
       if (args.transmitters[i] == address(0)) revert InvalidConfig("transmitter must not be empty");
@@ -116,7 +108,6 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
         bytes calldata publicKey = publicKeys[offset + 3:offset + 3 + keyLen];
         offset += 3 + keyLen;
       }
-      s_signers.push(args.signers[i]);
     }
     s_configInfo.f = args.f;
     uint32 previousConfigBlockNumber = s_latestConfigBlockNumber;
