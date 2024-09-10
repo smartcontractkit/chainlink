@@ -35,6 +35,5 @@ func NonceManagerSnapshot(nm NonceManagerReader) (NonceManager, error) {
 
 type NonceManagerReader interface {
 	GetAllAuthorizedCallers(opts *bind.CallOpts) ([]common.Address, error)
-	TypeAndVersion(opts *bind.CallOpts) (string, error)
-	Address() common.Address
+	ContractState
 }

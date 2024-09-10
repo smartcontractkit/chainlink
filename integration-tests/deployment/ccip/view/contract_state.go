@@ -1,5 +1,10 @@
 package view
 
+import (
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+)
+
 type ContractStatus string
 
 const (
@@ -20,4 +25,9 @@ var ContractStatusLookup = map[string]ContractStatus{
 type Contract struct {
 	TypeAndVersion string `json:"typeAndVersion"`
 	Address        string `json:"address"`
+}
+
+type ContractState interface {
+	TypeAndVersion(opts *bind.CallOpts) (string, error)
+	Address() common.Address
 }

@@ -80,7 +80,12 @@ func (s CCIPOnChainState) Snapshot(chains []uint64) (view.CCIPSnapShot, error) {
 		c := view.NewChain()
 		r := s.Chains[chainSelector].Router
 		if r != nil {
-
+			routerSnapshot, err := view.RouterSnapshot(r)
+			if err != nil {
+				return snapshot, err
+			}
+			c.Router[r.Address().Hex()] = routerSnapshot
+			c.DestinationChainSelectors = routerSnapshot.DestinationChainSelectors()
 		}
 		ta := s.Chains[chainSelector].TokenAdminRegistry
 		if ta != nil {

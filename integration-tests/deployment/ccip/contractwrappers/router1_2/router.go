@@ -11,7 +11,7 @@ type Router struct {
 	*router.Router
 }
 
-func (r Router) GetOffRamps(opts *bind.CallOpts) ([]stirng, error) {
+func (r Router) GetOffRamps(opts *bind.CallOpts) ([]view.RouterOffRamp, error) {
 	offRamps, err := r.Router.GetOffRamps(opts)
 	if err != nil {
 		return nil, err
@@ -20,7 +20,7 @@ func (r Router) GetOffRamps(opts *bind.CallOpts) ([]stirng, error) {
 	for i, offRamp := range offRamps {
 		converted[i] = view.RouterOffRamp{
 			SourceChainSelector: offRamp.SourceChainSelector,
-			OffRamp:             offRamp.OffRamp,
+			OffRamp:             offRamp.OffRamp.Hex(),
 		}
 	}
 	return converted, nil

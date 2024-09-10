@@ -34,6 +34,5 @@ func TokenAdminRegistrySnapshot(taContract TokenAdminRegistryReader) (TokenAdmin
 
 type TokenAdminRegistryReader interface {
 	GetAllConfiguredTokens(opts *bind.CallOpts, startIndex uint64, maxCount uint64) ([]common.Address, error)
-	TypeAndVersion(opts *bind.CallOpts) (string, error)
-	Address() common.Address
+	ContractState
 }
