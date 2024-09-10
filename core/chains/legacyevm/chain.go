@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	gotoml "github.com/pelletier/go-toml/v2"
 	"go.uber.org/multierr"
@@ -391,6 +392,16 @@ func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, 
 
 func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return c.Transact(ctx, from, to, amount, balanceCheck)
+}
+
+func (c *chain) LatestHead(_ context.Context) (types.Head, error) {
+	latestChain := c.headTracker.LatestChain()
+
+	return types.Head{
+		Identifier: strconv.FormatUint(latestChain.ID, 10),
+		Hash:       latestChain.Hash.Bytes(),
+		Timestamp:  uint64(latestChain.Timestamp.Unix()),
+	}, nil
 }
 
 func (c *chain) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
