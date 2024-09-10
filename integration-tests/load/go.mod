@@ -16,7 +16,7 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240910141809-4156696420d6
+	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240910154010-ed9f50de7322
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.1
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.0
@@ -396,8 +396,8 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240910072312-810030689426 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240910130914-fd4a45b0a3f5 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240904093355-e40169857652 // indirect
-	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240910125011-92c9c51ebe3b // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20240910151857-1c0022231793 // indirect
+	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240910155501-42f20443189f // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20240910161529-a7050b5193cd // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240910152019-348323f9539c // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
