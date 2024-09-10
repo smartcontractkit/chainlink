@@ -18,8 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 )
 
-const ethMainnetChainSelector uint64 = 5009297550715157269
-
 func newValidPremiumLegacyReport() llo.Report {
 	return llo.Report{
 		ConfigDigest:                types.ConfigDigest{1, 2, 3},

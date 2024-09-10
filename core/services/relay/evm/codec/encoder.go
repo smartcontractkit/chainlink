@@ -1,4 +1,4 @@
-package evm
+package codec
 
 import (
 	"context"
@@ -52,13 +52,13 @@ func encode(item reflect.Value, info types.CodecEntry) ([]byte, error) {
 	}
 	switch item.Kind() {
 	case reflect.Array, reflect.Slice:
-		native, err := representArray(item, info)
+		native, err := RepresentArray(item, info)
 		if err != nil {
 			return nil, err
 		}
 		return pack(info, native)
 	case reflect.Struct, reflect.Map:
-		values, err := unrollItem(item, info)
+		values, err := UnrollItem(item, info)
 		if err != nil {
 			return nil, err
 		}
@@ -68,7 +68,7 @@ func encode(item reflect.Value, info types.CodecEntry) ([]byte, error) {
 	}
 }
 
-func representArray(item reflect.Value, info types.CodecEntry) (any, error) {
+func RepresentArray(item reflect.Value, info types.CodecEntry) (any, error) {
 	length := item.Len()
 	checkedType := info.CheckedType()
 	checked := reflect.New(checkedType)
@@ -87,7 +87,7 @@ func representArray(item reflect.Value, info types.CodecEntry) (any, error) {
 	checkedElm := checkedType.Elem()
 	for i := 0; i < length; i++ {
 		tmp := reflect.New(checkedElm)
-		if err := mapstructureDecode(item.Index(i).Interface(), tmp.Interface()); err != nil {
+		if err := MapstructureDecode(item.Index(i).Interface(), tmp.Interface()); err != nil {
 			return nil, err
 		}
 		iChecked.Index(i).Set(tmp.Elem())
@@ -100,7 +100,7 @@ func representArray(item reflect.Value, info types.CodecEntry) (any, error) {
 	return native.Elem().Interface(), nil
 }
 
-func unrollItem(item reflect.Value, info types.CodecEntry) ([]any, error) {
+func UnrollItem(item reflect.Value, info types.CodecEntry) ([]any, error) {
 	checkedType := info.CheckedType()
 	if item.CanAddr() {
 		item = item.Addr()
@@ -114,7 +114,7 @@ func unrollItem(item reflect.Value, info types.CodecEntry) ([]any, error) {
 	} else if !info.IsNativePointer(item.Type()) {
 		var err error
 		checked := reflect.New(checkedType)
-		if err = mapstructureDecode(item.Interface(), checked.Interface()); err != nil {
+		if err = MapstructureDecode(item.Interface(), checked.Interface()); err != nil {
 			return nil, err
 		}
 		if item, err = info.ToNative(checked); err != nil {
