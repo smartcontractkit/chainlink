@@ -95,8 +95,7 @@ jobs:
             cat dist/linux_${{ matrix.goarch }}/artifacts.json
           fi
           echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
-          jq -r '.[] | select(.type == "Docker Image") | "`\(.goarch)-image`: \(.name)"' ${artifact_path} >> output.txt
-          jq -r '.[] | select(.type == "Archive") | "`\(.goarch)-digest`: \(.extra.Checksum)"' ${artifact_path} >> output.txt
+          jq -r '.[] | select(.type == "Docker Image") | "\(.name)"' ${artifact_path} >> output.txt
           while read -r line; do
             echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
           done < output.txt

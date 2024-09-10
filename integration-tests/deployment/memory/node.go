@@ -13,14 +13,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	v2toml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -168,7 +169,7 @@ func NewNode(
 		Logger:               lggr,
 		LoopRegistry:         plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing()),
 		GRPCOpts:             loop.GRPCOpts{},
-		CapabilitiesRegistry: evmcapabilities.NewRegistry(lggr),
+		CapabilitiesRegistry: coretypes.NewCapabilitiesRegistry(t),
 	}
 	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(context.Background(), relayerFactory, evmOpts)}
 	rci, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
@@ -255,7 +256,7 @@ func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
 	chainIDBig := evmutils.NewI(int64(chainID))
 	chain := v2toml.Defaults(chainIDBig)
 	chain.GasEstimator.LimitDefault = ptr(uint64(5e6))
-	chain.LogPollInterval = config.MustNewDuration(1000 * time.Millisecond)
+	chain.LogPollInterval = config.MustNewDuration(500 * time.Millisecond)
 	chain.Transactions.ForwardersEnabled = ptr(false)
 	chain.FinalityDepth = ptr(uint32(2))
 	return &v2toml.EVMConfig{

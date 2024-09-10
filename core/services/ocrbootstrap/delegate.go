@@ -39,10 +39,16 @@ type Delegate struct {
 type relayConfig struct {
 	// providerType used for determining which type of contract to track config on
 	ProviderType string `json:"providerType"`
+	// HACK
 	// Extra fields to enable router proxy contract support. Must match field names of functions' PluginConfig.
 	DONID                           string `json:"donID"`
 	ContractVersion                 uint32 `json:"contractVersion"`
 	ContractUpdateCheckFrequencySec uint32 `json:"contractUpdateCheckFrequencySec"`
+
+	// Annoyingly, the pre-existing donID field is already reserved and has a
+	// special-case usage just for functions. It's also a string and not uint32
+	// as Baku requires.
+	LLODONID uint32 `json:"lloDonID"`
 }
 
 // NewDelegateBootstrap creates a new Delegate
@@ -111,7 +117,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 
 	var relayCfg relayConfig
 	if err = json.Unmarshal(spec.RelayConfig.Bytes(), &relayCfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal relay config for bootstrap job: %w", err)
 	}
 
 	var configProvider types.ConfigProvider

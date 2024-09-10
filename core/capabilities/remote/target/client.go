@@ -123,7 +123,17 @@ func (c *client) UnregisterFromWorkflow(ctx context.Context, request commoncap.U
 	return nil
 }
 
-func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
+func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
+	req, err := c.executeRequest(ctx, capReq)
+	if err != nil {
+		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to execute request: %w", err)
+	}
+
+	resp := <-req.ResponseChan()
+	return resp.CapabilityResponse, resp.Err
+}
+
+func (c *client) executeRequest(ctx context.Context, capReq commoncap.CapabilityRequest) (*request.ClientRequest, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -145,8 +155,7 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 	}
 
 	c.messageIDToCallerRequest[messageID] = req
-
-	return req.ResponseChan(), nil
+	return req, nil
 }
 
 func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {

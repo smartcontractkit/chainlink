@@ -25,8 +25,6 @@ func GetSchema() abi.Arguments {
 		{Name: "linkFee", Type: mustNewType("uint192")},
 		{Name: "expiresAt", Type: mustNewType("uint32")},
 		{Name: "benchmarkPrice", Type: mustNewType("int192")},
-		{Name: "bid", Type: mustNewType("int192")},
-		{Name: "ask", Type: mustNewType("int192")},
 		{Name: "marketStatus", Type: mustNewType("uint32")},
 	})
 }
@@ -35,8 +33,6 @@ type Report struct {
 	FeedId                [32]byte
 	ObservationsTimestamp uint32
 	BenchmarkPrice        *big.Int
-	Bid                   *big.Int
-	Ask                   *big.Int
 	ValidFromTimestamp    uint32
 	ExpiresAt             uint32
 	LinkFee               *big.Int

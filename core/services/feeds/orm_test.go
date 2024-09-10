@@ -1653,6 +1653,14 @@ func Test_ORM_IsJobManaged(t *testing.T) {
 	isManaged, err = orm.IsJobManaged(ctx, int64(j.ID))
 	require.NoError(t, err)
 	assert.True(t, isManaged)
+
+	// delete the proposal
+	err = orm.DeleteProposal(ctx, jpID)
+	require.NoError(t, err)
+
+	isManaged, err = orm.IsJobManaged(ctx, int64(j.ID))
+	require.NoError(t, err)
+	assert.False(t, isManaged)
 }
 
 // Helpers

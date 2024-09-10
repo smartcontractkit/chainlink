@@ -3,6 +3,8 @@ pragma solidity 0.8.24;
 
 // Imports to any non-library are not allowed due to the significant cascading
 // compile time increase they cause when imported into this base test.
+
+import {IRMNV2} from "../interfaces/IRMNV2.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
 import {MockRMN} from "./mocks/MockRMN.sol";
@@ -69,6 +71,7 @@ contract BaseTest is Test {
   address internal constant ADMIN = 0x11118e64e1FB0c487f25dD6D3601FF6aF8d32E4e;
 
   MockRMN internal s_mockRMN;
+  IRMNV2 internal s_mockRMNRemote;
 
   function setUp() public virtual {
     // BaseTest.setUp is often called multiple times from tests' setUp due to inheritance.
@@ -84,7 +87,25 @@ contract BaseTest is Test {
     // Set the block time to a constant known value
     vm.warp(BLOCK_TIME);
 
+    // setup mock RMN & RMNRemote
     s_mockRMN = new MockRMN();
+    s_mockRMNRemote = IRMNV2(makeAddr("MOCK RMN REMOTE"));
+    vm.etch(address(s_mockRMNRemote), bytes("fake bytecode"));
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNV2.verify.selector), bytes(""));
+    _setMockRMNGlobalCurse(false);
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed(bytes16)"), abi.encode(false)); // no curses by defaule
+  }
+
+  function _setMockRMNGlobalCurse(bool isCursed) internal {
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed()"), abi.encode(isCursed));
+  }
+
+  function _setMockRMNChainCurse(uint64 chainSelector, bool isCursed) internal {
+    vm.mockCall(
+      address(s_mockRMNRemote),
+      abi.encodeWithSignature("isCursed(bytes16)", bytes16(uint128(chainSelector))),
+      abi.encode(isCursed)
+    );
   }
 
   function _getOutboundRateLimiterConfig() internal pure returns (RateLimiter.Config memory) {

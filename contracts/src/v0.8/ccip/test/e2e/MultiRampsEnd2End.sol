@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
+import {IRMNV2} from "../../interfaces/IRMNV2.sol";
 import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
 import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
 import "../helpers/MerkleHelper.sol";
@@ -82,7 +83,7 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
     s_sourceRouter2.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), new Router.OffRamp[](0));
 
     // Deploy offramp
-    _deployOffRamp(s_mockRMN, s_inboundNonceManager);
+    _deployOffRamp(s_mockRMNRemote, s_inboundNonceManager);
 
     // Enable source chains on offramp
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](2);
@@ -146,20 +147,27 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
       merkleRoots[0] = MerkleHelper.getMerkleRoot(hashedMessages1);
       merkleRoots[1] = MerkleHelper.getMerkleRoot(hashedMessages2);
 
-      OffRamp.MerkleRoot[] memory roots = new OffRamp.MerkleRoot[](2);
-      roots[0] = OffRamp.MerkleRoot({
+      // TODO make these real sigs :)
+      IRMNV2.Signature[] memory rmnSignatures = new IRMNV2.Signature[](0);
+
+      Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](2);
+      roots[0] = Internal.MerkleRoot({
         sourceChainSelector: SOURCE_CHAIN_SELECTOR,
-        interval: OffRamp.Interval(messages1[0].header.sequenceNumber, messages1[1].header.sequenceNumber),
-        merkleRoot: merkleRoots[0]
+        minSeqNr: messages1[0].header.sequenceNumber,
+        maxSeqNr: messages1[1].header.sequenceNumber,
+        merkleRoot: merkleRoots[0],
+        onRampAddress: abi.encode(address(s_onRamp))
       });
-      roots[1] = OffRamp.MerkleRoot({
+      roots[1] = Internal.MerkleRoot({
         sourceChainSelector: SOURCE_CHAIN_SELECTOR + 1,
-        interval: OffRamp.Interval(messages2[0].header.sequenceNumber, messages2[0].header.sequenceNumber),
-        merkleRoot: merkleRoots[1]
+        minSeqNr: messages2[0].header.sequenceNumber,
+        maxSeqNr: messages2[0].header.sequenceNumber,
+        merkleRoot: merkleRoots[1],
+        onRampAddress: abi.encode(address(s_onRamp))
       });
 
       OffRamp.CommitReport memory report =
-        OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots});
+        OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: rmnSignatures});
 
       vm.resumeGasMetering();
       _commit(report, ++s_latestSequenceNumber);
@@ -251,7 +259,7 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
     );
 
     vm.expectEmit();
-    emit OnRamp.CCIPSendRequested(DEST_CHAIN_SELECTOR, msgEvent);
+    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, msgEvent);
 
     vm.resumeGasMetering();
     router.ccipSend(DEST_CHAIN_SELECTOR, message);

@@ -9,9 +9,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
 type ORM interface {
@@ -826,6 +827,7 @@ SELECT exists (
 	FROM job_proposals
 	INNER JOIN jobs ON job_proposals.external_job_id = jobs.external_job_id
 	WHERE jobs.id = $1
+	AND job_proposals.status <> 'deleted'
 );
 `
 

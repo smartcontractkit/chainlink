@@ -459,23 +459,23 @@ func (_c *LoopRelayAdapter_NewConfigProvider_Call) RunAndReturn(run func(context
 }
 
 // NewContractReader provides a mock function with given fields: ctx, contractReaderConfig
-func (_m *LoopRelayAdapter) NewContractReader(ctx context.Context, contractReaderConfig []byte) (types.ChainReader, error) {
+func (_m *LoopRelayAdapter) NewContractReader(ctx context.Context, contractReaderConfig []byte) (types.ContractReader, error) {
 	ret := _m.Called(ctx, contractReaderConfig)
 
 	if len(ret) == 0 {
 		panic("no return value specified for NewContractReader")
 	}
 
-	var r0 types.ChainReader
+	var r0 types.ContractReader
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []byte) (types.ChainReader, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []byte) (types.ContractReader, error)); ok {
 		return rf(ctx, contractReaderConfig)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []byte) types.ChainReader); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []byte) types.ContractReader); ok {
 		r0 = rf(ctx, contractReaderConfig)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.ChainReader)
+			r0 = ret.Get(0).(types.ContractReader)
 		}
 	}
 
@@ -507,12 +507,12 @@ func (_c *LoopRelayAdapter_NewContractReader_Call) Run(run func(ctx context.Cont
 	return _c
 }
 
-func (_c *LoopRelayAdapter_NewContractReader_Call) Return(_a0 types.ChainReader, _a1 error) *LoopRelayAdapter_NewContractReader_Call {
+func (_c *LoopRelayAdapter_NewContractReader_Call) Return(_a0 types.ContractReader, _a1 error) *LoopRelayAdapter_NewContractReader_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *LoopRelayAdapter_NewContractReader_Call) RunAndReturn(run func(context.Context, []byte) (types.ChainReader, error)) *LoopRelayAdapter_NewContractReader_Call {
+func (_c *LoopRelayAdapter_NewContractReader_Call) RunAndReturn(run func(context.Context, []byte) (types.ContractReader, error)) *LoopRelayAdapter_NewContractReader_Call {
 	_c.Call.Return(run)
 	return _c
 }
