@@ -91,5 +91,6 @@ jobs:
       AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}        
       TEST_SECRETS_OVERRIDE_BASE64: ${{ secrets[inputs.test_secrets_override_key] }}
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      SLACK_NOTIFICATION_AFTER_TESTS_CHANNEL_ID: ${{ secrets.QA_VRF_SLACK_CHANNEL }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_VRF_SLACK_CHANNEL }}      
