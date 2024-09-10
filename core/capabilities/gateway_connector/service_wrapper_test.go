@@ -62,7 +62,7 @@ func TestGatewayConnectorServiceWrapper_CleanStartClose(t *testing.T) {
 	})
 }
 
-func TestGatewayConnectorServiceWrapper_NonexistantKey(t *testing.T) {
+func TestGatewayConnectorServiceWrapper_NonexistentKey(t *testing.T) {
 	t.Parallel()
 
 	key, _ := testutils.NewPrivateKeyAndAddress(t)

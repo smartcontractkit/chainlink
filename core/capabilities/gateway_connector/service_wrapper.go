@@ -55,6 +55,7 @@ func (h *connectorSigner) Sign(data ...[]byte) ([]byte, error) {
 
 func (h *connectorSigner) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
 }
+
 func (h *connectorSigner) Start(ctx context.Context) error {
 	return h.StartOnce("ConnectorSigner", func() error {
 		return nil
@@ -150,6 +151,6 @@ func (e *ServiceWrapper) Name() string {
 	return "GatewayConnectorServiceWrapper"
 }
 
-func (e *ServiceWrapper) GetGatewayConnecgtor() connector.GatewayConnector {
+func (e *ServiceWrapper) GetGatewayConnector() connector.GatewayConnector {
 	return e.connector
 }
