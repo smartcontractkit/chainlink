@@ -53,7 +53,6 @@ type ChainConfig interface {
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
 	FinalizedBlockOffset() uint32
-	LogBroadcasterEnabled() bool
 }
 
 type Node[

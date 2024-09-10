@@ -8,11 +8,6 @@ type ChainConfig struct {
 	NoNewHeadsThresholdVal          time.Duration
 	FinalizedBlockOffsetVal         uint32
 	NoNewFinalizedHeadsThresholdVal time.Duration
-	NodeLogBroadcasterEnabled       bool
-}
-
-func (t ChainConfig) LogBroadcasterEnabled() bool {
-	return t.NodeLogBroadcasterEnabled
 }
 
 func (t ChainConfig) NodeNoNewHeadsThreshold() time.Duration {

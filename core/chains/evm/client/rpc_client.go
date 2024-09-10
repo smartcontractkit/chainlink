@@ -166,7 +166,6 @@ func NewRPCClient(
 	largePayloadRpcTimeout time.Duration,
 	rpcTimeout time.Duration,
 	chainType chaintype.ChainType,
-	logBroadcasterEnabled bool,
 ) RPCClient {
 	r := &rpcClient{
 		largePayloadRpcTimeout: largePayloadRpcTimeout,
@@ -179,7 +178,6 @@ func NewRPCClient(
 	r.tier = tier
 	r.ws.uri = wsuri
 	r.finalizedBlockPollInterval = finalizedBlockPollInterval
-	r.logBroadcasterEnabled = logBroadcasterEnabled
 	if httpuri != nil {
 		r.http = &rawclient{uri: *httpuri}
 	}
@@ -201,14 +199,8 @@ func (r *rpcClient) Dial(callerCtx context.Context) error {
 	ctx, cancel := r.makeQueryCtx(callerCtx, r.rpcTimeout)
 	defer cancel()
 
-	if r.ws.uri.String() == "" {
-		if r.http == nil {
-			return errWSAndHTTPBothMissing
-		}
-
-		if r.logBroadcasterEnabled {
-			return errWSMissingWhenLogBroadcasterEnabled
-		}
+	if r.ws.uri.String() == "" && r.http == nil {
+		return errWSAndHTTPBothMissing
 	}
 
 	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
