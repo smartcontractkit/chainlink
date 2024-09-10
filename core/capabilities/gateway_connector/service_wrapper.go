@@ -84,8 +84,8 @@ func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore 
 func (e *ServiceWrapper) Start(ctx context.Context) error {
 	return e.StartOnce("GatewayConnectorServiceWrapper", func() error {
 		conf := e.config
-		nodeAddress := conf.ChainIDForNodeKey()
-		chainID, _ := new(big.Int).SetString(nodeAddress, 0)
+		nodeAddress := conf.NodeAddress()
+		chainID, _ := new(big.Int).SetString(conf.ChainIDForNodeKey(), 0)
 		enabledKeys, err := e.keystore.EnabledKeysForChain(ctx, chainID)
 		if err != nil {
 			return err
