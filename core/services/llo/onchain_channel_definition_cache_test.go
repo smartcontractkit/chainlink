@@ -29,6 +29,8 @@ type mockLogPoller struct {
 	latestBlockErr  error
 	logsWithSigs    []logpoller.Log
 	logsWithSigsErr error
+
+	unregisteredFilterNames []string
 }
 
 func (m *mockLogPoller) RegisterFilter(ctx context.Context, filter logpoller.Filter) error {
@@ -39,6 +41,10 @@ func (m *mockLogPoller) LatestBlock(ctx context.Context) (logpoller.LogPollerBlo
 }
 func (m *mockLogPoller) LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
 	return m.logsWithSigs, m.logsWithSigsErr
+}
+func (m *mockLogPoller) UnregisterFilter(ctx context.Context, name string) error {
+	m.unregisteredFilterNames = append(m.unregisteredFilterNames, name)
+	return nil
 }
 
 var _ HTTPClient = &mockHTTPClient{}
@@ -74,6 +80,10 @@ func (m *mockORM) StoreChannelDefinitions(ctx context.Context, addr common.Addre
 	m.lastPersistedDfns = dfns
 	m.lastPersistedBlockNum = blockNum
 	return m.err
+}
+
+func (m *mockORM) CleanupChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (err error) {
+	panic("not implemented")
 }
 
 func makeLog(t *testing.T, donID, version uint32, url string, sha [32]byte) logpoller.Log {
@@ -435,4 +445,9 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			assert.Equal(t, cdc.definitionsBlockNum, orm.lastPersistedBlockNum)
 		})
 	})
+}
+
+func Test_filterName(t *testing.T) {
+	s := filterName(common.Address{1, 2, 3}, 654)
+	assert.Equal(t, "OCR3 LLO ChannelDefinitionCachePoller - 0x0102030000000000000000000000000000000000:654", s)
 }
