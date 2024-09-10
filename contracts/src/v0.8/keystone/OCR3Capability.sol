@@ -177,7 +177,7 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
       )
     );
     uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
-    uint256 prefix = 0x0001 << (256 - 16); // 0x000100..00
+    uint256 prefix = 0x000b << (256 - 16); // 0x000b00..00
     return bytes32((prefix & prefixMask) | (h & ~prefixMask));
   }
 
