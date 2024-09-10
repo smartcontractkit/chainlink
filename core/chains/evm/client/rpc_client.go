@@ -77,7 +77,6 @@ var (
 	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly", "success", "rpcCallName"})
 	errSubscribeFilterLogsNotAllowedWithoutWS = errors.New("SubscribeFilterLogs is not allowed without ws url")
 	errWSAndHTTPBothMissing                   = errors.New("cannot dial rpc client when both ws and http info are missing")
-	errWSMissingWhenLogBroadcasterEnabled     = errors.New("ws cannot be missing if LogBroadcaster is enabled")
 )
 
 // RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
@@ -126,7 +125,6 @@ type rpcClient struct {
 	largePayloadRpcTimeout     time.Duration
 	rpcTimeout                 time.Duration
 	finalizedBlockPollInterval time.Duration
-	logBroadcasterEnabled      bool
 	chainType                  chaintype.ChainType
 
 	ws   rawclient

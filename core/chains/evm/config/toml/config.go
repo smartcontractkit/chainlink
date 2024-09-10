@@ -23,7 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-var ErrNotFound = errors.New("not found")
+var (
+	ErrNotFound                          = errors.New("not found")
+	ErrLogBroadcasterEnabledWithoutWSURL = errors.New("logbroadcaster cannot be enabled unless all nodes have WSURL provided")
+)
 
 type HasEVMConfigs interface {
 	EVMConfigs() EVMConfigs
@@ -1027,4 +1030,17 @@ func (n *Node) SetFrom(f *Node) {
 
 func ChainIDInt64(cid string) (int64, error) {
 	return strconv.ParseInt(cid, 10, 64)
+}
+
+// verifyLogBroadcasterFlag checks node config and return error if LogBroadcaster enabled but some node missing WSURL
+func verifyLogBroadcasterFlag(nodes []*Node, LogBroadcasterEnabled bool) error {
+	if !LogBroadcasterEnabled {
+		return nil
+	}
+	for _, node := range nodes {
+		if node.WSURL == nil || node.WSURL.IsZero() {
+			return ErrLogBroadcasterEnabledWithoutWSURL
+		}
+	}
+	return nil
 }
