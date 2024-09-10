@@ -397,8 +397,10 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 // goroutine should happen via a `stepRequest` message containing a copy of the latest
 // `executionState`.
 func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string) {
+	defer e.wg.Done()
 	e.stepUpdatesChMapMu.Lock()
 	if _, ok := e.stepUpdatesChMap[executionID]; ok {
+		e.stepUpdatesChMapMu.Unlock()
 		e.logger.With(eIDKey, executionID).Debugf("stepUpdateLoop already running for execution %s", executionID)
 		return
 	}
@@ -408,7 +410,6 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string) {
 	}
 	ch := e.stepUpdatesChMap[executionID].ch
 	e.stepUpdatesChMapMu.Unlock()
-	defer e.wg.Done()
 	for {
 		select {
 		case <-ctx.Done():
@@ -697,6 +698,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	e.stepUpdatesChMapMu.RLock()
 	stepUpdateCh, ok := e.stepUpdatesChMap[stepState.ExecutionID]
 	if !ok {
+		e.stepUpdatesChMapMu.RUnlock()
 		l.Errorf("step update channel not found for execution %s, dropping step update", stepState.ExecutionID)
 		return
 	}
