@@ -10,6 +10,7 @@ import (
 	owner_wrappers "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -60,34 +61,9 @@ type CCIPOnChainState struct {
 	Chains map[uint64]CCIPChainState
 }
 
-type CCIPSnapShot struct {
-	Chains map[string]Chain `json:"chains"`
-}
-
-type Contract struct {
-	TypeAndVersion string         `json:"typeAndVersion"`
-	Address        common.Address `json:"address"`
-}
-
-type TokenAdminRegistryView struct {
-	Contract
-	Tokens []common.Address `json:"tokens"`
-}
-
-type NonceManagerView struct {
-	Contract
-	AuthorizedCallers []common.Address `json:"authorizedCallers"`
-}
-
-type Chain struct {
-	// TODO: this will have to be versioned for getting state during upgrades.
-	TokenAdminRegistry TokenAdminRegistryView `json:"tokenAdminRegistry"`
-	NonceManager       NonceManagerView       `json:"nonceManager"`
-}
-
-func (s CCIPOnChainState) Snapshot(chains []uint64) (CCIPSnapShot, error) {
-	snapshot := CCIPSnapShot{
-		Chains: make(map[string]Chain),
+func (s CCIPOnChainState) Snapshot(chains []uint64) (view.CCIPSnapShot, error) {
+	snapshot := view.CCIPSnapShot{
+		Chains: make(map[string]view.Chain),
 	}
 	for _, chainSelector := range chains {
 		// TODO: Need a utility for this
@@ -102,7 +78,7 @@ func (s CCIPOnChainState) Snapshot(chains []uint64) (CCIPSnapShot, error) {
 		if _, ok := s.Chains[chainSelector]; !ok {
 			return snapshot, fmt.Errorf("chain not supported %d", chainSelector)
 		}
-		var c Chain
+		var c view.Chain
 		ta := s.Chains[chainSelector].TokenAdminRegistry
 		if ta != nil {
 			tokens, err := ta.GetAllConfiguredTokens(nil, 0, 10)
@@ -113,8 +89,8 @@ func (s CCIPOnChainState) Snapshot(chains []uint64) (CCIPSnapShot, error) {
 			if err != nil {
 				return snapshot, err
 			}
-			c.TokenAdminRegistry = TokenAdminRegistryView{
-				Contract: Contract{
+			c.TokenAdminRegistry = view.TokenAdminRegistry{
+				Contract: view.Contract{
 					TypeAndVersion: tv,
 					Address:        ta.Address(),
 				},
@@ -131,8 +107,8 @@ func (s CCIPOnChainState) Snapshot(chains []uint64) (CCIPSnapShot, error) {
 			if err != nil {
 				return snapshot, err
 			}
-			c.NonceManager = NonceManagerView{
-				Contract: Contract{
+			c.NonceManager = view.NonceManager{
+				Contract: view.Contract{
 					TypeAndVersion: tv,
 					Address:        nm.Address(),
 				},
@@ -143,14 +119,6 @@ func (s CCIPOnChainState) Snapshot(chains []uint64) (CCIPSnapShot, error) {
 		snapshot.Chains[chainName] = c
 	}
 	return snapshot, nil
-}
-
-func SnapshotState(e deployment.Environment, ab deployment.AddressBook) (CCIPSnapShot, error) {
-	state, err := LoadOnchainState(e, ab)
-	if err != nil {
-		return CCIPSnapShot{}, err
-	}
-	return state.Snapshot(e.AllChainSelectors())
 }
 
 func LoadOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIPOnChainState, error) {
