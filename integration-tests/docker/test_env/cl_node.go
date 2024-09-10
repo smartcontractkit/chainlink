@@ -33,11 +33,13 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
+	grapqlClient "github.com/smartcontractkit/chainlink/integration-tests/web/sdk/client"
 )
 
 var (
-	ErrConnectNodeClient    = "could not connect Node HTTP Client"
-	ErrStartCLNodeContainer = "failed to start CL node container"
+	ErrConnectNodeClient        = "could not connect Node HTTP Client"
+	ErrConnectNodeGraphqlClient = "could not connect Node Graphql Client"
+	ErrStartCLNodeContainer     = "failed to start CL node container"
 )
 
 const (
@@ -54,6 +56,7 @@ type ClNode struct {
 	UserEmail             string                  `json:"userEmail"`
 	UserPassword          string                  `json:"userPassword"`
 	AlwaysPullImage       bool                    `json:"-"`
+	GraphqlAPI            grapqlClient.Client     `json:"-"`
 	t                     *testing.T
 	l                     zerolog.Logger
 }
@@ -339,19 +342,25 @@ func (n *ClNode) containerStartOrRestart(restartDb bool) error {
 		Str("userEmail", n.UserEmail).
 		Str("userPassword", n.UserPassword).
 		Msg("Started Chainlink Node container")
-	clClient, err := client.NewChainlinkClient(&client.ChainlinkConfig{
+	config := &client.ChainlinkConfig{
 		URL:        clEndpoint,
 		Email:      n.UserEmail,
 		Password:   n.UserPassword,
 		InternalIP: ip,
-	},
-		n.l)
+	}
+	clClient, err := client.NewChainlinkClient(config, n.l)
 	if err != nil {
 		return fmt.Errorf("%s err: %w", ErrConnectNodeClient, err)
 	}
 
+	graphqlClient, err := newChainLinkGraphqlClient(config)
+	if err != nil {
+		return fmt.Errorf("%s err: %w", ErrConnectNodeGraphqlClient, err)
+	}
+
 	n.Container = container
 	n.API = clClient
+	n.GraphqlAPI = graphqlClient
 
 	return nil
 }
@@ -490,4 +499,12 @@ func (n *ClNode) getContainerRequest(secrets string) (
 			},
 		},
 	}, nil
+}
+
+func newChainLinkGraphqlClient(c *client.ChainlinkConfig) (grapqlClient.Client, error) {
+	nodeClient, err := grapqlClient.New(c.URL, grapqlClient.Credentials{Email: c.Email, Password: c.Password})
+	if err != nil {
+		return nil, err
+	}
+	return nodeClient, nil
 }

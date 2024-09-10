@@ -26,6 +26,7 @@ type GatewayConnector interface {
 	job.ServiceCtx
 	network.ConnectionInitiator
 
+	AddHandler(methods []string, handler GatewayConnectorHandler) error
 	SendToGateway(ctx context.Context, gatewayId string, msg *api.Message) error
 }
 
@@ -51,7 +52,7 @@ type gatewayConnector struct {
 	clock       clockwork.Clock
 	nodeAddress []byte
 	signer      Signer
-	handler     GatewayConnectorHandler
+	handlers    map[string]GatewayConnectorHandler
 	gateways    map[string]*gatewayState
 	urlToId     map[string]string
 	closeWait   sync.WaitGroup
@@ -76,8 +77,8 @@ type gatewayState struct {
 	wsClient network.WebSocketClient
 }
 
-func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler GatewayConnectorHandler, clock clockwork.Clock, lggr logger.Logger) (GatewayConnector, error) {
-	if config == nil || signer == nil || handler == nil || clock == nil || lggr == nil {
+func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork.Clock, lggr logger.Logger) (GatewayConnector, error) {
+	if config == nil || signer == nil || clock == nil || lggr == nil {
 		return nil, errors.New("nil dependency")
 	}
 	if len(config.DonId) == 0 || len(config.DonId) > network.HandshakeDonIdLen {
@@ -93,7 +94,7 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler Gateway
 		clock:       clock,
 		nodeAddress: addressBytes,
 		signer:      signer,
-		handler:     handler,
+		handlers:    make(map[string]GatewayConnectorHandler),
 		shutdownCh:  make(chan struct{}),
 		lggr:        lggr.Named("GatewayConnector"),
 	}
@@ -123,6 +124,22 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler Gateway
 	connector.gateways = gateways
 	connector.urlToId = urlToId
 	return connector, nil
+}
+
+func (c *gatewayConnector) AddHandler(methods []string, handler GatewayConnectorHandler) error {
+	if handler == nil {
+		return errors.New("cannot add a nil handler")
+	}
+	for _, method := range methods {
+		if _, exists := c.handlers[method]; exists {
+			return fmt.Errorf("handler for method %s already exists", method)
+		}
+	}
+	// add all or nothing
+	for _, method := range methods {
+		c.handlers[method] = handler
+	}
+	return nil
 }
 
 func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayId string, msg *api.Message) error {
@@ -159,7 +176,12 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 				c.lggr.Errorw("failed to validate message signature", "id", gatewayState.config.Id, "err", err)
 				break
 			}
-			c.handler.HandleGatewayMessage(ctx, gatewayState.config.Id, msg)
+			handler, exists := c.handlers[msg.Body.Method]
+			if !exists {
+				c.lggr.Errorw("no handler for method", "id", gatewayState.config.Id, "method", msg.Body.Method)
+				break
+			}
+			handler.HandleGatewayMessage(ctx, gatewayState.config.Id, msg)
 		}
 	}
 }
@@ -194,9 +216,6 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 func (c *gatewayConnector) Start(ctx context.Context) error {
 	return c.StartOnce("GatewayConnector", func() error {
 		c.lggr.Info("starting gateway connector")
-		if err := c.handler.Start(ctx); err != nil {
-			return err
-		}
 		for _, gatewayState := range c.gateways {
 			gatewayState := gatewayState
 			if err := gatewayState.conn.Start(ctx); err != nil {
@@ -214,11 +233,12 @@ func (c *gatewayConnector) Close() error {
 	return c.StopOnce("GatewayConnector", func() (err error) {
 		c.lggr.Info("closing gateway connector")
 		close(c.shutdownCh)
+		var errs error
 		for _, gatewayState := range c.gateways {
-			gatewayState.conn.Close()
+			errs = errors.Join(errs, gatewayState.conn.Close())
 		}
 		c.closeWait.Wait()
-		return c.handler.Close()
+		return errs
 	})
 }
 

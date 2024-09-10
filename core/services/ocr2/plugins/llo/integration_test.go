@@ -88,14 +88,11 @@ type Stream struct {
 	baseBenchmarkPrice decimal.Decimal
 	baseBid            decimal.Decimal
 	baseAsk            decimal.Decimal
-	strmType           string
 }
 
 const (
-	btcStreamID    = 51
 	ethStreamID    = 52
 	linkStreamID   = 53
-	dogeStreamID   = 54
 	quoteStreamID1 = 55
 	quoteStreamID2 = 56
 )
@@ -103,22 +100,13 @@ const (
 var (
 	quoteStreamFeedID1 = common.HexToHash(`0x0003111111111111111111111111111111111111111111111111111111111111`)
 	quoteStreamFeedID2 = common.HexToHash(`0x0003222222222222222222222222222222222222222222222222222222222222`)
-
-	btcStream = Stream{
-		id:                 51,
-		baseBenchmarkPrice: decimal.NewFromFloat32(56_114.41),
-	}
-	ethStream = Stream{
+	ethStream          = Stream{
 		id:                 52,
 		baseBenchmarkPrice: decimal.NewFromFloat32(2_976.39),
 	}
 	linkStream = Stream{
 		id:                 53,
 		baseBenchmarkPrice: decimal.NewFromFloat32(13.25),
-	}
-	dogeStream = Stream{
-		id:                 54,
-		baseBenchmarkPrice: decimal.NewFromFloat32(0.10960935),
 	}
 	quoteStream1 = Stream{
 		id:                 55,
@@ -145,8 +133,6 @@ func generateConfig(t *testing.T, oracles []confighelper.OracleIdentityExtra) (
 	rawReportingPluginConfig := datastreamsllo.OffchainConfig{}
 	reportingPluginConfig, err := rawReportingPluginConfig.Encode()
 	require.NoError(t, err)
-
-	offchainConfig = []byte{}
 
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err = ocr3confighelper.ContractSetConfigArgsForTests(
 		2*time.Second,         // DeltaProgress
