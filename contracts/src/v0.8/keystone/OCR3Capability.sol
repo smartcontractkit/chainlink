@@ -43,16 +43,6 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
     _;
   }
 
-  // solhint-disable-next-line gas-struct-packing
-  struct SetConfigArgs {
-    bytes[] signers;
-    address[] transmitters;
-    uint8 f;
-    bytes onchainConfig;
-    uint64 offchainConfigVersion;
-    bytes offchainConfig;
-  }
-
   /// @inheritdoc OCR2Abstract
   function latestConfigDigestAndEpoch()
     external
@@ -83,18 +73,9 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
     uint64 _offchainConfigVersion,
     bytes memory _offchainConfig
   ) external override checkConfigValid(_signers.length, _transmitters.length, _f) onlyOwner {
-    SetConfigArgs memory args = SetConfigArgs({
-      signers: _signers,
-      transmitters: _transmitters,
-      f: _f,
-      onchainConfig: _onchainConfig,
-      offchainConfigVersion: _offchainConfigVersion,
-      offchainConfig: _offchainConfig
-    });
-
     // Bounded by MAX_NUM_ORACLES in OCR2Abstract.sol
-    for (uint256 i = 0; i < args.signers.length; i++) {
-      if (args.transmitters[i] == address(0)) revert InvalidConfig("transmitter must not be empty");
+    for (uint256 i = 0; i < _signers.length; i++) {
+      if (_transmitters[i] == address(0)) revert InvalidConfig("transmitter must not be empty");
       // add new signers
       bytes calldata publicKeys = _signers[i];
       uint16 offset = 0;
@@ -109,7 +90,7 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
         offset += 3 + keyLen;
       }
     }
-    s_configInfo.f = args.f;
+    s_configInfo.f = _f;
     uint32 previousConfigBlockNumber = s_latestConfigBlockNumber;
     s_latestConfigBlockNumber = uint32(block.number);
     s_configCount += 1;
@@ -118,26 +99,26 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
         block.chainid,
         address(this),
         s_configCount,
-        args.signers,
-        args.transmitters,
-        args.f,
-        args.onchainConfig,
-        args.offchainConfigVersion,
-        args.offchainConfig
+        _signers,
+        _transmitters,
+        _f,
+        _onchainConfig,
+        _offchainConfigVersion,
+        _offchainConfig
       );
     }
-    s_configInfo.n = uint8(args.signers.length);
+    s_configInfo.n = uint8(_signers.length);
 
     emit ConfigSet(
       previousConfigBlockNumber,
       s_configInfo.latestConfigDigest,
       s_configCount,
-      args.signers,
-      args.transmitters,
-      args.f,
-      args.onchainConfig,
-      args.offchainConfigVersion,
-      args.offchainConfig
+      _signers,
+      _transmitters,
+      _f,
+      _onchainConfig,
+      _offchainConfigVersion,
+      _offchainConfig
     );
   }
 
@@ -145,8 +126,8 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
     uint256 _chainId,
     address _contractAddress,
     uint64 _configCount,
-    bytes[] memory _signers,
-    address[] memory _transmitters,
+    bytes[] calldata _signers,
+    address[] calldata _transmitters,
     uint8 _f,
     bytes memory _onchainConfig,
     uint64 _encodedConfigVersion,
