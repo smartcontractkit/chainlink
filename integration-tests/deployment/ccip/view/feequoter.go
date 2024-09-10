@@ -39,8 +39,17 @@ type FeeQuoterDestChainConfig struct {
 }
 
 type FeeQuoterTokenPriceFeedConfig struct {
-	DataFeedAddress string
-	TokenDecimals   uint8
+	DataFeedAddress string `json:"dataFeedAddress,omitempty"`
+	TokenDecimals   uint8  `json:"tokenDecimals,omitempty"`
+}
+
+type TokenTransferFeeConfig struct {
+	MinFeeUSDCents    uint32 `json:"minFeeUSDCents,omitempty"`
+	MaxFeeUSDCents    uint32 `json:"maxFeeUSDCents,omitempty"`
+	DeciBps           uint16 `json:"deciBps,omitempty"`
+	DestGasOverhead   uint32 `json:"destGasOverhead,omitempty"`
+	DestBytesOverhead uint32 `json:"destBytesOverhead,omitempty"`
+	IsEnabled         bool   `json:"isEnabled,omitempty"`
 }
 
 type FeeQuoterReader interface {
@@ -50,4 +59,5 @@ type FeeQuoterReader interface {
 	GetStaticConfig(opts *bind.CallOpts) (FeeQuoterStaticConfig, error)
 	GetDestChainConfig(opts *bind.CallOpts, destChainSelector uint64) (FeeQuoterDestChainConfig, error)
 	GetTokenPriceFeedConfig(opts *bind.CallOpts, token common.Address) (FeeQuoterTokenPriceFeedConfig, error)
+	GetTokenTransferFeeConfig(opts *bind.CallOpts, destChainSelector uint64, token common.Address) (TokenTransferFeeConfig, error)
 }
