@@ -165,6 +165,8 @@ LimitDefault = 6000000
 FeeCapDefault = '200 gwei'
 """
 
+[CCIP.Env.NewCLCluster.Common.ChainlinkImage]
+version = "ccip-develop"
 # chainlink override config toml for EVMNode config specific to EVM chains with chain id as mentioned in the key
 [CCIP.Env.NewCLCluster.Common.ChainConfigTOMLByChain]
 # applicable for arbitrum-goerli chain
