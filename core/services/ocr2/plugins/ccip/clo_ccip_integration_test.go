@@ -3,6 +3,7 @@ package ccip_test
 import (
 	"context"
 	"encoding/json"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"math/big"
 	"testing"
 
@@ -20,7 +21,15 @@ import (
 )
 
 func Test_CLOSpecApprovalFlow_pipeline(t *testing.T) {
-	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
+	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(
+		t,
+		testhelpers.SourceChainID,
+		testhelpers.SourceChainSelector,
+		testhelpers.DestChainID,
+		testhelpers.DestChainSelector,
+		ccip.DefaultSourceFinalityDepth,
+		ccip.DefaultDestFinalityDepth,
+	)
 
 	tokenPricesUSDPipeline, linkUSD, ethUSD := ccipTH.CreatePricesPipeline(t)
 	defer linkUSD.Close()
@@ -30,7 +39,15 @@ func Test_CLOSpecApprovalFlow_pipeline(t *testing.T) {
 }
 
 func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
-	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
+	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(
+		t,
+		testhelpers.SourceChainID,
+		testhelpers.SourceChainSelector,
+		testhelpers.DestChainID,
+		testhelpers.DestChainSelector,
+		ccip.DefaultSourceFinalityDepth,
+		ccip.DefaultDestFinalityDepth,
+	)
 
 	//Set up the aggregators here to avoid modifying ccipTH.
 	dstLinkAddr := ccipTH.Dest.LinkToken.Address()

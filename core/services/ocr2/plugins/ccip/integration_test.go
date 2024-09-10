@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"math/big"
 	"sync"
 	"testing"
@@ -46,7 +48,15 @@ func TestIntegration_CCIP(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
+			ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(
+				t,
+				testhelpers.SourceChainID,
+				testhelpers.SourceChainSelector,
+				testhelpers.DestChainID,
+				testhelpers.DestChainSelector,
+				ccip.DefaultSourceFinalityDepth,
+				ccip.DefaultDestFinalityDepth,
+			)
 
 			tokenPricesUSDPipeline := ""
 			priceGetterConfigJson := ""
@@ -628,4 +638,72 @@ func TestIntegration_CCIP(t *testing.T) {
 			})
 		})
 	}
+}
+
+// TestReorg ensures that CCIP works even when a below finality depth reorg happens
+func TestReorg(t *testing.T) {
+	// We need higher finality depth on the destination to perform reorg deep enough to revert commit and execution reports
+	destinationFinalityDepth := uint32(50)
+	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(
+		t,
+		testhelpers.SourceChainID,
+		testhelpers.SourceChainSelector,
+		testhelpers.DestChainID,
+		testhelpers.DestChainSelector,
+		ccip.DefaultSourceFinalityDepth,
+		destinationFinalityDepth,
+	)
+	testPricePipeline, linkUSD, ethUSD := ccipTH.CreatePricesPipeline(t)
+	defer linkUSD.Close()
+	defer ethUSD.Close()
+	ccipTH.SetUpNodesAndJobs(t, testPricePipeline, "", "")
+
+	gasLimit := big.NewInt(200_00)
+	tokenAmount := big.NewInt(1)
+
+	forkBlock, err := ccipTH.Dest.Chain.BlockByNumber(context.Background(), nil)
+	require.NoError(t, err, "Error while fetching the destination chain current block number")
+
+	// Adjust time to start next blocks with timestamps two hours after the fork block.
+	// This is critical to have two forks with different block_timestamps.
+	err = ccipTH.Dest.Chain.AdjustTime(2 * time.Hour)
+	require.NoError(t, err, "Error while adjusting the destination chain time")
+	ccipTH.Dest.Chain.Commit()
+
+	// Send request for the first time and make sure it's executed on the destination
+	ccipTH.SendMessage(t, gasLimit, tokenAmount, ccipTH.Dest.Receivers[0].Receiver.Address())
+	ccipTH.Dest.User.GasLimit = 100000
+	ccipTH.EventuallySendRequested(t, uint64(1))
+	ccipTH.EventuallyReportCommitted(t, 1)
+	executionLog := ccipTH.AllNodesHaveExecutedSeqNums(t, 1, 1)
+	ccipTH.AssertExecState(t, executionLog[0], testhelpers.ExecutionStateSuccess)
+
+	currentBlock, err := ccipTH.Dest.Chain.BlockByNumber(context.Background(), nil)
+	require.NoError(t, err, "Error while fetching the current block number of destination chain")
+
+	// Reorg back to the `forkBlock`. Next blocks in the fork will have block_timestamps right after the fork,
+	// but before the 2 hours interval defined above for the canonical chain
+	require.NoError(t, ccipTH.Dest.Chain.Fork(testutils.Context(t), forkBlock.Hash()),
+		"Error while forking the chain")
+	// Make sure that fork is longer than the canonical chain to enforce switch
+	noOfBlocks := int(currentBlock.NumberU64() - forkBlock.NumberU64())
+	for i := 0; i < noOfBlocks+1; i++ {
+		ccipTH.Dest.Chain.Commit()
+	}
+
+	// State of the chain (block_timestamps) after reorg:
+	//            / --> block1 (02:01) --> block2 (02:02) --> commit report (02:03) --> ...
+	// forkBlock (00:00) --> block1' (00:01) --> block2' (00:02) --> commit report' (00:03) --> ...
+
+	// CCIP should commit and executed messages that was reorged away
+	ccipTH.EventuallyReportCommitted(t, 1)
+	executionLog = ccipTH.AllNodesHaveExecutedSeqNums(t, 1, 1)
+	ccipTH.AssertExecState(t, executionLog[0], testhelpers.ExecutionStateSuccess)
+
+	// Sending another message and make sure it's executed on the destination
+	ccipTH.SendMessage(t, gasLimit, tokenAmount, ccipTH.Dest.Receivers[0].Receiver.Address())
+	ccipTH.EventuallySendRequested(t, uint64(2))
+	ccipTH.EventuallyReportCommitted(t, 2)
+	executionLog = ccipTH.AllNodesHaveExecutedSeqNums(t, 1, 2)
+	ccipTH.AssertExecState(t, executionLog[0], testhelpers.ExecutionStateSuccess)
 }
