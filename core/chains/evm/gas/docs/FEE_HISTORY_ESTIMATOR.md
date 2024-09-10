@@ -11,7 +11,7 @@
 The rest of the configs are only applicable when `EIP1559` is enabled
 
 - `BlockHistorySize`: controls the number of past blocks to include during gas calculations. If set to 0, the estimator will skip any priority fee calculation and calculate the underlying base fee. This config should be set to 0 for chains that don't have a mempool. 
-- `RewardPercentile`: it specifies which fee percentile to pick from for each processed past block. 
+- `RewardPercentile`: specifies which fee percentile to pick from for each processed past block. 
 
 ### Validations
 During startup, the estimator will perform two config checks:
@@ -38,7 +38,7 @@ During bumping, `Fee History` will refresh the cached value by making a call to 
 
 The above values are used to construct and cache the following:
 - **MaxPriorityFeePerGas**: the average of Yth priority fee percentiles, excluding zero values.
-- **MaxFeePerGas**: `baseFee * BaseFeeBufferPercentage + MaxPriorityFeePerGas`. BaseFeeBufferPercentage is used as a safety to catch any fluctuations in the Base Fee during the next blocks.
+- **MaxFeePerGas**: `baseFee * BaseFeeBufferPercentage + MaxPriorityFeePerGas`. *BaseFeeBufferPercentage* is used as a safety to catch any fluctuations in the Base Fee during the next blocks.
 - **PriorityFeeThreshold**: the max out of every 85th priority fee percentile. This value is used to stop the estimator from bumping a price above that threshold and represents the maximum allowed value.
 
 *Note*: for chains that don't have a mempool (activated with `BlockHistorySize=0`) **MaxPriorityFeePerGas** and **PriorityFeeThreshold** are set to 0 since there is no concept of gas bumping.
