@@ -7,5 +7,5 @@ go run main.go \
  --ethurl=$ETH_URL \
  --accountkey=$ACCOUNT_KEY \
  --onlysetconfig=false \
- --skipfunding=false \
+ --skipfunding=true \
  --dryrun=false

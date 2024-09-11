@@ -205,6 +205,25 @@ func TestChainScopedConfig(t *testing.T) {
 			assert.Equal(t, val.String(), cfg3.EVM().OperatorFactoryAddress())
 		})
 	})
+
+	t.Run("LogBroadcasterEnabled", func(t *testing.T) {
+		t.Run("turn on LogBroadcasterEnabled by default", func(t *testing.T) {
+			assert.Equal(t, true, cfg.EVM().LogBroadcasterEnabled())
+		})
+
+		t.Run("verify LogBroadcasterEnabled is set correctly", func(t *testing.T) {
+			val := false
+			cfg3 := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
+				c.LogBroadcasterEnabled = ptr(val)
+			})
+
+			assert.Equal(t, false, cfg3.EVM().LogBroadcasterEnabled())
+		})
+
+		t.Run("use Noop logBroadcaster when LogBroadcaster is disabled", func(t *testing.T) {
+
+		})
+	})
 }
 
 func TestChainScopedConfig_BlockHistory(t *testing.T) {
