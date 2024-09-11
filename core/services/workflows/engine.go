@@ -349,6 +349,16 @@ func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
 			}
 
 			for _, sd := range sds {
+				ch := make(chan store.WorkflowExecutionStep)
+				added := e.stepUpdatesChMap.add(execution.ExecutionID, stepUpdateChannel{
+					ch:          ch,
+					executionID: execution.ExecutionID,
+				})
+				if added {
+					// We trigger the `stepUpdateLoop` for this execution, since the loop is not running atm.
+					e.wg.Add(1)
+					go e.stepUpdateLoop(ctx, execution.ExecutionID, ch)
+				}
 				e.queueIfReady(execution, sd)
 			}
 		}
