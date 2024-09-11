@@ -35,6 +35,8 @@ type DeployRequest struct {
 	RegistryChainSel uint64
 	Menv             deployment.MultiDonEnvironment
 
+	// TODO: try to simplify config. It's a bit roundabout to have two maps, but it was
+	// the easiest way to get the data from the in memory test environment to the deploy function
 	DonToCapabilities map[string][]kcr.CapabilitiesRegistryCapability                   // from external source; the key is a human-readable name. TODO consider using the 'sortedHash' of p2pkeys as the key rather than a name
 	NodeIDToNop       map[string]capabilities_registry.CapabilitiesRegistryNodeOperator // TODO maybe should be derivable from JD interface but doesn't seem to be notion of NOP in JD
 	OCR3Config        *OracleConfigSource                                               // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config

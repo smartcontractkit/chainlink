@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -179,63 +178,53 @@ func TestDeploy(t *testing.T) {
 	t.Run("memory chains clo offchain", func(t *testing.T) {
 		wfNops := loadTestNops(t, "../clo/testdata/workflow_nodes.json")
 		cwNops := loadTestNops(t, "../clo/testdata/chain_writer_nodes.json")
-		var allNops []*models.NodeOperator
-		allNops = append(allNops, wfNops...)
-		allNops = append(allNops, cwNops...)
 
-		registryChainIdStr := "11155111"
-		var nodeToNop = make(map[string]kcr.CapabilitiesRegistryNodeOperator) //node -> nop
-		for _, nop := range allNops {
-			for _, node := range nop.Nodes {
-				// admin address is on the registry chain
-				found := false
-				for _, chain := range node.ChainConfigs {
-					if chain.Network.ChainID != registryChainIdStr {
-						continue
-					}
+		wfDon2 := keystone.DonCapabilities{
+			Name:         keystone.WFDonName,
+			Nops:         wfNops,
+			Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.OCR3Cap},
+		}
+		cwDon2 := keystone.DonCapabilities{
+			Name:         keystone.TargetDonName,
+			Nops:         cwNops,
+			Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.WriteChainCap},
+		}
 
-					nodeToNop[node.ID] = kcr.CapabilitiesRegistryNodeOperator{
-						Admin: adminAddr(chain.AdminAddress),
-						Name:  nop.Name}
-					found = true
-				}
-				require.True(t, found, "no registry chain found for node %s", node.ID)
+		makeMultiDonTestEnv := func(t *testing.T, lggr logger.Logger, dons []keystone.DonCapabilities) deployment.MultiDonEnvironment {
+			var donToEnv = make(map[string]*deployment.Environment)
+			for _, don := range dons {
+				env := clo.NewDonEnvWithMemoryChains(t, clo.DonEnvConfig{
+					DonName: don.Name,
+					Nops:    don.Nops,
+					Logger:  lggr,
+				})
+				donToEnv[don.Name] = env
 			}
+			return clo.NewMultiDonEnvironment(lggr, donToEnv)
 		}
 
-		wfDon := clo.NewDonEnvWithMemoryChains(t, clo.DonEnvConfig{
-			DonName: keystone.WFDonName,
-			Nops:    wfNops,
-			Logger:  lggr,
-		})
+		menv := makeMultiDonTestEnv(t, lggr, []keystone.DonCapabilities{wfDon2, cwDon2})
+		donsToDeploy := keystone.MapDonsToCaps([]keystone.DonCapabilities{wfDon2, cwDon2})
+		// sepolia; all nodes are on the this chain
+		homeChainSel, err := chainsel.SelectorFromChainId(11155111)
+		require.NoError(t, err)
+		nodeToNop, err := keystone.NodesToNops([]keystone.DonCapabilities{wfDon2, cwDon2}, homeChainSel)
+		require.NoError(t, err)
 
-		cwDon := clo.NewDonEnvWithMemoryChains(t, clo.DonEnvConfig{
-			DonName: keystone.TargetDonName,
-			Nops:    cwNops,
-			Logger:  lggr,
-		})
-
-		var donToEnv = map[string]*deployment.Environment{
-			keystone.WFDonName:     wfDon,
-			keystone.TargetDonName: cwDon,
+		if false {
+			b, err := json.MarshalIndent(donsToDeploy, "", "  ")
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile("/tmp/dons_to_deploy.json", b, 0644))
+			b, err = json.MarshalIndent(nodeToNop, "", "  ")
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile("/tmp/node_to_nop.json", b, 0644))
 		}
-
-		menv := clo.NewMultiDonEnvironment(lggr, donToEnv)
-
-		var donsToDeploy = map[string][]kcr.CapabilitiesRegistryCapability{
-			keystone.WFDonName:     []kcr.CapabilitiesRegistryCapability{keystone.OCR3Cap},
-			keystone.TargetDonName: []kcr.CapabilitiesRegistryCapability{keystone.WriteChainCap},
-		}
-
 		var ocr3Config = keystone.OracleConfigSource{
 			MaxFaultyOracles: len(wfNops) / 3,
 		}
 
 		ctx := context.Background()
 
-		// sepolia
-		homeChainSel, err := chainsel.SelectorFromChainId(11155111)
-		require.NoError(t, err)
 		deployReq := keystone.DeployRequest{
 			RegistryChainSel:  homeChainSel,
 			Menv:              menv,
@@ -260,17 +249,4 @@ func loadTestNops(t *testing.T, pth string) []*models.NodeOperator {
 	var nops []*models.NodeOperator
 	require.NoError(t, json.Unmarshal(f, &nops))
 	return nops
-}
-
-var emptyAddr = "0x0000000000000000000000000000000000000000"
-
-// compute the admin address from the string. If the address is empty, replaces the 0s with fs
-// contract registry disallows 0x0 as an admin address, but our test net nops use it
-func adminAddr(addr string) common.Address {
-	needsFixing := addr == emptyAddr
-	addr = strings.TrimPrefix(addr, "0x")
-	if needsFixing {
-		addr = strings.ReplaceAll(addr, "0", "f")
-	}
-	return common.HexToAddress(strings.TrimPrefix(addr, "0x"))
 }
