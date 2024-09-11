@@ -61,14 +61,6 @@ func (o *ocr2Node) signerAddress() common.Address {
 	return common.BytesToAddress(o.Signer[:])
 }
 
-func (o *ocr2Node) p2pKeyBundleConfig() *v1.OCR2Config_P2PKeyBundle {
-	return o.p2pKeyBundle
-}
-
-func (o *ocr2Node) ocrKeyBundleConfig() *v1.OCR2Config_OCRKeyBundle {
-	return o.ocrKeyBundle
-}
-
 func (o *ocr2Node) toNodeKeys() NodeKeys {
 	return NodeKeys{
 		EthAddress:            o.accountAddress,

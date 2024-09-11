@@ -148,9 +148,8 @@ func TestDeploy(t *testing.T) {
 		}
 		require.NoError(t, err)
 		assert.Len(t, gotDons, len(e.Dons()))
-		var donIds []uint32
+
 		for n, info := range deployResp.DonInfos {
-			donIds = append(donIds, info.Id)
 			found := false
 			for _, gdon := range gotDons {
 				if gdon.Id == info.Id {

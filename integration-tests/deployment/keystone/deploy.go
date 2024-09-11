@@ -157,6 +157,9 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 		donToCapabilities: capabilitiesResp.donToCapabilities,
 		donToOcr2Nodes:    donToOcr2Nodes,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to register DONS: %w", err)
+	}
 	lggr.Infow("registered DONS", "dons", len(donsResp.donInfos))
 	resp.DonInfos = donsResp.donInfos
 
@@ -642,14 +645,10 @@ func joinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, nodes
 		if !ok {
 			return nil, fmt.Errorf("nodes not found for don %s", donName)
 		}
-		var ocr2ns []*ocr2Node
-		for _, n := range ocr2nodes {
-			ocr2ns = append(ocr2ns, n)
-		}
 		out = append(out, registeredDon{
 			name:  donName,
 			info:  info,
-			nodes: ocr2ns,
+			nodes: ocr2nodes,
 		})
 	}
 
@@ -657,10 +656,9 @@ func joinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, nodes
 }
 
 type registeredDon struct {
-	name   string
-	info   capabilities_registry.CapabilitiesRegistryDONInfo
-	nodes  []*ocr2Node
-	config string //TODO
+	name  string
+	info  capabilities_registry.CapabilitiesRegistryDONInfo
+	nodes []*ocr2Node
 }
 
 func (d registeredDon) signers() []common.Address {
