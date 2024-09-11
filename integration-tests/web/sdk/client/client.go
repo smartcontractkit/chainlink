@@ -27,7 +27,7 @@ type Client interface {
 	UpdateJobDistributor(ctx context.Context, id string, cmd JobDistributorInput) error
 	CreateJobDistributorChainConfig(ctx context.Context, in JobDistributorChainConfigInput) error
 	GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalResponse, error)
-	ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*generated.ApproveJobProposalSpecResponse, error)
+	ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*JobProposalApprovalSuccessSpec, error)
 	CancelJobProposalSpec(ctx context.Context, id string) (*generated.CancelJobProposalSpecResponse, error)
 	RejectJobProposalSpec(ctx context.Context, id string) (*generated.RejectJobProposalSpecResponse, error)
 	UpdateJobProposalSpecDefinition(ctx context.Context, id string, cmd generated.UpdateJobProposalSpecDefinitionInput) (*generated.UpdateJobProposalSpecDefinitionResponse, error)
@@ -192,8 +192,22 @@ func (c *client) GetJobProposal(ctx context.Context, id string) (*generated.GetJ
 	return generated.GetJobProposal(ctx, c.gqlClient, id)
 }
 
-func (c *client) ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*generated.ApproveJobProposalSpecResponse, error) {
-	return generated.ApproveJobProposalSpec(ctx, c.gqlClient, id, force)
+func (c *client) ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*JobProposalApprovalSuccessSpec, error) {
+	res, err := generated.ApproveJobProposalSpec(ctx, c.gqlClient, id, force)
+	if err != nil {
+		return nil, err
+	}
+	if success, ok := res.GetApproveJobProposalSpec().(*generated.ApproveJobProposalSpecApproveJobProposalSpecApproveJobProposalSpecSuccess); ok {
+		var cmd JobProposalApprovalSuccessSpec
+		if success.Spec.Status != generated.SpecStatusApproved {
+			err := DecodeInput(success.Spec, &cmd)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode job proposal spec: %w ; and job proposal spec not approved", err)
+			}
+			return &cmd, fmt.Errorf("job proposal spec not approved")
+		}
+	}
+	return nil, fmt.Errorf("failed to approve job proposal spec")
 }
 
 func (c *client) CancelJobProposalSpec(ctx context.Context, id string) (*generated.CancelJobProposalSpecResponse, error) {

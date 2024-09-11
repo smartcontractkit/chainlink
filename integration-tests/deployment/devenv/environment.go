@@ -185,11 +185,15 @@ func DeployPrivateChains(t *testing.T) (
 				nodeInfo = append(nodeInfo, NodeInfo{
 					IsBootstrap: true,
 					Name:        fmt.Sprintf("bootstrap-%d", i),
+					// TODO : make this configurable
+					P2PPort: "6690",
 				})
 			} else {
 				nodeInfo = append(nodeInfo, NodeInfo{
 					IsBootstrap: false,
 					Name:        fmt.Sprintf("node-%d", i-1),
+					// TODO : make this configurable
+					P2PPort: "6690",
 				})
 			}
 			toml, _, err := testsetups.SetNodeConfig(

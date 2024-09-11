@@ -79,6 +79,7 @@ type ORM interface {
 	WithDataSource(source sqlutil.DataSource) ORM
 
 	FindJobIDByWorkflow(ctx context.Context, spec WorkflowSpec) (int32, error)
+	FindJobIDByCapabilityNameAndVersion(ctx context.Context, spec CCIPSpec) (int32, error)
 }
 
 type ORMConfig interface {
@@ -1117,6 +1118,23 @@ INNER JOIN workflow_specs ws on jobs.workflow_spec_id = ws.id AND ws.workflow_ow
 			err = fmt.Errorf("error searching for job by workflow (owner,name) ('%s','%s'): %w", spec.WorkflowOwner, spec.WorkflowName, err)
 		}
 		err = fmt.Errorf("FindJobIDByWorkflow failed: %w", err)
+		return
+	}
+
+	return
+}
+
+func (o *orm) FindJobIDByCapabilityNameAndVersion(ctx context.Context, spec CCIPSpec) (jobID int32, err error) {
+	stmt := `
+SELECT jobs.id FROM jobs
+INNER JOIN ccip_specs ccip on jobs.ccip_spec_id = ccip.id AND ccip.capability_labelled_name = $1 AND ccip.capability_version = $2
+`
+	err = o.ds.GetContext(ctx, &jobID, stmt, spec.CapabilityLabelledName, spec.CapabilityVersion)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			err = fmt.Errorf("error searching for job for CCIP (capabilityName,capabilityVersion) ('%s','%s'): %w", spec.CapabilityLabelledName, spec.CapabilityVersion, err)
+		}
+		err = fmt.Errorf("FindJobIDByCapabilityNameAndVersion failed: %w", err)
 		return
 	}
 

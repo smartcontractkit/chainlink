@@ -35,6 +35,16 @@ type JobDistributorChainConfigInput struct {
 	Ocr2Plugins          string `json:"ocr2Plugins"`
 }
 
+type JobProposalApprovalSuccessSpec struct {
+	Id              string `json:"id"`
+	Definition      string `json:"definition"`
+	Version         int    `json:"version"`
+	Status          string `json:"status"`
+	StatusUpdatedAt string `json:"statusUpdatedAt"`
+	CreatedAt       string `json:"createdAt"`
+	UpdatedAt       string `json:"updatedAt"`
+}
+
 func DecodeInput(in, out any) error {
 	if reflect.TypeOf(out).Kind() != reflect.Ptr || reflect.ValueOf(out).IsNil() {
 		return fmt.Errorf("out type must be a non-nil pointer")

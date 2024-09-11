@@ -820,6 +820,8 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 						return fmt.Errorf("failed while checking for existing workflow job: %w", txerr)
 					}
 				}
+			case job.CCIP:
+				existingJobID, txerr = tx.jobORM.FindJobIDByCapabilityNameAndVersion(ctx, *j.CCIPSpec)
 			default:
 				return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
 			}

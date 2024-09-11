@@ -2,6 +2,7 @@ package smoke
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -61,8 +62,9 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 	for _, n := range nodes {
 		jobsToAccept, exists := nodeIdToJobIds[n.NodeId]
 		require.True(t, exists, "node %s has no jobs to accept", n.NodeId)
-		for _, jobID := range jobsToAccept {
-			require.NoError(t, n.AcceptJob(ctx, jobID), "node %s failed to accept job %s", n.NodeId, jobID)
+		// Accept all the jobs for this node.
+		for i, jobID := range jobsToAccept {
+			require.NoError(t, n.AcceptJob(ctx, strconv.Itoa(i+1)), "node %s failed to accept job %s", n.NodeId, jobID)
 		}
 	}
 	fmt.Println("Jobs accepted")
