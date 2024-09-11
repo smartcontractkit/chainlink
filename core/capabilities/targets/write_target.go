@@ -181,12 +181,7 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 		return r, fmt.Errorf("WorkflowID in the report does not match WorkflowID in the request metadata. Report WorkflowID: %+v, request WorkflowID: %+v", reportMetadata.WorkflowCID, rawRequest.Metadata.WorkflowID)
 	}
 
-	decodedBytes, err := hex.DecodeString(string(r.Inputs.SignedReport.ID))
-	if err != nil {
-		return r, err
-	}
-
-	if !bytes.Equal(reportMetadata.ReportID[:], decodedBytes) {
+	if !bytes.Equal(reportMetadata.ReportID[:], r.Inputs.SignedReport.ID) {
 		return r, fmt.Errorf("ReportID in the report does not match ReportID in the inputs. reportMetadata.ReportID: %x, Inputs.SignedReport.ID: %x", reportMetadata.ReportID, r.Inputs.SignedReport.ID)
 	}
 
@@ -218,12 +213,6 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 		return capabilities.CapabilityResponse{}, err
 	}
 
-	// SignedReport.ID is hex bytes and the query expects string bytes
-	reportIDBytes, err := hex.DecodeString(string(request.Inputs.SignedReport.ID))
-	if err != nil {
-		return capabilities.CapabilityResponse{}, err
-	}
-
 	// Check whether value was already transmitted on chain
 	queryInputs := struct {
 		Receiver            string
@@ -232,7 +221,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 	}{
 		Receiver:            request.Config.Address,
 		WorkflowExecutionID: rawExecutionID,
-		ReportId:            reportIDBytes,
+		ReportId:            request.Inputs.SignedReport.ID,
 	}
 	var transmissionInfo TransmissionInfo
 	if err = cap.cr.GetLatestValue(ctx, cap.binding.ReadIdentifier("getTransmissionInfo"), primitives.Unconfirmed, queryInputs, &transmissionInfo); err != nil {
