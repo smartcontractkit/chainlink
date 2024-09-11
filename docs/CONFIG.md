@@ -256,7 +256,7 @@ LeaseRefreshInterval determines how often to refresh the lease lock. Also contro
 ## TelemetryIngress
 ```toml
 [TelemetryIngress]
-UniConn = true # Default
+UniConn = false # Default
 Logging = false # Default
 BufferSize = 100 # Default
 MaxBatchSize = 50 # Default
@@ -268,7 +268,7 @@ UseBatchSend = true # Default
 
 ### UniConn
 ```toml
-UniConn = true # Default
+UniConn = false # Default
 ```
 UniConn toggles which ws connection style is used.
 

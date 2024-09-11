@@ -89,7 +89,7 @@ LeaseRefreshInterval = '1s' # Default
 
 [TelemetryIngress]
 # UniConn toggles which ws connection style is used.
-UniConn = true # Default
+UniConn = false # Default
 # Logging toggles verbose logging of the raw telemetry messages being sent.
 Logging = false # Default
 # BufferSize is the number of telemetry messages to buffer before dropping new ones.
