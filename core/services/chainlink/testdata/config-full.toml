@@ -290,6 +290,17 @@ AuthTimestampToleranceSec = 10
 ID = 'example_gateway'
 URL = 'wss://localhost:8081/node'
 
+[Telemetry]
+Enabled = true
+CACertFile = 'cert-file'
+Endpoint = 'example.com/collector'
+InsecureConnection = true
+TraceSampleRatio = 0.01
+
+[Telemetry.ResourceAttributes]
+Baz = 'test'
+Foo = 'bar'
+
 [[EVM]]
 ChainID = '1'
 Enabled = false
