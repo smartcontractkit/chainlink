@@ -366,7 +366,8 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 		if err != nil {
 			return err
 		}
-		chainSelector, err := chainselectors.SelectorFromChainId(chain.ID().Uint64())
+		var chainSelector uint64
+		chainSelector, err = chainselectors.SelectorFromChainId(chain.ID().Uint64())
 		if err != nil {
 			return err
 		}
