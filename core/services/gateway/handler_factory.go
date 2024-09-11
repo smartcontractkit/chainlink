@@ -10,11 +10,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/workflow"
 )
 
 const (
 	FunctionsHandlerType HandlerType = "functions"
 	DummyHandlerType     HandlerType = "dummy"
+	workflowHandlerType  HandlerType = "workflow"
 )
 
 type handlerFactory struct {
@@ -33,6 +35,8 @@ func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json
 	switch handlerType {
 	case FunctionsHandlerType:
 		return functions.NewFunctionsHandlerFromConfig(handlerConfig, donConfig, don, hf.legacyChains, hf.ds, hf.lggr)
+	case workflowHandlerType:
+		return workflow.NewWorkflowHandler(donConfig, don, hf.lggr)
 	case DummyHandlerType:
 		return handlers.NewDummyHandler(donConfig, don, hf.lggr)
 	default:
