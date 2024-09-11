@@ -49,13 +49,6 @@ func (sucm *stepUpdateManager) add(executionID string, ch stepUpdateChannel) (ad
 	return true
 }
 
-func (sucm *stepUpdateManager) get(executionID string) (stepUpdateChannel, bool) {
-	sucm.mu.RLock()
-	defer sucm.mu.RUnlock()
-	ch, ok := sucm.m[executionID]
-	return ch, ok
-}
-
 func (sucm *stepUpdateManager) remove(executionID string) {
 	sucm.mu.Lock()
 	defer sucm.mu.Unlock()
