@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
+	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -265,6 +266,17 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 	}
 
+	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
+	if cfg.Capabilities().GatewayConnector().DonID() != "" {
+		globalLogger.Debugw("Creating GatewayConnector wrapper", "donID", cfg.Capabilities().GatewayConnector().DonID())
+		gatewayConnectorWrapper = gatewayconnector.NewGatewayConnectorServiceWrapper(
+			cfg.Capabilities().GatewayConnector(),
+			keyStore.Eth(),
+			clockwork.NewRealClock(),
+			globalLogger)
+		srvcs = append(srvcs, gatewayConnectorWrapper)
+	}
+
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
 	// as OCR2 job implementations, in the case of Median today.
 	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
@@ -445,7 +457,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				loopRegistrarConfig,
 				telemetryManager,
 				pipelineRunner,
-				opts.RelayerChainInteroperators),
+				opts.RelayerChainInteroperators,
+				gatewayConnectorWrapper),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)

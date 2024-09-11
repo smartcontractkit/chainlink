@@ -61,6 +61,7 @@ flowchart LR
   chainlink-common --> libocr
   chainlink-cosmos --> chainlink-common
   chainlink-cosmos --> libocr
+  chainlink-cosmos --> grpc-proxy
   chainlink-data-streams --> chainlink-common
   chainlink-data-streams --> libocr
   chainlink-data-streams --> grpc-proxy

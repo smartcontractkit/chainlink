@@ -1131,7 +1131,6 @@ func testOffRampRateLimits(t *testing.T, rateLimiterConfig contracts.RateLimiter
 			require.NoError(t, err, "Error manually executing transaction after rate limit is lifted")
 		})
 	}
-
 }
 
 // SetupReorgSuite defines the setup required to perform re-org step
