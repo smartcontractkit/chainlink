@@ -401,9 +401,9 @@ func (c *chain) LatestHead(_ context.Context) (types.Head, error) {
 	}
 
 	return types.Head{
-		Identifier: strconv.FormatInt(latestChain.BlockNumber(), 10),
-		Hash:       latestChain.Hash.Bytes(),
-		Timestamp:  uint64(latestChain.Timestamp.Unix()),
+		Height:    strconv.FormatInt(latestChain.BlockNumber(), 10),
+		Hash:      latestChain.Hash.Bytes(),
+		Timestamp: uint64(latestChain.Timestamp.Unix()),
 	}, nil
 }
 
