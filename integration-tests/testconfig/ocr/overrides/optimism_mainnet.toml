@@ -1,0 +1,16 @@
+[Network]
+selected_networks = ["OPTIMISM_MAINNET"]
+
+[Soak.Common]
+chainlink_node_funding = 0.1
+
+[Soak.OCR]
+[Soak.OCR.Common]
+test_duration = "24h"
+
+[Soak.OCR.Soak]
+number_of_contracts = 2
+time_between_rounds = "10m"
+
+[Seth]
+experiments_enabled = ["slow_funds_return"]

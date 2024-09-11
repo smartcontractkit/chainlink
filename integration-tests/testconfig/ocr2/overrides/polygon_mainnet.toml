@@ -1,8 +1,8 @@
 [Network]
-selected_networks = ["BASE_SEPOLIA"]
+selected_networks = ["POLYGON_MAINNET"]
 
 [Soak.Common]
-chainlink_node_funding = 1
+chainlink_node_funding = 5
 
 [Soak.OCR2]
 [Soak.OCR2.Common]
@@ -10,7 +10,7 @@ test_duration = "24h"
 
 [Soak.OCR2.Soak]
 number_of_contracts = 2
-time_between_rounds = "2m"
+time_between_rounds = "10m"
 
 [Seth]
 experiments_enabled = ["slow_funds_return"]
