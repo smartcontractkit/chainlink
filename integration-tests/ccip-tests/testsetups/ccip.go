@@ -1259,6 +1259,7 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 		if !testConfig.ExistingCLCluster() {
 			// if it's a local cluster, deploy the local cluster in docker
 			if testConfig.localCluster() {
+				lggr.Info().Interface("TestConfig CLNodes", testConfig.EnvInput.NewCLCluster.Nodes).Msg("Nodes Detail")
 				local, deployCL = DeployLocalCluster(t, testConfig)
 				ccipEnv = &actions.CCIPTestEnv{
 					LocalCluster: local,
