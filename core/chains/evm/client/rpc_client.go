@@ -566,9 +566,13 @@ func (r *rpcClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmt
 	return channel, &poller, nil
 }
 
-func (r *rpcClient) SubscribeToNewHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
-	// TODO to replace the interval and timeout values
-	poller, channel := commonclient.NewPoller[*evmtypes.Head](time.Second, r.LatestFinalizedBlock, time.Second, r.rpcLog)
+func (r *rpcClient) SubscribeToPollingNewHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
+	interval := r.newHeadsPollInterval
+	if interval == 0 {
+		return nil, nil, errors.New("NewHeadsPollInterval is 0")
+	}
+	timeout := interval
+	poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.LatestBlock, timeout, r.rpcLog)
 	if err := poller.Start(ctx); err != nil {
 		return nil, nil, err
 	}

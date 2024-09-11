@@ -1708,12 +1708,12 @@ func (_c *mockRPC_SubscribeToHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_
 	return _c
 }
 
-// SubscribeToNewHeads provides a mock function with given fields: _a0
-func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) SubscribeToNewHeads(_a0 context.Context) (<-chan HEAD, types.Subscription, error) {
+// SubscribeToPollingNewHeads provides a mock function with given fields: _a0
+func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) SubscribeToPollingNewHeads(_a0 context.Context) (<-chan HEAD, types.Subscription, error) {
 	ret := _m.Called(_a0)
 
 	if len(ret) == 0 {
-		panic("no return value specified for SubscribeToNewHeads")
+		panic("no return value specified for SubscribeToPollingNewHeads")
 	}
 
 	var r0 <-chan HEAD
@@ -1747,30 +1747,30 @@ func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS
 	return r0, r1, r2
 }
 
-// mockRPC_SubscribeToNewHeads_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeToNewHeads'
-type mockRPC_SubscribeToNewHeads_Call[CHAIN_ID types.ID, SEQ types.Sequence, ADDR types.Hashable, BLOCK_HASH types.Hashable, TX interface{}, TX_HASH types.Hashable, EVENT interface{}, EVENT_OPS interface{}, TX_RECEIPT types.Receipt[TX_HASH, BLOCK_HASH], FEE feetypes.Fee, HEAD types.Head[BLOCK_HASH], BATCH_ELEM interface{}] struct {
+// mockRPC_SubscribeToPollingNewHeads_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeToPollingNewHeads'
+type mockRPC_SubscribeToPollingNewHeads_Call[CHAIN_ID types.ID, SEQ types.Sequence, ADDR types.Hashable, BLOCK_HASH types.Hashable, TX interface{}, TX_HASH types.Hashable, EVENT interface{}, EVENT_OPS interface{}, TX_RECEIPT types.Receipt[TX_HASH, BLOCK_HASH], FEE feetypes.Fee, HEAD types.Head[BLOCK_HASH], BATCH_ELEM interface{}] struct {
 	*mock.Call
 }
 
-// SubscribeToNewHeads is a helper method to define mock.On call
+// SubscribeToPollingNewHeads is a helper method to define mock.On call
 //   - _a0 context.Context
-func (_e *mockRPC_Expecter[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) SubscribeToNewHeads(_a0 interface{}) *mockRPC_SubscribeToNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM] {
-	return &mockRPC_SubscribeToNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]{Call: _e.mock.On("SubscribeToNewHeads", _a0)}
+func (_e *mockRPC_Expecter[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) SubscribeToPollingNewHeads(_a0 interface{}) *mockRPC_SubscribeToPollingNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM] {
+	return &mockRPC_SubscribeToPollingNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]{Call: _e.mock.On("SubscribeToPollingNewHeads", _a0)}
 }
 
-func (_c *mockRPC_SubscribeToNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) Run(run func(_a0 context.Context)) *mockRPC_SubscribeToNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM] {
+func (_c *mockRPC_SubscribeToPollingNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) Run(run func(_a0 context.Context)) *mockRPC_SubscribeToPollingNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM] {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context))
 	})
 	return _c
 }
 
-func (_c *mockRPC_SubscribeToNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) Return(_a0 <-chan HEAD, _a1 types.Subscription, _a2 error) *mockRPC_SubscribeToNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM] {
+func (_c *mockRPC_SubscribeToPollingNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) Return(_a0 <-chan HEAD, _a1 types.Subscription, _a2 error) *mockRPC_SubscribeToPollingNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM] {
 	_c.Call.Return(_a0, _a1, _a2)
 	return _c
 }
 
-func (_c *mockRPC_SubscribeToNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) RunAndReturn(run func(context.Context) (<-chan HEAD, types.Subscription, error)) *mockRPC_SubscribeToNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM] {
+func (_c *mockRPC_SubscribeToPollingNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) RunAndReturn(run func(context.Context) (<-chan HEAD, types.Subscription, error)) *mockRPC_SubscribeToPollingNewHeads_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM] {
 	_c.Call.Return(run)
 	return _c
 }

@@ -626,12 +626,12 @@ func (_c *mockNodeClient_SubscribeToHeads_Call[CHAIN_ID, HEAD]) RunAndReturn(run
 	return _c
 }
 
-// SubscribeToNewHeads provides a mock function with given fields: _a0
-func (_m *mockNodeClient[CHAIN_ID, HEAD]) SubscribeToNewHeads(_a0 context.Context) (<-chan HEAD, types.Subscription, error) {
+// SubscribeToPollingNewHeads provides a mock function with given fields: _a0
+func (_m *mockNodeClient[CHAIN_ID, HEAD]) SubscribeToPollingNewHeads(_a0 context.Context) (<-chan HEAD, types.Subscription, error) {
 	ret := _m.Called(_a0)
 
 	if len(ret) == 0 {
-		panic("no return value specified for SubscribeToNewHeads")
+		panic("no return value specified for SubscribeToPollingNewHeads")
 	}
 
 	var r0 <-chan HEAD
@@ -665,30 +665,30 @@ func (_m *mockNodeClient[CHAIN_ID, HEAD]) SubscribeToNewHeads(_a0 context.Contex
 	return r0, r1, r2
 }
 
-// mockNodeClient_SubscribeToNewHeads_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeToNewHeads'
-type mockNodeClient_SubscribeToNewHeads_Call[CHAIN_ID types.ID, HEAD Head] struct {
+// mockNodeClient_SubscribeToPollingNewHeads_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeToPollingNewHeads'
+type mockNodeClient_SubscribeToPollingNewHeads_Call[CHAIN_ID types.ID, HEAD Head] struct {
 	*mock.Call
 }
 
-// SubscribeToNewHeads is a helper method to define mock.On call
+// SubscribeToPollingNewHeads is a helper method to define mock.On call
 //   - _a0 context.Context
-func (_e *mockNodeClient_Expecter[CHAIN_ID, HEAD]) SubscribeToNewHeads(_a0 interface{}) *mockNodeClient_SubscribeToNewHeads_Call[CHAIN_ID, HEAD] {
-	return &mockNodeClient_SubscribeToNewHeads_Call[CHAIN_ID, HEAD]{Call: _e.mock.On("SubscribeToNewHeads", _a0)}
+func (_e *mockNodeClient_Expecter[CHAIN_ID, HEAD]) SubscribeToPollingNewHeads(_a0 interface{}) *mockNodeClient_SubscribeToPollingNewHeads_Call[CHAIN_ID, HEAD] {
+	return &mockNodeClient_SubscribeToPollingNewHeads_Call[CHAIN_ID, HEAD]{Call: _e.mock.On("SubscribeToPollingNewHeads", _a0)}
 }
 
-func (_c *mockNodeClient_SubscribeToNewHeads_Call[CHAIN_ID, HEAD]) Run(run func(_a0 context.Context)) *mockNodeClient_SubscribeToNewHeads_Call[CHAIN_ID, HEAD] {
+func (_c *mockNodeClient_SubscribeToPollingNewHeads_Call[CHAIN_ID, HEAD]) Run(run func(_a0 context.Context)) *mockNodeClient_SubscribeToPollingNewHeads_Call[CHAIN_ID, HEAD] {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context))
 	})
 	return _c
 }
 
-func (_c *mockNodeClient_SubscribeToNewHeads_Call[CHAIN_ID, HEAD]) Return(_a0 <-chan HEAD, _a1 types.Subscription, _a2 error) *mockNodeClient_SubscribeToNewHeads_Call[CHAIN_ID, HEAD] {
+func (_c *mockNodeClient_SubscribeToPollingNewHeads_Call[CHAIN_ID, HEAD]) Return(_a0 <-chan HEAD, _a1 types.Subscription, _a2 error) *mockNodeClient_SubscribeToPollingNewHeads_Call[CHAIN_ID, HEAD] {
 	_c.Call.Return(_a0, _a1, _a2)
 	return _c
 }
 
-func (_c *mockNodeClient_SubscribeToNewHeads_Call[CHAIN_ID, HEAD]) RunAndReturn(run func(context.Context) (<-chan HEAD, types.Subscription, error)) *mockNodeClient_SubscribeToNewHeads_Call[CHAIN_ID, HEAD] {
+func (_c *mockNodeClient_SubscribeToPollingNewHeads_Call[CHAIN_ID, HEAD]) RunAndReturn(run func(context.Context) (<-chan HEAD, types.Subscription, error)) *mockNodeClient_SubscribeToPollingNewHeads_Call[CHAIN_ID, HEAD] {
 	_c.Call.Return(run)
 	return _c
 }

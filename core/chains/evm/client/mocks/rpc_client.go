@@ -2145,12 +2145,12 @@ func (_c *RPCClient_SubscribeToHeads_Call) RunAndReturn(run func(context.Context
 	return _c
 }
 
-// SubscribeToNewHeads provides a mock function with given fields: _a0
-func (_m *RPCClient) SubscribeToNewHeads(_a0 context.Context) (<-chan *types.Head, commontypes.Subscription, error) {
+// SubscribeToPollingNewHeads provides a mock function with given fields: _a0
+func (_m *RPCClient) SubscribeToPollingNewHeads(_a0 context.Context) (<-chan *types.Head, commontypes.Subscription, error) {
 	ret := _m.Called(_a0)
 
 	if len(ret) == 0 {
-		panic("no return value specified for SubscribeToNewHeads")
+		panic("no return value specified for SubscribeToPollingNewHeads")
 	}
 
 	var r0 <-chan *types.Head
@@ -2184,30 +2184,30 @@ func (_m *RPCClient) SubscribeToNewHeads(_a0 context.Context) (<-chan *types.Hea
 	return r0, r1, r2
 }
 
-// RPCClient_SubscribeToNewHeads_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeToNewHeads'
-type RPCClient_SubscribeToNewHeads_Call struct {
+// RPCClient_SubscribeToPollingNewHeads_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeToPollingNewHeads'
+type RPCClient_SubscribeToPollingNewHeads_Call struct {
 	*mock.Call
 }
 
-// SubscribeToNewHeads is a helper method to define mock.On call
+// SubscribeToPollingNewHeads is a helper method to define mock.On call
 //   - _a0 context.Context
-func (_e *RPCClient_Expecter) SubscribeToNewHeads(_a0 interface{}) *RPCClient_SubscribeToNewHeads_Call {
-	return &RPCClient_SubscribeToNewHeads_Call{Call: _e.mock.On("SubscribeToNewHeads", _a0)}
+func (_e *RPCClient_Expecter) SubscribeToPollingNewHeads(_a0 interface{}) *RPCClient_SubscribeToPollingNewHeads_Call {
+	return &RPCClient_SubscribeToPollingNewHeads_Call{Call: _e.mock.On("SubscribeToPollingNewHeads", _a0)}
 }
 
-func (_c *RPCClient_SubscribeToNewHeads_Call) Run(run func(_a0 context.Context)) *RPCClient_SubscribeToNewHeads_Call {
+func (_c *RPCClient_SubscribeToPollingNewHeads_Call) Run(run func(_a0 context.Context)) *RPCClient_SubscribeToPollingNewHeads_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context))
 	})
 	return _c
 }
 
-func (_c *RPCClient_SubscribeToNewHeads_Call) Return(_a0 <-chan *types.Head, _a1 commontypes.Subscription, _a2 error) *RPCClient_SubscribeToNewHeads_Call {
+func (_c *RPCClient_SubscribeToPollingNewHeads_Call) Return(_a0 <-chan *types.Head, _a1 commontypes.Subscription, _a2 error) *RPCClient_SubscribeToPollingNewHeads_Call {
 	_c.Call.Return(_a0, _a1, _a2)
 	return _c
 }
 
-func (_c *RPCClient_SubscribeToNewHeads_Call) RunAndReturn(run func(context.Context) (<-chan *types.Head, commontypes.Subscription, error)) *RPCClient_SubscribeToNewHeads_Call {
+func (_c *RPCClient_SubscribeToPollingNewHeads_Call) RunAndReturn(run func(context.Context) (<-chan *types.Head, commontypes.Subscription, error)) *RPCClient_SubscribeToPollingNewHeads_Call {
 	_c.Call.Return(run)
 	return _c
 }
