@@ -45,29 +45,29 @@ func OnRampSnapshot(
 ) (OnRamp, error) {
 	tv, err := onRampReader.TypeAndVersion(nil)
 	if err != nil {
-		return OnRamp{}, fmt.Errorf("failed to get type and version: %v", err)
+		return OnRamp{}, fmt.Errorf("failed to get type and version: %w", err)
 	}
 
 	dynamicConfig, err := onRampReader.GetDynamicConfig(nil)
 	if err != nil {
-		return OnRamp{}, fmt.Errorf("failed to get dynamic config: %v", err)
+		return OnRamp{}, fmt.Errorf("failed to get dynamic config: %w", err)
 	}
 
 	staticConfig, err := onRampReader.GetStaticConfig(nil)
 	if err != nil {
-		return OnRamp{}, fmt.Errorf("failed to get static config: %v", err)
+		return OnRamp{}, fmt.Errorf("failed to get static config: %w", err)
 	}
 
 	owner, err := onRampReader.Owner(nil)
 	if err != nil {
-		return OnRamp{}, fmt.Errorf("failed to get owner: %v", err)
+		return OnRamp{}, fmt.Errorf("failed to get owner: %w", err)
 	}
 
 	sourceTokenToPool := make(map[common.Address]common.Address)
 	for _, sourceToken := range sourceTokens {
 		pool, err := onRampReader.GetPoolBySourceToken(nil, 0, sourceToken)
 		if err != nil {
-			return OnRamp{}, fmt.Errorf("failed to get pool by source token: %v", err)
+			return OnRamp{}, fmt.Errorf("failed to get pool by source token: %w", err)
 		}
 		sourceTokenToPool[sourceToken] = pool
 	}
@@ -76,19 +76,19 @@ func OnRampSnapshot(
 	for _, destChainSelector := range destChainSelectors {
 		allowedSendersList, err := onRampReader.GetAllowedSendersList(nil, destChainSelector)
 		if err != nil {
-			return OnRamp{}, fmt.Errorf("failed to get allowed senders list: %v", err)
+			return OnRamp{}, fmt.Errorf("failed to get allowed senders list: %w", err)
 		}
 		destChainConfig, err := onRampReader.GetDestChainConfig(nil, destChainSelector)
 		if err != nil {
-			return OnRamp{}, fmt.Errorf("failed to get dest chain config: %v", err)
+			return OnRamp{}, fmt.Errorf("failed to get dest chain config: %w", err)
 		}
 		expectedNextSeqNum, err := onRampReader.GetExpectedNextSequenceNumber(nil, destChainSelector)
 		if err != nil {
-			return OnRamp{}, fmt.Errorf("failed to get expected next sequence number: %v", err)
+			return OnRamp{}, fmt.Errorf("failed to get expected next sequence number: %w", err)
 		}
 		router, err := onRampReader.GetRouter(nil, destChainSelector)
 		if err != nil {
-			return OnRamp{}, fmt.Errorf("failed to get router: %v", err)
+			return OnRamp{}, fmt.Errorf("failed to get router: %w", err)
 		}
 		destChainSpecificData[destChainSelector] = DestChainSpecificData{
 			AllowedSendersList: allowedSendersList,
