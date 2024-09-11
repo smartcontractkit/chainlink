@@ -89,6 +89,11 @@ func (s *testChainService) HealthReport() map[string]error {
 	return map[string]error{}
 }
 
+// Implement [types.LatestHead] interface
+func (s *testChainService) LatestHead(_ context.Context) (head types.Head, err error) {
+	return
+}
+
 // Implement [types.ChainService] interface
 func (s *testChainService) GetChainStatus(ctx context.Context) (stat types.ChainStatus, err error) {
 	return

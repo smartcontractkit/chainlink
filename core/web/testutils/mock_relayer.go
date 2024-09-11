@@ -8,6 +8,7 @@ import (
 )
 
 type MockRelayer struct {
+	Head         commontypes.Head
 	ChainStatus  commontypes.ChainStatus
 	NodeStatuses []commontypes.NodeStatus
 }
@@ -38,6 +39,10 @@ func (m MockRelayer) NewChainWriter(_ context.Context, _ []byte) (commontypes.Ch
 
 func (m MockRelayer) NewContractReader(_ context.Context, _ []byte) (commontypes.ContractReader, error) {
 	panic("not implemented")
+}
+
+func (m MockRelayer) LatestHead(_ context.Context) (commontypes.Head, error) {
+	return m.Head, nil
 }
 
 func (m MockRelayer) GetChainStatus(ctx context.Context) (commontypes.ChainStatus, error) {
