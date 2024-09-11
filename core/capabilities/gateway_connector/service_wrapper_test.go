@@ -43,7 +43,7 @@ func generateWrapper(t *testing.T, privateKey *ecdsa.PrivateKey, keystoreKey *ec
 	ethKeystore := ksmocks.NewEth(t)
 	ethKeystore.On("EnabledKeysForChain", mock.Anything, mock.Anything).Return([]ethkey.KeyV2{keystoreKeyV2}, nil)
 	gc := config.Capabilities().GatewayConnector()
-	wrapper := NewGatewayConnectorServiceWrapper(gc, privateKey, ethKeystore, clockwork.NewFakeClock(), logger)
+	wrapper := NewGatewayConnectorServiceWrapper(gc, ethKeystore, clockwork.NewFakeClock(), logger)
 	require.NoError(t, err)
 	return wrapper, err
 }
