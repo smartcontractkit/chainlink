@@ -1,10 +1,11 @@
 package smoke
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
@@ -39,7 +40,7 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// Get new state after migration.
-	_, err = ccipdeployment.LoadOnchainState(e, output.AddressBook)
+	state, err = ccipdeployment.LoadOnchainState(e, output.AddressBook)
 	require.NoError(t, err)
 
 	// Apply the jobs.
@@ -58,14 +59,39 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 		}
 	}
 
-	// now accept the jobs
+	// Accept all the jobs for this node.
 	for _, n := range nodes {
 		jobsToAccept, exists := nodeIdToJobIds[n.NodeId]
 		require.True(t, exists, "node %s has no jobs to accept", n.NodeId)
-		// Accept all the jobs for this node.
 		for i, jobID := range jobsToAccept {
-			require.NoError(t, n.AcceptJob(ctx, strconv.Itoa(i+1)), "node %s failed to accept job %s", n.NodeId, jobID)
+			require.NoError(t, n.AcceptJob(ctx, strconv.Itoa(i+1)), "node -%s failed to accept job %s", n.Name, jobID)
 		}
 	}
-	fmt.Println("Jobs accepted")
+	t.Log("Jobs accepted")
+
+	// Wait for plugins to register filters?
+	// TODO: Investigate how to avoid.
+	time.Sleep(30 * time.Second)
+
+	// Send a request from every router
+	// Add all lanes
+	require.NoError(t, ccipdeployment.AddLanesForAll(e, state))
+
+	// Send a message from each chain to every other chain.
+	for src, srcChain := range e.Chains {
+		for dest := range e.Chains {
+			if src == dest {
+				continue
+			}
+			t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
+				src, dest)
+			require.NoError(t, ccipdeployment.SendMessage(src, dest, e.Chains[src].DeployerKey, srcChain.Confirm, state))
+		}
+	}
+
+	// Wait for all commit reports to land.
+	ccipdeployment.WaitForCommitForAllWithInterval(t, e, state, ccipocr3.SeqNumRange{1, 1})
+
+	// Wait for all exec reports to land
+	ccipdeployment.WaitForExecWithSeqNrForAll(t, e, state, 1)
 }

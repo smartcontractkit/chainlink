@@ -199,12 +199,12 @@ func (c *client) ApproveJobProposalSpec(ctx context.Context, id string, force bo
 	}
 	if success, ok := res.GetApproveJobProposalSpec().(*generated.ApproveJobProposalSpecApproveJobProposalSpecApproveJobProposalSpecSuccess); ok {
 		var cmd JobProposalApprovalSuccessSpec
-		if success.Spec.Status != generated.SpecStatusApproved {
+		if success.Spec.Status == generated.SpecStatusApproved {
 			err := DecodeInput(success.Spec, &cmd)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode job proposal spec: %w ; and job proposal spec not approved", err)
 			}
-			return &cmd, fmt.Errorf("job proposal spec not approved")
+			return &cmd, nil
 		}
 	}
 	return nil, fmt.Errorf("failed to approve job proposal spec")

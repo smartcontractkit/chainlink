@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -13,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/devenv"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
 // Context returns a context with the test's deadline, if available.
@@ -120,4 +123,69 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 		HomeChainSel: homeChainSel,
 		Nodes:        don.Nodes,
 	}
+}
+
+func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
+	for source := range e.Chains {
+		for dest := range e.Chains {
+			if source != dest {
+				err := AddLane(e, state, source, dest)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func SendMessage(
+	srcSelector, destSelector uint64,
+	transactOpts *bind.TransactOpts,
+	srcConfirm func(tx common.Hash) (uint64, error),
+	state CCIPOnChainState,
+) error {
+	msg := router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(state.Chains[destSelector].Receiver.Address().Bytes(), 32),
+		Data:         []byte("hello"),
+		TokenAmounts: nil, // TODO: no tokens for now
+		FeeToken:     state.Chains[srcSelector].Weth9.Address(),
+		ExtraArgs:    nil, // TODO: no extra args for now, falls back to default
+	}
+	fee, err := state.Chains[srcSelector].Router.GetFee(
+		&bind.CallOpts{Context: context.Background()}, destSelector, msg)
+	if err != nil {
+		return deployment.MaybeDataErr(err)
+	}
+	tx, err := state.Chains[srcSelector].Weth9.Deposit(&bind.TransactOpts{
+		From:   transactOpts.From,
+		Signer: transactOpts.Signer,
+		Value:  fee,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = srcConfirm(tx.Hash())
+	if err != nil {
+		return err
+	}
+
+	// TODO: should be able to avoid this by using native?
+	tx, err = state.Chains[srcSelector].Weth9.Approve(
+		transactOpts,
+		state.Chains[srcSelector].Router.Address(), fee)
+	if err != nil {
+		return err
+	}
+	_, err = srcConfirm(tx.Hash())
+	if err != nil {
+		return err
+
+	}
+	tx, err = state.Chains[srcSelector].Router.CcipSend(transactOpts, destSelector, msg)
+	if err != nil {
+		return err
+	}
+	_, err = srcConfirm(tx.Hash())
+	return err
 }

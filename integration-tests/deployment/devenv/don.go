@@ -122,7 +122,7 @@ func NewNode(nodeInfo NodeInfo) (*Node, error) {
 	}
 	return &Node{
 		gqlClient: gqlClient,
-		name:      nodeInfo.Name,
+		Name:      nodeInfo.Name,
 		adminAddr: nodeInfo.AdminAddr,
 	}, nil
 }
@@ -130,9 +130,9 @@ func NewNode(nodeInfo NodeInfo) (*Node, error) {
 type Node struct {
 	NodeId    string
 	JDId      string
+	Name      string
 	gqlClient client.Client
 	labels    []*ptypes.Label
-	name      string
 	adminAddr string
 	multiAddr string
 }
@@ -146,25 +146,25 @@ func (n *Node) CreateCCIPOCR2SupportedChains(ctx context.Context, chains []Chain
 		chainId := strconv.FormatUint(chain.ChainId, 10)
 		accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
 		if err != nil {
-			return fmt.Errorf("failed to fetch account address for node %s: %w", n.name, err)
+			return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
 		}
 		if accountAddr == nil {
-			return fmt.Errorf("no account address found for node %s", n.name)
+			return fmt.Errorf("no account address found for node %s", n.Name)
 		}
 		peerID, err := n.gqlClient.FetchP2PPeerID(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to fetch peer id for node %s: %w", n.name, err)
+			return fmt.Errorf("failed to fetch peer id for node %s: %w", n.Name, err)
 		}
 		if peerID == nil {
-			return fmt.Errorf("no peer id found for node %s", n.name)
+			return fmt.Errorf("no peer id found for node %s", n.Name)
 		}
 
 		ocr2BundleId, err := n.gqlClient.FetchOCR2KeyBundleID(ctx, chain.ChainType)
 		if err != nil {
-			return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s: %w", n.name, err)
+			return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s: %w", n.Name, err)
 		}
 		if ocr2BundleId == "" {
-			return fmt.Errorf("no OCR2 key bundle id found for node %s", n.name)
+			return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
 		}
 		// fetch node labels to know if the node is bootstrap or plugin
 		isBootstrap := false
@@ -188,7 +188,7 @@ func (n *Node) CreateCCIPOCR2SupportedChains(ctx context.Context, chains []Chain
 			Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.name, err)
+			return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.Name, err)
 		}
 	}
 	return nil
@@ -214,21 +214,21 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd JobDistribut
 		return err
 	}
 	if csaKeyRes == nil {
-		return fmt.Errorf("no csa key found for node %s", n.name)
+		return fmt.Errorf("no csa key found for node %s", n.Name)
 	}
 	csaKey := strings.TrimPrefix(*csaKeyRes, "csa_")
 	// register the node in the job distributor
 	registerResponse, err := jd.RegisterNode(ctx, &nodev1.RegisterNodeRequest{
 		PublicKey: csaKey,
 		Labels:    n.labels,
-		Name:      n.name,
+		Name:      n.Name,
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to register node %s: %w", n.name, err)
+		return fmt.Errorf("failed to register node %s: %w", n.Name, err)
 	}
 	if registerResponse.GetNode().GetId() == "" {
-		return fmt.Errorf("no node id returned from job distributor for node %s", n.name)
+		return fmt.Errorf("no node id returned from job distributor for node %s", n.Name)
 	}
 	n.NodeId = registerResponse.GetNode().GetId()
 	return nil

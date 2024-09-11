@@ -51,9 +51,14 @@ func NewCCIPJobSpecs(nodeIds []string, oc deployment.OffchainClient) (map[string
 
 		// only set P2PV2Bootstrappers in the job spec if the node is a plugin node.
 		var p2pV2Bootstrappers []string
+		var ocrKeyBundleIDs map[string]string
 		for _, chainConfig := range nodeChainConfigs.ChainConfigs {
 			if !chainConfig.Ocr2Config.IsBootstrap {
 				p2pV2Bootstrappers = bootstraps
+				ocrKeyBundleIDs = map[string]string{
+					// TODO: Validate that that all EVM chains are using the same keybundle.
+					relay.NetworkEVM: chainConfig.Ocr2Config.OcrKeyBundle.BundleId,
+				}
 				break
 			}
 		}
@@ -61,10 +66,7 @@ func NewCCIPJobSpecs(nodeIds []string, oc deployment.OffchainClient) (map[string
 			P2PV2Bootstrappers:     p2pV2Bootstrappers,
 			CapabilityVersion:      CapabilityVersion,
 			CapabilityLabelledName: CapabilityLabelledName,
-			OCRKeyBundleIDs: map[string]string{
-				// TODO: Validate that that all EVM chains are using the same keybundle.
-				relay.NetworkEVM: nodeChainConfigs.ChainConfigs[0].Ocr2Config.OcrKeyBundle.BundleId,
-			},
+			OCRKeyBundleIDs:        ocrKeyBundleIDs,
 			// TODO: validate that all EVM chains are using the same keybundle
 			P2PKeyID:     nodeChainConfigs.ChainConfigs[0].Ocr2Config.P2PKeyBundle.PeerId,
 			RelayConfigs: nil,
