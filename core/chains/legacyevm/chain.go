@@ -396,6 +396,9 @@ func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, ba
 
 func (c *chain) LatestHead(_ context.Context) (types.Head, error) {
 	latestChain := c.headTracker.LatestChain()
+	if latestChain == nil {
+		return types.Head{}, errors.New("latest chain not found")
+	}
 
 	return types.Head{
 		Identifier: strconv.FormatInt(latestChain.BlockNumber(), 10),
