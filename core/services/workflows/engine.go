@@ -34,6 +34,51 @@ type stepUpdateChannel struct {
 	ch          chan store.WorkflowExecutionStep
 }
 
+type stepUpdateManager struct {
+	mu sync.RWMutex
+	m  map[string]stepUpdateChannel
+}
+
+func (sucm *stepUpdateManager) add(executionID string, ch stepUpdateChannel) (added bool) {
+	sucm.mu.Lock()
+	defer sucm.mu.Unlock()
+	if _, ok := sucm.m[executionID]; ok {
+		return false
+	}
+	sucm.m[executionID] = ch
+	return true
+}
+
+func (sucm *stepUpdateManager) get(executionID string) (stepUpdateChannel, bool) {
+	sucm.mu.RLock()
+	defer sucm.mu.RUnlock()
+	ch, ok := sucm.m[executionID]
+	return ch, ok
+}
+
+func (sucm *stepUpdateManager) remove(executionID string) {
+	sucm.mu.Lock()
+	defer sucm.mu.Unlock()
+	if _, ok := sucm.m[executionID]; ok {
+		close(sucm.m[executionID].ch)
+		delete(sucm.m, executionID)
+	}
+}
+
+func (sucm *stepUpdateManager) send(ctx context.Context, executionID string, stepUpdate store.WorkflowExecutionStep) error {
+	sucm.mu.Lock()
+	defer sucm.mu.Unlock()
+	if ch, ok := sucm.m[executionID]; ok {
+		select {
+		case <-ctx.Done():
+			return errors.New("context canceled before step update could be issued")
+		case ch.ch <- stepUpdate:
+			return nil
+		}
+	}
+	return fmt.Errorf("step update channel not found for execution %s, dropping step update", executionID)
+}
+
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
@@ -44,8 +89,7 @@ type Engine struct {
 	executionStates      store.Store
 	pendingStepRequests  chan stepRequest
 	triggerEvents        chan capabilities.TriggerResponse
-	stepUpdatesChMap     map[string]stepUpdateChannel
-	stepUpdatesChMapMu   sync.RWMutex
+	stepUpdatesChMap     stepUpdateManager
 	wg                   sync.WaitGroup
 	stopCh               services.StopChan
 	newWorkerTimeout     time.Duration
@@ -77,7 +121,7 @@ func (e *Engine) Start(_ context.Context) error {
 			go e.worker(ctx)
 		}
 
-		e.wg.Add(2)
+		e.wg.Add(1)
 		go e.init(ctx)
 
 		return nil
@@ -396,26 +440,14 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 // This is important to avoid data races, and any accesses of `executionState` by any other
 // goroutine should happen via a `stepRequest` message containing a copy of the latest
 // `executionState`.
-func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string) {
+func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpdateCh chan store.WorkflowExecutionStep) {
 	defer e.wg.Done()
-	e.stepUpdatesChMapMu.Lock()
-	if _, ok := e.stepUpdatesChMap[executionID]; ok {
-		e.stepUpdatesChMapMu.Unlock()
-		e.logger.With(eIDKey, executionID).Debugf("stepUpdateLoop already running for execution %s", executionID)
-		return
-	}
-	e.stepUpdatesChMap[executionID] = stepUpdateChannel{
-		executionID: executionID,
-		ch:          make(chan store.WorkflowExecutionStep),
-	}
-	ch := e.stepUpdatesChMap[executionID].ch
-	e.stepUpdatesChMapMu.Unlock()
 	for {
 		select {
 		case <-ctx.Done():
 			e.logger.Debug("shutting down stepUpdateLoop")
 			return
-		case stepUpdate, open := <-ch:
+		case stepUpdate, open := <-stepUpdateCh:
 			if !open {
 				e.logger.With(eIDKey, executionID).Debug("stepUpdate channel closed, shutting down stepUpdateLoop")
 				return
@@ -477,8 +509,18 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 		return err
 	}
 
+	ch := make(chan store.WorkflowExecutionStep)
+	added := e.stepUpdatesChMap.add(executionID, stepUpdateChannel{
+		ch:          ch,
+		executionID: executionID,
+	})
+	if !added {
+		// skip this execution since there's already a stepUpdateLoop running for the execution ID
+		e.logger.With(eIDKey, executionID).Debugf("won't start execution for execution %s, execution was already started", executionID)
+		return nil
+	}
 	e.wg.Add(1)
-	go e.stepUpdateLoop(ctx, executionID)
+	go e.stepUpdateLoop(ctx, executionID, ch)
 
 	for _, td := range triggerDependents {
 		e.queueIfReady(*ec, td)
@@ -603,13 +645,7 @@ func (e *Engine) finishExecution(ctx context.Context, executionID string, status
 		return err
 	}
 
-	e.stepUpdatesChMapMu.Lock()
-	if x, ok := e.stepUpdatesChMap[executionID]; ok {
-		close(x.ch)
-		delete(e.stepUpdatesChMap, executionID)
-	}
-	e.stepUpdatesChMapMu.Unlock()
-
+	e.stepUpdatesChMap.remove(executionID)
 	e.onExecutionFinished(executionID)
 	return nil
 }
@@ -695,18 +731,10 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// receiving loop may not pick up any messages we emit.
 	// Note: When full persistence support is added, any hanging steps
 	// like this one will get picked up again and will be reprocessed.
-	e.stepUpdatesChMapMu.RLock()
-	stepUpdateCh, ok := e.stepUpdatesChMap[stepState.ExecutionID]
-	if !ok {
-		e.stepUpdatesChMapMu.RUnlock()
-		l.Errorf("step update channel not found for execution %s, dropping step update", stepState.ExecutionID)
+	err = e.stepUpdatesChMap.send(ctx, stepState.ExecutionID, *stepState)
+	if err != nil {
+		l.Errorf("failed to issue step state update; error %v", err)
 		return
-	}
-	e.stepUpdatesChMapMu.RUnlock()
-	select {
-	case <-ctx.Done():
-		l.Errorf("context canceled before step update could be issued; error %v", err)
-	case stepUpdateCh.ch <- *stepState:
 	}
 }
 
@@ -978,7 +1006,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		workflow:             workflow,
 		executionStates:      cfg.Store,
 		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
-		stepUpdatesChMap:     map[string]stepUpdateChannel{},
+		stepUpdatesChMap:     stepUpdateManager{m: map[string]stepUpdateChannel{}},
 		triggerEvents:        make(chan capabilities.TriggerResponse),
 		stopCh:               make(chan struct{}),
 		newWorkerTimeout:     cfg.NewWorkerTimeout,
