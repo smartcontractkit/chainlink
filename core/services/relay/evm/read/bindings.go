@@ -11,6 +11,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -266,7 +267,7 @@ func (b *BindingsRegistry) ReadTypeIdentifier(readName string, forEncoding bool)
 		return ""
 	}
 
-	return WrapItemType(values.contract, values.readName, forEncoding)
+	return codec.WrapItemType(values.contract, values.readName, forEncoding)
 }
 
 // confidenceToConfirmations matches predefined chain agnostic confidence levels to predefined EVM finality.

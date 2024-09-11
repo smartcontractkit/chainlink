@@ -156,19 +156,22 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 		it.Setup(t)
 
 		ctx := tests.Context(t)
-		cr := it.GetChainReader(t)
+		cr := it.GetContractReader(t)
 		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
-		contracts := it.GetBindings(t)
+		bindings := it.GetBindings(t)
+		boundContract := BindingsByName(bindings, AnyContractName)[0]
+		require.NoError(t, cr.Bind(ctx, bindings))
+
 		ts1 := CreateTestStruct[T](0, it)
-		_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts1, contracts[0], types.Unconfirmed)
+		_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts1, boundContract, types.Unconfirmed)
 		ts2 := CreateTestStruct[T](15, it)
-		_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts2, contracts[0], types.Unconfirmed)
+		_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts2, boundContract, types.Unconfirmed)
 		ts3 := CreateTestStruct[T](35, it)
-		_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts3, contracts[0], types.Unconfirmed)
+		_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts3, boundContract, types.Unconfirmed)
 
 		ts := &TestStruct{}
 		assert.Eventually(t, func() bool {
-			sequences, err := cr.QueryKey(ctx, AnyContractName, query.KeyFilter{Key: EventName, Expressions: []query.Expression{
+			sequences, err := cr.QueryKey(ctx, boundContract, query.KeyFilter{Key: EventName, Expressions: []query.Expression{
 				query.Comparator("OracleID",
 					primitives.ValueComparator{
 						Value:    uint8(ts2.OracleID),

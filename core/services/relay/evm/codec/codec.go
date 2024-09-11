@@ -96,6 +96,14 @@ func (c *evmCodec) CreateType(itemType string, forEncoding bool) (any, error) {
 	return reflect.New(def.CheckedType()).Interface(), nil
 }
 
+func WrapItemType(contractName, itemType string, isParams bool) string {
+	if isParams {
+		return fmt.Sprintf("params.%s.%s", contractName, itemType)
+	}
+
+	return fmt.Sprintf("return.%s.%s", contractName, itemType)
+}
+
 var bigIntType = reflect.TypeOf((*big.Int)(nil))
 
 func sizeVerifyBigIntHook(from, to reflect.Type, data any) (any, error) {
