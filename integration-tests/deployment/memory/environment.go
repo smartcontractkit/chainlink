@@ -159,8 +159,19 @@ func NewMultiDonMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zap
 		Logger:   lggr,
 		DonToEnv: make(map[string]*deployment.Environment),
 	}
+	seen := make(map[uint64]deployment.Chain)
 	for name, c := range config.Configs {
 		chains := NewMemoryChains(t, c.Chains)
+		// ensure that generated chains are the same for all environments. this ensures that he in memory representation
+		// points to a common object for all dons given the same selector.
+		for sel, chain := range chains {
+			c, exists := seen[sel]
+			if exists {
+				chains[sel] = c
+			} else {
+				seen[sel] = chain
+			}
+		}
 		nodes := NewNodes(t, logLevel, chains, c.Nodes, c.Bootstraps, c.RegistryConfig)
 		var nodeIDs []string
 		for id := range nodes {

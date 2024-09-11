@@ -48,16 +48,7 @@ func TestDeploy(t *testing.T) {
 				},
 			}
 			ocr3Config = keystone.OracleConfigSource{
-				MaxQueryLengthBytes:       1000,
-				MaxObservationLengthBytes: 1000,
-				MaxReportLengthBytes:      1000,
-				MaxRequestBatchSize:       1000,
-				UniqueReports:             true,
-				DeltaProgressMillis:       1000,
-				DeltaResendMillis:         1000,
-				DeltaInitialMillis:        1000,
-				DeltaGraceMillis:          1000,
-				MaxFaultyOracles:          1,
+				MaxFaultyOracles: 1,
 			}
 		)
 
@@ -97,9 +88,9 @@ func TestDeploy(t *testing.T) {
 
 		ctx := context.Background()
 		// Deploy all the Keystone contracts.
-		homeChain := e.Get(keystone.WFDonName).AllChainSelectors()[0]
+		homeChainSel := e.Get(keystone.WFDonName).AllChainSelectors()[0]
 		deployReq := keystone.DeployRequest{
-			RegistryChainSel:  homeChain,
+			RegistryChainSel:  homeChainSel,
 			Menv:              e,
 			DonToCapabilities: donsToDeploy,
 			NodeIDToNop:       nodeToNop,
@@ -114,14 +105,14 @@ func TestDeploy(t *testing.T) {
 		lggr.Infow("Deployed Keystone contracts", "address book", addrs)
 
 		// all contracts on home chain
-		homeChainAddrs, err := ad.AddressesForChain(homeChain)
+		homeChainAddrs, err := ad.AddressesForChain(homeChainSel)
 		require.NoError(t, err)
 		require.Len(t, homeChainAddrs, 3)
 		// only forwarder on non-home chain
 		for _, chain := range e.Get(keystone.TargetDonName).AllChainSelectors() {
 			chainAddrs, err := ad.AddressesForChain(chain)
 			require.NoError(t, err)
-			if chain != homeChain {
+			if chain != homeChainSel {
 				require.Len(t, chainAddrs, 1)
 			} else {
 				require.Len(t, chainAddrs, 3)
@@ -145,7 +136,7 @@ func TestDeploy(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, contractSetsResp.ContractSets, 4)
 		// check the registry
-		regChainContracts, ok := contractSetsResp.ContractSets[homeChain]
+		regChainContracts, ok := contractSetsResp.ContractSets[homeChainSel]
 		require.True(t, ok)
 		gotRegistry := regChainContracts.CapabilitiesRegistry
 		require.NotNil(t, gotRegistry)
@@ -178,7 +169,7 @@ func TestDeploy(t *testing.T) {
 		}
 		// check the ocr3 contract
 		for chainSel, cs := range contractSetsResp.ContractSets {
-			if chainSel != homeChain {
+			if chainSel != homeChainSel {
 				require.Nil(t, cs.OCR3)
 				continue
 			}
@@ -237,6 +228,10 @@ func TestDeploy(t *testing.T) {
 			keystone.TargetDonName: []kcr.CapabilitiesRegistryCapability{keystone.WriteChainCap},
 		}
 
+		var ocr3Config = keystone.OracleConfigSource{
+			MaxFaultyOracles: len(wfNops) / 3,
+		}
+
 		ctx := context.Background()
 
 		// sepolia
@@ -247,6 +242,7 @@ func TestDeploy(t *testing.T) {
 			Menv:              menv,
 			DonToCapabilities: donsToDeploy,
 			NodeIDToNop:       nodeToNop,
+			OCR3Config:        &ocr3Config,
 		}
 
 		deployResp, err := keystone.Deploy(ctx, lggr, deployReq)
