@@ -1,4 +1,4 @@
-package gatewayconnector
+package gatewayconnector_test
 
 import (
 	"crypto/ecdsa"
@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -17,7 +18,7 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
 
-func generateWrapper(t *testing.T, privateKey *ecdsa.PrivateKey, keystoreKey *ecdsa.PrivateKey) (*ServiceWrapper, error) {
+func generateWrapper(t *testing.T, privateKey *ecdsa.PrivateKey, keystoreKey *ecdsa.PrivateKey) (*gatewayconnector.ServiceWrapper, error) {
 	logger := logger.TestLogger(t)
 	privateKeyV2 := ethkey.FromPrivateKey(privateKey)
 	addr := privateKeyV2.Address
@@ -43,7 +44,7 @@ func generateWrapper(t *testing.T, privateKey *ecdsa.PrivateKey, keystoreKey *ec
 	ethKeystore := ksmocks.NewEth(t)
 	ethKeystore.On("EnabledKeysForChain", mock.Anything, mock.Anything).Return([]ethkey.KeyV2{keystoreKeyV2}, nil)
 	gc := config.Capabilities().GatewayConnector()
-	wrapper := NewGatewayConnectorServiceWrapper(gc, ethKeystore, clockwork.NewFakeClock(), logger)
+	wrapper := gatewayconnector.NewGatewayConnectorServiceWrapper(gc, ethKeystore, clockwork.NewFakeClock(), logger)
 	require.NoError(t, err)
 	return wrapper, err
 }
