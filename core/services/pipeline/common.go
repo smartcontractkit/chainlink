@@ -60,6 +60,7 @@ type (
 		TaskRetries() uint32
 		TaskMinBackoff() time.Duration
 		TaskMaxBackoff() time.Duration
+		TaskTelemetryFieldName() string
 	}
 
 	Config interface {

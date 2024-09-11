@@ -211,7 +211,7 @@ multiply [type=multiply times=10000 index=0];
 ds1 -> div_by_ds2 -> multiply;
 
 `
-
+	// TODO - alex can use this test as an example
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)

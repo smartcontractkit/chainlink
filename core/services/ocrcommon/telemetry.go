@@ -395,10 +395,15 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			e.lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry, job=%d, id=%s, name=%q", e.job.ID, trr.Task.DotID(), bridgeName), "err", err, "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 		}
 
+		// TODO - implement logic to extract exchange rate from task run results
+
+		// TODO - This is broken with View Function EA - what should it be?
 		assetSymbol := e.getAssetSymbolFromRequestData(bridgeTask.RequestData)
 
 		benchmarkPrice, bidPrice, askPrice := e.getPricesFromResults(trr, d.TaskRunResults, d.FeedVersion)
 
+		// TODO - how does this exchange rate price affect the downstream data quality monitoring?
+		// TODO - do we need to add an exchange rate field here?
 		t := &telem.EnhancedEAMercury{
 			DataSource:                      eaTelem.DataSource,
 			DpBenchmarkPrice:                benchmarkPrice,
@@ -471,6 +476,13 @@ func ShouldCollectEnhancedTelemetryMercury(jb job.Job) bool {
 	}
 	return false
 }
+
+//func (e *EnhancedTelemetryService[T]) getPricesFromResultsByTelemetryField(startTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercuryutils.FeedVersion) (float64, float64, float64) {
+//	var m []string
+//
+//	//
+//
+//}
 
 // getPricesFromResults parses the pipeline.TaskRunResults for pipeline.TaskTypeJSONParse and gets the benchmarkPrice,
 // bid and ask. This functions expects the pipeline.TaskRunResults to be correctly ordered
@@ -548,6 +560,38 @@ func EnqueueEnhancedTelem[T EnhancedTelemetryData | EnhancedTelemetryMercuryData
 	case ch <- data:
 	default:
 	}
+}
+
+func (e *EnhancedTelemetryService[T]) getPricesFromViewFunctionTask(startTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults) (float64, float64, float64) {
+	result := e.getResultFromViewFunctionTask(startTask, allTasks)
+	benchmarkPrice := result
+	bidPrice := result
+	askPrice := result
+	return benchmarkPrice, bidPrice, askPrice
+}
+
+func (e *EnhancedTelemetryService[T]) getResultFromViewFunctionTask(startTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults) float64 {
+	var result float64
+	var err error
+
+	var currentTask = &startTask
+	// search for the fully decoded result. Assumes the following structure task structure.
+	// step_1 [type=bridge name="bridge-view-function" requestData=<something>]
+	// step_2 [type=jsonparse path="result"];
+	// step_3 [type=ethabidecode abi=\"int256 data\" data=\"$(step_2)\"];
+	for {
+		currentTask = allTasks.GetNextTaskOf(*currentTask)
+		if currentTask.Task.Type() == pipeline.TaskTypeETHABIDecode {
+			break
+		}
+	}
+
+	// TODO - what will exchange_rate_decode [type=ethabidecode abi="int256 data" data="$(exchange_rate_parse)"]; return?
+	result, err = getResultFloat64(currentTask)
+	if err != nil {
+		e.lggr.Warnw(fmt.Sprintf("cannot parse view function abi decoded value, job %d, id %s", e.job.ID, currentTask.Task.DotID()), "err", err)
+	}
+	return result
 }
 
 // getResultFloat64 will check the result type and force it to float64 or returns an error if the conversion cannot be made

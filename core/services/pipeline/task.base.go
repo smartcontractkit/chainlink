@@ -18,9 +18,10 @@ type BaseTask struct {
 	Timeout   *time.Duration `mapstructure:"timeout"`
 	FailEarly bool           `mapstructure:"failEarly"`
 
-	Retries    null.Uint32   `mapstructure:"retries"`
-	MinBackoff time.Duration `mapstructure:"minBackoff"`
-	MaxBackoff time.Duration `mapstructure:"maxBackoff"`
+	Retries            null.Uint32   `mapstructure:"retries"`
+	MinBackoff         time.Duration `mapstructure:"minBackoff"`
+	MaxBackoff         time.Duration `mapstructure:"maxBackoff"`
+	TelemetryFieldName string        `mapstructure:"telemetryFieldName" json:"-"`
 
 	uuid uuid.UUID
 }
@@ -76,4 +77,8 @@ func (t BaseTask) TaskMaxBackoff() time.Duration {
 		return t.MaxBackoff
 	}
 	return time.Minute
+}
+
+func (t BaseTask) TaskTelemetryFieldName() string {
+	return t.TelemetryFieldName
 }
