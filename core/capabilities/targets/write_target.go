@@ -218,6 +218,12 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 		return capabilities.CapabilityResponse{}, err
 	}
 
+	// SignedReport.ID is hex bytes and the query expects string bytes
+	reportIDBytes, err := hex.DecodeString(string(request.Inputs.SignedReport.ID))
+	if err != nil {
+		return capabilities.CapabilityResponse{}, err
+	}
+
 	// Check whether value was already transmitted on chain
 	queryInputs := struct {
 		Receiver            string
@@ -226,7 +232,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 	}{
 		Receiver:            request.Config.Address,
 		WorkflowExecutionID: rawExecutionID,
-		ReportId:            request.Inputs.SignedReport.ID,
+		ReportId:            reportIDBytes,
 	}
 	var transmissionInfo TransmissionInfo
 	if err = cap.cr.GetLatestValue(ctx, cap.binding.ReadIdentifier("getTransmissionInfo"), primitives.Unconfirmed, queryInputs, &transmissionInfo); err != nil {
