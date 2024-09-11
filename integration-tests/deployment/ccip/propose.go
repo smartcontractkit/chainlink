@@ -96,20 +96,20 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 }
 
 func GenerateAcceptOwnershipProposal(
-	e deployment.Environment,
+	state CCIPOnChainState,
+	homeChain uint64,
 	chains []uint64,
-	ab deployment.AddressBook,
 ) (*timelock.MCMSWithTimelockProposal, error) {
-	state, err := LoadOnchainState(e, ab)
-	if err != nil {
-		return nil, err
-	}
-	// TODO: Just onramp as an example
+	// TODO: Accept rest of contracts
 	var batches []timelock.BatchChainOperation
 	metaDataPerChain := make(map[mcms.ChainIdentifier]timelock.MCMSWithTimelockChainMetadata)
 	for _, sel := range chains {
 		chain, _ := chainsel.ChainBySelector(sel)
 		acceptOnRamp, err := state.Chains[sel].OnRamp.AcceptOwnership(SimTransactOpts())
+		if err != nil {
+			return nil, err
+		}
+		acceptFeeQuoter, err := state.Chains[sel].FeeQuoter.AcceptOwnership(SimTransactOpts())
 		if err != nil {
 			return nil, err
 		}
@@ -125,14 +125,49 @@ func GenerateAcceptOwnershipProposal(
 			ChainIdentifier: chainSel,
 			Batch: []mcms.Operation{
 				{
-					// Enable the source in on ramp
 					To:    state.Chains[sel].OnRamp.Address(),
 					Data:  acceptOnRamp.Data(),
+					Value: big.NewInt(0),
+				},
+				{
+					To:    state.Chains[sel].FeeQuoter.Address(),
+					Data:  acceptFeeQuoter.Data(),
 					Value: big.NewInt(0),
 				},
 			},
 		})
 	}
+	acceptCR, err := state.Chains[homeChain].CapabilityRegistry.AcceptOwnership(SimTransactOpts())
+	if err != nil {
+		return nil, err
+	}
+	acceptCCIPConfig, err := state.Chains[homeChain].CCIPConfig.AcceptOwnership(SimTransactOpts())
+	if err != nil {
+		return nil, err
+	}
+	homeChainID := mcms.ChainIdentifier(homeChain)
+	metaDataPerChain[homeChainID] = timelock.MCMSWithTimelockChainMetadata{
+		ChainMetadata: mcms.ChainMetadata{
+			NonceOffset: 0,
+			MCMAddress:  state.Chains[homeChain].McmAddr,
+		},
+		TimelockAddress: state.Chains[homeChain].TimelockAddr,
+	}
+	batches = append(batches, timelock.BatchChainOperation{
+		ChainIdentifier: homeChainID,
+		Batch: []mcms.Operation{
+			{
+				To:    state.Chains[homeChain].CapabilityRegistry.Address(),
+				Data:  acceptCR.Data(),
+				Value: big.NewInt(0),
+			},
+			{
+				To:    state.Chains[homeChain].CCIPConfig.Address(),
+				Data:  acceptCCIPConfig.Data(),
+				Value: big.NewInt(0),
+			},
+		},
+	})
 	return timelock.NewMCMSWithTimelockProposal(
 		"1",
 		2004259681,

@@ -66,6 +66,23 @@ func (e Environment) AllChainSelectors() []uint64 {
 	return selectors
 }
 
+func (e Environment) AllChainSelectorsExcluding(excluding []uint64) []uint64 {
+	var selectors []uint64
+	for sel := range e.Chains {
+		excluded := false
+		for _, toExclude := range excluding {
+			if sel == toExclude {
+				excluded = true
+			}
+		}
+		if excluded {
+			continue
+		}
+		selectors = append(selectors, sel)
+	}
+	return selectors
+}
+
 func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, error) {
 	if err != nil {
 		//revive:disable

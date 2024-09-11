@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
@@ -16,9 +17,11 @@ func TestAddChain(t *testing.T) {
 	e := NewEnvironmentWithCRAndJobs(t, logger.TestLogger(t), 4)
 	state, err := LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
-	sels := e.Env.AllChainSelectors()
-	initialDeploy := sels[0:3]
-	newChain := sels[3]
+	// Take first non-home chain as the new chain.
+	newChain := e.Env.AllChainSelectorsExcluding([]uint64{e.HomeChainSel})[0]
+	// We deploy to the rest.
+	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
+	t.Logf("Home %d new %d initial %d\n", e.HomeChainSel, newChain, initialDeploy)
 
 	ab, err := DeployCCIPContracts(e.Env, DeployCCIPContractConfig{
 		HomeChainSel:     e.HomeChainSel,
@@ -35,7 +38,7 @@ func TestAddChain(t *testing.T) {
 	for _, source := range initialDeploy {
 		for _, dest := range initialDeploy {
 			if source != dest {
-				require.NoError(t, AddLane(e.Env, state, uint64(source), uint64(dest)))
+				require.NoError(t, AddLane(e.Env, state, source, dest))
 			}
 		}
 	}
@@ -62,41 +65,57 @@ func TestAddChain(t *testing.T) {
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[newChain], tx, err)
 	require.NoError(t, err)
 
-	// Transfer onramp ownership to timelock.
+	// Transfer onramp/fq ownership to timelock.
 	for _, source := range initialDeploy {
-		tx, err := state.Chains[source].OnRamp.TransferOwnership(e.Env.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
+		tx, err := state.Chains[source].OnRamp.TransferOwnership(e.Env.Chains[source].DeployerKey, state.Chains[source].TimelockAddr)
+		require.NoError(t, err)
+		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
+		require.NoError(t, err)
+		tx, err = state.Chains[source].FeeQuoter.TransferOwnership(e.Env.Chains[source].DeployerKey, state.Chains[source].TimelockAddr)
 		require.NoError(t, err)
 		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
 		require.NoError(t, err)
 	}
-	acceptOwnershipProposal, err := GenerateAcceptOwnershipProposal(e.Env, initialDeploy, e.Ab)
+	// Transfer CR contract ownership
+	tx, err = state.Chains[e.HomeChainSel].CapabilityRegistry.TransferOwnership(e.Env.Chains[e.HomeChainSel].DeployerKey, state.Chains[e.HomeChainSel].TimelockAddr)
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(e.Env.Chains[e.HomeChainSel], tx, err)
+	require.NoError(t, err)
+	tx, err = state.Chains[e.HomeChainSel].CCIPConfig.TransferOwnership(e.Env.Chains[e.HomeChainSel].DeployerKey, state.Chains[e.HomeChainSel].TimelockAddr)
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(e.Env.Chains[e.HomeChainSel], tx, err)
+	require.NoError(t, err)
+
+	acceptOwnershipProposal, err := GenerateAcceptOwnershipProposal(state, e.HomeChainSel, initialDeploy)
 	require.NoError(t, err)
 	acceptOwnershipExec := SignProposal(t, e.Env, acceptOwnershipProposal)
-	// Apply the proposal to all the chains.
-	for _, sel := range sels {
-		if sel == newChain {
-			continue
-		}
+	// Apply the accept ownership proposal to all the chains.
+	for _, sel := range initialDeploy {
 		ExecuteProposal(t, e.Env, acceptOwnershipExec, state, sel)
 	}
+	for _, chain := range initialDeploy {
+		owner, err2 := state.Chains[chain].OnRamp.Owner(nil)
+		require.NoError(t, err2)
+		assert.Equal(t, state.Chains[chain].TimelockAddr, owner)
+	}
+	cfgOwner, err := state.Chains[e.HomeChainSel].CCIPConfig.Owner(nil)
+	require.NoError(t, err)
+	crOwner, err := state.Chains[e.HomeChainSel].CapabilityRegistry.Owner(nil)
+	require.NoError(t, err)
+	assert.Equal(t, state.Chains[e.HomeChainSel].TimelockAddr, cfgOwner)
+	assert.Equal(t, state.Chains[e.HomeChainSel].TimelockAddr, crOwner)
+
 	// Generate and sign inbound proposal to new 4th chain.
 	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
 	require.NoError(t, err)
 	chainInboundExec := SignProposal(t, e.Env, chainInboundProposal)
-	for _, sel := range sels {
-		if sel == newChain {
-			continue
-		}
+	for _, sel := range initialDeploy {
 		ExecuteProposal(t, e.Env, chainInboundExec, state, sel)
 	}
 
 	state, err = LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 	for _, chain := range initialDeploy {
-		owner, err2 := state.Chains[chain].OnRamp.Owner(nil)
-		require.NoError(t, err2)
-		t.Log("owner", owner, state.Chains[chain].TimelockAddr)
-
 		cfg, err2 := state.Chains[chain].OnRamp.GetDestChainConfig(nil, newChain)
 		require.NoError(t, err2)
 		t.Log("config", cfg)
