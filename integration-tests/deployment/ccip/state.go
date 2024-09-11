@@ -63,6 +63,7 @@ func (c CCIPChainState) Snapshot() (view.Chain, error) {
 		}
 		chainView.Router[r.Address().Hex()] = routerSnapshot
 		chainView.DestinationChainSelectors = routerSnapshot.DestinationChainSelectors()
+		chainView.SourceChainSelectors = routerSnapshot.SourceChainSelectors()
 	}
 	ta := c.TokenAdminRegistry
 	if ta != nil {
@@ -99,6 +100,14 @@ func (c CCIPChainState) Snapshot() (view.Chain, error) {
 			return chainView, err
 		}
 		chainView.OnRamp[onRamp.Address().Hex()] = onRampSnapshot
+	}
+	offRamp := c.EvmOffRampV160
+	if offRamp != nil {
+		offRampSnapshot, err := view.OffRampSnapshot(offRamp, chainView.SourceChainSelectors)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.OffRamp[offRamp.Address().Hex()] = offRampSnapshot
 	}
 	return chainView, nil
 }

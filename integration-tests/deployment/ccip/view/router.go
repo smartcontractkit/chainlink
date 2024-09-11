@@ -25,6 +25,14 @@ func (r Router) DestinationChainSelectors() []uint64 {
 	return selectors
 }
 
+func (r Router) SourceChainSelectors() []uint64 {
+	selectors := make([]uint64, 0, len(r.OnRamps))
+	for selector := range r.OnRamps {
+		selectors = append(selectors, selector)
+	}
+	return selectors
+}
+
 func RouterSnapshot(r RouterReader) (Router, error) {
 	tv, err := r.TypeAndVersion(nil)
 	if err != nil {
