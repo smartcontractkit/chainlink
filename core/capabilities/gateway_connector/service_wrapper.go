@@ -91,8 +91,8 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 	})
 }
 
-func (h *ServiceWrapper) Sign(data ...[]byte) ([]byte, error) {
-	return gwcommon.SignData(h.signerKey, data...)
+func (e *ServiceWrapper) Sign(data ...[]byte) ([]byte, error) {
+	return gwcommon.SignData(e.signerKey, data...)
 }
 
 func (e *ServiceWrapper) Close() error {
