@@ -98,7 +98,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 
 	var err error
 	var headsSub, pollingNewHeadsSub headSubscription[HEAD]
-	// if new head based on http polling is enabled, we will skip regular newHead subscription
+	// if new head based on http polling is enabled, we will replace it for WS newHead subscription
 	if newHeadsPollInterval > 0 {
 		pollingNewHeadsSub, err = n.registerNewSubscription(ctx, lggr.With("subscriptionType", "newHeadsPoll"),
 			noNewHeadsTimeoutThreshold, n.rpc.SubscribeToPollingNewHeads)
@@ -464,7 +464,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 	noNewHeadsTimeoutThreshold := n.chainCfg.NodeNoNewHeadsThreshold()
 	var headsSub, pollingNewHeadsSub headSubscription[HEAD]
 
-	// if new head based on http polling is enabled, we will skip regular newHead subscription
+	// if new head based on http polling is enabled, we will replace it for WS newHead subscription
 	if n.nodePoolCfg.NewHeadsPollInterval() > 0 {
 		pollingNewHeadsSub, err = n.registerNewSubscription(ctx, lggr.With("subscriptionType", "newHeadsPoll"),
 			noNewHeadsTimeoutThreshold, n.rpc.SubscribeToPollingNewHeads)
