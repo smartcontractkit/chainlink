@@ -43,28 +43,32 @@ contract OffRampHelper is OffRamp, IgnoreContractSize {
     bytes calldata originalSender,
     address receiver,
     uint64 sourceChainSelector,
-    bytes[] calldata offchainTokenData
+    bytes[] calldata offchainTokenData,
+    uint32[] calldata tokenGasOverrides
   ) external returns (Client.EVMTokenAmount[] memory) {
-    return _releaseOrMintTokens(sourceTokenAmounts, originalSender, receiver, sourceChainSelector, offchainTokenData);
+    return _releaseOrMintTokens(
+      sourceTokenAmounts, originalSender, receiver, sourceChainSelector, offchainTokenData, tokenGasOverrides
+    );
   }
 
   function trialExecute(
     Internal.Any2EVMRampMessage memory message,
-    bytes[] memory offchainTokenData
+    bytes[] memory offchainTokenData,
+    uint32[] memory tokenGasOverrides
   ) external returns (Internal.MessageExecutionState, bytes memory) {
-    return _trialExecute(message, offchainTokenData);
+    return _trialExecute(message, offchainTokenData, tokenGasOverrides);
   }
 
   function executeSingleReport(
     Internal.ExecutionReportSingleChain memory rep,
-    uint256[] memory manualExecGasLimits
+    GasLimitOverride[] memory manualExecGasExecOverrides
   ) external {
-    _executeSingleReport(rep, manualExecGasLimits);
+    _executeSingleReport(rep, manualExecGasExecOverrides);
   }
 
   function batchExecute(
     Internal.ExecutionReportSingleChain[] memory reports,
-    uint256[][] memory manualExecGasLimits
+    GasLimitOverride[][] memory manualExecGasLimits
   ) external {
     _batchExecute(reports, manualExecGasLimits);
   }

@@ -340,7 +340,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
     vm.recordLogs();
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
+    );
     assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
@@ -356,7 +358,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
 
     uint64 nonceBefore = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender);
     vm.recordLogs();
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
+    );
     assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
@@ -377,7 +381,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     // Nonce never increments on unordered messages.
     uint64 nonceBefore = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender);
     vm.recordLogs();
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
+    );
     assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
@@ -399,7 +405,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     // Nonce never increments on unordered messages.
     nonceBefore = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender);
     vm.recordLogs();
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
+    );
     assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
@@ -419,7 +427,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     Internal.Any2EVMRampMessage[] memory messagesChain1 =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     s_offRamp.executeSingleReport(
-      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messagesChain1), new uint256[](0)
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messagesChain1), new OffRamp.GasLimitOverride[](0)
     );
 
     uint64 nonceChain1 = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messagesChain1[0].sender);
@@ -430,7 +438,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     assertEq(s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_3, messagesChain2[0].sender), 0);
 
     s_offRamp.executeSingleReport(
-      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messagesChain2), new uint256[](0)
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messagesChain2), new OffRamp.GasLimitOverride[](0)
     );
     assertGt(s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_3, messagesChain2[0].sender), 0);
 
@@ -453,7 +461,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     // Nonce should increment on non-strict
     assertEq(uint64(0), s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(OWNER)));
     vm.recordLogs();
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
+    );
     assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
@@ -480,7 +490,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       messages[0].header.sourceChainSelector, messages[0].header.nonce, messages[0].sender
     );
 
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
+    );
   }
 
   function test_SkippedIncorrectNonceStillExecutes_Success() public {
@@ -494,7 +506,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     emit NonceManager.SkippedIncorrectNonce(SOURCE_CHAIN_SELECTOR_1, messages[1].header.nonce, messages[1].sender);
 
     vm.recordLogs();
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
+    );
     assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
@@ -510,7 +524,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
     vm.recordLogs();
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
+    );
     assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
@@ -523,7 +539,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     vm.expectEmit();
     emit OffRamp.SkippedAlreadyExecutedMessage(SOURCE_CHAIN_SELECTOR_1, messages[0].header.sequenceNumber);
 
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
+    );
   }
 
   function test__execute_SkippedAlreadyExecutedMessageUnordered_Success() public {
@@ -533,7 +551,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     messages[0].header.messageId = Internal._hash(messages[0], ON_RAMP_ADDRESS_1);
 
     vm.recordLogs();
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
+    );
     assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
@@ -546,7 +566,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     vm.expectEmit();
     emit OffRamp.SkippedAlreadyExecutedMessage(SOURCE_CHAIN_SELECTOR_1, messages[0].header.sequenceNumber);
 
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
+    );
   }
 
   // Send a message to a contract that does not implement the CCIPReceiver interface
@@ -559,7 +581,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     messages[0].header.messageId = Internal._hash(messages[0], ON_RAMP_ADDRESS_1);
 
     vm.recordLogs();
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
+    );
     assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
@@ -579,7 +603,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
 
     vm.resumeGasMetering();
     vm.recordLogs();
-    s_offRamp.executeSingleReport(report, new uint256[](0));
+    s_offRamp.executeSingleReport(report, new OffRamp.GasLimitOverride[](0));
     assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
@@ -602,10 +626,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
 
     vm.resumeGasMetering();
     vm.recordLogs();
-    s_offRamp.executeSingleReport(report, new uint256[](0));
+    s_offRamp.executeSingleReport(report, new OffRamp.GasLimitOverride[](0));
 
     Vm.Log[] memory logs = vm.getRecordedLogs();
-
     assertExecutionStateChangedEventLogs(
       logs,
       SOURCE_CHAIN_SELECTOR_1,
@@ -725,7 +748,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
 
     vm.recordLogs();
 
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
+    );
     assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
@@ -745,7 +770,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       _generateReportFromMessages(
         SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
       ),
-      new uint256[](0)
+      new OffRamp.GasLimitOverride[](0)
     );
   }
 
@@ -758,7 +783,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       _generateReportFromMessages(
         SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
       ),
-      new uint256[](0)
+      new OffRamp.GasLimitOverride[](0)
     );
 
     _setMockRMNChainCurse(SOURCE_CHAIN_SELECTOR_1, false);
@@ -767,7 +792,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       _generateReportFromMessages(
         SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
       ),
-      new uint256[](0)
+      new OffRamp.GasLimitOverride[](0)
     );
 
     _assertNoEmit(OffRamp.SkippedReportExecution.selector);
@@ -786,7 +811,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     vm.expectRevert(
       abi.encodeWithSelector(OffRamp.InvalidMessageDestChainSelector.selector, messages[0].header.destChainSelector)
     );
-    s_offRamp.executeSingleReport(executionReport, new uint256[](0));
+    s_offRamp.executeSingleReport(executionReport, new OffRamp.GasLimitOverride[](0));
   }
 
   function test_MismatchingOnRampRoot_Revert() public {
@@ -804,7 +829,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     Internal.ExecutionReportSingleChain memory executionReport =
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
     vm.expectRevert(abi.encodeWithSelector(OffRamp.RootNotCommitted.selector, SOURCE_CHAIN_SELECTOR_1));
-    s_offRamp.executeSingleReport(executionReport, new uint256[](0));
+    s_offRamp.executeSingleReport(executionReport, new OffRamp.GasLimitOverride[](0));
   }
 
   function test_UnhealthySingleChainCurse_Revert() public {
@@ -815,7 +840,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       _generateReportFromMessages(
         SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
       ),
-      new uint256[](0)
+      new OffRamp.GasLimitOverride[](0)
     );
     vm.recordLogs();
     // Uncurse should succeed
@@ -824,7 +849,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       _generateReportFromMessages(
         SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
       ),
-      new uint256[](0)
+      new OffRamp.GasLimitOverride[](0)
     );
     _assertNoEmit(OffRamp.SkippedReportExecution.selector);
   }
@@ -837,7 +862,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
 
     vm.expectRevert(OffRamp.UnexpectedTokenData.selector);
 
-    s_offRamp.executeSingleReport(report, new uint256[](0));
+    s_offRamp.executeSingleReport(report, new OffRamp.GasLimitOverride[](0));
   }
 
   function test_EmptyReport_Revert() public {
@@ -850,7 +875,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
         messages: new Internal.Any2EVMRampMessage[](0),
         offchainTokenData: new bytes[][](0)
       }),
-      new uint256[](0)
+      new OffRamp.GasLimitOverride[](0)
     );
   }
 
@@ -884,7 +909,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     Internal.Any2EVMRampMessage[] memory messages = _generateSingleBasicMessage(newSourceChainSelector, newOnRamp);
 
     vm.expectRevert(abi.encodeWithSelector(OffRamp.SourceChainNotEnabled.selector, newSourceChainSelector));
-    s_offRamp.executeSingleReport(_generateReportFromMessages(newSourceChainSelector, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(newSourceChainSelector, messages), new OffRamp.GasLimitOverride[](0)
+    );
   }
 
   function test_DisabledSourceChain_Revert() public {
@@ -892,7 +919,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_2, ON_RAMP_ADDRESS_2);
 
     vm.expectRevert(abi.encodeWithSelector(OffRamp.SourceChainNotEnabled.selector, SOURCE_CHAIN_SELECTOR_2));
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_2, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_2, messages), new OffRamp.GasLimitOverride[](0)
+    );
   }
 
   function test_TokenDataMismatch_Revert() public {
@@ -907,7 +936,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
         OffRamp.TokenDataMismatch.selector, SOURCE_CHAIN_SELECTOR_1, messages[0].header.sequenceNumber
       )
     );
-    s_offRamp.executeSingleReport(report, new uint256[](0));
+    s_offRamp.executeSingleReport(report, new OffRamp.GasLimitOverride[](0));
   }
 
   function test_RouterYULCall_Revert() public {
@@ -923,7 +952,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
     vm.recordLogs();
-    s_offRamp.executeSingleReport(executionReport, new uint256[](0));
+    s_offRamp.executeSingleReport(executionReport, new OffRamp.GasLimitOverride[](0));
     assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
@@ -947,7 +976,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     messages[0].header.messageId = Internal._hash(messages[0], ON_RAMP_ADDRESS_1);
 
     vm.recordLogs();
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
+    );
     assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
@@ -964,7 +995,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     vm.expectEmit();
     emit OffRamp.AlreadyAttempted(SOURCE_CHAIN_SELECTOR_1, messages[0].header.sequenceNumber);
 
-    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
+    );
   }
 
   function _constructCommitReport(bytes32 merkleRoot) internal view returns (OffRamp.CommitReport memory) {
@@ -995,7 +1028,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
   function test_executeSingleMessage_NoTokens_Success() public {
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
-    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
+    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
   function test_executeSingleMessage_WithTokens_Success() public {
@@ -1020,7 +1053,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
       )
     );
 
-    s_offRamp.executeSingleMessage(message, offchainTokenData);
+    s_offRamp.executeSingleMessage(message, offchainTokenData, new uint32[](0));
   }
 
   function test_executeSingleMessage_WithValidation_Success() public {
@@ -1030,14 +1063,14 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     vm.startPrank(address(s_offRamp));
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
-    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
+    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
   function test_NonContract_Success() public {
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
     message.receiver = STRANGER;
-    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
+    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
   function test_NonContractWithTokens_Success() public {
@@ -1051,7 +1084,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
     message.receiver = STRANGER;
-    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
+    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
   // Reverts
@@ -1069,7 +1102,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
 
     vm.expectRevert(abi.encodeWithSelector(OffRamp.TokenHandlingError.selector, errorMessage));
 
-    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
+    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
   function test_ZeroGasDONExecution_Revert() public {
@@ -1079,7 +1112,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
 
     vm.expectRevert(abi.encodeWithSelector(OffRamp.ReceiverError.selector, ""));
 
-    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
+    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
   function test_MessageSender_Revert() public {
@@ -1087,7 +1120,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
     vm.expectRevert(OffRamp.CanOnlySelfCall.selector);
-    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
+    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
   function test_executeSingleMessage_WithFailingValidation_Revert() public {
@@ -1104,7 +1137,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
         abi.encodeWithSelector(IMessageInterceptor.MessageValidationError.selector, bytes("Invalid message"))
       )
     );
-    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
+    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
   function test_executeSingleMessage_WithFailingValidationNoRouterCall_Revert() public {
@@ -1128,7 +1161,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
         abi.encodeWithSelector(IMessageInterceptor.MessageValidationError.selector, bytes("Invalid message"))
       )
     );
-    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
+    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 }
 
@@ -1147,7 +1180,9 @@ contract OffRamp_batchExecute is OffRampSetup {
     uint64 nonceBefore = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender);
 
     vm.recordLogs();
-    s_offRamp.batchExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[][](1));
+    s_offRamp.batchExecute(
+      _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[][](1)
+    );
     assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
@@ -1174,10 +1209,9 @@ contract OffRamp_batchExecute is OffRampSetup {
 
     uint64 nonceBefore = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages1[0].sender);
     vm.recordLogs();
-    s_offRamp.batchExecute(reports, new uint256[][](2));
+    s_offRamp.batchExecute(reports, new OffRamp.GasLimitOverride[][](2));
 
     Vm.Log[] memory logs = vm.getRecordedLogs();
-
     assertExecutionStateChangedEventLogs(
       logs,
       messages1[0].header.sourceChainSelector,
@@ -1225,7 +1259,7 @@ contract OffRamp_batchExecute is OffRampSetup {
 
     vm.recordLogs();
 
-    s_offRamp.batchExecute(reports, new uint256[][](2));
+    s_offRamp.batchExecute(reports, new OffRamp.GasLimitOverride[][](2));
 
     Vm.Log[] memory logs = vm.getRecordedLogs();
 
@@ -1286,7 +1320,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     vm.expectEmit();
     emit OffRamp.SkippedReportExecution(SOURCE_CHAIN_SELECTOR_1);
 
-    s_offRamp.batchExecute(reports, new uint256[][](2));
+    s_offRamp.batchExecute(reports, new OffRamp.GasLimitOverride[][](2));
 
     Vm.Log[] memory logs = vm.getRecordedLogs();
 
@@ -1318,7 +1352,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     emit OffRamp.SkippedAlreadyExecutedMessage(SOURCE_CHAIN_SELECTOR_1, messages[0].header.sequenceNumber);
 
     vm.recordLogs();
-    s_offRamp.batchExecute(reports, new uint256[][](2));
+    s_offRamp.batchExecute(reports, new OffRamp.GasLimitOverride[][](2));
     assertExecutionStateChangedEventLogs(
       messages[0].header.sourceChainSelector,
       messages[0].header.sequenceNumber,
@@ -1337,7 +1371,7 @@ contract OffRamp_batchExecute is OffRampSetup {
       _generateBatchReportFromMessages(
         SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
       ),
-      new uint256[][](1)
+      new OffRamp.GasLimitOverride[][](1)
     );
 
     _setMockRMNChainCurse(SOURCE_CHAIN_SELECTOR_1, false);
@@ -1347,7 +1381,7 @@ contract OffRamp_batchExecute is OffRampSetup {
       _generateBatchReportFromMessages(
         SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
       ),
-      new uint256[][](1)
+      new OffRamp.GasLimitOverride[][](1)
     );
 
     _assertNoEmit(OffRamp.SkippedReportExecution.selector);
@@ -1356,7 +1390,7 @@ contract OffRamp_batchExecute is OffRampSetup {
   // Reverts
   function test_ZeroReports_Revert() public {
     vm.expectRevert(OffRamp.EmptyReport.selector);
-    s_offRamp.batchExecute(new Internal.ExecutionReportSingleChain[](0), new uint256[][](1));
+    s_offRamp.batchExecute(new Internal.ExecutionReportSingleChain[](0), new OffRamp.GasLimitOverride[][](1));
   }
 
   function test_OutOfBoundsGasLimitsAccess_Revert() public {
@@ -1372,7 +1406,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages2);
 
     vm.expectRevert();
-    s_offRamp.batchExecute(reports, new uint256[][](1));
+    s_offRamp.batchExecute(reports, new OffRamp.GasLimitOverride[][](1));
   }
 }
 
@@ -1390,12 +1424,14 @@ contract OffRamp_manuallyExecute is OffRampSetup {
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     messages[0].receiver = address(s_reverting_receiver);
     messages[0].header.messageId = Internal._hash(messages[0], ON_RAMP_ADDRESS_1);
-    s_offRamp.batchExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[][](1));
+    s_offRamp.batchExecute(
+      _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[][](1)
+    );
 
     s_reverting_receiver.setRevert(false);
 
-    uint256[][] memory gasLimitOverrides = new uint256[][](1);
-    gasLimitOverrides[0] = new uint256[](messages.length);
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](1);
+    gasLimitOverrides[0] = new OffRamp.GasLimitOverride[](messages.length);
 
     vm.recordLogs();
     s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
@@ -1414,13 +1450,15 @@ contract OffRamp_manuallyExecute is OffRampSetup {
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
     messages[0].receiver = address(s_reverting_receiver);
     messages[0].header.messageId = Internal._hash(messages[0], ON_RAMP_ADDRESS_1);
-    s_offRamp.batchExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[][](1));
+    s_offRamp.batchExecute(
+      _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[][](1)
+    );
 
     s_reverting_receiver.setRevert(false);
 
-    uint256[][] memory gasLimitOverrides = new uint256[][](1);
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](1);
     gasLimitOverrides[0] = _getGasLimitsFromMessages(messages);
-    gasLimitOverrides[0][0] += 1;
+    gasLimitOverrides[0][0].receiverExecutionGasLimit += 1;
     vm.recordLogs();
     s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
     assertExecutionStateChangedEventLogs(
@@ -1445,7 +1483,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
 
     s_reverting_receiver.setRevert(true);
 
-    uint256[][] memory gasLimitOverrides = new uint256[][](1);
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](1);
     gasLimitOverrides[0] = _getGasLimitsFromMessages(messages);
 
     vm.recordLogs();
@@ -1486,20 +1524,20 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messages2);
 
-    s_offRamp.batchExecute(reports, new uint256[][](2));
+    s_offRamp.batchExecute(reports, new OffRamp.GasLimitOverride[][](2));
 
     s_reverting_receiver.setRevert(false);
 
-    uint256[][] memory gasLimitOverrides = new uint256[][](2);
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](2);
     gasLimitOverrides[0] = _getGasLimitsFromMessages(messages1);
     gasLimitOverrides[1] = _getGasLimitsFromMessages(messages2);
 
     for (uint256 i = 0; i < 3; ++i) {
-      gasLimitOverrides[0][i] += 1;
+      gasLimitOverrides[0][i].receiverExecutionGasLimit += 1;
     }
 
     for (uint256 i = 0; i < 2; ++i) {
-      gasLimitOverrides[1][i] += 1;
+      gasLimitOverrides[1][i].receiverExecutionGasLimit += 1;
     }
 
     vm.recordLogs();
@@ -1543,7 +1581,9 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     messages[1].header.messageId = Internal._hash(messages[1], ON_RAMP_ADDRESS_1);
 
     vm.recordLogs();
-    s_offRamp.batchExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[][](1));
+    s_offRamp.batchExecute(
+      _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[][](1)
+    );
 
     Vm.Log[] memory logs = vm.getRecordedLogs();
 
@@ -1586,9 +1626,9 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     Internal.Any2EVMRampMessage[] memory newMessages = new Internal.Any2EVMRampMessage[](1);
     newMessages[0] = messages[1];
 
-    uint256[][] memory gasLimitOverrides = new uint256[][](1);
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](1);
     gasLimitOverrides[0] = _getGasLimitsFromMessages(newMessages);
-    gasLimitOverrides[0][0] += 1;
+    gasLimitOverrides[0][0].receiverExecutionGasLimit += 1;
 
     vm.recordLogs();
     s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, newMessages), gasLimitOverrides);
@@ -1610,7 +1650,9 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     messages[0].header.messageId = Internal._hash(messages[0], ON_RAMP_ADDRESS_1);
 
     vm.recordLogs();
-    s_offRamp.batchExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[][](1));
+    s_offRamp.batchExecute(
+      _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[][](1)
+    );
     assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
@@ -1620,9 +1662,9 @@ contract OffRamp_manuallyExecute is OffRampSetup {
       abi.encodeWithSelector(OffRamp.ReceiverError.selector, "")
     );
 
-    uint256[][] memory gasLimitOverrides = new uint256[][](1);
-    gasLimitOverrides[0] = new uint256[](1);
-    gasLimitOverrides[0][0] = 100_000;
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](1);
+    gasLimitOverrides[0] = new OffRamp.GasLimitOverride[](1);
+    gasLimitOverrides[0][0].receiverExecutionGasLimit = 100_000;
 
     vm.expectEmit();
     emit ConformingReceiver.MessageReceived();
@@ -1652,7 +1694,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     vm.chainId(chain2);
     vm.expectRevert(abi.encodeWithSelector(MultiOCR3Base.ForkedChain.selector, chain1, chain2));
 
-    uint256[][] memory gasLimitOverrides = new uint256[][](1);
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](1);
     gasLimitOverrides[0] = _getGasLimitsFromMessages(messages);
 
     s_offRamp.manuallyExecute(reports, gasLimitOverrides);
@@ -1668,22 +1710,22 @@ contract OffRamp_manuallyExecute is OffRampSetup {
 
     // No overrides for report
     vm.expectRevert(OffRamp.ManualExecutionGasLimitMismatch.selector);
-    s_offRamp.manuallyExecute(reports, new uint256[][](0));
+    s_offRamp.manuallyExecute(reports, new OffRamp.GasLimitOverride[][](0));
 
     // No messages
-    uint256[][] memory gasLimitOverrides = new uint256[][](1);
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](1);
 
     vm.expectRevert(OffRamp.ManualExecutionGasLimitMismatch.selector);
     s_offRamp.manuallyExecute(reports, gasLimitOverrides);
 
     // 1 message missing
-    gasLimitOverrides[0] = new uint256[](1);
+    gasLimitOverrides[0] = new OffRamp.GasLimitOverride[](1);
 
     vm.expectRevert(OffRamp.ManualExecutionGasLimitMismatch.selector);
     s_offRamp.manuallyExecute(reports, gasLimitOverrides);
 
     // 1 message in excess
-    gasLimitOverrides[0] = new uint256[](3);
+    gasLimitOverrides[0] = new OffRamp.GasLimitOverride[](3);
 
     vm.expectRevert(OffRamp.ManualExecutionGasLimitMismatch.selector);
     s_offRamp.manuallyExecute(reports, gasLimitOverrides);
@@ -1702,47 +1744,99 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messages2);
 
     vm.expectRevert(OffRamp.ManualExecutionGasLimitMismatch.selector);
-    s_offRamp.manuallyExecute(reports, new uint256[][](0));
+    s_offRamp.manuallyExecute(reports, new OffRamp.GasLimitOverride[][](0));
 
     vm.expectRevert(OffRamp.ManualExecutionGasLimitMismatch.selector);
-    s_offRamp.manuallyExecute(reports, new uint256[][](1));
+    s_offRamp.manuallyExecute(reports, new OffRamp.GasLimitOverride[][](1));
 
-    uint256[][] memory gasLimitOverrides = new uint256[][](2);
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](2);
 
     vm.expectRevert(OffRamp.ManualExecutionGasLimitMismatch.selector);
     s_offRamp.manuallyExecute(reports, gasLimitOverrides);
 
     // 2nd report empty
-    gasLimitOverrides[0] = new uint256[](2);
+    gasLimitOverrides[0] = new OffRamp.GasLimitOverride[](2);
 
     vm.expectRevert(OffRamp.ManualExecutionGasLimitMismatch.selector);
     s_offRamp.manuallyExecute(reports, gasLimitOverrides);
 
     // 1st report empty
-    gasLimitOverrides[0] = new uint256[](0);
-    gasLimitOverrides[1] = new uint256[](1);
+    gasLimitOverrides[0] = new OffRamp.GasLimitOverride[](0);
+    gasLimitOverrides[1] = new OffRamp.GasLimitOverride[](1);
 
     vm.expectRevert(OffRamp.ManualExecutionGasLimitMismatch.selector);
     s_offRamp.manuallyExecute(reports, gasLimitOverrides);
 
     // 1st report oversized
-    gasLimitOverrides[0] = new uint256[](3);
+    gasLimitOverrides[0] = new OffRamp.GasLimitOverride[](3);
 
     vm.expectRevert(OffRamp.ManualExecutionGasLimitMismatch.selector);
     s_offRamp.manuallyExecute(reports, gasLimitOverrides);
   }
 
-  function test_ManualExecInvalidGasLimit_Revert() public {
+  function test_manuallyExecute_InvalidReceiverExecutionGasLimit_Revert() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
-    uint256[][] memory gasLimitOverrides = new uint256[][](1);
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](1);
     gasLimitOverrides[0] = _getGasLimitsFromMessages(messages);
-    gasLimitOverrides[0][0]--;
+    gasLimitOverrides[0][0].receiverExecutionGasLimit--;
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        OffRamp.InvalidManualExecutionGasLimit.selector, SOURCE_CHAIN_SELECTOR_1, 0, gasLimitOverrides[0][0]
+        OffRamp.InvalidManualExecutionGasLimit.selector,
+        SOURCE_CHAIN_SELECTOR_1,
+        messages[0].header.messageId,
+        gasLimitOverrides[0][0].receiverExecutionGasLimit
+      )
+    );
+    s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
+  }
+
+  function test_manuallyExecute_DestinationGasAmountCountMismatch_Revert() public {
+    uint256[] memory amounts = new uint256[](2);
+    amounts[0] = 1000;
+    amounts[1] = 1000;
+    Internal.Any2EVMRampMessage[] memory messages = new Internal.Any2EVMRampMessage[](1);
+    messages[0] = _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
+
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](1);
+    gasLimitOverrides[0] = _getGasLimitsFromMessages(messages);
+    // empty tokenGasOverride array provided
+    vm.expectRevert(
+      abi.encodeWithSelector(OffRamp.ManualExecutionGasAmountCountMismatch.selector, messages[0].header.messageId, 1)
+    );
+    s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
+
+    //trying with excesss elements tokenGasOverride array provided
+    gasLimitOverrides[0][0].tokenGasOverrides = new uint32[](3);
+    vm.expectRevert(
+      abi.encodeWithSelector(OffRamp.ManualExecutionGasAmountCountMismatch.selector, messages[0].header.messageId, 1)
+    );
+    s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
+  }
+
+  function test_manuallyExecute_InvalidTokenGasOverride_Revert() public {
+    uint256[] memory amounts = new uint256[](2);
+    amounts[0] = 1000;
+    amounts[1] = 1000;
+    Internal.Any2EVMRampMessage[] memory messages = new Internal.Any2EVMRampMessage[](1);
+    messages[0] = _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
+
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](1);
+    gasLimitOverrides[0] = _getGasLimitsFromMessages(messages);
+    uint32[] memory tokenGasOverrides = new uint32[](2);
+    tokenGasOverrides[0] = DEFAULT_TOKEN_DEST_GAS_OVERHEAD;
+    tokenGasOverrides[1] = DEFAULT_TOKEN_DEST_GAS_OVERHEAD - 1; //invalid token gas override value
+    gasLimitOverrides[0][0].tokenGasOverrides = tokenGasOverrides;
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        OffRamp.InvalidManualExecutionTokenGasOverride.selector,
+        messages[0].header.messageId,
+        1,
+        DEFAULT_TOKEN_DEST_GAS_OVERHEAD,
+        tokenGasOverrides[1]
       )
     );
     s_offRamp.manuallyExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), gasLimitOverrides);
@@ -1755,11 +1849,13 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     messages[0].receiver = address(s_reverting_receiver);
     messages[0].header.messageId = Internal._hash(messages[0], ON_RAMP_ADDRESS_1);
 
-    s_offRamp.batchExecute(_generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[][](1));
+    s_offRamp.batchExecute(
+      _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[][](1)
+    );
 
     s_reverting_receiver.setRevert(true);
 
-    uint256[][] memory gasLimitOverrides = new uint256[][](1);
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](1);
     gasLimitOverrides[0] = _getGasLimitsFromMessages(messages);
 
     vm.expectRevert(
@@ -1795,7 +1891,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
       destTokenAddress: abi.encode(s_destTokenBySourceToken[s_sourceFeeToken]),
       extraData: "",
       amount: tokenAmount,
-      destExecData: abi.encode(DEFAULT_TOKEN_DEST_GAS_OVERHEAD)
+      destExecData: abi.encode(MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS)
     });
 
     messages[0].receiver = address(receiver);
@@ -1807,8 +1903,9 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     // sets the report to be repeated on the ReentrancyAbuser to be able to replay
     receiver.setPayload(report);
 
-    uint256[][] memory gasLimitOverrides = new uint256[][](1);
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](1);
     gasLimitOverrides[0] = _getGasLimitsFromMessages(messages);
+    gasLimitOverrides[0][0].tokenGasOverrides = new uint32[](messages[0].tokenAmounts.length);
 
     // The first entry should be fine and triggers the second entry which is skipped. Due to the reentrancy
     // the second completes first, so we expect the skip event before the success event.
@@ -1852,7 +1949,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messages2);
 
-    uint256[][] memory gasLimitOverrides = new uint256[][](2);
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](2);
     gasLimitOverrides[0] = _getGasLimitsFromMessages(messages1);
     gasLimitOverrides[1] = _getGasLimitsFromMessages(messages2);
 
@@ -1873,7 +1970,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messages2);
 
-    uint256[][] memory gasLimitOverrides = new uint256[][](2);
+    OffRamp.GasLimitOverride[][] memory gasLimitOverrides = new OffRamp.GasLimitOverride[][](2);
     gasLimitOverrides[0] = _getGasLimitsFromMessages(messages1);
     gasLimitOverrides[1] = _getGasLimitsFromMessages(messages2);
 
@@ -2165,7 +2262,7 @@ contract OffRamp_execute is OffRampSetup {
   function test_IncorrectArrayType_Revert() public {
     bytes32[3] memory reportContext = [s_configDigestExec, s_configDigestExec, s_configDigestExec];
 
-    uint256[] memory wrongData = new uint256[](1);
+    uint256[] memory wrongData = new uint256[](2);
     wrongData[0] = 1;
 
     vm.startPrank(s_validTransmitters[0]);
@@ -2355,7 +2452,7 @@ contract OffRamp_trialExecute is OffRampSetup {
     uint256 startingBalance = dstToken0.balanceOf(message.receiver);
 
     (Internal.MessageExecutionState newState, bytes memory err) =
-      s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+      s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
     assertEq(uint256(Internal.MessageExecutionState.SUCCESS), uint256(newState));
     assertEq("", err);
 
@@ -2378,7 +2475,7 @@ contract OffRamp_trialExecute is OffRampSetup {
     s_maybeRevertingPool.setShouldRevert(errorMessage);
 
     (Internal.MessageExecutionState newState, bytes memory err) =
-      s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+      s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
     assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
     assertEq(abi.encodeWithSelector(OffRamp.TokenHandlingError.selector, errorMessage), err);
 
@@ -2398,7 +2495,7 @@ contract OffRamp_trialExecute is OffRampSetup {
     s_maybeRevertingPool.setShouldRevert(errorMessage);
 
     (Internal.MessageExecutionState newState, bytes memory err) =
-      s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+      s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
     assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
     assertEq(abi.encodeWithSelector(OffRamp.TokenHandlingError.selector, errorMessage), err);
   }
@@ -2412,7 +2509,7 @@ contract OffRamp_trialExecute is OffRampSetup {
 
     // Happy path, pool is correct
     (Internal.MessageExecutionState newState, bytes memory err) =
-      s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+      s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
 
     assertEq(uint256(Internal.MessageExecutionState.SUCCESS), uint256(newState));
     assertEq("", err);
@@ -2431,7 +2528,7 @@ contract OffRamp_trialExecute is OffRampSetup {
     message.header.messageId = Internal._hash(message, ON_RAMP_ADDRESS_1);
 
     // Unhappy path, no revert but marked as failed.
-    (newState, err) = s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+    (newState, err) = s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
 
     assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
     assertEq(abi.encodeWithSelector(Internal.InvalidEVMAddress.selector, abi.encode(address(0))), err);
@@ -2448,7 +2545,7 @@ contract OffRamp_trialExecute is OffRampSetup {
 
     message.header.messageId = Internal._hash(message, ON_RAMP_ADDRESS_1);
 
-    (newState, err) = s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+    (newState, err) = s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
 
     assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
     assertEq(abi.encodeWithSelector(OffRamp.NotACompatiblePool.selector, address(0)), err);
@@ -2705,7 +2802,47 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     );
 
     s_offRamp.releaseOrMintTokens(
-      sourceTokenAmounts, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR_1, offchainTokenData
+      sourceTokenAmounts, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR_1, offchainTokenData, new uint32[](0)
+    );
+
+    assertEq(startingBalance + amount1, dstToken1.balanceOf(OWNER));
+  }
+
+  function test_releaseOrMintTokens_WithGasOverride_Success() public {
+    Client.EVMTokenAmount[] memory srcTokenAmounts = _getCastedSourceEVMTokenAmountsWithZeroAmounts();
+    IERC20 dstToken1 = IERC20(s_destFeeToken);
+    uint256 startingBalance = dstToken1.balanceOf(OWNER);
+    uint256 amount1 = 100;
+    srcTokenAmounts[0].amount = amount1;
+
+    bytes[] memory offchainTokenData = new bytes[](srcTokenAmounts.length);
+    offchainTokenData[0] = abi.encode(0x12345678);
+
+    Internal.RampTokenAmount[] memory sourceTokenAmounts = _getDefaultSourceTokenData(srcTokenAmounts);
+
+    vm.expectCall(
+      s_destPoolBySourceToken[srcTokenAmounts[0].token],
+      abi.encodeWithSelector(
+        LockReleaseTokenPool.releaseOrMint.selector,
+        Pool.ReleaseOrMintInV1({
+          originalSender: abi.encode(OWNER),
+          receiver: OWNER,
+          amount: srcTokenAmounts[0].amount,
+          localToken: s_destTokenBySourceToken[srcTokenAmounts[0].token],
+          remoteChainSelector: SOURCE_CHAIN_SELECTOR_1,
+          sourcePoolAddress: sourceTokenAmounts[0].sourcePoolAddress,
+          sourcePoolData: sourceTokenAmounts[0].extraData,
+          offchainTokenData: offchainTokenData[0]
+        })
+      )
+    );
+
+    uint32[] memory gasOverrides = new uint32[](sourceTokenAmounts.length);
+    for (uint256 i = 0; i < gasOverrides.length; i++) {
+      gasOverrides[i] = DEFAULT_TOKEN_DEST_GAS_OVERHEAD + 1;
+    }
+    s_offRamp.releaseOrMintTokens(
+      sourceTokenAmounts, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR_1, offchainTokenData, gasOverrides
     );
 
     assertEq(startingBalance + amount1, dstToken1.balanceOf(OWNER));
@@ -2727,7 +2864,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     MaybeRevertingBurnMintTokenPool(pool).setReleaseOrMintMultiplier(destinationDenominationMultiplier);
 
     Client.EVMTokenAmount[] memory destTokenAmounts = s_offRamp.releaseOrMintTokens(
-      sourceTokenAmounts, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR_1, offchainTokenData
+      sourceTokenAmounts, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR_1, offchainTokenData, new uint32[](0)
     );
     assertEq(destTokenAmounts[1].amount, amount * destinationDenominationMultiplier);
     assertEq(destTokenAmounts[1].token, destToken);
@@ -2748,7 +2885,8 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
       abi.encode(OWNER),
       OWNER,
       SOURCE_CHAIN_SELECTOR_1,
-      new bytes[](srcTokenAmounts.length)
+      new bytes[](srcTokenAmounts.length),
+      new uint32[](0)
     );
   }
 
@@ -2782,7 +2920,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     vm.expectRevert(abi.encodeWithSelector(OffRamp.InvalidDataLength.selector, Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES, 64));
 
     s_offRamp.releaseOrMintTokens(
-      sourceTokenAmounts, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR_1, offchainTokenData
+      sourceTokenAmounts, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR_1, offchainTokenData, new uint32[](0)
     );
   }
 
@@ -2798,7 +2936,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     vm.expectRevert(abi.encodeWithSelector(Internal.InvalidEVMAddress.selector, wrongAddress));
 
     s_offRamp.releaseOrMintTokens(
-      sourceTokenAmounts, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR_1, offchainTokenData
+      sourceTokenAmounts, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR_1, offchainTokenData, new uint32[](0)
     );
   }
 
@@ -2816,7 +2954,9 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     });
 
     vm.expectRevert(abi.encodeWithSelector(OffRamp.NotACompatiblePool.selector, address(0)));
-    s_offRamp.releaseOrMintTokens(sourceTokenAmounts, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR_1, new bytes[](1));
+    s_offRamp.releaseOrMintTokens(
+      sourceTokenAmounts, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR_1, new bytes[](1), new uint32[](0)
+    );
   }
 
   function test_releaseOrMintTokens_PoolDoesNotSupportDest_Reverts() public {
@@ -2847,7 +2987,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     );
     vm.expectRevert();
     s_offRamp.releaseOrMintTokens(
-      sourceTokenAmounts, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR_3, offchainTokenData
+      sourceTokenAmounts, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR_3, offchainTokenData, new uint32[](0)
     );
   }
 
@@ -2869,7 +3009,7 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
     });
 
     try s_offRamp.releaseOrMintTokens(
-      sourceTokenAmounts, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR_1, new bytes[](1)
+      sourceTokenAmounts, abi.encode(OWNER), OWNER, SOURCE_CHAIN_SELECTOR_1, new bytes[](1), new uint32[](0)
     ) {} catch (bytes memory reason) {
       // Any revert should be a TokenHandlingError, InvalidEVMAddress, InvalidDataLength or NoContract as those are caught by the offramp
       assertTrue(

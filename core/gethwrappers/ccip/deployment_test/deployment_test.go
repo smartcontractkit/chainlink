@@ -48,8 +48,6 @@ func TestDeployAllV1_6(t *testing.T) {
 	}, offramp.OffRampDynamicConfig{
 		FeeQuoter:                               common.HexToAddress("0x4"),
 		PermissionLessExecutionThresholdSeconds: uint32((8 * time.Hour).Seconds()),
-		MaxTokenTransferGas:                     50_000,
-		MaxPoolReleaseOrMintGas:                 50_000,
 		MessageValidator:                        common.HexToAddress("0x5"),
 	}, nil)
 	require.NoError(t, err)
