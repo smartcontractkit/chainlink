@@ -284,7 +284,7 @@ func DeployChainContracts(
 		return ab, err
 	}
 
-	_, err = deployContract(e.Logger, chain, ab,
+	timelock, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*owner_helpers.RBACTimelock] {
 			timelock, tx, cc, err2 := owner_helpers.DeployRBACTimelock(
 				chain.DeployerKey,
@@ -437,7 +437,7 @@ func DeployChainContracts(
 					LinkToken:          linkToken.Address,
 					StalenessThreshold: uint32(24 * 60 * 60),
 				},
-				[]common.Address{}, // ramps added after
+				[]common.Address{timelock.Address},                 // timelock should be able to update, ramps added after
 				[]common.Address{weth9.Address, linkToken.Address}, // fee tokens
 				[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
 				[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{}, // TODO: tokens

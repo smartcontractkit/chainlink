@@ -22,12 +22,16 @@ func Apply0002(env deployment.Environment, c ccipdeployment.DeployCCIPContractCo
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	proposal, err := ccipdeployment.GenerateAcceptOwnershipProposal(env, env.AllChainSelectors(), ab)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
+	//state, err := ccipdeployment.LoadOnchainState(env, ab)
+	//if err != nil {
+	//	return deployment.ChangesetOutput{}, err
+	//}
+	//proposal, err := ccipdeployment.GenerateAcceptOwnershipProposal(state, c.HomeChainSel, c.ChainsToDeploy)
+	//if err != nil {
+	//	return deployment.ChangesetOutput{}, err
+	//}
 	return deployment.ChangesetOutput{
-		Proposals:   []timelock.MCMSWithTimelockProposal{proposal},
+		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
 		// Mapping of which nodes get which jobs.
 		JobSpecs: js,

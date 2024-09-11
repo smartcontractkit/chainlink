@@ -118,10 +118,10 @@ func TestAddChain(t *testing.T) {
 	for _, chain := range initialDeploy {
 		cfg, err2 := state.Chains[chain].OnRamp.GetDestChainConfig(nil, newChain)
 		require.NoError(t, err2)
-		t.Log("config", cfg)
+		assert.Equal(t, cfg.Router, state.Chains[chain].TestRouter.Address())
 		s, err2 := state.Chains[newChain].OffRamp.GetSourceChainConfig(nil, chain)
 		require.NoError(t, err2)
-		t.Log("config", s)
+		assert.Equal(t, common.LeftPadBytes(state.Chains[chain].OnRamp.Address().Bytes(), 32), s.OnRamp)
 	}
 
 	// Now that the proposal has been executed we expect to be able to send traffic to this new 4th chain.
