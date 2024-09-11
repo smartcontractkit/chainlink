@@ -70,8 +70,10 @@ Gun should be working with one instance of your product.
 VU(Virtual user) creates a new instance of your product and works with it in `Call()`
 
 ### Cluster mode (k8s)
+
 Add configuration to `overrides.toml`
-```
+
+```toml
 [WaspAutoBuild]
 namespace = "wasp"
 update_image = true
@@ -83,6 +85,5 @@ wasp_log_level = "debug"
 wasp_jobs = "1"
 keep_jobs = true
 ```
-
 
 And run your tests using `go test -v -run TestClusterEntrypoint`
