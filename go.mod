@@ -72,10 +72,10 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.24.3
 	github.com/shopspring/decimal v1.4.0
-	github.com/smartcontractkit/chain-selectors v1.0.21
+	github.com/smartcontractkit/chain-selectors v1.0.23
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240910072312-810030689426
-	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240910154010-ed9f50de7322
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240911145028-d346e3ace978
+	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240911152814-4836d1d7f16b
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240910210931-638ba8a76227
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240906125718-9f0a98d32fbc
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240910155501-42f20443189f
