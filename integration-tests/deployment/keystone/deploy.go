@@ -37,17 +37,12 @@ type DeployRequest struct {
 
 	DonToCapabilities map[string][]kcr.CapabilitiesRegistryCapability                   // from external source; the key is a human-readable name. TODO consider using the 'sortedHash' of p2pkeys as the key rather than a name
 	NodeIDToNop       map[string]capabilities_registry.CapabilitiesRegistryNodeOperator // TODO maybe should be derivable from JD interface but doesn't seem to be notion of NOP in JD
-	OCR3Config        *OracleConfigSource
+	OCR3Config        *OracleConfigSource                                               // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
 }
 
 type DeployResponse struct {
 	Changeset *deployment.ChangesetOutput
 	DonInfos  map[string]capabilities_registry.CapabilitiesRegistryDONInfo
-}
-
-type deployedContracts struct {
-	chain deployment.Chain
-	*deployerSet
 }
 
 func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*DeployResponse, error) {
@@ -736,6 +731,10 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
 		return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
 	}
-	//lggr.Infow("set OCR3 config", "don", don, "config", ocrConfig)
 	return &configureOCR3Response{ocrConfig}, nil
+}
+
+type deployedContracts struct {
+	chain deployment.Chain
+	*deployerSet
 }
