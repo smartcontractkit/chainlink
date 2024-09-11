@@ -6,13 +6,12 @@ import (
 
 	"github.com/gkampitakis/go-snaps/match"
 	"github.com/gkampitakis/go-snaps/snaps"
-	"github.com/test-go/testify/require"
 )
 
 func TestGenerateOCR3Config(t *testing.T) {
 	// Generate OCR3 config
-	config, err := loadAndGeneraterOCR3Config(".cache/NodeList.txt", "./testdata/SampleConfig.json", 11155111, "./testdata/PublicKeys.json")
-	require.NoError(t, err)
+	config := generateOCR3Config(".cache/NodeList.txt", "./testdata/SampleConfig.json", 11155111, "./testdata/PublicKeys.json")
+
 	matchOffchainConfig := match.Custom("OffchainConfig", func(s any) (any, error) {
 		// coerce the value to a string
 		s, ok := s.(string)

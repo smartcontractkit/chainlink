@@ -4,7 +4,6 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,6 +12,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -55,7 +55,7 @@ type NodeKeys struct {
 	CSAPublicKey          string
 }
 
-type Orc2drOracleConfig struct {
+type orc2drOracleConfig struct {
 	Signers               []common.Address
 	Transmitters          []common.Address
 	F                     uint8
@@ -64,7 +64,7 @@ type Orc2drOracleConfig struct {
 	OffchainConfig        []byte
 }
 
-func (c Orc2drOracleConfig) MarshalJSON() ([]byte, error) {
+func (c orc2drOracleConfig) MarshalJSON() ([]byte, error) {
 	alias := struct {
 		Signers               []string
 		Transmitters          []string
@@ -96,59 +96,54 @@ func mustReadConfig(fileName string) (output TopLevelConfigSource) {
 	return mustParseJSON[TopLevelConfigSource](fileName)
 }
 
-func loadAndGeneraterOCR3Config(nodeList string, configFile string, chainID int64, pubKeysPath string) (Orc2drOracleConfig, error) {
+func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKeysPath string) orc2drOracleConfig {
 	topLevelCfg := mustReadConfig(configFile)
 	cfg := topLevelCfg.OracleConfig
 	nca := downloadNodePubKeys(nodeList, chainID, pubKeysPath)
-	return generateOCR3Config(cfg, nca)
-}
 
-func generateOCR3Config(cfg OracleConfigSource, nodeKeys []NodeKeys) (Orc2drOracleConfig, error) {
 	onchainPubKeys := []common.Address{}
-	for _, n := range nodeKeys {
+	for _, n := range nca {
 		onchainPubKeys = append(onchainPubKeys, common.HexToAddress(n.OCR2OnchainPublicKey))
 	}
 
 	offchainPubKeysBytes := []types.OffchainPublicKey{}
-	for _, n := range nodeKeys {
+	for _, n := range nca {
 		pkBytes, err := hex.DecodeString(n.OCR2OffchainPublicKey)
 		if err != nil {
-			return Orc2drOracleConfig{}, err
+			panic(err)
 		}
 
 		pkBytesFixed := [ed25519.PublicKeySize]byte{}
 		nCopied := copy(pkBytesFixed[:], pkBytes)
 		if nCopied != ed25519.PublicKeySize {
-			return Orc2drOracleConfig{}, fmt.Errorf("wrong num elements copied")
+			panic("wrong num elements copied from ocr2 offchain public key")
 		}
 
 		offchainPubKeysBytes = append(offchainPubKeysBytes, types.OffchainPublicKey(pkBytesFixed))
 	}
 
 	configPubKeysBytes := []types.ConfigEncryptionPublicKey{}
-	for _, n := range nodeKeys {
+	for _, n := range nca {
 		pkBytes, err := hex.DecodeString(n.OCR2ConfigPublicKey)
-		if err != nil {
-			return Orc2drOracleConfig{}, err
-		}
+		helpers.PanicErr(err)
 
 		pkBytesFixed := [ed25519.PublicKeySize]byte{}
 		n := copy(pkBytesFixed[:], pkBytes)
 		if n != ed25519.PublicKeySize {
-			return Orc2drOracleConfig{}, fmt.Errorf("wrong num elements copied")
+			panic("wrong num elements copied")
 		}
 
 		configPubKeysBytes = append(configPubKeysBytes, types.ConfigEncryptionPublicKey(pkBytesFixed))
 	}
 
 	identities := []confighelper.OracleIdentityExtra{}
-	for index := range nodeKeys {
+	for index := range nca {
 		identities = append(identities, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
 				OnchainPublicKey:  onchainPubKeys[index][:],
 				OffchainPublicKey: offchainPubKeysBytes[index],
-				PeerID:            nodeKeys[index].P2PPeerID,
-				TransmitAccount:   types.Account(nodeKeys[index].EthAddress),
+				PeerID:            nca[index].P2PPeerID,
+				TransmitAccount:   types.Account(nca[index].EthAddress),
 			},
 			ConfigEncryptionPublicKey: configPubKeysBytes[index],
 		})
@@ -173,20 +168,14 @@ func generateOCR3Config(cfg OracleConfigSource, nodeKeys []NodeKeys) (Orc2drOrac
 		cfg.MaxFaultyOracles,
 		nil, // empty onChain config
 	)
-	if err != nil {
-		return Orc2drOracleConfig{}, err
-	}
+	helpers.PanicErr(err)
 
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
-	if err != nil {
-		return Orc2drOracleConfig{}, err
-	}
+	PanicErr(err)
 	transmitterAddresses, err := evm.AccountToAddress(transmitters)
-	if err != nil {
-		return Orc2drOracleConfig{}, err
-	}
+	PanicErr(err)
 
-	config := Orc2drOracleConfig{
+	config := orc2drOracleConfig{
 		Signers:               signerAddresses,
 		Transmitters:          transmitterAddresses,
 		F:                     f,
@@ -195,5 +184,5 @@ func generateOCR3Config(cfg OracleConfigSource, nodeKeys []NodeKeys) (Orc2drOrac
 		OffchainConfig:        offchainConfig,
 	}
 
-	return config, nil
+	return config
 }
