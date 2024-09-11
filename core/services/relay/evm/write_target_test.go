@@ -121,8 +121,6 @@ func TestEvmWrite(t *testing.T) {
 
 	chain.On("Client").Return(evmClient)
 
-	poller.EXPECT().HasFilter(mock.Anything).Return(false)
-
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		a := testutils.NewAddress()
 		addr, err2 := types.NewEIP55Address(a.Hex())
