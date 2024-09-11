@@ -495,6 +495,64 @@ func (_c *FeeQuoterInterface_ConvertTokenAmount_Call) RunAndReturn(run func(*bin
 	return _c
 }
 
+// FEEBASEDECIMALS provides a mock function with given fields: opts
+func (_m *FeeQuoterInterface) FEEBASEDECIMALS(opts *bind.CallOpts) (*big.Int, error) {
+	ret := _m.Called(opts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FEEBASEDECIMALS")
+	}
+
+	var r0 *big.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (*big.Int, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) *big.Int); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FeeQuoterInterface_FEEBASEDECIMALS_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FEEBASEDECIMALS'
+type FeeQuoterInterface_FEEBASEDECIMALS_Call struct {
+	*mock.Call
+}
+
+// FEEBASEDECIMALS is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FeeQuoterInterface_Expecter) FEEBASEDECIMALS(opts interface{}) *FeeQuoterInterface_FEEBASEDECIMALS_Call {
+	return &FeeQuoterInterface_FEEBASEDECIMALS_Call{Call: _e.mock.On("FEEBASEDECIMALS", opts)}
+}
+
+func (_c *FeeQuoterInterface_FEEBASEDECIMALS_Call) Run(run func(opts *bind.CallOpts)) *FeeQuoterInterface_FEEBASEDECIMALS_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FeeQuoterInterface_FEEBASEDECIMALS_Call) Return(_a0 *big.Int, _a1 error) *FeeQuoterInterface_FEEBASEDECIMALS_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FeeQuoterInterface_FEEBASEDECIMALS_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *FeeQuoterInterface_FEEBASEDECIMALS_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterAuthorizedCallerAdded provides a mock function with given fields: opts
 func (_m *FeeQuoterInterface) FilterAuthorizedCallerAdded(opts *bind.FilterOpts) (*fee_quoter.FeeQuoterAuthorizedCallerAddedIterator, error) {
 	ret := _m.Called(opts)
@@ -2129,6 +2187,64 @@ func (_c *FeeQuoterInterface_GetValidatedTokenPrice_Call) Return(_a0 *big.Int, _
 }
 
 func (_c *FeeQuoterInterface_GetValidatedTokenPrice_Call) RunAndReturn(run func(*bind.CallOpts, common.Address) (*big.Int, error)) *FeeQuoterInterface_GetValidatedTokenPrice_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// KEYSTONEPRICEDECIMALS provides a mock function with given fields: opts
+func (_m *FeeQuoterInterface) KEYSTONEPRICEDECIMALS(opts *bind.CallOpts) (*big.Int, error) {
+	ret := _m.Called(opts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for KEYSTONEPRICEDECIMALS")
+	}
+
+	var r0 *big.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (*big.Int, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) *big.Int); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FeeQuoterInterface_KEYSTONEPRICEDECIMALS_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'KEYSTONEPRICEDECIMALS'
+type FeeQuoterInterface_KEYSTONEPRICEDECIMALS_Call struct {
+	*mock.Call
+}
+
+// KEYSTONEPRICEDECIMALS is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FeeQuoterInterface_Expecter) KEYSTONEPRICEDECIMALS(opts interface{}) *FeeQuoterInterface_KEYSTONEPRICEDECIMALS_Call {
+	return &FeeQuoterInterface_KEYSTONEPRICEDECIMALS_Call{Call: _e.mock.On("KEYSTONEPRICEDECIMALS", opts)}
+}
+
+func (_c *FeeQuoterInterface_KEYSTONEPRICEDECIMALS_Call) Run(run func(opts *bind.CallOpts)) *FeeQuoterInterface_KEYSTONEPRICEDECIMALS_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FeeQuoterInterface_KEYSTONEPRICEDECIMALS_Call) Return(_a0 *big.Int, _a1 error) *FeeQuoterInterface_KEYSTONEPRICEDECIMALS_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FeeQuoterInterface_KEYSTONEPRICEDECIMALS_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *FeeQuoterInterface_KEYSTONEPRICEDECIMALS_Call {
 	_c.Call.Return(run)
 	return _c
 }

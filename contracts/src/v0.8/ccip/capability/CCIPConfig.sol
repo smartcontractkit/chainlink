@@ -51,10 +51,12 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
   error WrongConfigDigestBlueGreen(bytes32 got, bytes32 expected);
   error ZeroAddressNotAllowed();
 
-  /// @notice Type and version override.
+  event ConfigSet(uint32 indexed donId, uint8 indexed pluginType, CCIPConfigTypes.OCR3ConfigWithMeta[] config);
+
+  /// @dev Type and version override.
   string public constant override typeAndVersion = "CCIPConfig 1.6.0-dev";
 
-  /// @notice The canonical capabilities registry address.
+  /// @dev The canonical capabilities registry address.
   address internal immutable i_capabilitiesRegistry;
 
   uint8 internal constant MAX_OCR3_CONFIGS_PER_PLUGIN = 2;
@@ -66,18 +68,18 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
   /// @dev 256 is the hard limit due to the bit encoding of their indexes into a uint256.
   uint256 internal constant MAX_NUM_ORACLES = 256;
 
-  /// @notice chain configuration for each chain that CCIP is deployed on.
-  mapping(uint64 chainSelector => CCIPConfigTypes.ChainConfig chainConfig) internal s_chainConfigurations;
+  /// @dev chain configuration for each chain that CCIP is deployed on.
+  mapping(uint64 chainSelector => CCIPConfigTypes.ChainConfig chainConfig) private s_chainConfigurations;
 
-  /// @notice All chains that are configured.
-  EnumerableSet.UintSet internal s_remoteChainSelectors;
+  /// @dev All chains that are configured.
+  EnumerableSet.UintSet private s_remoteChainSelectors;
 
-  /// @notice OCR3 configurations for each DON.
+  /// @dev OCR3 configurations for each DON.
   /// Each CR DON will have a commit and execution configuration.
   /// This means that a DON can have up to 4 configurations, since we are implementing blue/green deployments.
   mapping(
     uint32 donId => mapping(Internal.OCRPluginType pluginType => CCIPConfigTypes.OCR3ConfigWithMeta[] ocr3Configs)
-  ) internal s_ocr3Configs;
+  ) private s_ocr3Configs;
 
   /// @param capabilitiesRegistry the canonical capabilities registry address.
   constructor(address capabilitiesRegistry) {
@@ -213,6 +215,8 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
     for (uint256 i = 0; i < newConfigWithMeta.length; ++i) {
       s_ocr3Configs[donId][pluginType].push(newConfigWithMeta[i]);
     }
+
+    emit ConfigSet(donId, uint8(pluginType), newConfigWithMeta);
   }
 
   // ================================================================

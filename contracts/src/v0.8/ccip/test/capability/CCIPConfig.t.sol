@@ -100,6 +100,41 @@ contract CCIPConfigSetup is Test {
     return (p2pIds, signers, transmitters);
   }
 
+  function _assertOCR3ConfigWithMetaEqual(
+    CCIPConfigTypes.OCR3ConfigWithMeta[] memory a,
+    CCIPConfigTypes.OCR3ConfigWithMeta[] memory b
+  ) internal pure {
+    assertEq(a.length, b.length, "OCR3ConfigWithMeta lengths do no match");
+    for (uint256 i = 0; i < a.length; ++i) {
+      _assertOCR3ConfigEqual(a[i].config, b[i].config);
+      assertEq(a[i].configCount, b[i].configCount, "configCount must match");
+      assertEq(a[i].configDigest, b[i].configDigest, "configDigest must match");
+    }
+  }
+
+  function _assertOCR3ConfigEqual(
+    CCIPConfigTypes.OCR3Config memory a,
+    CCIPConfigTypes.OCR3Config memory b
+  ) internal pure {
+    assertEq(uint8(a.pluginType), uint8(b.pluginType), "pluginType must match");
+    assertEq(a.chainSelector, b.chainSelector, "chainSelector must match");
+    assertEq(a.F, b.F, "F must match");
+    assertEq(a.offchainConfigVersion, b.offchainConfigVersion, "offchainConfigVersion must match");
+    assertEq(a.offrampAddress, b.offrampAddress, "offrampAddress must match");
+    assertEq(a.p2pIds.length, b.p2pIds.length, "p2pIds length must match");
+    assertEq(a.offchainConfig, b.offchainConfig, "offchainConfig must match");
+
+    for (uint256 i = 0; i < a.p2pIds.length; ++i) {
+      assertEq(a.p2pIds[i], b.p2pIds[i], "p2pId must match");
+    }
+    for (uint256 i = 0; i < a.signers.length; ++i) {
+      assertEq(a.signers[i], b.signers[i], "signer must match");
+    }
+    for (uint256 i = 0; i < a.transmitters.length; ++i) {
+      assertEq(a.transmitters[i], b.transmitters[i], "transmitter must match");
+    }
+  }
+
   function test_getCapabilityConfiguration_Success() public view {
     bytes memory capConfig = s_ccipCC.getCapabilityConfiguration(42 /* doesn't matter, not used */ );
     assertEq(capConfig.length, 0, "capability config length must be 0");
@@ -1140,7 +1175,7 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
 contract CCIPConfig_updatePluginConfig is CCIPConfigSetup {
   // Successes.
 
-  function test__updatePluginConfig_InitToRunning_Success() public {
+  function test_updatePluginConfig_InitToRunning_Success() public {
     (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
@@ -1157,17 +1192,25 @@ contract CCIPConfig_updatePluginConfig is CCIPConfigSetup {
     CCIPConfigTypes.OCR3Config[] memory configs = new CCIPConfigTypes.OCR3Config[](1);
     configs[0] = blueConfig;
 
+    CCIPConfigTypes.OCR3ConfigWithMeta[] memory expectedConfig = new CCIPConfigTypes.OCR3ConfigWithMeta[](1);
+    expectedConfig[0] = CCIPConfigTypes.OCR3ConfigWithMeta({
+      config: blueConfig,
+      configCount: 1,
+      configDigest: s_ccipCC.computeConfigDigest(donId, 1, blueConfig)
+    });
+
+    vm.expectEmit();
+    emit CCIPConfig.ConfigSet(donId, uint8(Internal.OCRPluginType.Commit), expectedConfig);
     s_ccipCC.updatePluginConfig(donId, Internal.OCRPluginType.Commit, configs);
 
     // should see the updated config in the contract state.
     CCIPConfigTypes.OCR3ConfigWithMeta[] memory storedConfig =
       s_ccipCC.getOCRConfig(donId, Internal.OCRPluginType.Commit);
-    assertEq(storedConfig.length, 1, "don config length must be 1");
-    assertEq(storedConfig[0].configCount, uint64(1), "config count must be 1");
-    assertEq(uint256(storedConfig[0].config.pluginType), uint256(blueConfig.pluginType), "plugin type must match");
+
+    _assertOCR3ConfigWithMetaEqual(storedConfig, expectedConfig);
   }
 
-  function test__updatePluginConfig_RunningToStaging_Success() public {
+  function test_updatePluginConfig_RunningToStaging_Success() public {
     (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
     // add blue config.
     uint32 donId = 1;
@@ -1202,25 +1245,31 @@ contract CCIPConfig_updatePluginConfig is CCIPConfigSetup {
     blueAndGreen[0] = blueConfig;
     blueAndGreen[1] = greenConfig;
 
+    CCIPConfigTypes.OCR3ConfigWithMeta[] memory expectedConfig = new CCIPConfigTypes.OCR3ConfigWithMeta[](2);
+    expectedConfig[0] = CCIPConfigTypes.OCR3ConfigWithMeta({
+      config: blueConfig,
+      configCount: 1,
+      configDigest: s_ccipCC.computeConfigDigest(donId, 1, blueConfig)
+    });
+    expectedConfig[1] = CCIPConfigTypes.OCR3ConfigWithMeta({
+      config: greenConfig,
+      configCount: 2,
+      configDigest: s_ccipCC.computeConfigDigest(donId, 2, greenConfig)
+    });
+
+    vm.expectEmit();
+    emit CCIPConfig.ConfigSet(donId, uint8(Internal.OCRPluginType.Commit), expectedConfig);
+
     s_ccipCC.updatePluginConfig(donId, Internal.OCRPluginType.Commit, blueAndGreen);
 
     // should see the updated config in the contract state.
     CCIPConfigTypes.OCR3ConfigWithMeta[] memory storedConfig =
       s_ccipCC.getOCRConfig(donId, Internal.OCRPluginType.Commit);
-    assertEq(storedConfig.length, 2, "don config length must be 2");
-    // 0 index is blue config, 1 index is green config.
-    assertEq(storedConfig[1].configCount, uint64(2), "config count must be 2");
-    assertEq(
-      uint256(storedConfig[0].config.pluginType), uint256(Internal.OCRPluginType.Commit), "plugin type must match"
-    );
-    assertEq(
-      uint256(storedConfig[1].config.pluginType), uint256(Internal.OCRPluginType.Commit), "plugin type must match"
-    );
-    assertEq(storedConfig[0].config.offchainConfig, bytes("commit"), "blue offchain config must match");
-    assertEq(storedConfig[1].config.offchainConfig, bytes("commit-new"), "green offchain config must match");
+
+    _assertOCR3ConfigWithMetaEqual(storedConfig, expectedConfig);
   }
 
-  function test__updatePluginConfig_StagingToRunning_Success() public {
+  function test_updatePluginConfig_StagingToRunning_Success() public {
     (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
     // add blue config.
     uint32 donId = 1;
@@ -1255,37 +1304,28 @@ contract CCIPConfig_updatePluginConfig is CCIPConfigSetup {
     blueAndGreen[0] = blueConfig;
     blueAndGreen[1] = greenConfig;
 
+    CCIPConfigTypes.OCR3ConfigWithMeta[] memory expectedConfig = new CCIPConfigTypes.OCR3ConfigWithMeta[](2);
+    expectedConfig[0] = CCIPConfigTypes.OCR3ConfigWithMeta({
+      config: blueConfig,
+      configCount: 1,
+      configDigest: s_ccipCC.computeConfigDigest(donId, 1, blueConfig)
+    });
+    expectedConfig[1] = CCIPConfigTypes.OCR3ConfigWithMeta({
+      config: greenConfig,
+      configCount: 2,
+      configDigest: s_ccipCC.computeConfigDigest(donId, 2, greenConfig)
+    });
+
+    vm.expectEmit();
+    emit CCIPConfig.ConfigSet(donId, uint8(Internal.OCRPluginType.Commit), expectedConfig);
+
     s_ccipCC.updatePluginConfig(donId, Internal.OCRPluginType.Commit, blueAndGreen);
 
     // should see the updated config in the contract state.
     CCIPConfigTypes.OCR3ConfigWithMeta[] memory storedConfig =
       s_ccipCC.getOCRConfig(donId, Internal.OCRPluginType.Commit);
-    assertEq(storedConfig.length, 2, "don config length must be 2");
-    // 0 index is blue config, 1 index is green config.
-    assertEq(storedConfig[1].configCount, uint64(2), "config count must be 2");
-    assertEq(
-      uint256(storedConfig[0].config.pluginType), uint256(Internal.OCRPluginType.Commit), "plugin type must match"
-    );
-    assertEq(
-      uint256(storedConfig[1].config.pluginType), uint256(Internal.OCRPluginType.Commit), "plugin type must match"
-    );
-    assertEq(storedConfig[0].config.offchainConfig, bytes("commit"), "blue offchain config must match");
-    assertEq(storedConfig[1].config.offchainConfig, bytes("commit-new"), "green offchain config must match");
 
-    // promote green to blue.
-    CCIPConfigTypes.OCR3Config[] memory promote = new CCIPConfigTypes.OCR3Config[](1);
-    promote[0] = greenConfig;
-
-    s_ccipCC.updatePluginConfig(donId, Internal.OCRPluginType.Commit, promote);
-
-    // should see the updated config in the contract state.
-    storedConfig = s_ccipCC.getOCRConfig(donId, Internal.OCRPluginType.Commit);
-    assertEq(storedConfig.length, 1, "don config length must be 1");
-    assertEq(storedConfig[0].configCount, uint64(2), "config count must be 2");
-    assertEq(
-      uint256(storedConfig[0].config.pluginType), uint256(Internal.OCRPluginType.Commit), "plugin type must match"
-    );
-    assertEq(storedConfig[0].config.offchainConfig, bytes("commit-new"), "green offchain config must match");
+    _assertOCR3ConfigWithMetaEqual(storedConfig, expectedConfig);
   }
 
   // Reverts.

@@ -108,20 +108,20 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   // STATIC CONFIG
   string public constant override typeAndVersion = "OnRamp 1.6.0-dev";
   /// @dev The chain ID of the source chain that this contract is deployed to
-  uint64 internal immutable i_chainSelector;
+  uint64 private immutable i_chainSelector;
   /// @dev The rmn contract
-  IRMNV2 internal immutable i_rmn;
+  IRMNV2 private immutable i_rmn;
   /// @dev The address of the nonce manager
-  address internal immutable i_nonceManager;
+  address private immutable i_nonceManager;
   /// @dev The address of the token admin registry
-  address internal immutable i_tokenAdminRegistry;
+  address private immutable i_tokenAdminRegistry;
 
   // DYNAMIC CONFIG
   /// @dev The dynamic config for the onRamp
-  DynamicConfig internal s_dynamicConfig;
+  DynamicConfig private s_dynamicConfig;
 
   /// @dev The destination chain specific configs
-  mapping(uint64 destChainSelector => DestChainConfig destChainConfig) internal s_destChainConfigs;
+  mapping(uint64 destChainSelector => DestChainConfig destChainConfig) private s_destChainConfigs;
 
   constructor(
     StaticConfig memory staticConfig,

@@ -6,7 +6,7 @@ import {Internal} from "../libraries/Internal.sol";
 import {IPriceRegistry} from "./IPriceRegistry.sol";
 
 interface IFeeQuoter is IPriceRegistry {
-  /// @notice Token price data feed configuration
+  /// @dev Token price data feed configuration
   struct TokenPriceFeedConfig {
     address dataFeedAddress; // ──╮ AggregatorV3Interface contract (0 - feed is unset)
     uint8 tokenDecimals; // ──────╯ Decimals of the token that the feed represents

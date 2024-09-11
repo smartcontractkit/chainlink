@@ -83,7 +83,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   event RootRemoved(bytes32 root);
   event SkippedReportExecution(uint64 sourceChainSelector);
 
-  /// @notice Struct that contains the static configuration
+  /// @dev Struct that contains the static configuration
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   /// @dev not sure why solhint complains about this, seems like a buggy detector
   /// https://github.com/protofire/solhint/issues/597
@@ -95,7 +95,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     address nonceManager; // Nonce manager address
   }
 
-  /// @notice Per-chain source config (defining a lane from a Source Chain -> Dest OffRamp)
+  /// @dev Per-chain source config (defining a lane from a Source Chain -> Dest OffRamp)
   struct SourceChainConfig {
     IRouter router; // ──────────╮  Local router to use for messages coming from this source chain
     bool isEnabled; //           |  Flag whether the source chain is enabled or not
@@ -103,7 +103,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     bytes onRamp; // OnRamp address on the source chain
   }
 
-  /// @notice Same as SourceChainConfig but with source chain selector so that an array of these
+  /// @dev Same as SourceChainConfig but with source chain selector so that an array of these
   /// can be passed in the constructor and the applySourceChainConfigUpdates function.
   struct SourceChainConfigArgs {
     IRouter router; // ────────────────╮  Local router to use for messages coming from this source chain
@@ -112,7 +112,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     bytes onRamp; // OnRamp address on the source chain
   }
 
-  /// @notice Dynamic offRamp config
+  /// @dev Dynamic offRamp config
   /// @dev Since DynamicConfig is part of DynamicConfigSet event, if changing it, we should update the ABI on Atlas
   struct DynamicConfig {
     address feeQuoter; // ──────────────────────────────╮ FeeQuoter address on the local chain
@@ -122,7 +122,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     address messageValidator; // Optional message validator to validate incoming messages (zero address = no validator)
   }
 
-  /// @notice Report that is committed by the observing DON at the committing phase
+  /// @dev Report that is committed by the observing DON at the committing phase
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct CommitReport {
     Internal.PriceUpdates priceUpdates; // Collection of gas and price updates to commit
@@ -146,7 +146,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
 
   /// @notice SourceChainConfig per chain
   /// (forms lane configurations from sourceChainSelector => StaticConfig.chainSelector)
-  mapping(uint64 sourceChainSelector => SourceChainConfig sourceChainConfig) internal s_sourceChainConfigs;
+  mapping(uint64 sourceChainSelector => SourceChainConfig sourceChainConfig) private s_sourceChainConfigs;
 
   // STATE
   /// @dev A mapping of sequence numbers (per source chain) to execution state using a bitmap with each execution
