@@ -1004,5 +1004,4 @@ func testOffRampRateLimits(t *testing.T, rateLimiterConfig contracts.RateLimiter
 			require.NoError(t, err, "Error manually executing transaction after rate limit is lifted")
 		})
 	}
-
 }
