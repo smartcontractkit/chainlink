@@ -8,7 +8,6 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -65,7 +64,6 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 				Configs: map[string]*relayevmtypes.ChainWriterDefinition{
 					"report": {
 						ChainSpecificName: "report",
-						Checker:           "simulate",
 						FromAddress:       config.FromAddress().Address(),
 						GasLimit:          gasLimitDefault,
 					},
