@@ -113,6 +113,14 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	sid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, streamsTrigger.LabelledName, streamsTrigger.Version)
 	require.NoError(t, err)
 
+	cronTrigger := kcr.CapabilitiesRegistryCapability{
+		LabelledName:   "cron-trigger",
+		Version:        "1.0.0",
+		CapabilityType: CapabilityTypeTrigger,
+	}
+	cid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, cronTrigger.LabelledName, cronTrigger.Version)
+	require.NoError(t, err)
+
 	writeChain := kcr.CapabilitiesRegistryCapability{
 		LabelledName: "write_geth-testnet",
 		Version:      "1.0.0",
@@ -123,6 +131,14 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	if err != nil {
 		log.Printf("failed to call GetHashedCapabilityId: %s", err)
 	}
+
+	kvstore := kcr.CapabilitiesRegistryCapability{
+		LabelledName:   "kv-store-target",
+		Version:        "1.0.0",
+		CapabilityType: CapabilityTypeTarget,
+	}
+	kvid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, kvstore.LabelledName, kvstore.Version)
+	require.NoError(t, err)
 
 	ocr := kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "offchain_reporting",
@@ -136,6 +152,8 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		streamsTrigger,
 		writeChain,
 		ocr,
+		cronTrigger,
+		kvstore,
 	})
 	require.NoError(t, err)
 	backend.Commit()
@@ -168,7 +186,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		n, innerErr := peerToNode(nopID, wfPeer)
 		require.NoError(t, innerErr)
 
-		n.HashedCapabilityIds = [][32]byte{ocrid}
+		n.HashedCapabilityIds = [][32]byte{ocrid, cid}
 		nodes = append(nodes, n)
 	}
 
@@ -184,7 +202,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		n, innerErr := peerToNode(nopID, targetPeer)
 		require.NoError(t, innerErr)
 
-		n.HashedCapabilityIds = [][32]byte{wid}
+		n.HashedCapabilityIds = [][32]byte{wid, kvid}
 		nodes = append(nodes, n)
 	}
 
@@ -202,6 +220,10 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: ocrid,
+			Config:       ccb,
+		},
+		{
+			CapabilityId: cid,
 			Config:       ccb,
 		},
 	}
@@ -259,6 +281,10 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	cfgs = []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: wid,
+			Config:       remoteTargetConfigBytes,
+		},
+		{
+			CapabilityId: kvid,
 			Config:       remoteTargetConfigBytes,
 		},
 	}

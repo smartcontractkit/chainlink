@@ -26,7 +26,7 @@ func Test_AllAtOnceTransmissionSchedule(t *testing.T) {
 	triggerDonInfo := createDonInfo(t, don{id: 2, numNodes: 7, f: 2})
 	targetDonInfo := createDonInfo(t, don{id: 3, numNodes: 4, f: 1})
 
-	consumer, feedIDs, triggerSink := setupStreamDonsWithTransmissionSchedule(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, 3,
+	consumer, feedIDs, triggerSink := setupDonsWithTransmissionScheduleStreams(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, 3,
 		"2s", "allAtOnce")
 
 	reports := []*datastreams.FeedReport{
@@ -49,7 +49,7 @@ func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
 	triggerDonInfo := createDonInfo(t, don{id: 2, numNodes: 7, f: 2})
 	targetDonInfo := createDonInfo(t, don{id: 3, numNodes: 4, f: 1})
 
-	consumer, feedIDs, triggerSink := setupStreamDonsWithTransmissionSchedule(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, 3,
+	consumer, feedIDs, triggerSink := setupDonsWithTransmissionScheduleStreams(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, 3,
 		"2s", "oneAtATime")
 
 	reports := []*datastreams.FeedReport{

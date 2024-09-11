@@ -9,10 +9,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 )
 
-const hardcodedWorkflow = `
+const workflowTemplateStreams = `
 name: "%s"
 owner: "0x%s"
 triggers:
@@ -49,7 +50,7 @@ targets:
       schedule: %s
 `
 
-func addWorkflowJob(t *testing.T, app *cltest.TestApplication,
+func addWorkflowJobStreams(t *testing.T, app *cltest.TestApplication,
 	workflowName string,
 	workflowOwner string,
 	feedIDs []string,
@@ -66,10 +67,101 @@ func addWorkflowJob(t *testing.T, app *cltest.TestApplication,
 		aggregationFeeds += fmt.Sprintf("          \"%s\":\n            deviation: \"0.001\"\n            heartbeat: 3600\n", feedID)
 	}
 
-	workflowJobSpec := testspecs.GenerateWorkflowJobSpec(t, fmt.Sprintf(hardcodedWorkflow, workflowName, workflowOwner, triggerFeedIDs, aggregationFeeds,
+	workflowJobSpec := testspecs.GenerateWorkflowJobSpec(t, fmt.Sprintf(workflowTemplateStreams, workflowName, workflowOwner, triggerFeedIDs, aggregationFeeds,
 		consumerAddr.String(), deltaStage, schedule))
 	job := workflowJobSpec.Job()
 
 	err := app.AddJobV2(testutils.Context(t), &job)
+	require.NoError(t, err)
+}
+
+const workflowTemplatePoR = `
+name: "%s"
+owner: "0x%s"
+triggers:
+  - id: "cron-trigger@1.0.0"
+    ref: "trigger"
+    config:
+      schedule:
+        \"%s\"
+
+# Compute
+
+# Consensus
+
+targets:
+  - id: "kv-store-target@1.0.0"
+    inputs:
+      signed_report: "$(trigger.outputs)"
+    config:
+      deltaStage: %s
+      schedule: %s
+`
+
+func addWorkflowJobPoR(
+	t *testing.T,
+	app *cltest.TestApplication,
+	workflowName string,
+	workflowOwner string,
+	cronSchedule string,
+	consumerAddr common.Address,
+	deltaStage string,
+	schedule string,
+) {
+	workflowJobSpec := testspecs.GenerateWorkflowJobSpec(
+		t,
+		fmt.Sprintf(
+			workflowTemplatePoR,
+			workflowName,
+			workflowOwner,
+			cronSchedule,
+			deltaStage,
+			schedule,
+		),
+	)
+
+	job := workflowJobSpec.Job()
+
+	err := app.AddJobV2(testutils.Context(t), &job)
+	require.NoError(t, err)
+}
+
+const standardCapabilityTemplateCron = `
+type = "standardcapabilities"
+schemaVersion = 1
+name = "cron-capabilities"
+command="./cron"
+config=""
+`
+
+func addStandardCapabilityCron(
+	t *testing.T,
+	app *cltest.TestApplication,
+) {
+	// Add Cron
+	job, err := standardcapabilities.ValidatedStandardCapabilitiesSpec(standardCapabilityTemplateCron)
+	require.NoError(t, err)
+
+	err = app.AddJobV2(testutils.Context(t), &job)
+	require.NoError(t, err)
+}
+
+const standardCapabilityTemplateKeyValue = `
+type = "standardcapabilities"
+schemaVersion = 1
+name = "kvstore-capabilities"
+command="./kvstore"
+config=""
+`
+
+func addStandardCapabilityKV(
+	t *testing.T,
+	app *cltest.TestApplication,
+) {
+	// Add KVStore
+	job, err := standardcapabilities.ValidatedStandardCapabilitiesSpec(standardCapabilityTemplateKeyValue)
+	require.NoError(t, err)
+
+	err = app.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)
 }

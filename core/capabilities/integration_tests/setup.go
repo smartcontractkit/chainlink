@@ -63,7 +63,7 @@ type donInfo struct {
 	peerIDs    []peer
 }
 
-func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, workflowDonInfo donInfo, triggerDonInfo donInfo, targetDonInfo donInfo,
+func setupDonsWithTransmissionScheduleStreams(ctx context.Context, t *testing.T, workflowDonInfo donInfo, triggerDonInfo donInfo, targetDonInfo donInfo,
 	feedCount int, deltaStage string, schedule string) (*feeds_consumer.KeystoneFeedsConsumer, []string, *reportsSink) {
 	lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(TestLogLevel)
@@ -86,13 +86,45 @@ func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, 
 		ethBlockchain, capabilitiesRegistryAddr, forwarderAddr,
 		workflowDonInfo.keyBundles, transactor, libocr)
 	for _, node := range workflowDonNodes {
-		addWorkflowJob(t, node, workflowName, workflowOwnerID, feedIDs, consumerAddr, deltaStage, schedule)
+		addWorkflowJobStreams(t, node, workflowName, workflowOwnerID, feedIDs, consumerAddr, deltaStage, schedule)
 	}
 
 	servicetest.Run(t, ethBlockchain)
 	servicetest.Run(t, libocr)
 	servicetest.Run(t, sink)
 	return consumer, feedIDs, sink
+}
+
+func setupDonsWithTransmissionSchedulePoR(ctx context.Context, t *testing.T, workflowDonInfo donInfo, triggerDonInfo donInfo, targetDonInfo donInfo, cronSchedule string, deltaStage string, schedule string) logger.SugaredLogger {
+	lggr := logger.TestLogger(t)
+	lggr.SetLogLevel(TestLogLevel)
+
+	ethBlockchain, transactor := setupBlockchain(t, 1000, 1*time.Second)
+	capabilitiesRegistryAddr := setupCapabilitiesRegistryContract(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, transactor, ethBlockchain)
+	forwarderAddr, _ := setupForwarderContract(t, workflowDonInfo, transactor, ethBlockchain)
+	consumerAddr, _ := setupConsumerContract(t, transactor, ethBlockchain, forwarderAddr, workflowOwnerID, workflowName)
+
+	sink := newReportsSink()
+
+	libocr := newMockLibOCR(t, workflowDonInfo.F, 1*time.Second)
+	workflowDonNodes, _, targetDonNodes := createDons(ctx, t, lggr, sink,
+		workflowDonInfo, triggerDonInfo, targetDonInfo,
+		ethBlockchain, capabilitiesRegistryAddr, forwarderAddr,
+		workflowDonInfo.keyBundles, transactor, libocr)
+	for _, node := range workflowDonNodes {
+		addStandardCapabilityCron(t, node)
+		addWorkflowJobPoR(t, node, workflowName, workflowOwnerID, cronSchedule, consumerAddr, deltaStage, schedule)
+	}
+
+	for _, node := range targetDonNodes {
+		addStandardCapabilityKV(t, node)
+	}
+
+	servicetest.Run(t, ethBlockchain)
+	servicetest.Run(t, libocr)
+	servicetest.Run(t, sink)
+
+	return lggr
 }
 
 func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSink *reportsSink,
