@@ -3120,7 +3120,7 @@ contract OffRamp_commit is OffRampSetup {
     OffRamp.CommitReport memory commitReport = _constructCommitReport();
 
     vm.expectEmit();
-    emit OffRamp.CommitReportAccepted(commitReport);
+    emit OffRamp.CommitReportAccepted(commitReport.merkleRoots, commitReport.priceUpdates);
 
     vm.expectEmit();
     emit MultiOCR3Base.Transmitted(uint8(Internal.OCRPluginType.Commit), s_configDigestCommit, s_latestSequenceNumber);
@@ -3148,7 +3148,7 @@ contract OffRamp_commit is OffRampSetup {
       OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
 
     vm.expectEmit();
-    emit OffRamp.CommitReportAccepted(commitReport);
+    emit OffRamp.CommitReportAccepted(commitReport.merkleRoots, commitReport.priceUpdates);
 
     vm.expectEmit();
     emit MultiOCR3Base.Transmitted(uint8(Internal.OCRPluginType.Commit), s_configDigestCommit, s_latestSequenceNumber);
@@ -3176,7 +3176,7 @@ contract OffRamp_commit is OffRampSetup {
       OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: s_rmnSignatures});
 
     vm.expectEmit();
-    emit OffRamp.CommitReportAccepted(commitReport);
+    emit OffRamp.CommitReportAccepted(commitReport.merkleRoots, commitReport.priceUpdates);
 
     vm.expectEmit();
     emit MultiOCR3Base.Transmitted(uint8(Internal.OCRPluginType.Commit), s_configDigestCommit, s_latestSequenceNumber);
@@ -3191,7 +3191,7 @@ contract OffRamp_commit is OffRampSetup {
     commitReport.merkleRoots[0].merkleRoot = "stale report 2";
 
     vm.expectEmit();
-    emit OffRamp.CommitReportAccepted(commitReport);
+    emit OffRamp.CommitReportAccepted(commitReport.merkleRoots, commitReport.priceUpdates);
 
     vm.expectEmit();
     emit MultiOCR3Base.Transmitted(uint8(Internal.OCRPluginType.Commit), s_configDigestCommit, s_latestSequenceNumber);
@@ -3327,7 +3327,7 @@ contract OffRamp_commit is OffRampSetup {
     commitReport.merkleRoots = roots;
 
     vm.expectEmit();
-    emit OffRamp.CommitReportAccepted(commitReport);
+    emit OffRamp.CommitReportAccepted(commitReport.merkleRoots, commitReport.priceUpdates);
 
     vm.expectEmit();
     emit MultiOCR3Base.Transmitted(uint8(Internal.OCRPluginType.Commit), s_configDigestCommit, s_latestSequenceNumber);

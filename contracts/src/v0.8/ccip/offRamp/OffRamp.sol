@@ -79,7 +79,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   event SkippedAlreadyExecutedMessage(uint64 sourceChainSelector, uint64 sequenceNumber);
   event AlreadyAttempted(uint64 sourceChainSelector, uint64 sequenceNumber);
   /// @dev RMN depends on this event, if changing, please notify the RMN maintainers.
-  event CommitReportAccepted(CommitReport report);
+  event CommitReportAccepted(Internal.MerkleRoot[] merkleRoots, Internal.PriceUpdates priceUpdates);
   event RootRemoved(bytes32 root);
   event SkippedReportExecution(uint64 sourceChainSelector);
 
@@ -635,7 +635,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       s_roots[root.sourceChainSelector][merkleRoot] = block.timestamp;
     }
 
-    emit CommitReportAccepted(commitReport);
+    emit CommitReportAccepted(commitReport.merkleRoots, commitReport.priceUpdates);
 
     _transmit(uint8(Internal.OCRPluginType.Commit), reportContext, report, rs, ss, rawVs);
   }
