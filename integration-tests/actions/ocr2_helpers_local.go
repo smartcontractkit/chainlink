@@ -19,7 +19,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"

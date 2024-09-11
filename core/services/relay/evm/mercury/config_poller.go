@@ -54,7 +54,7 @@ func unpackLogData(d []byte) (*verifier.VerifierConfigSet, error) {
 	return unpacked, nil
 }
 
-func configFromLog(logData []byte) (FullConfigFromLog, error) {
+func ConfigFromLog(logData []byte) (FullConfigFromLog, error) {
 	unpacked, err := unpackLogData(logData)
 	if err != nil {
 		return FullConfigFromLog{}, err
@@ -99,6 +99,7 @@ func FilterName(addr common.Address, feedID common.Hash) string {
 
 // NewConfigPoller creates a new Mercury ConfigPoller
 func NewConfigPoller(ctx context.Context, lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash) (*ConfigPoller, error) {
+	fmt.Println("TRASH RegisterFilter", FilterName(addr, feedId))
 	err := destChainPoller.RegisterFilter(ctx, logpoller.Filter{Name: FilterName(addr, feedId), EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
@@ -140,7 +141,7 @@ func (cp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 		return 0, ocrtypes.ConfigDigest{}, nil
 	}
 	latest := logs[len(logs)-1]
-	latestConfigSet, err := configFromLog(latest.Data)
+	latestConfigSet, err := ConfigFromLog(latest.Data)
 	if err != nil {
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
@@ -156,7 +157,7 @@ func (cp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 	if len(lgs) == 0 {
 		return ocrtypes.ContractConfig{}, nil
 	}
-	latestConfigSet, err := configFromLog(lgs[len(lgs)-1].Data)
+	latestConfigSet, err := ConfigFromLog(lgs[len(lgs)-1].Data)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}

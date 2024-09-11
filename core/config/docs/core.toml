@@ -15,6 +15,8 @@ LogPoller = false # Default
 UICSAKeys = false # Default
 # CCIP enables the CCIP service.
 CCIP = true # Default
+# MultiFeedsManagers enables support for multiple feeds manager connections.
+MultiFeedsManagers = false # Default
 
 [Database]
 # DefaultIdleInTxSessionTimeout is the maximum time allowed for a transaction to be open and idle before timing out. See Postgres `idle_in_transaction_session_timeout` for more details.
@@ -450,6 +452,22 @@ NetworkID = 'evm' # Default
 # ChainID identifies the target chain id where the remote registry is located.
 ChainID = '1' # Default
 
+[Capabilities.Dispatcher]
+# SupportedVersion is the version of the version of message schema.
+SupportedVersion = 1 # Default
+# ReceiverBufferSize is the size of the buffer for incoming messages.
+ReceiverBufferSize = 10000 # Default
+
+[Capabilities.Dispatcher.RateLimit]
+# GlobalRPS is the global rate limit for the dispatcher.
+GlobalRPS = 800 # Default
+# GlobalBurst is the global burst limit for the dispatcher.
+GlobalBurst = 1000 # Default
+# PerSenderRPS is the per-sender rate limit for the dispatcher.
+PerSenderRPS = 10 # Default
+# PerSenderBurst is the per-sender burst limit for the dispatcher.
+PerSenderBurst = 50 # Default
+
 [Capabilities.Peering]
 # IncomingMessageBufferSize is the per-remote number of incoming
 # messages to buffer. Any additional messages received on top of those
@@ -490,6 +508,26 @@ DeltaReconcile = '1m' # Default
 # ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`, 
 # but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
+
+[Capabilities.GatewayConnector]
+# ChainIDForNodeKey is the ChainID of the network associated with a private key to be used for authentication with Gateway nodes
+ChainIDForNodeKey = '11155111' # Example
+# NodeAddress is the address of the desired private key to be used for authentication with Gateway nodes
+NodeAddress = '0x68902d681c28119f9b2531473a417088bf008e59' # Example
+# DonID is the Id of the Don
+DonID = 'example_don' # Example
+# WSHandshakeTimeoutMillis is Websocket handshake timeout
+WSHandshakeTimeoutMillis = 1000 # Example
+# AuthMinChallengeLen is the minimum number of bytes in authentication challenge payload
+AuthMinChallengeLen = 10 # Example
+# AuthTimestampToleranceSec is Authentication timestamp tolerance
+AuthTimestampToleranceSec = 10 # Example
+
+[[Capabilities.GatewayConnector.Gateways]]
+# ID of the Gateway
+ID = 'example_gateway' # Example
+# URL of the Gateway
+URL = 'wss://localhost:8081/node' # Example
 
 [Keeper]
 # **ADVANCED**

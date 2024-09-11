@@ -51,10 +51,7 @@ func (r *ReportFormatEVMPremiumLegacyOpts) Decode(opts []byte) error {
 		// special case if opts are unspecified, just use the zero options rather than erroring
 		return nil
 	}
-	if err := json.Unmarshal(opts, r); err != nil {
-		return err
-	}
-	return nil
+	return json.Unmarshal(opts, r)
 }
 
 func (r ReportCodecPremiumLegacy) Encode(report llo.Report, cd llotypes.ChannelDefinition) ([]byte, error) {

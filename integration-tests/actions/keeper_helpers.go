@@ -14,8 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/lib/concurrency"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/ethereum/go-ethereum/common"

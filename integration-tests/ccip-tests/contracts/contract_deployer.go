@@ -22,12 +22,11 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
@@ -37,11 +36,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool_1_4_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
@@ -74,7 +74,7 @@ func MatchContractVersionsOrAbove(requiredContractVersions map[Name]Version) err
 }
 
 // NeedTokenAdminRegistry checks if token admin registry is needed for the current version of ccip
-// if the version is less than 1.5.0-dev, then token admin registry is not needed
+// if the version is less than 1.5.0, then token admin registry is not needed
 func NeedTokenAdminRegistry() bool {
 	return MatchContractVersionsOrAbove(map[Name]Version{
 		TokenPoolContract: V1_5_0_dev,
@@ -541,18 +541,18 @@ func (e *CCIPContractsDeployer) DeployLockReleaseTokenPoolContract(tokenAddr str
 	}
 }
 
-func (e *CCIPContractsDeployer) DeployMockARMContract() (*common.Address, error) {
+func (e *CCIPContractsDeployer) DeployMockRMNContract() (*common.Address, error) {
 	address, _, _, err := e.evmClient.DeployContract("Mock ARM Contract", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return mock_arm_contract.DeployMockARMContract(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
+		return mock_rmn_contract.DeployMockRMNContract(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
 	})
 	return address, err
 }
 
-func (e *CCIPContractsDeployer) NewARMContract(addr common.Address) (*ARM, error) {
-	arm, err := arm_contract.NewARMContract(addr, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
+func (e *CCIPContractsDeployer) NewRMNContract(addr common.Address) (*ARM, error) {
+	arm, err := rmn_contract.NewRMNContract(addr, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
 	if err != nil {
 		return nil, err
 	}
@@ -1044,7 +1044,6 @@ func (e *CCIPContractsDeployer) DeployOnRamp(
 					MaxPerMsgGasLimit:                 4_000_000,
 					DefaultTokenFeeUSDCents:           50,
 					DefaultTokenDestGasOverhead:       125_000,
-					DefaultTokenDestBytesOverhead:     500,
 				},
 				evm_2_evm_onramp.RateLimiterConfig{
 					Capacity: opts.Capacity,
@@ -1289,30 +1288,30 @@ func OCR2ParamsForCommit(blockTime time.Duration) contracts.OffChainAggregatorV2
 	// slow blocktime chains like Ethereum
 	if blockTime >= 10*time.Second {
 		return contracts.OffChainAggregatorV2Config{
-			DeltaProgress:                           2 * time.Minute,
-			DeltaResend:                             5 * time.Second,
-			DeltaRound:                              90 * time.Second,
-			DeltaGrace:                              5 * time.Second,
-			DeltaStage:                              60 * time.Second,
-			MaxDurationQuery:                        100 * time.Millisecond,
-			MaxDurationObservation:                  35 * time.Second,
-			MaxDurationReport:                       10 * time.Second,
-			MaxDurationShouldAcceptFinalizedReport:  5 * time.Second,
-			MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
+			DeltaProgress:                           config.MustNewDuration(2 * time.Minute),
+			DeltaResend:                             config.MustNewDuration(5 * time.Second),
+			DeltaRound:                              config.MustNewDuration(90 * time.Second),
+			DeltaGrace:                              config.MustNewDuration(5 * time.Second),
+			DeltaStage:                              config.MustNewDuration(60 * time.Second),
+			MaxDurationQuery:                        config.MustNewDuration(100 * time.Millisecond),
+			MaxDurationObservation:                  config.MustNewDuration(35 * time.Second),
+			MaxDurationReport:                       config.MustNewDuration(10 * time.Second),
+			MaxDurationShouldAcceptFinalizedReport:  config.MustNewDuration(5 * time.Second),
+			MaxDurationShouldTransmitAcceptedReport: config.MustNewDuration(10 * time.Second),
 		}
 	}
 	// fast blocktime chains like Avalanche
 	return contracts.OffChainAggregatorV2Config{
-		DeltaProgress:                           2 * time.Minute,
-		DeltaResend:                             5 * time.Second,
-		DeltaRound:                              60 * time.Second,
-		DeltaGrace:                              5 * time.Second,
-		DeltaStage:                              25 * time.Second,
-		MaxDurationQuery:                        100 * time.Millisecond,
-		MaxDurationObservation:                  35 * time.Second,
-		MaxDurationReport:                       10 * time.Second,
-		MaxDurationShouldAcceptFinalizedReport:  5 * time.Second,
-		MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
+		DeltaProgress:                           config.MustNewDuration(2 * time.Minute),
+		DeltaResend:                             config.MustNewDuration(5 * time.Second),
+		DeltaRound:                              config.MustNewDuration(60 * time.Second),
+		DeltaGrace:                              config.MustNewDuration(5 * time.Second),
+		DeltaStage:                              config.MustNewDuration(25 * time.Second),
+		MaxDurationQuery:                        config.MustNewDuration(100 * time.Millisecond),
+		MaxDurationObservation:                  config.MustNewDuration(35 * time.Second),
+		MaxDurationReport:                       config.MustNewDuration(10 * time.Second),
+		MaxDurationShouldAcceptFinalizedReport:  config.MustNewDuration(5 * time.Second),
+		MaxDurationShouldTransmitAcceptedReport: config.MustNewDuration(10 * time.Second),
 	}
 }
 
@@ -1320,30 +1319,30 @@ func OCR2ParamsForExec(blockTime time.Duration) contracts.OffChainAggregatorV2Co
 	// slow blocktime chains like Ethereum
 	if blockTime >= 10*time.Second {
 		return contracts.OffChainAggregatorV2Config{
-			DeltaProgress:                           2 * time.Minute,
-			DeltaResend:                             5 * time.Second,
-			DeltaRound:                              90 * time.Second,
-			DeltaGrace:                              5 * time.Second,
-			DeltaStage:                              60 * time.Second,
-			MaxDurationQuery:                        100 * time.Millisecond,
-			MaxDurationObservation:                  35 * time.Second,
-			MaxDurationReport:                       10 * time.Second,
-			MaxDurationShouldAcceptFinalizedReport:  5 * time.Second,
-			MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
+			DeltaProgress:                           config.MustNewDuration(2 * time.Minute),
+			DeltaResend:                             config.MustNewDuration(5 * time.Second),
+			DeltaRound:                              config.MustNewDuration(90 * time.Second),
+			DeltaGrace:                              config.MustNewDuration(5 * time.Second),
+			DeltaStage:                              config.MustNewDuration(60 * time.Second),
+			MaxDurationQuery:                        config.MustNewDuration(100 * time.Millisecond),
+			MaxDurationObservation:                  config.MustNewDuration(35 * time.Second),
+			MaxDurationReport:                       config.MustNewDuration(10 * time.Second),
+			MaxDurationShouldAcceptFinalizedReport:  config.MustNewDuration(5 * time.Second),
+			MaxDurationShouldTransmitAcceptedReport: config.MustNewDuration(10 * time.Second),
 		}
 	}
 	// fast blocktime chains like Avalanche
 	return contracts.OffChainAggregatorV2Config{
-		DeltaProgress:                           120 * time.Second,
-		DeltaResend:                             5 * time.Second,
-		DeltaRound:                              30 * time.Second,
-		DeltaGrace:                              5 * time.Second,
-		DeltaStage:                              10 * time.Second,
-		MaxDurationQuery:                        100 * time.Millisecond,
-		MaxDurationObservation:                  35 * time.Second,
-		MaxDurationReport:                       10 * time.Second,
-		MaxDurationShouldAcceptFinalizedReport:  5 * time.Second,
-		MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
+		DeltaProgress:                           config.MustNewDuration(120 * time.Second),
+		DeltaResend:                             config.MustNewDuration(5 * time.Second),
+		DeltaRound:                              config.MustNewDuration(30 * time.Second),
+		DeltaGrace:                              config.MustNewDuration(5 * time.Second),
+		DeltaStage:                              config.MustNewDuration(10 * time.Second),
+		MaxDurationQuery:                        config.MustNewDuration(100 * time.Millisecond),
+		MaxDurationObservation:                  config.MustNewDuration(35 * time.Second),
+		MaxDurationReport:                       config.MustNewDuration(10 * time.Second),
+		MaxDurationShouldAcceptFinalizedReport:  config.MustNewDuration(5 * time.Second),
+		MaxDurationShouldTransmitAcceptedReport: config.MustNewDuration(10 * time.Second),
 	}
 }
 
@@ -1364,8 +1363,8 @@ func OffChainAggregatorV2ConfigWithNodes(numberNodes int, inflightExpiry time.Du
 	if faultyNodes == 0 {
 		faultyNodes = 1
 	}
-	if cfg.DeltaStage == 0 {
-		cfg.DeltaStage = inflightExpiry
+	if cfg.DeltaStage == nil {
+		cfg.DeltaStage = config.MustNewDuration(inflightExpiry)
 	}
 	return contracts.OffChainAggregatorV2Config{
 		DeltaProgress:                           cfg.DeltaProgress,
@@ -1401,8 +1400,7 @@ func NewCommitOffchainConfig(
 	TokenPriceHeartBeat config.Duration,
 	TokenPriceDeviationPPB uint32,
 	InflightCacheExpiry config.Duration,
-	_ bool, // TODO: priceReportingDisabled added after this merge
-) (ccipconfig.OffchainConfig, error) {
+	priceReportingDisabled bool) (ccipconfig.OffchainConfig, error) {
 	switch VersionMap[CommitStoreContract] {
 	case Latest:
 		return testhelpers.NewCommitOffchainConfig(
@@ -1412,6 +1410,7 @@ func NewCommitOffchainConfig(
 			TokenPriceHeartBeat,
 			TokenPriceDeviationPPB,
 			InflightCacheExpiry,
+			priceReportingDisabled,
 		), nil
 	case V1_2_0:
 		return testhelpers_1_4_0.NewCommitOffchainConfig(
@@ -1421,6 +1420,7 @@ func NewCommitOffchainConfig(
 			TokenPriceHeartBeat,
 			TokenPriceDeviationPPB,
 			InflightCacheExpiry,
+			priceReportingDisabled,
 		), nil
 	default:
 		return nil, fmt.Errorf("version not supported: %s", VersionMap[CommitStoreContract])
@@ -1450,15 +1450,7 @@ func NewExecOnchainConfig(
 ) (abihelpers.AbiDefined, error) {
 	switch VersionMap[OffRampContract] {
 	case Latest:
-		return testhelpers.NewExecOnchainConfig(
-			PermissionLessExecutionThresholdSeconds,
-			Router,
-			PriceRegistry,
-			MaxNumberOfTokensPerMsg,
-			MaxDataBytes,
-			MaxPoolReleaseOrMintGas, // TODO: obsolete soon after this merge
-			50_000,                  // TODO: MaxTokenTransferGas, obsolete soon after this merge
-		), nil
+		return testhelpers.NewExecOnchainConfig(PermissionLessExecutionThresholdSeconds, Router, PriceRegistry, MaxNumberOfTokensPerMsg, MaxDataBytes), nil
 	case V1_2_0:
 		return testhelpers_1_4_0.NewExecOnchainConfig(
 			PermissionLessExecutionThresholdSeconds,
@@ -1565,20 +1557,20 @@ func NewOffChainAggregatorV2ConfigForCCIPPlugin[T ccipconfig.OffchainConfig](
 	}
 
 	_, _, f_, onchainConfig_, offchainConfigVersion, offchainConfig, err = ocrconfighelper2.ContractSetConfigArgsForTests(
-		ocrConfig.DeltaProgress,
-		ocrConfig.DeltaResend,
-		ocrConfig.DeltaRound,
-		ocrConfig.DeltaGrace,
-		ocrConfig.DeltaStage,
+		ocrConfig.DeltaProgress.Duration(),
+		ocrConfig.DeltaResend.Duration(),
+		ocrConfig.DeltaRound.Duration(),
+		ocrConfig.DeltaGrace.Duration(),
+		ocrConfig.DeltaStage.Duration(),
 		ocrConfig.RMax,
 		ocrConfig.S,
 		ocrConfig.Oracles,
 		ocrConfig.ReportingPluginConfig,
-		ocrConfig.MaxDurationQuery,
-		ocrConfig.MaxDurationObservation,
-		ocrConfig.MaxDurationReport,
-		ocrConfig.MaxDurationShouldAcceptFinalizedReport,
-		ocrConfig.MaxDurationShouldTransmitAcceptedReport,
+		ocrConfig.MaxDurationQuery.Duration(),
+		ocrConfig.MaxDurationObservation.Duration(),
+		ocrConfig.MaxDurationReport.Duration(),
+		ocrConfig.MaxDurationShouldAcceptFinalizedReport.Duration(),
+		ocrConfig.MaxDurationShouldTransmitAcceptedReport.Duration(),
 		ocrConfig.F,
 		ocrConfig.OnchainConfig,
 	)

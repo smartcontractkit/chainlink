@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -48,6 +49,7 @@ import (
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
@@ -62,7 +64,6 @@ import (
 var (
 	OCR2AggregatorTransmissionContractABI abi.ABI
 	OCR2AggregatorLogDecoder              LogDecoder
-	ChannelVerifierLogDecoder             LogDecoder
 )
 
 func init() {
@@ -72,10 +73,6 @@ func init() {
 		panic(err)
 	}
 	OCR2AggregatorLogDecoder, err = newOCR2AggregatorLogDecoder()
-	if err != nil {
-		panic(err)
-	}
-	ChannelVerifierLogDecoder, err = newChannelVerifierLogDecoder()
 	if err != nil {
 		panic(err)
 	}
@@ -140,7 +137,6 @@ type Relayer struct {
 	lggr                 logger.SugaredLogger
 	ks                   CSAETHKeystore
 	mercuryPool          wsrpc.Pool
-	chainReader          commontypes.ContractReader
 	codec                commontypes.Codec
 	capabilitiesRegistry coretypes.CapabilitiesRegistry
 
@@ -150,8 +146,7 @@ type Relayer struct {
 	triggerCapability *triggers.MercuryTriggerService
 
 	// LLO/data streams
-	cdcFactory llo.ChannelDefinitionCacheFactory
-	lloORM     llo.ORM
+	cdcFactory func() (llo.ChannelDefinitionCacheFactory, error)
 }
 
 type CSAETHKeystore interface {
@@ -191,11 +186,15 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		return nil, fmt.Errorf("cannot create evm relayer: %w", err)
 	}
 	sugared := logger.Sugared(lggr).Named("Relayer")
-
 	mercuryORM := mercury.NewORM(opts.DS)
-	chainSelector, err := chainselectors.SelectorFromChainId(chain.ID().Uint64())
-	lloORM := llo.NewORM(opts.DS, chainSelector)
-	cdcFactory := llo.NewChannelDefinitionCacheFactory(sugared, lloORM, chain.LogPoller(), opts.HTTPClient)
+	cdcFactory := sync.OnceValues(func() (llo.ChannelDefinitionCacheFactory, error) {
+		chainSelector, err := chainselectors.SelectorFromChainId(chain.ID().Uint64())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain selector for chain id %s: %w", chain.ID(), err)
+		}
+		lloORM := llo.NewORM(opts.DS, chainSelector)
+		return llo.NewChannelDefinitionCacheFactory(sugared, lloORM, chain.LogPoller(), opts.HTTPClient), nil
+	})
 	relayer := &Relayer{
 		ds:                   opts.DS,
 		chain:                chain,
@@ -203,7 +202,6 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		ks:                   opts.CSAETHKeystore,
 		mercuryPool:          opts.MercuryPool,
 		cdcFactory:           cdcFactory,
-		lloORM:               lloORM,
 		mercuryORM:           mercuryORM,
 		transmitterCfg:       opts.TransmitterConfig,
 		capabilitiesRegistry: opts.CapabilitiesRegistry,
@@ -212,7 +210,11 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	// Initialize write target capability if configuration is defined
 	if chain.Config().EVM().Workflow().ForwarderAddress() != nil {
 		ctx := context.Background()
-		capability, err := NewWriteTarget(ctx, relayer, chain, chain.Config().EVM().Workflow().DefaultGasLimit(),
+		if chain.Config().EVM().Workflow().GasLimitDefault() == nil {
+			return nil, fmt.Errorf("unable to instantiate write target as default gas limit is not set")
+		}
+
+		capability, err := NewWriteTarget(ctx, relayer, chain, *chain.Config().EVM().Workflow().GasLimitDefault(),
 			lggr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize write target: %w", err)
@@ -273,10 +275,14 @@ func (r *Relayer) NewOCR3CapabilityProvider(rargs commontypes.RelayArgs, pargs c
 func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.PluginProvider, error) {
 	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
-
 	lggr := logger.Sugared(r.lggr).Named("PluginProvider").Named(rargs.ExternalJobID.String())
+	relayOpts := types.NewRelayOpts(rargs)
+	relayConfig, err := relayOpts.RelayConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get relay config: %w", err)
+	}
 
-	configWatcher, err := newStandardConfigProvider(ctx, r.lggr, r.chain, types.NewRelayOpts(rargs))
+	configWatcher, err := newStandardConfigProvider(ctx, r.lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -286,8 +292,17 @@ func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontyp
 		return nil, err
 	}
 
+	var chainReaderService ChainReaderService
+	if relayConfig.ChainReader != nil {
+		if chainReaderService, err = NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain.HeadTracker(), r.chain.Client(), *relayConfig.ChainReader); err != nil {
+			return nil, err
+		}
+	} else {
+		lggr.Info("ChainReader missing from RelayConfig")
+	}
+
 	return NewPluginProvider(
-		r.chainReader,
+		chainReaderService,
 		r.codec,
 		transmitter,
 		configWatcher,
@@ -379,7 +394,7 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	}
 	transmitter := mercury.NewTransmitter(lggr, r.transmitterCfg, clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec, r.triggerCapability)
 
-	return NewMercuryProvider(cp, r.chainReader, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, reportCodecV4, lggr), nil
+	return NewMercuryProvider(cp, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, reportCodecV4, lggr), nil
 }
 
 func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.LLOProvider, error) {
@@ -435,7 +450,11 @@ func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.
 		transmitter = llo.NewTransmitter(r.lggr, client, privKey.PublicKey)
 	}
 
-	cdc, err := r.cdcFactory.NewCache(lloCfg)
+	cdcFactory, err := r.cdcFactory()
+	if err != nil {
+		return nil, err
+	}
+	cdc, err := cdcFactory.NewCache(lloCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -472,6 +491,8 @@ func (r *Relayer) NewConfigProvider(args commontypes.RelayArgs) (configProvider 
 	if args.ProviderType == "" {
 		if relayConfig.FeedID == nil {
 			args.ProviderType = "median"
+		} else if relayConfig.LLODONID > 0 {
+			args.ProviderType = "llo"
 		} else {
 			args.ProviderType = "mercury"
 		}
@@ -778,7 +799,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	medianProvider.chainReader = chainReaderService
 
 	if relayConfig.Codec != nil {
-		medianProvider.codec, err = NewCodec(*relayConfig.Codec)
+		medianProvider.codec, err = codec.NewCodec(*relayConfig.Codec)
 		if err != nil {
 			return nil, err
 		}
@@ -1010,7 +1031,7 @@ func (p *medianProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker 
 	return p.configWatcher.ContractConfigTracker()
 }
 
-func (p *medianProvider) ChainReader() commontypes.ContractReader {
+func (p *medianProvider) ContractReader() commontypes.ContractReader {
 	return p.chainReader
 }
 

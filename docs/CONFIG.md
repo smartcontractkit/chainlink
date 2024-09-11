@@ -52,6 +52,7 @@ FeedsManager = true # Default
 LogPoller = false # Default
 UICSAKeys = false # Default
 CCIP = true # Default
+MultiFeedsManagers = false # Default
 ```
 
 
@@ -78,6 +79,12 @@ UICSAKeys enables CSA Keys in the UI.
 CCIP = true # Default
 ```
 CCIP enables the CCIP service.
+
+### MultiFeedsManagers
+```toml
+MultiFeedsManagers = false # Default
+```
+MultiFeedsManagers enables support for multiple feeds manager connections.
 
 ## Database
 ```toml
@@ -1233,6 +1240,60 @@ ChainID = '1' # Default
 ```
 ChainID identifies the target chain id where the remote registry is located.
 
+## Capabilities.Dispatcher
+```toml
+[Capabilities.Dispatcher]
+SupportedVersion = 1 # Default
+ReceiverBufferSize = 10000 # Default
+```
+
+
+### SupportedVersion
+```toml
+SupportedVersion = 1 # Default
+```
+SupportedVersion is the version of the version of message schema.
+
+### ReceiverBufferSize
+```toml
+ReceiverBufferSize = 10000 # Default
+```
+ReceiverBufferSize is the size of the buffer for incoming messages.
+
+## Capabilities.Dispatcher.RateLimit
+```toml
+[Capabilities.Dispatcher.RateLimit]
+GlobalRPS = 800 # Default
+GlobalBurst = 1000 # Default
+PerSenderRPS = 10 # Default
+PerSenderBurst = 50 # Default
+```
+
+
+### GlobalRPS
+```toml
+GlobalRPS = 800 # Default
+```
+GlobalRPS is the global rate limit for the dispatcher.
+
+### GlobalBurst
+```toml
+GlobalBurst = 1000 # Default
+```
+GlobalBurst is the global burst limit for the dispatcher.
+
+### PerSenderRPS
+```toml
+PerSenderRPS = 10 # Default
+```
+PerSenderRPS is the per-sender rate limit for the dispatcher.
+
+### PerSenderBurst
+```toml
+PerSenderBurst = 50 # Default
+```
+PerSenderBurst is the per-sender burst limit for the dispatcher.
+
 ## Capabilities.Peering
 ```toml
 [Capabilities.Peering]
@@ -1331,6 +1392,74 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
 ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
 but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
+
+## Capabilities.GatewayConnector
+```toml
+[Capabilities.GatewayConnector]
+ChainIDForNodeKey = '11155111' # Example
+NodeAddress = '0x68902d681c28119f9b2531473a417088bf008e59' # Example
+DonID = 'example_don' # Example
+WSHandshakeTimeoutMillis = 1000 # Example
+AuthMinChallengeLen = 10 # Example
+AuthTimestampToleranceSec = 10 # Example
+```
+
+
+### ChainIDForNodeKey
+```toml
+ChainIDForNodeKey = '11155111' # Example
+```
+ChainIDForNodeKey is the ChainID of the network associated with a private key to be used for authentication with Gateway nodes
+
+### NodeAddress
+```toml
+NodeAddress = '0x68902d681c28119f9b2531473a417088bf008e59' # Example
+```
+NodeAddress is the address of the desired private key to be used for authentication with Gateway nodes
+
+### DonID
+```toml
+DonID = 'example_don' # Example
+```
+DonID is the Id of the Don
+
+### WSHandshakeTimeoutMillis
+```toml
+WSHandshakeTimeoutMillis = 1000 # Example
+```
+WSHandshakeTimeoutMillis is Websocket handshake timeout
+
+### AuthMinChallengeLen
+```toml
+AuthMinChallengeLen = 10 # Example
+```
+AuthMinChallengeLen is the minimum number of bytes in authentication challenge payload
+
+### AuthTimestampToleranceSec
+```toml
+AuthTimestampToleranceSec = 10 # Example
+```
+AuthTimestampToleranceSec is Authentication timestamp tolerance
+
+## Capabilities.GatewayConnector.Gateways
+```toml
+[[Capabilities.GatewayConnector.Gateways]]
+ID = 'example_gateway' # Example
+URL = 'wss://localhost:8081/node' # Example
+```
+
+
+### ID
+```toml
+ID = 'example_gateway' # Example
+```
+ID of the Gateway
+
+### URL
+```toml
+URL = 'wss://localhost:8081/node' # Example
+```
+URL of the Gateway
 
 ## Keeper
 ```toml
@@ -1790,6 +1919,7 @@ MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -1818,7 +1948,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1833,6 +1963,9 @@ BlockHistorySize = 4
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -1863,6 +1996,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 10500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -1885,6 +2021,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -1913,7 +2050,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1928,6 +2065,9 @@ BlockHistorySize = 4
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -1958,6 +2098,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -1980,6 +2123,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -2008,7 +2152,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2023,6 +2167,9 @@ BlockHistorySize = 4
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2053,6 +2200,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2075,6 +2225,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -2103,7 +2254,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2118,6 +2269,9 @@ BlockHistorySize = 4
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2148,6 +2302,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2171,6 +2328,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -2199,7 +2357,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2214,6 +2372,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -2244,6 +2405,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2266,6 +2430,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -2294,7 +2459,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2309,6 +2474,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2339,6 +2507,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2361,6 +2532,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -2389,7 +2561,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2404,6 +2576,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2434,6 +2609,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2457,6 +2635,7 @@ MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -2485,7 +2664,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2500,6 +2679,9 @@ BlockHistorySize = 4
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2530,6 +2712,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2552,6 +2737,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
 FinalizedBlockOffset = 0
@@ -2580,7 +2766,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -2595,6 +2781,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2625,6 +2814,9 @@ ObservationGracePeriod = '500ms'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2646,6 +2838,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -2674,7 +2867,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2689,6 +2882,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2719,6 +2915,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2740,6 +2939,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -2768,7 +2968,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2783,6 +2983,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2813,6 +3016,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2835,6 +3041,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
 FinalizedBlockOffset = 0
@@ -2863,7 +3070,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -2878,6 +3085,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2908,6 +3118,9 @@ ObservationGracePeriod = '500ms'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -2931,6 +3144,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -2959,7 +3173,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2974,6 +3188,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3004,6 +3221,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3026,6 +3246,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
 FinalizedBlockOffset = 0
@@ -3054,7 +3275,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -3069,6 +3290,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3099,6 +3323,9 @@ ObservationGracePeriod = '500ms'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3121,6 +3348,7 @@ MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 0
@@ -3149,7 +3377,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -3164,6 +3392,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -3194,6 +3425,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3216,6 +3450,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '12m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 15
 FinalizedBlockOffset = 0
@@ -3244,7 +3479,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '20 mwei'
 BumpPercent = 40
 BumpThreshold = 3
@@ -3259,6 +3494,9 @@ BlockHistorySize = 12
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -3289,6 +3527,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3311,6 +3552,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '6m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 15
 FinalizedBlockOffset = 0
@@ -3339,7 +3581,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '100 mwei'
 BumpPercent = 40
 BumpThreshold = 3
@@ -3354,6 +3596,9 @@ BlockHistorySize = 12
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -3384,6 +3629,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3406,6 +3654,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
 FinalizedBlockOffset = 0
@@ -3434,7 +3683,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -3449,6 +3698,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3479,6 +3731,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 3800000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3501,6 +3756,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -3529,7 +3785,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -3544,6 +3800,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 400
@@ -3574,6 +3833,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3596,6 +3858,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -3624,7 +3887,7 @@ LimitDefault = 100000000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -3639,6 +3902,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -3669,6 +3935,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3691,6 +3960,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -3719,7 +3989,7 @@ LimitDefault = 100000000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -3734,6 +4004,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -3764,6 +4037,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3786,6 +4062,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -3814,7 +4091,7 @@ LimitDefault = 100000000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -3829,6 +4106,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -3859,6 +4139,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3882,6 +4165,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -3910,7 +4194,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -3925,6 +4209,9 @@ BlockHistorySize = 60
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -3955,6 +4242,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -3977,6 +4267,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -4005,7 +4296,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -4020,6 +4311,9 @@ BlockHistorySize = 0
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4050,6 +4344,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4071,6 +4368,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -4099,7 +4397,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -4114,6 +4412,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4144,6 +4445,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4166,6 +4470,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -4194,7 +4499,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -4209,6 +4514,9 @@ BlockHistorySize = 0
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4239,6 +4547,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4261,6 +4572,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '6m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 15
 FinalizedBlockOffset = 0
@@ -4289,7 +4601,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '100 mwei'
 BumpPercent = 40
 BumpThreshold = 3
@@ -4304,6 +4616,9 @@ BlockHistorySize = 12
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -4334,6 +4649,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4356,6 +4674,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -4384,7 +4703,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -4399,6 +4718,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4429,6 +4751,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4451,6 +4776,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -4479,7 +4805,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -4494,6 +4820,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4524,6 +4853,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4545,6 +4877,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '100'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -4573,7 +4906,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -4588,6 +4921,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 10
@@ -4618,6 +4954,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4640,6 +4979,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '12m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -4668,7 +5008,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '20 mwei'
 BumpPercent = 40
 BumpThreshold = 3
@@ -4683,6 +5023,9 @@ BlockHistorySize = 12
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -4713,6 +5056,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4735,6 +5081,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -4763,7 +5110,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -4778,6 +5125,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 400
@@ -4808,6 +5158,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4830,6 +5183,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '12m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -4858,7 +5212,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '20 mwei'
 BumpPercent = 40
 BumpThreshold = 3
@@ -4873,6 +5227,9 @@ BlockHistorySize = 12
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -4903,6 +5260,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4925,6 +5285,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
 FinalizedBlockOffset = 0
@@ -4953,7 +5314,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -4968,6 +5329,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4998,6 +5362,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 3800000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5019,6 +5386,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -5047,7 +5415,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -5062,6 +5430,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5092,6 +5463,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5114,6 +5488,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -5142,7 +5517,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -5157,6 +5532,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -5187,6 +5565,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5209,6 +5590,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -5237,7 +5619,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -5252,6 +5634,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5282,6 +5667,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5305,6 +5693,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -5333,7 +5722,7 @@ LimitDefault = 500000
 LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -5348,6 +5737,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5378,6 +5770,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5401,6 +5796,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -5429,7 +5825,7 @@ LimitDefault = 500000
 LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -5444,6 +5840,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5474,6 +5873,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5497,6 +5899,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -5525,7 +5928,7 @@ LimitDefault = 500000
 LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -5540,6 +5943,9 @@ BlockHistorySize = 0
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5570,6 +5976,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 14500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5592,6 +6001,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -5620,7 +6030,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '2 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -5635,6 +6045,9 @@ BlockHistorySize = 12
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -5665,6 +6078,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5687,6 +6103,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
 FinalizedBlockOffset = 0
@@ -5715,7 +6132,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -5730,6 +6147,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5760,6 +6180,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5782,6 +6205,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
 FinalizedBlockOffset = 0
@@ -5810,7 +6234,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -5825,6 +6249,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5855,6 +6282,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5877,6 +6307,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -5905,7 +6336,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '2 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -5920,6 +6351,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -5950,6 +6384,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -5971,6 +6408,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -5999,7 +6437,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 40
 BumpThreshold = 3
@@ -6014,6 +6452,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6044,6 +6485,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6065,6 +6509,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -6093,7 +6538,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -6108,6 +6553,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 1000
@@ -6138,6 +6586,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6159,6 +6610,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -6187,7 +6639,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 40
 BumpThreshold = 3
@@ -6202,6 +6654,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 350
@@ -6232,6 +6687,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6254,6 +6712,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -6282,7 +6741,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -6297,6 +6756,9 @@ BlockHistorySize = 0
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6327,6 +6789,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6349,6 +6814,7 @@ MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 0
@@ -6377,7 +6843,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -6392,6 +6858,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -6422,6 +6891,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6443,6 +6915,7 @@ MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 0
@@ -6471,7 +6944,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -6486,6 +6959,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -6516,6 +6992,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6538,6 +7017,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -6566,7 +7046,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -6581,6 +7061,9 @@ BlockHistorySize = 60
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -6611,6 +7094,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6633,6 +7119,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -6661,7 +7148,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -6676,6 +7163,9 @@ BlockHistorySize = 60
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -6706,6 +7196,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6729,6 +7222,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -6757,7 +7251,7 @@ LimitDefault = 500000
 LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -6772,6 +7266,9 @@ BlockHistorySize = 0
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6802,6 +7299,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6825,6 +7325,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -6853,7 +7354,7 @@ LimitDefault = 500000
 LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -6868,6 +7369,9 @@ BlockHistorySize = 0
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6898,6 +7402,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 14500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -6920,6 +7427,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -6948,7 +7456,7 @@ LimitDefault = 500000
 LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -6963,6 +7471,9 @@ BlockHistorySize = 0
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6993,6 +7504,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 14500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -7015,6 +7529,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -7043,7 +7558,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '1 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -7058,6 +7573,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -7088,6 +7606,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -7110,6 +7631,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -7138,7 +7660,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '1 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -7153,6 +7675,9 @@ BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -7183,6 +7708,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -7205,6 +7733,7 @@ MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -7233,7 +7762,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -7248,6 +7777,9 @@ BlockHistorySize = 4
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 50
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -7278,6 +7810,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 10500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -7300,6 +7835,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -7328,7 +7864,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -7343,6 +7879,9 @@ BlockHistorySize = 60
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -7373,6 +7912,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -7395,6 +7937,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -7423,7 +7966,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -7438,6 +7981,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -7468,6 +8014,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -7490,6 +8039,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -7518,7 +8068,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -7533,6 +8083,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -7563,6 +8116,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -7755,6 +8311,12 @@ The latest finalized block on chain is 64, so block 63 is the latest finalized f
 Block 64 will be treated as finalized by CL Node only when chain's latest finalized block is 65. As chain finalizes blocks in batches of 32,
 CL Node has to wait for a whole new batch to be finalized to treat block 64 as finalized.
 
+### LogBroadcasterEnabled
+```toml
+LogBroadcasterEnabled = true # Default
+```
+LogBroadcasterEnabled is a feature flag for LogBroadcaster, by default it's true.
+
 ### NoNewFinalizedHeadsThreshold
 ```toml
 NoNewFinalizedHeadsThreshold = '0' # Default
@@ -7880,7 +8442,7 @@ LimitDefault = 500_000 # Default
 LimitMax = 500_000 # Default
 LimitMultiplier = '1.0' # Default
 LimitTransfer = 21_000 # Default
-EstimateGasLimit = false # Default
+EstimateLimit = false # Default
 BumpMin = '5 gwei' # Default
 BumpPercent = 20 # Default
 BumpThreshold = 3 # Default
@@ -7975,11 +8537,11 @@ LimitTransfer = 21_000 # Default
 ```
 LimitTransfer is the gas limit used for an ordinary ETH transfer.
 
-### EstimateGasLimit
+### EstimateLimit
 ```toml
-EstimateGasLimit = false # Default
+EstimateLimit = false # Default
 ```
-EstimateGasLimit enables estimating gas limits for transactions. This feature respects the gas limit provided during transaction creation as an upper bound.
+EstimateLimit enables estimating gas limits for transactions. This feature respects the gas limit provided during transaction creation as an upper bound.
 
 ### BumpMin
 ```toml
@@ -8193,6 +8755,24 @@ Think of this number as an indicator of how aggressive you want your node to pri
 Setting this number higher will cause the Chainlink node to select higher gas prices.
 
 Setting it lower will tend to set lower gas prices.
+
+## EVM.GasEstimator.FeeHistory
+```toml
+[EVM.GasEstimator.FeeHistory]
+CacheTimeout = '10s' # Default
+```
+
+
+### CacheTimeout
+```toml
+CacheTimeout = '10s' # Default
+```
+CacheTimeout is the time to wait in order to refresh the cached values stored in the FeeHistory estimator. A small jitter is applied so the timeout won't be exactly the same each time.
+
+You want this value to be close to the block time. For slower chains, like Ethereum, you can set it to 12s, the same as the block time. For faster chains you can skip a block or two
+and set it to two times the block time i.e. on Optimism you can set it to 4s. Ideally, you don't want to go lower than 1s since the RTT times of the RPC requests will be comparable to
+the timeout. The estimator is already adding a buffer to account for a potential increase in prices within one or two blocks. On the other hand, slower frequency will fail to refresh
+the prices and end up in stale values.
 
 ## EVM.HeadTracker
 ```toml
@@ -8595,7 +9175,7 @@ GasLimit controls the gas limit for transmit transactions from ocr2automation jo
 [EVM.Workflow]
 FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
-DefaultGasLimit = 400_000 # Default
+GasLimitDefault = 400_000 # Default
 ```
 
 
@@ -8611,11 +9191,11 @@ ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ```
 ForwarderAddress is the keystone forwarder contract address on chain.
 
-### DefaultGasLimit
+### GasLimitDefault
 ```toml
-DefaultGasLimit = 400_000 # Default
+GasLimitDefault = 400_000 # Default
 ```
-DefaultGasLimit is the default gas limit for workflow transactions.
+GasLimitDefault is the default gas limit for workflow transactions.
 
 ## Cosmos
 ```toml

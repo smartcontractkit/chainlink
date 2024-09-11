@@ -603,4 +603,118 @@ contract DestinationFeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
     //fee should be half the default
     assertEq(discount, FEE_SCALAR / 2);
   }
+
+  function test_GlobalDiscountWithNative() public {
+    //set the global discount to 50%
+    setSubscriberGlobalDiscount(USER, address(native), FEE_SCALAR / 2, ADMIN);
+
+    //get the discount applied
+    uint256 discount = getAppliedDiscount(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
+
+    //fee should be half the default
+    assertEq(discount, FEE_SCALAR / 2);
+  }
+
+  function test_GlobalDiscountWithLink() public {
+    //set the global discount to 50%
+    setSubscriberGlobalDiscount(USER, address(link), FEE_SCALAR / 2, ADMIN);
+
+    //get the discount applied
+    uint256 discount = getAppliedDiscount(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
+
+    //fee should be half the default
+    assertEq(discount, FEE_SCALAR / 2);
+  }
+
+  function test_GlobalDiscountWithNativeAndLink() public {
+    //set the global discount to 50%
+    setSubscriberGlobalDiscount(USER, address(native), FEE_SCALAR / 2, ADMIN);
+    setSubscriberGlobalDiscount(USER, address(link), FEE_SCALAR / 2, ADMIN);
+
+    //get the discount applied
+    uint256 discount = getAppliedDiscount(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
+
+    //fee should be half the default
+    assertEq(discount, FEE_SCALAR / 2);
+  }
+
+  function test_GlobalDiscountIsOverridenByIndividualDiscountNative() public {
+    //set the global discount to 50%
+    setSubscriberGlobalDiscount(USER, address(native), FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(native), FEE_SCALAR / 4, ADMIN);
+
+    //get the discount applied
+    uint256 discount = getAppliedDiscount(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
+
+    //fee should be half the default
+    assertEq(discount, FEE_SCALAR / 4);
+  }
+
+  function test_GlobalDiscountIsOverridenByIndividualDiscountLink() public {
+    //set the global discount to 50%
+    setSubscriberGlobalDiscount(USER, address(link), FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(link), FEE_SCALAR / 4, ADMIN);
+
+    //get the discount applied
+    uint256 discount = getAppliedDiscount(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
+
+    //fee should be half the default
+    assertEq(discount, FEE_SCALAR / 4);
+  }
+
+  function test_GlobalDiscountIsUpdatedAfterBeingSetToZeroLink() public {
+    //set the global discount to 50%
+    setSubscriberGlobalDiscount(USER, address(link), FEE_SCALAR / 2, ADMIN);
+
+    //get the discount applied
+    uint256 discount = getAppliedDiscount(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
+
+    //fee should be half the default
+    assertEq(discount, FEE_SCALAR / 2);
+
+    //set the global discount to zero
+    setSubscriberGlobalDiscount(USER, address(link), 0, ADMIN);
+
+    //get the discount applied
+    discount = getAppliedDiscount(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
+
+    //fee should be zero
+    assertEq(discount, 0);
+  }
+
+  function test_GlobalDiscountIsUpdatedAfterBeingSetToZeroNative() public {
+    //set the global discount to 50%
+    setSubscriberGlobalDiscount(USER, address(native), FEE_SCALAR / 2, ADMIN);
+
+    //get the discount applied
+    uint256 discount = getAppliedDiscount(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
+
+    //fee should be half the default
+    assertEq(discount, FEE_SCALAR / 2);
+
+    //set the global discount to zero
+    setSubscriberGlobalDiscount(USER, address(native), 0, ADMIN);
+
+    //get the discount applied
+    discount = getAppliedDiscount(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
+
+    //fee should be zero
+    assertEq(discount, 0);
+  }
+
+  function test_GlobalDiscountCantBeSetToMoreThanMaximum() public {
+    //should revert with invalid discount
+    vm.expectRevert(INVALID_DISCOUNT_ERROR);
+
+    //set the global discount to 101%
+    setSubscriberGlobalDiscount(USER, address(native), FEE_SCALAR + 1, ADMIN);
+  }
+
+  function test_onlyOwnerCanSetGlobalDiscount() public {
+    //should revert with unauthorized
+    vm.expectRevert(ONLY_CALLABLE_BY_OWNER_ERROR);
+
+    //set the global discount to 50%
+    setSubscriberGlobalDiscount(USER, address(native), FEE_SCALAR / 2, USER);
+  }
 }

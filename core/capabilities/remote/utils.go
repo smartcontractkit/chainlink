@@ -71,15 +71,15 @@ func NewDefaultModeAggregator(minIdenticalResponses uint32) *defaultModeAggregat
 	}
 }
 
-func (a *defaultModeAggregator) Aggregate(_ string, responses [][]byte) (commoncap.CapabilityResponse, error) {
+func (a *defaultModeAggregator) Aggregate(_ string, responses [][]byte) (commoncap.TriggerResponse, error) {
 	found, err := AggregateModeRaw(responses, a.minIdenticalResponses)
 	if err != nil {
-		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to aggregate responses, err: %w", err)
+		return commoncap.TriggerResponse{}, fmt.Errorf("failed to aggregate responses, err: %w", err)
 	}
 
-	unmarshaled, err := pb.UnmarshalCapabilityResponse(found)
+	unmarshaled, err := pb.UnmarshalTriggerResponse(found)
 	if err != nil {
-		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to unmarshal aggregated responses, err: %w", err)
+		return commoncap.TriggerResponse{}, fmt.Errorf("failed to unmarshal aggregated responses, err: %w", err)
 	}
 	return unmarshaled, nil
 }

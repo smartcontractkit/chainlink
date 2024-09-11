@@ -74,6 +74,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, logger lo
 			CollectorTarget: cfgTracing.CollectorTarget(),
 			NodeAttributes:  cfgTracing.Attributes(),
 			SamplingRatio:   cfgTracing.SamplingRatio(),
+			TLSCertPath:     cfgTracing.TLSCertPath(),
 			OnDialError:     func(error) { logger.Errorw("Failed to dial", "err", err) },
 		})
 	})

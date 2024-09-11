@@ -6,7 +6,7 @@ import {OwnerIsCreator} from "./../../../shared/access/OwnerIsCreator.sol";
 
 // Inlined from RMN 1.0 contract.
 // solhint-disable gas-struct-packing
-contract RMN {
+contract OldRMN {
   struct Voter {
     address blessVoteAddr;
     address curseVoteAddr;
@@ -44,7 +44,7 @@ contract MockRMN is IRMN, OwnerIsCreator {
 
   bool private s_curse;
   bytes private s_err;
-  RMN.VersionedConfig private s_versionedConfig;
+  OldRMN.VersionedConfig private s_versionedConfig;
   mapping(bytes16 subject => bool cursed) private s_curseBySubject;
 
   function isCursed() external view override returns (bool) {
@@ -69,11 +69,11 @@ contract MockRMN is IRMN, OwnerIsCreator {
     s_curseBySubject[subject] = true;
   }
 
-  function ownerUnvoteToCurse(RMN.UnvoteToCurseRecord[] memory) external {
+  function ownerUnvoteToCurse(OldRMN.UnvoteToCurseRecord[] memory) external {
     s_curse = false;
   }
 
-  function ownerUnvoteToCurse(RMN.UnvoteToCurseRecord[] memory, bytes16 subject) external {
+  function ownerUnvoteToCurse(OldRMN.UnvoteToCurseRecord[] memory, bytes16 subject) external {
     s_curseBySubject[subject] = false;
   }
 
@@ -85,7 +85,7 @@ contract MockRMN is IRMN, OwnerIsCreator {
     return !s_curse;
   }
 
-  function getConfigDetails() external view returns (uint32 version, uint32 blockNumber, RMN.Config memory config) {
+  function getConfigDetails() external view returns (uint32 version, uint32 blockNumber, OldRMN.Config memory config) {
     return (s_versionedConfig.configVersion, s_versionedConfig.blockNumber, s_versionedConfig.config);
   }
 }

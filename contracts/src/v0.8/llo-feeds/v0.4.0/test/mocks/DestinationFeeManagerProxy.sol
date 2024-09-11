@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {IDestinationFeeManager} from "../../interfaces/IDestinationFeeManager.sol";
+import {IDestinationVerifierFeeManager} from "../../interfaces/IDestinationVerifierFeeManager.sol";
 
 contract DestinationFeeManagerProxy {
-  IDestinationFeeManager internal s_feeManager;
+  IDestinationVerifierFeeManager internal s_feeManager;
 
   function processFee(bytes32 poolId, bytes calldata payload, bytes calldata parameterPayload) public payable {
     s_feeManager.processFee{value: msg.value}(poolId, payload, parameterPayload, msg.sender);
@@ -18,7 +18,7 @@ contract DestinationFeeManagerProxy {
     s_feeManager.processFeeBulk{value: msg.value}(poolIds, payloads, parameterPayload, msg.sender);
   }
 
-  function setDestinationFeeManager(IDestinationFeeManager feeManager) public {
-    s_feeManager = feeManager;
+  function setDestinationFeeManager(address feeManager) public {
+    s_feeManager = IDestinationVerifierFeeManager(feeManager);
   }
 }

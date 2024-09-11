@@ -12,15 +12,16 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/chaos"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"

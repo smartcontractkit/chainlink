@@ -3,7 +3,10 @@ package toml
 import (
 	"bytes"
 	"embed"
+	"fmt"
+	"io"
 	"log"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -12,37 +15,43 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 )
 
 var (
+
 	//go:embed defaults/*.toml
 	defaultsFS   embed.FS
 	fallback     Chain
 	defaults     = map[string]Chain{}
 	defaultNames = map[string]string{}
 
+	customDefaults = map[string]Chain{}
+
 	// DefaultIDs is the set of chain ids which have defaults.
 	DefaultIDs []*big.Big
 )
 
 func init() {
+	// read the defaults first
+
 	fes, err := defaultsFS.ReadDir("defaults")
 	if err != nil {
 		log.Fatalf("failed to read defaults/: %v", err)
 	}
 	for _, fe := range fes {
 		path := filepath.Join("defaults", fe.Name())
-		b, err := defaultsFS.ReadFile(path)
-		if err != nil {
-			log.Fatalf("failed to read %q: %v", path, err)
+		b, err2 := defaultsFS.ReadFile(path)
+		if err2 != nil {
+			log.Fatalf("failed to read %q: %v", path, err2)
 		}
 		var config = struct {
 			ChainID *big.Big
 			Chain
 		}{}
 
-		if err := cconfig.DecodeTOML(bytes.NewReader(b), &config); err != nil {
-			log.Fatalf("failed to decode %q: %v", path, err)
+		if err3 := cconfig.DecodeTOML(bytes.NewReader(b), &config); err3 != nil {
+			log.Fatalf("failed to decode %q: %v", path, err3)
 		}
 		if fe.Name() == "fallback.toml" {
 			if config.ChainID != nil {
@@ -65,6 +74,63 @@ func init() {
 	slices.SortFunc(DefaultIDs, func(a, b *big.Big) int {
 		return a.Cmp(b)
 	})
+
+	// read the custom defaults overrides
+	dir := env.CustomDefaults.Get()
+	if dir == "" {
+		// short-circuit; no default overrides provided
+		return
+	}
+
+	// use evm overrides specifically
+	evmDir := fmt.Sprintf("%s/evm", dir)
+
+	// Read directory contents for evm only
+	entries, err := os.ReadDir(evmDir)
+	if err != nil {
+		log.Fatalf("error reading evm custom defaults override directory: %v", err)
+		return
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			// Skip directories
+			continue
+		}
+
+		path := evmDir + "/" + entry.Name()
+		file, err := os.Open(path)
+		if err != nil {
+			log.Fatalf("error opening file (name: %v) in custom defaults override directory: %v", entry.Name(), err)
+		}
+
+		// Read file contents
+		b, err := io.ReadAll(file)
+		file.Close()
+		if err != nil {
+			log.Fatalf("error reading file (name: %v) contents in custom defaults override directory: %v", entry.Name(), err)
+		}
+
+		var config = struct {
+			ChainID *big.Big
+			Chain
+		}{}
+
+		if err := cconfig.DecodeTOML(bytes.NewReader(b), &config); err != nil {
+			log.Fatalf("failed to decode %q in custom defaults override directory: %v", path, err)
+		}
+
+		if config.ChainID == nil {
+			log.Fatalf("missing ChainID in: %s in custom defaults override directory. exiting", path)
+		}
+
+		id := config.ChainID.String()
+
+		if _, ok := customDefaults[id]; ok {
+			log.Fatalf("%q contains duplicate ChainID: %s", path, id)
+		}
+		customDefaults[id] = config.Chain
+	}
 }
 
 // DefaultsNamed returns the default Chain values, optionally for the given chainID, as well as a name if the chainID is known.
@@ -77,6 +143,9 @@ func DefaultsNamed(chainID *big.Big) (c Chain, name string) {
 	if d, ok := defaults[s]; ok {
 		c.SetFrom(&d)
 		name = defaultNames[s]
+	}
+	if overrides, ok := customDefaults[s]; ok {
+		c.SetFrom(&overrides)
 	}
 	return
 }
@@ -154,6 +223,9 @@ func (c *Chain) SetFrom(f *Chain) {
 	}
 	if v := f.OperatorFactoryAddress; v != nil {
 		c.OperatorFactoryAddress = v
+	}
+	if v := f.LogBroadcasterEnabled; v != nil {
+		c.LogBroadcasterEnabled = v
 	}
 	if v := f.RPCDefaultBatchSize; v != nil {
 		c.RPCDefaultBatchSize = v

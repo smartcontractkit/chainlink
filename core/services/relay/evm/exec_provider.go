@@ -151,7 +151,7 @@ func (s *SrcExecProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return UnimplementedContractTransmitter{}
 }
 
-func (s *SrcExecProvider) ChainReader() commontypes.ContractReader {
+func (s *SrcExecProvider) ContractReader() commontypes.ContractReader {
 	return nil
 }
 
@@ -331,7 +331,7 @@ func (d *DstExecProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return d.contractTransmitter
 }
 
-func (d *DstExecProvider) ChainReader() commontypes.ContractReader {
+func (d *DstExecProvider) ContractReader() commontypes.ContractReader {
 	return nil
 }
 

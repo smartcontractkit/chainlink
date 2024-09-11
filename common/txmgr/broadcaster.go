@@ -558,21 +558,33 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		eb.sequenceTracker.GenerateNextSequence(etx.FromAddress, *etx.Sequence)
 		return err, true
 	case client.Underpriced:
-		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt, retryCount+1)
+		bumpedAttempt, retryable, replaceErr := eb.replaceAttemptWithBumpedGas(ctx, lgr, err, etx, attempt)
+		if replaceErr != nil {
+			return replaceErr, retryable
+		}
+
+		return eb.handleInProgressTx(ctx, etx, bumpedAttempt, initialBroadcastAt, retryCount+1)
 	case client.InsufficientFunds:
-		// NOTE: This bails out of the entire cycle and essentially "blocks" on
-		// any transaction that gets insufficient_funds. This is OK if a
-		// transaction with a large VALUE blocks because this always comes last
-		// in the processing list.
-		// If it blocks because of a transaction that is expensive due to large
-		// gas limit, we could have smaller transactions "above" it that could
-		// theoretically be sent, but will instead be blocked.
+		// NOTE: This can occur due to either insufficient funds or a gas spike
+		// combined with a high gas limit. Regardless of the cause, we need to obtain a new estimate,
+		// replace the current attempt, and retry after the backoff duration.
+		// The new attempt must be replaced immediately because of a database constraint.
 		eb.SvcErrBuffer.Append(err)
-		fallthrough
+		if _, _, replaceErr := eb.replaceAttemptWithNewEstimation(ctx, lgr, etx, attempt); replaceErr != nil {
+			return replaceErr, true
+		}
+		return err, true
 	case client.Retryable:
 		return err, true
 	case client.FeeOutOfValidRange:
-		return eb.tryAgainWithNewEstimation(ctx, lgr, err, etx, attempt, initialBroadcastAt)
+		replacementAttempt, retryable, replaceErr := eb.replaceAttemptWithNewEstimation(ctx, lgr, etx, attempt)
+		if replaceErr != nil {
+			return replaceErr, retryable
+		}
+
+		lgr.Warnw("L2 rejected transaction due to incorrect fee, re-estimated and will try again",
+			"etxID", etx.ID, "err", err, "newGasPrice", replacementAttempt.TxFee, "newGasLimit", replacementAttempt.ChainSpecificFeeLimit)
+		return eb.handleInProgressTx(ctx, etx, *replacementAttempt, initialBroadcastAt, 0)
 	case client.Unsupported:
 		return err, false
 	case client.ExceedsMaxFee:
@@ -680,7 +692,8 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) next
 	return etx, nil
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryAgainBumpingGas(ctx context.Context, lgr logger.Logger, txError error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time, retry int) (err error, retryable bool) {
+// replaceAttemptWithBumpedGas performs the replacement of the existing tx attempt with a new bumped fee attempt.
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) replaceAttemptWithBumpedGas(ctx context.Context, lgr logger.Logger, txError error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (replacedAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], retryable bool, err error) {
 	// This log error is not applicable to Hedera since the action required would not be needed for its gas estimator
 	if eb.chainType != hederaChainType {
 		logger.With(lgr,
@@ -694,37 +707,32 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryA
 			attempt.TxFee, txError.Error(), eb.feeConfig.FeePriceDefault())
 	}
 
-	replacementAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpTxAttempt(ctx, etx, attempt, nil, lgr)
+	bumpedAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpTxAttempt(ctx, etx, attempt, nil, lgr)
 	if err != nil {
-		return fmt.Errorf("tryAgainBumpFee failed: %w", err), retryable
+		return bumpedAttempt, retryable, err
 	}
 
-	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, bumpedFee, bumpedFeeLimit, retry)
+	if err = eb.txStore.SaveReplacementInProgressAttempt(ctx, attempt, &bumpedAttempt); err != nil {
+		return bumpedAttempt, true, err
+	}
+
+	lgr.Debugw("Bumped fee on initial send", "oldFee", attempt.TxFee.String(), "newFee", bumpedFee.String(), "newFeeLimit", bumpedFeeLimit)
+	return bumpedAttempt, true, err
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryAgainWithNewEstimation(ctx context.Context, lgr logger.Logger, txError error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time) (err error, retryable bool) {
-	if attempt.TxType == 0x2 {
-		err = fmt.Errorf("re-estimation is not supported for EIP-1559 transactions. Node returned error: %v. This is a bug", txError.Error())
-		logger.Sugared(eb.lggr).AssumptionViolation(err.Error())
-		return err, false
-	}
-
-	replacementAttempt, fee, feeLimit, retryable, err := eb.NewTxAttemptWithType(ctx, etx, lgr, attempt.TxType, feetypes.OptForceRefetch)
+// replaceAttemptWithNewEstimation performs the replacement of the existing tx attempt with a new estimated fee attempt.
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) replaceAttemptWithNewEstimation(ctx context.Context, lgr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (updatedAttempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], retryable bool, err error) {
+	newEstimatedAttempt, fee, feeLimit, retryable, err := eb.NewTxAttemptWithType(ctx, etx, lgr, attempt.TxType, feetypes.OptForceRefetch)
 	if err != nil {
-		return fmt.Errorf("tryAgainWithNewEstimation failed to build new attempt: %w", err), retryable
+		return &newEstimatedAttempt, retryable, err
 	}
-	lgr.Warnw("L2 rejected transaction due to incorrect fee, re-estimated and will try again",
-		"etxID", etx.ID, "err", err, "newGasPrice", fee, "newGasLimit", feeLimit)
 
-	return eb.saveTryAgainAttempt(ctx, lgr, etx, attempt, replacementAttempt, initialBroadcastAt, fee, feeLimit, 0)
-}
-
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveTryAgainAttempt(ctx context.Context, lgr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], replacementAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time, newFee FEE, newFeeLimit uint64, retry int) (err error, retyrable bool) {
-	if err = eb.txStore.SaveReplacementInProgressAttempt(ctx, attempt, &replacementAttempt); err != nil {
-		return fmt.Errorf("tryAgainWithNewFee failed: %w", err), true
+	if err = eb.txStore.SaveReplacementInProgressAttempt(ctx, attempt, &newEstimatedAttempt); err != nil {
+		return &newEstimatedAttempt, true, err
 	}
-	lgr.Debugw("Bumped fee on initial send", "oldFee", attempt.TxFee.String(), "newFee", newFee.String(), "newFeeLimit", newFeeLimit)
-	return eb.handleInProgressTx(ctx, etx, replacementAttempt, initialBroadcastAt, retry)
+
+	lgr.Debugw("new estimated fee on initial send", "oldFee", attempt.TxFee.String(), "newFee", fee.String(), "newFeeLimit", feeLimit)
+	return &newEstimatedAttempt, true, err
 }
 
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveFatallyErroredTransaction(lgr logger.Logger, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
@@ -748,7 +756,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) save
 	// Now we have an errored pipeline even though the tx succeeded. This case
 	// is relatively benign and probably nobody will ever run into it in
 	// practice, but something to be aware of.
-	if etx.PipelineTaskRunID.Valid && eb.resumeCallback != nil && etx.SignalCallback {
+	if etx.PipelineTaskRunID.Valid && eb.resumeCallback != nil && etx.SignalCallback && !etx.CallbackCompleted {
 		err := eb.resumeCallback(ctx, etx.PipelineTaskRunID.UUID, nil, fmt.Errorf("fatal error while sending transaction: %s", etx.Error.String))
 		if errors.Is(err, sql.ErrNoRows) {
 			lgr.Debugw("callback missing or already resumed", "etxID", etx.ID)

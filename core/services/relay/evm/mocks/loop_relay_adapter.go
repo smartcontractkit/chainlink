@@ -459,23 +459,23 @@ func (_c *LoopRelayAdapter_NewConfigProvider_Call) RunAndReturn(run func(context
 }
 
 // NewContractReader provides a mock function with given fields: ctx, contractReaderConfig
-func (_m *LoopRelayAdapter) NewContractReader(ctx context.Context, contractReaderConfig []byte) (types.ChainReader, error) {
+func (_m *LoopRelayAdapter) NewContractReader(ctx context.Context, contractReaderConfig []byte) (types.ContractReader, error) {
 	ret := _m.Called(ctx, contractReaderConfig)
 
 	if len(ret) == 0 {
 		panic("no return value specified for NewContractReader")
 	}
 
-	var r0 types.ChainReader
+	var r0 types.ContractReader
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []byte) (types.ChainReader, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []byte) (types.ContractReader, error)); ok {
 		return rf(ctx, contractReaderConfig)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []byte) types.ChainReader); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []byte) types.ContractReader); ok {
 		r0 = rf(ctx, contractReaderConfig)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.ChainReader)
+			r0 = ret.Get(0).(types.ContractReader)
 		}
 	}
 
@@ -486,6 +486,35 @@ func (_m *LoopRelayAdapter) NewContractReader(ctx context.Context, contractReade
 	}
 
 	return r0, r1
+}
+
+// LoopRelayAdapter_NewContractReader_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'NewContractReader'
+type LoopRelayAdapter_NewContractReader_Call struct {
+	*mock.Call
+}
+
+// NewContractReader is a helper method to define mock.On call
+//   - ctx context.Context
+//   - contractReaderConfig []byte
+func (_e *LoopRelayAdapter_Expecter) NewContractReader(ctx interface{}, contractReaderConfig interface{}) *LoopRelayAdapter_NewContractReader_Call {
+	return &LoopRelayAdapter_NewContractReader_Call{Call: _e.mock.On("NewContractReader", ctx, contractReaderConfig)}
+}
+
+func (_c *LoopRelayAdapter_NewContractReader_Call) Run(run func(ctx context.Context, contractReaderConfig []byte)) *LoopRelayAdapter_NewContractReader_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]byte))
+	})
+	return _c
+}
+
+func (_c *LoopRelayAdapter_NewContractReader_Call) Return(_a0 types.ContractReader, _a1 error) *LoopRelayAdapter_NewContractReader_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *LoopRelayAdapter_NewContractReader_Call) RunAndReturn(run func(context.Context, []byte) (types.ContractReader, error)) *LoopRelayAdapter_NewContractReader_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewLLOProvider provides a mock function with given fields: _a0, _a1, _a2

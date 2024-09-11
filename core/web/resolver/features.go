@@ -20,6 +20,11 @@ func (r *FeaturesResolver) FeedsManager() bool {
 	return r.cfg.FeedsManager()
 }
 
+// MultiFeedsManagers resolves to whether multiple feed managers support is enable.
+func (r *FeaturesResolver) MultiFeedsManagers() bool {
+	return r.cfg.MultiFeedsManagers()
+}
+
 type FeaturesPayloadResolver struct {
 	cfg config.Feature
 }

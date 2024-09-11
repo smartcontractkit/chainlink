@@ -87,18 +87,19 @@ jobs:
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY
       - name: Build Image
+        id: build-test-image
         uses: ./.github/actions/build-test-image
         with:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2967f2287bd3f3ddbac7b476e9568993df01796e # v2.3.27
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@94cb11f4bd545607a2f221c6685052b3abee723d # v2.3.32
         env:
           DETACH_RUNNER: true
           TEST_SUITE: soak
           TEST_ARGS: -test.timeout 900h -test.memprofile memprofile.out -test.cpuprofile profile.out
-          ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
+          ENV_JOB_IMAGE: ${{ steps.build-test-image.outputs.test_image }}
           # We can comment these out when we have a stable soak test and aren't worried about resource consumption
           TEST_UPLOAD_CPU_PROFILE: true
           TEST_UPLOAD_MEM_PROFILE: true
@@ -106,6 +107,7 @@ jobs:
           test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^${{ github.event.inputs.testToRun }}$ ./soak
           test_download_vendor_packages_command: make gomod
           test_secrets_override_base64: ${{ secrets[inputs.test_secrets_override_key] }}
+          test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           token: ${{ secrets.GITHUB_TOKEN }}

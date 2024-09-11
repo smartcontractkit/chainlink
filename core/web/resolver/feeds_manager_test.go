@@ -183,6 +183,10 @@ func Test_CreateFeedsManager(t *testing.T) {
 						message
 						code
 					}
+					... on DuplicateFeedsManagerError {
+						message
+						code
+					}
 					... on NotFoundError {
 						message
 						code
@@ -260,6 +264,25 @@ func Test_CreateFeedsManager(t *testing.T) {
 			{
 				"createFeedsManager": {
 					"message": "only a single feeds manager is supported",
+					"code": "UNPROCESSABLE"
+				}
+			}`,
+		},
+		{
+			name:          "register duplicate feeds manager error",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+				f.Mocks.feedsSvc.
+					On("RegisterManager", mock.Anything, mock.IsType(feeds.RegisterManagerParams{})).
+					Return(int64(0), feeds.ErrDuplicateFeedsManager)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+			{
+				"createFeedsManager": {
+					"message": "manager was previously registered using the same public key",
 					"code": "UNPROCESSABLE"
 				}
 			}`,

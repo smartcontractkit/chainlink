@@ -235,7 +235,7 @@ func newServicesTestWrapper(t *testing.T, pluginConfig job.JSONConfig, feedID ut
 type testProvider struct{}
 
 // ChainReader implements types.MercuryProvider.
-func (*testProvider) ChainReader() commontypes.ContractReader { panic("unimplemented") }
+func (*testProvider) ContractReader() commontypes.ContractReader { panic("unimplemented") }
 
 // Close implements types.MercuryProvider.
 func (*testProvider) Close() error { return nil }

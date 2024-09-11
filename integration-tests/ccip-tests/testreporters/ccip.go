@@ -13,8 +13,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/slack-go/slack"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
 )
 
 type Phase string

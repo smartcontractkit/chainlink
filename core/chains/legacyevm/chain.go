@@ -269,6 +269,8 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	var logBroadcaster log.Broadcaster
 	if !opts.AppConfig.EVMRPCEnabled() {
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
+	} else if !cfg.EVM().LogBroadcasterEnabled() {
+		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("LogBroadcaster disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
 		logORM := log.NewORM(opts.DS, *chainID)
 		logBroadcaster = log.NewBroadcaster(logORM, client, cfg.EVM(), l, highestSeenHead, opts.MailMon)

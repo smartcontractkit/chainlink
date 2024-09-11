@@ -69,6 +69,9 @@ packages:
       feeEstimatorClient:
         config:
           mockname: FeeEstimatorClient
+      feeHistoryEstimatorClient:
+        config:
+          mockname: FeeHistoryEstimatorClient
       EvmEstimator:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups:
     interfaces:
@@ -323,6 +326,13 @@ packages:
     interfaces:
       ExternalInitiatorManager:
       HTTPClient:
+  github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read:
+    config:
+      dir: "{{ .InterfaceDir }}/mocks"
+    interfaces:
+      Registrar:
+      Reader:
+      BatchCaller:
   github.com/smartcontractkit/chainlink/v2/core/sessions:
     interfaces:
       BasicAdminUsersORM:
@@ -338,7 +348,7 @@ packages:
       Codec:
         config:
           dir: core/services/relay/evm/mocks
-      ChainReader:
+      ContractReader:
       ChainWriter:
   github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp:
     config:
@@ -375,13 +385,13 @@ packages:
       outpkg: mock_contracts
     interfaces:
       CommitStoreInterface:
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter:
     config:
       dir: core/gethwrappers/ccip/mocks/
-      filename: price_registry_interface.go
+      filename: fee_quoter_interface.go
       outpkg: mock_contracts
     interfaces:
-      PriceRegistryInterface: 
+      FeeQuoterInterface:
   github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface:
     config:
       dir: core/gethwrappers/ccip/mocks/

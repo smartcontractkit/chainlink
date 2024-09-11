@@ -23,20 +23,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	"github.com/smartcontractkit/wasp"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/wiremock"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/wiremock"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
 
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	gowiremock "github.com/wiremock/go-wiremock"
 

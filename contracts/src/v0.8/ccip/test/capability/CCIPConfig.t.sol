@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-
 import {SortedSetValidationUtil} from "../../../shared/util/SortedSetValidationUtil.sol";
 import {CCIPConfig} from "../../capability/CCIPConfig.sol";
 import {ICapabilitiesRegistry} from "../../capability/interfaces/ICapabilitiesRegistry.sol";
 import {CCIPConfigTypes} from "../../capability/libraries/CCIPConfigTypes.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {CCIPConfigHelper} from "../helpers/CCIPConfigHelper.sol";
+import {Test} from "forge-std/Test.sol";
 
 contract CCIPConfigSetup is Test {
   address public constant OWNER = 0x82ae2B4F57CA5C1CBF8f744ADbD3697aD1a35AFe;
@@ -64,10 +63,9 @@ contract CCIPConfigSetup is Test {
     if (i < right) _sort(arr, i, right);
   }
 
-  function _addChainConfig(uint256 numNodes)
-    internal
-    returns (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters)
-  {
+  function _addChainConfig(
+    uint256 numNodes
+  ) internal returns (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) {
     p2pIds = _makeBytes32Array(numNodes, 0);
     _sort(p2pIds, 0, int256(numNodes - 1));
     signers = _makeBytesArray(numNodes, 10);
@@ -103,15 +101,32 @@ contract CCIPConfigSetup is Test {
     return (p2pIds, signers, transmitters);
   }
 
-  function test_getCapabilityConfiguration_Success() public {
+  function test_getCapabilityConfiguration_Success() public view {
     bytes memory capConfig = s_ccipCC.getCapabilityConfiguration(42 /* doesn't matter, not used */ );
     assertEq(capConfig.length, 0, "capability config length must be 0");
   }
 }
 
-contract CCIPConfig_chainConfig is CCIPConfigSetup {
+contract CCIPConfig_constructor is Test {
   // Successes.
 
+  function test_constructor_Success() public {
+    address capabilitiesRegistry = makeAddr("capabilitiesRegistry");
+    CCIPConfigHelper ccipCC = new CCIPConfigHelper(capabilitiesRegistry);
+    assertEq(address(ccipCC.getCapabilityRegistry()), capabilitiesRegistry);
+    assertEq(ccipCC.typeAndVersion(), "CCIPConfig 1.6.0-dev");
+  }
+
+  // Reverts.
+
+  function test_constructor_ZeroAddressNotAllowed_Revert() public {
+    vm.expectRevert(CCIPConfig.ZeroAddressNotAllowed.selector);
+    new CCIPConfigHelper(address(0));
+  }
+}
+
+contract CCIPConfig_chainConfig is CCIPConfigSetup {
+  // Successes.
   function test_applyChainConfigUpdates_addChainConfigs_Success() public {
     bytes32[] memory chainReaders = new bytes32[](1);
     chainReaders[0] = keccak256(abi.encode(1));
@@ -124,7 +139,45 @@ contract CCIPConfig_chainConfig is CCIPConfigSetup {
       chainSelector: 2,
       chainConfig: CCIPConfigTypes.ChainConfig({readers: chainReaders, fChain: 1, config: bytes("config2")})
     });
+    vm.mockCall(
+      CAPABILITIES_REGISTRY,
+      abi.encodeWithSelector(ICapabilitiesRegistry.getNode.selector, chainReaders[0]),
+      abi.encode(
+        ICapabilitiesRegistry.NodeInfo({
+          nodeOperatorId: 1,
+          signer: bytes32(uint256(1)),
+          p2pId: chainReaders[0],
+          hashedCapabilityIds: new bytes32[](0),
+          configCount: uint32(1),
+          workflowDONId: uint32(1),
+          capabilitiesDONIds: new uint256[](0)
+        })
+      )
+    );
+    vm.expectEmit();
+    emit CCIPConfig.ChainConfigSet(1, adds[0].chainConfig);
+    vm.expectEmit();
+    emit CCIPConfig.ChainConfigSet(2, adds[1].chainConfig);
+    s_ccipCC.applyChainConfigUpdates(new uint64[](0), adds);
 
+    CCIPConfigTypes.ChainConfigInfo[] memory configs = s_ccipCC.getAllChainConfigs(0, 2);
+    assertEq(configs.length, 2, "chain configs length must be 2");
+    assertEq(configs[0].chainSelector, 1, "chain selector must match");
+    assertEq(configs[1].chainSelector, 2, "chain selector must match");
+  }
+
+  function test_getPaginatedCCIPConfigs_Success() public {
+    bytes32[] memory chainReaders = new bytes32[](1);
+    chainReaders[0] = keccak256(abi.encode(1));
+    CCIPConfigTypes.ChainConfigInfo[] memory adds = new CCIPConfigTypes.ChainConfigInfo[](2);
+    adds[0] = CCIPConfigTypes.ChainConfigInfo({
+      chainSelector: 1,
+      chainConfig: CCIPConfigTypes.ChainConfig({readers: chainReaders, fChain: 1, config: bytes("config1")})
+    });
+    adds[1] = CCIPConfigTypes.ChainConfigInfo({
+      chainSelector: 2,
+      chainConfig: CCIPConfigTypes.ChainConfig({readers: chainReaders, fChain: 1, config: bytes("config2")})
+    });
     vm.mockCall(
       CAPABILITIES_REGISTRY,
       abi.encodeWithSelector(ICapabilitiesRegistry.getNode.selector, chainReaders[0]),
@@ -141,16 +194,27 @@ contract CCIPConfig_chainConfig is CCIPConfigSetup {
       )
     );
 
-    vm.expectEmit();
-    emit CCIPConfig.ChainConfigSet(1, adds[0].chainConfig);
-    vm.expectEmit();
-    emit CCIPConfig.ChainConfigSet(2, adds[1].chainConfig);
     s_ccipCC.applyChainConfigUpdates(new uint64[](0), adds);
 
-    CCIPConfigTypes.ChainConfigInfo[] memory configs = s_ccipCC.getAllChainConfigs();
+    CCIPConfigTypes.ChainConfigInfo[] memory configs = s_ccipCC.getAllChainConfigs(0, 2);
     assertEq(configs.length, 2, "chain configs length must be 2");
     assertEq(configs[0].chainSelector, 1, "chain selector must match");
     assertEq(configs[1].chainSelector, 2, "chain selector must match");
+
+    configs = s_ccipCC.getAllChainConfigs(0, 1);
+    assertEq(configs.length, 1, "chain configs length must be 1");
+    assertEq(configs[0].chainSelector, 1, "chain selector must match");
+
+    configs = s_ccipCC.getAllChainConfigs(0, 10);
+    assertEq(configs.length, 2, "chain configs length must be 2");
+    assertEq(configs[0].chainSelector, 1, "chain selector must match");
+    assertEq(configs[1].chainSelector, 2, "chain selector must match");
+
+    configs = s_ccipCC.getAllChainConfigs(1, 1);
+    assertEq(configs.length, 1, "chain configs length must be 1");
+
+    configs = s_ccipCC.getAllChainConfigs(1, 2);
+    assertEq(configs.length, 0, "chain configs length must be 0");
   }
 
   function test_applyChainConfigUpdates_removeChainConfigs_Success() public {
@@ -270,17 +334,13 @@ contract CCIPConfig_chainConfig is CCIPConfigSetup {
 }
 
 contract CCIPConfig_validateConfig is CCIPConfigSetup {
-  // Successes.
-
-  function test__validateConfig_Success() public {
+  function _getCorrectOCR3Config() internal returns (CCIPConfigTypes.OCR3Config memory) {
     (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
 
-    // Config is for 4 nodes, so f == 1.
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
+    return CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -288,239 +348,110 @@ contract CCIPConfig_validateConfig is CCIPConfigSetup {
       offchainConfigVersion: 30,
       offchainConfig: bytes("offchainConfig")
     });
-    s_ccipCC.validateConfig(config);
+  }
+
+  // Successes.
+
+  function test__validateConfig_Success() public {
+    s_ccipCC.validateConfig(_getCorrectOCR3Config());
   }
 
   // Reverts.
 
   function test__validateConfig_ChainSelectorNotSet_Reverts() public {
-    (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
-
-    // Config is for 4 nodes, so f == 1.
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
-      chainSelector: 0, // invalid
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 1,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
+    CCIPConfigTypes.OCR3Config memory config = _getCorrectOCR3Config();
+    config.chainSelector = 0; // invalid
 
     vm.expectRevert(CCIPConfig.ChainSelectorNotSet.selector);
     s_ccipCC.validateConfig(config);
   }
 
   function test__validateConfig_OfframpAddressCannotBeZero_Reverts() public {
-    (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
+    CCIPConfigTypes.OCR3Config memory config = _getCorrectOCR3Config();
+    config.offrampAddress = ""; // invalid
 
-    // Config is for 4 nodes, so f == 1.
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: bytes(""), // invalid
-      chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 1,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
+    vm.expectRevert(CCIPConfig.OfframpAddressCannotBeZero.selector);
+    s_ccipCC.validateConfig(config);
+  }
+
+  function test__validateConfig_ABIEncodedAddress_OfframpAddressCannotBeZero_Reverts() public {
+    CCIPConfigTypes.OCR3Config memory config = _getCorrectOCR3Config();
+    config.offrampAddress = abi.encode(address(0)); // invalid
 
     vm.expectRevert(CCIPConfig.OfframpAddressCannotBeZero.selector);
     s_ccipCC.validateConfig(config);
   }
 
   function test__validateConfig_ChainSelectorNotFound_Reverts() public {
-    (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
-
-    // Config is for 4 nodes, so f == 1.
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
-      chainSelector: 2, // not set
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 1,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
+    CCIPConfigTypes.OCR3Config memory config = _getCorrectOCR3Config();
+    config.chainSelector = 2; // not set
 
     vm.expectRevert(abi.encodeWithSelector(CCIPConfig.ChainSelectorNotFound.selector, 2));
     s_ccipCC.validateConfig(config);
   }
 
-  function test__validateConfig_TooManySigners_Reverts() public {
-    // 32 > 31 (max num oracles)
-    (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(32);
-
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
-      chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 1,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
-
-    vm.expectRevert(CCIPConfig.TooManySigners.selector);
-    s_ccipCC.validateConfig(config);
-  }
-
-  function test__validateConfig_TooManyTransmitters_Reverts() public {
-    // 32 > 31 (max num oracles)
-    (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(32);
-
-    // truncate signers but keep transmitters > 31
-    assembly {
-      mstore(signers, 30)
-    }
-
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
-      chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 1,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
-
-    vm.expectRevert(CCIPConfig.TooManyTransmitters.selector);
-    s_ccipCC.validateConfig(config);
-  }
-
   function test__validateConfig_NotEnoughTransmitters_Reverts() public {
+    CCIPConfigTypes.OCR3Config memory config = _getCorrectOCR3Config();
+    uint256 numberOfTransmitters = 3;
+
     // 32 > 31 (max num oracles)
     (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(31);
 
     // truncate transmitters to < 3 * fChain + 1
     // since fChain is 1 in this case, we need to truncate to 3 transmitters.
     assembly {
-      mstore(transmitters, 3)
+      mstore(transmitters, numberOfTransmitters)
     }
 
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
-      chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 1,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
+    config.transmitters = transmitters;
+    config.p2pIds = p2pIds;
+    config.signers = signers;
 
-    vm.expectRevert(abi.encodeWithSelector(CCIPConfig.NotEnoughTransmitters.selector, 3, 4));
+    vm.expectRevert(abi.encodeWithSelector(CCIPConfig.NotEnoughTransmitters.selector, numberOfTransmitters, 4));
+    s_ccipCC.validateConfig(config);
+  }
+
+  function test__validateConfig_TooManySigners_Reverts() public {
+    CCIPConfigTypes.OCR3Config memory config = _getCorrectOCR3Config();
+    config.signers = new bytes[](257);
+
+    vm.expectRevert(CCIPConfig.TooManySigners.selector);
     s_ccipCC.validateConfig(config);
   }
 
   function test__validateConfig_FMustBePositive_Reverts() public {
-    (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
-
-    // Config is for 4 nodes, so f == 1.
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
-      chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 0,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
+    CCIPConfigTypes.OCR3Config memory config = _getCorrectOCR3Config();
+    config.F = 0; // not positive
 
     vm.expectRevert(CCIPConfig.FMustBePositive.selector);
     s_ccipCC.validateConfig(config);
   }
 
   function test__validateConfig_FTooHigh_Reverts() public {
-    (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
-
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
-      chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 2,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
+    CCIPConfigTypes.OCR3Config memory config = _getCorrectOCR3Config();
+    config.F = 2; // too high
 
     vm.expectRevert(CCIPConfig.FTooHigh.selector);
     s_ccipCC.validateConfig(config);
   }
 
   function test__validateConfig_P2PIdsLengthNotMatching_Reverts() public {
-    (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
-    // truncate the p2pIds length
-    assembly {
-      mstore(p2pIds, 3)
-    }
+    CCIPConfigTypes.OCR3Config memory config = _getCorrectOCR3Config();
 
-    // Config is for 4 nodes, so f == 1.
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
-      chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 1,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
+    uint256 expectedNumberOfP2pIds = config.signers.length;
+    uint256 wrongNumberOfP2pIds = expectedNumberOfP2pIds - 1;
+    config.p2pIds = new bytes32[](wrongNumberOfP2pIds); // Not enough
 
     vm.expectRevert(
-      abi.encodeWithSelector(CCIPConfig.P2PIdsLengthNotMatching.selector, uint256(3), uint256(4), uint256(4))
+      abi.encodeWithSelector(
+        CCIPConfig.P2PIdsLengthNotMatching.selector, wrongNumberOfP2pIds, expectedNumberOfP2pIds, expectedNumberOfP2pIds
+      )
     );
     s_ccipCC.validateConfig(config);
   }
 
-  function test__validateConfig_TooManyBootstrapP2PIds_Reverts() public {
-    (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
-
-    // Config is for 4 nodes, so f == 1.
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
-      chainSelector: 1,
-      bootstrapP2PIds: _makeBytes32Array(5, 0), // too many bootstrap p2pIds, 5 > 4
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 1,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
-
-    vm.expectRevert(CCIPConfig.TooManyBootstrapP2PIds.selector);
-    s_ccipCC.validateConfig(config);
-  }
-
   function test__validateConfig_NodeNotInRegistry_Reverts() public {
-    (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
+    (bytes32[] memory p2pIds,,) = _addChainConfig(4);
     bytes32 nonExistentP2PId = keccak256("notInRegistry");
     p2pIds[0] = nonExistentP2PId;
 
@@ -539,146 +470,10 @@ contract CCIPConfig_validateConfig is CCIPConfigSetup {
         })
       )
     );
-
-    // Config is for 4 nodes, so f == 1.
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
-      chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 1,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
+    CCIPConfigTypes.OCR3Config memory config = _getCorrectOCR3Config();
+    config.p2pIds = p2pIds;
 
     vm.expectRevert(abi.encodeWithSelector(CCIPConfig.NodeNotInRegistry.selector, nonExistentP2PId));
-    s_ccipCC.validateConfig(config);
-  }
-
-  function test__validateConfig_P2PIdsNotSorted_Reverts() public {
-    (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
-    // Config is for 4 nodes, so f == 1.
-
-    //swapping two adjacent p2pIds to make it unsorted
-    (p2pIds[2], p2pIds[3]) = (p2pIds[3], p2pIds[2]);
-
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
-      chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 1,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
-
-    vm.expectRevert(abi.encodeWithSelector(SortedSetValidationUtil.NotASortedSet.selector, p2pIds));
-    s_ccipCC.validateConfig(config);
-  }
-
-  function test__validateConfig_BootstrapP2PIdsNotSorted_Reverts() public {
-    (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
-    // Config is for 4 nodes, so f == 1.
-
-    bytes32[] memory bootstrapP2PIds = _subset(p2pIds, 0, 2);
-
-    //swapping bootstrapP2PIds to make it unsorted
-    (bootstrapP2PIds[0], bootstrapP2PIds[1]) = (bootstrapP2PIds[1], bootstrapP2PIds[0]);
-
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
-      chainSelector: 1,
-      bootstrapP2PIds: bootstrapP2PIds,
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 1,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
-
-    vm.expectRevert(abi.encodeWithSelector(SortedSetValidationUtil.NotASortedSet.selector, bootstrapP2PIds));
-    s_ccipCC.validateConfig(config);
-  }
-
-  function test__validateConfig_P2PIdsHasDuplicates_Reverts() public {
-    (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
-    // Config is for 4 nodes, so f == 1.
-
-    //forcing duplicate p2pIds
-    p2pIds[1] = p2pIds[2];
-
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
-      chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 2),
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 1,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
-
-    vm.expectRevert(abi.encodeWithSelector(SortedSetValidationUtil.NotASortedSet.selector, p2pIds));
-    s_ccipCC.validateConfig(config);
-  }
-
-  function test__validateConfig_BootstrapP2PIdsHasDuplicates_Reverts() public {
-    (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
-    // Config is for 4 nodes, so f == 1.
-
-    bytes32[] memory bootstrapP2PIds = _subset(p2pIds, 0, 2);
-    //forcing duplicate bootstrapP2PIds
-    bootstrapP2PIds[1] = bootstrapP2PIds[0];
-
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
-      chainSelector: 1,
-      bootstrapP2PIds: bootstrapP2PIds,
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 1,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
-
-    vm.expectRevert(abi.encodeWithSelector(SortedSetValidationUtil.NotASortedSet.selector, bootstrapP2PIds));
-    s_ccipCC.validateConfig(config);
-  }
-
-  function test__validateConfig_BootstrapP2PIdsNotASubsetOfP2PIds_Reverts() public {
-    (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
-    // Config is for 4 nodes, so f == 1.
-
-    //forcing invalid bootstrapP2PIds where the bootstrapP2PIds is sorted, but one of the element is not in the p2pIdsSet
-    bytes32[] memory bootstrapP2PIds = _subset(p2pIds, 0, 2);
-    p2pIds[1] = bytes32(uint256(p2pIds[0]) + 100);
-
-    CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
-      chainSelector: 1,
-      bootstrapP2PIds: bootstrapP2PIds,
-      p2pIds: p2pIds,
-      signers: signers,
-      transmitters: transmitters,
-      F: 1,
-      offchainConfigVersion: 30,
-      offchainConfig: bytes("offchainConfig")
-    });
-
-    vm.expectRevert(abi.encodeWithSelector(SortedSetValidationUtil.NotASubset.selector, bootstrapP2PIds, p2pIds));
     s_ccipCC.validateConfig(config);
   }
 }
@@ -686,7 +481,7 @@ contract CCIPConfig_validateConfig is CCIPConfigSetup {
 contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
   // Successful cases.
 
-  function test__stateFromConfigLength_Success() public {
+  function test__stateFromConfigLength_Success() public view {
     uint256 configLen = 0;
     CCIPConfigTypes.ConfigState state = s_ccipCC.stateFromConfigLength(configLen);
     assertEq(uint256(state), uint256(CCIPConfigTypes.ConfigState.Init));
@@ -700,7 +495,7 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     assertEq(uint256(state), uint256(CCIPConfigTypes.ConfigState.Staging));
   }
 
-  function test__validateConfigStateTransition_Success() public {
+  function test__validateConfigStateTransition_Success() public view {
     s_ccipCC.validateConfigStateTransition(CCIPConfigTypes.ConfigState.Init, CCIPConfigTypes.ConfigState.Running);
 
     s_ccipCC.validateConfigStateTransition(CCIPConfigTypes.ConfigState.Running, CCIPConfigTypes.ConfigState.Staging);
@@ -708,7 +503,7 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     s_ccipCC.validateConfigStateTransition(CCIPConfigTypes.ConfigState.Staging, CCIPConfigTypes.ConfigState.Running);
   }
 
-  function test__computeConfigDigest_Success() public {
+  function test__computeConfigDigest_Success() public view {
     // config digest must change upon:
     // - ocr config change (e.g plugin type, chain selector, etc.)
     // - don id change
@@ -720,7 +515,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -752,7 +546,7 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     assertNotEq(configDigest2, configDigest4, "config digests 2 and 4 must not match");
   }
 
-  function test_Fuzz__groupByPluginType_Success(uint256 numCommitCfgs, uint256 numExecCfgs) public {
+  function test_Fuzz__groupByPluginType_Success(uint256 numCommitCfgs, uint256 numExecCfgs) public view {
     numCommitCfgs = bound(numCommitCfgs, 0, 2);
     numExecCfgs = bound(numExecCfgs, 0, 2);
 
@@ -765,7 +559,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
         pluginType: Internal.OCRPluginType.Commit,
         offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
         chainSelector: 1,
-        bootstrapP2PIds: _subset(p2pIds, 0, 1),
         p2pIds: p2pIds,
         signers: signers,
         transmitters: transmitters,
@@ -779,7 +572,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
         pluginType: Internal.OCRPluginType.Execution,
         offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
         chainSelector: 1,
-        bootstrapP2PIds: _subset(p2pIds, 0, 1),
         p2pIds: p2pIds,
         signers: signers,
         transmitters: transmitters,
@@ -812,7 +604,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -845,7 +636,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -857,7 +647,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -923,7 +712,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -935,7 +723,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -983,7 +770,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -1010,7 +796,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -1022,7 +807,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -1060,7 +844,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -1072,7 +855,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -1121,7 +903,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
         pluginType: Internal.OCRPluginType.Commit,
         offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
         chainSelector: 1,
-        bootstrapP2PIds: _subset(p2pIds, 0, 1),
         p2pIds: p2pIds,
         signers: signers,
         transmitters: transmitters,
@@ -1144,7 +925,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
         pluginType: Internal.OCRPluginType.Execution,
         offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
         chainSelector: 1,
-        bootstrapP2PIds: _subset(p2pIds, 0, 1),
         p2pIds: p2pIds,
         signers: signers,
         transmitters: transmitters,
@@ -1169,7 +949,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(_makeBytes32Array(4, 0), 0, 1),
       p2pIds: _makeBytes32Array(4, 0),
       signers: _makeBytesArray(4, 10),
       transmitters: _makeBytesArray(4, 20),
@@ -1196,7 +975,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(_makeBytes32Array(4, 0), 0, 1),
       p2pIds: _makeBytes32Array(4, 0),
       signers: _makeBytesArray(4, 10),
       transmitters: _makeBytesArray(4, 20),
@@ -1208,7 +986,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(_makeBytes32Array(4, 0), 0, 1),
       p2pIds: _makeBytes32Array(4, 0),
       signers: _makeBytesArray(4, 10),
       transmitters: _makeBytesArray(4, 20),
@@ -1252,7 +1029,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(_makeBytes32Array(4, 0), 0, 1),
       p2pIds: _makeBytes32Array(4, 0),
       signers: _makeBytesArray(4, 10),
       transmitters: _makeBytesArray(4, 20),
@@ -1264,7 +1040,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(_makeBytes32Array(4, 0), 0, 1),
       p2pIds: _makeBytes32Array(4, 0),
       signers: _makeBytesArray(4, 10),
       transmitters: _makeBytesArray(4, 20),
@@ -1302,7 +1077,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(_makeBytes32Array(4, 0), 0, 1),
       p2pIds: _makeBytes32Array(4, 0),
       signers: _makeBytesArray(4, 10),
       transmitters: _makeBytesArray(4, 20),
@@ -1314,7 +1088,6 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(_makeBytes32Array(4, 0), 0, 1),
       p2pIds: _makeBytes32Array(4, 0),
       signers: _makeBytesArray(4, 10),
       transmitters: _makeBytesArray(4, 20),
@@ -1360,7 +1133,7 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
   }
 }
 
-contract CCIPConfig__updatePluginConfig is CCIPConfigSetup {
+contract CCIPConfig_updatePluginConfig is CCIPConfigSetup {
   // Successes.
 
   function test__updatePluginConfig_InitToRunning_Success() public {
@@ -1370,7 +1143,6 @@ contract CCIPConfig__updatePluginConfig is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -1395,12 +1167,10 @@ contract CCIPConfig__updatePluginConfig is CCIPConfigSetup {
     (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
     // add blue config.
     uint32 donId = 1;
-    Internal.OCRPluginType pluginType = Internal.OCRPluginType.Commit;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -1417,7 +1187,6 @@ contract CCIPConfig__updatePluginConfig is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -1451,12 +1220,10 @@ contract CCIPConfig__updatePluginConfig is CCIPConfigSetup {
     (bytes32[] memory p2pIds, bytes[] memory signers, bytes[] memory transmitters) = _addChainConfig(4);
     // add blue config.
     uint32 donId = 1;
-    Internal.OCRPluginType pluginType = Internal.OCRPluginType.Commit;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -1473,7 +1240,6 @@ contract CCIPConfig__updatePluginConfig is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -1554,7 +1320,6 @@ contract CCIPConfig_beforeCapabilityConfigSet is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -1586,7 +1351,6 @@ contract CCIPConfig_beforeCapabilityConfigSet is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Execution,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -1620,7 +1384,6 @@ contract CCIPConfig_beforeCapabilityConfigSet is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Commit,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
@@ -1632,7 +1395,6 @@ contract CCIPConfig_beforeCapabilityConfigSet is CCIPConfigSetup {
       pluginType: Internal.OCRPluginType.Execution,
       offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
       chainSelector: 1,
-      bootstrapP2PIds: _subset(p2pIds, 0, 1),
       p2pIds: p2pIds,
       signers: signers,
       transmitters: transmitters,
