@@ -398,7 +398,7 @@ func (c *chain) LatestHead(_ context.Context) (types.Head, error) {
 	latestChain := c.headTracker.LatestChain()
 
 	return types.Head{
-		Identifier: strconv.FormatUint(latestChain.ID, 10),
+		Identifier: strconv.FormatInt(latestChain.BlockNumber(), 10),
 		Hash:       latestChain.Hash.Bytes(),
 		Timestamp:  uint64(latestChain.Timestamp.Unix()),
 	}, nil
