@@ -91,6 +91,10 @@ func setElements(length int, rDecode reflect.Value, iInto reflect.Value) error {
 	return nil
 }
 
+here - need to experiment with chain-reader API to see if can get back a map of attribtues,
+if not will need a change to support this
+
+
 func MapstructureDecode(src, dest any) error {
 	mDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(DecoderHooks...),
