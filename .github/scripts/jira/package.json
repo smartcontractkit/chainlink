@@ -27,5 +27,8 @@
     "@types/node": "^20.14.10",
     "typescript": "^5.5.3",
     "vitest": "^2.0.3"
+  },
+  "peerDependencies": {
+    "axios": "^1.7.7"
   }
 }
