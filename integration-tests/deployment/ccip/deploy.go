@@ -183,6 +183,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 		}
 
 		// For each chain, we create a DON on the home chain.
+
 		if err := AddDON(e.Logger,
 			cr,
 			c.Chains[c.HomeChainSel].CapabilityRegistry,
@@ -190,10 +191,10 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 			chainState.EvmOffRampV160,
 			chain,
 			e.Chains[c.HomeChainSel],
-			uint8(len(nodes)/3),
+			uint8(len(nodes.PluginNodes(chain.Selector))/3),
 			nodes.BootstrapPeerIDs(chain.Selector)[0],
-			nodes.PeerIDs(chain.Selector),
-			nodes,
+			nodes.PluginNodePeerIDs(chain.Selector),
+			nodes.PluginNodes(chain.Selector),
 		); err != nil {
 			e.Logger.Errorw("Failed to add DON", "err", err)
 			return ab, err

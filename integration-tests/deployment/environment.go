@@ -149,6 +149,31 @@ func (n Nodes) PeerIDs(chainSel uint64) [][32]byte {
 	return peerIDs
 }
 
+func (n Nodes) PluginNodes(chainSel uint64) []Node {
+	var pluginNodes []Node
+	for _, node := range n {
+		cfg := node.SelToOCRConfig[chainSel]
+		if cfg.IsBootstrap {
+			continue
+		}
+		pluginNodes = append(pluginNodes, node)
+	}
+	return pluginNodes
+}
+
+func (n Nodes) PluginNodePeerIDs(chainSel uint64) [][32]byte {
+	var peerIDs [][32]byte
+	for _, node := range n {
+		cfg := node.SelToOCRConfig[chainSel]
+		if cfg.IsBootstrap {
+			continue
+		}
+		// NOTE: Assume same peerID for all chains.
+		// Might make sense to change proto as peerID is 1-1 with node?
+		peerIDs = append(peerIDs, cfg.PeerID)
+	}
+	return peerIDs
+}
 func (n Nodes) BootstrapPeerIDs(chainSel uint64) [][32]byte {
 	var peerIDs [][32]byte
 	for _, node := range n {

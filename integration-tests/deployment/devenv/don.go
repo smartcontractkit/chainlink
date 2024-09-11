@@ -83,7 +83,7 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 		// node Labels so that it's easier to query them
 		if info.IsBootstrap {
 			// create multi address for OCR2, applicable only for bootstrap nodes
-			node.multiAddr = info.CLConfig.URL
+			node.multiAddr = info.CLConfig.InternalIP
 			// no need to set admin address for bootstrap nodes, as there will be no payment
 			node.adminAddr = ""
 			node.labels = append(node.labels, &ptypes.Label{
