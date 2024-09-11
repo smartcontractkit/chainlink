@@ -7,16 +7,21 @@ import (
 
 type FeeQuoter struct {
 	Contract
-	AuthorizedCallers      []string                            `json:"authorizedCallers,omitempty"`
-	FeeTokens              []string                            `json:"feeTokens,omitempty"`
-	StaticConfig           FeeQuoterStaticConfig               `json:"staticConfig,omitempty"`
-	DestinationChainConfig map[uint64]FeeQuoterDestChainConfig `json:"destinationChainConfig,omitempty"` // Map of DestinationChainSelectors to FeeQuoterDestChainConfig
+	AuthorizedCallers      []string                               `json:"authorizedCallers,omitempty"`
+	FeeTokens              []string                               `json:"feeTokens,omitempty"`
+	StaticConfig           FeeQuoterStaticConfig                  `json:"staticConfig,omitempty"`
+	DestinationChainConfig map[uint64]DestinationConfigWithTokens `json:"DestinationConfigWithTokens,omitempty"` // Map of DestinationChainSelectors
+}
+
+type DestinationConfigWithTokens struct {
+	DestChainConfig      FeeQuoterDestChainConfig                 `json:"destChainConfig,omitempty"`
+	TokenPriceFeedConfig map[string]FeeQuoterTokenPriceFeedConfig `json:"tokenPriceFeedConfig,omitempty"` // Map of Token addresses to FeeQuoterTokenPriceFeedConfig
 }
 
 type FeeQuoterStaticConfig struct {
-	MaxFeeJuelsPerMsg  string         `json:"maxFeeJuelsPerMsg,omitempty"`
-	LinkToken          common.Address `json:"linkToken,omitempty"`
-	StalenessThreshold uint32         `json:"stalenessThreshold,omitempty"`
+	MaxFeeJuelsPerMsg  string `json:"maxFeeJuelsPerMsg,omitempty"`
+	LinkToken          string `json:"linkToken,omitempty"`
+	StalenessThreshold uint32 `json:"stalenessThreshold,omitempty"`
 }
 
 type FeeQuoterDestChainConfig struct {
@@ -43,13 +48,64 @@ type FeeQuoterTokenPriceFeedConfig struct {
 	TokenDecimals   uint8  `json:"tokenDecimals,omitempty"`
 }
 
-type TokenTransferFeeConfig struct {
+type FeeQuoterTokenTransferFeeConfig struct {
 	MinFeeUSDCents    uint32 `json:"minFeeUSDCents,omitempty"`
 	MaxFeeUSDCents    uint32 `json:"maxFeeUSDCents,omitempty"`
 	DeciBps           uint16 `json:"deciBps,omitempty"`
 	DestGasOverhead   uint32 `json:"destGasOverhead,omitempty"`
 	DestBytesOverhead uint32 `json:"destBytesOverhead,omitempty"`
 	IsEnabled         bool   `json:"isEnabled,omitempty"`
+}
+
+func FeeQuoterSnapshot(reader FeeQuoterReader, tokensByDestination map[uint64][]string) (FeeQuoter, error) {
+	var fq FeeQuoter
+	tv, err := reader.TypeAndVersion(nil)
+	if err != nil {
+		return fq, err
+	}
+	fq.TypeAndVersion = tv
+	fq.Address = reader.Address().Hex()
+	authorizedCallers, err := reader.GetAllAuthorizedCallers(nil)
+	if err != nil {
+		return fq, err
+	}
+	fq.AuthorizedCallers = make([]string, 0, len(authorizedCallers))
+	for _, ac := range authorizedCallers {
+		fq.AuthorizedCallers = append(fq.AuthorizedCallers, ac.Hex())
+	}
+	feeTokens, err := reader.GetFeeTokens(nil)
+	if err != nil {
+		return fq, err
+	}
+	fq.FeeTokens = make([]string, 0, len(feeTokens))
+	for _, ft := range feeTokens {
+		fq.FeeTokens = append(fq.FeeTokens, ft.Hex())
+	}
+	staticConfig, err := reader.GetStaticConfig(nil)
+	if err != nil {
+		return fq, err
+	}
+	fq.StaticConfig = staticConfig
+	fq.DestinationChainConfig = make(map[uint64]DestinationConfigWithTokens)
+	for destChainSelector, tokens := range tokensByDestination {
+		destChainConfig, err := reader.GetDestChainConfig(nil, destChainSelector)
+		if err != nil {
+			return fq, err
+		}
+		tokenPriceFeedConfig := make(map[string]FeeQuoterTokenPriceFeedConfig)
+		for _, token := range tokens {
+			t, err := reader.GetTokenPriceFeedConfig(nil, common.HexToAddress(token))
+			if err != nil {
+				return fq, err
+			}
+			tokenPriceFeedConfig[token] = t
+		}
+		fq.DestinationChainConfig[destChainSelector] = DestinationConfigWithTokens{
+			DestChainConfig:      destChainConfig,
+			TokenPriceFeedConfig: tokenPriceFeedConfig,
+		}
+	}
+	return fq, nil
 }
 
 type FeeQuoterReader interface {
@@ -59,5 +115,5 @@ type FeeQuoterReader interface {
 	GetStaticConfig(opts *bind.CallOpts) (FeeQuoterStaticConfig, error)
 	GetDestChainConfig(opts *bind.CallOpts, destChainSelector uint64) (FeeQuoterDestChainConfig, error)
 	GetTokenPriceFeedConfig(opts *bind.CallOpts, token common.Address) (FeeQuoterTokenPriceFeedConfig, error)
-	GetTokenTransferFeeConfig(opts *bind.CallOpts, destChainSelector uint64, token common.Address) (TokenTransferFeeConfig, error)
+	GetTokenTransferFeeConfig(opts *bind.CallOpts, destChainSelector uint64, token common.Address) (FeeQuoterTokenTransferFeeConfig, error)
 }

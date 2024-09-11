@@ -10,6 +10,7 @@ import (
 	owner_wrappers "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/contractwrappers/feequoter1_6"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/contractwrappers/rmn1_6"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/contractwrappers/router1_2"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
@@ -32,7 +33,7 @@ import (
 type CCIPChainState struct {
 	EvmOnRampV160      *onramp.OnRamp
 	EvmOffRampV160     *offramp.OffRamp
-	PriceRegistry      *fee_quoter.FeeQuoter
+	PriceRegistry      *feequoter1_6.FeeQuoter
 	ArmProxy           *rmn_proxy_contract.RMNProxyContract
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
@@ -87,6 +88,14 @@ func (c CCIPChainState) Snapshot() (view.Chain, error) {
 			return chainView, err
 		}
 		chainView.RMN[rmn.Address().Hex()] = rmnSnapshot
+	}
+	fq := c.PriceRegistry
+	if fq != nil {
+		fqSnapshot, err := view.FeeQuoterSnapshot(fq, chainView.SupportedTokensByDestination)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.FeeQuoter[fq.Address().Hex()] = fqSnapshot
 	}
 	onRamp := c.EvmOnRampV160
 	if onRamp != nil {
@@ -234,7 +243,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if err != nil {
 				return state, err
 			}
-			state.PriceRegistry = pr
+			state.PriceRegistry = feequoter1_6.New(pr)
 		case deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0).String():
 			lt, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {
