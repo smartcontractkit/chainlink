@@ -73,7 +73,7 @@ func TestDeploy(t *testing.T) {
 
 		var nodeToNop = make(map[string]kcr.CapabilitiesRegistryNodeOperator) //node -> nop
 		// assign nops to nodes
-		for _, env := range e.DonToEnv {
+		for _, env := range e.Dons() {
 			for i, nodeID := range env.NodeIDs {
 				idx := i % len(testNops)
 				nop := testNops[idx]
@@ -147,7 +147,7 @@ func TestDeploy(t *testing.T) {
 			require.Fail(t, fmt.Sprintf("failed to get Dons from registry at %s: %s", gotRegistry.Address().String(), err))
 		}
 		require.NoError(t, err)
-		assert.Len(t, gotDons, len(e.DonToEnv))
+		assert.Len(t, gotDons, len(e.Dons()))
 		var donIds []uint32
 		for n, info := range deployResp.DonInfos {
 			donIds = append(donIds, info.Id)

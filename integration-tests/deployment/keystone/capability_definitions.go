@@ -2,6 +2,7 @@ package keystone
 
 import kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 
+// TODO: KS-457 configuration management for capabilities from external sources
 var StreamTriggerCap = kcr.CapabilitiesRegistryCapability{
 	LabelledName:   "streams-trigger",
 	Version:        "1.0.0",
@@ -19,8 +20,6 @@ var OCR3Cap = kcr.CapabilitiesRegistryCapability{
 	Version:        "1.0.0",
 	CapabilityType: uint8(2), // consensus
 }
-
-// todo: this needs to moved into configuration
 
 var DonToCapabilities = map[string][]kcr.CapabilitiesRegistryCapability{
 	WFDonName:     []kcr.CapabilitiesRegistryCapability{OCR3Cap},

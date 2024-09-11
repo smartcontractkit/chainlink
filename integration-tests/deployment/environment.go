@@ -56,9 +56,20 @@ type Environment struct {
 	Logger   logger.Logger
 }
 
+// MultiDonEnvironment is a single logical deployment environment (like dev, testnet, prod,...).
+// It represents the idea that different nodesets host different capabilities.
+// Each element in the DonEnv is a logical set of nodes that host the same capabilities.
+// This model allows us to reuse the existing Environment abstraction while supporting multiple nodesets at
+// expense of slightly abusing the original abstraction. Specifically, the abuse is that
+// each Environment in the DonToEnv map is a subset of the target deployment environment.
+// One element cannot represent dev and other testnet for example.
 type MultiDonEnvironment struct {
 	DonToEnv map[string]*Environment
 	Logger   logger.Logger
+}
+
+func (mde MultiDonEnvironment) Dons() map[string]*Environment {
+	return mde.DonToEnv
 }
 
 func (mde MultiDonEnvironment) Get(name string) *Environment {

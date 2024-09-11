@@ -25,7 +25,7 @@ func TestDonNodeset(t *testing.T) {
 		return strings.Contains(n.Name, "ks-writer")
 	}
 
-	m := clo.DonNodesets(keystoneNops, map[string]clo.FilterFuncT[*models.Node]{
+	m := clo.CapabilityNodeSets(keystoneNops, map[string]clo.FilterFuncT[*models.Node]{
 		"workflow":    clo.ProductFilterGenerator(models.ProductTypeWorkflow),
 		"chainWriter": writerFilter,
 	})

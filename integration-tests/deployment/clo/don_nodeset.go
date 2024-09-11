@@ -6,8 +6,9 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo/models"
 )
 
-func DonNodesets(nops []*models.NodeOperator, donFilters map[string]FilterFuncT[*models.Node]) map[string][]*models.NodeOperator {
-	// first drop bootstraps if they exist
+// CapabilityNodeSets groups nodes by a given filter function, resulting in a map of don name to nodes.
+func CapabilityNodeSets(nops []*models.NodeOperator, donFilters map[string]FilterFuncT[*models.Node]) map[string][]*models.NodeOperator {
+	// first drop bootstraps if they exist because they do not serve capabilities
 	nonBootstrapNops := filterNopNodes(nops, func(n *models.Node) bool {
 		for _, chain := range n.ChainConfigs {
 			if chain.Ocr2Config.IsBootstrap {
@@ -16,6 +17,7 @@ func DonNodesets(nops []*models.NodeOperator, donFilters map[string]FilterFuncT[
 		}
 		return true
 	})
+	// apply given filters to non-bootstrap nodes
 	out := make(map[string][]*models.NodeOperator)
 	for name, f := range donFilters {
 		out[name] = filterNopNodes(nonBootstrapNops, f)
