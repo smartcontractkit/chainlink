@@ -26,31 +26,9 @@ type ServiceWrapper struct {
 	config    config.GatewayConnector
 	keystore  keystore.Eth
 	connector connector.GatewayConnector
+	signerKey *ecdsa.PrivateKey
 	lggr      logger.Logger
 	clock     clockwork.Clock
-}
-
-type connectorSigner struct {
-	services.StateMachine
-
-	connector   connector.GatewayConnector
-	signerKey   *ecdsa.PrivateKey
-	nodeAddress string
-	lggr        logger.Logger
-}
-
-var _ connector.Signer = &connectorSigner{}
-
-func NewConnectorSigner(config config.GatewayConnector, signerKey *ecdsa.PrivateKey, lggr logger.Logger) (*connectorSigner, error) {
-	return &connectorSigner{
-		nodeAddress: config.NodeAddress(),
-		signerKey:   signerKey,
-		lggr:        lggr.Named("ConnectorSigner"),
-	}, nil
-}
-
-func (h *connectorSigner) Sign(data ...[]byte) ([]byte, error) {
-	return gwcommon.SignData(h.signerKey, data...)
 }
 
 func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
@@ -72,12 +50,13 @@ func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 }
 
 // NOTE: this wrapper is needed to make sure that our services are started after Keystore.
-func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore keystore.Eth, clock clockwork.Clock, lggr logger.Logger) *ServiceWrapper {
+func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, signerKey *ecdsa.PrivateKey, keystore keystore.Eth, clock clockwork.Clock, lggr logger.Logger) *ServiceWrapper {
 	return &ServiceWrapper{
-		config:   config,
-		keystore: keystore,
-		clock:    clock,
-		lggr:     lggr,
+		config:    config,
+		signerKey: signerKey,
+		keystore:  keystore,
+		clock:     clock,
+		lggr:      lggr,
 	}
 }
 
@@ -99,22 +78,22 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 		if idx == -1 {
 			return errors.New("key for configured node address not found")
 		}
-		signerKey := enabledKeys[idx].ToEcdsaPrivKey()
+		e.signerKey = enabledKeys[idx].ToEcdsaPrivKey()
 		if enabledKeys[idx].ID() != nodeAddress {
 			return errors.New("node address mismatch")
 		}
 
-		signer, err := NewConnectorSigner(conf, signerKey, e.lggr)
-		if err != nil {
-			return err
-		}
 		translated := translateConfigs(conf)
-		e.connector, err = connector.NewGatewayConnector(&translated, signer, e.clock, e.lggr)
+		e.connector, err = connector.NewGatewayConnector(&translated, e, e.clock, e.lggr)
 		if err != nil {
 			return err
 		}
 		return e.connector.Start(ctx)
 	})
+}
+
+func (h *ServiceWrapper) Sign(data ...[]byte) ([]byte, error) {
+	return gwcommon.SignData(h.signerKey, data...)
 }
 
 func (e *ServiceWrapper) Close() error {
