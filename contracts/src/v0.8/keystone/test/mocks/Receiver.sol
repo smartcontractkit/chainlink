@@ -18,7 +18,7 @@ contract Receiver is IReceiver, IERC165 {
     emit MessageReceived(metadata, mercuryReports);
   }
 
-  function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
-    return interfaceId == this.onReport.selector;
+  function supportsInterface(bytes4 interfaceId) public pure returns (bool) {
+    return interfaceId == type(IReceiver).interfaceId || interfaceId == type(IERC165).interfaceId;
   }
 }

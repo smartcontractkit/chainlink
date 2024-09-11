@@ -63,6 +63,11 @@ on:
         description: 'Use the existing remote runner version for k8s tests. Example: "d3bf5044af33e08be788a2df31c4a745cf69d787"'
         required: false
         type: string
+      test_image_suites:
+        description: 'Suites to build in the test image. Space separated'
+        required: false
+        type: string
+        default: chaos migration reorg smoke soak benchmark load
       require_chainlink_image_versions_in_qa_ecr:
         description: 'Check Chainlink image versions to be present in QA ECR. If not, build and push the image to QA ECR. Takes comma separated list of Chainlink image versions. Example: "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
         required: false
@@ -674,6 +679,7 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          suites: ${{ inputs.test_image_suites }}
       - name: Set Remote Runner Version
         id: set-remote-runner-version
         run: |

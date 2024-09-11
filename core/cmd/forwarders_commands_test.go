@@ -22,7 +22,7 @@ func TestEVMForwarderPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
-		id         = "1"
+		id         = "ID:"
 		address    = utils.RandomAddress()
 		evmChainID = big.NewI(4)
 		createdAt  = time.Now()
