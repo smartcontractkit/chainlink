@@ -151,7 +151,7 @@ func AddNodes(
 	if err != nil {
 		return err
 	}
-	_, err = chain.Confirm(tx.Hash())
+	_, err = chain.Confirm(tx)
 	return err
 }
 
@@ -178,7 +178,6 @@ func AddChainConfig(
 	encodedExtraChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
 		GasPriceDeviationPPB:    ccipocr3.NewBigIntFromInt64(1000),
 		DAGasPriceDeviationPPB:  ccipocr3.NewBigIntFromInt64(0),
-		FinalityDepth:           10,
 		OptimisticConfirmations: 1,
 	})
 	if err != nil {
