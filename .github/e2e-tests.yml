@@ -709,7 +709,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     test_env_type: docker
     test_cmd: cd integration-tests/smoke && go test -v -test.run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -test.parallel=1 -timeout 2h -count=1 -json
-    test_config_override_path: integration-tests/testconfig/vrfv2plus/overrides/release_testing/sepolia_release_test_config.toml
+    test_config_override_path: integration-tests/testconfig/vrfv2plus/overrides/new_env/sepolia_new_env_test_config.toml
     workflows:
       - VRF E2E Release Tests
 
