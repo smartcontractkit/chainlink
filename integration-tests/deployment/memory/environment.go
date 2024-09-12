@@ -39,6 +39,9 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 			Selector:    sel,
 			Client:      chain.Backend,
 			DeployerKey: chain.DeployerKey,
+			LatestBlockNum: func(ctx context.Context) (uint64, error) {
+				return chain.Backend.Blockchain().CurrentBlock().Number.Uint64(), nil
+			},
 			Confirm: func(tx common.Hash) (uint64, error) {
 				for {
 					chain.Backend.Commit()

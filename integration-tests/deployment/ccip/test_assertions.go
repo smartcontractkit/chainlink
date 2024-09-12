@@ -2,7 +2,7 @@ package ccipdeployment
 
 import (
 	"context"
-	"sync"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -20,8 +21,9 @@ func WaitForCommitForAllWithInterval(
 	e deployment.Environment,
 	state CCIPOnChainState,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
+	startBlocks map[uint64]*uint64,
 ) {
-	var wg sync.WaitGroup
+	var wg errgroup.Group
 	for src, srcChain := range e.Chains {
 		for dest, dstChain := range e.Chains {
 			if src == dest {
@@ -29,14 +31,18 @@ func WaitForCommitForAllWithInterval(
 			}
 			srcChain := srcChain
 			dstChain := dstChain
-			wg.Add(1)
-			go func(src, dest uint64) {
-				defer wg.Done()
-				WaitForCommitWithInterval(t, srcChain, dstChain, state.Chains[dest].EvmOffRampV160, expectedSeqNumRange)
-			}(src, dest)
+			wg.Go(func() error {
+				return func(src, dest uint64) error {
+					var startBlock *uint64
+					if startBlocks != nil {
+						startBlock = startBlocks[dest]
+					}
+					return WaitForCommitWithInterval(t, srcChain, dstChain, state.Chains[dest].EvmOffRampV160, startBlock, expectedSeqNumRange)
+				}(src, dest)
+			})
 		}
 	}
-	wg.Wait()
+	require.NoError(t, wg.Wait())
 }
 
 func WaitForCommitWithInterval(
@@ -44,17 +50,23 @@ func WaitForCommitWithInterval(
 	src deployment.Chain,
 	dest deployment.Chain,
 	offRamp *offramp.OffRamp,
+	startBlock *uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
-) {
+) error {
 	sink := make(chan *offramp.OffRampCommitReportAccepted)
 	subscription, err := offRamp.WatchCommitReportAccepted(&bind.WatchOpts{
 		Context: context.Background(),
+		Start:   startBlock,
 	}, sink)
-	require.NoError(t, err)
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
+	if err != nil {
+		return fmt.Errorf("error to subscribe CommitReportAccepted : %w", err)
+	}
 
-	//revive:disable
+	defer subscription.Unsubscribe()
+	timer := time.NewTimer(5 * time.Minute)
+	defer timer.Stop()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
@@ -68,7 +80,10 @@ func WaitForCommitWithInterval(
 			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
 				dest.Selector, src.Selector, expectedSeqNumRange.String())
 		case subErr := <-subscription.Err():
-			t.Fatalf("Subscription error: %+v", subErr)
+			return fmt.Errorf("subscription error: %w", subErr)
+		case <-timer.C:
+			return fmt.Errorf("timed out waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
+				dest.Selector, src.Selector, expectedSeqNumRange.String())
 		case report := <-sink:
 			if len(report.Report.MerkleRoots) > 0 {
 				// Check the interval of sequence numbers and make sure it matches
@@ -79,7 +94,7 @@ func WaitForCommitWithInterval(
 						uint64(expectedSeqNumRange.End()) == mr.MaxSeqNr {
 						t.Logf("Received commit report on selector %d from source selector %d expected seq nr range %s",
 							dest.Selector, src.Selector, expectedSeqNumRange.String())
-						return
+						return nil
 					}
 				}
 			}
@@ -92,8 +107,9 @@ func WaitForExecWithSeqNrForAll(
 	e deployment.Environment,
 	state CCIPOnChainState,
 	expectedSeqNr uint64,
+	startBlocks map[uint64]*uint64,
 ) {
-	var wg sync.WaitGroup
+	var wg errgroup.Group
 	for src, srcChain := range e.Chains {
 		for dest, dstChain := range e.Chains {
 			if src == dest {
@@ -101,48 +117,68 @@ func WaitForExecWithSeqNrForAll(
 			}
 			srcChain := srcChain
 			dstChain := dstChain
-			wg.Add(1)
-			go func(src, dest deployment.Chain) {
-				defer wg.Done()
-				WaitForExecWithSeqNr(t, src, dest, state.Chains[dest.Selector].EvmOffRampV160, expectedSeqNr)
-			}(srcChain, dstChain)
+			wg.Go(func() error {
+				return func(src, dest deployment.Chain) error {
+					var startBlock *uint64
+					if startBlocks != nil {
+						startBlock = startBlocks[dest.Selector]
+					}
+					return WaitForExecWithSeqNr(t, src, dest, state.Chains[dest.Selector].EvmOffRampV160, startBlock, expectedSeqNr)
+				}(srcChain, dstChain)
+			})
 		}
 	}
-	wg.Wait()
+	require.NoError(t, wg.Wait())
 }
 
-func WaitForExecWithSeqNr(t *testing.T,
+func WaitForExecWithSeqNr(
+	t *testing.T,
 	source, dest deployment.Chain,
-	offramp *offramp.OffRamp,
-	expectedSeqNr uint64) {
+	offRamp *offramp.OffRamp,
+	startBlock *uint64,
+	expectedSeqNr uint64,
+) error {
+	timer := time.NewTimer(5 * time.Minute)
+	defer timer.Stop()
 	tick := time.NewTicker(5 * time.Second)
 	defer tick.Stop()
-	for range tick.C {
-		// TODO: Clean this up
-		// if it's simulated backend, commit to ensure mining
-		if backend, ok := source.Client.(*backends.SimulatedBackend); ok {
-			backend.Commit()
-		}
-		if backend, ok := dest.Client.(*backends.SimulatedBackend); ok {
-			backend.Commit()
-		}
-		scc, err := offramp.GetSourceChainConfig(nil, source.Selector)
-		require.NoError(t, err)
-		t.Logf("Waiting for ExecutionStateChanged on chain  %d from chain %d with expected sequence number %d, current onchain minSeqNr: %d",
-			dest.Selector, source.Selector, expectedSeqNr, scc.MinSeqNr)
-		iter, err := offramp.FilterExecutionStateChanged(nil,
-			[]uint64{source.Selector}, []uint64{expectedSeqNr}, nil)
-		require.NoError(t, err)
-		var count int
-		for iter.Next() {
-			if iter.Event.SequenceNumber == expectedSeqNr && iter.Event.SourceChainSelector == source.Selector {
-				count++
+	sink := make(chan *offramp.OffRampExecutionStateChanged)
+	subscription, err := offRamp.WatchExecutionStateChanged(&bind.WatchOpts{
+		Context: context.Background(),
+		Start:   startBlock,
+	}, sink, nil, nil, nil)
+	if err != nil {
+		return fmt.Errorf("error to subscribe ExecutionStateChanged : %w", err)
+	}
+	defer subscription.Unsubscribe()
+	for {
+		select {
+		case <-tick.C:
+			// TODO: Clean this up
+			// if it's simulated backend, commit to ensure mining
+			if backend, ok := source.Client.(*backends.SimulatedBackend); ok {
+				backend.Commit()
 			}
-		}
-		if count == 1 {
-			t.Logf("Received ExecutionStateChanged on chain %d from chain %d with expected sequence number %d",
+			if backend, ok := dest.Client.(*backends.SimulatedBackend); ok {
+				backend.Commit()
+			}
+			scc, err := offRamp.GetSourceChainConfig(nil, source.Selector)
+			if err != nil {
+				return fmt.Errorf("error to get source chain config : %w", err)
+			}
+			t.Logf("Waiting for ExecutionStateChanged on chain  %d from chain %d with expected sequence number %d, current onchain minSeqNr: %d",
+				dest.Selector, source.Selector, expectedSeqNr, scc.MinSeqNr)
+		case execEvent := <-sink:
+			if execEvent.SequenceNumber == expectedSeqNr && execEvent.SourceChainSelector == source.Selector {
+				t.Logf("Received ExecutionStateChanged on chain %d from chain %d with expected sequence number %d",
+					dest.Selector, source.Selector, expectedSeqNr)
+				return nil
+			}
+		case <-timer.C:
+			return fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d from chain %d with expected sequence number %d",
 				dest.Selector, source.Selector, expectedSeqNr)
-			return
+		case subErr := <-subscription.Err():
+			return fmt.Errorf("Subscription error: %w", subErr)
 		}
 	}
 }

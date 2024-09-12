@@ -37,13 +37,6 @@ type OffchainClient interface {
 	csav1.CSAServiceClient
 }
 
-type GasSettings struct {
-	EIP1559         bool
-	GasTipCap       *big.Int
-	GasFeeCap       *big.Int
-	DefaultGasLimit uint64
-}
-
 type Chain struct {
 	// Selectors used as canonical chain identifier.
 	Selector uint64
@@ -51,31 +44,8 @@ type Chain struct {
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
 	DeployerKey *bind.TransactOpts
 	Confirm     func(tx common.Hash) (uint64, error)
-}
-
-func (c Chain) SetGas(params GasSettings) error {
-	var err error
-	if params.EIP1559 {
-		c.DeployerKey.GasTipCap, err = c.Client.SuggestGasTipCap(context.Background())
-		if err != nil {
-			return err
-		}
-		if params.GasTipCap != nil && c.DeployerKey.GasTipCap.Cmp(params.GasTipCap) < 0 {
-			c.DeployerKey.GasTipCap = params.GasTipCap
-		}
-		if params.GasFeeCap != nil {
-			c.DeployerKey.GasFeeCap = params.GasFeeCap
-		}
-	} else {
-		c.DeployerKey.GasPrice, err = c.Client.SuggestGasPrice(context.Background())
-		if err != nil {
-			return err
-		}
-	}
-	if params.DefaultGasLimit > c.DeployerKey.GasLimit {
-		c.DeployerKey.GasLimit = params.DefaultGasLimit
-	}
-	return nil
+	// TODO : Remove this when seth is integrated.
+	LatestBlockNum func(ctx context.Context) (uint64, error)
 }
 
 type Environment struct {

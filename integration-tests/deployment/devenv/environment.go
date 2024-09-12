@@ -100,7 +100,7 @@ func DeployPrivateChains(t *testing.T) (
 		WithTestConfig(&cfg).
 		WithTestInstance(t).
 		WithPrivateEthereumNetworks(privateEthereumNetworks).
-		WithoutCleanup().
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err, "Error building test environment")
 	var chains []ChainConfig

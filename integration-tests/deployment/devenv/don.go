@@ -3,14 +3,17 @@ package devenv
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 
 	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/hashicorp/go-multierror"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	clclient "github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/integration-tests/web/sdk/client"
@@ -59,12 +62,34 @@ func (don *DON) NodeIds() []string {
 	return nodeIds
 }
 
+func (don *DON) FundNodes(ctx context.Context, amount *big.Int, chains map[uint64]deployment.Chain) error {
+	var err error
+	for sel, chain := range chains {
+		for _, node := range don.Nodes {
+			// if node is bootstrap, no need to fund it
+			if node.multiAddr != "" {
+				continue
+			}
+			accountAddr, ok := node.AccountAddr[sel]
+			if !ok {
+				err = multierror.Append(err, fmt.Errorf("node %s has no account address for chain %d", node.Name, sel))
+				continue
+			}
+			if err1 := FundAddress(ctx, chain.DeployerKey, common.HexToAddress(accountAddr), amount, chain); err1 != nil {
+				err = multierror.Append(err, err1)
+			}
+		}
+	}
+	return err
+}
+
 func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig) error {
 	var err error
-	for _, node := range don.Nodes {
+	for i, node := range don.Nodes {
 		if err1 := node.CreateCCIPOCR2SupportedChains(ctx, chains); err1 != nil {
 			err = multierror.Append(err, err1)
 		}
+		don.Nodes[i] = node
 	}
 	return err
 }
@@ -128,13 +153,14 @@ func NewNode(nodeInfo NodeInfo) (*Node, error) {
 }
 
 type Node struct {
-	NodeId    string
-	JDId      string
-	Name      string
-	gqlClient client.Client
-	labels    []*ptypes.Label
-	adminAddr string
-	multiAddr string
+	NodeId      string
+	JDId        string
+	Name        string
+	AccountAddr map[uint64]string // chain selector to account address
+	gqlClient   client.Client
+	labels      []*ptypes.Label
+	adminAddr   string
+	multiAddr   string
 }
 
 // CreateCCIPOCR2SupportedChains creates JobDistributorChainConfig for the node
@@ -144,6 +170,10 @@ type Node struct {
 func (n *Node) CreateCCIPOCR2SupportedChains(ctx context.Context, chains []ChainConfig) error {
 	for _, chain := range chains {
 		chainId := strconv.FormatUint(chain.ChainId, 10)
+		selector, err := chainselectors.SelectorFromChainId(chain.ChainId)
+		if err != nil {
+			return fmt.Errorf("failed to get selector from chain id %d: %w", chain.ChainId, err)
+		}
 		accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
 		if err != nil {
 			return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
@@ -151,6 +181,10 @@ func (n *Node) CreateCCIPOCR2SupportedChains(ctx context.Context, chains []Chain
 		if accountAddr == nil {
 			return fmt.Errorf("no account address found for node %s", n.Name)
 		}
+		if n.AccountAddr == nil {
+			n.AccountAddr = make(map[uint64]string)
+		}
+		n.AccountAddr[selector] = *accountAddr
 		peerID, err := n.gqlClient.FetchP2PPeerID(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to fetch peer id for node %s: %w", n.Name, err)

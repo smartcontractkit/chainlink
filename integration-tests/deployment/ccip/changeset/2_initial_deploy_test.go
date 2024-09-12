@@ -64,24 +64,25 @@ func Test0002_InitialDeploy(t *testing.T) {
 	// Send a request from every router
 	// Add all lanes
 	require.NoError(t, ccipdeployment.AddLanesForAll(e, state))
-
 	// Send a message from each chain to every other chain.
 	for src, srcChain := range e.Chains {
 		for dest := range e.Chains {
 			if src == dest {
 				continue
 			}
+			// record the block number for each chain
 			t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
 				src, dest)
-			require.NoError(t, ccipdeployment.SendMessage(src, dest, e.Chains[src].DeployerKey, srcChain.Confirm, state))
+			_, err = ccipdeployment.SendMessage(src, dest, e.Chains[src].DeployerKey, srcChain.Confirm, state)
+			require.NoError(t, err)
 		}
 	}
 
 	// Wait for all commit reports to land.
-	ccipdeployment.WaitForCommitForAllWithInterval(t, e, state, ccipocr3.SeqNumRange{1, 1})
+	ccipdeployment.WaitForCommitForAllWithInterval(t, e, state, ccipocr3.SeqNumRange{1, 1}, nil)
 
 	// Wait for all exec reports to land
-	ccipdeployment.WaitForExecWithSeqNrForAll(t, e, state, 1)
+	ccipdeployment.WaitForExecWithSeqNrForAll(t, e, state, 1, nil)
 
 	// TODO: Apply the proposal.
 }

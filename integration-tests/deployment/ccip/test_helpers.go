@@ -117,6 +117,9 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 	require.NotNil(t, e)
 	require.NotNil(t, don)
 
+	// fund the nodes
+	require.NoError(t, don.FundNodes(ctx, deployment.E18Mult(10), e.Chains))
+
 	return DeployedLocalDevEnvironment{
 		Ab:           ab,
 		Env:          *e,
@@ -144,7 +147,7 @@ func SendMessage(
 	transactOpts *bind.TransactOpts,
 	srcConfirm func(tx common.Hash) (uint64, error),
 	state CCIPOnChainState,
-) error {
+) (uint64, error) {
 	msg := router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(state.Chains[destSelector].Receiver.Address().Bytes(), 32),
 		Data:         []byte("hello"),
@@ -155,7 +158,7 @@ func SendMessage(
 	fee, err := state.Chains[srcSelector].Router.GetFee(
 		&bind.CallOpts{Context: context.Background()}, destSelector, msg)
 	if err != nil {
-		return deployment.MaybeDataErr(err)
+		return 0, deployment.MaybeDataErr(err)
 	}
 	tx, err := state.Chains[srcSelector].Weth9.Deposit(&bind.TransactOpts{
 		From:   transactOpts.From,
@@ -163,11 +166,11 @@ func SendMessage(
 		Value:  fee,
 	})
 	if err != nil {
-		return err
+		return 0, err
 	}
 	_, err = srcConfirm(tx.Hash())
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// TODO: should be able to avoid this by using native?
@@ -175,17 +178,16 @@ func SendMessage(
 		transactOpts,
 		state.Chains[srcSelector].Router.Address(), fee)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	_, err = srcConfirm(tx.Hash())
 	if err != nil {
-		return err
+		return 0, err
 
 	}
 	tx, err = state.Chains[srcSelector].Router.CcipSend(transactOpts, destSelector, msg)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	_, err = srcConfirm(tx.Hash())
-	return err
+	return srcConfirm(tx.Hash())
 }

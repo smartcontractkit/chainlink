@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/changeset"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
@@ -21,17 +20,10 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 	tenv := ccipdeployment.NewDeployedLocalDevEnvironment(t, lggr)
 	e := tenv.Env
 	nodes := tenv.Nodes
-	chains := e.Chains
 
 	state, err := ccipdeployment.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
-	for _, chain := range chains {
-		err = chain.SetGas(deployment.GasSettings{
-			EIP1559:         true,
-			DefaultGasLimit: 6000000,
-		})
-		require.NoError(t, err)
-	}
+
 	// Apply migration
 	output, err := changeset.Apply0002(tenv.Env, ccipdeployment.DeployCCIPContractConfig{
 		HomeChainSel: tenv.HomeChainSel,
@@ -77,21 +69,27 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 	// Add all lanes
 	require.NoError(t, ccipdeployment.AddLanesForAll(e, state))
 
+	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
+	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
 	for src, srcChain := range e.Chains {
-		for dest := range e.Chains {
+		for dest, destChain := range e.Chains {
 			if src == dest {
 				continue
 			}
+			num, err := destChain.LatestBlockNum(ctx)
+			require.NoError(t, err)
+			startBlocks[dest] = &num
 			t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
 				src, dest)
-			require.NoError(t, ccipdeployment.SendMessage(src, dest, e.Chains[src].DeployerKey, srcChain.Confirm, state))
+			_, err = ccipdeployment.SendMessage(src, dest, e.Chains[src].DeployerKey, srcChain.Confirm, state)
+			require.NoError(t, err)
 		}
 	}
 
 	// Wait for all commit reports to land.
-	ccipdeployment.WaitForCommitForAllWithInterval(t, e, state, ccipocr3.SeqNumRange{1, 1})
+	ccipdeployment.WaitForCommitForAllWithInterval(t, e, state, ccipocr3.SeqNumRange{1, 1}, startBlocks)
 
 	// Wait for all exec reports to land
-	ccipdeployment.WaitForExecWithSeqNrForAll(t, e, state, 1)
+	ccipdeployment.WaitForExecWithSeqNrForAll(t, e, state, 1, startBlocks)
 }
