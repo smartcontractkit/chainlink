@@ -23,6 +23,7 @@ func NewChain() Chain {
 		DestinationChainSelectors: make([]uint64, 0),
 		TokenAdminRegistry:        make(map[string]v1_5.TokenAdminRegistry),
 		NonceManager:              make(map[string]v1_6.NonceManager),
+		FeeQuoter:                 make(map[string]v1_6.FeeQuoter),
 		Router:                    make(map[string]v1_2.Router),
 		RMN:                       make(map[string]v1_6.RMN),
 		OnRamp:                    make(map[string]v1_6.OnRamp),
