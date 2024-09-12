@@ -44,6 +44,7 @@ func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.M
 	sig, err := crypto.Sign(payload.Bytes(), TestXXXMCMSSigner)
 	require.NoError(t, err)
 	mcmSig, err := mcms.NewSignatureFromBytes(sig)
+	require.NoError(t, err)
 	executor.Proposal.Signatures = append(executor.Proposal.Signatures, mcmSig)
 	require.NoError(t, executor.Proposal.Validate())
 	return executor
@@ -57,6 +58,7 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 	_, err2 = env.Chains[sel].Confirm(tx)
 	require.NoError(t, err2)
 
+	// TODO: This sort of helper probably should move to the MCMS lib.
 	// Execute all the transactions in the proposal which are for this chain.
 	for _, chainOp := range executor.Operations[mcms.ChainIdentifier(sel)] {
 		for idx, op := range executor.ChainAgnosticOps {
