@@ -1,4 +1,4 @@
-package view
+package v1_2
 
 import (
 	"github.com/ethereum/go-ethereum/common"

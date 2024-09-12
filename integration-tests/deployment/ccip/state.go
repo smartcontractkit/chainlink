@@ -11,8 +11,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_5"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_6"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types/v1_2"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types/v1_5"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types/v1_6"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -57,7 +58,7 @@ func (c CCIPChainState) Snapshot() (view.Chain, error) {
 	chainView := view.NewChain()
 	r := c.Router
 	if r != nil {
-		routerSnapshot, err := view.RouterSnapshot(r)
+		routerSnapshot, err := v1_2.RouterSnapshot(r)
 		if err != nil {
 			return chainView, err
 		}
