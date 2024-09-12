@@ -90,7 +90,7 @@ func DeployContracts(lggr logger.Logger, e *deployment.Environment, chainSel uin
 	adbook := deployment.NewMemoryAddressBook()
 	// deploy contracts on all chains and track the registry and ocr3 contracts
 	for _, chain := range e.Chains {
-		lggr.Info("deploying contracts", "chain", chain)
+		lggr.Infow("deploying contracts", "chain", chain)
 		deployResp, err := deployContracts(lggr, deployContractsRequest{
 			chain:           chain,
 			isRegistryChain: chain.Selector == chainSel,

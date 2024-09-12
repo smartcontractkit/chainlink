@@ -46,6 +46,7 @@ func deployContracts(lggr logger.Logger, req deployContractsRequest) (*deployCon
 			return nil, fmt.Errorf("failed to save CapabilitiesRegistry: %w", err)
 		}
 		resp.capabilitiesRegistryDeployer = &capabilitiesRegistryDeployer
+		lggr.Infof("Deployed %s chain selector %d addr %s", CapabilityRegistryTypeVersion.String(), singleRequest.Chain.Selector, capabilitiesRegistryResp.Address.String())
 
 		ocr3Deployer := OCR3Deployer{lggr: lggr}
 		ocr3Resp, err := ocr3Deployer.deploy(singleRequest)
@@ -57,6 +58,7 @@ func deployContracts(lggr logger.Logger, req deployContractsRequest) (*deployCon
 			return nil, fmt.Errorf("failed to save OCR3Capability: %w", err)
 		}
 		resp.ocr3Deployer = &ocr3Deployer
+		lggr.Infof("Deployed %s chain selector %d addr %s", ocr3Resp.Tv.String(), singleRequest.Chain.Selector, ocr3Resp.Address.String())
 	}
 	forwarderDeployer := KeystoneForwarderDeployer{lggr: lggr}
 	forwarderResp, err := forwarderDeployer.deploy(singleRequest)
@@ -68,6 +70,7 @@ func deployContracts(lggr logger.Logger, req deployContractsRequest) (*deployCon
 		return nil, fmt.Errorf("failed to save KeystoneForwarder: %w", err)
 	}
 	resp.keystoneForwarderDeployer = &forwarderDeployer
+	lggr.Infof("Deployed %s chain selector %d addr %s", forwarderResp.Tv.String(), singleRequest.Chain.Selector, forwarderResp.Address.String())
 
 	return resp, nil
 }
