@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestAddChain(t *testing.T) {
+func TestAddChainInbound(t *testing.T) {
 	// 4 chains where the 4th is added after initial deployment.
 	e := NewEnvironmentWithCRAndJobs(t, logger.TestLogger(t), 4)
 	require.Equal(t, len(e.Nodes), 5)
@@ -24,7 +24,6 @@ func TestAddChain(t *testing.T) {
 	newChain := e.Env.AllChainSelectorsExcluding([]uint64{e.HomeChainSel})[0]
 	// We deploy to the rest.
 	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
-	t.Logf("Home %d new %d initial %d\n", e.HomeChainSel, newChain, initialDeploy)
 
 	ab, err := DeployCCIPContracts(e.Env, DeployCCIPContractConfig{
 		HomeChainSel:     e.HomeChainSel,
@@ -36,8 +35,7 @@ func TestAddChain(t *testing.T) {
 	state, err = LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 
-	// Contracts deployed and initial DONs set up.
-	// Connect all the lanes
+	// Connect all the existing lanes.
 	for _, source := range initialDeploy {
 		for _, dest := range initialDeploy {
 			if source != dest {
@@ -134,6 +132,7 @@ func TestAddChain(t *testing.T) {
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[newChain], tx, err)
 	require.NoError(t, err)
 
+	// Assert the inbound lanes to the new chain are wired correctly.
 	state, err = LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 	for _, chain := range initialDeploy {

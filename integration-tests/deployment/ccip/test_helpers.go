@@ -148,7 +148,7 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 		dest,
 		msg)
 	require.NoError(t, err)
-	blockNum, err := e.Chains[src].Confirm(tx.Hash())
+	blockNum, err := e.Chains[src].Confirm(tx)
 	require.NoError(t, err)
 	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
 		Start:   blockNum,

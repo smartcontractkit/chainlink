@@ -54,7 +54,7 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 	// Set the root.
 	tx, err2 := executor.SetRootOnChain(env.Chains[sel].DeployerKey, mcms.ChainIdentifier(sel))
 	require.NoError(t, err2)
-	_, err2 = env.Chains[sel].Confirm(tx.Hash())
+	_, err2 = env.Chains[sel].Confirm(tx)
 	require.NoError(t, err2)
 
 	// Execute all the transactions in the proposal which are for this chain.
@@ -63,7 +63,7 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 			if bytes.Equal(op.Data, chainOp.Data) && op.To == chainOp.To {
 				opTx, err3 := executor.ExecuteOnChain(env.Chains[sel].DeployerKey, idx)
 				require.NoError(t, err3)
-				block, err3 := env.Chains[sel].Confirm(opTx.Hash())
+				block, err3 := env.Chains[sel].Confirm(opTx)
 				require.NoError(t, err3)
 				t.Log("executed", chainOp)
 				it, err3 := state.Chains[sel].Timelock.FilterCallScheduled(&bind.FilterOpts{
@@ -88,7 +88,7 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 				tx, err := state.Chains[sel].Timelock.ExecuteBatch(
 					env.Chains[sel].DeployerKey, calls, pred, salt)
 				require.NoError(t, err)
-				_, err = env.Chains[sel].Confirm(tx.Hash())
+				_, err = env.Chains[sel].Confirm(tx)
 				require.NoError(t, err)
 			}
 		}

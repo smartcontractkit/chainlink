@@ -104,7 +104,6 @@ func NewChainInboundProposal(
 	encodedExtraChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
 		GasPriceDeviationPPB:    ccipocr3.NewBigIntFromInt64(1000),
 		DAGasPriceDeviationPPB:  ccipocr3.NewBigIntFromInt64(0),
-		FinalityDepth:           10,
 		OptimisticConfirmations: 1,
 	})
 	if err != nil {
@@ -165,36 +164,4 @@ func NewChainInboundProposal(
 		"blah",
 		batches,
 		timelock.Schedule, "0s")
-	// We won't actually be able to setOCR3Config on the remote until the first proposal goes through.
-	// TODO: Outbound
 }
-
-//func ApplyInboundChainProposal(
-//	e deployment.Environment,
-//	ab deployment.AddressBook,
-//	proposal managed.MCMSWithTimelockProposal,
-//) (deployment.AddressBook, error) {
-//	state, err := LoadOnchainState(e, ab)
-//	if err != nil {
-//		return ab, err
-//	}
-//
-//	// Apply the proposal.
-//})
-
-// 1. Deploy contracts
-// 2. Proposal 1 (allow for inbound testing)
-// - Enables new destination in onramps using test router
-// - Enables the sources in the offramp and real router.
-// - Sets initial prices for destination in price reg.
-// - Add new DONs for destination to home chain
-// - SetOCR3Config(s) on destination offramp.
-// 3. At this point should be able to test from all sources
-// and ensure that its writing those source prices to the new chain.
-// 4. Proposal 2 (allow for outbound testing)
-// -  Add new destinations on onramp/price reg can use real router.
-// No initial prices needed because DON updating them.
-// - Add new sources to the remote offramps (test router).
-// - Add ChainConfig to home chain so existing OCR instances become aware of the source.
-// 5. Now we can test the other direction.
-// 6 . Proposal 3 move onramp/offramps on existing chains to real router.
