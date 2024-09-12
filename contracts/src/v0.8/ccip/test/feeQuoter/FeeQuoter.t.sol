@@ -172,8 +172,8 @@ contract FeeQuoter_getTokenPrice is FeeQuoterSetup {
   function test_GetTokenPriceFromFeed_Success() public {
     uint256 originalTimestampValue = block.timestamp;
 
-    // Below staleness threshold
-    vm.warp(originalTimestampValue + 1 hours);
+    // Above staleness threshold
+    vm.warp(originalTimestampValue + s_feeQuoter.getStaticConfig().stalenessThreshold + 1);
 
     address sourceToken = _initialiseSingleTokenPriceFeed();
     Internal.TimestampedPackedUint224 memory tokenPriceAnswer = s_feeQuoter.getTokenPrice(sourceToken);
@@ -349,6 +349,13 @@ contract FeeQuoter_getValidatedTokenPrice is FeeQuoterSetup {
   function test_TokenNotSupportedFeed_Revert() public {
     address sourceToken = _initialiseSingleTokenPriceFeed();
     MockV3Aggregator(s_dataFeedByToken[sourceToken]).updateAnswer(0);
+    Internal.PriceUpdates memory priceUpdates = Internal.PriceUpdates({
+      tokenPriceUpdates: new Internal.TokenPriceUpdate[](1),
+      gasPriceUpdates: new Internal.GasPriceUpdate[](0)
+    });
+    priceUpdates.tokenPriceUpdates[0] = Internal.TokenPriceUpdate({sourceToken: sourceToken, usdPerToken: 0});
+
+    s_feeQuoter.updatePrices(priceUpdates);
 
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.TokenNotSupported.selector, sourceToken));
     s_feeQuoter.getValidatedTokenPrice(sourceToken);

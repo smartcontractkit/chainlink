@@ -232,11 +232,22 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @inheritdoc IPriceRegistry
   function getTokenPrice(address token) public view override returns (Internal.TimestampedPackedUint224 memory) {
-    IFeeQuoter.TokenPriceFeedConfig memory priceFeedConfig = s_usdPriceFeedsPerToken[token];
-    if (priceFeedConfig.dataFeedAddress == address(0)) {
-      return s_usdPerToken[token];
+    Internal.TimestampedPackedUint224 memory tokenPrice = s_usdPerToken[token];
+
+    // If the token price is not stale, return it
+    if (block.timestamp - tokenPrice.timestamp < i_stalenessThreshold) {
+      return tokenPrice;
     }
 
+    IFeeQuoter.TokenPriceFeedConfig memory priceFeedConfig = s_usdPriceFeedsPerToken[token];
+
+    // If the token price feed is not set, return the stale price
+    if (priceFeedConfig.dataFeedAddress == address(0)) {
+      return tokenPrice;
+    }
+
+    // If the token price feed is set, return the price from the feed
+    // The price feed is the fallback because we do not expect it to be the default source due to the gas cost of reading from it
     return _getTokenPriceFromDataFeed(priceFeedConfig);
   }
 
