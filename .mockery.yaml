@@ -348,7 +348,6 @@ packages:
       Codec:
         config:
           dir: core/services/relay/evm/mocks
-      ContractReader:
       ChainWriter:
   github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp:
     config:
@@ -588,3 +587,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer:
     interfaces:
       ORM:
+  github.com/smartcontractkit/chainlink/v2/core/capabilities/targets:
+    interfaces:
+      ContractValueGetter:
