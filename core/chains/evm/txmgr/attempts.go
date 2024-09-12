@@ -34,8 +34,6 @@ type evmTxAttemptBuilder struct {
 
 type evmTxAttemptBuilderFeeConfig interface {
 	EIP1559DynamicFees() bool
-	TipCapMin() *assets.Wei
-	PriceMin() *assets.Wei
 	PriceMaxKey(common.Address) *assets.Wei
 	LimitDefault() uint64
 }
@@ -172,7 +170,7 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(ctx context.Context, nonce evmty
 }
 
 func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(ctx context.Context, etx Tx, fee gas.DynamicFee, gasLimit uint64) (attempt TxAttempt, err error) {
-	if err = validateDynamicFeeGas(c.feeConfig, c.feeConfig.TipCapMin(), fee, etx); err != nil {
+	if err = validateDynamicFeeGas(c.feeConfig, fee, etx); err != nil {
 		return attempt, pkgerrors.Wrap(err, "error validating gas")
 	}
 
@@ -208,7 +206,7 @@ type keySpecificEstimator interface {
 
 // validateDynamicFeeGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateDynamicFeeGas(kse keySpecificEstimator, tipCapMinimum *assets.Wei, fee gas.DynamicFee, etx Tx) error {
+func validateDynamicFeeGas(kse keySpecificEstimator, fee gas.DynamicFee, etx Tx) error {
 	gasTipCap, gasFeeCap := fee.TipCap, fee.FeeCap
 
 	if gasTipCap == nil {
@@ -235,11 +233,6 @@ func validateDynamicFeeGas(kse keySpecificEstimator, tipCapMinimum *assets.Wei, 
 	if gasFeeCap.Cmp(max) > 0 {
 		return pkgerrors.Errorf("cannot create tx attempt: specified gas fee cap of %s would exceed max configured gas price of %s for key %s", gasFeeCap.String(), max.String(), etx.FromAddress.String())
 	}
-	// Tip must be above minimum
-	minTip := tipCapMinimum
-	if gasTipCap.Cmp(minTip) < 0 {
-		return pkgerrors.Errorf("cannot create tx attempt: specified gas tip cap of %s is below min configured gas tip of %s for key %s", gasTipCap.String(), minTip.String(), etx.FromAddress.String())
-	}
 	return nil
 }
 
@@ -257,7 +250,7 @@ func newDynamicFeeTransaction(nonce uint64, to common.Address, value *big.Int, g
 }
 
 func (c *evmTxAttemptBuilder) newLegacyAttempt(ctx context.Context, etx Tx, gasPrice *assets.Wei, gasLimit uint64) (attempt TxAttempt, err error) {
-	if err = validateLegacyGas(c.feeConfig, c.feeConfig.PriceMin(), gasPrice, etx); err != nil {
+	if err = validateLegacyGas(c.feeConfig, gasPrice, etx); err != nil {
 		return attempt, pkgerrors.Wrap(err, "error validating gas")
 	}
 
@@ -290,17 +283,13 @@ func (c *evmTxAttemptBuilder) newLegacyAttempt(ctx context.Context, etx Tx, gasP
 
 // validateLegacyGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateLegacyGas(kse keySpecificEstimator, minGasPriceWei, gasPrice *assets.Wei, etx Tx) error {
+func validateLegacyGas(kse keySpecificEstimator, gasPrice *assets.Wei, etx Tx) error {
 	if gasPrice == nil {
 		panic("gas price missing")
 	}
 	max := kse.PriceMaxKey(etx.FromAddress)
 	if gasPrice.Cmp(max) > 0 {
 		return pkgerrors.Errorf("cannot create tx attempt: specified gas price of %s would exceed max configured gas price of %s for key %s", gasPrice.String(), max.String(), etx.FromAddress.String())
-	}
-	min := minGasPriceWei
-	if gasPrice.Cmp(min) < 0 {
-		return pkgerrors.Errorf("cannot create tx attempt: specified gas price of %s is below min configured gas price of %s for key %s", gasPrice.String(), min.String(), etx.FromAddress.String())
 	}
 	return nil
 }
