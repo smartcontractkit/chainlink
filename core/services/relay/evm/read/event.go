@@ -485,9 +485,9 @@ func (b *EventBinding) decodeLogsIntoSequences(ctx context.Context, logs []logpo
 		sequences[idx] = commontypes.Sequence{
 			Cursor: fmt.Sprintf("%s-%s-%d", logs[idx].BlockHash, logs[idx].TxHash, logs[idx].LogIndex),
 			Head: commontypes.Head{
-				Identifier: fmt.Sprint(logs[idx].BlockNumber),
-				Hash:       logs[idx].BlockHash.Bytes(),
-				Timestamp:  uint64(logs[idx].BlockTimestamp.Unix()),
+				Height:    fmt.Sprint(logs[idx].BlockNumber),
+				Hash:      logs[idx].BlockHash.Bytes(),
+				Timestamp: uint64(logs[idx].BlockTimestamp.Unix()),
 			},
 		}
 
