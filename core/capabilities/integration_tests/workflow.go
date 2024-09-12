@@ -98,6 +98,15 @@ targets:
       schedule: %s
 `
 
+// targets:
+//   - id: "log-target@1.0.0"
+//     ref: "target"
+//     inputs:
+//       signed_report: $(trigger.outputs)
+//     config:
+//       deltaStage: %s
+//       schedule: %s
+
 func addWorkflowJobPoR(
 	t *testing.T,
 	app *cltest.TestApplication,

@@ -84,7 +84,7 @@ func setupDonsWithTransmissionScheduleStreams(ctx context.Context, t *testing.T,
 	workflowDonNodes, _, _ := createDons(ctx, t, lggr, sink,
 		workflowDonInfo, triggerDonInfo, targetDonInfo,
 		ethBlockchain, capabilitiesRegistryAddr, forwarderAddr,
-		workflowDonInfo.keyBundles, transactor, libocr)
+		workflowDonInfo.keyBundles, transactor, libocr, nil)
 	for _, node := range workflowDonNodes {
 		addWorkflowJobStreams(t, node, workflowName, workflowOwnerID, feedIDs, consumerAddr, deltaStage, schedule)
 	}
@@ -105,19 +105,17 @@ func setupDonsWithTransmissionSchedulePoR(ctx context.Context, t *testing.T, wor
 	consumerAddr, _ := setupConsumerContract(t, transactor, ethBlockchain, forwarderAddr, workflowOwnerID, workflowName)
 
 	sink := newReportsSink()
+	sink2 := newSink()
 
 	libocr := newMockLibOCR(t, workflowDonInfo.F, 1*time.Second)
-	workflowDonNodes, _, targetDonNodes := createDons(ctx, t, lggr, sink,
+	workflowDonNodes, _, _ := createDons(ctx, t, lggr, sink,
 		workflowDonInfo, triggerDonInfo, targetDonInfo,
 		ethBlockchain, capabilitiesRegistryAddr, forwarderAddr,
-		workflowDonInfo.keyBundles, transactor, libocr)
+		workflowDonInfo.keyBundles, transactor, libocr, sink2)
 	for _, node := range workflowDonNodes {
+		addStandardCapabilityKV(t, node)
 		addStandardCapabilityCron(t, node)
 		addWorkflowJobPoR(t, node, workflowName, workflowOwnerID, cronSchedule, consumerAddr, deltaStage, schedule)
-	}
-
-	for _, node := range targetDonNodes {
-		addStandardCapabilityKV(t, node)
 	}
 
 	servicetest.Run(t, ethBlockchain)
@@ -137,6 +135,7 @@ func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSi
 	workflowNodeKeyBundles []ocr2key.KeyBundle,
 	transactor *bind.TransactOpts,
 	libocr *mockLibOCR,
+	sink *sink,
 ) ([]*cltest.TestApplication, []*cltest.TestApplication, []*cltest.TestApplication) {
 	broker := newTestAsyncMessageBroker(t, 1000)
 
@@ -181,6 +180,9 @@ func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSi
 	for i, workflowPeer := range workflowDon.Members {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeer)
 		capabilityRegistry := capabilities.NewRegistry(lggr)
+
+		target := sink.getNewTarget(t)
+		capabilityRegistry.Add(ctx, target)
 
 		requestTimeout := 10 * time.Minute
 		cfg := ocr3.Config{

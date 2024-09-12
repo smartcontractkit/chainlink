@@ -140,6 +140,14 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	kvid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, kvstore.LabelledName, kvstore.Version)
 	require.NoError(t, err)
 
+	logTarget := kcr.CapabilitiesRegistryCapability{
+		LabelledName:   "log-target",
+		Version:        "1.0.0",
+		CapabilityType: CapabilityTypeTarget,
+	}
+	ltid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, logTarget.LabelledName, logTarget.Version)
+	require.NoError(t, err)
+
 	ocr := kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "offchain_reporting",
 		Version:        "1.0.0",
@@ -154,6 +162,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		ocr,
 		cronTrigger,
 		kvstore,
+		logTarget,
 	})
 	require.NoError(t, err)
 	backend.Commit()
@@ -186,7 +195,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		n, innerErr := peerToNode(nopID, wfPeer)
 		require.NoError(t, innerErr)
 
-		n.HashedCapabilityIds = [][32]byte{ocrid, cid}
+		n.HashedCapabilityIds = [][32]byte{ocrid, cid, ltid, kvid}
 		nodes = append(nodes, n)
 	}
 
@@ -202,7 +211,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		n, innerErr := peerToNode(nopID, targetPeer)
 		require.NoError(t, innerErr)
 
-		n.HashedCapabilityIds = [][32]byte{wid, kvid}
+		n.HashedCapabilityIds = [][32]byte{wid}
 		nodes = append(nodes, n)
 	}
 
@@ -224,6 +233,14 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		},
 		{
 			CapabilityId: cid,
+			Config:       ccb,
+		},
+		{
+			CapabilityId: ltid,
+			Config:       ccb,
+		},
+		{
+			CapabilityId: kvid,
 			Config:       ccb,
 		},
 	}
@@ -269,11 +286,11 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 
 	targetCapabilityConfig.DefaultConfig = values.Proto(configWithLimit).GetMapValue()
 
-	targetCapabilityConfig.RemoteConfig = &pb.CapabilityConfig_RemoteTargetConfig{
-		RemoteTargetConfig: &pb.RemoteTargetConfig{
-			RequestHashExcludedAttributes: []string{"signed_report.Signatures"},
-		},
-	}
+	// targetCapabilityConfig.RemoteConfig = &pb.CapabilityConfig_RemoteTargetConfig{
+	// 	RemoteTargetConfig: &pb.RemoteTargetConfig{
+	// 		RequestHashExcludedAttributes: []string{"signed_report.Signatures"},
+	// 	},
+	// }
 
 	remoteTargetConfigBytes, err := proto.Marshal(targetCapabilityConfig)
 	require.NoError(t, err)
@@ -281,10 +298,6 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	cfgs = []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: wid,
-			Config:       remoteTargetConfigBytes,
-		},
-		{
-			CapabilityId: kvid,
 			Config:       remoteTargetConfigBytes,
 		},
 	}
