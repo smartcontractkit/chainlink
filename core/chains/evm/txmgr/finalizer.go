@@ -62,9 +62,9 @@ type finalizerTxStore interface {
 	FindTxesByIDs(ctx context.Context, etxIDs []int64, chainID *big.Int) (etxs []*Tx, err error)
 	PreloadTxes(ctx context.Context, attempts []TxAttempt) error
 	SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) (err error)
-	UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunId uuid.UUID, chainId *big.Int) error
+	UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunID uuid.UUID, chainID *big.Int) error
 	UpdateTxFatalError(ctx context.Context, etxIDs []int64, errMsg string) error
-	UpdateTxStatesToFinalizedUsingTxHashes(ctx context.Context, txHashes []common.Hash, chainId *big.Int) error
+	UpdateTxStatesToFinalizedUsingTxHashes(ctx context.Context, txHashes []common.Hash, chainID *big.Int) error
 }
 
 type finalizerChainClient interface {
@@ -83,7 +83,7 @@ type resumeCallback = func(context.Context, uuid.UUID, interface{}, error) error
 type evmFinalizer struct {
 	services.StateMachine
 	lggr              logger.SugaredLogger
-	chainId           *big.Int
+	chainID           *big.Int
 	rpcBatchSize      int
 	forwardersEnabled bool
 
@@ -101,7 +101,7 @@ type evmFinalizer struct {
 
 func NewEvmFinalizer(
 	lggr logger.Logger,
-	chainId *big.Int,
+	chainID *big.Int,
 	rpcBatchSize uint32,
 	forwardersEnabled bool,
 	txStore finalizerTxStore,
@@ -111,7 +111,7 @@ func NewEvmFinalizer(
 	lggr = logger.Named(lggr, "Finalizer")
 	return &evmFinalizer{
 		lggr:              logger.Sugared(lggr),
-		chainId:           chainId,
+		chainID:           chainID,
 		rpcBatchSize:      int(rpcBatchSize),
 		forwardersEnabled: forwardersEnabled,
 		txStore:           txStore,
@@ -198,19 +198,19 @@ func (f *evmFinalizer) ProcessHead(ctx context.Context, head *evmtypes.Head) err
 	err = f.FetchAndStoreReceipts(ctx, head, latestFinalizedHead)
 	// Do not return on error since other functions are not dependent on results
 	if err != nil {
-		f.lggr.Errorf("failed to fetch and store receipts for confirmed transactions: %w", err)
+		f.lggr.Errorf("failed to fetch and store receipts for confirmed transactions: %s", err.Error())
 	}
 	// Resume pending task runs if any receipts match the min confirmation criteria
 	err = f.ResumePendingTaskRuns(ctx, head)
 	// Do not return on error since other functions are not dependent on results
 	if err != nil {
-		f.lggr.Errorf("failed to resume pending task runs: %w", err)
+		f.lggr.Errorf("failed to resume pending task runs: %s", err.Error())
 	}
 	return f.processFinalizedHead(ctx, latestFinalizedHead)
 }
 
 // processFinalizedHead determines if any confirmed transactions can be marked as finalized by comparing their receipts against the latest finalized block
-// Fetches receipts direclty from on-chain so re-org detection is not needed during finalization
+// Fetches receipts directly from on-chain so re-org detection is not needed during finalization
 func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalizedHead *evmtypes.Head) error {
 	// Cannot determine finality without a finalized head for comparison
 	if latestFinalizedHead == nil || !latestFinalizedHead.IsValid() {
@@ -231,7 +231,7 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 
 	mark := time.Now()
 	// Retrieve all confirmed transactions with receipts older than or equal to the finalized block
-	unfinalizedReceipts, err := f.txStore.FindConfirmedTxesReceipts(ctx, latestFinalizedHead.BlockNumber(), f.chainId)
+	unfinalizedReceipts, err := f.txStore.FindConfirmedTxesReceipts(ctx, latestFinalizedHead.BlockNumber(), f.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve receipts for confirmed, unfinalized transactions: %w", err)
 	}
@@ -279,7 +279,7 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 	txHashes := f.buildTxHashList(finalizedReceipts)
 
 	mark = time.Now()
-	err = f.txStore.UpdateTxStatesToFinalizedUsingTxHashes(ctx, txHashes, f.chainId)
+	err = f.txStore.UpdateTxStatesToFinalizedUsingTxHashes(ctx, txHashes, f.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to update transactions as finalized: %w", err)
 	}
@@ -352,14 +352,14 @@ func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, block
 }
 
 func (f *evmFinalizer) FetchAndStoreReceipts(ctx context.Context, head, latestFinalizedHead *evmtypes.Head) error {
-	attempts, err := f.txStore.FindAttemptsRequiringReceiptFetch(ctx, f.chainId)
+	attempts, err := f.txStore.FindAttemptsRequiringReceiptFetch(ctx, f.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to fetch broadcasted attempts for confirmed transactions: %w", err)
 	}
 	if len(attempts) == 0 {
 		return nil
 	}
-	promTxAttemptCount.WithLabelValues(f.chainId.String()).Set(float64(len(attempts)))
+	promTxAttemptCount.WithLabelValues(f.chainID.String()).Set(float64(len(attempts)))
 
 	f.lggr.Debugw(fmt.Sprintf("Fetching receipts for %v transaction attempts", len(attempts)))
 
@@ -376,15 +376,15 @@ func (f *evmFinalizer) FetchAndStoreReceipts(ctx context.Context, head, latestFi
 		}
 		batch := attempts[i:j]
 
-		receipts, err := f.batchFetchReceipts(ctx, batch)
-		if err != nil {
-			errorList = append(errorList, err)
+		receipts, fetchErr := f.batchFetchReceipts(ctx, batch)
+		if fetchErr != nil {
+			errorList = append(errorList, fetchErr)
 			continue
 		}
 
 		allReceipts = append(allReceipts, receipts...)
 
-		if err := f.txStore.SaveFetchedReceipts(ctx, receipts, f.chainId); err != nil {
+		if err := f.txStore.SaveFetchedReceipts(ctx, receipts, f.chainID); err != nil {
 			errorList = append(errorList, err)
 			continue
 		}
@@ -404,7 +404,6 @@ func (f *evmFinalizer) FetchAndStoreReceipts(ctx context.Context, head, latestFi
 }
 
 func (f *evmFinalizer) batchFetchReceipts(ctx context.Context, attempts []TxAttempt) (receipts []*evmtypes.Receipt, err error) {
-
 	// Metadata is required to determine whether a tx is forwarded or not.
 	if f.forwardersEnabled {
 		err = f.txStore.PreloadTxes(ctx, attempts)
@@ -484,9 +483,9 @@ func (f *evmFinalizer) validateReceipt(ctx context.Context, receipt *evmtypes.Re
 			}
 		}
 		// This might increment more than once e.g. in case of re-orgs going back and forth we might re-fetch the same receipt
-		promRevertedTxCount.WithLabelValues(f.chainId.String()).Add(1)
+		promRevertedTxCount.WithLabelValues(f.chainID.String()).Add(1)
 	} else {
-		promNumSuccessfulTxs.WithLabelValues(f.chainId.String()).Add(1)
+		promNumSuccessfulTxs.WithLabelValues(f.chainID.String()).Add(1)
 	}
 
 	// This is only recording forwarded tx that were mined and have a status.
@@ -494,8 +493,8 @@ func (f *evmFinalizer) validateReceipt(ctx context.Context, receipt *evmtypes.Re
 	if f.forwardersEnabled {
 		meta, metaErr := attempt.Tx.GetMeta()
 		if metaErr == nil && meta != nil && meta.FwdrDestAddress != nil {
-			// promFwdTxCount takes two labels, chainId and a boolean of whether a tx was successful or not.
-			promFwdTxCount.WithLabelValues(f.chainId.String(), strconv.FormatBool(receipt.GetStatus() != 0)).Add(1)
+			// promFwdTxCount takes two labels, chainID and a boolean of whether a tx was successful or not.
+			promFwdTxCount.WithLabelValues(f.chainID.String(), strconv.FormatBool(receipt.GetStatus() != 0)).Add(1)
 		}
 	}
 	return true
@@ -506,7 +505,7 @@ func (f *evmFinalizer) ResumePendingTaskRuns(ctx context.Context, head *evmtypes
 	if f.resumeCallback == nil {
 		return nil
 	}
-	receiptsPlus, err := f.txStore.FindTxesPendingCallback(ctx, head.BlockNumber(), f.chainId)
+	receiptsPlus, err := f.txStore.FindTxesPendingCallback(ctx, head.BlockNumber(), f.chainID)
 
 	if err != nil {
 		return err
@@ -531,7 +530,7 @@ func (f *evmFinalizer) ResumePendingTaskRuns(ctx context.Context, head *evmtypes
 			return fmt.Errorf("failed to resume suspended pipeline run: %w", err)
 		}
 		// Mark tx as having completed callback
-		if err := f.txStore.UpdateTxCallbackCompleted(ctx, data.ID, f.chainId); err != nil {
+		if err := f.txStore.UpdateTxCallbackCompleted(ctx, data.ID, f.chainID); err != nil {
 			return err
 		}
 	}
@@ -543,7 +542,7 @@ func (f *evmFinalizer) ProcessOldTxsWithoutReceipts(ctx context.Context, oldTxID
 	if len(oldTxIDs) == 0 {
 		return nil
 	}
-	oldTxs, err := f.txStore.FindTxesByIDs(ctx, oldTxIDs, f.chainId)
+	oldTxs, err := f.txStore.FindTxesByIDs(ctx, oldTxIDs, f.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to find transactions with IDs: %w", err)
 	}
@@ -561,14 +560,14 @@ func (f *evmFinalizer) ProcessOldTxsWithoutReceipts(ctx context.Context, oldTxID
 		// Signal pending tasks for these transactions as failed
 		// Store errors and continue to allow all transactions a chance to be signaled
 		if f.resumeCallback != nil && oldTx.PipelineTaskRunID.Valid && oldTx.SignalCallback && !oldTx.CallbackCompleted {
-			err := f.resumeCallback(ctx, oldTx.PipelineTaskRunID.UUID, nil, errors.New(ErrCouldNotGetReceipt))
+			err = f.resumeCallback(ctx, oldTx.PipelineTaskRunID.UUID, nil, errors.New(ErrCouldNotGetReceipt))
 			if errors.Is(err, sql.ErrNoRows) {
 				f.lggr.Debugw("callback missing or already resumed", "etxID", oldTx.ID)
 			} else if err != nil {
 				errorList = append(errorList, fmt.Errorf("failed to resume pipeline for ID %s: %w", oldTx.PipelineTaskRunID.UUID.String(), err))
 			} else {
 				// Mark tx as having completed callback
-				if err := f.txStore.UpdateTxCallbackCompleted(ctx, oldTx.PipelineTaskRunID.UUID, f.chainId); err != nil {
+				if err := f.txStore.UpdateTxCallbackCompleted(ctx, oldTx.PipelineTaskRunID.UUID, f.chainID); err != nil {
 					errorList = append(errorList, fmt.Errorf("failed to update callback as complete for tx ID %d: %w", oldTx.ID, err))
 				}
 			}
@@ -592,7 +591,7 @@ func findOldTxIDsWithoutReceipts(attempts []TxAttempt, receipts []*evmtypes.Rece
 	if len(attempts) == 0 {
 		return nil
 	}
-	txIdToAttemptsMap := make(map[int64][]TxAttempt)
+	txIDToAttemptsMap := make(map[int64][]TxAttempt)
 	hashToReceiptMap := make(map[common.Hash]bool)
 	// Store all receipts hashes in a map to easily access which attempt hash has a receipt
 	for _, receipt := range receipts {
@@ -600,12 +599,12 @@ func findOldTxIDsWithoutReceipts(attempts []TxAttempt, receipts []*evmtypes.Rece
 	}
 	// Store all attempts in a map of tx ID to attempts
 	for _, attempt := range attempts {
-		txIdToAttemptsMap[attempt.TxID] = append(txIdToAttemptsMap[attempt.TxID], attempt)
+		txIDToAttemptsMap[attempt.TxID] = append(txIDToAttemptsMap[attempt.TxID], attempt)
 	}
 
 	// Determine which transactions still do not have a receipt and if all of their attempts are older or equal to the latest finalized head
 	var oldTxIDs []int64
-	for txID, attempts := range txIdToAttemptsMap {
+	for txID, attempts := range txIDToAttemptsMap {
 		hasReceipt := false
 		hasAttemptAfterFinalizedHead := false
 		for _, attempt := range attempts {

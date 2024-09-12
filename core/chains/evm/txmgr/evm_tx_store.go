@@ -48,7 +48,7 @@ type EvmTxStore interface {
 	FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error)
 	FindTxesByIDs(ctx context.Context, etxIDs []int64, chainID *big.Int) (etxs []*Tx, err error)
 	SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) (err error)
-	UpdateTxStatesToFinalizedUsingTxHashes(ctx context.Context, txHashes []common.Hash, chainId *big.Int) error
+	UpdateTxStatesToFinalizedUsingTxHashes(ctx context.Context, txHashes []common.Hash, chainID *big.Int) error
 }
 
 // TxStoreWebApi encapsulates the methods that are not used by the txmgr and only used by the various web controllers, readers, or evm specific components
@@ -996,23 +996,23 @@ func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int64
 }
 
 // Update tx to mark that its callback has been signaled
-func (o *evmTxStore) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunId uuid.UUID, chainId *big.Int) error {
+func (o *evmTxStore) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunId uuid.UUID, chainID *big.Int) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
-	_, err := o.q.ExecContext(ctx, `UPDATE evm.txes SET callback_completed = TRUE WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, pipelineTaskRunId, chainId.String())
+	_, err := o.q.ExecContext(ctx, `UPDATE evm.txes SET callback_completed = TRUE WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, pipelineTaskRunId, chainID.String())
 	if err != nil {
 		return fmt.Errorf("failed to mark callback completed for transaction: %w", err)
 	}
 	return nil
 }
 
-func (o *evmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.Address, chainId *big.Int) (nonce evmtypes.Nonce, err error) {
+func (o *evmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.Address, chainID *big.Int) (nonce evmtypes.Nonce, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	sql := `SELECT nonce FROM evm.txes WHERE from_address = $1 AND evm_chain_id = $2 AND nonce IS NOT NULL ORDER BY nonce DESC LIMIT 1`
-	err = o.q.GetContext(ctx, &nonce, sql, fromAddress, chainId.String())
+	err = o.q.GetContext(ctx, &nonce, sql, fromAddress, chainID.String())
 	return
 }
 
@@ -1944,7 +1944,7 @@ func (o *evmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlo
 }
 
 // Mark transactions corresponding to attempt hashes as finalized
-func (o *evmTxStore) UpdateTxStatesToFinalizedUsingTxHashes(ctx context.Context, txHashes []common.Hash, chainId *big.Int) error {
+func (o *evmTxStore) UpdateTxStatesToFinalizedUsingTxHashes(ctx context.Context, txHashes []common.Hash, chainID *big.Int) error {
 	if len(txHashes) == 0 {
 		return nil
 	}
@@ -1960,21 +1960,21 @@ UPDATE evm.txes SET state = 'finalized' WHERE evm.txes.evm_chain_id = $1 AND evm
 	INNER JOIN evm.tx_attempts ON evm.tx_attempts.eth_tx_id = evm.txes.id
 	WHERE evm.tx_attempts.hash = ANY($2))
 `
-	_, err := o.q.ExecContext(ctx, sql, chainId.String(), txHashBytea)
+	_, err := o.q.ExecContext(ctx, sql, chainID.String(), txHashBytea)
 	return err
 }
 
 // FindReorgOrIncludedTxs finds transactions that have either been re-org'd or included on-chain based on the mined transaction count
 // If the mined transaction count receeds, transactions could have beeen re-org'd
 // If it proceeds, transactions could have been included
-func (o *evmTxStore) FindReorgOrIncludedTxs(ctx context.Context, fromAddress common.Address, minedTxCount evmtypes.Nonce, chainId *big.Int) (reorgTxs []*Tx, includedTxs []*Tx, err error) {
+func (o *evmTxStore) FindReorgOrIncludedTxs(ctx context.Context, fromAddress common.Address, minedTxCount evmtypes.Nonce, chainID *big.Int) (reorgTxs []*Tx, includedTxs []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
 		var dbReOrgEtxs []DbEthTx
 		query := `SELECT * FROM evm.txes WHERE from_address = $1 AND state IN ('confirmed', 'confirmed_missing_receipt', 'fatal_error', 'finalized') AND nonce >= $2 AND evm_chain_id = $3`
-		err = o.q.SelectContext(ctx, &dbReOrgEtxs, query, fromAddress, minedTxCount.Int64(), chainId.String())
+		err = o.q.SelectContext(ctx, &dbReOrgEtxs, query, fromAddress, minedTxCount.Int64(), chainID.String())
 		// If re-org'd transactions found, populate them with attempts and partial receipts, then return since new transactions could not have been included
 		if len(dbReOrgEtxs) > 0 {
 			reorgTxs = make([]*Tx, len(dbReOrgEtxs))
@@ -1991,7 +1991,7 @@ func (o *evmTxStore) FindReorgOrIncludedTxs(ctx context.Context, fromAddress com
 		// If re-org'd transactions not found, find unconfirmed transactions could have been included and populate with attempts
 		var dbIncludedEtxs []DbEthTx
 		query = `SELECT * FROM evm.txes WHERE state = 'unconfirmed' AND from_address = $1 AND nonce < $2 AND evm_chain_id = $3`
-		err = o.q.SelectContext(ctx, &dbIncludedEtxs, query, fromAddress, minedTxCount.Int64(), chainId.String())
+		err = o.q.SelectContext(ctx, &dbIncludedEtxs, query, fromAddress, minedTxCount.Int64(), chainID.String())
 		includedTxs = make([]*Tx, len(dbIncludedEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbIncludedEtxs, includedTxs)
 		if err = orm.LoadTxesAttempts(ctx, includedTxs); err != nil {

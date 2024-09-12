@@ -375,11 +375,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 
 	// Mark transactions as unconfirmed, mark attempts as in-progress, and delete receipts since they do not apply to the new chain
 	// This may revert some fatal error transactions to unconfirmed if terminally stuck transactions purge attempts get re-org'd
-	if err := ec.txStore.UpdateTxForRebroadcast(ctx, etxIDs, attemptIDs); err != nil {
-		return err
-	}
-
-	return nil
+	return ec.txStore.UpdateTxForRebroadcast(ctx, etxIDs, attemptIDs)
 }
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ProcessIncludedTxs(ctx context.Context, includedTxs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) error {

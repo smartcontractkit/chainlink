@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/test-go/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -349,19 +348,17 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		go func() {
 			defer close(done)
 			err2 := finalizer.ResumePendingTaskRuns(ctx, &head)
-			if !assert.NoError(t, err2) {
-				return
-			}
+			require.NoError(t, err2)
+
 			// Retrieve Tx to check if callback completed flag was set to true
 			updateTx, err3 := txStore.FindTxWithSequence(ctx, fromAddress, nonce)
-			if assert.NoError(t, err3) {
-				assert.Equal(t, true, updateTx.CallbackCompleted)
-			}
+			require.NoError(t, err3)
+			require.Equal(t, true, updateTx.CallbackCompleted)
 		}()
 
 		select {
 		case data := <-ch:
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			require.IsType(t, &evmtypes.Receipt{}, data)
 			r := data.(*evmtypes.Receipt)
@@ -406,23 +403,21 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		go func() {
 			defer close(done)
 			err2 := finalizer.ResumePendingTaskRuns(ctx, &head)
-			if !assert.NoError(t, err2) {
-				return
-			}
+			require.NoError(t, err2)
+
 			// Retrieve Tx to check if callback completed flag was set to true
 			updateTx, err3 := txStore.FindTxWithSequence(ctx, fromAddress, nonce)
-			if assert.NoError(t, err3) {
-				assert.Equal(t, true, updateTx.CallbackCompleted)
-			}
+			require.NoError(t, err3)
+			require.Equal(t, true, updateTx.CallbackCompleted)
 		}()
 
 		select {
 		case data := <-ch:
-			assert.Error(t, data.error)
+			require.Error(t, data.error)
 
-			assert.EqualError(t, data.error, fmt.Sprintf("transaction %s reverted on-chain", etx.TxAttempts[0].Hash.String()))
+			require.EqualError(t, data.error, fmt.Sprintf("transaction %s reverted on-chain", etx.TxAttempts[0].Hash.String()))
 
-			assert.Nil(t, data.value)
+			require.Nil(t, data.value)
 
 		case <-time.After(tests.WaitTimeout(t)):
 			t.Fatal("no value received")

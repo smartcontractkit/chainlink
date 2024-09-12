@@ -2239,9 +2239,9 @@ func (_c *TxStore_UpdateTxAttemptInProgressToBroadcast_Call[ADDR, CHAIN_ID, TX_H
 	return _c
 }
 
-// UpdateTxCallbackCompleted provides a mock function with given fields: ctx, pipelineTaskRunRid, chainId
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID) error {
-	ret := _m.Called(ctx, pipelineTaskRunRid, chainId)
+// UpdateTxCallbackCompleted provides a mock function with given fields: ctx, pipelineTaskRunRid, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainID CHAIN_ID) error {
+	ret := _m.Called(ctx, pipelineTaskRunRid, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateTxCallbackCompleted")
@@ -2249,7 +2249,7 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCal
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, CHAIN_ID) error); ok {
-		r0 = rf(ctx, pipelineTaskRunRid, chainId)
+		r0 = rf(ctx, pipelineTaskRunRid, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -2265,12 +2265,12 @@ type TxStore_UpdateTxCallbackCompleted_Call[ADDR types.Hashable, CHAIN_ID types.
 // UpdateTxCallbackCompleted is a helper method to define mock.On call
 //   - ctx context.Context
 //   - pipelineTaskRunRid uuid.UUID
-//   - chainId CHAIN_ID
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCallbackCompleted(ctx interface{}, pipelineTaskRunRid interface{}, chainId interface{}) *TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("UpdateTxCallbackCompleted", ctx, pipelineTaskRunRid, chainId)}
+//   - chainID CHAIN_ID
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCallbackCompleted(ctx interface{}, pipelineTaskRunRid interface{}, chainID interface{}) *TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("UpdateTxCallbackCompleted", ctx, pipelineTaskRunRid, chainID)}
 }
 
-func (_c *TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID)) *TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainID CHAIN_ID)) *TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(CHAIN_ID))
 	})

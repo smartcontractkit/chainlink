@@ -93,7 +93,7 @@ type TransactionStore[
 	UpdateBroadcastAts(ctx context.Context, now time.Time, etxIDs []int64) error
 	UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], NewAttemptState TxAttemptState) error
 	// UpdateTxCallbackCompleted updates tx to mark that its callback has been signaled
-	UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID) error
+	UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainID CHAIN_ID) error
 	// UpdateTxConfirmed updates transaction states to confirmed
 	UpdateTxConfirmed(ctx context.Context, etxIDs []int64) error
 	// UpdateTxFatalErrorAndDeleteAttempts updates transaction states to fatal error, deletes attempts, and clears broadcast info and sequence

@@ -3025,9 +3025,9 @@ func (_c *EvmTxStore_UpdateTxAttemptInProgressToBroadcast_Call) RunAndReturn(run
 	return _c
 }
 
-// UpdateTxCallbackCompleted provides a mock function with given fields: ctx, pipelineTaskRunRid, chainId
-func (_m *EvmTxStore) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId *big.Int) error {
-	ret := _m.Called(ctx, pipelineTaskRunRid, chainId)
+// UpdateTxCallbackCompleted provides a mock function with given fields: ctx, pipelineTaskRunRid, chainID
+func (_m *EvmTxStore) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainID *big.Int) error {
+	ret := _m.Called(ctx, pipelineTaskRunRid, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateTxCallbackCompleted")
@@ -3035,7 +3035,7 @@ func (_m *EvmTxStore) UpdateTxCallbackCompleted(ctx context.Context, pipelineTas
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, *big.Int) error); ok {
-		r0 = rf(ctx, pipelineTaskRunRid, chainId)
+		r0 = rf(ctx, pipelineTaskRunRid, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -3051,12 +3051,12 @@ type EvmTxStore_UpdateTxCallbackCompleted_Call struct {
 // UpdateTxCallbackCompleted is a helper method to define mock.On call
 //   - ctx context.Context
 //   - pipelineTaskRunRid uuid.UUID
-//   - chainId *big.Int
-func (_e *EvmTxStore_Expecter) UpdateTxCallbackCompleted(ctx interface{}, pipelineTaskRunRid interface{}, chainId interface{}) *EvmTxStore_UpdateTxCallbackCompleted_Call {
-	return &EvmTxStore_UpdateTxCallbackCompleted_Call{Call: _e.mock.On("UpdateTxCallbackCompleted", ctx, pipelineTaskRunRid, chainId)}
+//   - chainID *big.Int
+func (_e *EvmTxStore_Expecter) UpdateTxCallbackCompleted(ctx interface{}, pipelineTaskRunRid interface{}, chainID interface{}) *EvmTxStore_UpdateTxCallbackCompleted_Call {
+	return &EvmTxStore_UpdateTxCallbackCompleted_Call{Call: _e.mock.On("UpdateTxCallbackCompleted", ctx, pipelineTaskRunRid, chainID)}
 }
 
-func (_c *EvmTxStore_UpdateTxCallbackCompleted_Call) Run(run func(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId *big.Int)) *EvmTxStore_UpdateTxCallbackCompleted_Call {
+func (_c *EvmTxStore_UpdateTxCallbackCompleted_Call) Run(run func(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainID *big.Int)) *EvmTxStore_UpdateTxCallbackCompleted_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(*big.Int))
 	})
@@ -3263,9 +3263,9 @@ func (_c *EvmTxStore_UpdateTxForRebroadcast_Call) RunAndReturn(run func(context.
 	return _c
 }
 
-// UpdateTxStatesToFinalizedUsingTxHashes provides a mock function with given fields: ctx, txHashes, chainId
-func (_m *EvmTxStore) UpdateTxStatesToFinalizedUsingTxHashes(ctx context.Context, txHashes []common.Hash, chainId *big.Int) error {
-	ret := _m.Called(ctx, txHashes, chainId)
+// UpdateTxStatesToFinalizedUsingTxHashes provides a mock function with given fields: ctx, txHashes, chainID
+func (_m *EvmTxStore) UpdateTxStatesToFinalizedUsingTxHashes(ctx context.Context, txHashes []common.Hash, chainID *big.Int) error {
+	ret := _m.Called(ctx, txHashes, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateTxStatesToFinalizedUsingTxHashes")
@@ -3273,7 +3273,7 @@ func (_m *EvmTxStore) UpdateTxStatesToFinalizedUsingTxHashes(ctx context.Context
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, []common.Hash, *big.Int) error); ok {
-		r0 = rf(ctx, txHashes, chainId)
+		r0 = rf(ctx, txHashes, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -3289,12 +3289,12 @@ type EvmTxStore_UpdateTxStatesToFinalizedUsingTxHashes_Call struct {
 // UpdateTxStatesToFinalizedUsingTxHashes is a helper method to define mock.On call
 //   - ctx context.Context
 //   - txHashes []common.Hash
-//   - chainId *big.Int
-func (_e *EvmTxStore_Expecter) UpdateTxStatesToFinalizedUsingTxHashes(ctx interface{}, txHashes interface{}, chainId interface{}) *EvmTxStore_UpdateTxStatesToFinalizedUsingTxHashes_Call {
-	return &EvmTxStore_UpdateTxStatesToFinalizedUsingTxHashes_Call{Call: _e.mock.On("UpdateTxStatesToFinalizedUsingTxHashes", ctx, txHashes, chainId)}
+//   - chainID *big.Int
+func (_e *EvmTxStore_Expecter) UpdateTxStatesToFinalizedUsingTxHashes(ctx interface{}, txHashes interface{}, chainID interface{}) *EvmTxStore_UpdateTxStatesToFinalizedUsingTxHashes_Call {
+	return &EvmTxStore_UpdateTxStatesToFinalizedUsingTxHashes_Call{Call: _e.mock.On("UpdateTxStatesToFinalizedUsingTxHashes", ctx, txHashes, chainID)}
 }
 
-func (_c *EvmTxStore_UpdateTxStatesToFinalizedUsingTxHashes_Call) Run(run func(ctx context.Context, txHashes []common.Hash, chainId *big.Int)) *EvmTxStore_UpdateTxStatesToFinalizedUsingTxHashes_Call {
+func (_c *EvmTxStore_UpdateTxStatesToFinalizedUsingTxHashes_Call) Run(run func(ctx context.Context, txHashes []common.Hash, chainID *big.Int)) *EvmTxStore_UpdateTxStatesToFinalizedUsingTxHashes_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].([]common.Hash), args[2].(*big.Int))
 	})

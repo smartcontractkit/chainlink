@@ -1265,7 +1265,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 		etx := mustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t, txStore, 0, fromAddress)
-		txStore.UpdateTxAttemptBroadcastBeforeBlockNum(ctx, etx.ID, uint(25))
+		err := txStore.UpdateTxAttemptBroadcastBeforeBlockNum(ctx, etx.ID, uint(25))
+		require.NoError(t, err)
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, newCfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
@@ -1277,7 +1278,6 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// Do it
 		require.NoError(t, ec.RebroadcastWhereNecessary(ctx, currentHead))
-		var err error
 		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
