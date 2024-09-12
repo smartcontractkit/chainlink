@@ -2,78 +2,45 @@ name: On Demand VRFV2 Smoke Test (Ethereum clients)
 on:
   workflow_dispatch:
     inputs:
-      base64Config:
-        description: base64-ed config
-        required: true
+      test_config_override_path:
+        description: Path to a test config file used to override the default test config
+        required: false
         type: string
       test_secrets_override_key:
         description: 'Key to run tests with custom test secrets'
         required: false
         type: string
-
+      notify_user_id_on_failure:
+        description: 'Enter Slack user ID to notify on test failure'
+        required: false
+        type: string    
+        
 jobs:
-  vrfv2_smoke_test:
-    name: VRFV2 Smoke Test with custom EL client client
-    environment: integration
-    runs-on: ubuntu22.04-8cores-32GB
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    env:
-      TEST_LOG_LEVEL: debug
-      REF_NAME: ${{ github.head_ref || github.ref_name }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          fetch-depth: 0
-      - name: Mask base64 config
-        run: |
-          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
-      - name: Parse base64 config
-        uses: ./.github/actions/setup-parse-base64-config
-        with:
-          base64Config: ${{ env.BASE64_CONFIG_OVERRIDE }}
-      - name: Send details to Step Summary
-        shell: bash
-        run: |
-          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.CHAINLINK_IMAGE }}\`" >>$GITHUB_STEP_SUMMARY
-          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
-          echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY
-          echo "### Execution client used" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.ETH2_EL_CLIENT }}\`" >>$GITHUB_STEP_SUMMARY
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@94cb11f4bd545607a2f221c6685052b3abee723d # v2.3.32
-        with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -run TestVRFv2Basic ./smoke/vrfv2_test.go 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          test_secrets_override_base64: ${{ secrets[inputs.test_secrets_override_key] }}
-          test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ env.CHAINLINK_VERSION }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: vrf-test-logs
-          artifacts_location: |
-            ./integration-tests/smoke/logs/
-            ./integration-tests/smoke/db_dumps/
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          should_cleanup: false
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ""
-        env:
-          E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
-          E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          E2E_TEST_GRAFANA_BASE_URL: "http://localhost:8080/primary"
-          E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          E2E_TEST_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+  run-e2e-tests-workflow:
+    name: Run E2E Tests
+    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
+    with:
+      test_ids: smoke/vrfv2_test.go:TestVRFv2Basic
+      test_config_override_path: ${{ inputs.test_config_override_path }}
+      chainlink_version: ${{ github.sha }}
+      slack_notification_after_tests: always
+      slack_notification_after_tests_name: "VRF V2 ETH2 Clients with test config: ${{ inputs.test_config_override_path || 'default' }}"
+      slack_notification_after_tests_notify_user_id_on_failure: ${{ inputs.notify_user_id_on_failure }}      
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}        
+      TEST_SECRETS_OVERRIDE_BASE64: ${{ secrets[inputs.test_secrets_override_key] }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      SLACK_CHANNEL: ${{ secrets.QA_VRF_SLACK_CHANNEL }}
