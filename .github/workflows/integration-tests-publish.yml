@@ -40,7 +40,7 @@ jobs:
         run: |
           echo "other_tags=${ECR_TAG}" >> $GITHUB_OUTPUT
       - name: Build Image
-        uses: ./.github/actions/build-test-image
+        uses: smartcontractkit/.github/actions/ctf/build-test-image@3a018dadba373a36fbf6e22cf15e1994fddfb81c
         with:
           other_tags: ${{ steps.tags.outputs.other_tags }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
