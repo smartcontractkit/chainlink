@@ -2,9 +2,9 @@
 * All test configs should be placed in the [integration-tests/testconfig](integration-tests/testconfig) folder  
 * All test configs for running tests in live testnets should be under [integration-tests/testconfig/vrfv2plus/overrides](integration-tests/testconfig/vrfv2plus/overrides) folder 
 
-## In CI - using On Demand Workflows
 
-### Functional Tests
+## Functional Tests
+### In CI - using On Demand Workflows
 ```bash
 gh workflow run "on-demand-vrfv2plus-smoke-tests.yml" \
 --ref develop \
@@ -17,7 +17,6 @@ gh workflow run "on-demand-vrfv2plus-smoke-tests.yml" \
 ```
 
 #### Examples:
-
 Run P0 tests against existing environment (Staging) on Arbitrum Sepolia
 ```bash
 gh workflow run "on-demand-vrfv2plus-smoke-tests.yml" \
@@ -37,8 +36,15 @@ gh workflow run "on-demand-vrfv2plus-smoke-tests.yml" \
 -f chainlink_version="2.15.0" 
 ```
 
+### Locally
+```bash
+cd integration-tests
+TEST_LOG_LEVEL=debug \
+BASE64_CONFIG_OVERRIDE=$(cat <full path to chain's test toml config> | base64) \
+go test -v -timeout 15m -run "<regex for tests to run>" ./smoke
+```
 
-### Performance Tests
+## Performance Tests
 ```bash
 gh workflow run "on-demand-vrfv2plus-performance-test.yml" \
 --ref develop \
@@ -49,7 +55,6 @@ gh workflow run "on-demand-vrfv2plus-performance-test.yml" \
 ```
 
 #### Examples:
-
 Run SOAK tests against existing environment (Staging) on Base Sepolia
 ```bash
 gh workflow run "on-demand-vrfv2plus-performance-test.yml" \
