@@ -261,7 +261,7 @@ func DeployChainContracts(
 		e.Logger.Errorw("Failed to deploy mcm", "err", err)
 		return ab, err
 	}
-	// TODO: Address soon
+	// TODO: Parameterize this.
 	e.Logger.Infow("deployed mcm", "addr", mcm.Address)
 	publicKey := TestXXXMCMSSigner.Public().(*ecdsa.PublicKey)
 	// Convert the public key to an Ethereum address
@@ -272,14 +272,14 @@ func DeployChainContracts(
 		return ab, err
 	}
 	groupQuorums, groupParents, signerAddresses, signerGroups := c.ExtractSetConfigInputs()
-	tx, err := mcm.Contract.SetConfig(chain.DeployerKey,
+	mcmsTx, err := mcm.Contract.SetConfig(chain.DeployerKey,
 		signerAddresses,
 		signerGroups, // Signer 1 is int group 0 (root group) with quorum 1.
 		groupQuorums,
 		groupParents,
 		false,
 	)
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoError(chain, mcmsTx, err); err != nil {
 		e.Logger.Errorw("Failed to confirm mcm config", "err", err)
 		return ab, err
 	}
@@ -519,7 +519,7 @@ func DeployChainContracts(
 	e.Logger.Infow("deployed offramp", "addr", offRamp)
 
 	// Basic wiring is always needed.
-	tx, err = priceRegistry.Contract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
+	tx, err := priceRegistry.Contract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
 		// TODO: We enable the deployer initially to set prices
 		// Should be removed after.
 		AddedCallers: []common.Address{offRamp.Contract.Address(), chain.DeployerKey.From},

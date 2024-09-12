@@ -55,7 +55,7 @@ const (
 var (
 	// TODO: sort out why the mismatch here
 	//CCIPCapabilityId [32]byte = utils.MustHash(hexutil.Encode(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion)))
-	CCIPCapabilityId [32]byte = MustHashFromBytes(hexutil.MustDecode("0xe0da3c2b9005178f4731c9f40164f1933ad00bac9d6c13ad4ca1a8a763416380"))
+	CCIPCapabilityId = MustHashFromBytes(hexutil.MustDecode("0xe0da3c2b9005178f4731c9f40164f1933ad00bac9d6c13ad4ca1a8a763416380"))
 )
 
 func MustHashFromBytes(b []byte) [32]byte {
